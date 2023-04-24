@@ -118,6 +118,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     # - Make it possible to calculate the dissipative part of a Susceptibility
     # - Save the full spectral weight of KS and MB spectra (trace of the
     #   respective dissipative parts)
+    # - Make a test, which checks the collective enhancement
     # - Compare full spectral weight to the G=0 and G=1 components
     # XXX Fourth step XXX #
     # - Introduce the EigendecomposedSpectrum into GPAW

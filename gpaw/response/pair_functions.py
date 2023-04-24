@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from ase.units import Hartree
+
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 
@@ -262,3 +264,37 @@ def map_WgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_WgG):
     out_WgG = blockdist.distribute_as(new_tmp_wGG, nw, 'WgG')
 
     return out_WgG
+
+
+def write_pair_function(filename, zd, pf_z):
+    """Write a pair function pf(q,z) for a specific q."""
+    # For now, we assume that the complex frequencies lie on a horizontal
+    # contour and that the pair function is complex. This could be easily
+    # generalized at a later stage.
+    assert zd.horizontal_contour
+    omega_w = zd.omega_w * Hartree  # Ha -> eV
+    pf_w = pf_z  # Atomic units
+    assert pf_w.dtype == complex
+
+    # Write results file
+    with open(filename, 'w') as fd:
+        print('# {0:>11}, {1:>11}, {2:>11}'.format(
+            'omega [eV]', 'pf_w.real', 'pf_w.imag'), file=fd)
+        for omega, pf in zip(omega_w, pf_w):
+            print('  {0:11.6f}, {1:11.6f}, {2:11.6f}'.format(
+                omega, pf.real, pf.imag), file=fd)
+
+
+def read_pair_function(filename):
+    """Read a stored pair function file."""
+    d = np.loadtxt(filename, delimiter=',')
+
+    if d.shape[1] == 3:
+        # Complex pair function on a horizontal contour
+        omega_w = np.array(d[:, 0], float)
+        pf_w = np.array(d[:, 1], complex)
+        pf_w.imag = d[:, 2]
+    else:
+        raise ValueError(f'Unexpected array dimension {d.shape}')
+
+    return omega_w, pf_w

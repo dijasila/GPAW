@@ -18,7 +18,7 @@ from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.dyson import HXCScaling
-from gpaw.response.df import read_response_function
+from gpaw.response.pair_functions import read_pair_function
 
 
 @pytest.mark.kspair
@@ -105,9 +105,9 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
-    w0_w, _, chi0_w = read_response_function('h-chain_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_response_function('h-chain_macro_tms_q1.csv')
-    w2_w, _, chi2_w = read_response_function('h-chain_macro_tms_q2.csv')
+    w0_w, chi0_w = read_pair_function('h-chain_macro_tms_q0.csv')
+    w1_w, chi1_w = read_pair_function('h-chain_macro_tms_q1.csv')
+    w2_w, chi2_w = read_pair_function('h-chain_macro_tms_q2.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag / np.pi)

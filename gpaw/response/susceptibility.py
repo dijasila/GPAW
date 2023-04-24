@@ -39,27 +39,22 @@ class Chi:
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
-        susceptibility and write it to a file together with the Kohn-Sham
-        susceptibility and the frequency grid."""
-        from gpaw.response.df import write_response_function
+        susceptibility and write it to a file along with the frequency grid."""
+        from gpaw.response.pair_functions import write_pair_function
 
-        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
+        chi_w = self.get_macroscopic_component()
         if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
+            write_pair_function(filename, self.zd, chi_w)
 
     def get_macroscopic_component(self):
         """Get the macroscopic (G=0) component data, collected on all ranks"""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
-
-        # Macroscopic component
-        chiks_w = chiks_wGG[:, 0, 0]
-        chi_w = chi_wGG[:, 0, 0]
-
-        # Collect all frequencies from world
-        chiks_w = self.collect(chiks_w)
-        chi_w = self.collect(chi_w)
-
-        return omega_w, chiks_w, chi_w
+        _, _, chi_wGG = self.get_distributed_arrays()
+        chi_w = chi_wGG[:, 0, 0]  # Macroscopic component
+        chi_w = self.collect(chi_w)  # Collect distributed frequencies
+        # XXX To do XXX
+        # * Assert global frequency distribution before G=0
+        # * Use gather instead of collect
+        return chi_w
 
     def write_reduced_arrays(self, filename, *, reduced_ecut):
         """Calculate the many-body susceptibility and write it to a file along
