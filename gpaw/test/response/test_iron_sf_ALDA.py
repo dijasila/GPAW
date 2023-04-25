@@ -77,7 +77,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
             rshelmax=rshelmax,
             rshewmin=rshewmin)
         chi_factory = ChiFactory(chiks_calc, fxc_calculator)
-        chi = chi_factory('+-', q_c, complex_frequencies, fxc=fxc)
+        _, chi = chi_factory('+-', q_c, complex_frequencies, fxc=fxc)
         chi.write_macroscopic_component('iron_dsus' + '_G%d.csv' % (s + 1))
         chi_factory.context.write_timer()
 

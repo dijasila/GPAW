@@ -60,7 +60,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs, ecut=50)
     chi_factory = ChiFactory(chiks_calc)
-    chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
+    _, chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
     chi.write_macroscopic_component('Si_chi2.csv')
     chi_factory.context.write_timer()
     chi_factory.context.set_timer(Timer())
@@ -69,7 +69,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     
     # Calculate also the ALDA susceptibility, using the cached chiks
     chiks_buffer = chi_factory._chiks
-    chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
+    _, chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
     assert chi_factory._chiks is chiks_buffer,\
         'Two subsequent calls to the ChiFactory with the same spincomponent,'\
         'q_c and complex frequencies, should reuse the chiks buffer, not '\

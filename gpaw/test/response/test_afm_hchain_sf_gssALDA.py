@@ -97,10 +97,10 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q
-        chi = chi_factory('+-', q_c, zd,
-                          fxc=fxc,
-                          hxc_scaling=hxc_scaling,
-                          txt=txt)
+        _, chi = chi_factory('+-', q_c, zd,
+                             fxc=fxc,
+                             hxc_scaling=hxc_scaling,
+                             txt=txt)
         chi.write_macroscopic_component(filename)
 
     chi_factory.context.write_timer()

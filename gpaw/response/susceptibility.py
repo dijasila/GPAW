@@ -109,6 +109,7 @@ class ChiFactory:
         self.chiks_calc = chiks_calc
         self.gs = chiks_calc.gs
         self.context = chiks_calc.context
+        self.dyson_solver = DysonSolver(self.context)
 
         # If no fxc_calculator is supplied, fall back to default
         if fxc_calculator is None:
@@ -191,9 +192,8 @@ class ChiFactory:
 
         # Construct the hxc kernel and dyson solver
         hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
-        dyson_solver = DysonSolver(self.context)
 
-        return Chi(chiks, hxc_kernel, dyson_solver)
+        return chiks, Chi(chiks, hxc_kernel, self.dyson_solver)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
