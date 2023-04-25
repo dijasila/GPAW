@@ -166,27 +166,24 @@ class ChiFactory:
         # Calculate chiks (or get it from the buffer)
         chiks = self.get_chiks(spincomponent, q_c, complex_frequencies)
 
-        # Calculate the Coulomb kernel
-        if spincomponent in ['+-', '-+']:
-            assert fxc != 'RPA'
-            # No Hartree term in Dyson equation
-            Vbare_G = None
-        else:
-            Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
-
-        # Calculate the xc kernel
-        fxc_kernel = self.get_fxc_kernel(
-            fxc, chiks.spincomponent, chiks.qpd)
-
-        # Construct the hxc kernel and dyson solver
-        hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
+        # Construct the hxc kernel
+        hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
+        xc_kernel = self.get_xc_kernel(fxc, spincomponent, chiks.qpd)
+        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel, scaling=hxc_scaling)
 
         return chiks, Chi(chiks, hxc_kernel, self.dyson_solver)
 
-    def get_fxc_kernel(self,
-                       fxc: str,
-                       spincomponent: str,
-                       qpd: SingleQPWDescriptor):
+    def get_hartree_kernel(self, spincomponent, qpd):
+        if spincomponent in ['+-', '-+']:
+            # No Hartree term in Dyson equation
+            return None
+        else:
+            return get_coulomb_kernel(qpd, self.gs.kd.N_c)
+
+    def get_xc_kernel(self,
+                      fxc: str,
+                      spincomponent: str,
+                      qpd: SingleQPWDescriptor):
         """Get the requested xc-kernel object."""
         if fxc == 'RPA':
             # No xc-kernel
