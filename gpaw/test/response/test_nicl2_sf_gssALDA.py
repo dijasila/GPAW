@@ -25,7 +25,6 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     q_qc = [[0., 0., 0.],
             [1. / 3., 1. / 3., 0.]]
     fxc = 'ALDA'
-    hxc_scaling = HXCScaling('fm')
     rshelmax = 0
     rshewmin = None
     bg_density = 0.004
@@ -45,37 +44,95 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    fxc_kernel = None
+    chi_factory = ChiFactory(chiks_calc)
+
+    # Calculate the magnetic response with and without a background density
+    hxc_scaling = HXCScaling('fm')
     localft_calc = LocalFTCalculator.from_rshe_parameters(
+        gs, chiks_calc.context,
+        rshelmax=rshelmax,
+        rshewmin=rshewmin)
+    bgd_hxc_scaling = HXCScaling('fm')
+    bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
-    chi_factory = ChiFactory(chiks_calc)
 
+    # Check that the pseudo-density is nonnegative
+    nt_sr, gd = gs.get_pseudo_density(gridrefinement=2)
+    assert np.all(nt_sr >= 0.)
+
+    # Plot pseudo spin-density to check exponential localization into vacuum
+    # if world.rank == 0:
+    #     import matplotlib.pyplot as plt
+    #     N_c = gd.N_c
+    #     # Plot the spin-densities above one of the Cl atoms
+    #     plt.plot(range(N_c[2]), nt_sr[0, 2 * N_c[0] // 3, N_c[1] // 3])
+    #     plt.plot(range(N_c[2]), nt_sr[1, 2 * N_c[0] // 3, N_c[1] // 3])
+    #     plt.yscale('log')
+    #     plt.show()
+
+    filestr = 'nicl2_macro_tms'
+    fxc_kernel = {'fxc': fxc, 'localft_calc': localft_calc}
+    bgd_filestr = 'nicl2_macro_tms_bgd'
+    bgd_fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
     for q, q_c in enumerate(q_qc):
-        filename = 'nicl2_macro_tms_q%d.csv' % q
-        txt = 'nicl2_macro_tms_q%d.txt' % q
-        if q == 0:
-            chi = chi_factory('+-', q_c, zd,
-                              fxc=fxc,
-                              localft_calc=localft_calc,
-                              hxc_scaling=hxc_scaling,
-                              txt=txt)
-            fxc_kernel = chi.fxc_kernel
-        else:  # Reuse fxc kernel from previous calculation
-            chi = chi_factory('+-', q_c, zd,
-                              fxc_kernel=fxc_kernel,
-                              hxc_scaling=hxc_scaling,
-                              txt=txt)
-        chi.write_macroscopic_component(filename)
+        filename = filestr + '_q%d.csv' % q
+        txt = filestr + '_q%d.txt' % q
+        fxc_kernel = calculate_chi(chi_factory, q_c, zd,
+                                   fxc_kernel, hxc_scaling,
+                                   txt, filename)
+        filename = bgd_filestr + '_q%d.csv' % q
+        txt = bgd_filestr + '_q%d.txt' % q
+        bgd_fxc_kernel = calculate_chi(chi_factory, q_c, zd,
+                                       bgd_fxc_kernel, bgd_hxc_scaling,
+                                       txt, filename)
 
     context.write_timer()
     world.barrier()
 
+    # Compare new results to test values
+    check_magnons(filestr, hxc_scaling,
+                  test_fxcs=0.7130,
+                  test_mw0=-10.3,  # meV
+                  test_mw1=-40.9,  # meV
+                  test_Ipeak0=0.2306,  # a.u.
+                  test_Ipeak1=0.0956,  # a.u.
+                  )
+    check_magnons(bgd_filestr, bgd_hxc_scaling,
+                  test_fxcs=1.0826,
+                  test_mw0=-10.2,  # meV
+                  test_mw1=-48.0,  # meV
+                  test_Ipeak0=0.2321,  # a.u.
+                  test_Ipeak1=0.0956,  # a.u.
+                  )
+
+
+def calculate_chi(chi_factory, q_c, zd,
+                  fxc_kernel, hxc_scaling,
+                  txt, filename):
+    if isinstance(fxc_kernel, dict):
+        chi = chi_factory('+-', q_c, zd,
+                          fxc=fxc_kernel['fxc'],
+                          localft_calc=fxc_kernel['localft_calc'],
+                          hxc_scaling=hxc_scaling,
+                          txt=txt)
+    else:  # Reuse fxc kernel from previous calculation
+        chi = chi_factory('+-', q_c, zd,
+                          fxc_kernel=fxc_kernel,
+                          hxc_scaling=hxc_scaling,
+                          txt=txt)
+    chi.write_macroscopic_component(filename)
+
+    return chi.fxc_kernel
+
+
+def check_magnons(filestr, hxc_scaling, *,
+                  test_fxcs, test_mw0, test_mw1, test_Ipeak0, test_Ipeak1):
     # Identify magnon peaks and extract kernel scaling
-    w0_w, chi0_w = read_pair_function('nicl2_macro_tms_q0.csv')
-    w1_w, chi1_w = read_pair_function('nicl2_macro_tms_q1.csv')
+    w0_w, chi0_w = read_pair_function(filestr + '_q0.csv')
+    w1_w, chi1_w = read_pair_function(filestr + '_q1.csv')
 
     wpeak0, Ipeak0 = findpeak(w0_w, -chi0_w.imag / np.pi)
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
@@ -92,13 +149,6 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         # plt.show()
 
         print(fxcs, mw0, mw1, Ipeak0, Ipeak1)
-
-    # Compare new results to test values
-    test_fxcs = 1.0769
-    test_mw0 = -10.2  # meV
-    test_mw1 = -61.1  # meV
-    test_Ipeak0 = 0.2322  # a.u.
-    test_Ipeak1 = 0.0979  # a.u.
 
     # Test fxc scaling
     assert fxcs == pytest.approx(test_fxcs, abs=0.005)
