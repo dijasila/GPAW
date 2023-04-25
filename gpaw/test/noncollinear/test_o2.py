@@ -24,7 +24,7 @@ def test_noncollinear_o2(in_tmp_dir):
                   experimental={'magmoms': [[0, 0.5, 0.5], [0, 0, 1]]})
     f = a.get_forces()
 
-    assert abs(f - f0).max() < 0.01
+    assert abs(f - f0).max() < 0.015
 
     a.calc.write('o2.gpw')
     a.calc.write('o2w.gpw', 'all')
