@@ -112,7 +112,7 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
-    * Bulk Co (hcp), 4x4x4 k-points, 12 converged bands: ``co_pw``
+    * Bulk Co (HCP), 4x4x4 k-points, 12 converged bands: ``co_pw``
       and ``co_pw_nosym``
 
     * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
@@ -124,7 +124,7 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
-  
+
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -352,7 +352,7 @@ class GPWFiles:
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
-        
+
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(
             xc=xc,
@@ -366,13 +366,13 @@ class GPWFiles:
 
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def fancy_si_pw(self):
         return self._fancy_si()
 
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
-    
+
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -498,7 +498,7 @@ class GPWFiles:
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
             symmetry=symmetry)
-        
+
         atoms.get_potential_energy()
         return atoms.calc
 
@@ -586,7 +586,7 @@ class GPWFiles:
 
     def al_pw_nosym(self):
         return self._al(symmetry='off')
-    
+
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2
@@ -615,7 +615,7 @@ class GPWFiles:
         atoms.calc.diagonalize_full_hamiltonian()
 
         return atoms.calc
-    
+
     def gaas_pw_nosym(self):
         return self._gaas(symmetry='off')
 
@@ -640,7 +640,7 @@ class GPWFiles:
                     kpts={'size': (nk, nk, nk), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)
-        
+
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
