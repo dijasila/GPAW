@@ -90,6 +90,11 @@ class AdiabaticFXCCalculator:
         self.gs = localft_calc.gs
         self.context = localft_calc.context
 
+    @staticmethod
+    def from_rshe_parameters(*args, **kwargs):
+        return AdiabaticFXCCalculator(
+            LocalFTCalculator.from_rshe_parameters(*args, **kwargs))
+
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, qpd):
         """Calculate fxc(G-G'), which defines the kernel matrix Kxc_GG'.
