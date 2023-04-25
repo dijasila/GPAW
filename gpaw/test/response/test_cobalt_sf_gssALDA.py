@@ -35,21 +35,20 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
-    chiks_calc = ChiKSCalculator(gs,
+    chiks_calc = ChiKSCalculator(gs, context,
                                  nbands=nbands,
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks_calc)
     fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, context, rshelmax=rshelmax)
+    chi_factory = ChiFactory(chiks_calc, fxc_calculator)
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
         if q == 0:
             chi = chi_factory('+-', q_c, complex_frequencies,
-                              hxc_scaling=hxc_scaling,
-                              fxc=fxc, fxc_calculator=fxc_calculator)
+                              hxc_scaling=hxc_scaling, fxc=fxc)
             fxc_kernel = chi.fxc_kernel
         else:
             chi = chi_factory('+-', q_c, complex_frequencies,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pickle
 
 import numpy as np
@@ -7,7 +9,6 @@ from ase.units import Hartree
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.localft import LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import DysonSolver, HXCKernel
 
@@ -101,18 +102,28 @@ class ChiFactory:
     r"""User interface to calculate individual elements of the four-component
     susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
 
-    def __init__(self, chiks_calc: ChiKSCalculator):
+    def __init__(self,
+                 chiks_calc: ChiKSCalculator,
+                 fxc_calculator: AdiabaticFXCCalculator | None = None):
         """Contruct a many-body susceptibility factory."""
         self.chiks_calc = chiks_calc
-
         self.gs = chiks_calc.gs
         self.context = chiks_calc.context
+
+        # If no fxc_calculator is supplied, fall back to default
+        if fxc_calculator is None:
+            fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
+                self.gs, self.context)
+        else:
+            assert fxc_calculator.gs is chiks_calc.gs
+            assert fxc_calculator.context is chiks_calc.context
+        self.fxc_calculator = fxc_calculator
 
         # Prepare a buffer for chiks
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc_kernel=None, fxc=None, fxc_calculator=None,
+                 fxc_kernel=None, fxc=None,
                  hxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
@@ -134,12 +145,10 @@ class ChiFactory:
             carefully! The plane-wave representation in the supplied kernel has
             to match the representation of chiks.
             If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc and fxc_calculator.
+            according to the fxc keyword.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        fxc_calculator : AdiabaticFXCCalculator or None
-            Calculator for the xc kernel.
         hxc_scaling : None or HXCScaling
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
@@ -169,28 +178,16 @@ class ChiFactory:
 
         # Calculate the xc kernel, if it has not been supplied by the user
         if fxc_kernel is None:
-            # Use ALDA as the default fxc
             if fxc is None:
+                # Fall back to ALDA per default
                 fxc = 'ALDA'
-            # In RPA, we neglect the xc-kernel
-            if fxc == 'RPA':
-                assert fxc_calculator is None,\
-                    "With fxc='RPA', there is no xc kernel to be calculated,"\
-                    "rendering the fxc_calculator input irrelevant"
-            else:
-                # If no localft_calc is supplied, fall back to the default
-                if fxc_calculator is None:
-                    fxc_calculator = \
-                        AdiabaticFXCCalculator.from_rshe_parameters(
-                            self.gs, self.context)
-
+            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
                 # Perform an actual kernel calculation
-                fxc_kernel = fxc_calculator(
+                fxc_kernel = self.fxc_calculator(
                     fxc, chiks.spincomponent, chiks.qpd)
         else:
-            assert fxc is None and fxc_calculator is None,\
-                'Supplying an xc kernel overwrites any specification of how'\
-                'to calculate the kernel'
+            assert fxc is None,\
+                'Supplying an input xc kernel overwrites the fxc keyword'
 
         # Construct the hxc kernel and dyson solver
         hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
