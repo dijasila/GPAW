@@ -1,4 +1,5 @@
 import numbers
+
 from math import pi
 
 import numpy as np
@@ -25,10 +26,11 @@ from gpaw.wavefunctions.mode import Mode
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
+    def __init__(self, ecut=340, *, fftwflags=fftw.MEASURE, cell=None,
                  gammacentered=False,
                  pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False):
+                 force_complex_dtype=False,
+                 interpolation='fft'):
         """Plane-wave basis mode.
 
         ecut: float
@@ -49,6 +51,10 @@ class PW(Mode):
 
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
+        interpolation : str or int
+            Interpolation scheme to construct the density on the fine grid.
+            Default is 'fft' and alternatively a stencil (integer) can be given
+            to perform an explicit real-space interpolation.
 
         Only one of dedecut and pulay_stress can be used.
         """
@@ -58,6 +64,7 @@ class PW(Mode):
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
+        self.interpolation = interpolation
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
@@ -105,6 +112,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
+        if self.interpolation != 'fft':
+            dct['interpolation'] = self.interpolation
         return dct
 
 
@@ -621,7 +630,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      (-0.5) * 1j * G_Gv[:, v] *
                                      self.pd.fft(ham.xc.dedtaut_sG[s] *
                                                  a_R, q))
-                             
+
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
         f_GI = self.pt.expand(q)

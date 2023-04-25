@@ -1320,4 +1320,35 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
       return (PyObject*)obj;
     }
 }
+
+
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+}
+
 #endif // PARALLEL
