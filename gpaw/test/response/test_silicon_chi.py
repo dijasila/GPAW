@@ -13,7 +13,8 @@ from gpaw.mpi import size, world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.susceptibility import ChiFactory, Chi
+from gpaw.response.dyson import HXCKernel
 from gpaw.response.pair_functions import read_pair_function
 
 
@@ -60,20 +61,17 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs, ecut=50)
     chi_factory = ChiFactory(chiks_calc)
-    _, chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
+    chiks, chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
     chi.write_macroscopic_component('Si_chi2.csv')
     chi_factory.context.write_timer()
     chi_factory.context.set_timer(Timer())
 
     t4 = time.time()
     
-    # Calculate also the ALDA susceptibility, using the cached chiks
-    chiks_buffer = chi_factory._chiks
-    _, chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
-    assert chi_factory._chiks is chiks_buffer,\
-        'Two subsequent calls to the ChiFactory with the same spincomponent,'\
-        'q_c and complex frequencies, should reuse the chiks buffer, not '\
-        'update it'
+    # Calculate also the ALDA susceptibility manually
+    hxc_kernel = HXCKernel(chi_factory.get_hartree_kernel('00', chiks.qpd),
+                           chi_factory.get_xc_kernel('ALDA', '00', chiks.qpd))
+    chi = Chi(chiks, hxc_kernel, chi_factory.dyson_solver)
     chi.write_macroscopic_component('Si_chi3.csv')
     chi_factory.context.write_timer()
 
