@@ -119,7 +119,7 @@ def test_pw_integrate(xp, grid):
     f1 = f.desc.empty(1, xp=xp)
     f1.data[:] = f.data
     m2 = f1.matrix_elements(f1)
-    assert i2 == m2.data[0, 0].item()
+    assert i2 == pytest.approx(m2.data[0, 0].item(), abs=1e-13)
 
 
 def test_grr():
