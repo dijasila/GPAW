@@ -34,18 +34,14 @@ def test_Hubbard_U(in_tmp_dir):
             mode='pw',
             occupations=FermiDirac(width=0.05),
             setups={'Ni': setup},
-            convergence={'eigenstates': 8e-4,
-                         'density': 1.0e-2,
-                         'energy': 0.1},
             txt=name + '.txt',
             kpts=(k, k, k),
             xc='oldPBE')
         atoms.calc = calc
         atoms.get_potential_energy()
         gap, _, _ = bandgap(calc)
-        print(name, gap)
         if name == 'ni2o2':
-            equal(gap, 0.8, 0.1)
+            equal(gap, 0.83, 0.1)
         else:
-            equal(gap, 4.7, 0.2)
+            equal(gap, 4.80, 0.1)
         name += '+U'
