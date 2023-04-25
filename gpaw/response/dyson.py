@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw.typing import Array1D
 from gpaw.response import timer
-from gpaw.response.chiks import ChiKS
+from gpaw.response.pair_functions import ChiKS, Chi
 from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.goldstone import get_goldstone_scaling
 
@@ -74,7 +74,7 @@ class DysonSolver:
     def __init__(self, context):
         self.context = context
 
-    def __call__(self, chiks: ChiKS, hxc_kernel: HXCKernel):
+    def __call__(self, chiks: ChiKS, hxc_kernel: HXCKernel) -> Chi:
         """Solve the dyson equation and return chi."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed,\
@@ -91,22 +91,25 @@ class DysonSolver:
                                f'λ={lambd}')
             Khxc_GG *= lambd
 
-        return self.invert_dyson(chiks.array, Khxc_GG)
+        chi_zGG = self.invert_dyson(chiks.array, Khxc_GG)
+        chi = Chi(chiks, chi_zGG)
+
+        return chi
 
     @timer('Invert Dyson-like equation')
-    def invert_dyson(self, chiks_wGG, Khxc_GG):
+    def invert_dyson(self, chiks_zGG, Khxc_GG):
         """Invert the frequency dependent Dyson equation in plane wave basis:
 
-        chi_wGG' = chiks_wGG' + chiks_wGG1 Khxc_G1G2 chi_wG2G'
+        chi_zGG' = chiks_zGG' + chiks_zGG1 Khxc_G1G2 chi_zG2G'
         """
         self.context.print('Inverting Dyson-like equation')
-        chi_wGG = np.empty_like(chiks_wGG)
-        for w, chiks_GG in enumerate(chiks_wGG):
+        chi_zGG = np.empty_like(chiks_zGG)
+        for z, chiks_GG in enumerate(chiks_zGG):
             chi_GG = self.invert_dyson_single_frequency(chiks_GG, Khxc_GG)
 
-            chi_wGG[w] = chi_GG
+            chi_zGG[z] = chi_GG
 
-        return chi_wGG
+        return chi_zGG
 
     @staticmethod
     def invert_dyson_single_frequency(chiks_GG, Khxc_GG):

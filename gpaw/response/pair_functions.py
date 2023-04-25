@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import pickle
 import numpy as np
 
 from ase.units import Hartree
@@ -266,6 +267,181 @@ def map_WgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_WgG):
     return out_WgG
 
 
+class ChiKS(LatticePeriodicPairFunction):
+    """Data object for the four-component Kohn-Sham susceptibility tensor."""
+
+    def __init__(self, spincomponent, qpd, zd,
+                 blockdist, distribution='ZgG'):
+        r"""Construct a χ_KS,GG'^μν(q,z) data object"""
+        self.spincomponent = spincomponent
+        super().__init__(qpd, zd, blockdist, distribution=distribution)
+
+    def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
+        """Return construction arguments of the ChiKS object."""
+        if spincomponent is None:
+            spincomponent = self.spincomponent
+        qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
+                                             blockdist=blockdist)
+
+        return spincomponent, qpd, zd, blockdist
+
+    def copy_reactive_part(self):
+        r"""Return a copy of the reactive part of the susceptibility.
+
+        The reactive part of the susceptibility is defined as (see
+        [PRB 103, 245110 (2021)]):
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
+                              2
+
+        However if the density operators n^μ(r) and n^ν(r) are each others
+        Hermitian conjugates, the reactive part simply becomes the Hermitian
+        part in terms of the plane-wave basis:
+
+                              1
+        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
+                              2
+
+        which is trivial to evaluate.
+        """
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
+
+        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiks_zGG = self.array
+        chiksr.array += chiks_zGG
+        chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksr.array /= 2.
+
+        return chiksr
+
+
+class Chi:
+    """Many-body susceptibility in a plane-wave basis."""
+
+    def __init__(self, chiks, chi_zGG):
+        """Construct the many-body susceptibility based on its ingredients."""
+        # Extract properties from chiks
+        self.qpd = chiks.qpd
+        self.zd = chiks.zd
+        self.blockdist = chiks.blockdist
+        self.distribution = chiks.distribution
+        self.world = self.blockdist.world
+        self.blocks1d = chiks.blocks1d
+
+        self.array = chi_zGG
+
+    def write_macroscopic_component(self, filename):
+        """Write the spatially averaged (macroscopic) component of the
+        susceptibility to a file along with the frequency grid."""
+        chi_Z = self.get_macroscopic_component()
+        if self.world.rank == 0:
+            write_pair_function(filename, self.zd, chi_Z)
+
+    def get_macroscopic_component(self):
+        """Get the macroscopic (G=0) component, all-gathered."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
+        chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
+        chi_Z = self.blocks1d.all_gather(chi_z)
+        return chi_Z
+
+    def write_reduced_array(self, filename, *, reduced_ecut):
+        """Write the susceptibility within a reduced plane-wave basis to a file
+        along with the frequency grid."""
+        G_Gc, chi_ZGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        if self.world.rank == 0:
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZGG)
+
+    def get_reduced_array(self, *, reduced_ecut):
+        """Get data array with a reduced ecut, gathered on root."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
+
+        # Map the susceptibilities to a reduced plane-wave representation
+        qpd = self.qpd
+        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
+        chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
+        chi_ZGG = self.blocks1d.gather(chi_zGG)
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(qpd)[mask_G]
+
+        return G_Gc, chi_ZGG
+
+    def write_reduced_diagonal(self, filename, *, reduced_ecut):
+        """Write the diagonal of the many-body susceptibility within a reduced
+        plane-wave basis to a file along with the frequency grid."""
+        G_Gc, chi_ZG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
+        if self.world.rank == 0:
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZG)
+
+    def get_reduced_diagonal(self, *, reduced_ecut):
+        """Get the diagonal of the reduced data array, gathered on root."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
+
+        # Map the susceptibilities to a reduced plane-wave representation
+        qpd = self.qpd
+        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
+        chi_zG = np.ascontiguousarray(chi_zGG[:, mask_G, mask_G])
+        chi_ZG = self.blocks1d.gather(chi_zG)
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(qpd)[mask_G]
+
+        return G_Gc, chi_ZG
+
+
+def get_pw_reduction_map(qpd, ecut):
+    """Get a mask to reduce the plane wave representation.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    mask_G : nd.array (dtype=bool)
+        Mask which reduces the representation
+    """
+    assert ecut is not None
+    ecut /= Hartree
+    assert ecut <= qpd.ecut
+
+    # List of all plane waves
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
+
+    if qpd.gammacentered:
+        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
+    else:
+        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+
+    return mask_G
+
+
+def get_pw_coordinates(qpd):
+    """Get the reciprocal lattice vector coordinates corresponding to a
+    givne plane wave basis.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    G_Gc : nd.array (dtype=int)
+        Coordinates on the reciprocal lattice
+    """
+    # List of all plane waves
+    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
+
+    # Use cell to get coordinates
+    B_cv = 2.0 * np.pi * qpd.gd.icell_cv
+    return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
+
+
 def write_pair_function(filename, zd, pf_z):
     """Write a pair function pf(q,z) for a specific q."""
     # For now, we assume that the complex frequencies lie on a horizontal
@@ -298,3 +474,25 @@ def read_pair_function(filename):
         raise ValueError(f'Unexpected array dimension {d.shape}')
 
     return omega_w, pf_w
+
+
+def write_susceptibility_array(filename, zd, G_Gc, chi_zx):
+    """Write the dynamic susceptibility as a pickle file."""
+    # For now, we assume that the complex frequencies lie on a horizontal
+    # contour
+    assert zd.horizontal_contour
+    omega_w = zd.omega_w * Hartree  # Ha -> eV
+    chi_wx = chi_zx
+
+    # Write pickle file
+    with open(filename, 'wb') as fd:
+        pickle.dump((omega_w, G_Gc, chi_wx), fd)
+
+
+def read_susceptibility_array(filename):
+    """Read a stored susceptibility component file"""
+    assert isinstance(filename, str)
+    with open(filename, 'rb') as fd:
+        omega_w, G_Gc, chi_wx = pickle.load(fd)
+
+    return omega_w, G_Gc, chi_wx

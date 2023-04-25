@@ -7,9 +7,10 @@ from gpaw import GPAW
 from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
+from gpaw.response.pair_functions import read_susceptibility_array
 
 
 @pytest.mark.kspair

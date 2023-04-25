@@ -11,7 +11,8 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.pair_functions import read_susceptibility_array
 
 
 @pytest.mark.kspair
