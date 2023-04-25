@@ -182,8 +182,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
         Juc_qs[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
 
     # Calculate the magnon energy
-    mm_ap = calc.get_magnetic_moment() / 2.\
-        * np.ones((nsites, npartitions))
+    mm_ap = atoms.get_magnetic_moment() / 2.0 * np.ones((nsites, npartitions))
     mw_qnp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
     mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc,
