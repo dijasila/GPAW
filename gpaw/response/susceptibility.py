@@ -10,7 +10,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
 from gpaw.response.dyson import DysonSolver, HXCKernel
 
 
@@ -119,7 +119,7 @@ class ChiFactory:
         self.fxc_calculator = fxc_calculator
 
         # Prepare a buffer for the fxc kernels
-        self.fxc_kernel_cache = {}
+        self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc=None, hxc_scaling=None, txt=None) -> tuple[ChiKS, Chi]:
