@@ -124,8 +124,7 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc_kernel=None, fxc=None,
-                 hxc_scaling=None, txt=None) -> Chi:
+                 fxc=None, hxc_scaling=None, txt=None) -> tuple[ChiKS, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -141,21 +140,19 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc_kernel : FXCKernel
-            Exchange-correlation kernel (calculated elsewhere). Use this input
-            carefully! The plane-wave representation in the supplied kernel has
-            to match the representation of chiks.
-            If no kernel is supplied, the ChiFactory will calculate one itself
-            according to the fxc keyword.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
-            Choices: ALDA, ALDA_X, ALDA_x
+            Choices: RPA, ALDA, ALDA_X, ALDA_x
         hxc_scaling : None or HXCScaling
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
+        # Fall back to ALDA per default
+        if fxc is None:
+            fxc = 'ALDA'
+
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -177,16 +174,9 @@ class ChiFactory:
         else:
             Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
 
-        # Calculate the xc kernel, if it has not been supplied by the user
-        if fxc_kernel is None:
-            if fxc is None:
-                # Fall back to ALDA per default
-                fxc = 'ALDA'
-            fxc_kernel = self.get_fxc_kernel(
-                fxc, chiks.spincomponent, chiks.qpd)
-        else:
-            assert fxc is None,\
-                'Supplying an input xc kernel overwrites the fxc keyword'
+        # Calculate the xc kernel
+        fxc_kernel = self.get_fxc_kernel(
+            fxc, chiks.spincomponent, chiks.qpd)
 
         # Construct the hxc kernel and dyson solver
         hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
