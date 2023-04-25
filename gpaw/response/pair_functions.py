@@ -5,7 +5,9 @@ import numpy as np
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 
-from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.pw_parallelization import (Blocks1D,
+                                              PlaneWaveBlockDistributor)
 
 
 class SingleQPWDescriptor(PWDescriptor):
@@ -41,20 +43,46 @@ class SingleQPWDescriptor(PWDescriptor):
 
 
 class PairFunction(ABC):
-    """Pair function data object.
+    r"""Pair function data object.
 
-    See gpaw.response.pair_integrator.PairFunctionIntegrator for the definition
-    of a pair function and how it is calculated."""
+    In the GPAW response module, a pair function is understood as any function
+    which can be written as a sum over the eigenstate transitions with a given
+    crystal momentum difference q
+               __
+               \
+    pf(q,z) =  /  pf_αα'(z) δ_{q,q_{α',α}}
+               ‾‾
+               α,α'
 
-    def __init__(self, qpd):
-        """Construct a pair function.
+    where z = ω + iη is a complex frequency.
 
-        Parameters
-        ----------
-        qpd : SingleQPWDescriptor
-        """
+    Typically, this will be some generalized (linear) susceptibility, which is
+    defined by the Kubo formula,
+
+                   i           ˰          ˰
+    χ_BA(t-t') = - ‾ θ(t-t') <[B_0(t-t'), A]>_0
+                   ħ
+
+    and can be written in its Lehmann representation as a function of frequency
+    in the upper half complex frequency plane,
+    
+               __      ˰        ˰
+               \    <α|B|α'><α'|A|α>
+    χ_BA(z) =  /   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ (n_α - n_α')
+               ‾‾   ħz - (E_α' - E_α)
+               α,α'
+
+    where E_α and n_α are the eigenstate energies and occupations respectively.
+
+    For more information, please refer to [Skovhus T., PhD. Thesis, 2021]."""
+
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 zd: ComplexFrequencyDescriptor):
+        """Construct a pair function."""
         self.qpd = qpd
         self.q_c = qpd.q_c
+        self.zd = zd
 
         self.array = self.zeros()
 
@@ -66,8 +94,8 @@ class PairFunction(ABC):
 class LatticePeriodicPairFunction(PairFunction):
     r"""Data object for lattice periodic pair functions.
 
-    A pair function is considered to be lattice periodic, if it is invariant
-    under translations of Bravais lattice vectors R:
+    Any spatial dependent pair function is considered to be lattice periodic,
+    if it is invariant under translations of Bravais lattice vectors R:
 
     pf(r, r', z) = pf(r + R, r' + R, z).
 
@@ -82,48 +110,43 @@ class LatticePeriodicPairFunction(PairFunction):
     arbitrary lattice periodic basis.
 
     In the GPAW response code, lattice periodic pair functions are expanded in
-    plane waves:
+    plane waves,
 
                    1   //
     pf_GG'(q, z) = ‾‾ || drdr' e^(-iG.r) pf(r, r', q, z) e^(iG'.r')
                    V0 //
                         V0
 
-    Hence, the collection consists of a complex frequency descriptor and a
-    plane-wave descriptor, where the latter is specific to the q-point in
-    question.
+    which are encoded in the SingleQPWDescriptor along with the wave vector q.
     """
 
-    def __init__(self, qpd, zd, blockdist, distribution='ZgG'):
+    def __init__(self, qpd, zd,
+                 blockdist: PlaneWaveBlockDistributor,
+                 distribution='ZgG'):
         """Contruct the LatticePeriodicPairFunction.
 
         Parameters
         ----------
-        qpd : SingleQPWDescriptor
-        zd : ComplexFrequencyDescriptor
-        blockdist : PlaneWaveBlockDistributor
         distribution : str
             Memory distribution of the pair function array.
             Choices: 'ZgG', 'GZg' and 'zGG'.
         """
-        self.zd = zd
         self.blockdist = blockdist
         self.distribution = distribution
 
-        nG = qpd.ngmax
-        self.blocks1d, self.shape = self._get_blocks_and_shape(nG)
+        self.blocks1d = None
+        self.shape = None
+        super().__init__(qpd, zd)
 
-        super().__init__(qpd)
+    def zeros(self):
+        if self.shape is None:
+            self._initialize_block_distribution()
+        return np.zeros(self.shape, complex)
 
-    def _get_blocks_and_shape(self, nG):
-        """Get 1D block distribution and array shape
-
-        Parameters
-        ----------
-        nG : int
-            Number of plane-wave coefficients in the basis set
-        """
+    def _initialize_block_distribution(self):
+        """Initialize 1D block distribution and corresponding array shape."""
         nz = len(self.zd)
+        nG = self.qpd.ngmax
         blockdist = self.blockdist
         distribution = self.distribution
 
@@ -139,10 +162,8 @@ class LatticePeriodicPairFunction(PairFunction):
         else:
             raise NotImplementedError(f'Distribution: {distribution}')
 
-        return blocks1d, shape
-
-    def zeros(self):
-        return np.zeros(self.shape, complex)
+        self.blocks1d = blocks1d
+        self.shape = shape
 
     def array_with_view(self, view):
         """Access a given view into the pair function array."""

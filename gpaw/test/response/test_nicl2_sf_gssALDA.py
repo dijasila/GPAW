@@ -8,7 +8,7 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.dyson import HXCScaling
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.df import read_response_function
 
@@ -47,12 +47,12 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     chi_factory = ChiFactory(chiks_calc)
 
     # Calculate the magnetic response with and without a background density
-    fxc_scaling = FXCScaling('fm')
+    hxc_scaling = HXCScaling('fm')
     localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
-    bgd_fxc_scaling = FXCScaling('fm')
+    bgd_hxc_scaling = HXCScaling('fm')
     bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
@@ -81,26 +81,26 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         filename = filestr + '_q%d.csv' % q
         txt = filestr + '_q%d.txt' % q
         fxc_kernel = calculate_chi(chi_factory, q_c, zd,
-                                   fxc_kernel, fxc_scaling,
+                                   fxc_kernel, hxc_scaling,
                                    txt, filename)
         filename = bgd_filestr + '_q%d.csv' % q
         txt = bgd_filestr + '_q%d.txt' % q
         bgd_fxc_kernel = calculate_chi(chi_factory, q_c, zd,
-                                       bgd_fxc_kernel, bgd_fxc_scaling,
+                                       bgd_fxc_kernel, bgd_hxc_scaling,
                                        txt, filename)
 
     context.write_timer()
     world.barrier()
 
     # Compare new results to test values
-    check_magnons(filestr, fxc_scaling,
+    check_magnons(filestr, hxc_scaling,
                   test_fxcs=0.7130,
                   test_mw0=-10.3,  # meV
                   test_mw1=-40.9,  # meV
                   test_Ipeak0=0.2306,  # a.u.
                   test_Ipeak1=0.0956,  # a.u.
                   )
-    check_magnons(bgd_filestr, bgd_fxc_scaling,
+    check_magnons(bgd_filestr, bgd_hxc_scaling,
                   test_fxcs=1.0826,
                   test_mw0=-10.2,  # meV
                   test_mw1=-48.0,  # meV
@@ -110,25 +110,25 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
 
 
 def calculate_chi(chi_factory, q_c, zd,
-                  fxc_kernel, fxc_scaling,
+                  fxc_kernel, hxc_scaling,
                   txt, filename):
     if isinstance(fxc_kernel, dict):
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc_kernel['fxc'],
                           localft_calc=fxc_kernel['localft_calc'],
-                          fxc_scaling=fxc_scaling,
+                          hxc_scaling=hxc_scaling,
                           txt=txt)
     else:  # Reuse fxc kernel from previous calculation
         chi = chi_factory('+-', q_c, zd,
                           fxc_kernel=fxc_kernel,
-                          fxc_scaling=fxc_scaling,
+                          hxc_scaling=hxc_scaling,
                           txt=txt)
     chi.write_macroscopic_component(filename)
 
     return chi.fxc_kernel
 
 
-def check_magnons(filestr, fxc_scaling, *,
+def check_magnons(filestr, hxc_scaling, *,
                   test_fxcs, test_mw0, test_mw1, test_Ipeak0, test_Ipeak1):
     # Identify magnon peaks and extract kernel scaling
     w0_w, _, chi0_w = read_response_function(filestr + '_q0.csv')
@@ -139,8 +139,8 @@ def check_magnons(filestr, fxc_scaling, *,
     mw0 = wpeak0 * 1e3  # meV
     mw1 = wpeak1 * 1e3  # meV
 
-    assert fxc_scaling.has_scaling
-    fxcs = fxc_scaling.get_scaling()
+    assert hxc_scaling.lambd is not None
+    fxcs = hxc_scaling.lambd
 
     if world.rank == 0:
         # import matplotlib.pyplot as plt

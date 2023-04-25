@@ -7,31 +7,8 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LDA_dens_fxc, add_LSDA_trans_fxc)
-
-
-class FXCScaling:
-    """Helper for scaling fxc kernels."""
-
-    def __init__(self, mode, lambd=None):
-        self.mode = mode
-        self.lambd = lambd
-
-    @property
-    def has_scaling(self):
-        return self.lambd is not None
-
-    def get_scaling(self):
-        return self.lambd
-
-    def calculate_scaling(self, chiks, Kxc_GG):
-        if chiks.spincomponent in ['+-', '-+']:
-            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
-        else:
-            raise ValueError('No scaling method implemented for '
-                             f'spincomponent={chiks.spincomponent}')
 
 
 class FXCKernel:

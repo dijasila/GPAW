@@ -9,31 +9,24 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.localft import LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import AdiabaticFXCCalculator, FXCKernel
-from gpaw.response.dyson import DysonSolver
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.dyson import DysonSolver, HXCKernel
 
 
 class Chi:
     """Many-body susceptibility in a plane-wave basis."""
 
-    def __init__(self, context,
+    def __init__(self,
                  chiks: ChiKS,
-                 Vbare_G,
-                 fxc_kernel: FXCKernel,
-                 fxc_scaling=None):
+                 hxc_kernel: HXCKernel,
+                 dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        assert chiks.distribution == 'zGG' and\
-            chiks.blockdist.fully_block_distributed,\
-            "Chi assumes that chiks's frequencies are distributed over world"
-        self.context = context
-        self.dyson_solver = DysonSolver(context)
-        
         self.chiks = chiks
-        self.world = chiks.blockdist.world
+        self.hxc_kernel = hxc_kernel
+        self.dyson_solver = dyson_solver
 
-        self.Vbare_G = Vbare_G
-        self.fxc_kernel = fxc_kernel
-        self.fxc_scaling = fxc_scaling
+        self.world = chiks.blockdist.world
+        self.fxc_kernel = self.hxc_kernel.fxc_kernel
 
     def write_macroscopic_component(self, filename):
         """Calculate the spatially averaged (macroscopic) component of the
@@ -129,42 +122,7 @@ class Chi:
 
     @lazyproperty
     def chi_zGG(self):
-        return self.dyson_solver.invert_dyson(self.chiks.array,
-                                              self.get_Khxc_GG())
-
-    def get_Khxc_GG(self):
-        """Hartree-exchange-correlation kernel."""
-        # Allocate array
-        nG = self.chiks.array.shape[2]
-        Khxc_GG = np.zeros((nG, nG), dtype=complex)
-
-        if self.Vbare_G is not None:  # Add the Hartree kernel
-            Khxc_GG.flat[::nG + 1] += self.Vbare_G
-
-        if self.fxc_kernel is not None:  # Add the xc kernel
-            Khxc_GG += self.get_Kxc_GG()
-        else:
-            assert self.fxc_scaling is None,\
-                'Cannot apply an fxc scaling if no fxc kernel is supplied'
-
-        return Khxc_GG
-
-    def get_Kxc_GG(self):
-        """Construct the (scaled) xc kernel matrix Kxc(G,G')."""
-        # Unfold the fxc kernel into the Kxc kernel matrix
-        Kxc_GG = self.fxc_kernel.get_Kxc_GG()
-
-        # Apply a flat scaling to the kernel, if specified
-        fxc_scaling = self.fxc_scaling
-        if fxc_scaling is not None:
-            if not fxc_scaling.has_scaling:
-                fxc_scaling.calculate_scaling(self.chiks, Kxc_GG)
-            lambd = fxc_scaling.get_scaling()
-            self.context.print(r'Rescaling the xc kernel by a factor of '
-                               f'λ={lambd}')
-            Kxc_GG *= lambd
-
-        return Kxc_GG
+        return self.dyson_solver(self.chiks, self.hxc_kernel)
 
     def collect(self, X_z):
         """Collect all frequencies."""
@@ -212,7 +170,7 @@ class ChiFactory:
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc_kernel=None, fxc=None, localft_calc=None,
-                 fxc_scaling=None, txt=None) -> Chi:
+                 hxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -240,8 +198,8 @@ class ChiFactory:
         localft_calc : LocalFTCalculator or None
             Calculator used to Fourier transform the fxc kernel into plane-wave
             components. If None, the default LocalPAWFTCalculator is used.
-        fxc_scaling : None or FXCScaling
-            Supply an FXCScaling object to scale the xc kernel.
+        hxc_scaling : None or HXCScaling
+            Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
@@ -291,8 +249,11 @@ class ChiFactory:
                 'Supplying an xc kernel overwrites any specification of how'\
                 'to calculate the kernel'
 
-        return Chi(self.context, chiks, Vbare_G, fxc_kernel,
-                   fxc_scaling=fxc_scaling)
+        # Construct the hxc kernel and dyson solver
+        hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
+        dyson_solver = DysonSolver(self.context)
+
+        return Chi(chiks, hxc_kernel, dyson_solver)
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""

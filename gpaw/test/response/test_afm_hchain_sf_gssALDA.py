@@ -17,7 +17,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.dyson import HXCScaling
 from gpaw.response.df import read_response_function
 
 
@@ -44,7 +44,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]
     fxc = 'ALDA'
-    fxc_scaling = FXCScaling('afm')
+    hxc_scaling = HXCScaling('afm')
     rshelmax = -1
     rshewmin = 1e-8
     ecut = 120
@@ -100,7 +100,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
                           localft_calc=localft_calc,
-                          fxc_scaling=fxc_scaling,
+                          hxc_scaling=hxc_scaling,
                           txt=txt)
         chi.write_macroscopic_component(filename)
 
@@ -125,7 +125,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     test_Ipeak2 = 0.0290
 
     # Test fxc_scaling:
-    fxcs = fxc_scaling.get_scaling()
+    fxcs = hxc_scaling.lambd
     assert abs(fxcs - test_fxcs) < 0.005
 
     # Magnon peak at q=1/3 q_X:
