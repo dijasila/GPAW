@@ -120,8 +120,6 @@ class ChiFactory:
 
         # Prepare a buffer for the fxc kernels
         self.fxc_kernel_cache = {}
-        # Prepare a buffer for chiks
-        self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
                  fxc=None, hxc_scaling=None, txt=None) -> tuple[ChiKS, Chi]:
@@ -163,8 +161,8 @@ class ChiFactory:
                            f'{spincomponent} with q_c={q_c}', flush=False)
         self.context.print('---------------')
 
-        # Calculate chiks (or get it from the buffer)
-        chiks = self.get_chiks(spincomponent, q_c, complex_frequencies)
+        # Calculate chiks
+        chiks = self.calculate_chiks(spincomponent, q_c, complex_frequencies)
 
         # Construct the hxc kernel
         hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
@@ -204,28 +202,20 @@ class ChiFactory:
 
         return fxc_kernel
 
-    def get_chiks(self, spincomponent, q_c, complex_frequencies):
-        """Get chiks from buffer."""
+    def calculate_chiks(self, spincomponent, q_c, complex_frequencies):
+        """Calculate the Kohn-Sham susceptibility."""
         q_c = np.asarray(q_c)
         if isinstance(complex_frequencies, ComplexFrequencyDescriptor):
             zd = complex_frequencies
         else:
             zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-        if self._chiks is None or\
-            not (spincomponent == self._chiks.spincomponent and
-                 np.allclose(q_c, self._chiks.q_c) and
-                 zd.almost_eq(self._chiks.zd)):
-            # Calculate new chiks, if buffer is empty or if we are
-            # considering a new set of spincomponent, q-vector and frequencies
-            chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
-            # Distribute frequencies over world
-            chiks = chiks.copy_with_global_frequency_distribution()
+        # Perform actual calculation
+        chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
+        # Distribute frequencies over world
+        chiks = chiks.copy_with_global_frequency_distribution()
 
-            # Fill buffer
-            self._chiks = chiks
-
-        return self._chiks
+        return chiks
 
 
 def get_pw_reduction_map(qpd, ecut):
