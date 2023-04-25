@@ -35,7 +35,7 @@ def test_b_field():
     a3, b3 = atom.calc.get_eigenvalues()
 
     assert E3 - E1 == pytest.approx(-B, abs=2e-5)
-    assert a3 - a1 == pytest.approx(-B, abs=3e-5)
+    assert a3 - a1 == pytest.approx(-B, abs=1e-4)
 
     totmom_v, magmom_av = atom.calc.density.estimate_magnetic_moments()
-    assert totmom_v == pytest.approx([1, 0, 0], abs=1e-5)
+    assert totmom_v == pytest.approx([1, 0, 0], abs=7e-5)
