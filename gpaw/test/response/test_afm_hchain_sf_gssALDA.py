@@ -16,7 +16,7 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.pair_functions import read_pair_function
 
@@ -88,7 +88,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
@@ -99,7 +99,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
         txt = 'h-chain_macro_tms_q%d.txt' % q
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc,
-                          localft_calc=localft_calc,
+                          fxc_calculator=fxc_calculator,
                           hxc_scaling=hxc_scaling,
                           txt=txt)
         chi.write_macroscopic_component(filename)

@@ -7,7 +7,7 @@ from gpaw.test import findpeak
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.pair_functions import read_pair_function
@@ -48,12 +48,12 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
 
     # Calculate the magnetic response with and without a background density
     hxc_scaling = HXCScaling('fm')
-    localft_calc = LocalFTCalculator.from_rshe_parameters(
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
     bgd_hxc_scaling = HXCScaling('fm')
-    bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
+    bgd_fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
         rshelmax=rshelmax,
@@ -74,9 +74,9 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     #     plt.show()
 
     filestr = 'nicl2_macro_tms'
-    fxc_kernel = {'fxc': fxc, 'localft_calc': localft_calc}
+    fxc_kernel = {'fxc': fxc, 'fxc_calculator': fxc_calculator}
     bgd_filestr = 'nicl2_macro_tms_bgd'
-    bgd_fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
+    bgd_fxc_kernel = {'fxc': fxc, 'fxc_calculator': bgd_fxc_calculator}
     for q, q_c in enumerate(q_qc):
         filename = filestr + '_q%d.csv' % q
         txt = filestr + '_q%d.txt' % q
@@ -115,7 +115,7 @@ def calculate_chi(chi_factory, q_c, zd,
     if isinstance(fxc_kernel, dict):
         chi = chi_factory('+-', q_c, zd,
                           fxc=fxc_kernel['fxc'],
-                          localft_calc=fxc_kernel['localft_calc'],
+                          fxc_calculator=fxc_kernel['fxc_calculator'],
                           hxc_scaling=hxc_scaling,
                           txt=txt)
     else:  # Reuse fxc kernel from previous calculation

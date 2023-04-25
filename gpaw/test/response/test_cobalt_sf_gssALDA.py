@@ -8,7 +8,7 @@ from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 
 
@@ -41,15 +41,15 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
                                  gammacentered=True,
                                  nblocks=nblocks)
     chi_factory = ChiFactory(chiks_calc)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
-                                                          rshelmax=rshelmax)
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
+        gs, context, rshelmax=rshelmax)
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
         if q == 0:
             chi = chi_factory('+-', q_c, complex_frequencies,
                               hxc_scaling=hxc_scaling,
-                              fxc=fxc, localft_calc=localft_calc)
+                              fxc=fxc, fxc_calculator=fxc_calculator)
             fxc_kernel = chi.fxc_kernel
         else:
             chi = chi_factory('+-', q_c, complex_frequencies,

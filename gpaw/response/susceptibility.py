@@ -112,7 +112,7 @@ class ChiFactory:
         self._chiks = None
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc_kernel=None, fxc=None, localft_calc=None,
+                 fxc_kernel=None, fxc=None, fxc_calculator=None,
                  hxc_scaling=None, txt=None) -> Chi:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
@@ -134,13 +134,12 @@ class ChiFactory:
             carefully! The plane-wave representation in the supplied kernel has
             to match the representation of chiks.
             If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc and localft_calc.
+            according to keywords fxc and fxc_calculator.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: ALDA, ALDA_X, ALDA_x
-        localft_calc : LocalFTCalculator or None
-            Calculator used to Fourier transform the fxc kernel into plane-wave
-            components. If None, the default LocalPAWFTCalculator is used.
+        fxc_calculator : AdiabaticFXCCalculator or None
+            Calculator for the xc kernel.
         hxc_scaling : None or HXCScaling
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
@@ -175,20 +174,21 @@ class ChiFactory:
                 fxc = 'ALDA'
             # In RPA, we neglect the xc-kernel
             if fxc == 'RPA':
-                assert localft_calc is None,\
+                assert fxc_calculator is None,\
                     "With fxc='RPA', there is no xc kernel to be calculated,"\
-                    "rendering the localft_calc input irrelevant"
+                    "rendering the fxc_calculator input irrelevant"
             else:
                 # If no localft_calc is supplied, fall back to the default
-                if localft_calc is None:
-                    localft_calc = LocalPAWFTCalculator(self.gs, self.context)
+                if fxc_calculator is None:
+                    fxc_calculator = \
+                        AdiabaticFXCCalculator.from_rshe_parameters(
+                            self.gs, self.context)
 
                 # Perform an actual kernel calculation
-                fxc_calculator = AdiabaticFXCCalculator(localft_calc)
                 fxc_kernel = fxc_calculator(
                     fxc, chiks.spincomponent, chiks.qpd)
         else:
-            assert fxc is None and localft_calc is None,\
+            assert fxc is None and fxc_calculator is None,\
                 'Supplying an xc kernel overwrites any specification of how'\
                 'to calculate the kernel'
 
