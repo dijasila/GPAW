@@ -62,13 +62,16 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
 
     Hatom = Atoms('H',
                   cell=[a, 0, 0],
-                  pbc=[1, 0, 0])
+                  # Use pbc to allow for real-space density interpolation
+                  pbc=[1, 1, 1])
     Hatom.center(vacuum=vfactor * a, axis=(1, 2))
     Hchain = Hatom.repeat((2, 1, 1))
     Hchain.set_initial_magnetic_moments([mm, -mm])
 
     calc = GPAW(xc=xc,
-                mode=PW(pw),
+                mode=PW(pw,
+                        # Interpolate the density in real space
+                        interpolation=3),
                 kpts=monkhorst_pack((kpts, 1, 1)),
                 nbands=nbands + ebands,
                 convergence=conv,
