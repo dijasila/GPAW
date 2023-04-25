@@ -46,16 +46,11 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
-        if q == 0:
-            _, chi = chi_factory('+-', q_c, complex_frequencies,
-                                 hxc_scaling=hxc_scaling, fxc=fxc)
-            fxc_kernel = chi.fxc_kernel
-        else:
-            _, chi = chi_factory('+-', q_c, complex_frequencies,
-                                 hxc_scaling=hxc_scaling,
-                                 fxc_kernel=fxc_kernel)
+        _, chi = chi_factory('+-', q_c, complex_frequencies,
+                             fxc=fxc, hxc_scaling=hxc_scaling)
         chi.write_reduced_diagonal(f'chiwG_q{q}.pckl',
                                    reduced_ecut=reduced_ecut)
+        assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
     context.comm.barrier()

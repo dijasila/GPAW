@@ -7,6 +7,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
@@ -31,9 +32,6 @@ class Chi:
 
         # Solve dyson equation
         self.array = dyson_solver(chiks, hxc_kernel)
-
-        # Store the fxc kernel for temporary backwards compatibility
-        self.fxc_kernel = hxc_kernel.fxc_kernel
 
     def write_macroscopic_component(self, filename):
         """Write the spatially averaged (macroscopic) component of the
@@ -120,6 +118,8 @@ class ChiFactory:
             assert fxc_calculator.context is chiks_calc.context
         self.fxc_calculator = fxc_calculator
 
+        # Prepare a buffer for the fxc kernels
+        self.fxc_kernel_cache = {}
         # Prepare a buffer for chiks
         self._chiks = None
 
@@ -182,10 +182,8 @@ class ChiFactory:
             if fxc is None:
                 # Fall back to ALDA per default
                 fxc = 'ALDA'
-            if fxc != 'RPA':  # In RPA, we neglect the xc-kernel
-                # Perform an actual kernel calculation
-                fxc_kernel = self.fxc_calculator(
-                    fxc, chiks.spincomponent, chiks.qpd)
+            fxc_kernel = self.get_fxc_kernel(
+                fxc, chiks.spincomponent, chiks.qpd)
         else:
             assert fxc is None,\
                 'Supplying an input xc kernel overwrites the fxc keyword'
@@ -194,6 +192,30 @@ class ChiFactory:
         hxc_kernel = HXCKernel(Vbare_G, fxc_kernel, scaling=hxc_scaling)
 
         return chiks, Chi(chiks, hxc_kernel, self.dyson_solver)
+
+    def get_fxc_kernel(self,
+                       fxc: str,
+                       spincomponent: str,
+                       qpd: SingleQPWDescriptor):
+        """Get the requested xc-kernel object."""
+        if fxc == 'RPA':
+            # No xc-kernel
+            return None
+
+        if qpd.gammacentered:
+            # When using a gamma-centered plane-wave basis, we can reuse the
+            # fxc kernel for all q-vectors. Thus, we keep a cache of calculated
+            # kernels
+            key = f'{fxc},{spincomponent}'
+            if key not in self.fxc_kernel_cache:
+                self.fxc_kernel_cache[key] = self.fxc_calculator(
+                    fxc, spincomponent, qpd)
+            fxc_kernel = self.fxc_kernel_cache[key]
+        else:
+            # Always compute the kernel
+            fxc_kernel = self.fxc_calculator(fxc, spincomponent, qpd)
+
+        return fxc_kernel
 
     def get_chiks(self, spincomponent, q_c, complex_frequencies):
         """Get chiks from buffer."""
