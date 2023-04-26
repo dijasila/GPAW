@@ -137,7 +137,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
     # Extract the ground state fixture
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
-    atoms = calc.atoms
+    atoms = calc.get_atoms()
 
     # Set up spherical site kernels
     positions = atoms.get_positions()
@@ -182,11 +182,11 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
         Juc_qs[q, 1] = isoexch_calc1(q_c, ucsitekernels)[0, 0, 0]
 
     # Calculate the magnon energy
-    mm_ap = atoms.get_magnetic_moment() / 2.0 * np.ones((nsites, npartitions))
+    mom = atoms.get_magnetic_moment()
+    mm_ap = mom / 2.0 * np.ones((nsites, npartitions))
     mw_qnp = calculate_fm_magnon_energies(J_qabp, q_qc, mm_ap)
     mw_qnp = np.sort(mw_qnp, axis=1)  # Make sure the eigenvalues are sorted
-    mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc,
-                                                    calc.get_magnetic_moment())
+    mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc, mom)
 
     # Compare results to test values
     # print(J_qabp[..., 1])
