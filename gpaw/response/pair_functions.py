@@ -239,13 +239,13 @@ def map_ZgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_ZgG):
     """Map the array in_ZgG from the qpdi to the qpd plane-wave basis."""
     # Distribute over frequencies
     nw = in_ZgG.shape[0]
-    tmp_zGG = blockdist.distribute_as(in_ZgG, nw, 'wGG')
+    tmp_zGG = blockdist.distribute_as(in_ZgG, nw, 'zGG')
 
     # Reduce the plane-wave basis
     tmp_zGG = map_zGG_array_to_reduced_pd(qpdi, qpd, tmp_zGG)
 
     # Distribute over plane waves
-    out_ZgG = blockdist.distribute_as(tmp_zGG, nw, 'WgG')
+    out_ZgG = blockdist.distribute_as(tmp_zGG, nw, 'ZgG')
 
     return out_ZgG
 

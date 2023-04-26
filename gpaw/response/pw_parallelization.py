@@ -203,52 +203,44 @@ class PlaneWaveBlockDistributor:
 
         return out_wGG
 
-    def check_distribution(self, in_wGG, nw, dist_type):
-        """ Checks if array in_wGG is distributed as dist_type. """
-        if dist_type != 'wGG' and dist_type != 'WgG':
-            raise ValueError('Invalid dist_type.')
-        comm = self.blockcomm
-        nG = in_wGG.shape[2]
-        if comm.size == 1:
-            return nw, nG, True  # All distributions are equivalent
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
+    def has_distribution(self, array, nw, distribution):
+        """Check if array 'array' has distribution 'distribution'."""
+        if distribution not in ['wGG', 'WgG', 'zGG', 'ZgG']:
+            raise ValueError(f'Invalid dist_type: {distribution}')
 
-        # At the moment on wGG and WgG distribution possible
-        if in_wGG.shape[1] < in_wGG.shape[2]:
-            assert in_wGG.shape[0] == nw
-            mydist = 'WgG'
+        comm = self.blockcomm
+        if comm.size == 1:
+            # In serial, all distributions are equivalent
+            return True
+
+        # At the moment, only wGG and WgG distributions are supported. zGG and
+        # ZgG are complex frequency aliases for wGG and WgG respectively
+        assert len(array.shape) == 3
+        nG = array.shape[2]
+        if array.shape[1] < array.shape[2]:
+            # Looks like array is WgG/ZgG distributed
+            gblocks = Blocks1D(comm, nG)
+            assert array.shape == (nw, gblocks.nlocal, nG)
+            return distribution in ['WgG', 'ZgG']
         else:
-            assert in_wGG.shape[1] == in_wGG.shape[2]
-            mydist = 'wGG'
-        return mynw, mynG, mydist == dist_type
+            # Looks like array is wGG/zGG distributed
+            wblocks = Blocks1D(comm, nw)
+            assert array.shape == (wblocks.nlocal, nG, nG)
+            return distribution in ['wGG', 'zGG']
         
-    def distribute_as(self, in_wGG, nw, out_dist):
+    def distribute_as(self, array, nw, distribution):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
 
-        1) parallel over G-vectors (second dimension of in_wGG, out_dist = WgG)
-        2) parallel over frequency (first dimension of in_wGG, out_dist = wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
+        1) parallel over G-vectors (distribution in ['WgG', 'ZgG'])
+        2) parallel over frequency (distribution in ['wGG', 'zGG'])
         """
-        # check so that out_dist is valid
-        if out_dist != 'wGG' and out_dist != 'WgG':
-            raise ValueError('Invalid out_dist')
-        
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-        
-        # Check distribution and redistribute if necessary
-        mynw, mynG, same_dist = self.check_distribution(in_wGG, nw, out_dist)
-
-        if same_dist:
-            return in_wGG
+        if self.has_distribution(array, nw, distribution):
+            # If the array already has the requested distribution, do nothing
+            return array
         else:
-            return self._redistribute(in_wGG, nw)
+            return self._redistribute(array, nw)
     
     def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
