@@ -361,31 +361,23 @@ class Chi(LatticePeriodicPairFunction):
         chi_Z = self.blocks1d.all_gather(chi_z)
         return chi_Z
 
-    def write_reduced_array(self, filename, *, reduced_ecut):
-        """Write the susceptibility within a reduced plane-wave basis to a file
-        along with the frequency grid."""
-        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
-        chi_ZGG = self.blocks1d.gather(chi_zGG)
-        if self.blocks1d.blockcomm.rank == 0:
-            write_susceptibility_array(filename, self.zd, qpd, chi_ZGG)
-
-    def get_reduced_array(self, *, reduced_ecut):
-        """Get data array with a reduced ecut."""
+    def write_array(self, filename):
+        """Write the full susceptibility array to a file along with the
+        frequency grid and plane-wave components."""
         assert self.distribution == 'zGG'
+        chi_ZGG = self.blocks1d.gather(self.array)
+        if self.blocks1d.blockcomm.rank == 0:
+            write_susceptibility_array(filename, self.zd, self.qpd, chi_ZGG)
 
-        qpd = self.qpd.copy_with(ecut=reduced_ecut / Hartree)
-        chi_zGG = map_zGG_array_to_reduced_pd(self.qpd, qpd, self.array)
-
-        return qpd, chi_zGG
-
-    def write_reduced_diagonal(self, filename, *, reduced_ecut):
+    def write_diagonal(self, filename):
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
-        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
         chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
         chi_ZG = self.blocks1d.gather(chi_zG)
         if self.blocks1d.blockcomm.rank == 0:
-            write_susceptibility_array(filename, self.zd, qpd, chi_ZG)
+            write_susceptibility_array(filename, self.zd, self.qpd, chi_ZG)
 
 
 def get_pw_coordinates(qpd):

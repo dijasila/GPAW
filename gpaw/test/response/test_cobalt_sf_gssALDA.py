@@ -50,8 +50,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         _, chi = chi_factory('+-', q_c, complex_frequencies,
                              fxc=fxc, hxc_scaling=hxc_scaling)
         chi = chi.copy_with_reduced_ecut(reduced_ecut)
-        chi.write_reduced_diagonal(f'chiwG_q{q}.pckl',
-                                   reduced_ecut=reduced_ecut)
+        chi.write_diagonal(f'chiwG_q{q}.pckl')
         assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
