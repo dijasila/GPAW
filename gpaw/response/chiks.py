@@ -313,7 +313,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Distribute over frequencies
         nz = len(chiks.zd)
         tmp_zGG = chiks.blockdist.distribute_as(chiks_ZgG, nz, 'zGG')
-        analyzer.symmetrize_wGG(tmp_zGG)
+        analyzer.symmetrize_zGG(tmp_zGG)
         # Distribute over plane waves
         chiks_ZgG[:] = chiks.blockdist.distribute_as(tmp_zGG, nz, 'ZgG')
 
