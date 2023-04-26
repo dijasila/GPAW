@@ -359,10 +359,9 @@ class Chi:
         """Write the susceptibility within a reduced plane-wave basis to a file
         along with the frequency grid."""
         qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
-        G_Gc = get_pw_coordinates(qpd)  # Do at writing level instead XXX
         chi_ZGG = self.blocks1d.gather(chi_zGG)
         if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZGG)
+            write_susceptibility_array(filename, self.zd, qpd, chi_ZGG)
 
     def get_reduced_array(self, *, reduced_ecut):
         """Get data array with a reduced ecut."""
@@ -377,11 +376,10 @@ class Chi:
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
         qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
-        G_Gc = get_pw_coordinates(qpd)  # Do at writing level instead XXX
         chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
         chi_ZG = self.blocks1d.gather(chi_zG)
         if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZG)
+            write_susceptibility_array(filename, self.zd, qpd, chi_ZG)
 
 
 def get_pw_coordinates(qpd):
@@ -438,12 +436,13 @@ def read_pair_function(filename):
     return omega_w, pf_w
 
 
-def write_susceptibility_array(filename, zd, G_Gc, chi_zx):
+def write_susceptibility_array(filename, zd, qpd, chi_zx):
     """Write the dynamic susceptibility as a pickle file."""
     # For now, we assume that the complex frequencies lie on a horizontal
     # contour
     assert zd.horizontal_contour
     omega_w = zd.omega_w * Hartree  # Ha -> eV
+    G_Gc = get_pw_coordinates(qpd)
     chi_wx = chi_zx
 
     # Write pickle file
