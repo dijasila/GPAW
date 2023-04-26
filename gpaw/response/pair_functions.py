@@ -191,17 +191,13 @@ class LatticePeriodicPairFunction(PairFunction):
 
         return new_pf
 
-    def new(self):
-        # Make distribution a my_kwarg XXX
-        # Use instead of _new
-        return self._new(*self.my_args(), distribution=self.distribution)
-
     @classmethod
     def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
     
     def my_args(self, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the LatticePeriodicPairFunction."""
+        """Return the positional construction arguments of the
+        LatticePeriodicPairFunction."""
         if qpd is None:
             qpd = self.qpd
         if zd is None:
@@ -288,14 +284,24 @@ class Chi(LatticePeriodicPairFunction):
         self.spincomponent = spincomponent
         super().__init__(qpd, zd, blockdist, distribution=distribution)
 
+    def new(self, **kwargs):
+        return self._new(*self.my_args_and_kwargs(**kwargs))
+
     def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the Chi object."""
+        """Return positional construction arguments of the Chi object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
         qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
                                              blockdist=blockdist)
 
         return spincomponent, qpd, zd, blockdist
+
+    def my_args_and_kwargs(self, distribution=None, **args):
+        """Return all the construction arguments of Chi, in order."""
+        args = self.my_args(**args)
+        if distribution is None:
+            distribution = self.distribution
+        return args + (distribution,)
 
     def copy_reactive_part(self):
         r"""Return a copy of the reactive part of the susceptibility.
@@ -322,7 +328,7 @@ class Chi(LatticePeriodicPairFunction):
         assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
             'Spin-density operators has to be each others hermitian conjugates'
 
-        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiksr = self.new(distribution='zGG')
         chiks_zGG = self.array
         chiksr.array += chiks_zGG
         chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
