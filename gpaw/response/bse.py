@@ -9,7 +9,7 @@ from scipy.linalg import eigh
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.mpi import world, serial_comm, broadcast
+from gpaw.mpi import world, serial_comm
 from gpaw.response import ResponseContext
 from gpaw.response.df import write_response_function
 from gpaw.response.coulomb_kernels import CoulombKernel
