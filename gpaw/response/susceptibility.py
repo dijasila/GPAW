@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.pair_functions import (SingleQPWDescriptor, ChiKS, Chi,
+from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
                                           get_pw_coordinates)
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
@@ -37,7 +37,7 @@ class ChiFactory:
         self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc=None, hxc_scaling=None, txt=None) -> tuple[ChiKS, Chi]:
+                 fxc=None, hxc_scaling=None, txt=None) -> tuple[Chi, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the

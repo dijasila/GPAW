@@ -10,7 +10,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.pair_functions import SingleQPWDescriptor, ChiKS
+from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -79,7 +79,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         self.pair_density_calc = NewPairDensityCalculator(gs, context)
 
-    def calculate(self, spincomponent, q_c, zd) -> ChiKS:
+    def calculate(self, spincomponent, q_c, zd) -> Chi:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
 
         Parameters
@@ -110,7 +110,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.context.print('Initializing pair density PAW corrections')
         self.pair_density_calc.initialize_paw_corrections(qpdi)
 
-        # Create ChiKS data structure
+        # Create data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
 
         # Perform the actual integration
@@ -169,7 +169,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return qpd
 
     def create_chiks(self, spincomponent, qpd, zd):
-        """Create a new ChiKS object to be integrated."""
+        """Create a new Chi object to be integrated."""
         if self.bundle_integrals:
             distribution = 'GZg'
         else:
@@ -178,8 +178,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                               self.blockcomm,
                                               self.intrablockcomm)
 
-        return ChiKS(spincomponent, qpd, zd,
-                     blockdist, distribution=distribution)
+        return Chi(spincomponent, qpd, zd,
+                   blockdist, distribution=distribution)
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):

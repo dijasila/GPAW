@@ -191,6 +191,11 @@ class LatticePeriodicPairFunction(PairFunction):
 
         return new_pf
 
+    def new(self):
+        # Make distribution a my_kwarg XXX
+        # Use instead of _new
+        return self._new(*self.my_args(), distribution=self.distribution)
+
     @classmethod
     def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
@@ -273,17 +278,18 @@ def map_zGG_array_to_reduced_pd(qpdi, qpd, in_zGG):
     return out_zGG
 
 
-class ChiKS(LatticePeriodicPairFunction):
-    """Data object for the four-component Kohn-Sham susceptibility tensor."""
+class Chi(LatticePeriodicPairFunction):
+    r"""Data object for the four-component susceptibility tensor χ_GG'^μν(q,z).
+    """
 
     def __init__(self, spincomponent, qpd, zd,
                  blockdist, distribution='ZgG'):
-        r"""Construct a χ_KS,GG'^μν(q,z) data object"""
+        r"""Construct a susceptibility of a given spin-component (μν)."""
         self.spincomponent = spincomponent
         super().__init__(qpd, zd, blockdist, distribution=distribution)
 
     def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the ChiKS object."""
+        """Return construction arguments of the Chi object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
         qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
@@ -297,17 +303,17 @@ class ChiKS(LatticePeriodicPairFunction):
         The reactive part of the susceptibility is defined as (see
         [PRB 103, 245110 (2021)]):
 
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
-                              2
+                           1
+        χ_GG'^(μν')(q,z) = ‾ [χ_GG'^μν(q,z) + χ_(-G'-G)^νμ(-q,-z*)].
+                           2
 
         However if the density operators n^μ(r) and n^ν(r) are each others
         Hermitian conjugates, the reactive part simply becomes the Hermitian
         part in terms of the plane-wave basis:
 
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
-                              2
+                           1
+        χ_GG'^(μν')(q,z) = ‾ [χ_GG'^μν(q,z) + χ_G'G^(μν*)(q,z)],
+                           2
 
         which is trivial to evaluate.
         """
@@ -324,27 +330,11 @@ class ChiKS(LatticePeriodicPairFunction):
 
         return chiksr
 
-
-class Chi:
-    """Many-body susceptibility in a plane-wave basis."""
-
-    def __init__(self, chiks, chi_zGG):
-        """Construct the many-body susceptibility based on its ingredients."""
-        # Extract properties from chiks
-        self.qpd = chiks.qpd
-        self.zd = chiks.zd
-        self.blockdist = chiks.blockdist
-        self.distribution = chiks.distribution
-        self.world = self.blockdist.world
-        self.blocks1d = chiks.blocks1d
-
-        self.array = chi_zGG
-
     def write_macroscopic_component(self, filename):
         """Write the spatially averaged (macroscopic) component of the
         susceptibility to a file along with the frequency grid."""
         chi_Z = self.get_macroscopic_component()
-        if self.world.rank == 0:
+        if self.blocks1d.blockcomm.rank == 0:
             write_pair_function(filename, self.zd, chi_Z)
 
     def get_macroscopic_component(self):
@@ -360,7 +350,7 @@ class Chi:
         along with the frequency grid."""
         qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
         chi_ZGG = self.blocks1d.gather(chi_zGG)
-        if self.world.rank == 0:
+        if self.blocks1d.blockcomm.rank == 0:
             write_susceptibility_array(filename, self.zd, qpd, chi_ZGG)
 
     def get_reduced_array(self, *, reduced_ecut):
@@ -378,7 +368,7 @@ class Chi:
         qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
         chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
         chi_ZG = self.blocks1d.gather(chi_zG)
-        if self.world.rank == 0:
+        if self.blocks1d.blockcomm.rank == 0:
             write_susceptibility_array(filename, self.zd, qpd, chi_ZG)
 
 
