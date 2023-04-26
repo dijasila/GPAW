@@ -358,74 +358,30 @@ class Chi:
     def write_reduced_array(self, filename, *, reduced_ecut):
         """Write the susceptibility within a reduced plane-wave basis to a file
         along with the frequency grid."""
-        G_Gc, chi_ZGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        G_Gc = get_pw_coordinates(qpd)  # Do at writing level instead XXX
+        chi_ZGG = self.blocks1d.gather(chi_zGG)
         if self.world.rank == 0:
             write_susceptibility_array(filename, self.zd, G_Gc, chi_ZGG)
 
     def get_reduced_array(self, *, reduced_ecut):
-        """Get data array with a reduced ecut, gathered on root."""
+        """Get data array with a reduced ecut."""
         assert self.distribution == 'zGG'
-        chi_zGG = self.array
 
-        # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.qpd
-        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
-        chi_ZGG = self.blocks1d.gather(chi_zGG)
+        qpd = self.qpd.copy_with(ecut=reduced_ecut / Hartree)
+        chi_zGG = map_zGG_array_to_reduced_pd(self.qpd, qpd, self.array)
 
-        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(qpd)[mask_G]
-
-        return G_Gc, chi_ZGG
+        return qpd, chi_zGG
 
     def write_reduced_diagonal(self, filename, *, reduced_ecut):
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
-        G_Gc, chi_ZG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
+        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        G_Gc = get_pw_coordinates(qpd)  # Do at writing level instead XXX
+        chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
+        chi_ZG = self.blocks1d.gather(chi_zG)
         if self.world.rank == 0:
             write_susceptibility_array(filename, self.zd, G_Gc, chi_ZG)
-
-    def get_reduced_diagonal(self, *, reduced_ecut):
-        """Get the diagonal of the reduced data array, gathered on root."""
-        assert self.distribution == 'zGG'
-        chi_zGG = self.array
-
-        # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.qpd
-        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chi_zG = np.ascontiguousarray(chi_zGG[:, mask_G, mask_G])
-        chi_ZG = self.blocks1d.gather(chi_zG)
-
-        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(qpd)[mask_G]
-
-        return G_Gc, chi_ZG
-
-
-def get_pw_reduction_map(qpd, ecut):
-    """Get a mask to reduce the plane wave representation.
-
-    Please remark, that the response code currently works with one q-vector
-    at a time, at thus only a single plane wave representation at a time.
-
-    Returns
-    -------
-    mask_G : nd.array (dtype=bool)
-        Mask which reduces the representation
-    """
-    assert ecut is not None
-    ecut /= Hartree
-    assert ecut <= qpd.ecut
-
-    # List of all plane waves
-    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
-
-    if qpd.gammacentered:
-        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
-    else:
-        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
-
-    return mask_G
 
 
 def get_pw_coordinates(qpd):
