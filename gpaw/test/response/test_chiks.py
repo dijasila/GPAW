@@ -11,7 +11,7 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.chi0 import Chi0
-from gpaw.response.susceptibility import (get_inverted_pw_mapping,
+from gpaw.response.pair_functions import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
 # ---------- chiks parametrization ---------- #

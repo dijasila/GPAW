@@ -3,8 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
-                                          get_pw_coordinates)
+from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
@@ -134,43 +133,3 @@ class ChiFactory:
         chiks = chiks.copy_with_global_frequency_distribution()
 
         return chiks
-
-
-def get_inverted_pw_mapping(qpd1, qpd2):
-    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
-    G1_Gc = get_pw_coordinates(qpd1)
-    G2_Gc = get_pw_coordinates(qpd2)
-
-    mG2_G1 = []
-    for G1_c in G1_Gc:
-        found_match = False
-        for G2, G2_c in enumerate(G2_Gc):
-            if np.all(G2_c == -G1_c):
-                mG2_G1.append(G2)
-                found_match = True
-                break
-        if not found_match:
-            raise ValueError('Could not match qpd1 and qpd2')
-
-    # Set up mapping from GG' to -G-G'
-    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
-
-    return invmap_GG
-
-
-def symmetrize_reciprocity(qpd, X_wGG):
-    """In collinear systems without spin-orbit coupling, the plane wave
-    susceptibility is reciprocal in the sense that e.g.
-
-    χ_(GG')^(+-)(q, ω) = χ_(-G'-G)^(+-)(-q, ω)
-
-    This method symmetrizes A_wGG in the case where q=0.
-    """
-    from gpaw.test.response.test_chiks import get_inverted_pw_mapping
-
-    q_c = qpd.q_c
-    if np.allclose(q_c, 0.):
-        invmap_GG = get_inverted_pw_mapping(qpd, qpd)
-        for X_GG in X_wGG:
-            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
-            X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.

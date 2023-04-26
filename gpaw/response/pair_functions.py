@@ -346,6 +346,24 @@ class Chi(LatticePeriodicPairFunction):
 
         return chiksr
 
+    def symmetrize_reciprocity(self):
+        r"""Symmetrize the reciprocity of the susceptibility (for q=0).
+
+        In collinear systems without spin-orbit coupling, the plane-wave
+        susceptibility is reciprocal in the sense that
+
+        χ_GG'^(μν)(q, ω) = χ_(-G'-G)^(μν)(-q, ω)
+
+        for all μν ∈ {00, uu, dd, +-, -+}, see [PRB 106, 085131 (2022)].
+        For q=0, we may symmetrize the susceptibility in this sense for free.
+        """
+        assert np.allclose(self.q_c, 0.)
+        assert self.distribution == 'zGG' or self.blocks1d.blockcomm.size == 1
+        invmap_GG = get_inverted_pw_mapping(self.qpd, self.qpd)
+        for chi_GG in self.array:
+            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
+            chi_GG[:] = (chi_GG + chi_GG[invmap_GG].T) / 2.
+
     def write_macroscopic_component(self, filename):
         """Write the spatially averaged (macroscopic) component of the
         susceptibility to a file along with the frequency grid."""
@@ -378,6 +396,28 @@ class Chi(LatticePeriodicPairFunction):
         chi_ZG = self.blocks1d.gather(chi_zG)
         if self.blocks1d.blockcomm.rank == 0:
             write_susceptibility_array(filename, self.zd, self.qpd, chi_ZG)
+
+
+def get_inverted_pw_mapping(qpd1, qpd2):
+    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
+    G1_Gc = get_pw_coordinates(qpd1)
+    G2_Gc = get_pw_coordinates(qpd2)
+
+    mG2_G1 = []
+    for G1_c in G1_Gc:
+        found_match = False
+        for G2, G2_c in enumerate(G2_Gc):
+            if np.all(G2_c == -G1_c):
+                mG2_G1.append(G2)
+                found_match = True
+                break
+        if not found_match:
+            raise ValueError('Could not match qpd1 and qpd2')
+
+    # Set up mapping from GG' to -G-G'
+    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
+
+    return invmap_GG
 
 
 def get_pw_coordinates(qpd):
