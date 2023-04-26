@@ -209,16 +209,19 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def copy_with_reduced_pd(self, qpd):
         """Copy the pair function, but within a reduced plane-wave basis."""
-        if self.distribution != 'ZgG':
-            raise NotImplementedError('Not implemented for distribution '
-                                      f'{self.distribution}')
-
         new_pf = self._new(*self.my_args(qpd=qpd),
                            distribution=self.distribution)
-        new_pf.array[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
-                                                      self.blockdist,
-                                                      self.array)
-
+        if self.distribution == 'zGG':
+            new_pf.array[:] = map_zGG_array_to_reduced_pd(self.qpd, qpd,
+                                                          self.array)
+        elif self.distribution == 'ZgG':
+            new_pf.array[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
+                                                          self.blockdist,
+                                                          self.array)
+        else:
+            raise NotImplementedError('Chi.copy_with_reduced_pd has not been '
+                                      'implemented for distribution '
+                                      f'{self.distribution}')
         return new_pf
 
     def copy_with_global_frequency_distribution(self):
@@ -302,6 +305,13 @@ class Chi(LatticePeriodicPairFunction):
         if distribution is None:
             distribution = self.distribution
         return args + (distribution,)
+
+    def copy_with_reduced_ecut(self, ecut):
+        """Copy the susceptibility, but with a reduced ecut."""
+        ecut = ecut / Hartree  # eV -> Hartree
+        assert ecut <= self.qpd.ecut
+        qpd = self.qpd.copy_with(ecut=ecut)
+        return self.copy_with_reduced_pd(qpd)
 
     def copy_reactive_part(self):
         r"""Return a copy of the reactive part of the susceptibility.
