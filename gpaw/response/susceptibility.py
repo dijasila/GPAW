@@ -38,24 +38,24 @@ class Chi:
         """Write the spatially averaged (macroscopic) component of the
         susceptibility to a file along with the frequency grid."""
         from gpaw.response.pair_functions import write_pair_function
-        chi_z = self.get_macroscopic_component()
+        chi_Z = self.get_macroscopic_component()
         if self.world.rank == 0:
-            write_pair_function(filename, self.zd, chi_z)
+            write_pair_function(filename, self.zd, chi_Z)
 
     def get_macroscopic_component(self):
         """Get the macroscopic (G=0) component, all-gathered."""
         assert self.distribution == 'zGG'
         chi_zGG = self.array
         chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
-        chi_z = self.blocks1d.collect(chi_z)  # Collect distributed frequencies
-        return chi_z
+        chi_Z = self.blocks1d.all_gather(chi_z)
+        return chi_Z
 
     def write_reduced_array(self, filename, *, reduced_ecut):
         """Write the susceptibility within a reduced plane-wave basis to a file
         along with the frequency grid."""
-        G_Gc, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        G_Gc, chi_ZGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
         if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_zGG)
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZGG)
 
     def get_reduced_array(self, *, reduced_ecut):
         """Get data array with a reduced ecut, gathered on root."""
@@ -66,21 +66,19 @@ class Chi:
         qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
+        chi_ZGG = self.blocks1d.gather(chi_zGG)
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
         G_Gc = get_pw_coordinates(qpd)[mask_G]
 
-        # Gather all frequencies from world to root
-        chi_zGG = self.gather(chi_zGG)
-
-        return G_Gc, chi_zGG
+        return G_Gc, chi_ZGG
 
     def write_reduced_diagonal(self, filename, *, reduced_ecut):
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
-        G_Gc, chi_wG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
+        G_Gc, chi_ZG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
         if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_wG)
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZG)
 
     def get_reduced_diagonal(self, *, reduced_ecut):
         """Get the diagonal of the reduced data array, gathered on root."""
@@ -91,39 +89,12 @@ class Chi:
         qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
         chi_zG = np.ascontiguousarray(chi_zGG[:, mask_G, mask_G])
+        chi_ZG = self.blocks1d.gather(chi_zG)
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
         G_Gc = get_pw_coordinates(qpd)[mask_G]
 
-        # Gather all frequencies from world to root
-        chi_zG = self.gather(chi_zG)
-
-        return G_Gc, chi_zG
-
-    def gather(self, X_zx):
-        """Gather a full susceptibility array to root."""
-        # Allocate arrays to gather (all need to be the same shape)
-        blocks1d = self.blocks1d
-        shape = (blocks1d.blocksize,) + X_zx.shape[1:]
-        tmp_zx = np.empty(shape, dtype=X_zx.dtype)
-        tmp_zx[:blocks1d.nlocal] = X_zx
-
-        # Allocate array for the gathered data
-        if self.world.rank == 0:
-            # Make room for all frequencies
-            Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
-            shape = (Npadded,) + X_zx.shape[1:]
-            allX_zx = np.empty(shape, dtype=X_zx.dtype)
-        else:
-            allX_zx = None
-
-        self.world.gather(tmp_zx, 0, allX_zx)
-
-        # Return array for w indeces on frequency grid
-        if allX_zx is not None:
-            allX_zx = allX_zx[:len(self.zd)]
-
-        return allX_zx
+        return G_Gc, chi_ZG
 
 
 class ChiFactory:

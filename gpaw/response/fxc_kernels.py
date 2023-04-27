@@ -182,7 +182,7 @@ class AdiabaticFXCCalculator:
             'large_qpd for all dG_dGv'
 
         # Collect the global Q_dG map
-        Q_dG = dGblocks.collect(Q_mydG)
+        Q_dG = dGblocks.all_gather(Q_mydG)
 
         return Q_dG
 
