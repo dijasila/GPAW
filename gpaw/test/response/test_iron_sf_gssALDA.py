@@ -19,7 +19,7 @@ from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.dyson import HXCScaling
-from gpaw.response.df import read_response_function
+from gpaw.response.pair_functions import read_pair_function
 
 
 def set_up_fxc_calculators(gs, context):
@@ -149,10 +149,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
 def extract_data(identifier):
     # Read data
-    w1_w, chiks1_w, chi1_w = read_response_function(identifier
-                                                    + '_iron_dsus_1.csv')
-    w2_w, chiks2_w, chi2_w = read_response_function(identifier
-                                                    + '_iron_dsus_2.csv')
+    w1_w, chi1_w = read_pair_function(identifier + '_iron_dsus_1.csv')
+    w2_w, chi2_w = read_pair_function(identifier + '_iron_dsus_2.csv')
 
     # Spectral function
     S1_w = -chi1_w.imag

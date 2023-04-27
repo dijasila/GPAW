@@ -10,7 +10,7 @@ from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.susceptibility import ChiFactory
-from gpaw.response.df import read_response_function
+from gpaw.response.pair_functions import read_pair_function
 
 
 pytestmark = pytest.mark.skipif(world.size < 4,
@@ -131,8 +131,8 @@ def calculate_chi(chi_factory, q_c, zd,
 def check_magnons(filestr, hxc_scaling, *,
                   test_fxcs, test_mw0, test_mw1, test_Ipeak0, test_Ipeak1):
     # Identify magnon peaks and extract kernel scaling
-    w0_w, _, chi0_w = read_response_function(filestr + '_q0.csv')
-    w1_w, _, chi1_w = read_response_function(filestr + '_q1.csv')
+    w0_w, chi0_w = read_pair_function(filestr + '_q0.csv')
+    w1_w, chi1_w = read_pair_function(filestr + '_q1.csv')
 
     wpeak0, Ipeak0 = findpeak(w0_w, -chi0_w.imag / np.pi)
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)

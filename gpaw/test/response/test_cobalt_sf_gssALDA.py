@@ -7,7 +7,7 @@ from gpaw import GPAW
 from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_diagonal
+from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
 from gpaw.response.localft import LocalFTCalculator
 from gpaw.response.dyson import HXCScaling
 
@@ -55,15 +55,15 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
             chi = chi_factory('+-', q_c, complex_frequencies,
                               hxc_scaling=hxc_scaling,
                               fxc_kernel=fxc_kernel)
-        chi.write_reduced_diagonals(f'chiwG_q{q}.pckl',
-                                    reduced_ecut=reduced_ecut)
+        chi.write_reduced_diagonal(f'chiwG_q{q}.pckl',
+                                   reduced_ecut=reduced_ecut)
 
     context.write_timer()
     context.comm.barrier()
 
     # Read data
-    w0_w, _, _, chi0_wG = read_diagonal('chiwG_q0.pckl')
-    w1_w, _, _, chi1_wG = read_diagonal('chiwG_q1.pckl')
+    w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.pckl')
+    w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
 
     # # Find acoustic magnon mode
     wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)

@@ -3,7 +3,6 @@ import pickle
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKS, ChiKSCalculator
@@ -21,117 +20,90 @@ class Chi:
                  hxc_kernel: HXCKernel,
                  dyson_solver: DysonSolver):
         """Construct the many-body susceptibility based on its ingredients."""
-        self.chiks = chiks
-        self.hxc_kernel = hxc_kernel
-        self.dyson_solver = dyson_solver
+        # Extract properties from chiks
+        self.qpd = chiks.qpd
+        self.zd = chiks.zd
+        self.blockdist = chiks.blockdist
+        self.distribution = chiks.distribution
+        self.world = self.blockdist.world
+        self.blocks1d = chiks.blocks1d
 
-        self.world = chiks.blockdist.world
-        self.fxc_kernel = self.hxc_kernel.fxc_kernel
+        # Solve dyson equation
+        self.array = dyson_solver(chiks, hxc_kernel)
+
+        # Store the fxc kernel for temporary backwards compatibility
+        self.fxc_kernel = hxc_kernel.fxc_kernel
 
     def write_macroscopic_component(self, filename):
-        """Calculate the spatially averaged (macroscopic) component of the
-        susceptibility and write it to a file together with the Kohn-Sham
-        susceptibility and the frequency grid."""
-        from gpaw.response.df import write_response_function
-
-        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
+        """Write the spatially averaged (macroscopic) component of the
+        susceptibility to a file along with the frequency grid."""
+        from gpaw.response.pair_functions import write_pair_function
+        chi_z = self.get_macroscopic_component()
         if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
+            write_pair_function(filename, self.zd, chi_z)
 
     def get_macroscopic_component(self):
-        """Get the macroscopic (G=0) component data, collected on all ranks"""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
+        """Get the macroscopic (G=0) component, all-gathered."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
+        chi_z = chi_zGG[:, 0, 0]  # Macroscopic component
+        chi_z = self.blocks1d.collect(chi_z)  # Collect distributed frequencies
+        return chi_z
 
-        # Macroscopic component
-        chiks_w = chiks_wGG[:, 0, 0]
-        chi_w = chi_wGG[:, 0, 0]
-
-        # Collect all frequencies from world
-        chiks_w = self.collect(chiks_w)
-        chi_w = self.collect(chi_w)
-
-        return omega_w, chiks_w, chi_w
-
-    def write_reduced_arrays(self, filename, *, reduced_ecut):
-        """Calculate the many-body susceptibility and write it to a file along
-        with the Kohn-Sham susceptibility and frequency grid within a reduced
-        plane-wave basis."""
-        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
-            reduced_ecut=reduced_ecut)
-
+    def write_reduced_array(self, filename, *, reduced_ecut):
+        """Write the susceptibility within a reduced plane-wave basis to a file
+        along with the frequency grid."""
+        G_Gc, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
         if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_zGG)
 
-    def get_reduced_arrays(self, *, reduced_ecut):
-        """Get data arrays with a reduced ecut, gathered on root."""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
+    def get_reduced_array(self, *, reduced_ecut):
+        """Get data array with a reduced ecut, gathered on root."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
 
         # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.chiks.qpd
+        qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
-        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
+        chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
         G_Gc = get_pw_coordinates(qpd)[mask_G]
 
         # Gather all frequencies from world to root
-        chiks_wGG = self.gather(chiks_wGG)
-        chi_wGG = self.gather(chi_wGG)
+        chi_zGG = self.gather(chi_zGG)
 
-        return omega_w, G_Gc, chiks_wGG, chi_wGG
+        return G_Gc, chi_zGG
 
-    def write_reduced_diagonals(self, filename, *, reduced_ecut):
-        """Calculate the many-body susceptibility and write its diagonal in
-        plane-wave components to a file along with the diagonal of the
-        Kohn-Sham susceptibility, frequency grid and reduced plane-wave basis.
-        """
-        omega_w, G_Gc, chiks_wG, chi_wG = self.get_reduced_diagonals(
-            reduced_ecut=reduced_ecut)
-
+    def write_reduced_diagonal(self, filename, *, reduced_ecut):
+        """Write the diagonal of the many-body susceptibility within a reduced
+        plane-wave basis to a file along with the frequency grid."""
+        G_Gc, chi_wG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
         if self.world.rank == 0:
-            write_diagonal(omega_w, G_Gc, chiks_wG, chi_wG, filename)
+            write_susceptibility_array(filename, self.zd, G_Gc, chi_wG)
 
-    def get_reduced_diagonals(self, *, reduced_ecut):
-        """Get the diagonal of the reduced data arrays, gathered on root."""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
+    def get_reduced_diagonal(self, *, reduced_ecut):
+        """Get the diagonal of the reduced data array, gathered on root."""
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
 
         # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.chiks.qpd
+        qpd = self.qpd
         mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chiks_wG = np.ascontiguousarray(chiks_wGG[:, mask_G, mask_G])
-        chi_wG = np.ascontiguousarray(chi_wGG[:, mask_G, mask_G])
+        chi_zG = np.ascontiguousarray(chi_zGG[:, mask_G, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
         G_Gc = get_pw_coordinates(qpd)[mask_G]
 
         # Gather all frequencies from world to root
-        chiks_wG = self.gather(chiks_wG)
-        chi_wG = self.gather(chi_wG)
+        chi_zG = self.gather(chi_zG)
 
-        return omega_w, G_Gc, chiks_wG, chi_wG
-
-    def get_distributed_arrays(self):
-        """Get data arrays, frequency distributed over world."""
-        # For now, we assume that eta is fixed -> z index == w index
-        omega_w = self.chiks.zd.omega_w * Hartree
-        chiks_wGG = self.chiks.array
-        chi_wGG = self.chi_zGG
-
-        return omega_w, chiks_wGG, chi_wGG
-
-    @lazyproperty
-    def chi_zGG(self):
-        return self.dyson_solver(self.chiks, self.hxc_kernel)
-
-    def collect(self, X_z):
-        """Collect all frequencies."""
-        return self.chiks.blocks1d.collect(X_z)
+        return G_Gc, chi_zG
 
     def gather(self, X_zx):
         """Gather a full susceptibility array to root."""
         # Allocate arrays to gather (all need to be the same shape)
-        blocks1d = self.chiks.blocks1d
+        blocks1d = self.blocks1d
         shape = (blocks1d.blocksize,) + X_zx.shape[1:]
         tmp_zx = np.empty(shape, dtype=X_zx.dtype)
         tmp_zx[:blocks1d.nlocal] = X_zx
@@ -149,7 +121,7 @@ class Chi:
 
         # Return array for w indeces on frequency grid
         if allX_zx is not None:
-            allX_zx = allX_zx[:len(self.chiks.zd)]
+            allX_zx = allX_zx[:len(self.zd)]
 
         return allX_zx
 
@@ -365,33 +337,23 @@ def symmetrize_reciprocity(qpd, X_wGG):
             X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.
 
 
-def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename):
+def write_susceptibility_array(filename, zd, G_Gc, chi_zx):
     """Write the dynamic susceptibility as a pickle file."""
-    assert isinstance(filename, str)
+    # For now, we assume that the complex frequencies lie on a horizontal
+    # contour
+    assert zd.horizontal_contour
+    omega_w = zd.omega_w * Hartree  # Ha -> eV
+    chi_wx = chi_zx
+
+    # Write pickle file
     with open(filename, 'wb') as fd:
-        pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+        pickle.dump((omega_w, G_Gc, chi_wx), fd)
 
 
-def read_component(filename):
+def read_susceptibility_array(filename):
     """Read a stored susceptibility component file"""
     assert isinstance(filename, str)
     with open(filename, 'rb') as fd:
-        omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
+        omega_w, G_Gc, chi_wx = pickle.load(fd)
 
-    return omega_w, G_Gc, chiks_wGG, chi_wGG
-
-
-def write_diagonal(omega_w, G_Gc, chiks_wG, chi_wG, filename):
-    """Write the diagonal of a dynamic susceptibility as a pickle file."""
-    assert isinstance(filename, str)
-    with open(filename, 'wb') as fd:
-        pickle.dump((omega_w, G_Gc, chiks_wG, chi_wG), fd)
-
-
-def read_diagonal(filename):
-    """Read stored susceptibility diagonal file."""
-    assert isinstance(filename, str)
-    with open(filename, 'rb') as fd:
-        omega_w, G_Gc, chiks_wG, chi_wG = pickle.load(fd)
-
-    return omega_w, G_Gc, chiks_wG, chi_wG
+    return omega_w, G_Gc, chi_wx

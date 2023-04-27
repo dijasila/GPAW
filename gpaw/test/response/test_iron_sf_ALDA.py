@@ -18,7 +18,7 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.df import read_response_function
+from gpaw.response.pair_functions import read_pair_function
 
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
@@ -85,14 +85,14 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     world.barrier()
 
     # Identify magnon peak in scattering functions
-    w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_G1.csv')
-    w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_G2.csv')
-    w3_w, chiks3_w, chi3_w = read_response_function('iron_dsus_G3.csv')
-    w4_w, chiks4_w, chi4_w = read_response_function('iron_dsus_G4.csv')
-    w5_w, chiks5_w, chi5_w = read_response_function('iron_dsus_G5.csv')
-    w6_w, chiks6_w, chi6_w = read_response_function('iron_dsus_G6.csv')
-    w7_w, chiks7_w, chi7_w = read_response_function('iron_dsus_G7.csv')
-    w8_w, chiks8_w, chi8_w = read_response_function('iron_dsus_G8.csv')
+    w1_w, chi1_w = read_pair_function('iron_dsus_G1.csv')
+    w2_w, chi2_w = read_pair_function('iron_dsus_G2.csv')
+    w3_w, chi3_w = read_pair_function('iron_dsus_G3.csv')
+    w4_w, chi4_w = read_pair_function('iron_dsus_G4.csv')
+    w5_w, chi5_w = read_pair_function('iron_dsus_G5.csv')
+    w6_w, chi6_w = read_pair_function('iron_dsus_G6.csv')
+    w7_w, chi7_w = read_pair_function('iron_dsus_G7.csv')
+    w8_w, chi8_w = read_pair_function('iron_dsus_G8.csv')
     print(-chi1_w.imag)
     print(-chi2_w.imag)
 
