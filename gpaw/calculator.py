@@ -479,17 +479,6 @@ class GPAW(Calculator):
                 self.results['magmom'] = 0.0
                 self.results['magmoms'] = np.zeros(len(self.atoms))
 
-            occ_name = getattr(self.wfs.occupations, "name", None)
-            if occ_name == 'mom':
-                fac = 2 if self.wfs.collinear and self.wfs.nspins == 1 else 1
-                occ = [self.wfs.kpt_u[x].f_n.copy()
-                       / (self.wfs.kpt_u[x].weightk * fac)
-                       for x in range(len(self.wfs.kpt_u))]
-                if type(self.parameters.occupations) == dict:
-                    self.parameters.occupations['numbers'] = occ
-                else:
-                    self.parameters.occupations.numbers = occ
-
             self.summary()
 
             self.call_observers(self.scf.niter, final=True)
