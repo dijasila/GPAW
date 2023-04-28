@@ -26,7 +26,6 @@ class DirectMinLCAO(DirectLCAO):
         self.orthonormalization = orthonormalization
         self.need_init_orbs = need_init_orbs
         self.nkpts = nkpts
-        self.was_diag = False
         self.reference_orbitals = {}
         self.initialize_orbitals(wfs, ham)
 
@@ -77,7 +76,6 @@ class DirectMinLCAO(DirectLCAO):
             (not wfs.coefficients_read_from_file and self.need_init_orbs)
         if need_canon_coef or orthname == 'diag':
             super(DirectMinLCAO, self).iterate(ham, wfs)
-            self.was_diag = True
         else:
             wfs.orthonormalize(type=orthname)
         wfs.coefficients_read_from_file = False
