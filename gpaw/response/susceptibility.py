@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ase.units import Hartree
+
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
                                           get_pw_coordinates)
@@ -151,7 +153,7 @@ def spectral_decomposition(chi, pos_eigs=1, neg_eigs=0):
     assert chi.distribution == 'zGG'
     # Extract the spectrum of induced excitations
     chid = chi.copy_dissipative_part()
-    omega_w = chid.zd.omega_w  # frequency grid
+    omega_w = chid.zd.omega_w * Hartree  # frequency grid in eV
     G_Gc = get_pw_coordinates(chid.qpd)  # plane-wave basis
     chid_wGG = chid.blocks1d.all_gather(chid.array)  # collect all frequencies
     S_wGG = - chid_wGG / np.pi
