@@ -629,8 +629,7 @@ class ETDM:
                     wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
-            if self.mom_the_canonical_representation:
-                self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
                 if not sort_eigenvalues:
@@ -638,7 +637,8 @@ class ETDM:
                 else:
                     self.sort_orbitals(ham, wfs, use_eps=True)
                     not_update = not wfs.occupations.update_numbers
-                    if not_update:
+                    fixed_occ = wfs.occupations.use_fixed_occupations
+                    if not_update or fixed_occ:
                         wfs.occupations.numbers = \
                             self.initial_occupation_numbers
 
