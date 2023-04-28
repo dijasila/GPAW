@@ -8,7 +8,7 @@ from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 
 
@@ -35,28 +35,22 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
-    chiks_calc = ChiKSCalculator(gs,
+    chiks_calc = ChiKSCalculator(gs, context,
                                  nbands=nbands,
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks_calc)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
-                                                          rshelmax=rshelmax)
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
+        gs, context, rshelmax=rshelmax)
+    chi_factory = ChiFactory(chiks_calc, fxc_calculator)
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
-        if q == 0:
-            chi = chi_factory('+-', q_c, complex_frequencies,
-                              hxc_scaling=hxc_scaling,
-                              fxc=fxc, localft_calc=localft_calc)
-            fxc_kernel = chi.fxc_kernel
-        else:
-            chi = chi_factory('+-', q_c, complex_frequencies,
-                              hxc_scaling=hxc_scaling,
-                              fxc_kernel=fxc_kernel)
+        _, chi = chi_factory('+-', q_c, complex_frequencies,
+                             fxc=fxc, hxc_scaling=hxc_scaling)
         chi.write_reduced_diagonal(f'chiwG_q{q}.pckl',
                                    reduced_ecut=reduced_ecut)
+        assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
     context.comm.barrier()

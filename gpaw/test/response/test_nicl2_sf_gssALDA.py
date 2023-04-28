@@ -7,9 +7,9 @@ from gpaw.test import findpeak
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.dyson import HXCScaling
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.dyson import HXCScaling, HXCKernel
+from gpaw.response.susceptibility import ChiFactory, Chi
 from gpaw.response.pair_functions import read_pair_function
 
 
@@ -44,16 +44,16 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks_calc)
 
     # Calculate the magnetic response with and without a background density
     hxc_scaling = HXCScaling('fm')
-    localft_calc = LocalFTCalculator.from_rshe_parameters(
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
+    chi_factory = ChiFactory(chiks_calc, fxc_calculator)
     bgd_hxc_scaling = HXCScaling('fm')
-    bgd_localft_calc = LocalFTCalculator.from_rshe_parameters(
+    bgd_fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
         rshelmax=rshelmax,
@@ -74,20 +74,19 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
     #     plt.show()
 
     filestr = 'nicl2_macro_tms'
-    fxc_kernel = {'fxc': fxc, 'localft_calc': localft_calc}
     bgd_filestr = 'nicl2_macro_tms_bgd'
-    bgd_fxc_kernel = {'fxc': fxc, 'localft_calc': bgd_localft_calc}
     for q, q_c in enumerate(q_qc):
-        filename = filestr + '_q%d.csv' % q
-        txt = filestr + '_q%d.txt' % q
-        fxc_kernel = calculate_chi(chi_factory, q_c, zd,
-                                   fxc_kernel, hxc_scaling,
-                                   txt, filename)
-        filename = bgd_filestr + '_q%d.csv' % q
-        txt = bgd_filestr + '_q%d.txt' % q
-        bgd_fxc_kernel = calculate_chi(chi_factory, q_c, zd,
-                                       bgd_fxc_kernel, bgd_hxc_scaling,
-                                       txt, filename)
+        chiks, chi = chi_factory('+-', q_c, zd,
+                                 fxc=fxc,
+                                 hxc_scaling=hxc_scaling,
+                                 txt=filestr + '_q%d.txt' % q)
+        chi.write_macroscopic_component(filestr + '_q%d.csv' % q)
+        if q == 0:
+            # Calculate kernel with background charge
+            bgd_fxc_kernel = bgd_fxc_calculator(fxc, '+-', chiks.qpd)
+            bgd_hxc_kernel = HXCKernel(None, bgd_fxc_kernel, bgd_hxc_scaling)
+        bgd_chi = Chi(chiks, bgd_hxc_kernel, chi_factory.dyson_solver)
+        bgd_chi.write_macroscopic_component(bgd_filestr + '_q%d.csv' % q)
 
     context.write_timer()
     world.barrier()
@@ -107,25 +106,6 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                   test_Ipeak0=0.2321,  # a.u.
                   test_Ipeak1=0.0956,  # a.u.
                   )
-
-
-def calculate_chi(chi_factory, q_c, zd,
-                  fxc_kernel, hxc_scaling,
-                  txt, filename):
-    if isinstance(fxc_kernel, dict):
-        chi = chi_factory('+-', q_c, zd,
-                          fxc=fxc_kernel['fxc'],
-                          localft_calc=fxc_kernel['localft_calc'],
-                          hxc_scaling=hxc_scaling,
-                          txt=txt)
-    else:  # Reuse fxc kernel from previous calculation
-        chi = chi_factory('+-', q_c, zd,
-                          fxc_kernel=fxc_kernel,
-                          hxc_scaling=hxc_scaling,
-                          txt=txt)
-    chi.write_macroscopic_component(filename)
-
-    return chi.fxc_kernel
 
 
 def check_magnons(filestr, hxc_scaling, *,
