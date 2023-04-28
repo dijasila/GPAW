@@ -7,9 +7,9 @@ from gpaw import GPAW
 from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_diagonal
-from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
+from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.dyson import HXCScaling
 
 
 @pytest.mark.kspair
@@ -23,7 +23,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     eta = 0.2
 
     rshelmax = 0
-    fxc_scaling = FXCScaling('fm')
+    hxc_scaling = HXCScaling('fm')
     ecut = 250
     reduced_ecut = 10  # Only save the bare minimum
     nblocks = 'max'
@@ -35,35 +35,29 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     nbands = calc.parameters.convergence['bands']
     gs = ResponseGroundStateAdapter(calc)
-    chiks_calc = ChiKSCalculator(gs,
+    chiks_calc = ChiKSCalculator(gs, context,
                                  nbands=nbands,
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks_calc)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(gs, context,
-                                                          rshelmax=rshelmax)
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
+        gs, context, rshelmax=rshelmax)
+    chi_factory = ChiFactory(chiks_calc, fxc_calculator)
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
-        if q == 0:
-            chi = chi_factory('+-', q_c, complex_frequencies,
-                              fxc_scaling=fxc_scaling,
-                              fxc=fxc, localft_calc=localft_calc)
-            fxc_kernel = chi.fxc_kernel
-        else:
-            chi = chi_factory('+-', q_c, complex_frequencies,
-                              fxc_scaling=fxc_scaling,
-                              fxc_kernel=fxc_kernel)
-        chi.write_reduced_diagonals(f'chiwG_q{q}.pckl',
-                                    reduced_ecut=reduced_ecut)
+        _, chi = chi_factory('+-', q_c, complex_frequencies,
+                             fxc=fxc, hxc_scaling=hxc_scaling)
+        chi.write_reduced_diagonal(f'chiwG_q{q}.pckl',
+                                   reduced_ecut=reduced_ecut)
+        assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
     context.comm.barrier()
 
     # Read data
-    w0_w, _, _, chi0_wG = read_diagonal('chiwG_q0.pckl')
-    w1_w, _, _, chi1_wG = read_diagonal('chiwG_q1.pckl')
+    w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.pckl')
+    w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
 
     # # Find acoustic magnon mode
     wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)
@@ -90,12 +84,12 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.show()
 
         # Print values
-        print(fxc_scaling.get_scaling())
+        print(hxc_scaling.lambd)
         print(wpeak00, wpeak01, wpeak10, wpeak11)
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
 
     # Test kernel scaling
-    assert fxc_scaling.get_scaling() == pytest.approx(0.9859, abs=0.005)
+    assert hxc_scaling.lambd == pytest.approx(0.9859, abs=0.005)
 
     # Test magnon frequencies
     assert wpeak00 == pytest.approx(-0.0279, abs=0.005)

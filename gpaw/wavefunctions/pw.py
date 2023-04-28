@@ -1,20 +1,21 @@
+from __future__ import annotations
+
 import numbers
-
 from math import pi
-
-import numpy as np
-from ase.units import Bohr, Ha
-from ase.utils.timing import timer
 
 import _gpaw
 import gpaw
 import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Bohr, Ha
+from ase.utils.timing import timer
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
+from gpaw.typing import Array2D
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
@@ -26,21 +27,30 @@ from gpaw.wavefunctions.mode import Mode
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, *, fftwflags=fftw.MEASURE, cell=None,
-                 gammacentered=False,
-                 pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False,
-                 interpolation='fft'):
+    def __init__(self,
+                 ecut: float = 340,
+                 *,
+                 fftwflags: int = fftw.MEASURE,
+                 cell: Array2D | None = None,
+                 gammacentered=False,  # Deprecated
+                 pulay_stress: float | None = None,
+                 dedecut: float | str | None = None,
+                 force_complex_dtype: bool = False,
+                 interpolation: str | int = 'fft'):
         """Plane-wave basis mode.
 
+        Only one of ``dedecut`` and ``pulay_stress`` can be used.
+
+        Parameters
+        ==========
         ecut: float
             Plane-wave cutoff in eV.
         gammacentered: bool
             Center the grid of chosen plane waves around the
             gamma point or q/k-vector
-        dedecut: float or None or 'estimate'
+        dedecut:
             Estimate of derivative of total energy with respect to
-            plane-wave cutoff.  Used to calculate pulay_stress.
+            plane-wave cutoff.  Used to calculate the Pulay-stress.
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
@@ -49,14 +59,12 @@ class PW(Mode):
 
                 from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
 
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves.
+        cell: np.ndarray
+            Use this unit cell to chose the plane-waves.
         interpolation : str or int
             Interpolation scheme to construct the density on the fine grid.
-            Default is 'fft' and alternatively a stencil (integer) can be given
-            to perform an explicit real-space interpolation.
-
-        Only one of dedecut and pulay_stress can be used.
+            Default is ``'fft'`` and alternatively a stencil (integer) can
+            be given to perform an explicit real-space interpolation.
         """
 
         assert not gammacentered

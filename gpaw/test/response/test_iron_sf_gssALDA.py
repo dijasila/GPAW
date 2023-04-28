@@ -15,10 +15,11 @@ from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.susceptibility import ChiFactory, Chi
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling, FXCKernel
-from gpaw.response.df import read_response_function
+from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
+from gpaw.response.dyson import HXCScaling, HXCKernel
+from gpaw.response.pair_functions import read_pair_function
 
 
 def set_up_fxc_calculators(gs, context):
@@ -26,15 +27,15 @@ def set_up_fxc_calculators(gs, context):
 
     # Set up grid calculator (without file buffer)
     localft_calc = LocalGridFTCalculator(gs, context)
-    fxckwargs_grid = {'localft_calc': localft_calc,
-                      'fxc_scaling': FXCScaling('fm')}
+    fxckwargs_grid = {'fxc_calculator': AdiabaticFXCCalculator(localft_calc),
+                      'hxc_scaling': HXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_grid, 'grid'))
 
     # Set up paw calculator (with file buffer)
     localft_calc = LocalPAWFTCalculator(gs, context, rshelmax=0)
-    fxckwargs_paw = {'localft_calc': localft_calc,
+    fxckwargs_paw = {'fxc_calculator': AdiabaticFXCCalculator(localft_calc),
                      'fxc_file': Path('paw_ALDA_fxc.npz'),
-                     'fxc_scaling': FXCScaling('fm')}
+                     'hxc_scaling': HXCScaling('fm')}
     fxckwargs_and_identifiers.append((fxckwargs_paw, 'paw'))
 
     return fxckwargs_and_identifiers
@@ -85,38 +86,42 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    chi_factory = ChiFactory(chiks_calc)
-
     fxckwargs_and_identifiers = set_up_fxc_calculators(gs, context)
+    
+    chi_factory = ChiFactory(
+        chiks_calc,
+        # Use the first fxc_calculator for the ChiFactory
+        fxc_calculator=fxckwargs_and_identifiers[0][0]['fxc_calculator'])
 
     for q in range(2):
         complex_frequencies = frq_qw[q] + 1.j * eta
 
         # Calculate chi using the various fxc calculators
-        for fxckwargs, identifier in fxckwargs_and_identifiers:
-
-            if 'fxc_file' in fxckwargs:  # Save the kernel to reuse it
-                actual_fxckwargs = fxckwargs.copy()
-                fxc_file = actual_fxckwargs.pop('fxc_file')
-                if q == 0:  # Calculate kernel for q == 0
+        for f, (fxckwargs, identifier) in enumerate(fxckwargs_and_identifiers):
+            if f == 0:
+                # The first kernel is used directly through the ChiFactory
+                chiks, chi = chi_factory('+-', q_qc[q], complex_frequencies,
+                                         fxc=fxc,
+                                         hxc_scaling=fxckwargs['hxc_scaling'])
+            else:  # We wish to test storing the remaining kernels in files
+                assert 'fxc_file' in fxckwargs
+                fxc_file = fxckwargs['fxc_file']
+                if q == 0:  # Calculate and save kernel
                     assert not fxc_file.is_file()
-                    kxc = {'fxc': fxc}
-                    kxc.update(actual_fxckwargs)
-                else:  # Reuse kernel from q == 0 calculation
+                    fxc_calculator = fxckwargs['fxc_calculator']
+                    fxc_kernel = fxc_calculator(fxc, '+-', chiks.qpd)
+                    fxc_kernel.save(fxc_file)
+                else:  # Reuse kernel from previous calculation
                     assert fxc_file.is_file()
                     fxc_kernel = FXCKernel.from_file(fxc_file)
-                    kxc = {'fxc_kernel': fxc_kernel,
-                           'fxc_scaling': fxckwargs['fxc_scaling']}
-            else:
-                kxc = {'fxc': fxc}
-                kxc.update(fxckwargs)
-            
-            chi = chi_factory('+-', q_qc[q], complex_frequencies, **kxc)
+
+                # Calculate many-body susceptibility
+                hxc_kernel = HXCKernel(None, fxc_kernel,
+                                       fxckwargs['hxc_scaling'])
+                chi = Chi(chiks, hxc_kernel, chi_factory.dyson_solver)
+
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
-
-            if 'fxc_file' in fxckwargs and q == 0:
-                chi.fxc_kernel.save(fxckwargs['fxc_file'])
 
         chi_factory.context.write_timer()
 
@@ -126,7 +131,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
     # Compare results to test values
     for fxckwargs, identifier in fxckwargs_and_identifiers:
-        fxcs = fxckwargs['fxc_scaling'].get_scaling()
+        fxcs = fxckwargs['hxc_scaling'].lambd
         _, _, mw1, Ipeak1, _, _, mw2, Ipeak2 = extract_data(identifier)
 
         print(fxcs, mw1, mw2, Ipeak1, Ipeak2)
@@ -134,7 +139,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         (test_fxcs, test_mw1, test_mw2,
          test_Ipeak1, test_Ipeak2) = get_test_values(identifier)
 
-        # fxc_scaling:
+        # fxc scaling:
         assert fxcs == pytest.approx(test_fxcs, abs=0.005)
 
         # Magnon peak:
@@ -148,10 +153,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
 def extract_data(identifier):
     # Read data
-    w1_w, chiks1_w, chi1_w = read_response_function(identifier
-                                                    + '_iron_dsus_1.csv')
-    w2_w, chiks2_w, chi2_w = read_response_function(identifier
-                                                    + '_iron_dsus_2.csv')
+    w1_w, chi1_w = read_pair_function(identifier + '_iron_dsus_1.csv')
+    w2_w, chi2_w = read_pair_function(identifier + '_iron_dsus_2.csv')
 
     # Spectral function
     S1_w = -chi1_w.imag

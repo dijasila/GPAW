@@ -14,29 +14,60 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, in_myix):
-        """Collect full array where the first dimension is block distributed.
+    def all_gather(self, in_myix):
+        """All-gather array where the first dimension is block distributed.
 
         Here, myi is understood as the distributed index, whereas x are the
         remaining (global) dimensions."""
-        xshape = in_myix.shape[1:]
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        buf_ix = self.global_communication_buffer(in_myix)
 
-        # Local communication buffer
-        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
-            buf_myix = in_myix  # Use input array as communication buffer
-        else:
-            assert in_myix.shape[0] == self.nlocal
-            buf_myix = np.empty((self.blocksize,) + xshape, in_myix.dtype)
-            buf_myix[:self.nlocal] = in_myix
-
-        # Global communication buffer
-        buf_ix = np.empty((self.blockcomm.size * self.blocksize,) + xshape,
-                          dtype=in_myix.dtype)
-
+        # Excecute all-gather
         self.blockcomm.all_gather(buf_myix, buf_ix)
         out_ix = buf_ix[:self.N]
 
         return out_ix
+
+    def gather(self, in_myix, root=0):
+        """Gather array to root where the first dimension is block distributed.
+        """
+        assert root in range(self.blockcomm.size)
+
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        if self.blockcomm.rank == root:
+            buf_ix = self.global_communication_buffer(in_myix)
+        else:
+            buf_ix = None
+
+        # Excecute gather
+        self.blockcomm.gather(buf_myix, root, buf_ix)
+        if self.blockcomm.rank == root:
+            out_ix = buf_ix[:self.N]
+        else:
+            out_ix = None
+
+        return out_ix
+
+    def local_communication_buffer(self, in_myix):
+        """Set up local communication buffer."""
+        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
+            buf_myix = in_myix  # Use input array as communication buffer
+        else:
+            assert in_myix.shape[0] == self.nlocal
+            buf_myix = np.empty(
+                (self.blocksize,) + in_myix.shape[1:], in_myix.dtype)
+            buf_myix[:self.nlocal] = in_myix
+
+        return buf_myix
+
+    def global_communication_buffer(self, in_myix):
+        """Set up global communication buffer."""
+        buf_ix = np.empty(
+            (self.blockcomm.size * self.blocksize,) + in_myix.shape[1:],
+            dtype=in_myix.dtype)
+        return buf_ix
 
     def find_global_index(self, i):
         """Find rank and local index of the global index i"""
