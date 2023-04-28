@@ -214,7 +214,7 @@ class LatticePeriodicPairFunction(PairFunction):
 
         new_pf = self._new(*self.my_args(qpd=qpd),
                            distribution=self.distribution)
-        new_pf.array[:] = map_WgG_array_to_reduced_pd(self.qpd, qpd,
+        new_pf.array[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
                                                       self.blockdist,
                                                       self.array)
 
@@ -235,10 +235,23 @@ class LatticePeriodicPairFunction(PairFunction):
         return new_pf
 
 
-def map_WgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_WgG):
-    """Map an output array to a reduced plane wave basis which is
-    completely contained within the original basis, that is, from qpdi to
-    qpd."""
+def map_ZgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_ZgG):
+    """Map the array in_ZgG from the qpdi to the qpd plane-wave basis."""
+    # Distribute over frequencies
+    nw = in_ZgG.shape[0]
+    tmp_zGG = blockdist.distribute_as(in_ZgG, nw, 'zGG')
+
+    # Reduce the plane-wave basis
+    tmp_zGG = map_zGG_array_to_reduced_pd(qpdi, qpd, tmp_zGG)
+
+    # Distribute over plane waves
+    out_ZgG = blockdist.distribute_as(tmp_zGG, nw, 'ZgG')
+
+    return out_ZgG
+
+
+def map_zGG_array_to_reduced_pd(qpdi, qpd, in_zGG):
+    """Map the array in_zGG from the qpdi to the qpd plane-wave basis."""
     from gpaw.pw.descriptor import PWMapping
 
     # Initialize the basis mapping
@@ -248,23 +261,16 @@ def map_WgG_array_to_reduced_pd(qpdi, qpd, blockdist, in_WgG):
     G1_GG = tuple(np.meshgrid(pwmapping.G1, pwmapping.G1,
                               indexing='ij'))
 
-    # Distribute over frequencies
-    nw = in_WgG.shape[0]
-    tmp_wGG = blockdist.distribute_as(in_WgG, nw, 'wGG')
-
     # Allocate array in the new basis
     nG = qpd.ngmax
-    new_tmp_shape = (tmp_wGG.shape[0], nG, nG)
-    new_tmp_wGG = np.zeros(new_tmp_shape, complex)
+    out_zGG_shape = (in_zGG.shape[0], nG, nG)
+    out_zGG = np.zeros(out_zGG_shape, complex)
 
-    # Extract values in the global basis
-    for w, tmp_GG in enumerate(tmp_wGG):
-        new_tmp_wGG[w][G2_GG] = tmp_GG[G1_GG]
+    # Extract values
+    for z, in_GG in enumerate(in_zGG):
+        out_zGG[z][G2_GG] = in_GG[G1_GG]
 
-    # Distribute over plane waves
-    out_WgG = blockdist.distribute_as(new_tmp_wGG, nw, 'WgG')
-
-    return out_WgG
+    return out_zGG
 
 
 class ChiKS(LatticePeriodicPairFunction):
@@ -352,74 +358,28 @@ class Chi:
     def write_reduced_array(self, filename, *, reduced_ecut):
         """Write the susceptibility within a reduced plane-wave basis to a file
         along with the frequency grid."""
-        G_Gc, chi_ZGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        chi_ZGG = self.blocks1d.gather(chi_zGG)
         if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZGG)
+            write_susceptibility_array(filename, self.zd, qpd, chi_ZGG)
 
     def get_reduced_array(self, *, reduced_ecut):
-        """Get data array with a reduced ecut, gathered on root."""
+        """Get data array with a reduced ecut."""
         assert self.distribution == 'zGG'
-        chi_zGG = self.array
 
-        # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.qpd
-        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chi_zGG = np.ascontiguousarray(chi_zGG[:, mask_G, :][:, :, mask_G])
-        chi_ZGG = self.blocks1d.gather(chi_zGG)
+        qpd = self.qpd.copy_with(ecut=reduced_ecut / Hartree)
+        chi_zGG = map_zGG_array_to_reduced_pd(self.qpd, qpd, self.array)
 
-        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(qpd)[mask_G]
-
-        return G_Gc, chi_ZGG
+        return qpd, chi_zGG
 
     def write_reduced_diagonal(self, filename, *, reduced_ecut):
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
-        G_Gc, chi_ZG = self.get_reduced_diagonal(reduced_ecut=reduced_ecut)
-        if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, G_Gc, chi_ZG)
-
-    def get_reduced_diagonal(self, *, reduced_ecut):
-        """Get the diagonal of the reduced data array, gathered on root."""
-        assert self.distribution == 'zGG'
-        chi_zGG = self.array
-
-        # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.qpd
-        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chi_zG = np.ascontiguousarray(chi_zGG[:, mask_G, mask_G])
+        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
         chi_ZG = self.blocks1d.gather(chi_zG)
-
-        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(qpd)[mask_G]
-
-        return G_Gc, chi_ZG
-
-
-def get_pw_reduction_map(qpd, ecut):
-    """Get a mask to reduce the plane wave representation.
-
-    Please remark, that the response code currently works with one q-vector
-    at a time, at thus only a single plane wave representation at a time.
-
-    Returns
-    -------
-    mask_G : nd.array (dtype=bool)
-        Mask which reduces the representation
-    """
-    assert ecut is not None
-    ecut /= Hartree
-    assert ecut <= qpd.ecut
-
-    # List of all plane waves
-    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
-
-    if qpd.gammacentered:
-        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
-    else:
-        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
-
-    return mask_G
+        if self.world.rank == 0:
+            write_susceptibility_array(filename, self.zd, qpd, chi_ZG)
 
 
 def get_pw_coordinates(qpd):
@@ -476,12 +436,13 @@ def read_pair_function(filename):
     return omega_w, pf_w
 
 
-def write_susceptibility_array(filename, zd, G_Gc, chi_zx):
+def write_susceptibility_array(filename, zd, qpd, chi_zx):
     """Write the dynamic susceptibility as a pickle file."""
     # For now, we assume that the complex frequencies lie on a horizontal
     # contour
     assert zd.horizontal_contour
     omega_w = zd.omega_w * Hartree  # Ha -> eV
+    G_Gc = get_pw_coordinates(qpd)
     chi_wx = chi_zx
 
     # Write pickle file
