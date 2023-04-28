@@ -8,7 +8,7 @@ from ase import Atoms
 import numpy as np
 
 
-def test_mom_directopt_lcao(in_tmp_dir):
+def test_gmf_directopt_lcao(in_tmp_dir):
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * 104.51

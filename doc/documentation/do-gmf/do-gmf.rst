@@ -14,88 +14,53 @@ commonly observed in excited states, can be used in GPAW. In DO, excited states 
 directly found as stationary solutions on the electronic energy surface. To do so, any
 optimization method can, in principle, be used, as long as it is able to find saddle
 points. To avoid converging to a minimum (variational collapse), the
-:ref:`maximum overlap method <_mom>` can be used in conjunction with an algorithm that
-can converge to saddle points of unspecified order.
+:ref:`maximum overlap method <mom>` can be used in conjunction with an algorithm that
+can converge to saddle points of unspecified order, but variational collapse can still
+occur in challenging cases. Alternatively, the generalized mode following (GMF) method
+can be used together with the DO approach (DO-GMF) in GPAW. This method estimates the
+saddle point order of the target excited state solution prior to the optimization and
+then specifically targets a stationary solution with this saddle point order. This
+approach converges more robustly than both DO with quasi-Newton optimization methods and
+SCF algorithms, and it inherently eliminates variational collapse by construction.
 
-Moreover, standard SCF algorithms tend to fail when degenerate or nearly
-degenerate orbitals are unequally occupied, a situation that is
-more common in excited-state rather than ground-state calculations
-(see :ref:`coexample` below).
-In GPAW, excited-state calculations can be performed via a :ref:`direct
-optimization <directopt>` (DO) of the orbital (implemented for the moment only
-in LCAO). DO can converge to a generic stationary point,
-and not only to a minimum and has been shown to be more robust than diagonalization-based
-:ref:`SCF algorithms <manual_eigensolver>` using density mixing in excited-state
-calculations of molecules [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_;
-therefore, it is the recommended method for obtaining excited-state solutions
-with MOM.
-
-----------------------
-Maximum overlap method
-----------------------
+--------------------------
+Generalized mode following
+--------------------------
 
 ~~~~~~~~~~~~~~
 Implementation
 ~~~~~~~~~~~~~~
 
-The MOM approach implemented in GPAW is the initial maximum
-overlap method [#imom]_. The implementation is
-presented in [#momgpaw1]_ (real space grid and plane waves
-approaches) and [#momgpaw2]_ (LCAO approach).
+The implementation of the DO-GMF method is presented in [#dogmfgpaw1]_ (LCAO approach).
 
-The orbitals `\{|\psi_{i}\rangle\}` used as initial guess for an
-excited-state calculation are taken as fixed reference orbitals
-for MOM. The implementation in GPAW supports the
-use of fractional occupation numbers. Let `\{|\psi_{n}\rangle\}_{s}`
-be a subspace of `N` initial guess orbitals with occupation
-number `f_{s}` and `\{|\psi_{m}^{(k)}\rangle\}` the orbitals
-determined at iteration `k` of the wave-function optimization.
-An occupation number of `f_{s}` is given to the first `N`
-orbitals with the biggest numerical weights, evaluated as
-[#dongmom]_:
+GMF is a generalization of the minimum mode following method traditionally used to
+optimize 1\textsuperscript{st}-order saddle points on the nuclear potential energy
+surface. The method recasts the challenging saddle point search as a minimization by
+inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
+generalized to target an n\textsuperscript{th}-order saddle point by inverting the
+projections on the lowest n eigenmodes of the Hessian yielding the modified gradient
 
 .. math::
-   :label: eq:mommaxoverlap
+    g^{\mathrm{\,mod}} = g - 2\sum_{i = 1}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-    P_{m}^{(k)} = \max_{n}\left( |O_{nm}^{(k)}| \right)
-
-where `O_{nm}^{(k)} = \langle\psi_n | \psi_{m}^{(k)}\rangle`.
-Alternatively, the numerical weights can be evaluated as
-the following projections onto the manifold `\{|\psi_{n}\rangle\}_{s}`
-[#imom]_:
+if the energy surface is concave along all target eigenvectors or
 
 .. math::
-   :label: eq:momprojections
+    g^{\mathrm{\,mod}} = -\sum_{i = 1 \\ \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-    P_{m}^{(k)} = \left(\sum_{n=1}^{N}  |O_{nm}^{(k)}|^{2} \right)^{1/2}
+if it is not. Notice that only the non-concave target eigenvectors are followed, if any
+exist, to increase stability of the method.
 
-In :ref:`plane-waves<manual_mode>` or :ref:`finite-difference <manual_stencils>`
-modes, the elements of the overlap matrix are calculated from:
+The target eigenvalues and eigenvectors of the electronic Hessian matrix are obtained
+by using a finite difference generalized Davidson method, whose implementation is
+presented in [#gendavidson]_.
 
-.. math::
-    O_{nm}^{(k)} = \langle\tilde{\psi}_n | \tilde{\psi}_{m}^{(k)}\rangle +
-    \sum_{a, i_1, i_2} \langle\tilde{\psi}_n | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
-    \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \tilde{\psi}_{m}^{(k)}\rangle
+~~~~~~~~~~~~~~~~~
+How to use DO-GMF
+~~~~~~~~~~~~~~~~~
 
-where `|\tilde{\psi}_{n}\rangle` and `|\tilde{\psi}_{m}^{(k)}\rangle`
-are the pseudo orbitals, `|\tilde{p}_{i_1}^{a}\rangle`, `|\phi_{i_1}^{a}\rangle`
-and `|\tilde{\phi}_{i_1}^{a}\rangle` are projector functions, partial
-waves and pseudo partial waves localized on atom `a`, respectively.
-In :ref:`LCAO <lcao>`, the overlaps `O_{nm}^{(k)}` are calculated as:
-
-.. math::
-    O_{nm}^{(k)} = \sum_{\mu\nu} c^*_{\mu n}S_{\mu\nu}c^{(k)}_{\nu m}, \qquad
-    S_{\mu\nu} = \langle\Phi_{\mu} | \Phi_{\nu}\rangle +
-    \sum_{a, i_1, i_2} \langle\Phi_{\mu} | \tilde{p}_{i_1}^{a}\rangle \left( \langle\phi_{i_1}^{a} | \phi_{i_2}^{a}\rangle -
-    \langle\tilde{\phi}_{i_1}^{a} | \tilde{\phi}_{i_2}^{a}\rangle \right) \langle\tilde{p}_{i_2}^{a} | \Phi_{\nu}\rangle
-
-where `c^*_{\mu n}` and `c^{(k)}_{\nu m}` are the expansion
-coefficients for the initial guess orbitals and orbitals at
-iteration `k`, while `|\Phi_{\nu}\rangle` are the basis functions.
-
-~~~~~~~~~~~~~~
-How to use MOM
-~~~~~~~~~~~~~~
+To provide initial guess orbitals for the excited state DO-GMF calculation, a ground
+state calculation is typically performed first.
 
 Initial guess orbitals for the excited-state calculation are first
 needed. Typically, they are obtained from a ground-state calculation.
