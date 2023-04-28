@@ -43,11 +43,8 @@ def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
 
     a_mat_u = {0: [np.sqrt(2) * np.pi / 4.0 + 1.0j * np.sqrt(2) * np.pi / 4.0]}
     c_nm_ref = calc.wfs.eigensolver.dm_helper.reference_orbitals
-    calc.wfs.eigensolver.rotate_wavefunctions(calc.wfs,
-                                              a_mat_u,
-                                              {0: calc.wfs.bd.nbands},
-                                              c_nm_ref
-                                              )
+    calc.wfs.eigensolver.rotate_wavefunctions(
+        calc.wfs, a_mat_u, {0: calc.wfs.bd.nbands}, c_nm_ref)
     calc.wfs.eigensolver.update_ks_energy(calc.hamiltonian,
                                           calc.wfs, calc.density)
     calc.wfs.eigensolver.get_canonical_representation(
