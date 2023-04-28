@@ -106,9 +106,6 @@ class ETDM:
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
-        self.mom_the_canonical_representation \
-            = mom_the_canonical_representation
-        self.constraints = constraints
 
         self.gmf = False
         self.searchdir_algo = search_direction(
@@ -244,7 +241,6 @@ class ETDM:
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
-        check_not_aufbau_but_diag(wfs, self.dm_helper.was_diag)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
