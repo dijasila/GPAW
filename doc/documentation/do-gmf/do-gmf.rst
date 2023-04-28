@@ -38,7 +38,7 @@ optimize 1\textsuperscript{st}-order saddle points on the nuclear potential ener
 surface. The method recasts the challenging saddle point search as a minimization by
 inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
 generalized to target an ``n^{th}``-order saddle point by inverting the
-projections on the lowest ``n`` eigenmodes of the Hessian yielding the modified gradient
+projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding the modified gradient
 
 .. math::
     g^{\mathrm{\,mod}} = g - 2\sum_{i = 1}^{n}v_{i}v_{i}^{\mathrm{T}}g
@@ -48,8 +48,8 @@ if the energy surface is concave along all target eigenvectors or
 .. math::
     g^{\mathrm{\,mod}} = -\sum_{i = 1 \\ \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-if it is not. Notice that only the non-concave target eigenvectors are followed, if any
-exist, to increase stability of the method.
+if any target eigenvalue, \lambda, is non-negative. Notice that only the non-concave
+target eigenvectors are followed, if any exist, to increase stability of the method.
 
 The target eigenvalues and eigenvectors of the electronic Hessian matrix are obtained
 by using a finite difference generalized Davidson method, whose implementation is
@@ -60,12 +60,8 @@ How to use DO-GMF
 ~~~~~~~~~~~~~~~~~
 
 To provide initial guess orbitals for the excited state DO-GMF calculation, a ground
-state calculation is typically performed first.
-
-Initial guess orbitals for the excited-state calculation are first
-needed. Typically, they are obtained from a ground-state calculation.
-Then, to prepare the calculator for a MOM excited-state calculation,
-the function ``mom.prepare_mom_calculation`` can be used::
+state calculation is typically performed first. Then, a DO-GMF calculation can be
+requested as follows::
 
   from gpaw.directmin.etdm import ETDM
 
@@ -78,7 +74,9 @@ the function ``mom.prepare_mom_calculation`` can be used::
                         'use_fixed_occupations': True})
 
 where the log file can be specified and ``f`` contains the occupation numbers of the
-excited state (see examples below).
+excited state (see examples below). Line search algorithms cannot be applied for saddle
+point searches in this implementation. Any search direction algorithm can be used by
+appending the name keyword with ``_GMF``.
 
 A helper function can be used to create the list of excited-state occupation numbers::
 
@@ -91,37 +89,6 @@ channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 ``excite(calc, -1, 2, spin=(0, 1))`` will remove an electron from
 the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
-
-.. _directopt:
-
--------------------
-Direct optimization
--------------------
-
-Direct optimization (DO) can be performed using the implementation
-of exponential transformation direct minimization (ETDM)
-[#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ described in :ref:`directmin`.
-This method uses the exponential transformation and efficient quasi-Newton
-algorithms to find stationary points of the energy in the space of unitary
-matrices. Currently, DO can be performed only in LCAO mode.
-
-For excited-state calculations, the recommended quasi-Newton
-algorithm is a limited-memory symmetric rank-one (L-SR1) method
-[#momgpaw2]_ with unit step. In order to use this algorithm, the
-following ``eigensolver`` has to be specified::
-
-  from gpaw.directmin.etdm import ETDM
-
-  calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                            linesearch_algo={'name': 'max-step',
-                                             'max_step': 0.20})
-
-The maximum step length avoids taking too large steps at the
-beginning of the wave function optimization. The default maximum step length
-is 0.20, which has been found to provide an adequate balance between stability
-and speed of convergence for calculations of excited states of molecules
-[#momgpaw2]_. However, a different value might improve the convergence for
-specific cases.
 
 .. _h2oexample:
 
