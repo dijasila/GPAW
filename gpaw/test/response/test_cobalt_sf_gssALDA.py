@@ -50,8 +50,11 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
 
     for q, q_c in enumerate(q_qc):
         complex_frequencies = frq_w + 1.j * eta
-        _, chi = chi_factory('+-', q_c, complex_frequencies,
-                             fxc=fxc, hxc_scaling=hxc_scaling)
+        chiks, chi = chi_factory('+-', q_c, complex_frequencies,
+                                 fxc=fxc, hxc_scaling=hxc_scaling)
+        chiks = chiks.copy_with_reduced_ecut(reduced_ecut)
+        Aksmaj, _ = spectral_decomposition(chiks, pos_eigs=0, neg_eigs=0)
+        Aksmaj.write(f'Aksmaj_q{q}.pckl')
         chi = chi.copy_with_reduced_ecut(reduced_ecut)
         chi.write_diagonal(f'chiwG_q{q}.pckl')
         Amaj, _ = spectral_decomposition(chi,
@@ -68,6 +71,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
     Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.pckl')
     Amaj1 = EigendecomposedSpectrum.from_file('Amaj_q1.pckl')
+    Aksmaj0 = EigendecomposedSpectrum.from_file('Aksmaj_q0.pckl')
+    Aksmaj1 = EigendecomposedSpectrum.from_file('Aksmaj_q1.pckl')
 
     # Find acoustic magnon mode
     wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)
@@ -91,11 +96,15 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     mpeak10, Speak10 = findpeak(Amaj0.omega_w, s10_w)
     mpeak11, Speak11 = findpeak(Amaj1.omega_w, s11_w)
 
+    # Calculate the full spectral enhancement at the acoustic magnon maxima
+    enh0 = Amaj0.A_w[w0] / Aksmaj0.A_w[w0]
+    enh1 = Amaj1.A_w[w1] / Aksmaj1.A_w[w1]
+
     if context.comm.rank == 0:
-        # # Plot the magnons
         # import matplotlib.pyplot as plt
+        # # Plot the magnon lineshapes
         # # q=0
-        # plt.subplot(1, 2, 1)
+        # plt.subplot(2, 2, 1)
         # plt.plot(w0_w, -chi0_wG[:, 0].imag)
         # plt.axvline(wpeak00, c='0.5', linewidth=0.8)
         # plt.plot(w0_w, -chi0_wG[:, 1].imag)
@@ -105,7 +114,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.plot(Amaj0.omega_w, s00_w)
         # plt.plot(Amaj0.omega_w, s10_w)
         # # q=1
-        # plt.subplot(1, 2, 2)
+        # plt.subplot(2, 2, 2)
         # plt.plot(w1_w, -chi1_wG[:, 0].imag)
         # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
         # plt.plot(w1_w, -chi1_wG[:, 1].imag)
@@ -114,6 +123,17 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 1])
         # plt.plot(Amaj1.omega_w, s01_w)
         # plt.plot(Amaj1.omega_w, s11_w)
+        # # Plot full spectral weight
+        # # q=0
+        # plt.subplot(2, 2, 3)
+        # plt.plot(Amaj0.omega_w, Amaj0.A_w)
+        # plt.plot(Aksmaj0.omega_w, Aksmaj0.A_w)
+        # plt.axvline(wpeak00, c='0.5', linewidth=0.8)
+        # # q=1
+        # plt.subplot(2, 2, 4)
+        # plt.plot(Amaj1.omega_w, Amaj1.A_w)
+        # plt.plot(Aksmaj1.omega_w, Aksmaj1.A_w)
+        # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
         # plt.show()
 
         # Print values
@@ -122,6 +142,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
         print(mpeak00, mpeak01, mpeak10, mpeak11)
         print(Speak00, Speak01, Speak10, Speak11)
+        print(enh0, enh1)
 
     # Test kernel scaling
     assert hxc_scaling.lambd == pytest.approx(0.9859, abs=0.005)
@@ -149,6 +170,10 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert Speak01 == pytest.approx(4.796, abs=0.01)
     assert Speak10 == pytest.approx(2.587, abs=0.01)
     assert Speak11 == pytest.approx(2.426, abs=0.01)
+
+    # Test enhancement factors
+    assert enh0 == pytest.approx(46.18, abs=0.1)
+    assert enh1 == pytest.approx(31.87, abs=0.1)
 
 
 def extract_magnon_eigenmodes(Amaj, windex, eindex):
