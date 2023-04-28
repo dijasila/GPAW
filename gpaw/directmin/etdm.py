@@ -722,8 +722,7 @@ class ETDM:
                'matrix_exp': self.matrix_exp,
                'representation': self.representation,
                'functional': self.func.todict(),
-               'orthonormalization': self.orthonormalization,
-               'constraints': self.constraints
+               'orthonormalization': self.orthonormalization
                }
         if self.gmf:
             ret['partial_diagonalizer'] = \
