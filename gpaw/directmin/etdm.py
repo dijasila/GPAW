@@ -18,7 +18,6 @@ from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
-from gpaw.mpi import rank, MASTER
 from copy import deepcopy
 
 
