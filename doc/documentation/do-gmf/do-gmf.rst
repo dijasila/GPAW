@@ -37,8 +37,8 @@ GMF is a generalization of the minimum mode following method traditionally used 
 optimize 1\textsuperscript{st}-order saddle points on the nuclear potential energy
 surface. The method recasts the challenging saddle point search as a minimization by
 inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
-generalized to target an n\textsuperscript{th}-order saddle point by inverting the
-projections on the lowest n eigenmodes of the Hessian yielding the modified gradient
+generalized to target an ``n^{th}``-order saddle point by inverting the
+projections on the lowest ``n`` eigenmodes of the Hessian yielding the modified gradient
 
 .. math::
     g^{\mathrm{\,mod}} = g - 2\sum_{i = 1}^{n}v_{i}v_{i}^{\mathrm{T}}g
@@ -67,15 +67,20 @@ needed. Typically, they are obtained from a ground-state calculation.
 Then, to prepare the calculator for a MOM excited-state calculation,
 the function ``mom.prepare_mom_calculation`` can be used::
 
-  from gpaw import mom
+  from gpaw.directmin.etdm import ETDM
 
-  mom.prepare_mom_calculation(calc, atoms, f)
+  calc.set(eigensolver=ETDM(
+           partial_diagonalizer={'name': 'Davidson', 'logfile': None},
+           linesearch_algo={'name': 'max-step'},
+           searchdir_algo={'name': 'LBFGS-P_GMF'},
+           need_init_orbs=False),
+           occupations={'name': 'mom', 'numbers': f,
+                        'use_fixed_occupations': True})
 
-where ``f`` contains the occupation numbers of the excited state
-(see examples below). Alternatively, the MOM calculation can be
-initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
-A helper function can be used to create the list of excited-state occupation
-numbers::
+where the log file can be specified and ``f`` contains the occupation numbers of the
+excited state (see examples below).
+
+A helper function can be used to create the list of excited-state occupation numbers::
 
   from gpaw.directmin.tools import excite
   f = excite(calc, i, a, spin=(si, sa))
@@ -86,17 +91,6 @@ channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 ``excite(calc, -1, 2, spin=(0, 1))`` will remove an electron from
 the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
-
-The default is to use eq. :any:`eq:mommaxoverlap` to compute
-the numerical weights used to assign the occupation numbers.
-This was found to be more stable in the presence of diffuse
-virtual orbitals [#dongmom]_. In order to use eq. :any:`eq:momprojections`,
-instead, corresponding to the original MOM approach [#imom]_,
-one has to specify::
-
-  mom.prepare_mom_calculation(..., use_projections=True, ...)
-
-.. autofunction:: gpaw.mom.prepare_mom_calculation
 
 .. _directopt:
 
