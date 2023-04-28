@@ -7,7 +7,8 @@ from gpaw import GPAW
 from gpaw.test import findpeak
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.susceptibility import (ChiFactory, spectral_decomposition,
+                                          EigendecomposedSpectrum)
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.pair_functions import read_susceptibility_array
@@ -26,7 +27,9 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     rshelmax = 0
     hxc_scaling = HXCScaling('fm')
     ecut = 250
-    reduced_ecut = 10  # Only save the bare minimum
+    reduced_ecut = 100  # ecut for eigenmode analysis
+    pos_eigs = 2  # majority modes
+    neg_eigs = 0  # minority modes
     nblocks = 'max'
 
     # ---------- Script ---------- #
@@ -51,6 +54,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
                              fxc=fxc, hxc_scaling=hxc_scaling)
         chi = chi.copy_with_reduced_ecut(reduced_ecut)
         chi.write_diagonal(f'chiwG_q{q}.pckl')
+        Amaj, Amin = spectral_decomposition(chi, pos_eigs=2, neg_eigs=0)
+        Amaj.write(f'Amaj_q{q}.pckl')
         assert f'{fxc},+-' in chi_factory.fxc_kernel_cache
 
     context.write_timer()
@@ -59,8 +64,10 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     # Read data
     w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.pckl')
     w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
+    # Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.pckl')
+    # Amaj1 = EigendecomposedSpectrum.from_file('Amaj_q1.pckl')
 
-    # # Find acoustic magnon mode
+    # Find acoustic magnon mode
     wpeak00, Ipeak00 = findpeak(w0_w, -chi0_wG[:, 0].imag)
     wpeak01, Ipeak01 = findpeak(w1_w, -chi1_wG[:, 0].imag)
     # Find optical magnon mode
@@ -70,18 +77,22 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     if context.comm.rank == 0:
         # # Plot the magnons
         # import matplotlib.pyplot as plt
-        # # Acoustic magnon mode
+        # # q=0
         # plt.subplot(1, 2, 1)
         # plt.plot(w0_w, -chi0_wG[:, 0].imag)
         # plt.axvline(wpeak00, c='0.5', linewidth=0.8)
-        # plt.plot(w1_w, -chi1_wG[:, 0].imag)
-        # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
-        # # Optical magnon mode
-        # plt.subplot(1, 2, 2)
         # plt.plot(w0_w, -chi0_wG[:, 1].imag)
         # plt.axvline(wpeak10, c='0.5', linewidth=0.8)
+        # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 0])
+        # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 1])
+        # # q=1
+        # plt.subplot(1, 2, 2)
+        # plt.plot(w1_w, -chi1_wG[:, 0].imag)
+        # plt.axvline(wpeak01, c='0.5', linewidth=0.8)
         # plt.plot(w1_w, -chi1_wG[:, 1].imag)
         # plt.axvline(wpeak11, c='0.5', linewidth=0.8)
+        # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 0])
+        # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 1])
         # plt.show()
 
         # Print values
