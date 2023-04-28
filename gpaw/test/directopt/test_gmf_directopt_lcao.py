@@ -38,11 +38,10 @@ def test_mom_directopt_lcao(in_tmp_dir):
     calc.set(eigensolver=ETDM(
         partial_diagonalizer={'name': 'Davidson', 'logfile': None, 'seed': 42},
         linesearch_algo={'name': 'max-step'},
-        searchdir_algo={'name': 'LBFGS-P_MMF'},
+        searchdir_algo={'name': 'LBFGS-P_GMF'},
         need_init_orbs=False),
-        occupations={
-            'name': 'mom', 'numbers': f_sn, 'use_fixed_occupations': True}
-    )
+        occupations={'name': 'mom', 'numbers': f_sn,
+                     'use_fixed_occupations': True})
 
     e = H2O.get_potential_energy()
 
