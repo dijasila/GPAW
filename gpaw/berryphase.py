@@ -1,14 +1,15 @@
 import json
+import warnings
 from os.path import exists, splitext
 
-from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-from ase.dft.bandgap import bandgap
 import numpy as np
+from ase.dft.bandgap import bandgap
+from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
 from gpaw import GPAW
-from gpaw.mpi import serial_comm, world, rank
-from gpaw.utilities.blas import gemmdot
+from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
+from gpaw.utilities.blas import gemmdot
 
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
@@ -29,7 +30,7 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
-    
+
     gap = bandgap(calc)[0]
     assert gap != 0.0
 
@@ -447,9 +448,9 @@ def parallel_transport(calc,
     world.sum(S_km)
 
     if not calc.density.collinear:
-        print('WARNING: Spin projections are not meaningful ' +
-              'for non-collinear calculations')
-        
+        warnings.warn('WARNING: Spin projections are not meaningful ' +
+                      'for non-collinear calculations')
+
     if name is not None:
         np.savez(f'phases_{name}.npz', phi_km=phi_km, S_km=S_km)
 
