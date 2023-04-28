@@ -15,7 +15,7 @@ from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, Chi
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling, HXCKernel
@@ -118,7 +118,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                 # Calculate many-body susceptibility
                 hxc_kernel = HXCKernel(None, fxc_kernel,
                                        fxckwargs['hxc_scaling'])
-                chi = Chi(chiks, hxc_kernel, chi_factory.dyson_solver)
+                chi = chi_factory.dyson_solver(chiks, hxc_kernel)
 
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))

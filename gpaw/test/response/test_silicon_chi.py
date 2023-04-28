@@ -13,7 +13,7 @@ from gpaw.mpi import size, world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, Chi
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.dyson import HXCKernel
 from gpaw.response.pair_functions import read_pair_function
 
@@ -71,7 +71,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     # Calculate also the ALDA susceptibility manually
     hxc_kernel = HXCKernel(chi_factory.get_hartree_kernel('00', chiks.qpd),
                            chi_factory.get_xc_kernel('ALDA', '00', chiks.qpd))
-    chi = Chi(chiks, hxc_kernel, chi_factory.dyson_solver)
+    chi = chi_factory.dyson_solver(chiks, hxc_kernel)
     chi.write_macroscopic_component('Si_chi3.csv')
     chi_factory.context.write_timer()
 
