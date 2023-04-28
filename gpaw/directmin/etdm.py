@@ -338,14 +338,6 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
-            if self.constraints:
-                self.constraints[u] = convert_constraints(
-                    self.constraints[u], self.n_dim[u],
-                    len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
-
-        if self.constraints is None:
-            self.constraints = [[] for _ in range(len(kpt_u))]
-
         self.iters = 1
 
     def iterate(self, ham, wfs, dens):
