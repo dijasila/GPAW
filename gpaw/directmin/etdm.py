@@ -44,7 +44,6 @@ class ETDM:
                  localizationtype=None,
                  need_localization=True,
                  need_init_orbs=True,
-                 constraints=None,
                  mom_the_canonical_representation=True
                  ):
         """
@@ -60,6 +59,8 @@ class ETDM:
         :param searchdir_algo: algorithm for calculating the search direction
         (e.g.LBFGS)
         :param linesearch_algo: line search (e.g. strong Wolfe conditions)
+        :param partial_diagonalizer: Algorithm to use for partial
+        diagonalization of the electronic Hessian if DO-GMF is used
         :param update_ref_orbs_counter: When to update C_ref
         :param update_ref_orbs_canonical: update C_ref to canonical orbitals
         :param update_precond_counter: when to update the preconditioner
