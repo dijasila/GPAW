@@ -92,72 +92,24 @@ channel 1.
 
 .. _h2oexample:
 
----------------------------------------------------
-Example I: Excitation energy Rydberg state of water
----------------------------------------------------
-In this example, the excitation energies of the singlet and
-triplet states of water corresponding to excitation
-from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
-orbitals are calculated.
-In order to calculate the energy of the open-shell singlet state,
-first a calculation
-of the mixed-spin state obtained for excitation within the same
-spin channel is performed, and, then, the spin-purification
-formula [#spinpur]_ is used: `E_s=2E_m-E_t`, where `E_m` and `E_t` are
-the energies of the mixed-spin and triplet states, respectively.
-The calculations use the Finite Difference mode to obtain an accurate
-representation of the diffuse Rydberg orbital [#momgpaw1]_.
+-----------------------------------------------------------
+Example I: Charge transfer excited state of N-phenylpyrrole
+-----------------------------------------------------------
 
-.. literalinclude:: mom_h2o.py
+In this example, variational collapse of a charge transfer state of N-phenylpyrrole is
+avoided by using the DO-GMF method and specifically targeting an excited state as a
+saddle point on the electronic energy surface. The excited state is accessible by a single
+excitation from the HOMO to the LUMO in one spin channel with respect to the
+ground state orbitals. No spin purification is applied. After a ground state calculation,
+the excited state is directly targeted as a ``6^{th}``-order saddle point on the
+electronic energy surface. While an unconstrained optimization of this excited state with
+DO-MOM leads to variational collapse to a lower-energy saddle point with pronounced mixing
+between the HOMO and LUMO and a low dipole moment of only -3.396 D, DO-GMF does not
+suffer from variational collapse and converges to a higher-energy ``6^{th}``-order saddle
+point with a dipole moment of -10.227 D. This solution shows much less mixing between the
+HOMO and LUMO involved in the excitation.
 
-..  _coexample:
-
-----------------------------------------------------------------
-Example II: Geometry relaxation excited-state of carbon monoxide
-----------------------------------------------------------------
-In this example, the bond length of the carbon monoxide molecule
-in the lowest singlet `\Pi(\sigma\rightarrow \pi^*)` excited state
-is optimized using two types of calculations, each based on a
-different approximation to the potential energy curve of an open-shell
-excited singlet state.
-The first is a spin-polarized calculation of the mixed-spin state
-as defined in :ref:`h2oexample`. The second is a spin-paired calculation
-where the occupation numbers of the open-shell orbitals are set
-to 1 [#levi2018]_. Both calculations use LCAO basis and the
-:ref:`direct optimization <directopt>` (DO) method.
-
-In order to obtain the correct angular momentum
-of the excited state, the electron is excited into a complex
-`\pi^*_{+1}` or `\pi^*_{-1}` orbital, where +1 or −1 is the
-eigenvalue of the z-component angular momentum operator. The
-use of complex orbitals provides an excited-state density
-with the uniaxial symmetry consistent with the symmetry of the
-molecule [#momgpaw1]_.
-
-.. literalinclude:: domom_co.py
-
-The electronic configuration of the `\Pi(\sigma\rightarrow \pi^*)`
-state includes two unequally occupied, degenerate `\pi^*` orbitals.
-Because of this, convergence to this excited state is more
-difficult when using SCF eigensolvers with density mixing
-instead of DO, unless symmetry constraints on the density
-are enforced during the calculation. Convergence of such
-excited-state calculations with an SCF eigensolver can be
-improved by using a Gaussian smearing of the holes and excited
-electrons [#levi2018]_.
-Gaussian smearing is implemented in MOM and can be used
-by specifying a ``width`` in eV for the Gaussian smearing
-function::
-
-  mom.prepare_mom_calculation(..., width=0.01, ...)
-
-For difficult cases, the ``width`` can be increased at regular
-intervals by specifying a ``width_increment=...``.
-*Note*, however, that too extended smearing can lead to
-discontinuities in the potentials and forces close to
-crossings between electronic states [#momgpaw2]_, so
-this feature should be used with caution and only
-at geometries far from state crossings.
+.. literalinclude:: constraints.py #TODO
 
 ----------
 References
