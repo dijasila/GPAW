@@ -43,8 +43,7 @@ class ETDM:
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
-                 need_init_orbs=True,
-                 mom_the_canonical_representation=True
+                 need_init_orbs=True
                  ):
         """
         This class performs the exponential transformation
