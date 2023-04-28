@@ -10,60 +10,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.pair_functions import (SingleQPWDescriptor,
-                                          LatticePeriodicPairFunction)
-
-
-class ChiKS(LatticePeriodicPairFunction):
-    """Data object for the four-component Kohn-Sham susceptibility tensor."""
-
-    def __init__(self, spincomponent, qpd, zd,
-                 blockdist, distribution='ZgG'):
-        r"""Construct a χ_KS,GG'^μν(q,z) data object"""
-        self.spincomponent = spincomponent
-        super().__init__(qpd, zd, blockdist, distribution=distribution)
-
-    def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the ChiKS object."""
-        if spincomponent is None:
-            spincomponent = self.spincomponent
-        qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
-                                             blockdist=blockdist)
-
-        return spincomponent, qpd, zd, blockdist
-
-    def copy_reactive_part(self):
-        r"""Return a copy of the reactive part of the susceptibility.
-
-        The reactive part of the susceptibility is defined as (see
-        [PRB 103, 245110 (2021)]):
-
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
-                              2
-
-        However if the density operators n^μ(r) and n^ν(r) are each others
-        Hermitian conjugates, the reactive part simply becomes the Hermitian
-        part in terms of the plane-wave basis:
-
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
-                              2
-
-        which is trivial to evaluate.
-        """
-        assert self.distribution == 'zGG' or \
-            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
-        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
-            'Spin-density operators has to be each others hermitian conjugates'
-
-        chiksr = self._new(*self.my_args(), distribution='zGG')
-        chiks_zGG = self.array
-        chiksr.array += chiks_zGG
-        chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
-        chiksr.array /= 2.
-
-        return chiksr
+from gpaw.response.pair_functions import SingleQPWDescriptor, ChiKS
 
 
 class ChiKSCalculator(PairFunctionIntegrator):
@@ -365,10 +312,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         # Distribute over frequencies
         nz = len(chiks.zd)
-        tmp_zGG = chiks.blockdist.distribute_as(chiks_ZgG, nz, 'wGG')
-        analyzer.symmetrize_wGG(tmp_zGG)
+        tmp_zGG = chiks.blockdist.distribute_as(chiks_ZgG, nz, 'zGG')
+        analyzer.symmetrize_zGG(tmp_zGG)
         # Distribute over plane waves
-        chiks_ZgG[:] = chiks.blockdist.distribute_as(tmp_zGG, nz, 'WgG')
+        chiks_ZgG[:] = chiks.blockdist.distribute_as(tmp_zGG, nz, 'ZgG')
 
     @timer('Post processing')
     def post_process(self, chiks):

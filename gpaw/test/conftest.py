@@ -112,6 +112,9 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
+    * Bulk Co (HCP), 4x4x4 k-points, 12 converged bands: ``co_pw``
+      and ``co_pw_nosym``
+
     * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
       and ``al_pw_nosym``
 
@@ -121,7 +124,7 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
-  
+
     Files with wave functions are also available (add ``_wfs`` to the names).
     """
     path = os.environ.get('GPW_TEST_FILES')
@@ -349,7 +352,7 @@ class GPWFiles:
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
-        
+
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(
             xc=xc,
@@ -363,13 +366,13 @@ class GPWFiles:
 
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def fancy_si_pw(self):
         return self._fancy_si()
 
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
-    
+
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -450,12 +453,15 @@ class GPWFiles:
         atoms = mx2(formula='NiCl2', kind='1T', a=a,
                     thickness=thickness, vacuum=vacuum)
         atoms.set_initial_magnetic_moments([mm, 0.0, 0.0])
+        # Use pbc to allow for real-space density interpolation
+        atoms.pbc = True
 
         # Set up calculator
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw,
-                    add_nct_directly=True),
+                    # Interpolate the density in real-space
+                    interpolation=3),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
@@ -492,16 +498,61 @@ class GPWFiles:
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
             symmetry=symmetry)
-        
+
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def fe_pw(self):
         return self._fe()
 
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
-    
+
+    def _co(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
+        # ---------- Inputs ---------- #
+
+        # Atomic configuration
+        a = 2.5071
+        c = 4.0695
+        mm = 1.6
+        atoms = bulk('Co', 'hcp', a=a, c=c)
+        atoms.set_initial_magnetic_moments([mm, mm])
+        atoms.center()
+
+        # Ground state parameters
+        xc = 'LDA'
+        kpts = 4
+        occw = 0.01
+        nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
+        ebands = 2 * 2  # extra bands for ground state calculation
+        pw = 200
+        conv = {'density': 1e-8,
+                'forces': 1e-8,
+                'bands': nbands}
+
+        # ---------- Calculation ---------- #
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(xc=xc,
+                          mode=PW(pw),
+                          kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                          occupations=FermiDirac(occw),
+                          convergence=conv,
+                          nbands=nbands + ebands,
+                          symmetry=symmetry,
+                          txt=self.path / f'co_pw{tag}.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def co_pw(self):
+        return self._co()
+
+    def co_pw_nosym(self):
+        return self._co(symmetry='off')
+
     def _al(self, symmetry=None):
         if symmetry is None:
             symmetry = {}
@@ -535,7 +586,7 @@ class GPWFiles:
 
     def al_pw_nosym(self):
         return self._al(symmetry='off')
-    
+
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2
@@ -564,7 +615,7 @@ class GPWFiles:
         atoms.calc.diagonalize_full_hamiltonian()
 
         return atoms.calc
-    
+
     def gaas_pw_nosym(self):
         return self._gaas(symmetry='off')
 
@@ -589,7 +640,7 @@ class GPWFiles:
                     kpts={'size': (nk, nk, nk), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)
-        
+
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc

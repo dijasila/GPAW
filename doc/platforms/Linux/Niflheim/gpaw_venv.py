@@ -23,6 +23,7 @@ module load matplotlib/3.3.3-{tchain}-2020b
 module load scikit-learn/0.23.2-{tchain}-2020b
 module load pytest-xdist/2.1.0-GCCcore-10.2.0
 module load Wannier90/3.1.0-{tchain}-2020b
+unset PYTHONPATH
 """
 
 module_cmds_tc = {

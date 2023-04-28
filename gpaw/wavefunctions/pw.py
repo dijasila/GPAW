@@ -1,20 +1,21 @@
+from __future__ import annotations
+
 import numbers
-
 from math import pi
-
-import numpy as np
-from ase.units import Bohr, Ha
-from ase.utils.timing import timer
 
 import _gpaw
 import gpaw
 import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Bohr, Ha
+from ase.utils.timing import timer
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
+from gpaw.typing import Array2D
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
@@ -26,21 +27,30 @@ from gpaw.wavefunctions.mode import Mode
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, *, fftwflags=fftw.MEASURE, cell=None,
-                 gammacentered=False,
-                 pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False,
-                 add_nct_directly: bool = False):
+    def __init__(self,
+                 ecut: float = 340,
+                 *,
+                 fftwflags: int = fftw.MEASURE,
+                 cell: Array2D | None = None,
+                 gammacentered=False,  # Deprecated
+                 pulay_stress: float | None = None,
+                 dedecut: float | str | None = None,
+                 force_complex_dtype: bool = False,
+                 interpolation: str | int = 'fft'):
         """Plane-wave basis mode.
 
+        Only one of ``dedecut`` and ``pulay_stress`` can be used.
+
+        Parameters
+        ==========
         ecut: float
             Plane-wave cutoff in eV.
         gammacentered: bool
             Center the grid of chosen plane waves around the
             gamma point or q/k-vector
-        dedecut: float or None or 'estimate'
+        dedecut:
             Estimate of derivative of total energy with respect to
-            plane-wave cutoff.  Used to calculate pulay_stress.
+            plane-wave cutoff.  Used to calculate the Pulay-stress.
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
@@ -49,16 +59,12 @@ class PW(Mode):
 
                 from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
 
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves.
-        add_nct_directly:
-            Default behaviour is to add the Fourrier transformed pseudo core
-            density and inverse transform to real-space.  This will lead to
-            slightly negative densities, but no egg-box error.  Use
-            add_nct_directly=True to get strictly positive
-            values (and egg-box error).
-
-        Only one of dedecut and pulay_stress can be used.
+        cell: np.ndarray
+            Use this unit cell to chose the plane-waves.
+        interpolation : str or int
+            Interpolation scheme to construct the density on the fine grid.
+            Default is ``'fft'`` and alternatively a stencil (integer) can
+            be given to perform an explicit real-space interpolation.
         """
 
         assert not gammacentered
@@ -66,7 +72,7 @@ class PW(Mode):
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
-        self.add_nct_directly = add_nct_directly
+        self.interpolation = interpolation
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
@@ -114,8 +120,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
-        if self.add_nct_directly:
-            dct['add_nct_directly'] = True
+        if self.interpolation != 'fft':
+            dct['interpolation'] = self.interpolation
         return dct
 
 
@@ -455,7 +461,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
         psit_G = kpt.psit_nG[n]
 
         if realspace:
-            psit_R = self.pd.ifft(psit_G, kpt.q)
+            if psit_G.ndim == 2:
+                psit_R = np.array([self.pd.ifft(psits_G, kpt.q)
+                                   for psits_G in psit_G])
+            else:
+                psit_R = self.pd.ifft(psit_G, kpt.q)
             if self.kd.gamma or periodic:
                 return psit_R
 
