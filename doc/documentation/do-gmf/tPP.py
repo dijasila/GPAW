@@ -7,6 +7,39 @@ from gpaw.mpi import world, rank, MASTER
 import sys
 np.set_printoptions(threshold = sys.maxsize)
 
+calc = GPAW(xc='PBE',
+                mode=LCAO(),
+                h=0.2,
+                basis='dzp',
+                spinpol=True,
+                eigensolver='etdm',
+                occupations={'name': 'fixed-uniform'},
+                mixer={'backend': 'no-mixing'},
+                nbands='nao',
+                symmetry='off',
+                txt='N-Phenylpyrrole_GS.txt')
+
+atoms = read('N-Phenylpyrrole.xyz')
+atoms.center(vacuum = 5.0)
+atoms.set_pbc(False)
+atoms.calc = calc
+
+# Ground state calculation
+E_GS = atoms.get_potential_energy()
+
+# Ground state LCAO coefficients and occupation numbers
+C_GS = [calc.wfs.kpt_u[x].C_nM.copy() for x in range(len(calc.wfs.kpt_u))]
+f_gs = [calc.wfs.kpt_u[x].f_n.copy() for x in range(len(calc.wfs.kpt_u))]
+
+# Direct approach using ground state orbitals with changed occupation numbers
+calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                          linesearch_algo={'name': 'max-step'},
+                          need_init_orbs=False),
+         txt='N-Phenylpyrrole_EX_direct.txt')
+
+# Spin-mixed open-shell occupation numbers
+f = excite(calc, 0, 0, spin=(0, 0))
+
 atoms, calc0 = restart('/users/work/yorick/PP/pp_gs.gpw', txt = 'gpaw0.txt')
 calc0.calculate(properties = ['energy'], system_changes = ['positions'])
 h = 26
