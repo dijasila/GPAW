@@ -82,7 +82,7 @@ class DirectMinLCAO(DirectLCAO):
         self.need_init_orbs = False
 
     def calc_grad(self, wfs, ham, kpt, func, evecs, evals, matrix_exp,
-                  representation, ind_up, constraints):
+                  representation, ind_up):
 
         """
         Gradient w.r.t. skew-Hermitian matrices
@@ -95,7 +95,7 @@ class DirectMinLCAO(DirectLCAO):
         g_mat, error = func.get_gradients(
             h_mm, kpt.C_nM, kpt.f_n, evecs, evals,
             kpt, wfs, wfs.timer, matrix_exp,
-            representation, ind_up, constraints)
+            representation, ind_up)
 
         return g_mat, error
 
