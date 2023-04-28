@@ -9,16 +9,17 @@ Comput. Phys. Commun. 267, 108047 (2021).
 https://doi.org/10.1016/j.cpc.2021.108047
 """
 
+
 import numpy as np
-from copy import deepcopy
+import warnings
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
-import warnings
 from gpaw.mpi import rank, MASTER
+from copy import deepcopy
 
 
 class ETDM:
