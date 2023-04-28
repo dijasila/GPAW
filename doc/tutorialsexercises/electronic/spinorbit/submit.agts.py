@@ -23,3 +23,5 @@ def workflow():
     with run(script='gs_Co.py', cores=48, tmax='2h'):
         with run(script='anisotropy.py', tmax='5h'):
             run(script='plot_anisotropy.py')
+
+    run(script='NiBr2_anisotropy.py', cores=12, tmax='2h')
