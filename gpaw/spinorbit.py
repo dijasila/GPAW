@@ -767,9 +767,9 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
         n2 = bands[-1] + 1
         assert (bands == np.arange(n1, n2)).all()
         soc = soc_eigenstates(calc, n1=n1, n2=n2)
-        v_kmsn = soc.eigenvectors()
-        psit0_mG = np.dot(v_kmsn[ik, :, 0], psit_nG)
-        psit1_mG = np.dot(v_kmsn[ik, :, 1], psit_nG)
+        v_kmn = soc.eigenvectors()
+        psit0_mG = np.dot(v_kmn[ik, :, ::2], psit_nG)
+        psit1_mG = np.dot(v_kmn[ik, :, 1::2], psit_nG)
     for n in range(len(bands)):
         psit_nG[n] /= (np.sum(np.abs(psit_nG[n])**2))**0.5
     if spin_orbit:
