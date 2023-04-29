@@ -29,9 +29,9 @@ f = excite(calc, 0, 0, spin=(0, 0))
 # Direct approach using ground state orbitals with changed occupation numbers
 calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_GMF'},
                           linesearch_algo={'name': 'max-step'},
-                          partial_diagonalizer={
-                              'name': 'Davidson', 'logfile': 'davidson.txt',
-                              'remember_sp_order': True, 'sp_order': 6},
+                          partial_diagonalizer={'name': 'Davidson',
+                                                'logfile': 'davidson.txt',
+                                                'sp_order': 6},
                           update_ref_orbs_counter=1000,
                           need_init_orbs=False),
          occupations={'name': 'mom', 'numbers': f,
