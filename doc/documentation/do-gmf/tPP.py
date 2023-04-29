@@ -27,7 +27,7 @@ E_GS = atoms.get_potential_energy()
 f = excite(calc, 0, 0, spin=(0, 0))
 
 # Direct approach using ground state orbitals with changed occupation numbers
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_MMF'},
+calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_GMF'},
                           linesearch_algo={'name': 'max-step'},
                           partial_diagonalizer={
                               'name': 'Davidson', 'logfile': 'davidson.txt',
