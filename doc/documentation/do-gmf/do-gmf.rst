@@ -109,7 +109,7 @@ suffer from variational collapse and converges to a higher-energy ``6^{th}``-ord
 point with a dipole moment of -10.227 D. This solution shows much less mixing between the
 HOMO and LUMO involved in the excitation.
 
-.. literalinclude:: constraints.py #TODO
+.. literalinclude:: tPP.py
 
 ----------
 References
