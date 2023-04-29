@@ -245,7 +245,7 @@ class Davidson(object):
     def check_inputs(self):
         if self.gmf:
             defaults = {'fd_mode': 'forward',
-                        'm': 10,
+                        'm': 300,
                         'h': 1e-3,
                         'eps': 1e-2,
                         'cap_krylov': True,
