@@ -1,12 +1,7 @@
-import numpy as np
 from ase.io import read
-from gpaw import GPAW, restart, LCAO
+from gpaw import GPAW, LCAO
 from gpaw.directmin.etdm import ETDM
-from copy import deepcopy
-from gpaw.mpi import world
 from gpaw.directmin.tools import excite
-import sys
-np.set_printoptions(threshold = sys.maxsize)
 
 calc = GPAW(xc='PBE',
                 mode=LCAO(),
@@ -37,7 +32,7 @@ calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_MMF'},
                           partial_diagonalizer={
                               'name': 'Davidson', 'logfile': 'davidson.txt',
                               'remember_sp_order': True, 'sp_order': 6,
-                              'update_ref_orbs_counter': np.inf},
+                              'update_ref_orbs_counter': 1000},
                           need_init_orbs=False),
          occupations={'name': 'mom', 'numbers': f,
                       'use_fixed_occupations': True},
