@@ -4,16 +4,16 @@ from gpaw.directmin.etdm import ETDM
 from gpaw.directmin.tools import excite
 
 calc = GPAW(xc='PBE',
-                mode=LCAO(),
-                h=0.2,
-                basis='dzp',
-                spinpol=True,
-                eigensolver='etdm',
-                occupations={'name': 'fixed-uniform'},
-                mixer={'backend': 'no-mixing'},
-                nbands='nao',
-                symmetry='off',
-                txt='N-Phenylpyrrole_GS.txt')
+            mode=LCAO(),
+            h=0.2,
+            basis='dzp',
+            spinpol=True,
+            eigensolver='etdm',
+            occupations={'name': 'fixed-uniform'},
+            mixer={'backend': 'no-mixing'},
+            nbands='nao',
+            symmetry='off',
+            txt='N-Phenylpyrrole_GS.txt')
 
 atoms = read('N-Phenylpyrrole.xyz')
 atoms.center(vacuum = 5.0)
@@ -33,6 +33,7 @@ calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_GMF'},
                                                 'logfile': 'davidson.txt',
                                                 'sp_order': 6},
                           update_ref_orbs_counter=1000,
+                          representation='u-invar',
                           need_init_orbs=False),
          occupations={'name': 'mom', 'numbers': f,
                       'use_fixed_occupations': True},
