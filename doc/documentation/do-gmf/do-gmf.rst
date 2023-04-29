@@ -111,34 +111,22 @@ HOMO and LUMO involved in the excitation.
 
 .. literalinclude:: tPP.py
 
+The target saddle point order is set by using the ``sp_order`` keyword of the
+``partial_diagonalizer``. It is recommended to deactivate updates of the reference by
+setting the ``update_ref_orbs_counter`` keyword to a large value (e.g. 1000). The
+unitary invariant representation should be used (if the density functional is orbital
+density independent) because the redundant rotations among the occupied orbitals
+introduce many degenerate eigenvectors of the electronic Hessian with zero curvature,
+which can lead to convergence problems of the generalized Davidson method. The keyword
+``use_fixed_occupations`` is set to True to deactivate the use of the maximum overlap
+method since variational collapse is impossible with the DO-GMF method.
+
 ----------
 References
 ----------
 
-.. [#momgpaw1] A. V. Ivanov, G. Levi, H. Jónsson
-               :doi:`Method for Calculating Excited Electronic States Using Density Functionals and Direct Orbital Optimization with Real Space Grid or Plane-Wave Basis Set <10.1021/acs.jctc.1c00157>`,
-               *J. Chem. Theory Comput.*, (2021).
+.. [#dogmfgpaw1] Y. L. A. Schmerwitz, G. Levi, H. Jónsson
+               :doi:`Calculations of Excited Electronic States by Converging on Saddle Points Using Generalized Mode Following <10.48550/ARXIV.2302.05912>`, (2023).
 
-.. [#momgpaw2] G. Levi, A. V. Ivanov, H. Jónsson
-               :doi:`Variational Density Functional Calculations of Excited States via Direct Optimization <10.1021/acs.jctc.0c00597>`,
-               *J. Chem. Theory Comput.*, **16** 6968–6982 (2020).
-
-.. [#momgpaw3] G. Levi, A. V. Ivanov, H. Jónsson
-               :doi:`Variational Calculations of Excited States Via Direct Optimization of Orbitals in DFT <10.1039/D0FD00064G>`,
-               *Faraday Discuss.*, **224** 448-466 (2020).
-
-.. [#imom]     G. M. J. Barca, A. T. B. Gilbert, P. M. W. Gill
-               :doi:`Simple Models for Difficult Electronic Excitations <10.1021/acs.jctc.7b00994>`,
-               *J. Chem. Theory Comput.*, **14** 1501-1509 (2018).
-
-.. [#dongmom]  X. Dong, A. D. Mahler, E. M. Kempfer-Robertson, L. M. Thompson
-               :doi:`Global Elucidation of Self-Consistent Field Solution Space Using Basin Hopping <10.1021/acs.jctc.0c00488>`,
-               *J. Chem. Theory Comput.*, **16** 5635−5644 (2020).
-
-.. [#spinpur]  T. Ziegler, A. Rauk, E. J. Baerends
-               :doi:`On the calculation of multiplet energies by the hartree-fock-slater method <10.1007/BF00551551>`
-               *Theoret. Chim. Acta*, **43** 261–271 (1977).
-
-.. [#levi2018] G. Levi, M. Pápai, N. E. Henriksen, A. O. Dohn, K. B. Møller
-               :doi:`Solution structure and ultrafast vibrational relaxation of the PtPOP complex revealed by ∆SCF-QM/MM Direct Dynamics simulations <10.1021/acs.jpcc.8b00301>`,
-               *J. Phys. Chem. C*, **122** 7100-7119 (2018).
+.. [#gendavidson] M. Crouzeix, B. Philippe, M. Sadkane
+               :doi:`The Davidson Method <10.1137/0915004>`, *SIAM J. Sci. Comput.*, (1994).
