@@ -37,7 +37,7 @@ GMF is a generalization of the minimum mode following method traditionally used 
 optimize 1\textsuperscript{st}-order saddle points on the nuclear potential energy
 surface. The method recasts the challenging saddle point search as a minimization by
 inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
-generalized to target an ``n^{th}``-order saddle point by inverting the
+generalized to target an ``n``-th-order saddle point by inverting the
 projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding the modified gradient
 
 .. math::
@@ -46,7 +46,7 @@ projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding the m
 if the energy surface is concave along all target eigenvectors or
 
 .. math::
-    g^{\mathrm{\,mod}} = -\sum_{i = 1 \\ \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
+    g^{\mathrm{\,mod}} = -\sum_{i = 1, \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
 if any target eigenvalue, \lambda, is non-negative. Notice that only the non-concave
 target eigenvectors are followed, if any exist, to increase stability of the method.
