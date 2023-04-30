@@ -1,4 +1,4 @@
-# web-page: pdos.png
+
 from gpaw import GPAW, restart
 import matplotlib.pyplot as plt
 

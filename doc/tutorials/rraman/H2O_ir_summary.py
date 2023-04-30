@@ -1,4 +1,4 @@
-# web-page: H2O_ir_summary.txt
+
 from ase import io
 from ase.vibrations.infrared import Infrared
 

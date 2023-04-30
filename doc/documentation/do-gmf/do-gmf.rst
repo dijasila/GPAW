@@ -101,11 +101,11 @@ avoided by using the DO-GMF method and specifically targeting an excited state a
 saddle point on the electronic energy surface. The excited state is accessible by a single
 excitation from the HOMO to the LUMO in one spin channel with respect to the
 ground state orbitals. No spin purification is applied. After a ground state calculation,
-the excited state is directly targeted as a ``6^{th}``-order saddle point on the
+the excited state is directly targeted as a 6-th-order saddle point on the
 electronic energy surface. While an unconstrained optimization of this excited state with
 DO-MOM leads to variational collapse to a lower-energy saddle point with pronounced mixing
 between the HOMO and LUMO and a low dipole moment of only -3.396 D, DO-GMF does not
-suffer from variational collapse and converges to a higher-energy ``6^{th}``-order saddle
+suffer from variational collapse and converges to a higher-energy 6-th-order saddle
 point with a dipole moment of -10.227 D. This solution shows much less mixing between the
 HOMO and LUMO involved in the excitation.
 

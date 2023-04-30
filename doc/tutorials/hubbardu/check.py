@@ -1,4 +1,4 @@
-# web-page: gaps.csv
+
 from ase.io import read
 
 
