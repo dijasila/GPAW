@@ -53,7 +53,8 @@ target eigenvectors are followed, if any exist, to increase stability of the met
 
 The target eigenvalues and eigenvectors of the electronic Hessian matrix are obtained
 by using a finite difference generalized Davidson method, whose implementation is
-presented in [#gendavidson]_.
+presented in [#gendavidson]_. This method can also be used for stability analysis of an
+electronic solution (see example 2)
 
 ~~~~~~~~~~~~~~~~~
 How to use DO-GMF
@@ -90,12 +91,11 @@ channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
 
-.. _h2oexample:
+.. _tPPexample:
 
 -----------------------------------------------------------
 Example I: Charge transfer excited state of N-phenylpyrrole
 -----------------------------------------------------------
-
 In this example, variational collapse of a charge transfer state of N-phenylpyrrole is
 avoided by using the DO-GMF method and specifically targeting an excited state as a
 saddle point on the electronic energy surface. The excited state is accessible by a single
@@ -120,6 +120,24 @@ introduce many degenerate eigenvectors of the electronic Hessian with zero curva
 which can lead to convergence problems of the generalized Davidson method. The keyword
 ``use_fixed_occupations`` is set to True to deactivate the use of the maximum overlap
 method since variational collapse is impossible with the DO-GMF method.
+
+----------------------------------------------------------------------------------
+Example II: Stability analysis and breaking instability of ground state dihydrogen
+----------------------------------------------------------------------------------
+In this example, the generalized Davidson method is used for stability analysis of the
+ground state of the dihydrogen molecule. The molecule is stretched beyond the
+Coulson-Fischer point, at which a both a ground state solution with conserved symmetry and
+two lower-energy degenerate ground state solutions with broken spin symmetry exist.First,
+a spin-polarized direct minimization is performed starting from the GPAW initial guess
+for the orbitals. Stability analysis confirms that the obtained solution is a first-order
+saddle point on the electronic energy surface, meaning that the symmetry-conserving
+solution is obtained. Second, the electronic structure is displaced along the eigenvector
+of the electronic Hessian corresponding to its lowest, negative eigenvalue, and thereby,
+the instability is broken. This displaced electronic structure is reoptimized yielding a
+lower-energy solution with broken spin symmetry. Stability analysis is applied to this
+solution to confirm that it is a minimum on the electronic energy surface.
+
+.. literalinclude:: H2_instability.py
 
 ----------
 References
