@@ -681,8 +681,8 @@ class Davidson(object):
         assert len(self.lambda_) >= number, 'Davidson cannot break' \
             + ' instability no. ' + str(number) + ' since this eigenpair was' \
             + 'not converged.'
-        assert self.lambda_[number] < 0.0, 'Eigenvector no. ' + str(number) \
-            + ' does not represent an instability.'
+        assert self.lambda_[number - 1] < 0.0, 'Eigenvector no. ' \
+            + str(number) + ' does not represent an instability.'
 
         a_vec_u = {}
         for k in self.etdm.a_vec_u.keys():
