@@ -1,7 +1,7 @@
 .. _do-gmf:
 
 ==================================================================================
-Excited-State Calculations with Direct Optimization and Generalized Mode Following
+Excited State Calculations with Direct Optimization and Generalized Mode Following
 ==================================================================================
 
 The main challenge of variational density functional calculations of excited electronic
@@ -34,11 +34,12 @@ Implementation
 The implementation of the DO-GMF method is presented in [#dogmfgpaw1]_ (LCAO approach).
 
 GMF is a generalization of the minimum mode following method traditionally used to
-optimize 1\textsuperscript{st}-order saddle points on the nuclear potential energy
+optimize first-order saddle points on the nuclear potential energy
 surface. The method recasts the challenging saddle point search as a minimization by
 inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
-generalized to target an ``n``-th-order saddle point by inverting the
-projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding the modified gradient
+generalized to target an ``n``-th-order saddle point on the electronic energy surface by
+inverting the projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding
+the modified gradient
 
 .. math::
     g^{\mathrm{\,mod}} = g - 2\sum_{i = 1}^{n}v_{i}v_{i}^{\mathrm{T}}g
@@ -75,9 +76,9 @@ requested as follows::
                         'use_fixed_occupations': True})
 
 where the log file can be specified and ``f`` contains the occupation numbers of the
-excited state (see examples below). Line search algorithms cannot be applied for saddle
+excited state (see example 1). Line search algorithms cannot be applied for saddle
 point searches in this implementation. Any search direction algorithm can be used by
-appending the name keyword with ``_GMF``.
+appending the ``name`` keyword with ``_GMF``.
 
 A helper function can be used to create the list of excited-state occupation numbers::
 
@@ -118,7 +119,7 @@ unitary invariant representation should be used (if the density functional is or
 density independent) because the redundant rotations among the occupied orbitals
 introduce many degenerate eigenvectors of the electronic Hessian with zero curvature,
 which can lead to convergence problems of the generalized Davidson method. The keyword
-``use_fixed_occupations`` is set to True to deactivate the use of the maximum overlap
+``use_fixed_occupations`` is set to ``True`` to deactivate the use of the maximum overlap
 method since variational collapse is impossible with the DO-GMF method.
 
 ----------------------------------------------------------------------------------
