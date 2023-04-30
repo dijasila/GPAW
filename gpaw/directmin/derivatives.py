@@ -697,7 +697,9 @@ class Davidson(object):
                 a_vec_u[k] = instability[start: stop]
                 start += self.dim[k]
         elif initial_guess == 'line_search':
-            assert ham is not None and dens is not None, 'Value error.'
+            assert ham is not None and dens is not None, 'Hamiltonian and' \
+                                                         'density needed for' \
+                                                         'line search.'
             p_vec_u = {}
             start = 0
             stop = 0
