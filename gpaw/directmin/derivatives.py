@@ -688,7 +688,7 @@ class Davidson(object):
         for k in self.etdm.a_vec_u.keys():
             a_vec_u[k] = np.zeros(self.dim[k])
         step = self.etdm.line_search.max_step
-        instability = step * self.x[number]
+        instability = step * self.x[number - 1]
         if initial_guess == 'displace':
             start = 0
             stop = 0
