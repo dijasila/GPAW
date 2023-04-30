@@ -114,18 +114,18 @@ Polarization from from parallel transport
 
 The parallel transport module can also be used to calculate the polarization.
 Strictly speaking the parallel transport algorithm is not required for the
-polarization because it involves a trace over occupied bands. Neverthesless,
+polarization because it involves a trace over occupied bands. Nevertheless,
 it is reassuring that we obtain the correct polarization from the parallel
-transport. More importantly, the parallel transport supports spin-orbit 
+transport. More importantly, the parallel transport supports spin-orbit
 coupling and non-collinear magnetism, which the polarization module introduced
-above does not. The script 
+above does not. The script
 
-.. literalinclude:: parallel_BaTiO3.py  
+.. literalinclude:: parallel_BaTiO3.py
 
-calculates the polarization of BaTiO3 from the parallel transport module. Note 
+calculates the polarization of BaTiO3 from the parallel transport module. Note
 that the parallel transport only supports 2D `k` grids and we thus loop
 over slices at fixed `k_y` to calculate the polarization. It is also important
-to realize that the phases at inidividual points are only defined modulo `2\pi`
+to realize that the phases at individual points are only defined modulo `2\pi`
 and the phases has to be chosen such that the bands are continuous. The script
 is seen to exactly reproduce the value of 0.45 `C/m^2` found above. Spin-orbit
 coupling may be switched on by setting scale=1 in the script.
