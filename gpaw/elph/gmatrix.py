@@ -43,6 +43,7 @@ OPTIMIZE = 'optimal'
 
 class ElectronPhononMatrix:
     """Class for containing the electron-phonon matrix"""
+
     def __init__(self, atoms: Atoms, supercell_cache: str,
                  phonon, load_sc_as_needed: bool = True) -> None:
         """Initialize with base class args and kwargs.
@@ -187,8 +188,9 @@ class ElectronPhononMatrix:
                 #                   optimize=OPTIMIZE)
                 g_lnn += np.multiply.outer(u_lx[:, x], g_nn)
 
+        # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
         if prefactor:
-            # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
+            # potential BUG: M needs to be unit cell mass according to some sources
             amu = units._amu  # atomic mass unit
             me = units._me   # electron mass
             g_lnn /= np.sqrt(2 * amu / me / units.Hartree *
