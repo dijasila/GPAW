@@ -4,7 +4,6 @@ Check that calculate_gradient is capable of reading stuff properly.
 """
 import numpy as np
 import pytest
-from typing import Any
 
 from ase.build import bulk
 import ase.units as units
@@ -15,7 +14,7 @@ from gpaw.elph import Supercell
 
 
 @pytest.mark.elph
-def test_gradient(in_tmp_dir: Any | None):
+def test_gradient(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)
     assert len(atoms) == 2
