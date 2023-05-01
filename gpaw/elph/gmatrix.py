@@ -190,7 +190,8 @@ class ElectronPhononMatrix:
 
         # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
         if prefactor:
-            # potential BUG: M needs to be unit cell mass according to some sources
+            # potential BUG: M needs to be unit cell mass according to
+            # some sources
             amu = units._amu  # atomic mass unit
             me = units._me   # electron mass
             g_lnn /= np.sqrt(2 * amu / me / units.Hartree *

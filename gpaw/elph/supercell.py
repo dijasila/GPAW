@@ -209,12 +209,13 @@ class Supercell:
                         g_sMM = g_sqMM[:, 0]
                     else:
                         # Convert to array
-                        g_sMM = []
+                        g_sMM_tmp = []
                         for s in range(nspins):
                             g_MM = tb.bloch_to_real_space(g_sqMM[s],
                                                           R_c=(0, 0, 0))
-                            g_sMM.append(g_MM[0])  # [0] because of above
-                        g_sMM = np.array(g_sMM)
+                            g_sMM_tmp.append(g_MM[0])  # [0] because of above
+                        g_sMM = np.array(g_sMM_tmp)
+                        del g_sMM_tmp
 
                     # Reshape to global unit cell indices
                     N = np.prod(self.supercell)

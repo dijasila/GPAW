@@ -4,6 +4,7 @@ Check that calculate_gradient is capable of reading stuff properly.
 """
 import numpy as np
 import pytest
+from typing import Any
 
 from ase.build import bulk
 import ase.units as units
@@ -14,10 +15,10 @@ from gpaw.elph import Supercell
 
 
 @pytest.mark.elph
-def test_gradient(in_tmp_dir):
+def test_gradient(in_tmp_dir: Any | None):
     # 2 atoms with one 1 valence electron each
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)
-    assert(len(atoms) == 2)
+    assert len(atoms) == 2
     # Note: usually we need to disable point group symmetry for displacements,
     # but we won't run actual displacements, so it saves time not to bother.
     calc = GPAW(mode='lcao',
