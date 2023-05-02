@@ -116,15 +116,15 @@ def build_interpreter(
 
     # Link the custom interpreter
     compiler.link_executable(
-            objects, exename,
-            output_dir=str(build_bin),
-            extra_preargs=extra_preargs,
-            libraries=extension.libraries,
-            library_dirs=extension.library_dirs,
-            runtime_library_dirs=extension.runtime_library_dirs,
-            extra_postargs=extra_postargs,
-            debug=debug,
-            target_lang=extension.language)
+        objects, exename,
+        output_dir=str(build_bin),
+        extra_preargs=extra_preargs,
+        libraries=extension.libraries,
+        library_dirs=extension.library_dirs,
+        runtime_library_dirs=extension.runtime_library_dirs,
+        extra_postargs=extra_postargs,
+        debug=debug,
+        target_lang=extension.language)
     return build_bin / exename
 
 
@@ -142,12 +142,10 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
 
     # Glob all kernel files, but remove those included by other kernels
     kernels = sorted(kernels_dpath.glob('*.cpp'))
-    for name in [
-                 'lfc-reduce.cpp',
+    for name in ['lfc-reduce.cpp',
                  'lfc-reduce-kernel.cpp',
                  'reduce.cpp',
-                 'reduce-kernel.cpp',
-                 ]:
+                 'reduce-kernel.cpp']:
         kernels.remove(kernels_dpath / name)
 
     # Compile GPU kernels
@@ -160,7 +158,7 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
         for (name, value) in define_macros:
             arg = f'-D{name}'
             if value is not None:
-               arg += f'={value}'
+                arg += f'={value}'
             run_args += [arg]
         run_args += [f'-U{name}' for name in undef_macros]
         run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
