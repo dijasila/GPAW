@@ -5,6 +5,7 @@ import numpy as np
 from ase.units import Hartree
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
                                           get_pw_coordinates)
 from gpaw.response.chiks import ChiKSCalculator
@@ -162,15 +163,16 @@ def spectral_decomposition(chi, pos_eigs=1, neg_eigs=0):
 class EigendecomposedSpectrum:
     """Data object for eigendecomposed susceptibility spectra."""
 
-    def __init__(self, omega_w, G_Gc, s_we, v_wGe, vinv_weG, A_w=None):
+    def __init__(self, omega_w, G_Gc, s_we, v_wGe, vinv_weG, A_w=None,
+                 wblocks: Blocks1D | None = None):
         """Construct the EigendecomposedSpectrum.
 
         Parameters
         ----------
         omega_w : np.array
-            Frequencies in eV
+            Global array of frequencies in eV.
         G_Gc : np.array
-            Reciprocal lattice vectors in relative coordinates
+            Reciprocal lattice vectors in relative coordinates.
         s_we : np.array
             Sorted eigenvalues (in decreasing order) at all frequencies.
             Here, e is the eigenvalue index.
@@ -185,6 +187,8 @@ class EigendecomposedSpectrum:
             Full spectral weight as a function of frequency. If given as None,
             A_w will be calculated as the sum of all eigenvalues (equal to the
             trace of the spectrum, if no eigenvalues have been discarded).
+        wblocks : Blocks1D
+            Frequency block parallelization, if any.
         """
         self.omega_w = omega_w
         self.G_Gc = G_Gc
@@ -194,6 +198,11 @@ class EigendecomposedSpectrum:
         self.vinv_weG = vinv_weG
 
         self._A_w = A_w
+        if wblocks is None:
+            # Create a serial Blocks1D instance
+            from gpaw.mpi import serial_comm
+            wblocks = Blocks1D(serial_comm, len(omega_w))
+        self.wblocks = wblocks
 
     @classmethod
     def from_chi(cls, chi):
@@ -211,17 +220,16 @@ class EigendecomposedSpectrum:
 
         # Extract the spectrum of induced excitations
         chid = chi.copy_dissipative_part()
-        chid_wGG = chid.blocks1d.all_gather(chid.array)  # collect frequencies
-        S_wGG = - chid_wGG / np.pi
+        S_wGG = - chid.array / np.pi
 
         # Extract frequencies (in eV) and reciprocal lattice vectors
         omega_w = chid.zd.omega_w * Hartree
         G_Gc = get_pw_coordinates(chid.qpd)
 
-        return cls.from_spectrum(omega_w, G_Gc, S_wGG)
+        return cls.from_spectrum(omega_w, G_Gc, S_wGG, wblocks=chid.blocks1d)
 
     @classmethod
-    def from_spectrum(cls, omega_w, G_Gc, S_wGG):
+    def from_spectrum(cls, omega_w, G_Gc, S_wGG, wblocks=None):
         """Perform an eigenvalue decomposition of a given spectrum."""
         # Find eigenvalues and eigenvectors of the spectrum
         s_wK, v_wGK = np.linalg.eigh(S_wGG)
@@ -235,7 +243,7 @@ class EigendecomposedSpectrum:
         vinv_weG = np.take_along_axis(
             vinv_wKG, sorted_indices_wK[..., np.newaxis], axis=1)
 
-        return cls(omega_w, G_Gc, s_we, v_wGe, vinv_weG)
+        return cls(omega_w, G_Gc, s_we, v_wGe, vinv_weG, wblocks=wblocks)
 
     @classmethod
     def from_file(cls, filename):
@@ -250,18 +258,22 @@ class EigendecomposedSpectrum:
         """Write the eigendecomposed spectrum as a .pckl file."""
         import pickle
         assert isinstance(filename, str) and filename[-5:] == '.pckl'
-        with open(filename, 'wb') as fd:
-            pickle.dump((self.omega_w, self.G_Gc,
-                         self.s_we, self.v_wGe, self.vinv_weG,
-                         self._A_w), fd)
 
-    @property
-    def nw(self):
-        return len(self.omega_w)
+        # Gather data from the different blocks of frequencies to root
+        s_we = self.wblocks.gather(self.s_we)
+        v_wGe = self.wblocks.gather(self.v_wGe)
+        vinv_weG = self.wblocks.gather(self.vinv_weG)
+        A_w = self.wblocks.gather(self.A_w)
+
+        # Let root write the spectrum to a pickle file
+        if self.wblocks.blockcomm.rank == 0:
+            with open(filename, 'wb') as fd:
+                pickle.dump((self.omega_w, self.G_Gc,
+                             s_we, v_wGe, vinv_weG, A_w), fd)
 
     @property
     def nG(self):
-        return self.v_wGe.shape[1]
+        return self.G_Gc.shape[0]
 
     @property
     def neigs(self):
@@ -302,11 +314,11 @@ class EigendecomposedSpectrum:
 
         # Allocate new arrays filled with nan to accomodate all the positive
         # eigenvalues
-        s_we = np.empty((self.nw, npos_max),
+        s_we = np.empty((self.wblocks.nlocal, npos_max),
                         dtype=self.s_we.dtype)
-        v_wGe = np.empty((self.nw, self.nG, npos_max),
+        v_wGe = np.empty((self.wblocks.nlocal, self.nG, npos_max),
                          dtype=self.v_wGe.dtype)
-        vinv_weG = np.empty((self.nw, npos_max, self.nG),
+        vinv_weG = np.empty((self.wblocks.nlocal, npos_max, self.nG),
                             dtype=self.vinv_weG.dtype)
         s_we[:] = np.nan
         v_wGe[:] = np.nan
@@ -322,7 +334,8 @@ class EigendecomposedSpectrum:
             vinv_weG[w, :npos] = vinv_eG[pos_e]
 
         return EigendecomposedSpectrum(self.omega_w, self.G_Gc,
-                                       s_we, v_wGe, vinv_weG)
+                                       s_we, v_wGe, vinv_weG,
+                                       wblocks=self.wblocks)
 
     def get_negative_eigenvalue_spectrum(self):
         """Create a new EigendecomposedSpectrum from the negative eigenvalues.
@@ -348,7 +361,8 @@ class EigendecomposedSpectrum:
         v_wGe = self.v_wGe[..., ::-1]
         vinv_weG = self.vinv_weG[:, ::-1]
         inverted_spectrum = EigendecomposedSpectrum(omega_w, self.G_Gc,
-                                                    s_we, v_wGe, vinv_weG)
+                                                    s_we, v_wGe, vinv_weG,
+                                                    wblocks=self.wblocks)
 
         return inverted_spectrum.get_positive_eigenvalue_spectrum()
 
@@ -373,4 +387,5 @@ class EigendecomposedSpectrum:
         return EigendecomposedSpectrum(self.omega_w, self.G_Gc,
                                        s_we, v_wGe, vinv_weG,
                                        # Keep the full spectral weight
-                                       A_w=self.A_w)
+                                       A_w=self.A_w,
+                                       wblocks=self.wblocks)
