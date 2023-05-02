@@ -23,7 +23,7 @@ atoms.calc = calc
 E_GS_spin_symmetric = atoms.get_potential_energy()
 
 # Stability analysis using the generalized Davidson method
-davidson = Davidson(calc.wfs.eigensolver, 'davidson.txt', seed=42)
+davidson = Davidson(calc.wfs.eigensolver, 'davidson_H2_S.txt', seed=42)
 davidson.run(calc.wfs, calc.hamiltonian, calc.density)
 
 # Break the instability by displacing along the eigenvector of the electronic
@@ -36,4 +36,5 @@ calc.calculate(properties=['energy'], system_changes=['positions'])
 E_GS_broken_broken_spin_symmetry = atoms.get_potential_energy()
 
 # Repeat stability analysis to confirm that a minimum was found
+davidson = Davidson(calc.wfs.eigensolver, 'davidson_H2_BS.txt', seed=42)
 davidson.run(calc.wfs, calc.hamiltonian, calc.density)

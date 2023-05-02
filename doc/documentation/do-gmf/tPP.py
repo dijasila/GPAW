@@ -30,7 +30,7 @@ f = excite(calc, 0, 0, spin=(0, 0))
 calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_GMF'},
                           linesearch_algo={'name': 'max-step'},
                           partial_diagonalizer={'name': 'Davidson',
-                                                'logfile': 'davidson.txt',
+                                                'logfile': 'davidson_tPP.txt',
                                                 'sp_order': 6,
                                                 'seed': 42},
                           update_ref_orbs_counter=1000,
