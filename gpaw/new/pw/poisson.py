@@ -115,7 +115,9 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
-        potential_R = charge * erf(alpha**0.5 * d_R) / d_R
+        d_R[d_R == 0] = 1  # erf is zero at d_R==0 so we can set d_R[d_R == 0] to 1
+        potential_R = grid.empty()
+        potential_R.data[:] = charge * erf(alpha**0.5 * d_R) / d_R
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
