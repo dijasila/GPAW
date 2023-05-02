@@ -341,11 +341,12 @@ class EigendecomposedSpectrum:
         is valid for μν ∊ {00,0z,zz,+-} in collinear systems without spin-orbit
         coupling.
         """
-        # Flip and negate the spectral function
-        omega_w = - self.omega_w[::-1]
-        s_we = - self.s_we[::-1, ::-1]
-        v_wGe = self.v_wGe[::-1, :, ::-1]
-        vinv_weG = self.vinv_weG[::-1, ::-1]
+        # Negate the spectral function, its frequencies and reverse the order
+        # of eigenvalues
+        omega_w = - self.omega_w
+        s_we = - self.s_we[:, ::-1]
+        v_wGe = self.v_wGe[..., ::-1]
+        vinv_weG = self.vinv_weG[:, ::-1]
         inverted_spectrum = EigendecomposedSpectrum(omega_w, self.G_Gc,
                                                     s_we, v_wGe, vinv_weG)
 

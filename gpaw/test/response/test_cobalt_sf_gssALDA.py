@@ -106,9 +106,10 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     enh0 = Amaj0.A_w[w0] / Aksmaj0.A_w[w0]
     enh1 = Amaj1.A_w[w1] / Aksmaj1.A_w[w1]
 
-    # Calculate the minority spectral enhancement at -600 meV
-    min_enh0 = Amin0.A_w[-1] / Aksmin0.A_w[-1]
-    min_enh1 = Amin1.A_w[-1] / Aksmin1.A_w[-1]
+    # Calculate the minority spectral enhancement at 600 meV (corresponding to
+    # -600 meV on original frequency grid)
+    min_enh0 = Amin0.A_w[0] / Aksmin0.A_w[0]
+    min_enh1 = Amin1.A_w[0] / Aksmin1.A_w[0]
 
     if context.comm.rank == 0:
         # import matplotlib.pyplot as plt
