@@ -16,7 +16,7 @@ calc = GPAW(xc='PBE',
             txt='N-Phenylpyrrole_GS.txt')
 
 atoms = read('N-Phenylpyrrole.xyz')
-atoms.center(vacuum = 5.0)
+atoms.center(vacuum=5.0)
 atoms.set_pbc(False)
 atoms.calc = calc
 
