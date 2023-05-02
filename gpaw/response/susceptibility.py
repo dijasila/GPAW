@@ -309,8 +309,12 @@ class EigendecomposedSpectrum:
         """
         # Find the maximum number of positive eigenvalues across the entire
         # frequency range
-        pos_we = self.s_we > 0.
-        npos_max = np.max(np.sum(pos_we, axis=1))
+        if self.wblocks.nlocal > 0:
+            pos_we = self.s_we > 0.
+            npos_max = int(np.max(np.sum(pos_we, axis=1)))
+        else:
+            npos_max = 0
+        npos_max = self.wblocks.blockcomm.max(npos_max)
 
         # Allocate new arrays filled with nan to accomodate all the positive
         # eigenvalues
