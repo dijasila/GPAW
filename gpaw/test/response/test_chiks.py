@@ -11,10 +11,10 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.chi0 import Chi0
-from gpaw.response.susceptibility import (get_inverted_pw_mapping,
+from gpaw.response.pair_functions import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
 
-# ---------- ChiKS parametrization ---------- #
+# ---------- chiks parametrization ---------- #
 
 
 def generate_system_s(spincomponents=['00', '+-']):
@@ -194,7 +194,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
     # ---------- Inputs ---------- #
 
-    # Part 1: ChiKS calculation
+    # Part 1: chiks calculation
     wfs, spincomponent, rtol, _, _ = system
     q_c = get_q_c(wfs, qrel)
 
@@ -204,13 +204,13 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     eta = 0.15
     complex_frequencies = frequencies + 1.j * eta
 
-    # Part 2: Chi0 calculation
+    # Part 2: chi0 calculation
 
-    # Part 3: Check ChiKS vs. Chi0
+    # Part 3: Check chiks vs. chi0
 
     # ---------- Script ---------- #
 
-    # Part 1: ChiKS calculation
+    # Part 1: chiks calculation
 
     # Initialize ground state adapter
     context = ResponseContext()
@@ -220,13 +220,13 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-    # Calculate ChiKS
+    # Calculate chiks
     chiks_calc = ChiKSCalculator(gs, context=context,
                                  ecut=ecut, nbands=nbands)
     chiks = chiks_calc.calculate(spincomponent, q_c, zd)
     chiks = chiks.copy_with_global_frequency_distribution()
 
-    # Part 2: Chi0 calculation
+    # Part 2: chi0 calculation
     chi0_calc = Chi0(gpw_files[wfs],
                      frequencies=frequencies, eta=eta,
                      ecut=ecut, nbands=nbands,
@@ -234,7 +234,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     chi0_data = chi0_calc.calculate(q_c)
     chi0_wGG = chi0_data.get_distributed_frequencies_array()
 
-    # Part 3: Check ChiKS vs. Chi0
+    # Part 3: Check chiks vs. chi0
     assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=1e-8)
 
 
@@ -242,7 +242,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
 
 class ChiKSTestingFactory:
-    """Factory to calculate and cache ChiKS objects."""
+    """Factory to calculate and cache chiks objects."""
 
     def __init__(self, calc,
                  spincomponent, q_c, zd,

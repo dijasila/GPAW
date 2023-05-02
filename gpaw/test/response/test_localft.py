@@ -18,7 +18,7 @@ from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
                                    add_total_density, add_LSDA_Bxc)
-from gpaw.response.susceptibility import get_pw_coordinates
+from gpaw.response.pair_functions import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_pw_descriptor
 
 
