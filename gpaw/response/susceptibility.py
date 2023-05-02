@@ -141,25 +141,12 @@ class ChiFactory:
 def spectral_decomposition(chi, pos_eigs=1, neg_eigs=0):
     """Decompose the susceptibility in terms of spectral functions.
 
-    The full spectrum of induced excitations,
-
-                        1
-    S_GG'^(μν)(q,ω) = - ‾ χ_GG'^(μν")(q,ω)
-                        π
-
-    is extracted and separated into contributions corresponding to the pos_eigs
-    and neg_eigs largest positive and negative eigenvalues respectively.
+    The full spectrum of induced excitations is extracted and separated into
+    contributions corresponding to the pos_eigs and neg_eigs largest positive
+    and negative eigenvalues respectively.
     """
-    assert chi.distribution == 'zGG'
-    # Extract the spectrum of induced excitations
-    chid = chi.copy_dissipative_part()
-    omega_w = chid.zd.omega_w * Hartree  # frequency grid in eV
-    G_Gc = get_pw_coordinates(chid.qpd)  # plane-wave basis
-    chid_wGG = chid.blocks1d.all_gather(chid.array)  # collect all frequencies
-    S_wGG = - chid_wGG / np.pi
-
     # Initiate an EigendecomposedSpectrum object with the full spectrum
-    full_spectrum = EigendecomposedSpectrum.from_spectrum(omega_w, G_Gc, S_wGG)
+    full_spectrum = EigendecomposedSpectrum.from_chi(chi)
 
     # Separate the positive and negative eigenvalues for each frequency
     Apos = full_spectrum.get_positive_eigenvalue_spectrum()
@@ -207,6 +194,31 @@ class EigendecomposedSpectrum:
         self.vinv_weG = vinv_weG
 
         self._A_w = A_w
+
+    @classmethod
+    def from_chi(cls, chi):
+        """Construct the eigendecomposed spectrum of a given susceptibility.
+
+        The spectrum of induced excitations, S_GG'^(μν)(q,ω), which are encoded
+        in a given susceptibility, can be extracted directly from its the
+        dissipative part:
+
+                            1
+        S_GG'^(μν)(q,ω) = - ‾ χ_GG'^(μν")(q,ω)
+                            π
+        """
+        assert chi.distribution == 'zGG'
+
+        # Extract the spectrum of induced excitations
+        chid = chi.copy_dissipative_part()
+        chid_wGG = chid.blocks1d.all_gather(chid.array)  # collect frequencies
+        S_wGG = - chid_wGG / np.pi
+
+        # Extract frequencies (in eV) and reciprocal lattice vectors
+        omega_w = chid.zd.omega_w * Hartree
+        G_Gc = get_pw_coordinates(chid.qpd)
+
+        return cls.from_spectrum(omega_w, G_Gc, S_wGG)
 
     @classmethod
     def from_spectrum(cls, omega_w, G_Gc, S_wGG):
