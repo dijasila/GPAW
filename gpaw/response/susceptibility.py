@@ -389,3 +389,22 @@ class EigendecomposedSpectrum:
                                        # Keep the full spectral weight
                                        A_w=self.A_w,
                                        wblocks=self.wblocks)
+
+    def write_full_spectral_weight(self, filename):
+        """Write the sum of spectral weights A(w) to a file."""
+        A_w = self.wblocks.gather(self.A_w)
+        if self.wblocks.blockcomm.rank == 0:
+            with open(filename, 'w') as fd:
+                print('# {0:>11}, {1:>11}'.format(
+                    'omega [eV]', 'A(w)'), file=fd)
+                for omega, A in zip(self.omega_w, A_w):
+                    print('  {0:11.6f}, {1:11.6f}'.format(
+                        omega, A), file=fd)
+
+
+def read_full_spectral_weight(filename):
+    """Read a stored full spectral weight file."""
+    data = np.loadtxt(filename, delimiter=',')
+    omega_w = np.array(data[:, 0], float)
+    A_w = np.array(data[:, 1], float)
+    return omega_w, A_w
