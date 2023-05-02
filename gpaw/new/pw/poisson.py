@@ -94,6 +94,23 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         * Correct energy to remove the artificial interaction with
           the compensation charge
+
+        Parameters
+        ----------
+        pw: PlaneWaves
+        grid: UniformGrid
+        charge: float
+        strength: flaot
+        alpha: float
+        eps: float
+
+        Attributes
+        ----------
+        alpha : float
+        charge_g : np.ndarray
+            Guassian-shaped charge in reciprocal space
+        potential_g : PlaneWavesExpansions
+             Potential in reciprocal space created by charge_g
         """
         super().__init__(pw, charge, strength)
 
@@ -115,9 +132,15 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
-        d_R[d_R == 0] = 1  # erf is zero at d_R==0 so we can set d_R[d_R == 0] to 1
         potential_R = grid.empty()
+
+        # avoid division by 0
+        zero_indx = d_R == 0
+        d_R[zero_indx] = 1
         potential_R.data[:] = charge * erf(alpha**0.5 * d_R) / d_R
+        # at zero we should have:
+        # charge * erf(alpha**0.5 * d_R) / d_R = charge * alpha**0.5 * 2 / sqrt(pi)
+        potential_R.data[zero_indx] = charge * alpha**0.5 * 2 / np.sqrt(pi)
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
