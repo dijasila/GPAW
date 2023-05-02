@@ -196,7 +196,8 @@ class LatticePeriodicPairFunction(PairFunction):
         return cls(*args, **kwargs)
     
     def my_args(self, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the LatticePeriodicPairFunction."""
+        """Return the positional construction arguments of the
+        LatticePeriodicPairFunction."""
         if qpd is None:
             qpd = self.qpd
         if zd is None:
@@ -208,16 +209,19 @@ class LatticePeriodicPairFunction(PairFunction):
 
     def copy_with_reduced_pd(self, qpd):
         """Copy the pair function, but within a reduced plane-wave basis."""
-        if self.distribution != 'ZgG':
-            raise NotImplementedError('Not implemented for distribution '
-                                      f'{self.distribution}')
-
         new_pf = self._new(*self.my_args(qpd=qpd),
                            distribution=self.distribution)
-        new_pf.array[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
-                                                      self.blockdist,
-                                                      self.array)
-
+        if self.distribution == 'zGG':
+            new_pf.array[:] = map_zGG_array_to_reduced_pd(self.qpd, qpd,
+                                                          self.array)
+        elif self.distribution == 'ZgG':
+            new_pf.array[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
+                                                          self.blockdist,
+                                                          self.array)
+        else:
+            raise NotImplementedError('Chi.copy_with_reduced_pd has not been '
+                                      'implemented for distribution '
+                                      f'{self.distribution}')
         return new_pf
 
     def copy_with_global_frequency_distribution(self):
@@ -273,17 +277,21 @@ def map_zGG_array_to_reduced_pd(qpdi, qpd, in_zGG):
     return out_zGG
 
 
-class ChiKS(LatticePeriodicPairFunction):
-    """Data object for the four-component Kohn-Sham susceptibility tensor."""
+class Chi(LatticePeriodicPairFunction):
+    r"""Data object for the four-component susceptibility tensor χ_GG'^μν(q,z).
+    """
 
     def __init__(self, spincomponent, qpd, zd,
                  blockdist, distribution='ZgG'):
-        r"""Construct a χ_KS,GG'^μν(q,z) data object"""
+        r"""Construct a susceptibility of a given spin-component (μν)."""
         self.spincomponent = spincomponent
         super().__init__(qpd, zd, blockdist, distribution=distribution)
 
+    def new(self, **kwargs):
+        return self._new(*self.my_args_and_kwargs(**kwargs))
+
     def my_args(self, spincomponent=None, qpd=None, zd=None, blockdist=None):
-        """Return construction arguments of the ChiKS object."""
+        """Return positional construction arguments of the Chi object."""
         if spincomponent is None:
             spincomponent = self.spincomponent
         qpd, zd, blockdist = super().my_args(qpd=qpd, zd=zd,
@@ -291,23 +299,37 @@ class ChiKS(LatticePeriodicPairFunction):
 
         return spincomponent, qpd, zd, blockdist
 
+    def my_args_and_kwargs(self, distribution=None, **args):
+        """Return all the construction arguments of Chi, in order."""
+        args = self.my_args(**args)
+        if distribution is None:
+            distribution = self.distribution
+        return args + (distribution,)
+
+    def copy_with_reduced_ecut(self, ecut):
+        """Copy the susceptibility, but with a reduced ecut."""
+        ecut = ecut / Hartree  # eV -> Hartree
+        assert ecut <= self.qpd.ecut
+        qpd = self.qpd.copy_with(ecut=ecut)
+        return self.copy_with_reduced_pd(qpd)
+
     def copy_reactive_part(self):
         r"""Return a copy of the reactive part of the susceptibility.
 
         The reactive part of the susceptibility is defined as (see
         [PRB 103, 245110 (2021)]):
 
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,-G'-G^νμ(-q,-z*)].
-                              2
+                           1
+        χ_GG'^(μν')(q,z) = ‾ [χ_GG'^μν(q,z) + χ_(-G'-G)^νμ(-q,-z*)].
+                           2
 
         However if the density operators n^μ(r) and n^ν(r) are each others
         Hermitian conjugates, the reactive part simply becomes the Hermitian
         part in terms of the plane-wave basis:
 
-                              1
-        χ_KS,GG'^(μν')(q,z) = ‾ [χ_KS,GG'^μν(q,z) + χ_KS,G'G^(μν*)(q,z)],
-                              2
+                           1
+        χ_GG'^(μν')(q,z) = ‾ [χ_GG'^μν(q,z) + χ_G'G^(μν*)(q,z)],
+                           2
 
         which is trivial to evaluate.
         """
@@ -316,7 +338,7 @@ class ChiKS(LatticePeriodicPairFunction):
         assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
             'Spin-density operators has to be each others hermitian conjugates'
 
-        chiksr = self._new(*self.my_args(), distribution='zGG')
+        chiksr = self.new(distribution='zGG')
         chiks_zGG = self.array
         chiksr.array += chiks_zGG
         chiksr.array += np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
@@ -324,27 +346,29 @@ class ChiKS(LatticePeriodicPairFunction):
 
         return chiksr
 
+    def symmetrize_reciprocity(self):
+        r"""Symmetrize the reciprocity of the susceptibility (for q=0).
 
-class Chi:
-    """Many-body susceptibility in a plane-wave basis."""
+        In collinear systems without spin-orbit coupling, the plane-wave
+        susceptibility is reciprocal in the sense that
 
-    def __init__(self, chiks, chi_zGG):
-        """Construct the many-body susceptibility based on its ingredients."""
-        # Extract properties from chiks
-        self.qpd = chiks.qpd
-        self.zd = chiks.zd
-        self.blockdist = chiks.blockdist
-        self.distribution = chiks.distribution
-        self.world = self.blockdist.world
-        self.blocks1d = chiks.blocks1d
+        χ_GG'^(μν)(q, ω) = χ_(-G'-G)^(μν)(-q, ω)
 
-        self.array = chi_zGG
+        for all μν ∈ {00, uu, dd, +-, -+}, see [PRB 106, 085131 (2022)].
+        For q=0, we may symmetrize the susceptibility in this sense for free.
+        """
+        assert np.allclose(self.q_c, 0.)
+        assert self.distribution == 'zGG' or self.blocks1d.blockcomm.size == 1
+        invmap_GG = get_inverted_pw_mapping(self.qpd, self.qpd)
+        for chi_GG in self.array:
+            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
+            chi_GG[:] = (chi_GG + chi_GG[invmap_GG].T) / 2.
 
     def write_macroscopic_component(self, filename):
         """Write the spatially averaged (macroscopic) component of the
         susceptibility to a file along with the frequency grid."""
         chi_Z = self.get_macroscopic_component()
-        if self.world.rank == 0:
+        if self.blocks1d.blockcomm.rank == 0:
             write_pair_function(filename, self.zd, chi_Z)
 
     def get_macroscopic_component(self):
@@ -355,31 +379,45 @@ class Chi:
         chi_Z = self.blocks1d.all_gather(chi_z)
         return chi_Z
 
-    def write_reduced_array(self, filename, *, reduced_ecut):
-        """Write the susceptibility within a reduced plane-wave basis to a file
-        along with the frequency grid."""
-        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
-        chi_ZGG = self.blocks1d.gather(chi_zGG)
-        if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, qpd, chi_ZGG)
-
-    def get_reduced_array(self, *, reduced_ecut):
-        """Get data array with a reduced ecut."""
+    def write_array(self, filename):
+        """Write the full susceptibility array to a file along with the
+        frequency grid and plane-wave components."""
         assert self.distribution == 'zGG'
+        chi_ZGG = self.blocks1d.gather(self.array)
+        if self.blocks1d.blockcomm.rank == 0:
+            write_susceptibility_array(filename, self.zd, self.qpd, chi_ZGG)
 
-        qpd = self.qpd.copy_with(ecut=reduced_ecut / Hartree)
-        chi_zGG = map_zGG_array_to_reduced_pd(self.qpd, qpd, self.array)
-
-        return qpd, chi_zGG
-
-    def write_reduced_diagonal(self, filename, *, reduced_ecut):
+    def write_diagonal(self, filename):
         """Write the diagonal of the many-body susceptibility within a reduced
         plane-wave basis to a file along with the frequency grid."""
-        qpd, chi_zGG = self.get_reduced_array(reduced_ecut=reduced_ecut)
+        assert self.distribution == 'zGG'
+        chi_zGG = self.array
         chi_zG = np.diagonal(chi_zGG, axis1=1, axis2=2)
         chi_ZG = self.blocks1d.gather(chi_zG)
-        if self.world.rank == 0:
-            write_susceptibility_array(filename, self.zd, qpd, chi_ZG)
+        if self.blocks1d.blockcomm.rank == 0:
+            write_susceptibility_array(filename, self.zd, self.qpd, chi_ZG)
+
+
+def get_inverted_pw_mapping(qpd1, qpd2):
+    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
+    G1_Gc = get_pw_coordinates(qpd1)
+    G2_Gc = get_pw_coordinates(qpd2)
+
+    mG2_G1 = []
+    for G1_c in G1_Gc:
+        found_match = False
+        for G2, G2_c in enumerate(G2_Gc):
+            if np.all(G2_c == -G1_c):
+                mG2_G1.append(G2)
+                found_match = True
+                break
+        if not found_match:
+            raise ValueError('Could not match qpd1 and qpd2')
+
+    # Set up mapping from GG' to -G-G'
+    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
+
+    return invmap_GG
 
 
 def get_pw_coordinates(qpd):

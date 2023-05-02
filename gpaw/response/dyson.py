@@ -4,7 +4,7 @@ import numpy as np
 
 from gpaw.typing import Array1D
 from gpaw.response import timer
-from gpaw.response.pair_functions import ChiKS, Chi
+from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.goldstone import get_goldstone_scaling
 
@@ -74,8 +74,8 @@ class DysonSolver:
     def __init__(self, context):
         self.context = context
 
-    def __call__(self, chiks: ChiKS, hxc_kernel: HXCKernel) -> Chi:
-        """Solve the dyson equation and return chi."""
+    def __call__(self, chiks: Chi, hxc_kernel: HXCKernel) -> Chi:
+        """Solve the dyson equation and return the many-body susceptibility."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed,\
             "DysonSolver needs chiks' frequencies to be distributed over world"
@@ -91,8 +91,8 @@ class DysonSolver:
                                f'λ={lambd}')
             Khxc_GG *= lambd
 
-        chi_zGG = self.invert_dyson(chiks.array, Khxc_GG)
-        chi = Chi(chiks, chi_zGG)
+        chi = chiks.new()
+        chi.array = self.invert_dyson(chiks.array, Khxc_GG)
 
         return chi
 
