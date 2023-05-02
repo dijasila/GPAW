@@ -22,7 +22,9 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
 
     fxc = 'ALDA'
     q_qc = [[0.0, 0.0, 0.0], [1. / 4., 0.0, 0.0]]  # Two q-points along G-M
-    frq_w = np.linspace(-0.6, 1.2, 73)
+    # We make sure to have exactly 49 frequency points, so that one rank will
+    # have no block distributed frequencies when world.size == 8
+    frq_w = np.linspace(-0.6, 1.2, 49)
     eta = 0.2
 
     rshelmax = 0
@@ -200,13 +202,13 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert mpeak11 == pytest.approx(wpeak11, abs=0.01)
 
     # Test magnon mode eigenvalues at extrema
-    assert Speak00 == pytest.approx(6.085, abs=0.01)
+    assert Speak00 == pytest.approx(6.083, abs=0.01)
     assert Speak01 == pytest.approx(4.796, abs=0.01)
-    assert Speak10 == pytest.approx(2.587, abs=0.01)
+    assert Speak10 == pytest.approx(2.588, abs=0.01)
     assert Speak11 == pytest.approx(2.426, abs=0.01)
 
     # Test enhancement factors
-    assert enh0 == pytest.approx(34.36, abs=0.1)
+    assert enh0 == pytest.approx(34.78, abs=0.1)
     assert enh1 == pytest.approx(22.48, abs=0.1)
     assert min_enh0 == pytest.approx(1.090, abs=0.01)
     assert min_enh1 == pytest.approx(1.117, abs=0.01)
