@@ -109,6 +109,8 @@ class ElectronPhononCoupling(Displacement):
             If true, also calculate and store the dynamical matrix.
         """
 
+        parprint("DEPRECATION WARNING: This module is deprecated.")
+
         # Init base class and make the center cell in the supercell the
         # reference cell
         Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
