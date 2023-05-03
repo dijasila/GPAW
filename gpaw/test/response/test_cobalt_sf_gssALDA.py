@@ -114,11 +114,15 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     ar0_wm = Amaj0.get_eigenmode_lineshapes(nmodes=pos_eigs)
     ar1_wm = Amaj1.get_eigenmode_lineshapes(nmodes=pos_eigs)
 
-    # Find peaks in eigenmodes
-    mpeak00, Speak00 = findpeak(Amaj0.omega_w, ar0_wm[:, 0])
-    mpeak01, Speak01 = findpeak(Amaj1.omega_w, ar1_wm[:, 0])
-    mpeak10, Speak10 = findpeak(Amaj0.omega_w, ar0_wm[:, 1])
-    mpeak11, Speak11 = findpeak(Amaj1.omega_w, ar1_wm[:, 1])
+    # Find peaks in eigenmodes (in full and reduced basis)
+    mpeak00, Speak00 = findpeak(wa0_w, a0_wm[:, 0])
+    mpeak01, Speak01 = findpeak(wa1_w, a1_wm[:, 0])
+    mpeak10, Speak10 = findpeak(wa0_w, a0_wm[:, 1])
+    mpeak11, Speak11 = findpeak(wa1_w, a1_wm[:, 1])
+    mrpeak00, Srpeak00 = findpeak(Amaj0.omega_w, ar0_wm[:, 0])
+    mrpeak01, Srpeak01 = findpeak(Amaj1.omega_w, ar1_wm[:, 0])
+    mrpeak10, Srpeak10 = findpeak(Amaj0.omega_w, ar0_wm[:, 1])
+    mrpeak11, Srpeak11 = findpeak(Amaj1.omega_w, ar1_wm[:, 1])
 
     # Calculate the majority spectral enhancement at the acoustic magnon maxima
     w0 = np.argmin(np.abs(Amaj0.omega_w - wpeak00))
@@ -142,6 +146,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.axvline(wpeak10, c='0.5', linewidth=0.8)
         # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 0])
         # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 1])
+        # plt.plot(wa0_w, a0_wm[:, 0])
+        # plt.plot(wa0_w, a0_wm[:, 1])
         # plt.plot(Amaj0.omega_w, ar0_wm[:, 0])
         # plt.plot(Amaj0.omega_w, ar0_wm[:, 1])
         # # q=1
@@ -152,6 +158,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.axvline(wpeak11, c='0.5', linewidth=0.8)
         # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 0])
         # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 1])
+        # plt.plot(wa1_w, a1_wm[:, 0])
+        # plt.plot(wa1_w, a1_wm[:, 1])
         # plt.plot(Amaj1.omega_w, ar1_wm[:, 0])
         # plt.plot(Amaj1.omega_w, ar1_wm[:, 1])
         # # Plot full spectral weight of majority excitations
@@ -184,6 +192,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
         print(mpeak00, mpeak01, mpeak10, mpeak11)
         print(Speak00, Speak01, Speak10, Speak11)
+        print(mrpeak00, mrpeak01, mrpeak10, mrpeak11)
+        print(Srpeak00, Srpeak01, Srpeak10, Srpeak11)
         print(enh0, enh1, min_enh0, min_enh1)
 
     # Test kernel scaling
@@ -206,12 +216,20 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert mpeak01 == pytest.approx(wpeak01, abs=0.01)
     assert mpeak10 == pytest.approx(wpeak10, abs=0.01)
     assert mpeak11 == pytest.approx(wpeak11, abs=0.01)
+    assert mrpeak00 == pytest.approx(wpeak00, abs=0.005)
+    assert mrpeak01 == pytest.approx(wpeak01, abs=0.01)
+    assert mrpeak10 == pytest.approx(wpeak10, abs=0.01)
+    assert mrpeak11 == pytest.approx(wpeak11, abs=0.01)
 
     # Test magnon mode eigenvalues at extrema
-    assert Speak00 == pytest.approx(6.083, abs=0.01)
-    assert Speak01 == pytest.approx(4.796, abs=0.01)
-    assert Speak10 == pytest.approx(2.588, abs=0.01)
-    assert Speak11 == pytest.approx(2.426, abs=0.01)
+    assert Speak00 == pytest.approx(7.984, abs=0.01)
+    assert Speak01 == pytest.approx(6.341, abs=0.01)
+    assert Speak10 == pytest.approx(3.497, abs=0.01)
+    assert Speak11 == pytest.approx(3.311, abs=0.01)
+    assert Srpeak00 == pytest.approx(6.083, abs=0.01)
+    assert Srpeak01 == pytest.approx(4.796, abs=0.01)
+    assert Srpeak10 == pytest.approx(2.588, abs=0.01)
+    assert Srpeak11 == pytest.approx(2.426, abs=0.01)
 
     # Test enhancement factors
     assert enh0 == pytest.approx(34.78, abs=0.1)
