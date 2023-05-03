@@ -151,6 +151,11 @@ class Davidson(object):
     """
     Finite difference generalized Davidson partial diagonalizer to obtain a
     number of the eigenpairs with the smallest eigenvalues.
+
+    The following array indexation convention is used:
+
+    e: Target eigenpair
+    w: Krylov subspace
     """
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
@@ -204,20 +209,20 @@ class Davidson(object):
         self.sp_order = sp_order
         self.log_sp_order_once = True
         self.seed = seed
-        self.V = None
-        self.C = None
+        self.V_w = None
+        self.C_we = None
         self.M = None
-        self.W = None
-        self.H = None
-        self.lambda_ = None
-        self.y = None
-        self.x = None
-        self.r = None
-        self.t = None
+        self.W_w = None
+        self.H_ww = None
+        self.lambda_e = None
+        self.y_e = None
+        self.x_e = None
+        self.r_e = None
+        self.t_e = None
         self.l = None
         self.h = h
         self.m = m
-        self.converged = None
+        self.converged_e = None
         self.all_converged = None
         self.error = None
         self.n_iter = None
@@ -227,19 +232,19 @@ class Davidson(object):
         self.eps = eps
         self.grad = None
         self.cap_krylov = cap_krylov
-        self.dim = {}
+        self.dim_u = {}
         self.dimtot = None
         self.nocc = {}
         self.nbands = None
-        self.c_nm_ref = None
+        self.C_nM_ref = None
         self.logfile = logfile
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
         self.first_run = accurate_first_pdiag
         if self.gmf:
-            self.lambda_all = None
-            self.y_all = None
-            self.x_all = None
+            self.lambda_w = None
+            self.y_w = None
+            self.x_w = None
         self.check_inputs()
 
     def check_inputs(self):
