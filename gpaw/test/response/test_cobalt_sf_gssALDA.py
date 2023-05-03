@@ -9,7 +9,8 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import (ChiFactory, spectral_decomposition,
                                           EigendecomposedSpectrum,
-                                          read_full_spectral_weight)
+                                          read_full_spectral_weight,
+                                          read_eigenmode_lineshapes)
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.pair_functions import read_susceptibility_array
@@ -56,18 +57,23 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         chiks, chi = chi_factory('+-', q_c, complex_frequencies,
                                  fxc=fxc, hxc_scaling=hxc_scaling)
 
-        # Write the full spectral weight of majority and minority transitions
-        # for both the Kohn-Sham and many-body system
+        # Perform a spectral decomposition of the magnetic excitations in the
+        # Kohn-Sham and many-body susceptibilities, writing the full spectral
+        # weight of both the majority and minority spectra
         Aksmaj, Aksmin = spectral_decomposition(chiks)
         Aksmaj.write_full_spectral_weight(f'Aksmaj_q{q}.dat')
         Aksmin.write_full_spectral_weight(f'Aksmin_q{q}.dat')
-        Amaj, Amin = spectral_decomposition(chi)
+        Amaj, Amin = spectral_decomposition(chi,
+                                            pos_eigs=pos_eigs,
+                                            neg_eigs=neg_eigs)
         Amaj.write_full_spectral_weight(f'Amaj_q{q}.dat')
         Amin.write_full_spectral_weight(f'Amin_q{q}.dat')
+        # Write also the majority magnon modes of the many-body system
+        Amaj.write_eigenmode_lineshapes(f'Amaj_modes_q{q}.dat', nmodes=2)
 
-        # Perform a spectral decomposition of the many-body susceptibility in a
-        # reduced plane-wave basis in order to capture the collective magnon
-        # modes
+        # Perform an analogous spectral decomposition of the many-body
+        # susceptibility in a reduced plane-wave basis and write the decomposed
+        # spectrum to a file
         chi = chi.copy_with_reduced_ecut(reduced_ecut)
         chi.write_diagonal(f'chiwG_q{q}.pckl')
         Amaj, Amin = spectral_decomposition(chi,
@@ -89,6 +95,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wmin0_w, Amin0_w = read_full_spectral_weight('Amin_q0.dat')
     wmaj1_w, Amaj1_w = read_full_spectral_weight('Amaj_q1.dat')
     wmin1_w, Amin1_w = read_full_spectral_weight('Amin_q1.dat')
+    wa0_w, a0_wm = read_eigenmode_lineshapes('Amaj_modes_q0.dat')
+    wa1_w, a1_wm = read_eigenmode_lineshapes('Amaj_modes_q1.dat')
     w0_w, _, chi0_wG = read_susceptibility_array('chiwG_q0.pckl')
     w1_w, _, chi1_wG = read_susceptibility_array('chiwG_q1.pckl')
     Amaj0 = EigendecomposedSpectrum.from_file('Amaj_q0.pckl')
@@ -101,22 +109,20 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wpeak10, Ipeak10 = findpeak(w0_w, -chi0_wG[:, 1].imag)
     wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wG[:, 1].imag)
 
-    # Use the eigenvectors at the acoustic magnon peaks to distinguish the
-    # two magnon modes
-    w0 = np.argmin(np.abs(Amaj0.omega_w - wpeak00))
-    s00_w = extract_magnon_eigenmodes(Amaj0, w0, 0)
-    s10_w = extract_magnon_eigenmodes(Amaj0, w0, 1)
-    w1 = np.argmin(np.abs(Amaj1.omega_w - wpeak01))
-    s01_w = extract_magnon_eigenmodes(Amaj1, w1, 0)
-    s11_w = extract_magnon_eigenmodes(Amaj1, w1, 1)
+    # Extract the eigenmodes from the eigendecomposed spectrum in the reduced
+    # plane-wave basis
+    ar0_wm = Amaj0.get_eigenmode_lineshapes(nmodes=pos_eigs)
+    ar1_wm = Amaj1.get_eigenmode_lineshapes(nmodes=pos_eigs)
 
     # Find peaks in eigenmodes
-    mpeak00, Speak00 = findpeak(Amaj0.omega_w, s00_w)
-    mpeak01, Speak01 = findpeak(Amaj1.omega_w, s01_w)
-    mpeak10, Speak10 = findpeak(Amaj0.omega_w, s10_w)
-    mpeak11, Speak11 = findpeak(Amaj1.omega_w, s11_w)
+    mpeak00, Speak00 = findpeak(Amaj0.omega_w, ar0_wm[:, 0])
+    mpeak01, Speak01 = findpeak(Amaj1.omega_w, ar1_wm[:, 0])
+    mpeak10, Speak10 = findpeak(Amaj0.omega_w, ar0_wm[:, 1])
+    mpeak11, Speak11 = findpeak(Amaj1.omega_w, ar1_wm[:, 1])
 
     # Calculate the majority spectral enhancement at the acoustic magnon maxima
+    w0 = np.argmin(np.abs(Amaj0.omega_w - wpeak00))
+    w1 = np.argmin(np.abs(Amaj1.omega_w - wpeak01))
     enh0 = Amaj0_w[w0] / Aksmaj0_w[w0]
     enh1 = Amaj1_w[w1] / Aksmaj1_w[w1]
 
@@ -136,8 +142,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.axvline(wpeak10, c='0.5', linewidth=0.8)
         # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 0])
         # plt.plot(Amaj0.omega_w, Amaj0.s_we[:, 1])
-        # plt.plot(Amaj0.omega_w, s00_w)
-        # plt.plot(Amaj0.omega_w, s10_w)
+        # plt.plot(Amaj0.omega_w, ar0_wm[:, 0])
+        # plt.plot(Amaj0.omega_w, ar0_wm[:, 1])
         # # q=1
         # plt.subplot(2, 3, 4)
         # plt.plot(w1_w, -chi1_wG[:, 0].imag)
@@ -146,8 +152,8 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.axvline(wpeak11, c='0.5', linewidth=0.8)
         # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 0])
         # plt.plot(Amaj1.omega_w, Amaj1.s_we[:, 1])
-        # plt.plot(Amaj1.omega_w, s01_w)
-        # plt.plot(Amaj1.omega_w, s11_w)
+        # plt.plot(Amaj1.omega_w, ar1_wm[:, 0])
+        # plt.plot(Amaj1.omega_w, ar1_wm[:, 1])
         # # Plot full spectral weight of majority excitations
         # # q=0
         # plt.subplot(2, 3, 2)
@@ -212,10 +218,3 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert enh1 == pytest.approx(22.48, abs=0.1)
     assert min_enh0 == pytest.approx(1.090, abs=0.01)
     assert min_enh1 == pytest.approx(1.117, abs=0.01)
-
-
-def extract_magnon_eigenmodes(Amaj, windex, eindex):
-    v_G = Amaj.v_wGe[windex, :, eindex]
-    s_w = np.conj(v_G) @ Amaj.A_wGG @ v_G
-    assert np.allclose(s_w.imag, 0.)
-    return s_w.real
