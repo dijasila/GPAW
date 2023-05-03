@@ -448,32 +448,22 @@ class EigendecomposedSpectrum:
         return a_wm
 
     def write_full_spectral_weight(self, filename):
-        """Write the sum of spectral weights A(ω) to a file."""
         A_w = self.wblocks.gather(self.A_w)
         if self.wblocks.blockcomm.rank == 0:
-            with open(filename, 'w') as fd:
-                print('# {0:>11}, {1:>11}'.format(
-                    'omega [eV]', 'A(w)'), file=fd)
-                for omega, A in zip(self.omega_w, A_w):
-                    print('  {0:11.6f}, {1:11.6f}'.format(
-                        omega, A), file=fd)
+            write_full_spectral_weight(filename, self.omega_w, A_w)
 
     def write_eigenmode_lineshapes(self, filename, nmodes=1):
-        """Extract and write the eigenmode lineshapes a^μν_n(ω) to a file."""
         a_wm = self.get_eigenmode_lineshapes(nmodes=nmodes)
         if self.wblocks.blockcomm.rank == 0:
-            with open(filename, 'w') as fd:
-                # Print header
-                header = '# {0:>11}'.format('omega [eV]')
-                for m in range(a_wm.shape[1]):
-                    header += ', {0:>11}'.format(f'a_{m}(w)')
-                print(header, file=fd)
-                # Print data
-                for omega, a_m in zip(self.omega_w, a_wm):
-                    data = '  {0:11.6f}'.format(omega)
-                    for a in a_m:
-                        data += ', {0:11.6f}'.format(a)
-                    print(data, file=fd)
+            write_eigenmode_lineshapes(filename, self.omega_w, a_wm)
+
+
+def write_full_spectral_weight(filename, omega_w, A_w):
+    """Write the sum of spectral weights A(ω) to a file."""
+    with open(filename, 'w') as fd:
+        print('# {0:>11}, {1:>11}'.format('omega [eV]', 'A(w)'), file=fd)
+        for omega, A in zip(omega_w, A_w):
+            print('  {0:11.6f}, {1:11.6f}'.format(omega, A), file=fd)
 
 
 def read_full_spectral_weight(filename):
@@ -482,6 +472,22 @@ def read_full_spectral_weight(filename):
     omega_w = np.array(data[:, 0], float)
     A_w = np.array(data[:, 1], float)
     return omega_w, A_w
+
+
+def write_eigenmode_lineshapes(filename, omega_w, a_wm):
+    """Write the eigenmode lineshapes a^μν_n(ω) to a file."""
+    with open(filename, 'w') as fd:
+        # Print header
+        header = '# {0:>11}'.format('omega [eV]')
+        for m in range(a_wm.shape[1]):
+            header += ', {0:>11}'.format(f'a_{m}(w)')
+        print(header, file=fd)
+        # Print data
+        for omega, a_m in zip(omega_w, a_wm):
+            data = '  {0:11.6f}'.format(omega)
+            for a in a_m:
+                data += ', {0:11.6f}'.format(a)
+            print(data, file=fd)
 
 
 def read_eigenmode_lineshapes(filename):
