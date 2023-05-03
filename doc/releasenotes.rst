@@ -65,7 +65,7 @@ Git master branch
 * The PW-mode now includes an ``interpolation`` flag.  See
   :class:`gpaw.wavefunctions.pw.PW` for details.
 
-* The direct optimization generalized mode following method (DO-GMF) for
+* The :ref:`direct optimization generalized mode following method <do-gmf>` (DO-GMF) for
   variational calculations of excited electronic states was added.
 
 
