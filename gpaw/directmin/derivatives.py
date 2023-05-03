@@ -350,7 +350,7 @@ class Davidson(object):
             self.x_all = []
             for i in range(len(self.lambda_all)):
                 self.x_all.append(
-                    np.dot(self.V[:, :len(self.lambda_all)], self.y_all[i].T))
+                    self.V[:, :len(self.lambda_all)] @ self.y_all[i].T)
             self.x_all = np.asarray(self.x_all).T
         for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_nm_ref[k])
@@ -495,7 +495,7 @@ class Davidson(object):
         wfs.timer.start('Rayleigh matrix formation')
         # self.H[k] = np.zeros(shape=(self.l[k], self.l[k]))
         # mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
-        self.H = np.dot(self.V.T, self.W)
+        self.H = self.V.T @ self.W
         wfs.timer.stop('Rayleigh matrix formation')
         self.n_iter += 1
         wfs.timer.start('Rayleigh matrix diagonalization')
@@ -510,14 +510,14 @@ class Davidson(object):
         wfs.timer.start('Ritz vector calculation')
         self.x = []
         for i in range(self.l):
-            self.x.append(np.dot(self.V, self.y[i].T))
+            self.x.append(self.V @ self.y[i].T)
         self.x = np.asarray(self.x)
         wfs.timer.stop('Ritz vector calculation')
         wfs.timer.start('Residual calculation')
         self.r = []
         for i in range(self.l):
             self.r.append(
-                self.x[i] * self.lambda_[i] - np.dot(self.W, self.y[i].T))
+                self.x[i] * self.lambda_[i] - self.W @ self.y[i].T)
         self.r = np.asarray(self.r)
         wfs.timer.stop('Residual calculation')
         for i in range(self.l):
