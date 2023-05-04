@@ -139,7 +139,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         d_R[zero_indx] = 1
         potential_R.data[:] = charge * erf(alpha**0.5 * d_R) / d_R
         # at zero we should have:
-        # charge * erf(alpha**0.5 * d_R) / d_R = charge * alpha**0.5 * 2 / sqrt(pi)
+        # erf(alpha**0.5 * d_R) / d_R = alpha**0.5 * 2 / sqrt(pi)
         potential_R.data[zero_indx] = charge * alpha**0.5 * 2 / np.sqrt(pi)
         self.potential_g = potential_R.fft(pw=pw)
 
