@@ -224,7 +224,7 @@ class Davidson(object):
         self.m = m
         self.converged_e = None
         self.all_converged = None
-        self.error = None
+        self.error_e = None
         self.n_iter = None
         self.eigenvalues = None
         self.eigenvectors = None
@@ -319,7 +319,7 @@ class Davidson(object):
         if not self.gmf:
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
-        self.c_nm_ref = [deepcopy(wfs.kpt_u[x].C_nM)
+        self.C_nM_ref = [deepcopy(wfs.kpt_u[x].C_nM)
                          for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
             a_vec_u = {}
@@ -328,14 +328,14 @@ class Davidson(object):
                 n_dim[k] = wfs.bd.nbands
                 a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             self.grad = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, self.c_nm_ref)[1]
+                a_vec_u, n_dim, ham, wfs, dens, self.C_nM_ref)[1]
         while not self.all_converged:
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
             if self.sp_order is None:
                 sp_order = 0
-                for i in range(len(self.lambda_all)):
-                    if self.lambda_all[i] < 1e-8:
+                for i in range(len(self.lambda_w)):
+                    if self.lambda_w[i] < 1e-8:
                         sp_order += 1
                     else:
                         break
@@ -352,13 +352,13 @@ class Davidson(object):
                     'Using target saddle point order of '
                     + str(self.sp_order) + '.', flush=True)
         if self.gmf:
-            self.x_all = []
-            for i in range(len(self.lambda_all)):
-                self.x_all.append(
-                    self.V[:, :len(self.lambda_all)] @ self.y_all[i].T)
-            self.x_all = np.asarray(self.x_all).T
+            self.x_w = []
+            for i in range(len(self.lambda_w)):
+                self.x_w.append(
+                    self.V_w[:, :len(self.lambda_w)] @ self.y_w[i].T)
+            self.x_w = np.asarray(self.x_w).T
         for k, kpt in enumerate(wfs.kpt_u):
-            kpt.C_nM = deepcopy(self.c_nm_ref[k])
+            kpt.C_nM = deepcopy(self.C_nM_ref[k])
         if not self.gmf:
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
@@ -376,25 +376,25 @@ class Davidson(object):
         self.reset = False
         self.all_converged = False
         self.l = 0
-        self.V = None
+        self.V_w = None
         appr_sp_order = 0
         dia = []
         self.dimtot = 0
         for k, kpt in enumerate(wfs.kpt_u):
             hdia = self.etdm.get_hessian(kpt)
-            self.dim[k] = len(hdia)
+            self.dim_u[k] = len(hdia)
             self.dimtot += len(hdia)
             dia += list(hdia.copy())
             self.nocc[k] = get_n_occ(kpt)
         self.nbands = wfs.bd.nbands
         if use_prev:
-            for i in range(len(self.lambda_all)):
-                if self.lambda_all[i] < -1e-4:
+            for i in range(len(self.lambda_w)):
+                if self.lambda_w[i] < -1e-4:
                     appr_sp_order += 1
                     if self.etdm.dtype == complex:
-                        dia[i] = self.lambda_all[i] + 1.0j * self.lambda_all[i]
+                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
                     else:
-                        dia[i] = self.lambda_all[i]
+                        dia[i] = self.lambda_w[i]
         else:
             for i in range(len(dia)):
                 if np.real(dia[i]) < -1e-4:
@@ -410,14 +410,14 @@ class Davidson(object):
             self.l = 1
         if self.l > self.dimtot * dimz:
             self.l = self.dimtot * dimz
-        self.W = None
-        self.error = [np.inf for x in range(self.l)]
-        self.converged = [False for x in range(self.l)]
+        self.W_w = None
+        self.error_e = [np.inf for x in range(self.l)]
+        self.converged_e = [False for x in range(self.l)]
         rng = np.random.default_rng(self.seed)
         reps = 1e-4
         wfs.timer.start('Initial Krylov space')
         if use_prev:
-            self.V = deepcopy(self.x_all.T[: self.l])
+            self.V_w = deepcopy(self.x_w.T[: self.l])
             for i in range(self.l):
                 for k in range(self.dimtot):
                     for l in range(dimz):
@@ -429,7 +429,7 @@ class Davidson(object):
                             rand[0] = 0.0
                             rand[1] = 0.0
                         world.broadcast(rand, 0)
-                        self.V[i][l * self.dimtot + k] \
+                        self.V_w[i][l * self.dimtot + k] \
                             += rand[1] * reps * rand[0]
         else:
             do_conj = False
@@ -438,7 +438,7 @@ class Davidson(object):
             v = None
             imin = None
 
-            self.V = []
+            self.V_w = []
             for i in range(self.l):
                 if do_conj:
                     v[self.dimtot + imin] = -1.0
@@ -465,12 +465,12 @@ class Davidson(object):
                             rand[1] = 0.0
                         world.broadcast(rand, 0)
                         v[m * self.dimtot + l] = rand[1] * reps * rand[0]
-                self.V.append(v / np.linalg.norm(v))
-            self.V = np.asarray(self.V)
+                self.V_w.append(v / np.linalg.norm(v))
+            self.V_w = np.asarray(self.V_w)
         wfs.timer.start('Modified Gram-Schmidt')
-        self.V = mgs(self.V)
+        self.V_w = mgs(self.V_w)
         wfs.timer.stop('Modified Gram-Schmidt')
-        self.V = self.V.T
+        self.V_w = self.V_w.T
         wfs.timer.stop('Initial Krylov space')
         text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
         if self.sp_order is None:
@@ -480,107 +480,109 @@ class Davidson(object):
         self.logger(text, flush=True)
 
     def iterate(self, wfs, ham, dens):
-        self.t = []
+        self.t_e = []
         wfs.timer.start('FD Hessian vector product')
-        if self.W is None:
-            self.W = []
-            Vt = self.V.T
+        if self.W_w is None:
+            self.W_w = []
+            Vt = self.V_w.T
             for i in range(len(Vt)):
-                self.W.append(self.get_fd_hessian(Vt[i], wfs, ham, dens))
+                self.W_w.append(self.get_fd_hessian(Vt[i], wfs, ham, dens))
             self.reset = False
         else:
-            added = len(self.V[0]) - len(self.W[0])
-            self.W = self.W.T.tolist()
-            Vt = self.V.T
+            added = len(self.V_w[0]) - len(self.W_w[0])
+            self.W_w = self.W_w.T.tolist()
+            Vt = self.V_w.T
             for i in range(added):
-                self.W.append(self.get_fd_hessian(
+                self.W_w.append(self.get_fd_hessian(
                     Vt[-added + i], wfs, ham, dens))
-        self.W = np.asarray(self.W).T
+        self.W_w = np.asarray(self.W_w).T
         wfs.timer.stop('FD Hessian vector product')
         wfs.timer.start('Rayleigh matrix formation')
-        # self.H[k] = np.zeros(shape=(self.l[k], self.l[k]))
-        # mmm(1.0, self.V[k], 'N', self.W[k], 'T', 0.0, self.H[k])
-        self.H = self.V.T @ self.W
+        # self.H_ww[k] = np.zeros(shape=(self.l[k], self.l[k]))
+        # mmm(1.0, self.V_w[k], 'N', self.W_w[k], 'T', 0.0, self.H_ww[k])
+        self.H_ww = self.V_w.T @ self.W_w
         wfs.timer.stop('Rayleigh matrix formation')
         self.n_iter += 1
         wfs.timer.start('Rayleigh matrix diagonalization')
-        eigv, eigvec = np.linalg.eigh(self.H)
+        eigv, eigvec = np.linalg.eigh(self.H_ww)
         wfs.timer.stop('Rayleigh matrix diagonalization')
         eigvec = eigvec.T
         if self.gmf:
-            self.lambda_all = deepcopy(eigv)
-            self.y_all = deepcopy(eigvec)
-        self.lambda_ = eigv[: self.l]
-        self.y = eigvec[: self.l]
+            self.lambda_w = deepcopy(eigv)
+            self.y_w = deepcopy(eigvec)
+        self.lambda_e = eigv[: self.l]
+        self.y_e = eigvec[: self.l]
         wfs.timer.start('Ritz vector calculation')
-        self.x = []
+        self.x_e = []
         for i in range(self.l):
-            self.x.append(self.V @ self.y[i].T)
-        self.x = np.asarray(self.x)
+            self.x_e.append(self.V_w @ self.y_e[i].T)
+        self.x_e = np.asarray(self.x_e)
         wfs.timer.stop('Ritz vector calculation')
         wfs.timer.start('Residual calculation')
-        self.r = []
+        self.r_e = []
         for i in range(self.l):
-            self.r.append(
-                self.x[i] * self.lambda_[i] - self.W @ self.y[i].T)
-        self.r = np.asarray(self.r)
+            self.r_e.append(
+                self.x_e[i] * self.lambda_e[i] - self.W_w @ self.y_e[i].T)
+        self.r_e = np.asarray(self.r_e)
         wfs.timer.stop('Residual calculation')
         for i in range(self.l):
-            self.error[i] = np.abs(self.r[i]).max()
+            self.error_e[i] = np.abs(self.r_e[i]).max()
         self.all_converged = True
         for i in range(self.l):
-            self.converged[i] = self.error[i] < self.eps
-            self.all_converged = self.all_converged and self.converged[i]
+            self.converged_e[i] = self.error_e[i] < self.eps
+            self.all_converged = self.all_converged and self.converged_e[i]
         if self.all_converged:
-            self.eigenvalues = deepcopy(self.lambda_)
-            self.eigenvectors = deepcopy(self.x)
+            self.eigenvalues = deepcopy(self.lambda_e)
+            self.eigenvectors = deepcopy(self.x_e)
             self.log()
             return
-        n_dim = len(self.V)
+        n_dim = len(self.V_w)
         wfs.timer.start('Preconditioner calculation')
-        self.C = np.zeros(shape=(self.l, n_dim))
+        self.C_we = np.zeros(shape=(self.l, n_dim))
         for i in range(self.l):
-            self.C[i] = -np.abs(np.repeat(self.lambda_[i], n_dim) - self.M)**-1
-            for l in range(len(self.C[i])):
-                if self.C[i][l] > -0.1 * Hartree:
-                    self.C[i][l] = -0.1 * Hartree
+            self.C_we[i] = -np.abs(
+                np.repeat(self.lambda_e[i], n_dim) - self.M)**-1
+            for l in range(len(self.C_we[i])):
+                if self.C_we[i][l] > -0.1 * Hartree:
+                    self.C_we[i][l] = -0.1 * Hartree
         wfs.timer.stop('Preconditioner calculation')
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
         for i in range(self.l):
-            if not self.converged[i] or (self.gmf and self.first_run):
-                self.t.append(self.C[i] * self.r[i])
-        self.t = np.asarray(self.t)
-        if len(self.V[0]) <= self.m:
-            self.V = self.V.T.tolist()
-            for i in range(len(self.t)):
-                self.V.append(self.t[i])
+            if not self.converged_e[i] or (self.gmf and self.first_run):
+                self.t_e.append(self.C_we[i] * self.r_e[i])
+        self.t_e = np.asarray(self.t_e)
+        if len(self.V_w[0]) <= self.m:
+            self.V_w = self.V_w.T.tolist()
+            for i in range(len(self.t_e)):
+                self.V_w.append(self.t_e[i])
         elif not self.cap_krylov:
             self.reset = True
-            self.V = deepcopy(self.x.tolist())
-            for i in range(len(self.t)):
-                self.V.append(self.t[i])
-            self.W = None
+            self.V_w = deepcopy(self.x_e.tolist())
+            for i in range(len(self.t_e)):
+                self.V_w.append(self.t_e[i])
+            self.W_w = None
         wfs.timer.stop('New directions')
-        self.V = np.asarray(self.V)
+        self.V_w = np.asarray(self.V_w)
         if self.cap_krylov:
-            if len(self.V) > self.m:
+            if len(self.V_w) > self.m:
                 self.logger(
                     'Krylov space exceeded maximum size. Partial '
                     'diagonalization is not fully converged. Current size '
-                    'is ' + str(len(self.V) - len(self.t)) + '. Size at next '
-                    'step would be ' + str(len(self.V)) + '.', flush=True)
+                    'is ' + str(len(self.V_w) - len(self.t_e)) + '. Size at '
+                    'next step would be ' + str(len(self.V_w)) + '.',
+                    flush=True)
                 self.all_converged = True
         wfs.timer.start('Modified Gram-Schmidt')
-        self.V = mgs(self.V)
+        self.V_w = mgs(self.V_w)
         wfs.timer.stop('Modified Gram-Schmidt')
-        self.V = self.V.T
+        self.V_w = self.V_w.T
         wfs.timer.stop('Krylov space augmentation')
         self.log()
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
-                    + str(len(self.V[0]) - len(self.t)), flush=True)
+                    + str(len(self.V_w[0]) - len(self.t_e)), flush=True)
         if self.reset:
             self.logger('Reset Krylov space', flush=True)
         self.logger('\nEigenvalues:\n', flush=True)
@@ -592,15 +594,15 @@ class Davidson(object):
         text = ''
         for i in range(self.l):
             text += '%10.6f '
-        self.logger(text % tuple(self.lambda_), flush=True)
+        self.logger(text % tuple(self.lambda_e), flush=True)
         self.logger('\nResidual maximum components:\n', flush=True)
         self.logger(indices, flush=True)
         text = ''
-        temp = list(np.round_(deepcopy(self.error), 6))
+        temp = list(np.round_(deepcopy(self.error_e), 6))
         for i in range(self.l):
             text += '%10s '
             temp[i] = str(temp[i])
-            if self.converged[i]:
+            if self.converged_e[i]:
                 temp[i] += 'c'
         self.logger(text % tuple(temp), flush=True)
 
@@ -617,7 +619,7 @@ class Davidson(object):
         """
 
         v = self.h * vin
-        c_nm = deepcopy(self.c_nm_ref)
+        C_nM = deepcopy(self.C_nM_ref)
         a_vec_u = {}
         n_dim = {}
         start = 0
@@ -625,13 +627,13 @@ class Davidson(object):
         for k in range(len(wfs.kpt_u)):
             a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             n_dim[k] = wfs.bd.nbands
-            end += self.dim[k]
+            end += self.dim_u[k]
             a_vec_u[k] += v[start: end]
             if self.etdm.dtype == complex:
                 a_vec_u[k] += 1.0j * v[self.dimtot + start: self.dimtot + end]
-            start += self.dim[k]
+            start += self.dim_u[k]
         gp = self.etdm.get_energy_and_gradients(
-            a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
+            a_vec_u, n_dim, ham, wfs, dens, C_nM)[1]
         for k in range(len(wfs.kpt_u)):
             a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
         hessi = []
@@ -640,21 +642,21 @@ class Davidson(object):
             end = 0
             for k in range(len(wfs.kpt_u)):
                 a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
-                end += self.dim[k]
+                end += self.dim_u[k]
                 a_vec_u[k] -= v[start: end]
                 if self.etdm.dtype == complex:
                     a_vec_u[k] \
                         -= 1.0j * v[self.dimtot + start: self.dimtot + end]
-                start += self.dim[k]
+                start += self.dim_u[k]
             gm = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, c_nm)[1]
+                a_vec_u, n_dim, ham, wfs, dens, C_nM)[1]
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - gm[k]) * 0.5 / self.h)
         elif self.fd_mode == 'forward':
             for k in range(len(wfs.kpt_u)):
                 hessi += list((gp[k] - self.grad[k]) / self.h)
         for k, kpt in enumerate(wfs.kpt_u):
-            kpt.C_nM = c_nm[k]
+            kpt.C_nM = C_nM[k]
         dens.update(wfs)
         if self.etdm.dtype == complex:
             hessc = np.zeros(shape=(2 * self.dimtot))
@@ -664,7 +666,7 @@ class Davidson(object):
         else:
             return np.asarray(hessi)
 
-    def break_instability(self, wfs, n_dim, c_ref, number,
+    def break_instability(self, wfs, n_dim, C_nM_ref, number,
                           initial_guess='displace', ham=None, dens=None):
         """
         Displaces orbital rotation coordinates in the direction of an
@@ -672,7 +674,7 @@ class Davidson(object):
 
         :param wfs:
         :param n_dim:
-        :param c_ref:
+        :param C_nM_ref:
         :param number: Instability index
         :param initial_guess: How to displace. Can be one of the following:
         displace: Use a fixed displacement; line_search: Performs a
@@ -681,26 +683,26 @@ class Davidson(object):
         :param dens:
         """
 
-        assert self.converged, 'Davidson cannot break instabilities since' \
+        assert self.converged_e, 'Davidson cannot break instabilities since' \
             + ' the partial eigendecomposition has not been converged.'
-        assert len(self.lambda_) >= number, 'Davidson cannot break' \
+        assert len(self.lambda_e) >= number, 'Davidson cannot break' \
             + ' instability no. ' + str(number) + ' since this eigenpair was' \
             + 'not converged.'
-        assert self.lambda_[number - 1] < 0.0, 'Eigenvector no. ' \
+        assert self.lambda_e[number - 1] < 0.0, 'Eigenvector no. ' \
             + str(number) + ' does not represent an instability.'
 
         a_vec_u = {}
         for k in self.etdm.a_vec_u.keys():
-            a_vec_u[k] = np.zeros(self.dim[k])
+            a_vec_u[k] = np.zeros(self.dim_u[k])
         step = self.etdm.line_search.max_step
-        instability = step * self.x[number - 1]
+        instability = step * self.x_e[number - 1]
         if initial_guess == 'displace':
             start = 0
             stop = 0
             for k in a_vec_u.keys():
-                stop += self.dim[k]
+                stop += self.dim_u[k]
                 a_vec_u[k] = instability[start: stop]
-                start += self.dim[k]
+                start += self.dim_u[k]
         elif initial_guess == 'line_search':
             assert ham is not None and dens is not None, 'Hamiltonian and' \
                                                          'density needed for' \
@@ -709,24 +711,24 @@ class Davidson(object):
             start = 0
             stop = 0
             for k in a_vec_u.keys():
-                stop += self.dim[k]
+                stop += self.dim_u[k]
                 p_vec_u[k] = instability[start: stop]
-                start += self.dim[k]
+                start += self.dim_u[k]
             phi, g_vec_u = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, c_ref)
+                a_vec_u, n_dim, ham, wfs, dens, C_nM_ref)
             der_phi = 0.0
             for k in g_vec_u:
                 der_phi += g_vec_u[k].conj() @ p_vec_u[k]
             der_phi = der_phi.real
             der_phi = wfs.kd.comm.sum(der_phi)
             alpha = self.etdm.line_search.step_length_update(
-                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, c_ref,
+                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, C_nM_ref,
                 phi_0=phi, der_phi_0=der_phi, phi_old=None,
                 der_phi_old=None, alpha_max=5.0, alpha_old=None,
                 kpdescr=wfs.kd)[0]
             for k in a_vec_u.keys():
                 a_vec_u[k] = alpha * p_vec_u[k]
-        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, C_nM_ref)
 
 
 def mgs(vin):

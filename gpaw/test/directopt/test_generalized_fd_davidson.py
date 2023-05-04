@@ -39,7 +39,7 @@ def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
 
     hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
                          [3.95786680e-09, 1.14599176e+00]])
-    assert dave.lambda_ == pytest.approx(np.sort(np.diag(hess_nt)), abs=1e-4)
+    assert dave.lambda_e == pytest.approx(np.sort(np.diag(hess_nt)), abs=1e-4)
 
     a_mat_u = {0: [np.sqrt(2) * np.pi / 4.0 + 1.0j * np.sqrt(2) * np.pi / 4.0]}
     c_nm_ref = calc.wfs.eigensolver.dm_helper.reference_orbitals
@@ -57,4 +57,4 @@ def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
 
     hess_nt = np.asarray([[-1.08209601e+00, -1.11022302e-09],
                          [8.50014503e-10, -9.37664521e-01]])
-    assert dave.lambda_ == pytest.approx(np.sort(np.diag(hess_nt)), abs=1e-4)
+    assert dave.lambda_e == pytest.approx(np.sort(np.diag(hess_nt)), abs=1e-4)
