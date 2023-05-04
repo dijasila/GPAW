@@ -209,17 +209,18 @@ class Davidson(object):
         self.sp_order = sp_order
         self.log_sp_order_once = True
         self.seed = seed
-        self.V_w = None
-        self.C_we = None
-        self.M = None
-        self.W_w = None
-        self.H_ww = None
-        self.lambda_e = None
-        self.y_e = None
-        self.x_e = None
-        self.r_e = None
-        self.t_e = None
-        self.l = None
+        self.V_w = None       # Krylov subspace
+        self.C_we = None      # Preconditioner
+        self.M = None         # Matrix used to get preconditioner every step
+        self.W_w = None       # Hessian effect on Krylov subspace
+        self.H_ww = None      # Rayleigh matrix, smaller representation of the
+                              # diagonalization problem to solve
+        self.lambda_e = None  # Target eigenvalues
+        self.y_e = None       # Target eigenvectors in subspace representation
+        self.x_e = None       # Target eigenvectors
+        self.r_e = None       # Residuals of target eigenvectors
+        self.t_e = None       # Krylov space extension vectors
+        self.l = None         # Number of target eigenpairs
         self.h = h
         self.m = m
         self.converged_e = None
@@ -242,9 +243,9 @@ class Davidson(object):
         self.logger.fd = logfile
         self.first_run = accurate_first_pdiag
         if self.gmf:
-            self.lambda_w = None
-            self.y_w = None
-            self.x_w = None
+            self.lambda_w = None  # All eigenvalues
+            self.y_w = None       # All eigenvectors in subspace representation
+            self.x_w = None       # All eigenvectors
         self.check_inputs()
 
     def check_inputs(self):
