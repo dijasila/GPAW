@@ -209,43 +209,43 @@ class Davidson(object):
         self.sp_order = sp_order
         self.log_sp_order_once = True
         self.seed = seed
-        self.V_w = None       # Krylov subspace
-        self.C_we = None      # Preconditioner
-        self.M = None         # Matrix used to get preconditioner every step
-        self.W_w = None       # Hessian effect on Krylov subspace
-        self.H_ww = None      # Rayleigh matrix, smaller representation of the
-                              # diagonalization problem to solve
-        self.lambda_e = None  # Target eigenvalues
-        self.y_e = None       # Target eigenvectors in subspace representation
-        self.x_e = None       # Target eigenvectors
-        self.r_e = None       # Residuals of target eigenvectors
-        self.t_e = None       # Krylov space extension vectors
-        self.l = None         # Number of target eigenpairs
+        self.V_w = []       # Krylov subspace
+        self.C_we = []      # Preconditioner
+        self.M = []         # Matrix used to get preconditioner every step
+        self.W_w = []       # Hessian effect on Krylov subspace
+        self.H_ww = []      # Rayleigh matrix, smaller representation of the
+                            # diagonalization problem to solve
+        self.lambda_e = []  # Target eigenvalues
+        self.y_e = []       # Target eigenvectors in subspace representation
+        self.x_e = []       # Target eigenvectors
+        self.r_e = []       # Residuals of target eigenvectors
+        self.t_e = []       # Krylov space extension vectors
+        self.l = None       # Number of target eigenpairs
         self.h = h
         self.m = m
-        self.converged_e = None
-        self.all_converged = None
-        self.error_e = None
-        self.n_iter = None
-        self.eigenvalues = None
-        self.eigenvectors = None
-        self.reset = None
+        self.converged_e = False
+        self.all_converged = False
+        self.error_e = []
+        self.n_iter = 0
+        self.eigenvalues = []
+        self.eigenvectors = []
+        self.reset = False
         self.eps = eps
-        self.grad = None
+        self.grad = {}
         self.cap_krylov = cap_krylov
         self.dim_u = {}
-        self.dimtot = None
+        self.dimtot = 0
         self.nocc = {}
-        self.nbands = None
-        self.C_nM_ref = None
+        self.nbands = 0
+        self.C_nM_ref = []
         self.logfile = logfile
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
         self.first_run = accurate_first_pdiag
         if self.gmf:
-            self.lambda_w = None  # All eigenvalues
-            self.y_w = None       # All eigenvectors in subspace representation
-            self.x_w = None       # All eigenvectors
+            self.lambda_w = []  # All eigenvalues
+            self.y_w = []       # All eigenvectors in subspace representation
+            self.x_w = []       # All eigenvectors
         self.check_inputs()
 
     def check_inputs(self):
