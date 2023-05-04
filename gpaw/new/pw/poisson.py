@@ -45,9 +45,9 @@ class PWPoissonSolver(PoissonSolver):
         txt = ('poisson solver:\n'
                f'  ecut: {self.pw.ecut * Ha}  # eV\n')
         if self.strength != 1.0:
-            txt += f'  strength: {self.strength}'
+            txt += f'  strength: {self.strength}\n'
         if self.charge != 0.0:
-            txt += f'  uniform background charge: {self.charge}  # electrons'
+            txt += f'  uniform background charge: {self.charge}  # electrons\n'
         return txt
 
     def solve(self,
@@ -145,7 +145,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
-        txt, x = str(super()).rsplit('\n', 1)
+        txt, x, _ = super().__str__().rsplit('\n', 2)
         assert x.startswith('  uniform background charge:')
         txt += (
             '  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
