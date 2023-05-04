@@ -65,6 +65,10 @@ Git master branch
 * The PW-mode now includes an ``interpolation`` flag.  See
   :class:`gpaw.wavefunctions.pw.PW` for details.
 
+* The LCAO implementation of direct optimization for variational calculations
+  of excited electronic states now includes :ref:`constrained optimization <mom>`
+  useful for challenging charge transfer excited states.
+
 * The :ref:`direct optimization generalized mode following method <do-gmf>` (DO-GMF) for
   variational calculations of excited electronic states was added.
 
