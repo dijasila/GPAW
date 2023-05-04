@@ -231,7 +231,7 @@ class Davidson(object):
         self.eigenvectors = []
         self.reset = False
         self.eps = eps
-        self.grad = {}
+        self.grad = None
         self.cap_krylov = cap_krylov
         self.dim_u = {}
         self.dimtot = 0
