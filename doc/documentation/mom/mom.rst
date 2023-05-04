@@ -175,6 +175,28 @@ and speed of convergence for calculations of excited states of molecules
 [#momgpaw2]_. However, a different value might improve the convergence for
 specific cases.
 
+If the target excited state shows pronounced charge transfer character, variational
+collapse can sometimes not be prevented even if DO and MOM are used in conjunction. In
+such cases, it can be worthwhile to perform a constrained optimization in which the
+electron and hole orbitals involved in the target excitation are frozen, and a
+minimization is done in the remaining subspace. This constrained minimization takes care
+of a large part of the prominent orbital relaxation effect in charge transfer excited
+states and thereby significantly simplifies the subsequent saddle point search.
+Constrained optimization can be accessed by using the ``constraints`` keyword::
+
+  calc.set(eigensolver=ETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
+                                         [[h21], [h22],..., [p21], [p22],...],
+                                         ...])
+
+Each hij refers to the j-th hole in the i-th K-point, each pij to the j-th excited
+electron in the i-th K-point. All rotations involving these orbitals are frozen during
+the constrained optimization resulting in these orbitals remaining unaltered after the
+optimization. It is also possible to constrain selected orbital rotations without
+completely freezing the involved orbitals by specifying lists of two orbital indices
+instead of a list of a singular orbital index. However, care has to be taken in that case
+since constraining a single orbital rotation may not fully prevent mixing between those
+two orbitals during the constrained optimization.
+
 .. _h2oexample:
 
 ---------------------------------------------------
@@ -243,6 +265,26 @@ discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so
 this feature should be used with caution and only
 at geometries far from state crossings.
+
+..  _ppexample:
+
+--------------------------------------------------------------------------------------
+Example III: Constrained optimization charge transfer excited state of N-phenylpyrrole
+--------------------------------------------------------------------------------------
+
+In this example, variational collapse of a charge transfer state of N-phenylpyrrole is
+avoided by using constrained optimization freezing the hole and excited electron. A single
+excitation is performed from the HOMO to the LUMO in one spin channel with respect to the
+ground state orbitals and no spin purification is used meaning that only the spin-mixed
+open-shell determinant is optimized. After a ground state calculation, the excited state
+is first targeted without constrained optimization. The calculation collapses to a
+lower-energy saddle point with pronounced mixing between the HOMO and LUMO leading to low
+charge transfer and a dipole moment of only -3.396 D. If a constrained optimization of
+the excited state is performed first and used as the initial guess of an unconstrained
+optimization, a higher-energy saddle point with a dipole moment of -10.227 D is found.
+This solution shows much less mixing between the HOMO and LUMO involved in the excitation.
+
+.. literalinclude:: constraints.py
 
 ----------
 References
