@@ -54,10 +54,10 @@ class ElectronPhononMatrix:
             Primitive cell object
         supercell_cache: str
             Name of JSON cache containing supercell matrix
-        phonon: str, dict, Phonon
+        phonon: str, dict, Phonons
             Can be either name of phonon cache generated with
             electron-phonon DisplacementRunner or dictonary
-            of arguments used in Phonon run or Phonon object.
+            of arguments used in Phonons run or Phonons object.
         load_sc_as_needed: bool
             Load supercell matrix elements only as needed.
             Greatly reduces memory requirement for large systems,
@@ -238,7 +238,7 @@ class ElectronPhononMatrix:
         calc: GPAW
             Converged calculator object containing the LCAO wavefuntions
             (don't use point group symmetry)
-        k_qc: ndarray
+        k_qc: np.ndarray
             q-vectors of the phonons. Must only contain values comenserate
             with k-point sampling of calculator. Default: all kpoints used.
         savetofile: bool

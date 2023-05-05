@@ -99,3 +99,6 @@ Code
 
 .. autoclass:: gpaw.elph.Supercell
     :members:
+
+.. autoclass:: gpaw.elph.ElectronPhononMatrix
+    :members:
