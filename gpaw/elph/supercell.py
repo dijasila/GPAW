@@ -57,10 +57,6 @@ class Supercell:
         nspins = wfs.nspins
         indices = np.arange(len(self.atoms))
 
-        # For the contribution from the derivative of the projectors
-        dP_aqvMi = wfs.manytci.P_aqMi(indices, derivative=True)
-        dP_qvMi = dP_aqvMi[a]
-
         # Array for different k-point components
         g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao), dtype)
 
@@ -70,8 +66,8 @@ class Supercell:
             # Note: somehow this part does not work with gd-parallelisation
             geff_MM = np.zeros((nao, nao), dtype)
             bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM, q=kpt.q)
-            wfs.gd.comm.sum(geff_MM)
             tri2full(geff_MM, "L")
+            # wfs.gd.comm.sum(geff_MM)
             # print(world.rank, a, v, kpt.k, geff_MM)
             g_sqMM[kpt.s, kpt.q] += geff_MM
             # print(wfs.kd.comm.rank, wfs.gd.comm.rank, wfs.bd.comm.rank,
@@ -88,23 +84,26 @@ class Supercell:
                     continue
                 dH1_ii = unpack2(dH1_sp[kpt.s])
                 P_Mi = P_aqMi[a_][kpt.q]
-                gp_MM += np.dot(P_Mi, np.dot(dH1_ii, P_Mi.T.conjugate()))
-            wfs.gd.comm.sum(gp_MM)
+                gp_MM += P_Mi.conj() @ dH1_ii @ P_Mi.T
+            # wfs.gd.comm.sum(gp_MM)
             g_sqMM[kpt.s, kpt.q] += gp_MM
 
         # 2b) dP^a part has only contributions from the same atoms
+        # For the contribution from the derivative of the projectors
+        dPdR_aqvMi = wfs.manytci.P_aqMi(indices, derivative=True)
         dH_ii = unpack2(dH_asp[a][kpt.s])
         for kpt in kpt_u:
             gp_MM = np.zeros((nao, nao), dtype)
             if a in bfs.my_atom_indices:
-                # XXX Sort out the sign here; conclusion -> sign = +1 !
-                P1HP_MM = +1 * np.dot(dP_qvMi[kpt.q][v], np.dot(dH_ii,
-                                      P_aqMi[a][kpt.q].T.conjugate()))
+                P_Mi = P_aqMi[a][kpt.q]
+                dP_Mi = dPdR_aqvMi[a][kpt.q][v]
+                P1HP_MM = dP_Mi.conj() @ dH_ii @ P_Mi.T
                 # Matrix elements
                 gp_MM += P1HP_MM + P1HP_MM.T.conjugate()
-            wfs.gd.comm.sum(gp_MM)
+            # wfs.gd.comm.sum(gp_MM)
             # print(world.rank, a,v, kpt.k, bfs.my_atom_indices, gp_MM)
             g_sqMM[kpt.s, kpt.q] += gp_MM
+
         return g_sqMM
 
     def calculate_supercell_matrix(
@@ -158,7 +157,7 @@ class Supercell:
         nspins = wfs.nspins
         # FIXME: Domain parallelisation broken
         assert gd.comm.size == 1
-        # FIXME: Band parallelisation broken - no idea why
+        # FIXME: Band parallelisation broken - M is band parallel
         assert bd.comm.size == 1
 
         # Calculate finite-difference gradients (in Hartree / Bohr)
