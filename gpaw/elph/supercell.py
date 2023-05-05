@@ -28,7 +28,7 @@ class VersionError(Exception):
 class Supercell:
     """Class for supercell-related stuff."""
 
-    def __init__(self, atoms: Atoms, supercell_name: str = 'supercell',
+    def __init__(self, atoms: Atoms, supercell_name: str = "supercell",
                  supercell: tuple = (1, 1, 1)) -> None:
         """Initialize supercell class.
 
@@ -47,8 +47,8 @@ class Supercell:
         self.supercell_name = supercell_name
         self.supercell = supercell
 
-    def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp,
-                                   wfs, dH_asp) -> ArrayND:
+    def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs,
+                                   dH_asp) -> ArrayND:
         kpt_u = wfs.kpt_u
         setups = wfs.setups
         nao = setups.nao
@@ -71,9 +71,11 @@ class Supercell:
             geff_MM = np.zeros((nao, nao), dtype)
             bfs.calculate_potential_matrix(V1t_sG[kpt.s], geff_MM, q=kpt.q)
             wfs.gd.comm.sum(geff_MM)
-            tri2full(geff_MM, 'L')
+            tri2full(geff_MM, "L")
             # print(world.rank, a, v, kpt.k, geff_MM)
             g_sqMM[kpt.s, kpt.q] += geff_MM
+            # print(wfs.kd.comm.rank, wfs.gd.comm.rank, wfs.bd.comm.rank,
+            #       "\n", geff_MM)
 
         # 2) Gradient of non-local part (projectors)
         P_aqMi = wfs.P_aqMi
@@ -105,8 +107,9 @@ class Supercell:
             g_sqMM[kpt.s, kpt.q] += gp_MM
         return g_sqMM
 
-    def calculate_supercell_matrix(self, calc: GPAW, fd_name: str = 'elph',
-                                   filter: str = None) -> None:
+    def calculate_supercell_matrix(
+        self, calc: GPAW, fd_name: str = "elph", filter: str = None
+    ) -> None:
         """Calculate matrix elements of the el-ph coupling in the LCAO basis.
 
         This function calculates the matrix elements between LCAOs and local
@@ -130,9 +133,9 @@ class Supercell:
             (default: None).
         """
 
-        assert calc.wfs.mode == 'lcao', 'LCAO mode required.'
+        assert calc.wfs.mode == "lcao", "LCAO mode required."
         assert not calc.symmetry.point_group, \
-            'Point group symmetry not supported'
+            "Point group symmetry not supported"
 
         # JSON cache
         supercell_cache = MultiFileJSONCache(self.supercell_name)
@@ -141,8 +144,8 @@ class Supercell:
         atoms_N = self.atoms * self.supercell
 
         # Initialize calculator if required and extract useful quantities
-        if (not hasattr(calc.wfs, 'S_qMM') or
-            not hasattr(calc.wfs.basis_functions, 'M_a')):
+        if (not hasattr(calc.wfs, "S_qMM") or
+            not hasattr(calc.wfs.basis_functions, "M_a")):
             calc.initialize(atoms_N)
             calc.initialize_positions(atoms_N)
 
@@ -150,23 +153,27 @@ class Supercell:
         wfs = calc.wfs
         gd = calc.wfs.gd
         kd = calc.wfs.kd
+        bd = calc.wfs.bd
         nao = wfs.setups.nao
         nspins = wfs.nspins
         # FIXME: Domain parallelisation broken
         assert gd.comm.size == 1
+        # FIXME: Band parallelisation broken - no idea why
+        assert bd.comm.size == 1
 
         # Calculate finite-difference gradients (in Hartree / Bohr)
         V1t_xsG, dH1_xasp = self.calculate_gradient(fd_name)
+
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         fd_cache = MultiFileJSONCache(fd_name)
-        dH_asp = fd_cache['eq']['dH_all_asp']
+        dH_asp = fd_cache["eq"]["dH_all_asp"]
 
         # Check that the grid is the same as in the calculator
         assert np.all(V1t_xsG.shape[-3:] == (gd.N_c + gd.pbc_c - 1)), \
             "Mismatch in grids."
 
         # Save basis information, after we checked the data is kosher
-        with supercell_cache.lock('basis') as handle:
+        with supercell_cache.lock("basis") as handle:
             if handle is not None:
                 basis_info = self.set_basis_info(calc)
                 handle.save(basis_info)
@@ -198,11 +205,11 @@ class Supercell:
                         continue
 
                     parprint("%s-gradient of atom %u" %
-                             (['x', 'y', 'z'][v], a))
+                             (["x", "y", "z"][v], a))
 
-                    g_sqMM = self._calculate_supercell_entry(a, v, V1t_xsG[x],
-                                                             dH1_xasp[x], wfs,
-                                                             dH_asp)
+                    g_sqMM = self._calculate_supercell_entry(
+                        a, v, V1t_xsG[x], dH1_xasp[x], wfs, dH_asp
+                    )
 
                     # Extract R_c=(0, 0, 0) block by Fourier transforming
                     if kd.gamma or kd.N_c is None:
@@ -226,13 +233,15 @@ class Supercell:
                     g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                     handle.save(g_sNNMM)
                 if x == 0:
-                    with supercell_cache.lock('info') as handle:
+                    with supercell_cache.lock("info") as handle:
                         if handle is not None:
-                            info = {'sc_version': sc_version,
-                                    'natom': len(self.atoms),
-                                    'supercell': self.supercell,
-                                    'gshape': g_sNNMM.shape,
-                                    'gtype': g_sNNMM.dtype.name}
+                            info = {
+                                "sc_version": sc_version,
+                                "natom": len(self.atoms),
+                                "supercell": self.supercell,
+                                "gshape": g_sNNMM.shape,
+                                "gtype": g_sNNMM.dtype.name,
+                            }
                             handle.save(info)
 
     def set_basis_info(self, *args) -> dict:
@@ -256,7 +265,7 @@ class Supercell:
         else:
             M_a = args[0]
             nao_a = args[1]
-        return {'M_a': M_a, 'nao_a': nao_a}
+        return {"M_a": M_a, "nao_a": nao_a}
 
     @classmethod
     def calculate_gradient(cls, fd_name: str) -> Tuple[ArrayND, list]:
@@ -271,11 +280,11 @@ class Supercell:
             name of finite difference JSON cache
         """
         cache = MultiFileJSONCache(fd_name)
-        if 'dr_version' not in cache['info']:
+        if "dr_version" not in cache["info"]:
             print("Cache created with old version. Use electronphonon.py")
             raise VersionError
-        natom = cache['info']['natom']
-        delta = cache['info']['delta']
+        natom = cache["info"]["natom"]
+        delta = cache["info"]["delta"]
 
         # Array and dict for finite difference derivatives
         V1t_xsG = []
@@ -283,13 +292,13 @@ class Supercell:
 
         x = 0
         for a in range(natom):
-            for v in 'xyz':
-                name = '%d%s' % (a, v)
+            for v in "xyz":
+                name = "%d%s" % (a, v)
                 # Potential and atomic density matrix for atomic displacement
-                Vtm_sG = cache[name + '-']['Vt_sG']
-                dHm_asp = cache[name + '-']['dH_all_asp']
-                Vtp_sG = cache[name + '+']['Vt_sG']
-                dHp_asp = cache[name + '+']['dH_all_asp']
+                Vtm_sG = cache[name + "-"]["Vt_sG"]
+                dHm_asp = cache[name + "-"]["dH_all_asp"]
+                Vtp_sG = cache[name + "+"]["Vt_sG"]
+                dHp_asp = cache[name + "+"]["dH_all_asp"]
 
                 # FD derivatives in Hartree / Bohr
                 V1t_sG = (Vtp_sG - Vtm_sG) / (2 * delta / units.Bohr)
@@ -297,14 +306,15 @@ class Supercell:
 
                 dH1_asp = {}
                 for atom in dHm_asp.keys():
-                    dH1_asp[atom] = (dHp_asp[atom] - dHm_asp[atom]) / \
-                                    (2 * delta / units.Bohr)
+                    dH1_asp[atom] = (dHp_asp[atom] - dHm_asp[atom]) / (
+                        2 * delta / units.Bohr
+                    )
                 dH1_xasp.append(dH1_asp)
                 x += 1
         return np.array(V1t_xsG), dH1_xasp
 
     @classmethod
-    def load_supercell_matrix(cls, name: str = 'supercell'
+    def load_supercell_matrix(cls, name: str = "supercell"
                               ) -> Tuple[ArrayND, dict]:
         """Load supercell matrix from cache.
 
@@ -314,15 +324,15 @@ class Supercell:
             User specified name of the cache.
         """
         supercell_cache = MultiFileJSONCache(name)
-        if 'sc_version' not in supercell_cache['info']:
+        if "sc_version" not in supercell_cache["info"]:
             print("Cache created with old version. Use electronphonon.py")
             raise VersionError
-        shape = supercell_cache['info']['gshape']
-        dtype = supercell_cache['info']['gtype']
-        natom = supercell_cache['info']['natom']
+        shape = supercell_cache["info"]["gshape"]
+        dtype = supercell_cache["info"]["gtype"]
+        natom = supercell_cache["info"]["natom"]
         nx = natom * 3
-        g_xsNNMM = np.empty([nx, ] + list(shape), dtype=dtype)
+        g_xsNNMM = np.empty([nx,] + list(shape), dtype=dtype)
         for x in range(nx):
             g_xsNNMM[x] = supercell_cache[str(x)]
-        basis_info = supercell_cache['basis']
+        basis_info = supercell_cache["basis"]
         return g_xsNNMM, basis_info

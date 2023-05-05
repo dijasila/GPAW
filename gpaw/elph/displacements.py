@@ -61,7 +61,7 @@ class DisplacementRunner(Displacement):
     """
 
     def __init__(self, atoms: Atoms, calc: GPAW, supercell: tuple = (1, 1, 1),
-                 name: str = 'elph', delta: float = 0.01,
+                 name: str = "elph", delta: float = 0.01,
                  calculate_forces: bool = True) -> None:
         """Initialize with base class args and kwargs.
 
@@ -86,7 +86,6 @@ class DisplacementRunner(Displacement):
         # reference cell
         Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
                               name=name, delta=delta, center_refcell=True)
-
         self.calculate_forces = calculate_forces
 
     def calculate(self, atoms_N: Atoms, disp):
@@ -117,7 +116,6 @@ class DisplacementRunner(Displacement):
 
         setups = calc.wfs.setups
         nspins = calc.wfs.nspins
-        gd_comm = calc.wfs.gd.comm
 
         dH_all_asp = {}
         for a, setup in enumerate(setups):
@@ -126,19 +124,19 @@ class DisplacementRunner(Displacement):
             dH_tmp_sp = np.zeros((nspins, nii))
             if a in dH_asp:
                 dH_tmp_sp[:] = dH_asp[a]
-            gd_comm.sum(dH_tmp_sp)
+            calc.wfs.gd.comm.sum(dH_tmp_sp)
             dH_all_asp[a] = dH_tmp_sp
 
-        output = {'Vt_sG': Vt_sG, 'dH_all_asp': dH_all_asp}
+        output = {"Vt_sG": Vt_sG, "dH_all_asp": dH_all_asp}
         if forces is not None:
-            output['forces'] = forces
+            output["forces"] = forces
         return output
 
     def save_info(self) -> None:
-        with self.cache.lock('info') as handle:
+        with self.cache.lock("info") as handle:
             if handle is not None:
-                info = {'natom': len(self.atoms), 'supercell': self.supercell,
-                        'delta': self.delta, 'dr_version': dr_version}
+                info = {"natom": len(self.atoms), "supercell": self.supercell,
+                        "delta": self.delta, "dr_version": dr_version}
                 handle.save(info)
 
     def run(self) -> None:

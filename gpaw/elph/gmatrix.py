@@ -38,14 +38,14 @@ from gpaw.typing import ArrayND
 
 from .supercell import Supercell
 
-OPTIMIZE = 'optimal'
+OPTIMIZE = "optimal"
 
 
 class ElectronPhononMatrix:
     """Class for containing the electron-phonon matrix"""
 
-    def __init__(self, atoms: Atoms, supercell_cache: str,
-                 phonon, load_sc_as_needed: bool = True) -> None:
+    def __init__(self, atoms: Atoms, supercell_cache: str, phonon,
+                 load_sc_as_needed: bool = True) -> None:
         """Initialize with base class args and kwargs.
 
         Parameters
@@ -80,18 +80,18 @@ class ElectronPhononMatrix:
         if isinstance(phonon, Phonons):
             self.phonon = phonon
         elif isinstance(phonon, str):
-            info = MultiFileJSONCache(phonon)['info']
-            assert 'dr_version' in info, 'use valid cache created by elph'
+            info = MultiFileJSONCache(phonon)["info"]
+            assert "dr_version" in info, "use valid cache created by elph"
             # our version of phonons
-            self.phonon = Phonons(atoms, supercell=info['supercell'],
-                                  name=phonon, delta=info['delta'],
+            self.phonon = Phonons(atoms, supercell=info["supercell"],
+                                  name=phonon, delta=info["delta"],
                                   center_refcell=True)
         elif isinstance(phonon, dict):
             # this would need to be updated of Phonon defaults change
-            supercell = phonon.get('supercell', (1, 1, 1))
-            name = phonon.get('name', 'phonon')
-            delta = phonon.get('delta', 0.01)
-            center_refcell = phonon.get('center_refcell', False)
+            supercell = phonon.get("supercell", (1, 1, 1))
+            name = phonon.get("name", "phonon")
+            delta = phonon.get("delta", 0.01)
+            center_refcell = phonon.get("center_refcell", False)
             self.phonon = Phonons(atoms, None, supercell, name, delta,
                                   center_refcell)
         else:
@@ -109,7 +109,7 @@ class ElectronPhononMatrix:
 
     def _get_lattice_vectors(self):
         """Recover lattice vectors of elph calculation"""
-        supercell = self.supercell_cache['info']['supercell']
+        supercell = self.supercell_cache["info"]["supercell"]
         ph = Phonons(self.atoms, supercell=supercell, center_refcell=True)
         return ph.compute_lattice_vectors()
 
@@ -123,7 +123,7 @@ class ElectronPhononMatrix:
                 c_knM[k, n] = wfs.get_wave_function_array(n, k, s, False)
         return c_knM
 
-    @timer('Bloch matrix q k')
+    @timer("Bloch matrix q k")
     def _bloch_matrix(self, var1: ArrayND, C2_nM: ArrayND,
                       k_c: ArrayND, q_c: ArrayND,
                       prefactor: bool, s: Optional[int] = None) -> ArrayND:
@@ -142,7 +142,7 @@ class ElectronPhononMatrix:
             g_xNMn = var1
             precalc = True
         else:
-            raise ValueError('var1 must be C1_nM or g_xNMn')
+            raise ValueError("var1 must be C1_nM or g_xNMn")
         omega_ql, u_ql = self.phonon.band_structure([q_c], modes=True)
         u_l = u_ql[0]
         assert len(u_l.shape) == 3
@@ -160,19 +160,19 @@ class ElectronPhononMatrix:
         u_lx = u_l.reshape(nmodes, ndisp)
 
         # Multiply phase factors
-        phase_m = np.exp(2.j * np.pi * np.einsum('i,im->m', k_c + q_c,
-                                                 self.R_cN))
+        phase_m = np.exp(2.0j * np.pi * np.einsum("i,im->m", k_c + q_c,
+                                                  self.R_cN))
         if not precalc:
-            phase_n = np.exp(-2.j * np.pi * np.einsum('i,in->n', k_c,
-                                                      self.R_cN))
+            phase_n = np.exp(-2.0j * np.pi * np.einsum("i,in->n", k_c,
+                                                       self.R_cN))
         for x in range(ndisp):
             if not precalc:
                 g_NNMM = self._yield_g_NNMM(x, s)
                 assert nao == g_NNMM.shape[-1]
                 # some of these things take a long time. make it fast
                 with self.timer("g_MM"):
-                    g_MM = np.einsum('mnop,m,n->op', g_NNMM, phase_m, phase_n,
-                                     optimize=OPTIMIZE)
+                    g_MM = np.einsum("mnop,m,n->op", g_NNMM, phase_m,
+                                     phase_n, optimize=OPTIMIZE)
                     assert g_MM.shape[0] == g_MM.shape[1]
                 with self.timer("g_nn"):
                     g_nn = np.dot(C2_nM.conj(), np.dot(g_MM, C1_nM.T))
@@ -180,10 +180,10 @@ class ElectronPhononMatrix:
                     #                   g_MM, C1_nM)
             else:
                 with self.timer("g_Mn"):
-                    g_Mn = np.einsum('mon,m->on', g_xNMn[x], phase_m)
+                    g_Mn = np.einsum("mon,m->on", g_xNMn[x], phase_m)
                 with self.timer("g_nn"):
                     g_nn = np.dot(C2_nM.conj(), g_Mn)
-            with self.timer('g_lnn'):
+            with self.timer("g_lnn"):
                 # g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn,
                 #                   optimize=OPTIMIZE)
                 g_lnn += np.multiply.outer(u_lx[:, x], g_nn)
@@ -193,7 +193,7 @@ class ElectronPhononMatrix:
             # potential BUG: M needs to be unit cell mass according to
             # some sources
             amu = units._amu  # atomic mass unit
-            me = units._me   # electron mass
+            me = units._me  # electron mass
             g_lnn /= np.sqrt(2 * amu / me / units.Hartree *
                              omega_ql[0, :, np.newaxis, np.newaxis])
             # Convert to eV
@@ -201,24 +201,23 @@ class ElectronPhononMatrix:
         else:
             return g_lnn * units.Hartree / units.Bohr  # eV / Ang
 
-    @timer('g ket part')
+    @timer("g ket part")
     def _precalculate_ket(self, c_knM, kd, s: int):
         g_xNkMn = []
-        phase_kn = np.exp(-2.j * np.pi * np.einsum('ki,in->kn', kd.bzk_kc,
-                                                   self.R_cN))
+        phase_kn = np.exp(-2.0j * np.pi * np.einsum("ki,in->kn", kd.bzk_kc,
+                                                    self.R_cN))
         for x in range(3 * len(self.atoms)):
             g_NNMM = self._yield_g_NNMM_as_needed(x, s)
-            g_NkMM = np.einsum('mnop,kn->mkop', g_NNMM, phase_kn,
+            g_NkMM = np.einsum("mnop,kn->mkop", g_NNMM, phase_kn,
                                optimize=OPTIMIZE)
-            g_NkMn = np.einsum('mkop,knp->mkon', g_NkMM, c_knM,
+            g_NkMn = np.einsum("mkop,knp->mkon", g_NkMM, c_knM,
                                optimize=OPTIMIZE)
 
             g_xNkMn.append(g_NkMn)
         return np.array(g_xNkMn)
 
     def bloch_matrix(self, calc: GPAW, k_qc: ArrayND = None,
-                     savetofile: bool = True,
-                     prefactor: bool = True,
+                     savetofile: bool = True, prefactor: bool = True,
                      accoustic: bool = True) -> ArrayND:
         r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
@@ -250,7 +249,8 @@ class ElectronPhononMatrix:
             if True, for 3 accoustic modes set g=0 for q=0 (Default: True)
         """
         kd = calc.wfs.kd
-        assert kd.nbzkpts == kd.nibzkpts, 'Elph matrix requires FULL BZ'
+        assert kd.nbzkpts == kd.nibzkpts, "Elph matrix requires FULL BZ"
+
         wfs = calc.wfs
         if k_qc is None:
             k_qc = kd.get_bz_q_points(first=True)
@@ -258,10 +258,9 @@ class ElectronPhononMatrix:
             k_qc = np.array(k_qc)
         assert k_qc.ndim == 2
 
-        g_sqklnn = np.zeros([wfs.nspins, k_qc.shape[0],
-                             kd.nibzkpts, 3 * len(self.atoms),
-                             wfs.bd.nbands, wfs.bd.nbands],
-                            dtype=complex)
+        g_sqklnn = np.zeros([wfs.nspins, k_qc.shape[0], kd.nbzkpts,
+                             3 * len(self.atoms), wfs.bd.nbands,
+                             wfs.bd.nbands], dtype=complex)
 
         for s in range(wfs.nspins):
             # Collect all wfcs on rank 0
@@ -276,8 +275,8 @@ class ElectronPhononMatrix:
                 kplusq_k = kd.find_k_plus_q(q_c)  # works on FBZ
                 # Note: calculations require use of FULL BZ,
                 # so NO symmetry
-                print('Spin {}/{}; q-point {}/{}'.format(s + 1, wfs.nspins,
-                                                         q + 1, len(k_qc)))
+                print("Spin {}/{}; q-point {}/{}".format(
+                    s + 1, wfs.nspins, q + 1, len(k_qc)))
 
                 for k in range(kd.nbzkpts):
                     k_c = kd.bzk_kc[k]
@@ -288,8 +287,8 @@ class ElectronPhononMatrix:
                     ckplusq_nM = c_knM[kplusq_k[k]]
                     g_lnn = self._bloch_matrix(g_xNkMn[:, :, k], ckplusq_nM,
                                                k_c, q_c, prefactor)
-                    if np.allclose(q_c, [0., 0., 0.]) and accoustic:
-                        g_lnn[0:3] = 0.
+                    if np.allclose(q_c, [0.0, 0.0, 0.0]) and accoustic:
+                        g_lnn[0:3] = 0.0
                     g_sqklnn[s, q, k] += g_lnn
 
         if world.rank == 0 and savetofile:
