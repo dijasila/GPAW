@@ -24,8 +24,8 @@ electron-phonon coupling matrix (see Ref. [#Giustino2017]_)
     g_{mn}^l = \sqrt{  \frac{\hbar}{2 M \omega_l}} \langle m \vert \nabla_u V_{eff} \cdot \mathbf e_l \vert n \rangle .
 
 `\omega_l` and `\mathbf e_l` are the frequency and mass-scaled polarization
-vector of the `l` th phonon. `M` is total mass of the unit cell and nabla_u denotes the
-gradient with respect to atomic displacements.
+vector of the `l` th phonon. `M` is total mass of the unit cell and `\nabla_u` denotes the
+gradient with respect to atomic displacements. The **k** and **q** momenta are implicit.
 
 The implementation is based on finite-difference calculations of the the atomic
 gradients of the effective potential expressed on a real-space grid. The el-ph
@@ -40,24 +40,24 @@ tutorial for Raman calculations :ref:`here <elphraman>`.
 Example
 =======
 
-At the heart of the electron-phonon coupling is the calculation of the gradient of the effective potential, which is done using finite displacements just like the phonons. Those two calculations can run simultaneous, if the required set of parameters coincide. The electron-phonon matrix is quite sensitive to self-interaction of a displaced atom with its periodic images, so a sufficiently large supercell needs to be used. The (2x2x2) supercell used in this example is a bit too small. When using a supercell for the calculation you have to consider, that the atoms object needs to contain the primitive cell, not the supercell, while the parameters for the calculator object need to be good for the supercell, not the primitive cell. (:git:`~doc/tutorialsexercises/vibrational/elph/effective_potential.py`)
+At the heart of the electron-phonon coupling is the calculation of the gradient of the effective potential, which is done using finite displacements just like the phonons. Those two calculations can run simultaneous, if the required set of parameters coincide. The electron-phonon matrix is quite sensitive to self-interaction of a displaced atom with its periodic images, so a sufficiently large supercell needs to be used. The (3x3x3) supercell used in this example is a bit small, if you need the electron-phonon matrix for non-zero momenta. When using a supercell for the calculation you have to consider, that the atoms object needs to contain the primitive cell, not the supercell, while the parameters for the calculator object need to be good for the supercell, not the primitive cell. (:git:`~doc/tutorialsexercises/vibrational/elph/effective_potential.py`)
 
 .. literalinclude:: effective_potential.py
 
 This script executes 2x3xN displacements and saves the change in total energy and effective potential into a file cache in the directory `elph`.
 The phonon/effective potential calculation can take quite some time, but can be distributed over several images. The :meth:`~gpaw.elph.DisplacementRunner` class is based on ASEs ``ase.phonon.Displacement`` class, which allows to select atoms to be displaced using the ``set_atoms`` function.
 
-In the second step we map the gradient of the effective potential to the electronic states of the supercell (:git:`~doc/tutorialsexercises/vibrational/elph/supercell.py`).
+In the second step we map the gradient of the effective potential to the LCAO orbitals of the supercell (:git:`~doc/tutorialsexercises/vibrational/elph/supercell.py`).
 For this we first need to create the supercell
 
 .. literalinclude:: supercell.py
     :start-at: atoms
     :end-at: atoms_N
 
-and run GPAW to obtain the wave function. This step currently does not work with domain parallelisation, so you need to include ``parallel={'domain': 1}`` in your script.
+and run GPAW to obtain the wave function. This step currently curently only works for k-point parallelisation, so you need to include ``parallel={'domain': 1, 'band': 1}`` in your script.
 
 .. literalinclude:: supercell.py
-    :start-at: sc = Supercell(atoms, supercell=(2, 2, 2))
+    :start-at: sc = Supercell(atoms, supercell=(3, 3, 3))
     :end-at: sc.calculate_supercell_matrix(calc, fd_name='elph')
 
 invokes the calculation of the supercell matrix, which is stored in the `supercell` file cache.
@@ -66,14 +66,21 @@ After both calculations are finished the final electron-phonon matrix can be con
 
 .. literalinclude:: gmatrix.py
 
-For this we need to perform another ground state calculation to obtain the wave function used to project the electron-phonon coupling matrix into. The electron-phonon matrix is computed for a list of q values, which need to be commensurate with the k-point mesh chosen.
-
+For this we need to perform another ground state calculation (:git:`~doc/tutorialsexercises/vibrational/elph/scf.py`) to obtain the wave function used to project the electron-phonon coupling matrix into. The electron-phonon matrix is computed for a list of **q** values, which need to be commensurate with the **k**-point mesh chosen. The ``ElectronPhononMatrix`` class doesn't like parallelisation so much and should be done separately from the rest.
 
 ----------
 Exercise
 ----------
 
-The electron-phonon matrix can be used to calculate accoustic and optical deformation potentials without much effort. See Ref. [#Li2017]_ .
+The electron-phonon matrix can be used to calculate accoustic and optical deformation potentials without much effort. The optical deformation potential is identical to the bare electron-phonon coupling matrix Ref. [#Li2017]_:
+
+.. math::
+
+    D_{ODP} =  \langle m \vert \nabla_u V_{eff} \cdot \mathbf e_l \vert n \rangle .
+
+
+For the silicon VBM at Gamma, for the LO phonons at Gamma, we expect a deformation potential of about `\vert M \vert \approx 3.6` eV/Angstrom.
+
 Converge the deformation potential of Si with respect to the supercell size, k-points, grid spacing and scf convergence parameters.
 
 ----------
