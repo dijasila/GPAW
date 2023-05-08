@@ -148,7 +148,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         txt, x, _ = super().__str__().rsplit('\n', 2)
         assert x.startswith('  uniform background charge:')
         txt += (
-            '  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
+            '\n  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
             f'  alpha: {self.alpha}   # bohr^-2')
         return txt
 
