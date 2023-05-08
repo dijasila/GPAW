@@ -1,353 +1,349 @@
 import time
-from math import log as ln
+import warnings
 
 import numpy as np
-from ase.units import Ha, Bohr
+from ase.units import Ha
 
 from gpaw import KohnShamConvergenceError
+from gpaw.convergence_criteria import check_convergence
 from gpaw.forces import calculate_forces
-from gpaw.mpi import broadcast_float
 
 
 class SCFLoop:
     """Self-consistent field loop."""
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1,
-                 force=np.inf,
-                 maxiter=100, niter_fixdensity=None, nvalence=None):
-        self.max_errors = {'eigenstates': eigenstates,
-                           'energy': energy,
-                           'force': force,
-                           'density': density}
+    def __init__(self, criteria, maxiter=100, niter_fixdensity=None):
+        self.criteria = criteria
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
-        self.nvalence = nvalence
-
-        self.old_energies = []
-        self.old_F_av = None
-        self.converged = False
-
         self.niter = None
-
         self.reset()
+        self.converged = False
+        self.eigensolver_name = None
 
     def __str__(self):
-        cc = self.max_errors
         s = 'Convergence criteria:\n'
-        for name, val in [
-            ('total energy change: {0:g} eV / electron',
-             cc['energy'] * Ha / self.nvalence),
-            ('integral of absolute density change: {0:g} electrons',
-             cc['density'] / self.nvalence),
-            ('integral of absolute eigenstate change: {0:g} eV^2',
-             cc['eigenstates'] * Ha ** 2 / self.nvalence),
-            ('change in atomic force: {0:g} eV / Ang',
-             cc['force'] * Ha / Bohr),
-            ('number of iterations: {0}', self.maxiter)]:
-            if val < np.inf:
-                s += '  Maximum {0}\n'.format(name.format(val))
+        for criterion in self.criteria.values():
+            if criterion.description is not None:
+                s += ' ' + criterion.description + '\n'
+        s += f' Maximum number of scf [iter]ations: {self.maxiter}'
+        s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
+              " in\n the SCF output indicates the quantity has converged.)\n")
         return s
 
     def write(self, writer):
         writer.write(converged=self.converged)
 
     def read(self, reader):
-        self.converged = reader.scf.converged
+        if reader.version < 4:
+            self.converged = reader.scf.converged
+        else:
+            self.converged = True
 
     def reset(self):
-        self.old_energies = []
-        self.old_F_av = None
+        for criterion in self.criteria.values():
+            criterion.reset()
         self.converged = False
+        self.eigensolver_name = None
 
     def irun(self, wfs, ham, dens, log, callback):
 
-        egs_name = getattr(wfs.eigensolver, "name", None)
-        if egs_name == 'direct_min':
-            self.run_dm(wfs, ham, dens, log, callback)
-            return
-
+        self.eigensolver_name = getattr(wfs.eigensolver, "name", None)
+        self.check_eigensolver_state(wfs, ham, dens, log)
         self.niter = 1
+        converged = False
+
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
-            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            energy = ham.get_energy(e_entropy, wfs)
+            self.iterate_eigensolver(wfs, ham, dens, log)
 
-            errors = self.errors_check_convergence_log(
-                energy, dens, ham, wfs, callback, log)
-
+            self.check_convergence(
+                dens, ham, wfs, log, callback)
             yield
 
-            if self.converged and self.niter >= self.niter_fixdensity:
+            converged = (self.converged and
+                         self.niter >= self.niter_fixdensity)
+            if converged:
+                self.do_if_converged(wfs, ham, dens, log)
                 break
 
-            if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
-            else:
-                ham.npoisson = 0
+            self.update_ham_and_dens(wfs, ham, dens)
             self.niter += 1
 
-        # Don't fix the density in the next step:
+        # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
-        if not self.converged:
-            if not np.isfinite(errors['eigenstates']):
-                msg = 'Not enough bands for ' + \
-                      wfs.eigensolver.nbands_converge
-                log(msg)
-                raise KohnShamConvergenceError(msg)
-            log(oops)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
+        if not converged:
+            self.not_converged(dens, ham, wfs, log)
 
-    def collect_errors(self, dens, ham, wfs):
-        """Check convergence of eigenstates, energy and density."""
-
-        # XXX Make sure all agree on the density error:
-        denserror = broadcast_float(dens.error, wfs.world)
-
-        errors = {'eigenstates': wfs.eigensolver.error,
-                  'density': denserror,
-                  'energy': np.inf}
-
-        if dens.fixed:
-            errors['density'] = 0.0
-
-        if len(self.old_energies) >= 3:
-            energies = self.old_energies[-3:]
-            if np.isfinite(energies).all():
-                errors['energy'] = np.ptp(energies)
-
-        # We only want to calculate the (expensive) forces if we have to:
-        check_forces = (self.max_errors['force'] < np.inf and
-                        all(error <= self.max_errors[kind]
-                            for kind, error in errors.items()))
-
-        errors['force'] = np.inf
-        if check_forces:
-            with wfs.timer('Forces'):
-                F_av = calculate_forces(wfs, dens, ham)
-            if self.old_F_av is not None:
-                errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
-            self.old_F_av = F_av
-
-        return errors
-
-    def log(self, log, niter, wfs, ham, dens, errors):
+    def log(self, log, converged_items, entries, context, wfs):
         """Output from each iteration."""
+        write_iteration(self.criteria, converged_items, entries, context, log, wfs)
 
-        nvalence = wfs.nvalence
-        if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha**2 / nvalence
-        else:
-            eigerr = 0.0
+    def check_convergence(self, dens, ham, wfs, log, callback):
 
-        T = time.localtime()
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
 
-        if niter == 1:
-            header = """\
-                     log10-error:    total        iterations:
-           time      wfs    density  energy       poisson"""
-            if wfs.nspins == 2:
-                header += '  magmom'
-            if hasattr(wfs.eigensolver, 'iloop') or \
-                    hasattr(wfs.eigensolver, 'iloop_outer'):
-                if wfs.eigensolver.iloop is not None or \
-                        wfs.eigensolver.iloop_outer is not None:
-                    header += '  inner loop'
-            if self.max_errors['force'] < np.inf:
-                l1 = header.find('total')
-                header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('energy')
-                header = header[:l2] + 'force  ' + header[l2:]
-            log(header)
+        # Converged?
+        # entries: for log file, per criteria
+        # converged_items: True/False, per criteria
+        self.converged, converged_items, entries = check_convergence(
+            self.criteria, context)
 
-        if eigerr == 0.0 or np.isinf(eigerr):
-            eigerr = ''
-        else:
-            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
+        callback(self.niter)
+        self.log(log, converged_items, entries, context)
 
-        denserr = errors['density']
-        assert denserr is not None
-        if (denserr is None or np.isinf(denserr) or denserr == 0 or
-            nvalence == 0):
-            denserr = ''
-        else:
-            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
+    def not_converged(self, dens, ham, wfs, log):
 
-        if ham.npoisson == 0:
-            niterpoisson = ''
-        else:
-            niterpoisson = str(ham.npoisson)
+        context = SCFEvent(dens=dens, ham=ham, wfs=wfs, niter=self.niter,
+                           log=log)
+        eigerr = self.criteria['eigenstates'].get_error(context)
+        if not np.isfinite(eigerr):
+            msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+            log(msg)
+            log.fd.flush()
+            raise KohnShamConvergenceError(msg)
+        log(oops, flush=True)
+        raise KohnShamConvergenceError(
+            'Did not converge!  See text output for help.')
 
-        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-            (niter,
-             T[3], T[4], T[5],
-             eigerr,
-             denserr), end='')
-
-        if self.max_errors['force'] < np.inf:
-            if errors['force'] == 0:
-                log('    -oo', end='')
-            elif errors['force'] < np.inf:
-                log('  %+.2f' %
-                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
-            else:
-                log('       ', end='')
-
-        if np.isfinite(ham.e_total_extrapolated):
-            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
-        else:
-            energy = ' ' * 11
-
-        log('%s    %-7s' %
-            (energy, niterpoisson), end='')
-
-        if wfs.nspins == 2 or not wfs.collinear:
-            totmom_v, _ = dens.estimate_magnetic_moments()
-            if wfs.collinear:
-                log(f'  {totmom_v[2]:+.4f}', end='')
-            else:
-                log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
-
-        if hasattr(wfs.eigensolver, 'iloop') or \
-                hasattr(wfs.eigensolver, 'iloop_outer'):
-            iloop_counter = 0
-            if wfs.eigensolver.iloop is not None:
-                iloop_counter += wfs.eigensolver.iloop.eg_count
-            if wfs.eigensolver.iloop_outer is not None:
-                iloop_counter += wfs.eigensolver.iloop_outer.eg_count
-            log('  %d' % iloop_counter, end='')
-
-        log(flush=True)
-
-    def run_dm(self, wfs, ham, dens, log, callback):
-
-        self.niter = 1
+    def check_eigensolver_state(self, wfs, ham, dens, log):
 
         solver = wfs.eigensolver
-        occ_name = getattr(wfs.occupations, 'name', None)
+        name = self.eigensolver_name
+        if name == 'etdm' or name == 'directmin':
+            solver.eg_count = 0
+            solver.globaliters = 0
 
-        solver.eg_count = 0
-        solver.globaliters = 0
-        if hasattr(solver, 'iloop'):
-            if solver.iloop is not None:
-                solver.iloop.total_eg_count = 0
-        if hasattr(solver, 'iloop_outer'):
-            if solver.iloop_outer is not None:
-                solver.iloop_outer.total_eg_count = 0
+            if hasattr(solver, 'iloop'):
+                if solver.iloop is not None:
+                    solver.iloop.total_eg_count = 0
+            if hasattr(solver, 'iloop_outer'):
+                if solver.iloop_outer is not None:
+                    solver.iloop_outer.total_eg_count = 0
 
-        solver.check_assertions(wfs, dens)
+            wfs.eigensolver.check_assertions(wfs, dens)
+            if name == 'etdm':
+                if wfs.eigensolver.dm_helper is None:
+                    wfs.eigensolver.initialize_dm_helper(wfs, ham, dens)
+            else:
+                if not solver.initialized:
+                    solver.init_me(wfs, ham, dens, log)
 
-        while self.niter <= self.maxiter:
+    def iterate_eigensolver(self, wfs, ham, dens, log):
+
+        if self.eigensolver_name == 'etdm':
+            wfs.eigensolver.iterate(ham, wfs, dens)
+            wfs.eigensolver.check_mom(wfs, dens)
+            e_entropy = 0.0
+            kin_en_using_band = False
+        elif self.eigensolver_name == 'directmin':
             # we need to check each time if initialization is needed
             # as sometimes one need to erase the memory in L-BFGS
             # or mom can require restart if it detects the collapse
-            if not solver.initialized:
-                solver.init_me(wfs, ham, dens, log)
+            if not wfs.eigensolver.initialized:
+                wfs.eigensolver.init_me(wfs, ham, dens, log)
 
-            solver.iterate(ham, wfs, dens, log)
-            solver.check_mom(wfs, ham, dens)
+            wfs.eigensolver.iterate(ham, wfs, dens, log)
+            wfs.eigensolver.check_mom(wfs, ham, dens)
+            e_entropy = 0.0
+            kin_en_using_band = False
+        else:
+            wfs.eigensolver.iterate(ham, wfs)
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            kin_en_using_band = True
 
-            if hasattr(solver, 'e_sic'):
-                e_sic = solver.e_sic
-            else:
-                e_sic = 0.0
-            energy = ham.get_energy(
-                0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
+        if hasattr(wfs.eigensolver, 'e_sic'):
+            e_sic = wfs.eigensolver.e_sic
+        else:
+            e_sic = 0.0
 
-            self.errors_check_convergence_log(
-                energy, dens, ham, wfs, callback, log)
+        ham.get_energy(e_entropy, wfs, kin_en_using_band=kin_en_using_band, e_sic=e_sic)
 
-            if self.converged:
-                if wfs.mode == 'fd' or wfs.mode == 'pw':
-                    solver.choose_optimal_orbitals(
-                        wfs, ham, dens)
-                    niter1 = solver.eg_count
-                    niter2 = 0
-                    niter3 = 0
+    def do_if_converged(self, wfs, ham, dens, log):
 
-                    iloop1 = solver.iloop is not None
-                    iloop2 = solver.iloop_outer is not None
-                    if iloop1:
-                        niter2 = solver.total_eg_count_iloop
-                    if iloop2:
-                        niter3 = solver.total_eg_count_iloop_outer
+        if self.eigensolver_name == 'etdm':
+            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.eigensolver.get_canonical_representation(
+                ham, wfs, dens, sort_eigenvalues=True)
+            energy_converged = wfs.eigensolver.update_ks_energy(ham, wfs, dens)
+            energy_diff_after_scf = abs(energy - energy_converged) * Ha
+            if energy_diff_after_scf > 1.0e-6:
+                warnings.warn('Jump in energy of %f eV detected at the end of '
+                              'SCF after getting canonical orbitals, SCF '
+                              'might have converged to the wrong solution '
+                              'or achieved energy convergence to the correct '
+                              'solution above 1.0e-6 eV'
+                              % (energy_diff_after_scf))
 
-                    if iloop1 and iloop2:
-                        log(
-                            '\nOccupied states converged after'
-                            ' {:d} KS and {:d} SIC e/g '
-                            'evaluations'.format(niter3,
-                                                 niter2 + niter3))
-                    elif not iloop1 and iloop2:
-                        log(
-                            '\nOccupied states converged after'
-                            ' {:d} e/g evaluations'.format(niter3))
-                    elif iloop1 and not iloop2:
-                        log(
-                            '\nOccupied states converged after'
-                            ' {:d} KS and {:d} SIC e/g '
-                            'evaluations'.format(niter1, niter2))
-                    else:
-                        log(
-                            '\nOccupied states converged after'
-                            ' {:d} e/g evaluations'.format(niter1))
-                    if solver.convergelumo:
-                        log('Converge unoccupied states:')
-                        max_er = self.max_errors['eigenstates']
-                        max_er *= Ha ** 2 / wfs.nvalence
-                        solver.run_lumo(ham, wfs, dens, max_er, log)
-                    else:
-                        solver.initialized = False
-                        log('Unoccupied states are not converged.')
-                    rewrite_psi = True
-                    sic_calc = 'SIC' in solver.odd_parameters['name']
-                    if sic_calc:
-                        rewrite_psi = False
-                    solver.get_canonical_representation(
-                        ham, wfs, dens, rewrite_psi)
-                    solver._e_entropy = \
-                        wfs.calculate_occupation_numbers(dens.fixed)
-                    if not sic_calc and occ_name:
-                        for kpt in wfs.kpt_u:
-                            solver.sort_wavefunctions(wfs, kpt)
-                        solver._e_entropy =\
-                            wfs.calculate_occupation_numbers(dens.fixed)
-                    solver.get_energy_and_tangent_gradients(
-                        ham, wfs, dens)
-                    break
-                elif wfs.mode == 'lcao':
-                    # Do we need to calculate the occupation numbers here?
-                    wfs.calculate_occupation_numbers(dens.fixed)
-                    solver.get_canonical_representation(ham, wfs, dens)
-                    niter = solver.eg_count
+            log('\nOccupied states converged after'
+                ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
+        elif self.eigensolver_name == 'directmin':
+            solver = wfs.eigensolver
+            occ_name = getattr(wfs.occupations, 'name', None)
+            if wfs.mode == 'fd' or wfs.mode == 'pw':
+                solver.choose_optimal_orbitals(
+                    wfs, ham, dens)
+                niter1 = solver.eg_count
+                niter2 = 0
+                niter3 = 0
+
+                iloop1 = solver.iloop is not None
+                iloop2 = solver.iloop_outer is not None
+                if iloop1:
+                    niter2 = solver.total_eg_count_iloop
+                if iloop2:
+                    niter3 = solver.total_eg_count_iloop_outer
+
+                if iloop1 and iloop2:
                     log(
                         '\nOccupied states converged after'
-                        ' {:d} e/g evaluations'.format(niter))
-                    break
+                        ' {:d} KS and {:d} SIC e/g '
+                        'evaluations'.format(niter3,
+                                             niter2 + niter3))
+                elif not iloop1 and iloop2:
+                    log(
+                        '\nOccupied states converged after'
+                        ' {:d} e/g evaluations'.format(niter3))
+                elif iloop1 and not iloop2:
+                    log(
+                        '\nOccupied states converged after'
+                        ' {:d} KS and {:d} SIC e/g '
+                        'evaluations'.format(niter1, niter2))
+                else:
+                    log(
+                        '\nOccupied states converged after'
+                        ' {:d} e/g evaluations'.format(niter1))
+                if solver.convergelumo:
+                    log('Converge unoccupied states:')
+                    max_er = wfs.eigensolver.error
+                    max_er *= Ha ** 2 / wfs.nvalence
+                    solver.run_lumo(ham, wfs, dens, max_er, log)
+                else:
+                    solver.initialized = False
+                    log('Unoccupied states are not converged.')
+                rewrite_psi = True
+                sic_calc = 'SIC' in solver.odd_parameters['name']
+                if sic_calc:
+                    rewrite_psi = False
+                solver.get_canonical_representation(
+                    ham, wfs, dens, rewrite_psi)
+                solver._e_entropy = \
+                    wfs.calculate_occupation_numbers(dens.fixed)
+                if not sic_calc and occ_name:
+                    for kpt in wfs.kpt_u:
+                        solver.sort_wavefunctions(wfs, kpt)
+                    solver._e_entropy = \
+                        wfs.calculate_occupation_numbers(dens.fixed)
+                solver.get_energy_and_tangent_gradients(
+                    ham, wfs, dens)
+            elif wfs.mode == 'lcao':
+                # Do we need to calculate the occupation numbers here?
+                wfs.calculate_occupation_numbers(dens.fixed)
+                solver.get_canonical_representation(ham, wfs, dens)
+                niter = solver.eg_count
+                log(
+                    '\nOccupied states converged after'
+                    ' {:d} e/g evaluations'.format(niter))
+
+    def update_ham_and_dens(self, wfs, ham, dens):
+
+        to_update = self.niter > self.niter_fixdensity and not dens.fixed
+        if self.eigensolver_name == 'etdm' or self.eigensolver_name == 'directmin' \
+                or not to_update:
             ham.npoisson = 0
-            self.niter += 1
-
-        if not self.converged:
-            log(oops)
-            raise KohnShamConvergenceError(
-                'Did not converge!  See text output for help.')
-
-    def errors_check_convergence_log(self, energy, dens, ham, wfs,
-                                     callback, log):
-        self.old_energies.append(energy)
-        errors = self.collect_errors(dens, ham, wfs)
-        # Converged?
-        for kind, error in errors.items():
-            if error > self.max_errors[kind]:
-                self.converged = False
-                break
         else:
-            self.converged = True
-        callback(self.niter)
-        self.log(log, self.niter, wfs, ham, dens, errors)
+            dens.update(wfs)
+            ham.update(dens)
 
-        return errors
+
+def write_iteration(criteria, converged_items, entries, ctx, log, wfs):
+    custom = (set(criteria) -
+              {'energy', 'eigenstates', 'density'})
+
+    if ctx.niter == 1:
+        header1 = ('     {:<4s} {:>8s} {:>12s}  '
+                   .format('iter', 'time', 'total'))
+        header2 = ('     {:>4s} {:>8s} {:>12s}  '
+                   .format('', '', 'energy'))
+        header1 += 'log10-change:'
+        for title in ('eigst', 'dens'):
+            header2 += '{:>5s}  '.format(title)
+        for name in custom:
+            criterion = criteria[name]
+            header1 += ' ' * 7
+            header2 += '{:>5s}  '.format(criterion.tablename)
+        if ctx.wfs.nspins == 2:
+            header1 += '{:>8s} '.format('magmom')
+            header2 += '{:>8s} '.format('')
+
+        if hasattr(wfs.eigensolver, 'iloop') or \
+                hasattr(wfs.eigensolver, 'iloop_outer'):
+            if wfs.eigensolver.iloop is not None or \
+                    wfs.eigensolver.iloop_outer is not None:
+                header1 += '{:>8s} '.format('inner loop')
+                header2 += '{:>8s} '.format('')
+
+        log(header1.rstrip())
+        log(header2.rstrip())
+
+    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+
+    # Iterations and time.
+    now = time.localtime()
+    line = ('iter:{:4d} {:02d}:{:02d}:{:02d} '
+            .format(ctx.niter, *now[3:6]))
+
+    # Energy.
+    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+
+    # Eigenstates.
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+
+    # Density.
+    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+
+    # Custom criteria (optional).
+    for name in custom:
+        line += '{:>5s}{:s} '.format(entries[name], c[name])
+
+    # Magnetic moment (optional).
+    if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
+        totmom_v, _ = ctx.dens.calculate_magnetic_moments()
+        if ctx.wfs.collinear:
+            line += f'  {totmom_v[2]:+.4f}'
+        else:
+            line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    # Inner loop if used
+    if hasattr(wfs.eigensolver, 'iloop') or \
+            hasattr(wfs.eigensolver, 'iloop_outer'):
+        iloop_counter = 0
+        if wfs.eigensolver.iloop is not None:
+            iloop_counter += wfs.eigensolver.iloop.eg_count
+        if wfs.eigensolver.iloop_outer is not None:
+            iloop_counter += wfs.eigensolver.iloop_outer.eg_count
+        line += f'  {iloop_counter}'
+
+    log(line.rstrip())
+    log.fd.flush()
+
+
+class SCFEvent:
+    """Object to pass the state of the SCF cycle to a convergence-checking
+    function."""
+
+    def __init__(self, dens, ham, wfs, niter, log):
+        self.dens = dens
+        self.ham = ham
+        self.wfs = wfs
+        self.niter = niter
+        self.log = log
+
+    def calculate_forces(self):
+        with self.wfs.timer('Forces'):
+            F_av = calculate_forces(self.wfs, self.dens, self.ham)
+        return F_av
 
 
 oops = """
