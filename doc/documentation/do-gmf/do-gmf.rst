@@ -76,7 +76,7 @@ requested as follows::
                         'use_fixed_occupations': True})
 
 where the log file can be specified and ``f`` contains the occupation numbers of the
-excited state (see example 1). Line search algorithms cannot be applied for saddle
+excited state (see examples 1 and 2). Line search algorithms cannot be applied for saddle
 point searches in this implementation. Any search direction algorithm can be used by
 appending the ``name`` keyword with ``_GMF``.
 
