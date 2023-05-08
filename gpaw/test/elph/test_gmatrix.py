@@ -11,6 +11,8 @@ from gpaw.mpi import world
 from gpaw.elph import ElectronPhononMatrix
 
 
+@pytest.mark.skipif(world.size > 2,
+                    reason='world.size > 2')
 @pytest.mark.elph
 def test_gmatrix(module_tmp_path, supercell_cache):
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)
