@@ -92,11 +92,33 @@ channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
 
+.. _ethyleneexample:
+
+-------------------------------------------
+Example I: Doubly excited state of ethylene
+-------------------------------------------
+In this example, the lowest doubly excited state of ethylene is obtained with the DO-GMF method.
+First, a ground state optimization is performed and then, the excited state is targeted as a
+second-order saddle point on the electronic energy surface. The target saddle point order of 2
+is automatically deduced correctly from the occupation numbers corresponding to an excitation from
+the HOMO to the LUMO in both spin channels simultaneosly with respect to the ground state
+orbitals.
+
+.. literalinclude:: ethylene.py
+
+It is recommended to deactivate updates of the reference orbitals by setting the
+``update_ref_orbs_counter`` keyword to a large value (e.g. 1000). The unitary invariant
+representation should be used (if the density functional is orbital density independent) because
+the redundant rotations among the occupied orbitals introduce many degenerate eigenvectors of the
+electronic Hessian with zero curvature, which can lead to convergence problems of the generalized
+Davidson method. The keyword ``use_fixed_occupations`` is set to ``True`` to deactivate the use of
+the maximum overlap method since variational collapse is impossible with the DO-GMF method.
+
 .. _tPPexample:
 
------------------------------------------------------------
-Example I: Charge transfer excited state of N-phenylpyrrole
------------------------------------------------------------
+------------------------------------------------------------
+Example II: Charge transfer excited state of N-phenylpyrrole
+------------------------------------------------------------
 In this example, variational collapse of a charge transfer state of N-phenylpyrrole is
 avoided by using the DO-GMF method and specifically targeting an excited state as a
 saddle point on the electronic energy surface. The excited state is accessible by a single
@@ -112,19 +134,23 @@ HOMO and LUMO involved in the excitation.
 
 .. literalinclude:: tPP.py
 
-The target saddle point order is set by using the ``sp_order`` keyword of the
-``partial_diagonalizer``. It is recommended to deactivate updates of the reference
-orbitals by setting the ``update_ref_orbs_counter`` keyword to a large value (e.g. 1000). The
-unitary invariant representation should be used (if the density functional is orbital
-density independent) because the redundant rotations among the occupied orbitals
-introduce many degenerate eigenvectors of the electronic Hessian with zero curvature,
-which can lead to convergence problems of the generalized Davidson method. The keyword
-``use_fixed_occupations`` is set to ``True`` to deactivate the use of the maximum overlap
-method since variational collapse is impossible with the DO-GMF method.
+The target saddle point order cannot be deduced from the occupation numbers alone in this case
+since the target excited state solution is a sixth-order saddle point on the electronic energy
+surface, but the occupation numbers with respect to the ground state orbitals suggest a target
+saddle point order of 1. This discrepancy exists because the charge transfer excitation leads to a
+large energetic rearrangement of the orbitals. One way to take this energetic rearrangement into
+account is to perform a constrained optimization freezing the hole and excited electron and
+minimizing all other electronic degrees of freedom. The occupation numbers after constrained
+optimization suggest a target saddle point order of 7, and the full electronic Hessian has seven
+negative eigenvalues, one of which is close to zero, pointing towards a target saddle point order
+of 6. At this point, trial calculations targeting a sixth-order and a seventh-order saddle point,
+respectively, can be started in parallel and the correct target saddle point order deduced from
+the obtained solutions. The target saddle point order is set by using the ``sp_order`` keyword of
+the ``partial_diagonalizer``.
 
-----------------------------------------------------------------------------------
-Example II: Stability analysis and breaking instability of ground state dihydrogen
-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------
+Example III: Stability analysis and breaking instability of ground state dihydrogen
+-----------------------------------------------------------------------------------
 In this example, the generalized Davidson method is used for stability analysis of the
 ground state of the dihydrogen molecule. The molecule is stretched beyond the
 Coulson-Fischer point, at which both a ground state solution with conserved symmetry and
