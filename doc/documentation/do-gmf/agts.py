@@ -8,6 +8,16 @@ def workflow():
         run(function=check_instability)
     with run(script='tPP.py', cores=8):
         run(function=check_tPP)
+    with run(script='ethylene.py', cores=8):
+        run(funtion=check_ethylene())
+
+
+def check_ethylene():
+    text = Path('Ethylene_EX_DO-GMF.txt').read_text()
+    for line in text.splitlines():
+        if line.startswith('Extrapolated:'):
+            gmf = float(line.split()[-1])
+    assert abs(gmf + 18.783) < 0.01
 
 
 def check_instability():
