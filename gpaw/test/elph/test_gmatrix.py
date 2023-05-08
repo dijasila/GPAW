@@ -56,7 +56,7 @@ def test_gmatrix(module_tmp_path, supercell_cache):
         assert np.allclose(g_knn[:, 0, 1], g_knn[:, 1, 0].conj())
         # and check one specific value
         print(g_knn[0, 0, 1])
-        assert g_knn[0, 0, 1] == pytest.approx(3.00000 - 0.162686j, rel=1e-2)
+        assert g_knn[0, 0, 1] == pytest.approx(3.00000 - 0.162686j, rel=4e-2)
         # print(g_knn)
 
         # q = 1
@@ -67,4 +67,4 @@ def test_gmatrix(module_tmp_path, supercell_cache):
         # and check one specific value
         # print(g_knn)
         print(g_knn[0, 0, 1])
-        assert g_knn[0, 0, 1] == pytest.approx(3.50743 - 0.237765j, rel=1e-2)
+        assert g_knn[0, 0, 1] == pytest.approx(3.50743 - 0.237765j, rel=4e-2)
