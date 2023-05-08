@@ -237,12 +237,16 @@ if os.environ.get('GPAW_GPU'):
     # Hardcoded for LUMI right now!
     target = os.environ.get('HCC_AMDGPU_TARGET', 'gfx90a')
     # TODO: Build this also via extension
-    assert os.system(
-        f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc '
-        '-c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
-    assert os.system(
-        f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
-        '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
+    if 0:
+        assert os.system(
+            f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc '
+            '-c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
+        assert os.system(
+            f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
+            '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
+    else:
+        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -fPIC -c c/gpu/hip_kernels.cu -I/usr/local/cuda-12.1/include -o c/gpu/hip_kernels.o')
+        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -shared -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
 
     extensions.append(
         Extension('_gpaw_gpu',

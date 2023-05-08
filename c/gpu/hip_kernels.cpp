@@ -1,8 +1,20 @@
 #include "hip_kernels.h"
-
-#include<hip/hip_runtime.h>
-#include<hip/hip_runtime_api.h>
+#include <hip/hip_runtime.h>
+#include <hip/hip_runtime_api.h>
 #include <hip/hip_complex.h>
+
+#if defined(__HIP_PLATFORM_NVCC__) || defined(__HIP_PLATFORM_NVIDIA__)
+__device__ hipDoubleComplex operator*(hipDoubleComplex a, double b)
+{
+    return make_hipDoubleComplex(a.x*b, a.y*b);
+}
+
+#include "cuComplex.h"
+__device__ hipDoubleComplex operator*(hipDoubleComplex p, hipDoubleComplex q) {
+    return cuCmul(p, q);
+}
+
+#endif
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 				       hipDoubleComplex *emiGR_Ga,
@@ -35,9 +47,8 @@ __global__ void pwlfc_expand_kernel_8(double* f_Gs,
 	    
 	int s = s_J[J];
 	int l = l_s[s];
-	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]] *
-			     f_Gs[s] *
-			     imag_powers[l % 4]);
+	hipDoubleComplex f1 = (emiGR_Ga[a_J[J]]* f_Gs[s] *
+                               imag_powers[l % 4]);
 	for (int m = 0; m < 2 * l + 1; m++) {
 	    hipDoubleComplex f = f1 * Y_GL[l * l + m];
 	    f_GI[0] = f.x;

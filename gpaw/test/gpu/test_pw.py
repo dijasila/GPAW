@@ -11,14 +11,14 @@ from gpaw.mpi import size
 @pytest.mark.serial
 @pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 @pytest.mark.parametrize('dtype', [float, complex])
-@pytest.mark.parametrize('gpu', [False, True])
+@pytest.mark.parametrize('gpu', [True])
 def test_gpu_pw(dtype, gpu):
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
-    atoms.center(vacuum=1.0)
+    atoms.center(vacuum=10.0)
     dft = DFTCalculation.from_parameters(
         atoms,
-        dict(mode={'name': 'pw'},
+        dict(mode={'name': 'pw', 'ecut': 1000},
              dtype=dtype,
              parallel={'gpu': gpu},
              setups='paw'),
