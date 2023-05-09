@@ -3,8 +3,10 @@ import pytest
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
+from gpaw.directmin.etdm import ETDM
 
 
+@pytest.mark.do
 def test_directmin_lcao(in_tmp_dir):
     """
     test exponential transformation
@@ -25,8 +27,8 @@ def test_directmin_lcao(in_tmp_dir):
     calc = GPAW(mode=LCAO(),
                 basis='dzp',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver='direct_min_lcao',
-                mixer={'name': 'dummy'},
+                eigensolver='etdm',
+                mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
                 )
@@ -49,3 +51,13 @@ def test_directmin_lcao(in_tmp_dir):
 
     assert niter == pytest.approx(3, abs=1)
     assert f2 == pytest.approx(f3, abs=1e-2)
+
+    calc.set(eigensolver=ETDM(
+        representation='u-invar', matrix_exp='egdecomp-u-invar',
+        need_init_orbs=False,
+        linesearch_algo={'name': 'max-step'}
+    ))
+    e = H2O.get_potential_energy()
+    niter = calc.get_number_of_iterations()
+    assert e == pytest.approx(-13.643156256566218, abs=1.0e-4)
+    assert niter == pytest.approx(3, abs=1)
