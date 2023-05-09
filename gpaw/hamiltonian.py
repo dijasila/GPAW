@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003-2015  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """This module defines a Hamiltonian."""
 
 import functools
@@ -11,16 +7,13 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
-from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
-                            pack_atomic_matrices)
+from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
+                            unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-# from gpaw.utilities.debug import frozen
-
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -50,6 +43,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
+# from gpaw.utilities.debug import frozen
 # @frozen
 class Hamiltonian:
 
@@ -85,6 +79,7 @@ class Hamiltonian:
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
+        self.e_band = None
         self.e_sic = None
 
         self.e_total_free = None
@@ -155,28 +150,44 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            correction = self.poisson.correction
-        except AttributeError:
+            workfunctions = self.get_workfunctions(wfs)
+        except ValueError:
             pass
         else:
-            c = self.poisson.c  # index of axis perpendicular to dipole-layer
-            if not self.gd.pbc_c[c]:
-                # zero boundary conditions
-                vacuum = 0.0
-            else:
-                v_q = self.pd3.gather(self.vHt_q)
-                if self.pd3.comm.rank == 0:
-                    axes = (c, (c + 1) % 3, (c + 2) % 3)
-                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
-                    vacuum = v_g[0].mean()
-                else:
-                    vacuum = np.nan
-
-            wf1 = (vacuum - wfs.fermi_level + correction) * Ha
-            wf2 = (vacuum - wfs.fermi_level - correction) * Ha
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
-                .format(wf1, wf2))
+                .format(*np.array(workfunctions) * Ha))
             log()
+
+    def get_workfunctions(self, wfs):
+        """
+        Returns the work functions, in Hartree, for a dipole-corrected
+        simulation. Returns None if no dipole correction is present.
+        (wfs can be obtained from calc.wfs)
+        """
+        try:
+            dipole_correction = self.poisson.correction
+        except AttributeError:
+            raise ValueError(
+                'Work function not defined if no field-free region. Consider '
+                'using a dipole correction if you are looking for a '
+                'work function.')
+        c = self.poisson.c  # index of axis perpendicular to dipole-layer
+        if not self.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
+        else:
+            v_q = self.pd3.gather(self.vHt_q)
+            if self.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
+            else:
+                vacuum = np.nan
+
+        fermilevel = wfs.fermi_level
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        return np.array([wf1, wf2])
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -240,6 +251,14 @@ class Hamiltonian:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
+
+        if 0:
+            print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
+            print('coulomb', atomic_energies[1], finegrid_energies[0])
+            print('zero', atomic_energies[2], finegrid_energies[1])
+            print('xc', atomic_energies[4], finegrid_energies[3])
+            print('external', atomic_energies[3], finegrid_energies[2])
+
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
@@ -296,12 +315,10 @@ class Hamiltonian:
             else:
                 dH_sp = np.zeros_like(D_sp)
 
-            if setup.HubU is not None:
-                # assert self.collinear
-                for l, U, scale in zip(setup.Hubl, setup.HubU, setup.Hubs):
-                    eU, dHU_sp = hubbard(setup, D_sp, l, U, scale)
-                    e_xc += eU
-                    dH_sp += dHU_sp
+            if setup.hubbard_u is not None:
+                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                e_xc += eU
+                dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
 
@@ -328,7 +345,6 @@ class Hamiltonian:
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                      dH_asp[a], a=a)
         self.timer.stop('XC Correction')
-
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
@@ -341,8 +357,7 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, e_entropy, wfs, kin_en_using_band=True,
-                   e_sic=None):
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True, e_sic=None):
         """Sum up all eigenvalues weighted with occupation numbers"""
         self.e_band = wfs.calculate_band_energy()
         if kin_en_using_band:
@@ -350,6 +365,14 @@ class Hamiltonian:
         else:
             self.e_kinetic = self.e_kinetic0
         self.e_entropy = e_entropy
+        if 0:
+            print(self.e_kinetic0,
+                  self.e_band,
+                  self.e_coulomb,
+                  self.e_external,
+                  self.e_zero,
+                  self.e_xc,
+                  self.e_entropy)
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
@@ -409,27 +432,6 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
@@ -634,14 +636,11 @@ class Hamiltonian:
             #
             # the code below is faster
             self.timer.start('Pseudo part')
-            n_occ = 0
-            nbands = len(kpt.f_n)
-            while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                n_occ += 1
-            x_nn = np.dot(kpt.C_nM[:n_occ],
+            occ = kpt.f_n > 1e-10
+            x_nn = np.dot(kpt.C_nM[occ],
                           np.dot(kpt.T_MM,
-                                 kpt.C_nM[:n_occ].T.conj())).real
-            e_kinetic += np.einsum('i,ii->', kpt.f_n[:n_occ], x_nn)
+                                 kpt.C_nM[occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[occ], x_nn)
             self.timer.stop('Pseudo part')
         # del rho_MM
 
@@ -660,7 +659,8 @@ class Hamiltonian:
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None):
+                 psolver=None, stencil=3, redistributor=None,
+                 charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,
@@ -749,6 +749,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
+
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
