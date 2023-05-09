@@ -9,7 +9,7 @@ def workflow():
     with run(script='tPP.py', cores=8):
         run(function=check_tPP)
     with run(script='ethylene.py', cores=8):
-        run(funtion=check_ethylene())
+        run(function=check_ethylene)
 
 
 def check_ethylene():
