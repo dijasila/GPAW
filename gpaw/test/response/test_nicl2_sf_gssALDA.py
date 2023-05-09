@@ -9,7 +9,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling, HXCKernel
-from gpaw.response.susceptibility import ChiFactory, Chi
+from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.pair_functions import read_pair_function
 
 
@@ -85,7 +85,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
             # Calculate kernel with background charge
             bgd_fxc_kernel = bgd_fxc_calculator(fxc, '+-', chiks.qpd)
             bgd_hxc_kernel = HXCKernel(None, bgd_fxc_kernel, bgd_hxc_scaling)
-        bgd_chi = Chi(chiks, bgd_hxc_kernel, chi_factory.dyson_solver)
+        bgd_chi = chi_factory.dyson_solver(chiks, bgd_hxc_kernel)
         bgd_chi.write_macroscopic_component(bgd_filestr + '_q%d.csv' % q)
 
     context.write_timer()

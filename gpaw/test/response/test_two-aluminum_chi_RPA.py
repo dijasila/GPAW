@@ -11,7 +11,8 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_susceptibility_array
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.pair_functions import read_susceptibility_array
 
 
 @pytest.mark.kspair
@@ -111,5 +112,6 @@ def calculate_chi(calc, q_qc, w,
     for q, q_c in enumerate(q_qc):
         fname = filename.replace('XXX', str(q + 1))
         _, chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
-        chi.write_reduced_array(fname, reduced_ecut=reduced_ecut)
+        chi = chi.copy_with_reduced_ecut(reduced_ecut)
+        chi.write_array(fname)
         world.barrier()

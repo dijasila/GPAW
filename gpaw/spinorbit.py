@@ -35,7 +35,7 @@ class WaveFunction:
         self.eig_m = eigenvalues
         self.projections = projections
         self.spin_projection_mv: Optional[Array2D] = None
-        self.v_msn: Optional[Array2D] = None
+        self.v_mn: Optional[Array2D] = None
         self.f_m = np.empty_like(self.eig_m)
         self.f_m[:] = nan
         self.bz_index = bz_index
@@ -105,26 +105,27 @@ class WaveFunction:
         domain_comm.sum(H_mm, 0)
         if domain_comm.rank == 0:
             H_mm += np.diag(self.eig_m)
-            self.eig_m, v_mm = np.linalg.eigh(H_mm)
-            v_msn = v_mm.copy().reshape((M // 2, 2, M)).T.copy()
+            self.eig_m, v_nm = np.linalg.eigh(H_mm)
         else:
-            v_msn = np.empty((M, 2, M // 2), complex)
+            v_nm = np.empty((M, M), complex)
 
-        domain_comm.broadcast(v_msn, 0)
+        domain_comm.broadcast(v_nm, 0)
 
         P_mI = self.projections.matrix.array
-        P_mI[:] = v_msn.transpose((0, 2, 1)).copy().reshape((M, M)).dot(P_mI)
+        P_mI[:] = v_nm.T.copy().dot(P_mI)
 
         sx_m = []
         sy_m = []
         sz_m = []
+        
+        v_msn = v_nm.copy().reshape((M // 2, 2, M)).T.copy()
         for v_sn in v_msn:
             sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
             sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
             sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
 
         self.spin_projection_mv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
-        self.v_msn = v_msn
+        self.v_mn = v_nm.T
 
     def wavefunctions(self, calc, periodic=True):
         kd = calc.wfs.kd
@@ -133,17 +134,25 @@ class WaveFunction:
         # For spinors the number of bands is doubled and a
         # spin dimension is added
         Ns = calc.wfs.nspins
-        Nn = calc.wfs.bd.nbands
+        Nm, Nn = self.v_mn.shape
 
-        u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
-                                                   periodic=periodic)
-                  for n in range(Nn)]
-                 for s in range(Ns)]
-        u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
-        np.einsum('mn, nabc -> mabc', self.v_msn[:, 0], u_snR[0],
-                  out=u_msR[:, 0])
-        np.einsum('mn, nabc -> mabc', self.v_msn[:, 1], u_snR[-1],
-                  out=u_msR[:, 1])
+        if calc.wfs.collinear:
+            u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
+                                                       periodic=periodic)
+                      for n in range(Nn // 2)]
+                     for s in range(Ns)]
+            u_msR = np.empty((Nm, 2) + u_snR[0][0].shape, complex)
+            np.einsum('mn, nabc -> mabc', self.v_mn[:, ::2], u_snR[0],
+                      out=u_msR[:, 0])
+            np.einsum('mn, nabc -> mabc', self.v_mn[:, 1::2], u_snR[-1],
+                      out=u_msR[:, 1])
+        else:
+            u_nsR = np.array(
+                [calc.wfs.get_wave_function_array(n, self.bz_index, 0,
+                                                  periodic=periodic)
+                 for n in range(Nn)])
+            u_msR = np.einsum('mn, nsxyz -> msxyz',
+                              self.v_mn, u_nsR)
 
         return u_msR
 
@@ -266,7 +275,7 @@ class BZWaveFunctions:
         """Eigenvectors for the whole BZ."""
         nbands = self.shape[1]
         assert nbands % 2 == 0
-        return self._collect(attrgetter('v_msn'), (2, nbands // 2), complex,
+        return self._collect(attrgetter('v_mn'), (nbands,), complex,
                              broadcast=broadcast)
 
     def spin_projections(self,
@@ -758,9 +767,9 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
         n2 = bands[-1] + 1
         assert (bands == np.arange(n1, n2)).all()
         soc = soc_eigenstates(calc, n1=n1, n2=n2)
-        v_kmsn = soc.eigenvectors()
-        psit0_mG = np.dot(v_kmsn[ik, :, 0], psit_nG)
-        psit1_mG = np.dot(v_kmsn[ik, :, 1], psit_nG)
+        v_kmn = soc.eigenvectors()
+        psit0_mG = np.dot(v_kmn[ik, :, ::2], psit_nG)
+        psit1_mG = np.dot(v_kmn[ik, :, 1::2], psit_nG)
     for n in range(len(bands)):
         psit_nG[n] /= (np.sum(np.abs(psit_nG[n])**2))**0.5
     if spin_orbit:
