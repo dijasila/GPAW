@@ -102,3 +102,6 @@ Code
 
 .. autoclass:: gpaw.elph.ElectronPhononMatrix
     :members:
+
+.. autoclass:: gpaw.elph.electronphonon.ElectronPhononCoupling
+    :members:
