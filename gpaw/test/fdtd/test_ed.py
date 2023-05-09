@@ -1,3 +1,5 @@
+import numpy as np
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
@@ -7,9 +9,9 @@ from gpaw.fdtd.polarizable_material import (PermittivityPlus,
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
-import numpy as np
 
 
+@pytest.mark.later
 def test_fdtd_ed(in_tmp_dir):
     # Accuracy
     energy_eps = 0.0005

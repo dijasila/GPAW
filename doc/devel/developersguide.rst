@@ -132,7 +132,7 @@ Densities
 =========
 
 From the pseudo wave-functions, the pseudo electron spin-densities can be
-constructed (see `here <http://xkcd.com/849>`_):
+constructed (see :xkcd:`here <849>`):
 
 .. math::
 

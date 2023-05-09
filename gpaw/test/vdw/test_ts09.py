@@ -1,9 +1,9 @@
-import numpy as np
-
 import ase.io
+import numpy as np
+import pytest
+from ase.build import molecule
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
 from ase.parallel import barrier, parprint
-from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
@@ -12,6 +12,7 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_vdw_ts09(in_tmp_dir):
     h = 0.4
     s = Cluster(molecule('LiH'))
@@ -73,7 +74,7 @@ def test_vdw_ts09(in_tmp_dir):
     # charged
 
     if 0:
-        cc.set(charge=1)
+        cc = cc.new(charge=1)
         hpp = HirshfeldPartitioning(cc)
         cp = vdWTkatchenko09prl(hpp,
                                 vdWradii(s.get_chemical_symbols(), 'PBE'))

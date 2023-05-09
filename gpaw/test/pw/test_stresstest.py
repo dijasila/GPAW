@@ -3,7 +3,8 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 import gpaw.mpi as mpi
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.pw.descriptor import PWDescriptor
+from gpaw.pw.lfc import PWLFC
 
 
 def test_stress():

@@ -1,4 +1,5 @@
 import numpy as np
+from ase.units import Ha
 from gpaw.xc.functional import XCFunctional
 
 
@@ -127,6 +128,16 @@ class NonLocalFunctional(XCFunctional):
             s += [fmt % ('%6.3f' % c.weight, c.get_name(), c.get_desc())]
         s += [dashes]
         return '\n'.join(s)
+
+    def summary(self, log):
+        if self.response is not None:
+            eref_s = self.response.eref_s
+            source_s = self.response.eref_source_s
+            if eref_s is not None and source_s is not None:
+                text_s = [f'{eref * Ha:.5f} eV (from {source})'
+                          for eref, source in zip(eref_s, source_s)]
+                log('{} response reference energy: {}\n'
+                    .format(self.name, ', '.join(text_s)))
 
     def read(self, reader):
         for contribution in self.contributions:

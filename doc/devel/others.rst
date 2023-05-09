@@ -4,6 +4,9 @@ Miscellaneous objects and functions
 .. autoclass:: gpaw.lfc.LocalizedFunctionsCollection
     :members:
 
+.. autoclass:: gpaw.lfc.BasisFunctions
+    :members:
+
 .. autoclass:: gpaw.spline.Spline
     :members:
 

@@ -3,6 +3,7 @@ from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 from gpaw.xc.noncollinear import NonCollinearLDAKernel
+from gpaw import libraries
 
 
 def xc_string_to_dict(string):
@@ -56,6 +57,11 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             # vdW module, so that always refers to libvdwxc.
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
+        elif backend == 'ri':
+            # Note: It is important that this if is before the next name is
+            # HSExx, since otherwise PWHybrid would hijack the control flow.
+            from gpaw.xc.ri import RI
+            return RI(name, **kwargs)
         elif backend == 'pw' or name in ['HSE03', 'HSE06']:
             from gpaw.hybrids import HybridXC
             return HybridXC(name, **kwargs)
@@ -97,6 +103,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.sic import SIC
             return SIC(xc=name[:-7], **kwargs)
         elif name in {'TPSS', 'revTPSS', 'M06-L'}:
+            assert libraries['libxc'], 'Please compile with libxc'
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name in {'LDA', 'PBE', 'revPBE', 'RPBE', 'PW91'}:

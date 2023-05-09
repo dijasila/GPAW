@@ -63,6 +63,9 @@ def create_poisson_solver(name='fast', **kwargs):
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
+    elif name == 'MomentCorrectionPoissonSolver':
+        from gpaw.poisson_moment import MomentCorrectionPoissonSolver
+        return MomentCorrectionPoissonSolver(**kwargs)
     elif name == 'nointeraction':
         return NoInteractionPoissonSolver()
     else:
@@ -119,6 +122,16 @@ class BasePoissonSolver(_PoissonSolver):
                 f"for {self.__class__.__name__}. "
                 "The parameter doesn't do anything for this solver "
                 "and defining it will throw an error in the future.",
+                FutureWarning)
+
+        if remove_moment is not None:
+            warnings.warn(
+                "Please do not specify the remove_moment parameter "
+                f"for {self.__class__.__name__}. "
+                "The remove moment functionality is deprecated in this solver "
+                "and will throw an error in the future. Instead "
+                "use the MomentCorrectionPoissonSolver as a wrapper to "
+                f"{self.__class__.__name__}.",
                 FutureWarning)
 
         # metallic electrodes: mirror image method to allow calculation of
@@ -226,7 +239,7 @@ class BasePoissonSolver(_PoissonSolver):
             # Due to the shape of the Gaussian and it's Fourier-Transform,
             # the Gaussian representing the charge should stay at least
             # 7 gpts from the borders - see:
-            # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2015-July/005806.html
+            # listserv.fysik.dtu.dk/pipermail/gpaw-developers/2015-July/005806.html
             if self.use_charge_center:
                 charge_sign = actual_charge / abs(actual_charge)
                 rho_sign = rho * charge_sign

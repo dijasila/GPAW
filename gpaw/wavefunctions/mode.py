@@ -3,7 +3,7 @@ def create_wave_function_mode(name, **kwargs):
         raise ValueError('Unknown wave function mode: ' + name)
 
     from gpaw.wavefunctions.fd import FD
-    from gpaw.wavefunctions.pw import PW
+    from gpaw import PW
     from gpaw.wavefunctions.lcao import LCAO
     return {'fd': FD, 'pw': PW, 'lcao': LCAO}[name](**kwargs)
 

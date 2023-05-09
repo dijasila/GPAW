@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from gpaw.matrix import Matrix
+from gpaw.core.matrix import Matrix
 from gpaw.mpi import world
 
 
@@ -16,10 +16,10 @@ def test_matrix_eigh():
     A0 = Matrix(N, N, dist=(world, 1, 1), dtype=complex)
 
     if world.rank == 0:
-        A0.array[:] = np.diag(np.arange(N) + 1)
-        A0.array += np.random.uniform(-x, x, (N, N))
-        A0.array += A0.array.conj().T
-        B = Matrix(N, N, data=A0.array.copy())
+        A0.data[:] = np.diag(np.arange(N) + 1)
+        A0.data += np.random.uniform(-x, x, (N, N))
+        A0.data += A0.data.conj().T
+        B = Matrix(N, N, data=A0.data.copy())
         eigs0 = B.eigh(cc=True)
     else:
         eigs0 = np.empty(N)
@@ -36,4 +36,4 @@ def test_matrix_eigh():
         print(world.rank, eigs)
         A.redist(B0)
         if world.rank == -1:
-            assert abs(B0.array) == pytest.approx(abs(B.array), abs=1e-13)
+            assert abs(B0.data) == pytest.approx(abs(B.data), abs=1e-13)

@@ -17,7 +17,7 @@ def test_xc_gga_atom():
         s = create_setup('N', xc)
         ni = s.ni
         nao = s.nao
-        wt0_j = s.phit_j
+        wt0_j = s.basis_functions_J
 
         rcut = s.xc_correction.rgd.r_g[-1]
 

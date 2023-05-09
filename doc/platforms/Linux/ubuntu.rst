@@ -2,22 +2,31 @@
 Ubuntu 18.04+
 =============
 
+.. highlight:: bash
+
 Install these Ubuntu_ packages::
 
     $ sudo apt install python3-dev libopenblas-dev libxc-dev libscalapack-mpi-dev libfftw3-dev
 
-Create a :ref:`siteconfig.py <siteconfig>` file::
+Use this :download:`siteconfig.py` file:
 
-    $ mkdir -p ~/.gpaw
-    $ cat > ~/.gpaw/siteconfig.py
-    fftw = True
-    scalapack = True
-    libraries = ['xc', 'blas', 'fftw3', 'scalapack-openmpi']
-    ^D
+.. literalinclude:: siteconfig.py
 
-Then install GPAW (and dependencies: ASE_, Numpy, SciPy)::
+Put the file in your ``~/.gpaw/`` folder.  See also
+:ref:`siteconfig`.
+
+Then install GPAW (and dependencies: ASE_, Numpy, SciPy):
+
+* Latest stable version from PyPI::
 
     $ pip install gpaw
+
+* Development version:
+
+  Clone the source code and install it::
+
+    $ git clone https://gitlab.com/gpaw/gpaw.git
+    $ pip install gpaw/
 
 
 .. _Ubuntu: http://www.ubuntu.com/

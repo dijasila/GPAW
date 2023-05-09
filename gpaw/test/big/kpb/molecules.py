@@ -12,7 +12,7 @@ Compare results to::
 import ase.db
 from ase import Atoms
 from ase.build import molecule
-from ase.data.g2_1_ref import diatomic, ex_atomization
+from gpaw.data.g2_1_ref import diatomic, ex_atomization
 
 from gpaw import GPAW, PW
 from gpaw.hybrids.energy import non_self_consistent_energy

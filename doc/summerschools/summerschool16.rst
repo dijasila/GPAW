@@ -163,7 +163,7 @@ completing).
 Exercises and Tutorials
 =======================
 
-You are now ready to embark on the :ref:`exercises` and :ref:`tutorials`.
+You are now ready to embark on the :ref:`tutorialsexercises`.
 Have fun.
 
 

@@ -4,7 +4,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.projections import Projections
 from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 
 
 class KPoint:
@@ -95,7 +95,7 @@ def get_kpt(wfs, k, spin, n1, n2):
                            dtype=wfs.dtype,
                            data=P_nI)
 
-        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
+        rank_a = np.linspace(0, wfs.world.size, len(wfs.setups),
                              endpoint=False).astype(int)
         atom_partition = AtomPartition(wfs.world, rank_a)
         proj = proj.redist(atom_partition)

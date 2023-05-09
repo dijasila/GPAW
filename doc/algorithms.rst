@@ -31,12 +31,11 @@ Quick links to all features:
       - :ref:`point groups`
 
 This Page gives a quick overview of the algorithms used.  We have
-written some :ref:`papers <gpaw_publications>` about the implementation,
+written some :ref:`papers <faq>` about the implementation,
 where *all* the details can be found.
 
 
-Introduction
-============
+**Introduction**
 
 Using the projector-augmented wave (PAW)
 method [Blo94]_, [Blo03]_  allows us to get rid of the core
@@ -49,8 +48,7 @@ there is a one to one transformation between the pseudo and
 all-electron quantities.
 
 
-Description of the wave functions
-=================================
+**Description of the wave functions**
 
 Pseudo wave functions can be described in three ways:
 
@@ -74,8 +72,7 @@ Linear combination of atomic orbitals (LCAO):
     Expansion in atom-centered basis functions.
 
 
-Grid-based techniques for FD-mode
-=================================
+**Grid-based techniques for FD-mode**
 
 Solving the Kohn-Sham equation is done via iterative multi-grid
 eigensolvers starting from a good guess for the wave functions
@@ -84,23 +81,20 @@ We use the multi-grid preconditioner described by Briggs *et al.* [Bri96]_
 for the residuals, and standard Pulay mixing is used to update the density.
 
 
-Compensation charges
-====================
+**Compensation charges**
 
 Compensation charges
 are expanded to give correct multipole moments up to angular momentum
 number `\ell=2`.
 
 
-Boundary conditions
-===================
+**Boundary conditions**
 
 In each of the three directions, the boundary conditions can be either
 periodic or open.
 
 
-Mask function technique
-=======================
+**Mask function technique**
 
 Due to the discreticed nature of space in finite difference methods,
 the energy of an atom will depend on its position relative to the grid
@@ -117,8 +111,7 @@ use the technique of [Taf06]_, where the radial functions (projector functions) 
 * Multiply by mask function.
 
 
-Exchange-correlation functionals
-================================
+**Exchange-correlation functionals**
 
 All the functionals from the :ref:`libxc <xc_functionals>` library can
 be used.  Calculating the XC-energy and potential for the extended
@@ -130,15 +123,13 @@ grid - dense close to the nuclei and less dense away from the
 nuclei.
 
 
-Parallelization
-===============
+**Parallelization**
 
 Parallelization is done by distributing **k**-points, spins, and bands
 over all processors and on top of that domain-decomposition is used.
 
 
-ASE interface
-=============
+**ASE interface**
 
 The code has been designed to work together with the atomic
 simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`_). ASE provides:
@@ -150,10 +141,9 @@ simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`_). ASE provides:
  * Scanning tunneling microscopy images.
 
 
-Open Software
-=============
+**Open Software**
 
-GPAW is released under the `GNU Public License <http://xkcd.com/225>`_
+GPAW is released under the :xkcd:`GNU Public License <225>`
 version 3 or any later version.  See the file :git:`LICENSE` which
 accompanies the downloaded files, or see the license at GNU's web
 server at http://www.gnu.org/licenses/.  Everybody is invited to

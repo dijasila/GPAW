@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import (FermiDirac, MethfesselPaxton,
                               MarzariVanderbilt)
-from gpaw.wavefunctions.pw import PW
+from gpaw import PW
 
 
 class GPAWRunner(Runner):
@@ -51,8 +51,8 @@ class CLICommand:
 
         gpaw run -p xc=PBE h2o.xyz
         gpaw run -p xc=PBE h2o.xyz -f 0.01
-        gpaw run -p "xc=PBE,kpts={denisty:4}" cu.traj -s 0.01
-        gpaw run -p "xc=PBE,kpts={denisty:4}" cu.traj -E 5,2.0
+        gpaw run -p "xc=PBE,kpts={density:4}" cu.traj -s 0.01
+        gpaw run -p "xc=PBE,kpts={density:4}" cu.traj -E 5,2.0
     """
 
     @staticmethod

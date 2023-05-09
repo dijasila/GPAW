@@ -59,9 +59,8 @@ def read_gaussian_basis_file(fname):
     gtos = []
     description = ''
 
-    f = open(fname, 'r')
-    line_i = f.readlines()
-    f.close()
+    with open(fname, 'r') as fd:
+        line_i = fd.readlines()
 
     i = 0
     Ni = len(line_i)
@@ -186,7 +185,7 @@ def generate_nao_ngto_basis(atom, *, xc, nao, name,
     # Generate nao basis
     zetacount, polarizationcount = parse_basis_name(nao)
     bm = BasisMaker(atom, name=name, run=False, gtxt=None, xc=xc)
-    bm.generator.run(write_xml=False, use_restart_file=False, **p[atom])
+    bm.generator.run(write_xml=False, **p[atom])
     basis = bm.generate(zetacount, polarizationcount, txt=None)
 
     # Increase basis function max radius

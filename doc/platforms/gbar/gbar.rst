@@ -8,6 +8,8 @@ This document shows how to build a *venv* for GPAW+ASE.
 
     * :mod:`Creation of Python virtual environments <venv>`.
     * Information about the `GBar <http://www.gbar.dtu.dk/>`_.
+    * Information about the `DCC software stack
+      <https://www.hpc.dtu.dk/?page_id=3246>`_.
     * MyQueue_.
 
 
@@ -31,6 +33,11 @@ and run it like this::
 
 After a few minutes, you will have a ``<venv-name>`` folder with
 a GPAW installation inside (plus some other stuff).
+
+.. note::
+
+    The GPAW installation will only work on the
+    ``XeonE5_2650v4`` and ``XeonE5_2660v3`` architectures.
 
 In the following, we will assume that your venv folder is ``~/venv/``.
 
@@ -62,6 +69,15 @@ Using MyQueue
 First, configure MyQueue_::
 
     $ mq config --in-place -Q hpc lsf
+
+.. warning::
+
+   Your ``~/.myqueue/config.py`` file should look like this:
+
+   .. literalinclude:: config.py
+
+   Edit this file so that it only contains the
+   ``XeonE5_2650v4`` and ``XeonE5_2660v3`` architectures.
 
 Then you can submit jobs with::
 

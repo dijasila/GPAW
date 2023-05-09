@@ -1,5 +1,3 @@
-import numpy as np
-
 from gpaw.mixer import DummyMixer
 from gpaw.xc import XC
 
@@ -62,22 +60,41 @@ class TimeDependentPotential(object):
 
 class KickHamiltonian(object):
     def __init__(self, ham, dens, ext):
+        nspins = ham.nspins
         vext_g = ext.get_potential(ham.finegd)
-        self.vt_sG = [ham.restrict_and_collect(vext_g)]
-        self.dH_asp = ham.setups.empty_atomic_matrix(1, ham.atom_partition)
+        vext_G = ham.restrict_and_collect(vext_g)
+        self.vt_sG = ham.gd.empty(nspins)
+        for s in range(nspins):
+            self.vt_sG[s] = vext_G
 
+        dH_asp = ham.setups.empty_atomic_matrix(nspins,
+                                                ham.atom_partition)
         W_aL = dens.ghat.dict()
         dens.ghat.integrate(vext_g, W_aL)
         # XXX this is a quick hack to get the distribution right
-        dHtmp_asp = ham.atomdist.to_aux(self.dH_asp)
+        # It'd be better to have these distributions abstracted elsewhere.
+        # The idea is (thanks Ask, see discussion in !910):
+        # * gd has D cores and coarse grid
+        # * aux_gd is the same grid as gd but with either D or
+        #   K * B * D cores (with augment_grids = True)
+        # * finegd is then aux_gd.refine().
+        # In integrals like W_aL, the atomic quantities are distributed
+        # according to the domains of those atoms (so finegd for W_aL,
+        # but gd for dH_asp).
+        # And, some things (atomic XC corrections) are calculated evenly
+        # distributed among all cores.
+        dHaux_asp = ham.atomdist.to_aux(dH_asp)
         for a, W_L in W_aL.items():
             setup = dens.setups[a]
-            dHtmp_asp[a] = np.dot(setup.Delta_pL, W_L).reshape((1, -1))
-        self.dH_asp = ham.atomdist.from_aux(dHtmp_asp)
+            dH_p = setup.Delta_pL @ W_L
+            for s in range(nspins):
+                dHaux_asp[a][s] = dH_p
+        self.dH_asp = ham.atomdist.from_aux(dHaux_asp)
 
 
 class TimeDependentHamiltonian(object):
-    def __init__(self, fxc=None, td_potential=None, scale=None):
+    def __init__(self, fxc=None, td_potential=None, scale=None,
+                 rremission=None):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
         if isinstance(td_potential, dict):
@@ -91,6 +108,7 @@ class TimeDependentHamiltonian(object):
         self.has_scale = scale is not None
         if self.has_scale:
             self.scale = scale
+        self.rremission = rremission
 
     def write(self, writer):
         if self.has_fxc:
@@ -143,6 +161,8 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
+        if self.rremission is not None:
+            self.rremission.initialize(paw)
 
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
@@ -233,6 +253,10 @@ class TimeDependentHamiltonian(object):
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
             H_MM += self.deltaXC_H_uMM[u]
+
+        if self.rremission is not None:
+            H_MM += self.rremission.vradiationreaction(kpt, time)
+
         if scale and self.has_scale:
             H_MM *= self.scale
             H_MM += self.scale_H_uMM[u]

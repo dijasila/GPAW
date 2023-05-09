@@ -4,6 +4,15 @@
 X-Ray Absorption Spectroscopy (XAS)
 ===================================
 
+Schematic illustration of XAS (from [Nil04]_):
+
+.. figure:: xas_illustration.png
+   :width: 250 px
+
+The oscillator strengths are proportional to `|\langle \phi_{1s}|
+\mathbf{r} | \psi_n \rangle|^2`, where the one-center expansion of
+`\psi_n` for the core-hole atom can be used.
+
 Introduction
 ============
 

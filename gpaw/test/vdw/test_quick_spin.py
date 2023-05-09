@@ -13,9 +13,11 @@ def test_vdw_quick_spin(in_tmp_dir):
     a.calc = calc
     e1 = a.get_potential_energy()
 
-    calc.set(txt='H.vdW-DF.spinpol.txt',
-             spinpol=True,
-             occupations=FermiDirac(width=0.001, fixmagmom=True))
+    calc = GPAW(xc='vdW-DF',
+                txt='H.vdW-DF.spinpol.txt',
+                spinpol=True,
+                occupations=FermiDirac(width=0.001, fixmagmom=True))
+    a.calc = calc
     e2 = a.get_potential_energy()
 
     assert abs(calc.get_eigenvalues(spin=0)[0] -

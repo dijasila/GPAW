@@ -1,14 +1,13 @@
 """Module for linear response TDDFT class with indexed K-matrix storage."""
 
 import os
-import sys
 import datetime
 import glob
 
 import numpy as np
 
-import ase.units
-from gpaw.utilities import devnull
+from ase.units import Hartree
+from ase.utils import IOContext
 
 from gpaw.xc import XC
 
@@ -43,7 +42,7 @@ class LrTDDFT2:
                  max_occ=None,
                  min_unocc=None,
                  max_unocc=None,
-                 max_energy_diff=1e9,
+                 max_energy_diff=None,
                  recalculate=None,
                  lr_communicators=None,
                  txt='-'):
@@ -113,7 +112,10 @@ class LrTDDFT2:
         self.max_occ = max_occ
         self.min_unocc = min_unocc
         self.max_unocc = max_unocc
-        self.max_energy_diff = max_energy_diff / ase.units.Hartree
+        if max_energy_diff is not None:
+            self.max_energy_diff = max_energy_diff / Hartree
+        else:
+            self.max_energy_diff = None
         self.recalculate = recalculate
         # Don't init calculator yet if it's not needed (to save memory)
         self.calc = gs_calc
@@ -135,24 +137,35 @@ class LrTDDFT2:
         self.lr_comms.initialize(gs_calc)
 
         # Init text output
-        if self.lr_comms.parent_comm.rank == 0 and txt is not None:
-            if txt == '-':
-                self.txt = sys.stdout
-            elif isinstance(txt, str):
-                self.txt = open(txt, 'w')
-            else:
-                self.txt = txt
-        elif self.calc is not None:
-            self.txt = self.calc.log.fd
-        else:
-            self.txt = devnull
+        self.iocontext = IOContext()
+        self.txt = self.iocontext.openfile(txt, self.lr_comms.parent_comm)
 
         # Check and set unset params
+        kpt = self.calc.wfs.kpt_u[self.kpt_ind]
+        nbands = len(kpt.f_n)
+
+        # If min/max_occ/unocc were not given, but max_energy_diff was,
+        # check that calc has enough states for max_energy_diff
+        # (i.e., KS eigenvalue difference between HOMO and highest
+        # state is below max_energy_diff)
+        if ((self.min_occ is None or self.min_unocc is None
+             or self.max_occ is None or self.max_unocc is None)
+            and self.max_energy_diff is not None):
+            n_homo = np.sum(kpt.f_n > self.min_pop_diff) - 1
+            n_highest = nbands - 1  # XXX use highest converged state instead
+            eps_n = kpt.eps_n
+            eps_diff = eps_n[n_highest] - eps_n[n_homo]
+            if eps_diff <= self.max_energy_diff:
+                msg = ('Error in LrTDDFT2: not enough states in '
+                       'the calculator for the requested max_energy_diff='
+                       f'{self.max_energy_diff * Hartree:.4f} eV. '
+                       f'Max eigenvalue difference from HOMO (n={n_homo}) is '
+                       f'{eps_diff * Hartree:.4f} eV.')
+                raise RuntimeError(msg)
 
         # If min/max_occ/unocc were not given, initialized them to include
         # everything: min_occ/unocc => 0, max_occ/unocc to nubmer of wfs,
         # energy diff to numerical infinity
-        nbands = len(self.calc.wfs.kpt_u[self.kpt_ind].f_n)
         if self.min_occ is None:
             self.min_occ = 0
         if self.min_unocc is None:
@@ -162,7 +175,7 @@ class LrTDDFT2:
         if self.max_unocc is None:
             self.max_unocc = self.max_occ
         if self.max_energy_diff is None:
-            self.max_energy_diff = 1e9
+            self.max_energy_diff = np.inf
 
         self.min_occ = max(self.min_occ, 0)
         self.min_unocc = max(self.min_unocc, 0)
@@ -344,8 +357,8 @@ class LrTDDFT2:
         if units == 'au':
             pass
         elif units == 'eVang':
-            omega_au /= ase.units.Hartree
-            width_au /= ase.units.Hartree
+            omega_au /= Hartree
+            width_au /= Hartree
         else:
             raise RuntimeError(
                 'Error in calculate_response_wavefunction: Invalid units.')
@@ -472,4 +485,8 @@ class LrTDDFT2:
         f.close()
 
     def __del__(self):
-        self.timer.stop('LrTDDFT')
+        try:
+            self.iocontext.close()
+            self.timer.stop('LrTDDFT')
+        except AttributeError:
+            pass

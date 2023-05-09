@@ -3,8 +3,8 @@ from math import pi, acos, sqrt
 import numpy as np
 from ase.atoms import string2vector
 from ase.units import Bohr, Hartree
+from ase.utils import IOContext
 
-import gpaw.mpi as mpi
 from gpaw.spherical_harmonics import Y
 from gpaw.utilities.tools import coordinates
 
@@ -178,63 +178,60 @@ class ExpandYl(AngularIntegral):
                 ):
         """Expand a range of wave functions and write the result
         to a file"""
-        if mpi.rank == 0:
-            f = open(filename, 'w')
-        else:
-            f = open('/dev/null', 'w')
+        with IOContext() as io:
+            fd = io.openfile(filename)
 
-        if not spins:
-            srange = range(calculator.wfs.nspins)
-        else:
-            srange = spins
-        if not kpoints:
-            krange = range(len(calculator.wfs.kd.ibzk_kc))
-        else:
-            krange = kpoints
-        if not bands:
-            nrange = range(calculator.wfs.bd.nbands)
-        else:
-            nrange = bands
+            if not spins:
+                srange = range(calculator.wfs.nspins)
+            else:
+                srange = spins
+            if not kpoints:
+                krange = range(len(calculator.wfs.kd.ibzk_kc))
+            else:
+                krange = kpoints
+            if not bands:
+                nrange = range(calculator.wfs.bd.nbands)
+            else:
+                nrange = bands
 
-        print('# Yl expansion', 'of smooth wave functions', file=f)
-        lu = 'Angstrom'
-        print('# center =', self.center * Bohr, lu, file=f)
-        print('# Rmax =', self.Rmax * Bohr, lu, file=f)
-        print('# dR =', self.dR * Bohr, lu, file=f)
-        print('# lmax =', self.lmax, file=f)
-        print('# s    k     n', end=' ', file=f)
-        print('kpt-wght    e[eV]      occ', end=' ', file=f)
-        print('    norm      sum   weight', end=' ', file=f)
-        spdfghi = 's p d f g h i'.split()
-        for l in range(self.lmax + 1):
-            print('      %' + spdfghi[l], end=' ', file=f)
-        print(file=f)
+            print('# Yl expansion', 'of smooth wave functions', file=fd)
+            lu = 'Angstrom'
+            print('# center =', self.center * Bohr, lu, file=fd)
+            print('# Rmax =', self.Rmax * Bohr, lu, file=fd)
+            print('# dR =', self.dR * Bohr, lu, file=fd)
+            print('# lmax =', self.lmax, file=fd)
+            print('# s    k     n', end=' ', file=fd)
+            print('kpt-wght    e[eV]      occ', end=' ', file=fd)
+            print('    norm      sum   weight', end=' ', file=fd)
+            spdfghi = 's p d f g h i'.split()
+            for l in range(self.lmax + 1):
+                print('      %' + spdfghi[l], end=' ', file=fd)
+            print(file=fd)
 
-        for s in srange:
-            for k in krange:
-                u = k * calculator.wfs.nspins + s
-                for n in nrange:
-                    kpt = calculator.wfs.kpt_u[u]
-                    psit_G = kpt.psit_nG[n]
-                    norm = self.gd.integrate((psit_G * psit_G.conj()).real)
+            for s in srange:
+                for k in krange:
+                    u = k * calculator.wfs.nspins + s
+                    for n in nrange:
+                        kpt = calculator.wfs.kpt_u[u]
+                        psit_G = kpt.psit_nG[n]
+                        norm = self.gd.integrate((psit_G * psit_G.conj()).real)
 
-                    gl, weight = self.expand(psit_G)
-                    gsum = np.sum(gl)
-                    gl = 100 * gl / gsum
+                        gl, weight = self.expand(psit_G)
+                        gsum = np.sum(gl)
+                        gl = 100 * gl / gsum
 
-                    print('%2d %5d %5d' % (s, k, n), end=' ', file=f)
-                    print('%6.4f %10.4f %8.4f' % (kpt.weight,
-                                                  kpt.eps_n[n] * Hartree,
-                                                  kpt.f_n[n]),
-                          end=' ', file=f)
-                    print('%8.4f %8.4f %8.4f' %
-                          (norm, gsum, weight), end=' ', file=f)
+                        print('%2d %5d %5d' % (s, k, n), end=' ', file=fd)
+                        print('%6.4f %10.4f %8.4f' % (kpt.weight,
+                                                      kpt.eps_n[n] * Hartree,
+                                                      kpt.f_n[n]),
+                              end=' ', file=fd)
+                        print('%8.4f %8.4f %8.4f' %
+                              (norm, gsum, weight), end=' ', file=fd)
 
-                    for g in gl:
-                        print('%8.2f' % g, end=' ', file=f)
-                    print(file=f)
-                    f.flush()
-        f.close()
+                        for g in gl:
+                            print('%8.2f' % g, end=' ', file=fd)
+                        print(file=fd)
+                        fd.flush()
 
 
 class Vector3d(list):

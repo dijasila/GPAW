@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 from ase import Atoms
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.projections import Projections
 from gpaw.setup import Setup
@@ -29,14 +29,14 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.nwannier = nwannier
-        self.monkhorst_pack_size = np.asarray(monkhorst_pack_size)
+        self.monkhorst_pack_size = np.array(monkhorst_pack_size)
         self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
 
         self.nkpts, ndirs, self.nbands, nbands = overlaps.shape
         assert nbands == self.nbands
-        assert self.nkpts == np.prod(monkhorst_pack_size)
+        assert self.nkpts == np.prod(monkhorst_pack_size)  # type: ignore
         assert ndirs == len(directions)
 
         self._overlaps = overlaps

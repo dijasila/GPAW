@@ -3,7 +3,8 @@
 
 """K-point descriptor."""
 
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, Sequence
 
 import numpy as np
 from ase.calculators.calculator import kptdensity2monkhorstpack
@@ -385,18 +386,18 @@ class KPointDescriptor:
                                           kbz_c)
         return index_G, phase_G
 
-    def find_k_plus_q(self, q_c, kpts_k=None):
+    def find_k_plus_q(self, q_c, kpts_k: Sequence[int] = None) -> list[int]:
         """Find the indices of k+q for all kpoints in the Brillouin zone.
 
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters:
-
-        q_c: ndarray
+        Parameters
+        ----------
+        q_c: np.ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
-        kpts_k: list of ints
+        kpts_k:
             Restrict search to specified k-points.
 
         """

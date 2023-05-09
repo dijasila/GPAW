@@ -5,13 +5,13 @@ from typing import Optional, List, Dict
 import numpy as np
 from ase.units import Bohr, Ha
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import h2gpts
-from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.mpi import serial_comm
 from gpaw.setup import Setup
 from gpaw.spline import Spline
@@ -121,7 +121,7 @@ class PS2AE:
             psi(r)=exp(ikr)u(r).
         """
         u_r = self.calc.get_pseudo_wave_function(n, k, s,
-                                                 pad=True, periodic=True)
+                                                 periodic=True)
         u_R = self.interpolator.interpolate(u_r * Bohr**1.5)
 
         k_c = self.calc.wfs.kd.ibzk_kc[k]

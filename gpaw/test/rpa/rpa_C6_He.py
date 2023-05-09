@@ -5,6 +5,7 @@ from gpaw.mpi import serial_comm
 from gpaw.test import equal
 
 
+@pytest.mark.response
 @pytest.mark.skip(reason='TODO')
 def test_rpa_C6_He():
     from gpaw.xc.rpa_correlation_energy import RPACorrelation

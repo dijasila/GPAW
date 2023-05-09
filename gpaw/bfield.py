@@ -5,7 +5,7 @@ from ase.units import Ha
 
 from gpaw.density import Density
 from gpaw.external import NoExternalPotential
-from gpaw.wavefunctions.pw import ReciprocalSpaceHamiltonian
+from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
 from gpaw.typing import Array1D, Array2D, ArrayLike1D
 
 
@@ -19,6 +19,9 @@ class BField(NoExternalPotential):
         self.name = 'BField'
         self.field_v = np.array(field) / Ha
         assert self.field_v.shape == (3,)
+
+    def get_potential(self, gd):
+        raise NotImplementedError('BField can only be used in PW-mode!')
 
     def update_potential_pw(self,
                             ham: ReciprocalSpaceHamiltonian,

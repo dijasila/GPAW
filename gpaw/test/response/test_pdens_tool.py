@@ -3,6 +3,7 @@ Calculate optical transition strengths.
 """
 
 # General modules
+import pytest
 import numpy as np
 
 # Script modules
@@ -16,6 +17,7 @@ from gpaw.response.tool import (get_bz_transitions,
 from gpaw.test import equal
 
 
+@pytest.mark.response
 def test_response_pdens_tool(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
@@ -25,7 +27,6 @@ def test_response_pdens_tool(in_tmp_dir):
     nbands = 8
 
     # Part 2: optical transitions calculation
-    response = 'density'
     spins = 'all'
     q_c = [0., 0., 0.]
     bzk_kc = np.array([[0., 0., 0.]])
@@ -50,20 +51,23 @@ def test_response_pdens_tool(in_tmp_dir):
 
     # Part 2: optical transition calculation
 
-    pair, pd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
-                                                response=response, spins=spins,
-                                                ecut=10)
+    pair, qpd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
+                                                 spins=spins,
+                                                 ecut=10)
+
+    nocc1, nocc2 = pair.gs.count_occupied_bands(1e-6)
+    # XXX should we know 1e-6?
 
     # non-empty bands
-    n_n = np.arange(0, pair.nocc2)
+    n_n = np.arange(0, nocc2)
     # not completely filled bands
-    m_m = np.arange(pair.nocc1, pair.calc.wfs.bd.nbands)
+    m_m = np.arange(nocc1, pair.gs.bd.nbands)
 
     nt = len(domainarg_td)
     nn = len(n_n)
     nm = len(m_m)
-    nG = pd.ngmax
-    optical_limit = np.allclose(q_c, 0.) and response == 'density'
+    nG = qpd.ngmax
+    optical_limit = np.allclose(q_c, 0.)
 
     n_tnmG = np.zeros((nt, nn, nm, nG + 2 * optical_limit), dtype=complex)
     df_tnm = np.zeros((nt, nn, nm), dtype=float)
@@ -71,7 +75,7 @@ def test_response_pdens_tool(in_tmp_dir):
     eps_tm = np.zeros((nt, nm), dtype=float)
     for t, domainarg_d in enumerate(domainarg_td):
         (n_tnmG[t], df_tnm[t],
-         eps_tn[t], eps_tm[t]) = get_chi0_integrand(pair, pd,
+         eps_tn[t], eps_tm[t]) = get_chi0_integrand(pair, qpd,
                                                     n_n, m_m,
                                                     *domainarg_d)
 

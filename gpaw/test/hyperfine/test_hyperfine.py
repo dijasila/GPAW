@@ -83,17 +83,17 @@ def things():
 @pytest.mark.serial
 def test_gaussian(things):
     gd, lfc, setup, spos_ac = things
-    spin_denisty_R = gd.zeros()
-    lfc.add(spin_denisty_R, {0: np.array([1.0, 0, 0, 0])})
-    spin_denisty_R *= spin_denisty_R
+    spin_density_R = gd.zeros()
+    lfc.add(spin_density_R, {0: np.array([1.0, 0, 0, 0])})
+    spin_density_R *= spin_density_R
 
-    W_avv = smooth_part(spin_denisty_R, gd, spos_ac)
+    W_avv = smooth_part(spin_density_R, gd, spos_ac)
     print(W_avv)
     assert abs(W_avv[0] - np.eye(3) * W_avv[0, 0, 0]).max() < 1e-7
 
-    denisty_sii = np.zeros((2, 4, 4))
-    denisty_sii[0, 0, 0] = 1.0
-    W1_vv = paw_correction(denisty_sii, setup)
+    density_sii = np.zeros((2, 4, 4))
+    density_sii[0, 0, 0] = 1.0
+    W1_vv = paw_correction(density_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-7
 
@@ -101,21 +101,21 @@ def test_gaussian(things):
 @pytest.mark.serial
 def test_gaussian2(things):
     gd, lfc, setup, spos_ac = things
-    spin_denisty_R = gd.zeros()
-    lfc.add(spin_denisty_R, {0: np.array([0, 0, 1.0, 0])})
-    spin_denisty2_R = gd.zeros()
-    lfc.add(spin_denisty2_R, {0: np.array([0, 1.0, 0, 0])})
-    spin_denisty_R = spin_denisty_R * spin_denisty2_R
+    spin_density_R = gd.zeros()
+    lfc.add(spin_density_R, {0: np.array([0, 0, 1.0, 0])})
+    spin_density2_R = gd.zeros()
+    lfc.add(spin_density2_R, {0: np.array([0, 1.0, 0, 0])})
+    spin_density_R = spin_density_R * spin_density2_R
 
-    W_avv = smooth_part(spin_denisty_R, gd, spos_ac)
+    W_avv = smooth_part(spin_density_R, gd, spos_ac)
     print(W_avv)
     assert abs(W_avv[0] - np.array([[0, 0, 0],
                                     [0, 0, 1],
                                     [0, 1, 0]]) * W_avv[0, 1, 2]).max() < 1e-7
 
-    denisty_sii = np.zeros((2, 4, 4))
-    denisty_sii[0, 2, 1] = 1.0
-    W1_vv = paw_correction(denisty_sii, setup)
+    density_sii = np.zeros((2, 4, 4))
+    density_sii[0, 2, 1] = 1.0
+    W1_vv = paw_correction(density_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 

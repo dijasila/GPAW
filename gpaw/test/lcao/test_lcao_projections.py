@@ -1,11 +1,13 @@
 import numpy as np
+import pytest
 from ase.build import molecule
 
 from gpaw import GPAW
-from gpaw.poisson import FDPoissonSolver
 from gpaw.lcao.projected_wannier import get_lcao_projections_HSP
+from gpaw.poisson import FDPoissonSolver
 
 
+@pytest.mark.later
 def test_lcao_lcao_projections():
     atoms = molecule('C2H2')
     atoms.center(vacuum=3.0)

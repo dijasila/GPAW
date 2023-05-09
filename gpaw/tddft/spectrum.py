@@ -315,6 +315,10 @@ def photoabsorption_spectrum(dipole_moment_file: str,
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
 
+    The spectrum is represented as a dipole strength function
+    in units of 1/eV. Thus, the resulting spectrum should integrate
+    to the number of valence electrons in the system.
+
     Parameters
     ----------
     dipole_moment_file

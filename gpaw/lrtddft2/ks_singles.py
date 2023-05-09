@@ -173,7 +173,8 @@ class KohnShamSingles:
             # a bit ugly and slow but works
             data = None
             if self.lr_comms.parent_comm.rank == 0:
-                data = open(kss_file, 'r', 1024 * 1024).read()
+                with open(kss_file, 'r', 1024 * 1024) as fd:
+                    data = fd.read()
             data = gpaw.mpi.broadcast_string(data,
                                              root=0,
                                              comm=self.lr_comms.parent_comm)
@@ -367,12 +368,8 @@ class KohnShamSingles:
         #self.timer.stop('Calculate KS properties')
 
 
-###############################################################################
-
-
-###############################################################################
 # Small utility class
-###############################################################################
+
 # FIXME: USE EXISTING METHOD
 class LRiPairDensity:
     """Pair density calculator class."""

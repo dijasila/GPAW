@@ -1,11 +1,14 @@
 """Test read/write of restart files between fd and lcao mode"""
 import os
 
+import pytest
 from ase import Atom, Atoms
-from gpaw import GPAW, restart, FermiDirac
+
+from gpaw import GPAW, FermiDirac, restart
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_lcao_fd2lcao_restart(in_tmp_dir):
     energy_tolerance = 0.001
 
