@@ -242,35 +242,38 @@ class FFTBaseMixer(BaseMixer):
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
             k2_Q, _ = construct_reciprocal(self.gd1)
             self.metric = ReciprocalMetric(self.weight, k2_Q)
-            self.mR_sG = self.gd1.empty(1, dtype=complex)
+            self.mR_sG = self.gd1.empty(2, dtype=complex)
         else:
             self.metric = lambda R_Q, mR_Q: None
-            self.mR_sG = np.empty((1, 0, 0, 0), dtype=complex)
+            self.mR_sG = np.empty((2, 0, 0, 0), dtype=complex)
 
     def calculate_charge_sloshing(self, R_sQ):
         if self.gd.comm.rank == 0:
-            assert R_sQ.ndim == 4 and len(R_sQ) == 1
-            cs = self.gd1.integrate(np.fabs(ifftn(R_sQ[0]).real))
+            assert R_sQ.ndim == 4  # and len(R_sQ) == 1
+            cs = sum(self.gd1.integrate(np.fabs(ifftn(R_Q).real))
+                     for R_Q in R_sQ)
         else:
             cs = 0.0
         return self.gd.comm.sum(cs)
 
-    def mix_density(self, nt_sG, D_asp):
+    def mix_density(self, nt_sR, D_asp, g_ss=None):
         # Transform real-space density to Fourier space
-        nt_G, = nt_sG
-        nt1_G = self.gd.collect(nt_G)
+        nt1_sR = [self.gd.collect(nt_R) for nt_R in nt_sR]
         if self.gd.comm.rank == 0:
-            nt_Q = np.ascontiguousarray(fftn(nt1_G))
+            nt1_sG = np.ascontiguousarray([fftn(nt_R) for nt_R in nt1_sR])
         else:
-            nt_Q = np.empty((0, 0, 0), dtype=complex)
+            nt1_sG = np.empty((len(nt_sR), 0, 0, 0), dtype=complex)
 
-        dNt = BaseMixer.mix_density(self, nt_Q[np.newaxis],
+        dNt = BaseMixer.mix_density(self, nt1_sG,
                                     [D_1p[0] for D_1p in D_asp])
 
         # Return density in real space
-        if self.gd.comm.rank == 0:
-            nt1_G = ifftn(nt_Q).real
-        self.gd.distribute(nt1_G, nt_G)
+        for nt_G, nt_R in zip(nt1_sG, nt_sR):
+            if self.gd.comm.rank == 0:
+                nt1_R = ifftn(nt_G).real
+            else:
+                nt1_R = None
+            self.gd.distribute(nt1_R, nt_R)
 
         return dNt
 
