@@ -264,8 +264,7 @@ class FFTBaseMixer(BaseMixer):
         else:
             nt1_sG = np.empty((len(nt_sR), 0, 0, 0), dtype=complex)
 
-        dNt = BaseMixer.mix_density(self, nt1_sG,
-                                    [D_1p[0] for D_1p in D_asp])
+        dNt = BaseMixer.mix_density(self, nt1_sG, D_asp)
 
         # Return density in real space
         for nt_G, nt_R in zip(nt1_sG, nt_sR):
@@ -787,6 +786,7 @@ FFTMixer = _definemixerfunc('separate', 'fft')
 FFTMixerSum = _definemixerfunc('sum', 'fft')
 FFTMixerSum2 = _definemixerfunc('sum2', 'fft')
 FFTMixerDif = _definemixerfunc('difference', 'fft')
+FFTMixerFull = _definemixerfunc('fullspin', 'fft')
 BroydenMixer = _definemixerfunc('separate', 'broyden')
 BroydenMixerSum = _definemixerfunc('sum', 'broyden')
 BroydenMixerSum2 = _definemixerfunc('sum2', 'broyden')
