@@ -1,7 +1,7 @@
-from gpaw import GPAW, LCAO, FermiDirac
+from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-
+from gpaw.directmin.etdm import ETDM
 # Water molecule:
 d = 0.9575
 t = np.pi / 180 * 104.51
@@ -13,9 +13,10 @@ H2O.center(vacuum=5.0)
 
 calc = GPAW(mode=LCAO(),
             basis='dzp',
-            occupations=FermiDirac(width=0.0, fixmagmom=True),
-            eigensolver='direct_min_lcao',
-            mixer={'method': 'dummy'},
+            eigensolver=ETDM(
+                searchdir_algo={'name': 'l-bfgs-p', 'memory': 10}),
+            occupations={'name': 'fixed-uniform'},
+            mixer={'backend': 'no-mixing'},
             nbands='nao'
             )
 H2O.set_calculator(calc)
