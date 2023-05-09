@@ -62,8 +62,11 @@ class DirectLCAO(object):
             yy = 0.5
             k_c = wfs.kd.ibzk_qc[kpt.q]
             H_MM = (0.5 + 0.0j) * Vt_xMM[0]
-            for sdisp_c, Vt_MM in zip(bfs.sdisp_xc[1:], Vt_xMM[1:]):
-                H_MM += np.exp(2j * np.pi * np.dot(sdisp_c, k_c)) * Vt_MM
+
+            H_MM += np.einsum('x,xMN->MN',
+                              np.exp(2j * np.pi * bfs.sdisp_xc[1:] @ k_c),
+                              Vt_xMM[1:],
+                              optimize=True)
             wfs.timer.stop('Sum over cells')
 
         # Add atomic contribution
@@ -85,12 +88,13 @@ class DirectLCAO(object):
 
         if add_kinetic:
             H_MM += wfs.T_qMM[kpt.q]
+
         return H_MM
 
     def iterate(self, hamiltonian, wfs, occ=None):
         wfs.timer.start('LCAO eigensolver')
 
-        error_2 = np.array([0.0])
+        error_tmp = np.array([0.0])
         s = -1
         for kpt in wfs.kpt_u:
             if kpt.s != s:
@@ -100,11 +104,11 @@ class DirectLCAO(object):
                     hamiltonian.vt_sG[s])
                 wfs.timer.stop('Potential matrix')
             error = self.iterate_one_k_point(hamiltonian, wfs, kpt, Vt_xMM)
-            error_2[0] += error
-        wfs.kd.comm.sum(error_2)
-        wfs.world.broadcast(error_2, 0)
-        self._error = error_2[0]
-
+            error_tmp += error
+        wfs.kd.comm.sum(error_tmp)
+        wfs.world.broadcast(error_tmp, 0)
+        self._error = error_tmp[0]
+        wfs.set_orthonormalized(True)
         wfs.timer.stop('LCAO eigensolver')
 
     def iterate_one_k_point(self, hamiltonian, wfs, kpt, Vt_xMM):
