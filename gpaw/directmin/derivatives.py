@@ -213,8 +213,9 @@ class Davidson(object):
         self.C_we = []      # Preconditioner
         self.M = []         # Matrix used to get preconditioner every step
         self.W_w = []       # Hessian effect on Krylov subspace
-        self.H_ww = []      # Rayleigh matrix, smaller representation of the
-                            # diagonalization problem to solve
+        # Rayleigh matrix, smaller representation of the
+        # diagonalization problem to solve:
+        self.H_ww = []
         self.lambda_e = []  # Target eigenvalues
         self.y_e = []       # Target eigenvectors in subspace representation
         self.x_e = []       # Target eigenvectors
