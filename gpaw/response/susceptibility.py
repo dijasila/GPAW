@@ -290,10 +290,10 @@ class EigendecomposedSpectrum:
         """Generate the spectrum from the eigenvalues and eigenvectors."""
         A_wGG = np.empty((self.wblocks.nlocal, self.nG, self.nG),
                          dtype=complex)
-        for w, (s_e, v_Ge, vinv_eG) in enumerate(zip(
-                self.s_we, self.v_wGe, self.vinv_weG)):
+        for w, (s_e, v_Ge) in enumerate(zip(self.s_we, self.v_wGe)):
             emask = ~np.isnan(s_e)
-            A_wGG[w] = v_Ge[:, emask] @ np.diag(s_e[emask]) @ vinv_eG[emask]
+            svinv_eG = s_e[emask][:, np.newaxis] * np.conj(v_Ge.T[emask])
+            A_wGG[w] = v_Ge[:, emask] @ svinv_eG
         return A_wGG
 
     def get_positive_eigenvalue_spectrum(self):
