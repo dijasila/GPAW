@@ -746,6 +746,15 @@ def scalapack():
         pytest.skip(reason='no scalapack')
 
 
+@pytest.fixture
+def needs_ase_master():
+    from ase.utils.filecache import MultiFileJSONCache
+    try:
+        MultiFileJSONCache('bla-bla', comm=None)
+    except TypeError:
+        pytest.skip(reason='ASE is too old')
+
+
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'

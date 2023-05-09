@@ -8,7 +8,7 @@ import pickle
 
 
 @pytest.mark.response
-def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
+def test_do_GW_too(in_tmp_dir, gpw_files, scalapack, needs_ase_master):
     atoms = bulk('C')
     atoms.center()
     calc = GPAW(mode=PW(200),
