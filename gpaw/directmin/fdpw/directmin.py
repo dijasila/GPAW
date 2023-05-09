@@ -53,7 +53,7 @@ class DirectMin(Eigensolver):
 
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
-        self.name = 'direct_min'
+        self.name = 'directmin'
         self.use_prec = use_prec
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
@@ -165,7 +165,7 @@ class DirectMin(Eigensolver):
         Convert to dictionary, needs for saving and loading gpw
         :return:
         """
-        return {'name': 'direct_min',
+        return {'name': 'directmin',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
                 'convergelumo': self.convergelumo,
