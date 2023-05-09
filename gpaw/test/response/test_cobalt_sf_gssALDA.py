@@ -57,6 +57,12 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         chiks, chi = chi_factory('+-', q_c, complex_frequencies,
                                  fxc=fxc, hxc_scaling=hxc_scaling)
 
+        # Check that the dissipative part of the susceptibility can be
+        # reconstructed from the EigendecomposedSpectrum
+        chid = chi.copy_dissipative_part()
+        spectrum = EigendecomposedSpectrum.from_chi(chi)
+        assert np.allclose(-np.pi * spectrum.A_wGG, chid.array)
+
         # Perform a spectral decomposition of the magnetic excitations in the
         # Kohn-Sham and many-body susceptibilities, writing the full spectral
         # weight of both the majority and minority spectra
