@@ -10,7 +10,9 @@ from gpaw.directmin.functional.lcao.pz import PZSICLcao
 
 def get_functional(func):
 
-    if isinstance(func, basestring):
+    if isinstance(func, KSLCAO) or isinstance(func, PZSICLcao):
+        return func
+    elif isinstance(func, basestring):
         func = xc_string_to_dict(func)
 
     if isinstance(func, dict):
