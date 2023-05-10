@@ -9,7 +9,7 @@ class KSLCAO:
     w.r.t rotation parameters in LCAO
     """
 
-    def __init__(self):
+    def __init__(self, wfs, dens, ham):
         self.name = 'ks'
 
     def todict(self):
