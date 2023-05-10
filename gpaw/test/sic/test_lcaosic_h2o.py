@@ -3,7 +3,6 @@ import pytest
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
 
 def test_lcaosic_h2o(in_tmp_dir):
@@ -26,11 +25,11 @@ def test_lcaosic_h2o(in_tmp_dir):
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.25,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=DirectMinLCAO(
-                    odd_parameters={'name': 'PZ_SIC',
-                                    'scaling_factor': (0.5, 0.5)  # SIC/2
-                                    }),
-                mixer={'name': 'dummy'},
+                eigensolver={'name': 'etdm',
+                             'functional': {'name': 'PZ-SIC',
+                                            'scaling_factor': \
+                                                (0.5, 0.5)}}, # Half SIC
+                mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
                 )
