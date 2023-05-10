@@ -29,7 +29,7 @@ f1 = excite(calc, 0, 0, spin=(1, 1))
 f = [f0[0], f1[1]]
 
 # Direct approach using ground state orbitals with changed occupation numbers
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'LBFGS-P_GMF'},
+calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-bfgs-p_gmf'},
                           linesearch_algo={'name': 'max-step'},
                           partial_diagonalizer={
                               'name': 'Davidson',
