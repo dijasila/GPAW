@@ -8,7 +8,7 @@ from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.directmin.etdm import ETDM
 
 
-def get_eigensolver(eigensolver, mode, convergence=None, use_gpu=False):
+def get_eigensolver(eigensolver, mode, convergence=None):
     """Create eigensolver object."""
     if eigensolver is None:
         if mode.name == 'lcao':
@@ -22,7 +22,6 @@ def get_eigensolver(eigensolver, mode, convergence=None, use_gpu=False):
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()
         name = eigensolver.pop('name')
-        eigensolver['use_gpu'] = use_gpu
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,
