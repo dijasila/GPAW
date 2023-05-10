@@ -55,15 +55,13 @@ from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-from ase.parallel import world
+from ase.parallel import world, parprint
 
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     if verbose:
-        if gd is not None:
-            if gd.comm.rank == 0:
-                print('Localize with step =', step,
-                      'and tolerance =', tolerance)
+        parprint('Localize with step =', step,
+                 'and tolerance =', tolerance)
     t = -time()
     fvalueold = 0.
     fvalue = fvalueold + 10
@@ -84,17 +82,13 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
         func.niter = count
         #
         if verbose:
-            if gd is not None:
-                if gd.comm.rank == 0:
-                    print('MDmin: iter=%s, step=%s, value=%s'
-                          % (count, step, fvalue))
+            parprint('MDmin: iter=%s, step=%s, value=%s'
+                     % (count, step, fvalue))
     t += time()
     if verbose:
-        if gd is not None:
-            if gd.comm.rank == 0:
-                print('%d iterations in %0.2f seconds(%0.2f ms/iter),'
-                      ' endstep = %s'
-                      % (count, t, t * 1000. / count, step))
+        parprint('%d iterations in %0.2f seconds(%0.2f ms/iter),'
+                 ' endstep = %s'
+                 % (count, t, t * 1000. / count, step))
 
 
 def get_kklists(Nk, Gd, Nd, kpt):
