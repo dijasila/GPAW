@@ -2,7 +2,8 @@ from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
 from gpaw.directmin.locfunc.er import ERlocalization as ERL
 from gpaw.directmin.odd.fdpw.pz import PzCorrections as PZpwfd
 from gpaw.directmin.odd.fdpw.zero import ZeroCorrections as KSpwfd
-from gpaw.directmin.odd.lcao import PzCorrectionsLcao as PZlcao
+from gpaw.directmin.functional.lcao import get_functional \
+    as get_functional_lcao
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import numpy as np
