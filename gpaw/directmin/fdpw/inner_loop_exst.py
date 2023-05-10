@@ -8,8 +8,8 @@ arXiv:2102.06542 [physics.comp-ph]
 """
 
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.lcao.sd_lcao import LSR1P
-from gpaw.directmin.lcao.ls_lcao import UnitStepLength
+from gpaw.directmin.sd_etdm import LSR1P
+from gpaw.directmin.ls_etdm import MaxStep
 from ase.units import Hartree
 import numpy as np
 import time
@@ -179,8 +179,7 @@ class InnerLoop:
             a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
         self.sd = LSR1P(wfs, memory=50)
-        self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
-                                 max_step=self.maxstep)
+        self.ls = MaxStep(self.evaluate_phi_and_der_phi, max_step=self.maxstep)
 
         threelasten = []
         # get initial energy and gradients
