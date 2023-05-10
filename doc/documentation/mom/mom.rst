@@ -188,20 +188,24 @@ Constrained optimization can be accessed by using the ``constraints`` keyword::
                                          [[h21], [h22],..., [p21], [p22],...],
                                          ...])
 
-Each hij refers to the j-th hole in the i-th K-point, each pij to the j-th excited
-electron in the i-th K-point. All rotations involving these orbitals are frozen during
-the constrained optimization resulting in these orbitals remaining unaltered after the
-optimization. It is also possible to constrain selected orbital rotations without
-completely freezing the involved orbitals by specifying lists of two orbital indices
-instead of a list of a singular orbital index. However, care has to be taken in that case
-since constraining a single orbital rotation may not fully prevent mixing between those
-two orbitals during the constrained optimization.
+Each ``hij`` refers to the ``j``-th hole in the ``i``-th K-point, each
+``pij`` to the j-th excited electron in the ``i``-th K-point. All rotations
+involving these orbitals are frozen during the constrained optimization
+resulting in these orbitals remaining unaltered after the optimization. It is
+also possible to constrain selected orbital rotations without completely
+freezing the involved orbitals by specifying lists of two orbital indices
+instead of a list of a singular orbital index. However, care has to be taken
+in that case since constraining a single orbital rotation may not fully
+prevent mixing between those two orbitals during the constrained
+optimization.
+
 
 .. _h2oexample:
 
 ---------------------------------------------------
 Example I: Excitation energy Rydberg state of water
 ---------------------------------------------------
+
 In this example, the excitation energies of the singlet and
 triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
@@ -219,9 +223,11 @@ representation of the diffuse Rydberg orbital [#momgpaw1]_.
 
 ..  _coexample:
 
+
 ----------------------------------------------------------------
 Example II: Geometry relaxation excited-state of carbon monoxide
 ----------------------------------------------------------------
+
 In this example, the bond length of the carbon monoxide molecule
 in the lowest singlet `\Pi(\sigma\rightarrow \pi^*)` excited state
 is optimized using two types of calculations, each based on a
