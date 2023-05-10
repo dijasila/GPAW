@@ -10,7 +10,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.directmin.tools import d_matrix
 
 
-class PZSICLcao:
+class PZSICLCAO:
     """
     Perdew-Zunger self-interaction corrections
 
@@ -19,7 +19,7 @@ class PZSICLcao:
                  sic_coarse_grid=True, store_potentials=False,
                  poisson_solver='FPS'):
 
-        self.name = 'PZ_SIC'
+        self.name = 'PZ-SIC'
         # what we need from wfs
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
@@ -130,7 +130,7 @@ class PZSICLcao:
         grad = f * (h_mm[:nbs, :nbs] + l_odd) - \
             f[:, np.newaxis] * (h_mm[:nbs, :nbs] + l_odd.T.conj())
 
-        if matrix_exp in ['pade_approx', 'egdecomp2']:
+        if matrix_exp in ['pade-approx', 'egdecomp2']:
             grad = np.ascontiguousarray(grad)
         elif matrix_exp == 'egdecomp':
             timer.start('Use Eigendecomposition')
@@ -144,11 +144,11 @@ class PZSICLcao:
             raise NotImplementedError('Check the keyword '
                                       'for matrix_exp. \n'
                                       'Must be '
-                                      '\'pade_approx\' or '
+                                      '\'pade-approx\' or '
                                       '\'egdecomp\'')
         if self.dtype == float:
             grad = grad.real
-        if repr_name in ['sparse', 'u_invar']:
+        if repr_name in ['sparse', 'u-invar']:
             grad = grad[ind_up]
 
         timer.stop('Construct Gradient Matrix')
