@@ -176,11 +176,9 @@ class FDTDPoissonSolver:
                  cl_spacing=1.20,
                  remove_moments=(1, 1),
                  potential_coupler='Refiner',
-                 communicator=serial_comm,
-                 use_gpu=False):
+                 communicator=serial_comm):
 
         self.rank = mpi.rank
-        self.use_gpu = use_gpu
 
         self.messages = []
 
@@ -283,8 +281,7 @@ class FDTDPoissonSolver:
 
         # Create quantum Poisson solver
         poisson_qm_kwargs = dict(name='fd', nn=self.nn,
-                                 eps=self.eps, relax=self.relax,
-                                 use_gpu=self.use_gpu)
+                                 eps=self.eps, relax=self.relax)
         self.qm.poisson_solver = MomentCorrectionPoissonSolver(
             poissonsolver=PoissonSolver(**poisson_qm_kwargs),
             moment_corrections=self.remove_moment_qm)
@@ -298,8 +295,7 @@ class FDTDPoissonSolver:
 
         # Create classical PoissonSolver
         poisson_cl_kwargs = dict(name='fd', nn=self.nn,
-                                 eps=self.eps, relax=self.relax,
-                                 use_gpu=self.use_gpu)
+                                 eps=self.eps, relax=self.relax)
         self.cl.poisson_solver = MomentCorrectionPoissonSolver(
             poissonsolver=PoissonSolver(**poisson_cl_kwargs),
             moment_corrections=self.remove_moment_cl)
