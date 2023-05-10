@@ -3,25 +3,27 @@
 ==================================================================================
 Excited State Calculations with Direct Optimization and Generalized Mode Following
 ==================================================================================
+The direct optimization generalized mode following (DO-GMF) method can be used to perform
+variational calculations of excited electronic states, where, contrary to
+:ref:`linear response TDDFT <lrtddft>`, the orbitals are optimized for the excited state.
 
-The main challenge of variational density functional calculations of excited electronic
-states is that excited states often correspond to saddle points of the energy as a
-function of the electronic degrees of freedom (the orbital variations), but standard
-self-consistent field (SCF) algorithms are designed for minimizations, as the ground state
-is always a minimum of the energy. Alternatively, direct optimization (DO), which
-converges more robustly than SCF algorithms in the vicinity of electronic degenracies
-commonly observed in excited states, can be used in GPAW. In DO, excited states are
-directly found as stationary solutions on the electronic energy surface. To do so, any
-optimization method can, in principle, be used, as long as it is able to find saddle
-points. To avoid converging to a minimum (variational collapse), the
-:ref:`maximum overlap method <mom>` can be used in conjunction with an algorithm that
-can converge to saddle points of unspecified order, but variational collapse can still
-occur in challenging cases. Alternatively, the generalized mode following (GMF) method
-can be used together with the DO approach (DO-GMF) in GPAW. This method estimates the
-saddle point order of the target excited state solution prior to the optimization and
-then specifically targets a stationary solution with this saddle point order. This
-approach converges more robustly than both DO with quasi-Newton optimization methods and
-SCF algorithms, and it inherently eliminates variational collapse by construction.
+The main challenge of variational density functional calculations of excited states
+is that excited states often correspond to saddle points on the surface describing
+the variation of the energy as a function of the electronic degrees of freedom (the orbital
+variations). :ref:`Standard self-consistent field (SCF) algorithms  <manual_eigensolver>`
+typically perform well in ground state calculations, as the latter is a minimum of the energy,
+but face convergence issues in excited state calculations. As an alternative,
+:ref:`direct optimization (DO) <directopt>` approaches can be used, which have been found to
+converge more robustly than the standard eigensolvers for excited states, especially in the
+vicinity of electronic degeneracies. One option is to use quasi-Newton algorithms that
+can converge to saddle points of arbitrary order in conjunction with the
+:ref:`maximum overlap method (MOM) <mom>` to try to reduce the risk of converging to a
+minimum or lower energy saddle point (variational collapse). This is the DO-MOM method illustrated
+:ref:`here <directopt>`. However, DO-MOM can still be affected by variational collapse
+in challenging cases. GPAW also implements an alternative DO approach using a
+generalized mode following (GMF) method. DO-GMF targets a stationary solution with
+a specific saddle point order and is more robust than both DO-MOM and the standard
+SCF algorithms, while being inherently free from variational collapse.
 
 --------------------------
 Generalized mode following
@@ -31,37 +33,37 @@ Generalized mode following
 Implementation
 ~~~~~~~~~~~~~~
 
-The implementation of the DO-GMF method is presented in [#dogmfgpaw1]_ (LCAO approach).
+The implementation of the DO-GMF method is presented in [#dogmfgpaw1]_. For the moment,
+the method can be used only in the LCAO mode.
 
 GMF is a generalization of the minimum mode following method traditionally used to
-optimize first-order saddle points on the nuclear potential energy
-surface. The method recasts the challenging saddle point search as a minimization by
+optimize first-order saddle points on the potential energy surface for atomic rearrangements.
+The method recasts the challenging saddle point search as a minimization by
 inverting the projection of the gradient on the lowest eigenmode of the Hessian. It is
-generalized to target an ``n``-th-order saddle point on the electronic energy surface by
-inverting the projections on the lowest ``n`` eigenmodes, ``v``, of the Hessian yielding
-the modified gradient
+generalized to target an `n`-th-order saddle point on the electronic energy surface by
+inverting the projections on the eigenmodes, `v_i`, of the electronic Hessian corresponding
+to the `n` lowest eigenvalues, yielding the modified gradient
 
 .. math::
     g^{\mathrm{\,mod}} = g - 2\sum_{i = 1}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-if the energy surface is concave along all target eigenvectors or
+if the energy surface is concave along all target eigenvectors, or
 
 .. math::
     g^{\mathrm{\,mod}} = -\sum_{i = 1, \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-if any target eigenvalue, \lambda, is non-negative. Notice that only the non-concave
-target eigenvectors are followed, if any exist, to increase stability of the method.
-
-The target eigenvalues and eigenvectors of the electronic Hessian matrix are obtained
-by using a finite difference generalized Davidson method, whose implementation is
-presented in [#gendavidson]_. This method can also be used for stability analysis of an
-electronic solution (see example 2)
+if any target eigenvalue, \lambda, is non-negative. Notice that in the latter case
+only the target eigenvectors along which the energy surface is convex are followed
+to increase stability of the method. The target eigenvalues and eigenvectors of the
+electronic Hessian matrix are obtained by using a finite difference generalized Davidson
+method [#gendavidson]_. This method can also be used for stability analysis of an
+electronic solution (see :ref:`stabanalysisexample` below).
 
 ~~~~~~~~~~~~~~~~~
 How to use DO-GMF
 ~~~~~~~~~~~~~~~~~
 
-To provide initial guess orbitals for the excited state DO-GMF calculation, a ground
+To provide initial guess orbitals for an excited state DO-GMF calculation, a ground
 state calculation is typically performed first. Then, a DO-GMF calculation can be
 requested as follows::
 
@@ -75,12 +77,14 @@ requested as follows::
            occupations={'name': 'mom', 'numbers': f,
                         'use_fixed_occupations': True})
 
-where the log file can be specified and ``f`` contains the occupation numbers of the
-excited state (see examples 1 and 2). Line search algorithms cannot be applied for saddle
-point searches in this implementation. Any search direction algorithm can be used by
-appending the ``name`` keyword with ``_GMF``.
+where a log file for the partial Hessian diagonalization can be specified and ``f`` contains
+the occupation numbers of the excited state (see :ref:`ethyleneexample` and :ref:`tPPexample`).
+Line search algorithms cannot be applied for saddle point searches, so a maximum step length is
+used. Any of the search direction algorithms implemented in GPAW (see :ref:`directmin`) can be
+used by appending ``_gmf`` to the ``name`` keyword of the ETDM search direction algorithms
+(e.g. use ``l-bfgs-p_gmf`` to use the ``l-bfgs-p`` search direction with GMF).
 
-A helper function can be used to create the list of excited-state occupation numbers::
+A helper function can be used to create the list of excited state occupation numbers::
 
   from gpaw.directmin.tools import excite
   f = excite(calc, i, a, spin=(si, sa))
@@ -147,6 +151,8 @@ of 6. At this point, trial calculations targeting a sixth-order and a seventh-or
 respectively, can be started in parallel and the correct target saddle point order deduced from
 the obtained solutions. The target saddle point order is set by using the ``sp_order`` keyword of
 the ``partial_diagonalizer``.
+
+.. _stabanalysisexample:
 
 -----------------------------------------------------------------------------------
 Example III: Stability analysis and breaking instability of ground state dihydrogen
