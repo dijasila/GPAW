@@ -48,7 +48,7 @@ def ni100():
 def biimtf():
     atoms = read('biimtf.xyz')
     atoms.center(vacuum=5)
-    atoms.set_initial_magnetic_moments([1] * len(atoms))
+    atoms.set_initial_magnetic_moments([0.5] * len(atoms))
     return atoms, dict(h=0.16,
                        charge=+1,
                        occupations=FermiDirac(0.05),

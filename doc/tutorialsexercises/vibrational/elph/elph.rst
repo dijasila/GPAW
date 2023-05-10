@@ -24,13 +24,14 @@ electron-phonon coupling matrix (see Ref. [#Giustino2017]_)
     g_{mn}^l = \sqrt{  \frac{\hbar}{2 M \omega_l}} \langle m \vert \nabla_u V_{eff} \cdot \mathbf e_l \vert n \rangle .
 
 `\omega_l` and `\mathbf e_l` are the frequency and mass-scaled polarization
-vector of the `l` th phonon. `M` is total mass of the unit cell and `\nabla_u` denotes the
-gradient with respect to atomic displacements. The **k** and **q** momenta are implicit.
+vector of the `l`-th phonon. `M` is total mass of the unit cell and
+`\nabla_u` denotes the gradient with respect to atomic displacements. The
+**k** and **q** momenta are implicit.
 
-The implementation is based on finite-difference calculations of the the atomic
-gradients of the effective potential expressed on a real-space grid. The el-ph
-couplings are obtained from LCAO representations of the atomic gradients of the
-effective potential and the electronic states.
+The implementation is based on finite-difference calculations of the the
+atomic gradients of the effective potential expressed on a real-space grid.
+The electron-phonon couplings are obtained from LCAO representations of the
+atomic gradients of the effective potential and the electronic states.
 
 The current implementation supports spin-paired and spin-polarized computations.
 
@@ -44,7 +45,7 @@ At the heart of the electron-phonon coupling is the calculation of the gradient 
 
 .. literalinclude:: effective_potential.py
 
-This script executes 2x3xN displacements and saves the change in total energy and effective potential into a file cache in the directory `elph`.
+This script executes `2*3*N` displacements and saves the change in total energy and effective potential into a file cache in the directory `elph`.
 The phonon/effective potential calculation can take quite some time, but can be distributed over several images. The :meth:`~gpaw.elph.DisplacementRunner` class is based on ASEs ``ase.phonon.Displacement`` class, which allows to select atoms to be displaced using the ``set_atoms`` function.
 
 In the second step we map the gradient of the effective potential to the LCAO orbitals of the supercell (:git:`~doc/tutorialsexercises/vibrational/elph/supercell.py`).
@@ -54,7 +55,9 @@ For this we first need to create the supercell
     :start-at: atoms
     :end-at: atoms_N
 
-and run GPAW to obtain the wave function. This step currently curently only works for k-point parallelisation, so you need to include ``parallel={'domain': 1, 'band': 1}`` in your script.
+and run GPAW to obtain the wave function. This step currently currently only
+works for k-point parallelization, so you need to include
+``parallel={'domain': 1, 'band': 1}`` in your script.
 
 .. literalinclude:: supercell.py
     :start-at: sc = Supercell(atoms, supercell=(3, 3, 3))
@@ -66,13 +69,20 @@ After both calculations are finished the final electron-phonon matrix can be con
 
 .. literalinclude:: gmatrix.py
 
-For this we need to perform another ground state calculation (:git:`~doc/tutorialsexercises/vibrational/elph/scf.py`) to obtain the wave function used to project the electron-phonon coupling matrix into. The electron-phonon matrix is computed for a list of **q** values, which need to be commensurate with the **k**-point mesh chosen. The ``ElectronPhononMatrix`` class doesn't like parallelisation so much and should be done separately from the rest.
+For this we need to perform another ground state calculation
+(:git:`~doc/tutorialsexercises/vibrational/elph/scf.py`) to obtain the wave
+function used to project the electron-phonon coupling matrix into. The
+electron-phonon matrix is computed for a list of **q** values, which need to
+be commensurate with the **k**-point mesh chosen. The
+``ElectronPhononMatrix`` class doesn't like parallelization so much and
+should be done separately from the rest.
+
 
 ----------
 Exercise
 ----------
 
-The electron-phonon matrix can be used to calculate accoustic and optical deformation potentials without much effort. The optical deformation potential is identical to the bare electron-phonon coupling matrix Ref. [#Li2017]_:
+The electron-phonon matrix can be used to calculate acoustic and optical deformation potentials without much effort. The optical deformation potential is identical to the bare electron-phonon coupling matrix Ref. [#Li2017]_:
 
 .. math::
 
@@ -81,7 +91,7 @@ The electron-phonon matrix can be used to calculate accoustic and optical deform
 
 For the silicon VBM at Gamma, for the LO phonons at Gamma, we expect a deformation potential of about `\vert M \vert \approx 3.6` eV/Angstrom.
 
-Converge the deformation potential of Si with respect to the supercell size, k-points, grid spacing and scf convergence parameters.
+Converge the deformation potential of Si with respect to the supercell size, k-points, grid spacing and SCF convergence parameters.
 
 ----------
 References
@@ -101,4 +111,7 @@ Code
     :members:
 
 .. autoclass:: gpaw.elph.ElectronPhononMatrix
+    :members:
+
+.. autoclass:: gpaw.elph.electronphonon.ElectronPhononCoupling
     :members:

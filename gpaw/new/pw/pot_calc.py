@@ -122,8 +122,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         # background charge ???
 
-        self.poisson_solver.solve(vHt_h, charge_h)
-        e_coulomb = 0.5 * float(vHt_h.integrate(charge_h))
+        e_coulomb = self.poisson_solver.solve(vHt_h, charge_h)
 
         if pw.comm.rank == 0:
             vt0_g = self.vbar0_g.copy()

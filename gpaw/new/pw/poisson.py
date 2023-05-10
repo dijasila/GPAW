@@ -11,11 +11,12 @@ from scipy.special import erf
 
 def make_poisson_solver(pw: PlaneWaves,
                         grid: UniformGrid,
+                        pbc_c,
                         charge: float,
                         strength: float = 1.0,
                         dipolelayer: bool = False,
                         **kwargs) -> PoissonSolver:
-    if charge != 0.0 and not grid.pbc_c.any():
+    if charge != 0.0 and not pbc_c.any():
         return ChargedPWPoissonSolver(pw, grid, charge, strength, **kwargs)
 
     ps = PWPoissonSolver(pw, charge, strength)
@@ -44,9 +45,9 @@ class PWPoissonSolver(PoissonSolver):
         txt = ('poisson solver:\n'
                f'  ecut: {self.pw.ecut * Ha}  # eV\n')
         if self.strength != 1.0:
-            txt += f'  strength: {self.strength}'
+            txt += f'  strength: {self.strength}\n'
         if self.charge != 0.0:
-            txt += f'  uniform background charge: {self.charge}  # electrons'
+            txt += f'  uniform background charge: {self.charge}  # electrons\n'
         return txt
 
     def solve(self,
@@ -144,10 +145,10 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
-        txt, x = str(super()).rsplit('\n', 1)
+        txt, x, _ = super().__str__().rsplit('\n', 2)
         assert x.startswith('  uniform background charge:')
         txt += (
-            '  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
+            '\n  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
             f'  alpha: {self.alpha}   # bohr^-2')
         return txt
 
