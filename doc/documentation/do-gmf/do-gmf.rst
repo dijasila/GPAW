@@ -72,7 +72,7 @@ requested as follows::
   calc.set(eigensolver=ETDM(
            partial_diagonalizer={'name': 'Davidson', 'logfile': None},
            linesearch_algo={'name': 'max-step'},
-           searchdir_algo={'name': 'LBFGS-P_GMF'},
+           searchdir_algo={'name': 'l-bfgs-p_gmf'},
            need_init_orbs=False),
            occupations={'name': 'mom', 'numbers': f,
                         'use_fixed_occupations': True})
