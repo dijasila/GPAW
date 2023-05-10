@@ -32,8 +32,8 @@ class Davidson(Eigensolver):
     """
 
     def __init__(
-            self, niter=2, use_gpu=False):
-        Eigensolver.__init__(self, use_gpu=use_gpu)
+            self, niter=2):
+        Eigensolver.__init__(self)
         self.niter = niter
         self.diagonalizer_backend = None
 

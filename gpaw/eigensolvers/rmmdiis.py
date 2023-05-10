@@ -23,8 +23,7 @@ class RMMDIIS(Eigensolver):
     * Orthonormalization"""
 
     def __init__(self, keep_htpsit=True, blocksize=None, niter=3, rtol=1e-16,
-                 limit_lambda=False, use_rayleigh=False, trial_step=0.1,
-                 use_gpu=False):
+                 limit_lambda=False, use_rayleigh=False, trial_step=0.1):
         """Initialize RMM-DIIS eigensolver.
 
         Parameters:
@@ -38,7 +37,7 @@ class RMMDIIS(Eigensolver):
 
         """
 
-        Eigensolver.__init__(self, keep_htpsit, blocksize, use_gpu=use_gpu)
+        Eigensolver.__init__(self, keep_htpsit, blocksize)
         self.niter = niter
         self.rtol = rtol
         self.limit_lambda = limit_lambda
@@ -83,11 +82,8 @@ class RMMDIIS(Eigensolver):
                                          R, P2)
 
         def integrate(a_xG, b_xG):
-            if self.use_gpu:
-                return multi_dotc(a_xG, b_xG).real * wfs.gd.dv
-            else:
-                return [np.real(wfs.integrate(a_G, b_G, global_integral=False))
-                        for a_G, b_G in zip(a_xG, b_xG)]
+            return [np.real(wfs.integrate(a_G, b_G, global_integral=False))
+                    for a_G, b_G in zip(a_xG, b_xG)]
 
         comm = wfs.gd.comm
 

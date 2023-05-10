@@ -9,10 +9,10 @@ from gpaw.matrix_descriptor import MatrixDescriptor
 class DirectPW(Eigensolver):
     """Direct eigensolver for plane waves"""
 
-    def __init__(self, keep_htpsit=False, use_gpu=False):
+    def __init__(self, keep_htpsit=False):
         """Initialize direct eigensolver. """
 
-        Eigensolver.__init__(self, keep_htpsit, use_gpu=use_gpu)
+        Eigensolver.__init__(self, keep_htpsit)
 
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Setup H and S matries and diagonalize for the kpoint"""

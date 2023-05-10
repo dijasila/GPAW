@@ -9,7 +9,6 @@ from ase.utils.timing import timer
 from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
-from gpaw import gpu
 
 
 def reshape(a_x, shape):
@@ -18,13 +17,12 @@ def reshape(a_x, shape):
 
 
 class Eigensolver:
-    def __init__(self, keep_htpsit=True, blocksize=1, use_gpu=False):
+    def __init__(self, keep_htpsit=True, blocksize=1):
         self.keep_htpsit = keep_htpsit
         self.initialized = False
         self.Htpsit_nG = None
         self.error = np.inf
         self.blocksize = blocksize
-        self.use_gpu = use_gpu
         self.orthonormalization_required = True
 
     def initialize(self, wfs):
@@ -37,27 +35,11 @@ class Eigensolver:
         self.nbands = wfs.bd.nbands
         self.mynbands = wfs.bd.mynbands
 
-        if self.use_gpu:
-            if self.dtype == float:
-                ndouble = 1
-            else:
-                ndouble = 2
-            blocks_min = 16
-            blocks_max = 96 // ndouble
-            self.blocksize = min(blocks_max, wfs.bd.mynbands,
-                                 wfs.gd.comm.size * blocks_min,
-                                 max(1, (224 * 224 * 224) * wfs.gd.comm.size
-                                     // (wfs.gd.N_c[0] * wfs.gd.N_c[1]
-                                         * wfs.gd.N_c[2] * ndouble)))
-
         if wfs.bd.comm.size > 1:
             self.keep_htpsit = False
 
         if self.keep_htpsit:
-            if self.use_gpu:
-                self.Htpsit_nG = gpu.cupy.empty_like(wfs.work_array)
-            else:
-                self.Htpsit_nG = np.empty_like(wfs.work_array)
+            self.Htpsit_nG = np.empty_like(wfs.work_array)
 
         # Preconditioner for the electronic gradients:
         self.preconditioner = wfs.make_preconditioner(self.blocksize)

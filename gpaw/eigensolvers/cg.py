@@ -25,7 +25,7 @@ class CG(Eigensolver):
     * Conjugate gradient steps
     """
 
-    def __init__(self, niter=4, rtol=0.30, tw_coeff=False, use_gpu=False):
+    def __init__(self, niter=4, rtol=0.30, tw_coeff=False):
         """Construct conjugate gradient eigen solver.
 
         parameters:
@@ -37,7 +37,7 @@ class CG(Eigensolver):
             not continued
 
         """
-        Eigensolver.__init__(self, use_gpu=use_gpu)
+        Eigensolver.__init__(self)
         self.niter = niter
         self.rtol = rtol
         self.orthonormalization_required = False
