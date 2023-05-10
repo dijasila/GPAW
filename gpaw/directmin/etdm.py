@@ -12,11 +12,13 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 import warnings
+from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
-from gpaw.directmin.functional import get_functional
+from gpaw.directmin.functional.lcao import get_functional \
+    as get_functional_lcao
 from gpaw import BadParallelization
 from copy import deepcopy
 
@@ -115,7 +117,6 @@ class ETDM:
         self.line_search = line_search_algorithm(linesearch_algo,
                                                  self.evaluate_phi_and_der_phi,
                                                  self.searchdir_algo)
-        self.func = get_functional(functional)
 
         self.checkgraderror = checkgraderror
         self._norm_commutator, self._norm_grad = 0., 0.
@@ -123,6 +124,8 @@ class ETDM:
         self.e_sic = 0.0
 
         # these are things we cannot initialize now
+        self.lcao = None
+        self.func = functional
         self.dtype = None
         self.nkpts = None
         self.gd = None
@@ -214,12 +217,21 @@ class ETDM:
 
     def initialize_dm_helper(self, wfs, ham, dens):
 
-        self.dm_helper = DirectMinLCAO(
-            wfs, ham, self.nkpts,
-            diagonalizer=None,
-            orthonormalization=self.orthonormalization,
-            need_init_orbs=self.need_init_orbs
-        )
+        if hasattr(wfs, 'basis_functions'):
+            self.lcao = True
+            self.func = get_functional_lcao(self.func)
+
+            self.dm_helper = DirectMinLCAO(
+                wfs, ham, self.nkpts,
+                diagonalizer=None,
+                orthonormalization=self.orthonormalization,
+                need_init_orbs=self.need_init_orbs
+            )
+        else:
+            self.lcao = False
+            # self.func = get_functional_fdpw(functional)
+            # self.dm_helper = DirectMinFDPW(stuff)
+
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
@@ -713,7 +725,8 @@ class ETDM:
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
-                'functional': self.func.todict(),
+                'functional': self.func if isinstance(self.func, basestring) \
+                    else self.func.todict(),
                 'orthonormalization': self.orthonormalization,
                 'constraints': self.constraints
                 }
