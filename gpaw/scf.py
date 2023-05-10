@@ -90,7 +90,7 @@ class SCFLoop:
             self.criteria, context)
 
         callback(self.niter)
-        self.log(log, converged_items, entries, context)
+        self.log(log, converged_items, entries, context, wfs)
 
     def not_converged(self, dens, ham, wfs, log):
 
