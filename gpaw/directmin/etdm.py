@@ -219,7 +219,7 @@ class ETDM:
 
         if hasattr(wfs, 'basis_functions'):
             self.lcao = True
-            self.func = get_functional_lcao(self.func)
+            self.func = get_functional_lcao(self.func, wfs, dens, ham)
 
             self.dm_helper = DirectMinLCAO(
                 wfs, ham, self.nkpts,
