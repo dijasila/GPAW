@@ -50,9 +50,9 @@ to the `n` lowest eigenvalues, yielding the modified gradient
 if the energy surface is concave along all target eigenvectors, or
 
 .. math::
-    g^{\mathrm{\,mod}} = -\sum_{i = 1, \lambda_{i} \geq 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
+    g^{\mathrm{\,mod}} = -\sum_{i = 1, \lambda_{i} > 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-if any target eigenvalue, \lambda, is non-negative. Notice that in the latter case
+if any target eigenvalue, \lambda, is positive. Notice that in the latter case
 only the target eigenvectors along which the energy surface is convex are followed
 to increase stability of the method. The target eigenvalues and eigenvectors of the
 electronic Hessian matrix are obtained by using a finite difference generalized Davidson
