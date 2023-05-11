@@ -527,13 +527,7 @@ class Davidson(object):
         self.lambda_e = eigv[: self.l]
         self.y_e = eigvec[: self.l]
         self.calculate_ritz_vectors(wfs)
-        wfs.timer.start('Residual calculation')
-        self.r_e = []
-        for i in range(self.l):
-            self.r_e.append(
-                self.x_e[i] * self.lambda_e[i] - self.W_w @ self.y_e[i].T)
-        self.r_e = np.asarray(self.r_e)
-        wfs.timer.stop('Residual calculation')
+        self.calculate_residuals(wfs)
         for i in range(self.l):
             self.error_e[i] = np.abs(self.r_e[i]).max()
         self.all_converged = True
@@ -614,6 +608,15 @@ class Davidson(object):
             self.x_e.append(self.V_w @ self.y_e[i].T)
         self.x_e = np.asarray(self.x_e)
         wfs.timer.stop('Ritz vector calculation')
+
+    def calculate_residuals(self, wfs):
+        wfs.timer.start('Residual calculation')
+        self.r_e = []
+        for i in range(self.l):
+            self.r_e.append(
+                self.x_e[i] * self.lambda_e[i] - self.W_w @ self.y_e[i].T)
+        self.r_e = np.asarray(self.r_e)
+        wfs.timer.stop('Residual calculation')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
