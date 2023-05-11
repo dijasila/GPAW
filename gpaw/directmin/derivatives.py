@@ -450,41 +450,7 @@ class Davidson(object):
         if use_prev:
             self.randomize_krylov_subspace(rng, dimz)
         else:
-            do_conj = False
-
-            # Just for F821
-            v = None
-            imin = None
-
-            self.V_w = []
-            for i in range(self.l):
-                if do_conj:
-                    v[self.dimtot + imin] = -1.0
-                    do_conj = False
-                else:
-                    v = np.zeros(self.dimtot * dimz)
-                    rdia = np.real(dia).copy()
-                    imin = int(np.where(rdia == min(rdia))[0][0])
-                    rdia[imin] = np.inf
-                    v[imin] = 1.0
-                    if self.etdm.dtype == complex:
-                        v[self.dimtot + imin] = 1.0
-                        do_conj = True
-                for l in range(self.dimtot):
-                    for m in range(dimz):
-                        if l == imin:
-                            continue
-                        rand = np.zeros(shape=2)
-                        if world.rank == 0:
-                            rand[0] = rng.random()
-                            rand[1] = 1 if rng.random() > 0.5 else -1
-                        else:
-                            rand[0] = 0.0
-                            rand[1] = 0.0
-                        world.broadcast(rand, 0)
-                        v[m * self.dimtot + l] = rand[1] * reps * rand[0]
-                self.V_w.append(v / np.linalg.norm(v))
-            self.V_w = np.asarray(self.V_w)
+            self.initialize_randomized_krylov_subspace(rng, dimz, dia)
         wfs.timer.start('Modified Gram-Schmidt')
         self.V_w = mgs(self.V_w)
         wfs.timer.stop('Modified Gram-Schmidt')
@@ -506,6 +472,43 @@ class Davidson(object):
                     world.broadcast(rand, 0)
                     self.V_w[i][l * self.dimtot + k] \
                         += rand[1] * reps * rand[0]
+
+    def initialize_randomized_krylov_subspace(self, rng, dimz, dia, reps=1e-4):
+        do_conj = False
+
+        # Just for F821
+        v = None
+        imin = None
+
+        self.V_w = []
+        for i in range(self.l):
+            if do_conj:
+                v[self.dimtot + imin] = -1.0
+                do_conj = False
+            else:
+                v = np.zeros(self.dimtot * dimz)
+                rdia = np.real(dia).copy()
+                imin = int(np.where(rdia == min(rdia))[0][0])
+                rdia[imin] = np.inf
+                v[imin] = 1.0
+                if self.etdm.dtype == complex:
+                    v[self.dimtot + imin] = 1.0
+                    do_conj = True
+            for l in range(self.dimtot):
+                for m in range(dimz):
+                    if l == imin:
+                        continue
+                    rand = np.zeros(shape=2)
+                    if world.rank == 0:
+                        rand[0] = rng.random()
+                        rand[1] = 1 if rng.random() > 0.5 else -1
+                    else:
+                        rand[0] = 0.0
+                        rand[1] = 0.0
+                    world.broadcast(rand, 0)
+                    v[m * self.dimtot + l] = rand[1] * reps * rand[0]
+            self.V_w.append(v / np.linalg.norm(v))
+        self.V_w = np.asarray(self.V_w)
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
