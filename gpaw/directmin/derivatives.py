@@ -343,11 +343,7 @@ class Davidson(object):
                     'Using target saddle point order of '
                     + str(self.sp_order) + '.', flush=True)
         if self.gmf:
-            self.x_w = []
-            for i in range(len(self.lambda_w)):
-                self.x_w.append(
-                    self.V_w[:, :len(self.lambda_w)] @ self.y_w[i].T)
-            self.x_w = np.asarray(self.x_w).T
+            self.obtain_x_in_krylov_subspace()
         for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_ref[k])
         if not self.gmf:
@@ -374,6 +370,13 @@ class Davidson(object):
         self.sp_order = sp_order
         if self.sp_order == 0:
             self.sp_order = 1
+
+    def obtain_x_in_krylov_subspace(self):
+        self.x_w = []
+        for i in range(len(self.lambda_w)):
+            self.x_w.append(
+                self.V_w[:, :len(self.lambda_w)] @ self.y_w[i].T)
+        self.x_w = np.asarray(self.x_w).T
 
     def initialize(self, wfs, use_prev=False):
         """
