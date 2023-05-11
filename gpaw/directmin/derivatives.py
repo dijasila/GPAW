@@ -728,44 +728,52 @@ class Davidson(object):
         assert self.lambda_e[number - 1] < 0.0, 'Eigenvector no. ' \
             + str(number) + ' does not represent an instability.'
 
-        a_vec_u = {}
-        for k in self.etdm.a_vec_u.keys():
-            a_vec_u[k] = np.zeros(self.dim_u[k])
         step = self.etdm.line_search.max_step
         instability = step * self.x_e[number - 1]
         if initial_guess == 'displace':
-            start = 0
-            stop = 0
-            for k in a_vec_u.keys():
-                stop += self.dim_u[k]
-                a_vec_u[k] = instability[start: stop]
-                start += self.dim_u[k]
+            a_vec_u = self.displace(instability)
         elif initial_guess == 'line_search':
             assert ham is not None and dens is not None, 'Hamiltonian and' \
                                                          'density needed for' \
                                                          'line search.'
-            p_vec_u = {}
-            start = 0
-            stop = 0
-            for k in a_vec_u.keys():
-                stop += self.dim_u[k]
-                p_vec_u[k] = instability[start: stop]
-                start += self.dim_u[k]
-            phi, g_vec_u = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, c_ref)
-            der_phi = 0.0
-            for k in g_vec_u:
-                der_phi += g_vec_u[k].conj() @ p_vec_u[k]
-            der_phi = der_phi.real
-            der_phi = wfs.kd.comm.sum(der_phi)
-            alpha = self.etdm.line_search.step_length_update(
-                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, c_ref,
-                phi_0=phi, der_phi_0=der_phi, phi_old=None,
-                der_phi_old=None, alpha_max=5.0, alpha_old=None,
-                kpdescr=wfs.kd)[0]
-            for k in a_vec_u.keys():
-                a_vec_u[k] = alpha * p_vec_u[k]
+            a_vec_u = self.do_line_search(
+                wfs, dens, ham, n_dim, c_ref, instability)
         self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+
+    def displace(self, instability):
+        a_vec_u = {}
+        start = 0
+        stop = 0
+        for k in a_vec_u.keys():
+            stop += self.dim_u[k]
+            a_vec_u[k] = instability[start: stop]
+            start += self.dim_u[k]
+        return a_vec_u
+
+    def do_line_search(self, wfs, dens, ham, n_dim, c_ref, instability):
+        a_vec_u = {}
+        p_vec_u = {}
+        start = 0
+        stop = 0
+        for k in a_vec_u.keys():
+            stop += self.dim_u[k]
+            p_vec_u[k] = instability[start: stop]
+            start += self.dim_u[k]
+        phi, g_vec_u = self.etdm.get_energy_and_gradients(
+            a_vec_u, n_dim, ham, wfs, dens, c_ref)
+        der_phi = 0.0
+        for k in g_vec_u:
+            der_phi += g_vec_u[k].conj() @ p_vec_u[k]
+        der_phi = der_phi.real
+        der_phi = wfs.kd.comm.sum(der_phi)
+        alpha = self.etdm.line_search.step_length_update(
+            a_vec_u, p_vec_u, n_dim, ham, wfs, dens, c_ref,
+            phi_0=phi, der_phi_0=der_phi, phi_old=None,
+            der_phi_old=None, alpha_max=5.0, alpha_old=None,
+            kpdescr=wfs.kd)[0]
+        for k in a_vec_u.keys():
+            a_vec_u[k] = alpha * p_vec_u[k]
+        return a_vec_u
 
 
 def mgs(vin):
