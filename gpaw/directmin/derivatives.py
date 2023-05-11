@@ -592,6 +592,24 @@ class Davidson(object):
 
     def augment_krylov_subspace(self, wfs):
         wfs.timer.start('Krylov subspace augmentation')
+        self.get_new_krylov_subspace_directions(wfs)
+        self.V_w = np.asarray(self.V_w)
+        if self.cap_krylov:
+            if len(self.V_w) > self.m:
+                self.logger(
+                    'Krylov space exceeded maximum size. Partial '
+                    'diagonalization is not fully converged. Current size '
+                    'is ' + str(len(self.V_w) - len(self.t_e)) + '. Size at '
+                    'next step would be ' + str(len(self.V_w)) + '.',
+                    flush=True)
+                self.all_converged = True
+        wfs.timer.start('Modified Gram-Schmidt')
+        self.V_w = mgs(self.V_w)
+        wfs.timer.stop('Modified Gram-Schmidt')
+        self.V_w = self.V_w.T
+        wfs.timer.stop('Krylov subspace augmentation')
+
+    def get_new_krylov_subspace_directions(self, wfs):
         wfs.timer.start('New directions')
         for i in range(self.l):
             if not self.converged_e[i] or (self.gmf and self.first_run):
@@ -608,21 +626,6 @@ class Davidson(object):
                 self.V_w.append(self.t_e[i])
             self.W_w = None
         wfs.timer.stop('New directions')
-        self.V_w = np.asarray(self.V_w)
-        if self.cap_krylov:
-            if len(self.V_w) > self.m:
-                self.logger(
-                    'Krylov space exceeded maximum size. Partial '
-                    'diagonalization is not fully converged. Current size '
-                    'is ' + str(len(self.V_w) - len(self.t_e)) + '. Size at '
-                    'next step would be ' + str(len(self.V_w)) + '.',
-                    flush=True)
-                self.all_converged = True
-        wfs.timer.start('Modified Gram-Schmidt')
-        self.V_w = mgs(self.V_w)
-        wfs.timer.stop('Modified Gram-Schmidt')
-        self.V_w = self.V_w.T
-        wfs.timer.stop('Krylov subspace augmentation')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
