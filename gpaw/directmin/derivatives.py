@@ -446,23 +446,9 @@ class Davidson(object):
 
     def form_initial_krylov_subspace(self, wfs, dia, dimz, use_prev=False):
         rng = np.random.default_rng(self.seed)
-        reps = 1e-4
-        wfs.timer.start('Initial Krylov space')
+        wfs.timer.start('Initial Krylov subspace')
         if use_prev:
-            self.V_w = deepcopy(self.x_w.T[: self.l])
-            for i in range(self.l):
-                for k in range(self.dimtot):
-                    for l in range(dimz):
-                        rand = np.zeros(shape=2)
-                        if world.rank == 0:
-                            rand[0] = rng.random()
-                            rand[1] = 1 if rng.random() > 0.5 else -1
-                        else:
-                            rand[0] = 0.0
-                            rand[1] = 0.0
-                        world.broadcast(rand, 0)
-                        self.V_w[i][l * self.dimtot + k] \
-                            += rand[1] * reps * rand[0]
+            self.randomize_krylov_subspace(rng, dimz)
         else:
             do_conj = False
 
@@ -503,7 +489,23 @@ class Davidson(object):
         self.V_w = mgs(self.V_w)
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V_w = self.V_w.T
-        wfs.timer.stop('Initial Krylov space')
+        wfs.timer.stop('Initial Krylov subspace')
+
+    def randomize_krylov_subspace(self, rng, dimz, reps=1e-4):
+        self.V_w = deepcopy(self.x_w.T[: self.l])
+        for i in range(self.l):
+            for k in range(self.dimtot):
+                for l in range(dimz):
+                    rand = np.zeros(shape=2)
+                    if world.rank == 0:
+                        rand[0] = rng.random()
+                        rand[1] = 1 if rng.random() > 0.5 else -1
+                    else:
+                        rand[0] = 0.0
+                        rand[1] = 0.0
+                    world.broadcast(rand, 0)
+                    self.V_w[i][l * self.dimtot + k] \
+                        += rand[1] * reps * rand[0]
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
