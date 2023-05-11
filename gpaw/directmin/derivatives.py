@@ -666,7 +666,28 @@ class Davidson(object):
         """
 
         v = self.h * vin
-        C_nM = deepcopy(self.c_ref)
+        c_ref = deepcopy(self.c_ref)
+        gp = self.calculate_displaced_grad(wfs, ham, dens, c_ref, v)
+        hessi = []
+        if self.fd_mode == 'central':
+            gm = self.calculate_displaced_grad(wfs, ham, dens, c_ref, -1.0 * v)
+            for k in range(len(wfs.kpt_u)):
+                hessi += list((gp[k] - gm[k]) * 0.5 / self.h)
+        elif self.fd_mode == 'forward':
+            for k in range(len(wfs.kpt_u)):
+                hessi += list((gp[k] - self.grad[k]) / self.h)
+        for k, kpt in enumerate(wfs.kpt_u):
+            kpt.C_nM = c_ref[k]  # LCAO-specific
+        dens.update(wfs)
+        if self.etdm.dtype == complex:
+            hessc = np.zeros(shape=(2 * self.dimtot))
+            hessc[: self.dimtot] = np.real(hessi)
+            hessc[self.dimtot:] = np.imag(hessi)
+            return hessc
+        else:
+            return np.asarray(hessi)
+
+    def calculate_displaced_grad(self, wfs, ham, dens, c_ref, v):
         a_vec_u = {}
         n_dim = {}
         start = 0
@@ -679,39 +700,8 @@ class Davidson(object):
             if self.etdm.dtype == complex:
                 a_vec_u[k] += 1.0j * v[self.dimtot + start: self.dimtot + end]
             start += self.dim_u[k]
-        gp = self.etdm.get_energy_and_gradients(
-            a_vec_u, n_dim, ham, wfs, dens, C_nM)[1]
-        for k in range(len(wfs.kpt_u)):
-            a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
-        hessi = []
-        if self.fd_mode == 'central':
-            start = 0
-            end = 0
-            for k in range(len(wfs.kpt_u)):
-                a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
-                end += self.dim_u[k]
-                a_vec_u[k] -= v[start: end]
-                if self.etdm.dtype == complex:
-                    a_vec_u[k] \
-                        -= 1.0j * v[self.dimtot + start: self.dimtot + end]
-                start += self.dim_u[k]
-            gm = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, C_nM)[1]
-            for k in range(len(wfs.kpt_u)):
-                hessi += list((gp[k] - gm[k]) * 0.5 / self.h)
-        elif self.fd_mode == 'forward':
-            for k in range(len(wfs.kpt_u)):
-                hessi += list((gp[k] - self.grad[k]) / self.h)
-        for k, kpt in enumerate(wfs.kpt_u):
-            kpt.C_nM = C_nM[k]
-        dens.update(wfs)
-        if self.etdm.dtype == complex:
-            hessc = np.zeros(shape=(2 * self.dimtot))
-            hessc[: self.dimtot] = np.real(hessi)
-            hessc[self.dimtot:] = np.imag(hessi)
-            return hessc
-        else:
-            return np.asarray(hessi)
+        return self.etdm.get_energy_and_gradients(
+            a_vec_u, n_dim, ham, wfs, dens, c_ref)[1]
 
     def break_instability(self, wfs, n_dim, c_ref, number,
                           initial_guess='displace', ham=None, dens=None):
