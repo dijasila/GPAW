@@ -327,13 +327,7 @@ class Davidson(object):
         self.c_ref = [deepcopy(wfs.kpt_u[x].C_nM)
                          for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
-            a_vec_u = {}
-            n_dim = {}
-            for k, kpt in enumerate(wfs.kpt_u):
-                n_dim[k] = wfs.bd.nbands
-                a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
-            self.grad = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, self.c_ref)[1]
+            self.obtain_grad_at_c_ref(wfs, ham, dens)
         while not self.all_converged:
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
@@ -368,6 +362,15 @@ class Davidson(object):
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
         self.first_run = False
+
+    def obtain_grad_at_c_ref(self, wfs, ham, dens):
+        a_vec_u = {}
+        n_dim = {}
+        for k, kpt in enumerate(wfs.kpt_u):
+            n_dim[k] = wfs.bd.nbands
+            a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
+        self.grad = self.etdm.get_energy_and_gradients(
+            a_vec_u, n_dim, ham, wfs, dens, self.c_ref)[1]
 
     def initialize(self, wfs, use_prev=False):
         """
