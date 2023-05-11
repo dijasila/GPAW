@@ -514,8 +514,6 @@ class Davidson(object):
         self.t_e = []
         self.evaluate_W(wfs, ham, dens)
         wfs.timer.start('Rayleigh matrix formation')
-        # self.H_ww[k] = np.zeros(shape=(self.l[k], self.l[k]))
-        # mmm(1.0, self.V_w[k], 'N', self.W_w[k], 'T', 0.0, self.H_ww[k])
         self.H_ww = self.V_w.T @ self.W_w
         wfs.timer.stop('Rayleigh matrix formation')
         self.n_iter += 1
@@ -528,12 +526,7 @@ class Davidson(object):
             self.y_w = deepcopy(eigvec)
         self.lambda_e = eigv[: self.l]
         self.y_e = eigvec[: self.l]
-        wfs.timer.start('Ritz vector calculation')
-        self.x_e = []
-        for i in range(self.l):
-            self.x_e.append(self.V_w @ self.y_e[i].T)
-        self.x_e = np.asarray(self.x_e)
-        wfs.timer.stop('Ritz vector calculation')
+        self.calculate_ritz_vectors(wfs)
         wfs.timer.start('Residual calculation')
         self.r_e = []
         for i in range(self.l):
@@ -613,6 +606,14 @@ class Davidson(object):
                     Vt[-added + i], wfs, ham, dens))
         self.W_w = np.asarray(self.W_w).T
         wfs.timer.stop('FD Hessian vector product')
+
+    def calculate_ritz_vectors(self, wfs):
+        wfs.timer.start('Ritz vector calculation')
+        self.x_e = []
+        for i in range(self.l):
+            self.x_e.append(self.V_w @ self.y_e[i].T)
+        self.x_e = np.asarray(self.x_e)
+        wfs.timer.stop('Ritz vector calculation')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
