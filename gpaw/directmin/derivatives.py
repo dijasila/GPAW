@@ -238,7 +238,7 @@ class Davidson(object):
         self.dimtot = 0
         self.nocc = {}
         self.nbands = 0
-        self.C_nM_ref = []
+        self.c_ref = []
         self.logfile = logfile
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
@@ -321,7 +321,7 @@ class Davidson(object):
         if not self.gmf:
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
-        self.C_nM_ref = [deepcopy(wfs.kpt_u[x].C_nM)
+        self.c_ref = [deepcopy(wfs.kpt_u[x].C_nM)
                          for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
             a_vec_u = {}
@@ -330,7 +330,7 @@ class Davidson(object):
                 n_dim[k] = wfs.bd.nbands
                 a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
             self.grad = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, self.C_nM_ref)[1]
+                a_vec_u, n_dim, ham, wfs, dens, self.c_ref)[1]
         while not self.all_converged:
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
@@ -360,7 +360,7 @@ class Davidson(object):
                     self.V_w[:, :len(self.lambda_w)] @ self.y_w[i].T)
             self.x_w = np.asarray(self.x_w).T
         for k, kpt in enumerate(wfs.kpt_u):
-            kpt.C_nM = deepcopy(self.C_nM_ref[k])
+            kpt.C_nM = deepcopy(self.c_ref[k])
         if not self.gmf:
             for kpt in wfs.kpt_u:
                 self.etdm.sort_orbitals(ham, wfs, kpt)
@@ -621,7 +621,7 @@ class Davidson(object):
         """
 
         v = self.h * vin
-        C_nM = deepcopy(self.C_nM_ref)
+        C_nM = deepcopy(self.c_ref)
         a_vec_u = {}
         n_dim = {}
         start = 0
@@ -668,7 +668,7 @@ class Davidson(object):
         else:
             return np.asarray(hessi)
 
-    def break_instability(self, wfs, n_dim, C_nM_ref, number,
+    def break_instability(self, wfs, n_dim, c_ref, number,
                           initial_guess='displace', ham=None, dens=None):
         """
         Displaces orbital rotation coordinates in the direction of an
@@ -676,7 +676,7 @@ class Davidson(object):
 
         :param wfs:
         :param n_dim:
-        :param C_nM_ref:
+        :param c_ref:
         :param number: Instability index
         :param initial_guess: How to displace. Can be one of the following:
         displace: Use a fixed displacement; line_search: Performs a
@@ -717,20 +717,20 @@ class Davidson(object):
                 p_vec_u[k] = instability[start: stop]
                 start += self.dim_u[k]
             phi, g_vec_u = self.etdm.get_energy_and_gradients(
-                a_vec_u, n_dim, ham, wfs, dens, C_nM_ref)
+                a_vec_u, n_dim, ham, wfs, dens, c_ref)
             der_phi = 0.0
             for k in g_vec_u:
                 der_phi += g_vec_u[k].conj() @ p_vec_u[k]
             der_phi = der_phi.real
             der_phi = wfs.kd.comm.sum(der_phi)
             alpha = self.etdm.line_search.step_length_update(
-                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, C_nM_ref,
+                a_vec_u, p_vec_u, n_dim, ham, wfs, dens, c_ref,
                 phi_0=phi, der_phi_0=der_phi, phi_old=None,
                 der_phi_old=None, alpha_max=5.0, alpha_old=None,
                 kpdescr=wfs.kd)[0]
             for k in a_vec_u.keys():
                 a_vec_u[k] = alpha * p_vec_u[k]
-        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, C_nM_ref)
+        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
 
 
 def mgs(vin):
