@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, PW
 from gpaw.directmin.fdpw.directmin import DirectMin
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.exstatetools import excite_and_sort
+from gpaw.directmin.tools import excite
 from ase import Atoms
 import numpy as np
 
