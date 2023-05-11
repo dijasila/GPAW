@@ -391,21 +391,9 @@ class Davidson(object):
         self.all_converged = False
         self.l = 0
         self.V_w = None
-        appr_sp_order = 0
-        dia = self.get_approximate_hessian_and_dim(wfs)
         self.nbands = wfs.bd.nbands
-        if use_prev:
-            for i in range(len(self.lambda_w)):
-                if self.lambda_w[i] < -1e-4:
-                    appr_sp_order += 1
-                    if self.etdm.dtype == complex:
-                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
-                    else:
-                        dia[i] = self.lambda_w[i]
-        else:
-            for i in range(len(dia)):
-                if np.real(dia[i]) < -1e-4:
-                    appr_sp_order += 1
+        dia, appr_sp_order = self.estimate_sp_order_and_update_dia(
+            wfs, use_prev=use_prev)
         self.M = np.zeros(shape=self.dimtot * dimz)
         for i in range(self.dimtot * dimz):
             self.M[i] = np.real(dia[i % self.dimtot])
@@ -496,6 +484,23 @@ class Davidson(object):
             dia += list(hdia.copy())
             self.nocc[k] = get_n_occ(kpt)
         return dia
+
+    def estimate_sp_order_and_update_dia(self, wfs, use_prev=False):
+        appr_sp_order = 0
+        dia = self.get_approximate_hessian_and_dim(wfs)
+        if use_prev:
+            for i in range(len(self.lambda_w)):
+                if self.lambda_w[i] < -1e-4:
+                    appr_sp_order += 1
+                    if self.etdm.dtype == complex:
+                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
+                    else:
+                        dia[i] = self.lambda_w[i]
+        else:
+            for i in range(len(dia)):
+                if np.real(dia[i]) < -1e-4:
+                    appr_sp_order += 1
+        return dia, appr_sp_order
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
