@@ -243,10 +243,9 @@ class Davidson(object):
         self.logger = GPAWLogger(world)
         self.logger.fd = logfile
         self.first_run = accurate_first_pdiag
-        if self.gmf:
-            self.lambda_w = []  # All eigenvalues
-            self.y_w = []       # All eigenvectors in subspace representation
-            self.x_w = []       # All eigenvectors
+        self.lambda_w = []  # All eigenvalues
+        self.y_w = []       # All eigenvectors in subspace representation
+        self.x_w = []       # All eigenvectors
         self.check_inputs()
 
     def check_inputs(self):
@@ -521,9 +520,8 @@ class Davidson(object):
         eigv, eigvec = np.linalg.eigh(self.H_ww)
         wfs.timer.stop('Rayleigh matrix diagonalization')
         eigvec = eigvec.T
-        if self.gmf:
-            self.lambda_w = deepcopy(eigv)
-            self.y_w = deepcopy(eigvec)
+        self.lambda_w = deepcopy(eigv)
+        self.y_w = deepcopy(eigvec)
         self.lambda_e = eigv[: self.l]
         self.y_e = eigvec[: self.l]
         self.calculate_ritz_vectors(wfs)
@@ -774,6 +772,21 @@ class Davidson(object):
         for k in a_vec_u.keys():
             a_vec_u[k] = alpha * p_vec_u[k]
         return a_vec_u
+
+    def estimate_sp_order(self, calc, method='appr-hess', target_more=1):
+        self.etdm.sort_orbitals_mom(calc.wfs)
+        constraints_copy = deepcopy(self.etdm.constraints)
+        self.etdm.constraints = [[] for _ in range(len(calc.wfs.kpt_u))]
+        dia, appr_sp_order = self.estimate_sp_order_and_update_dia(calc.wfs)
+        if method == 'full-hess':
+            self.sp_order = appr_sp_order + target_more
+            self.run(calc.wfs, calc.hamiltonian, calc.density)
+            dia, appr_sp_order = self.estimate_sp_order_and_update_dia(
+                calc.wfs, use_prev=True)
+        for kpt in calc.wfs.kpt_u:
+            self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
+        self.etdm.constraints = deepcopy(constraints_copy)
+        return appr_sp_order
 
 
 def mgs(vin):
