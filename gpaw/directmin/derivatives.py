@@ -539,16 +539,7 @@ class Davidson(object):
             self.eigenvectors = deepcopy(self.x_e)
             self.log()
             return
-        n_dim = len(self.V_w)
-        wfs.timer.start('Preconditioner calculation')
-        self.C_we = np.zeros(shape=(self.l, n_dim))
-        for i in range(self.l):
-            self.C_we[i] = -np.abs(
-                np.repeat(self.lambda_e[i], n_dim) - self.M)**-1
-            for l in range(len(self.C_we[i])):
-                if self.C_we[i][l] > -0.1 * Hartree:
-                    self.C_we[i][l] = -0.1 * Hartree
-        wfs.timer.stop('Preconditioner calculation')
+        self.calculate_preconditioner(wfs)
         wfs.timer.start('Krylov space augmentation')
         wfs.timer.start('New directions')
         for i in range(self.l):
@@ -617,6 +608,18 @@ class Davidson(object):
                 self.x_e[i] * self.lambda_e[i] - self.W_w @ self.y_e[i].T)
         self.r_e = np.asarray(self.r_e)
         wfs.timer.stop('Residual calculation')
+
+    def calculate_preconditioner(self, wfs):
+        n_dim = len(self.V_w)
+        wfs.timer.start('Preconditioner calculation')
+        self.C_we = np.zeros(shape=(self.l, n_dim))
+        for i in range(self.l):
+            self.C_we[i] = -np.abs(
+                np.repeat(self.lambda_e[i], n_dim) - self.M) ** -1
+            for l in range(len(self.C_we[i])):
+                if self.C_we[i][l] > -0.1 * Hartree:
+                    self.C_we[i][l] = -0.1 * Hartree
+        wfs.timer.stop('Preconditioner calculation')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
