@@ -512,22 +512,7 @@ class Davidson(object):
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
-        wfs.timer.start('FD Hessian vector product')
-        if self.W_w is None:
-            self.W_w = []
-            Vt = self.V_w.T
-            for i in range(len(Vt)):
-                self.W_w.append(self.get_fd_hessian(Vt[i], wfs, ham, dens))
-            self.reset = False
-        else:
-            added = len(self.V_w[0]) - len(self.W_w[0])
-            self.W_w = self.W_w.T.tolist()
-            Vt = self.V_w.T
-            for i in range(added):
-                self.W_w.append(self.get_fd_hessian(
-                    Vt[-added + i], wfs, ham, dens))
-        self.W_w = np.asarray(self.W_w).T
-        wfs.timer.stop('FD Hessian vector product')
+        self.evaluate_W(wfs, ham, dens)
         wfs.timer.start('Rayleigh matrix formation')
         # self.H_ww[k] = np.zeros(shape=(self.l[k], self.l[k]))
         # mmm(1.0, self.V_w[k], 'N', self.W_w[k], 'T', 0.0, self.H_ww[k])
@@ -610,6 +595,24 @@ class Davidson(object):
         self.V_w = self.V_w.T
         wfs.timer.stop('Krylov space augmentation')
         self.log()
+
+    def evaluate_W(self, wfs, ham, dens):
+        wfs.timer.start('FD Hessian vector product')
+        if self.W_w is None:
+            self.W_w = []
+            Vt = self.V_w.T
+            for i in range(len(Vt)):
+                self.W_w.append(self.get_fd_hessian(Vt[i], wfs, ham, dens))
+            self.reset = False
+        else:
+            added = len(self.V_w[0]) - len(self.W_w[0])
+            self.W_w = self.W_w.T.tolist()
+            Vt = self.V_w.T
+            for i in range(added):
+                self.W_w.append(self.get_fd_hessian(
+                    Vt[-added + i], wfs, ham, dens))
+        self.W_w = np.asarray(self.W_w).T
+        wfs.timer.stop('FD Hessian vector product')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
