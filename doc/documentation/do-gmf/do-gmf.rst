@@ -3,9 +3,10 @@
 ==================================================================================
 Excited State Calculations with Direct Optimization and Generalized Mode Following
 ==================================================================================
-The direct optimization generalized mode following (DO-GMF) method can be used to perform
-variational calculations of excited electronic states, where, contrary to
-:ref:`linear response TDDFT <lrtddft>`, the orbitals are optimized for the excited state.
+The direct optimization generalized mode following (DO-GMF) method can be used to
+perform variational calculations of excited electronic states, where, contrary to
+:ref:`linear response TDDFT <lrtddft>`, the orbitals are variationally optimized
+for the excited state.
 
 The main challenge of variational density functional calculations of excited states
 is that excited states often correspond to saddle points on the surface describing
@@ -13,17 +14,20 @@ the variation of the energy as a function of the electronic degrees of freedom (
 variations). :ref:`Standard self-consistent field (SCF) algorithms  <manual_eigensolver>`
 typically perform well in ground state calculations, as the latter is a minimum of the energy,
 but face convergence issues in excited state calculations. As an alternative,
-:ref:`direct optimization (DO) <directopt>` approaches can be used, which have been found to
+direct optimization (DO) approaches can be used, which have been found to
 converge more robustly than the standard eigensolvers for excited states, especially in the
 vicinity of electronic degeneracies. One option is to use quasi-Newton algorithms that
 can converge to saddle points of arbitrary order in conjunction with the
-:ref:`maximum overlap method (MOM) <mom>` to try to reduce the risk of converging to a
-minimum or lower energy saddle point (variational collapse). This is the DO-MOM method illustrated
-:ref:`here <directopt>`. However, DO-MOM can still be affected by variational collapse
-in challenging cases. GPAW also implements an alternative DO approach using a
-generalized mode following (GMF) method. DO-GMF targets a stationary solution with
-a specific saddle point order and is more robust than both DO-MOM and the standard
-SCF algorithms, while being inherently free from variational collapse.
+:ref:`maximum overlap method (MOM) <mom>`, which can reduce the risk of converging to a
+minimum or lower-energy saddle point (variational collapse). This is the DO-MOM method
+implemented in GPAW and illustrated :ref:`here <directopt>`. However, DO-MOM can still
+be affected by variational collapse in challenging cases. GPAW also implements an
+alternative DO approach using a generalized mode following (GMF) method. DO-GMF
+targets a stationary solution with a specific saddle point order and is more robust
+than both DO-MOM and the standard SCF algorithms, while being inherently free from
+variational collapse. On the other hand, DO-GMF has a bigger computational cost
+than DO-MOM, because it requires more energy/gradient evaluations per iteration
+due to the partial diagonalization of the Hessian.
 
 --------------------------
 Generalized mode following
@@ -52,7 +56,7 @@ if the energy surface is concave along all target eigenvectors, or
 .. math::
     g^{\mathrm{\,mod}} = -\sum_{i = 1, \lambda_{i} > 0}^{n}v_{i}v_{i}^{\mathrm{T}}g
 
-if any target eigenvalue, \lambda, is positive. Notice that in the latter case
+if any target eigenvalue, `\lambda_i`, is positive. Notice that in the latter case
 only the target eigenvectors along which the energy surface is convex are followed
 to increase stability of the method. The target eigenvalues and eigenvectors of the
 electronic Hessian matrix are obtained by using a finite difference generalized Davidson
@@ -82,7 +86,7 @@ the occupation numbers of the excited state (see :ref:`ethyleneexample` and :ref
 Line search algorithms cannot be applied for saddle point searches, so a maximum step length is
 used. Any of the search direction algorithms implemented in GPAW (see :ref:`directmin`) can be
 used by appending ``_gmf`` to the ``name`` keyword of the ETDM search direction algorithms
-(e.g. use ``l-bfgs-p_gmf`` to use the ``l-bfgs-p`` search direction with GMF).
+(e.g. specify ``l-bfgs-p_gmf`` to use the ``l-bfgs-p`` search direction with GMF).
 
 A helper function can be used to create the list of excited state occupation numbers::
 
@@ -127,7 +131,8 @@ In this example, variational collapse of a charge transfer state of N-phenylpyrr
 avoided by using the DO-GMF method and specifically targeting an excited state as a
 saddle point on the electronic energy surface. The excited state is accessible by a single
 excitation from the HOMO to the LUMO in one spin channel with respect to the
-ground state orbitals. No spin purification is applied. After a ground state calculation,
+ground state orbitals. No spin purification is applied in this example (see also :ref:`h2oexample`).
+After a ground state calculation,
 the excited state is directly targeted as a sixth-order saddle point on the
 electronic energy surface. While an unconstrained optimization of this excited state with
 DO-MOM leads to variational collapse to a lower-energy saddle point with pronounced mixing
