@@ -392,14 +392,7 @@ class Davidson(object):
         self.l = 0
         self.V_w = None
         appr_sp_order = 0
-        dia = []
-        self.dimtot = 0
-        for k, kpt in enumerate(wfs.kpt_u):
-            hdia = self.etdm.get_hessian(kpt)
-            self.dim_u[k] = len(hdia)
-            self.dimtot += len(hdia)
-            dia += list(hdia.copy())
-            self.nocc[k] = get_n_occ(kpt)
+        dia = self.get_approximate_hessian_and_dim(wfs)
         self.nbands = wfs.bd.nbands
         if use_prev:
             for i in range(len(self.lambda_w)):
@@ -492,6 +485,17 @@ class Davidson(object):
         else:
             text += ' as recovered from previous calculation.'
         self.logger(text, flush=True)
+
+    def get_approximate_hessian_and_dim(self, wfs):
+        dia = []
+        self.dimtot = 0
+        for k, kpt in enumerate(wfs.kpt_u):
+            hdia = self.etdm.get_hessian(kpt)
+            self.dim_u[k] = len(hdia)
+            self.dimtot += len(hdia)
+            dia += list(hdia.copy())
+            self.nocc[k] = get_n_occ(kpt)
+        return dia
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
