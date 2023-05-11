@@ -408,6 +408,43 @@ class Davidson(object):
         self.W_w = None
         self.error_e = [np.inf for x in range(self.l)]
         self.converged_e = [False for x in range(self.l)]
+        self.form_initial_krylov_subspace(wfs, dia, dimz, use_prev=use_prev)
+        text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
+        if self.sp_order is None:
+            text += '.'
+        else:
+            text += ' as recovered from previous calculation.'
+        self.logger(text, flush=True)
+
+    def get_approximate_hessian_and_dim(self, wfs):
+        dia = []
+        self.dimtot = 0
+        for k, kpt in enumerate(wfs.kpt_u):
+            hdia = self.etdm.get_hessian(kpt)
+            self.dim_u[k] = len(hdia)
+            self.dimtot += len(hdia)
+            dia += list(hdia.copy())
+            self.nocc[k] = get_n_occ(kpt)
+        return dia
+
+    def estimate_sp_order_and_update_dia(self, wfs, use_prev=False):
+        appr_sp_order = 0
+        dia = self.get_approximate_hessian_and_dim(wfs)
+        if use_prev:
+            for i in range(len(self.lambda_w)):
+                if self.lambda_w[i] < -1e-4:
+                    appr_sp_order += 1
+                    if self.etdm.dtype == complex:
+                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
+                    else:
+                        dia[i] = self.lambda_w[i]
+        else:
+            for i in range(len(dia)):
+                if np.real(dia[i]) < -1e-4:
+                    appr_sp_order += 1
+        return dia, appr_sp_order
+
+    def form_initial_krylov_subspace(self, wfs, dia, dimz, use_prev=False):
         rng = np.random.default_rng(self.seed)
         reps = 1e-4
         wfs.timer.start('Initial Krylov space')
@@ -467,40 +504,6 @@ class Davidson(object):
         wfs.timer.stop('Modified Gram-Schmidt')
         self.V_w = self.V_w.T
         wfs.timer.stop('Initial Krylov space')
-        text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
-        if self.sp_order is None:
-            text += '.'
-        else:
-            text += ' as recovered from previous calculation.'
-        self.logger(text, flush=True)
-
-    def get_approximate_hessian_and_dim(self, wfs):
-        dia = []
-        self.dimtot = 0
-        for k, kpt in enumerate(wfs.kpt_u):
-            hdia = self.etdm.get_hessian(kpt)
-            self.dim_u[k] = len(hdia)
-            self.dimtot += len(hdia)
-            dia += list(hdia.copy())
-            self.nocc[k] = get_n_occ(kpt)
-        return dia
-
-    def estimate_sp_order_and_update_dia(self, wfs, use_prev=False):
-        appr_sp_order = 0
-        dia = self.get_approximate_hessian_and_dim(wfs)
-        if use_prev:
-            for i in range(len(self.lambda_w)):
-                if self.lambda_w[i] < -1e-4:
-                    appr_sp_order += 1
-                    if self.etdm.dtype == complex:
-                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
-                    else:
-                        dia[i] = self.lambda_w[i]
-        else:
-            for i in range(len(dia)):
-                if np.real(dia[i]) < -1e-4:
-                    appr_sp_order += 1
-        return dia, appr_sp_order
 
     def iterate(self, wfs, ham, dens):
         self.t_e = []
