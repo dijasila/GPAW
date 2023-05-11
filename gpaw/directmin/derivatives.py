@@ -540,38 +540,7 @@ class Davidson(object):
             self.log()
             return
         self.calculate_preconditioner(wfs)
-        wfs.timer.start('Krylov space augmentation')
-        wfs.timer.start('New directions')
-        for i in range(self.l):
-            if not self.converged_e[i] or (self.gmf and self.first_run):
-                self.t_e.append(self.C_we[i] * self.r_e[i])
-        self.t_e = np.asarray(self.t_e)
-        if len(self.V_w[0]) <= self.m:
-            self.V_w = self.V_w.T.tolist()
-            for i in range(len(self.t_e)):
-                self.V_w.append(self.t_e[i])
-        elif not self.cap_krylov:
-            self.reset = True
-            self.V_w = deepcopy(self.x_e.tolist())
-            for i in range(len(self.t_e)):
-                self.V_w.append(self.t_e[i])
-            self.W_w = None
-        wfs.timer.stop('New directions')
-        self.V_w = np.asarray(self.V_w)
-        if self.cap_krylov:
-            if len(self.V_w) > self.m:
-                self.logger(
-                    'Krylov space exceeded maximum size. Partial '
-                    'diagonalization is not fully converged. Current size '
-                    'is ' + str(len(self.V_w) - len(self.t_e)) + '. Size at '
-                    'next step would be ' + str(len(self.V_w)) + '.',
-                    flush=True)
-                self.all_converged = True
-        wfs.timer.start('Modified Gram-Schmidt')
-        self.V_w = mgs(self.V_w)
-        wfs.timer.stop('Modified Gram-Schmidt')
-        self.V_w = self.V_w.T
-        wfs.timer.stop('Krylov space augmentation')
+        self.augment_krylov_subspace(wfs)
         self.log()
 
     def evaluate_W(self, wfs, ham, dens):
@@ -620,6 +589,40 @@ class Davidson(object):
                 if self.C_we[i][l] > -0.1 * Hartree:
                     self.C_we[i][l] = -0.1 * Hartree
         wfs.timer.stop('Preconditioner calculation')
+
+    def augment_krylov_subspace(self, wfs):
+        wfs.timer.start('Krylov subspace augmentation')
+        wfs.timer.start('New directions')
+        for i in range(self.l):
+            if not self.converged_e[i] or (self.gmf and self.first_run):
+                self.t_e.append(self.C_we[i] * self.r_e[i])
+        self.t_e = np.asarray(self.t_e)
+        if len(self.V_w[0]) <= self.m:
+            self.V_w = self.V_w.T.tolist()
+            for i in range(len(self.t_e)):
+                self.V_w.append(self.t_e[i])
+        elif not self.cap_krylov:
+            self.reset = True
+            self.V_w = deepcopy(self.x_e.tolist())
+            for i in range(len(self.t_e)):
+                self.V_w.append(self.t_e[i])
+            self.W_w = None
+        wfs.timer.stop('New directions')
+        self.V_w = np.asarray(self.V_w)
+        if self.cap_krylov:
+            if len(self.V_w) > self.m:
+                self.logger(
+                    'Krylov space exceeded maximum size. Partial '
+                    'diagonalization is not fully converged. Current size '
+                    'is ' + str(len(self.V_w) - len(self.t_e)) + '. Size at '
+                    'next step would be ' + str(len(self.V_w)) + '.',
+                    flush=True)
+                self.all_converged = True
+        wfs.timer.start('Modified Gram-Schmidt')
+        self.V_w = mgs(self.V_w)
+        wfs.timer.stop('Modified Gram-Schmidt')
+        self.V_w = self.V_w.T
+        wfs.timer.stop('Krylov subspace augmentation')
 
     def log(self):
         self.logger('Dimensionality of Krylov space: '
