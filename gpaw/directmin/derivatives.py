@@ -332,15 +332,7 @@ class Davidson(object):
             self.iterate(wfs, ham, dens)
         if self.remember_sp_order:
             if self.sp_order is None:
-                sp_order = 0
-                for i in range(len(self.lambda_w)):
-                    if self.lambda_w[i] < 1e-8:
-                        sp_order += 1
-                    else:
-                        break
-                self.sp_order = sp_order
-                if self.sp_order == 0:
-                    self.sp_order = 1
+                self.determine_sp_order_from_lambda()
                 self.logger(
                     'Saved target saddle point order as '
                     + str(self.sp_order) + ' for future partial '
@@ -371,6 +363,17 @@ class Davidson(object):
             a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
         self.grad = self.etdm.get_energy_and_gradients(
             a_vec_u, n_dim, ham, wfs, dens, self.c_ref)[1]
+
+    def determine_sp_order_from_lambda(self):
+        sp_order = 0
+        for i in range(len(self.lambda_w)):
+            if self.lambda_w[i] < 1e-8:
+                sp_order += 1
+            else:
+                break
+        self.sp_order = sp_order
+        if self.sp_order == 0:
+            self.sp_order = 1
 
     def initialize(self, wfs, use_prev=False):
         """
