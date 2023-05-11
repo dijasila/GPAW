@@ -250,20 +250,7 @@ class Davidson(object):
         self.check_inputs()
 
     def check_inputs(self):
-        if self.gmf:
-            defaults = {'fd_mode': 'forward',
-                        'm': 300,
-                        'h': 1e-3,
-                        'eps': 1e-2,
-                        'cap_krylov': True,
-                        'remember_sp_order': True}
-        else:
-            defaults = {'fd_mode': 'central',
-                        'm': np.inf,
-                        'h': 1e-3,
-                        'eps': 1e-3,
-                        'cap_krylov': False,
-                        'remember_sp_order': False}
+        defaults = self.set_defaults()
         assert self.etdm.name == 'etdm', 'Check etdm.'
         if self.logfile is not None:
             assert type(self.logfile) == str, 'Check logfile.'
@@ -294,6 +281,22 @@ class Davidson(object):
                 'Check remember_sp_order.'
         if self.sp_order is not None:
             assert type(self.sp_order) == int, 'Check sp_order.'
+
+    def set_defaults(self):
+        if self.gmf:
+            return {'fd_mode': 'forward',
+                    'm': 300,
+                    'h': 1e-3,
+                    'eps': 1e-2,
+                    'cap_krylov': True,
+                    'remember_sp_order': True}
+        else:
+            return {'fd_mode': 'central',
+                    'm': np.inf,
+                    'h': 1e-3,
+                    'eps': 1e-3,
+                    'cap_krylov': False,
+                    'remember_sp_order': False}
 
     def todict(self):
         return {'name': 'Davidson',
