@@ -33,7 +33,7 @@ davidson.break_instability(calc.wfs, n_dim=[10, 10], C_nM_ref=C_ref, number=1)
 
 # Reconverge the electronic structure
 calc.calculate(properties=['energy'], system_changes=['positions'])
-E_GS_broken_broken_spin_symmetry = atoms.get_potential_energy()
+E_GS_broken_spin_symmetry = atoms.get_potential_energy()
 
 # Repeat stability analysis to confirm that a minimum was found
 davidson = Davidson(calc.wfs.eigensolver, 'davidson_H2_BS.txt', seed=42)
