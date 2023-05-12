@@ -150,11 +150,10 @@ The estimated saddle point order then needs to be specified when requesting a DO
 Example I: Doubly excited state of ethylene
 -------------------------------------------
 In this example, the lowest doubly excited state of ethylene is obtained with the DO-GMF method.
-First, a ground state optimization is performed and then, the excited state is targeted as a
-second-order saddle point on the electronic energy surface. The target saddle point order of 2
-is automatically deduced correctly from the occupation numbers corresponding to an excitation from
-the HOMO to the LUMO in both spin channels simultaneosly with respect to the ground state
-orbitals.
+First, a ground state calculation is performed and then the DO-GMF calculation is initialized by
+promoting one electron from the HOMO to the LUMO in both spin channels simultaneously. According
+to the diagonal Hessian approximation, eq. :any:`eq:hessapprox`, the excited state is targeted as
+a second-order saddle point on the electronic energy surface.
 
 .. literalinclude:: ethylene.py
 
@@ -164,45 +163,46 @@ representation should be used (if the density functional is orbital density inde
 the redundant rotations among the occupied orbitals introduce many degenerate eigenvectors of the
 electronic Hessian with zero curvature, which can lead to convergence problems of the generalized
 Davidson method. The keyword ``use_fixed_occupations`` is set to ``True`` to deactivate the use of
-the maximum overlap method since variational collapse is impossible with the DO-GMF method.
+the maximum overlap method, which is not needed here because variational collapse is impossible
+with the DO-GMF method.
 
 .. _tPPexample:
 
 ------------------------------------------------------------
 Example II: Charge transfer excited state of N-phenylpyrrole
 ------------------------------------------------------------
-In this example, variational collapse of a charge transfer state of N-phenylpyrrole is
-avoided by using the DO-GMF method and specifically targeting an excited state as a
-saddle point on the electronic energy surface. The excited state is accessible by a single
-excitation from the HOMO to the LUMO in one spin channel with respect to the
-ground state orbitals. No spin purification is applied in this example (see also :ref:`h2oexample`).
-After a ground state calculation, the excited state is directly targeted as a sixth-order saddle
-point on the electronic energy surface. This target saddle point order cannot be deduced from the
-occupation numbers alone in this case since the occupation numbers with respect to the ground state
-orbitals suggest a target saddle point order of 1. This discrepancy exists because the charge
-transfer excitation leads to a large energetic rearrangement of the orbitals. One way to take this
-energetic rearrangement into account is to perform a constrained optimization freezing the hole and
-excited electron and minimizing all other electronic degrees of freedom. The occupation numbers
-after constrained optimization suggest a target saddle point order of 7, and the full electronic
-Hessian has seven significantly negative eigenvalues, one of which is larger than -1 eV, pointing
-towards a target saddle point order of 6.
+In this example, a charge transfer excited state of the N-phenylpyrrole molecule is
+calculated using the DO-GMF method. Since the target state is open-shell, the calculation
+gives the energy of a mixed-spin solution. The energy of the mixed-spin solution can be
+purified as shown in :ref:`h2oexample`, but this is not done in this example.
+
+The excited state calculation is initialized by a single electron excitation from the
+HOMO to the LUMO in one spin channel using the ground state orbitals. This target saddle point
+order cannot be estimated using eq. :any:`eq:hessapprox` because the charge transfer excitation
+leads to a large energetic rearrangement of the orbitals. To take this energetic rearrangement
+into account and achieve a better estimation of the saddle point order, we first perform a
+constrained optimization with DO-MOM freezing the hole and excited electron and minimizing all
+other electronic degrees of freedom (see also :ref:`directopt`). Then, the saddle point order
+is estimated from partial diagonalization of the full Hessian.
 
 .. literalinclude:: estimate_sp_order.py
 
-At this point, trial calculations targeting a sixth-order and a seventh-order saddle point,
-respectively, can be started in parallel and the correct target saddle point order deduced from
-the obtained solutions. The target saddle point order is set by using the ``sp_order`` keyword of
-the ``partial_diagonalizer``. Here, we target only the sixth-order saddle point, as we already know
-the correct target saddle point order.
+
+The saddle point order estimated by partial diagonalization of the Hessian is 7. However, closer
+inspection of the negative eigenvalues reveals that one of them is significantly closer to 0 than
+the others, pointing towards a target saddle point order of 6. Therefore, here we target a sixth-order
+saddle point with DO-GMF. In practice, it is safer to perform three trial calculations targeting
+saddle points of order `n-1`, `n` and `n+1`, respectively, where `n` is the estimated approximate
+saddle point order. Then, the wanted excited state solution needs to be identified by inspecting the
+character of each of the calculated solutions.
 
 .. literalinclude:: tPP.py
 
-While an unconstrained optimization of this excited state with
-DO-MOM leads to variational collapse to a lower-energy saddle point with pronounced mixing
-between the HOMO and LUMO and a low dipole moment of only -3.396 D, DO-GMF does not
-suffer from variational collapse and converges to a higher-energy sixth-order saddle
-point with a dipole moment of -10.227 D. This solution shows much less mixing between the
-HOMO and LUMO involved in the excitation.
+DO-GMF converges to a sixth-order saddle point with a dipole moment of -10.227 D consistent with
+the charge transfer character of the wanted excited state. Note that an unconstrained optimization
+of this excited state with DO-MOM starting form an initial guess made of ground state orbitals
+leads to variational collapse to a lower-energy saddle point with pronounced mixing between the HOMO
+and LUMO and a small dipole moment of -3.396 D [#dogmfgpaw1]_.
 
 .. _stabanalysisexample:
 
@@ -213,7 +213,7 @@ In this example, the generalized Davidson method is used for stability analysis 
 ground state of the dihydrogen molecule. The molecule is stretched beyond the
 Coulson-Fischer point, at which both a ground state solution with conserved symmetry and
 two lower-energy degenerate ground state solutions with broken spin symmetry exist. First,
-a spin-polarized direct minimization is performed starting from the GPAW initial guess
+a spin-polarized direct minimization is performed starting from GPAW default initial guess
 for the orbitals. Stability analysis confirms that the obtained solution is a first-order
 saddle point on the electronic energy surface, meaning that the symmetry-conserving
 solution is obtained. Second, the electronic structure is displaced along the eigenvector
