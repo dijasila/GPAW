@@ -324,7 +324,7 @@ class Davidson(object):
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
         self.c_ref = [deepcopy(wfs.kpt_u[x].C_nM)
-                         for x in range(len(wfs.kpt_u))]
+                      for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
             self.obtain_grad_at_c_ref(wfs, ham, dens)
         while not self.all_converged:
@@ -391,11 +391,11 @@ class Davidson(object):
         self.l = 0
         self.V_w = None
         self.nbands = wfs.bd.nbands
-        dia, appr_sp_order = self.estimate_sp_order_and_update_dia(
+        appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
             wfs, use_prev=use_prev)
         self.M = np.zeros(shape=self.dimtot * dimz)
         for i in range(self.dimtot * dimz):
-            self.M[i] = np.real(dia[i % self.dimtot])
+            self.M[i] = np.real(appr_hess[i % self.dimtot])
         if self.sp_order is not None:
             self.l = self.sp_order
         else:
@@ -407,7 +407,8 @@ class Davidson(object):
         self.W_w = None
         self.error_e = [np.inf for x in range(self.l)]
         self.converged_e = [False for x in range(self.l)]
-        self.form_initial_krylov_subspace(wfs, dia, dimz, use_prev=use_prev)
+        self.form_initial_krylov_subspace(
+            wfs, appr_hess, dimz, use_prev=use_prev)
         text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
         if self.sp_order is None:
             text += '.'
@@ -416,40 +417,42 @@ class Davidson(object):
         self.logger(text, flush=True)
 
     def get_approximate_hessian_and_dim(self, wfs):
-        dia = []
+        appr_hess = []
         self.dimtot = 0
         for k, kpt in enumerate(wfs.kpt_u):
             hdia = self.etdm.get_hessian(kpt)
             self.dim_u[k] = len(hdia)
             self.dimtot += len(hdia)
-            dia += list(hdia.copy())
+            appr_hess += list(hdia.copy())
             self.nocc[k] = get_n_occ(kpt)
-        return dia
+        return appr_hess
 
-    def estimate_sp_order_and_update_dia(self, wfs, use_prev=False):
+    def estimate_spo_and_update_appr_hess(self, wfs, use_prev=False):
         appr_sp_order = 0
-        dia = self.get_approximate_hessian_and_dim(wfs)
+        appr_hess = self.get_approximate_hessian_and_dim(wfs)
         if use_prev:
             for i in range(len(self.lambda_w)):
                 if self.lambda_w[i] < -1e-4:
                     appr_sp_order += 1
                     if self.etdm.dtype == complex:
-                        dia[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
+                        appr_hess[i] \
+                            = self.lambda_w[i] + 1.0j * self.lambda_w[i]
                     else:
-                        dia[i] = self.lambda_w[i]
+                        appr_hess[i] = self.lambda_w[i]
         else:
-            for i in range(len(dia)):
-                if np.real(dia[i]) < -1e-4:
+            for i in range(len(appr_hess)):
+                if np.real(appr_hess[i]) < -1e-4:
                     appr_sp_order += 1
-        return dia, appr_sp_order
+        return appr_hess, appr_sp_order
 
-    def form_initial_krylov_subspace(self, wfs, dia, dimz, use_prev=False):
+    def form_initial_krylov_subspace(
+            self, wfs, appr_hess, dimz, use_prev=False):
         rng = np.random.default_rng(self.seed)
         wfs.timer.start('Initial Krylov subspace')
         if use_prev:
             self.randomize_krylov_subspace(rng, dimz)
         else:
-            self.initialize_randomized_krylov_subspace(rng, dimz, dia)
+            self.initialize_randomized_krylov_subspace(rng, dimz, appr_hess)
         wfs.timer.start('Modified Gram-Schmidt')
         self.V_w = mgs(self.V_w)
         wfs.timer.stop('Modified Gram-Schmidt')
@@ -472,7 +475,8 @@ class Davidson(object):
                     self.V_w[i][l * self.dimtot + k] \
                         += rand[1] * reps * rand[0]
 
-    def initialize_randomized_krylov_subspace(self, rng, dimz, dia, reps=1e-4):
+    def initialize_randomized_krylov_subspace(
+            self, rng, dimz, appr_hess, reps=1e-4):
         do_conj = False
 
         # Just for F821
@@ -486,7 +490,7 @@ class Davidson(object):
                 do_conj = False
             else:
                 v = np.zeros(self.dimtot * dimz)
-                rdia = np.real(dia).copy()
+                rdia = np.real(appr_hess).copy()
                 imin = int(np.where(rdia == min(rdia))[0][0])
                 rdia[imin] = np.inf
                 v[imin] = 1.0
@@ -777,11 +781,12 @@ class Davidson(object):
         self.etdm.sort_orbitals_mom(calc.wfs)
         constraints_copy = deepcopy(self.etdm.constraints)
         self.etdm.constraints = [[] for _ in range(len(calc.wfs.kpt_u))]
-        dia, appr_sp_order = self.estimate_sp_order_and_update_dia(calc.wfs)
+        appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
+            calc.wfs)
         if method == 'full-hess':
             self.sp_order = appr_sp_order + target_more
             self.run(calc.wfs, calc.hamiltonian, calc.density)
-            dia, appr_sp_order = self.estimate_sp_order_and_update_dia(
+            appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
                 calc.wfs, use_prev=True)
         for kpt in calc.wfs.kpt_u:
             self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
