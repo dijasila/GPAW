@@ -187,14 +187,14 @@ is estimated from partial diagonalization of the full Hessian.
 
 .. literalinclude:: estimate_sp_order.py
 
-
-The saddle point order estimated by partial diagonalization of the Hessian is 7. However, closer
-inspection of the negative eigenvalues reveals that one of them is significantly closer to 0 than
-the others, pointing towards a target saddle point order of 6. Therefore, here we target a sixth-order
-saddle point with DO-GMF. In practice, it is safer to perform three trial calculations targeting
-saddle points of order `n-1`, `n` and `n+1`, respectively, where `n` is the estimated approximate
-saddle point order. Then, the wanted excited state solution needs to be identified by inspecting the
-character of each of the calculated solutions.
+The saddle point order estimated by partial diagonalization of the Hessian is 9. However, closer
+inspection of the negative eigenvalues from the log file of the Davidson calculation reveals that two
+of them are significantly closer to 0 than the others, pointing towards a target saddle point order closer
+to 7 rather than 9. It is then recommended to perform three trial calculations targeting saddle points of order `n-1`,
+`n` and `n+1`, respectively, where `n` is the estimated approximate saddle point order (here 7).
+Finally, the wanted excited state solution needs to be identified by inspecting the character of each of
+the calculated solutions. Below we target with DO-GMF a sixth-order saddle point only, corresponding to the
+calculation with `n-1`, because the wanted solution has been previously identified to be a sixth-order saddle point.
 
 .. literalinclude:: tPP.py
 
