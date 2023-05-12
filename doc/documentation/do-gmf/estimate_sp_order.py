@@ -1,12 +1,9 @@
 from ase.io import read
-from gpaw import GPAW, LCAO, restart
+from gpaw import GPAW, LCAO
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.tools import excite
 from gpaw.directmin.etdm import ETDM
 from gpaw.directmin.derivatives import Davidson
-import sys
-import numpy as np
-np.set_printoptions(threshold = sys.maxsize)
 
 calc = GPAW(xc='PBE',
             mode=LCAO(),
