@@ -391,7 +391,7 @@ class Davidson(object):
         self.l = 0
         self.V_w = None
         self.nbands = wfs.bd.nbands
-        appr_hess, appr_sp_order = self.estimate_sp_order_and_update_dia(
+        appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
             wfs, use_prev=use_prev)
         self.M = np.zeros(shape=self.dimtot * dimz)
         for i in range(self.dimtot * dimz):
@@ -426,7 +426,7 @@ class Davidson(object):
             self.nocc[k] = get_n_occ(kpt)
         return appr_hess
 
-    def estimate_sp_order_and_update_dia(self, wfs, use_prev=False):
+    def estimate_spo_and_update_appr_hess(self, wfs, use_prev=False):
         appr_sp_order = 0
         appr_hess = self.get_approximate_hessian_and_dim(wfs)
         if use_prev:
@@ -779,12 +779,12 @@ class Davidson(object):
         self.etdm.sort_orbitals_mom(calc.wfs)
         constraints_copy = deepcopy(self.etdm.constraints)
         self.etdm.constraints = [[] for _ in range(len(calc.wfs.kpt_u))]
-        appr_hess, appr_sp_order = self.estimate_sp_order_and_update_dia(
+        appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
             calc.wfs)
         if method == 'full-hess':
             self.sp_order = appr_sp_order + target_more
             self.run(calc.wfs, calc.hamiltonian, calc.density)
-            appr_hess, appr_sp_order = self.estimate_sp_order_and_update_dia(
+            appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
                 calc.wfs, use_prev=True)
         for kpt in calc.wfs.kpt_u:
             self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
