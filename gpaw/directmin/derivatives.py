@@ -407,7 +407,8 @@ class Davidson(object):
         self.W_w = None
         self.error_e = [np.inf for x in range(self.l)]
         self.converged_e = [False for x in range(self.l)]
-        self.form_initial_krylov_subspace(wfs, appr_hess, dimz, use_prev=use_prev)
+        self.form_initial_krylov_subspace(
+            wfs, appr_hess, dimz, use_prev=use_prev)
         text = 'Davidson will target the ' + str(self.l) + ' lowest eigenpairs'
         if self.sp_order is None:
             text += '.'
@@ -434,7 +435,8 @@ class Davidson(object):
                 if self.lambda_w[i] < -1e-4:
                     appr_sp_order += 1
                     if self.etdm.dtype == complex:
-                        appr_hess[i] = self.lambda_w[i] + 1.0j * self.lambda_w[i]
+                        appr_hess[i] \
+                            = self.lambda_w[i] + 1.0j * self.lambda_w[i]
                     else:
                         appr_hess[i] = self.lambda_w[i]
         else:
