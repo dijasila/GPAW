@@ -100,6 +100,50 @@ channel ``si`` to unoccupied orbital ``a`` in spin channel ``sa``
 the HOMO-1 in spin channel 0 and add an electron to LUMO+2 in spin
 channel 1.
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Estimating the saddle point order of the target excited state
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The DO-GMF method requires an estimation of the saddle point order of the sought excited state
+ahead of the actual calculation. GPAW estimates the saddle point order at the initial guess using
+the following efficient diagonal approximation of the electronic Hessian:
+
+.. math::
+   :label: eq:hessapprox
+
+    \mathscr{H}_{ijij} \approx 2\left(f_{j} - f_{i}\right)\left(\epsilon_{i} - \epsilon_{j}\right)
+
+where `f_{i}` and `\epsilon_{i}` are the orbital occupation numbers and energies of the
+initial guess orbitals, respectively. This approximation gives one negative eigenvalue for each
+pair of occupied-unoccupied orbitals where the unoccupied orbital has lower energy than the occupied
+one. For example, for a calculation initialized from an excitation from the ground state HOMO to
+the ground state LUMO + 1, there will be two unoccupied orbitals (ground state HOMO and LUMO)
+lower in energy than an occupied orbital (ground state LUMO + 1) and therefore the estimated
+saddle point order is 2. This is usually a good estimation for low-lying valence and Rydberg
+excitations.
+
+For excitations involving significant charge transfer (see :ref:`tPPexample`), the energy ordering
+of the orbitals of the converged solution can differ from the order of the initial guess orbitals.
+In such cases, the diagonal Hessian approximation at the initial guess does not provide a good enough
+estimation of the saddle point order. As shown in :ref:`tPPexample`, a better estimation is given
+by first performing a constrained optimization with DO-MOM and then evaluating the saddle point
+order using either the diagonal approximation of the Hessian or partial diagonalization of the full
+Hessian (the latter is preferred). This can be done using::
+
+ from gpaw.directmin.derivatives import Davidson
+
+ davidson = Davidson(calc.wfs.eigensolver, eps=1e-2, seed=42)
+ appr_sp_order = davidson.estimate_sp_order(calc, method='full-hess', target_more=3)
+
+The estimated saddle point order then needs to be specified when requesting a DO-GMF calculation::
+
+  from gpaw.directmin.etdm import ETDM
+
+  calc.set(eigensolver=ETDM(
+           partial_diagonalizer={'name': 'Davidson',
+                                 'sp_order': appr_sp_order},
+           ...)
+
 .. _ethyleneexample:
 
 -------------------------------------------
