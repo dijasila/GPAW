@@ -213,7 +213,7 @@ In this example, the generalized Davidson method is used for stability analysis 
 ground state of the dihydrogen molecule. The molecule is stretched beyond the
 Coulson-Fischer point, at which both a ground state solution with conserved symmetry and
 two lower-energy degenerate ground state solutions with broken spin symmetry exist. First,
-a spin-polarized direct minimization is performed starting from GPAW default initial guess
+a spin-polarized direct minimization is performed starting from the GPAW default initial guess
 for the orbitals. Stability analysis confirms that the obtained solution is a first-order
 saddle point on the electronic energy surface, meaning that the symmetry-conserving
 solution is obtained. Second, the electronic structure is displaced along the eigenvector
