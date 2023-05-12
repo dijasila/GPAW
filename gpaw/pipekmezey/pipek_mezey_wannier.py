@@ -195,8 +195,10 @@ class PipekMezey:
                            len(self.wfs.kpt_u))
 
         f_n = self.wfs.kpt_u[u].f_n
-        self.nocc = int(np.rint(f_n.sum()) /
-                        (3 - self.ns))  # no fractional occ
+        
+        self.nocc = 0
+        while f_n[self.nocc] > 1e-10:
+            self.nocc += 1
 
         # Hold on to
         self.P = 0
