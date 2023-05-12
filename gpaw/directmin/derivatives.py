@@ -324,7 +324,7 @@ class Davidson(object):
             self.etdm.sort_orbitals_mom(wfs)
         self.n_iter = 0
         self.c_ref = [deepcopy(wfs.kpt_u[x].C_nM)
-                         for x in range(len(wfs.kpt_u))]
+                      for x in range(len(wfs.kpt_u))]
         if self.fd_mode == 'forward' and self.grad is None:
             self.obtain_grad_at_c_ref(wfs, ham, dens)
         while not self.all_converged:
