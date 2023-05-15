@@ -319,37 +319,7 @@ class PPAWModel(WModel):
                                        x3_GG**2 + x4_GG**2)
         return x_GG, dx_GG
 
-    """
-    def calculate_sigma_contribution(self, n_mG, deps_m, f_m, blocks1d):
-        # XXX It is completely impossible to infer the meaning of these
-        # arrays since they're often named "_m" but then later
-        # multiplied with "_GG" arrays.
-        if blocks1d.blockcomm.size > 1:
-            raise ValueError(
-                'PPA is currently not compatible with block parallelisation.')
 
-        omegat_GG = self.omegat_GG
-        W_GG = self.W_GG
-        sigma = 0.0
-        dsigma = 0.0
-
-        for m in range(len(n_mG)):
-            deps_GG = deps_m[m]
-            sign_GG = 2 * f_m[m] - 1
-            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
-            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
-            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
-            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
-            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
-            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
-                            x3_GG**2 + x4_GG**2)
-            nW_G = np.dot(n_mG[m], x_GG)
-            sigma += np.vdot(n_mG[m], nW_G).real
-            nW_G = np.dot(n_mG[m], dx_GG)
-            dsigma -= np.vdot(n_mG[m], nW_G).real
-
-        return self.factor * sigma, self.factor * dsigma
-        """
 class PPACalculator(WBaseCalculator):
 
     def get_W_model(self, chi0,
