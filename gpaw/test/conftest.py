@@ -122,22 +122,22 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
-    * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
+    * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
-    * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
+    * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
-    * Bulk Co (HCP), 4x4x4 k-points, 12 converged bands: ``co_pw``
+    * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
       and ``co_pw_nosym``
 
-    * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
+    * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
       and ``al_pw_nosym``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
 
-    * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
+    * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
 
