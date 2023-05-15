@@ -7,8 +7,8 @@ df_point = np.loadtxt('df_point.csv', delimiter=',')
 
 # convolve with gaussian to smooth the curve
 sigma = 0.05
-df2_wreal_result = gaussian_filter1d(df2_w.real, sigma)
-df2_wimag_result = gaussian_filter1d(df2_w.imag, sigma)
+df2_wreal_result = gaussian_filter1d(df_point[:, 3], sigma)
+df2_wimag_result = gaussian_filter1d(df_point[:, 4], sigma)
 
 # plot
 plt.figure(figsize=(6, 6))
