@@ -492,8 +492,6 @@ class G0W0Calculator:
 
         self.print_parameters(kpts, b1, b2)
 
-        self.sigma_calculator = self._build_sigma_calculator()
-
         self.exx_vxc_calculator = exx_vxc_calculator
 
         if self.ppa:
@@ -502,16 +500,6 @@ class G0W0Calculator:
                                % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
-
-    def _build_sigma_calculator(self):
-        import gpaw.response.sigma as sigma
-
-        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-
-        if self.ppa:
-            return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
-
-        return sigma.SigmaCalculator(wd=self.chi0calc.wd, factor=factor)
 
     def print_parameters(self, kpts, b1, b2):
         p = functools.partial(self.context.print, flush=False)
