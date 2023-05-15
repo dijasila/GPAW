@@ -60,9 +60,19 @@ def add_cwd_to_setup_paths():
 
 
 response_band_cutoff = dict(
-    fancy_si_pw_wfs=8,  # 2 * (3s, 3p)
-    al_pw_wfs=10,  # 3s, 3p, 4s, 3d
 )
+
+
+def with_band_cutoff(*, gpw, band_cutoff):
+    # Store the band cutoffs in a dictionary to aid response tests
+    response_band_cutoff[gpw] = band_cutoff
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            return func(*args, band_cutoff=band_cutoff, **kwargs)
+        return wrapper
+
+    return decorator
 
 
 @pytest.fixture(scope='session')
@@ -346,15 +356,16 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def _fancy_si(self, symmetry=None):
+    @with_band_cutoff(gpw='fancy_si_pw_wfs',
+                      band_cutoff=8)  # 2 * (3s, 3p)
+    def _fancy_si(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         xc = 'LDA'
         kpts = 4
-        nbands = 8  # 2 * (3s, 3p)
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        conv = {'bands': band_cutoff,  # change me XXX
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
@@ -364,7 +375,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=nbands + 12,  # + 2 * (4s, 3d),
+            nbands=band_cutoff + 12,  # + 2 * (4s, 3d),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
@@ -559,15 +570,16 @@ class GPWFiles:
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
-    def _al(self, symmetry=None):
+    @with_band_cutoff(gpw='al_pw_wfs',
+                      band_cutoff=10)  # 3s, 3p, 4s, 3d
+    def _al(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         xc = 'LDA'
         kpts = 4
-        nbands = 10  # 3s, 3p, 4s, 3d
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        conv = {'bands': band_cutoff,  # change me XXX
                 'density': 1.e-8}
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
@@ -578,7 +590,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,  # + 4p, 5s
+            nbands=band_cutoff + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'al_pw{tag}.txt',
