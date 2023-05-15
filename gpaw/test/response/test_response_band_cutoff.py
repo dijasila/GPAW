@@ -4,6 +4,7 @@ from gpaw.test.conftest import response_band_cutoff
 from gpaw import GPAW
 import gpaw.mpi as mpi
 
+
 @pytest.mark.response
 def test_response_band_cutoff(in_tmp_dir, gpw_files):
 
@@ -17,6 +18,7 @@ def test_response_band_cutoff(in_tmp_dir, gpw_files):
                                                   nconv)
         assert nbands in possible_cutoffs
 
+        
 def get_nbands_cutoff_list(wfs, nconv, atol=1e-4):
     """ Possible cutoffs for response calc
     Returns the set all allowed band cutoffs in a response calculation.
@@ -30,8 +32,8 @@ def get_nbands_cutoff_list(wfs, nconv, atol=1e-4):
             kpt = wfs.kpt_qs[ik][s]
             eps_n = kpt.eps_n
             # check degenerate eigenvalues
-            cutlist = np.isclose(eps_n[:nconv-1], eps_n[1:nconv])
-            cutlist = np.argwhere(cutlist == False)
+            cutlist = np.isclose(eps_n[:nconv - 1], eps_n[1:nconv])
+            cutlist = np.argwhere(~cutlist)
             # cutoff is allowed index + 1
             cutlist += 1
             thisset = set(cutlist.flatten())
