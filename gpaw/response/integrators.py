@@ -182,7 +182,7 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, eta=None):
+    def update(self, n_mG, deps_m, wd, chi0_wGG, eta):
         """Update chi."""
 
         deps_m += self.eshift * np.sign(deps_m)
@@ -291,7 +291,7 @@ class PointIntegrator(Integrator):
             chi0_wvv[0] += x_vv
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta=None):
+    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta):
         """Optical limit update of chi."""
         deps1_m = deps_m + 1j * eta
         deps2_m = deps_m - 1j * eta
