@@ -1,7 +1,22 @@
+from abc import ABC, abstractmethod
 import numpy as np
 
 
-class PlasmaFrequencyIntegrand:
+class Integrand:
+    @abstractmethod
+    def matrix_element(self, k_v, s):
+        ...
+
+    @abstractmethod
+    def eigenvalue(self, k_v, s):
+        ...
+
+    def __iter__(self):
+        yield self.matrix_element
+        yield self.eigenvalue
+
+
+class PlasmaFrequencyIntegrand(Integrand):
     def __init__(self, chi0drudecalc, qpd, analyzer):
         self._drude = chi0drudecalc
         self.qpd = qpd
@@ -11,14 +26,7 @@ class PlasmaFrequencyIntegrand:
         # Intraband response needs only integrate partially unoccupied bands.
         return self._drude.nocc1, self._drude.nocc2
 
-    def __len__(self):
-        return 2
-
-    def __iter__(self):
-        yield self.get_matrix_element
-        yield self.get_eigenvalue
-
-    def get_matrix_element(self, k_v, s):
+    def matrix_element(self, k_v, s):
         """NB: In dire need of documentation! XXX."""
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -41,7 +49,7 @@ class PlasmaFrequencyIntegrand:
 
         return vel_nv
 
-    def get_eigenvalue(self, k_v, s):
+    def eigenvalue(self, k_v, s):
         """A function that can return the intraband eigenvalues.
 
         A method describing the integrand of
