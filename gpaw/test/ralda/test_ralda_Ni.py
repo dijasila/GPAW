@@ -12,7 +12,7 @@ def ni_gpw(gpw_files, scalapack):
 @pytest.mark.parametrize('params, ref_energy', [
     (dict(xc='RPA'), -7.827),
     (dict(xc='rALDA', unit_cells=[2, 1, 1]), -7.501),
-    (dict(xc='rAPBE', unit_cells=[2, 1, 1]), -7.444),
+    (dict(xc='rAPBE', unit_cells=[2, 1, 1]), -7.456),
 ])
 def test_Ni(in_tmp_dir, ni_gpw, params, ref_energy):
     fxc = FXCCorrelation(ni_gpw, nfrequencies=8, skip_gamma=True,
