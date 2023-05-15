@@ -10,7 +10,8 @@ from gpaw.mpi import world
 # 1) Ground-state.
 
 from ase.io import read
-atoms = read('/home/tara/sn2o2.json')
+a = 4.23 / 2.0
+atoms = Atoms('Na', scaled_positions=[[0, 0, 0]], cell=(a, a, a), pbc=True)
 
 calc = GPAW(mode=PW(600),
             xc='PBE',
@@ -19,7 +20,7 @@ calc = GPAW(mode=PW(600),
 
 atoms.calc = calc
 atoms.get_potential_energy()
-calc.write('sn2o2-gs.gpw')
+calc.write('na-gs.gpw')
 
 # 2) Unoccupied bands
 
@@ -41,19 +42,19 @@ def get_kpts_size(atoms, kptdensity):
     return kpts
 kpts = get_kpts_size(atoms, kptdensity=10)
 
-responseGS = GPAW('sn2o2-gs.gpw').fixed_density(
+responseGS = GPAW('na-gs.gpw').fixed_density(
     kpts=kpts,
     parallel={'band': 1},
     nbands=60,
     convergence={'bands': 50})
 
 responseGS.get_potential_energy()
-responseGS.write('sn2o2-gsresponse.gpw', 'all')
+responseGS.write('na-gsresponse.gpw', 'all')
 
 # 3) Dielectric function
 
 df = DielectricFunction(
-    'sn2o2-gsresponse.gpw',
+    'na-gsresponse.gpw',
     eta=25e-3,
     rate='eta',
     frequencies={'type': 'nonlinear', 'domega0': 0.01},
@@ -62,7 +63,7 @@ df = DielectricFunction(
 df1tetra_w, df2tetra_w = df.get_dielectric_function(direction='x')
 
 df = DielectricFunction(
-    'sn2o2-gsresponse.gpw',
+    'na-gsresponse.gpw',
     eta=25e-3,
     rate='eta',
     frequencies={'type': 'nonlinear', 'domega0': 0.01})
@@ -81,5 +82,5 @@ if world.rank == 0:
     plt.ylim(-20, 20)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('sn2o2_eps.png', dpi=600)
+    plt.savefig('na_eps.png', dpi=600)
 # plt.show()
