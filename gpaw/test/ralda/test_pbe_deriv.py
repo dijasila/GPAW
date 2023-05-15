@@ -36,30 +36,6 @@ def test_pbe_x_derivs(n_g):
     E_g = n_g * eps_unif_x(kf_g) * F_g
     d2Edn2_num = numderiv(numderiv(E_g))
 
-    if 1:
-        import matplotlib.pyplot as plt
-        ax = plt.gca()
-
-        Fn_num_g = numderiv(F_g)
-        #Fnn_num_g = numderiv(Fn_g)
-        ax.plot(n_g, Fn_g)
-        nhalf_g = n_g[:-1] + dn / 2
-        ax.plot(nhalf_g, Fn_num_g, ls='--')
-
-        Fnn_num_g = numderiv(Fn_g)
-        ax.plot(n_g, Fnn_g)
-        #ax.plot(nhalf_g, Fnn_num_g, ls='--')
-
-        Fnn_num2_g = numderiv(numderiv(F_g))
-        ax.plot(n_g[1:-1], Fnn_num2_g, ls='--')
-        errs = np.abs(Fnn_num2_g - Fnn_g[1:-1])
-        ax.plot(n_g[1:-1], errs)
-
-        ax.plot(n_g, fxc_g)
-        ax.plot(n_g[1:-1], d2Edn2_num, ls='--')
-
-        plt.show()
-
     assert fxc_g[1:-1] == pytest.approx(d2Edn2_num, abs=1e-4, rel=1e-4)
     # We could also test the other derivatives (Fn, Fnn)
     # but that's probably not highest priority.
