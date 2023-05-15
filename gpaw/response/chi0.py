@@ -493,7 +493,7 @@ class Chi0Calculator:
         return kind, extraargs
 
     @timer('Get kpoints')
-    def get_kpoints(self, qpd, integrationmode=None):
+    def get_kpoints(self, qpd, integrationmode):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
             self.gs.kd, qpd, self.context,
@@ -513,7 +513,6 @@ class Chi0Calculator:
                                    axis=0)
 
         bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
-
         return bzk_kv, analyzer
 
     @timer('Get matrix element')
@@ -556,6 +555,18 @@ class Chi0Calculator:
         n_nmG : ndarray
             Pair densities.
         """
+        return self._get_anything(
+            k_v, s, n1, n2, m1, m2, qpd=qpd,
+            symmetry=symmetry, integrationmode=integrationmode,
+            block=True,
+            target_method=self.pair.get_pair_density,
+        ).reshape(-1, qpd.ngmax)
+
+    def _get_anything(self, k_v, s, n1, n2,
+                      m1, m2, *, qpd,
+                      symmetry, integrationmode=None,
+                      block,
+                      target_method):
         assert m1 <= m2
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -568,12 +579,12 @@ class Chi0Calculator:
             self.pawcorr = pairden_paw_corr(qpd)
 
         kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=True)
+                                            m1, m2, block=block)
         m_m = np.arange(m1, m2)
         n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_pair_density(qpd, kptpair, n_n, m_m,
-                                           pawcorr=self.pawcorr,
-                                           block=True)
+        n_nmG = target_method(qpd, kptpair, n_n, m_m,
+                              pawcorr=self.pawcorr,
+                              block=block)
 
         if integrationmode is None:
             n_nmG *= weight
@@ -582,7 +593,7 @@ class Chi0Calculator:
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
-        return n_nmG.reshape(-1, nG)
+        return n_nmG
 
     @timer('Get matrix element')
     def get_optical_matrix_element(self, k_v, s,
@@ -593,33 +604,13 @@ class Chi0Calculator:
         """A function that returns optical pair densities, that is the
         head and wings matrix elements, indexed by:
         # P = (x, y, v, G1, G2, ...)."""
-        assert m1 <= m2
 
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        nG = qpd.ngmax
-        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                         symmetry.how_many_symmetries())
-        if self.pawcorr is None:
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(qpd)
-
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=False)
-        m_m = np.arange(m1, m2)
-        n_n = np.arange(n1, n2)
-        n_nmP = self.pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
-                                                   pawcorr=self.pawcorr,
-                                                   block=False)
-
-        if integrationmode is None:
-            n_nmP *= weight
-
-        df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        df_nm[df_nm <= 1e-20] = 0.0
-        n_nmP *= df_nm[..., np.newaxis]**0.5
-
-        return n_nmP.reshape(-1, nG + 2)
+        return self._get_anything(
+            k_v, s, n1, n2, m1, m2, qpd=qpd,
+            symmetry=symmetry, integrationmode=integrationmode,
+            block=False,
+            target_method=self.pair.get_optical_pair_density,
+        ).reshape(-1, qpd.ngmax + 2)
 
     @timer('Get eigenvalues')
     def get_eigenvalues(self, k_v, s, n1, n2,
