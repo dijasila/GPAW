@@ -59,6 +59,12 @@ def add_cwd_to_setup_paths():
         del setup_paths[:1]
 
 
+response_band_cutoff = dict(
+    fancy_si_pw_wfs=8,  # 2 * (3s, 3p)
+    al_pw_wfs=10,  # 3s, 3p, 4s, 3d
+)
+
+
 @pytest.fixture(scope='session')
 def gpw_files(request, tmp_path_factory):
     """Reuse gpw-files.
