@@ -555,18 +555,17 @@ class Chi0Calculator:
         n_nmG : ndarray
             Pair densities.
         """
-        return self._get_anything(
+        return self._get_any_matrix_element(
             k_v, s, n1, n2, m1, m2, qpd=qpd,
             symmetry=symmetry, integrationmode=integrationmode,
             block=True,
             target_method=self.pair.get_pair_density,
         ).reshape(-1, qpd.ngmax)
 
-    def _get_anything(self, k_v, s, n1, n2,
-                      m1, m2, *, qpd,
-                      symmetry, integrationmode=None,
-                      block,
-                      target_method):
+    def _get_any_matrix_element(
+            self, k_v, s, n1, n2, m1, m2, *, qpd,
+            symmetry, integrationmode=None,
+            block, target_method):
         assert m1 <= m2
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -604,7 +603,7 @@ class Chi0Calculator:
         head and wings matrix elements, indexed by:
         # P = (x, y, v, G1, G2, ...)."""
 
-        return self._get_anything(
+        return self._get_any_matrix_element(
             k_v, s, n1, n2, m1, m2, qpd=qpd,
             symmetry=symmetry, integrationmode=integrationmode,
             block=False,
