@@ -196,21 +196,11 @@ def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
 
 def compare_projections(proj_sym, proj_nosym, n, atol):
     # compares so that projections at given k and band index n
-    # differ by at most a global phase
-    phase = None
-    newphase = None
+    # differ by at most a phase
     for a, P_ni in proj_sym.items():
         for j in range(len(P_ni[n, :])):
-            # Only compare elements with finite value
-            if abs(P_ni[n, j]) > atol:
-                newphase = P_ni[n, j] / proj_nosym[a][n, j]
-                assert np.isclose(abs(newphase), 1.0, atol=atol)
-                #if phase is not None:
-                #    assert np.allclose(newphase, phase, atol=atol)
-                phase = newphase
-                if phase is not None:
-                    assert np.allclose(abs(phase), 1.0, atol=atol)
-
+            # Check so that absolute values of projections are the same
+            assert np.isclose(abs(P_ni[n, j]), abs(proj_nosym[a][n, j]), atol=atol)
 
 def get_overlaps_from_setups(wfs):
     dO_aii = {}
