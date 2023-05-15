@@ -689,8 +689,6 @@ class GPWFiles:
         return calc
 
 
-
-
 class GPAWPlugin:
     def __init__(self):
         if world.rank == -1:
