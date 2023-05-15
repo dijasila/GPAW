@@ -1,8 +1,8 @@
 import pytest
 import numpy as np
+
 from ase.io.ulm import ulmopen
 from gpaw.test.conftest import response_band_cutoff
-import gpaw.mpi as mpi
 
 
 @pytest.mark.response
