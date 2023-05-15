@@ -13,6 +13,7 @@ from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.chi0 import Chi0
 from gpaw.response.pair_functions import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
+from gpaw.test.conftest import response_band_cutoff
 
 # ---------- chiks parametrization ---------- #
 
@@ -130,7 +131,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # Part 1: Set up ChiKSTestingFactory
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff[wfs]
 
     chiks_testing_factory = ChiKSTestingFactory(calc,
                                                 spincomponent, q_c, zd,
@@ -215,7 +216,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # Initialize ground state adapter
     context = ResponseContext()
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files[wfs], context)
-    nbands = gs._calc.parameters.convergence['bands']
+    nbands = response_band_cutoff[wfs]
 
     # Set up complex frequency descriptor
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
