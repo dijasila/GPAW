@@ -2,7 +2,6 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW, FermiDirac
 from gpaw.xc.fxc import FXCCorrelation
-# from gpaw.mpi import world,
 
 
 @pytest.fixture
@@ -12,29 +11,14 @@ def ni_gpw(gpw_files, scalapack):
 
 @pytest.mark.rpa
 @pytest.mark.response
-def test_ralda_ralda_energy_Ni(in_tmp_dir, ni_gpw):
-    #if world.rank == 0:
-
-    #world.barrier()
-    # gpw_files
-    #calc = 
-    #print(calc)
-
-    rpa = FXCCorrelation(ni_gpw, xc='RPA',
+@pytest.mark.parametrize('params, ref_energy', [
+    (dict(xc='RPA'), -7.827),
+    (dict(xc='rALDA', unit_cells=[2, 1, 1]), -7.501),
+    (dict(xc='rAPBE', unit_cells=[2, 1, 1]), -7.444),
+])
+def test_Ni(in_tmp_dir, ni_gpw, params, ref_energy):
+    fxc = FXCCorrelation(ni_gpw, # xc='RPA',
                          nfrequencies=8, skip_gamma=True,
-                         ecut=[50])
-    E_rpa = rpa.calculate()
-
-    ralda = FXCCorrelation(ni_gpw, xc='rALDA', unit_cells=[2, 1, 1],
-                           nfrequencies=8, skip_gamma=True,
-                           ecut=[50])
-    E_ralda = ralda.calculate()
-
-    rapbe = FXCCorrelation(ni_gpw, xc='rAPBE', unit_cells=[2, 1, 1],
-                           nfrequencies=8, skip_gamma=True,
-                           ecut=[50])
-    E_rapbe = rapbe.calculate()
-
-    assert E_rpa == pytest.approx(-7.827, abs=0.01)
-    assert E_ralda == pytest.approx(-7.501, abs=0.01)
-    assert E_rapbe == pytest.approx(-7.444, abs=0.01)
+                         ecut=[50], **params)
+    E_fxc = fxc.calculate()
+    assert E_fxc == pytest.approx(ref_energy, abs=0.01)
