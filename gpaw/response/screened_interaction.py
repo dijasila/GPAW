@@ -5,7 +5,7 @@ from ase.units import Ha
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
-
+from gpaw.response.hilbert import GWHilbertTransforms
 
 class QPointDescriptor(KPointDescriptor):
 
@@ -24,7 +24,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False, E0=Ha,
+                            ppa=False, E0=Ha, eta=None,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -48,12 +48,14 @@ def initialize_w_calculator(chi0calc, context, *,
     if ppa:
         wcalc = PPACalculator(gs, context, qd=qd,
                               coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma,
+                              integrate_gamma=integrate_gamma, eta=eta,
                               q0_correction=q0_correction)
     else:
+        hilbert_transform = GWHilbertTransforms(chi0calc.wd.omega_w, eta)
         wcalc = WCalculator(gs, context, qd=qd,
                             coulomb=coulomb, xckernel=xckernel,
                             integrate_gamma=integrate_gamma,
+                            hilbert_transform=hilbert_transform,
                             q0_correction=q0_correction)
 
     return wcalc
@@ -62,8 +64,8 @@ def initialize_w_calculator(chi0calc, context, *,
 class WBaseCalculator():
 
     def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel,
-                 integrate_gamma=0, q0_correction=False):
+                 coulomb, xckernel, hilbert_transform=None,
+                 integrate_gamma=0, q0_correction=False, eta=None):
         """
         Base class for W Calculator including basic initializations and Gamma
         Gamma handling.
@@ -90,8 +92,9 @@ class WBaseCalculator():
         self.qd = qd
         self.coulomb = coulomb
         self.xckernel = xckernel
-
+        self.eta = eta
         self.integrate_gamma = integrate_gamma
+        self.hilbert_transform = hilbert_transform
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'
@@ -142,6 +145,19 @@ class WBaseCalculator():
 
     
 class WCalculator(WBaseCalculator):
+
+    def get_W_model(self, chi0, fxc_mode, only_correlation=True):
+        assert only_correlation == True
+        W_wGG = self.calculate_W_WgG(chi0,
+                                     fxc_mode=fxc_mode,
+                                     only_correlation=True)
+        # HT used to calculate convulution between time-ordered G and W
+        with self.context.timer('Hilbert'):
+            W_xwGG = self.hilbert_transform(W_wGG)
+
+        factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+        return FullFrequencyWModel(chi0.wd, W_xwGG, factor)
+        
 
     def calculate_W_WgG(self, chi0,
                         fxc_mode='GW',
@@ -250,9 +266,93 @@ class WCalculator(WBaseCalculator):
         return chi0.qpd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
 
+class WModel:
+    def __init__(self, label):
+        self.label = label
+
+class FullFrequencyWModel(WModel):
+    def __init__(self, wd, HW_swGG, factor):
+        self.wd = wd
+        self.HW_swGG = HW_swGG
+        self.factor = factor
+
+    def get_HW(self, omega, fsign):
+        o = abs(omega)
+        wsign = np.sign(omega + 1e-15)
+        wd = self.wd
+        # Pick +i*eta or -i*eta:
+        s = (1 + wsign * np.sign(-fsign)).astype(int) // 2
+        w = wd.get_floor_index(o, safe=False)
+        if w > len(wd) - 2:
+            return self.HW_swGG[0][0] * 0.0, self.HW_swGG[0][0] * 0.0
+
+        o1 = wd.omega_w[w]
+        o2 = wd.omega_w[w + 1]
+
+        C1_GG = self.HW_swGG[s][w]
+        C2_GG = self.HW_swGG[s][w + 1]
+        p = self.factor * wsign 
+
+        sigma_GG = ((o - o1) * C2_GG + (o2 - o) * C1_GG) / (o2 - o1)
+        dsigma_GG = wsign * (C2_GG - C1_GG) / (o2 - o1)
+        return -1j*p*sigma_GG, -1j*p*dsigma_GG
+
+
+class PPAWModel(WModel):
+    def __init__(self, W_GG, omegat_GG, eta, factor):
+        WModel.__init__(self, 'PPAWModel')
+        self.W_GG = W_GG
+        self.omegat_GG = omegat_GG
+        self.eta = eta
+        self.factor = factor
+
+    def get_HW(self, omega, sign):
+        omegat_GG = self.omegat_GG
+        W_GG = self.W_GG
+
+        x1_GG = 1 / (omega + omegat_GG - 1j * self.eta)
+        x2_GG = 1 / (omega - omegat_GG + 1j * self.eta)
+        x3_GG = 1 / (omega + omegat_GG - 1j * self.eta * sign)
+        x4_GG = 1 / (omega - omegat_GG - 1j * self.eta * sign)
+        x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
+        dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
+                                       x3_GG**2 + x4_GG**2)
+        return x_GG, dx_GG
+
+    """
+    def calculate_sigma_contribution(self, n_mG, deps_m, f_m, blocks1d):
+        # XXX It is completely impossible to infer the meaning of these
+        # arrays since they're often named "_m" but then later
+        # multiplied with "_GG" arrays.
+        if blocks1d.blockcomm.size > 1:
+            raise ValueError(
+                'PPA is currently not compatible with block parallelisation.')
+
+        omegat_GG = self.omegat_GG
+        W_GG = self.W_GG
+        sigma = 0.0
+        dsigma = 0.0
+
+        for m in range(len(n_mG)):
+            deps_GG = deps_m[m]
+            sign_GG = 2 * f_m[m] - 1
+            x1_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta)
+            x2_GG = 1 / (deps_GG - omegat_GG + 1j * self.eta)
+            x3_GG = 1 / (deps_GG + omegat_GG - 1j * self.eta * sign_GG)
+            x4_GG = 1 / (deps_GG - omegat_GG - 1j * self.eta * sign_GG)
+            x_GG = W_GG * (sign_GG * (x1_GG - x2_GG) + x3_GG + x4_GG)
+            dx_GG = W_GG * (sign_GG * (x1_GG**2 - x2_GG**2) +
+                            x3_GG**2 + x4_GG**2)
+            nW_G = np.dot(n_mG[m], x_GG)
+            sigma += np.vdot(n_mG[m], nW_G).real
+            nW_G = np.dot(n_mG[m], dx_GG)
+            dsigma -= np.vdot(n_mG[m], nW_G).real
+
+        return self.factor * sigma, self.factor * dsigma
+        """
 class PPACalculator(WBaseCalculator):
 
-    def calculate_ppa(self, chi0,
+    def get_W_model(self, chi0,
                       fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
@@ -278,4 +378,7 @@ class PPACalculator(WBaseCalculator):
                                         dfc.sqrtV_G)
 
         self.context.timer.stop('Dyson eq.')
-        return [W_GG, omegat_GG]
+
+        factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+
+        return PPAWModel(W_GG, omegat_GG, self.eta, factor)

@@ -17,7 +17,6 @@ from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
@@ -492,7 +491,6 @@ class G0W0Calculator:
                 b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
-        self.hilbert_transform = None  # initialized when we create Chi0
 
         self.sigma_calculator = self._build_sigma_calculator()
 
@@ -507,6 +505,7 @@ class G0W0Calculator:
 
     def _build_sigma_calculator(self):
         import gpaw.response.sigma as sigma
+
         factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
 
         if self.ppa:
@@ -686,11 +685,11 @@ class G0W0Calculator:
             assert set(Wdict) == set(sigmas)
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
-                W = Wdict[fxc_mode]
-                sigma_contrib, dsigma_contrib = self.calculate_sigma(
-                    n_mG, deps_m, f_m, W, blocks1d)
-                sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
-                sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
+                Wmodel = Wdict[fxc_mode]
+                for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)): 
+                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
+                     sigma.sigma_eskn[ie, kpt1.s, k, nn] += (n_G @ (S_GG @ n_G.conj())).real
+                     sigma.dsigma_eskn[ie, kpt1.s, k, nn] += (n_G @ (dSdw_GG @ n_G.conj())).real
 
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
@@ -713,13 +712,6 @@ class G0W0Calculator:
         pawcorr_wcalc1 = pairden_paw_corr(qpd)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
-    @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
-        """Calculates a contribution to the self-energy and its derivative for
-        a given (k, k-q)-pair from its corresponding pair-density and
-        energy."""
-        return self.sigma_calculator.calculate_sigma(
-            n_mG, deps_m, f_m, C_swGG, blocks1d=blocks1d)
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
@@ -733,8 +725,6 @@ class G0W0Calculator:
         self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-        self.hilbert_transform = GWHilbertTransforms(
-            self.chi0calc.wd.omega_w, self.eta)
         self.context.print(self.chi0calc.wd)
 
         # Find maximum size of chi-0 matrices:
@@ -862,28 +852,16 @@ class G0W0Calculator:
         for fxc_mode in self.fxc_modes:
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            if self.ppa:
-                Wdict[fxc_mode] = self.wcalc.calculate_ppa(rchi0,
-                                                           fxc_mode=fxc_mode)
-            else:
-                W_wGG = self.wcalc.calculate_W_WgG(rchi0,
-                                                   fxc_mode=fxc_mode,
-                                                   only_correlation=True)
-
-                if (chi0calc.pawcorr is not None and
-                    rqpd.ecut < chi0.qpd.ecut):
-                    pw_map = PWMapping(rqpd, chi0.qpd)
-                    # This is extremely bad behaviour! G0W0Calculator
-                    # should not change properties on the
-                    # Chi0Calculator! Change in the future! XXX
-                    chi0calc.pawcorr = \
-                        chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
-
-                # HT used to calculate convulution between time-ordered G and W
-                with self.context.timer('Hilbert'):
-                    W_xwGG = self.hilbert_transform(W_wGG)
-
-                Wdict[fxc_mode] = W_xwGG
+            Wdict[fxc_mode] = self.wcalc.get_W_model(rchi0,
+                                                     fxc_mode=fxc_mode)
+            if (chi0calc.pawcorr is not None and
+                 rqpd.ecut < chi0.qpd.ecut):
+                pw_map = PWMapping(rqpd, chi0.qpd)
+                # This is extremely bad behaviour! G0W0Calculator
+                # should not change properties on the
+                # Chi0Calculator! Change in the future! XXX
+                chi0calc.pawcorr = \
+                    chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
         # Create a blocks1d for the reduced plane-wave description
         blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
@@ -1124,7 +1102,7 @@ class G0W0(G0W0Calculator):
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
                                         xc=xc,
-                                        E0=E0, coulomb=coulomb,
+                                        E0=E0, eta=eta / Ha, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)
 

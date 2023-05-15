@@ -1,6 +1,45 @@
 import numpy as np
 
 
+class SigmaExpectationValueCalculator:
+    def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
+                    *, symop, sigmas, blocks1d, pawcorr):
+        """Calculates the contribution to the self-energy and its derivative
+        for a given set of k-points, kpt1 and kpt2."""
+        mypawcorr, I_G = symop.apply_symop_q(qpd, pawcorr, kpt1, kpt2)
+        if debug:
+            N_c = qpd.gd.N_c
+            i_cG = symop.apply(np.unravel_index(qpd.Q_qG[0], N_c))
+            bzk_kc = self.wcalc.gs.kd.bzk_kc
+            Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
+            shift0_c = Q_c - symop.apply(qpd.q_c)
+            self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
+
+        for n in range(kpt1.n2 - kpt1.n1):
+            eps1 = kpt1.eps_n[n]
+            n_mG = get_nmG(kpt1, kpt2,
+                           mypawcorr,
+                           n, qpd, I_G,
+                           self.chi0calc.pair)
+
+            if symop.sign == 1:
+                n_mG = n_mG.conj()
+
+            f_m = kpt2.f_n
+            deps_m = eps1 - kpt2.eps_n
+
+            nn = kpt1.n1 + n - self.bands[0]
+
+            assert set(Wdict) == set(sigmas)
+            for fxc_mode in self.fxc_modes:
+                sigma = sigmas[fxc_mode]
+                W = Wdict[fxc_mode]
+                sigma_contrib, dsigma_contrib = self.calculate_sigma(
+                    n_mG, deps_m, f_m, W, blocks1d)
+                sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
+                sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
+
+
 class SigmaCalculator:
     def __init__(self, wd, factor):
         self.wd = wd
@@ -55,15 +94,13 @@ class PPASigmaCalculator:
         self.eta = eta
         self.factor = factor
 
-    def calculate_sigma(self, n_mG, deps_m, f_m, W, blocks1d):
+    def calculate_sigma(self, n_mG, deps_m, f_m, Wmodel, blocks1d):
         # XXX It is completely impossible to infer the meaning of these
         # arrays since they're often named "_m" but then later
         # multiplied with "_GG" arrays.
         if blocks1d.blockcomm.size > 1:
             raise ValueError(
                 'PPA is currently not compatible with block parallelisation.')
-
-        W_GG, omegat_GG = W
 
         sigma = 0.0
         dsigma = 0.0
