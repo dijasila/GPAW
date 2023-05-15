@@ -245,14 +245,14 @@ if os.environ.get('GPAW_GPU'):
             f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
             '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
     else:
-        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -fPIC -c c/gpu/hip_kernels.cu -I/usr/local/cuda-12.1/include -o c/gpu/hip_kernels.o')
-        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -shared -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o')
+        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -fPIC -c c/gpu/hip_kernels.cpp -I/usr/local/cuda-12.1/include -o c/gpu/hip_kernels.o 2>&1 > gpu_compile.log') == 0
+        assert os.system('HIP_PLATFORM=nvidia HIP_COMPILER=nvcc hipcc -shared -o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
 
     extensions.append(
         Extension('_gpaw_gpu',
                   ['c/gpu/gpaw_gpu.c'],
-                  libraries=[],
-                  library_dirs=['c/gpu'],
+                  libraries=['rocm-core'],
+                  library_dirs=['c/gpu', '/opt/rocm/lib'],
                   setup_requires=['numpy'],
                   include_dirs=include_dirs,
                   define_macros=[('NPY_NO_DEPRECATED_API', 7)],
