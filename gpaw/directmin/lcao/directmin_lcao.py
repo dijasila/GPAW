@@ -11,12 +11,13 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.directmin.functional.lcao import get_functional
 from gpaw.utilities.tools import tri2full
 
 
 class DirectMinLCAO(DirectLCAO):
 
-    def __init__(self, wfs, ham, nkpts, diagonalizer=None,
+    def __init__(self, wfs, dens, ham, nkpts, functional, diagonalizer=None,
                  orthonormalization='gramschmidt',
                  need_init_orbs=True):
 
@@ -26,6 +27,7 @@ class DirectMinLCAO(DirectLCAO):
         self.orthonormalization = orthonormalization
         self.need_init_orbs = need_init_orbs
         self.nkpts = nkpts
+        self.func = get_functional(functional, wfs, dens, ham)
         self.reference_orbitals = {}
         self.initialize_orbitals(wfs, ham)
 
@@ -81,7 +83,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.coefficients_read_from_file = False
         self.need_init_orbs = False
 
-    def calc_grad(self, wfs, ham, kpt, func, evecs, evals, matrix_exp,
+    def calc_grad(self, wfs, ham, kpt, evecs, evals, matrix_exp,
                   representation, ind_up, constraints):
 
         """
@@ -92,14 +94,14 @@ class DirectMinLCAO(DirectLCAO):
         # make matrix hermitian
         tri2full(h_mm)
         # calc gradient and eigenstate error
-        g_mat, error = func.get_gradients(
+        g_mat, error = self.func.get_gradients(
             h_mm, kpt.C_nM, kpt.f_n, evecs, evals,
             kpt, wfs, wfs.timer, matrix_exp,
             representation, ind_up, constraints)
 
         return g_mat, error
 
-    def update_to_canonical_orbitals(self, wfs, ham, kpt, func,
+    def update_to_canonical_orbitals(self, wfs, ham, kpt,
                                      update_ref_orbs_canonical, restart):
         """
         Choose canonical orbitals
@@ -108,7 +110,7 @@ class DirectMinLCAO(DirectLCAO):
         h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
         tri2full(h_mm)
 
-        if func.name == 'ks':
+        if self.func.name == 'ks':
             if update_ref_orbs_canonical or restart:
                 # Diagonalize entire Hamiltonian matrix
                 with wfs.timer('Diagonalize and rotate'):
@@ -120,8 +122,8 @@ class DirectMinLCAO(DirectLCAO):
                     with wfs.timer('Diagonalize and rotate'):
                         kpt.C_nM[kpt.f_n == f, :], kpt.eps_n[kpt.f_n == f] = \
                             rotate_subspace(h_mm, kpt.C_nM[kpt.f_n == f, :])
-        elif func.name == 'PZ_SIC':
-            func.get_lagrange_matrices(
+        elif self.func.name == 'PZ_SIC':
+            self.func.get_lagrange_matrices(
                 h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
                 update_eigenvalues=True, update_wfs=True)
 

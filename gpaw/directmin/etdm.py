@@ -17,8 +17,6 @@ from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
-from gpaw.directmin.functional.lcao import get_functional \
-    as get_functional_lcao
 from gpaw import BadParallelization
 from copy import deepcopy
 
@@ -124,7 +122,6 @@ class ETDM:
         self.e_sic = 0.0
 
         # these are things we cannot initialize now
-        self.lcao = None
         self.func = functional
         self.dtype = None
         self.nkpts = None
@@ -217,20 +214,16 @@ class ETDM:
 
     def initialize_dm_helper(self, wfs, ham, dens):
 
-        if hasattr(wfs, 'basis_functions'):
-            self.lcao = True
-            self.func = get_functional_lcao(self.func, wfs, dens, ham)
+        if wfs.mode == 'lcao':
 
             self.dm_helper = DirectMinLCAO(
-                wfs, ham, self.nkpts,
+                wfs, dens, ham, self.nkpts, self.func,
                 diagonalizer=None,
                 orthonormalization=self.orthonormalization,
                 need_init_orbs=self.need_init_orbs
             )
-        else:
-            self.lcao = False
-            # self.func = get_functional_fdpw(functional)
-            # self.dm_helper = DirectMinFDPW(stuff)
+        #else:
+        #     self.dm_helper = DirectMinFDPW(stuff)
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
         # mom
@@ -454,12 +447,13 @@ class ETDM:
                     g_vec_u[k] = np.zeros_like(a_vec_u[k])
                     continue
                 g_vec_u[k], error = self.dm_helper.calc_grad(
-                    wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
+                    wfs, ham, kpt, self.evecs[k], self.evals[k],
                     self.matrix_exp, self.representation, self.ind_up[k],
                     self.constraints[k])
 
-                if hasattr(self.func, 'e_sic_by_orbitals'):
-                    self.e_sic += self.func.e_sic_by_orbitals[k].sum()
+                if hasattr(self.dm_helper.func, 'e_sic_by_orbitals'):
+                    self.e_sic \
+                        += self.dm_helper.func.e_sic_by_orbitals[k].sum()
 
                 self.error += error
             self.error = wfs.kd.comm.sum(self.error)
@@ -616,7 +610,7 @@ class ETDM:
         with wfs.timer('Get canonical representation'):
             for kpt in wfs.kpt_u:
                 self.dm_helper.update_to_canonical_orbitals(
-                    wfs, ham, kpt, self.func, self.update_ref_orbs_canonical,
+                    wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
@@ -725,8 +719,7 @@ class ETDM:
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
-                'functional': self.func if isinstance(self.func, basestring) \
-                    else self.func.todict(),
+                'functional': self.func,
                 'orthonormalization': self.orthonormalization,
                 'constraints': self.constraints
                 }
