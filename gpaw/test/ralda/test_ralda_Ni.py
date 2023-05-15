@@ -1,44 +1,36 @@
 import pytest
 from ase.build import bulk
-from ase.dft.kpoints import monkhorst_pack
 from gpaw import GPAW, FermiDirac
 from gpaw.xc.fxc import FXCCorrelation
-from gpaw.mpi import world, serial_comm
+# from gpaw.mpi import world,
+
+
+@pytest.fixture
+def ni_gpw(gpw_files, scalapack):
+    return gpw_files['ni_pw_kpts333_wfs']
 
 
 @pytest.mark.rpa
 @pytest.mark.response
-def test_ralda_ralda_energy_Ni(in_tmp_dir, scalapack):
-    if world.rank == 0:
-        Ni = bulk('Ni', 'fcc')
-        Ni.set_initial_magnetic_moments([0.7])
+def test_ralda_ralda_energy_Ni(in_tmp_dir, ni_gpw):
+    #if world.rank == 0:
 
-        kpts = monkhorst_pack((3, 3, 3))
+    #world.barrier()
+    # gpw_files
+    #calc = 
+    #print(calc)
 
-        calc = GPAW(mode='pw',
-                    kpts=kpts,
-                    occupations=FermiDirac(0.001),
-                    setups={'Ni': '10'},
-                    communicator=serial_comm)
-
-        Ni.calc = calc
-        Ni.get_potential_energy()
-        calc.diagonalize_full_hamiltonian()
-        calc.write('Ni.gpw', mode='all')
-
-    world.barrier()
-
-    rpa = FXCCorrelation('Ni.gpw', xc='RPA',
+    rpa = FXCCorrelation(ni_gpw, xc='RPA',
                          nfrequencies=8, skip_gamma=True,
                          ecut=[50])
     E_rpa = rpa.calculate()
 
-    ralda = FXCCorrelation('Ni.gpw', xc='rALDA', unit_cells=[2, 1, 1],
+    ralda = FXCCorrelation(ni_gpw, xc='rALDA', unit_cells=[2, 1, 1],
                            nfrequencies=8, skip_gamma=True,
                            ecut=[50])
     E_ralda = ralda.calculate()
 
-    rapbe = FXCCorrelation('Ni.gpw', xc='rAPBE', unit_cells=[2, 1, 1],
+    rapbe = FXCCorrelation(ni_gpw, xc='rAPBE', unit_cells=[2, 1, 1],
                            nfrequencies=8, skip_gamma=True,
                            ecut=[50])
     E_rapbe = rapbe.calculate()

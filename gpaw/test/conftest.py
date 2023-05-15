@@ -433,6 +433,27 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def ni_pw_kpts333(self):
+        from ase.dft.kpoints import monkhorst_pack
+        # from gpaw.mpi import serial_comm
+        Ni = bulk('Ni', 'fcc')
+        Ni.set_initial_magnetic_moments([0.7])
+
+        kpts = monkhorst_pack((3, 3, 3))
+
+        calc = GPAW(mode='pw',
+                    kpts=kpts,
+                    occupations=FermiDirac(0.001),
+                    setups={'Ni': '10'},
+                    # communicator=serial_comm
+                    )
+
+        Ni.calc = calc
+        Ni.get_potential_energy()
+        calc.diagonalize_full_hamiltonian()
+        # calc.write('Ni.gpw', mode='all')
+        return calc
+
     def nicl2_pw(self):
         from ase.build import mx2
 
