@@ -6,32 +6,21 @@ from gpaw.mpi import world
 from gpaw.xc.fxc import FXCCorrelation
 
 
-
-
 @pytest.mark.rpa
 @pytest.mark.response
-def test_ralda_ralda_energy_H2(in_tmp_dir, gpw_files, scalapack):
-    gpw = gpw_files['h2_pw210_rmmdiis_wfs']
+@pytest.mark.parametrize('gpw, kwargs, ref_energy, abstol', [
+    ('h2_pw210_rmmdiis_wfs', dict(xc='rALDA', nblocks=min(4, world.size)),
+     -0.8411, 1e-3),
+    ('h2_pw210_rmmdiis_wfs', dict(xc='rAPBE'), -0.7233, 1e-3),
+    ('h_pw210_rmmdiis_wfs', dict(xc='rALDA'), 0.0029, 1e-4),
+    ('h_pw210_rmmdiis_wfs', dict(xc='rAPBE', nblocks=min(4, world.size)),
+     0.0161, 1e-4),
+])
+def test_ralda_energy_H2(in_tmp_dir, gpw_files, scalapack, gpw,
+                         kwargs,
+                         ref_energy, abstol):
+    gpw = gpw_files[gpw]
+    fxc = FXCCorrelation(gpw, **kwargs, ecut=[200])
 
-    ralda = FXCCorrelation(gpw, xc='rALDA', nblocks=min(4, world.size),
-                           ecut=[200])
-    E_ralda_H2 = ralda.calculate()
-
-    rapbe = FXCCorrelation(gpw, xc='rAPBE', ecut=[200])
-    E_rapbe_H2 = rapbe.calculate()
-
-    assert E_ralda_H2 == pytest.approx(-0.8411, abs=0.001)
-    assert E_rapbe_H2 == pytest.approx(-0.7233, abs=0.001)
-
-
-def test_more_stuff(in_tmp_dir, gpw_files, scalapack):
-    gpw = gpw_files['h_pw210_rmmdiis_wfs']
-    ralda = FXCCorrelation(gpw, xc='rALDA', ecut=[200])
-    E_ralda_H = ralda.calculate()
-
-    rapbe = FXCCorrelation(gpw, xc='rAPBE', nblocks=min(4, world.size),
-                           ecut=[200])
-    E_rapbe_H = rapbe.calculate()
-
-    assert E_ralda_H == pytest.approx(0.0029, abs=0.0001)
-    assert E_rapbe_H == pytest.approx(0.0161, abs=0.0001)
+    energy = fxc.calculate()
+    assert energy == pytest.approx(ref_energy, abs=abstol)
