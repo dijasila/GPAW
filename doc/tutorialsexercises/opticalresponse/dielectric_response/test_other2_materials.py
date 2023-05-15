@@ -1,7 +1,7 @@
 # web-page: tas2_eps.png
 from ase import Atoms
-from ase.lattice.hexagonal import Hexagonal
 import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter1d
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.df import DielectricFunction
@@ -9,9 +9,13 @@ from gpaw.mpi import world
 
 # 1) Ground-state.
 
-from ase.io import read
-a = 4.23 / 2.0
-atoms = Atoms('Na', scaled_positions=[[0, 0, 0]], cell=(a, a, a), pbc=True)
+a = 3
+atom = Atoms('Na',
+             cell=[a, 0, 0],
+             pbc=[1, 1, 1])
+atom.center(vacuum=1 * a, axis=(1, 2))
+atom.center()
+atoms = atom.repeat((2, 1, 1))
 
 calc = GPAW(mode=PW(600),
             xc='PBE',
@@ -24,23 +28,8 @@ calc.write('na-gs.gpw')
 
 # 2) Unoccupied bands
 
-def get_kpts_size(atoms, kptdensity):
-    """Try to get a reasonable Monkhorst-Pack grid which hits high symmetry points."""
-    from gpaw.kpt_descriptor import kpts2sizeandoffsets as k2so
-    size, offset = k2so(atoms=atoms, density=kptdensity)
-
-    # XXX Should fix kpts2sizeandoffsets
-    for i in range(3):
-        if not atoms.pbc[i]:
-            size[i] = 1
-            offset[i] = 0
-
-    for i in range(len(size)):
-        if size[i] % 6 != 0 and size[i] != 1:  # works for hexagonal cells XXX
-            size[i] = 6 * (size[i] // 6 + 1)
-    kpts = {'size': size, 'gamma': True}
-    return kpts
-kpts = get_kpts_size(atoms, kptdensity=10)
+from gpaw.bztools import find_high_symmetry_monkhorst_pack as fhsmp
+kpts = fhsmp(atoms=atoms, density=20)
 
 responseGS = GPAW('na-gs.gpw').fixed_density(
     kpts=kpts,
@@ -60,22 +49,31 @@ df = DielectricFunction(
     frequencies={'type': 'nonlinear', 'domega0': 0.01},
     integrationmode='tetrahedron integration')
 
-df1tetra_w, df2tetra_w = df.get_dielectric_function(direction='x')
+df1tetra_w, df2tetra_w = df.get_dielectric_function(direction='x',
+                                                    filename='df_tetra.csv')
 
 df = DielectricFunction(
     'na-gsresponse.gpw',
     eta=25e-3,
     rate='eta',
     frequencies={'type': 'nonlinear', 'domega0': 0.01})
-df1_w, df2_w = df.get_dielectric_function(direction='x')
+df1_w, df2_w = df.get_dielectric_function(direction='x',
+                                          filename='df_point.csv')
 omega_w = df.get_frequencies()
+
+# convolve with gaussian to smooth the curve
+sigma = 0.05
+df2_wreal_result = gaussian_filter1d(df2_w.real, sigma)
+df2_wimag_result = gaussian_filter1d(df2_w.imag, sigma)
 
 if world.rank == 0:
     plt.figure(figsize=(6, 6))
-    plt.plot(omega_w, df2tetra_w.real, label='tetra Re')
-    plt.plot(omega_w, df2tetra_w.imag, label='tetra Im')
-    plt.plot(omega_w, df2_w.real, label='Re')
-    plt.plot(omega_w, df2_w.imag, label='Im')
+    plt.plot(omega_w, df2tetra_w.real, 'blue', label='tetra Re')
+    plt.plot(omega_w, df2tetra_w.imag, 'red', label='tetra Im')
+    plt.plot(omega_w, df2_w.real, 'green', label='Re')
+    plt.plot(omega_w, df2_w.imag, 'orange', label='Im')
+    plt.plot(omega_w, df2_wreal_result, 'pink', label='Inter Re')
+    plt.plot(omega_w, df2_wimag_result, 'yellow', label='Inter Im')
     plt.xlabel('Frequency (eV)')
     plt.ylabel('$\\varepsilon$')
     plt.xlim(0, 10)
