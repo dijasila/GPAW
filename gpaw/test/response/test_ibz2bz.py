@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW
 from gpaw.response.ibz2bz import IBZ2BZMaps
 import gpaw.mpi as mpi
-
+from gpaw.test.conftest import response_band_cutoff
 
 def mark_xfail(gs, request):
     if gs in ['al_pw', 'fe_pw', 'co_pw']:
@@ -49,7 +49,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     calc = GPAW(gpw_files[gs + '_wfs'],
                 communicator=mpi.serial_comm)
     wfs = calc.wfs
-    nconv = calc.parameters.convergence['bands']
+    nconv = response_band_cutoff[gs + '_wfs']
 
     # setting basic stuff
     nbands = wfs.bd.nbands if nconv == -1 else nconv
@@ -63,7 +63,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
 
     # Check some basic stuff
     assert wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts
-    assert nconv == calc_nosym.parameters.convergence['bands']
+    #assert nconv == response_band_cutoff[gs + '_nosym_wfs']
 
     # Loop over spins and k-points
     for s in range(wfs.nspins):

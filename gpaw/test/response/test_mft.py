@@ -18,6 +18,7 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
+from gpaw.test.conftest import response_band_cutoff
 
 
 @pytest.mark.response
@@ -41,7 +42,7 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
 
     # Extract the ground state fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff['fe_pw_wfs']
     atoms = calc.atoms
 
     # Set up site kernels with a single site
@@ -136,7 +137,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
 
     # Extract the ground state fixture
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff['co_pw_wfs']
     atoms = calc.get_atoms()
 
     # Set up spherical site kernels

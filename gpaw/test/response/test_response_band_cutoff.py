@@ -11,6 +11,7 @@ def test_response_band_cutoff(in_tmp_dir, gpw_files):
         calc = GPAW(gpw_files[gs],
                     communicator=mpi.serial_comm)
         nconv = calc.parameters.convergence['bands']
+        print(gs)
         assert nbands < nconv
         possible_cutoffs = get_nbands_cutoff_list(calc.wfs,
                                                   nconv)

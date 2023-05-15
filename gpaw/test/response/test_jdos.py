@@ -18,7 +18,7 @@ from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
 from gpaw.test.response.test_chiks import (generate_system_s,
                                            generate_qrel_q, get_q_c)
-
+from gpaw.test.conftest import response_band_cutoff
 
 @pytest.mark.response
 @pytest.mark.kspair
@@ -44,7 +44,7 @@ def test_jdos(in_tmp_dir, gpw_files, system, qrel):
 
     # Set up the ground state adapter based on the fixture
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff[wfs]
     gs = ResponseGroundStateAdapter(calc)
 
     # Calculate the jdos manually

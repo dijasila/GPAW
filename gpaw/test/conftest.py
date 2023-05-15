@@ -365,7 +365,7 @@ class GPWFiles:
         kpts = 4
         pw = 300
         occw = 0.01
-        conv = {'bands': band_cutoff,  # change me XXX
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
@@ -498,7 +498,7 @@ class GPWFiles:
         kpts = 4
         pw = 300
         occw = 0.01
-        conv = {'bands': band_cutoff,  # change me XXX
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         a = 2.867
         mm = 2.21
@@ -549,7 +549,7 @@ class GPWFiles:
         pw = 200
         conv = {'density': 1e-8,
                 'forces': 1e-8,
-                'bands': band_cutoff}  # change me XXX
+                'bands': band_cutoff + 1}
 
         # ---------- Calculation ---------- #
 
@@ -581,7 +581,7 @@ class GPWFiles:
         kpts = 4
         pw = 300
         occw = 0.01
-        conv = {'bands': band_cutoff,  # change me XXX
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
@@ -643,7 +643,7 @@ class GPWFiles:
         return self._gaas()
 
     @with_band_cutoff(gpw='gaas_pw_wfs',
-                      band_cutoff=7)
+                      band_cutoff=8)
     def _gaas(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
@@ -652,7 +652,7 @@ class GPWFiles:
         atoms = Atoms('GaAs', cell=cell, pbc=True,
                       scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
         tag = '_nosym' if symmetry == 'off' else ''
-        conv = {'bands': band_cutoff,
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
 
         calc = GPAW(mode=PW(400),
