@@ -571,7 +571,6 @@ class Chi0Calculator:
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        nG = qpd.ngmax
         weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
                          symmetry.how_many_symmetries())
         if self.pawcorr is None:
