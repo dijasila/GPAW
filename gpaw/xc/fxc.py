@@ -963,6 +963,9 @@ class KernelDens(KernelIntegrator):
             axpy(1.0, gradn_vg[v]**2, s2_g)
         s2_g /= 4 * kf_g**2 * n_g**2
 
+        from gpaw.xc.fxc_kernels import get_pbe_fxc
+        fxc1_g = get_pbe_fxc(n_g, s2_g)
+
         e_g = self.A_x * n_g**(4 / 3.)
         v_g = (4 / 3.) * e_g / n_g
         f_g = (1 / 3.) * v_g / n_g
@@ -978,6 +981,7 @@ class KernelDens(KernelIntegrator):
         fxc_g = f_g * F_g
         fxc_g += 2 * v_g * Fn_g
         fxc_g += e_g * Fnn_g
+        assert np.abs(fxc1_g - fxc_g).max() < 1e-13
         return fxc_g
 
 
