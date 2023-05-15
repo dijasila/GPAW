@@ -20,6 +20,7 @@ from gpaw.test.response.test_chiks import (generate_system_s,
                                            generate_qrel_q, get_q_c)
 from gpaw.test.conftest import response_band_cutoff
 
+
 @pytest.mark.response
 @pytest.mark.kspair
 @pytest.mark.parametrize('system,qrel',

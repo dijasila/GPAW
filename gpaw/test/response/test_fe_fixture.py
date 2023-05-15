@@ -1,6 +1,7 @@
 from ase.io.ulm import ulmopen
 from gpaw.test.conftest import response_band_cutoff
 
+
 def test_fe_fixture(gpw_files):
     """Make sure there is a gap between the converged bands
     and the next band.

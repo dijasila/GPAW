@@ -5,6 +5,7 @@ from gpaw.response.ibz2bz import IBZ2BZMaps
 import gpaw.mpi as mpi
 from gpaw.test.conftest import response_band_cutoff
 
+
 def mark_xfail(gs, request):
     if gs in ['al_pw', 'fe_pw', 'co_pw']:
         request.node.add_marker(pytest.mark.xfail)
@@ -63,7 +64,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
 
     # Check some basic stuff
     assert wfs_nosym.kd.nbzkpts == wfs_nosym.kd.nibzkpts
-    #assert nconv == response_band_cutoff[gs + '_nosym_wfs']
 
     # Loop over spins and k-points
     for s in range(wfs.nspins):

@@ -16,6 +16,7 @@ from gpaw.response.dyson import HXCScaling
 from gpaw.response.pair_functions import read_susceptibility_array
 from gpaw.test.conftest import response_band_cutoff
 
+
 @pytest.mark.kspair
 @pytest.mark.response
 def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
