@@ -666,6 +666,41 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def h_pw210_rmmdiis(self):
+        H = Atoms('H')
+        H.set_pbc(True)
+        H.set_cell((2., 2., 3.))
+        H.center()
+        calc = GPAW(mode=PW(210, force_complex_dtype=True),
+                    eigensolver='rmm-diis',
+                    xc='LDA',
+                    basis='dzp',
+                    nbands=4,
+                    hund=True,
+                    parallel={'domain': 1},
+                    convergence={'density': 1.e-6})
+        H.calc = calc
+        H.get_potential_energy()
+        calc.diagonalize_full_hamiltonian(nbands=80)
+        return calc
+
+    def h2_pw210_rmmdiis(self):
+        H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])
+        H2.set_pbc(True)
+        H2.set_cell((2., 2., 3.))
+        H2.center()
+        calc = GPAW(mode=PW(210, force_complex_dtype=True),
+                    eigensolver='rmm-diis',
+                    xc='LDA',
+                    basis='dzp',
+                    nbands=8,
+                    parallel={'domain': 1},
+                    convergence={'density': 1.e-6})
+        H2.calc = calc
+        H2.get_potential_energy()
+        calc.diagonalize_full_hamiltonian(nbands=80)
+        return calc
+
 
 class GPAWPlugin:
     def __init__(self):
