@@ -543,7 +543,6 @@ class GPWFiles:
 
         # Ground state parameters
         xc = 'LDA'
-        kpts = 4
         occw = 0.01
         ebands = 2 * 2  # extra bands for ground state calculation
         pw = 200
@@ -556,7 +555,7 @@ class GPWFiles:
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(xc=xc,
                           mode=PW(pw),
-                          kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                          kpts={'size': (6, 6, 4), 'gamma': True},
                           occupations=FermiDirac(occw),
                           convergence=conv,
                           nbands=band_cutoff + ebands,
@@ -591,7 +590,7 @@ class GPWFiles:
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
             nbands=band_cutoff + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
