@@ -22,6 +22,10 @@ def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-4):
     """ Possible cutoffs for response calc
     Returns the set all allowed band cutoffs in a response calculation.
     Assures that there are no  degeneracies at the edge of the cutoff
+    
+    >>> eps = np.array([[[0, 1, 2, 2, 3, 4, 5, 5]]])
+    >>> get_nbands_cutoff_list(eps, 7)
+    {1, 2, 4, 5, 6}
     """
     allset = set(range(nconv + 1))
     # Loop over spins and k-points
