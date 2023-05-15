@@ -776,22 +776,16 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation()
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
-        get_plasmafreq_matrix_element = partial(
-            self.get_plasmafreq_matrix_element, **mat_kwargs)
-        get_plasmafreq_eigenvalue = partial(
-            self.get_plasmafreq_eigenvalue, **eig_kwargs)
+        from gpaw.response.integrands import PlasmaFrequencyIntegrand
+        integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(get_plasmafreq_matrix_element,
-                                        get_plasmafreq_eigenvalue),
+                             integrand=integrand,
                              out_wxx=tmp_plasmafreq_wvv,  # Output array
                              **extraargs)  # Extra args for int. method
         tmp_plasmafreq_wvv *= prefactor
@@ -814,14 +808,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
 
-    def get_band_summation(self):
-        """Define the band summation."""
-        # When doing a calculation of the intraband response, we need only to
-        # integrate the partially unoccupied bands.
-        bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-
-        return bandsum
-
     def get_integral_kind(self):
         """Define what "kind" of integral to make."""
         extraargs = {}
@@ -837,49 +823,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
             extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
 
         return kind, extraargs
-
-    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
-                                      *, qpd,
-                                      symmetry,
-                                      integrationmode=None):
-        """NB: In dire need of documentation! XXX."""
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
-        n_n = range(n1, n2)
-
-        vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
-
-        if integrationmode is None:
-            f_n = kpt1.f_n
-            width = self.gs.get_occupations_width()
-            if width > 1e-15:
-                dfde_n = - 1. / width * (f_n - f_n**2.0)
-            else:
-                dfde_n = np.zeros_like(f_n)
-            vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
-            weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                             symmetry.how_many_symmetries())
-            vel_nv *= weight
-
-        return vel_nv
-
-    def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1, n2, *, qpd):
-        """A function that can return the intraband eigenvalues.
-
-        A simple function describing the integrand of
-        the response function which gives an output that
-        is compatible with the gpaw k-point integration
-        routines."""
-        gs = self.gs
-        kd = gs.kd
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.pair.find_kpoint(k_c)
-        ik = kd.bz2ibz_k[K1]
-        kpt1 = gs.kpt_qs[ik][s]
-        assert gs.kd.comm.size == 1
-
-        return kpt1.eps_n[n1:n2]
 
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)
