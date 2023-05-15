@@ -218,6 +218,7 @@ class GPWFiles:
                           txt=self.path / 'h2_bcc_afm.txt',
                           mode=PW(250),
                           nbands=4,
+                          convergence={'bands': 4},
                           kpts={'density': 2.0, 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
