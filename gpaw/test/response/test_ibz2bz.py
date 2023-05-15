@@ -198,9 +198,12 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
     # compares so that projections at given k and band index n
     # differ by at most a phase
     for a, P_ni in proj_sym.items():
-        for j in range(len(P_ni[n, :])):
+        for j in range(P_ni.shape[1]):
             # Check so that absolute values of projections are the same
-            assert np.isclose(abs(P_ni[n, j]), abs(proj_nosym[a][n, j]), atol=atol)
+            assert np.isclose(abs(P_ni[n, j]),
+                              abs(proj_nosym[a][n, j]),
+                              atol=atol)
+
 
 def get_overlaps_from_setups(wfs):
     dO_aii = {}
