@@ -6,22 +6,27 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 @pytest.mark.response
-def test_response_band_cutoff(in_tmp_dir, gpw_files):
+@pytest.mark.parametrize('gs', list(response_band_cutoff.keys()))
+def test_response_band_cutoff(in_tmp_dir, gpw_files, gs):
 
-    for gs, nbands in response_band_cutoff.items():
-        with ulmopen(gpw_files[gs]) as reader:
-            eps_skn = reader.wave_functions.eigenvalues
-            nconv = reader.parameters.convergence['bands']
-        print(gs)
-        assert nbands < nconv
-        possible_cutoffs = get_nbands_cutoff_list(eps_skn, nconv)
-        assert nbands in possible_cutoffs
+    nbands = response_band_cutoff[gs]
+    with ulmopen(gpw_files[gs]) as reader:
+        eps_skn = reader.wave_functions.eigenvalues
+        nconv = reader.parameters.convergence['bands']
+    print(gs)
+    assert nbands < nconv
+    possible_cutoffs = get_nbands_cutoff_list(eps_skn, nconv)
+    assert nbands in possible_cutoffs
 
         
 def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-4):
     """ Possible cutoffs for response calc
     Returns the set all allowed band cutoffs in a response calculation.
     Assures that there are no  degeneracies at the edge of the cutoff
+    
+    >>> eps = np.array([[[0, 1, 2, 2, 3, 4, 5, 5]]])
+    >>> get_nbands_cutoff_list(eps, 7)
+    {1, 2, 4, 5, 6}
     """
     allset = set(range(nconv + 1))
     # Loop over spins and k-points
