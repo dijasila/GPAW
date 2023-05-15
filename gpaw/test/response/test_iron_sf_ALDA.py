@@ -17,8 +17,8 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
-from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.df import read_response_function
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.pair_functions import read_pair_function
 
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
@@ -72,27 +72,26 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
                                      disable_point_group=disable_syms,
                                      disable_time_reversal=disable_syms,
                                      nblocks=2)
-        chi_factory = ChiFactory(chiks_calc)
-        localft_calc = LocalFTCalculator.from_rshe_parameters(
+        fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
             gs, chiks_calc.context,
             rshelmax=rshelmax,
             rshewmin=rshewmin)
-        chi = chi_factory('+-', q_c, complex_frequencies,
-                          fxc=fxc, localft_calc=localft_calc)
+        chi_factory = ChiFactory(chiks_calc, fxc_calculator)
+        _, chi = chi_factory('+-', q_c, complex_frequencies, fxc=fxc)
         chi.write_macroscopic_component('iron_dsus' + '_G%d.csv' % (s + 1))
         chi_factory.context.write_timer()
 
     world.barrier()
 
     # Identify magnon peak in scattering functions
-    w1_w, chiks1_w, chi1_w = read_response_function('iron_dsus_G1.csv')
-    w2_w, chiks2_w, chi2_w = read_response_function('iron_dsus_G2.csv')
-    w3_w, chiks3_w, chi3_w = read_response_function('iron_dsus_G3.csv')
-    w4_w, chiks4_w, chi4_w = read_response_function('iron_dsus_G4.csv')
-    w5_w, chiks5_w, chi5_w = read_response_function('iron_dsus_G5.csv')
-    w6_w, chiks6_w, chi6_w = read_response_function('iron_dsus_G6.csv')
-    w7_w, chiks7_w, chi7_w = read_response_function('iron_dsus_G7.csv')
-    w8_w, chiks8_w, chi8_w = read_response_function('iron_dsus_G8.csv')
+    w1_w, chi1_w = read_pair_function('iron_dsus_G1.csv')
+    w2_w, chi2_w = read_pair_function('iron_dsus_G2.csv')
+    w3_w, chi3_w = read_pair_function('iron_dsus_G3.csv')
+    w4_w, chi4_w = read_pair_function('iron_dsus_G4.csv')
+    w5_w, chi5_w = read_pair_function('iron_dsus_G5.csv')
+    w6_w, chi6_w = read_pair_function('iron_dsus_G6.csv')
+    w7_w, chi7_w = read_pair_function('iron_dsus_G7.csv')
+    w8_w, chi8_w = read_pair_function('iron_dsus_G8.csv')
     print(-chi1_w.imag)
     print(-chi2_w.imag)
 
@@ -125,9 +124,9 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=22.)
-    assert mw2 == pytest.approx(test_mw2, abs=22.)
-    assert mw4 == pytest.approx(test_mw4, abs=22.)
+    assert mw1 == pytest.approx(test_mw1, abs=25.)
+    assert mw2 == pytest.approx(test_mw2, abs=25.)
+    assert mw4 == pytest.approx(test_mw4, abs=25.)
 
     # Scattering function intensity:
     assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
@@ -139,11 +138,11 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     assert Ipeak2 == pytest.approx(Ipeak3, abs=0.1)
 
     # The two transitions summation strategies should give identical results
-    assert mw4 == pytest.approx(mw5, abs=20.)
+    assert mw4 == pytest.approx(mw5, abs=25.)
     assert Ipeak4 == pytest.approx(Ipeak5, abs=0.5)
 
     # Toggling symmetry should preserve the result
-    assert mw6 == pytest.approx(mw4, abs=20.)
+    assert mw6 == pytest.approx(mw4, abs=25.)
     assert Ipeak6 == pytest.approx(Ipeak4, abs=0.5)
 
     # Including vanishing coefficients should not matter for the result

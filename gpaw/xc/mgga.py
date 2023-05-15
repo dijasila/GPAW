@@ -90,7 +90,7 @@ class MGGA(XCFunctional):
                 self.wfs.calculate_kinetic_energy_density()
         else:
             taut_sG = self.wfs.calculate_kinetic_energy_density()
-        
+
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
@@ -207,7 +207,7 @@ class MGGA(XCFunctional):
         self.xcc = setup.xc_correction
         self.dEdD_sp = dEdD_sp
 
-        if self.xcc.tau_npg is None:
+        if self.xcc is not None and self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
                 self.xcc)
 

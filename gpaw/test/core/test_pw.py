@@ -1,10 +1,12 @@
+from math import pi
+
 import numpy as np
 import pytest
-from gpaw.core import UniformGrid, PlaneWaves
-from gpaw.mpi import world
+from gpaw import SCIPY_VERSION
+from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.plane_waves import find_reciprocal_vectors
-from math import pi
 from gpaw.gpu import cupy as cp
+from gpaw.mpi import world
 
 
 @pytest.mark.ci
@@ -82,6 +84,9 @@ def grids():
 def test_pw_integrate(xp, grid):
     if xp is cp and world.size > 1:
         return
+    if xp is cp and SCIPY_VERSION < [1, 6]:
+        pytest.skip()
+
     a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     g = grid
@@ -114,11 +119,11 @@ def test_pw_integrate(xp, grid):
     f1 = f.desc.empty(1, xp=xp)
     f1.data[:] = f.data
     m2 = f1.matrix_elements(f1)
-    assert i2 == m2.data[0, 0].item()
+    assert i2 == pytest.approx(m2.data[0, 0].item(), abs=1e-13)
 
 
 def test_grr():
-    from ase.units import Ha, Bohr
+    from ase.units import Bohr, Ha
     grid = UniformGrid(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
                        size=(9, 9, 12),
                        comm=world)

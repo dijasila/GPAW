@@ -24,7 +24,10 @@ def new(x):
     atoms.calc = GPAW(**params,
                       txt=f'{x}s.txt')
     f = atoms.get_forces()
+    f2 = atoms.calc.get_property('forces', allow_calculation=False)
+    assert (f == f2).all()
     e = atoms.get_potential_energy()
+
     atoms.get_dipole_moment()
     print(e)
     print(f)

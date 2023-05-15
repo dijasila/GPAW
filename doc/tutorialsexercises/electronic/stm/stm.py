@@ -10,13 +10,13 @@ c = stm.get_averaged_current(bias, z)
 x, y, h = stm.scan(bias, c, repeat=(3, 5))
 # plot1
 import matplotlib.pyplot as plt
-plt.gca(aspect='equal')
+plt.gca().axis('equal')
 plt.contourf(x, y, h, 40)
 plt.colorbar()
 plt.savefig('2d.png')
 # plot2
 plt.figure()
-plt.gca(aspect='equal')
+plt.gca().axis('equal')
 x, y, I = stm.scan2(bias, z, repeat=(3, 5))
 plt.contourf(x, y, I, 40)
 plt.colorbar()

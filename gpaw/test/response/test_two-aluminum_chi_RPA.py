@@ -11,7 +11,8 @@ from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory, read_component
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.pair_functions import read_susceptibility_array
 
 
 @pytest.mark.kspair
@@ -73,10 +74,10 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     # Check that results are consistent, when structure is simply repeated
 
     # Read results
-    w11_w, G11_Gc, chiks11_wGG, chi11_wGG = read_component('Al1_chiGG_q1.pckl')
-    w21_w, G21_Gc, chiks21_wGG, chi21_wGG = read_component('Al2_chiGG_q1.pckl')
-    w12_w, G12_Gc, chiks12_wGG, chi12_wGG = read_component('Al1_chiGG_q2.pckl')
-    w22_w, G22_Gc, chiks22_wGG, chi22_wGG = read_component('Al2_chiGG_q2.pckl')
+    w11_w, G11_Gc, chi11_wGG = read_susceptibility_array('Al1_chiGG_q1.pckl')
+    w21_w, G21_Gc, chi21_wGG = read_susceptibility_array('Al2_chiGG_q1.pckl')
+    w12_w, G12_Gc, chi12_wGG = read_susceptibility_array('Al1_chiGG_q2.pckl')
+    w22_w, G22_Gc, chi22_wGG = read_susceptibility_array('Al2_chiGG_q2.pckl')
 
     # Check that reciprocal lattice vectors remain as assumed in check below
     equal(np.linalg.norm(G11_Gc[0]), 0., 1e-6)
@@ -110,6 +111,7 @@ def calculate_chi(calc, q_qc, w,
 
     for q, q_c in enumerate(q_qc):
         fname = filename.replace('XXX', str(q + 1))
-        chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
-        chi.write_reduced_arrays(fname, reduced_ecut=reduced_ecut)
+        _, chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
+        chi = chi.copy_with_reduced_ecut(reduced_ecut)
+        chi.write_array(fname)
         world.barrier()

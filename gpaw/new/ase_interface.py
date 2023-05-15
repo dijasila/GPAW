@@ -64,11 +64,6 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if abs(a1.cell - a2.cell).max() > 0.0:
         return {'cell'}
 
-    magnetic1 = a1.get_initial_magnetic_moments().any()
-    magnetic2 = a2.get_initial_magnetic_moments().any()
-    if magnetic1 != magnetic2:
-        return {'magmoms'}
-
     if abs(a1.positions - a2.positions).max() > 0.0:
         return {'positions'}
 
@@ -116,7 +111,7 @@ class ASECalculator:
         """
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
+            if changes & {'numbers', 'pbc', 'cell'}:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
@@ -165,7 +160,14 @@ class ASECalculator:
 
         return self.calculation.results[prop] * units[prop]
 
-    def get_property(self, name, atoms, allow_calculation=None):
+    def get_property(self,
+                     name: str,
+                     atoms: Atoms | None = None,
+                     allow_calculation: bool = True) -> Any:
+        if not allow_calculation and name not in self.calculation.results:
+            return None
+        if atoms is None:
+            atoms = self.atoms
         return self.calculate_property(atoms, name)
 
     @property
@@ -492,7 +494,6 @@ class ASECalculator:
 
     @property
     def parameters(self):
-        print(self.params)
         return self.params
 
     def dos(self,

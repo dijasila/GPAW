@@ -23,7 +23,7 @@ class PairDensity:
 
     def get_global_array(self):
         """Get the global (all gathered) pair density array n_tG."""
-        n_tG = self.tblocks.collect(self.n_mytG)
+        n_tG = self.tblocks.all_gather(self.n_mytG)
 
         return n_tG
 

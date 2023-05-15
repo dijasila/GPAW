@@ -9,7 +9,7 @@ GPAW offers two ways of calculating Raman intensities. One can use the `ASE Rama
 with the GPAW LRTDDFT module as shown in the Resonant Raman tutorial :ref:`resonant_raman_water`.
 
 GPAW also implements Raman spectroscopy for zone-center phonons of extended systems
-using the electron-phonon coupling (see :ref:`elph`) within 3rd order perturbation 
+using the electron-phonon coupling (see :ref:`elphtheory` and :ref:`elph`) within 3rd order perturbation 
 theory :dfn:`Taghizadeh et a.` [#Taghizadeh2020]_ , which is discussed here. This method is currently only
 implementated for the LCAO mode.
 

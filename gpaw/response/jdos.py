@@ -11,9 +11,7 @@ class JDOS(PairFunction):
 
     def __init__(self, spincomponent, qpd, zd):
         self.spincomponent = spincomponent
-        self.zd = zd
-
-        super().__init__(qpd)
+        super().__init__(qpd, zd)
     
     def zeros(self):
         nz = len(self.zd)
