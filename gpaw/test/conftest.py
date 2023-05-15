@@ -434,6 +434,27 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def ni_pw_kpts333(self):
+        from ase.dft.kpoints import monkhorst_pack
+        # from gpaw.mpi import serial_comm
+        Ni = bulk('Ni', 'fcc')
+        Ni.set_initial_magnetic_moments([0.7])
+
+        kpts = monkhorst_pack((3, 3, 3))
+
+        calc = GPAW(mode='pw',
+                    kpts=kpts,
+                    occupations=FermiDirac(0.001),
+                    setups={'Ni': '10'},
+                    # communicator=serial_comm
+                    )
+
+        Ni.calc = calc
+        Ni.get_potential_energy()
+        calc.diagonalize_full_hamiltonian()
+        # calc.write('Ni.gpw', mode='all')
+        return calc
+
     def nicl2_pw(self):
         from ase.build import mx2
 
@@ -645,6 +666,28 @@ class GPWFiles:
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
+
+    def h_pw210_rmmdiis(self):
+        return self._pw_210_rmmdiis(Atoms('H'))
+
+    def h2_pw210_rmmdiis(self):
+        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]))
+
+    def _pw_210_rmmdiis(self, atoms):
+        atoms.set_pbc(True)
+        atoms.set_cell((2., 2., 3.))
+        atoms.center()
+        calc = GPAW(mode=PW(210, force_complex_dtype=True),
+                    eigensolver='rmm-diis',
+                    xc='LDA',
+                    basis='dzp',
+                    nbands=8,
+                    parallel={'domain': 1},
+                    convergence={'density': 1.e-6})
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        calc.diagonalize_full_hamiltonian(nbands=80)
+        return calc
 
 
 class GPAWPlugin:
