@@ -155,7 +155,7 @@ class WCalculator(WBaseCalculator):
                                  q0_correction=q0_correction)
         self.hilbert_transform = hilbert_transform
 
-    def get_W_model(self, chi0, fxc_mode, only_correlation=True):
+    def get_HW_model(self, chi0, fxc_mode, only_correlation=True):
         assert only_correlation
         W_wGG = self.calculate_W_WgG(chi0,
                                      fxc_mode=fxc_mode,
@@ -165,7 +165,7 @@ class WCalculator(WBaseCalculator):
             W_xwGG = self.hilbert_transform(W_wGG)
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        return FullFrequencyWModel(chi0.wd, W_xwGG, factor)
+        return FullFrequencyHWModel(chi0.wd, W_xwGG, factor)
         
     def calculate_W_WgG(self, chi0,
                         fxc_mode='GW',
@@ -274,12 +274,12 @@ class WCalculator(WBaseCalculator):
         return chi0.qpd, Wm_wGG, Wp_wGG  # not Hilbert transformed yet
 
 
-class WModel:
+class HWModel:
     def __init__(self, label):
         self.label = label
 
 
-class FullFrequencyWModel(WModel):
+class FullFrequencyHWModel(HWModel):
     def __init__(self, wd, HW_swGG, factor):
         self.wd = wd
         self.HW_swGG = HW_swGG
@@ -317,9 +317,9 @@ class FullFrequencyWModel(WModel):
         return -1j * p * sigma_GG, -1j * p * dsigma_GG
 
 
-class PPAWModel(WModel):
+class PPAHWModel(HWModel):
     def __init__(self, W_GG, omegat_GG, eta, factor):
-        WModel.__init__(self, 'PPAWModel')
+        HWModel.__init__(self, 'PPAHWModel')
         self.W_GG = W_GG
         self.omegat_GG = omegat_GG
         self.eta = eta
@@ -349,7 +349,7 @@ class PPACalculator(WBaseCalculator):
                                  q0_correction=q0_correction)
         self.eta = eta
 
-    def get_W_model(self, chi0,
+    def get_HW_model(self, chi0,
                     fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
@@ -378,4 +378,4 @@ class PPACalculator(WBaseCalculator):
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
 
-        return PPAWModel(W_GG, omegat_GG, self.eta, factor)
+        return PPAHWModel(W_GG, omegat_GG, self.eta, factor)

@@ -851,8 +851,8 @@ class G0W0Calculator:
         for fxc_mode in self.fxc_modes:
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            Wdict[fxc_mode] = self.wcalc.get_W_model(rchi0,
-                                                     fxc_mode=fxc_mode)
+            Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
+                                                      fxc_mode=fxc_mode)
             if (chi0calc.pawcorr is not None and
                 rqpd.ecut < chi0.qpd.ecut):
                 assert not self.ppa, """In previous master, PPA with ecut
