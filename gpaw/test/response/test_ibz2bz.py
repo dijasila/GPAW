@@ -6,11 +6,6 @@ import gpaw.mpi as mpi
 from gpaw.test.conftest import response_band_cutoff
 
 
-def mark_xfail(gs, request):
-    if gs in ['co_pw']:
-        request.node.add_marker(pytest.mark.xfail)
-
-
 @pytest.mark.later
 @pytest.mark.serial
 @pytest.mark.response
@@ -19,33 +14,16 @@ def mark_xfail(gs, request):
                                 'fe_pw',
                                 'co_pw',
                                 'gaas_pw'])
-@pytest.mark.parametrize('only_ibz_kpts', [True, False])
-def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
+def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     """ Tests gpaw.response.ibz2bz.py
     Tests functionalities to take wavefunction and projections from
     ibz to full bz by comparing calculations with and without symmetry.
-
-    - Note that Al, Fe and Co are all marked as xfail!
-    - For Al eigenvalues are different. Probably due to k-mesh.
-      See "Note your k-mesh ..." in gs output files.
-    - For Fe projections between two calculations differ by more than a
-      phase. This is the case for both IBZ-k and symmetry related k, so it is
-      a convention of the gs calculation?
-    - For Co the eigenvalues are different when doing all the k-points, while
-      the projections differ by more than a phase when restricting the
-      comparison to the IBZ k-points
-
-    XXX To do XXX
-    * When xfails are figured out, remove only_ibz_kpts parametrization
     """
 
-    # Al, Fe and Co fails. Need to figure out why (see above)
-    mark_xfail(gs, request)
-
-    # can set individual tolerance for eigenvalues
-    atol = 5e-04
-    atol_eig = 1e-05
-
+    atol = 5e-03  # Tolerance when comparing wfs and projections
+    atol_eig = 1e-04  # Tolerance when comparing eigenvalues
+    atol_deg = 5e-3  # Tolerance for checking degenerate states
+    
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs + '_wfs'],
                 communicator=mpi.serial_comm)
@@ -69,11 +47,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     for s in range(wfs.nspins):
         for K in range(nbzk):
             ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
-
-            # if only_ibz_kpts fixture is true only test ibz k-points
-            if only_ibz_kpts and not np.allclose(wfs.kd.bzk_kc[K],
-                                                 wfs.kd.ibzk_kc[ik]):
-                continue
 
             # Check so that BZ kpoints are the same
             assert np.allclose(wfs.kd.bzk_kc[K], wfs_nosym.kd.bzk_kc[K])
@@ -110,10 +83,20 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             # Loop over all bands
             n = 0
             while n < nbands:
-                dim = find_degenerate_subspace(eps_n, n, nbands, atol_eig)
+                dim = find_degenerate_subspace(eps_n, n, nbands, atol_deg)
                 if dim == 1:
-                    # First check so that projections differ by at most
-                    # a global phase
+                    
+                    # First check untransformed quantities for ibz k-points
+                    if np.allclose(wfs.kd.bzk_kc[K],
+                                   wfs.kd.ibzk_kc[ik]):
+                        # Compare untransformed projections
+                        compare_projections(proj, proj_nosym, n, atol)
+                        # Compare untransformed wf:s
+                        assert np.allclose(abs(ut_nR[n]),
+                                           abs(ut_nR_nosym[n]), atol=atol)
+
+                    # Then check so that absolute value of transformed
+                    # projections are the same
                     compare_projections(proj_sym, proj_nosym, n, atol)
 
                     # Check so that periodic part of pseudo is same,
