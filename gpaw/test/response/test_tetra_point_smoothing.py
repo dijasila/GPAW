@@ -4,17 +4,17 @@ from gpaw import PW
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 from gpaw.response.df import DielectricFunction
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 
-a = 2.5
-c = 3.22
 
 def test_gs():
+    
     gs_file = 'gs.gpw'
     response_file = 'gsresponse.gpw'
     
     # Graphene:
+    a = 2.5
     atoms = Atoms(
         symbols='C2', positions=[(0.5 * a, -np.sqrt(3) / 6 * a, 0.0),
                                  (0.5 * a, np.sqrt(3) / 6 * a, 0.0)],
@@ -64,17 +64,20 @@ def test_gs():
     df2_tetra = np.imag(df2_tetra)
     df2_point = np.imag(df2_point)
     
+    # Do not use frequencies near the w=0 singularity
+    slicer = [(freq >= 1.5) and (freq <= 20) for freq in omega]
     # Convolve with Gaussian to smoothen the curve
-    slicer = [(freq >= 1.5) and (freq <= 20) for freq in omega] #Do not use frequencies near the w=0 singularity
     sigma = 1.9
     df2_gauss = gaussian_filter1d(df2_point[slicer], sigma)
     
-    rms_diff_tetra_point = np.sqrt(np.sum((df2_tetra[slicer]-df2_point[slicer])**2)/np.sum(slicer))
-    rms_diff_tetra_gauss = np.sqrt(np.sum((df2_tetra[slicer]-df2_gauss)**2)/np.sum(slicer))
+    rms_diff_tetra_point = np.sqrt(np.sum((df2_tetra[slicer]
+                                   - df2_point[slicer])**2) / np.sum(slicer))
+    rms_diff_tetra_gauss = np.sqrt(np.sum((df2_tetra[slicer]
+                                   - df2_gauss)**2) / np.sum(slicer))
 
     assert rms_diff_tetra_point < 1.35
     assert rms_diff_tetra_gauss < 1.10
-    assert rms_diff_tetra_point * 0.80> rms_diff_tetra_gauss
+    assert rms_diff_tetra_point * 0.80 > rms_diff_tetra_gauss
 
     from gpaw.test import findpeak
     freq1, amp1 = findpeak(omega[slicer], df2_tetra[slicer])
@@ -87,7 +90,6 @@ def test_gs():
     # plt.plot(omega[slicer], df2_tetra[slicer], label='Tetrahedron')
     # plt.plot(omega[slicer], df2_point[slicer], label='Point sampling')
     # plt.plot(omega[slicer], df2_gauss, label='Gaussian convolution')
-
     # plt.xlabel('Frequency (eV)')
     # plt.ylabel('$\\mathrm{Im}\\varepsilon$')
     # plt.xlim(0, 6)
@@ -95,5 +97,3 @@ def test_gs():
     # plt.legend()
     # plt.tight_layout()
     # plt.savefig('graphene_eps.png', dpi=300)
-
-test_gs()
