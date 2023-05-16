@@ -56,8 +56,8 @@ def get_q_c(wfs, qrel):
         # Generate points on the G-N path
         q_c = qrel * np.array([0., 0., 1.])
     elif wfs == 'co_pw_wfs':
-        # Generate points on the G-A path
-        q_c = qrel * np.array([0., 0., 1.])
+        # Generate points on the G-M path
+        q_c = qrel * np.array([1., 0., 0.])
     else:
         raise ValueError('Invalid wfs', wfs)
 
