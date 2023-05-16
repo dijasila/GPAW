@@ -37,7 +37,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     # can set individual tolerance for eigenvalues
     atol = 5e-03
     atol_eig = 1e-05
-
+    atol_deg = 1e-3
+    
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs + '_wfs'],
                 communicator=mpi.serial_comm)
@@ -102,7 +103,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             # Loop over all bands
             n = 0
             while n < nbands:
-                dim = find_degenerate_subspace(eps_n, n, nbands, atol_eig)
+                dim = find_degenerate_subspace(eps_n, n, nbands, atol_deg)
                 if dim == 1:
                     
                     #First check untransformed quantities for ibz k-points

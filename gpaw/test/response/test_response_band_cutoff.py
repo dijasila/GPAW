@@ -16,10 +16,11 @@ def test_response_band_cutoff(in_tmp_dir, gpw_files, gs):
     print(gs)
     assert nbands < nconv
     possible_cutoffs = get_nbands_cutoff_list(eps_skn, nconv)
+    print(possible_cutoffs)
     assert nbands in possible_cutoffs
 
-        
-def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-4):
+
+def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-3):
     """ Possible cutoffs for response calc
     Returns the set all allowed band cutoffs in a response calculation.
     Assures that there are no  degeneracies at the edge of the cutoff
