@@ -4,16 +4,15 @@ from gpaw import PW
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 from gpaw.response.df import DielectricFunction
 import numpy as np
-# import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
 
 
-def test_gs():
+def test_point_tetra_match(in_tmp_dir):
     
     gs_file = 'gs.gpw'
     response_file = 'gsresponse.gpw'
     
-    # Graphene:
+    # Create graphene lattice
     a = 2.5
     atoms = Atoms(
         symbols='C2', positions=[(0.5 * a, -np.sqrt(3) / 6 * a, 0.0),
@@ -42,23 +41,23 @@ def test_gs():
         occupations=FermiDirac(0.001),
         convergence={'bands': 10})
     responseGS.write(response_file, 'all')
-    
+
+    # DF with tetra integration
     df = DielectricFunction(response_file,
                             eta=25e-3,
                             rate='eta',
                             frequencies={'type': 'nonlinear',
                                          'domega0': 0.1},
                             integrationmode='tetrahedron integration')
-    df1_tetra, df2_tetra = df.get_dielectric_function(q_c=[0, 0, 0],
-                                                      filename='df_tetra.csv')
+    df1_tetra, df2_tetra = df.get_dielectric_function(q_c=[0, 0, 0])
 
+    # DF with point integration
     df = DielectricFunction(response_file,
                             frequencies={'type': 'nonlinear',
                                          'domega0': 0.1},
                             eta=25e-3,
                             rate='eta')
-    df1_point, df2_point = df.get_dielectric_function(q_c=[0, 0, 0],
-                                                      filename='df_point.csv')
+    df1_point, df2_point = df.get_dielectric_function(q_c=[0, 0, 0])
 
     omega = df.get_frequencies()
     df2_tetra = np.imag(df2_tetra)
@@ -85,7 +84,8 @@ def test_gs():
 
     assert freq1 - freq2 < 0.1
 
-    # Plot the figures
+    # # Plot the figures
+    # import matplotlib.pyplot as plt
     # plt.figure(figsize=(6, 6))
     # plt.plot(omega[slicer], df2_tetra[slicer], label='Tetrahedron')
     # plt.plot(omega[slicer], df2_point[slicer], label='Point sampling')
