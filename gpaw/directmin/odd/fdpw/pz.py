@@ -8,7 +8,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
-from gpaw.wavefunctions.pw import PWLFC
+#from gpaw.wavefunctions.pw import PWLFC   circular import
 from gpaw.utilities.ewald import madelung
 # from ase.parallel import parprint
 # import time
@@ -39,6 +39,8 @@ class PzCorrections:
         self.pd3 = None
         self.corr = None
         if wfs.mode == 'pw':
+            from gpaw.wavefunctions.pw import PWLFC
+
             assert self.sic_coarse_grid
             self.pd2 = dens.pd2
             self.pd3 = dens.pd3
