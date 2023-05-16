@@ -124,7 +124,7 @@ class SCFLoop:
             wfs.eigensolver.check_assertions(wfs, dens)
             if name == 'etdm':
                 if wfs.eigensolver.dm_helper is None:
-                    wfs.eigensolver.initialize_dm_helper(wfs, ham, dens)
+                    wfs.eigensolver.initialize_dm_helper(wfs, ham, dens, log)
             else:
                 if not solver.initialized:
                     solver.init_me(wfs, ham, dens, log)
@@ -157,16 +157,24 @@ class SCFLoop:
         else:
             e_sic = 0.0
 
-        ham.get_energy(e_entropy, wfs, kin_en_using_band=kin_en_using_band, e_sic=e_sic)
+        ham.get_energy(
+            e_entropy, wfs, kin_en_using_band=kin_en_using_band, e_sic=e_sic)
 
     def do_if_converged(self, wfs, ham, dens, log):
 
         if self.eigensolver_name == 'etdm':
-            energy = ham.get_energy(0.0, wfs, kin_en_using_band=False)
+            if hasattr(wfs.eigensolver, 'e_sic'):
+                e_sic = wfs.eigensolver.e_sic
+            else:
+                e_sic = 0.0
+            energy = ham.get_energy(
+                0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
             wfs.calculate_occupation_numbers(dens.fixed)
             wfs.eigensolver.get_canonical_representation(
                 ham, wfs, dens, sort_eigenvalues=True)
-            energy_converged = wfs.eigensolver.update_ks_energy(ham, wfs, dens)
+            wfs.eigensolver.update_ks_energy(ham, wfs, dens)
+            energy_converged = ham.get_energy(
+                0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
             energy_diff_after_scf = abs(energy - energy_converged) * Ha
             if energy_diff_after_scf > 1.0e-6:
                 warnings.warn('Jump in energy of %f eV detected at the end of '
