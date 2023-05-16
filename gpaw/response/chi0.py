@@ -44,7 +44,7 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2, context):
+    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
@@ -57,20 +57,154 @@ class Chi0Integrand(Integrand):
 
         if optical:
             self._matrix_element = partial(
-                chi0calc.get_optical_matrix_element, **mat_kwargs)
+                self.get_optical_matrix_element, **mat_kwargs)
         else:
             self._matrix_element = partial(
-                chi0calc.get_matrix_element, **mat_kwargs)
+                self.get_matrix_element, **mat_kwargs)
         self._eigenvalues = partial(
-            chi0calc.get_eigenvalues, qpd=qpd)
+            self.get_eigenvalues, qpd=qpd)
 
-        self.context = context
+        self.context = chi0calc.context
+        self.pair = chi0calc.pair
+        self.gs = chi0calc.gs
 
     def matrix_element(self, *args, **kwargs):
         return self._matrix_element(*args, **self.bandsum, **kwargs)
 
     def eigenvalue(self, *args, **kwargs):
         return self._eigenvalues(*args, **self.bandsum, **kwargs)
+
+
+    @timer('Get matrix element')
+    def get_matrix_element(self, k_v, s, n1, n2,
+                           m1, m2, *, qpd,
+                           symmetry, integrationmode=None):
+        """A function that returns pair-densities.
+
+        A pair density is defined as::
+
+         <snk| e^(-i (q + G) r) |s'mk+q>,
+
+        where s and s' are spins, n and m are band indices, k is
+        the kpoint and q is the momentum transfer. For dielectric
+        response s'=s, for the transverse magnetic response
+        s' is flipped with respect to s.
+
+        Parameters
+        ----------
+        k_v : ndarray
+            Kpoint coordinate in cartesian coordinates.
+        s : int
+            Spin index.
+        n1 : int
+            Lower occupied band index.
+        n2 : int
+            Upper occupied band index.
+        m1 : int
+            Lower unoccupied band index.
+        m2 : int
+            Upper unoccupied band index.
+        qpd : SingleQPWDescriptor instance
+        symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
+            Symmetry analyzer object for handling symmetries of the kpoints.
+        integrationmode : str
+            The integration mode employed.
+
+        Return
+        ------
+        n_nmG : ndarray
+            Pair densities.
+        """
+        return self._get_any_matrix_element(
+            k_v, s, n1, n2, m1, m2, qpd=qpd,
+            symmetry=symmetry, integrationmode=integrationmode,
+            block=True,
+            target_method=self.pair.get_pair_density,
+        ).reshape(-1, qpd.ngmax)
+
+    def _get_any_matrix_element(
+            self, k_v, s, n1, n2, m1, m2, *, qpd,
+            symmetry, integrationmode=None,
+            block, target_method):
+        assert m1 <= m2
+
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
+                         symmetry.how_many_symmetries())
+
+        # Here we're again setting pawcorr willy-nilly
+        if self._chi0calc.pawcorr is None:
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            self._chi0calc.pawcorr = pairden_paw_corr(qpd)
+
+        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
+                                            m1, m2, block=block)
+        m_m = np.arange(m1, m2)
+        n_n = np.arange(n1, n2)
+        n_nmG = target_method(qpd, kptpair, n_n, m_m,
+                              pawcorr=self._chi0calc.pawcorr,
+                              block=block)
+
+        if integrationmode is None:
+            n_nmG *= weight
+
+        df_nm = kptpair.get_occupation_differences(n_n, m_m)
+        df_nm[df_nm <= 1e-20] = 0.0
+        n_nmG *= df_nm[..., np.newaxis]**0.5
+
+        return n_nmG
+
+    @timer('Get matrix element')
+    def get_optical_matrix_element(self, k_v, s,
+                                   n1, n2,
+                                   m1, m2, *,
+                                   qpd, symmetry,
+                                   integrationmode=None):
+        """A function that returns optical pair densities, that is the
+        head and wings matrix elements, indexed by:
+        # P = (x, y, v, G1, G2, ...)."""
+
+        return self._get_any_matrix_element(
+            k_v, s, n1, n2, m1, m2, qpd=qpd,
+            symmetry=symmetry, integrationmode=integrationmode,
+            block=False,
+            target_method=self.pair.get_optical_pair_density,
+        ).reshape(-1, qpd.ngmax + 2)
+
+    @timer('Get eigenvalues')
+    def get_eigenvalues(self, k_v, s, n1, n2,
+                        m1, m2, *, qpd,
+                        gs=None, filter=False):
+        """A function that can return the eigenvalues.
+
+        A simple function describing the integrand of
+        the response function which gives an output that
+        is compatible with the gpaw k-point integration
+        routines."""
+        if gs is None:
+            gs = self.gs
+
+        kd = gs.kd
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        q_c = qpd.q_c
+        K1 = self.pair.find_kpoint(k_c)
+        K2 = self.pair.find_kpoint(k_c + q_c)
+
+        ik1 = kd.bz2ibz_k[K1]
+        ik2 = kd.bz2ibz_k[K2]
+        kpt1 = gs.kpt_qs[ik1][s]
+        assert gs.kd.comm.size == 1
+        kpt2 = gs.kpt_qs[ik2][s]
+        deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
+                              kpt2.eps_n[m1:m2])
+
+        if filter:
+            fermi_level = self.gs.fermi_level
+            deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
+            deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
+
+        return deps_nm.reshape(-1)
 
 
 class Chi0Calculator(Integrand):
@@ -297,8 +431,7 @@ class Chi0Calculator(Integrand):
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=False, m1=m1, m2=m2,
-                                  context=self.context)
+                                  optical=False, m1=m1, m2=m2)
 
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
@@ -343,8 +476,7 @@ class Chi0Calculator(Integrand):
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=True, m1=m1, m2=m2,
-                                  context=self.context)
+                                  optical=True, m1=m1, m2=m2)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
@@ -527,135 +659,6 @@ class Chi0Calculator(Integrand):
 
         bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
         return bzk_kv, analyzer
-
-    @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2, *, qpd,
-                           symmetry, integrationmode=None):
-        """A function that returns pair-densities.
-
-        A pair density is defined as::
-
-         <snk| e^(-i (q + G) r) |s'mk+q>,
-
-        where s and s' are spins, n and m are band indices, k is
-        the kpoint and q is the momentum transfer. For dielectric
-        response s'=s, for the transverse magnetic response
-        s' is flipped with respect to s.
-
-        Parameters
-        ----------
-        k_v : ndarray
-            Kpoint coordinate in cartesian coordinates.
-        s : int
-            Spin index.
-        n1 : int
-            Lower occupied band index.
-        n2 : int
-            Upper occupied band index.
-        m1 : int
-            Lower unoccupied band index.
-        m2 : int
-            Upper unoccupied band index.
-        qpd : SingleQPWDescriptor instance
-        symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
-            Symmetry analyzer object for handling symmetries of the kpoints.
-        integrationmode : str
-            The integration mode employed.
-
-        Return
-        ------
-        n_nmG : ndarray
-            Pair densities.
-        """
-        return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=qpd,
-            symmetry=symmetry, integrationmode=integrationmode,
-            block=True,
-            target_method=self.pair.get_pair_density,
-        ).reshape(-1, qpd.ngmax)
-
-    def _get_any_matrix_element(
-            self, k_v, s, n1, n2, m1, m2, *, qpd,
-            symmetry, integrationmode=None,
-            block, target_method):
-        assert m1 <= m2
-
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                         symmetry.how_many_symmetries())
-        if self.pawcorr is None:
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(qpd)
-
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=block)
-        m_m = np.arange(m1, m2)
-        n_n = np.arange(n1, n2)
-        n_nmG = target_method(qpd, kptpair, n_n, m_m,
-                              pawcorr=self.pawcorr,
-                              block=block)
-
-        if integrationmode is None:
-            n_nmG *= weight
-
-        df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
-
-        return n_nmG
-
-    @timer('Get matrix element')
-    def get_optical_matrix_element(self, k_v, s,
-                                   n1, n2,
-                                   m1, m2, *,
-                                   qpd, symmetry,
-                                   integrationmode=None):
-        """A function that returns optical pair densities, that is the
-        head and wings matrix elements, indexed by:
-        # P = (x, y, v, G1, G2, ...)."""
-
-        return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=qpd,
-            symmetry=symmetry, integrationmode=integrationmode,
-            block=False,
-            target_method=self.pair.get_optical_pair_density,
-        ).reshape(-1, qpd.ngmax + 2)
-
-    @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s, n1, n2,
-                        m1, m2, *, qpd,
-                        gs=None, filter=False):
-        """A function that can return the eigenvalues.
-
-        A simple function describing the integrand of
-        the response function which gives an output that
-        is compatible with the gpaw k-point integration
-        routines."""
-        if gs is None:
-            gs = self.gs
-
-        kd = gs.kd
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = qpd.q_c
-        K1 = self.pair.find_kpoint(k_c)
-        K2 = self.pair.find_kpoint(k_c + q_c)
-
-        ik1 = kd.bz2ibz_k[K1]
-        ik2 = kd.bz2ibz_k[K2]
-        kpt1 = gs.kpt_qs[ik1][s]
-        assert gs.kd.comm.size == 1
-        kpt2 = gs.kpt_qs[ik2][s]
-        deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
-                              kpt2.eps_n[m1:m2])
-
-        if filter:
-            fermi_level = self.gs.fermi_level
-            deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
-            deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
-
-        return deps_nm.reshape(-1)
 
     def print_info(self, qpd):
 
