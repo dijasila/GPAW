@@ -577,7 +577,7 @@ class GPWFiles:
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(xc=xc,
                           mode=PW(pw),
-                          kpts={'size': (6, 6, 4), 'gamma': True},
+                          kpts={'size': (4, 4, 4), 'gamma': True},
                           occupations=FermiDirac(occw),
                           convergence=conv,
                           nbands=band_cutoff + ebands,
