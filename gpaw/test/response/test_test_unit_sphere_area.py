@@ -3,19 +3,18 @@ from itertools import product
 import pytest
 import numpy as np
 
-from gpaw.response.integrators import TetrahedronIntegrator
+from gpaw.response.integrators import TetrahedronIntegrator, Integrand
 from gpaw.response.frequencies import FrequencyGridDescriptor
-# from gpaw.test import equal
 
 from gpaw.response import ResponseContext
 
 
-def unit(x_c):
-    return np.array([[1.]], complex)
+class MyIntegrand(Integrand):
+    def matrix_element(self, x_c):
+        return np.array([[1.]], complex)
 
-
-def unit_sphere(x_c):
-    return np.array([(x_c**2).sum()**0.5], float)
+    def eigenvalues(self, x_c):
+        return np.array([(x_c**2).sum()**0.5], float)
 
 
 @pytest.mark.response
@@ -30,7 +29,7 @@ def test_tetrahedron_integrator():
     out_wxx = np.zeros((1, 1, 1), complex)
     integrator.integrate(kind='spectral function',
                          domain=domain,
-                         integrand=(unit, unit_sphere),
+                         integrand=MyIntegrand(),
                          x=FrequencyGridDescriptor([-1.0]),
                          out_wxx=out_wxx)
 

@@ -71,7 +71,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
 
-        from gpaw.response.integrands import PlasmaFrequencyIntegrand
         integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
 
         # Integrate using temporary array

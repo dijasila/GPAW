@@ -19,10 +19,6 @@ class Integrand(ABC):
     def eigenvalues(self, k_v, s):
         ...
 
-    def __iter__(self):
-        yield self.matrix_element
-        yield self.eigenvalues
-
 
 def czher(alpha: float, x, A) -> None:
     """Hermetian rank-1 update of upper half of A.
@@ -140,7 +136,6 @@ class PointIntegrator(Integrator):
         """
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
-        get_matrix_element, get_eigenvalues = integrand
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
@@ -149,10 +144,10 @@ class PointIntegrator(Integrator):
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(mydomain_t):
-            n_MG = get_matrix_element(*arguments)
+            n_MG = integrand.matrix_element(*arguments)
             if n_MG is None:
                 continue
-            deps_M = get_eigenvalues(*arguments)
+            deps_M = integrand.eigenvalues(*arguments)
 
             if intraband:
                 assert eta is None
@@ -411,7 +406,6 @@ class TetrahedronIntegrator(Integrator):
         # Input domain
         td = self.tesselate(domain[0])
         args = domain[1:]
-        get_matrix_element, get_eigenvalues = integrand
 
         # Relevant quantities
         bzk_kc = td.points
@@ -462,7 +456,7 @@ class TetrahedronIntegrator(Integrator):
                     arguments = np.unravel_index(t, shape)
                 for K in range(nk):
                     k_c = bzk_kc[K]
-                    deps_M = -get_eigenvalues(k_c, *arguments)
+                    deps_M = -integrand.eigenvalues(k_c, *arguments)
                     if deps_tMk is None:
                         deps_tMk = np.zeros([nterms] +
                                             list(deps_M.shape) +
@@ -479,8 +473,8 @@ class TetrahedronIntegrator(Integrator):
                 t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
             teteps_Mk = deps_Mk[:, neighbours_k[K]]
-            n_MG = get_matrix_element(bzk_kc[K],
-                                      *arguments[:-1])
+            n_MG = integrand.matrix_element(bzk_kc[K],
+                                            *arguments[:-1])
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(

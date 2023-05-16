@@ -63,7 +63,7 @@ class Chi0Integrand(Integrand):
 
     @timer('Get matrix element')
     def matrix_element(self, k_v, s):
-        """A function that returns pair-densities.
+        """Return pair density matrix element for integration.
 
         A pair density is defined as::
 
@@ -80,19 +80,10 @@ class Chi0Integrand(Integrand):
             Kpoint coordinate in cartesian coordinates.
         s : int
             Spin index.
-        n1 : int
-            Lower occupied band index.
-        n2 : int
-            Upper occupied band index.
-        m1 : int
-            Lower unoccupied band index.
-        m2 : int
-            Upper unoccupied band index.
-        qpd : SingleQPWDescriptor instance
-        symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
-            Symmetry analyzer object for handling symmetries of the kpoints.
-        integrationmode : str
-            The integration mode employed.
+
+        If self.optical returns optical pair densities, that is the
+        head and wings matrix elements, indexed by:
+        # P = (x, y, v, G1, G2, ...).
 
         Return
         ------
@@ -143,17 +134,6 @@ class Chi0Integrand(Integrand):
 
         return n_nmG
 
-    # @timer('Get matrix element')
-    # def get_optical_matrix_element(self, k_v, s):
-    #    """A function that returns optical pair densities, that is the
-    #    head and wings matrix elements, indexed by:
-    #    # P = (x, y, v, G1, G2, ...)."""
-
-    #    return self._get_any_matrix_element(
-    #        k_v, s, block=False,
-    #        target_method=self.pair.get_optical_pair_density,
-    #    ).reshape(-1, self.qpd.ngmax + 2)
-
     @timer('Get eigenvalues')
     def eigenvalues(self, k_v, s):
         """A function that can return the eigenvalues.
@@ -163,23 +143,21 @@ class Chi0Integrand(Integrand):
         is compatible with the gpaw k-point integration
         routines."""
 
-        n1, n2, m1, m2 = (self.bandsum[x] for x in 'n1 n2 m1 m2'.split())
         qpd = self.qpd
         gs = self.gs
-
         kd = gs.kd
+
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = qpd.q_c
         K1 = self.pair.find_kpoint(k_c)
-        K2 = self.pair.find_kpoint(k_c + q_c)
+        K2 = self.pair.find_kpoint(k_c + qpd.q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = gs.kpt_qs[ik1][s]
         assert kd.comm.size == 1
         kpt2 = gs.kpt_qs[ik2][s]
-        deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
-                              kpt2.eps_n[m1:m2])
+        deps_nm = np.subtract(kpt1.eps_n[self.n1:self.n2][:, np.newaxis],
+                              kpt2.eps_n[self.m1:self.m2])
         return deps_nm.reshape(-1)
 
 
