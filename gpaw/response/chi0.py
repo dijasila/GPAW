@@ -44,9 +44,21 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, matrix_element, eigenvalues):
-        self._matrix_element = matrix_element
-        self._eigenvalues = eigenvalues
+    def __init__(self, chi0calc, optical, qpd, analyzer, bandsum):
+        self._chi0calc = chi0calc
+
+        mat_kwargs, eig_kwargs = chi0calc.get_integrator_arguments(
+            qpd, analyzer, bandsum)
+        if optical:
+            self._matrix_element = partial(
+                chi0calc.get_optical_matrix_element, **mat_kwargs)
+            self._eigenvalues = partial(
+                chi0calc.get_eigenvalues, **eig_kwargs)
+        else:
+            self._matrix_element = partial(
+                chi0calc.get_matrix_element, **mat_kwargs)
+            self._eigenvalues = partial(
+                chi0calc.get_eigenvalues, **eig_kwargs)
 
     def matrix_element(self, *args, **kwargs):
         return self._matrix_element(*args, **kwargs)
@@ -277,16 +289,11 @@ class Chi0Calculator(Integrand):
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         bandsum = self.get_band_summation(m1, m2)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
-        get_matrix_element = partial(
-            self.get_matrix_element, **mat_kwargs)
-        get_eigenvalues = partial(
-            self.get_eigenvalues, **eig_kwargs)
-
-        integrand = Chi0Integrand(get_matrix_element, get_eigenvalues)
+        integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
+                                  optical=False,
+                                  bandsum=bandsum)
 
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
@@ -329,17 +336,10 @@ class Chi0Calculator(Integrand):
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         bandsum = self.get_band_summation(m1, m2)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
-        get_optical_matrix_element = partial(
-            self.get_optical_matrix_element, **mat_kwargs)
-        get_eigenvalues = partial(
-            self.get_eigenvalues, **eig_kwargs)
-
-        integrand = Chi0Integrand(get_optical_matrix_element,
-                                  get_eigenvalues)
+        integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
+                                  bandsum=bandsum, optical=True)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
