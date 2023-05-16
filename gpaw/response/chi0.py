@@ -46,7 +46,6 @@ class Chi0Integrand(Integrand):
 
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
-        self.bandsum = {'n1': 0, 'n2': chi0calc.nocc2, 'm1': m1, 'm2': m2}
         self.n1 = 0
         self.n2 = chi0calc.nocc2
         self.m1 = m1
