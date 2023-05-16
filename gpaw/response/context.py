@@ -13,18 +13,14 @@ import gpaw.mpi as mpi
 class ResponseContext:
     def __init__(self, txt='-', timer=None, comm=mpi.world):
         self.comm = comm
+        self.iocontext = IOContext()
         self.open(txt)
         self.set_timer(timer)
 
     def open(self, txt):
-        self.iocontext = IOContext()
-        if txt is not stdout:
-            self.fd = self.iocontext.openfile(txt, self.comm)
-        else:
-            if self.comm.rank == 0:
-                self.fd = self.iocontext.openfile(txt, self.comm)
-            else:
-                self.fd = self.iocontext.openfile(None, self.comm)
+        if txt is stdout and self.comm.rank != 0:
+            txt = None
+        self.fd = self.iocontext.openfile(txt, self.comm)
 
     def set_timer(self, timer):
         self.timer = timer or Timer()
