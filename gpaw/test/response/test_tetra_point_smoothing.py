@@ -6,87 +6,107 @@ from gpaw.response.df import DielectricFunction
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter1d
-
+import time
 
 a = 2.5
 c = 3.22
 
 def test_gs():
-    gs_filename = 'gs.gpw'
+    start_time = time.time()
+    gs_file = 'gs.gpw'
+    response_file = 'gsresponse.gpw'
+    
     # Graphene:
     atoms = Atoms(
         symbols='C2', positions=[(0.5 * a, -np.sqrt(3) / 6 * a, 0.0),
                                  (0.5 * a, np.sqrt(3) / 6 * a, 0.0)],
         cell=[(0.5 * a, -0.5 * 3**0.5 * a, 0),
               (0.5 * a, 0.5 * 3**0.5 * a, 0),
-              (0.0, 0.0, c * 2.0)],
+              (0.0, 0.0, 3.2)],
         pbc=[True, True, False])
-    # (Note: the cell length in z direction is actually arbitrary)
 
     atoms.center(axis=2)
 
-    calc = GPAW(h=0.18,
-                mode=PW(400),
+    calc = GPAW(mode=PW(400),
                 kpts={'density': 10.0, 'gamma': True},
                 occupations=FermiDirac(0.1))
 
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('gs.gpw')
+    gs_time = time.time() - start_time
+    calc.write(gs_file)
 
+    start_time = time.time()
     density = 15
-    kpts = find_high_symmetry_monkhorst_pack('gs.gpw', density=density)
-    responseGS = GPAW('gs.gpw').fixed_density(
+    kpts = find_high_symmetry_monkhorst_pack(gs_file, density=density)
+    responseGS = GPAW(gs_file).fixed_density(
         kpts=kpts,
         parallel={'band': 1},
-        nbands=30,
+        nbands=20,
         occupations=FermiDirac(0.001),
-        convergence={'bands': 20})
-    responseGS.write('gsresponse.gpw', 'all')
-
-    df = DielectricFunction('gsresponse.gpw',
+        convergence={'bands': 10})
+    responseGS.write(response_file, 'all')
+    response_time = time.time() - start_time
+    
+    start_time = time.time()
+    df = DielectricFunction(response_file,
                             eta=25e-3,
                             rate='eta',
                             frequencies={'type': 'nonlinear',
-                                         'domega0': 0.01},
+                                         'domega0': 0.1},
                             integrationmode='tetrahedron integration')
-    df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0],
-                                                    filename='df_tetra.csv')
+    df1_tetra, df2_tetra = df.get_dielectric_function(q_c=[0, 0, 0],
+                                                      filename='df_tetra.csv')
+    dielectric1_time = time.time() - start_time
+    start_time = time.time()
 
-    df = DielectricFunction('gsresponse.gpw',
+    df = DielectricFunction(response_file,
                             frequencies={'type': 'nonlinear',
-                                         'domega0': 0.01},
+                                         'domega0': 0.1},
                             eta=25e-3,
                             rate='eta')
-    df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0],
-                                          filename='df_point.csv')
+    df1_point, df2_point = df.get_dielectric_function(q_c=[0, 0, 0],
+                                                      filename='df_point.csv')
 
-    # load df file written out
-    df_tetra = np.loadtxt('df_tetra.csv', delimiter=',')
-    df_point = np.loadtxt('df_point.csv', delimiter=',')
-    # convolve with gaussian to smooth the curve
-    sigma = 7
-    df2_wimag_result = gaussian_filter1d(df_point[:, 4], sigma)
+    dielectric2_time = time.time() - start_time
+    
+    print([gs_time, response_time, dielectric1_time, dielectric2_time])
+   
+    omega = df.get_frequencies()
+    df2_tetra = np.imag(df2_tetra)
+    df2_point = np.imag(df2_point)
 
-    # plot df
-    from gpaw.test import findpeak
-    w1, I1 = findpeak(df_point[200:, 0], df_point[200:, 4])
-    w2, I2 = findpeak(df_tetra[200:, 0], df_tetra[200:, 4])
-    w3, I3 = findpeak(df_point[200:, 0], df2_wimag_result[200:])
-    print(w1, I1)
-    print(w2, I2)
-    print(w3, I3)
+    # Convolve with Gaussian to smoothen the curve
+    slicer = [(freq >= 1.4) and (freq <= 20) for freq in omega] #Do not use frequencies near the w=0 singularity
+    sigma = 1.9
+    df2_gauss = gaussian_filter1d(df2_point[slicer], sigma)
+    
+    rms_diff_tetra_point = np.sqrt(np.sum((df2_tetra[slicer]-df2_point[slicer])**2)/np.sum(slicer))
+    rms_diff_tetra_gauss = np.sqrt(np.sum((df2_tetra[slicer]-df2_gauss)**2)/np.sum(slicer))
+    print(rms_diff_tetra_point)
+    print(rms_diff_tetra_gauss)
 
-    # plot the figures
+    # Plot the figures
     plt.figure(figsize=(6, 6))
-    plt.plot(df_tetra[:, 0], df_tetra[:, 4] * 2, label='Img Tetrahedron')
-    plt.plot(df_point[:, 0], df_point[:, 4] * 2, label='Img Point sampling')
-    plt.plot(df_point[:, 0], df2_wimag_result * 2, 'magenta', label='Inter Im')
+    plt.plot(omega[slicer], df2_tetra[slicer], label='Tetrahedron')
+    plt.plot(omega[slicer], df2_point[slicer], label='Point sampling')
+    plt.plot(omega[slicer], df2_gauss, label='Gaussian convolution')
 
     plt.xlabel('Frequency (eV)')
     plt.ylabel('$\\mathrm{Im}\\varepsilon$')
     plt.xlim(0, 6)
-    plt.ylim(0, 50)
+    plt.ylim(0, 20)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('graphene_eps.png', dpi=600)
+    plt.savefig('graphene_eps.png', dpi=300)
+
+    assert rms_diff_tetra_point < 1.45
+    assert rms_diff_tetra_point < 1.10
+    assert rms_diff_tetra_point * 0.8 > rms_diff_tetra_gauss
+
+    from gpaw.test import findpeak
+    freq1, amp1 = findpeak(omega[slicer], df2_tetra[slicer])
+    freq2, amp2 = findpeak(omega[slicer], df2_gauss)
+    print([freq1, freq2, I1, I2])
+
+test_gs()
