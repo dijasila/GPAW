@@ -9,7 +9,8 @@ from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import numpy as np
 
 
-def localize_orbitals(wfs, dens, ham, log, localizationtype, tol=None):
+def localize_orbitals(
+        wfs, dens, ham, log, func_settings, localizationtype, tol=None):
     io = localizationtype
 
     if io is None:
@@ -43,12 +44,13 @@ def localize_orbitals(wfs, dens, ham, log, localizationtype, tol=None):
             log('Perdew-Zunger localization started',
                 flush=True)
             if wfs.mode == 'lcao':
-                PZC = PZlcao
-            else:
-                PZC = PZpwfd
+                PZC = get_functional_lcao(func_settings, wfs, dens, ham)
+                assert PZC.name == 'PZ-SIC', 'PZ-SIC localization ' \
+                    'requested, but functional settings do not use PZ-SIC'
+            #else:
+            #    PZC = get_functional_fdpw
             dm = DirectMinLocalize(
-                PZC(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-4, randval=0.1)
+                PZC, wfs, maxiter=200, g_tol=5.0e-4, randval=0.1)
             dm.run(wfs, dens, log)
             log('Perdew-Zunger localization finished',
                 flush=True)
