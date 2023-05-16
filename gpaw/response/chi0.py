@@ -51,16 +51,10 @@ class Chi0Integrand(Integrand):
         # completely and partially unoccupied bands to range(m1, m2)
         self.bandsum = {'n1': 0, 'n2': chi0calc.nocc2, 'm1': m1, 'm2': m2}
 
-        mat_kwargs = {'qpd': qpd,
-                      'symmetry': analyzer,
-                      'integrationmode': chi0calc.integrationmode}
-
         if optical:
-            self._matrix_element = partial(
-                self.get_optical_matrix_element, **mat_kwargs)
+            self._matrix_element = self.get_optical_matrix_element
         else:
-            self._matrix_element = partial(
-                self.get_matrix_element, **mat_kwargs)
+            self._matrix_element = self.get_matrix_element
 
         self.context = chi0calc.context
         self.pair = chi0calc.pair
@@ -69,17 +63,14 @@ class Chi0Integrand(Integrand):
         self.qpd = qpd
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
+        self.optical = optical
 
     def matrix_element(self, k_v, s):
-        return self._matrix_element(k_v, s, **self.bandsum,
-                                    qpd=self.qpd,
-                                    symmetry=self.analyzer,
-                                    integrationmode=self.integrationmode)
+        return self._matrix_element(k_v, s, **self.bandsum)
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2, *, qpd,
-                           symmetry, integrationmode=None):
+                           m1, m2):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -117,11 +108,11 @@ class Chi0Integrand(Integrand):
             Pair densities.
         """
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=qpd,
-            symmetry=symmetry, integrationmode=integrationmode,
+            k_v, s, n1, n2, m1, m2, qpd=self.qpd,
+            symmetry=self.analyzer, integrationmode=self.integrationmode,
             block=True,
             target_method=self.pair.get_pair_density,
-        ).reshape(-1, qpd.ngmax)
+        ).reshape(-1, self.qpd.ngmax)
 
     def _get_any_matrix_element(
             self, k_v, s, n1, n2, m1, m2, *, qpd,
@@ -159,19 +150,17 @@ class Chi0Integrand(Integrand):
     @timer('Get matrix element')
     def get_optical_matrix_element(self, k_v, s,
                                    n1, n2,
-                                   m1, m2, *,
-                                   qpd, symmetry,
-                                   integrationmode=None):
+                                   m1, m2):
         """A function that returns optical pair densities, that is the
         head and wings matrix elements, indexed by:
         # P = (x, y, v, G1, G2, ...)."""
 
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=qpd,
-            symmetry=symmetry, integrationmode=integrationmode,
+            k_v, s, n1, n2, m1, m2, qpd=self.qpd,
+            symmetry=self.analyzer, integrationmode=self.integrationmode,
             block=False,
             target_method=self.pair.get_optical_pair_density,
-        ).reshape(-1, qpd.ngmax + 2)
+        ).reshape(-1, self.qpd.ngmax + 2)
 
     @timer('Get eigenvalues')
     def eigenvalues(self, k_v, s):
