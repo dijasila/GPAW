@@ -80,8 +80,8 @@ class Chi0Integrand(Integrand):
         s : int
             Spin index.
 
-        If self.optical returns optical pair densities, that is the
-        head and wings matrix elements, indexed by:
+        If self.optical, then return optical pair densities, that is, the
+        head and wings matrix elements indexed by:
         # P = (x, y, v, G1, G2, ...).
 
         Return
