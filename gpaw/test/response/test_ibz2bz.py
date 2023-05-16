@@ -34,10 +34,9 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     * When xfails are figured out, remove only_ibz_kpts parametrization
     """
 
-    # can set individual tolerance for eigenvalues
-    atol = 5e-03
-    atol_eig = 1e-05
-    atol_deg = 1e-3
+    atol = 5e-03  # Tolerance when comparing wfs and projections
+    atol_eig = 1e-05  # Tolerance when comparing eigenvalues
+    atol_deg = 1e-3  # Tolerance for checking degenerate states
     
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs + '_wfs'],
@@ -106,7 +105,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                 dim = find_degenerate_subspace(eps_n, n, nbands, atol_deg)
                 if dim == 1:
                     
-                    #First check untransformed quantities for ibz k-points
+                    # First check untransformed quantities for ibz k-points
                     if np.allclose(wfs.kd.bzk_kc[K],
                                    wfs.kd.ibzk_kc[ik]):
                         # Compare untransformed projections
@@ -115,8 +114,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
                         assert np.allclose(abs(ut_nR[n]),
                                            abs(ut_nR_nosym[n]), atol=atol)
 
-                    # Then check so that transformed projections differ by at most
-                    # a global phase
+                    # Then check so that absolute value of transformed
+                    # projections are the same
                     compare_projections(proj_sym, proj_nosym, n, atol)
 
                     # Check so that periodic part of pseudo is same,
