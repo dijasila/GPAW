@@ -674,9 +674,18 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
+                # m is band index of all (both unoccupied and occupied) wave
+                # functions in G
                 for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
                     nc_G = n_G.conj()
+                    
+                    # ie: ecut index for extrapolation
+                    # kpt1.s: spin index of *
+                    # k: k-point index of *
+                    # nn: band index of *
+                    # * wave function, where the sigma expectation value is
+                    # evaluated
                     slot = ie, kpt1.s, k, nn
                     myn_G = n_G[blocks1d.myslice]
                     sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
