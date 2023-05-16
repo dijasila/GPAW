@@ -44,27 +44,31 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, bandsum):
+    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
         self._chi0calc = chi0calc
 
-        mat_kwargs, eig_kwargs = chi0calc.get_integrator_arguments(
-            qpd, analyzer, bandsum)
+        # In a normal response calculation, we include transitions from all
+        # completely and partially unoccupied bands to range(m1, m2)
+        self.bandsum = {'n1': 0, 'n2': chi0calc.nocc2, 'm1': m1, 'm2': m2}
+
+        mat_kwargs = {'qpd': qpd,
+                      'symmetry': analyzer,
+                      'integrationmode': chi0calc.integrationmode}
+
         if optical:
             self._matrix_element = partial(
                 chi0calc.get_optical_matrix_element, **mat_kwargs)
-            self._eigenvalues = partial(
-                chi0calc.get_eigenvalues, **eig_kwargs)
         else:
             self._matrix_element = partial(
                 chi0calc.get_matrix_element, **mat_kwargs)
-            self._eigenvalues = partial(
-                chi0calc.get_eigenvalues, **eig_kwargs)
+        self._eigenvalues = partial(
+            chi0calc.get_eigenvalues, qpd=qpd)
 
     def matrix_element(self, *args, **kwargs):
-        return self._matrix_element(*args, **kwargs)
+        return self._matrix_element(*args, **self.bandsum, **kwargs)
 
     def eigenvalue(self, *args, **kwargs):
-        return self._eigenvalues(*args, **kwargs)
+        return self._eigenvalues(*args, **self.bandsum, **kwargs)
 
 
 class Chi0Calculator(Integrand):
@@ -288,12 +292,10 @@ class Chi0Calculator(Integrand):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation(m1, m2)
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=False,
-                                  bandsum=bandsum)
+                                  optical=False, m1=m1, m2=m2)
 
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
@@ -335,11 +337,10 @@ class Chi0Calculator(Integrand):
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation(m1, m2)
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  bandsum=bandsum, optical=True)
+                                  optical=True, m1=m1, m2=m2)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
@@ -474,14 +475,6 @@ class Chi0Calculator(Integrand):
         eig_kwargs.update(bandsum)
 
         return mat_kwargs, eig_kwargs
-
-    def get_band_summation(self, m1, m2):
-        """Define band summation."""
-        # In a normal response calculation, we include transitions from all
-        # completely and partially unoccupied bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-
-        return bandsum
 
     def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
