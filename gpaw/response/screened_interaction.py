@@ -68,8 +68,7 @@ def initialize_w_calculator(chi0calc, context, *,
 class WBaseCalculator():
 
     def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel, hilbert_transform=None,
-                 integrate_gamma=0, q0_correction=False, eta=None):
+                 coulomb, xckernel, integrate_gamma=0, q0_correction=False):
         """
         Base class for W Calculator including basic initializations and Gamma
         Gamma handling.
@@ -96,9 +95,7 @@ class WBaseCalculator():
         self.qd = qd
         self.coulomb = coulomb
         self.xckernel = xckernel
-        self.eta = eta
         self.integrate_gamma = integrate_gamma
-        self.hilbert_transform = hilbert_transform
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'
@@ -149,6 +146,14 @@ class WBaseCalculator():
 
     
 class WCalculator(WBaseCalculator):
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel, hilbert_transform=None,
+                 integrate_gamma=0, q0_correction=False):
+        WBaseCalculator.__init__(self, gs, context, qd=qd, coulomb=coulomb,
+                                 xckernel=xckernel,
+                                 integrate_gamma=integrate_gamma,
+                                 q0_correction=q0_correction)
+        self.hilbert_transform = hilbert_transform
 
     def get_W_model(self, chi0, fxc_mode, only_correlation=True):
         assert only_correlation
@@ -325,6 +330,14 @@ class PPAWModel(WModel):
 
 
 class PPACalculator(WBaseCalculator):
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel, hilbert_transform=None,
+                 integrate_gamma=0, q0_correction=False, eta=None):
+        WBaseCalculator.__init__(self, gs, context, qd=qd, coulomb=coulomb,
+                                 xckernel=xckernel,
+                                 integrate_gamma=integrate_gamma,
+                                 q0_correction=q0_correction)
+        self.eta = eta
 
     def get_W_model(self, chi0,
                     fxc_mode='GW'):

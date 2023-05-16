@@ -678,8 +678,9 @@ class G0W0Calculator:
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
                     nc_G = n_G.conj()
                     slot = ie, kpt1.s, k, nn
-                    sigma.sigma_eskn[slot] += (n_G[blocks1d.myslice] @ S_GG @ nc_G).real
-                    sigma.dsigma_eskn[slot] += (n_G[blocks1d.myslice] @ dSdw_GG @ nc_G).real
+                    myn_G = n_G[blocks1d.myslice]
+                    sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
+                    sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
 
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
