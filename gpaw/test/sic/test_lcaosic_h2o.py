@@ -26,6 +26,7 @@ def test_lcaosic_h2o(in_tmp_dir):
                 h=0.25,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver={'name': 'etdm',
+                             'localizationtype': 'PM-PZ',
                              'functional': {'name': 'PZ-SIC',
                                             'scaling_factor': \
                                                 (0.5, 0.5)}}, # Half SIC
