@@ -283,11 +283,12 @@ class HWModel:
         """
             Get Hilbert transformed W at frequency omega.
 
-            The fsign is utilize to select which type of Hilbert transform 
+            The fsign is utilize to select which type of Hilbert transform
             is selected, as is detailed in Sigma expectation value evaluation
             where this model is used.
         """
         raise NotImplementedError
+
 
 class FullFrequencyHWModel(HWModel):
     def __init__(self, wd, HW_swGG, factor):
@@ -299,13 +300,13 @@ class FullFrequencyHWModel(HWModel):
         # For more information about how fsign, and wsign works, see
         # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
         # eq. 2.2 endind up to eq. 2.11
-        # Effectively, the symmetry of time ordered W is used, i.e. W(w) = -W(-w)
-        # to allow that data is only stored for w>=0. Hence, the interpolation
-        # happends always to the positive side, but the information of true w is
-        # keps tract using wsign.
-        # In addition, whether the orbital in question at G is occupied or unoccupied,
-        # which then again affects, which Hilbert transform of W is chosen, is kept track
-        # with fsign.
+        # Effectively, the symmetry of time ordered W is used,
+        # i.e. W(w) = -W(-w). To allow that data is only stored for w>=0.
+        # Hence, the interpolation happends always to the positive side, but
+        # the information of true w is keps tract using wsign.
+        # In addition, whether the orbital in question at G is occupied or
+        # unoccupied, which then again affects, which Hilbert transform of
+        # W is chosen, is kept track with fsign.
         o = abs(omega)
         wsign = np.sign(omega + 1e-15)
         wd = self.wd
@@ -361,7 +362,7 @@ class PPACalculator(WBaseCalculator):
         self.eta = eta
 
     def get_HW_model(self, chi0,
-                    fxc_mode='GW'):
+                     fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
         assert len(chi0.wd.omega_w) == 2

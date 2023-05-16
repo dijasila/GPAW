@@ -8,7 +8,6 @@ from gpaw.response.chi0 import Chi0
 from gpaw.response.screened_interaction import initialize_w_calculator
 from ase.build import bulk
 from ase import Atoms
-from ase.units import Hartree as Ha
 
 
 @pytest.mark.response
