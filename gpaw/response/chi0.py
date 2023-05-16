@@ -25,6 +25,7 @@ from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
+from gpaw.response.integrands import Integrand
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):
@@ -42,7 +43,19 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
     return epsmax - epsmin
 
 
-class Chi0Calculator:
+class Chi0Integrand(Integrand):
+    def __init__(self, matrix_element, eigenvalues):
+        self._matrix_element = matrix_element
+        self._eigenvalues = eigenvalues
+
+    def matrix_element(self, *args, **kwargs):
+        return self._matrix_element(*args, **kwargs)
+
+    def eigenvalue(self, *args, **kwargs):
+        return self._eigenvalues(*args, **kwargs)
+
+
+class Chi0Calculator(Integrand):
     def __init__(self, wd, pair,
                  hilbert=True,
                  intraband=True,
@@ -273,6 +286,8 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
+        integrand = Chi0Integrand(get_matrix_element, get_eigenvalues)
+
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
             # Allocate a temporary array for the spectral function
@@ -282,8 +297,7 @@ class Chi0Calculator:
             out_WgG = chi0.chi0_WgG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(get_matrix_element,
-                                        get_eigenvalues),
+                             integrand=integrand,
                              x=self.wd,  # Frequency Descriptor
                              out_wxx=out_WgG,  # Output array
                              **extraargs)
@@ -324,6 +338,9 @@ class Chi0Calculator:
         get_eigenvalues = partial(
             self.get_eigenvalues, **eig_kwargs)
 
+        integrand = Chi0Integrand(get_optical_matrix_element,
+                                  get_eigenvalues)
+
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
         # index G = (G0, G1, G2, ...)
@@ -333,8 +350,7 @@ class Chi0Calculator:
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(get_optical_matrix_element,
-                                        get_eigenvalues),
+                             integrand=integrand,
                              x=self.wd,  # Frequency Descriptor
                              out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)
