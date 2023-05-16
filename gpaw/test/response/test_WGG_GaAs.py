@@ -58,7 +58,6 @@ def test_Wsymm(in_tmp_dir, scalapack):
         coulomb = CoulombKernel(truncation=truncation, gs=gs)
         wcalc = initialize_w_calculator(chi0calc,
                                         wcontext,
-                                        eta=0.1 / Ha,
                                         coulomb=coulomb,
                                         integrate_gamma=0)
         Wlist = []

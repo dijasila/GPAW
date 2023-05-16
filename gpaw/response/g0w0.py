@@ -681,6 +681,9 @@ class G0W0Calculator:
                     # transform, see get_HW of screened_interaction.py
                     # at FullFrequencyHWModel class.
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
+                    if S_GG is None:
+                        continue
+
                     nc_G = n_G.conj()
                     
                     # ie: ecut index for extrapolation
@@ -1105,6 +1108,9 @@ class G0W0(G0W0Calculator):
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
         coulomb = CoulombKernel(truncation, gs)
+        # XXX eta needs to be converted to Hartree here,
+        # XXX and it is also converted to Hartree at superclass constructor
+        # XXX called below. This needs to be cleaned up.
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
                                         xc=xc,

@@ -147,12 +147,12 @@ class WBaseCalculator():
     
 class WCalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel, hilbert_transform=None,
-                 integrate_gamma=0, q0_correction=False):
-        WBaseCalculator.__init__(self, gs, context, qd=qd, coulomb=coulomb,
-                                 xckernel=xckernel,
-                                 integrate_gamma=integrate_gamma,
-                                 q0_correction=q0_correction)
+                 coulomb, xckernel, hilbert_transform,
+                 integrate_gamma, q0_correction):
+        super().__init__(gs, context, qd=qd, coulomb=coulomb,
+                         xckernel=xckernel,
+                         integrate_gamma=integrate_gamma,
+                         q0_correction=q0_correction)
         self.hilbert_transform = hilbert_transform
 
     def get_HW_model(self, chi0, fxc_mode, only_correlation=True):
@@ -278,8 +278,6 @@ class HWModel:
     """
         Hilbert Transformed W Model.
     """
-    def __init__(self, label):
-        self.label = label
 
     def get_HW(self, omega, fsign):
         """
@@ -306,7 +304,7 @@ class FullFrequencyHWModel(HWModel):
         # happends always to the positive side, but the information of true w is
         # keps tract using wsign.
         # In addition, whether the orbital in question at G is occupied or unoccupied,
-        # which then again affects, which Hilbert transform of W is chosen, is kept tract
+        # which then again affects, which Hilbert transform of W is chosen, is kept track
         # with fsign.
         o = abs(omega)
         wsign = np.sign(omega + 1e-15)
@@ -314,8 +312,10 @@ class FullFrequencyHWModel(HWModel):
         # Pick +i*eta or -i*eta:
         s = (1 + wsign * np.sign(-fsign)).astype(int) // 2
         w = wd.get_floor_index(o, safe=False)
+      
+        # Interpolation indexes w + 1, therefore - 2 here
         if w > len(wd) - 2:
-            return self.HW_swGG[0][0] * 0.0, self.HW_swGG[0][0] * 0.0
+            return None, None
 
         o1 = wd.omega_w[w]
         o2 = wd.omega_w[w + 1]
@@ -331,7 +331,6 @@ class FullFrequencyHWModel(HWModel):
 
 class PPAHWModel(HWModel):
     def __init__(self, W_GG, omegat_GG, eta, factor):
-        HWModel.__init__(self, 'PPAHWModel')
         self.W_GG = W_GG
         self.omegat_GG = omegat_GG
         self.eta = eta
@@ -353,12 +352,12 @@ class PPAHWModel(HWModel):
 
 class PPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel, hilbert_transform=None,
-                 integrate_gamma=0, q0_correction=False, eta=None):
-        WBaseCalculator.__init__(self, gs, context, qd=qd, coulomb=coulomb,
-                                 xckernel=xckernel,
-                                 integrate_gamma=integrate_gamma,
-                                 q0_correction=q0_correction)
+                 coulomb, xckernel,
+                 integrate_gamma, q0_correction, eta):
+        super().__init__(gs, context, qd=qd, coulomb=coulomb,
+                         xckernel=xckernel,
+                         integrate_gamma=integrate_gamma,
+                         q0_correction=q0_correction)
         self.eta = eta
 
     def get_HW_model(self, chi0,
