@@ -275,9 +275,21 @@ class WCalculator(WBaseCalculator):
 
 
 class HWModel:
+    """
+        Hilbert Transformed W Model.
+    """
     def __init__(self, label):
         self.label = label
 
+    def get_HW(self, omega, fsign):
+        """
+            Get Hilbert transformed W at frequency omega.
+
+            The fsign is utilize to select which type of Hilbert transform 
+            is selected, as is detailed in Sigma expectation value evaluation
+            where this model is used.
+        """
+        raise NotImplementedError
 
 class FullFrequencyHWModel(HWModel):
     def __init__(self, wd, HW_swGG, factor):
