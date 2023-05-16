@@ -549,7 +549,7 @@ class GPWFiles:
         return self._fe(symmetry='off')
 
     @with_band_cutoff(gpw='co_pw_wfs',
-                      band_cutoff=12)  # 2 * (4s + 3d)
+                      band_cutoff=14)  # 2 * (4s + 3d)
     def _co(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
