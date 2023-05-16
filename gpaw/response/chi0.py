@@ -108,22 +108,21 @@ class Chi0Integrand(Integrand):
             Pair densities.
         """
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=self.qpd,
-            symmetry=self.analyzer, integrationmode=self.integrationmode,
+            k_v, s, n1, n2, m1, m2,
             block=True,
             target_method=self.pair.get_pair_density,
         ).reshape(-1, self.qpd.ngmax)
 
     def _get_any_matrix_element(
-            self, k_v, s, n1, n2, m1, m2, *, qpd,
-            symmetry, integrationmode=None,
+            self, k_v, s, n1, n2, m1, m2, *,
             block, target_method):
         assert m1 <= m2
+        qpd = self.qpd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                         symmetry.how_many_symmetries())
+        weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
+                         self.analyzer.how_many_symmetries())
 
         # Here we're again setting pawcorr willy-nilly
         if self._chi0calc.pawcorr is None:
@@ -138,7 +137,7 @@ class Chi0Integrand(Integrand):
                               pawcorr=self._chi0calc.pawcorr,
                               block=block)
 
-        if integrationmode is None:
+        if self.integrationmode is None:
             n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
@@ -156,8 +155,7 @@ class Chi0Integrand(Integrand):
         # P = (x, y, v, G1, G2, ...)."""
 
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2, qpd=self.qpd,
-            symmetry=self.analyzer, integrationmode=self.integrationmode,
+            k_v, s, n1, n2, m1, m2,
             block=False,
             target_method=self.pair.get_optical_pair_density,
         ).reshape(-1, self.qpd.ngmax + 2)
