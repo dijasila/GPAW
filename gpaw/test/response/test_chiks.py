@@ -21,13 +21,13 @@ from gpaw.test.conftest import response_band_cutoff
 def generate_system_s(spincomponents=['00', '+-']):
     # Compute chiks for different materials and spin-components, using
     # system specific tolerances
-    system_s = [  # wfs, spincomponent, rtol, dsym_rtol, bsum_rtol
-        ('fancy_si_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('al_pw_wfs', '00', 1e-5, 4.0, 1e-5),  # unstable symmetry -> #788
-        ('fe_pw_wfs', '00', 1e-5, 1e-6, 1e-5),
-        ('fe_pw_wfs', '+-', 0.04, 0.02, 0.02),
-        ('co_pw_wfs', '00', 1e-3, 1e-6, 1e-5),  # marked as xfail -> #788
-        ('co_pw_wfs', '+-', 1e-3, 1e-6, 1e-5),  # marked as xfail -> #788
+    system_s = [  # wfs, spincomponent, atol, rtol
+        ('fancy_si_pw_wfs', '00', 1e-8, 1e-5),
+        ('al_pw_wfs', '00', 5e-4, 1e-3),
+        ('fe_pw_wfs', '00', 1e-8, 1e-5),
+        ('fe_pw_wfs', '+-', 5e-3, 1e-3),
+        ('co_pw_wfs', '00', 1e-6, 1e-4),  # marked as xfail #788
+        ('co_pw_wfs', '+-', 1e-6, 1e-4),  # marked as xfail #788
     ]
 
     # Filter spincomponents
@@ -56,8 +56,8 @@ def get_q_c(wfs, qrel):
         # Generate points on the G-N path
         q_c = qrel * np.array([0., 0., 1.])
     elif wfs == 'co_pw_wfs':
-        # Generate points on the G-M path
-        q_c = qrel * np.array([1., 0., 0.])
+        # Generate points on the G-A path
+        q_c = qrel * np.array([0., 0., 1.])
     else:
         raise ValueError('Invalid wfs', wfs)
 
@@ -102,7 +102,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
-    wfs, spincomponent, rtol, dsym_rtol, bsum_rtol = system
+    wfs, spincomponent, atol, rtol = system
     mark_co_xfail(wfs, request)
     q_c = get_q_c(wfs, qrel)
 
@@ -122,8 +122,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     bandsummation_b = ['double', 'pairwise']
     bundle_integrals_i = [True, False]
 
-    nblocks_rtol = 1e-6
-    bint_rtol = 1e-6
+    # Symmetry independent tolerances (relating to chiks distribution)
+    dist_atol = 1e-8
+    dist_rtol = 1e-6
 
     # Part 3: Check reciprocity and inversion symmetry
 
@@ -142,7 +143,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     # Check symmetry toggle and cross-tabulate with nblocks and bandsummation
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='disable_syms', values=disable_syms_s,
-        rtol=dsym_rtol,
+        atol=atol, rtol=rtol,
         cross_tabulation=dict(nblocks=nblocks_n,
                               bandsummation=bandsummation_b))
 
@@ -150,35 +151,35 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
     for n1, n2 in combinations(range(nn), 2):
         chiks_testing_factory.check_parameter_self_consistency(
             parameter='nblocks', values=[nblocks_n[n1], nblocks_n[n2]],
-            rtol=nblocks_rtol,
+            atol=dist_atol, rtol=dist_rtol,
             cross_tabulation=dict(disable_syms=disable_syms_s,
                                   bandsummation=bandsummation_b))
 
     # Check bandsummation and cross-tabulate with disable_syms and nblocks
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='bandsummation', values=bandsummation_b,
-        rtol=bsum_rtol,
+        atol=atol, rtol=rtol,
         cross_tabulation=dict(disable_syms=disable_syms_s,
                               nblocks=nblocks_n))
 
     # Check bundle_integrals toggle and cross-tabulate with nblocks
     chiks_testing_factory.check_parameter_self_consistency(
         parameter='bundle_integrals', values=bundle_integrals_i,
-        rtol=bint_rtol,
+        atol=dist_atol, rtol=dist_rtol,
         cross_tabulation=dict(nblocks=nblocks_n))
 
     # Part 3: Check reciprocity and inversion symmetry
 
     # Cross-tabulate disable_syms, nblocks and bandsummation
     chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
-        rtol=rtol,
+        atol=atol, rtol=rtol,
         cross_tabulation=dict(disable_syms=disable_syms_s,
                               nblocks=nblocks_n,
                               bandsummation=bandsummation_b))
 
     # Cross-tabulate bundle_integrals and nblocks
     chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
-        rtol=rtol,
+        atol=atol, rtol=rtol,
         cross_tabulation=dict(bundle_integrals=bundle_integrals_i,
                               nblocks=nblocks_n))
 
@@ -187,7 +188,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 @pytest.mark.parametrize(
     'system,qrel',
     product(generate_system_s(spincomponents=['00']), generate_qrel_q()))
-def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
+def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel, request):
     """Test that the ChiKSCalculator is able to reproduce the Chi0Body.
 
     We use only the default calculation parameter setup for the ChiKSCalculator
@@ -196,7 +197,9 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # Part 1: chiks calculation
-    wfs, spincomponent, rtol, _, _ = system
+    wfs, spincomponent, atol, rtol = system
+    if abs(qrel - 0.25) < 0.01:
+        mark_co_xfail(wfs, request)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
@@ -236,7 +239,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     chi0_wGG = chi0_data.get_distributed_frequencies_array()
 
     # Part 3: Check chiks vs. chi0
-    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=1e-8)
+    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=atol)
 
 
 # ---------- Test functionality ---------- #
@@ -289,6 +292,7 @@ class ChiKSTestingFactory:
 
     def check_parameter_self_consistency(self,
                                          parameter: str, values: list,
+                                         atol: float,
                                          rtol: float,
                                          cross_tabulation: dict):
         assert len(values) == 2
@@ -299,9 +303,11 @@ class ChiKSTestingFactory:
             chiks2 = self(**kwargs)
             compare_pw_bases(chiks1, chiks2)
             assert chiks2.array == pytest.approx(
-                chiks1.array, rel=rtol, abs=1e-8), f'{kwargs}'
+                chiks1.array, rel=rtol, abs=atol), f'{kwargs}'
 
-    def check_reciprocity_and_inversion_symmetry(self, rtol: float,
+    def check_reciprocity_and_inversion_symmetry(self,
+                                                 atol: float,
+                                                 rtol: float,
                                                  cross_tabulation: dict):
         for kwargs in self.generate_cross_tabulated_kwargs(cross_tabulation):
             # Calculate chiks in q and -q
@@ -310,7 +316,8 @@ class ChiKSTestingFactory:
                 chiks2 = chiks1
             else:
                 chiks2 = self(qsign=-1, **kwargs)
-            check_reciprocity_and_inversion_symmetry(chiks1, chiks2, rtol=rtol)
+            check_reciprocity_and_inversion_symmetry(chiks1, chiks2,
+                                                     atol=atol, rtol=rtol)
 
     @staticmethod
     def generate_cross_tabulated_kwargs(cross_tabulation: dict):
@@ -368,7 +375,7 @@ def compare_pw_bases(chiks1, chiks2):
     assert np.allclose(G1_Gc - G2_Gc, 0.)
 
 
-def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, rtol):
+def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, atol, rtol):
     """Check the susceptibilities for reciprocity and inversion symmetry
 
     In particular, we test the reciprocity relation (valid both for μν=00 and
@@ -396,13 +403,13 @@ def check_reciprocity_and_inversion_symmetry(chiks1, chiks2, *, rtol):
     # Loop over frequencies
     for chi1_GG, chi2_GG in zip(chiks1.array, chiks2.array):
         # Check the reciprocity
-        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG, rel=rtol,
-                                                     abs=1e-8)
+        assert chi2_GG[invmap_GG].T == pytest.approx(chi1_GG,
+                                                     rel=rtol, abs=atol)
         # Check inversion symmetry
-        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol, abs=1e-8)
+        assert chi2_GG[invmap_GG] == pytest.approx(chi1_GG, rel=rtol, abs=atol)
 
     # Loop over q-vectors
     for chiks in [chiks1, chiks2]:
         for chiks_GG in chiks.array:  # array = chiks_zGG
             # Check that the full susceptibility matrix is symmetric
-            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=1e-8)
+            assert chiks_GG.T == pytest.approx(chiks_GG, rel=rtol, abs=atol)

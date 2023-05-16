@@ -29,7 +29,7 @@ def test_jdos(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # What material, spin-component and q-vector to calculate the jdos for
-    wfs, spincomponent, _, _, _ = system
+    wfs, spincomponent, _, _ = system
     q_c = get_q_c(wfs, qrel)
 
     # Where to evaluate the jdos

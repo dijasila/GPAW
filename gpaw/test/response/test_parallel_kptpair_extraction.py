@@ -35,7 +35,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
 
     # ---------- Inputs ---------- #
 
-    wfs, spincomponent, _, _, _ = system
+    wfs, spincomponent, _, _ = system
     q_c = get_q_c(wfs, qrel)
 
     # ---------- Script ---------- #
