@@ -8,12 +8,12 @@ class Integrand:
         ...
 
     @abstractmethod
-    def eigenvalue(self, k_v, s):
+    def eigenvalues(self, k_v, s):
         ...
 
     def __iter__(self):
         yield self.matrix_element
-        yield self.eigenvalue
+        yield self.eigenvalues
 
 
 class PlasmaFrequencyIntegrand(Integrand):
@@ -49,7 +49,7 @@ class PlasmaFrequencyIntegrand(Integrand):
 
         return vel_nv
 
-    def eigenvalue(self, k_v, s):
+    def eigenvalues(self, k_v, s):
         """A function that can return the intraband eigenvalues.
 
         A method describing the integrand of

@@ -71,7 +71,7 @@ class Chi0Integrand(Integrand):
     def matrix_element(self, *args, **kwargs):
         return self._matrix_element(*args, **self.bandsum, **kwargs)
 
-    def eigenvalue(self, *args, **kwargs):
+    def eigenvalues(self, *args, **kwargs):
         return self._eigenvalues(*args, **self.bandsum, **kwargs)
 
 
