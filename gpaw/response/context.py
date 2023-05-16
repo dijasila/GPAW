@@ -18,7 +18,7 @@ class ResponseContext:
 
     def open(self, txt):
         self.iocontext = IOContext()
-        if not txt is stdout:
+        if txt is not stdout:
             self.fd = self.iocontext.openfile(txt, self.comm)
         else:
             if self.comm.rank == 0:
