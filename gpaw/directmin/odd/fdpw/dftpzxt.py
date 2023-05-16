@@ -10,7 +10,7 @@ from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
 import _gpaw
 from gpaw.utilities.partition import AtomPartition
-from gpaw.wavefunctions.pw import PWLFC
+#from gpaw.wavefunctions.pw import PWLFC    circular import
 
 
 class DftPzSicXT:
@@ -35,6 +35,8 @@ class DftPzSicXT:
         self.pd2 = None
         self.pd3 = None
         if wfs.mode == 'pw':
+            from gpaw.wavefunctions.pw import PWLFC
+
             assert self.sic_coarse_grid
             self.pd2 = dens.pd2
             self.pd3 = dens.pd3
