@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 from gpaw.response.integrators import TetrahedronIntegrator
-from gpaw.response.chi0 import FrequencyGridDescriptor
+from gpaw.response.frequencies import FrequencyGridDescriptor
 # from gpaw.test import equal
 
 from gpaw.response import ResponseContext

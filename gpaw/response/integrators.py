@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import numpy as np
 from gpaw.response import timer
 from scipy.spatial import Delaunay
@@ -7,6 +8,20 @@ import _gpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
+
+
+class Integrand(ABC):
+    @abstractmethod
+    def matrix_element(self, k_v, s):
+        ...
+
+    @abstractmethod
+    def eigenvalues(self, k_v, s):
+        ...
+
+    def __iter__(self):
+        yield self.matrix_element
+        yield self.eigenvalues
 
 
 def czher(alpha: float, x, A) -> None:
