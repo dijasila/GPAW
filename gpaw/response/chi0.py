@@ -555,18 +555,6 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, qpd, analyzer, bandsum):
-        # Prepare keyword arguments for the integrator
-        mat_kwargs = {'qpd': qpd,
-                      'symmetry': analyzer,
-                      'integrationmode': self.integrationmode}
-        eig_kwargs = {'qpd': qpd}
-
-        mat_kwargs.update(bandsum)
-        eig_kwargs.update(bandsum)
-
-        return mat_kwargs, eig_kwargs
-
     def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
         extraargs = {}
