@@ -1,13 +1,7 @@
-import matplotlib.pyplot as plt
-
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
-from gpaw.mpi import world
-from gpaw.kpt_descriptor import kpts2sizeandoffsets
-from gpaw.bztools import find_high_symmetry_monkhorst_pack
 from ase.build import bulk
 import numpy as np
-from ase.dft.kpoints import monkhorst_pack
 
 
 def get_plasmon_peak(df, q_c):
@@ -31,10 +25,9 @@ calc.write('gs-al-peak.gpw')  # use 'all' option to write wavefunctions
 peak_ki = []
 N_k = []
 for i in range(1, 11, 1):
-    #kpts = find_high_symmetry_monkhorst_pack('gs-al-peak.gpw', density=i)
-    
-    N_k.append(i*8)
-    responseGS = GPAW('gs-al-peak.gpw').fixed_density(kpts={'size': [i*8, i*8, i*8], 'gamma': True}, txt=None)
+    N_k.append(k := i * 8)
+    kpts = {'size': [k, k, k], 'gamma': True}
+    responseGS = GPAW('gs-al-peak.gpw').fixed_density(kpts=kpts, txt=None)
     responseGS.write('res-al-peak.gpw', 'all')
     
     # Momentum transfer, must be the difference between two kpoints:
@@ -46,7 +39,7 @@ for i in range(1, 11, 1):
                                   integrationmode='tetrahedron integration')
     tetra_peak = get_plasmon_peak(df_tetra, q_c)
 
-    df = DielectricFunction(calc='res-al-peak.gpw', rate=0.2)#, txt = 'df3.out',)
+    df = DielectricFunction(calc='res-al-peak.gpw', rate=0.2)
     point_peak = get_plasmon_peak(df, q_c)
     
     peak_ki.append([tetra_peak, point_peak])
