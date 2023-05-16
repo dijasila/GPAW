@@ -50,6 +50,10 @@ class Chi0Integrand(Integrand):
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
         self.bandsum = {'n1': 0, 'n2': chi0calc.nocc2, 'm1': m1, 'm2': m2}
+        self.n1 = 0
+        self.n2 = chi0calc.nocc2
+        self.m1 = m1
+        self.m2 = m2
 
         if optical:
             self._matrix_element = self.get_optical_matrix_element
@@ -66,11 +70,10 @@ class Chi0Integrand(Integrand):
         self.optical = optical
 
     def matrix_element(self, k_v, s):
-        return self._matrix_element(k_v, s, **self.bandsum)
+        return self._matrix_element(k_v, s)
 
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2):
+    def get_matrix_element(self, k_v, s):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -108,15 +111,11 @@ class Chi0Integrand(Integrand):
             Pair densities.
         """
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2,
-            block=True,
-            target_method=self.pair.get_pair_density,
+            k_v, s, block=True, target_method=self.pair.get_pair_density,
         ).reshape(-1, self.qpd.ngmax)
 
-    def _get_any_matrix_element(
-            self, k_v, s, n1, n2, m1, m2, *,
-            block, target_method):
-        assert m1 <= m2
+    def _get_any_matrix_element(self, k_v, s, block, target_method):
+        assert self.m1 <= self.m2
         qpd = self.qpd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -129,10 +128,10 @@ class Chi0Integrand(Integrand):
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             self._chi0calc.pawcorr = pairden_paw_corr(qpd)
 
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=block)
-        m_m = np.arange(m1, m2)
-        n_n = np.arange(n1, n2)
+        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, self.n1, self.n2,
+                                            self.m1, self.m2, block=block)
+        m_m = np.arange(self.m1, self.m2)
+        n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
                               pawcorr=self._chi0calc.pawcorr,
                               block=block)
@@ -147,16 +146,13 @@ class Chi0Integrand(Integrand):
         return n_nmG
 
     @timer('Get matrix element')
-    def get_optical_matrix_element(self, k_v, s,
-                                   n1, n2,
-                                   m1, m2):
+    def get_optical_matrix_element(self, k_v, s):
         """A function that returns optical pair densities, that is the
         head and wings matrix elements, indexed by:
         # P = (x, y, v, G1, G2, ...)."""
 
         return self._get_any_matrix_element(
-            k_v, s, n1, n2, m1, m2,
-            block=False,
+            k_v, s, block=False,
             target_method=self.pair.get_optical_pair_density,
         ).reshape(-1, self.qpd.ngmax + 2)
 
