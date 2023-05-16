@@ -440,7 +440,7 @@ class BSEBackend:
         if self._wcalc is None:
             wcontext = ResponseContext(txt='w.txt', comm=world)
             self._wcalc = initialize_w_calculator(
-                self._chi0calc, wcontext, eta=0.1 / Hartree,
+                self._chi0calc, wcontext,
                 coulomb=self.coulomb,
                 integrate_gamma=self.integrate_gamma)
         t0 = time()

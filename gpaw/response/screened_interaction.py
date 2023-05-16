@@ -52,7 +52,10 @@ def initialize_w_calculator(chi0calc, context, *,
                               integrate_gamma=integrate_gamma, eta=eta,
                               q0_correction=q0_correction)
     else:
-        hilbert_transform = GWHilbertTransforms(chi0calc.wd.omega_w, eta)
+        if eta is not None:
+            hilbert_transform = GWHilbertTransforms(chi0calc.wd.omega_w, eta)
+        else:
+            hilbert_transform = None
         wcalc = WCalculator(gs, context, qd=qd,
                             coulomb=coulomb, xckernel=xckernel,
                             integrate_gamma=integrate_gamma,
