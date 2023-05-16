@@ -55,11 +55,6 @@ class Chi0Integrand(Integrand):
         self.m1 = m1
         self.m2 = m2
 
-        if optical:
-            self._matrix_element = self.get_optical_matrix_element
-        else:
-            self._matrix_element = self.get_matrix_element
-
         self.context = chi0calc.context
         self.pair = chi0calc.pair
         self.gs = chi0calc.gs
@@ -69,11 +64,8 @@ class Chi0Integrand(Integrand):
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
 
-    def matrix_element(self, k_v, s):
-        return self._matrix_element(k_v, s)
-
     @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s):
+    def matrix_element(self, k_v, s):
         """A function that returns pair-densities.
 
         A pair density is defined as::
@@ -110,9 +102,19 @@ class Chi0Integrand(Integrand):
         n_nmG : ndarray
             Pair densities.
         """
+
+        if self.optical:
+            target_method = self.pair.get_optical_pair_density
+            out_ngmax = self.qpd.ngmax + 2
+        else:
+            target_method = self.pair.get_pair_density
+            out_ngmax = self.qpd.ngmax
+        block = not self.optical
+
         return self._get_any_matrix_element(
-            k_v, s, block=True, target_method=self.pair.get_pair_density,
-        ).reshape(-1, self.qpd.ngmax)
+            k_v, s, block=not self.optical,
+            target_method=target_method,
+        ).reshape(-1, out_ngmax)
 
     def _get_any_matrix_element(self, k_v, s, block, target_method):
         assert self.m1 <= self.m2
@@ -145,16 +147,16 @@ class Chi0Integrand(Integrand):
 
         return n_nmG
 
-    @timer('Get matrix element')
-    def get_optical_matrix_element(self, k_v, s):
-        """A function that returns optical pair densities, that is the
-        head and wings matrix elements, indexed by:
-        # P = (x, y, v, G1, G2, ...)."""
+    # @timer('Get matrix element')
+    # def get_optical_matrix_element(self, k_v, s):
+    #    """A function that returns optical pair densities, that is the
+    #    head and wings matrix elements, indexed by:
+    #    # P = (x, y, v, G1, G2, ...)."""
 
-        return self._get_any_matrix_element(
-            k_v, s, block=False,
-            target_method=self.pair.get_optical_pair_density,
-        ).reshape(-1, self.qpd.ngmax + 2)
+    #    return self._get_any_matrix_element(
+    #        k_v, s, block=False,
+    #        target_method=self.pair.get_optical_pair_density,
+    #    ).reshape(-1, self.qpd.ngmax + 2)
 
     @timer('Get eigenvalues')
     def eigenvalues(self, k_v, s):
