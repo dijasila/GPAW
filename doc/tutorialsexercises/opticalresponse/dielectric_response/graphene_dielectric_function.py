@@ -54,16 +54,14 @@ df = DielectricFunction('gsresponse.gpw',
                         frequencies={'type': 'nonlinear',
                                      'domega0': 0.01},
                         integrationmode='tetrahedron integration')
-df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0],
-                                                filename='df_tetra.csv')
+df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0])
 
 df = DielectricFunction('gsresponse.gpw',
                         frequencies={'type': 'nonlinear',
                                      'domega0': 0.01},
                         eta=25e-3,
                         rate='eta')
-df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0],
-                                      filename='df_point.csv')
+df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0])
 omega_w = df.get_frequencies()
 
 # Find the peak and assert
