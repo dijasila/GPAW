@@ -9,7 +9,7 @@ GPAW offers two ways of calculating Raman intensities. One can use the `ASE Rama
 with the GPAW LRTDDFT module as shown in the Resonant Raman tutorial :ref:`resonant_raman_water`.
 
 GPAW also implements Raman spectroscopy for zone-center phonons of extended systems
-using the electron-phonon coupling (see :ref:`elphtheory` and :ref:`elph`) within 3rd order perturbation 
+using the electron-phonon coupling (see :ref:`elphtheory` and :ref:`elph`) within 3rd order perturbation
 theory :dfn:`Taghizadeh et a.` [#Taghizadeh2020]_ , which is discussed here. This method is currently only
 implementated for the LCAO mode.
 
@@ -17,7 +17,7 @@ The Stokes Raman intensity can be written as
 
 .. math::
 
-    I(\omega) = I_0 \sum_\nu \frac{n_\nu+1}{\omega_\nu} \vert 
+    I(\omega) = I_0 \sum_\nu \frac{n_\nu+1}{\omega_\nu} \vert
     \sum_{\alpha, \beta} u_{in}^\alpha R_{\alpha \beta}^\nu u_{out}^\beta
     \vert^2 \delta(\omega-\omega_\nu)
 
@@ -96,4 +96,4 @@ Code
 .. autofunction:: gpaw.raman.raman.calculate_raman
 .. autofunction:: gpaw.raman.raman.calculate_raman_intensity
 .. autofunction:: gpaw.raman.raman.plot_raman
-
+.. autoclass:: gpaw.elph.electronphonon.ElectronPhononCoupling
