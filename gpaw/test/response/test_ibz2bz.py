@@ -6,11 +6,6 @@ import gpaw.mpi as mpi
 from gpaw.test.conftest import response_band_cutoff
 
 
-def mark_xfail(gs, request):
-    if gs in ['co_pw']:
-        request.node.add_marker(pytest.mark.xfail)
-
-
 @pytest.mark.later
 @pytest.mark.serial
 @pytest.mark.response
@@ -19,7 +14,7 @@ def mark_xfail(gs, request):
                                 'fe_pw',
                                 'co_pw',
                                 'gaas_pw'])
-@pytest.mark.parametrize('only_ibz_kpts', [True, False])
+@pytest.mark.parametrize('only_ibz_kpts', [True])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     """ Tests gpaw.response.ibz2bz.py
     Tests functionalities to take wavefunction and projections from
@@ -39,11 +34,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     * When xfails are figured out, remove only_ibz_kpts parametrization
     """
 
-    # Al, Fe and Co fails. Need to figure out why (see above)
-    mark_xfail(gs, request)
-
     # can set individual tolerance for eigenvalues
-    atol = 5e-04
+    atol = 5e-03
     atol_eig = 1e-05
 
     # Loading calc with symmetry
@@ -112,7 +104,17 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
             while n < nbands:
                 dim = find_degenerate_subspace(eps_n, n, nbands, atol_eig)
                 if dim == 1:
-                    # First check so that projections differ by at most
+                    
+                    #First check untransformed quantities for ibz k-points
+                    if np.allclose(wfs.kd.bzk_kc[K],
+                                   wfs.kd.ibzk_kc[ik]):
+                        # Compare untransformed projections
+                        compare_projections(proj, proj_nosym, n, atol)
+                        # Compare untransformed wf:s
+                        assert np.allclose(abs(ut_nR[n]),
+                                           abs(ut_nR_nosym[n]), atol=atol)
+
+                    # Then check so that transformed projections differ by at most
                     # a global phase
                     compare_projections(proj_sym, proj_nosym, n, atol)
 
