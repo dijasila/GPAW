@@ -549,7 +549,7 @@ class GPWFiles:
         return self._fe(symmetry='off')
 
     @with_band_cutoff(gpw='co_pw_wfs',
-                      band_cutoff=12)  # 2 * (4s + 3d)
+                      band_cutoff=14)  # 2 * (4s + 3d)
     def _co(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
@@ -565,7 +565,6 @@ class GPWFiles:
 
         # Ground state parameters
         xc = 'LDA'
-        kpts = 4
         occw = 0.01
         ebands = 2 * 2  # extra bands for ground state calculation
         pw = 200
@@ -578,7 +577,7 @@ class GPWFiles:
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(xc=xc,
                           mode=PW(pw),
-                          kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                          kpts={'size': (4, 4, 4), 'gamma': True},
                           occupations=FermiDirac(occw),
                           convergence=conv,
                           nbands=band_cutoff + ebands,
@@ -613,7 +612,7 @@ class GPWFiles:
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
             nbands=band_cutoff + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,

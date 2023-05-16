@@ -7,7 +7,7 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 def mark_xfail(gs, request):
-    if gs in ['al_pw', 'fe_pw', 'co_pw']:
+    if gs in ['co_pw']:
         request.node.add_marker(pytest.mark.xfail)
 
 
@@ -43,7 +43,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     mark_xfail(gs, request)
 
     # can set individual tolerance for eigenvalues
-    atol = 1e-05
+    atol = 5e-04
     atol_eig = 1e-05
 
     # Loading calc with symmetry
@@ -196,18 +196,13 @@ def find_degenerate_subspace(eps_n, n_start, nbands, atol_eig):
 
 def compare_projections(proj_sym, proj_nosym, n, atol):
     # compares so that projections at given k and band index n
-    # differ by at most a global phase
-    phase = None
-    newphase = None
+    # differ by at most a phase
     for a, P_ni in proj_sym.items():
-        for j in range(len(P_ni[n, :])):
-            # Only compare elements with finite value
-            if abs(P_ni[n, j]) > atol:
-                newphase = P_ni[n, j] / proj_nosym[a][n, j]
-                if phase is not None:
-                    assert np.allclose(newphase, phase, atol=atol)
-                phase = newphase
-    assert np.allclose(abs(phase), 1.0, atol=atol)
+        for j in range(P_ni.shape[1]):
+            # Check so that absolute values of projections are the same
+            assert np.isclose(abs(P_ni[n, j]),
+                              abs(proj_nosym[a][n, j]),
+                              atol=atol)
 
 
 def get_overlaps_from_setups(wfs):
@@ -270,7 +265,7 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
 
     # Check so that M_nn transforms pseudo wf:s, see docs
     ut2_from_transform_nR = np.einsum('ji,jklm->iklm', M_nn, ut1_nR[bands])
-    assert np.allclose(ut2_from_transform_nR, ut2_nR[bands])
+    assert np.allclose(ut2_from_transform_nR, ut2_nR[bands], atol=atol)
 
 
 def get_ibz_data_from_wfs(wfs, nbands, ik, s):

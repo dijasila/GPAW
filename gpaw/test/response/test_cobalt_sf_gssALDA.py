@@ -204,19 +204,19 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(enh0, enh1, min_enh0, min_enh1)
 
     # Test kernel scaling
-    assert hxc_scaling.lambd == pytest.approx(0.9859, abs=0.005)
+    assert hxc_scaling.lambd == pytest.approx(0.9675, abs=0.005)
 
     # Test magnon frequencies
-    assert wpeak00 == pytest.approx(-0.0279, abs=0.005)
-    assert wpeak01 == pytest.approx(0.224, abs=0.01)
-    assert wpeak10 == pytest.approx(0.851, abs=0.01)
-    assert wpeak11 == pytest.approx(0.671, abs=0.01)
+    assert wpeak00 == pytest.approx(-0.0281, abs=0.005)
+    assert wpeak01 == pytest.approx(0.218, abs=0.01)
+    assert wpeak10 == pytest.approx(0.508, abs=0.01)
+    assert wpeak11 == pytest.approx(0.637, abs=0.01)
 
     # Test magnon amplitudes
-    assert Ipeak00 == pytest.approx(2.895, abs=0.01)
-    assert Ipeak01 == pytest.approx(2.209, abs=0.01)
-    assert Ipeak10 == pytest.approx(1.013, abs=0.01)
-    assert Ipeak11 == pytest.approx(0.934, abs=0.01)
+    assert Ipeak00 == pytest.approx(2.897, abs=0.01)
+    assert Ipeak01 == pytest.approx(2.245, abs=0.01)
+    assert Ipeak10 == pytest.approx(1.090, abs=0.01)
+    assert Ipeak11 == pytest.approx(1.023, abs=0.01)
 
     # Test magnon frequency consistency
     assert mpeak00 == pytest.approx(wpeak00, abs=0.005)
@@ -229,17 +229,17 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert mrpeak11 == pytest.approx(wpeak11, abs=0.01)
 
     # Test magnon mode eigenvalues at extrema
-    assert Speak00 == pytest.approx(7.984, abs=0.01)
-    assert Speak01 == pytest.approx(6.341, abs=0.01)
-    assert Speak10 == pytest.approx(3.497, abs=0.01)
-    assert Speak11 == pytest.approx(3.311, abs=0.01)
-    assert Srpeak00 == pytest.approx(6.083, abs=0.01)
-    assert Srpeak01 == pytest.approx(4.796, abs=0.01)
-    assert Srpeak10 == pytest.approx(2.588, abs=0.01)
-    assert Srpeak11 == pytest.approx(2.426, abs=0.01)
+    assert Speak00 == pytest.approx(8.409, abs=0.01)
+    assert Speak01 == pytest.approx(6.734, abs=0.01)
+    assert Speak10 == pytest.approx(3.800, abs=0.01)
+    assert Speak11 == pytest.approx(3.683, abs=0.01)
+    assert Srpeak00 == pytest.approx(6.402, abs=0.01)
+    assert Srpeak01 == pytest.approx(5.087, abs=0.01)
+    assert Srpeak10 == pytest.approx(2.837, abs=0.01)
+    assert Srpeak11 == pytest.approx(2.692, abs=0.01)
 
     # Test enhancement factors
-    assert enh0 == pytest.approx(34.78, abs=0.1)
-    assert enh1 == pytest.approx(22.48, abs=0.1)
-    assert min_enh0 == pytest.approx(1.090, abs=0.01)
-    assert min_enh1 == pytest.approx(1.117, abs=0.01)
+    assert enh0 == pytest.approx(36.77, abs=0.1)
+    assert enh1 == pytest.approx(24.10, abs=0.1)
+    assert min_enh0 == pytest.approx(1.141, abs=0.01)
+    assert min_enh1 == pytest.approx(1.162, abs=0.01)
