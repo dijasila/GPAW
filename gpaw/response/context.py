@@ -38,11 +38,7 @@ class ResponseContext:
         return ResponseContext(txt=txt, comm=self.comm, timer=self.timer)
 
     def print(self, *args, flush=True, **kwargs):
-        #if not self.fd.name == '<stdout>':
         print(*args, file=self.fd, flush=flush, **kwargs)
-        #else:
-        #    if self.comm.rank == 0:
-        #        print(*args, file=self.fd, flush=flush, **kwargs)
 
     def new_txt_and_timer(self, txt, timer=None):
         self.write_timer()
@@ -52,11 +48,7 @@ class ResponseContext:
         self.set_timer(timer)
 
     def write_timer(self):
-        #if not self.fd.name == '<stdout>':
         self.timer.write(self.fd)
-        #else:
-        #    if self.comm.rank == 0:
-        #        self.timer.write(self.fd)
         self.print(ctime())
 
 
