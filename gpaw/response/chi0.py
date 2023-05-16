@@ -44,7 +44,7 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2, context):
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
@@ -63,6 +63,8 @@ class Chi0Integrand(Integrand):
                 chi0calc.get_matrix_element, **mat_kwargs)
         self._eigenvalues = partial(
             chi0calc.get_eigenvalues, qpd=qpd)
+
+        self.context = context
 
     def matrix_element(self, *args, **kwargs):
         return self._matrix_element(*args, **self.bandsum, **kwargs)
@@ -295,7 +297,8 @@ class Chi0Calculator(Integrand):
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=False, m1=m1, m2=m2)
+                                  optical=False, m1=m1, m2=m2,
+                                  context=self.context)
 
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
@@ -340,7 +343,8 @@ class Chi0Calculator(Integrand):
         kind, extraargs = self.get_integral_kind()
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=True, m1=m1, m2=m2)
+                                  optical=True, m1=m1, m2=m2,
+                                  context=self.context)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
