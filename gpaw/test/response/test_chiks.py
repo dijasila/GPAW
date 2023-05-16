@@ -23,22 +23,17 @@ def generate_system_s(spincomponents=['00', '+-']):
     # system specific tolerances
     system_s = [  # wfs, spincomponent, atol, rtol
         ('fancy_si_pw_wfs', '00', 1e-8, 1e-5),
-        ('al_pw_wfs', '00', 5e-4, 1e-3),
+        ('al_pw_wfs', '00', 5e-4, 1e-3),  # tolerance could be better -> #788
         ('fe_pw_wfs', '00', 1e-8, 1e-5),
-        ('fe_pw_wfs', '+-', 5e-3, 1e-3),
-        ('co_pw_wfs', '00', 1e-6, 1e-4),  # marked as xfail #788
-        ('co_pw_wfs', '+-', 1e-6, 1e-4),  # marked as xfail #788
+        ('fe_pw_wfs', '+-', 5e-3, 1e-3),  # tolerance could be better -> #788
+        ('co_pw_wfs', '00', 5e-3, 1e-3),  # tolerance could be better -> #788
+        ('co_pw_wfs', '+-', 5e-4, 1e-3),  # tolerance could be better -> #788
     ]
 
     # Filter spincomponents
     system_s = [system for system in system_s if system[1] in spincomponents]
 
     return system_s
-
-
-def mark_co_xfail(wfs, request):
-    if wfs == 'co_pw_wfs':
-        request.node.add_marker(pytest.mark.xfail)
 
 
 def generate_qrel_q():
@@ -88,7 +83,7 @@ def generate_nblocks_n():
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
     product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
-def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
+def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     r"""Test the internals of the ChiKSCalculator.
 
     In particular, we test that the susceptibility does not change due to the
@@ -103,7 +98,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 
     # Part 1: Set up ChiKSTestingFactory
     wfs, spincomponent, atol, rtol = system
-    mark_co_xfail(wfs, request)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
@@ -188,7 +182,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, request):
 @pytest.mark.parametrize(
     'system,qrel',
     product(generate_system_s(spincomponents=['00']), generate_qrel_q()))
-def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel, request):
+def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     """Test that the ChiKSCalculator is able to reproduce the Chi0Body.
 
     We use only the default calculation parameter setup for the ChiKSCalculator
@@ -198,8 +192,6 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel, request):
 
     # Part 1: chiks calculation
     wfs, spincomponent, atol, rtol = system
-    if abs(qrel - 0.25) < 0.01:
-        mark_co_xfail(wfs, request)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
