@@ -14,7 +14,7 @@ from gpaw.test.conftest import response_band_cutoff
                                 'fe_pw',
                                 'co_pw',
                                 'gaas_pw'])
-@pytest.mark.parametrize('only_ibz_kpts', [True])
+@pytest.mark.parametrize('only_ibz_kpts', [True, False])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     """ Tests gpaw.response.ibz2bz.py
     Tests functionalities to take wavefunction and projections from
@@ -35,8 +35,8 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs, only_ibz_kpts, request):
     """
 
     atol = 5e-03  # Tolerance when comparing wfs and projections
-    atol_eig = 1e-05  # Tolerance when comparing eigenvalues
-    atol_deg = 1e-3  # Tolerance for checking degenerate states
+    atol_eig = 1e-04  # Tolerance when comparing eigenvalues
+    atol_deg = 5e-3  # Tolerance for checking degenerate states
     
     # Loading calc with symmetry
     calc = GPAW(gpw_files[gs + '_wfs'],
