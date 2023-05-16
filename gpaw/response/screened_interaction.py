@@ -286,6 +286,16 @@ class FullFrequencyWModel(WModel):
         self.factor = factor
 
     def get_HW(self, omega, fsign):
+        # For more information about how fsign, and wsign works, see
+        # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
+        # eq. 2.2 endind up to eq. 2.11
+        # Effectively, the symmetry of time ordered W is used, i.e. W(w) = -W(-w)
+        # to allow that data is only stored for w>=0. Hence, the interpolation
+        # happends always to the positive side, but the information of true w is
+        # keps tract using wsign.
+        # In addition, whether the orbital in question at G is occupied or unoccupied,
+        # which then again affects, which Hilbert transform of W is chosen, is kept tract
+        # with fsign.
         o = abs(omega)
         wsign = np.sign(omega + 1e-15)
         wd = self.wd
