@@ -691,12 +691,13 @@ class GPWFiles:
         return atoms.calc
 
     def h_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H'))
+        return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
 
     def h2_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]))
+        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
+                                    nbands=8)
 
-    def _pw_210_rmmdiis(self, atoms):
+    def _pw_210_rmmdiis(self, atoms, **kwargs):
         atoms.set_pbc(True)
         atoms.set_cell((2., 2., 3.))
         atoms.center()
@@ -704,9 +705,9 @@ class GPWFiles:
                     eigensolver='rmm-diis',
                     xc='LDA',
                     basis='dzp',
-                    nbands=8,
                     parallel={'domain': 1},
-                    convergence={'density': 1.e-6})
+                    convergence={'density': 1.e-6},
+                    **kwargs)
         atoms.calc = calc
         atoms.get_potential_energy()
         calc.diagonalize_full_hamiltonian(nbands=80)
