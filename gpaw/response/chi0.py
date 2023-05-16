@@ -61,19 +61,14 @@ class Chi0Integrand(Integrand):
         else:
             self._matrix_element = partial(
                 self.get_matrix_element, **mat_kwargs)
-        self._eigenvalues = partial(
-            self.get_eigenvalues, qpd=qpd)
 
         self.context = chi0calc.context
         self.pair = chi0calc.pair
         self.gs = chi0calc.gs
+        self.qpd = qpd
 
     def matrix_element(self, *args, **kwargs):
         return self._matrix_element(*args, **self.bandsum, **kwargs)
-
-    def eigenvalues(self, *args, **kwargs):
-        return self._eigenvalues(*args, **self.bandsum, **kwargs)
-
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
@@ -173,17 +168,17 @@ class Chi0Integrand(Integrand):
         ).reshape(-1, qpd.ngmax + 2)
 
     @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s, n1, n2,
-                        m1, m2, *, qpd,
-                        gs=None, filter=False):
+    def eigenvalues(self, k_v, s):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
         the response function which gives an output that
         is compatible with the gpaw k-point integration
         routines."""
-        if gs is None:
-            gs = self.gs
+
+        n1, n2, m1, m2 = (self.bandsum[x] for x in 'n1 n2 m1 m2'.split())
+        qpd = self.qpd
+        gs = self.gs
 
         kd = gs.kd
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -194,16 +189,10 @@ class Chi0Integrand(Integrand):
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
         kpt1 = gs.kpt_qs[ik1][s]
-        assert gs.kd.comm.size == 1
+        assert kd.comm.size == 1
         kpt2 = gs.kpt_qs[ik2][s]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
-
-        if filter:
-            fermi_level = self.gs.fermi_level
-            deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
-            deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
-
         return deps_nm.reshape(-1)
 
 
