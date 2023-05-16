@@ -6,6 +6,7 @@ from gpaw.directmin.derivatives import Davidson
 import numpy as np
 
 
+@pytest.mark.do
 def test_directmin_lcao_generalized_fd_davidson(in_tmp_dir):
     """
     Test complex numerical Hessian
