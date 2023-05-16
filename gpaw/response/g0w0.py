@@ -677,6 +677,9 @@ class G0W0Calculator:
                 # m is band index of all (both unoccupied and occupied) wave
                 # functions in G
                 for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
+                    # 2 * f - 1 will be used to select the branch of Hilbert
+                    # transform, see get_HW of screened_interaction.py
+                    # at FullFrequencyHWModel class.
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
                     nc_G = n_G.conj()
                     
