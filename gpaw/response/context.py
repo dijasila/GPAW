@@ -1,4 +1,5 @@
 from time import ctime
+from sys import stdout
 
 from inspect import isgeneratorfunction
 from functools import wraps
@@ -17,7 +18,7 @@ class ResponseContext:
 
     def open(self, txt):
         self.iocontext = IOContext()
-        if not txt.name == '<stdout>':
+        if not txt is stdout:
             self.fd = self.iocontext.openfile(txt, self.comm)
         else:
             if self.comm.rank == 0:
