@@ -7,6 +7,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
 
+
 class QPointDescriptor(KPointDescriptor):
 
     @staticmethod
@@ -147,7 +148,7 @@ class WBaseCalculator():
 class WCalculator(WBaseCalculator):
 
     def get_W_model(self, chi0, fxc_mode, only_correlation=True):
-        assert only_correlation == True
+        assert only_correlation
         W_wGG = self.calculate_W_WgG(chi0,
                                      fxc_mode=fxc_mode,
                                      only_correlation=True)
@@ -158,7 +159,6 @@ class WCalculator(WBaseCalculator):
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         return FullFrequencyWModel(chi0.wd, W_xwGG, factor)
         
-
     def calculate_W_WgG(self, chi0,
                         fxc_mode='GW',
                         only_correlation=False):
@@ -270,6 +270,7 @@ class WModel:
     def __init__(self, label):
         self.label = label
 
+
 class FullFrequencyWModel(WModel):
     def __init__(self, wd, HW_swGG, factor):
         self.wd = wd
@@ -291,11 +292,11 @@ class FullFrequencyWModel(WModel):
 
         C1_GG = self.HW_swGG[s][w]
         C2_GG = self.HW_swGG[s][w + 1]
-        p = self.factor * wsign 
+        p = self.factor * wsign
 
         sigma_GG = ((o - o1) * C2_GG + (o2 - o) * C1_GG) / (o2 - o1)
         dsigma_GG = wsign * (C2_GG - C1_GG) / (o2 - o1)
-        return -1j*p*sigma_GG, -1j*p*dsigma_GG
+        return -1j * p * sigma_GG, -1j * p * dsigma_GG
 
 
 class PPAWModel(WModel):
@@ -323,7 +324,7 @@ class PPAWModel(WModel):
 class PPACalculator(WBaseCalculator):
 
     def get_W_model(self, chi0,
-                      fxc_mode='GW'):
+                    fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
         assert len(chi0.wd.omega_w) == 2

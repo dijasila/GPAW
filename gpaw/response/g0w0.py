@@ -674,10 +674,12 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
-                for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)): 
-                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
-                     sigma.sigma_eskn[ie, kpt1.s, k, nn] += (n_G @ (S_GG @ n_G.conj())).real
-                     sigma.dsigma_eskn[ie, kpt1.s, k, nn] += (n_G @ (dSdw_GG @ n_G.conj())).real
+                for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
+                    nc_G = n_G.conj()
+                    slot = ie, kpt1.s, k, nn
+                    sigma.sigma_eskn[slot] += (n_G @ S_GG @ nc_G).real
+                    sigma.dsigma_eskn[slot] += (n_G @ dSdw_GG @ nc_G).real
 
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
@@ -699,7 +701,6 @@ class G0W0Calculator:
         pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
         pawcorr_wcalc1 = pairden_paw_corr(qpd)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
-
 
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
@@ -843,7 +844,7 @@ class G0W0Calculator:
             Wdict[fxc_mode] = self.wcalc.get_W_model(rchi0,
                                                      fxc_mode=fxc_mode)
             if (chi0calc.pawcorr is not None and
-                 rqpd.ecut < chi0.qpd.ecut):
+                rqpd.ecut < chi0.qpd.ecut):
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
