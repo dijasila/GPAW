@@ -12,9 +12,9 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 import warnings
-from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw import BadParallelization
@@ -66,7 +66,7 @@ class ETDM:
         (used with u-invar representation)
         :param representation: the way the elements of A are stored. Can be one
         of 'sparse', 'full', 'u-invar'
-        :param functional: KS or PZ-SIC
+        :param functional_settings: KS or PZ-SIC
         :param orthonormalization: orthonormalize the orbitals using
         Gram-Schmidt or Loewdin orthogonalization, or getting the orbitals as
         eigenstates of the Hamiltonian matrix. Can be one of 'gramschmidt',
@@ -122,7 +122,7 @@ class ETDM:
         self.e_sic = 0.0
 
         # these are things we cannot initialize now
-        self.func = functional
+        self.func_settings = functional
         self.dtype = None
         self.nkpts = None
         self.gd = None
@@ -212,12 +212,12 @@ class ETDM:
         # need reference orbitals
         self.dm_helper = None
 
-    def initialize_dm_helper(self, wfs, ham, dens):
+    def initialize_dm_helper(self, wfs, ham, dens, log):
 
         if wfs.mode == 'lcao':
 
             self.dm_helper = DirectMinLCAO(
-                wfs, dens, ham, self.nkpts, self.func,
+                wfs, dens, ham, self.nkpts, self.func_settings,
                 diagonalizer=None,
                 orthonormalization=self.orthonormalization,
                 need_init_orbs=self.need_init_orbs
@@ -226,6 +226,20 @@ class ETDM:
         #     self.dm_helper = DirectMinFDPW(stuff)
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
+
+        # randomize orbitals?
+        if self.randomizeorbitals:
+            for kpt in wfs.kpt_u:
+                self.randomize_orbitals_kpt(wfs, kpt)
+            self.randomizeorbitals = False
+
+        # localize orbitals?
+        if self.need_localization:
+            wfs.calculate_occupation_numbers(dens.fixed)
+            self.sort_orbitals_mom(wfs)
+            localize_orbitals(
+                wfs, dens, ham, log, self.func_settings, self.localizationtype)
+
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
@@ -239,12 +253,6 @@ class ETDM:
                 warnings.warn("Use representation == 'sparse' when "
                               "there are unequally occupied orbitals "
                               "as the functional is not unitary invariant")
-
-        # randomize orbitals?
-        if self.randomizeorbitals:
-            for kpt in wfs.kpt_u:
-                self.randomize_orbitals_kpt(wfs, kpt)
-            self.randomizeorbitals = False
 
         # initialize matrices
         self.set_variable_matrices(wfs.kpt_u)
@@ -719,7 +727,7 @@ class ETDM:
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'representation': self.representation,
-                'functional': self.func,
+                'functional_settings': self.func_settings,
                 'orthonormalization': self.orthonormalization,
                 'constraints': self.constraints
                 }
