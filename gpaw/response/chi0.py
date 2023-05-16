@@ -65,10 +65,16 @@ class Chi0Integrand(Integrand):
         self.context = chi0calc.context
         self.pair = chi0calc.pair
         self.gs = chi0calc.gs
-        self.qpd = qpd
 
-    def matrix_element(self, *args, **kwargs):
-        return self._matrix_element(*args, **self.bandsum, **kwargs)
+        self.qpd = qpd
+        self.analyzer = analyzer
+        self.integrationmode = chi0calc.integrationmode
+
+    def matrix_element(self, k_v, s):
+        return self._matrix_element(k_v, s, **self.bandsum,
+                                    qpd=self.qpd,
+                                    symmetry=self.analyzer,
+                                    integrationmode=self.integrationmode)
 
     @timer('Get matrix element')
     def get_matrix_element(self, k_v, s, n1, n2,
