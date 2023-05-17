@@ -43,6 +43,7 @@ class ETDM:
                  need_localization=True,
                  need_init_orbs=True,
                  constraints=None,
+                 subspace_convergence=1e-4
                  ):
         """
         This class performs the exponential transformation
@@ -107,6 +108,7 @@ class ETDM:
         self.representation = representation
         self.orthonormalization = orthonormalization
         self.constraints = constraints
+        self.subspace_convergence = subspace_convergence
 
         self.searchdir_algo = search_direction(searchdir_algo)
         if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
@@ -120,6 +122,7 @@ class ETDM:
         self._norm_commutator, self._norm_grad = 0., 0.
         self.error = 0
         self.e_sic = 0.0
+        self.subspace_optimization = False
 
         # these are things we cannot initialize now
         self.func_settings = functional
@@ -130,10 +133,19 @@ class ETDM:
 
         # values: vectors of the elements of matrices, keys: kpt number
         self.a_vec_u = {}  # for the elements of the skew-Hermitian matrix A
+        self.a_vec_oo_u = {}
+        self.a_vec_ov_u = {}
+        self.a_vec_all_u = {}
         self.g_vec_u = {}  # for the elements of the gradient matrix G
+        self.g_vec_oo_u = {}
+        self.g_vec_ov_u = {}
+        self.g_vec_all_u = {}
         self.evecs = {}   # eigenvectors for i*a_vec_u
         self.evals = {}   # eigenvalues for i*a_vec_u
         self.ind_up = {}
+        self.ind_oo_up = {}
+        self.ind_ov_up = {}
+        self.ind_all_up = {}
         self.n_dim = {}
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
@@ -233,12 +245,20 @@ class ETDM:
                 self.randomize_orbitals_kpt(wfs, kpt)
             self.randomizeorbitals = False
 
+        # initialize matrices
+        wfs.calculate_occupation_numbers(dens.fixed)
+        self.set_variable_matrices(wfs.kpt_u)
+        # if no empty state no need to optimize
+        for k in self.ind_up:
+            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
+                self.n_dim[k] = 0
+
         # localize orbitals?
         if self.need_localization:
-            wfs.calculate_occupation_numbers(dens.fixed)
             self.sort_orbitals_mom(wfs)
             localize_orbitals(
                 wfs, dens, ham, log, self.func_settings, self.localizationtype)
+            self.lock_subspace('oo')
             self.need_localization = False
 
         # mom
@@ -255,12 +275,6 @@ class ETDM:
                               "there are unequally occupied orbitals "
                               "as the functional is not unitary invariant")
 
-        # initialize matrices
-        self.set_variable_matrices(wfs.kpt_u)
-        # if no empty state no need to optimize
-        for k in self.ind_up:
-            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
-                self.n_dim[k] = 0
         # set reference orbitals
         self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
 
@@ -304,33 +318,42 @@ class ETDM:
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
+            i1_oo, i2_oo = [], []
+            for i in range(n_occ):
+                for j in range(i + 1, n_occ):
+                    i1_oo.append(i)
+                    i2_oo.append(j)
+            self.ind_oo_up[u] = (np.asarray(i1_oo), np.asarray(i2_oo))
+            i1_ov, i2_ov = [], []
+            for i in range(n_occ):
+                for j in range(n_occ, M):
+                    i1_ov.append(i)
+                    i2_ov.append(j)
+            self.ind_ov_up[u] = (np.asarray(i1_ov), np.asarray(i2_ov))
             if self.representation == 'u-invar':
-                i1, i2 = [], []
-                for i in range(n_occ):
-                    for j in range(n_occ, M):
-                        i1.append(i)
-                        i2.append(j)
-                self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
-            else:
-                if self.representation == 'full' and self.dtype == complex:
-                    # Take indices of all upper triangular and diagonal
-                    # elements of A_BigMatrix
-                    self.ind_up[u] = np.triu_indices(self.n_dim[u])
-                else:
-                    self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
-                    if self.representation == 'sparse':
-                        # Delete indices of elements that correspond
-                        # to 0 matrix in A_BigMatrix
-                        zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                        if zero_ind == 0:
-                            zero_ind = None
-                        self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
-                                          self.ind_up[u][1][:zero_ind].copy())
+                self.ind_all_up[u] = self.ind_ov_up[u]
+            if self.representation == 'sparse':
+                i1 = np.array(i1_oo + i1_ov)
+                i2 = np.array(i2_oo + i2_ov)
+                ind = np.argsort(i1)
+                self.ind_all_up[u] = (np.asarray(i1[ind]), np.asarray(i2[ind]))
+            elif self.representation == 'full' and self.dtype == complex:
+                # Take indices of all upper triangular and diagonal
+                # elements of A_BigMatrix
+                self.ind_all_up[u] = np.triu_indices(self.n_dim[u])
 
-            shape_of_arr = len(self.ind_up[u][0])
+            shape_of_oo = len(self.ind_oo_up[u][0])
+            shape_of_ov = len(self.ind_ov_up[u][0])
+            shape_of_all = len(self.ind_all_up[u][0])
 
-            self.a_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
-            self.g_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
+            self.a_vec_oo_u[u] = np.zeros(shape=shape_of_oo, dtype=self.dtype)
+            self.a_vec_ov_u[u] = np.zeros(shape=shape_of_ov, dtype=self.dtype)
+            self.a_vec_all_u[u] = np.zeros(
+                shape=shape_of_all, dtype=self.dtype)
+            self.g_vec_oo_u[u] = np.zeros(shape=shape_of_oo, dtype=self.dtype)
+            self.g_vec_ov_u[u] = np.zeros(shape=shape_of_ov, dtype=self.dtype)
+            self.g_vec_all_u[u] = np.zeros(
+                shape=shape_of_all, dtype=self.dtype)
             self.evecs[u] = None
             self.evals[u] = None
 
@@ -342,6 +365,10 @@ class ETDM:
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
 
+        self.ind_up = deepcopy(self.ind_all_up)
+        self.a_vec_u = deepcopy(self.a_vec_all_u)
+        self.g_vec_u = deepcopy(self.g_vec_all_u)
+
         # This conversion makes it so that constraint-related functions can
         # iterate through a list of no constraints rather than checking for
         # None every time
@@ -349,6 +376,23 @@ class ETDM:
             self.constraints = [[] for _ in range(len(kpt_u))]
 
         self.iters = 1
+
+    def lock_subspace(self, subspace='oo'):
+        self.subspace_optimization = True
+        if subspace == 'oo':
+            self.ind_up = deepcopy(self.ind_oo_up)
+            self.a_vec_u = deepcopy(self.a_vec_oo_u)
+            self.g_vec_u = deepcopy(self.g_vec_oo_u)
+        elif subspace == 'ov':
+            self.ind_up = deepcopy(self.ind_ov_up)
+            self.a_vec_u = deepcopy(self.a_vec_ov_u)
+            self.g_vec_u = deepcopy(self.g_vec_ov_u)
+
+    def release_subspace(self):
+        self.subspace_optimization = False
+        self.ind_up = self.ind_all_up
+        self.a_vec_u = self.a_vec_all_u
+        self.g_vec_u = self.g_vec_all_u
 
     def iterate(self, ham, wfs, dens):
         """
@@ -426,6 +470,21 @@ class ETDM:
             # and 'shift' phi, der_phi for the next iteration
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
+
+            if self.subspace_optimization:
+                if self.get_grad_norm() < self.subspace_convergence:
+                    self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+                    self.searchdir_algo.reset()
+                    self.release_subspace()
+                    for kpt in wfs.kpt_u:
+                        self.hess[k] = self.get_hessian(kpt)
+                self.error = np.inf  # Do not consider this converged!
+
+    def get_grad_norm(self):
+        norm = 0.0
+        for k in self.g_vec_u.keys():
+            norm += np.linalg.norm(self.g_vec_u[k])
+        return norm
 
     def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
                                  c_ref):
