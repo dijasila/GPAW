@@ -75,9 +75,6 @@ class DirectMin(Eigensolver):
             self.odd_parameters = \
                 xc_string_to_dict(self.odd_parameters)
 
-        if 'SIC' in self.odd_parameters['name']:
-            if self.localizationtype is None:
-                self.localizationtype = 'FB-ER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -92,6 +89,8 @@ class DirectMin(Eigensolver):
         self.initialized = False
         self.need_init_orbs = need_init_orbs
         self.need_localization = need_localization
+        if localizationtype is None:
+            self.need_localization = False
         # self.U_k = {}
         self.eg_count = 0
         self.exstopt = exstopt
