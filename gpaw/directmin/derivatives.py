@@ -744,6 +744,8 @@ class Davidson(object):
 
     def displace(self, instability):
         a_vec_u = {}
+        for k in self.etdm.a_vec_u.keys():
+            a_vec_u[k] = np.zeros(self.dim_u[k])
         start = 0
         stop = 0
         for k in a_vec_u.keys():
