@@ -122,7 +122,7 @@ class DirectMinLCAO(DirectLCAO):
                     with wfs.timer('Diagonalize and rotate'):
                         kpt.C_nM[kpt.f_n == f, :], kpt.eps_n[kpt.f_n == f] = \
                             rotate_subspace(h_mm, kpt.C_nM[kpt.f_n == f, :])
-        elif self.func.name == 'PZ_SIC':
+        elif self.func.name == 'PZ-SIC':
             self.func.get_lagrange_matrices(
                 h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
                 update_eigenvalues=True, update_wfs=True)

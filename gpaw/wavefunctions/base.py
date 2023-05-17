@@ -69,12 +69,12 @@ class WaveFunctions:
 
     def summary(self, log):
         log(eigenvalue_string(self))
-        if hasattr(self.eigensolver, 'odd'):
-            odd = getattr(self.eigensolver.odd, "name", None)
-            if odd is None:
+        if hasattr(self.eigensolver, 'dm_helper'):
+            func = getattr(self.eigensolver.dm_helper.func, "name", None)
+            if func is None:
                 pass
-            elif 'SIC' in odd:
-                self.summury_odd(log)
+            elif 'SIC' in func:
+                self.summary_func(log)
 
         if self.fermi_levels is None:
             return
@@ -593,9 +593,9 @@ class WaveFunctions:
                 f_n *= kpt.weight
             kpt.f_n = f_n
 
-    def summury_odd(self, log):
+    def summary_func(self, log):
 
-        pot = self.eigensolver.odd
+        pot = self.eigensolver.dm_helper.func
 
         # evals = {}
         f_sn = {}
@@ -721,7 +721,7 @@ class WaveFunctions:
         log(flush=True)
 
         sic_n = pot.e_sic_by_orbitals
-        if pot.name == 'PZ_SIC':
+        if pot.name == 'PZ-SIC':
             log('Perdew-Zunger SIC')
         elif 'SPZ' in pot.name:
             log('Self-Interaction Corrections:\n')

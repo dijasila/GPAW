@@ -239,6 +239,7 @@ class ETDM:
             self.sort_orbitals_mom(wfs)
             localize_orbitals(
                 wfs, dens, ham, log, self.func_settings, self.localizationtype)
+            self.need_localization = False
 
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)

@@ -26,7 +26,7 @@ class PzCorrections:
                  sic_coarse_grid=True, store_potentials=False,
                  poisson_solver='FPS'):
 
-        self.name = 'PZ_SIC'
+        self.name = 'PZ-SIC'
         # what we need from wfs
         self.setups = wfs.setups
         spos_ac = wfs.spos_ac
