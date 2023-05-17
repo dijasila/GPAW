@@ -2,6 +2,7 @@ from __future__ import annotations
 from math import nan
 from operator import attrgetter
 from pathlib import Path
+from functools import partial
 from typing import (TYPE_CHECKING, Callable, Dict, Iterable, Iterator, List,
                     Optional, Tuple)
 
@@ -507,10 +508,12 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
             nbands = eigenvalues.shape[2]
         n2 += nbands
 
+    if projected:
+        soc = partial(projected_soc, theta=theta, phi=phi)
+
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = {a: soc(calc.wfs.setups[a],
-                       calc.hamiltonian.xc,
-                       D_sp, projected, theta, phi) * scale
+                       calc.hamiltonian.xc, D_sp) * scale
                 for a, D_sp in calc.density.D_asp.items()}
 
     kd = calc.wfs.kd
@@ -544,17 +547,8 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
 
 
-def soc(a: Setup, xc, D_sp: Array2D, projected: bool = False,
-        theta: float = 0, phi: float = 0) -> Array3D:
-    """
-    Calculates <phi_i|dV_adr / r * L_v|phi_j>
-
-    Optional Args:
-        projected (bool): Toggle projected SOC: (S . n)(L . n)
-                          where n is defined by angles (theta, phi)
-        theta (float): The angle from z-axis in degrees
-        phi (float): The angle from x-axis in degrees
-    """
+def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
+    """<phi_i|dV_adr / r * L_v|phi_j>"""
     v_g = get_radial_potential(a, xc, D_sp)
     Ng = len(v_g)
     phi_jg = a.data.phi_jg
@@ -577,15 +571,24 @@ def soc(a: Setup, xc, D_sp: Array2D, projected: bool = False,
                 pass
             N2 += 2 * l2 + 1
         N1 += Nm
-
-    if projected:
-        theta *= np.pi / 180
-        phi *= np.pi / 180
-        n_v = np.array([np.sin(theta) * np.cos(phi),
-                        np.sin(theta) * np.sin(phi),
-                        np.cos(theta)])
-        dVL_vii = np.multiply(np.dot(dVL_vii.T, n_v)[:, :, np.newaxis], n_v).T
     return dVL_vii * alpha**2 / 4.0
+
+
+def projected_soc(a: Setup, xc, D_sp: Array2D,
+                  theta: float = 0, phi: float = 0) -> Array3D:
+    """
+    Optional Args:
+        theta (float): The angle from z-axis in degrees
+        phi (float): The angle from x-axis in degrees
+    """
+    dVL_vii = soc(a, xc, D_sp)
+    theta *= np.pi / 180
+    phi *= np.pi / 180
+    n_v = np.array([np.sin(theta) * np.cos(phi),
+                    np.sin(theta) * np.sin(phi),
+                    np.cos(theta)])
+    dVL_vii = (np.dot(dVL_vii.T, n_v)[:, :, np.newaxis] * n_v).T
+    return dVL_vii
 
 
 def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
