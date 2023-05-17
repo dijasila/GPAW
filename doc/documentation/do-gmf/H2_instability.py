@@ -29,7 +29,7 @@ davidson.run(calc.wfs, calc.hamiltonian, calc.density)
 # Break the instability by displacing along the eigenvector of the electronic
 # Hessian corresponding to the negative eigenvalue
 C_ref = [calc.wfs.kpt_u[x].C_nM.copy() for x in range(len(calc.wfs.kpt_u))]
-davidson.break_instability(calc.wfs, n_dim=[10, 10], C_nM_ref=C_ref, number=1)
+davidson.break_instability(calc.wfs, n_dim=[10, 10], c_ref=C_ref, number=1)
 
 # Reconverge the electronic structure
 calc.calculate(properties=['energy'], system_changes=['positions'])
