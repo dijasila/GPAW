@@ -546,7 +546,15 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
 
 def soc(a: Setup, xc, D_sp: Array2D, projected: bool = False,
         theta: float = 0, phi: float = 0) -> Array3D:
-    """<phi_i|dV_adr / r * L_v|phi_j>"""
+    """
+    Calculates <phi_i|dV_adr / r * L_v|phi_j>
+
+    Optional Args:
+        projected (bool): Toggle projected SOC: (S . n)(L . n)
+                          where n is defined by angles (theta, phi)
+        theta (float): The angle from z-axis in degrees
+        phi (float): The angle from x-axis in degrees
+    """
     v_g = get_radial_potential(a, xc, D_sp)
     Ng = len(v_g)
     phi_jg = a.data.phi_jg
