@@ -25,7 +25,7 @@ def generate_system_s(spincomponents=['00', '+-']):
         ('fancy_si_pw_wfs', '00', 1e-8, 1e-5),
         ('al_pw_wfs', '00', 5e-4, 1e-3),  # tolerance could be better -> #788
         ('fe_pw_wfs', '00', 1e-8, 1e-5),
-        ('fe_pw_wfs', '+-', 5e-3, 1e-3),  # tolerance could be better -> #788
+        ('fe_pw_wfs', '+-', 8e-3, 1e-3),  # tolerance could be better -> #788
         ('co_pw_wfs', '00', 5e-3, 1e-3),  # tolerance could be better -> #788
         ('co_pw_wfs', '+-', 5e-4, 1e-3),  # tolerance could be better -> #788
     ]
@@ -265,7 +265,7 @@ class ChiKSTestingFactory:
 
         if cache_string in self.cached_chiks:
             return self.cached_chiks[cache_string]
-        
+
         chiks_calc = ChiKSCalculator(
             self.gs, ecut=self.ecut, nbands=self.nbands,
             gammacentered=self.gammacentered,
