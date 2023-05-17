@@ -119,16 +119,13 @@ class IBZ2BZMap:
 
         return utout_R
 
-    def map_pseudo_wave_to_BZ(self, ut_R, r_vR):
+    def map_pseudo_wave_to_BZ(self, ut_R):
         """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
         ut_R: np.array
               Periodic part of pseudo wf at IBZ k-point
-        r_vR: np.array
-              Real space grid obtained as
-              r_vR = calc.wfs.gd.get_grid_point_coordinates()
         """
         # Map the pseudo wave and K-point using symmetry operations
         utout_R = self.map_pseudo_wave(ut_R)
@@ -188,8 +185,9 @@ class IBZ2BZMap:
             # XXX There are some serious questions to be addressed here XXX
             # * Why does the phase factor only depend on the coordinates of the
             #   irreducible k-point?
-            # * Why is the phase shift mutiplied both to the diagonal and the
-            #   off-diagonal of the rotation matrices?
+            # * Are the projections mapped effectively to the kpoint related
+            #   to the BZ K by at most a reciprocal lattice vector or to the
+            #   BZ K-point itself?
             phase_factor = np.exp(2j * np.pi * self.ik_c @ atomic_shift_c)
             U_ii = R_ii.T * phase_factor
             U_aii.append(U_ii)
