@@ -126,15 +126,20 @@ class IBZ2BZMap:
         """
         utout_R = self.map_pseudo_wave(ut_R)
         kpt_shift_c = self.map_kpoint() - self.k_c
+
         # Check if K-point in BZ already
         if np.allclose(kpt_shift_c, 0.0):
             return utout_R
-        # Check so that mapped k-point differ from BZ kpoint by reciprocal
-        # lattice vector
+
+        # Check that the mapped k-point differ from the BZ kpoint by
+        # a reciprocal lattice vector G
         assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
-        kpt_shift_v = kpt_shift_c @ icell_cv
-        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR))
+
+        # Add a phase e^iG.r to the periodic part of the wf
+        N_c = r_vR.shape[1:]
+        r_cR = np.array(np.meshgrid(*[np.linspace(0, 1, N, endpoint=False)
+                                      for N in N_c], indexing='ij'))
+        return utout_R * np.exp(2j * np.pi * gemmdot(kpt_shift_c, r_cR))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
