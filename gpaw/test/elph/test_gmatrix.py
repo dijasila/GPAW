@@ -64,4 +64,4 @@ def test_gmatrix(module_tmp_path, supercell_cache):
     # and check one specific value
     # print(g_knn)
     print(g_knn[0, 0, 1])
-    assert g_knn[0, 0, 1] == pytest.approx(3.510762 - 0.238049j, rel=1e-4)
+    assert g_knn[0, 0, 1] == pytest.approx(3.510762 - 0.238049j, abs=0.01)

@@ -19,7 +19,7 @@ from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.pair_functions import read_pair_function
-
+from gpaw.test.conftest import response_band_cutoff
 
 pytestmark = pytest.mark.skipif(world.size < 4, reason='world.size < 4')
 
@@ -58,7 +58,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     # ---------- Script ---------- #
 
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff['fe_pw_wfs']
     gs = ResponseGroundStateAdapter(calc)
 
     for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals,

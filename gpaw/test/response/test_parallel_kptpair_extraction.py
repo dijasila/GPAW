@@ -16,6 +16,7 @@ from gpaw.response.chiks import get_spin_rotation
 
 from gpaw.test.response.test_chiks import (generate_system_s, generate_qrel_q,
                                            get_q_c, generate_nblocks_n)
+from gpaw.test.conftest import response_band_cutoff
 
 pytestmark = pytest.mark.skipif(world.size == 1, reason='world.size == 1')
 
@@ -34,7 +35,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
 
     # ---------- Inputs ---------- #
 
-    wfs, spincomponent, _, _, _ = system
+    wfs, spincomponent, _, _ = system
     q_c = get_q_c(wfs, qrel)
 
     # ---------- Script ---------- #
@@ -46,7 +47,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
     
     # Initialize parallel ground state adapter
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff[wfs]
     parallel_gs = ResponseGroundStateAdapter(calc)
 
     # Set up extractors and integrals

@@ -59,6 +59,22 @@ def add_cwd_to_setup_paths():
         del setup_paths[:1]
 
 
+response_band_cutoff = dict(
+)
+
+
+def with_band_cutoff(*, gpw, band_cutoff):
+    # Store the band cutoffs in a dictionary to aid response tests
+    response_band_cutoff[gpw] = band_cutoff
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            return func(*args, band_cutoff=band_cutoff, **kwargs)
+        return wrapper
+
+    return decorator
+
+
 @pytest.fixture(scope='session')
 def gpw_files(request, tmp_path_factory):
     """Reuse gpw-files.
@@ -106,22 +122,22 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
-    * Bulk Si, LDA, 4x4x4 k-points, 8 converged bands: ``fancy_si_pw``
+    * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
-    * Bulk Fe, LDA, 4x4x4 k-points, 9 converged bands: ``fe_pw``
+    * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
-    * Bulk Co (HCP), 4x4x4 k-points, 12 converged bands: ``co_pw``
+    * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
       and ``co_pw_nosym``
 
-    * Bulk Al, LDA, 4x4x4 k-points, 10 converged bands: ``al_pw``
+    * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
       and ``al_pw_nosym``
 
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
 
-    * Bulk GaAs, LDA, 4x4x4 k-points, all bands converged: ``gaas_pw``
+    * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
 
@@ -218,6 +234,7 @@ class GPWFiles:
                           txt=self.path / 'h2_bcc_afm.txt',
                           mode=PW(250),
                           nbands=4,
+                          convergence={'bands': 4},
                           kpts={'density': 2.0, 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
@@ -340,15 +357,16 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    def _fancy_si(self, symmetry=None):
+    @with_band_cutoff(gpw='fancy_si_pw_wfs',
+                      band_cutoff=8)  # 2 * (3s, 3p)
+    def _fancy_si(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         xc = 'LDA'
         kpts = 4
-        nbands = 8  # 2 * (3s, 3p)
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         atoms = bulk('Si')
         atoms.center()
@@ -358,7 +376,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=nbands + 12,  # + 2 * (4s, 3d),
+            nbands=band_cutoff + 12,  # + 2 * (4s, 3d),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
@@ -433,6 +451,27 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    def ni_pw_kpts333(self):
+        from ase.dft.kpoints import monkhorst_pack
+        # from gpaw.mpi import serial_comm
+        Ni = bulk('Ni', 'fcc')
+        Ni.set_initial_magnetic_moments([0.7])
+
+        kpts = monkhorst_pack((3, 3, 3))
+
+        calc = GPAW(mode='pw',
+                    kpts=kpts,
+                    occupations=FermiDirac(0.001),
+                    setups={'Ni': '10'},
+                    # communicator=serial_comm
+                    )
+
+        Ni.calc = calc
+        Ni.get_potential_energy()
+        calc.diagonalize_full_hamiltonian()
+        # calc.write('Ni.gpw', mode='all')
+        return calc
+
     def nicl2_pw(self):
         from ase.build import mx2
 
@@ -471,16 +510,17 @@ class GPWFiles:
 
         return atoms.calc
 
-    def _fe(self, symmetry=None):
+    @with_band_cutoff(gpw='fe_pw_wfs',
+                      band_cutoff=9)  # 4s, 4p, 3d = 9
+    def _fe(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         """See also the fe_fixture_test.py test."""
         xc = 'LDA'
         kpts = 4
-        nbands = 9  # 4s, 4p, 3d = 9
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         a = 2.867
         mm = 2.21
@@ -493,7 +533,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts)},
-            nbands=18,
+            nbands=band_cutoff + 9,
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fe_pw{tag}.txt',
@@ -508,7 +548,9 @@ class GPWFiles:
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
 
-    def _co(self, symmetry=None):
+    @with_band_cutoff(gpw='co_pw_wfs',
+                      band_cutoff=14)  # 2 * (4s + 3d)
+    def _co(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         # ---------- Inputs ---------- #
@@ -523,24 +565,22 @@ class GPWFiles:
 
         # Ground state parameters
         xc = 'LDA'
-        kpts = 4
         occw = 0.01
-        nbands = 2 * (6 + 0)  # 4s + 3d + 0 empty shell bands
         ebands = 2 * 2  # extra bands for ground state calculation
         pw = 200
         conv = {'density': 1e-8,
                 'forces': 1e-8,
-                'bands': nbands}
+                'bands': band_cutoff + 1}
 
         # ---------- Calculation ---------- #
 
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(xc=xc,
                           mode=PW(pw),
-                          kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+                          kpts={'size': (4, 4, 4), 'gamma': True},
                           occupations=FermiDirac(occw),
                           convergence=conv,
-                          nbands=nbands + ebands,
+                          nbands=band_cutoff + ebands,
                           symmetry=symmetry,
                           txt=self.path / f'co_pw{tag}.txt')
 
@@ -553,15 +593,16 @@ class GPWFiles:
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
-    def _al(self, symmetry=None):
+    @with_band_cutoff(gpw='al_pw_wfs',
+                      band_cutoff=10)  # 3s, 3p, 4s, 3d
+    def _al(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         xc = 'LDA'
         kpts = 4
-        nbands = 10  # 3s, 3p, 4s, 3d
         pw = 300
         occw = 0.01
-        conv = {'bands': nbands,
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         a = 4.043
         atoms = bulk('Al', 'fcc', a=a)
@@ -571,8 +612,8 @@ class GPWFiles:
         atoms.calc = GPAW(
             xc=xc,
             mode=PW(pw),
-            kpts={'size': (kpts, kpts, kpts)},
-            nbands=nbands + 4,  # + 4p, 5s
+            kpts={'size': (kpts, kpts, kpts), 'gamma': True},
+            nbands=band_cutoff + 4,  # + 4p, 5s
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'al_pw{tag}.txt',
@@ -622,7 +663,9 @@ class GPWFiles:
     def gaas_pw(self):
         return self._gaas()
 
-    def _gaas(self, symmetry=None):
+    @with_band_cutoff(gpw='gaas_pw_wfs',
+                      band_cutoff=8)
+    def _gaas(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
         nk = 4
@@ -630,13 +673,14 @@ class GPWFiles:
         atoms = Atoms('GaAs', cell=cell, pbc=True,
                       scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
         tag = '_nosym' if symmetry == 'off' else ''
-        conv = {'bands': -1,
+        conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
 
         calc = GPAW(mode=PW(400),
                     xc='LDA',
                     occupations=FermiDirac(width=0.01),
                     convergence=conv,
+                    nbands=band_cutoff + 1,
                     kpts={'size': (nk, nk, nk), 'gamma': True},
                     txt=self.path / f'gs_GaAs{tag}.txt',
                     symmetry=symmetry)
@@ -644,6 +688,29 @@ class GPWFiles:
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
+
+    def h_pw210_rmmdiis(self):
+        return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
+
+    def h2_pw210_rmmdiis(self):
+        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
+                                    nbands=8)
+
+    def _pw_210_rmmdiis(self, atoms, **kwargs):
+        atoms.set_pbc(True)
+        atoms.set_cell((2., 2., 3.))
+        atoms.center()
+        calc = GPAW(mode=PW(210, force_complex_dtype=True),
+                    eigensolver='rmm-diis',
+                    xc='LDA',
+                    basis='dzp',
+                    parallel={'domain': 1},
+                    convergence={'density': 1.e-6},
+                    **kwargs)
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        calc.diagonalize_full_hamiltonian(nbands=80)
+        return calc
 
 
 class GPAWPlugin:
