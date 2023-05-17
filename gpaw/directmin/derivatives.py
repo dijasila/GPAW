@@ -743,9 +743,7 @@ class Davidson(object):
         self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
 
     def displace(self, instability):
-        a_vec_u = {}
-        for k in self.etdm.a_vec_u.keys():
-            a_vec_u[k] = np.zeros(self.dim_u[k])
+        a_vec_u = deepcopy(self.etdm.a_vec_u)
         start = 0
         stop = 0
         for k in a_vec_u.keys():
