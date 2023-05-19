@@ -256,9 +256,16 @@ class ETDM:
         # localize orbitals?
         if self.need_localization:
             self.sort_orbitals_mom(wfs)
-            localize_orbitals(
+            localizationtype = \
+                self.localizationtype.lower().split('-')
+            do_pz_localization = 'pz' in localizationtype
+            localize_orbitals( #  All localizations to be done before PZ
                 wfs, dens, ham, log, self.func_settings, self.localizationtype)
-            self.lock_subspace('oo')
+            if do_pz_localization:
+                assert self.dm_helper.func.name == 'PZ-SIC', \
+                    'PZ-SIC localization requested, but functional settings ' \
+                    'do not use PZ-SIC.'
+                self.lock_subspace('oo') #  PZ localization
             self.need_localization = False
 
         # mom
