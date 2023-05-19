@@ -10,6 +10,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 
 
@@ -103,13 +104,17 @@ class ChiKSCalculator(PairFunctionIntegrator):
             bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
-            qpdi, len(zd), spincomponent, self.nbands, len(transitions)))
-
-        self.context.print('Initializing pair density PAW corrections')
-        self.pair_density_calc.initialize_paw_corrections(qpdi)
+            qpdi, len(zd), spincomponent, len(transitions)))
 
         # Create data structure
         chiks = self.create_chiks(spincomponent, qpdi, zd)
+
+        return self._calculate(chiks, transitions)
+
+    def _calculate(self, chiks: Chi, transitions: PairTransitions):
+        r"""In-place integration of χ_KS."""
+        self.context.print('Initializing pair density PAW corrections')
+        self.pair_density_calc.initialize_paw_corrections(chiks.qpd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, transitions)
@@ -331,7 +336,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return chiks
 
-    def get_info_string(self, qpd, nz, spincomponent, nbands, nt):
+    def get_info_string(self, qpd, nz, spincomponent, nt):
         r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
@@ -342,14 +347,14 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         s = '\n'
 
-        s += 'Calculating the Kohn-Sham susceptibility with:\n'
+        s += 'Setting up a Kohn-Sham susceptibility calculation with:\n'
         s += '    Spin component: %s\n' % spincomponent
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
         s += '    Number of frequency points: %d\n' % nz
-        if nbands is None:
+        if self.nbands is None:
             s += '    Bands included: All\n'
         else:
-            s += '    Number of bands included: %d\n' % nbands
+            s += '    Number of bands included: %d\n' % self.nbands
         s += 'Resulting in:\n'
         s += '    A total number of band and spin transitions of: %d\n' % nt
         s += '\n'
