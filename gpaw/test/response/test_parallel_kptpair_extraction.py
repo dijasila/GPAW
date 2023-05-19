@@ -12,7 +12,6 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_integrator import KPointPairPointIntegral
 from gpaw.response.symmetry import PWSymmetryAnalyzer
-from gpaw.response.chiks import get_spin_rotation
 
 from gpaw.test.response.test_chiks import (generate_system_s, generate_qrel_q,
                                            get_q_c, generate_nblocks_n)
@@ -115,8 +114,7 @@ def initialize_integral(extractor, context, q_c):
 
 
 def initialize_transitions(extractor, spincomponent, nbands):
-    spin_rotation = get_spin_rotation(spincomponent)
     bandsummation = 'pairwise'
     return PairTransitions.from_transitions_domain_arguments(
-        spin_rotation, nbands, extractor.nocc1, extractor.nocc2,
+        spincomponent, nbands, extractor.nocc1, extractor.nocc2,
         extractor.gs.nspins, bandsummation)

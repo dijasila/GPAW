@@ -97,12 +97,10 @@ class ChiKSCalculator(PairFunctionIntegrator):
         # Set up the internal plane-wave descriptor
         qpdi = self.get_pw_descriptor(q_c, internal=True)
 
-        # Analyze the requested spin component
-        spinrot = get_spin_rotation(spincomponent)
-
         # Prepare to sum over bands and spins
         transitions = self.get_band_and_spin_transitions(
-            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+            spincomponent, nbands=self.nbands,
+            bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
             qpdi, len(zd), spincomponent, self.nbands, len(transitions)))
@@ -472,16 +470,6 @@ def regularize_intraband_transitions(denom_wt, transitions, deps_t):
     degenerate_t = np.abs(deps_t) < 1e-8
 
     denom_wt[:, intraband_t & degenerate_t] = 1.
-    
-
-def get_spin_rotation(spincomponent):
-    """Get the spin rotation corresponding to the given spin component."""
-    if spincomponent == '00':
-        return '0'
-    elif spincomponent in ['uu', 'dd', '+-', '-+']:
-        return spincomponent[-1]
-    else:
-        raise ValueError(spincomponent)
 
 
 def get_smat_components(spincomponent, s1_t, s2_t):
