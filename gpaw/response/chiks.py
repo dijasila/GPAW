@@ -38,7 +38,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                  nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
-                 bundle_integrals=True, bandsummation='pairwise',
+                 bandsummation='pairwise',
                  **kwargs):
         """Contruct the ChiKSCalculator
 
@@ -60,10 +60,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
             the run-time).
             'pairwise': sum over pairs of bands
             'double': double sum over band indices.
-        bundle_integrals : bool
-            Do the k-point integrals (large matrix multiplications)
-            simultaneously for all frequencies (does not change the result,
-            but can affect the overall performance).
         kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
@@ -75,7 +71,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
         self.gammacentered = gammacentered
         self.nbands = nbands
-        self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
         self.pair_density_calc = NewPairDensityCalculator(gs, context)
@@ -93,6 +88,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
         zd : ComplexFrequencyDescriptor
             Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
         """
+        return self._calculate(*self._set_up_internals(spincomponent, q_c, zd))
+
+    def _set_up_internals(self, spincomponent, q_c, zd,
+                          distribution='GZg'):
+        r"""Set up internal data objects to calculate χ_KS."""
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
@@ -107,12 +107,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
             qpdi, len(zd), spincomponent, len(transitions)))
 
         # Create data structure
-        chiks = self.create_chiks(spincomponent, qpdi, zd)
+        chiks = self.create_chiks(spincomponent, qpdi, zd, distribution)
 
-        return self._calculate(chiks, transitions)
+        return chiks, transitions
 
     def _calculate(self, chiks: Chi, transitions: PairTransitions):
-        r"""In-place integration of χ_KS."""
+        r"""Integrate χ_KS according to the specified transitions."""
         self.context.print('Initializing pair density PAW corrections')
         self.pair_density_calc.initialize_paw_corrections(chiks.qpd)
 
@@ -171,16 +171,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return qpd
 
-    def create_chiks(self, spincomponent, qpd, zd):
+    def create_chiks(self, spincomponent, qpd, zd, distribution):
         """Create a new Chi object to be integrated."""
-        if self.bundle_integrals:
-            distribution = 'GZg'
-        else:
-            distribution = 'ZgG'
+        assert distribution in ['GZg', 'ZgG']
         blockdist = PlaneWaveBlockDistributor(self.context.comm,
                                               self.blockcomm,
                                               self.intrablockcomm)
-
         return Chi(spincomponent, qpd, zd,
                    blockdist, distribution=distribution)
 

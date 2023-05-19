@@ -114,7 +114,7 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     nn = len(nblocks_n)
 
     bandsummation_b = ['double', 'pairwise']
-    bundle_integrals_i = [True, False]
+    distribution_d = ['GZg', 'ZgG']
 
     # Symmetry independent tolerances (relating to chiks distribution)
     dist_atol = 1e-8
@@ -156,9 +156,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
         cross_tabulation=dict(disable_syms=disable_syms_s,
                               nblocks=nblocks_n))
 
-    # Check bundle_integrals toggle and cross-tabulate with nblocks
+    # Check internal distribution and cross-tabulate with nblocks
     chiks_testing_factory.check_parameter_self_consistency(
-        parameter='bundle_integrals', values=bundle_integrals_i,
+        parameter='distribution', values=distribution_d,
         atol=dist_atol, rtol=dist_rtol,
         cross_tabulation=dict(nblocks=nblocks_n))
 
@@ -171,10 +171,10 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
                               nblocks=nblocks_n,
                               bandsummation=bandsummation_b))
 
-    # Cross-tabulate bundle_integrals and nblocks
+    # Cross-tabulate distribution and nblocks
     chiks_testing_factory.check_reciprocity_and_inversion_symmetry(
         atol=atol, rtol=rtol,
-        cross_tabulation=dict(bundle_integrals=bundle_integrals_i,
+        cross_tabulation=dict(distribution=distribution_d,
                               nblocks=nblocks_n))
 
 
@@ -255,12 +255,12 @@ class ChiKSTestingFactory:
 
     def __call__(self,
                  qsign: int = 1,
-                 bundle_integrals: bool = True,
+                 distribution: str = 'GZg',
                  disable_syms: bool = False,
                  bandsummation: str = 'pairwise',
                  nblocks: int = 1):
         # Compile a string of the calculation parameters for cache look-up
-        cache_string = f'{qsign},{bundle_integrals},{disable_syms}'
+        cache_string = f'{qsign},{distribution},{disable_syms}'
         cache_string += f',{bandsummation},{nblocks}'
 
         if cache_string in self.cached_chiks:
@@ -269,14 +269,16 @@ class ChiKSTestingFactory:
         chiks_calc = ChiKSCalculator(
             self.gs, ecut=self.ecut, nbands=self.nbands,
             gammacentered=self.gammacentered,
-            bundle_integrals=bundle_integrals,
             disable_time_reversal=disable_syms,
             disable_point_group=disable_syms,
             bandsummation=bandsummation,
             nblocks=nblocks)
 
-        chiks = chiks_calc.calculate(
-            self.spincomponent, qsign * self.q_c, self.zd)
+        # Do a manual calculation of chiks
+        chiks = chiks_calc._calculate(*chiks_calc._set_up_internals(
+            self.spincomponent, qsign * self.q_c, self.zd,
+            distribution=distribution))
+
         chiks = chiks.copy_with_global_frequency_distribution()
         self.cached_chiks[cache_string] = chiks
 
