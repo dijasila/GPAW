@@ -125,7 +125,7 @@ class DirectMinLCAO(DirectLCAO):
         elif self.func.name == 'PZ-SIC':
             self.func.get_lagrange_matrices(
                 h_mm, kpt.C_nM, kpt.f_n, kpt, wfs,
-                update_eigenvalues=True, update_wfs=True)
+                update_eigenvalues=True, update_wfs=False)
 
         with wfs.timer('Calculate projections'):
             self.update_projections(wfs, kpt)
