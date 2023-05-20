@@ -118,7 +118,7 @@ class WaveFunction:
         sx_m = []
         sy_m = []
         sz_m = []
-        
+
         v_msn = v_nm.copy().reshape((M // 2, 2, M)).T.copy()
         for v_sn in v_msn:
             sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
@@ -509,11 +509,13 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
         n2 += nbands
 
     if projected:
-        soc = partial(projected_soc, theta=theta, phi=phi)
+        soc_func = partial(projected_soc, theta=theta, phi=phi)
+    else:
+        soc_func = soc
 
     # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_avii = {a: soc(calc.wfs.setups[a],
-                       calc.hamiltonian.xc, D_sp) * scale
+    dVL_avii = {a: soc_func(calc.wfs.setups[a],
+                            calc.hamiltonian.xc, D_sp) * scale
                 for a, D_sp in calc.density.D_asp.items()}
 
     kd = calc.wfs.kd
