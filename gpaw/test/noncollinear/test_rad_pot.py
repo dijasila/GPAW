@@ -26,9 +26,9 @@ def test_proj_soc():
     mz = 1.0
     f_si = atomic_occupation_numbers(setup, [0, 0, mz], 4)
     D_sp = setup.initialize_density_matrix(f_si)
-    dv_vii = projected_soc(setup, xc, D_sp,
+    dv_vii = projected_soc(soc(setup, xc, D_sp),
                            theta=0, phi=0)
     # Reversing normal plane direction should give same potential
-    dv_vii -= projected_soc(setup, xc, D_sp,
+    dv_vii -= projected_soc(soc(setup, xc, D_sp),
                             theta=180, phi=0)
     assert abs(dv_vii).max() == pytest.approx(0.0, abs=1e-12)
