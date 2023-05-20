@@ -2,7 +2,6 @@ from __future__ import annotations
 from math import nan
 from operator import attrgetter
 from pathlib import Path
-from functools import partial
 from typing import (TYPE_CHECKING, Callable, Dict, Iterable, Iterator, List,
                     Optional, Tuple)
 
@@ -508,15 +507,14 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
             nbands = eigenvalues.shape[2]
         n2 += nbands
 
-    if projected:
-        soc_func = partial(projected_soc, theta=theta, phi=phi)
-    else:
-        soc_func = soc
-
     # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_avii = {a: soc_func(calc.wfs.setups[a],
-                            calc.hamiltonian.xc, D_sp) * scale
+    dVL_avii = {a: soc(calc.wfs.setups[a],
+                       calc.hamiltonian.xc, D_sp) * scale
                 for a, D_sp in calc.density.D_asp.items()}
+
+    if projected:
+        dVL_avii = {a: projected_soc(dVL_vii, theta=theta, phi=phi)
+                    for a, dVL_vii in dVL_avii.items()}
 
     kd = calc.wfs.kd
     bd = calc.wfs.bd
@@ -576,14 +574,14 @@ def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
     return dVL_vii * alpha**2 / 4.0
 
 
-def projected_soc(a: Setup, xc, D_sp: Array2D,
-                  theta: float = 0, phi: float = 0) -> Array3D:
+def projected_soc(dVL_vii: Array3D,
+                  theta: float = 0,
+                  phi: float = 0) -> Array3D:
     """
     Optional Args:
         theta (float): The angle from z-axis in degrees
         phi (float): The angle from x-axis in degrees
     """
-    dVL_vii = soc(a, xc, D_sp)
     theta *= np.pi / 180
     phi *= np.pi / 180
     n_v = np.array([np.sin(theta) * np.cos(phi),
