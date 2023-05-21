@@ -137,7 +137,6 @@ class SCFLoop:
         ham.get_energy(
             e_entropy, wfs, kin_en_using_band=kin_en_using_band, e_sic=e_sic)
 
-
     def update_ham_and_dens(self, wfs, ham, dens):
 
         to_update = self.niter > self.niter_fixdensity and not dens.fixed
