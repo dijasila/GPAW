@@ -74,9 +74,9 @@ class SCFLoop:
         if not converged:
             self.not_converged(dens, ham, wfs, log)
 
-    def log(self, log, converged_items, entries, context, wfs):
+    def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
-        write_iteration(self.criteria, converged_items, entries, context, log, wfs)
+        write_iteration(self.criteria, converged_items, entries, context, log)
 
     def check_convergence(self, dens, ham, wfs, log, callback):
 
@@ -90,7 +90,7 @@ class SCFLoop:
             self.criteria, context)
 
         callback(self.niter)
-        self.log(log, converged_items, entries, context, wfs)
+        self.log(log, converged_items, entries, context)
 
     def not_converged(self, dens, ham, wfs, log):
 
@@ -265,7 +265,7 @@ class SCFLoop:
             ham.update(dens)
 
 
-def write_iteration(criteria, converged_items, entries, ctx, log, wfs):
+def write_iteration(criteria, converged_items, entries, ctx, log):
     custom = (set(criteria) -
               {'energy', 'eigenstates', 'density'})
 
@@ -284,14 +284,6 @@ def write_iteration(criteria, converged_items, entries, ctx, log, wfs):
         if ctx.wfs.nspins == 2:
             header1 += '{:>8s} '.format('magmom')
             header2 += '{:>8s} '.format('')
-
-        if hasattr(wfs.eigensolver, 'iloop') or \
-                hasattr(wfs.eigensolver, 'iloop_outer'):
-            if wfs.eigensolver.iloop is not None or \
-                    wfs.eigensolver.iloop_outer is not None:
-                header1 += '{:>8s} '.format('inner loop')
-                header2 += '{:>8s} '.format('')
-
         log(header1.rstrip())
         log(header2.rstrip())
 
@@ -322,16 +314,6 @@ def write_iteration(criteria, converged_items, entries, ctx, log, wfs):
             line += f'  {totmom_v[2]:+.4f}'
         else:
             line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
-
-    # Inner loop if used
-    if hasattr(wfs.eigensolver, 'iloop') or \
-            hasattr(wfs.eigensolver, 'iloop_outer'):
-        iloop_counter = 0
-        if wfs.eigensolver.iloop is not None:
-            iloop_counter += wfs.eigensolver.iloop.eg_count
-        if wfs.eigensolver.iloop_outer is not None:
-            iloop_counter += wfs.eigensolver.iloop_outer.eg_count
-        line += f'  {iloop_counter}'
 
     log(line.rstrip())
     log.fd.flush()
