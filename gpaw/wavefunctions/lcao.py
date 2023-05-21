@@ -10,6 +10,7 @@ from gpaw.utilities.tools import tri2full
 # from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.blas import mmm, gemmdot
+from gpaw.utilities.timing import timedclass
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
@@ -207,8 +208,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
-            self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
-            self.timer)
+            self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype)
         self.timer.stop('mktci')
         self.manytci = manytci
         self.newtci = manytci.tci
@@ -396,7 +396,7 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.basis_functions, self.newtci,
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
-                                    self.spos_ac, self.timer,
+                                    self.spos_ac,
                                     Fref_av)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
@@ -466,11 +466,12 @@ class LCAOWaveFunctions(WaveFunctions):
                                          self.dtype)
 
 
+@timedclass
 class LCAOforces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
                  P_aqMi, setups, manytci, hamiltonian, spos_ac,
-                 timer, Fref_av):
+                 Fref_av):
         """ Object which calculates LCAO forces """
 
         self.ksl = ksl
@@ -491,7 +492,6 @@ class LCAOforces:
         self.Mstop = ksl.Mstop
         self.setups = setups
         self.hamiltonian = hamiltonian
-        self.timer = timer
         self.Fref_av = Fref_av
         self.my_atom_indices = bfs.my_atom_indices
         self.atom_indices = bfs.atom_indices

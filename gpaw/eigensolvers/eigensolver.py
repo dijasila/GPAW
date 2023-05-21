@@ -5,6 +5,7 @@ import numpy as np
 from ase.dft.bandgap import _bandgap
 from ase.units import Ha
 from ase.utils.timing import timer
+from gpaw.utilities.timing import timedclass
 
 from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.utilities.blas import axpy
@@ -16,6 +17,7 @@ def reshape(a_x, shape):
     return a_x.ravel()[:np.prod(shape)].reshape(shape)
 
 
+@timedclass
 class Eigensolver:
     def __init__(self, keep_htpsit=True, blocksize=1):
         self.keep_htpsit = keep_htpsit
@@ -26,7 +28,6 @@ class Eigensolver:
         self.orthonormalization_required = True
 
     def initialize(self, wfs):
-        self.timer = wfs.timer
         self.world = wfs.world
         self.kpt_comm = wfs.kd.comm
         self.band_comm = wfs.bd.comm

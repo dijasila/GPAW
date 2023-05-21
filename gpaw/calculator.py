@@ -12,7 +12,6 @@ from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
-from ase.utils.timing import Timer
 
 import gpaw
 import gpaw.mpi as mpi
@@ -48,12 +47,14 @@ from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
 from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.timing import timedclass
 from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
 
 
+@timedclass
 class GPAW(Calculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
@@ -139,11 +140,6 @@ class GPAW(Calculator):
                                     'dictionary.  Must be one of: {}'
                                     .format(key, allowed))
             self.parallel.update(parallel)
-
-        if timer is None:
-            self.timer = Timer()
-        else:
-            self.timer = timer
 
         self.scf = None
         self.wfs = None
@@ -287,7 +283,7 @@ class GPAW(Calculator):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
-        if hasattr(self, 'timer') and not self.log.fd.closed:
+        if not self.log.fd.closed:
             self.timer.write(self.log.fd)
 
         if hasattr(self, 'reader') and self.reader is not None:
@@ -914,8 +910,7 @@ class GPAW(Calculator):
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
-        self.density.initialize(self.setups, self.timer,
-                                magmom_av, par.hund)
+        self.density.initialize(self.setups, magmom_av, par.hund)
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')
@@ -1157,7 +1152,6 @@ class GPAW(Calculator):
             nspins=dens.nspins,
             collinear=dens.collinear,
             setups=dens.setups,
-            timer=self.timer,
             xc=xc,
             world=self.world,
             redistributor=dens.redistributor,
@@ -1360,9 +1354,6 @@ class GPAW(Calculator):
 
         # Write timing info now before the interpreter shuts down:
         self.close()
-
-        # Disable timing output during shut-down:
-        del self.timer
 
         raise SystemExit
 
