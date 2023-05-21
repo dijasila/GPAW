@@ -1,6 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
+from gpaw.directmin.etdm import ETDM
 from ase import Atoms
 import numpy as np
 
@@ -25,11 +26,11 @@ def test_lcaosic_h2o(in_tmp_dir):
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.25,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'etdm',
-                             'localizationtype': 'PM-PZ',
-                             'functional': {'name': 'PZ-SIC',
-                                            'scaling_factor': \
-                                                (0.5, 0.5)}}, # Half SIC
+                eigensolver=ETDM(localizationtype='PM',
+                                 functional_settings={
+                                     'name': 'PZ-SIC',
+                                     'scaling_factor': \
+                                         (0.5, 0.5)}),  # Half SIC
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
