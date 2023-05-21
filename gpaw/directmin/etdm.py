@@ -35,7 +35,7 @@ class ETDM:
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade-approx',
                  representation='sparse',
-                 functional='ks',
+                 functional_settings='ks',
                  orthonormalization='gramschmidt',
                  randomizeorbitals=False,
                  checkgraderror=False,
@@ -125,7 +125,7 @@ class ETDM:
         self.subspace_optimization = False
 
         # these are things we cannot initialize now
-        self.func_settings = functional
+        self.func_settings = functional_settings
         self.dtype = None
         self.nkpts = None
         self.gd = None
@@ -789,6 +789,7 @@ class ETDM:
                 'searchdir_algo': self.searchdir_algo.todict(),
                 'linesearch_algo': self.line_search.todict(),
                 'localizationtype': self.localizationtype,
+                'need_localization': self.need_localization,
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
