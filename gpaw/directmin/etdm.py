@@ -103,6 +103,8 @@ class ETDM:
         self.name = 'etdm'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
+        if localizationtype is None:
+            self.need_localization = False
         self.need_init_orbs = need_init_orbs
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
