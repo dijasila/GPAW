@@ -13,7 +13,8 @@ from gpaw.test.conftest import response_band_cutoff
                                 'al_pw',
                                 'fe_pw',
                                 'co_pw',
-                                'gaas_pw'])
+                                'gaas_pw',
+                                'srvo3_pw'])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     """ Tests gpaw.response.ibz2bz.py
     Tests functionalities to take wavefunction and projections from
