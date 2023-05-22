@@ -3,6 +3,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw import PW
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
 from gpaw.response.df import DielectricFunction
+from gpaw.test import findpeak
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
@@ -77,8 +78,7 @@ def test_point_tetra_match(in_tmp_dir):
     assert rms_diff_tetra_point < 1.35
     assert rms_diff_tetra_gauss < 1.10
     assert rms_diff_tetra_point * 0.80 > rms_diff_tetra_gauss
-
-    from gpaw.test import findpeak
+    
     freq1, amp1 = findpeak(omega[slicer], df2_tetra[slicer])
     freq2, amp2 = findpeak(omega[slicer], df2_gauss)
 
