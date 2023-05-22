@@ -395,18 +395,19 @@ k-point convergence comparison
 ------------------------------
 
 Elemental aluminium is another material which can be difficult to
-converge with respect to the number of k-points. This is due
-to the Fermi surface of the metal extends over the first Brilluoin zone.
+converge with respect to the number of k-points.
+This is due to the Fermi surface of the metal penetrating
+the surface of the first Brilluoin zone.
 This means that the fermi surface has to be finely resolved when
-calculating ´q´ = 0 EELS spectra.
-This inelastic EELS spectrum of Al shows a clear plasmonic resonsance and
-below we show the k-point convergence of the plasmonic frequency.
+calculating ´q = 0´ EELS spectra.
+The EELS spectrum of Al shows a clear plasmonic resonsance and
+below we show the k-point convergence of the plasmon frequency.
 We compare the tetrahedron integration described here with the
 default point integration method.
 The dielectric function is calculated for all varying k-samplings
-(:download:`al-plasmon-peak.py`) using Gamma-centered monkhorst packs
-with multiple of 8 along each axis to ensure sampling of high-symmetry
-k-points. We see that both methods converge to the same value.
+(:download:`al-plasmon-peak.py`) using ´\Gamma´-centered Monkhorst-Pack
+k-point grids with a multiple of 8 points along each axis to ensure sampling of
+high-symmetry k-points. We see that both methods converge to the same value.
 
 .. image:: al-plasmon-peak.png
     :align: center
