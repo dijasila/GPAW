@@ -16,5 +16,6 @@ def workflow():
         run(script='plot_EELS.py')
 
     run(script='tas2_dielectric_function.py', cores=8, tmax='15m')
-    run(script='graphene_dielectric_function.py', cores=8, tmax='15m')
-    run(script='graphene_tetra_point_comparison.py')
+    graphene_df = run(script='graphene_dielectric_function.py', cores=8,
+                      tmax='15m')
+    run(script='graphene_tetra_point_comparison.py', deps=[graphene_df])
