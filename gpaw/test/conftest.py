@@ -597,7 +597,7 @@ class GPWFiles:
         return self._co(symmetry='off')
 
     @with_band_cutoff(gpw='srvo3_pw_wfs',
-                      band_cutoff=20)  # 2 * (4s + 3d)
+                      band_cutoff=20)
     def _srvo3(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
@@ -613,10 +613,9 @@ class GPWFiles:
         # Ground state parameters
         xc = 'LDA'
         occw = 0.01
-        ebands = 2 * 2  # extra bands for ground state calculation
+        ebands = 10  # extra bands for ground state calculation
         pw = 200
         conv = {'density': 1e-8,
-                'forces': 1e-8,
                 'bands': band_cutoff + 1}
 
         # ---------- Calculation ---------- #
