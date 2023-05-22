@@ -53,9 +53,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
             assert np.allclose(wfs.kd.bzk_kc[K], wfs_nosym.kd.bzk_kc[K])
             assert np.allclose(wfs_nosym.kd.ibzk_kc[K], wfs_nosym.kd.bzk_kc[K])
 
-            r_vR = wfs_nosym.gd.get_grid_point_coordinates()
-            assert np.allclose(r_vR, wfs_nosym.gd.get_grid_point_coordinates())
-
             # Get data for calc without symmetry at BZ kpt K
             eps_n_nosym, ut_nR_nosym, proj_nosym, dO_aii_nosym = \
                 get_ibz_data_from_wfs(wfs_nosym, nbands, K, s)
@@ -68,7 +65,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
             # Map projections and u:s from ik to K
             proj_sym = ibz2bz[K].map_projections(proj)
             ut_nR_sym = np.array([ibz2bz[K].map_pseudo_wave_to_BZ(
-                ut_nR[n], r_vR) for n in range(nbands)])
+                ut_nR[n]) for n in range(nbands)])
 
             # Check so that eigenvalues are the same
             assert np.allclose(eps_n[:nbands],
