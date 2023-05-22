@@ -370,6 +370,10 @@ def findroot(func: Callable[[float], Tuple[float, float]],
     >>> x, _ = findroot(lambda x: (x, 1.0), 1.0)
     >>> assert abs(x) < 1e-10
     """
+
+    if not np.isfinite(x):
+        x = 0.0
+
     xmin = -np.inf
     xmax = np.inf
 
