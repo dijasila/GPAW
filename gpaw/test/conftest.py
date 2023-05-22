@@ -629,7 +629,7 @@ class GPWFiles:
                           convergence=conv,
                           nbands=band_cutoff + ebands,
                           symmetry=symmetry,
-                          txt=self.path / f'co_pw{tag}.txt')
+                          txt=self.path / f'srvo3_pw{tag}.txt')
 
         atoms.get_potential_energy()
         return atoms.calc
