@@ -10,7 +10,7 @@ import numpy as np
 
 
 def localize_orbitals(
-        wfs, dens, ham, log, func_settings, localizationtype, tol=None):
+        wfs, dens, ham, log, localizationtype, func_settings=None, tol=None):
     io = localizationtype
 
     if io is None:
@@ -41,13 +41,17 @@ def localize_orbitals(
                 flush=True)
             del dm
         elif name == 'PZ':
-            if wfs.mode != 'lcao':
-                log('Perdew-Zunger localization started', flush=True)
-                PZC = PZpwfd
-                dm = DirectMinLocalize(
-                    PZC(wfs, dens, ham), wfs, maxiter=200, g_tol=5.0e-4, randval=0.1)
-                dm.run(wfs, dens, log)
-                log('Perdew-Zunger localization finished', flush=True)
+            log('Perdew-Zunger localization started',
+                flush=True)
+            if wfs.mode == 'lcao':
+                PZC = get_functional_lcao(func_settings, wfs, dens, ham)
+            else:
+                PZC = PZpwfd(wfs, dens, ham)
+            dm = DirectMinLocalize(
+                PZC, wfs, maxiter=200, g_tol=5.0e-4, randval=0.1)
+            dm.run(wfs, dens, log)
+            log('Perdew-Zunger localization finished',
+                flush=True)
         elif name == 'KS':
             log('ETDM minimization using occupied and virtual orbitals',
                 flush=True)
