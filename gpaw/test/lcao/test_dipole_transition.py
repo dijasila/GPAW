@@ -4,7 +4,7 @@ import pytest
 from ase.parallel import world, parprint
 from ase.units import Bohr
 from gpaw import GPAW
-from gpaw.raman.dipoletransition import get_dipole_transitions
+from gpaw.lcao.dipoletransition import get_dipole_transitions
 from gpaw.utilities.dipole import dipole_matrix_elements_from_calc
 from gpaw.lrtddft.kssingle import KSSingles
 

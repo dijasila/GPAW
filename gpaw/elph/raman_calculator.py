@@ -75,8 +75,9 @@ class ResonantRamanCalculator:
             if handle is not None:
                 handle.save(None)
 
+    @classmethod
     def resonant_term(
-        self,
+        cls,
         f_vc: ArrayND,
         E_vc: ArrayND,
         mom_dnn: ArrayND,
