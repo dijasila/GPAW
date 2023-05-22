@@ -42,8 +42,7 @@ class ETDM:
                  localizationtype=None,
                  need_localization=True,
                  need_init_orbs=True,
-                 constraints=None,
-                 subspace_convergence=1e-4
+                 constraints=None
                  ):
         """
         This class performs the exponential transformation
@@ -110,7 +109,6 @@ class ETDM:
         self.representation = representation
         self.orthonormalization = orthonormalization
         self.constraints = constraints
-        self.subspace_convergence = subspace_convergence
 
         self.searchdir_algo = search_direction(searchdir_algo)
         if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
