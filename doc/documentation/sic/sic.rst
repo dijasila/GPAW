@@ -15,45 +15,34 @@ here `E^{DFA}` - density functional approximation,
 `\beta` is a scaling factor.
 
 The SIC functional is not a unitary invariant functional and is dependent on orbital densities. 
-Therefore, the :ref:`fully variational approach <directmin>` is used to find the optimal
+Therefore, the :ref:`fully variational approach <directmin>` [#Ivanov2021pwfd]_, [#Ivanov2021]_ is used to find the optimal
 orbitals which provide the ground state energy.
 
 Example
 --------
-The current implementation uses :ref:`LCAO aprroximation <lcao>` 
+The implementation support all three modes (PW, FD, and LCAO) using
 with direct minimization described :ref:`here <directmin>` .
 Since the functional is not a unitary invariant functional,
 it is necessary to employ complex orbitals to find the lowest energy state.
-Here is an example:
+Here is an example using FD mode:
 
 .. literalinclude:: sic_example.py
 
-The orbital-density dependent potentials are evaluated on
-a coarse grid in order to increase the calculation speed.
-To evaluate these potentials on a fine grid, use:
+To use PW mode, just import PW mode and replace FD with PW.
+While here is the example for LCAO mode:
 
-.. code-block:: python
+.. literalinclude:: sic_example_lcao.py
 
-  odd_parameters={'name': 'PZ_SIC',
-                  'scaling_factor': (0.5, 0.5),
-                  'sic_coarse_grid': False}
-
-
-**Important:** Firstly, please be aware that unoccupied orbitals
-are not affected by SIC directly in the LCAO mode.
-Secondly, the implementation relies on the SciPy library, and
-in order to ensure efficient performance,
-please be sure that your SciPy library uses the Math Kernel Library (MKL).
-Otherwise you can use
-
-.. code-block:: python
-
-  eigensolver=DirectMinLCAO(matrix_exp='egdecomp', ..)
-
-See :ref:`direct minimization implementation <directmin>` for details.
+If you use this module, please refer to implementation papers Refs. [#Ivanov2021pwfd]_, [#Ivanov2021]_.
 
 References
 ----------
 
 .. [#Perdew] J. P. Perdew and Alex Zunger
              *Phys. Rev. B* **23**, 5048 (1981)
+
+.. [#Ivanov2021pwfd] A. V. Ivanov, G. Levi, E.Ö. Jónsson, and H. Jónsson,
+           *J. Chem. Theory Comput.*, **17**, 5034, (2021).
+
+.. [#Ivanov2021] A. V. Ivanov, E.Ö. Jónsson, T. Vegge, and H. Jónsson,
+         *Comput. Phys. Commun.*, **267**, 108047 (2021).

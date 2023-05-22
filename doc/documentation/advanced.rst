@@ -28,3 +28,4 @@ GPAW calculator:
    xc/xc
    custom_convergence
    pm/pm
+   sic/sic

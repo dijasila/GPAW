@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
-from gpaw import FD, GPAW
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw import GPAW, LCAO
+from gpaw.directmin.etdm import ETDM
 
 # Water molecule:
 d = 0.9575
@@ -12,15 +12,18 @@ H2O = Atoms(
 H2O.center(vacuum=5.0)
 
 calc = GPAW(
-    mode=FD(force_complex_dtype=True),  # use complex orbitals
+    mode=LCAO(force_complex_dtype=True),
     xc="PBE",
     occupations={"name": "fixed-uniform"},
-    eigensolver=DirectMin(
+    eigensolver=ETDM(
         localizationtype="FB-ER-PZ",
-        odd_parameters={"name": "PZ_SIC", "scaling_factor": (0.5, 0.5)},
-    ),  # half-SIC
-    mixer={"name": "dummy"},
+        functional_settings={"name": "PZ-SIC", "scaling_factor": (0.5, 0.5)},
+    ),  # Half SIC
+    mixer={"backend": "no-mixing"},
+    nbands="nao",
+    symmetry="off",
 )
-H2O.set_calculator(calc)
+
+H2O.calc = calc
 H2O.get_potential_energy()
 H2O.get_forces()
