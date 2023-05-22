@@ -167,7 +167,7 @@ class ResonantRamanCalculator:
         return raman_l
 
     def calculate_raman_tensor(self, w_in, gamma_l=0.1):
-        """Calcualte whole Raman tensor
+        """Calculate whole Raman tensor
 
         Parameters
         ----------
