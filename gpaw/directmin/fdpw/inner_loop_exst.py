@@ -178,7 +178,7 @@ class InnerLoop:
             d = self.n_occ[k]
             a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LSR1P(wfs, memory=50)
+        self.sd = LSR1P(memory=50)
         self.ls = MaxStep(self.evaluate_phi_and_der_phi, max_step=self.maxstep)
 
         threelasten = []
