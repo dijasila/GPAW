@@ -41,6 +41,7 @@ class ETDM:
                  randomizeorbitals=False,
                  checkgraderror=False,
                  localizationtype=None,
+                 localizationseed=None,
                  need_localization=True,
                  need_init_orbs=True,
                  constraints=None
@@ -77,6 +78,7 @@ class ETDM:
         :param randomizeorbitals: if True, add noise to the initial guess
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
+        :param localizationseed: Seed for Pipek-Mezey localization
         :param need_localization: use localized orbitals as initial guess
         :param need_init_orbs: if false, then use orbitals stored in kpt
         :param constraints: List of constraints for each kpt. Can be given
@@ -94,6 +96,7 @@ class ETDM:
             'Value Error'
 
         self.localizationtype = localizationtype
+        self.localizationseed = localizationseed
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_ref_orbs_canonical = update_ref_orbs_canonical
@@ -276,7 +279,7 @@ class ETDM:
             self.sort_orbitals_mom(wfs)
             localize_orbitals(
                 wfs, dens, ham, log, self.localizationtype,
-                func_settings=self.func_settings)
+                func_settings=self.func_settings, seed=self.localizationseed)
             self.need_localization = False
 
         # initialize matrices

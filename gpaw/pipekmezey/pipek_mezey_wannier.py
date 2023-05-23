@@ -139,12 +139,12 @@ def get_atoms_object_from_wfs(wfs):
     return atoms
 
 
-def random_orthogonal(s, dtype=float):
+def random_orthogonal(rng, s, dtype=float):
     # Make a random orthogonal matrix of dim s x s,
     # such that WW* = I = W*W
-    w_r = np.random.rand(s, s)
+    w_r = rng.random((s, s))
     if dtype == complex:
-        w_r = w_r + 1.j * np.random.rand(s, s)
+        w_r = w_r + 1.j * rng.random((s, s))
     return w_r.dot(inv(sqrtm(w_r.T.conj().dot(w_r))))
 
 
@@ -152,7 +152,7 @@ class PipekMezey:
     #
     def __init__(self, wfs=None, calc=None,
                  method='W', penalty=2.0, spin=0,
-                 mu=None, dtype=None):
+                 mu=None, dtype=None, seed=None):
         #
         assert wfs or calc is not None
 
@@ -189,6 +189,7 @@ class PipekMezey:
         self.ns = self.wfs.nspins
         self.spin = spin
         self.niter = 0
+        self.rng = np.random.default_rng(seed)
 
         # Determine nocc: integer occupations only
         k_rank, u = divmod(0 + len(self.wfs.kd.ibzk_kc) * spin,
@@ -315,7 +316,7 @@ class PipekMezey:
 
         # Initial W_k: Start from random WW*=I
         for k in range(self.Nk):
-            self.W_k[k] = random_orthogonal(self.nocc,
+            self.W_k[k] = random_orthogonal(self.rng, self.nocc,
                                             dtype=self.dtype)
         if world is not None:
             world.broadcast(self.W_k, 0)

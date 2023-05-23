@@ -9,8 +9,8 @@ from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import numpy as np
 
 
-def localize_orbitals(
-        wfs, dens, ham, log, localizationtype, func_settings=None, tol=None):
+def localize_orbitals(wfs, dens, ham, log, localizationtype,
+                      func_settings=None, tol=None, seed=None):
     io = localizationtype
 
     if io is None:
@@ -72,7 +72,7 @@ def localize_orbitals(
                     log('Pipek-Mezey localization started',
                         flush=True)
                     lf_obj = PipekMezey(
-                        wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
+                        wfs=wfs, spin=kpt.s, dtype=wfs.dtype, seed=seed)
                     lf_obj.localize(tolerance=tol)
                     log('Pipek-Mezey localization finished',
                         flush=True)
