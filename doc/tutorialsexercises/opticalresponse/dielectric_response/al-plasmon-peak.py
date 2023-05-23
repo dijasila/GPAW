@@ -1,6 +1,5 @@
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
-from gpaw.test import findpeak
 from ase.build import bulk
 import numpy as np
 
@@ -8,7 +7,12 @@ import numpy as np
 def get_plasmon_peak(df, q_c):
     _, eels_w = df.get_eels_spectrum(q_c=q_c, filename=None)
     omega_w = df.get_frequencies()
-    wpeak, _ = findpeak(omega_w, eels_w)
+    i = eels_w.argmax()
+    a, b, c = np.polyfit(omega_w[i - 1:i + 2] - omega_w[i],
+                         eels_w[i - 1:i + 2], 2)
+    assert a < 0
+    domega = -0.5 * b / a
+    wpeak = omega_w[i] + domega
     return wpeak
 
 
