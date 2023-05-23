@@ -275,6 +275,9 @@ class ETDM:
 
         # initialize matrices
         wfs.calculate_occupation_numbers(dens.fixed)
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
         self.sort_orbitals_mom(wfs)
         self.set_variable_matrices(wfs.kpt_u)
         # if no empty state no need to optimize
@@ -286,11 +289,11 @@ class ETDM:
         if self.need_localization:
             localizationtype = \
                 self.localizationtype.replace('-', '').lower().split('_')
-            do_pz_localization = 'pz' in localizationtype
+            do_oo_subspace = 'pz' in localizationtype
             localize_orbitals(
                 wfs, dens, ham, log, self.localizationtype,
                 func_settings=self.func_settings, seed=self.localizationseed)
-            if do_pz_localization:
+            if do_oo_subspace:
                 assert self.dm_helper.func.name == 'PZ-SIC', \
                     'PZ-SIC localization requested, but functional settings ' \
                     'do not use PZ-SIC.'
@@ -299,9 +302,7 @@ class ETDM:
 
         # mom
         wfs.calculate_occupation_numbers(dens.fixed)
-        occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
             self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
