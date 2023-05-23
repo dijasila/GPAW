@@ -1558,6 +1558,10 @@ def types2atomtypes(symbols, types, default):
             # considered a dev feature used for testing, so we'll
             # have to live with that until maybe someone wants to improve
             # things enough.
+            #
+            # Note: We should probably have normalized the "types"
+            # earlier, right after loading the .gpw file.
+            # This could be done if GPAW uses a custom encoder/decoder.
 
         assert isinstance(type, str) or hasattr(type, 'symbol')
         if isinstance(symbol, str):
