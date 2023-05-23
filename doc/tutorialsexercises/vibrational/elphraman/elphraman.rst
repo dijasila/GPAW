@@ -54,9 +54,28 @@ obtain accurate phonon frequencies. We already calculated the forces in the prev
 As exercise, check the dependence of the phonon frequencies with the calculation
 mode, supercell size and convergence parameters.
 
- .. This given set of parameters yield this result::
+ This given set of parameters yield this result::
+
     i    cm^-1
-    ------------
+  ------------
+    0   -11.21
+    1    -2.75
+    2     3.20
+    3    29.01
+    4    29.57
+    5    55.19
+    6   276.02
+    7   276.44
+    8   277.94
+    9   278.39
+   10   370.99
+   11   371.43
+   12   371.69
+   13   371.95
+   14   399.12
+   15   402.67
+   16   456.72
+   17   460.57
 
 
 Momentum matrix
@@ -102,6 +121,8 @@ Raman tensor which is saved in a file cache.(:git:`~doc/tutorialsexercises/vibra
 The final result can then be plotted:(:git:`~doc/tutorialsexercises/vibrational/elphraman/plot_spectrum.py`)
 
 .. literalinclude:: plot_spectrum.py
+    :start-at: from gpaw.elph import RamanData
+    :end-before: # for testing
 
 .. image:: Polarised_raman_488nm.png
     :scale: 30

@@ -20,15 +20,18 @@ def workflow():
     with disp, sc, scf, dip, ph:
         ra = run(script='raman.py', cores=1)
         with ra:
-            run(script='plot_spectrum.py', cores=1)
-            # run(function=check)
+            plt = run(script='plot_spectrum.py', cores=1)
+            with plt:
+                run(function=check)
 
-# def check():
-    # """Read result and make sure it's OK."""
-    # import numpy as np
-    # from gpaw.test import findpeak
-    # ri = np.load('RI_xz_632nm.npy')
-    # x0, y0 = findpeak(ri[0], ri[1])
-    # print(x0, y0)
-    # assert np.isclose(x0, 1304.497, atol=0.2)
-    # assert np.isclose(y0, 0.044, atol=0.01)
+
+def check():
+    """Read result and make sure it's OK."""
+    import numpy as np
+    from gpaw.test import findpeak
+
+    ri = np.load('raman_spectrum.npy')
+    x0, y0 = findpeak(ri[0], ri[1])
+    print(x0, y0)
+    assert np.isclose(x0, 0.0460681347226064, rtol=1e-4)
+    assert np.isclose(y0, 59676.22244090502, rtol=1e-3)

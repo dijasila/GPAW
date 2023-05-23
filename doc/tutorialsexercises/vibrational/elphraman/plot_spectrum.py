@@ -1,4 +1,5 @@
 # web-page: Polarised_raman_488nm.png
+import numpy as np
 from gpaw.elph import RamanData
 
 rd = RamanData()
@@ -17,3 +18,6 @@ for entry in entries:
 
 rd.plot_raman("Polarised_raman_488nm.png", energy, spectra, labels,
               relative=False)
+
+# for testing
+np.save("raman_spectrum.npy", np.vstack((energy, spectra)))
