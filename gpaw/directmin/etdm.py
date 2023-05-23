@@ -275,6 +275,7 @@ class ETDM:
 
         # initialize matrices
         wfs.calculate_occupation_numbers(dens.fixed)
+        self.sort_orbitals_mom(wfs)
         self.set_variable_matrices(wfs.kpt_u)
         # if no empty state no need to optimize
         for k in self.ind_up:
@@ -283,7 +284,6 @@ class ETDM:
 
         # localize orbitals?
         if self.need_localization:
-            self.sort_orbitals_mom(wfs)
             localizationtype = \
                 self.localizationtype.replace('-', '').lower().split('_')
             do_pz_localization = 'pz' in localizationtype
