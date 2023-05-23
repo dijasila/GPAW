@@ -33,7 +33,7 @@ def test_pipekmezey_chain(in_tmp_dir):
     calc.atoms = atoms
     calc.calculate()
 
-    PM = PipekMezey(calc=calc)
+    PM = PipekMezey(calc=calc, seed=42)
     PM.localize()
 
     P = PM.get_function_value()
