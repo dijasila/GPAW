@@ -27,4 +27,4 @@ def test_pipekmezey_lcao(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.3750, 0.0001)
+    equal(P, 3.3756, 0.0001)

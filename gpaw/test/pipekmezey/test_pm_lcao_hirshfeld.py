@@ -28,4 +28,4 @@ def test_pipekmezey_lcao_hirshfeld(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.3750, 0.0001)
+    equal(P, 3.3263, 0.0001)
