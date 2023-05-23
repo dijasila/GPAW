@@ -292,7 +292,7 @@ class ETDM:
             do_oo_subspace = 'pz' in localizationtype
             localize_orbitals(
                 wfs, dens, ham, log, self.localizationtype,
-                func_settings=self.func_settings, seed=self.localizationseed)
+                seed=self.localizationseed)
             if do_oo_subspace:
                 assert self.dm_helper.func.name == 'PZ-SIC', \
                     'PZ-SIC localization requested, but functional settings ' \

@@ -9,8 +9,8 @@ from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import numpy as np
 
 
-def localize_orbitals(wfs, dens, ham, log, localizationtype,
-                      func_settings=None, tol=None, seed=None):
+def localize_orbitals(
+        wfs, dens, ham, log, localizationtype, tol=None, seed=None):
     io = localizationtype
 
     if io is None:
