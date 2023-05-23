@@ -12,7 +12,6 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils import basestring
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
@@ -23,78 +22,22 @@ from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
 import time
 from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
+from gpaw.directmin.functional.fdpw import get_functional
 
 
 class DirectMinFDPW(Eigensolver):
 
-    def __init__(self,
-                 searchdir_algo=None,
-                 linesearch_algo='UnitStep',
-                 use_prec=True,
-                 odd_parameters='Zero',
-                 need_init_orbs=True,
-                 inner_loop=None,
-                 localizationtype=None,
-                 need_localization=True,
-                 maxiter=50,
-                 maxiterxst=10,
-                 maxstepxst=0.2,
-                 kappa_tol=5.0e-4,
-                 g_tol=5.0e-4,
-                 g_tolxst=5.0e-4,
-                 momevery=3,
-                 printinnerloop=False,
-                 blocksize=1,
-                 convergelumo=True,
-                 exstopt=False):
+    def __init__(self, wfs, dens, ham, nkpts, functional, blocksize=1,
+                 momevery=3, need_init_orbs=True):
 
         super(DirectMinFDPW, self).__init__(keep_htpsit=False,
                                         blocksize=blocksize)
 
-        self.sda = searchdir_algo
-        self.lsa = linesearch_algo
-        self.name = 'directmin'
-        self.use_prec = use_prec
-        self.odd_parameters = odd_parameters
-        self.inner_loop = inner_loop
-        self.localizationtype = localizationtype
-        self.maxiter = maxiter
-        self.maxiterxst = maxiterxst
-        self.maxstepxst = maxstepxst
-        self.kappa_tol = kappa_tol
-        self.g_tol = g_tol
-        self.g_tolxst = g_tolxst
-        self.printinnerloop = printinnerloop
-        self.convergelumo = convergelumo
         self.momevery = momevery
-
-        self.total_eg_count_iloop = 0
-        self.total_eg_count_iloop_outer = 0
-
-        if isinstance(self.odd_parameters, basestring):
-            self.odd_parameters = \
-                xc_string_to_dict(self.odd_parameters)
-
-        if self.sda is None:
-            self.sda = 'LBFGS'
-        if isinstance(self.sda, basestring):
-            self.sda = xc_string_to_dict(self.sda)
-        if isinstance(self.lsa, basestring):
-            self.lsa = xc_string_to_dict(self.lsa)
-            self.lsa['method'] = self.sda['name']
-            if self.lsa['name'] == 'UnitStep':
-                self.lsa['maxstep'] = 0.25
-
-        self.need_init_odd = True
-        self.initialized = False
         self.need_init_orbs = need_init_orbs
-        self.need_localization = need_localization
-        if localizationtype is None:
-            self.need_localization = False
-        self.eg_count = 0
-        self.exstopt = exstopt
-        self.etotal = 0.0
-        self.globaliters = 0
+        self.nkpts = nkpts
+        self.func = get_functional(functional, wfs, dens, ham)
+        self.initialize_orbitals(wfs, dens, ham)
 
     def __repr__(self):
 
