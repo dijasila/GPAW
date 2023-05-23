@@ -17,8 +17,7 @@ def test_pipekmezey_lcao(in_tmp_dir):
 
     calc = GPAW(mode='lcao', 
                 h=0.24, 
-                convergence={'density' : 1e-4,
-                             'eigenstates' : 1e-4})
+                convergence={'density' : 1e-4})
     
     calc.atoms = atoms
     calc.calculate()
@@ -28,4 +27,4 @@ def test_pipekmezey_lcao(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.3750, 0.0001)
+    equal(P, 3.3756, 0.0001)

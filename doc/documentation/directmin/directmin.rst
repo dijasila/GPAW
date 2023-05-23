@@ -7,6 +7,31 @@ Direct Minimization Methods
 Direct minimization methods are an alternative to self-consistent field eigensolvers
 avoiding density mixing and diagonalization of the Kohn-Sham Hamiltonian matrix.
 
+PW and FD mode
+--------------
+
+The energy is minimized w.r.t. orbitals subject to orthonomality constraints
+
+.. math:: E_0 = \min_{{\bf\Psi} {\bf \Psi^\dagger} = I} E[{\bf\Psi}].
+
+Orbitals are updated at each step according to iteratives:
+
+.. math:: {\bf\Psi}^{(k+1)} \leftarrow {\bf\Psi}^{(k)} + \alpha {\bf V}^{(k)},
+
+where search direction, :math:`{\bf V}^{(k)}`, is calculated according to L-BFGS algorithm
+and projected on the tangent space to orbitals. After each iteration
+orthonormalization procedure is applied to satify orthonormality constriants.
+For details of the implementation see Ref. [#Ivanov2021pwfd]_
+
+Example
+~~~~~~~~
+
+.. literalinclude:: h2o_pw.py
+
+If you are interested in convergence of unoccupied states too then set:
+
+* ``convergelumo=True``.
+
 LCAO mode
 ----------
 
@@ -236,12 +261,14 @@ but rather fixed during the calculation.
 
 References
 ~~~~~~~~~~
+.. [#Ivanov2021pwfd] A. V. Ivanov, G. Levi, E.Ö. Jónsson, and H. Jónsson,
+           *J. Chem. Theory Comput.*, **17**, 5034, (2021).
 
 .. [#Ivanov2021] A. V. Ivanov, E.Ö. Jónsson, T. Vegge, and H. Jónsson,
          *Comput. Phys. Commun.*, **267**, 108047 (2021).
 
-.. [#Levi2020] G. Levi, A. V. Ivanov, and H. Jónsson, J.
-           *Chem. Theory Comput.*, **16**, 6968, (2020).
+.. [#Levi2020] G. Levi, A. V. Ivanov, and H. Jónsson,
+           *J. Chem. Theory Comput.*, **16**, 6968, (2020).
 
 .. [#Hutter] J. Hutter, M. Parrinello, and S. Vogel,
              *J. Chem. Phys.* **101**, 3862 (1994)
