@@ -49,3 +49,7 @@ def test_resonant_term():
     term = rt(f_vc, E_vc, mom_dnn, elph_lnn, 0, 3, 1.0, wph_w)
     # we'll want to check whether this is the expect number
     assert term[1] == pytest.approx(-29.768613861386154 - 64.0461386138614j)
+
+    # complement polarisations need to yield the same result
+    term2 = rt(f_vc, E_vc, mom_dnn[[1, 0], :, :], elph_lnn, 0, 3, 1.0, wph_w)
+    assert term[1] == pytest.approx(term2[1])
