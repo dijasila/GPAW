@@ -25,7 +25,7 @@ from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
-class DirectMin(Eigensolver):
+class DirectMinFDPW(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
@@ -48,7 +48,7 @@ class DirectMin(Eigensolver):
                  convergelumo=True,
                  exstopt=False):
 
-        super(DirectMin, self).__init__(keep_htpsit=False,
+        super(DirectMinFDPW, self).__init__(keep_htpsit=False,
                                         blocksize=blocksize)
 
         self.sda = searchdir_algo
@@ -201,7 +201,7 @@ class DirectMin(Eigensolver):
             else:
                 self.blocksize = 10
 
-        super(DirectMin, self).initialize(wfs)
+        super(DirectMinFDPW, self).initialize(wfs)
 
     def initialize_dm(self, wfs, dens, ham,
                       log=None, obj_func=None, lumo=False):
@@ -1244,7 +1244,7 @@ class DirectMin(Eigensolver):
 
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            super(DirectMin, self).subspace_diagonalize(
+            super(DirectMinFDPW, self).subspace_diagonalize(
                 ham, wfs, kpt, True)
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
         self.need_init_orbs = False
@@ -1337,7 +1337,7 @@ class DirectMin(Eigensolver):
             if not sic_calc:
                 for kpt in wfs.kpt_u:
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
+                    super(DirectMinFDPW, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
