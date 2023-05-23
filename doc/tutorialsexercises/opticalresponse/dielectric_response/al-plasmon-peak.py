@@ -26,7 +26,8 @@ calc.write('gs-al-peak.gpw')
 peak_ki = []
 N_k = []
 for i in range(1, 11, 1):
-    N_k.append(k := i * 8)
+    k = i * 8
+    N_k.append(k)
     kpts = {'size': [k, k, k], 'gamma': True}
     responseGS = GPAW('gs-al-peak.gpw').fixed_density(kpts=kpts, txt=None)
     responseGS.write('res-al-peak.gpw', 'all')  # 'all' to write wavefunctions
