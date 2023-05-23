@@ -87,6 +87,16 @@ class HGHSetupData:
         self.name = 'LDA'
         self.initialize_setup_data()
 
+    def todict(self):
+        assert isinstance(self.hghdata, HGHParameterSet)
+        return {'__gpaw_hghdata__': self.hghdata.todict()}
+
+    @classmethod
+    def fromdict(cls, dct):
+        assert list(dct) == ['__gpaw_hghdata__']
+        hghdata = HGHParameterSet.fromdict(dct['__gpaw_hghdata__'])
+        return cls(hghdata)
+
     def initialize_setup_data(self):
         hghdata = self.hghdata
         beta = 0.1
@@ -324,6 +334,13 @@ class VNonLocal:
         self.nn = nn
         self.h_n = h_n
 
+    def todict(self):
+        return dict(l=self.l, r0=self.r0, h_n=self.h_n)
+
+    @classmethod
+    def fromdict(cls, dct):
+        return cls(**dct)
+
     def expand_hamiltonian_diagonal(self):
         """Construct full atomic Hamiltonian from diagonal elements."""
         nn = self.nn
@@ -365,6 +382,21 @@ class HGHParameterSet:
 
         Z, nlfe_j = configurations[self.symbol.split('.')[0]]
         self.configuration = nlfe_j
+
+    def todict(self):
+        return dict(symbol=self.symbol,
+                    Z=self.Z,
+                    Nv=self.Nv,
+                    rloc=self.rloc,
+                    c_n=self.c_n,
+                    v_l=self.v_l)
+
+    @classmethod
+    def fromdict(cls, dct):
+        dct = dct.copy()
+        v_l = dct.pop('v_l')
+        v_l = [VNonLocal.fromdict(obj) for obj in v_l]
+        return cls(**dct, v_l=v_l)
 
     def __str__(self):
         strings = ['HGH setup for %s\n' % self.symbol,

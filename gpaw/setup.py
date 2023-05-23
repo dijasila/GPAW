@@ -1545,6 +1545,20 @@ def types2atomtypes(symbols, types, default):
     for symbol, type in types.items():
         # Types are given either by strings or they are objects that
         # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
+        if isinstance(type, dict) and '__gpaw_hghdata__' in type:
+            # (Not implemented for other setup objects)
+            # HGH setups are represented by small pieces of data.
+            # Those we save as JSON and here we reload them verbatim.
+            from gpaw.hgh import HGHSetupData
+            type = HGHSetupData.fromdict(type)
+            # Note: Equality checks for the purposes of symmetries etc.
+            # are done based only on name, I think.  This means
+            # there might be big trouble if there are multiple different
+            # HGHParameterSets with the same symbol.  This is mostly
+            # considered a dev feature used for testing, so we'll
+            # have to live with that until maybe someone wants to improve
+            # things enough.
+
         assert isinstance(type, str) or hasattr(type, 'symbol')
         if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
