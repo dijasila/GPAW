@@ -399,23 +399,31 @@ class EigendecomposedSpectrum:
     def get_eigenmode_frequency(self, nmodes=1):
         """Get the frequency at which to extract the eigenmodes.
 
-        Here we chose the frequency ω_m to maximize the minimum eigenvalue
-        difference
+        Generally, we chose the frequency ω_m to maximize the minimum
+        eigenvalue difference
 
         ω_m(q) = maxmin_ωn[s^μν_n(q,ω) - s^μν_n+1(q,ω)]
 
         where n only runs over the desired number of modes (and the eigenvalues
         are sorted in descending order).
+
+        However, in the case where only a single mode is extracted, we use the
+        frequency at which the eigenvalue is maximal.
         """
         assert nmodes <= self.neigs
         wblocks = self.wblocks
-        # Find frequency with maximum minimal difference between size of
-        # eigenvalues
-        ds_we = np.array([self.s_we[:, e] - self.s_we[:, e + 1]
-                          for e in range(nmodes - 1)]).T
-        dsmin_w = np.min(ds_we, axis=1)
-        dsmin_w = wblocks.all_gather(dsmin_w)
-        wm = np.argmax(dsmin_w)
+        if nmodes == 1:
+            # Find frequency where the eigenvalue is maximal
+            s_w = wblocks.all_gather(self.s_we[:, 0])
+            wm = np.argmax(s_w)
+        else:
+            # Find frequency with maximum minimal difference between size of
+            # eigenvalues
+            ds_we = np.array([self.s_we[:, e] - self.s_we[:, e + 1]
+                              for e in range(nmodes - 1)]).T
+            dsmin_w = np.min(ds_we, axis=1)
+            dsmin_w = wblocks.all_gather(dsmin_w)
+            wm = np.argmax(dsmin_w)
 
         return wm
 
