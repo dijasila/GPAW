@@ -16,6 +16,8 @@ def calculate_forces(wfs, dens, ham, log=None):
     func_name = None
     if hasattr(wfs.eigensolver, 'dm_helper'):
         func_name = getattr(wfs.eigensolver.dm_helper.func, 'name', None)
+    elif hasattr(wfs.eigensolver, 'odd'):
+        func_name = getattr(wfs.eigensolver.odd, 'name', None)
     if func_name == 'PZ-SIC':
         if wfs.mode == 'fd' or wfs.mode == 'pw':
             return calculate_forces_using_non_diag_lagr_matrix(
