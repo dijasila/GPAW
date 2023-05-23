@@ -13,9 +13,9 @@ def odd_corrections(odd, wfs, dens, ham):
     if isinstance(odd, dict):
         kwargs = odd.copy()
         name = kwargs.pop('name')
-        if name == 'PZ_SIC':
+        if name == 'PZ-SIC':
             return PzCorrections(wfs, dens, ham, **kwargs)
-        elif name == 'PZ_SIC_XT':
+        elif name == 'PZ-SIC-XT':
             return DftPzSicXT(wfs, dens, ham, **kwargs)
         elif name == 'Zero':
             return ZeroCorrections(wfs, dens, ham, **kwargs)

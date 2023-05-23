@@ -16,8 +16,9 @@ calc = GPAW(
     xc="PBE",
     occupations={"name": "fixed-uniform"},
     eigensolver=DirectMin(
+        g_tol=1.0e-4,
         localizationtype="FB-ER-PZ",
-        odd_parameters={"name": "PZ_SIC", "scaling_factor": (0.5, 0.5)},
+        odd_parameters={"name": "PZ-SIC", "scaling_factor": (0.5, 0.5)},
     ),  # half-SIC
     mixer={"name": "dummy"},
 )

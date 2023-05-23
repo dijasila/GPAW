@@ -294,7 +294,7 @@ class DirectMin(Eigensolver):
             if self.exstopt:
                 if 'SIC' in self.odd_parameters['name']:
                     oddparms = self.odd_parameters.copy()
-                    oddparms['name'] = 'PZ_SIC_XT'
+                    oddparms['name'] = 'PZ-SIC-XT'
                     odd2 = odd_corrections(oddparms, wfs,
                                            dens, ham)
                 else:

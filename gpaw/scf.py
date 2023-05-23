@@ -61,7 +61,7 @@ class SCFLoop:
                          self.niter >= self.niter_fixdensity)
             if converged:
                 do_if_converged(
-                    self.eigensolver_name,wfs, ham, dens, log
+                    self.eigensolver_name, wfs, ham, dens, log
                 )
                 break
 
