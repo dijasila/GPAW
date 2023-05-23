@@ -33,7 +33,7 @@ def test_fdsic_h2o(in_tmp_dir):
                     odd_parameters={'name': 'PZ-SIC',
                                     'scaling_factor': (0.5, 0.5)  # SIC/2
                                     },
-                    localizationtype='FB-ER',
+                    localizationtype='FB_ER',
                     g_tol=1.0e-4,
                     maxiter=200),
                 mixer={'method': 'dummy'},
