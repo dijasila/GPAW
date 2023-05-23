@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 from gpaw.directmin.fdpw.tools import d_matrix
 
 
-class ZeroCorrections:
+class KSFDPW:
 
     """
     KS-DFT

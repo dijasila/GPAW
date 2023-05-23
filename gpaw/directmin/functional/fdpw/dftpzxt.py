@@ -13,7 +13,7 @@ from gpaw.utilities.partition import AtomPartition
 #from gpaw.wavefunctions.pw import PWLFC    circular import
 
 
-class DftPzSicXT:
+class DFTPZSICXT:
 
     """
     Perdew-Zunger self-interaction corrections

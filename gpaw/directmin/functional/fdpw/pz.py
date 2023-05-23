@@ -16,7 +16,7 @@ import _gpaw
 from gpaw.utilities.partition import AtomPartition
 
 
-class PzCorrections:
+class PZSICFDPW:
 
     """
     Perdew-Zunger self-interaction corrections
