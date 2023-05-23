@@ -91,7 +91,6 @@ class DirectMin(Eigensolver):
         self.need_localization = need_localization
         if localizationtype is None:
             self.need_localization = False
-        # self.U_k = {}
         self.eg_count = 0
         self.exstopt = exstopt
         self.etotal = 0.0
@@ -240,24 +239,16 @@ class DirectMin(Eigensolver):
 
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
-            # if 'SIC' in self.odd_parameters['name'] and not lumo:
-            #     self.U_k[k] = np.eye(dim, dtype=self.dtype)
 
         # choose search direction and line search algorithm
         if isinstance(self.sda, (basestring, dict)):
-            # if lumo:
-            #     sda = xc_string_to_dict('FRcg')
-            # else:
-            #     sda = self.sda
             sda = self.sda
 
-            self.search_direction = sd_outer(sda, wfs,
-                                             self.dimensions)
+            self.search_direction = sd_outer(sda, wfs, self.dimensions)
         else:
             raise Exception('Check Search Direction Parameters')
         if isinstance(self.lsa, (basestring, dict)):
-            self.line_search = \
-                ls_outer(self.lsa, obj_func)
+            self.line_search = ls_outer(self.lsa, obj_func)
         else:
             raise Exception('Check Search Direction Parameters')
 
@@ -273,21 +264,17 @@ class DirectMin(Eigensolver):
         self.grad_knG = None
 
         # odd corrections
-        # self.iloop = None
-        # self.odd = None
         if self.need_init_odd:
             if isinstance(self.odd_parameters, (basestring, dict)):
-                self.odd = odd_corrections(self.odd_parameters, wfs,
-                                           dens, ham)
+                self.odd = odd_corrections(self.odd_parameters, wfs, dens, ham)
             else:
                 raise Exception('Check ODD Parameters')
             self.e_sic = 0.0
 
             if 'SIC' in self.odd_parameters['name']:
-                self.iloop = InnerLoop(self.odd, wfs,
-                                       self.kappa_tol,
-                                       self.maxiter,
-                                       g_tol=self.g_tol)
+                self.iloop = InnerLoop(
+                    self.odd, wfs, self.kappa_tol, self.maxiter,
+                    g_tol=self.g_tol)
             else:
                 self.iloop = None
 
@@ -340,7 +327,6 @@ class DirectMin(Eigensolver):
             # calculate gradients
             phi_2i[0], grad_knG = \
                 self.get_energy_and_tangent_gradients(ham, wfs, dens)
-            # self.error = self.error_eigv(wfs, grad_knG)
         else:
             grad_knG = self.grad_knG
 
@@ -348,8 +334,8 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             psi_copy[k] = kpt.psit_nG.copy()
-        p_knG = self.search_direction.update_data(psi_copy, grad_knG,
-                                                  wfs, self.prec)
+        p_knG = self.search_direction.update_data(
+            psi_copy, grad_knG, wfs, self.prec)
         self.project_search_direction(wfs, p_knG)
         wfs.timer.stop('Get Search Direction')
 
@@ -363,18 +349,16 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_knG[k]):
                 if kpt.f_n[i] > 1.0e-10:
-                    der_phi_2i[0] += \
-                        self.dot(
-                            wfs, g, p_knG[k][i], kpt,
-                            addpaw=False).item().real
+                    der_phi_2i[0] += self.dot(
+                        wfs, g, p_knG[k][i], kpt, addpaw=False).item().real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
             self.line_search.step_length_update(
-                psi_copy, p_knG, ham, wfs, dens,
-                phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
-                phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
-                alpha_max=3.0, alpha_old=alpha, wfs=wfs)
+                psi_copy, p_knG, ham, wfs, dens, phi_0=phi_2i[0],
+                der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
+                der_phi_old=der_phi_2i[1], alpha_max=3.0, alpha_old=alpha,
+                wfs=wfs)
         self.alpha = alpha
         self.grad_knG = grad_knG
 
@@ -397,15 +381,14 @@ class DirectMin(Eigensolver):
         phi_2i = self.phi_2i
 
         wfs.timer.start('Direct Minimisation step')
-        phi_2i[0], grad_knG = \
-            self.get_energy_and_tangent_gradients(ham, wfs, dens,
-                                                  updateproj=False)
+        phi_2i[0], grad_knG = self.get_energy_and_tangent_gradients(
+            ham, wfs, dens, updateproj=False)
         wfs.timer.start('Get Search Direction')
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             psi_copy[k] = kpt.psit_nG.copy()
-        p_knG = self.search_direction.update_data(psi_copy, grad_knG,
-                                                  wfs, self.prec)
+        p_knG = self.search_direction.update_data(
+            psi_copy, grad_knG, wfs, self.prec)
         self.project_search_direction(wfs, p_knG)
         wfs.timer.stop('Get Search Direction')
         dot = 0.0
@@ -423,7 +406,6 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             kpt.psit_nG[:] = psi_copy[k] + a_star * p_knG[k]
-            # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             wfs.orthonormalize(kpt)
 
         del psi_copy
@@ -447,8 +429,6 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        # wfs.timer.start('Update Kohn-Sham energy')
-
         if updateproj:
             # calc projectors
             with wfs.timer('projections'):
@@ -458,13 +438,11 @@ class DirectMin(Eigensolver):
         dens.update(wfs)
         ham.update(dens, wfs, False)
 
-        # wfs.timer.stop('Update Kohn-Sham energy')
-
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha,
-                                 ham, wfs, dens,
-                                 phi=None, grad_k=None):
+    def evaluate_phi_and_der_phi(
+            self, psit_k, search_dir, alpha, ham, wfs, dens,
+            phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
         der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
@@ -473,7 +451,6 @@ class DirectMin(Eigensolver):
 
         if phi is None or grad_k is None:
             # cannot broadcast float
-            # alpha = wfs.world.broadcast(alpha, 0)
             alpha1 = np.array([alpha])
             wfs.world.broadcast(alpha1, 0)
             alpha = alpha1[0]
@@ -483,23 +460,22 @@ class DirectMin(Eigensolver):
                 kpt.psit_nG[:] = psit_k[k] + alpha * search_dir[k]
                 wfs.orthonormalize(kpt)
 
-            phi, grad_k = \
-                self.get_energy_and_tangent_gradients(ham, wfs, dens)
+            phi, grad_k = self.get_energy_and_tangent_gradients(ham, wfs, dens)
 
         der_phi = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
                 if kpt.f_n[i] > 1.0e-10:
-                    der_phi += self.dot(wfs,
-                                        g, search_dir[k][i],
-                                        kpt, addpaw=False).item().real
+                    der_phi += self.dot(
+                        wfs, g, search_dir[k][i], kpt,
+                        addpaw=False).item().real
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, grad_k
 
-    def get_energy_and_tangent_gradients(self, ham, wfs, dens,
-                                         psit_knG=None, updateproj=True):
+    def get_energy_and_tangent_gradients(
+            self, ham, wfs, dens, psit_knG=None, updateproj=True):
 
         """
         calculate energy for a given wfs, gradient dE/dpsi
@@ -522,8 +498,8 @@ class DirectMin(Eigensolver):
             wfs.orthonormalize()
 
         if not self.exstopt:
-            energy = self.update_ks_energy(ham, wfs, dens,
-                                           updateproj=updateproj)
+            energy = self.update_ks_energy(
+                ham, wfs, dens, updateproj=updateproj)
             grad = self.get_gradients_2(ham, wfs)
 
             if 'SIC' in self.odd_parameters['name']:
@@ -566,8 +542,8 @@ class DirectMin(Eigensolver):
 
         return grad_knG
 
-    def get_gradients_from_one_k_point_2(self, ham, wfs, kpt,
-                                         scalewithocc=True):
+    def get_gradients_from_one_k_point_2(
+            self, ham, wfs, kpt, scalewithocc=True):
         """
         calculate gradient dE/dpsi for one k-point
         :return: H |psi_i>
@@ -575,7 +551,6 @@ class DirectMin(Eigensolver):
 
         nbands = wfs.bd.mynbands
         Hpsi_nG = wfs.empty(nbands, q=kpt.q)
-        # wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
         wfs.apply_pseudo_hamiltonian(kpt, ham, kpt.psit_nG, Hpsi_nG)
 
         c_axi = {}
@@ -585,9 +560,9 @@ class DirectMin(Eigensolver):
             c_axi[a] = c_xi
 
         # not sure about this:
-        ham.xc.add_correction(kpt, kpt.psit_nG, Hpsi_nG,
-                              kpt.P_ani, c_axi, n_x=None,
-                              calculate_change=False)
+        ham.xc.add_correction(
+            kpt, kpt.psit_nG, Hpsi_nG, kpt.P_ani, c_axi, n_x=None,
+            calculate_change=False)
         # add projectors to the H|psi_i>
         wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
         # scale with occupation numbers
@@ -607,8 +582,7 @@ class DirectMin(Eigensolver):
         n_kps = self.n_kps
         for kpt in wfs.kpt_u:
             kpoint = n_kps * kpt.s + kpt.q
-            self.project_gradient_for_one_k_point(
-                wfs, p_knG[kpoint], kpt)
+            self.project_gradient_for_one_k_point(wfs, p_knG[kpoint], kpt)
 
     def project_gradient_for_one_k_point(self, wfs, p_nG, kpt):
         """
@@ -618,17 +592,6 @@ class DirectMin(Eigensolver):
         arXiv:2102.06542v1 [physics.comp-ph]
         :return: H |psi_i>
         """
-
-        # def dot_2(psi_1, psi_2, wfs):
-        #     dot_prod = wfs.integrate(psi_1, psi_2, True)
-        #     ?
-        #     dot_prod = np.ascontiguousarray(dot_prod)
-        #     if len(psi_1.shape) == 3:
-        #         dot_prod = wfs.gd.comm.sum(dot_prod)
-        #         return dot_prod
-        #     else:
-        #         wfs.gd.comm.sum(dot_prod)
-        #         return dot_prod
 
         k = self.n_kps * kpt.s + kpt.q
         n_occ = self.dimensions[k]
@@ -652,11 +615,10 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = self.dimensions[k]
-            psc = self.dot(wfs, p_knG[k][:n_occ], kpt.psit_nG[:n_occ],
-                           kpt, addpaw=False)
+            psc = self.dot(
+                wfs, p_knG[k][:n_occ], kpt.psit_nG[:n_occ], kpt, addpaw=False)
             psc = 0.5 * (psc.conj() + psc.T)
-            p_knG[k][:n_occ] -= np.tensordot(psc, kpt.psit_nG[:n_occ],
-                                             axes=1)
+            p_knG[k][:n_occ] -= np.tensordot(psc, kpt.psit_nG[:n_occ], axes=1)
 
     def apply_S(self, wfs, psit_nG, kpt, proj_psi=None):
         """
@@ -730,13 +692,11 @@ class DirectMin(Eigensolver):
                 paw_dot_prod = np.array([[0.0]])
 
             for a in P1_ai.keys():
-                paw_dot_prod += \
-                    np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
+                paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
         else:
             paw_dot_prod = np.zeros_like(dot_prod)
             for a in P1_ai.keys():
-                paw_dot_prod += \
-                    np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
+                paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
         paw_dot_prod = np.ascontiguousarray(paw_dot_prod)
         wfs.gd.comm.sum(paw_dot_prod)
         if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
@@ -762,10 +722,9 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             for i, f in enumerate(kpt.f_n):
                 if f > 1.0e-10:
-                    a = self.dot(wfs,
-                                 grad_knG[k][i] / f,
-                                 grad_knG[k][i] / f, kpt,
-                                 addpaw=False).item() * f
+                    a = self.dot(
+                        wfs, grad_knG[k][i] / f, grad_knG[k][i] / f, kpt,
+                        addpaw=False).item() * f
                     a = a.real
                     norm.append(a)
         # error = sum(norm) * Hartree**2 / wfs.nvalence
@@ -774,8 +733,7 @@ class DirectMin(Eigensolver):
 
         return error.real
 
-    def get_canonical_representation(self, ham, wfs, dens,
-                                     rewrite_psi=True):
+    def get_canonical_representation(self, ham, wfs, dens, rewrite_psi=True):
         """
         choose orbitals which diagonalize the hamiltonain matrix
 
@@ -793,29 +751,18 @@ class DirectMin(Eigensolver):
         """
         self.choose_optimal_orbitals(wfs, ham, dens)
 
-        if self.exstopt:
-            scalewithocc = False
-        else:
-            scalewithocc = True
+        scalewithocc = not self.exstopt
 
-        grad_knG = self.get_gradients_2(
-            ham, wfs, scalewithocc=scalewithocc)
+        grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=scalewithocc)
         if 'SIC' in self.odd_parameters['name']:
-            self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
-                                              self.iloop.U_k,
-                                              add_grad=True,
-                                              scalewithocc=scalewithocc)
+            self.odd.get_energy_and_gradients(
+                wfs, grad_knG, dens, self.iloop.U_k, add_grad=True,
+                scalewithocc=scalewithocc)
         for kpt in wfs.kpt_u:
             if self.exstopt:
                 typediag = 'separate'
-                # if 'SIC' in self.odd_parameters['name']:
-                #     typediag = 'separate'
-                # else:
-                #     typediag = 'full'
                 k = self.n_kps * kpt.s + kpt.q
-                lamb = wfs.integrate(kpt.psit_nG[:],
-                                     grad_knG[k][:],
-                                     True)
+                lamb = wfs.integrate(kpt.psit_nG[:], grad_knG[k][:], True)
                 if typediag == 'upptr':
                     iu1 = np.triu_indices(lamb.shape[0], 1)
                     il1 = np.tril_indices(lamb.shape[0], -1)
@@ -870,9 +817,8 @@ class DirectMin(Eigensolver):
                             lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim],
                             axes=1)
                         for a in kpt.P_ani.keys():
-                            kpt.P_ani[a][:n_occ] = \
-                                np.dot(lamb1.conj(),
-                                       kpt.P_ani[a][:n_occ])
+                            kpt.P_ani[a][:n_occ] = np.dot(
+                                lamb1.conj(), kpt.P_ani[a][:n_occ])
                 elif typediag == 'full':
                     lamb = (lamb + lamb.T.conj()) / 2.0
                     evals, lamb = np.linalg.eigh(lamb)
@@ -882,12 +828,9 @@ class DirectMin(Eigensolver):
                     if rewrite_psi:
                         lamb = lamb.conj().T
                         kpt.psit_nG[:] = \
-                            np.tensordot(lamb, kpt.psit_nG[:],
-                                         axes=1)
+                            np.tensordot(lamb, kpt.psit_nG[:], axes=1)
                         for a in kpt.P_ani.keys():
-                            kpt.P_ani[a][:] = \
-                                np.dot(lamb,
-                                       kpt.P_ani[a][:])
+                            kpt.P_ani[a][:] = np.dot(lamb, kpt.P_ani[a][:])
                 else:
                     raise KeyError
             else:
@@ -911,13 +854,8 @@ class DirectMin(Eigensolver):
 
                 lo_nn = np.diagonal(lamb).real / kpt.f_n[:n_occ]
                 lu_nn = np.diagonal(lumo).real / 1.0
-                # if 'SIC' in self.odd_parameters['name']:
-                #     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
-                #     self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
                 if n_occ != 0:
                     evals, lamb = np.linalg.eigh(lamb)
-                    # evals = np.empty(lamb.shape[0])
-                    # diagonalize(lamb, evals)
                     wfs.gd.comm.broadcast(evals, 0)
                     wfs.gd.comm.broadcast(lamb, 0)
                     lamb = lamb.T
@@ -929,15 +867,12 @@ class DirectMin(Eigensolver):
                 lumo = lumo.T
 
                 kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-                # kpt.eps_n[n_occ + 1:] = +np.inf
-                # inf is not a good for example for ase to get gap
                 kpt.eps_n[n_occ + dim:] *= 0.0
-                kpt.eps_n[n_occ + dim:] +=\
+                kpt.eps_n[n_occ + dim:] += \
                     np.absolute(5.0 * kpt.eps_n[n_occ + dim - 1])
                 if rewrite_psi:
                     kpt.psit_nG[:n_occ] = \
-                        np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
-                                     axes=1)
+                        np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ], axes=1)
                     kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
                         lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim], axes=1)
                 orb_en = [lo_nn, lu_nn]
@@ -952,7 +887,6 @@ class DirectMin(Eigensolver):
                 if 'SIC' in self.odd_parameters['name']:
                     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
 
-        # update fermi level?
         del grad_knG
 
     def get_gradients_lumo(self, ham, wfs, kpt):
@@ -1009,8 +943,7 @@ class DirectMin(Eigensolver):
                 {k: psit_k[k] +
                     alpha * search_dir[k] for k in psit_k.keys()}
             phi, grad_k = \
-                self.get_energy_and_tangent_gradients_lumo(ham,
-                                                           wfs, x_knG)
+                self.get_energy_and_tangent_gradients_lumo(ham, wfs, x_knG)
         der_phi = 0.0
         n_kps = self.n_kps
         for kpt in wfs.kpt_u:
@@ -1022,9 +955,7 @@ class DirectMin(Eigensolver):
 
         return phi, der_phi, grad_k
 
-    def get_energy_and_tangent_gradients_lumo(self,
-                                              ham, wfs,
-                                              psit_knG=None):
+    def get_energy_and_tangent_gradients_lumo(self, ham, wfs, psit_knG=None):
         """
         calculate energy and trangent gradients of
         unooccupied orbitals
@@ -1075,44 +1006,25 @@ class DirectMin(Eigensolver):
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
-            if 0:  # self.odd_parameters['name'] == 'Zero':
-                for i in range(dim):
-                    energy = wfs.integrate(
-                        psi[i], Hpsi_nG[i], global_integral=True).real
-                    kpt.eps_n[n_occ + i] = energy
-                    # project gradients:
-                s_axi = {}
-                for a, P_xi in P1_ani.items():
-                    dO_ii = wfs.setups[a].dO_ii
-                    s_xi = np.dot(P_xi, dO_ii)
-                    s_axi[a] = s_xi
-                wfs.pt.add(psi, s_axi, kpt.q)
-                for i in range(dim):
-                    grad[k][i] -= kpt.eps_n[n_occ + i] * psi[i]
-                minstate = np.argmin(kpt.eps_n[n_occ:n_occ + dim])
-                energy = kpt.eps_n[n_occ + minstate]
-            else:
-                psi = kpt.psit_nG[:n_occ + dim].copy()
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = wfs.integrate(psi, Hpsi_nG, global_integral=True)
-                s_axi = {}
-                for a, P_xi in kpt.P_ani.items():
-                    dO_ii = wfs.setups[a].dO_ii
-                    s_xi = np.dot(P_xi, dO_ii)
-                    s_axi[a] = s_xi
-                wfs.pt.add(psi, s_axi, kpt.q)
+            psi = kpt.psit_nG[:n_occ + dim].copy()
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            lamb = wfs.integrate(psi, Hpsi_nG, global_integral=True)
+            s_axi = {}
+            for a, P_xi in kpt.P_ani.items():
+                dO_ii = wfs.setups[a].dO_ii
+                s_xi = np.dot(P_xi, dO_ii)
+                s_axi[a] = s_xi
+            wfs.pt.add(psi, s_axi, kpt.q)
 
-                grad[k] -= np.tensordot(lamb.T, psi, axes=1)
+            grad[k] -= np.tensordot(lamb.T, psi, axes=1)
 
-                minstate = np.argmin(np.diagonal(lamb, offset=-n_occ).real)
-                energy = np.diagonal(lamb, offset=-n_occ)[minstate].real
+            minstate = np.argmin(np.diagonal(lamb, offset=-n_occ).real)
+            energy = np.diagonal(lamb, offset=-n_occ)[minstate].real
 
             norm = []
             for i in [minstate]:
-                norm.append(self.dot(wfs,
-                                     grad[k][i],
-                                     grad[k][i],
-                                     kpt, addpaw=False).item())
+                norm.append(self.dot(
+                    wfs, grad[k][i], grad[k][i], kpt, addpaw=False).item())
             error = sum(norm).real * Hartree ** 2 / len(norm)
             error_t += error
             energy_t += energy
@@ -1150,9 +1062,8 @@ class DirectMin(Eigensolver):
                 n_occ = get_n_occ(kpt)
                 dim = self.dimensions[k]
                 psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
-            p_knG = self.search_direction.update_data(psi_copy, grad_knG,
-                                                      wfs, self.prec)
-            # self.project_search_direction(wfs, p_knG)
+            p_knG = self.search_direction.update_data(
+                psi_copy, grad_knG, wfs, self.prec)
         self.project_search_direction(wfs, p_knG)
         dot = 0.0
         for kpt in wfs.kpt_u:
@@ -1181,24 +1092,6 @@ class DirectMin(Eigensolver):
         del grad_knG
         self.alpha = a_star
         self.iters += 1
-
-        # if self.iters % 20 and self.odd_parameters['name'] == 'Zero':
-        #     for kpt in wfs.kpt_u:
-        #         g = self.get_gradients_lumo(ham, wfs, kpt)
-        #         n_occ = get_n_occ(kpt)
-        #         dim = self.dimensions[k]
-        #         lamb = wfs.integrate(
-        #             kpt.psit_nG[n_occ:n_occ + dim], g, True)
-        #         lamb = (lamb + lamb.T.conj()) / 2.0
-        #         evals_lumo, lamb = np.linalg.eigh(lamb)
-        #         wfs.gd.comm.broadcast(evals_lumo, 0)
-        #         wfs.gd.comm.broadcast(lamb, 0)
-        #         kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-        #         kpt.eps_n[n_occ + dim:] *= 0.0
-        #         kpt.psit_nG[n_occ:n_occ + dim] = \
-        #             np.tensordot(
-        #                 lamb.T.conj(), kpt.psit_nG[n_occ:n_occ + dim],
-        #                 axes=1)
 
         wfs.timer.stop('Direct Minimisation step')
         return phi_2i[0], self.error
@@ -1265,17 +1158,15 @@ class DirectMin(Eigensolver):
             if self.exstopt and self.iters == 0:
                 eks = self.update_ks_energy(ham, wfs, dens)
             else:
-                etotal = ham.get_energy(0.0, wfs,
-                                        kin_en_using_band=False,
-                                        e_sic=self.e_sic)
+                etotal = ham.get_energy(
+                    0.0, wfs, kin_en_using_band=False, e_sic=self.e_sic)
                 eks = etotal - self.e_sic
             if wfs.read_from_file_init_wfs_dm:
                 intital_random = False
             else:
                 intital_random = True
             self.e_sic, counter = self.iloop.run(
-                eks, wfs, dens, log, niter,
-                small_random=intital_random)
+                eks, wfs, dens, log, niter, small_random=intital_random)
             self.total_eg_count_iloop += self.iloop.eg_count
 
             if self.iloop_outer is None:
@@ -1283,10 +1174,9 @@ class DirectMin(Eigensolver):
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
                         n_occ = get_n_occ(kpt)
-                        grad_knG[k][:n_occ] += \
-                            np.tensordot(self.iloop.U_k[k].conj(),
-                                         self.iloop.odd_pot.grad[k],
-                                         axes=1)
+                        grad_knG[k][:n_occ] += np.tensordot(
+                            self.iloop.U_k[k].conj(),
+                            self.iloop.odd_pot.grad[k], axes=1)
                 wfs.timer.stop('Inner loop')
 
                 ham.get_energy(0.0, wfs, kin_en_using_band=False,
@@ -1297,8 +1187,8 @@ class DirectMin(Eigensolver):
                 k = self.iloop.n_kps * kpt.s + kpt.q
                 U = self.iloop.U_k[k]
                 n_occ = U.shape[0]
-                kpt.psit_nG[:n_occ] = \
-                    np.tensordot(U.T, kpt.psit_nG[:n_occ], axes=1)
+                kpt.psit_nG[:n_occ] = np.tensordot(
+                    U.T, kpt.psit_nG[:n_occ], axes=1)
                 # calc projectors
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
