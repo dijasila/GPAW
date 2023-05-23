@@ -704,7 +704,14 @@ class KernelDens(KernelIntegrator):
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
-        qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
+        try:
+            qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
+        except FloatingPointError as err:
+            msg = (
+                'Kernel is negative yet we want its square root.  '
+                'You probably should not rely on this feature at all.  ',
+                'See discussion https://gitlab.com/gpaw/gpaw/-/issues/723')
+            raise RuntimeError(msg) from err
         flocal_g = qc_g**3 * fx_g / (6 * np.pi**2)  # ren. x-kernel for r=r'
         Vlocal_g = 2 * qc_g / np.pi  # ren. Hartree kernel for r=r'
 
@@ -956,22 +963,8 @@ class KernelDens(KernelIntegrator):
             axpy(1.0, gradn_vg[v]**2, s2_g)
         s2_g /= 4 * kf_g**2 * n_g**2
 
-        e_g = self.A_x * n_g**(4 / 3.)
-        v_g = (4 / 3.) * e_g / n_g
-        f_g = (1 / 3.) * v_g / n_g
-
-        kappa = 0.804
-        mu = 0.2195149727645171
-
-        denom_g = (1 + mu * s2_g / kappa)
-        F_g = 1. + kappa - kappa / denom_g
-        Fn_g = -mu / denom_g**2 * 8 * s2_g / (3 * n_g)
-        Fnn_g = -11 * Fn_g / (3 * n_g) - 2 * Fn_g**2 / kappa
-
-        fxc_g = f_g * F_g
-        fxc_g += 2 * v_g * Fn_g
-        fxc_g += e_g * Fnn_g
-        return fxc_g
+        from gpaw.xc.fxc_kernels import get_pbe_fxc
+        return get_pbe_fxc(n_g, s2_g)
 
 
 class XCFlags:

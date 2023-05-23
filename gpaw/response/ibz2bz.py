@@ -8,7 +8,7 @@ class IBZ2BZMaps(Sequence):
 
     The sequence is indexed by the BZ index K."""
 
-    def __init__(self, kd, spos_ac, R_asii):
+    def __init__(self, kd, spos_ac, R_asii, N_c):
         """Construct the IBZ2BZMapper.
 
         Parameters
@@ -18,15 +18,21 @@ class IBZ2BZMaps(Sequence):
             Scaled atomic positions
         R_asii : list
             Rotations of the PAW projections under symmetry transformations
+        N_c : iterable of 3 ints
+            Number of grid points along axes
         """
         self.kd = kd
         self.spos_ac = spos_ac
         self.R_asii = R_asii
 
+        # Scaled coordinates of the real-space grid
+        self.r_cR = np.array(np.meshgrid(*[np.linspace(0, 1, N, endpoint=False)
+                                           for N in N_c], indexing='ij'))
+
     @classmethod
     def from_calculator(cls, calc):
         R_asii = [setup.R_sii for setup in calc.setups]
-        return cls(calc.wfs.kd, calc.spos_ac, R_asii)
+        return cls(calc.wfs.kd, calc.spos_ac, R_asii, calc.wfs.gd.N_c)
 
     def __len__(self):
         return len(self.kd.bzk_kc)
@@ -38,7 +44,7 @@ class IBZ2BZMaps(Sequence):
                          kd.time_reversal_k[K],
                          self.spos_ac,
                          self.kd.bzk_kc[K],
-                         self.kd.symmetry.cell_cv)
+                         self.r_cR)
 
     def get_symmetry_transformations(self, s):
         return (self.get_rotation_matrix(s),
@@ -65,11 +71,11 @@ class IBZ2BZMap:
     """Functionality to map orbitals from the IBZ to a specific k-point K."""
 
     def __init__(self, ik_c, U_cc, b_a, R_aii,
-                 time_reversal, spos_ac, k_c, cell_cv):
+                 time_reversal, spos_ac, k_c, r_cR):
         """Construct the IBZ2BZMap."""
         self.ik_c = ik_c
         self.k_c = k_c  # k_c in 1:st BZ that IBZ-kpoint is mapped to
-        self.cell_cv = cell_cv
+        self.r_cR = r_cR
         self.U_cc = U_cc
         self.b_a = b_a
         self.R_aii = R_aii
@@ -113,28 +119,28 @@ class IBZ2BZMap:
 
         return utout_R
 
-    def map_pseudo_wave_to_BZ(self, ut_R, r_vR):
+    def map_pseudo_wave_to_BZ(self, ut_R):
         """Map the periodic part of wave function from IBZ -> K in BZ.
 
         Parameters
         ----------
         ut_R: np.array
               Periodic part of pseudo wf at IBZ k-point
-        r_vR: np.array
-              Real space grid obtained as
-              r_vR = calc.wfs.gd.get_grid_point_coordinates()
         """
+        # Map the pseudo wave and K-point using symmetry operations
         utout_R = self.map_pseudo_wave(ut_R)
         kpt_shift_c = self.map_kpoint() - self.k_c
-        # Check if K-point in BZ already
+
+        # Check if the resulting K-point already resides inside the BZ
         if np.allclose(kpt_shift_c, 0.0):
             return utout_R
-        # Check so that mapped k-point differ from BZ kpoint by reciprocal
-        # lattice vector
+
+        # Check that the mapped k-point differ from the BZ K-point by
+        # a reciprocal lattice vector G
         assert np.allclose((kpt_shift_c - np.round(kpt_shift_c)), 0.0)
-        icell_cv = (2 * np.pi) * np.linalg.inv(self.cell_cv).T
-        kpt_shift_v = kpt_shift_c @ icell_cv
-        return utout_R * np.exp(1.0j * gemmdot(kpt_shift_v, r_vR))
+
+        # Add a phase e^iG.r to the periodic part of the wf
+        return utout_R * np.exp(2j * np.pi * gemmdot(kpt_shift_c, self.r_cR))
 
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
@@ -179,8 +185,9 @@ class IBZ2BZMap:
             # XXX There are some serious questions to be addressed here XXX
             # * Why does the phase factor only depend on the coordinates of the
             #   irreducible k-point?
-            # * Why is the phase shift mutiplied both to the diagonal and the
-            #   off-diagonal of the rotation matrices?
+            # * Are the projections mapped effectively to the kpoint related
+            #   to the BZ K by at most a reciprocal lattice vector or to the
+            #   BZ K-point itself?
             phase_factor = np.exp(2j * np.pi * self.ik_c @ atomic_shift_c)
             U_ii = R_ii.T * phase_factor
             U_aii.append(U_ii)

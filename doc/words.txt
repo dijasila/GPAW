@@ -159,3 +159,8 @@ wavefunctions
 wrt
 XC
 xyz
+uniaxial
+phenylpyrrole
+phonons
+th
+SCF

@@ -54,7 +54,7 @@ class ElectronPhononMatrix:
             Primitive cell object
         supercell_cache: str
             Name of JSON cache containing supercell matrix
-        phonon: str, dict, Phonons
+        phonon: str, dict, :class:`~ase.phonons.Phonons`
             Can be either name of phonon cache generated with
             electron-phonon DisplacementRunner or dictonary
             of arguments used in Phonons run or Phonons object.

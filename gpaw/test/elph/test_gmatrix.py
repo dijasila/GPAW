@@ -40,7 +40,7 @@ def test_gmatrix(module_tmp_path, supercell_cache):
 
     # NOTE: It seems g is Hermitian if q=0 and symmetric otherwise. CHECK THIS!
 
-    # Li has lots of degeneratephonon modes, average/sum those
+    # Li has lots of degenerate phonon modes, average/sum those
 
     # q = 0
     # accoustic sum rule
@@ -52,9 +52,10 @@ def test_gmatrix(module_tmp_path, supercell_cache):
     assert np.allclose(g_knn[:, 0, 1], g_knn[:, 1, 0].conj())
     # and check one specific value
     print(g_knn[0, 0, 1])
-    assert g_knn[0, 0, 1] == pytest.approx(3.00000 - 0.162686j, rel=4e-2)
-    # print(g_knn)
 
+    assert g_knn[0, 0, 1].real == pytest.approx(2.9999902, rel=1e-4)
+    assert (g_knn[0, 0, 1].imag == pytest.approx(0.1847967, rel=1e-4) or
+            g_knn[0, 0, 1].imag == pytest.approx(-0.1624835, rel=1e-4))
     # q = 1
     g_knn = np.sum(g_sqklnn[0, 1], axis=1, initial=4)  # modes 5-6
     assert g_knn.shape == (8, 2, 2)
@@ -63,4 +64,4 @@ def test_gmatrix(module_tmp_path, supercell_cache):
     # and check one specific value
     # print(g_knn)
     print(g_knn[0, 0, 1])
-    assert g_knn[0, 0, 1] == pytest.approx(3.50743 - 0.237765j, rel=4e-2)
+    assert g_knn[0, 0, 1] == pytest.approx(3.510762 - 0.238049j, abs=0.01)

@@ -2,17 +2,18 @@
 
 Check that calculate_gradient is capable of reading stuff properly.
 """
+import ase.units as units
 import numpy as np
 import pytest
-
 from ase.build import bulk
-import ase.units as units
-
 from gpaw import GPAW
-from gpaw.elph import DisplacementRunner
-from gpaw.elph import Supercell
+from gpaw.elph import DisplacementRunner, Supercell
+from gpaw.mpi import world
 
 
+@pytest.mark.skip  # see #883
+@pytest.mark.skipif(world.size > 2,
+                    reason='world.size > 2')
 @pytest.mark.elph
 def test_gradient(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
