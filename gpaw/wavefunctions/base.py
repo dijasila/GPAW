@@ -69,12 +69,16 @@ class WaveFunctions:
 
     def summary(self, log):
         log(eigenvalue_string(self))
+
+        func = None
         if hasattr(self.eigensolver, 'dm_helper'):
             func = getattr(self.eigensolver.dm_helper.func, "name", None)
-            if func is None:
-                pass
-            elif 'SIC' in func:
-                self.summary_func(log)
+        elif hasattr(self.eigensolver, 'odd'):
+            func = getattr(self.eigensolver.odd, "name", None)
+        if func is None:
+            pass
+        elif 'SIC' in func:
+            self.summary_func(log)
 
         if self.fermi_levels is None:
             return
@@ -595,13 +599,15 @@ class WaveFunctions:
 
     def summary_func(self, log):
 
-        pot = self.eigensolver.dm_helper.func
+        pot = None
+        if hasattr(self.eigensolver, 'dm_helper'):
+            pot = self.eigensolver.dm_helper.func
+        elif hasattr(self.eigensolver, 'odd'):
+            pot = self.eigensolver.odd
 
-        # evals = {}
         f_sn = {}
         for kpt in self.kpt_u:
             u = kpt.s * self.kd.nibzkpts + kpt.q
-            # evals[u] = kpt.eps_n
             f_sn[u] = kpt.f_n
 
         log("For SIC calculations there are\n"
@@ -624,13 +630,6 @@ class WaveFunctions:
                 i = lagr_labeled[str(round(x, 12))]
                 log('%5d  %11.5f  %9.5f' % (
                     i, Ha * x, f_sn[0][i]))
-            #
-            # log("\nCanonical\n"
-            #     "band:  Eigenvalues:")
-            #
-            # for i in range(len(evals[0])):
-            #     log('%5d  %11.5f' % (
-            #         i, Hartree * evals[0][i]))
 
         if self.nspins == 2:
             if self.kd.comm.size > 1:
@@ -641,13 +640,6 @@ class WaveFunctions:
                     f_2n = np.zeros(shape=(int(size[0])))
                     self.kd.comm.receive(f_2n, 1)
                     f_sn[1] = f_2n
-
-                    # eigenvalues
-                    # size = np.array([0])
-                    # self.kd.comm.receive(size, 1)
-                    # eval_2n = np.zeros(shape=(int(size[0])))
-                    # self.kd.comm.receive(eval_2n, 1)
-                    # evals[1] = eval_2n
 
                     # orbital energies
                     size = np.array([0])
@@ -660,11 +652,6 @@ class WaveFunctions:
                     size = np.array([f_sn[1].shape[0]])
                     self.kd.comm.send(size, 0)
                     self.kd.comm.send(f_sn[1], 0)
-
-                    # eigenvalues
-                    # size = np.array([evals[1].shape[0]])
-                    # self.kd.comm.send(size, 0)
-                    # self.kd.comm.send(evals[1], 0)
 
                     # orbital energies
                     a = pot.lagr_diag_s[1].copy()
@@ -709,14 +696,6 @@ class WaveFunctions:
                          Ha * y,
                          f_sn[1][i1]))
 
-                # log('\nCanonical    Up          Down')
-                # log(' band  eigenvalues   eigenvalues')
-                #
-                # for n in range(len(evals[0])):
-                #     log('%5d  %11.5f %11.5f' %
-                #         (n,
-                #          Hartree * evals[0][n],
-                #          Hartree * evals[1][n]))
         log("\n")
         log(flush=True)
 
