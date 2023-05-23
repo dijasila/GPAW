@@ -50,7 +50,7 @@ class InnerLoop:
         :return:
         """
 
-        if self.odd_pot.name == 'SPZ_SIC2':
+        if self.odd_pot.name == 'SPZ-SIC2':
             return self.get_energy_and_gradients2(a_k, wfs, dens)
 
         g_k = {}
