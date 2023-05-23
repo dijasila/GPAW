@@ -17,6 +17,7 @@ from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.directmin.fdpw.directmin_helper import DirectMinFDPW
 from gpaw import BadParallelization
 from copy import deepcopy
 
@@ -262,8 +263,11 @@ class ETDM:
                 orthonormalization=self.orthonormalization,
                 need_init_orbs=self.need_init_orbs
             )
-        #else:
-        #     self.dm_helper = DirectMinFDPW(stuff)
+        else:
+             self.dm_helper = DirectMinFDPW(
+                 wfs, dens, ham, self.nkpts, self.func_settings,
+                 self.blocksize, self.momevery,
+                 need_init_orbs=self.need_init_orbs)
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
 
