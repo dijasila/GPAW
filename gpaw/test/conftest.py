@@ -131,6 +131,9 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
       and ``co_pw_nosym``
 
+    * Bulk SrVO3 (SC), 3x3x3 k-points, 20(+1) converged bands: ``srvo3_pw``
+      and ``srvo3_pw_nosym``
+
     * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
       and ``al_pw_nosym``
 
@@ -593,6 +596,49 @@ class GPWFiles:
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
+    @with_band_cutoff(gpw='srvo3_pw_wfs',
+                      band_cutoff=20)
+    def _srvo3(self, *, band_cutoff, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
+
+        nk = 3
+        cell = bulk('V', 'sc', a=3.901).cell
+        atoms = Atoms('SrVO3', cell=cell, pbc=True,
+                      scaled_positions=((0.5, 0.5, 0.5),
+                                        (0, 0, 0),
+                                        (0, 0.5, 0),
+                                        (0, 0, 0.5),
+                                        (0.5, 0, 0)))
+        # Ground state parameters
+        xc = 'LDA'
+        occw = 0.01
+        ebands = 10  # extra bands for ground state calculation
+        pw = 200
+        conv = {'density': 1e-8,
+                'bands': band_cutoff + 1}
+
+        # ---------- Calculation ---------- #
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(xc=xc,
+                          mode=PW(pw),
+                          kpts={'size': (nk, nk, nk), 'gamma': True},
+                          occupations=FermiDirac(occw),
+                          convergence=conv,
+                          nbands=band_cutoff + ebands,
+                          symmetry=symmetry,
+                          txt=self.path / f'srvo3_pw{tag}.txt')
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    def srvo3_pw(self):
+        return self._srvo3()
+
+    def srvo3_pw_nosym(self):
+        return self._srvo3(symmetry='off')
+
     @with_band_cutoff(gpw='al_pw_wfs',
                       band_cutoff=10)  # 3s, 3p, 4s, 3d
     def _al(self, *, band_cutoff, symmetry=None):
@@ -688,7 +734,7 @@ class GPWFiles:
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
-
+    
     def h_pw210_rmmdiis(self):
         return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
 
