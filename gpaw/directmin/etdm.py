@@ -15,10 +15,10 @@ import warnings
 from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.fdpw.directmin_fdpw import DirectMinFDPW
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
-from gpaw.directmin.fdpw.directmin_helper import DirectMinFDPW
 from gpaw import BadParallelization
 from copy import deepcopy
 
