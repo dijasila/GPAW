@@ -33,31 +33,6 @@ class DirectMinFDPW(Eigensolver):
         super(DirectMinFDPW, self).__init__(keep_htpsit=False,
                                         blocksize=blocksize)
 
-        self.momevery = momevery
-        self.need_init_orbs = need_init_orbs
-        self.nkpts = nkpts
-        self.func = get_functional(functional, wfs, dens, ham)
-        self.initialize_orbitals(wfs, dens, ham)
-
-    def __repr__(self):
-        pass
-
-    def init_me(self, wfs, ham, dens, log):
-        self.initialize_super(wfs, ham)
-        self.initialize_orbitals(wfs, dens, ham, log)
-        self._e_entropy = \
-            wfs.calculate_occupation_numbers(dens.fixed)
-        self.localize_wfs(wfs, dens, ham, log)
-        self.initialize_dm(wfs, dens, ham, log)
-        self.init_mom(wfs, dens, log)
-
-    def initialize_super(self, wfs, ham):
-        """
-        Initialize super class
-
-        :param wfs:
-        :return:
-        """
         if isinstance(ham.xc, HybridXC):
             self.blocksize = wfs.bd.mynbands
 
@@ -70,6 +45,15 @@ class DirectMinFDPW(Eigensolver):
                 self.blocksize = 10
 
         super(DirectMinFDPW, self).initialize(wfs)
+
+        self.momevery = momevery
+        self.need_init_orbs = need_init_orbs
+        self.nkpts = nkpts
+        self.func = get_functional(functional, wfs, dens, ham)
+        self.initialize_orbitals(wfs, dens, ham)
+
+    def __repr__(self):
+        pass
 
     def initialize_dm(self, wfs, dens, ham,
                       log=None, obj_func=None, lumo=False):
