@@ -10,7 +10,7 @@ from gpaw.directmin.fdpw.sd_outer import SteepestDescent, FRcg, HZcg, \
 #    StrongWolfeConditions, Parabola, TwoStepParabola, \
 #    TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
 #    TwoStepParabolaCubicDescent
-from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
+from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions
 
 def sd_outer(method, wfs, dim):
     """
@@ -69,7 +69,6 @@ def ls_outer(method, objective_function, searchdir_algo):
                 kwargs['searchdirtype'] = searchdir_algo.type
 
         ls_algo = {'maxstep': MaxStep,
-                   'parabola': Parabola,
                    'swcawc': StrongWolfeConditions
                    }[name](objective_function, **kwargs)
 

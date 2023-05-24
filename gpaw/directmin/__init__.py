@@ -5,7 +5,7 @@ Exponential Transformation Direct Minimization
 from gpaw.xc import xc_string_to_dict
 from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, QuickMin, LBFGS, \
     LBFGS_P, LSR1P, ModeFollowing
-from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions, Parabola
+from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions
 
 
 def search_direction(method, etdm=None, pd=None):
@@ -52,7 +52,6 @@ def line_search_algorithm(method, objective_function, searchdir_algo):
                 kwargs['searchdirtype'] = searchdir_algo.type
 
         ls_algo = {'maxstep': MaxStep,
-                   'parabola': Parabola,
                    'swcawc': StrongWolfeConditions
                    }[name](objective_function, **kwargs)
 
