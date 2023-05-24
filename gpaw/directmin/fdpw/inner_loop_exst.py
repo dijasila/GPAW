@@ -100,7 +100,7 @@ class InnerLoop:
 
         return self.e_total, g_k
 
-    def evaluate_phi_and_der_phi(self, a_k, p_k, n_dim, alpha,
+    def evaluate_phi_and_der_phi(self, a_k, p_k, alpha,
                                  wfs, dens, ham,
                                  phi=None, g_k=None):
         """
@@ -249,10 +249,8 @@ class InnerLoop:
 
             # calculate derivative along the search direction
             phi_0, der_phi_0, g_k = \
-                self.evaluate_phi_and_der_phi(a_k, p_k, None,
-                                              0.0, wfs, dens,
-                                              ham=ham,
-                                              phi=phi_0, g_k=g_k)
+                self.evaluate_phi_and_der_phi(
+                    a_k, p_k, 0.0, wfs, dens, ham=ham, phi=phi_0, g_k=g_k)
             if self.counter > 1:
                 phi_old = phi_0
                 der_phi_old = der_phi_0

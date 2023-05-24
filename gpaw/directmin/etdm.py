@@ -485,7 +485,6 @@ class ETDM:
             self.update_ref_orbitals(wfs, ham, dens)
 
             a_vec_u = self.a_vec_u
-            n_dim = self.n_dim
             alpha = self.alpha
             phi_2i = self.phi_2i
             der_phi_2i = self.der_phi_2i
@@ -493,8 +492,8 @@ class ETDM:
 
             if self.iters == 1:
                 phi_2i[0], g_vec_u = \
-                    self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
-                                                  dens, c_ref)
+                    self.get_energy_and_gradients(
+                        a_vec_u, ham, wfs, dens, c_ref)
             else:
                 g_vec_u = self.g_vec_u_original if self.gmf else self.g_vec_u
 
@@ -525,7 +524,7 @@ class ETDM:
 
             alpha, phi_alpha, der_phi_alpha, g_vec_u = \
                 self.line_search.step_length_update(a_vec_u, p_vec_u,
-                                                    n_dim, ham, wfs, dens,
+                                                    self.n_dim, ham, wfs, dens,
                                                     c_ref,
                                                     phi_0=phi_2i[0],
                                                     der_phi_0=der_phi_2i[0],
@@ -573,7 +572,7 @@ class ETDM:
             norm += np.linalg.norm(self.g_vec_u[k])
         return norm
 
-    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
+    def get_energy_and_gradients(self, a_vec_u, ham, wfs, dens,
                                  c_ref):
 
         """
@@ -584,11 +583,10 @@ class ETDM:
         :param dens:
         :param a_vec_u: A
         :param c_ref: C_ref
-        :param n_dim:
         :return:
         """
 
-        self.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+        self.rotate_wavefunctions(wfs, a_vec_u, c_ref)
 
         e_total = self.update_ks_energy(ham, wfs, dens)
 
@@ -598,7 +596,7 @@ class ETDM:
             self.e_sic = 0.0  # this is odd energy
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
-                if n_dim[k] == 0:
+                if self.n_dim[k] == 0:
                     g_vec_u[k] = np.zeros_like(a_vec_u[k])
                     continue
                 g_vec_u[k], error = self.dm_helper.calc_grad(
@@ -646,7 +644,7 @@ class ETDM:
 
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, n_dim, alpha,
+    def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, alpha,
                                  ham, wfs, dens, c_ref,
                                  phi=None, g_vec_u=None):
         """
@@ -656,8 +654,8 @@ class ETDM:
         """
         if phi is None or g_vec_u is None:
             x_mat_u = {k: a_vec_u[k] + alpha * p_mat_u[k] for k in a_vec_u}
-            phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
-                                                         ham, wfs, dens, c_ref)
+            phi, g_vec_u = self.get_energy_and_gradients(
+                x_mat_u, ham, wfs, dens, c_ref)
 
             # If GMF is used save the original gradient and invert the parallel
             # projection onto the eigenvectors with negative eigenvalues
@@ -896,7 +894,7 @@ class ETDM:
                 self.searchdir_algo.partial_diagonalizer.todict()
         return ret
 
-    def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
+    def rotate_wavefunctions(self, wfs, a_vec_u, c_ref):
 
         """
         Apply unitary transformation U = exp(A) to
@@ -904,7 +902,6 @@ class ETDM:
 
         :param wfs:
         :param a_vec_u:
-        :param n_dim:
         :param c_ref:
         :return:
         """
@@ -912,12 +909,10 @@ class ETDM:
         with wfs.timer('Unitary rotation'):
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
-                if n_dim[k] == 0:
+                if self.n_dim[k] == 0:
                     continue
 
-                u_nn = self.get_exponential_matrix_kpt(wfs, kpt,
-                                                       a_vec_u,
-                                                       n_dim)
+                u_nn = self.get_exponential_matrix_kpt(wfs, kpt, a_vec_u)
 
                 self.dm_helper.appy_transformation_kpt(
                     wfs, u_nn.T, kpt, c_ref[k], False, False)
@@ -925,7 +920,7 @@ class ETDM:
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
 
-    def get_exponential_matrix_kpt(self, wfs, kpt, a_vec_u, n_dim):
+    def get_exponential_matrix_kpt(self, wfs, kpt, a_vec_u):
         """
         Get unitary matrix U as the exponential of a skew-Hermitian
         matrix A (U = exp(A))
@@ -937,10 +932,10 @@ class ETDM:
             if self.matrix_exp == 'egdecomp-u-invar' and \
                     self.representation == 'u-invar':
                 n_occ = get_n_occ(kpt)
-                n_v = n_dim[k] - n_occ
+                n_v = self.n_dim[k] - n_occ
                 a_mat = a_vec_u[k].reshape(n_occ, n_v)
             else:
-                a_mat = vec2skewmat(a_vec_u[k], n_dim[k],
+                a_mat = vec2skewmat(a_vec_u[k], self.n_dim[k],
                                     self.ind_up[k], self.dtype)
 
             if self.matrix_exp == 'pade-approx':
@@ -958,16 +953,16 @@ class ETDM:
 
         with wfs.timer('Broadcast u_nn'):
             if self.gd.comm.rank != 0:
-                u_nn = np.zeros(shape=(n_dim[k], n_dim[k]),
+                u_nn = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
                                 dtype=wfs.dtype)
             self.gd.comm.broadcast(u_nn, 0)
 
         if self.matrix_exp == 'egdecomp':
             with wfs.timer('Broadcast evecs and evals'):
                 if self.gd.comm.rank != 0:
-                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                    evecs = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
                                      dtype=complex)
-                    evals = np.zeros(shape=n_dim[k],
+                    evals = np.zeros(shape=self.n_dim[k],
                                      dtype=float)
                 self.gd.comm.broadcast(evecs, 0)
                 self.gd.comm.broadcast(evals, 0)
