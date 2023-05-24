@@ -29,7 +29,7 @@ class DirectMin(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
-                 linesearch_algo='UnitStep',
+                 linesearch_algo='maxstep',
                  use_prec=True,
                  odd_parameters='Zero',
                  need_init_orbs=True,
@@ -81,9 +81,6 @@ class DirectMin(Eigensolver):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
-            self.lsa['method'] = self.sda['name']
-            if self.lsa['name'] == 'UnitStep':
-                self.lsa['maxstep'] = 0.25
 
         self.need_init_odd = True
         self.initialized = False
@@ -109,10 +106,7 @@ class DirectMin(Eigensolver):
                'LBFGS_P': 'L-BFGS algorithm with preconditioning',
                'LSR1P': 'L-SR1 or L-Powell or its combination update'}
 
-        maxstep = 1
-        if self.lsa['name'] == 'UnitStep':
-            maxstep = self.lsa['maxstep']
-        lss = {'UnitStep': 'Max. step length equals {}'.format(maxstep),
+        lss = {'maxstep': 'Max. step length',
                'Parabola': 'Parabolic line search',
                'TSP': 'Parabolic two-step line search ',
                'TSPAWC': 'Parabolic two-step line search with\n'
@@ -248,7 +242,8 @@ class DirectMin(Eigensolver):
         else:
             raise Exception('Check Search Direction Parameters')
         if isinstance(self.lsa, (basestring, dict)):
-            self.line_search = ls_outer(self.lsa, obj_func)
+            self.line_search = ls_outer(
+                self.lsa, obj_func, self.search_direction)
         else:
             raise Exception('Check Search Direction Parameters')
 
@@ -355,10 +350,10 @@ class DirectMin(Eigensolver):
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
             self.line_search.step_length_update(
-                psi_copy, p_knG, ham, wfs, dens, phi_0=phi_2i[0],
+                psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
                 der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
                 der_phi_old=der_phi_2i[1], alpha_max=3.0, alpha_old=alpha,
-                wfs=wfs)
+                kpdescr=wfs.kd)
         self.alpha = alpha
         self.grad_knG = grad_knG
 
@@ -441,7 +436,7 @@ class DirectMin(Eigensolver):
         return ham.get_energy(0.0, wfs, False)
 
     def evaluate_phi_and_der_phi(
-            self, psit_k, search_dir, alpha, ham, wfs, dens,
+            self, psit_k, search_dir, alpha, wfs, ham, dens,
             phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)

@@ -354,8 +354,6 @@ class UnitStepLength:
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
         self.maxstep = maxstep
 
-        # self.log = log
-
     def step_length_update(self, x_k, p_k, *args, **kwargs):
 
         wfs = kwargs['wfs']

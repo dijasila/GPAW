@@ -523,16 +523,11 @@ class ETDM:
             der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
             alpha, phi_alpha, der_phi_alpha, g_vec_u = \
-                self.line_search.step_length_update(a_vec_u, p_vec_u,
-                                                    ham, wfs, dens,
-                                                    c_ref,
-                                                    phi_0=phi_2i[0],
-                                                    der_phi_0=der_phi_2i[0],
-                                                    phi_old=phi_2i[1],
-                                                    der_phi_old=der_phi_2i[1],
-                                                    alpha_max=5.0,
-                                                    alpha_old=alpha,
-                                                    kpdescr=wfs.kd)
+                self.line_search.step_length_update(
+                    a_vec_u, p_vec_u, wfs, ham, dens, c_ref, phi_0=phi_2i[0],
+                    der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
+                    der_phi_old=der_phi_2i[1], alpha_max=5.0, alpha_old=alpha,
+                    kpdescr=wfs.kd)
 
             if wfs.gd.comm.size > 1:
                 with wfs.timer('Broadcast gradients'):
@@ -645,7 +640,7 @@ class ETDM:
         return ham.get_energy(0.0, wfs, False)
 
     def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, alpha,
-                                 ham, wfs, dens, c_ref,
+                                 wfs, ham, dens, c_ref,
                                  phi=None, g_vec_u=None):
         """
         phi = f(x_k + alpha_k*p_k)

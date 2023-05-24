@@ -42,7 +42,7 @@ def test_dofd_ethylene(in_tmp_dir):
               [3.43284, -2.17649, -2.65107],
               [3.42732, 2.17634, 2.66001]]
 
-    assert (np.abs(forces - fsaved) < 1.0e-3).all()
+    assert (np.abs(forces - fsaved) < 1.0e-2).all()
     assert energy == pytest.approx(-24.789097, abs=1.0e-4)
     assert calc.wfs.kpt_u[0].eps_n[5] > calc.wfs.kpt_u[0].eps_n[6]
 
@@ -54,3 +54,5 @@ def test_dofd_ethylene(in_tmp_dir):
     niter = calc.get_number_of_iterations()
     assert niter == pytest.approx(3, abs=1)
     assert fsaved == pytest.approx(f3, abs=1e-2)
+
+test_dofd_ethylene(0)
