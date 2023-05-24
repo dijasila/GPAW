@@ -40,62 +40,7 @@ class DirectMinFDPW(Eigensolver):
         self.initialize_orbitals(wfs, dens, ham)
 
     def __repr__(self):
-
-        sds = {'SD': 'Steepest Descent',
-               'FRcg': 'Fletcher-Reeves conj. grad. method',
-               'PFRcg': 'Preconditioned Fletcher-Reeves conj. grad. method',
-               'HZcg': 'Hager-Zhang conj. grad. method',
-               'PRcg': 'Polak-Ribiere conj. grad. method',
-               'PRpcg': 'Polak-Ribiere+ conj. grad. method',
-               'QuickMin': 'Velocity projection algorithm',
-               'LBFGS': 'L-BFGS algorithm',
-               'LBFGS_P': 'L-BFGS algorithm with preconditioning',
-               'LSR1P': 'L-SR1 or L-Powell or its combination update'}
-
-        maxstep = 1
-        if self.lsa['name'] == 'UnitStep':
-            maxstep = self.lsa['maxstep']
-        lss = {'UnitStep': 'Max. step length equals {}'.format(maxstep),
-               'Parabola': 'Parabolic line search',
-               'TSP': 'Parabolic two-step line search ',
-               'TSPAWC': 'Parabolic two-step line search with\n'
-                         '                  '
-                         ' approximate Wolfe conditions',
-               'TSPCAWC': 'Parabolic and Cubic two-step '
-                          'line search with\n'
-                          '                   '
-                         ' approximate Wolfe conditions',
-               'TSPCD': 'Parabolic and Cubic two-step '
-                          'line search with\n'
-                          '                   '
-                          'descent condition',
-               'SwcAwc': 'Inexact line search based '
-                         'on cubic interpolation,\n'
-                         '                    strong'
-                         ' and approximate Wolfe conditions'}
-
-        repr_string = 'Direct minimisation\n' \
-
-        repr_string += '       ' \
-                       'Search ' \
-                       'direction: {}\n'.format(sds[self.sda['name']])
-        repr_string += '       ' \
-                       'Line ' \
-                       'search: {}\n'.format(lss[self.lsa['name']])
-        repr_string += '       ' \
-                       'Preconditioning: {}\n'.format(self.use_prec)
-
-        repr_string += '       '\
-                       'Orbital-density self-interaction ' \
-                       'corrections: {}\n'.format(self.odd_parameters['name'])
-
-        repr_string += '       ' \
-                       'WARNING: do not use it for metals as ' \
-                       'occupation numbers are\n' \
-                       '                ' \
-                       'not found variationally\n'
-
-        return repr_string
+        pass
 
     def reset(self, need_init_odd=True):
         self.initialized = False
