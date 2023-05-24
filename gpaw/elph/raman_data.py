@@ -41,7 +41,7 @@ class RamanData:
         """
         Calculates Raman intensities from Raman tensor.
 
-        Returns bare |R|^2 and and Bose occupation weighted values
+        Returns bare `|R|^2` and and Bose occupation weighted values
 
         Parameters
         ----------
@@ -82,14 +82,14 @@ class RamanData:
 
         return int_bare, int_occ
 
-    def calculate_raman_spectrum(
-        self, entries, T=300, sigma=5.0
-    ) -> Tuple[ArrayND, ArrayND]:
+    def calculate_raman_spectrum(self,
+                                 entries, T=300, sigma=5.0
+                                 ) -> Tuple[ArrayND, ArrayND]:
         """
         Calculates Raman intensities from Raman tensor.
 
-        Returns Raman shift in eV, bare |R|^2
-        and Bose occupation weighted |R|^2 values
+        Returns Raman shift in eV, bare `|R|^2`
+        and Bose occupation weighted `|R|^2` values
 
         Parameters
         ----------

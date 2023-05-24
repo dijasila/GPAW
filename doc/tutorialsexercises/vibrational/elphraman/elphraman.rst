@@ -4,8 +4,11 @@
 Raman spectroscopy for extended systems
 =======================================
 
-This tutorial shows how to calculate the Raman spectrum of bulk MoS_2 (:git:`~doc/tutorialsexercises/vibrational/elphraman/MoS2_2H_relaxed_PBE.json`) using the
-electron-phonon coupling based Raman methods as described in :ref:`raman`.
+This tutorial shows how to calculate the Raman spectrum of bulk MoS_2
+(:download:`~doc/tutorialsexercises/vibrational/elphraman/MoS2_2H_relaxed_PBE.json`)
+using the electron-phonon coupling based Raman methods as described in
+:ref:`raman`.
+
 
 Effective Potential
 ===================
