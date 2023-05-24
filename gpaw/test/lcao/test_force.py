@@ -62,7 +62,8 @@ def test_lcao_force():
         print(err)
 
         # ASE uses dx = [+|-] 0.001 by default,
-        # error should be around 2e-3.  In fact 4e-3 would probably be acceptable
+        # error should be around 2e-3.
+        # In fact 4e-3 would probably be acceptable
         assert err < 3e-3
 
     # Set boolean to run new FD check
