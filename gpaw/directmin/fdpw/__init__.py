@@ -6,10 +6,6 @@ from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.fdpw.sd_outer import SteepestDescent, FRcg, HZcg, \
     PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P, PFRcg
-#from gpaw.directmin.fdpw.ls_outer import UnitStepLength, \
-#    StrongWolfeConditions, Parabola, TwoStepParabola, \
-#    TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
-#    TwoStepParabolaCubicDescent
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions
 
 def sd_outer(method, wfs, dim):
