@@ -12,6 +12,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 import warnings
+from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
@@ -182,6 +183,14 @@ class ETDM:
 
         sda_name = self.searchdir_algo.name.replace('-', '').lower()
         lsa_name = self.line_search.name.replace('-', '').lower()
+        if isinstance(self.func_settings, basestring):
+            func_name = self.func_settings
+        else:
+            func_name = self.func_settings['name']
+        if isinstance(self.pd, basestring):
+            pd_name = self.pd
+        else:
+            pd_name = self.pd['name']
 
         add = ''
         pd_add = ''
@@ -191,7 +200,7 @@ class ETDM:
                      'algorithm'}
             pd_add = '       ' \
                      'Partial diagonalizer: {}\n'.format(
-                         pardi[self.pd['name']])
+                         pardi[pd_name])
 
         sds = {'sd': 'Steepest Descent',
                'frcg': 'Fletcher-Reeves conj. grad. method',
@@ -217,6 +226,9 @@ class ETDM:
                        'search: {}\n'.format(lss[lsa_name])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
+        repr_string += '       ' \
+                       'Orbital-density self-interaction ' \
+                       'corrections: {}\n'.format(func_name)
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
                        'occupation numbers are\n' \
