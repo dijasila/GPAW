@@ -188,7 +188,7 @@ class InnerLoop:
         # self.ls = US(self.evaluate_phi_and_der_phi)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
-            method=self.method, awc=True,
+            searchdirtype=self.method, use_descent_and_awc=True,
             max_iter=self.max_iter_line_search)
 
         threelasten = []

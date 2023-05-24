@@ -63,3 +63,6 @@ def test_fdsic_h2o(in_tmp_dir):
     niter = calc.get_number_of_iterations()
     assert niter == pytest.approx(4, abs=3)
     assert f2 == pytest.approx(f3, abs=3e-2)
+
+
+test_fdsic_h2o(0)
