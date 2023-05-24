@@ -69,12 +69,15 @@ def test_response_diamond_absorption(in_tmp_dir):
     w_ = 10.7562
     I_ = 5.8803
 
-    a0, a = df.get_polarizability(filename=None, xc='ALDA')
+    df.get_polarizability(xc='ALDA', filename='ALDA_pol.csv')
+    # Here we base the check on a written results file
+    df.context.comm.barrier()
+    d = np.loadtxt('ALDA_pol.csv', delimiter=',')
 
-    w, I = findpeak(np.linspace(0, 24., 241), a0.imag)
+    w, I = findpeak(d[:, 0], d[:, 2])
     equal(w, w0_, 0.01)
     equal(I, I0_, 0.1)
-    w, I = findpeak(np.linspace(0, 24., 241), a.imag)
+    w, I = findpeak(d[:, 0], d[:, 4])
     equal(w, w_, 0.01)
     equal(I, I_, 0.1)
 
@@ -107,27 +110,3 @@ def test_response_diamond_absorption(in_tmp_dir):
     w, I = findpeak(np.linspace(0, 24., 241), a.imag)
     equal(w, w_, 0.02)
     equal(I, I_, 0.2)
-
-    # Absorption spectrum calculation RPA - Wigner-Seitz truncation
-    w0_ = 10.7780
-    I0_ = 5.5472
-    w_ = 10.7532
-    I_ = 6.0750
-
-    df_ws = DielectricFunction('C.gpw',
-                               eta=0.25,
-                               ecut=50,
-                               frequencies=np.linspace(0, 24., 241),
-                               hilbert=False,
-                               truncation='wigner-seitz')
-
-    a0_ws, a_ws = df_ws.get_polarizability(filename=None)
-
-    w, I = findpeak(np.linspace(0, 24., 241), a0_ws.imag)
-    equal(w, w0_, 0.02)
-    equal(I, I0_, 0.2)
-    w, I = findpeak(np.linspace(0, 24., 241), a_ws.imag)
-    equal(w, w_, 0.1)
-    equal(I, I_, 0.2)
-    # The Wigner-Seitz truncation does not give exactly the
-    # same for kpts=(3,3,3)

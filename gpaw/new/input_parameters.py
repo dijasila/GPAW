@@ -6,6 +6,7 @@ from typing import Any, IO, Sequence
 
 import numpy as np
 from gpaw.mpi import world
+from gpaw.typing import DTypeLike
 
 parameter_functions = {}
 
@@ -48,9 +49,9 @@ class InputParameters:
     charge: float
     communicator: Any
     convergence: dict[str, Any]
+    dtype: DTypeLike | None
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
-    force_complex_dtype: bool
     gpts: None | Sequence[int]
     h: float | None
     hund: bool
@@ -71,6 +72,8 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
+            if key == 'fixdensity':
+                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
@@ -99,23 +102,16 @@ class InputParameters:
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
-        bands = self.convergence.pop('bands', None)
-        if bands is not None:
-            self.eigensolver['converge_bands'] = bands
-            if warn:
-                warnings.warn(f'Please use eigensolver={self.eigensolver!r}',
-                              stacklevel=4)
-
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
+                self.dtype = complex if force_complex_dtype else None
                 warnings.warn(
                     'Please use '
-                    f'GPAW(force_complex_dtype={bool(force_complex_dtype)}, '
+                    f'GPAW(dtype={self.dtype}, '
                     '...)',
                     stacklevel=3)
-            self.force_complex_dtype = force_complex_dtype
-            self.keys.append('force_complex_dtype')
+            self.keys.append('dtype')
             self.keys.sort()
 
         if self.communicator is not None:
@@ -156,6 +152,11 @@ def convergence(value=None):
 
 
 @input_parameter
+def dtype(value=None):
+    return value
+
+
+@input_parameter
 def eigensolver(value=None) -> dict:
     """Eigensolver."""
     if isinstance(value, str):
@@ -168,11 +169,6 @@ def eigensolver(value=None) -> dict:
 
 @input_parameter
 def experimental(value=None):
-    return value
-
-
-@input_parameter
-def force_complex_dtype(value: bool = False):
     return value
 
 
@@ -200,10 +196,11 @@ def kpts(value=None) -> dict[str, Any]:
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):
-        if len(value) == 3 and isinstance(value[0], int):
-            value = {'size': value}
+        kpts = np.array(value)
+        if kpts.shape == (3,):
+            value = {'size': kpts}
         else:
-            value = {'points': np.array(value)}
+            value = {'kpts': kpts}
     return value
 
 
@@ -225,7 +222,11 @@ def mixer(value=None):
 
 @input_parameter
 def mode(value='fd'):
-    return {'name': value} if isinstance(value, str) else value
+    if isinstance(value, str):
+        return {'name': value}
+    gc = value.pop('gammacentered', False)
+    assert not gc
+    return value
 
 
 @input_parameter
@@ -256,7 +257,8 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None},
+                       'world': None,
+                       'gpu': False},
                       value)
     dct['world'] = dct['world'] or world
     return dct
@@ -276,7 +278,7 @@ def random(value=False):
 @input_parameter
 def setups(value='paw'):
     """PAW datasets or pseudopotentials."""
-    return value if isinstance(value, dict) else {None: value}
+    return value if isinstance(value, dict) else {'default': value}
 
 
 @input_parameter

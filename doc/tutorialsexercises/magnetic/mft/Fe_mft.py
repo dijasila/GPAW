@@ -6,9 +6,11 @@ import numpy as np
 
 # Script modules
 from gpaw.mpi import rank
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
-from gpaw.response.chiks import ChiKS
+from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.localft import LocalPAWFTCalculator
 from gpaw.response.mft import IsotropicExchangeCalculator
 
 
@@ -23,8 +25,6 @@ nbands = 6
 # so as to provide magnon energies converged within 10%, based on the
 # convergence study in [arXiv:2204.04169]
 ecut = 750  # eV
-# We compute the transverse magnetic susceptibility without broadening
-eta = 0.
 
 # We map out the high-symmetry path G-N-P-G-H, by generating all commensurate
 # q-vectors on the path
@@ -43,18 +43,27 @@ rc_r = np.linspace(0.5, 1.75, 51)
 
 # ---------- Script ---------- #
 
-# Initialize the ChiKS calculator, which is responsible for computing the
+# Initialize the ResponseContext and ResponseGroundStateAdapter, which are
+# responsible for output file handling and ground state data extraction in the
+# response code respectively
+context = ResponseContext(txt='Fe_mft.txt')
+gs = ResponseGroundStateAdapter.from_gpw_file(gpw, context=context)
+# We extract the atoms directly from the ground state adapter
+atoms = gs.atoms
+
+# Initialize the ChiKSCalculator, which is responsible for computing the
 # transverse magnetic susceptibility of the Kohn-Sham system
-chiks = ChiKS(gpw,
-              ecut=ecut, nbands=nbands, eta=eta,
-              gammacentered=True,  # Plane wave basis needs to be q-invariant
-              txt='Fe_chiks.txt')
-# When initialized from a file, the ChiKS calculator has a serial copy of
-# the ground state calculator. From it, we extract the atoms
-atoms = chiks.calc.atoms
+chiks_calc = ChiKSCalculator(gs, context,
+                             ecut=ecut, nbands=nbands,
+                             # Plane wave basis needs to be q-invariant:
+                             gammacentered=True)
+
+# Initialize the LocalFTCalculator, which is responsible for computing the
+# plane-wave components of B^(xc)
+localft_calc = LocalPAWFTCalculator(gs, context)
 
 # Initialize the exchange calculator
-isoexch_calc = IsotropicExchangeCalculator(chiks)
+isoexch_calc = IsotropicExchangeCalculator(chiks_calc, localft_calc)
 
 # Initialize the site kernels
 positions = atoms.positions  # sublattice positions

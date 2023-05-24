@@ -7,7 +7,7 @@ from gpaw.cdft.cdft_coupling import CouplingParameters
 from gpaw.mpi import world
 
 
-# Set up the system
+@pytest.mark.later
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
 def test_pbc_cdft(in_tmp_dir):
     distance = 2.5

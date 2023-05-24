@@ -1,16 +1,18 @@
 from math import pi
+
 from ase.units import Ha
 from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.new import zip
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
-from gpaw.new.pw.poisson import ReciprocalSpacePoissonSolver
+from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.typing import Array1D
-from gpaw.core.domain import Domain
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -59,11 +61,15 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                             cell=self.grid.cell,
                             comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac, self.atomdist)
+                pw, self.fracpos_ac, self.atomdist, xp=self.xp)
         return self._nct_ag
 
-    def create_poisson_solver(self, fine_grid_pw, params):
-        return ReciprocalSpacePoissonSolver(fine_grid_pw)
+    def create_poisson_solver(self, fine_pw, params):
+        return make_poisson_solver(fine_pw,
+                                   self.fine_grid,
+                                   self.atoms.pbc,
+                                   self.params.charge,
+                                   **params)
 
     def create_potential_calculator(self):
         nct_ag = self.get_pseudo_core_densities()
@@ -71,7 +77,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         fine_pw = pw.new(ecut=8 * self.ecut)
         poisson_solver = self.create_poisson_solver(
             fine_pw,
-            self.params.poissonsolver)
+            self.params.poissonsolver or {'strength': 1.0})
         return PlaneWavePotentialCalculator(self.grid,
                                             self.fine_grid,
                                             pw,
@@ -80,11 +86,12 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                             self.xc,
                                             poisson_solver,
                                             nct_ag, self.nct_R,
-                                            self.soc)
+                                            self.soc,
+                                            self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian()
+            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
@@ -123,7 +130,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 for psit_G, psit_R in zip(psit_sG, psit_sR):
                     psit_R.fft(out=psit_G)
 
-        return psit_nG
+        return psit_nG.to_xp(self.xp)
 
     def read_ibz_wave_functions(self, reader):
         ibzwfs = super().read_ibz_wave_functions(reader)

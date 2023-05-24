@@ -1,16 +1,19 @@
 """Test the calculation of the excitation energy of Na2 by RSF and IVOs."""
+import pytest
 from ase import Atoms
 from ase.units import Hartree
+
+import _gpaw
 from gpaw import GPAW
+from gpaw.cluster import Cluster
+from gpaw.eigensolvers import RMMDIIS
+from gpaw.lrtddft import LrTDDFT
 from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
-from gpaw.eigensolvers import RMMDIIS
-from gpaw.cluster import Cluster
-from gpaw.lrtddft import LrTDDFT
-import _gpaw
 
 
+@pytest.mark.hybrids
 def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir, add_cwd_to_setup_paths):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:

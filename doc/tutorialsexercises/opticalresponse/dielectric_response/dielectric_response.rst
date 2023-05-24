@@ -140,6 +140,7 @@ Fermi-smearing in GPAW. This will be dealt with in the following more realistic
 calculation.
 
 .. image:: si_abs.png
+    :height: 400 px
     :align: center
 
 
@@ -155,7 +156,8 @@ is split into different parts for illustration.
 1. Ground state calculation
 
   .. literalinclude:: silicon_ABS.py
-      :lines: 1-29
+      :start-after: literalinclude0
+      :end-before: literalinclude1
 
   In this script a normal ground state calculation is performed with coarse
   kpoint grid. The calculation is then restarted with a fixed density and the
@@ -185,7 +187,8 @@ is split into different parts for illustration.
 2. Get absorption spectrum
 
   .. literalinclude:: silicon_ABS.py
-      :lines: 31-36
+      :start-after: literalinclude1
+      :end-before: literalinclude2
 
   Here ``eta`` is the broadening parameter of the calculation, and ``ecut``
   is the local field effect cutoff included in the dielectric function.
@@ -198,8 +201,7 @@ is split into different parts for illustration.
   (which is only compatible with the non-linear frequency grid specification).
 
   .. literalinclude:: silicon_ABS.py
-      :lines: 38-
-      :language: python
+      :start-after: literalinclude2
 
   In general, local field correction will reduce this value by 10-20%.
 
@@ -388,6 +390,28 @@ integrand of the density response function.
     :align: center
     :width: 400 px
 
+
+k-point convergence comparison
+------------------------------
+
+Elemental aluminium is another material which can be difficult to
+converge with respect to the number of k-points.
+This is due to the Fermi surface of the metal penetrating
+the surface of the first Brilluoin zone.
+This means that the fermi surface has to be finely resolved when
+calculating ´q = 0´ EELS spectra.
+The EELS spectrum of Al shows a clear plasmonic resonsance and
+below we show the k-point convergence of the plasmon frequency.
+We compare the tetrahedron integration described here with the
+default point integration method.
+The dielectric function is calculated for all varying k-samplings
+(:download:`al-plasmon-peak.py`) using ´\Gamma´-centered Monkhorst-Pack
+k-point grids with a multiple of 8 points along each axis to ensure sampling of
+high-symmetry k-points. We see that both methods converge to the same value.
+
+.. image:: al-plasmon-peak.png
+    :align: center
+    :width: 400 px
 
 Notes on the implementation of the tetrahedron method
 -----------------------------------------------------

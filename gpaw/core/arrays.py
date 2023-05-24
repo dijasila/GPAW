@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from types import ModuleType
 from typing import TYPE_CHECKING, Generic, TypeVar
 
-import numpy as np
-
 import gpaw.fftw as fftw
+import numpy as np
+from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
@@ -28,7 +29,8 @@ class DistributedArrays(Generic[DomainType]):
                  domain_comm: MPIComm,
                  data: np.ndarray | None,
                  dv: float,
-                 dtype):
+                 dtype,
+                 xp=None):
         self.myshape = myshape
         self.comm = comm
         self.domain_comm = domain_comm
@@ -55,14 +57,26 @@ class DistributedArrays(Generic[DomainType]):
             if data.dtype != dtype:
                 raise ValueError(
                     f'Bad dtype for data: {data.dtype} != {dtype}')
+            if xp is not None:
+                assert (xp is np) == isinstance(
+                    data, (np.ndarray, NDArrayReader)), xp
         else:
-            data = np.empty(fullshape, dtype)
+            data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
+        self.xp: ModuleType
+        if isinstance(data, (np.ndarray, NDArrayReader)):
+            self.xp = np
+        else:
+            from gpaw.gpu import cupy as cp
+            self.xp = cp
         self._matrix: Matrix | None = None
 
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
+
+    def copy(self):
+        return self.new(data=self.data.copy())
 
     def __getitem__(self, index):
         raise NotImplementedError
@@ -77,6 +91,16 @@ class DistributedArrays(Generic[DomainType]):
         else:
             for index in np.indices(self.dims).reshape((len(self.dims), -1)).T:
                 yield self[tuple(index)]
+
+    def to_xp(self, xp):
+        if xp is self.xp:
+            # Disable assert for now as it would fail with our HIP-rfftn hack!
+            # assert xp is np, 'cp -> cp should not be needed!'
+            return self
+        if xp is np:
+            return self.new(data=self.xp.asnumpy(self.data))
+        else:
+            return self.new(data=xp.asarray(self.data))
 
     @property
     def matrix(self) -> Matrix:
@@ -105,6 +129,7 @@ class DistributedArrays(Generic[DomainType]):
             symmetric = self is other
         if function:
             other = function(other)
+
         M1 = self.matrix
         M2 = other.matrix
         out = M1.multiply(M2, opb='C', alpha=self.dv,
@@ -130,7 +155,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
+                   out: UniformGridFunctions) -> None:
         """Add weighted absolute square of data to output array.
 
         See also :xkcd:`849`.

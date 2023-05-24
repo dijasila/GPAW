@@ -87,8 +87,9 @@ class WaveFunctions:
                                         comm=serial_comm)
         psit_nR = gd.empty(n2 - n1)
         for band, psit_R in enumerate(psit_nR):
-            psit_R[:] = calc.get_pseudo_wave_function(band + n1,
-                                                      spin=spin) * Bohr**1.5
+            psit_R[:] = calc.get_pseudo_wave_function(
+                band + n1,
+                spin=spin) * Bohr**1.5
 
         return WaveFunctions(psit_nR,
                              kpt.projections.as_dict_on_master(n1, n2),
@@ -118,7 +119,7 @@ def zfs1(wf1: WaveFunctions,
 
     G_G = pd.G2_qG[0]**0.5
     G_G[0] = 1.0
-    G_Gv = pd.get_reciprocal_vectors() / G_G[:, np.newaxis]
+    G_Gv = pd.get_reciprocal_vectors(add_q=False) / G_G[:, np.newaxis]
 
     n_sG = pd.zeros(2)
     for n_G, wf in zip(n_sG, [wf1, wf2]):

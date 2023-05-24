@@ -27,6 +27,7 @@ def system2():
     return bulk('Cu', orthorhombic=True) * (2, 1, 2)
 
 
+@pytest.mark.later
 @pytest.mark.parametrize('atoms, kpts', [
     (system1(), [1, 1, 1]),
     (system2(), [2, 3, 4]),
@@ -50,12 +51,8 @@ def test_lcao_atomic_corrections(atoms, in_tmp_dir, scalapack, kpts):
                     # spinpol=True,
                     parallel=parallel,
                     txt='gpaw.{}.txt'.format(next(counter)),
-                    h=0.35, kpts=kpts)
-
-        def stopcalc():
-            calc.scf.converged = True
-
-        calc.attach(stopcalc, 2)
+                    h=0.35, kpts=kpts,
+                    convergence={'maximum iterations': 2})
         atoms.calc = calc
         energy = atoms.get_potential_energy()
         energies.append(energy)

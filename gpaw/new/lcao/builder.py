@@ -3,9 +3,11 @@ from functools import partial
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
+from gpaw.new import zip
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.forces import TCIDerivatives
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.hybrids import HybridLCAOEigensolver, HybridXCFunctional
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
@@ -56,13 +58,19 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         else:
             coefficients = None
 
-        ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
+        ibzwfs = self.create_ibz_wave_functions(basis, potential,
+                                                coefficients=coefficients)
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
         return ibzwfs
 
-    def create_ibz_wave_functions(self, basis, potential, coefficients=None):
+    def create_ibz_wave_functions(self,
+                                  basis,
+                                  potential,
+                                  *,
+                                  log=None,
+                                  coefficients=None):
         ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
@@ -114,6 +122,8 @@ def create_lcao_ibzwfs(basis, potential,
 
     nao = setups.nao
 
+    tci_derivatives = TCIDerivatives(manytci, atomdist, nao)
+
     def create_wfs(spin, q, k, kpt_c, weight):
         C_nM = Matrix(nbands, 2 * nao if ncomponents == 4 else nao,
                       dtype,
@@ -123,6 +133,8 @@ def create_lcao_ibzwfs(basis, potential,
         return LCAOWaveFunctions(
             setups=setups,
             density_adder=partial(basis.construct_density, q=q),
+            tci_derivatives=tci_derivatives,
+            basis=basis,
             C_nM=C_nM,
             S_MM=Matrix(nao, nao, data=S_qMM[q],
                         dist=(band_comm, band_comm.size, 1)),

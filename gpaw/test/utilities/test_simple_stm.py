@@ -1,11 +1,13 @@
+import pytest
 from ase import Atoms
 
-from gpaw.mpi import size, rank
 from gpaw import GPAW, FermiDirac
 from gpaw.analyse.simple_stm import SimpleStm
+from gpaw.mpi import rank, size
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_utilities_simple_stm(in_tmp_dir):
     load = False
     txt = '/dev/null'

@@ -4,6 +4,7 @@ import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -129,10 +130,11 @@ class LCAOHamiltonian(Hamiltonian):
                                              state: DFTState
                                              ) -> HamiltonianMatrixCalculator:
         V_sxMM = [self.basis.calculate_potential_matrices(vt_R.data)
-                  for vt_R in state.potential.vt_sR]
+                  for vt_R in state.potential.vt_sR.to_xp(np)]
 
         dH_saii = [{a: dH_sii[s]
-                    for a, dH_sii in state.potential.dH_asii.items()}
+                    for a, dH_sii
+                    in state.potential.dH_asii.to_xp(np).items()}
                    for s in range(len(V_sxMM))]
 
         matcalc = CollinearHamiltonianMatrixCalculator(V_sxMM, dH_saii,

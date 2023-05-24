@@ -21,7 +21,8 @@ from gpaw.xc.pawcorrection import PAWXCCorrection
 
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
-    def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
+    def __init__(self, symbol, xcsetupname,
+                 name='paw', readxml=True,
                  zero_reference=False, world=None,
                  generator_version=None):
         self.symbol = symbol
@@ -46,7 +47,7 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
-        self.l_orb_j = self.l_j  # pointer to same list!
+        self.l_orb_J = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
@@ -112,10 +113,10 @@ class SetupData:
 
         self.orbital_free = False  # orbital-free DFT
 
+        self.version = None
+
         if readxml:
             self.read_xml(world=world)
-
-        self.version: str
 
     def __repr__(self):
         return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
@@ -154,11 +155,10 @@ class SetupData:
         else:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
-        if setup.HubU is not None:
-            for U, l, scale in zip(setup.HubU, setup.Hubl, setup.Hubs):
-                text(f'  Hubbard: {{U: {U * Ha},  # eV\n'
-                     f'            l: {l},\n'
-                     f'            scale: {bool(scale)}}}')
+        if setup.hubbard_u is not None:
+            description = ''.join([f'  {line}' for line
+                                   in setup.hubbard_u.descriptions()])
+            text(description)
         text('  file:', self.filename)
         sf = self.shape_function
         text(f'  compensation charges: {{type: {sf["type"]},\n'
@@ -365,7 +365,7 @@ class SetupData:
             for x in self.X_p:
                 print(f'{x!r}', end=' ', file=xml)
             print('\n  </exact_exchange_X_matrix>', file=xml)
-            
+
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
             for omega, Ecc in self.ExxC_w.items():
                 print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',

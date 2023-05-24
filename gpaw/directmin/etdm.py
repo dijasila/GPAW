@@ -18,6 +18,7 @@ from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional import get_functional
 from gpaw import BadParallelization
+from copy import deepcopy
 
 
 class ETDM:
@@ -29,6 +30,7 @@ class ETDM:
     def __init__(self,
                  searchdir_algo='l-bfgs-p',
                  linesearch_algo='swc-awc',
+                 partial_diagonalizer='Davidson',
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
@@ -40,7 +42,8 @@ class ETDM:
                  checkgraderror=False,
                  localizationtype=None,
                  need_localization=True,
-                 need_init_orbs=True
+                 need_init_orbs=True,
+                 constraints=None,
                  ):
         """
         This class performs the exponential transformation
@@ -55,6 +58,8 @@ class ETDM:
         :param searchdir_algo: algorithm for calculating the search direction
         (e.g.LBFGS)
         :param linesearch_algo: line search (e.g. strong Wolfe conditions)
+        :param partial_diagonalizer: Algorithm to use for partial
+        diagonalization of the electronic Hessian if DO-GMF is used
         :param update_ref_orbs_counter: When to update C_ref
         :param update_ref_orbs_canonical: update C_ref to canonical orbitals
         :param update_precond_counter: when to update the preconditioner
@@ -74,6 +79,9 @@ class ETDM:
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
         :param need_localization: use localized orbitals as initial guess
         :param need_init_orbs: if false, then use orbitals stored in kpt
+        :param constraints: List of constraints for each kpt. Can be given
+        either as pairs of orbital indices or single indices which are
+        converted to list of all pairs involving the single index
         """
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
@@ -101,10 +109,20 @@ class ETDM:
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
+        self.constraints = constraints
 
-        self.searchdir_algo = search_direction(searchdir_algo)
-        if self.searchdir_algo.name == 'l-bfgs-p' and not self.use_prec:
+        self.gmf = False
+        self.searchdir_algo = search_direction(
+            searchdir_algo, self, partial_diagonalizer)
+        sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
+        if sd_name[0] == 'lbfgsp' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
+        if len(sd_name) == 2:
+            if sd_name[1] == 'gmf':
+                self.searchdir_algo.name = sd_name[0]
+                self.gmf = True
+                self.g_vec_u_original = None
+                self.pd = partial_diagonalizer
 
         self.line_search = line_search_algorithm(linesearch_algo,
                                                  self.evaluate_phi_and_der_phi,
@@ -143,27 +161,38 @@ class ETDM:
 
     def __repr__(self):
 
-        sda_name = self.searchdir_algo.name
-        lsa_name = self.line_search.name
+        sda_name = self.searchdir_algo.name.replace('-', '').lower()
+        lsa_name = self.line_search.name.replace('-', '').lower()
+
+        add = ''
+        pd_add = ''
+        if self.gmf:
+            add = ' with minimum mode following'
+            pardi = {'Davidson': 'Finite difference generalized Davidson '
+                     'algorithm'}
+            pd_add = '       ' \
+                     'Partial diagonalizer: {}\n'.format(
+                         pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
-               'fr-cg': 'Fletcher-Reeves conj. grad. method',
-               'quick-min': 'Molecular-dynamics based algorithm',
-               'l-bfgs': 'L-BFGS algorithm',
-               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
-               'l-sr1p': 'Limited-memory SR1P algorithm'}
+               'frcg': 'Fletcher-Reeves conj. grad. method',
+               'quickmin': 'Molecular-dynamics based algorithm',
+               'lbfgs': 'L-BFGS algorithm',
+               'lbfgsp': 'L-BFGS algorithm with preconditioning',
+               'lsr1p': 'Limited-memory SR1P algorithm'}
 
-        lss = {'max-step': 'step size equals one',
+        lss = {'maxstep': 'step size equals one',
                'parabola': 'Parabolic line search',
-               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
+               'swcawc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}
 
-        repr_string = 'Direct minimisation using exponential ' \
+        repr_string = 'Direct minimisation' + add + ' using exponential ' \
                       'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[sda_name])
+                       'direction: {}\n'.format(sds[sda_name] + add)
+        repr_string += pd_add
         repr_string += '       ' \
                        'Line ' \
                        'search: {}\n'.format(lss[lsa_name])
@@ -313,6 +342,20 @@ class ETDM:
             self.evecs[u] = None
             self.evals[u] = None
 
+            # All constraints passed as a list of a single orbital index are
+            # converted to all lists of orbital pairs involving that orbital
+            # index
+            if self.constraints:
+                self.constraints[u] = convert_constraints(
+                    self.constraints[u], self.n_dim[u],
+                    len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
+
+        # This conversion makes it so that constraint-related functions can
+        # iterate through a list of no constraints rather than checking for
+        # None every time
+        if self.constraints is None:
+            self.constraints = [[] for _ in range(len(kpt_u))]
+
         self.iters = 1
 
     def iterate(self, ham, wfs, dens):
@@ -327,8 +370,6 @@ class ETDM:
         """
         with wfs.timer('Direct Minimisation step'):
             self.update_ref_orbitals(wfs, ham, dens)
-            with wfs.timer('Preconditioning:'):
-                precond = self.get_preconditioning(wfs, self.use_prec)
 
             a_vec_u = self.a_vec_u
             n_dim = self.n_dim
@@ -342,7 +383,19 @@ class ETDM:
                     self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
                                                   dens, c_ref)
             else:
-                g_vec_u = self.g_vec_u
+                g_vec_u = self.g_vec_u_original if self.gmf else self.g_vec_u
+
+            make_pd = False
+            if self.gmf:
+                with wfs.timer('Partial Hessian diagonalization'):
+                    self.searchdir_algo.update_eigenpairs(
+                        g_vec_u, wfs, ham, dens)
+                # The diagonal Hessian approximation must be positive-definite
+                make_pd = True
+
+            with wfs.timer('Preconditioning:'):
+                precond = self.get_preconditioning(
+                    wfs, self.use_prec, make_pd=make_pd)
 
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
@@ -422,7 +475,8 @@ class ETDM:
                     continue
                 g_vec_u[k], error = self.dm_helper.calc_grad(
                     wfs, ham, kpt, self.func, self.evecs[k], self.evals[k],
-                    self.matrix_exp, self.representation, self.ind_up[k])
+                    self.matrix_exp, self.representation, self.ind_up[k],
+                    self.constraints[k])
 
                 self.error += error
             self.error = wfs.kd.comm.sum(self.error)
@@ -473,6 +527,12 @@ class ETDM:
             phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
                                                          ham, wfs, dens, c_ref)
 
+            # If GMF is used save the original gradient and invert the parallel
+            # projection onto the eigenvectors with negative eigenvalues
+            if self.gmf:
+                self.g_vec_u_original = deepcopy(g_vec_u)
+                g_vec_u = self.searchdir_algo.invert_parallel_grad(g_vec_u)
+
         der_phi = 0.0
         for k in p_mat_u:
             der_phi += g_vec_u[k].conj() @ p_mat_u[k]
@@ -511,12 +571,12 @@ class ETDM:
             # Erase memory of search direction algorithm
             self.searchdir_algo.reset()
 
-    def get_preconditioning(self, wfs, use_prec):
+    def get_preconditioning(self, wfs, use_prec, make_pd=False):
 
         if not use_prec:
             return None
 
-        if self.searchdir_algo.name == 'l-bfgs-p':
+        if self.searchdir_algo.name == 'lbfgsp':
             beta0 = self.searchdir_algo.beta_0
             gamma = 0.25
         else:
@@ -530,10 +590,16 @@ class ETDM:
             w = kpt.weight / (3.0 - wfs.nspins)
             if self.iters % counter == 0 or self.iters == 1:
                 self.hess[k] = self.get_hessian(kpt)
+                if make_pd:
+                    if self.dtype == float:
+                        self.hess[k] = np.abs(self.hess[k])
+                    else:
+                        self.hess[k] = np.abs(self.hess[k].real) \
+                            + 1.0j * np.abs(self.hess[k].imag)
             hess = self.hess[k]
             precond[k] = np.zeros_like(hess)
             correction = w * gamma * beta0 ** (-1)
-            if self.searchdir_algo.name != 'l-bfgs-p':
+            if self.searchdir_algo.name != 'lbfgsp':
                 correction = np.zeros_like(hess)
                 zeros = abs(hess) < 1.0e-4
                 correction[zeros] = 1.0
@@ -615,6 +681,7 @@ class ETDM:
 
         with wfs.timer('Sort WFS'):
             for kpt in wfs.kpt_u:
+                k = self.kpointval(kpt)
                 if use_eps:
                     orbital_energies = kpt.eps_n
                 else:
@@ -634,6 +701,11 @@ class ETDM:
                         # OccupationsMOM.numbers needs to be updated after
                         # sorting
                         self.update_mom_numbers(wfs, kpt)
+                    if self.constraints:
+                        # Identity of the contrained orbitals has changed and
+                        # needs to be updated
+                        self.constraints[k] = update_constraints(
+                            self.constraints[k], list(ind))
 
     def sort_orbitals_mom(self, wfs):
         """
@@ -644,6 +716,7 @@ class ETDM:
         """
         changedocc = False
         for kpt in wfs.kpt_u:
+            k = self.kpointval(kpt)
             occupied = kpt.f_n > 1.0e-10
             n_occ = len(kpt.f_n[occupied])
             if n_occ == 0.0:
@@ -660,24 +733,35 @@ class ETDM:
                 # OccupationsMOM.numbers needs to be updated after sorting
                 self.update_mom_numbers(wfs, kpt)
 
+                if self.constraints:
+                    # Identities of the contrained orbitals have changed and
+                    # needs to be updated
+                    self.constraints[k] = update_constraints(
+                        self.constraints[k], list(ind))
+
                 changedocc = True
 
         return changedocc
 
     def todict(self):
 
-        return {'name': self.name,
-                'searchdir_algo': self.searchdir_algo.todict(),
-                'linesearch_algo': self.line_search.todict(),
-                'localizationtype': self.localizationtype,
-                'update_ref_orbs_counter': self.update_ref_orbs_counter,
-                'update_precond_counter': self.update_precond_counter,
-                'use_prec': self.use_prec,
-                'matrix_exp': self.matrix_exp,
-                'representation': self.representation,
-                'functional': self.func.todict(),
-                'orthonormalization': self.orthonormalization
-                }
+        ret = {'name': self.name,
+               'searchdir_algo': self.searchdir_algo.todict(),
+               'linesearch_algo': self.line_search.todict(),
+               'localizationtype': self.localizationtype,
+               'update_ref_orbs_counter': self.update_ref_orbs_counter,
+               'update_precond_counter': self.update_precond_counter,
+               'use_prec': self.use_prec,
+               'matrix_exp': self.matrix_exp,
+               'representation': self.representation,
+               'functional': self.func.todict(),
+               'orthonormalization': self.orthonormalization,
+               'constraints': self.constraints
+               }
+        if self.gmf:
+            ret['partial_diagonalizer'] = \
+                self.searchdir_algo.partial_diagonalizer.todict()
+        return ret
 
     def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
 
@@ -835,3 +919,124 @@ def vec2skewmat(a_vec, dim, ind_up, dtype):
     a_mat -= a_mat.T.conj()
     np.fill_diagonal(a_mat, a_mat.diagonal() * 0.5)
     return a_mat
+
+
+def convert_constraints(constraints, n_dim, n_occ, representation):
+    """
+    Parses and checks the user input of constraints. If constraints are passed
+    as a list of a single orbital index all pairs of orbitals involving this
+    index are added to the constraints.
+
+    :param constraints: List of constraints for one K-point
+    :param n_dim:
+    :param n_occ:
+    :param representation: Unitary invariant, sparse or full representation
+                           determining the electronic degrees of freedom that
+                           need to be constrained
+
+    :return: Converted list of constraints
+    """
+
+    new = constraints.copy()
+    for con in constraints:
+        assert isinstance(con, list) or isinstance(con, int), \
+            'Check constraints.'
+        if isinstance(con, list):
+            assert len(con) < 3, 'Check constraints.'
+            if len(con) == 1:
+                con = con[0]  # List of single index
+            else:
+                # Make first index always smaller than second index
+                if representation != 'full' and con[1] < con[0]:
+                    temp = deepcopy(con[0])
+                    con[0] = deepcopy(con[1])
+                    con[1] = temp
+                check_indices(
+                    con[0], con[1], n_dim, n_occ, representation)
+                continue
+        # Add all pairs containing the single index
+        if isinstance(con, int):
+            new += find_all_pairs(con, n_dim, n_occ, representation)
+
+    # Delete all list containing a single index
+    done = False
+    while not done:
+        done = True
+        for i in range(len(new)):
+            if len(new[i]) < 2:
+                del new[i]
+                done = False
+                break
+    return new
+
+
+def check_indices(ind1, ind2, n_dim, n_occ, representation):
+    """
+    Makes sure the user input for the constraints makes sense.
+    """
+
+    assert ind1 != ind2, 'Check constraints.'
+    if representation == 'full':
+        assert ind1 < n_dim and ind2 < n_dim, 'Check constraints.'
+    elif representation == 'sparse':
+        assert ind1 < n_occ and ind2 < n_dim, 'Check constraints.'
+    elif representation == 'u-invar':
+        assert ind1 < n_occ and ind2 >= n_occ and ind2 < n_dim, \
+            'Check constraints.'
+
+
+def find_all_pairs(ind, n_dim, n_occ, representation):
+    """
+    Creates a list of all orbital pairs corresponding to degrees of freedom of
+    the system containing an orbital index.
+
+    :param ind: The orbital index
+    :param n_dim:
+    :param n_occ:
+    :param representation: Unitary invariant, sparse or full, defining what
+                           index pairs correspond to degrees of freedom of the
+                           system
+    """
+
+    pairs = []
+    if representation == 'u-invar':
+        # Only ov rotations are degrees of freedom
+        if ind < n_occ:
+            for i in range(n_occ, n_dim):
+                pairs.append([ind, i])
+        else:
+            for i in range(n_occ):
+                pairs.append([i, ind])
+    else:
+        if (ind < n_occ and representation == 'sparse') \
+                or representation == 'full':
+            # oo and ov rotations are degrees of freedom
+            for i in range(n_dim):
+                if i == ind:
+                    continue
+                pairs.append([i, ind] if i < ind else [ind, i])
+                if representation == 'full':
+                    # The orbital rotation matrix is not assumed to be
+                    # antihermitian, so the reverse order of indices must be
+                    # added as a second constraint
+                    pairs.append([ind, i] if i < ind else [i, ind])
+        else:
+            for i in range(n_occ):
+                pairs.append([i, ind])
+    return pairs
+
+
+def update_constraints(constraints, ind):
+    """
+    Change the constraint indices to match a new indexation, e.g. due to
+    sorting the orbitals
+
+    :param constraints: The list of constraints for one K-point
+    :param ind: List containing information about the change in indexation
+    """
+
+    new = deepcopy(constraints)
+    for i in range(len(constraints)):
+        for k in range(len(constraints[i])):
+            new[i][k] = ind.index(constraints[i][k])
+    return new

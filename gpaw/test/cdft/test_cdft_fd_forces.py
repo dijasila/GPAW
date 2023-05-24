@@ -1,10 +1,12 @@
-from ase import Atoms
-from gpaw import GPAW
-from gpaw.cdft.cdft import CDFT
-from gpaw import Mixer
 import numpy as np
+import pytest
+from ase import Atoms
+
+from gpaw import GPAW, Mixer
+from gpaw.cdft.cdft import CDFT
 
 
+@pytest.mark.later
 def test_cdft_fd_forces(in_tmp_dir):
 
     sys = Atoms('N2', positions=([0., 0., 0.], [0., 0., 1]))

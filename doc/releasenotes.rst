@@ -10,15 +10,80 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0, SciPy 1.6.0
 
+* New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
+  objects with tweaked input parameters.  This can often be used to replace
+  the use of the ``set`` method which we are planning to remove.
+
+* A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
+  calculations done with versions 22.1 and 22.8.
+
+* A bug in the implementation of MGGA functionals was found: :issue:`674`.
+  The kinetic-energy density was calculated from the irreducible part of
+  the Brillouin zone, but it was not symmetrized as it should be.  This
+  has now been fixed.
+
+  .. warning::
+
+     If you have done any MGGA calculations taking advantage of symmetries
+     in order to reduce number of **k**-points then you should redo those
+     calculations.  Sorry!
+
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
+* Local orbitals added in LCAO mode to construct effective
+  tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
+
+* Missing factor of `2\pi` now included in RPA shift current:
+  :func:`gpaw.nlopt.shift.get_shift`.
+
+* Updated RPA-energy tutorial: :ref:`c2cu rpa`.
+
+* New tutorial: :ref:`abinitiomd`.
+
+* Added relative tolerance for force convergence. This is useful for geometry
+  optimizations to adaptively converge forces. See :ref:`custom_convergence`.
+
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergence={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
+
+* The PW-mode now includes an ``interpolation`` flag.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
+* The LCAO implementation of direct optimization for variational calculations
+  of excited electronic states now includes :ref:`constrained optimization <mom>`
+  useful for challenging charge transfer excited states.
+
+* The :ref:`direct optimization generalized mode following method <do-gmf>` (DO-GMF) for
+  variational calculations of excited electronic states was added.
+
+* Updated electron-phonon coupling and Raman implementations and documentation. See :ref:`elphtheory` and :ref:`elphraman`.
+
+  .. warning::
+
+     Bugs in previous versions could have led to wrong relative intensities. Please regenerate the Raman tensor.
 
 Version 22.8.0
 ==============
 
 Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
@@ -36,7 +101,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
@@ -79,7 +144,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
    * Fix for latest numpy-1.22.0.
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Python 3.7 or later is required now.
 
@@ -117,7 +182,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
     the whole supercell matrix into memory.
 
   * A routine to calculate dipole and nabla (momentum) matrix elements for
-    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+    LCAO wave functions has been added: :git:`gpaw/lcao/dipoletransition.py`
 
 * You can now change all sorts of things about how the SCF cycle decides it
   is converged. You can specify new, non-default convergence keywords like
@@ -490,7 +555,7 @@ Aug 1, 2019: :git:`19.8.0 <../19.8.0>`
 * How to do :ref:`ehrenfest` has now been documented.
 
 * Non self-consistent hybrid functional calculations can now be continued if
-  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+  they run out of time.
 
 * When using a convergence criteria on the accuracy of the forces
   (see :ref:`manual_convergence`), the forces will only be calculated when the
@@ -876,8 +941,7 @@ Mar 17, 2016: :git:`1.0.0 <../1.0.0>`.
 * New `f_{\text{xc}}` kernels for correlation energy calculations.  See this
   updated :ref:`tutorial <rapbe_tut>`.
 
-* Correlation energies within the range-separated RPA.  See this
-  :ref:`tutorial <rangerpa_tut>`.
+* Correlation energies within the range-separated RPA.
 
 * Experimental interface to the libvdwxc_ library
   for efficient van der Waals density functionals.

@@ -58,7 +58,7 @@ class MatrixDescriptor:
             n = iu
             eigvals = (0, n - 1)
         eps_M[:n], C_mm.T[:, :n] = eigh(H_mm, S_mm,
-                                        eigvals=eigvals,
+                                        subset_by_index=eigvals,
                                         overwrite_a=True,
                                         check_finite=debug)
         if C_mm.dtype == complex:

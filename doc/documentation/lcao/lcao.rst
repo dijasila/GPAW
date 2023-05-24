@@ -282,6 +282,30 @@ roughly to a single-zeta basis in most cases.  Depending on the unoccupied
 states defined on the PAW setups, it may be roughly equivalent to a
 single-zeta polarized basis set for certain elements.
 
+
+.. _los in lcao:
+
+
+Local Orbitals
+--------------
+
+In LCAO mode, it is possible to obtain a reduced basis set of localised orbitals 
+that can be used to define effective tight-binding Hamiltonians. Contrary to
+Wannier functions (WFs), the local orbital (LO) construction is not based on a projection
+of the Kohn-Sham states and does not require any physical input
+such as the initial guesses for the WFs. In fact, the LOs are obtained 
+directly from a sub-diagonalization of the LCAO Hamiltonian. The LOs are constructed 
+for any atom in the system through a sub-diagonalization of the Hamiltonian block 
+of its AOs. This procedure yields a set of LOs whichare atomic-like functions 
+and are by construction atom-centred and orthogonal within the same atom 
+(but not among different atoms). Furthermore, the LO representation can coexist 
+with the original AO one ne, in the sense that one can sub-diagonalize only a subset 
+of atoms in the system. This is useful if one is particularly 
+interested in a limited part of a system, such as a molecular bridge in a 
+quantum junction, or an adsorbate on a substrate. More details and examples 
+can be found in :ref:`los tutorial` tutorial.
+
+
 .. [LCAO-article] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
   and K. W. Jacobsen, Phys. Rev. B 80, 195112 (2009)
 

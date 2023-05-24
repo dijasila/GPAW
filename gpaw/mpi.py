@@ -1,6 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-
+from __future__ import annotations
 import sys
 import time
 import traceback
@@ -13,7 +13,7 @@ from ase.parallel import world as aseworld, MPI as ASE_MPI
 import numpy as np
 
 import gpaw
-from .broadcast_imports import world
+from .broadcast_imports import world as _world
 import _gpaw
 
 MASTER = 0
@@ -119,11 +119,16 @@ class _Communicator:
         if isinstance(a, (int, float, complex)):
             return self.comm.sum(a, root)
         else:
+            # assert a.ndim != 0
             tc = a.dtype
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.sum(a, root)
+
+    def sum_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float, complex))
+        return self.comm.sum_scalar(a, root)
 
     def product(self, a, root=-1):
         """Do multiplication by MPI reduce operations of numerical data.
@@ -181,6 +186,10 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.max(a, root)
 
+    def max_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.max_scalar(a, root)
+
     def min(self, a, root=-1):
         """Find minimal value by an MPI reduce operation of numerical data.
 
@@ -208,6 +217,10 @@ class _Communicator:
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
+    
+    def min_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.min_scalar(a, root)
 
     def scatter(self, a, b, root):
         """Distribute data from one rank to all other processes in a group.
@@ -615,6 +628,9 @@ class SerialCommunicator:
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
+    
+    def sum_scalar(self, a, root=-1):
+        return a
 
     def scatter(self, s, r, root):
         r[:] = s
@@ -622,13 +638,19 @@ class SerialCommunicator:
     def min(self, value, root=-1):
         return value
 
+    def min_scalar(self, value, root=-1):
+        return value
+
     def max(self, value, root=-1):
+        return value
+    
+    def max_scalar(self, value, root=-1):
         return value
 
     def broadcast(self, buf, root):
         pass
 
-    def send(self, buff, root, tag=123, block=True):
+    def send(self, buff, dest, tag=123, block=True):
         pass
 
     def barrier(self):
@@ -695,19 +717,22 @@ class SerialCommunicator:
     def get_c_object(self):
         if gpaw.dry_run:
             return None  # won't actually be passed to C
-        raise NotImplementedError('Should not get C-object for serial comm')
+        return _world
 
 
-serial_comm = SerialCommunicator()
+world: SerialCommunicator | _Communicator | _gpaw.Communicator
+serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 
-have_mpi = world is not None
+have_mpi = _world is not None
 
-if world is None:
+if not have_mpi or _world.size == 1:
     world = serial_comm
+else:
+    world = _world
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)  # type: ignore
-    world = _Communicator(world)  # type: ignore
+    serial_comm = _Communicator(serial_comm)
+    world = _Communicator(world)
 
 rank = world.rank
 size = world.size

@@ -1,14 +1,21 @@
 from __future__ import annotations
 
+from types import ModuleType
+
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip
+from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 class WaveFunctions:
+    bytes_per_band: int
+    xp: ModuleType  # numpy or cupy
+
     def __init__(self,
                  *,
                  setups: Setups,
@@ -106,13 +113,16 @@ class WaveFunctions:
     def add_to_atomic_density_matrices(self,
                                        occ_n,
                                        D_asii: AtomArrays) -> None:
+        xp = D_asii.layout.xp
+        occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
-            for D_sii, P_ni in zip(D_asii.values(), self.P_ani.values()):
-                D_sii[self.spin] += np.einsum('ni, n, nj -> ij',
+            P_ani = self.P_ani
+            for D_sii, P_ni in zip(D_asii.values(), P_ani.values()):
+                D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
                                               P_ni.conj(), occ_n, P_ni).real
         else:
             for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
-                D_ssii = np.einsum('nsi, n, nzj -> szij',
+                D_ssii = xp.einsum('nsi, n, nzj -> szij',
                                    P_nsi.conj(), occ_n, P_nsi)
                 D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
                 D_xii[1] += 2 * D_ssii[0, 1].real
@@ -125,7 +135,7 @@ class WaveFunctions:
     def receive(self, kpt_comm, rank):
         raise NotImplementedError
 
-    def force_contribution(self, dH_asii: AtomArrays, F_av: Array2D):
+    def force_contribution(self, potential: Potential, F_av: Array2D):
         raise NotImplementedError
 
     def gather_wave_function_coefficients(self) -> np.ndarray | None:

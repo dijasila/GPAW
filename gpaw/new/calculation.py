@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from typing import Any, Union
 
+import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
-from gpaw.new import cached_property
+from gpaw.gpu import as_xp
+from gpaw.mpi import broadcast_float
+from gpaw.new import cached_property, zip
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
@@ -22,7 +25,14 @@ from gpaw.typing import Array1D, Array2D
 from gpaw.utilities import (check_atoms_too_close,
                             check_atoms_too_close_to_boundary)
 from gpaw.utilities.partition import AtomPartition
-from gpaw.densities import Densities
+
+
+class ReuseWaveFunctionsError(Exception):
+    """Reusing the old wave functions after cell change failed.
+
+    Most likekly, the number of k-points changed.
+    """
+
 
 units = {'energy': Ha,
          'free_energy': Ha,
@@ -39,8 +49,7 @@ class DFTState:
                  ibzwfs: IBZWaveFunctions,
                  density: Density,
                  potential: Potential,
-                 vHt_x: DistributedArrays = None,
-                 nct_R: UniformGridFunctions = None):
+                 vHt_x: DistributedArrays = None):
         """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
@@ -102,11 +111,16 @@ class DFTCalculation:
         density = builder.density_from_superposition(basis_set)
         density.normalize()
 
+        # The SCF-loop has a hamiltonian that has an fft-plan that is
+        # cached for later use, so best to create the SCF-loop first
+        # FIX this!
+        scf_loop = builder.create_scf_loop()
+
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential,
+                                                   log=log)
         state = DFTState(ibzwfs, density, potential, vHt_x)
-        scf_loop = builder.create_scf_loop()
 
         write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
@@ -123,9 +137,10 @@ class DFTCalculation:
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
 
-        self.fracpos_ac = atoms.get_scaled_positions()
+        self.fracpos_ac = np.ascontiguousarray(atoms.get_scaled_positions())
+        self.scf_loop.world.broadcast(self.fracpos_ac, 0)
 
-        atomdist = ...
+        atomdist = self.state.density.D_asii.layout.atomdist
 
         delta_nct_R = self.pot_calc.move(self.fracpos_ac,
                                          atomdist,
@@ -176,6 +191,10 @@ class DFTCalculation:
         self.log(f'  total:       {total_free * Ha:14.6f}')
         self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
+        world = self.scf_loop.world
+        total_free = broadcast_float(total_free, world)
+        total_extrapolated = broadcast_float(total_extrapolated, world)
+
         self.results['free_energy'] = total_free
         self.results['energy'] = total_extrapolated
 
@@ -203,14 +222,14 @@ class DFTCalculation:
             self.log()
         return mm_v, mm_av
 
-    def forces(self):
-        """Return atomic force contributions."""
+    def forces(self, silent=False):
+        """Calculate atomic forces."""
         xc = self.pot_calc.xc
         assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):
-        F_av = self.state.ibzwfs.forces(self.state.potential.dH_asii)
+        F_av = self.state.ibzwfs.forces(self.state.potential)
 
         pot_calc = self.pot_calc
         Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(
@@ -230,23 +249,27 @@ class DFTCalculation:
         for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[:, 0]
 
+        F_av = as_xp(F_av, np)
+
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
 
-        self.log('\nforces: [  # eV/Ang')
-        s = Ha / Bohr
-        for a, setup in enumerate(self.setups):
-            x, y, z = F_av[a] * s
-            c = ',' if a < len(F_av) - 1 else ']'
-            self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                     f'  # {setup.symbol:2} {a}')
+        if not silent:
+            self.log('\nforces: [  # eV/Ang')
+            s = Ha / Bohr
+            for a, setup in enumerate(self.setups):
+                x, y, z = F_av[a] * s
+                c = ',' if a < len(F_av) - 1 else ']'
+                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
+                         f'  # {setup.symbol:2} {a}')
 
+        self.scf_loop.world.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
-        stress_vv = self.pot_calc.stress_contribution(self.state)
+        stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
@@ -268,9 +291,71 @@ class DFTCalculation:
         atomdist = self.state.density.D_asii.layout.atomdist
         return AtomPartition(atomdist.comm, atomdist.rank_a)
 
+    def new(self,
+            atoms: Atoms,
+            params: InputParameters,
+            log=None) -> DFTCalculation:
+        """Create new DFTCalculation object."""
+
+        if params.mode['name'] != 'pw':
+            raise ReuseWaveFunctionsError
+
+        if not self.state.density.nt_sR.desc.pbc_c.all():
+            raise ReuseWaveFunctionsError
+
+        check_atoms_too_close(atoms)
+        check_atoms_too_close_to_boundary(atoms)
+
+        builder = create_builder(atoms, params)
+
+        kpt_kc = builder.ibz.kpt_kc
+        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
+        if len(kpt_kc) != len(old_kpt_kc):
+            raise ReuseWaveFunctionsError
+        if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
+            raise ReuseWaveFunctionsError
+
+        density = self.state.density.new(builder.grid)
+        density.normalize()
+
+        scf_loop = builder.create_scf_loop()
+        pot_calc = builder.create_potential_calculator()
+        potential, vHt_x, _ = pot_calc.calculate(density)
+
+        old_ibzwfs = self.state.ibzwfs
+
+        def create_wfs(spin, q, k, kpt_c, weight):
+            wfs = old_ibzwfs.wfs_qs[q][spin]
+            return wfs.morph(
+                builder.wf_desc,
+                builder.fracpos_ac,
+                builder.atomdist)
+
+        ibzwfs = create_ibz_wave_functions(
+            builder.ibz,
+            nelectrons=old_ibzwfs.nelectrons,
+            ncomponents=old_ibzwfs.ncomponents,
+            create_wfs_func=create_wfs,
+            kpt_comm=old_ibzwfs.kpt_comm)
+
+        state = DFTState(ibzwfs, density, potential, vHt_x)
+
+        write_atoms(atoms, builder.initial_magmom_av, log)
+        log(state)
+        log(builder.setups)
+        log(scf_loop)
+        log(pot_calc)
+
+        return DFTCalculation(state,
+                              builder.setups,
+                              scf_loop,
+                              pot_calc,
+                              log)
+
 
 def combine_energies(potential: Potential,
                      ibzwfs: IBZWaveFunctions) -> dict[str, float]:
+    """Add up energy contributions."""
     energies = potential.energies.copy()
     energies['kinetic'] += ibzwfs.energies['band']
     energies['entropy'] = ibzwfs.energies['entropy']

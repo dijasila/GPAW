@@ -117,7 +117,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.tciexpansions = TCIExpansions.new_from_setups(setups)
 
         self.basis_functions = BasisFunctions(gd,
-                                              [setup.phit_j
+                                              [setup.basis_functions_J
                                                for setup in setups],
                                               kd,
                                               dtype=dtype,
@@ -521,10 +521,8 @@ class LCAOforces:
             Ftheta_av = self.get_den_mat_term()
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
-
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-
-        if self.isblacs:
+        else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
@@ -803,6 +801,10 @@ class LCAOforces:
         for u, kpt in enumerate(self.kpt_u):
             for b in self.my_atom_indices:
                 H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
+                if len(H_ii) == 0:
+                    # gemmdot does not like empty matrices!
+                    # (has been fixed in the new code)
+                    continue
                 HP_iM = gemmdot(H_ii, np.ascontiguousarray(
                                 self.P_aqMi[b][kpt.q].T.conj()))
                 for v in range(3):

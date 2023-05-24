@@ -147,7 +147,7 @@ and run::
 
 This will calculate the band structure and Berry curvature along the
 specified path. Note that the calculatons is orders of magnitude faster
-compared to a standard non-selfconsistent band structure calculation with
+compared to a standard non self-consistent band structure calculation with
 GPAW. It also generates the script ``Fe-bands+curv_z.py``, which can be used
 to plot the band structure along with the `z`-component of the Berry
 curvature. The result is shown below

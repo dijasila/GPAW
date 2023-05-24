@@ -128,7 +128,7 @@ class TCM(object):
                 norm = Normalize(vmin=vmin, vmax=vmax)
             plt.pcolormesh(energy_o, energy_u, tcm_ou.T,
                            cmap=cmap, rasterized=True, norm=norm,
-                           )
+                           shading='auto')
         if colorbar:
             ax = self.ax_cbar
             ax.clear()

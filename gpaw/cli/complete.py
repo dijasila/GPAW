@@ -57,8 +57,6 @@ commands = {
     'python':
         ['--dry-run', '-z', '-d', '--debug', '--command', '-c',
          '--module', '-m'],
-    'rpa':
-        ['-e', '--cut-off', '-b', '--blocks'],
     'run':
         ['-p', '--parameters', '-t', '--tag', '--properties', '-f',
          '--maximum-force', '--constrain-tags', '-s',

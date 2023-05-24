@@ -1,15 +1,18 @@
 import numpy as np
+import pytest
 from ase.parallel import parprint
+
 from gpaw import GPAW, restart
 from gpaw.elf import ELF
-from gpaw.test import equal
 from gpaw.mpi import rank
+from gpaw.test import equal
 
 
+@pytest.mark.mgga
 def test_utilities_elf(gpw_files):
     # Real wave functions
     atoms, calc = restart(gpw_files['h2_fd'])
-    
+
     elf = ELF(calc)
     elf.update()
     elf_G = elf.get_electronic_localization_function(gridrefinement=1)

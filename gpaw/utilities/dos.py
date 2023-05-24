@@ -463,8 +463,7 @@ class RawLDOS:
             emax = -1.e32
             for k in range(wfs.kd.nibzkpts):
                 for s in range(wfs.nspins):
-                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
-                                                   broadcast=True)
+                    e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                     emin = min(e_n.min(), emin)
                     emax = max(e_n.max(), emax)
             emin -= 4 * width
@@ -511,8 +510,7 @@ class RawLDOS:
                         val[key] = np.zeros((3))
                     for k in range(wfs.kd.nibzkpts):
                         w = wfs.kpt_u[k].weight
-                        e_n = self.paw.get_eigenvalues(kpt=k, spin=s,
-                                                       broadcast=True)
+                        e_n = self.paw.get_eigenvalues(kpt=k, spin=s)
                         for n in range(wfs.bd.nbands):
                             w_i = w * gauss.get(e_n[n] - e)
                             for key in ldbe:

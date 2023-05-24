@@ -24,7 +24,9 @@ class AtomCenteredFunctions:
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
-                 atomdist: AtomDistribution = None):
+                 atomdist: AtomDistribution = None,
+                 xp=None):
+        self.xp = xp or np
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
@@ -50,6 +52,9 @@ class AtomCenteredFunctions:
     def atomdist(self):
         self._lazy_init()
         return self._atomdist
+
+    def _lazy_init(self):
+        raise NotImplementedError
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -87,10 +92,13 @@ class AtomCenteredFunctions:
         self._lazy_init()
         if out is None:
             out = self.layout.empty((3,) + functions.dims, functions.comm)
-        coef_axiv = {a: np.moveaxis(array_vxi, 0, -1)
+        coef_axiv = {a: self.xp.moveaxis(array_vxi, 0, -1)
                      for a, array_vxi in out._arrays.items()}
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
+
+    def stress_tensor_contribution(self, a, c=1.0):
+        return self._lfc.stress_tensor_contribution(a.data, c)
 
 
 class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
@@ -101,11 +109,12 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                  *,
                  atomdist=None,
                  integral=None,
-                 cut=False):
+                 cut=False,
+                 xp=np):
         AtomCenteredFunctions.__init__(self,
                                        functions,
                                        fracpos_ac,
-                                       atomdist)
+                                       atomdist, xp=xp)
         self.grid = grid
         self.integral = integral
         self.cut = cut

@@ -1,19 +1,21 @@
+import numpy as np
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
                                             PolarizableMaterial,
                                             PolarizableSphere)
-from gpaw.mpi import world
-from gpaw.tddft import TDDFT, DipoleMomentWriter
-from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
+from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.inducedfield.inducedfield_fdtd import (
     FDTDInducedField, calculate_hybrid_induced_field)
-from gpaw.inducedfield.inducedfield_base import BaseInducedField
+from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
+from gpaw.mpi import world
+from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
-import numpy as np
 
 
+@pytest.mark.later
 def test_fdtd_ed_inducedfield(in_tmp_dir):
     do_print_values = 0  # Use this for printing the reference values
 

@@ -231,9 +231,17 @@ class SJM(SolvationGPAW):
                         ', '.join(self.default_parameters['sj'])))
         p.update(sj_changes)
         background_charge = kwargs.pop('background_charge', None)
-        parent_changed = True if len(kwargs) > 0 else False
 
         SolvationGPAW.set(self, **kwargs)
+
+        # parent_changed checks if GPAW needs to be reinitialized
+        # The following key do not need reinitialization
+        parent_changed = False
+        for key in kwargs:
+            if key not in ['mixer', 'verbose', 'txt', 'hund', 'random',
+                           'eigensolver', 'convergence', 'fixdensity',
+                           'maxiter']:
+                parent_changed = True
 
         if len(sj_changes):
             if self.wfs is None:
@@ -303,11 +311,11 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    self._quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = background_charge
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
+                    self._quick_reinitialization()
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'
@@ -347,7 +355,7 @@ class SJM(SolvationGPAW):
 
         p = self.parameters['sj']
 
-        if not p.target_potential:
+        if p.target_potential is None:
             self.log('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
@@ -423,7 +431,7 @@ class SJM(SolvationGPAW):
                    f'{p.excess_electrons:+.5f} excess electrons, attempt '
                    f'{iteration:d}/{p.max_iters:d}')
             msg += ' rerun).' if rerun else ').'
-            self.log(msg)
+            self.log(msg, flush=True)
 
             # Check if we took too big of a step.
             try:
@@ -451,8 +459,8 @@ class SJM(SolvationGPAW):
             rerun = False
 
             # Store attempt and calculate slope.
-            previous_electrons += [p.excess_electrons]
-            previous_potentials += [true_potential]
+            previous_electrons.append(float(p.excess_electrons))
+            previous_potentials.append(float(true_potential))
             if len(previous_electrons) > 1:
                 slope = _calculate_slope(previous_electrons,
                                          previous_potentials)
@@ -469,6 +477,7 @@ class SJM(SolvationGPAW):
                              f'{p.slope:.4f} V/electron.')
                 else:
                     p.slope = slope
+                self.log.flush()
 
             # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
@@ -506,7 +515,7 @@ class SJM(SolvationGPAW):
         msg = textwrap.fill(msg) + '\n'
         for n, p in zip(previous_electrons, previous_potentials):
             msg += '{:+.6f} {:.6f}\n'.format(n, p)
-        self.log(msg)
+        self.log(msg, flush=True)
         raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',

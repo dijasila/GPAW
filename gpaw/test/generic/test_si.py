@@ -26,13 +26,11 @@ def test_generic_si(in_tmp_dir):
     eigs = calc.get_eigenvalues(kpt=0)
     calc.write('temp.gpw')
 
-    bulk.calc = GPAW('temp.gpw').fixed_density()
-    e2 = bulk.get_potential_energy()
-    eigs2 = bulk.calc.get_eigenvalues(kpt=0)
+    calc = GPAW('temp.gpw').fixed_density()
+    eigs2 = calc.get_eigenvalues(kpt=0)
     print('Orginal', eigs)
     print('Fixdensity', eigs2)
     print('Difference', eigs2 - eigs)
 
     assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
     equal(e1, -36.767, 0.003)
-    equal(e1, e2, 1e-4)

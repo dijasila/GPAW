@@ -6,7 +6,7 @@ Introduction
 
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the `Atomic
-Simulation Environment <ASE>`_ (ASE), which is a Python package that helps
+Simulation Environment`_ (ASE), which is a Python package that helps
 us describe our atoms.  The ASE package also
 handles molecular dynamics, analysis, visualization, geometry
 optimization and more.  If you don't know anything about ASE, then it
@@ -18,6 +18,7 @@ Below, there will be Python code examples starting with ``>>>`` (and
 Python interpreter and try some of the examples below.
 
 .. _Python: http://www.python.org
+.. _Atomic Simulation Environment: https://wiki.fysik.dtu.dk/ase
 
 The units used by the GPAW calculator correspond to the :mod:`ASE
 conventions <ase.units>`, most importantly electron volts and
@@ -1116,12 +1117,12 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 

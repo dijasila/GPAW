@@ -167,6 +167,45 @@ class GPAW(Calculator):
 
         Calculator.__init__(self, restart, label=label, **kwargs)
 
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        """Create a new calculator, inheriting input parameters.
+
+        The ``txt`` file and timer are the only input parameters to
+        be created anew. Internal variables, such as the density
+        or the wave functions, are not reused either.
+
+        For example, to perform an identical calculation with a
+        parameter changed (e.g. changing XC functional to PBE)::
+
+            new_calc = calc.new(xc='PBE')
+            atoms.calc = new_calc
+        """
+        assert 'atoms' not in kwargs
+        assert 'restart' not in kwargs
+        assert 'ignore_bad_restart_file' not in kwargs
+        assert 'label' not in kwargs
+
+        # Let the communicator fall back to world
+        if communicator is None:
+            communicator = self.world
+
+        if parallel is not None:
+            new_parallel = dict(self.parallel)
+            new_parallel.update(parallel)
+        else:
+            new_parallel = None
+
+        new_kwargs = dict(self.parameters)
+        new_kwargs.update(kwargs)
+
+        return GPAW(timer=timer, communicator=communicator,
+                    txt=txt, parallel=new_parallel, **new_kwargs)
+
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
                       communicator=None,
@@ -214,6 +253,24 @@ class GPAW(Calculator):
             old_response = self.hamiltonian.xc.response
             new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
+        elif calc.hamiltonian.xc.type == 'MGGA':
+            for kpt in self.wfs.kpt_u:
+                if kpt.psit is None:
+                    raise ValueError("Needs wave functions for "
+                                     "MGGA fixed density.\n"
+                                     "To run from a restart file, it must "
+                                     "be written with mode='all'")
+            self.wfs.initialize_wave_functions_from_restart_file()
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+            wgd = self.wfs.gd.new_descriptor(comm=self.world,
+                                             allow_empty_domains=True)
+            redist = GridRedistributor(self.world, self.wfs.kptband_comm,
+                                       self.wfs.gd, wgd)
+            taut_sG = redist.distribute(taut_sG)
+            redist = GridRedistributor(self.world, calc.wfs.kptband_comm,
+                                       calc.wfs.gd, wgd)
+            taut_sG = redist.collect(taut_sG)
+            calc.hamiltonian.xc.fix_kinetic_energy_density(taut_sG)
         calc.calculate(system_changes=[])
         return calc
 
@@ -284,7 +341,7 @@ class GPAW(Calculator):
         self.log('Reading from {}'.format(filename))
 
         self.reader = reader = Reader(filename)
-        assert reader.version <= 3, 'Can''t read new GPW-files'
+        assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
@@ -362,7 +419,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:
@@ -646,6 +703,9 @@ class GPAW(Calculator):
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
                 DeprecationWarning)
+            if self.hamiltonian.xc.type == 'MGGA':
+                raise ValueError('MGGA does not support deprecated '
+                                 'fixdensity option.')
 
         mode = par.mode
         if isinstance(mode, str):
@@ -664,7 +724,7 @@ class GPAW(Calculator):
             raise ValueError('LCAO mode does not support '
                              'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
+        realspace = mode.interpolation != 'fft'
 
         self.create_setups(mode, xc)
 
@@ -931,7 +991,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,

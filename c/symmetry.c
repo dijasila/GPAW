@@ -2,6 +2,100 @@
  *  Please see the accompanying LICENSE file for further information. */
 #include "extensions.h"
 
+
+
+PyObject* GG_shuffle(PyObject *self, PyObject *args)
+{
+    PyArrayObject* G_G_obj;
+    int sign;
+    PyArrayObject* A_GG_obj;
+    PyArrayObject* B_GG_obj;
+
+    // def GG_shuffle(G_G:int32 array, sign:int, A_GG:complex128 array, B_GG:complex128 array)
+    if (!PyArg_ParseTuple(args, "OiOO",
+                          &G_G_obj, &sign, &A_GG_obj, &B_GG_obj))
+        return NULL;
+
+
+    int nG = PyArray_DIMS(G_G_obj)[0];
+    // Check dimensions
+    if ((nG != PyArray_DIMS(B_GG_obj)[0]) ||
+        (nG != PyArray_DIMS(B_GG_obj)[1]) ||
+        (nG != PyArray_DIMS(A_GG_obj)[0]) ||
+        (nG != PyArray_DIMS(A_GG_obj)[1]))
+     {
+         PyErr_SetString(PyExc_TypeError, "Unmatched dimensions at GG_shuffle.");
+         return NULL;
+     }
+
+    // Check input types
+    if ((PyArray_TYPE(B_GG_obj) != NPY_COMPLEX128) ||
+        (PyArray_TYPE(A_GG_obj) != NPY_COMPLEX128))
+    {
+         PyErr_SetString(PyExc_TypeError, "Expected complex arrays.");
+         return NULL;
+    }
+
+    if (PyArray_TYPE(G_G_obj) != NPY_INT)
+    {
+         PyErr_SetString(PyExc_TypeError, "G_G expected to be an integer array.");
+         return NULL;
+    }
+
+    if (!PyArray_IS_C_CONTIGUOUS(B_GG_obj))
+    {
+        PyErr_SetString(PyExc_TypeError, "B_GG need to be c-contiguous.");
+        return NULL;
+    }
+
+    if (!((sign == 1) || (sign == -1)))
+    {
+        PyErr_SetString(PyExc_TypeError, "Sign must be 1 or -1.");
+        return NULL;
+    }
+
+    int* G0_G = (int*)malloc(nG * sizeof(int));
+    int* G1_G = (int*)malloc(nG * sizeof(int));
+
+    npy_int32* G_G = (npy_int32*)PyArray_DATA(G_G_obj);
+
+    int stride0 = PyArray_STRIDES(A_GG_obj)[0];
+    int stride1 = PyArray_STRIDES(A_GG_obj)[1];
+    for (int G=0; G < nG; G++)
+    {
+        if (sign==1)
+        {
+            G0_G[G] = G_G[G] * stride0;
+            G1_G[G] = G_G[G] * stride1;
+        }
+        else  // Transpose
+        {
+            G0_G[G] = G_G[G] * stride1;
+            G1_G[G] = G_G[G] * stride0;
+        }
+    }
+
+    double complex* A_GG = (double complex*)PyArray_DATA(A_GG_obj);
+    double complex* B_GG = (double complex*)PyArray_DATA(B_GG_obj);
+
+    for (int G0=0; G0<nG; G0++)
+    {
+        int take0 = G0_G[G0];
+        for (int G1=0; G1<nG; G1++)
+        {
+            int take1 = G1_G[G1];
+            // Instead of numpy magic, we do some C magic.
+            char* ptr = (char*)A_GG + take0 + take1;
+            double complex* value_ptr = (double_complex*) ptr;
+            *(B_GG++) += *value_ptr;
+        }
+    }
+
+    free(G0_G);
+    free(G1_G);
+    Py_RETURN_NONE;
+}
+
 //
 // Apply symmetry operation op_cc to a and add result to b:
 //

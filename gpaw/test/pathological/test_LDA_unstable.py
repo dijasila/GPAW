@@ -9,12 +9,8 @@ def test_pathological_LDA_unstable():
         mol = molecule('H2')
         mol.center(vacuum=1.5)
         calc = GPAW(h=0.3, nbands=2, mode='lcao', txt=None, basis='sz(dzp)',
-                    xc='oldLDA')
-
-        def stop():
-            calc.scf.converged = True
-
-        calc.attach(stop, 1)
+                    xc='oldLDA',
+                    convergence={'maximum iterations': 1})
         mol.calc = calc
         e = mol.get_potential_energy()
         if i == 0:
