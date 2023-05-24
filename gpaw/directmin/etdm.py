@@ -187,10 +187,11 @@ class ETDM:
             func_name = self.func_settings
         else:
             func_name = self.func_settings['name']
-        if isinstance(self.pd, basestring):
-            pd_name = self.pd
-        else:
-            pd_name = self.pd['name']
+        if self.gmf:
+            if isinstance(self.pd, basestring):
+                pd_name = self.pd
+            else:
+                pd_name = self.pd['name']
 
         add = ''
         pd_add = ''
