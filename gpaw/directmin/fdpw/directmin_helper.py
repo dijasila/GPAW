@@ -42,26 +42,6 @@ class DirectMinFDPW(Eigensolver):
     def __repr__(self):
         pass
 
-    def reset(self, need_init_odd=True):
-        self.initialized = False
-        self.need_init_odd = need_init_odd
-
-    def todict(self):
-        """
-        Convert to dictionary, needs for saving and loading gpw
-        :return:
-        """
-        return {'name': 'directmin',
-                'searchdir_algo': self.sda,
-                'linesearch_algo': self.lsa,
-                'convergelumo': self.convergelumo,
-                'localizationtype': self.localizationtype,
-                'use_prec': self.use_prec,
-                'odd_parameters': self.odd_parameters,
-                'maxiter': self.maxiter,
-                'g_tol': self.g_tol
-                }
-
     def init_me(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
         self.initialize_orbitals(wfs, dens, ham, log)
