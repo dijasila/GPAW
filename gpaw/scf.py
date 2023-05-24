@@ -5,7 +5,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw import KohnShamConvergenceError
-from gpaw.convergence_criteria import check_convergence
+from gpaw.convergence_criteria import check_convergence, ConvergenceHistory
 from gpaw.forces import calculate_forces
 
 
@@ -19,6 +19,7 @@ class SCFLoop:
         self.reset()
         self.converged = False
         self.eigensolver_used = None
+        self.convergence_history = ConvergenceHistory({})
 
     def __str__(self):
         s = 'Convergence criteria:\n'
@@ -75,6 +76,8 @@ class SCFLoop:
 
     def log(self, log, converged_items, entries, context):
         """Output from each iteration."""
+        log_convergence(self.criteria, converged_items, entries, context, self.convergence_history)
+        print(self.convergence_history)
         write_iteration(self.criteria, converged_items, entries, context, log)
 
     def check_convergence(self, dens, ham, wfs, log, callback):
@@ -157,6 +160,16 @@ class SCFLoop:
             dens.update(wfs)
             ham.update(dens)
 
+def log_convergence(criteria, converged_items, entries, ctx, conv_history):
+    if ctx.niter == 1:
+        for criterion in set(criteria):
+            conv_history.history[criterion] = [(ctx.niter, entries[criterion], converged_items[criterion])]
+
+    else:
+        for criterion in set(criteria):
+            conv_history.history[criterion].append((ctx.niter, entries[criterion], converged_items[criterion]))
+    # print(conv_history)
+
 
 def write_iteration(criteria, converged_items, entries, ctx, log):
     custom = (set(criteria) -
@@ -180,7 +193,8 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         log(header1.rstrip())
         log(header2.rstrip())
 
-    c = {k: 'c' if v else ' ' for k, v in converged_items.items()}
+    def _c(flag):
+        return 'c' if flag else ' '
 
     # Iterations and time.
     now = time.localtime()
@@ -188,17 +202,17 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
             .format(ctx.niter, *now[3:6]))
 
     # Energy.
-    line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
+    line += '{:>12s}{:1s} '.format(entries['energy'], _c(converged_items['energy']))
 
     # Eigenstates.
-    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+    line += '{:>5s}{:1s} '.format(entries['eigenstates'], _c(converged_items['eigenstates']))
 
     # Density.
-    line += '{:>5s}{:1s} '.format(entries['density'], c['density'])
+    line += '{:>5s}{:1s} '.format(entries['density'], _c(converged_items['density']))
 
     # Custom criteria (optional).
     for name in custom:
-        line += '{:>5s}{:s} '.format(entries[name], c[name])
+        line += '{:>5s}{:s} '.format(entries[name], _c(converged_items[name]))
 
     # Magnetic moment (optional).
     if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
