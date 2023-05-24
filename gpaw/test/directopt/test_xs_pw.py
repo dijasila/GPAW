@@ -41,3 +41,5 @@ def test_xc_pw(gpw_files):
     atoms.set_positions(pos)
     e2 = atoms.get_potential_energy()
     assert e2 == pytest.approx(42.257272, abs=1.0e-4)
+
+test_xc_pw(0)

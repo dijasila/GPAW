@@ -43,8 +43,7 @@ class MaxStep(object):
         return {'name': self.name,
                 'max_step': self.max_step}
 
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
+    def step_length_update(self, x, p, *args, **kwargs):
 
         kd = kwargs['kpdescr']
         slength = 0.0
@@ -84,8 +83,7 @@ class Parabola(MaxStep):
     def todict(self):
         return {'name': self.name}
 
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
+    def step_length_update(self, x, p, *args, **kwargs):
 
         phi_0 = kwargs['phi_0']
         der_phi_0 = kwargs['der_phi_0']
@@ -173,8 +171,7 @@ class StrongWolfeConditions(MaxStep):
                 'c1': self.c1,
                 'c2': self.c2}
 
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
+    def step_length_update(self, x, p, *args, **kwargs):
         c1 = self.c1
         c2 = self.c2
         phi_0 = kwargs['phi_0']
@@ -230,7 +227,7 @@ class StrongWolfeConditions(MaxStep):
                 a_star, phi_star, der_phi_star, g_star = \
                     self.zoom(alpha[i - 1], alpha[i],
                               phi_i_1, der_phi_i_1,
-                              phi_i, der_phi_i, x, p, n_dim,
+                              phi_i, der_phi_i, x, p,
                               phi_0, der_phi_0, c1, c2, *args)
                 break
 
@@ -246,8 +243,7 @@ class StrongWolfeConditions(MaxStep):
                     self.zoom(alpha[i], alpha[i - 1],
                               phi_i, der_phi_i,
                               phi_i_1, der_phi_i_1,
-                              x, p, n_dim,
-                              phi_0, der_phi_0, c1, c2, *args)
+                              x, p, phi_0, der_phi_0, c1, c2, *args)
                 break
 
             if i == max_iter:
@@ -305,7 +301,7 @@ class StrongWolfeConditions(MaxStep):
 
     def zoom(self, a_lo, a_hi,
              f_lo, df_lo, f_hi, df_hi, x,
-             p, n_dim, phi_0, der_phi_0,
+             p, phi_0, der_phi_0,
              c1, c2, *args):
 
         max_iter = self.max_iter

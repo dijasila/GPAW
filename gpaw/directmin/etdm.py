@@ -524,7 +524,7 @@ class ETDM:
 
             alpha, phi_alpha, der_phi_alpha, g_vec_u = \
                 self.line_search.step_length_update(a_vec_u, p_vec_u,
-                                                    self.n_dim, ham, wfs, dens,
+                                                    ham, wfs, dens,
                                                     c_ref,
                                                     phi_0=phi_2i[0],
                                                     der_phi_0=der_phi_2i[0],
