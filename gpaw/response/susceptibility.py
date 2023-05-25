@@ -391,26 +391,45 @@ class EigendecomposedSpectrum:
         at an appropriately chosen frequency ω_m:
 
         S^μν(q,ω_m) |v^μν_n(q)> = s^μν_n(q,ω_m) |v^μν_n(q)>
+        """
+        wm = self.get_eigenmode_frequency(nmodes=nmodes)
+        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+        return self._get_eigenmode_lineshapes(v_Gm)
 
-        Here we chose the frequency ω_m to maximize the minimum eigenvalue
-        difference
+    def get_eigenmode_frequency(self, nmodes=1):
+        """Get the frequency at which to extract the eigenmodes.
+
+        Generally, we chose the frequency ω_m to maximize the minimum
+        eigenvalue difference
 
         ω_m(q) = maxmin_ωn[s^μν_n(q,ω) - s^μν_n+1(q,ω)]
 
         where n only runs over the desired number of modes (and the eigenvalues
         are sorted in descending order).
+
+        However, in the case where only a single mode is extracted, we use the
+        frequency at which the eigenvalue is maximal.
         """
         assert nmodes <= self.neigs
         wblocks = self.wblocks
-        # Find frequency with maximum minimal difference between size of
-        # eigenvalues
-        ds_we = np.array([self.s_we[:, e] - self.s_we[:, e + 1]
-                          for e in range(nmodes - 1)]).T
-        dsmin_w = np.min(ds_we, axis=1)
-        dsmin_w = wblocks.all_gather(dsmin_w)
-        wm = np.argmax(dsmin_w)
+        if nmodes == 1:
+            # Find frequency where the eigenvalue is maximal
+            s_w = wblocks.all_gather(self.s_we[:, 0])
+            wm = np.argmax(s_w)
+        else:
+            # Find frequency with maximum minimal difference between size of
+            # eigenvalues
+            ds_we = np.array([self.s_we[:, e] - self.s_we[:, e + 1]
+                              for e in range(nmodes - 1)]).T
+            dsmin_w = np.min(ds_we, axis=1)
+            dsmin_w = wblocks.all_gather(dsmin_w)
+            wm = np.argmax(dsmin_w)
 
-        # Extract the eigenvectors at this frequency
+        return wm
+
+    def get_eigenvectors_at_frequency(self, wm, nmodes=1):
+        """Extract the eigenvectors a specific frequency index."""
+        wblocks = self.wblocks
         root, wmlocal = wblocks.find_global_index(wm)
         if wblocks.blockcomm.rank == root:
             v_Ge = self.v_wGe[wmlocal]
@@ -419,9 +438,13 @@ class EigendecomposedSpectrum:
             v_Gm = np.empty((self.nG, nmodes), dtype=complex)
         wblocks.blockcomm.broadcast(v_Gm, root)
 
-        # Extract the lineshapes based on the mode eigenvectors
+        return v_Gm
+
+    def _get_eigenmode_lineshapes(self, v_Gm):
+        """Extract the eigenmode lineshape based on the mode eigenvectors."""
+        wblocks = self.wblocks
         A_wGG = self.A_wGG
-        a_wm = np.empty((wblocks.nlocal, nmodes), dtype=float)
+        a_wm = np.empty((wblocks.nlocal, v_Gm.shape[1]), dtype=float)
         for m, v_G in enumerate(v_Gm.T):
             a_w = np.conj(v_G) @ A_wGG @ v_G
             assert np.allclose(a_w.imag, 0.)
