@@ -350,7 +350,7 @@ class PawCorrectionLCAO:
         """
         self.D2_1_qvMM, self.dTdR_qvMM = \
             self._get_overlap_derivatives(self.wfs.ksl.using_blacs)
-        return self.D2_1_qvMM, self.dTdR_qvMM
+        return self.D2_1_qvMM #, self.dTdR_qvMM
 
     def get_paw_correction_lcao(self, vel):
         self.vel = vel
@@ -359,8 +359,8 @@ class PawCorrectionLCAO:
         P_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
         # P1_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
         P2_qMM = np.zeros((nkpt, self.mynao, self.nao), self.dtype)
-        self.D1_1()
-        self.D1_2()
+        #self.D1_1()
+        #self.D1_2()
         self.D2_1()
         my_atom_indices = self.wfs.basis_functions.my_atom_indices
         # D_sum_aqvMM = self.D1_2_aqvMM + self.D1_1_aqvMM + self.D2_1_qvMM

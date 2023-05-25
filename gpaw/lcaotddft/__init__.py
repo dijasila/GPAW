@@ -15,7 +15,7 @@ from gpaw.tddft.units import attosec_to_autime
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import TimeDependentDensity
 from gpaw.utilities.scalapack import scalapack_zero
-from scipy.linalg import schur, eigvals, inv
+from scipy.linalg import schur, eigvals, inv, eigh
 from gpaw.blacs import Redistributor
 
 
@@ -91,7 +91,7 @@ class OldLCAOTDDFT(GPAW):
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
         self.default_parameters = GPAW.default_parameters.copy()
-        self.default_parameters['symmetry'] = {'point_group': False}
+        self.default_parameters['symmetry'] = {'point_group': False ,'time_reversal':False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
         self.set_positions()
@@ -102,6 +102,7 @@ class OldLCAOTDDFT(GPAW):
         self.Ehrenfest_flag = Ehrenfest_flag
         self.S_flag = S_flag
         self.F_EC = np.empty_like(self.atoms.get_positions())
+        self.F_ECsg = np.empty_like(self.atoms.get_positions())
         # Save old overlap S_MM_old which is necessary for propagating C_MM
         for kpt in self.wfs.kpt_u:
             kpt.S_MM_old = kpt.S_MM.copy()
@@ -311,16 +312,18 @@ class OldLCAOTDDFT(GPAW):
                 # self.e_band_rhoH += e
 
             else:
-                e = np.sum(rho_MM.real * H_MM.real) + \
-                    np.sum(rho_MM.imag * H_MM.imag)
+                #e = np.sum(rho_MM.real * H_MM.real) + \
+                #    np.sum(rho_MM.imag * H_MM.imag)
+                e = np.sum(rho_MM * H_MM).real
+                #print('kpt eee',u, e)
                 self.e_band_rhoH += e
 
         if ksl.using_blacs:
             e = self.wfs.kd.comm.sum(e)
             self.e_band_rhoH = e
         # if self.wfs.kd.comm.rank == 0 and self.wfs.kd.comm.size > 1:
-        e = self.wfs.kd.comm.sum(e)
-        self.e_band_rhoH = e
+        #    e = self.wfs.kd.comm.sum(e)
+        #    self.e_band_rhoH = e
 
         H = self.td_hamiltonian.hamiltonian
 
@@ -384,30 +387,50 @@ class OldLCAOTDDFT(GPAW):
                 self.td_hamiltonian.update()
         else:
             for kpt in self.wfs.kpt_u:
+                np.set_printoptions(precision=5, suppress=1, linewidth=180)
+                print('KPT in S', kpt.q)
+                print('----P_kM',self.wfs.P_kM[kpt.q])
                 S_MM = kpt.S_MM.copy()
-                T1, Seig_v = schur(S_MM, output='real')
-                # Seig, Seig_v = eig(S_MM)
-                Seig = eigvals(T1)
-                Seig_dm12 = np.diag(1 / np.sqrt(Seig))
+                print('BEGIN-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+                print('BEGIN-----C_nM \n' , kpt.C_nM )
+                #T1, Seig_v = schur(S_MM, output='real')
+                P_MM=np.diag(self.wfs.P_kM[kpt.q])
+                Seig, Seig_v = eigh(P_MM.conj().T @ S_MM @ P_MM)
+                #Seig = eigvals(T1)
+                #Seig_dm12 = np.diag(1 / np.sqrt(Seig))
 
                 # Calculate S^1/2
-                Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
+                #Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
 
+                Sm12 = Seig_v @ np.diag(1/np.sqrt(Seig)) @ Seig_v.T.conj()
                 # Old overlap S^-1/2
-                T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
-                # Seig_o, Seig_v_o = eig(kpt.S_MM_old)
-                Seig_o = eigvals(T2_o)
-                Seig_dp12_o = np.diag(Seig_o**0.5)
-                Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
+                #T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
+                Seig_o, Seig_v_o = eigh(kpt.S_MM_old)
+                #Seig_o = eigvals(T2_o)
+                #Seig_dp12_o = np.diag(Seig_o**0.5)
+                #Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
                 C_nM_temp = kpt.C_nM.copy()
 
+                Sp12_o = Seig_v_o @ np.diag(np.sqrt(Seig_o)) @ Seig_v_o.T.conj()
                 # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
                 Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
-                Sm12xSp12xC_nM = Sm12 @ Sp12xC_nM
+                Sm12xSp12xC_nM = P_MM @ Sm12 @ Sp12xC_nM
                 t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
                 kpt.C_nM = t_Sm12xSp12xC_nM.copy()
                 self.td_hamiltonian.update()
+
+     
+                #  P*inv(sqrtm(P'*S2*P))*sqrtm(S)*C;
+                S_nn=kpt.C_nM.conj() @ S_MM @ kpt.C_nM.T
+                if np.linalg.norm(S_nn-np.eye(len(S_nn))) > 1.0e-10 :
+                    import code
+                    code.interact(local=locals())
+                    aaa
+                print('END-----C S_MM C*\n' , kpt.C_nM.conj() @ S_MM @ kpt.C_nM.T )
+                print('----C_nM \n' , kpt.C_nM )
+                
         return time + time_step
+
 
     def get_F_EC(self):
         """
@@ -483,6 +506,34 @@ class OldLCAOTDDFT(GPAW):
                             self.F_EC[a, v] += F
         self.wfs.kd.comm.sum(self.F_EC)
         return self.F_EC
+
+    def get_F_EC_sg(self):
+        # energy conserving forces
+        my_atom_indices = self.wfs.basis_functions.my_atom_indices
+        self.F_ECsg[:, :] = 0.0
+        D2_1qvMM = self.td_hamiltonian.PLCAO.D2_1()
+
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            occupied = abs(kpt.f_n) > 1.0e-10
+            H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                self.hamiltonian, self.wfs, kpt)
+            S_MM = kpt.S_MM
+            S_inv_MM = inv(S_MM)
+            SinvHC_MM = (S_inv_MM @ H_MM @ kpt.C_nM.T.conj())
+            #SinvHCnM_MM = (S_inv_MM @ H_MM @ np.ascontiguousarray(
+            #    kpt.C_nM[occupied].T.conj() * kpt.f_n[occupied]))
+            # SinvHCnM_MM= (S_inv_MM @ H_MM @ np.ascontiguousarray(
+            #   kpt.C_nM[occupied].T.conj() * 0.5 * kpt.f_n[occupied]))
+            for v in range(3):
+                CD_MM = kpt.C_nM @  D2_1qvMM[kpt.q][v][:, :]
+                Final_MM = CD_MM @ SinvHC_MM
+                for b in my_atom_indices:
+                    for a, M1, M2 in self.my_slices(self.wfs):
+                        F = 2 * Final_MM[M1: M2].sum().real
+                        self.F_ECsg[a, v] += F
+        #self.wfs.kd.comm.sum(self.F_EC)
+        return self.F_ECsg
+
 
     def _slices(self, indices, WF):
         for a in indices:
