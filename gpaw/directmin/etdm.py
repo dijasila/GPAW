@@ -883,6 +883,11 @@ class ETDM:
         wfs.gd.comm.broadcast(arand, 0)
         self.dm_helper.appy_transformation_kpt(wfs, expm(arand), kpt)
 
+    def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt):
+        H_MM = self.dm_helper.calculate_hamiltonian_matrix(
+            hamiltonian, wfs, kpt)
+        return H_MM
+
     def kpointval(self, kpt):
         return self.nkpts * kpt.s + kpt.q
 
