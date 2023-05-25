@@ -116,8 +116,8 @@ class ETDM:
         self.gmf = False
         self.searchdir_algo = search_direction(
             searchdir_algo, self, partial_diagonalizer)
-        sd_name = self.searchdir_algo.name.replace('-', '').lower().split('_')
-        if sd_name[0] == 'lbfgsp' and not self.use_prec:
+        sd_name = self.searchdir_algo.name.split('_')
+        if sd_name[0] == 'l-bfgs-p' and not self.use_prec:
             raise ValueError('Use l-bfgs-p with use_prec=True')
         if len(sd_name) == 2:
             if sd_name[1] == 'gmf':
@@ -164,8 +164,8 @@ class ETDM:
 
     def __repr__(self):
 
-        sda_name = self.searchdir_algo.name.replace('-', '').lower()
-        lsa_name = self.line_search.name.replace('-', '').lower()
+        sda_name = self.searchdir_algo.name
+        lsa_name = self.line_search.name
 
         add = ''
         pd_add = ''
@@ -178,15 +178,15 @@ class ETDM:
                          pardi[self.pd['name']])
 
         sds = {'sd': 'Steepest Descent',
-               'frcg': 'Fletcher-Reeves conj. grad. method',
-               'quickmin': 'Molecular-dynamics based algorithm',
-               'lbfgs': 'L-BFGS algorithm',
-               'lbfgsp': 'L-BFGS algorithm with preconditioning',
-               'lsr1p': 'Limited-memory SR1P algorithm'}
+               'fr-cg': 'Fletcher-Reeves conj. grad. method',
+               'quick-min': 'Molecular-dynamics based algorithm',
+               'l-bfgs': 'L-BFGS algorithm',
+               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
+               'l-sr1p': 'Limited-memory SR1P algorithm'}
 
-        lss = {'maxstep': 'step size equals one',
+        lss = {'max-step': 'step size equals one',
                'parabola': 'Parabolic line search',
-               'swcawc': 'Inexact line search based on cubic interpolation,\n'
+               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}
 
@@ -596,7 +596,7 @@ class ETDM:
         if not use_prec:
             return None
 
-        if self.searchdir_algo.name == 'lbfgsp':
+        if self.searchdir_algo.name == 'l-bfgs-p':
             beta0 = self.searchdir_algo.beta_0
             gamma = 0.25
         else:
@@ -619,7 +619,7 @@ class ETDM:
             hess = self.hess[k]
             precond[k] = np.zeros_like(hess)
             correction = w * gamma * beta0 ** (-1)
-            if self.searchdir_algo.name != 'lbfgsp':
+            if self.searchdir_algo.name != 'l-bfgs-p':
                 correction = np.zeros_like(hess)
                 zeros = abs(hess) < 1.0e-4
                 correction[zeros] = 1.0
