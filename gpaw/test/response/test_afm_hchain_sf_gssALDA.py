@@ -52,7 +52,9 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     frq_w = np.linspace(-0.6, 0.6, 41)
     eta = 0.24
     zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
-    if world.size > 1:
+    if world.size % 4 == 0:
+        nblocks = 4
+    elif world.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
