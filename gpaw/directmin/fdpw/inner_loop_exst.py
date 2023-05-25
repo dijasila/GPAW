@@ -259,7 +259,7 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, wfs, dens, ham,
+                    a_k, p_k, wfs, dens, ham, mode='lcao',
                     phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
                     alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)

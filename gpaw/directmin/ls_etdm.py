@@ -27,8 +27,10 @@ def is_descent_and_approximate_wolfe_conditions(
     return descent and awc
 
 
-def get_slength(p, wfs):
-    if wfs.mode == 'lcao':
+def get_slength(p, wfs, mode=None):
+    if mode is None:
+        mode = wfs.mode
+    if mode == 'lcao':
         return np.linalg.norm(p)
     else:
         ret = 0.0
@@ -54,13 +56,13 @@ class MaxStep(object):
         return {'name': self.name,
                 'max_step': self.max_step}
 
-    def step_length_update(self, x, p, wfs, *args, **kwargs):
+    def step_length_update(self, x, p, wfs, *args, mode=None, **kwargs):
 
         kd = kwargs['kpdescr']
         slength = 0.0
 
         for k in p:
-            temp = get_slength(p[k], wfs)
+            temp = get_slength(p[k], wfs, mode)
             if temp > slength:
                 slength = temp
 
