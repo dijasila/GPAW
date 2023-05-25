@@ -32,7 +32,8 @@ class SearchDirectionBase(object):
         raise NotImplementedError('Search direction class needs \'todict\' '
                                   'method.')
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
         raise NotImplementedError('Search direction class needs '
                                   '\'update_data\' method.')
 
@@ -163,9 +164,11 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         res['name'] += '_gmf'                    # tag will be removed in etdm
         return res
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
         g_k1 = self.invert_parallel_grad(g_k1)
-        return self.sd.update_data(wfs, x_k1, g_k1, precond=precond, mode=mode)
+        return self.sd.update_data(wfs, x_k1, g_k1, dimensions=dimensions,
+                                   precond=precond, mode=mode)
 
 
 class SteepestDescent(SearchDirectionBase):
@@ -185,7 +188,8 @@ class SteepestDescent(SearchDirectionBase):
     def todict(self):
         return {'name': self.name}
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
 
         if precond is None:
             p_k = minus(g_k1)
@@ -213,7 +217,8 @@ class FRcg(SteepestDescent):
     def todict(self):
         return {'name': self.name}
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
 
         if precond is not None:
             g_k1 = apply_prec(precond, g_k1, 1.0, wfs, mode)
@@ -221,8 +226,9 @@ class FRcg(SteepestDescent):
         if self.iters == 0:
             self.p_k = minus(g_k1)
         else:
-            dot_g_k1_g_k1 = dot_all_k_and_b(g_k1, g_k1, wfs, mode)
-            dot_g_g = dot_all_k_and_b(self.g_k, self.g_k, wfs, mode)
+            dot_g_k1_g_k1 = dot_all_k_and_b(g_k1, g_k1, wfs, dimensions, mode)
+            dot_g_g = dot_all_k_and_b(
+                self.g_k, self.g_k, wfs, dimensions, mode)
             beta_k = dot_g_k1_g_k1 / dot_g_g
             self.p_k = calc_diff(self.p_k, g_k1, beta_k)
 
@@ -263,7 +269,8 @@ class LBFGS(SearchDirectionBase):
         return {'name': self.name,
                 'memory': self.memory}
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
 
         self.iters += 1
 
@@ -304,7 +311,8 @@ class LBFGS(SearchDirectionBase):
 
             s_k[kp[k]] = calc_diff(x_k1, x_k)
             y_k[kp[k]] = calc_diff(g_k1, g_k)
-            dot_ys = dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs, mode)
+            dot_ys = dot_all_k_and_b(
+                y_k[kp[k]], s_k[kp[k]], wfs, dimensions, mode)
 
             if abs(dot_ys) > 1.0e-15:
                 rho_k[kp[k]] = 1.0 / dot_ys
@@ -320,14 +328,15 @@ class LBFGS(SearchDirectionBase):
             j = np.maximum(-1, k - m)
 
             for i in range(k, j, -1):
-                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs, mode)
+                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs, dimensions, mode)
 
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
 
                 q = calc_diff(q, y_k[kp[i]], const=alpha[kp[i]])
 
             t = k
-            dot_yy = dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs, mode)
+            dot_yy = dot_all_k_and_b(
+                y_k[kp[t]], y_k[kp[t]], wfs, dimensions, mode)
 
             if abs(dot_yy) > 1.0e-15:
                 r = multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
@@ -335,7 +344,8 @@ class LBFGS(SearchDirectionBase):
                 r = multiply(q, 1.0e15)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
-                dot_yr = dot_all_k_and_b(y_k[kp[i]], r, wfs, mode)
+                dot_yr = dot_all_k_and_b(
+                    y_k[kp[i]], r, wfs, dimensions, mode)
 
                 beta = rho_k[kp[i]] * dot_yr
 
@@ -380,7 +390,8 @@ class LBFGS_P(SearchDirectionBase):
                 'memory': self.memory,
                 'beta_0': self.beta_0}
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
         # For L-BFGS-P, the preconditioner passed here has to be differentiated
         # from the preconditioner passed in ETDM. To keep the UI of this member
         # function consistent, the term precond is still used in the signature
@@ -419,7 +430,8 @@ class LBFGS_P(SearchDirectionBase):
             s_k[kp[k]] = calc_diff(x_k1, x_k)
             y_k[kp[k]] = calc_diff(g_k1, g_k)
 
-            dot_ys = dot_all_k_and_b(y_k[kp[k]], s_k[kp[k]], wfs, mode)
+            dot_ys = dot_all_k_and_b(
+                y_k[kp[k]], s_k[kp[k]], wfs, dimensions, mode)
 
             if abs(dot_ys) > 1.0e-20:
                 rho_k[kp[k]] = 1.0 / dot_ys
@@ -429,7 +441,9 @@ class LBFGS_P(SearchDirectionBase):
             if rho_k[kp[k]] < 0.0:
                 self.stable = False
                 self.__init__(memory=self.memory)
-                return self.update_data(wfs, x_k1, g_k1, hess_1, mode=mode)
+                return self.update_data(
+                    wfs, x_k1, g_k1, precond=hess_1, dimensions=dimensions,
+                    mode=mode)
 
             q = copy.deepcopy(g_k1)
 
@@ -437,12 +451,13 @@ class LBFGS_P(SearchDirectionBase):
             j = np.maximum(-1, k - m)
 
             for i in range(k, j, -1):
-                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs, mode)
+                dot_sq = dot_all_k_and_b(s_k[kp[i]], q, wfs, dimensions, mode)
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
                 q = calc_diff(q, y_k[kp[i]], const=alpha[kp[i]])
 
             t = k
-            dot_yy = dot_all_k_and_b(y_k[kp[t]], y_k[kp[t]], wfs, mode)
+            dot_yy = dot_all_k_and_b(
+                y_k[kp[t]], y_k[kp[t]], wfs, dimensions, mode)
             rhoyy = rho_k[kp[t]] * dot_yy
             if abs(rhoyy) > 1.0e-20:
                 self.beta_0 = 1.0 / rhoyy
@@ -455,7 +470,7 @@ class LBFGS_P(SearchDirectionBase):
                 r = multiply(q, self.beta_0)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
-                dot_yr = dot_all_k_and_b(y_k[kp[i]], r, wfs, mode)
+                dot_yr = dot_all_k_and_b(y_k[kp[i]], r, wfs, dimensions, mode)
                 beta = rho_k[kp[i]] * dot_yr
                 r = calc_diff(r, s_k[kp[i]], const=(beta - alpha[kp[i]]))
 
@@ -516,7 +531,8 @@ class LSR1P(SearchDirectionBase):
                 'memory': self.memory,
                 'method': self.method}
 
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
+    def update_data(
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
 
         if precond is not None:
             bg_k1 = apply_prec(precond, g_k1, 1.0, wfs, mode)
@@ -558,30 +574,34 @@ class LSR1P(SearchDirectionBase):
                 by_k = y_k.copy()
 
             by_k = self.update_bv(wfs, by_k, y_k, u_k, j_k, yj_k, phi_k,
-                                  np.maximum(1, k - m), k, mode)
+                                  np.maximum(1, k - m), k, dimensions, mode)
 
             j_k[kp[k]] = calc_diff(s_k, by_k)
-            yj_k[kp[k]] = dot_all_k_and_b(y_k, j_k[kp[k]], wfs, mode)
+            yj_k[kp[k]] = dot_all_k_and_b(
+                y_k, j_k[kp[k]], wfs, dimensions, mode)
 
             if self.method == 'LSR1':
                 if abs(yj_k[kp[k]]) < 1e-12:
                     yj_k[kp[k]] = 1e-12
 
-            dot_yy = dot_all_k_and_b(y_k, y_k, wfs, mode)
+            dot_yy = dot_all_k_and_b(y_k, y_k, wfs, dimensions, mode)
             if abs(dot_yy) > 1.0e-15:
                 u_k[kp[k]] = multiply(y_k, 1.0 / dot_yy)
             else:
                 u_k[kp[k]] = multiply(y_k, 1.0e15)
 
             if self.method == 'LBofill' and self.phi is None:
-                jj_k = dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs, mode)
+                jj_k = dot_all_k_and_b(
+                    j_k[kp[k]], j_k[kp[k]], wfs, dimensions, mode)
                 phi_k[kp[k]] = 1 - yj_k[kp[k]]**2 / (dot_yy * jj_k)
             elif self.method == 'Linverse_Bofill' and self.phi is None:
-                jj_k = dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs, mode)
+                jj_k = dot_all_k_and_b(
+                    j_k[kp[k]], j_k[kp[k]], wfs, dimensions, mode)
                 phi_k[kp[k]] = yj_k[kp[k]] ** 2 / (dot_yy * jj_k)
 
             bg_k1 = self.update_bv(wfs, bg_k1, g_k1, u_k, j_k, yj_k, phi_k,
-                                   np.maximum(1, k - m + 1), k + 1, mode)
+                                   np.maximum(1, k - m + 1), k + 1, dimensions,
+                                   mode)
 
             # save this step:
             self.x_k = copy.deepcopy(x_k1)
@@ -594,14 +614,15 @@ class LSR1P(SearchDirectionBase):
         return multiply(bg_k1, -1.0)
 
     def update_bv(
-            self, wfs, bv, v, u_k, j_k, yj_k, phi_k, i_0, i_m, mode=None):
+            self, wfs, bv, v, u_k, j_k, yj_k, phi_k, i_0, i_m, dimensions=None,
+            mode=None):
         if mode is None:
             mode = wfs.mode
 
         kp = self.kp
         for i in range(i_0, i_m):
-            dot_uv = dot_all_k_and_b(u_k[kp[i]], v, wfs, mode)
-            dot_jv = dot_all_k_and_b(j_k[kp[i]], v, wfs, mode)
+            dot_uv = dot_all_k_and_b(u_k[kp[i]], v, wfs, dimensions, mode)
+            dot_jv = dot_all_k_and_b(j_k[kp[i]], v, wfs, dimensions, mode)
             alpha = dot_jv - yj_k[kp[i]] * dot_uv
             beta_p = calc_diff(j_k[kp[i]], u_k[kp[i]], dot_uv, -alpha)
             beta_ms = multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
@@ -642,7 +663,7 @@ def calc_diff(x1, x2, const_0=1.0, const=1.0):
     return y_k
 
 
-def dot_all_k_and_b(x1, x2, wfs, mode=None):
+def dot_all_k_and_b(x1, x2, wfs, dimensions=None, mode=None):
     if mode is None:
         mode = wfs.mode
     dot_pr_x1x2 = 0.0
@@ -652,8 +673,7 @@ def dot_all_k_and_b(x1, x2, wfs, mode=None):
     else:
         dot_pr_x1x2 = 0.0j if wfs.dtype is complex else 0.0
         for k, kpt in enumerate(wfs.kpt_u):
-            #for i in range(self.dimensions[k]):
-            for i in range(len(x1[k])):
+            for i in range(dimensions[k]):
                 dot_prod = wfs.integrate(x1[k][i], x2[k][i], False)
                 dot_prod = wfs.gd.comm.sum(dot_prod)
                 dot_pr_x1x2 += dot_prod
