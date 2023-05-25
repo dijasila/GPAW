@@ -233,48 +233,6 @@ class FRcg(SteepestDescent):
         return self.p_k
 
 
-class QuickMin(SearchDirectionBase):
-
-    def __init__(self, dt=0.01, mass=0.01):
-        super(QuickMin, self).__init__()
-        self.dt = dt
-        self.mass = mass
-        self.name = 'quick-min'
-        self.type = 'equation-of-motion'
-
-    def __str__(self):
-
-        return 'QuickMin'
-
-    def todict(self):
-        return {'name': self.name,
-                'dt': self.dt,
-                'mass': self.mass}
-
-    def update_data(self, wfs, x_k1, g_k1, precond=None):
-
-        if precond is not None:
-            g_k1 = apply_prec(precond, g_k1, 1.0)
-
-        dt = self.dt
-        m = self.mass
-
-        if self.iters == 0:
-            self.v = multiply(g_k1, -dt / m)
-            p = multiply(self.v, dt)
-        else:
-            dot_gv = dot_all_k_and_b(g_k1, self.v, wfs)
-            dot_gg = dot_all_k_and_b(g_k1, g_k1, wfs)
-            if dot_gv > 0.0:
-                dot_gv = 0.0
-            gamma = (dt / m - dot_gv / dot_gg)
-            self.v = multiply(g_k1, -gamma)
-            p = multiply(self.v, dt)
-
-        self.iters += 1
-        return p
-
-
 class LBFGS(SearchDirectionBase):
 
     def __init__(self, memory=3):

@@ -66,48 +66,6 @@ class MaxStep(object):
         return a_star, phi_star, der_phi_star, g_star
 
 
-class Parabola(MaxStep):
-
-    """
-    phi = f (x_k + a_k*p_k)
-    der_phi = \\grad f(x_k + a_k p_k) \\cdot p_k
-    g = \\grad f(x_k + a_k p_k)
-    """
-
-    def __init__(self, evaluate_phi_and_der_phi):
-        """
-        :param evaluate_phi_and_der_phi:
-        """
-        super(Parabola, self).__init__(evaluate_phi_and_der_phi)
-        self.name = 'parabola'
-
-    def todict(self):
-        return {'name': self.name}
-
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
-
-        phi_0 = kwargs['phi_0']
-        der_phi_0 = kwargs['der_phi_0']
-
-        phi_i, der_phi_i, g_i = \
-            self.evaluate_phi_and_der_phi(x, p, n_dim, 1.0, *args)
-
-        # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
-        if is_descent(phi_0, phi_i, eps=1.0e-2):
-            return 1.0, phi_i, der_phi_i, g_i
-        else:
-            a_star = minimum_parabola_interpol(
-                0.0, 1.0, phi_0, phi_i, der_phi_0)
-            if a_star < 0.01:
-                a_star = 0.01
-        phi_star, der_phi_star, g_star = \
-            self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                          a_star, *args)
-
-        return a_star, phi_star, der_phi_star, g_star
-
-
 class StrongWolfeConditions(MaxStep):
     """
     From a book of Jorge Nocedal and Stephen J. Wright 'Numerical
