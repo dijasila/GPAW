@@ -3,9 +3,6 @@ Direct optimization for FD and PW modes
 """
 
 from gpaw.xc import xc_string_to_dict
-from ase.utils import basestring
-#from gpaw.directmin.fdpw.sd_outer import SteepestDescent, FRcg, HZcg, \
-#    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P, PFRcg
 from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, LBFGS, LBFGS_P, \
     LSR1P, ModeFollowing
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions
