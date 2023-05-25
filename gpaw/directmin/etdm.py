@@ -205,13 +205,11 @@ class ETDM:
 
         sds = {'sd': 'Steepest Descent',
                'frcg': 'Fletcher-Reeves conj. grad. method',
-               'quickmin': 'Molecular-dynamics based algorithm',
                'lbfgs': 'L-BFGS algorithm',
                'lbfgsp': 'L-BFGS algorithm with preconditioning',
                'lsr1p': 'Limited-memory SR1P algorithm'}
 
         lss = {'maxstep': 'step size equals one',
-               'parabola': 'Parabolic line search',
                'swcawc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}

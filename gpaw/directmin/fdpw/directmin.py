@@ -95,51 +95,33 @@ class DirectMin(Eigensolver):
 
     def __repr__(self):
 
-        sds = {'SD': 'Steepest Descent',
-               'FRcg': 'Fletcher-Reeves conj. grad. method',
-               'PFRcg': 'Preconditioned Fletcher-Reeves conj. grad. method',
-               'HZcg': 'Hager-Zhang conj. grad. method',
-               'PRcg': 'Polak-Ribiere conj. grad. method',
-               'PRpcg': 'Polak-Ribiere+ conj. grad. method',
-               'QuickMin': 'Velocity projection algorithm',
-               'LBFGS': 'L-BFGS algorithm',
-               'LBFGS_P': 'L-BFGS algorithm with preconditioning',
-               'LSR1P': 'L-SR1 or L-Powell or its combination update'}
+        sda_name = self.sda['name'].replace('-', '').lower()
+        lsa_name = self.lsa['name'].replace('-', '').lower()
 
-        lss = {'maxstep': 'Max. step length',
-               'Parabola': 'Parabolic line search',
-               'TSP': 'Parabolic two-step line search ',
-               'TSPAWC': 'Parabolic two-step line search with\n'
-                         '                  '
-                         ' approximate Wolfe conditions',
-               'TSPCAWC': 'Parabolic and Cubic two-step '
-                          'line search with\n'
-                          '                   '
-                         ' approximate Wolfe conditions',
-               'TSPCD': 'Parabolic and Cubic two-step '
-                          'line search with\n'
-                          '                   '
-                          'descent condition',
-               'SwcAwc': 'Inexact line search based '
-                         'on cubic interpolation,\n'
-                         '                    strong'
-                         ' and approximate Wolfe conditions'}
+        sds = {'sd': 'Steepest Descent',
+               'frcg': 'Fletcher-Reeves conj. grad. method',
+               'lbfgs': 'L-BFGS algorithm',
+               'lbfgsp': 'L-BFGS algorithm with preconditioning',
+               'lsr1p': 'Limited-memory SR1P algorithm'}
 
-        repr_string = 'Direct minimisation\n' \
+        lss = {'maxstep': 'step size equals one',
+               'swcawc': 'Inexact line search based on cubic interpolation,\n'
+                         '                    strong and approximate Wolfe '
+                         'conditions'}
 
+        repr_string = 'Direct minimisation using exponential ' \
+                      'transformation.\n'
         repr_string += '       ' \
                        'Search ' \
-                       'direction: {}\n'.format(sds[self.sda['name']])
+                       'direction: {}\n'.format(sds[sda_name])
         repr_string += '       ' \
                        'Line ' \
-                       'search: {}\n'.format(lss[self.lsa['name']])
+                       'search: {}\n'.format(lss[lsa_name])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
-
-        repr_string += '       '\
+        repr_string += '       ' \
                        'Orbital-density self-interaction ' \
                        'corrections: {}\n'.format(self.odd_parameters['name'])
-
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
                        'occupation numbers are\n' \
