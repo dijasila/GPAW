@@ -3,7 +3,7 @@ Exponential Transformation Direct Minimization
 """
 
 from gpaw.xc import xc_string_to_dict
-from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, QuickMin, LBFGS, \
+from gpaw.directmin.sd_etdm import SteepestDescent, FRcg, LBFGS, \
     LBFGS_P, LSR1P, ModeFollowing
 from gpaw.directmin.ls_etdm import MaxStep, StrongWolfeConditions
 
@@ -21,7 +21,6 @@ def search_direction(method, etdm=None, pd=None):
 
         searchdir = {'sd': SteepestDescent,
                      'frcg': FRcg,
-                     'quickmin': QuickMin,
                      'lbfgs': LBFGS,
                      'lbfgsp': LBFGS_P,
                      'lsr1p': LSR1P

@@ -330,7 +330,7 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             psi_copy[k] = kpt.psit_nG.copy()
         p_knG = self.search_direction.update_data(
-            psi_copy, grad_knG, wfs, self.prec)
+            wfs, psi_copy, grad_knG, self.prec)
         self.project_search_direction(wfs, p_knG)
         wfs.timer.stop('Get Search Direction')
 
@@ -1058,7 +1058,7 @@ class DirectMin(Eigensolver):
                 dim = self.dimensions[k]
                 psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
             p_knG = self.search_direction.update_data(
-                psi_copy, grad_knG, wfs, self.prec)
+                wfs, psi_copy, grad_knG, self.prec)
         self.project_search_direction(wfs, p_knG)
         dot = 0.0
         for kpt in wfs.kpt_u:
