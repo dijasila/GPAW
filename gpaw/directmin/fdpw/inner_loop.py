@@ -5,7 +5,7 @@ among occupied states only
 """
 
 from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.fdpw.sd_inner import LBFGS_P
+from gpaw.directmin.sd_etdm import LBFGS_P
 from gpaw.directmin.ls_etdm import StrongWolfeConditions as SWC
 from ase.units import Hartree
 import numpy as np
@@ -184,7 +184,7 @@ class InnerLoop:
             else:
                 a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LBFGS_P(wfs, memory=20)
+        self.sd = LBFGS_P(memory=20)
         # self.ls = US(self.evaluate_phi_and_der_phi)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
