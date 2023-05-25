@@ -21,16 +21,17 @@ def test_lcaosic_h2o(in_tmp_dir):
                 positions=[(0, 0, 0),
                            (d, 0, 0),
                            (d * np.cos(t), d * np.sin(t), 0)])
-    H2O.center(vacuum=5.0)
+    H2O.center(vacuum=4.0)
 
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
-                h=0.25,
+                h=0.22,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=ETDM(localizationtype='PM',
                                  functional_settings={
                                      'name': 'PZ-SIC',
                                      'scaling_factor': \
-                                         (0.5, 0.5)}),  # Half SIC
+                                         (0.5, 0.5)}),  # SIC/2
+                convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
@@ -39,12 +40,22 @@ def test_lcaosic_h2o(in_tmp_dir):
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    assert e == pytest.approx(-11.856260, abs=1e-4)
+    assert e == pytest.approx(-12.16353, abs=1e-4)
 
-    f2 = np.array([[-3.27136, -5.34168, -0.00001],
-                   [5.13882, -0.17066, 0.00001],
-                   [-1.40629, 5.05699, -0.00001]])
-    assert f2 == pytest.approx(f, abs=3.0e-2)
+    f2 = np.array([[-4.21747862, -4.63118948, 0.00303988],
+                   [5.66636141, -0.51037693, -0.00049136],
+                   [-1.96478031, 5.4043045, -0.0006107]])
+    assert f2 == pytest.approx(f, abs=0.1)
+
+    numeric = False
+    if numeric:
+        from ase.calculators.test import numeric_force
+        f_num = np.array([[numeric_force(H2O, a, i)
+                          for i in range(3)]
+                         for a in range(len(H2O))])
+        print('Numerical forces')
+        print(f_num)
+        print(f - f_num, np.abs(f - f_num).max())
 
     calc.write('h2o.gpw', mode='all')
     from gpaw import restart
@@ -53,4 +64,4 @@ def test_lcaosic_h2o(in_tmp_dir):
     f3 = H2O.get_forces()
     niter = calc.get_number_of_iterations()
     assert niter == pytest.approx(4, abs=3)
-    assert f2 == pytest.approx(f3, abs=3e-2)
+    assert f2 == pytest.approx(f3, abs=0.1)

@@ -56,15 +56,15 @@ def test_fdsic_h2o(in_tmp_dir):
     assert f2 == pytest.approx(f, abs=3e-2)
     assert gap == pytest.approx(10.217, abs=1e-2)
 
-    fd = False
-    if fd:
+    numeric = False
+    if numeric:
         from ase.calculators.test import numeric_force
-        f_fd = np.array([[numeric_force(H2O, a, i)
-                             for i in range(3)]
-                            for a in range(len(H2O))])
-        print('FD')
-        print(f_fd)
-        print(f - f_fd, np.abs(f - f_fd).max())
+        f_num = np.array([[numeric_force(H2O, a, i)
+                          for i in range(3)]
+                         for a in range(len(H2O))])
+        print('Numerical forces')
+        print(f_num)
+        print(f - f_num, np.abs(f - f_num).max())
 
     calc.write('h2o.gpw', mode='all')
     from gpaw import restart
