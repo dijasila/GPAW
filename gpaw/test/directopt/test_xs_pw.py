@@ -16,7 +16,7 @@ def test_xc_pw(gpw_files):
     atoms.set_positions(pos)
     calc = GPAW(mode=PW(200), spinpol=True,
                 symmetry='off',
-                eigensolver=DirectMin(),
+                eigensolver=DirectMin(searchdir_algo={'name': 'LBFGS_P', 'memory': 1}),
                 mixer={'name': 'dummy'},
                 occupations={'name': 'fixed-uniform'}
                 )
@@ -24,7 +24,8 @@ def test_xc_pw(gpw_files):
     atoms.get_potential_energy()
     i, a = 0, 1
     excite_and_sort(calc.wfs, i, a, (0, 0), 'fdpw')
-    calc.set(eigensolver=DirectMin(exstopt=True))
+    calc.set(eigensolver=DirectMin(exstopt=True,
+                                   searchdir_algo={'name': 'LBFGS_P', 'memory': 1}))
     f_sn = []
     for spin in range(calc.get_number_of_spins()):
         f_n = calc.get_occupation_numbers(spin=spin)
