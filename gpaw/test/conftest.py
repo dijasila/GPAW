@@ -521,6 +521,9 @@ class GPWFiles:
     def _v2br4(self, *, band_cutoff, symmetry=None):
         from ase.build import mx2
 
+        if symmetry is None:
+            symmetry = {}
+
         # Define input parameters
         xc = 'LDA'
         kpts = 4
@@ -554,6 +557,7 @@ class GPWFiles:
             nbands=band_cutoff + 12,
             occupations=FermiDirac(occw),
             convergence=conv,
+            symmetry=symmetry,
             txt=self.path / f'v2br4_pw{tag}.txt')
 
         atoms.get_potential_energy()
