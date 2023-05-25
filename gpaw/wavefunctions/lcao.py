@@ -592,13 +592,8 @@ class LCAOforces:
             rhoT_uMM = []
             ET_uMM = []
             for kpt in self.kpt_u:
-                if getattr(self.wfs.eigensolver, "name", None) == 'etdm':
-                    dm_helper = self.wfs.eigensolver.dm_helper
-                    H_MM = dm_helper.calculate_hamiltonian_matrix(
-                        self.hamiltonian, self.wfs, kpt)
-                else:
-                    H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                        self.hamiltonian, self.wfs, kpt)
+                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self.wfs, kpt)
                 tri2full(H_MM)
                 S_MM = kpt.S_MM.copy()
                 tri2full(S_MM)
