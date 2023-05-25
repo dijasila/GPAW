@@ -133,7 +133,7 @@ class InnerLoop:
             a[k] = a_k[k][il1]
             g[k] = g_k[k][il1]
 
-        p = self.sd.update_data(wfs, a, g)
+        p = self.sd.update_data(wfs, a, g, mode='lcao')
         del a, g
 
         p_k = {}
