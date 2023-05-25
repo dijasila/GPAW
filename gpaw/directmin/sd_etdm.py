@@ -233,48 +233,6 @@ class FRcg(SteepestDescent):
         return self.p_k
 
 
-class QuickMin(SearchDirectionBase):
-
-    def __init__(self, dt=0.01, mass=0.01):
-        super(QuickMin, self).__init__()
-        self.dt = dt
-        self.mass = mass
-        self.name = 'quick-min'
-        self.type = 'equation-of-motion'
-
-    def __str__(self):
-
-        return 'QuickMin'
-
-    def todict(self):
-        return {'name': self.name,
-                'dt': self.dt,
-                'mass': self.mass}
-
-    def update_data(self, wfs, x_k1, g_k1, precond=None, mode=None):
-
-        if precond is not None:
-            g_k1 = apply_prec(precond, g_k1, 1.0, wfs, mode)
-
-        dt = self.dt
-        m = self.mass
-
-        if self.iters == 0:
-            self.v = multiply(g_k1, -dt / m)
-            p = multiply(self.v, dt)
-        else:
-            dot_gv = dot_all_k_and_b(g_k1, self.v, wfs, mode)
-            dot_gg = dot_all_k_and_b(g_k1, g_k1, wfs, mode)
-            if dot_gv > 0.0:
-                dot_gv = 0.0
-            gamma = (dt / m - dot_gv / dot_gg)
-            self.v = multiply(g_k1, -gamma)
-            p = multiply(self.v, dt)
-
-        self.iters += 1
-        return p
-
-
 class LBFGS(SearchDirectionBase):
 
     def __init__(self, memory=3):
@@ -661,7 +619,7 @@ def multiply(x, const=1.0):
     :return: new dictionary y = cons*x
     """
     y = {}
-    for k in x:
+    for k in x.keys():
         y[k] = const * x[k]
     return y
 
@@ -699,12 +657,9 @@ def dot_all_k_and_b(x1, x2, wfs, mode=None):
                 dot_prod = wfs.integrate(x1[k][i], x2[k][i], False)
                 dot_prod = wfs.gd.comm.sum(dot_prod)
                 dot_pr_x1x2 += dot_prod
-
         dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
+        dot_pr_x1x2 = 2.0 * dot_pr_x1x2.real
 
-        return 2.0 * dot_pr_x1x2.real
-
-    dot_pr_x1x2 = wfs.gd.comm.sum(dot_pr_x1x2)
     return dot_pr_x1x2
 
 
