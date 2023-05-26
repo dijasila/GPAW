@@ -15,7 +15,6 @@ import warnings
 from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
-from gpaw.directmin.fdpw.directmin_fdpw import DirectMinFDPW
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
@@ -275,10 +274,8 @@ class ETDM:
                 need_init_orbs=self.need_init_orbs
             )
         else:
-             self.dm_helper = DirectMinFDPW(
-                 wfs, dens, ham, self.nkpts, self.func_settings,
-                 self.blocksize, self.momevery,
-                 need_init_orbs=self.need_init_orbs)
+             raise NotImplementedError('ETDM does not work with FD/PW mode '
+                                       'yet. Use directmin instead.')
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
 
