@@ -120,6 +120,9 @@ def gpw_files(request, tmp_path_factory):
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
 
+    * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
+    ``v2br4_pw`` and ``v2br4_pw_nosym``
+
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
@@ -512,6 +515,60 @@ class GPWFiles:
         atoms.get_potential_energy()
 
         return atoms.calc
+
+    @with_band_cutoff(gpw='v2br4_pw_wfs',
+                      band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
+    def _v2br4(self, *, band_cutoff, symmetry=None):
+        from ase.build import mx2
+
+        if symmetry is None:
+            symmetry = {}
+
+        # Define input parameters
+        xc = 'LDA'
+        kpts = 4
+        pw = 300
+        occw = 0.01
+        conv = {'density': 1.e-8,
+                'bands': band_cutoff + 1}
+
+        a = 3.840
+        thickness = 2.897
+        vacuum = 3.0
+        mm = 3.0
+
+        # Set up atoms
+        atoms = mx2(formula='VBr2', kind='1T', a=a,
+                    thickness=thickness, vacuum=vacuum)
+        atoms = atoms.repeat((1, 2, 1))
+        atoms.set_initial_magnetic_moments([mm, 0.0, 0.0, -mm, 0.0, 0.0])
+        # Use pbc to allow for real-space density interpolation
+        atoms.pbc = True
+
+        # Set up calculator
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw,
+                    # Interpolate the density in real-space
+                    interpolation=3),
+            kpts={'size': (kpts, kpts // 2, 1), 'gamma': True},
+            setups={'V': '5'},
+            nbands=band_cutoff + 12,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            symmetry=symmetry,
+            txt=self.path / f'v2br4_pw{tag}.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    def v2br4_pw(self):
+        return self._v2br4()
+
+    def v2br4_pw_nosym(self):
+        return self._v2br4(symmetry='off')
 
     @with_band_cutoff(gpw='fe_pw_wfs',
                       band_cutoff=9)  # 4s, 4p, 3d = 9

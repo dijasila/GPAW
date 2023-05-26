@@ -14,6 +14,7 @@ from gpaw.test.conftest import response_band_cutoff
                                 'fe_pw',
                                 'co_pw',
                                 'gaas_pw',
+                                'v2br4_pw',
                                 'srvo3_pw'])
 def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     """ Tests gpaw.response.ibz2bz.py
