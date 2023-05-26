@@ -89,9 +89,18 @@ def get_tolerances(system, qrel):
         fe_tols = (5e-4, 1e-4)
     tolerances_dict['fe_pw_wfs_+-'] = fe_tols
 
+    # For the density-density reponse in Co, the symmetries are not
+    # perfectly conserved for any of the q-points
+    if qrel == 0.0:
+        co_tols = (5e-5, 1e-5)
+    elif qrel == 0.25:
+        co_tols = (5e-3, 1e-5)
+    elif qrel == 0.5:
+        co_tols = (1e-3, 1e-5)
+    tolerances_dict['co_pw_wfs_00'] = co_tols
+
     if qrel in [0.0, 0.25, 0.5]:
         tolerances_dict.update({
-            'co_pw_wfs_00': (5e-3, 1e-3),
             'co_pw_wfs_+-': (5e-4, 1e-3),
         })
 
