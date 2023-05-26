@@ -13,9 +13,11 @@ from ase.units import Bohr
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 from gpaw.spherical_harmonics import Yarr
-from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.sphere.lebedev import R_nv
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
+
+from gpaw.response.rshe import integrate_lebedev, calculate_rshe
 
 
 class LocalFTCalculator(ABC):
@@ -419,7 +421,7 @@ class LocalPAWFTEngine:
         df_ng = self._calculate_df(micro_setup)
 
         # Calculate the surface norm square of df
-        dfSns_g = self._ang_int(df_ng ** 2)
+        dfSns_g = integrate_lebedev(df_ng ** 2)
         # Reduce radial grid by excluding points where dfSns_g = 0
         df_ng, r_g, dv_g = self._reduce_radial_grid(df_ng, rgd, dfSns_g)
 
@@ -479,14 +481,6 @@ class LocalPAWFTEngine:
 
         return df_ng
 
-    @staticmethod
-    def _ang_int(f_nx):
-        """Perform the angular (spherical) surface integral of a function f(r)
-        using the Lebedev quadrature (indexed by n)."""
-        f_x = 4. * np.pi * np.tensordot(weight_n, f_nx, axes=([0], [0]))
-
-        return f_x
-
     def _reduce_radial_grid(self, df_ng, rgd, dfSns_g):
         """Reduce the radial grid, by excluding points where dfSns_g = 0,
         in order to avoid excess computation. Only points after the outermost
@@ -516,32 +510,9 @@ class LocalPAWFTEngine:
     @timer('Expand PAW correction in real spherical harmonics')
     def _perform_rshe(self, df_ng, Y_nL):
         r"""Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
-        harmonics.
-
-          a      / ^    ^                ^
-        Δf (r) = |dr Y (r) Δf_a[n_a,ñ_a](rr)
-          lm     /    lm
-
-        Note that the Lebedev quadrature, which is used to perform the angular
-        integral above, is exact up to polynomial order l=11. This implies that
-        corrections containing angular components l<=5 can be expanded exactly.
-
-        Returns
-        -------
-        df_gL : nd.array
-            df in g=radial grid index, L=(l,m) spherical harmonic index
-        """
-        lmax = min(int(np.sqrt(Y_nL.shape[1])) - 1, 36)
-        nL = (lmax + 1)**2
-        L_L = np.arange(nL)
-
-        # Perform the real spherical harmonics expansion
-        df_ngL = np.repeat(df_ng, nL, axis=1).reshape((*df_ng.shape, nL))
-        Y_ngL = np.repeat(Y_nL[:, L_L], df_ng.shape[1],
-                          axis=0).reshape((*df_ng.shape, nL))
-        df_gL = self._ang_int(Y_ngL * df_ngL)
-
-        return df_gL
+        harmonics."""
+        rshe = calculate_rshe(df_ng, Y_nL)
+        return rshe.f_gM
 
     def _reduce_rshe(self, a, df_gL, dfSns_g):
         """Reduce the composite index L=(l,m) to M, which indexes coefficients
