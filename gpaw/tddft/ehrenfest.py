@@ -119,7 +119,7 @@ class EhrenfestVelocityVerlet:
         for kpt in self.calc.wfs.kpt_u:
             np.set_printoptions(precision=8, suppress=1, linewidth=180)
             print('1 EHRENFEST KPT in S', kpt.q)
-            print('1 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+            print('1 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
             #print('1 EHRENFEST BEGIN-----C_nM \n' , kpt.C_nM )
 
         # m a(t+dt)   = F[psi(t),x(t)]
@@ -132,7 +132,7 @@ class EhrenfestVelocityVerlet:
         for kpt in self.calc.wfs.kpt_u:
             np.set_printoptions(precision=8, suppress=1, linewidth=180)
             print('2 EHRENFEST KPT in S', kpt.q)
-            print('2 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+            print('2 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
             #print('2 EHRENFEST BEGIN-----C_nM \n' , kpt.C_nM )
 
         self.calc.get_td_energy()
@@ -140,7 +140,7 @@ class EhrenfestVelocityVerlet:
         for kpt in self.calc.wfs.kpt_u:
             np.set_printoptions(precision=8, suppress=1, linewidth=180)
             print('3 EHRENFEST KPT in S', kpt.q)
-            print('3 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+            print('3 EHRENFEST BEGIN-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
             #print('3 EHRENFEST BEGIN-----C_nM \n' , kpt.C_nM )
 
         if self.calc.wfs.mode == 'lcao' and \
@@ -153,7 +153,7 @@ class EhrenfestVelocityVerlet:
         for kpt in self.calc.wfs.kpt_u:
             np.set_printoptions(precision=8, suppress=1, linewidth=180)
             print('4 EHRENFEST KPT in S', kpt.q)
-            print('4 EHRENFEST END-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+            print('4 EHRENFEST END-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
             print('4 EHRENFEST END-----C_nM \n' , kpt.C_nM )
 
 
@@ -174,7 +174,7 @@ class EhrenfestVelocityVerlet:
         for kpt in self.calc.wfs.kpt_u:
             np.set_printoptions(precision=8, suppress=1, linewidth=180)
             print('5 EHRENFEST KPT in S', kpt.q)
-            print('5 EHRENFEST END-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+            print('5 EHRENFEST END-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
             print('5 EHRENFEST END-----C_nM \n' , kpt.C_nM )
 
         if self.calc.wfs.mode == 'lcao':
@@ -198,6 +198,7 @@ class EhrenfestVelocityVerlet:
 
         # Propagate wf
         # psi(t+dt)   = U(t,t+dt) psi(t)
+        
         self.propagate_single(dt)
 
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]

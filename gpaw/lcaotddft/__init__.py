@@ -314,7 +314,7 @@ class OldLCAOTDDFT(GPAW):
             else:
                 #e = np.sum(rho_MM.real * H_MM.real) + \
                 #    np.sum(rho_MM.imag * H_MM.imag)
-                e = np.sum(rho_MM * H_MM).real
+                e = np.sum(rho_MM.T * H_MM).real
                 #print('kpt eee',u, e)
                 self.e_band_rhoH += e
 
@@ -391,11 +391,11 @@ class OldLCAOTDDFT(GPAW):
                 print('KPT in S', kpt.q)
                 print('----P_kM',self.wfs.P_kM[kpt.q])
                 S_MM = kpt.S_MM.copy()
-                print('BEGIN-----C S_MM C*\n' , kpt.C_nM.conj() @ kpt.S_MM_old @ kpt.C_nM.T )
+                print('BEGIN-----C S_MM C*\n' , kpt.C_nM @ kpt.S_MM_old @ kpt.C_nM.conj().T )
                 print('BEGIN-----C_nM \n' , kpt.C_nM )
                 #T1, Seig_v = schur(S_MM, output='real')
                 P_MM=np.diag(self.wfs.P_kM[kpt.q])
-                Seig, Seig_v = eigh(P_MM.conj().T @ S_MM @ P_MM)
+                Seig, Seig_v = eigh(P_MM.T @ S_MM @ P_MM.conj())
                 #Seig = eigvals(T1)
                 #Seig_dm12 = np.diag(1 / np.sqrt(Seig))
 
@@ -403,6 +403,7 @@ class OldLCAOTDDFT(GPAW):
                 #Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
 
                 Sm12 = Seig_v @ np.diag(1/np.sqrt(Seig)) @ Seig_v.T.conj()
+                Sm12=Sm12.T
                 # Old overlap S^-1/2
                 #T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
                 Seig_o, Seig_v_o = eigh(kpt.S_MM_old)
@@ -412,6 +413,7 @@ class OldLCAOTDDFT(GPAW):
                 C_nM_temp = kpt.C_nM.copy()
 
                 Sp12_o = Seig_v_o @ np.diag(np.sqrt(Seig_o)) @ Seig_v_o.T.conj()
+                Sp12_o = Sp12_o.T
                 # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
                 Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
                 Sm12xSp12xC_nM = P_MM @ Sm12 @ Sp12xC_nM
@@ -419,15 +421,15 @@ class OldLCAOTDDFT(GPAW):
                 kpt.C_nM = t_Sm12xSp12xC_nM.copy()
                 self.td_hamiltonian.update()
 
-     
+                print('END-----C S_MM C*\n' , kpt.C_nM @ S_MM @ kpt.C_nM.conj().T )
+                print('----C_nM \n' , kpt.C_nM )
+
                 #  P*inv(sqrtm(P'*S2*P))*sqrtm(S)*C;
-                S_nn=kpt.C_nM.conj() @ S_MM @ kpt.C_nM.T
+                S_nn=kpt.C_nM @ S_MM @ kpt.C_nM.conj().T
                 if np.linalg.norm(S_nn-np.eye(len(S_nn))) > 1.0e-10 :
                     import code
                     code.interact(local=locals())
                     aaa
-                print('END-----C S_MM C*\n' , kpt.C_nM.conj() @ S_MM @ kpt.C_nM.T )
-                print('----C_nM \n' , kpt.C_nM )
                 
         return time + time_step
 

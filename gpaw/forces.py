@@ -64,5 +64,5 @@ def calculate_forces(wfs, dens, ham, log=None):
             log('%3d %-2s %10.5f %10.5f %10.5f' %
                 ((a, setup.symbol) + tuple(F_av[a] * c)))
         log()
-    # FIX ME
+
     return F_av
