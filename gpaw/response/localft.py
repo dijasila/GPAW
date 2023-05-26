@@ -509,7 +509,7 @@ class LocalPAWFTEngine:
         harmonics."""
         rshe = calculate_rshe(df_ng, Y_nL)
         dfns_g = integrate_lebedev(df_ng ** 2)
-        dfrshe, info_string = rshe.reduce_expansion(
+        rshe, info_string = rshe.reduce_expansion(
             dfns_g, lmax=self.rshelmax, wmin=self.rshewmin)
 
         return rshe, info_string
