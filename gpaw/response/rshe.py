@@ -155,7 +155,7 @@ def calculate_rshe(f_ng, Y_nL) -> RealSphericalHarmonicsExpansion:
     ----------
     Documentation here! XXX
     """
-    # Redo this function. It is impossible to read, granted how simple it is XXX
+    # Redo this function XXX
     lmax = min(int(np.sqrt(Y_nL.shape[1])) - 1, 36)
     nL = (lmax + 1)**2
     L_L = np.arange(nL)
