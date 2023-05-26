@@ -63,14 +63,14 @@ def get_tolerances(system, qrel):
     wfs, spincomponent = system
     identifier = wfs + '_' + spincomponent
 
-    # Si and Fe have perfect symmetry for the density-density respone
+    # Si and Fe have perfect symmetry for the density-density response
     tolerances_dict = {  # tuple(atol, rtol)
         'fancy_si_pw_wfs_00': (1e-8, 1e-5),
         'fe_pw_wfs_00': (1e-8, 1e-5),
     }
 
     # For Al, the symmetries are not perfectly conserved
-    # at the q-points q_X/4 and q_X/2
+    # at the q-points q_X/2 and q_X
     if qrel == 0.0:
         al_tols = (1e-6, 1e-5)
     elif qrel == 0.25:
@@ -79,9 +79,18 @@ def get_tolerances(system, qrel):
         al_tols = (1e-4, 5e-4)
     tolerances_dict['al_pw_wfs_00'] = al_tols
 
+    # For Fe, the symmetries are not perfectly conserved for the
+    # transverse magnetic response
+    if qrel == 0.0:
+        fe_tols = (1e-3, 1e-4)
+    elif qrel == 0.25:
+        fe_tols = (8e-3, 1e-3)
+    elif qrel == 0.5:
+        fe_tols = (5e-4, 1e-4)
+    tolerances_dict['fe_pw_wfs_+-'] = fe_tols
+
     if qrel in [0.0, 0.25, 0.5]:
         tolerances_dict.update({
-            'fe_pw_wfs_+-': (8e-3, 1e-3),
             'co_pw_wfs_00': (5e-3, 1e-3),
             'co_pw_wfs_+-': (5e-4, 1e-3),
         })
