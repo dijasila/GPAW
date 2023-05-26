@@ -121,7 +121,7 @@ def gpw_files(request, tmp_path_factory):
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
 
     * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
-    ``v2br4_pw`` and ``v2br4_pw_nosym``
+      ``v2br4_pw`` and ``v2br4_pw_nosym``
 
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
@@ -791,7 +791,7 @@ class GPWFiles:
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def h_pw210_rmmdiis(self):
         return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
 
