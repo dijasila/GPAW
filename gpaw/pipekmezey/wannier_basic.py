@@ -91,12 +91,10 @@ def calculate_weights(cell_cc):
     return weight_d, Gdir_dc
 
 
-def random_orthogonal_matrix(dim, seed=None, real=False):
+def random_orthogonal_matrix(dim, rng, real=False):
     """Generate a random orthogonal matrix"""
-    if seed is not None:
-        np.random.seed(seed)
 
-    H = np.random.rand(dim, dim)
+    H = rng.random((dim, dim))
     np.add(dag(H), H, H)
     np.multiply(.5, H, H)
 
@@ -245,7 +243,7 @@ class WannierLocalization:
        for n_occ only - for ODD calculations
     """
 
-    def __init__(self, wfs, calc=None, spin=0, verbose=False):
+    def __init__(self, wfs, calc=None, spin=0, seed=None, verbose=False):
 
         # Bloch phase sign convention
         sign = -1
@@ -274,6 +272,7 @@ class WannierLocalization:
 
         self.spin = spin
         self.verbose = verbose
+        self.rng = np.random.default_rng(seed)
         self.kpt_kc = self.wfs.kd.bzk_kc
         assert len(self.wfs.kd.ibzk_kc) == len(self.kpt_kc)
 
@@ -411,7 +410,7 @@ class WannierLocalization:
             real = True
         else:
             real = False
-        self.U_kww[:] = random_orthogonal_matrix(Nw, None, real=real)
+        self.U_kww[:] = random_orthogonal_matrix(Nw, self.rng, real=real)
 
         self.update()
 

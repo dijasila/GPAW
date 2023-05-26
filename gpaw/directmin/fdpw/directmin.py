@@ -35,6 +35,7 @@ class DirectMin(Eigensolver):
                  need_init_orbs=True,
                  inner_loop=None,
                  localizationtype=None,
+                 localizationseed=None,
                  need_localization=True,
                  maxiter=50,
                  maxiterxst=10,
@@ -58,6 +59,7 @@ class DirectMin(Eigensolver):
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
         self.localizationtype = localizationtype
+        self.localizationseed = localizationseed
         self.maxiter = maxiter
         self.maxiterxst = maxiterxst
         self.maxstepxst = maxstepxst
@@ -1146,7 +1148,8 @@ class DirectMin(Eigensolver):
             else:
                 intital_random = True
             self.e_sic, counter = self.iloop.run(
-                eks, wfs, dens, log, niter, small_random=intital_random)
+                eks, wfs, dens, log, niter, small_random=intital_random,
+                seed=self.localizationseed)
             self.total_eg_count_iloop += self.iloop.eg_count
 
             if self.iloop_outer is None:
@@ -1232,7 +1235,8 @@ class DirectMin(Eigensolver):
     def localize_wfs(self, wfs, dens, ham, log):
         if not self.need_localization:
             return
-        localize_orbitals(wfs, dens, ham, log, self.localizationtype)
+        localize_orbitals(wfs, dens, ham, log, self.localizationtype,
+                          seed=self.localizationseed)
         self.need_localization = False
 
     def choose_optimal_orbitals(self, wfs, ham, dens):

@@ -149,7 +149,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, randvalue=0.01):
+            small_random=True, randvalue=0.01, seed=None):
 
         log = log
         self.run_count += 1
@@ -158,6 +158,8 @@ class InnerLoop:
         # initial things
         self.c_knm = {}
         self.psit_knG = {}
+
+        rng = np.random.default_rng(seed)
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -173,19 +175,16 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             d = self.Unew_k[k].shape[0]
-            # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
             if self.run_count == 1 and self.dtype is complex\
                     and small_random:
-                a = randvalue * np.random.rand(d, d) * 1.0j
+                a = randvalue * rng.random((d, d)) * 1.0j
                 a = a - a.T.conj()
-                # a = np.zeros(shape=(d, d), dtype=self.dtype)
                 wfs.gd.comm.broadcast(a, 0)
                 a_k[k] = a
             else:
                 a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
         self.sd = LBFGS_P(memory=20)
-        # self.ls = US(self.evaluate_phi_and_der_phi)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
             searchdirtype=self.method, use_descent_and_awc=True,

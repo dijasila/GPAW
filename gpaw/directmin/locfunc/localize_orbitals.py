@@ -35,7 +35,7 @@ def localize_orbitals(
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-5, randval=0.1)
-            dm.run(wfs, dens)
+            dm.run(wfs, dens, seed=seed)
             log('Edmiston-Ruedenberg localization finished',
                 flush=True)
             del dm
@@ -75,7 +75,7 @@ def localize_orbitals(
                     log('Foster-Boys localization started',
                         flush=True)
                     lf_obj = WannierLocalization(
-                        wfs=wfs, spin=kpt.s)
+                        wfs=wfs, spin=kpt.s, seed=seed)
                     lf_obj.localize(tolerance=tol)
                     log('Foster-Boys localization finsihed',
                         flush=True)

@@ -155,7 +155,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, ham=None):
+            small_random=True, ham=None, seed=None):
 
         log = log
         self.run_count += 1

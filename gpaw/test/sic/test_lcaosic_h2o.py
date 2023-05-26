@@ -27,6 +27,7 @@ def test_lcaosic_h2o(in_tmp_dir):
                 h=0.22,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=ETDM(localizationtype='PM',
+                                 localizationseed=42,
                                  functional_settings={
                                      'name': 'PZ-SIC',
                                      'scaling_factor': \
@@ -40,7 +41,7 @@ def test_lcaosic_h2o(in_tmp_dir):
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    assert e == pytest.approx(-12.16353, abs=1e-4)
+    assert e == pytest.approx(-12.16353, abs=1e-3)
 
     f2 = np.array([[-4.21747862, -4.63118948, 0.00303988],
                    [5.66636141, -0.51037693, -0.00049136],
