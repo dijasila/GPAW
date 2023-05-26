@@ -3,8 +3,6 @@ functions of the electon (spin-)density."""
 
 from abc import ABC, abstractmethod
 
-from functools import partial
-
 import numpy as np
 from scipy.special import spherical_jn
 
@@ -309,7 +307,6 @@ class LocalPAWFTEngine:
             self.rshelmax = rshelmax
 
         self.rshewmin = rshewmin if rshewmin is not None else 0.
-        self.dfmask_g = None
 
         self._add_f = None
 
@@ -423,13 +420,11 @@ class LocalPAWFTEngine:
         # Calculate the surface norm square of df
         dfSns_g = integrate_lebedev(df_ng ** 2)
         # Reduce radial grid by excluding points where dfSns_g = 0
-        df_ng, r_g, dv_g = self._reduce_radial_grid(df_ng, rgd, dfSns_g)
+        df_ng, r_g, dv_g = self.reduce_radial_grid(df_ng, rgd, dfSns_g)
 
         # Expand correction in real spherical harmonics
-        df_gL = self._perform_rshe(df_ng, Y_nL)
-        # Reduce expansion by removing coefficients that contribute less than
-        # rshewmin on average
-        df_gM, L_M, l_M = self._reduce_rshe(a, df_gL, dfSns_g)
+        df_gM, L_M, l_M, info_string = self.perform_rshe(df_ng, Y_nL)
+        self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
         # Bessel functions)
@@ -442,8 +437,7 @@ class LocalPAWFTEngine:
         with self.context.timer('Integrate PAW correction'):
             angular_coef_MmyG = ii_MmyG * Y_MmyG
             # Radial integral, dv = 4πr^2
-            radial_coef_MmyG = np.tensordot(j_gMmyG * df_gL[:, L_M,
-                                                            np.newaxis],
+            radial_coef_MmyG = np.tensordot(j_gMmyG * df_gM[..., np.newaxis],
                                             dv_g, axes=([0, 0]))
             # Angular integral (sum over l,m)
             atomic_corr_myG = np.sum(angular_coef_MmyG * radial_coef_MmyG,
@@ -481,7 +475,8 @@ class LocalPAWFTEngine:
 
         return df_ng
 
-    def _reduce_radial_grid(self, df_ng, rgd, dfSns_g):
+    @staticmethod
+    def reduce_radial_grid(df_ng, rgd, dfSns_g):
         """Reduce the radial grid, by excluding points where dfSns_g = 0,
         in order to avoid excess computation. Only points after the outermost
         point where dfSns_g is non-zero will be excluded.
@@ -496,8 +491,8 @@ class LocalPAWFTEngine:
             volume element of each point on the reduced radial grid
         """
         # Find PAW correction range
-        self.dfmask_g = np.where(dfSns_g > 0.)
-        ng = np.max(self.dfmask_g) + 1
+        dfmask_g = np.where(dfSns_g > 0.)
+        ng = np.max(dfmask_g) + 1
 
         # Integrate only r-values inside augmentation sphere
         df_ng = df_ng[:, :ng]
@@ -508,86 +503,22 @@ class LocalPAWFTEngine:
         return df_ng, r_g, dv_g
 
     @timer('Expand PAW correction in real spherical harmonics')
-    def _perform_rshe(self, df_ng, Y_nL):
+    def perform_rshe(self, df_ng, Y_nL):
         r"""Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
         harmonics."""
         rshe = calculate_rshe(df_ng, Y_nL)
-        return rshe.f_gM
+        dfns_g = integrate_lebedev(df_ng ** 2)
+        rshe, info_string = rshe.reduce_expansion(
+            dfns_g, lmax=self.rshelmax, wmin=self.rshewmin)
 
-    def _reduce_rshe(self, a, df_gL, dfSns_g):
-        """Reduce the composite index L=(l,m) to M, which indexes coefficients
-        contributing with a weight larger than rshewmin to the surface norm
-        square on average.
+        return rshe.f_gM, rshe.L_M, rshe.l_M, info_string
 
-        Returns
-        -------
-        df_gM : nd.array
-            PAW correction in reduced rsh index
-        L_M : nd.array
-            L=(l,m) spherical harmonics indices in reduced rsh index
-        l_M : list
-            l spherical harmonics indices in reduced rsh index
-        """
-        # Create L_L and l_L array
-        lmax = min(self.rshelmax, int(np.sqrt(df_gL.shape[1])) - 1)
-        nL = (lmax + 1)**2
-        L_L = np.arange(nL)
-        l_L = []
-        for l in range(lmax + 1):
-            l_L += [l] * (2 * l + 1)
-
-        # Filter away (l,m)-coefficients based on their average weight in
-        # completing the surface norm square of df
-        dfSw_gL = self._calculate_ns_weights(nL, df_gL, dfSns_g)
-        rshew_L = np.average(dfSw_gL, axis=0)  # Average over the radial grid
-        # Do the actual filtering
-        L_M = np.where(rshew_L[L_L] > self.rshewmin)[0]
-        l_M = [l_L[L] for L in L_M]
-        df_gM = df_gL[:, L_M]
-
-        # Print information about the final (reduced) expansion at atom a
-        self.print_reduced_rshe_info(a, nL, dfSw_gL, rshew_L)
-
-        return df_gM, L_M, l_M
-
-    def _calculate_ns_weights(self, nL, df_gL, dfSns_g):
-        """Calculate the weighted contribution of each rsh coefficient to the
-        surface norm square of df as a function of radial grid index g."""
-        nallL = df_gL.shape[1]
-        dfSns_gL = np.repeat(dfSns_g, nallL).reshape(dfSns_g.shape[0], nallL)
-        dfSw_gL = df_gL[self.dfmask_g] ** 2 / dfSns_gL[self.dfmask_g]
-
-        return dfSw_gL
-
-    def print_reduced_rshe_info(self, a, nL, dfSw_gL, rshew_L):
-        """Print information about the reduced expansion in real spherical
-        harmonics at atom (augmentation sphere) a."""
-        p = partial(self.context.print, flush=False)
-        p('    RSHE of atom', a)
-        p('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                      'max weight',
-                                                      'avg weight',
-                                                      'included'))
-        for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
-            self.print_rshe_coef_info(L, nL, dfSw_g, rshew)
-
-        tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
-        avg_cov = np.average(np.sum(dfSw_gL[:, :nL]
-                                    [:, rshew_L[:nL] > self.rshewmin], axis=1))
-        p(f'      In total: {avg_cov} of the dfSns is covered on average')
-        p(f'      In total: {tot_avg_cov} of the dfSns could be covered on'
-          ' average')
-        self.context.print('')
-
-    def print_rshe_coef_info(self, L, nL, dfSw_g, rshew):
-        """Print information about a specific rshe coefficient"""
-        l = int(np.sqrt(L))
-        m = L - l**2 - l
-        included = 'yes' if (rshew > self.rshewmin and L < nL) else 'no'
-        info = '      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
-                                                               np.max(dfSw_g),
-                                                               rshew, included)
-        self.context.print(info, flush=False)
+    def print_rshe_info(self, a, info_string):
+        """Print information about the expansion at atom a."""
+        info_string = f'    RSHE of atom {a}\n' + info_string
+        info_string = info_string.replace('\n', '\n      ')
+        info_string += '\n'
+        self.context.print(info_string)
 
     @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):
