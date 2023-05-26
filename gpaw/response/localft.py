@@ -297,16 +297,8 @@ class LocalPAWFTEngine:
     def __init__(self, context, rshelmax=-1, rshewmin=None):
         """Construct the engine."""
         self.context = context
-
-        # Perform rshe up to l<=lmax(<=5)
-        if rshelmax == -1:
-            self.rshelmax = 5
-        else:
-            assert isinstance(rshelmax, int)
-            assert rshelmax in range(6)
-            self.rshelmax = rshelmax
-
-        self.rshewmin = rshewmin if rshewmin is not None else 0.
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
 
         self._add_f = None
 
