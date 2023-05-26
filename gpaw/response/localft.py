@@ -11,7 +11,6 @@ from ase.units import Bohr
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 from gpaw.spherical_harmonics import Yarr
-from gpaw.sphere.lebedev import R_nv
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
 
@@ -452,7 +451,7 @@ class LocalPAWFTEngine:
 
         f_g = rgd.zeros()
         ft_g = rgd.zeros()
-        df_ng = np.array([rgd.zeros() for n in range(len(R_nv))])
+        df_ng = np.array([rgd.zeros() for n in range(Y_nL.shape[0])])
         for n, Y_L in enumerate(Y_nL):
             f_g[:] = 0.
             n_sg = np.dot(Y_L, micro_setup.n_sLg)
