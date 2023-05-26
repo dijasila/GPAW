@@ -63,20 +63,22 @@ def get_tolerances(system, qrel):
     wfs, spincomponent = system
     identifier = wfs + '_' + spincomponent
 
+    # Si and Fe have perfect symmetry for the density-density respone
+    tolerances_dict = {  # tuple(atol, rtol)
+        'fancy_si_pw_wfs_00': (1e-8, 1e-5),
+        'fe_pw_wfs_00': (1e-8, 1e-5),
+    }
     if qrel in [0.0, 0.25, 0.5]:
-        tolerances_dict = {  # tuple(atol, rtol)
-            'fancy_si_pw_wfs_00': (1e-8, 1e-5),
+        tolerances_dict.update({
             'al_pw_wfs_00': (5e-4, 1e-3),
-            'fe_pw_wfs_00': (1e-8, 1e-5),
             'fe_pw_wfs_+-': (8e-3, 1e-3),
             'co_pw_wfs_00': (5e-3, 1e-3),
             'co_pw_wfs_+-': (5e-4, 1e-3),
-        }
-        tolerances = tolerances_dict[identifier]
+        })
     else:
         raise ValueError(qrel)
 
-    return tolerances
+    return tolerances_dict[identifier]
 
 
 def generate_gc_g():
