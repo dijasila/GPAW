@@ -423,20 +423,21 @@ class LocalPAWFTEngine:
         df_ng, r_g, dv_g = self.reduce_radial_grid(df_ng, rgd, dfSns_g)
 
         # Expand correction in real spherical harmonics
-        df_gM, L_M, l_M, info_string = self.perform_rshe(df_ng, Y_nL)
+        rshe, info_string = self.perform_rshe(df_ng, Y_nL)
         self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
         # Bessel functions)
         (ii_MmyG,
          j_gMmyG,
-         Y_MmyG) = self._expand_plane_waves(G_myGv, r_g, L_M, l_M)
+         Y_MmyG) = self._expand_plane_waves(G_myGv, r_g, rshe.L_M, rshe.l_M)
 
         # Calculate the PAW correction as an integral over the radial grid
         # and rshe coefficients
         with self.context.timer('Integrate PAW correction'):
             angular_coef_MmyG = ii_MmyG * Y_MmyG
             # Radial integral, dv = 4πr^2
+            df_gM = rshe.f_gM
             radial_coef_MmyG = np.tensordot(j_gMmyG * df_gM[..., np.newaxis],
                                             dv_g, axes=([0, 0]))
             # Angular integral (sum over l,m)
@@ -508,10 +509,10 @@ class LocalPAWFTEngine:
         harmonics."""
         rshe = calculate_rshe(df_ng, Y_nL)
         dfns_g = integrate_lebedev(df_ng ** 2)
-        rshe, info_string = rshe.reduce_expansion(
+        dfrshe, info_string = rshe.reduce_expansion(
             dfns_g, lmax=self.rshelmax, wmin=self.rshewmin)
 
-        return rshe.f_gM, rshe.L_M, rshe.l_M, info_string
+        return rshe, info_string
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
