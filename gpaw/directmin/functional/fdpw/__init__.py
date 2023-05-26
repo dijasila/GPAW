@@ -18,7 +18,7 @@ def get_functional(func, *args):
         name = kwargs.pop('name').replace('-', '').lower()
         functional = {'ks': KSFDPW,
                       'pzsic': PZSICFDPW,
-                      'dftpzsicxt': DFTPZSICXT}[name](*args, **kwargs)
+                      'pzsicxt': DFTPZSICXT}[name](*args, **kwargs)
         return functional
     else:
         raise TypeError('Check functional parameter.')

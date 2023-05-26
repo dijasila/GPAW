@@ -16,7 +16,7 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
-from gpaw.directmin.odd.fdpw import odd_corrections
+from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.tools import get_n_occ
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
@@ -247,10 +247,7 @@ class DirectMin(Eigensolver):
 
         # odd corrections
         if self.need_init_odd:
-            if isinstance(self.func_settings, (basestring, dict)):
-                self.odd = odd_corrections(self.func_settings, wfs, dens, ham)
-            else:
-                raise Exception('Check ODD Parameters')
+            self.odd = get_functional(self.func_settings, wfs, dens, ham)
             self.e_sic = 0.0
 
             if 'SIC' in self.func_settings['name']:
@@ -262,10 +259,9 @@ class DirectMin(Eigensolver):
 
             if self.exstopt:
                 if 'SIC' in self.func_settings['name']:
-                    oddparms = self.func_settings.copy()
-                    oddparms['name'] = 'PZ-SIC-XT'
-                    odd2 = odd_corrections(oddparms, wfs,
-                                           dens, ham)
+                    func_settings = self.func_settings.copy()
+                    func_settings['name'] = 'PZ-SIC-XT'
+                    odd2 = get_functional(func_settings, wfs, dens, ham)
                 else:
                     odd2 = self.odd
 
