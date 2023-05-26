@@ -1,6 +1,5 @@
 from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
 from gpaw.directmin.locfunc.er import ERlocalization as ERL
-from gpaw.directmin.odd.fdpw.pz import PzCorrections as PZpwfd
 from gpaw.directmin.functional.fdpw import get_functional \
     as get_functional_fdpw
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
@@ -43,7 +42,7 @@ def localize_orbitals(
         elif name == 'pz':
             if wfs.mode != 'lcao':
                 log('Perdew-Zunger localization started', flush=True)
-                PZC = PZpwfd(wfs, dens, ham)
+                PZC = get_functional_fdpw(func_settings, wfs, dens, ham)
                 dm = DirectMinLocalize(
                     PZC, wfs, maxiter=200, g_tol=5.0e-4, randval=0.1)
                 dm.run(wfs, dens, log)
