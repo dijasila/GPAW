@@ -417,10 +417,8 @@ class LocalPAWFTEngine:
         # Calculate df on Lebedev quadrature (angular grid) and radial grid
         df_ng = self._calculate_df(micro_setup)
 
-        # Calculate the surface norm square of df
-        dfSns_g = integrate_lebedev(df_ng ** 2)
-        # Reduce radial grid by excluding points where dfSns_g = 0
-        df_ng, r_g, dv_g = self.reduce_radial_grid(df_ng, rgd, dfSns_g)
+        # Reduce radial grid to where df is nonzero
+        df_ng, r_g, dv_g = self.get_reduced_radial_grid(df_ng, rgd)
 
         # Expand correction in real spherical harmonics
         rshe, info_string = self.perform_rshe(df_ng, Y_nL)
@@ -477,10 +475,8 @@ class LocalPAWFTEngine:
         return df_ng
 
     @staticmethod
-    def reduce_radial_grid(df_ng, rgd, dfSns_g):
-        """Reduce the radial grid, by excluding points where dfSns_g = 0,
-        in order to avoid excess computation. Only points after the outermost
-        point where dfSns_g is non-zero will be excluded.
+    def get_reduced_radial_grid(df_ng, rgd):
+        """Get the radial grid parameters where df_ng is nonzero.
 
         Returns
         -------
@@ -492,12 +488,11 @@ class LocalPAWFTEngine:
             volume element of each point on the reduced radial grid
         """
         # Find PAW correction range
-        dfmask_g = np.where(dfSns_g > 0.)
+        dfmask_g = np.where(np.any(np.abs(df_ng) > 0., axis=0))
         ng = np.max(dfmask_g) + 1
 
-        # Integrate only r-values inside augmentation sphere
+        # Integrate only r-values inside PAW correction range
         df_ng = df_ng[:, :ng]
-
         r_g = rgd.r_g[:ng]
         dv_g = rgd.dv_g[:ng]
 
