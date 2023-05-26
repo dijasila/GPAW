@@ -7,11 +7,11 @@ J. Chem. Phys. 121, 9220 (2004)
 
 
 from ase.parallel import parprint
-from gpaw.directmin.lcao.tools import matrix_function
-from gpaw.directmin.fdpw.tools import get_n_occ
+from gpaw.directmin.tools import matrix_function
+from gpaw.directmin.tools import get_n_occ
 import numpy as np
 from ase.units import Hartree
-from gpaw.directmin.fdpw.tools import get_random_um
+from gpaw.directmin.tools import get_random_um
 
 
 def one_over_sqrt(x):

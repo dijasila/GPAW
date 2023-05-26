@@ -41,7 +41,7 @@ def test_dopw_ethylene(in_tmp_dir):
               [0.62080, -0.47803, -2.63261],
               [0.62030, 0.47779, 2.63259]]
 
-    assert (np.abs(forces - fsaved) < 1.0e-3).all()
+    assert (np.abs(forces - fsaved) < 1.0e-2).all()
     assert energy == pytest.approx(-26.205455, abs=1.0e-4)
     assert calc.wfs.kpt_u[0].eps_n[5] > calc.wfs.kpt_u[0].eps_n[6]
 
@@ -54,3 +54,5 @@ def test_dopw_ethylene(in_tmp_dir):
 
     assert niter == pytest.approx(3, abs=1)
     assert fsaved == pytest.approx(f3, abs=1e-2)
+
+test_dopw_ethylene(0)

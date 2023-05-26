@@ -6,14 +6,14 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
-from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
+from gpaw.directmin.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
 import _gpaw
 from gpaw.utilities.partition import AtomPartition
 #from gpaw.wavefunctions.pw import PWLFC    circular import
 
 
-class DftPzSicXT:
+class DFTPZSICXT:
 
     """
     Perdew-Zunger self-interaction corrections

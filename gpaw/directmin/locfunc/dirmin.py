@@ -20,7 +20,7 @@ class DirectMinLocalize:
                 g_tol=g_tol)
 
     def run(self, wfs, dens, log=None, max_iter=None,
-            g_tol=None, rewritepsi=True, ham=None):
+            g_tol=None, rewritepsi=True, ham=None, seed=None):
 
         if g_tol is not None:
             self.iloop.tol = g_tol
@@ -38,7 +38,7 @@ class DirectMinLocalize:
                 ham=ham)
         else:
             counter = self.iloop.run(0.0, wfs, dens, log, 0,
-                                     randvalue=self.randval)
+                                     randvalue=self.randval, seed=seed)
 
         if rewritepsi:
             for kpt in wfs.kpt_u:

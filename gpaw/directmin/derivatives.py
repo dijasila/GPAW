@@ -42,8 +42,7 @@ class Derivatives:
 
         # update ref orbitals if needed
         if update_c_ref:
-            etdm.rotate_wavefunctions(wfs, self.a_vec_u, etdm.n_dim,
-                                      self.c_ref)
+            etdm.rotate_wavefunctions(wfs, self.a_vec_u, self.c_ref)
             etdm.dm_helper.set_reference_orbitals(wfs, etdm.n_dim)
             self.c_ref = etdm.dm_helper.reference_orbitals
             self.a_vec_u = {u: np.zeros_like(v) for u,
@@ -67,10 +66,8 @@ class Derivatives:
 
         if what2calc == 'gradient':
             # calculate analytical gradient
-            analytical_der = etdm.get_energy_and_gradients(self.a_vec_u,
-                                                           etdm.n_dim,
-                                                           ham, wfs, dens,
-                                                           self.c_ref)[1]
+            analytical_der = etdm.get_energy_and_gradients(
+                self.a_vec_u, ham, wfs, dens, self.c_ref)[1]
         else:
             # Calculate analytical approximation to hessian
             analytical_der = np.hstack([etdm.get_hessian(kpt).copy()
@@ -122,13 +119,11 @@ class Derivatives:
 
                     self.a_vec_u[u][i] = a + step * self.eps
                     fplus = etdm.get_energy_and_gradients(
-                        self.a_vec_u, etdm.n_dim, ham, wfs, dens,
-                        self.c_ref)[f]
+                        self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
 
                     self.a_vec_u[u][i] = a - step * self.eps
                     fminus = etdm.get_energy_and_gradients(
-                        self.a_vec_u, etdm.n_dim, ham, wfs, dens,
-                        self.c_ref)[f]
+                        self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
 
                     derf = apply_central_finite_difference_approx(
                         fplus, fminus, self.eps)
@@ -357,7 +352,7 @@ class Davidson(object):
             n_dim[k] = wfs.bd.nbands
             a_vec_u[k] = np.zeros_like(self.etdm.a_vec_u[k])
         self.grad = self.etdm.get_energy_and_gradients(
-            a_vec_u, n_dim, ham, wfs, dens, self.c_ref)[1]
+            a_vec_u, ham, wfs, dens, self.c_ref)[1]
 
     def determine_sp_order_from_lambda(self):
         sp_order = 0
@@ -703,7 +698,7 @@ class Davidson(object):
                 a_vec_u[k] += 1.0j * v[self.dimtot + start: self.dimtot + end]
             start += self.dim_u[k]
         return self.etdm.get_energy_and_gradients(
-            a_vec_u, n_dim, ham, wfs, dens, c_ref)[1]
+            a_vec_u, ham, wfs, dens, c_ref)[1]
 
     def break_instability(self, wfs, n_dim, c_ref, number,
                           initial_guess='displace', ham=None, dens=None):
@@ -762,7 +757,7 @@ class Davidson(object):
             p_vec_u[k] = instability[start: stop]
             start += self.dim_u[k]
         phi, g_vec_u = self.etdm.get_energy_and_gradients(
-            a_vec_u, n_dim, ham, wfs, dens, c_ref)
+            a_vec_u, ham, wfs, dens, c_ref)
         der_phi = 0.0
         for k in g_vec_u:
             der_phi += g_vec_u[k].conj() @ p_vec_u[k]

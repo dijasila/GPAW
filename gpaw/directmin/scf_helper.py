@@ -71,7 +71,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
                 solver.initialized = False
                 log('Unoccupied states are not converged.')
             rewrite_psi = True
-            sic_calc = 'SIC' in solver.odd_parameters['name']
+            sic_calc = 'SIC' in solver.func_settings['name']
             if sic_calc:
                 rewrite_psi = False
             solver.get_canonical_representation(

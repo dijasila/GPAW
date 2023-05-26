@@ -12,6 +12,7 @@ https://doi.org/10.1016/j.cpc.2021.108047
 
 import numpy as np
 import warnings
+from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
@@ -41,9 +42,11 @@ class ETDM:
                  randomizeorbitals=False,
                  checkgraderror=False,
                  localizationtype=None,
+                 localizationseed=None,
                  need_localization=True,
                  need_init_orbs=True,
-                 constraints=None
+                 constraints=None,
+                 subspace_convergence=1e-4
                  ):
         """
         This class performs the exponential transformation
@@ -77,6 +80,7 @@ class ETDM:
         :param randomizeorbitals: if True, add noise to the initial guess
         :param checkgraderror: check error in estimation of gradient
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
+        :param localizationseed: Seed for Pipek-Mezey localization
         :param need_localization: use localized orbitals as initial guess
         :param need_init_orbs: if false, then use orbitals stored in kpt
         :param constraints: List of constraints for each kpt. Can be given
@@ -94,6 +98,7 @@ class ETDM:
             'Value Error'
 
         self.localizationtype = localizationtype
+        self.localizationseed = localizationseed
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_ref_orbs_canonical = update_ref_orbs_canonical
@@ -112,6 +117,7 @@ class ETDM:
         self.representation = representation
         self.orthonormalization = orthonormalization
         self.constraints = constraints
+        self.subspace_convergence = subspace_convergence
 
         self.gmf = False
         self.searchdir_algo = search_direction(
@@ -134,6 +140,7 @@ class ETDM:
         self._norm_commutator, self._norm_grad = 0., 0.
         self.error = 0
         self.e_sic = 0.0
+        self.subspace_optimization = False
 
         # these are things we cannot initialize now
         self.func_settings = functional_settings
@@ -144,10 +151,19 @@ class ETDM:
 
         # values: vectors of the elements of matrices, keys: kpt number
         self.a_vec_u = {}  # for the elements of the skew-Hermitian matrix A
+        self.a_vec_oo_u = {}
+        self.a_vec_ov_u = {}
+        self.a_vec_all_u = {}
         self.g_vec_u = {}  # for the elements of the gradient matrix G
+        self.g_vec_oo_u = {}
+        self.g_vec_ov_u = {}
+        self.g_vec_all_u = {}
         self.evecs = {}   # eigenvectors for i*a_vec_u
         self.evals = {}   # eigenvalues for i*a_vec_u
         self.ind_up = {}
+        self.ind_oo_up = {}
+        self.ind_ov_up = {}
+        self.ind_all_up = {}
         self.n_dim = {}
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
@@ -166,6 +182,15 @@ class ETDM:
 
         sda_name = self.searchdir_algo.name
         lsa_name = self.line_search.name
+        if isinstance(self.func_settings, basestring):
+            func_name = self.func_settings
+        else:
+            func_name = self.func_settings['name']
+        if self.gmf:
+            if isinstance(self.pd, basestring):
+                pd_name = self.pd
+            else:
+                pd_name = self.pd['name']
 
         add = ''
         pd_add = ''
@@ -175,7 +200,7 @@ class ETDM:
                      'algorithm'}
             pd_add = '       ' \
                      'Partial diagonalizer: {}\n'.format(
-                         pardi[self.pd['name']])
+                         pardi[pd_name])
 
         sds = {'sd': 'Steepest Descent',
                'fr-cg': 'Fletcher-Reeves conj. grad. method',
@@ -201,6 +226,9 @@ class ETDM:
                        'search: {}\n'.format(lss[lsa_name])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
+        repr_string += '       ' \
+                       'Orbital-density self-interaction ' \
+                       'corrections: {}\n'.format(func_name)
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
                        'occupation numbers are\n' \
@@ -247,15 +275,48 @@ class ETDM:
                 orthonormalization=self.orthonormalization,
                 need_init_orbs=self.need_init_orbs
             )
-        #else:
-        #     self.dm_helper = DirectMinFDPW(stuff)
+        else:
+             raise NotImplementedError('ETDM does not work with FD/PW mode '
+                                       'yet. Use directmin instead.')
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
-        # mom
+
+        # randomize orbitals?
+        if self.randomizeorbitals:
+            for kpt in wfs.kpt_u:
+                self.randomize_orbitals_kpt(wfs, kpt)
+            self.randomizeorbitals = False
+
+        # initialize matrices
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+        self.sort_orbitals_mom(wfs)
+        self.set_variable_matrices(wfs.kpt_u)
+        # if no empty state no need to optimize
+        for k in self.ind_up:
+            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
+                self.n_dim[k] = 0
+
+        # localize orbitals?
+        if self.need_localization:
+            localizationtype = \
+                self.localizationtype.replace('-', '').lower().split('_')
+            do_oo_subspace = 'pz' in localizationtype
+            localize_orbitals(
+                wfs, dens, ham, log, self.localizationtype,
+                seed=self.localizationseed)
+            if do_oo_subspace:
+                assert self.dm_helper.func.name == 'PZ-SIC', \
+                    'PZ-SIC localization requested, but functional settings ' \
+                    'do not use PZ-SIC.'
+                self.lock_subspace('oo')
+            self.need_localization = False
+
+        # mom
+        wfs.calculate_occupation_numbers(dens.fixed)
+        if occ_name == 'mom':
             self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
@@ -265,26 +326,6 @@ class ETDM:
                               "there are unequally occupied orbitals "
                               "as the functional is not unitary invariant")
 
-        # randomize orbitals?
-        if self.randomizeorbitals:
-            for kpt in wfs.kpt_u:
-                self.randomize_orbitals_kpt(wfs, kpt)
-            self.randomizeorbitals = False
-
-        # localize orbitals?
-        if self.need_localization:
-            self.sort_orbitals_mom(wfs)
-            localize_orbitals(
-                wfs, dens, ham, log, self.localizationtype,
-                func_settings=self.func_settings)
-            self.need_localization = False
-
-        # initialize matrices
-        self.set_variable_matrices(wfs.kpt_u)
-        # if no empty state no need to optimize
-        for k in self.ind_up:
-            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
-                self.n_dim[k] = 0
         # set reference orbitals
         self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
 
@@ -328,33 +369,41 @@ class ETDM:
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
+            i1_oo, i2_oo = [], []
+            for i in range(n_occ):
+                for j in range(i + 1, n_occ):
+                    i1_oo.append(i)
+                    i2_oo.append(j)
+            self.ind_oo_up[u] = (np.asarray(i1_oo), np.asarray(i2_oo))
+            i1_ov, i2_ov = [], []
+            for i in range(n_occ):
+                for j in range(n_occ, M):
+                    i1_ov.append(i)
+                    i2_ov.append(j)
+            self.ind_ov_up[u] = (np.asarray(i1_ov), np.asarray(i2_ov))
             if self.representation == 'u-invar':
-                i1, i2 = [], []
-                for i in range(n_occ):
-                    for j in range(n_occ, M):
-                        i1.append(i)
-                        i2.append(j)
-                self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
-            else:
-                if self.representation == 'full' and self.dtype == complex:
-                    # Take indices of all upper triangular and diagonal
-                    # elements of A_BigMatrix
-                    self.ind_up[u] = np.triu_indices(self.n_dim[u])
-                else:
-                    self.ind_up[u] = np.triu_indices(self.n_dim[u], 1)
-                    if self.representation == 'sparse':
-                        # Delete indices of elements that correspond
-                        # to 0 matrix in A_BigMatrix
-                        zero_ind = -((M - n_occ) * (M - n_occ - 1)) // 2
-                        if zero_ind == 0:
-                            zero_ind = None
-                        self.ind_up[u] = (self.ind_up[u][0][:zero_ind].copy(),
-                                          self.ind_up[u][1][:zero_ind].copy())
+                self.ind_all_up[u] = self.ind_ov_up[u]
+            if self.representation == 'sparse':
+                i1 = np.array(i1_oo + i1_ov)
+                i2 = np.array(i2_oo + i2_ov)
+                self.ind_all_up[u] = self.sort_ind_p(i1, i2)
+            elif self.representation == 'full' and self.dtype == complex:
+                # Take indices of all upper triangular and diagonal
+                # elements of A_BigMatrix
+                self.ind_all_up[u] = np.triu_indices(self.n_dim[u])
 
-            shape_of_arr = len(self.ind_up[u][0])
+            shape_of_oo = len(self.ind_oo_up[u][0])
+            shape_of_ov = len(self.ind_ov_up[u][0])
+            shape_of_all = len(self.ind_all_up[u][0])
 
-            self.a_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
-            self.g_vec_u[u] = np.zeros(shape=shape_of_arr, dtype=self.dtype)
+            self.a_vec_oo_u[u] = np.zeros(shape=shape_of_oo, dtype=self.dtype)
+            self.a_vec_ov_u[u] = np.zeros(shape=shape_of_ov, dtype=self.dtype)
+            self.a_vec_all_u[u] = np.zeros(
+                shape=shape_of_all, dtype=self.dtype)
+            self.g_vec_oo_u[u] = np.zeros(shape=shape_of_oo, dtype=self.dtype)
+            self.g_vec_ov_u[u] = np.zeros(shape=shape_of_ov, dtype=self.dtype)
+            self.g_vec_all_u[u] = np.zeros(
+                shape=shape_of_all, dtype=self.dtype)
             self.evecs[u] = None
             self.evals[u] = None
 
@@ -366,6 +415,10 @@ class ETDM:
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
 
+        self.ind_up = deepcopy(self.ind_all_up)
+        self.a_vec_u = deepcopy(self.a_vec_all_u)
+        self.g_vec_u = deepcopy(self.g_vec_all_u)
+
         # This conversion makes it so that constraint-related functions can
         # iterate through a list of no constraints rather than checking for
         # None every time
@@ -373,6 +426,47 @@ class ETDM:
             self.constraints = [[] for _ in range(len(kpt_u))]
 
         self.iters = 1
+
+    def sort_ind_p(self, i1, i2):
+        ind = np.argsort(i1)
+        i1 = i1[ind]
+        i2 = i2[ind]
+        ind = np.empty_like(ind)
+        for p1 in range(len(i1)):
+            val1 = np.inf
+            val2 = np.inf
+            for p2 in range(len(i2)):
+                if p2 in ind:
+                    continue
+                if i1[p2] < val1:
+                    val1 = i1[p2]
+                    val2 = i2[p2]
+                    sort = p2
+                elif i1[p2] == val1:
+                    if i2[p2] < val2:
+                        val2 = i2[p2]
+                        sort = p2
+                else:
+                    break
+            ind[p1] = sort
+        return np.asarray(i1[ind]), np.asarray(i2[ind])
+
+    def lock_subspace(self, subspace='oo'):
+        self.subspace_optimization = True
+        if subspace == 'oo':
+            self.ind_up = deepcopy(self.ind_oo_up)
+            self.a_vec_u = deepcopy(self.a_vec_oo_u)
+            self.g_vec_u = deepcopy(self.g_vec_oo_u)
+        elif subspace == 'ov':
+            self.ind_up = deepcopy(self.ind_ov_up)
+            self.a_vec_u = deepcopy(self.a_vec_ov_u)
+            self.g_vec_u = deepcopy(self.g_vec_ov_u)
+
+    def release_subspace(self):
+        self.subspace_optimization = False
+        self.ind_up = self.ind_all_up
+        self.a_vec_u = self.a_vec_all_u
+        self.g_vec_u = self.g_vec_all_u
 
     def iterate(self, ham, wfs, dens):
         """
@@ -388,7 +482,6 @@ class ETDM:
             self.update_ref_orbitals(wfs, ham, dens)
 
             a_vec_u = self.a_vec_u
-            n_dim = self.n_dim
             alpha = self.alpha
             phi_2i = self.phi_2i
             der_phi_2i = self.der_phi_2i
@@ -396,8 +489,8 @@ class ETDM:
 
             if self.iters == 1:
                 phi_2i[0], g_vec_u = \
-                    self.get_energy_and_gradients(a_vec_u, n_dim, ham, wfs,
-                                                  dens, c_ref)
+                    self.get_energy_and_gradients(
+                        a_vec_u, ham, wfs, dens, c_ref)
             else:
                 g_vec_u = self.g_vec_u_original if self.gmf else self.g_vec_u
 
@@ -427,16 +520,11 @@ class ETDM:
             der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
             alpha, phi_alpha, der_phi_alpha, g_vec_u = \
-                self.line_search.step_length_update(a_vec_u, p_vec_u,
-                                                    n_dim, ham, wfs, dens,
-                                                    c_ref,
-                                                    phi_0=phi_2i[0],
-                                                    der_phi_0=der_phi_2i[0],
-                                                    phi_old=phi_2i[1],
-                                                    der_phi_old=der_phi_2i[1],
-                                                    alpha_max=5.0,
-                                                    alpha_old=alpha,
-                                                    kpdescr=wfs.kd)
+                self.line_search.step_length_update(
+                    a_vec_u, p_vec_u, wfs, ham, dens, c_ref, phi_0=phi_2i[0],
+                    der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
+                    der_phi_old=der_phi_2i[1], alpha_max=5.0, alpha_old=alpha,
+                    kpdescr=wfs.kd)
 
             if wfs.gd.comm.size > 1:
                 with wfs.timer('Broadcast gradients'):
@@ -461,7 +549,22 @@ class ETDM:
             phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
             phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-    def get_energy_and_gradients(self, a_vec_u, n_dim, ham, wfs, dens,
+            if self.subspace_optimization:
+                if self.get_grad_norm() < self.subspace_convergence:
+                    self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+                    self.searchdir_algo.reset()
+                    self.release_subspace()
+                    for kpt in wfs.kpt_u:
+                        self.hess[k] = self.get_hessian(kpt)
+                self.error = np.inf  # Do not consider this converged!
+
+    def get_grad_norm(self):
+        norm = 0.0
+        for k in self.g_vec_u.keys():
+            norm += np.linalg.norm(self.g_vec_u[k])
+        return norm
+
+    def get_energy_and_gradients(self, a_vec_u, ham, wfs, dens,
                                  c_ref):
 
         """
@@ -472,11 +575,10 @@ class ETDM:
         :param dens:
         :param a_vec_u: A
         :param c_ref: C_ref
-        :param n_dim:
         :return:
         """
 
-        self.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+        self.rotate_wavefunctions(wfs, a_vec_u, c_ref)
 
         e_total = self.update_ks_energy(ham, wfs, dens)
 
@@ -486,7 +588,7 @@ class ETDM:
             self.e_sic = 0.0  # this is odd energy
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
-                if n_dim[k] == 0:
+                if self.n_dim[k] == 0:
                     g_vec_u[k] = np.zeros_like(a_vec_u[k])
                     continue
                 g_vec_u[k], error = self.dm_helper.calc_grad(
@@ -534,8 +636,8 @@ class ETDM:
 
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, n_dim, alpha,
-                                 ham, wfs, dens, c_ref,
+    def evaluate_phi_and_der_phi(self, a_vec_u, p_mat_u, alpha,
+                                 wfs, ham, dens, c_ref,
                                  phi=None, g_vec_u=None):
         """
         phi = f(x_k + alpha_k*p_k)
@@ -544,8 +646,8 @@ class ETDM:
         """
         if phi is None or g_vec_u is None:
             x_mat_u = {k: a_vec_u[k] + alpha * p_mat_u[k] for k in a_vec_u}
-            phi, g_vec_u = self.get_energy_and_gradients(x_mat_u, n_dim,
-                                                         ham, wfs, dens, c_ref)
+            phi, g_vec_u = self.get_energy_and_gradients(
+                x_mat_u, ham, wfs, dens, c_ref)
 
             # If GMF is used save the original gradient and invert the parallel
             # projection onto the eigenvectors with negative eigenvalues
@@ -784,7 +886,7 @@ class ETDM:
                 self.searchdir_algo.partial_diagonalizer.todict()
         return ret
 
-    def rotate_wavefunctions(self, wfs, a_vec_u, n_dim, c_ref):
+    def rotate_wavefunctions(self, wfs, a_vec_u, c_ref):
 
         """
         Apply unitary transformation U = exp(A) to
@@ -792,7 +894,6 @@ class ETDM:
 
         :param wfs:
         :param a_vec_u:
-        :param n_dim:
         :param c_ref:
         :return:
         """
@@ -800,12 +901,10 @@ class ETDM:
         with wfs.timer('Unitary rotation'):
             for kpt in wfs.kpt_u:
                 k = self.kpointval(kpt)
-                if n_dim[k] == 0:
+                if self.n_dim[k] == 0:
                     continue
 
-                u_nn = self.get_exponential_matrix_kpt(wfs, kpt,
-                                                       a_vec_u,
-                                                       n_dim)
+                u_nn = self.get_exponential_matrix_kpt(wfs, kpt, a_vec_u)
 
                 self.dm_helper.appy_transformation_kpt(
                     wfs, u_nn.T, kpt, c_ref[k], False, False)
@@ -813,7 +912,7 @@ class ETDM:
                 with wfs.timer('Calculate projections'):
                     self.dm_helper.update_projections(wfs, kpt)
 
-    def get_exponential_matrix_kpt(self, wfs, kpt, a_vec_u, n_dim):
+    def get_exponential_matrix_kpt(self, wfs, kpt, a_vec_u):
         """
         Get unitary matrix U as the exponential of a skew-Hermitian
         matrix A (U = exp(A))
@@ -825,10 +924,10 @@ class ETDM:
             if self.matrix_exp == 'egdecomp-u-invar' and \
                     self.representation == 'u-invar':
                 n_occ = get_n_occ(kpt)
-                n_v = n_dim[k] - n_occ
+                n_v = self.n_dim[k] - n_occ
                 a_mat = a_vec_u[k].reshape(n_occ, n_v)
             else:
-                a_mat = vec2skewmat(a_vec_u[k], n_dim[k],
+                a_mat = vec2skewmat(a_vec_u[k], self.n_dim[k],
                                     self.ind_up[k], self.dtype)
 
             if self.matrix_exp == 'pade-approx':
@@ -846,16 +945,16 @@ class ETDM:
 
         with wfs.timer('Broadcast u_nn'):
             if self.gd.comm.rank != 0:
-                u_nn = np.zeros(shape=(n_dim[k], n_dim[k]),
+                u_nn = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
                                 dtype=wfs.dtype)
             self.gd.comm.broadcast(u_nn, 0)
 
         if self.matrix_exp == 'egdecomp':
             with wfs.timer('Broadcast evecs and evals'):
                 if self.gd.comm.rank != 0:
-                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                    evecs = np.zeros(shape=(self.n_dim[k], self.n_dim[k]),
                                      dtype=complex)
-                    evals = np.zeros(shape=n_dim[k],
+                    evals = np.zeros(shape=self.n_dim[k],
                                      dtype=float)
                 self.gd.comm.broadcast(evecs, 0)
                 self.gd.comm.broadcast(evals, 0)

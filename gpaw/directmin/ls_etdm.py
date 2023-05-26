@@ -27,6 +27,19 @@ def is_descent_and_approximate_wolfe_conditions(
     return descent and awc
 
 
+def get_slength(p, wfs, mode=None):
+    if mode is None:
+        mode = wfs.mode
+    if mode == 'lcao':
+        return np.linalg.norm(p)
+    else:
+        ret = 0.0
+        for val in p:
+            ret += np.real(wfs.integrate(val, val, global_integral=False))
+        ret = wfs.world.sum(ret)
+        return np.sqrt(ret)
+
+
 class MaxStep(object):
 
     def __init__(self, evaluate_phi_and_der_phi, max_step=0.2):
@@ -43,25 +56,21 @@ class MaxStep(object):
         return {'name': self.name,
                 'max_step': self.max_step}
 
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
+    def step_length_update(self, x, p, wfs, *args, mode=None, **kwargs):
 
         kd = kwargs['kpdescr']
         slength = 0.0
 
         for k in p:
-            tmp = np.linalg.norm(p[k])
-            if tmp > slength:
-                slength = tmp
+            temp = get_slength(p[k], wfs, mode)
+            if temp > slength:
+                slength = temp
 
         slength = kd.comm.max(slength)
-        if slength > self.max_step:
-            a_star = self.max_step / slength
-        else:
-            a_star = 1.0
+        a_star = self.max_step / slength if slength > self.max_step else 1.0
 
-        phi_star, der_phi_star, g_star = \
-            self.evaluate_phi_and_der_phi(x, p, n_dim, a_star, *args)
+        phi_star, der_phi_star, g_star = self.evaluate_phi_and_der_phi(
+            x, p, a_star, wfs, *args)
 
         return a_star, phi_star, der_phi_star, g_star
 
@@ -108,7 +117,6 @@ class StrongWolfeConditions(MaxStep):
 
         this class works fine, but these parameters eps_dx, eps_df
         might not be needed
-
         """
 
         super(StrongWolfeConditions, self).__init__(
@@ -132,8 +140,7 @@ class StrongWolfeConditions(MaxStep):
                 'c1': self.c1,
                 'c2': self.c2}
 
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
+    def step_length_update(self, x, p, wfs, *args, **kwargs):
         c1 = self.c1
         c2 = self.c2
         phi_0 = kwargs['phi_0']
@@ -142,57 +149,49 @@ class StrongWolfeConditions(MaxStep):
         der_phi_old = kwargs['der_phi_old']
         alpha_old = kwargs['alpha_old']
         alpha_max = kwargs['alpha_max']
-
         alpha_1 = self.init_guess(phi_0=phi_0, der_phi_0=der_phi_0,
                                   phi_old=phi_old,
                                   der_phi_old=der_phi_old,
                                   alpha_old=alpha_old)
-
         i = 1
+
         if phi_0 is None or der_phi_0 is None:
             phi_0, der_phi_0, g_0 = \
-                self.evaluate_phi_and_der_phi(x, p, n_dim, 0.0, *args)
+                self.evaluate_phi_and_der_phi(x, p, 0.0, wfs, *args)
 
         alpha = [0.0, alpha_1]
-
         phi_i_1 = phi_0
         der_phi_i_1 = der_phi_0
-
         max_iter = self.max_iter
         phi_max = None
         der_phi_max = None
         g_max = None
 
-        # 'Get_step_length:'
         while True:
-
             if np.abs(alpha[-1] - alpha_max) < 1.0e-6 and phi_max is not None:
                 phi_i, der_phi_i, g_i = phi_max, der_phi_max, g_max
                 phi_max = None
                 der_phi_max = None
             else:
                 phi_i, der_phi_i, g_i = \
-                    self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                  alpha[i],
-                                                  *args)
+                    self.evaluate_phi_and_der_phi(x, p, alpha[i], wfs, *args)
 
             if self.use_descent_and_awc:
                 if is_descent_and_approximate_wolfe_conditions(
                         der_phi_0, phi_0, der_phi_i, phi_i):
-
                     a_star = alpha[i]
                     phi_star = phi_i
                     der_phi_star = der_phi_i
                     g_star = g_i
-
                     break
+
             if phi_i > phi_0 + c1 * alpha[i] * der_phi_0 or \
                     (phi_i >= phi_i_1 and i > 1):
                 a_star, phi_star, der_phi_star, g_star = \
                     self.zoom(alpha[i - 1], alpha[i],
                               phi_i_1, der_phi_i_1,
-                              phi_i, der_phi_i, x, p, n_dim,
-                              phi_0, der_phi_0, c1, c2, *args)
+                              phi_i, der_phi_i, x, p,
+                              phi_0, der_phi_0, c1, c2, wfs, *args)
                 break
 
             if np.fabs(der_phi_i) <= -c2 * der_phi_0:
@@ -207,8 +206,7 @@ class StrongWolfeConditions(MaxStep):
                     self.zoom(alpha[i], alpha[i - 1],
                               phi_i, der_phi_i,
                               phi_i_1, der_phi_i_1,
-                              x, p, n_dim,
-                              phi_0, der_phi_0, c1, c2, *args)
+                              x, p, phi_0, der_phi_0, c1, c2, wfs, *args)
                 break
 
             if i == max_iter:
@@ -216,7 +214,6 @@ class StrongWolfeConditions(MaxStep):
                 phi_star = phi_i
                 der_phi_star = der_phi_i
                 g_star = g_i
-
                 break
 
             if np.abs(alpha_max - alpha[i]) < 1.0e-6:
@@ -224,9 +221,7 @@ class StrongWolfeConditions(MaxStep):
 
             if phi_max is None or der_phi_max is None:
                 phi_max, der_phi_max, g_max = \
-                    self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                  alpha_max,
-                                                  *args)
+                    self.evaluate_phi_and_der_phi(x, p, alpha_max, wfs, *args)
 
                 if self.use_descent_and_awc:
                     if is_descent_and_approximate_wolfe_conditions(
@@ -251,53 +246,42 @@ class StrongWolfeConditions(MaxStep):
                 g_i = g_max
 
             if abs(alpha[-1] - alpha[-2]) < 1.0e-5:
-                # self.log('Cannot satisfy strong Wolfe condition')
-                # if i == max_iter:
-                #     self.log('Too many iterations')
-
                 a_star = alpha[i]
                 phi_star = phi_i
                 der_phi_star = der_phi_i
                 g_star = g_i
-
                 break
 
             i += 1
 
         return a_star, phi_star, der_phi_star, g_star
 
-    def zoom(self, a_lo, a_hi,
-             f_lo, df_lo, f_hi, df_hi, x,
-             p, n_dim, phi_0, der_phi_0,
-             c1, c2, *args):
+    def zoom(self, a_lo, a_hi, f_lo, df_lo, f_hi, df_hi, x, p, phi_0,
+             der_phi_0, c1, c2, wfs, *args):
 
         max_iter = self.max_iter
         i = 0
 
         while True:
-
             a_j = minimum_cubic_interpol(
                 a_lo, a_hi, f_lo, f_hi, df_lo, df_hi)
 
             if a_j < 0.01:
                 a_j = 0.1
                 phi_j, der_phi_j, g_j = \
-                    self.evaluate_phi_and_der_phi(x, p, n_dim, a_j,
-                                                  *args)
+                    self.evaluate_phi_and_der_phi(x, p, a_j, wfs, *args)
                 return a_j, phi_j, der_phi_j, g_j
 
             phi_j, der_phi_j, g_j = \
-                self.evaluate_phi_and_der_phi(x, p, n_dim, a_j, *args)
+                self.evaluate_phi_and_der_phi(x, p, a_j, wfs, *args)
 
             if self.use_descent_and_awc:
                 if is_descent_and_approximate_wolfe_conditions(
                         der_phi_0, phi_0, der_phi_j, phi_j):
-
                     a_star = a_j
                     phi_star = phi_j
                     der_phi_star = der_phi_j
                     g_star = g_j
-
                     break
 
             if phi_j > phi_0 + c1 * a_j * der_phi_0 or phi_j >= f_lo:
@@ -311,8 +295,8 @@ class StrongWolfeConditions(MaxStep):
                     phi_star = phi_j
                     der_phi_star = der_phi_j
                     g_star = g_j
-
                     break
+
                 if der_phi_j * (a_hi - a_lo) >= 0.0:
                     a_hi = a_lo
                     f_hi = f_lo
@@ -326,48 +310,26 @@ class StrongWolfeConditions(MaxStep):
 
             if np.fabs(a_lo - a_hi) < self.eps_dx and a_lo < \
                     self.eps_dx:
-
-                # self.log('Cannot satisfy strong Wolfe condition')
-                # self.log('Interval is close to zero')
-                # self.log('Lower boundary is close to zero.')
-
                 a_star = a_lo
-
                 phi_star, der_phi_star, g_star = \
-                    self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                  a_star, *args)
-
+                    self.evaluate_phi_and_der_phi(x, p, a_star, wfs, *args)
                 break
 
             elif np.fabs(a_lo - a_hi) < self.eps_dx:
-                # self.log('Cannot satisfy strong Wolfe condition,')
-                # self.log('Only sufficient descent')
-                # self.log('Search interval is less than'
-                #          '%.2e' % self.eps_dx)
-
                 a_star = a_lo
-
                 phi_star, der_phi_star, g_star = \
-                    self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                  a_star, *args)
+                    self.evaluate_phi_and_der_phi(x, p, a_star, wfs, *args)
                 break
 
             if i == max_iter:
-                # self.log('Cannot satisfy strong Wolfe condition,')
-                # self.log('Made too many iterations')
                 if a_lo > self.eps_dx:
                     a_star = a_lo
-
                     phi_star, der_phi_star, g_star = \
-                        self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                      a_star, *args)
-
+                        self.evaluate_phi_and_der_phi(x, p, a_star, wfs, *args)
                 else:
                     a_star = a_hi
-
                     phi_star, der_phi_star, g_star = \
-                        self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                                      a_star, *args)
+                        self.evaluate_phi_and_der_phi(x, p, a_star, wfs, *args)
                 break
 
         return a_star, phi_star, der_phi_star, g_star

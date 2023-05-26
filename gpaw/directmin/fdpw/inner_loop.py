@@ -4,9 +4,9 @@ among occupied states only
 
 """
 
-from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.fdpw.sd_inner import LBFGS_P
-from gpaw.directmin.fdpw.ls_inner import StrongWolfeConditions as SWC
+from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.sd_etdm import LBFGS_P
+from gpaw.directmin.ls_etdm import StrongWolfeConditions as SWC
 from ase.units import Hartree
 import numpy as np
 import time
@@ -133,7 +133,7 @@ class InnerLoop:
             a[k] = a_k[k][il1]
             g[k] = g_k[k][il1]
 
-        p = self.sd.update_data(wfs, a, g)
+        p = self.sd.update_data(wfs, a, g, mode='lcao')
         del a, g
 
         p_k = {}
@@ -149,7 +149,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, randvalue=0.01):
+            small_random=True, randvalue=0.01, seed=None):
 
         log = log
         self.run_count += 1
@@ -158,6 +158,8 @@ class InnerLoop:
         # initial things
         self.c_knm = {}
         self.psit_knG = {}
+
+        rng = np.random.default_rng(seed)
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -173,22 +175,19 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             d = self.Unew_k[k].shape[0]
-            # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
             if self.run_count == 1 and self.dtype is complex\
                     and small_random:
-                a = randvalue * np.random.rand(d, d) * 1.0j
+                a = randvalue * rng.random((d, d)) * 1.0j
                 a = a - a.T.conj()
-                # a = np.zeros(shape=(d, d), dtype=self.dtype)
                 wfs.gd.comm.broadcast(a, 0)
                 a_k[k] = a
             else:
                 a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LBFGS_P(wfs, memory=20)
-        # self.ls = US(self.evaluate_phi_and_der_phi)
+        self.sd = LBFGS_P(memory=20)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
-            method=self.method, awc=True,
+            searchdirtype=self.method, use_descent_and_awc=True,
             max_iter=self.max_iter_line_search)
 
         threelasten = []

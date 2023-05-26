@@ -23,7 +23,8 @@ def test_pipekmezey_lcao_hirshfeld(in_tmp_dir):
     calc.calculate()
 
     PM = PipekMezey(calc=calc,
-                    method='H')
+                    method='H',
+                    seed=42)
     PM.localize()
 
     P = PM.get_function_value()

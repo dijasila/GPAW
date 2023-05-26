@@ -7,7 +7,7 @@ in order to calculate and excited state
 arXiv:2102.06542 [physics.comp-ph]
 """
 
-from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.sd_etdm import LSR1P
 from gpaw.directmin.ls_etdm import MaxStep
 from ase.units import Hartree
@@ -100,7 +100,7 @@ class InnerLoop:
 
         return self.e_total, g_k
 
-    def evaluate_phi_and_der_phi(self, a_k, p_k, n_dim, alpha,
+    def evaluate_phi_and_der_phi(self, a_k, p_k, alpha,
                                  wfs, dens, ham,
                                  phi=None, g_k=None):
         """
@@ -139,7 +139,7 @@ class InnerLoop:
             a[k] = a_k[k][il1]
             g[k] = g_k[k][il1]
 
-        p = self.sd.update_data(wfs, a, g, self.precond)
+        p = self.sd.update_data(wfs, a, g, precond=self.precond, mode='lcao')
         del a, g
 
         p_k = {}
@@ -155,7 +155,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, ham=None):
+            small_random=True, ham=None, seed=None):
 
         log = log
         self.run_count += 1
@@ -249,10 +249,8 @@ class InnerLoop:
 
             # calculate derivative along the search direction
             phi_0, der_phi_0, g_k = \
-                self.evaluate_phi_and_der_phi(a_k, p_k, None,
-                                              0.0, wfs, dens,
-                                              ham=ham,
-                                              phi=phi_0, g_k=g_k)
+                self.evaluate_phi_and_der_phi(
+                    a_k, p_k, 0.0, wfs, dens, ham=ham, phi=phi_0, g_k=g_k)
             if self.counter > 1:
                 phi_old = phi_0
                 der_phi_old = der_phi_0
@@ -261,7 +259,7 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, None, wfs, dens, ham,
+                    a_k, p_k, wfs, dens, ham, mode='lcao',
                     phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
                     alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)

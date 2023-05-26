@@ -85,7 +85,7 @@ class PZSICLCAO:
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt,
                       wfs, timer, matrix_exp, repr_name,
-                      ind_up, occupied_only=False):
+                      ind_up, constraints, occupied_only=False):
         """
         :param C_nM: coefficients of orbitals
         :return: matrix G - gradients, and orbital SI energies
@@ -163,6 +163,15 @@ class PZSICLCAO:
 
         rhs2 = kpt.S_MM.conj() @ c_nm[:n_occ].T @ h_mm[:n_occ, :n_occ]
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
+
+        if constraints:
+            # Zero out the components of the residual that are constrained,
+            # so that the constrained degrees of freedom are always considered
+            # converged
+            for con in constraints:
+                con1 = con[0]
+                hc_mn[:, con1] = 0.0
+
         norm = []
         for i in range(n_occ):
             norm.append(np.dot(hc_mn[:, i].conj(),
@@ -176,6 +185,9 @@ class PZSICLCAO:
             h_mm = 0.5 * (h_mm + h_mm.T.conj())
             kpt.eps_n[:nbs] = np.linalg.eigh(h_mm)[0]
         self.counter += 1
+
+        if constraints:
+            constrain_grad(grad, constraints, ind_up)
 
         return 2.0 * grad, error
 
@@ -855,3 +867,20 @@ class PZSICLCAO:
             if a_mat.dtype == float:
                 g_mat = g_mat.real
             return 2.0 * g_mat, np.sum(e_total_sic), kappa
+
+
+def constrain_grad(grad, constraints, ind_up):
+    """
+    Zero out the components of the gradient that are constrained, so that no
+    optimization step is taken along the constrained degrees of freedom (It
+    would be better not to evaluate these components of the gradient to begin
+    with.).
+    """
+
+    for con in constraints:
+        num = -1
+        for ind1, ind2 in zip(ind_up[0], ind_up[1]):
+            num += 1
+            if con == [ind1, ind2]:
+                grad[num] = 0.0
+    return grad
