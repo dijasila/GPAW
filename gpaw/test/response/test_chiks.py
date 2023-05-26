@@ -68,15 +68,26 @@ def get_tolerances(system, qrel):
         'fancy_si_pw_wfs_00': (1e-8, 1e-5),
         'fe_pw_wfs_00': (1e-8, 1e-5),
     }
+
+    # For Al, the symmetries are not perfectly conserved
+    # at the q-points q_X/4 and q_X/2
+    if qrel == 0.0:
+        al_tols = (1e-6, 1e-5)
+    elif qrel == 0.25:
+        al_tols = (5e-5, 5e-4)
+    elif qrel == 0.5:
+        al_tols = (1e-4, 5e-4)
+    tolerances_dict['al_pw_wfs_00'] = al_tols
+
     if qrel in [0.0, 0.25, 0.5]:
         tolerances_dict.update({
-            'al_pw_wfs_00': (5e-4, 1e-3),
             'fe_pw_wfs_+-': (8e-3, 1e-3),
             'co_pw_wfs_00': (5e-3, 1e-3),
             'co_pw_wfs_+-': (5e-4, 1e-3),
         })
-    else:
-        raise ValueError(qrel)
+
+    if identifier not in tolerances_dict.keys():
+        raise ValueError(system, qrel)
 
     return tolerances_dict[identifier]
 
