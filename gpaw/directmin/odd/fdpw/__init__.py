@@ -17,7 +17,7 @@ def odd_corrections(odd, wfs, dens, ham):
             return PzCorrections(wfs, dens, ham, **kwargs)
         elif name == 'PZ-SIC-XT':
             return DftPzSicXT(wfs, dens, ham, **kwargs)
-        elif name == 'Zero':
+        elif name == 'ks':
             return ZeroCorrections(wfs, dens, ham, **kwargs)
         else:
             raise NotImplementedError('Check name of the '

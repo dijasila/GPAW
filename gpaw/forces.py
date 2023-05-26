@@ -77,7 +77,7 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
     esolv = wfs.eigensolver
 
     grad_knG = esolv.get_gradients_2(ham, wfs)
-    if 'SIC' in esolv.odd_parameters['name']:
+    if 'SIC' in esolv.func_settings['name']:
         esolv.odd.get_energy_and_gradients(wfs, grad_knG, dens,
                                            esolv.iloop.U_k,
                                            add_grad=True)
@@ -108,7 +108,7 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
             F_wfs_av[a] += np.einsum('n,nv->v', kpt.f_n[:n_occ],
                                      2.0 * dh_nv.real)
 
-        if 'SIC' in esolv.odd_parameters['name']:
+        if 'SIC' in esolv.func_settings['name']:
             esolv.odd.get_odd_corrections_to_forces(F_wfs_av,
                                                     wfs,
                                                     kpt)

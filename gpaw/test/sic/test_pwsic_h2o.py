@@ -29,9 +29,9 @@ def test_pwsic_h2o(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(
-                    odd_parameters={'name': 'PZ-SIC',
-                                    'scaling_factor': (0.5, 0.5)  # SIC/2
-                                    },
+                    functional_settings={'name': 'PZ-SIC',
+                                         'scaling_factor': (0.5, 0.5)  # SIC/2
+                                         },
                     localizationseed=42,
                     localizationtype='FB_ER',
                     g_tol=5.0e-3,

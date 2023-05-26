@@ -31,7 +31,7 @@ class DirectMin(Eigensolver):
                  searchdir_algo=None,
                  linesearch_algo='maxstep',
                  use_prec=True,
-                 odd_parameters='Zero',
+                 functional_settings='ks',
                  need_init_orbs=True,
                  inner_loop=None,
                  localizationtype=None,
@@ -56,7 +56,7 @@ class DirectMin(Eigensolver):
         self.lsa = linesearch_algo
         self.name = 'directmin'
         self.use_prec = use_prec
-        self.odd_parameters = odd_parameters
+        self.func_settings = functional_settings
         self.inner_loop = inner_loop
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
@@ -73,16 +73,14 @@ class DirectMin(Eigensolver):
         self.total_eg_count_iloop = 0
         self.total_eg_count_iloop_outer = 0
 
-        if isinstance(self.odd_parameters, basestring):
-            self.odd_parameters = \
-                xc_string_to_dict(self.odd_parameters)
-
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
+        if isinstance(self.func_settings, basestring):
+            self.func_settings = xc_string_to_dict(self.func_settings)
 
         self.need_init_odd = True
         self.initialized = False
@@ -99,6 +97,11 @@ class DirectMin(Eigensolver):
 
         sda_name = self.sda['name'].replace('-', '').lower()
         lsa_name = self.lsa['name'].replace('-', '').lower()
+
+        if isinstance(self.func_settings, basestring):
+            func_name = self.func_settings
+        else:
+            func_name = self.func_settings['name']
 
         sds = {'sd': 'Steepest Descent',
                'frcg': 'Fletcher-Reeves conj. grad. method',
@@ -123,7 +126,7 @@ class DirectMin(Eigensolver):
                        'Preconditioning: {}\n'.format(self.use_prec)
         repr_string += '       ' \
                        'Orbital-density self-interaction ' \
-                       'corrections: {}\n'.format(self.odd_parameters['name'])
+                       'corrections: {}\n'.format(func_name)
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
                        'occupation numbers are\n' \
@@ -147,7 +150,7 @@ class DirectMin(Eigensolver):
                 'convergelumo': self.convergelumo,
                 'localizationtype': self.localizationtype,
                 'use_prec': self.use_prec,
-                'odd_parameters': self.odd_parameters,
+                'functional_settings': self.func_settings,
                 'maxiter': self.maxiter,
                 'g_tol': self.g_tol
                 }
@@ -244,13 +247,13 @@ class DirectMin(Eigensolver):
 
         # odd corrections
         if self.need_init_odd:
-            if isinstance(self.odd_parameters, (basestring, dict)):
-                self.odd = odd_corrections(self.odd_parameters, wfs, dens, ham)
+            if isinstance(self.func_settings, (basestring, dict)):
+                self.odd = odd_corrections(self.func_settings, wfs, dens, ham)
             else:
                 raise Exception('Check ODD Parameters')
             self.e_sic = 0.0
 
-            if 'SIC' in self.odd_parameters['name']:
+            if 'SIC' in self.func_settings['name']:
                 self.iloop = InnerLoop(
                     self.odd, wfs, self.kappa_tol, self.maxiter,
                     g_tol=self.g_tol)
@@ -258,8 +261,8 @@ class DirectMin(Eigensolver):
                 self.iloop = None
 
             if self.exstopt:
-                if 'SIC' in self.odd_parameters['name']:
-                    oddparms = self.odd_parameters.copy()
+                if 'SIC' in self.func_settings['name']:
+                    oddparms = self.func_settings.copy()
                     oddparms['name'] = 'PZ-SIC-XT'
                     odd2 = odd_corrections(oddparms, wfs,
                                            dens, ham)
@@ -271,7 +274,7 @@ class DirectMin(Eigensolver):
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
-                if 'SIC' in self.odd_parameters['name']:
+                if 'SIC' in self.func_settings['name']:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
                         self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
@@ -483,7 +486,7 @@ class DirectMin(Eigensolver):
                 ham, wfs, dens, updateproj=updateproj)
             grad = self.get_gradients_2(ham, wfs)
 
-            if 'SIC' in self.odd_parameters['name']:
+            if 'SIC' in self.func_settings['name']:
                 self.e_sic = 0.0
                 if self.iters > 0:
                     self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
@@ -735,7 +738,7 @@ class DirectMin(Eigensolver):
         scalewithocc = not self.exstopt
 
         grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=scalewithocc)
-        if 'SIC' in self.odd_parameters['name']:
+        if 'SIC' in self.func_settings['name']:
             self.odd.get_energy_and_gradients(
                 wfs, grad_knG, dens, self.iloop.U_k, add_grad=True,
                 scalewithocc=scalewithocc)
@@ -748,7 +751,7 @@ class DirectMin(Eigensolver):
                     iu1 = np.triu_indices(lamb.shape[0], 1)
                     il1 = np.tril_indices(lamb.shape[0], -1)
                     lamb[il1] = lamb[iu1]
-                    if 'SIC' in self.odd_parameters['name']:
+                    if 'SIC' in self.func_settings['name']:
                         self.odd.lagr_diag_s[k] = np.append(
                             np.diagonal(lamb).real)
                     evals, lamb = np.linalg.eigh(lamb)
@@ -770,7 +773,7 @@ class DirectMin(Eigensolver):
                              lamb[:n_occ, :n_occ].T.conj()) / 2.0
                     lumo = (lamb[n_occ:, n_occ:] +
                             lamb[n_occ:, n_occ:].T.conj()) / 2.0
-                    if 'SIC' in self.odd_parameters['name']:
+                    if 'SIC' in self.func_settings['name']:
                         self.odd.lagr_diag_s[k] = np.append(
                             np.diagonal(lamb1).real,
                             np.diagonal(lumo).real)
@@ -865,7 +868,7 @@ class DirectMin(Eigensolver):
                         kpt.psit_nG[n_occ * i + np.arange(len(ind)), :] = \
                             kpt.psit_nG[n_occ * i + ind, :]
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                if 'SIC' in self.odd_parameters['name']:
+                if 'SIC' in self.func_settings['name']:
                     self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
 
         del grad_knG
@@ -1221,7 +1224,7 @@ class DirectMin(Eigensolver):
         """
         if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
             if wfs.read_from_file_init_wfs_dm:
-                if 'SIC' in self.odd_parameters['name']:
+                if 'SIC' in self.func_settings['name']:
                     self.need_localization = False
             return
 
@@ -1236,7 +1239,8 @@ class DirectMin(Eigensolver):
         if not self.need_localization:
             return
         localize_orbitals(wfs, dens, ham, log, self.localizationtype,
-                          seed=self.localizationseed)
+                          seed=self.localizationseed,
+                          func_settings=self.func_settings)
         self.need_localization = False
 
     def choose_optimal_orbitals(self, wfs, ham, dens):
@@ -1306,7 +1310,7 @@ class DirectMin(Eigensolver):
         if occ_name != 'mom':
             return
 
-        sic_calc = 'SIC' in self.odd_parameters['name']
+        sic_calc = 'SIC' in self.func_settings['name']
         iloop = self.iloop_outer is not None
         update = False
 

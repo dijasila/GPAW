@@ -9,7 +9,8 @@ import numpy as np
 
 
 def localize_orbitals(
-        wfs, dens, ham, log, localizationtype, tol=None, seed=None):
+        wfs, dens, ham, log, localizationtype, tol=None, seed=None,
+        func_settings=None):
     io = localizationtype
 
     if io is None:
