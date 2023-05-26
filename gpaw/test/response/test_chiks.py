@@ -63,41 +63,41 @@ def get_tolerances(system, qrel):
     wfs, spincomponent = system
     identifier = wfs + '_' + spincomponent
 
-    # Si and Fe have perfect symmetry for the density-density response
-    tolerances_dict = {  # tuple(atol, rtol)
-        'fancy_si_pw_wfs_00': (1e-8, 1e-5),
-        'fe_pw_wfs_00': (1e-8, 1e-5),
+    # Si and Fe the density-density response has perfect symmetry
+    atols = {
+        'fancy_si_pw_wfs_00': 1e-8,
+        'fe_pw_wfs_00': 1e-8,
     }
 
-    # For Al, the symmetries are not perfectly conserved
-    # at the q-points q_X/2 and q_X
+    # For Al, the symmetries are not perfectly conserved, but worst for the
+    # q-point q_X
     if qrel == 0.0:
-        al_tols = (1e-6, 1e-5)
+        al_atol = 1e-6
     elif qrel == 0.25:
-        al_tols = (5e-5, 5e-4)
+        al_atol = 5e-5
     elif qrel == 0.5:
-        al_tols = (1e-4, 5e-4)
-    tolerances_dict['al_pw_wfs_00'] = al_tols
+        al_atol = 1e-4
+    atols['al_pw_wfs_00'] = al_atol
 
     # For Fe, the symmetries are not perfectly conserved for the
     # transverse magnetic response
     if qrel == 0.0:
-        fe_tols = (1e-3, 1e-4)
+        fet_atol = 1e-3
     elif qrel == 0.25:
-        fe_tols = (8e-3, 1e-3)
+        fet_atol = 8e-3
     elif qrel == 0.5:
-        fe_tols = (5e-4, 1e-4)
-    tolerances_dict['fe_pw_wfs_+-'] = fe_tols
+        fet_atol = 5e-4
+    atols['fe_pw_wfs_+-'] = fet_atol
 
     # For the density-density reponse in Co, the symmetries are not perfectly
     # conserved for any of the q-points, but quite well conserved for q = 0
     if qrel == 0.0:
-        co_tols = (5e-5, 1e-5)
+        co_atol = 5e-5
     elif qrel == 0.25:
-        co_tols = (5e-3, 1e-5)
+        co_atol = 5e-3
     elif qrel == 0.5:
-        co_tols = (1e-3, 1e-5)
-    tolerances_dict['co_pw_wfs_00'] = co_tols
+        co_atol = 1e-3
+    atols['co_pw_wfs_00'] = co_atol
 
     # For the transverse magnetic response in Co, the symmetries are not
     # perfectly conserved for any of the q-points, but again quite well
@@ -108,12 +108,15 @@ def get_tolerances(system, qrel):
         cot_atol = 5e-4
     elif qrel == 0.5:
         cot_atol = 5e-4
-    tolerances_dict['co_pw_wfs_+-'] = (cot_atol, 1e-5)
+    atols['co_pw_wfs_+-'] = cot_atol
 
-    if identifier not in tolerances_dict.keys():
+    if identifier not in atols.keys():
         raise ValueError(system, qrel)
 
-    return tolerances_dict[identifier]
+    atol = atols[identifier]
+    rtol = 1e-5
+
+    return atol, rtol
 
 
 def generate_gc_g():
