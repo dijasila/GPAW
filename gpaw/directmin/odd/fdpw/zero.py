@@ -4,7 +4,7 @@ Potentials for orbital density dependent energy functionals
 
 import numpy as np
 from gpaw.utilities import unpack
-from gpaw.directmin.fdpw.tools import d_matrix
+from gpaw.directmin.tools import d_matrix
 
 
 class ZeroCorrections:

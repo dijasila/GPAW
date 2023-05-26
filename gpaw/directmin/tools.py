@@ -483,3 +483,31 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
         new_vec_u[s][res] = ang
 
     return new_vec_u
+
+
+def get_n_occ(kpt):
+
+    nbands = len(kpt.f_n)
+    n_occ = 0
+    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+        n_occ += 1
+    return n_occ
+
+
+def get_indices(dimens, dtype):
+
+    if dtype == complex:
+        il1 = np.tril_indices(dimens)
+    else:
+        il1 = np.tril_indices(dimens, -1)
+
+    return il1
+
+
+def get_random_um(dim, dtype):
+
+    a = 0.01 * np.random.rand(dim, dim)
+    if dtype is complex:
+        a = a + 1.0j * 0.01 * np.random.rand(dim, dim)
+    a = a - a.T.conj()
+    return expm_ed(a)

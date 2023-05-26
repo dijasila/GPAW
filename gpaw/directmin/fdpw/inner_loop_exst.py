@@ -7,7 +7,7 @@ in order to calculate and excited state
 arXiv:2102.06542 [physics.comp-ph]
 """
 
-from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.sd_etdm import LSR1P
 from gpaw.directmin.ls_etdm import MaxStep
 from ase.units import Hartree

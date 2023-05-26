@@ -4,7 +4,7 @@ among occupied states only
 
 """
 
-from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.sd_etdm import LBFGS_P
 from gpaw.directmin.ls_etdm import StrongWolfeConditions as SWC
 from ase.units import Hartree

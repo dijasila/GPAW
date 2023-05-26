@@ -6,9 +6,8 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
-from gpaw.directmin.fdpw.tools import d_matrix
+from gpaw.directmin.tools import d_matrix, get_n_occ
 from gpaw.poisson import PoissonSolver
-from gpaw.directmin.fdpw.tools import get_n_occ
 import _gpaw
 
 

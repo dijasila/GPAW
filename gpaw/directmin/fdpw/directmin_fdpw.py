@@ -16,7 +16,7 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
 from gpaw.directmin.odd.fdpw import odd_corrections
-from gpaw.directmin.fdpw.tools import get_n_occ
+from gpaw.directmin.tools import get_n_occ
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
 import time
