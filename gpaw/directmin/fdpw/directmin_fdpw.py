@@ -15,7 +15,7 @@ from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
-from gpaw.directmin.odd.fdpw import odd_corrections
+#from gpaw.directmin.odd.fdpw import odd_corrections
 from gpaw.directmin.tools import get_n_occ
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
@@ -117,11 +117,11 @@ class DirectMinFDPW(Eigensolver):
 
         # odd corrections
         if self.need_init_odd:
-            if isinstance(self.odd_parameters, (basestring, dict)):
-                self.odd = odd_corrections(self.odd_parameters, wfs, dens, ham)
-            else:
-                raise Exception('Check ODD Parameters')
-            self.e_sic = 0.0
+            #if isinstance(self.odd_parameters, (basestring, dict)):
+            #    self.odd = odd_corrections(self.odd_parameters, wfs, dens, ham)
+            #else:
+            #    raise Exception('Check ODD Parameters')
+            #self.e_sic = 0.0
 
             if 'SIC' in self.odd_parameters['name']:
                 self.iloop = InnerLoop(
@@ -134,8 +134,8 @@ class DirectMinFDPW(Eigensolver):
                 if 'SIC' in self.odd_parameters['name']:
                     oddparms = self.odd_parameters.copy()
                     oddparms['name'] = 'PZ-SIC-XT'
-                    odd2 = odd_corrections(oddparms, wfs,
-                                           dens, ham)
+                    #odd2 = odd_corrections(oddparms, wfs,
+                    #                       dens, ham)
                 else:
                     odd2 = self.odd
 
