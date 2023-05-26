@@ -19,15 +19,14 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 def generate_system_s(spincomponents=['00', '+-']):
-    # Compute chiks for different materials and spin-components, using
-    # system specific tolerances
-    system_s = [  # wfs, spincomponent, atol, rtol
-        ('fancy_si_pw_wfs', '00', 1e-8, 1e-5),
-        ('al_pw_wfs', '00', 5e-4, 1e-3),  # tolerance could be better -> #788
-        ('fe_pw_wfs', '00', 1e-8, 1e-5),
-        ('fe_pw_wfs', '+-', 8e-3, 1e-3),  # tolerance could be better -> #788
-        ('co_pw_wfs', '00', 5e-3, 1e-3),  # tolerance could be better -> #788
-        ('co_pw_wfs', '+-', 5e-4, 1e-3),  # tolerance could be better -> #788
+    # Compute chiks for different materials and spin components
+    system_s = [  # wfs, spincomponent
+        ('fancy_si_pw_wfs', '00'),
+        ('al_pw_wfs', '00'),
+        ('fe_pw_wfs', '00'),
+        ('fe_pw_wfs', '+-'),
+        ('co_pw_wfs', '00'),
+        ('co_pw_wfs', '+-'),
     ]
 
     # Filter spincomponents
@@ -57,6 +56,27 @@ def get_q_c(wfs, qrel):
         raise ValueError('Invalid wfs', wfs)
 
     return q_c
+
+
+def get_tolerances(system, qrel):
+    # Define tolerance for each test system
+    wfs, spincomponent = system
+    identifier = wfs + '_' + spincomponent
+
+    if qrel in [0.0, 0.25, 0.5]:
+        tolerances_dict = {  # tuple(atol, rtol)
+            'fancy_si_pw_wfs_00': (1e-8, 1e-5),
+            'al_pw_wfs_00': (5e-4, 1e-3),
+            'fe_pw_wfs_00': (1e-8, 1e-5),
+            'fe_pw_wfs_+-': (8e-3, 1e-3),
+            'co_pw_wfs_00': (5e-3, 1e-3),
+            'co_pw_wfs_+-': (5e-4, 1e-3),
+        }
+        tolerances = tolerances_dict[identifier]
+    else:
+        raise ValueError(qrel)
+
+    return tolerances
 
 
 def generate_gc_g():
@@ -97,7 +117,8 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
-    wfs, spincomponent, atol, rtol = system
+    wfs, spincomponent = system
+    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
@@ -191,7 +212,8 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # Part 1: chiks calculation
-    wfs, spincomponent, atol, rtol = system
+    wfs, spincomponent = system
+    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
