@@ -167,3 +167,12 @@ def calculate_rshe(f_ng, Y_nL) -> RealSphericalHarmonicsExpansion:
     f_gL = integrate_lebedev(Y_ngL * f_ngL)
 
     return RealSphericalHarmonicsExpansion(f_gL, Y_nL)
+
+
+def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
+    """
+    Some documentation here! XXX
+    """
+    rshe = calculate_rshe(f_ng, Y_nL)
+    dfns_g = integrate_lebedev(f_ng ** 2)
+    return rshe.reduce_expansion(dfns_g, lmax=lmax, wmin=wmin)

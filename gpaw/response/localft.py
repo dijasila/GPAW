@@ -15,7 +15,7 @@ from gpaw.sphere.lebedev import R_nv
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
 
-from gpaw.response.rshe import integrate_lebedev, calculate_rshe
+from gpaw.response.rshe import calculate_reduced_rshe
 
 
 class LocalFTCalculator(ABC):
@@ -502,12 +502,8 @@ class LocalPAWFTEngine:
     def perform_rshe(self, df_ng, Y_nL):
         r"""Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
         harmonics."""
-        rshe = calculate_rshe(df_ng, Y_nL)
-        dfns_g = integrate_lebedev(df_ng ** 2)
-        rshe, info_string = rshe.reduce_expansion(
-            dfns_g, lmax=self.rshelmax, wmin=self.rshewmin)
-
-        return rshe, info_string
+        return calculate_reduced_rshe(
+            df_ng, Y_nL, self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
