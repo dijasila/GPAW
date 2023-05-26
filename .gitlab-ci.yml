@@ -394,8 +394,11 @@ docs:
     - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      when: manual
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never
     - if: $CI_PIPELINE_SOURCE == "schedule"
+
 
 nightly-serial:
   extends:
