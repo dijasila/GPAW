@@ -8,7 +8,7 @@ from ase import Atoms
 import numpy as np
 
 
-def test_xc_pw(gpw_files):
+def test_mom_directopt_pw(gpw_files):
     atoms = Atoms('O2', [[0.0, 0.0, 0.0], [0.0, 0.0, 1.4]])
     atoms.center(vacuum=3.0)
     pos = atoms.get_positions()
@@ -43,5 +43,3 @@ def test_xc_pw(gpw_files):
     atoms.set_positions(pos)
     e2 = atoms.get_potential_energy()
     assert e2 == pytest.approx(42.257272, abs=1.0e-4)
-
-test_xc_pw(0)
