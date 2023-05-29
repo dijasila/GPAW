@@ -26,13 +26,15 @@ class Potential:
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
             xp = P_ani.layout.xp
-            if xp is not np:
-                P_ani = P_ani.to_cpu()
-                out_ani = out_ani.new(xp=np)
-            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
-                dH_ii = self.dH_asii[a][spin]
-                np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
-            return out_ani.to_xp(xp)
+            if xp is np:
+                for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                    dH_ii = self.dH_asii[a][spin]
+                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
+            else:
+                for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                    dH_ii = xp.asarray(self.dH_asii[a][spin])
+                    out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
+            return  # out_ani.to_xp(to_xp)
 
         # Non-collinear wave functions:
         P_ansi = P_ani
@@ -51,8 +53,8 @@ class Potential:
         from gpaw.new.calculation import combine_energies
         energies = combine_energies(self, ibzwfs)
         energies['band'] = ibzwfs.energies['band']
-        dH_asp = self.dH_asii.to_lower_triangle().gather()
-        vt_sR = self.vt_sR.gather()
+        dH_asp = self.dH_asii.to_cpu().to_lower_triangle().gather()
+        vt_sR = self.vt_sR.to_xp(np).gather()
         if dH_asp is None:
             return
         writer.write(

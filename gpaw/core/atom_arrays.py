@@ -49,7 +49,7 @@ class AtomArraysLayout:
 
     def __repr__(self):
         return (f'AtomArraysLayout({self.shape_a}, {self.atomdist}, '
-                f'{self.dtype})')
+                f'{self.dtype}, xp={self.xp.__name__})')
 
     def new(self, atomdist=None, dtype=None, xp=None):
         """Create new AtomsArrayLayout object with new atomdist."""
@@ -71,6 +71,13 @@ class AtomArraysLayout:
             Distribute dimensions along this communicator.
         """
         return AtomArrays(self, dims, comm)
+
+    def zeros(self,
+              dims: int | tuple[int, ...] = (),
+              comm: MPIComm = serial_comm) -> AtomArrays:
+        aa = self.empty(dims, comm)
+        aa.data[:] = 0.0
+        return aa
 
     def sizes(self) -> tuple[list[dict[int, int]], Array1D]:
         """Compute array sizes for all ranks.
@@ -310,7 +317,7 @@ class AtomArrays:
         if comm.rank == 0:
             size_ra, size_r = self.layout.sizes()
             shape = self.mydims + (size_r.max(),)
-            buffer = np.empty(shape, self.layout.dtype)
+            buffer = self.layout.xp.empty(shape, self.layout.dtype)
             for rank in range(1, comm.size):
                 buf = buffer[..., :size_r[rank]]
                 comm.receive(buf, rank)
@@ -378,13 +385,15 @@ class AtomArrays:
         for i1, i2 in self.layout.shape_a:
             assert i1 == i2
             shape_a.append((i1 * (i1 + 1) // 2,))
+        xp = self.layout.xp
         layout = AtomArraysLayout(shape_a,
                                   self.layout.atomdist.comm,
-                                  dtype=self.layout.dtype)
+                                  dtype=self.layout.dtype,
+                                  xp=xp)
         a_axp = layout.empty(self.dims)
         for a_xii, a_xp in zip(self.values(), a_axp.values()):
             i = a_xii.shape[-1]
-            L = np.tril_indices(i)
+            L = xp.tril_indices(i)
             for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
                                  a_xii.reshape((-1, i, i))):
                 a_p[:] = a_ii[L]

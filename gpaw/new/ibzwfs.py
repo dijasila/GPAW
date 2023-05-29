@@ -2,11 +2,15 @@ from __future__ import annotations
 
 from typing import Generator
 
+import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+from gpaw.gpu import synchronize
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zip
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -36,6 +40,7 @@ def create_ibz_wave_functions(ibz: IBZ,
                                   ibz.kpt_kc[k], ibz.weight_k[k])
             wfs_s.append(wfs)
         wfs_qs.append(wfs_s)
+
     return IBZWaveFunctions(ibz,
                             nelectrons,
                             ncomponents,
@@ -76,6 +81,11 @@ class IBZWaveFunctions:
 
         self.energies: dict[str, float] = {}  # hartree
 
+        self.xp = self.wfs_qs[0][0].xp
+        if self.xp is not np:
+            if not getattr(_gpaw, 'gpu_aware_mpi', False):
+                self.kpt_comm = CuPyMPI(self.kpt_comm)
+
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
@@ -94,10 +104,28 @@ class IBZWaveFunctions:
                 self.kpt_comm.rank == 0)
 
     def __str__(self):
+        shape = self.get_max_shape(global_shape=True)
+        wfs = self.wfs_qs[0][0]
+        nbytes = (len(self.ibz) *
+                  self.nbands *
+                  len(self.wfs_qs[0]) *
+                  wfs.bytes_per_band)
+        ncores = (self.kpt_comm.size *
+                  self.domain_comm.size *
+                  self.band_comm.size)
         return (f'{self.ibz.symmetries}\n'
                 f'{self.ibz}\n'
+                f'{wfs._short_string(shape)}\n'
+                f'spin-components: {self.ncomponents}'
+                '  # (' +
+                ('' if self.collinear else 'non-') + 'collinear spins)\n'
+                f'bands: {self.nbands}\n'
                 f'valence electrons: {self.nelectrons}\n'
                 f'spin-degeneracy: {self.spin_degeneracy}\n'
+                f'dtype: {self.dtype}\n\n'
+                'memory:\n'
+                f'    wave functions: {nbytes:_}  # bytes '
+                f' ({nbytes // ncores:_} per core)\n\n'
                 'parallelization:\n'
                 f'    kpt:    {self.kpt_comm.size}\n'
                 f'    domain: {self.domain_comm.size}\n'
@@ -141,7 +169,8 @@ class IBZWaveFunctions:
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
-        e_band = self.kpt_comm.sum(e_band)
+        e_band = self.kpt_comm.sum(float(e_band))  # XXX CPU float?
+
         self.energies = {
             'band': e_band,
             'entropy': e_entropy,
@@ -152,6 +181,7 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
+        synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -231,9 +261,10 @@ class IBZWaveFunctions:
         return eig_skn, occ_skn
 
     def forces(self, potential: Potential) -> Array2D:
-        F_av = np.zeros((potential.dH_asii.natoms, 3))
+        F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
+        synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
@@ -278,7 +309,7 @@ class IBZWaveFunctions:
             for k, rank in enumerate(self.rank_k):
                 if rank == self.kpt_comm.rank:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
-                    P_ani = wfs.P_ani.gather()  # gather atoms
+                    P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
                         if self.domain_comm.rank == 0:
@@ -342,20 +373,30 @@ class IBZWaveFunctions:
         eig_skn *= Ha
 
         D = self.spin_degeneracy
+        nbands = eig_skn.shape[2]
 
         for k, (x, y, z) in enumerate(ibz.kpt_kc):
-            if k == 4:
-                log(f'(only showing first 4 out of {len(ibz)} k-points)')
+            if k == 3:
+                log(f'(only showing first 3 out of {len(ibz)} k-points)')
                 break
 
             log(f'\nkpt = [{x:.3f}, {y:.3f}, {z:.3f}], '
                 f'weight = {ibz.weight_k[k]:.3f}:')
 
             if self.nspins == 1:
+                skipping = False
                 log(f'  Band      eig [eV]   occ [0-{D}]')
-                for n, (e, f) in enumerate(zip(eig_skn[0, k],
-                                               occ_skn[0, k])):
-                    log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
+                eig_n = eig_skn[0, k]
+                n0 = (eig_n < fl[0]).sum() - 0.5
+                for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
+                    # First, last and +-8 bands window around fermi level:
+                    if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
+                        log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
+                        skipping = False
+                    else:
+                        if not skipping:
+                            log('   ...')
+                            skipping = True
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')

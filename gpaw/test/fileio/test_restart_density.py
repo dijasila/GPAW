@@ -32,11 +32,8 @@ def test_fileio_restart_density(in_tmp_dir):
     # Write the restart file
     calc.write('tmp.gpw')
 
-    del atoms, calc
     # Try restarting from all the files
     atoms, calc = restart('tmp.gpw')
-    # Force new calculation
-    calc.scf.converged = False
     e1 = atoms.get_potential_energy()
     f1 = atoms.get_forces()
     m1 = atoms.get_magnetic_moments()

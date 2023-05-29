@@ -3,18 +3,19 @@ from __future__ import annotations
 from math import pi
 from typing import Sequence
 
+import numpy as np
+
 import _gpaw
 import gpaw.fftw as fftw
-import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
 from gpaw.core.domain import Domain
+from gpaw.gpu import as_xp
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new import zip
 
 
 class UniformGrid(Domain):
@@ -71,6 +72,8 @@ class UniformGrid(Domain):
 
         self.dv = self.volume / self.size_c.prod()
 
+        self.itemsize = 8 if self.dtype == float else 16
+
     @property
     def size(self):
         """Size of uniform grid."""
@@ -84,6 +87,9 @@ class UniformGrid(Domain):
         return Domain.__repr__(self).replace(
             'Domain(',
             f'UniformGrid(size={self.size_c.tolist()}, ')
+
+    def _short_string(self, global_shape):
+        return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
     def phase_factors_cd(self):
@@ -160,9 +166,13 @@ class UniformGrid(Domain):
                                 cut=False,
                                 xp=None):
         """Create UniformGridAtomCenteredFunctions object."""
-        return UniformGridAtomCenteredFunctions(functions, positions, self,
+        return UniformGridAtomCenteredFunctions(functions,
+                                                positions,
+                                                self,
                                                 atomdist=atomdist,
-                                                integral=integral, cut=cut)
+                                                integral=integral,
+                                                cut=cut,
+                                                xp=xp)
 
     def transformer(self, other: UniformGrid, stencil_range=3):
         """Create transformer from one grid to another.
@@ -242,7 +252,7 @@ class UniformGrid(Domain):
         if self.comm.rank == 0:
             return fftw.create_plans(self.size_c, self.dtype, flags, xp)
         else:
-            return fftw.FFTPlans([0, 0, 0], self.dtype)
+            return fftw.create_plans([0, 0, 0], self.dtype)
 
     def ranks_from_fractional_positions(self,
                                         fracpos_ac: Array2D) -> Array1D:
@@ -250,6 +260,10 @@ class UniformGrid(Domain):
         if (rank_ac < 0).any() or (rank_ac >= self.parsize_c).any():
             raise ValueError('Positions outside cell!')
         return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
+
+    def ecut_max(self):
+        dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
 
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
@@ -294,7 +308,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
+            data = self.xp.empty_like(self.data)
         return UniformGridFunctions(self.desc, self.dims, self.comm, data)
 
     def __getitem__(self, index):
@@ -341,7 +355,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, y
+        return x, as_xp(y, np)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""
@@ -380,7 +394,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
@@ -395,7 +409,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         # for the whole domain:
         for rank, block in enumerate(self.desc.blocks(out.data)):
             if rank != 0:
-                buf = np.empty_like(block)
+                buf = self.xp.empty_like(block)
                 comm.receive(buf, rank, 301)
                 block[:] = buf
             else:
@@ -453,7 +467,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return result
 
     def integrate(self, other=None):
-        """Integral of self or self time cc(other)."""
+        """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()
@@ -462,13 +476,12 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_yR = b_yR.reshape((len(b_yR), -1))
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
-            result = self.data.sum(axis=(-3, -2, -1))
+            # Make sure we have an array and not a scalar!
+            result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
 
+        self.desc.comm.sum(result)
         if result.ndim == 0:
-            result = self.desc.comm.sum(result.item())
-        else:
-            self.desc.comm.sum(result)
-
+            result = result.item()  # convert to scalar
         return result * self.desc.dv
 
     def to_pbc_grid(self):
@@ -512,7 +525,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -532,8 +545,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        plan1 = plan1 or self.desc.fft_plans()
-        plan2 = plan2 or out.desc.fft_plans()
+        plan1 = plan1 or self.desc.fft_plans(xp=self.xp)
+        plan2 = plan2 or out.desc.fft_plans(xp=self.xp)
 
         if self.dims:
             for input, output in zip(self.flat(), out.flat()):
@@ -561,7 +574,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         b_Q[:] = 0.0
-        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+        b_Q[a0:b0, a1:b1, a2:b2] = self.xp.fft.fftshift(a_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] *= 0.5
@@ -579,7 +592,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             if e2:
                 b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
 
-        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.ifftshift(b_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
@@ -607,7 +620,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -644,7 +657,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         plan1.fft()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.fftshift(b_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
@@ -660,7 +673,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b2 -= 1
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        a_Q[:] = self.xp.fft.ifftshift(a_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
@@ -685,6 +698,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if a_xR is None:
             b_xR = None
         else:
+            if self.xp is not np:
+                a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
@@ -692,7 +707,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                 b_R[:] = 0.0
                 for r_cc, t_c in zip(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
-
+            if self.xp is not np:
+                b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)
@@ -725,6 +741,8 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+        if self.xp is not np:
+            rho_cr = [rho_r.get() for rho_r in rho_cr]
 
         d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
@@ -744,11 +762,3 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                            kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                            dtype=grid.dtype)
         return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
-
-    def to_xp(self, xp):
-        if xp is self.xp:
-            return self
-        if xp is np:
-            return self.new(data=xp.asnumpy(self.data))
-        else:
-            return self.new(data=xp.asarray(self.data))

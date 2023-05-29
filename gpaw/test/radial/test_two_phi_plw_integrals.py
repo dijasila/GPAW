@@ -52,7 +52,7 @@ def test_two_phi_plw_integrals():
     g = [np.exp(-(r / rc * b)**2) * r**l for l in range(lmax + 1)]
     l_j = range(lmax + 1)
     rcut_j = [rc] * (lmax + 1)
-    d1 = two_phi_planewave_integrals(k_G, setup=Setuplet(rgd=rgd, phi_jg=g,
+    d1 = two_phi_planewave_integrals(k_G, pawdata=Setuplet(rgd=rgd, phi_jg=g,
                                      phit_jg=np.zeros_like(g), l_j=l_j,
                                      rcut_j=rcut_j))
 

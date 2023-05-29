@@ -14,4 +14,4 @@ def inv(a):
 def eigh(a, UPLO):
     from gpaw.gpu import cupy as cp
     eigvals, eigvecs = np.linalg.eigh(a._data, UPLO)
-    return cp.ndarray(eigvals), cp.ndarray(eigvecs)
+    return cp.ndarray(eigvals), cp.ndarray(eigvecs.T.copy().T)

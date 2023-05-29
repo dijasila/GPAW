@@ -1,11 +1,14 @@
+import pytest
 from ase.build import molecule
-from gpaw import GPAW, MixerSum, Davidson
+
+from gpaw import GPAW, Davidson, MixerSum
 
 # Move atom infinitesimally across cell border and test that SCF loop is still
 # well converged afterwards.  If it is /not/ well converged, then the code
 # which compensates for discontinuity of phases is probably broken.
 
 
+@pytest.mark.later
 def test_generic_move_across_cell():
     def test(calc):
         atoms = molecule('H2O', vacuum=2.5)

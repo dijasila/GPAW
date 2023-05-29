@@ -1,14 +1,15 @@
 import json
+import warnings
 from os.path import exists, splitext
 
-from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-from ase.dft.bandgap import bandgap
 import numpy as np
+from ase.dft.bandgap import bandgap
+from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
 from gpaw import GPAW
-from gpaw.mpi import serial_comm, world, rank
-from gpaw.utilities.blas import gemmdot
+from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
+from gpaw.utilities.blas import gemmdot
 
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
@@ -29,7 +30,7 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
-    
+
     gap = bandgap(calc)[0]
     assert gap != 0.0
 
@@ -247,6 +248,7 @@ def get_polarization_phase(calc):
             phase_c[c] += np.sum(phases) / len(phases)
     phase_c = phase_c * 2 / nspins
 
+    print(phase_c)
     Z_a = data['Z_a']
     spos_ac = data['spos_ac']
     phase_c += 2 * np.pi * np.dot(Z_a, spos_ac)
@@ -345,7 +347,6 @@ def parallel_transport(calc,
     # Loop over the direction parallel components
     for k in myKrange:
         U_qmm = [np.eye(len(bands))]
-        print(k)
         qpts_q = kpts_kq[k]
         # Loop over kpoints in the phase direction
         for q in range(Nloc - 1):
@@ -431,21 +432,24 @@ def parallel_transport(calc,
                            np.array([0.0, 0.0, 0.0]))
         l_m, l_mm = np.linalg.eig(M_mm)
         phi_km[k] = np.angle(l_m)
-        print(phi_km[k] / 2 / np.pi)
 
         A_mm = np.zeros_like(l_mm, complex)
         for q in range(Nloc):
             iq = qpts_q[q]
             U_mm = U_qmm[q]
-            v_msn = soc_kpts[iq].v_msn
-            v_snm = np.einsum('xm, msn -> snx', U_mm, v_msn[bands])
-            A_mm += np.dot(v_snm[0].T.conj(), v_snm[0])
-            A_mm -= np.dot(v_snm[1].T.conj(), v_snm[1])
+            v_mn = soc_kpts[iq].v_mn
+            v_nm = np.einsum('xm, mn -> nx', U_mm, v_mn[bands])
+            A_mm += np.dot(v_nm[::2].T.conj(), v_nm[::2])
+            A_mm -= np.dot(v_nm[1::2].T.conj(), v_nm[1::2])
         A_mm /= Nloc
         S_km[k] = np.diag(l_mm.T.conj().dot(A_mm).dot(l_mm)).real
 
     world.sum(phi_km)
     world.sum(S_km)
+
+    if not calc.density.collinear:
+        warnings.warn('WARNING: Spin projections are not meaningful ' +
+                      'for non-collinear calculations')
 
     if name is not None:
         np.savez(f'phases_{name}.npz', phi_km=phi_km, S_km=S_km)

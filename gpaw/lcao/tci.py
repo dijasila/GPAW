@@ -92,7 +92,7 @@ class TCIExpansions:
             I_setup[setup] = I
         I_a = [I_setup[setup] for setup in setups]
 
-        return TCIExpansions([s.phit_j for s in setups_I],
+        return TCIExpansions([s.basis_functions_J for s in setups_I],
                              [s.pt_j for s in setups_I],
                              I_a)
 

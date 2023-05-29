@@ -12,6 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
+from gpaw.new import prod, zip
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -31,8 +32,9 @@ class PWFDWaveFunctions(WaveFunctions):
                  ncomponents: int = 1):
         assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
+        nbands = psit_nX.dims[0]
         super().__init__(setups=setups,
-                         nbands=psit_nX.dims[0],
+                         nbands=nbands,
                          spin=spin,
                          q=q,
                          k=k,
@@ -46,12 +48,18 @@ class PWFDWaveFunctions(WaveFunctions):
                          band_comm=psit_nX.comm)
         self._pt_aiX: Optional[AtomCenteredFunctions] = None
         self.orthonormalized = False
+        self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
+                               psit_nX.desc.itemsize)
+        self.xp = self.psit_nX.xp
 
     def __del__(self):
         # We could be reading from a gpw-file
         data = self.psit_nX.data
         if hasattr(data, 'fd'):
             data.fd.close()
+
+    def _short_string(self, global_shape: tuple[int]) -> str:
+        return self.psit_nX.desc._short_string(global_shape)
 
     def array_shape(self, global_shape=False):
         if global_shape:
@@ -148,7 +156,6 @@ class PWFDWaveFunctions(WaveFunctions):
             return
         psit_nX = self.psit_nX
         domain_comm = psit_nX.desc.comm
-
         P_ani = self.P_ani
 
         P2_ani = P_ani.new()
@@ -231,20 +238,51 @@ class PWFDWaveFunctions(WaveFunctions):
         H.multiply(P_ani, out=P2_ani)
         P_ani.data[:] = P2_ani.data
 
-    def force_contribution(self, potential: Potential, F_av: Array2D):
+    def force_contribution(self,
+                           potential: Potential,
+                           F_av: Array2D) -> None:
+        xp = self.xp
         dH_asii = potential.dH_asii
+        myeig_n = xp.asarray(self.myeig_n)
+        myocc_n = xp.asarray(
+            self.weight * self.spin_degeneracy * self.myocc_n)
+
+        if self.ncomponents == 4:
+            self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
+            return
+
         F_avni = self.pt_aiX.derivative(self.psit_nX)
-        myocc_n = self.weight * self.spin_degeneracy * self.myocc_n
         for a, F_vni in F_avni.items():
             F_vni = F_vni.conj()
             F_vni *= myocc_n[:, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
-            F_vni *= self.myeig_n[:, np.newaxis]
-            dO_ii = self.setups[a].dO_ii
-            F_vii -= np.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
+            F_vii = xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
+            F_vni *= myeig_n[:, np.newaxis]
+            dO_ii = xp.asarray(self.setups[a].dO_ii)
+            F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
+
+    def _non_collinear_force_contribution(self,
+                                          dH_asii,
+                                          myocc_n,
+                                          F_av):
+        F_avnsi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_vnsi in F_avnsi.items():
+            F_vnsi = F_vnsi.conj()
+            F_vnsi *= myocc_n[:, np.newaxis, np.newaxis]
+            dH_sii = dH_asii[a]
+            dH_ii = dH_sii[0]
+            dH_vii = dH_sii[1:]
+            dH_ssii = np.array(
+                [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
+                 [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
+            P_nsi = self.P_ani[a]
+            F_v = np.einsum('vnsi, stij, ntj -> v', F_vnsi, dH_ssii, P_nsi)
+            F_vnsi *= self.myeig_n[:, np.newaxis, np.newaxis]
+            dO_ii = self.setups[a].dO_ii
+            F_v -= np.einsum('vnsi, ij, nsj -> v', F_vnsi, dO_ii, P_nsi)
+            F_av[a] += 2 * F_v.real
 
     def collect(self,
                 n1: int = 0,
@@ -404,3 +442,25 @@ class PWFDWaveFunctions(WaveFunctions):
             self.atomdist,
             self.weight,
             self.ncomponents)
+
+    def morph(self, desc, fracpos_ac, atomdist):
+        desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
+        psit_nX = self.psit_nX.morph(desc)
+
+        # Save memory:
+        self.psit_nX.data = None
+        self._P_ani = None
+        self._pt_aiX = None
+
+        wfs = PWFDWaveFunctions(
+            psit_nX,
+            self.spin,
+            self.q,
+            self.k,
+            self.setups,
+            fracpos_ac,
+            atomdist,
+            self.weight,
+            self.ncomponents)
+
+        return wfs

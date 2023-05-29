@@ -6,6 +6,7 @@ import numpy as np
 from gpaw.directmin.etdm import ETDM
 
 
+@pytest.mark.do
 def test_directmin_lcao(in_tmp_dir):
     """
     test exponential transformation
@@ -33,13 +34,22 @@ def test_directmin_lcao(in_tmp_dir):
                 )
     H2O.calc = calc
     e = H2O.get_potential_energy()
-    f = H2O.get_forces()
 
     assert e == pytest.approx(-13.643156256566218, abs=1.0e-4)
+
     f2 = np.array([[-1.11463, -1.23723, 0.0],
                    [1.35791, 0.00827, 0.0],
                    [-0.34423, 1.33207, 0.0]])
-    assert f2 == pytest.approx(f, abs=1e-2)
+
+    for use_rho in [0, 1]:
+        if use_rho:
+            for kpt in calc.wfs.kpt_u:
+                kpt.rho_MM = calc.wfs.calculate_density_matrix(kpt.f_n,
+                                                               kpt.C_nM)
+        f = H2O.get_forces()
+        H2O.calc.results.pop('forces')
+
+        assert f2 == pytest.approx(f, abs=1e-2)
 
     calc.write('h2o.gpw', mode='all')
     from gpaw import restart

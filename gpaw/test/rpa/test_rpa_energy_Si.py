@@ -11,11 +11,11 @@ def test_rpa_rpa_energy_Si(in_tmp_dir, gpw_files):
     calc.diagonalize_full_hamiltonian(nbands=50)
 
     ecut = 50
-    rpa = RPACorrelation(calc, qsym=False, nfrequencies=8)
-    E_rpa_noqsym = rpa.calculate(ecut=[ecut])
+    rpa = RPACorrelation(calc, qsym=False, nfrequencies=8, ecut=[ecut])
+    E_rpa_noqsym = rpa.calculate()
 
-    rpa = RPACorrelation(calc, qsym=True, nfrequencies=8)
-    E_rpa_qsym = rpa.calculate(ecut=[ecut])
+    rpa = RPACorrelation(calc, qsym=True, nfrequencies=8, ecut=[ecut])
+    E_rpa_qsym = rpa.calculate()
 
     assert E_rpa_qsym == pytest.approx(-12.61, abs=0.01)
     assert E_rpa_qsym == pytest.approx(E_rpa_noqsym)

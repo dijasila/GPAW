@@ -1,12 +1,13 @@
 import numpy as np
+import pytest
 from ase.build import molecule
 from ase.parallel import parprint, world
 
 from gpaw import GPAW
-from gpaw.test import equal
-from gpaw.cluster import Cluster
 from gpaw.analyse.overlap import Overlap
+from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
+from gpaw.test import equal
 
 """Evaluate the overlap between two independent calculations
 
@@ -15,6 +16,7 @@ of Kohn-Sham states.
 """
 
 
+@pytest.mark.later
 def test_overlap(in_tmp_dir):
     h = 0.4
     box = 2

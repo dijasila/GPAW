@@ -1,10 +1,14 @@
 from math import sqrt
+
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW, PW, restart
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_fileio_restart(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
