@@ -131,6 +131,8 @@ def gpw_files(request, tmp_path_factory):
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
+    * Bulk C, LDA, 2x2x2 k-points (gamma centered), ``c_pw``
+
     * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
       and ``co_pw_nosym``
 
@@ -477,6 +479,19 @@ class GPWFiles:
         calc.diagonalize_full_hamiltonian()
         # calc.write('Ni.gpw', mode='all')
         return calc
+
+    def c_pw(self):
+        atoms = bulk('C')
+        atoms.center()
+        calc = GPAW(mode=PW(150),
+                    convergence={'bands': 6},
+                    nbands=12,
+                    kpts={'gamma': True, 'size': (2, 2, 2)},
+                    xc='LDA')
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     def nicl2_pw(self):
         from ase.build import mx2
