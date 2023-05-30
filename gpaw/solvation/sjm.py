@@ -215,21 +215,10 @@ class SJM(SolvationGPAW):
         # If the user gives some arguments in the sj dictionary, other
         # arguments are copied from this object (as opposed to being
         # set to their defaults)
-        p = self.parameters['sj']
-
-        sj_changes = kwargs.pop('sj', {})
-        if len(sj_changes) > 0:
-            try:
-                sj_changes = {key: value for key, value in sj_changes.items()
-                              if not equal(value, p[key])}
-            except KeyError:
-                raise InputError(
-                    'Unexpected key(s) provided to sj dict. '
-                    'Keys provided were "{}". '
-                    'Only keys allowed are "{}".'
-                    .format(', '.join(sj_changes),
-                            ', '.join(self.default_parameters['sj'])))
-            kwargs['sj'] = (sj_changes)
+        sj = dict(self.parameters['sj'])
+        sj.update(kwargs.pop('sj', {}))
+        if len(sj) > 0:
+            kwargs['sj'] = sj
         return SolvationGPAW.new(self, timer=timer, communicator=communicator,
                                  txt=txt, parallel=parallel, **kwargs)
 
