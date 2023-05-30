@@ -45,3 +45,11 @@ def test_rshe(Lcomb):
     assert len(rshe.L_M) == len(Lcomb)
     assert all([L in rshe.L_M for L in Lcomb])
     assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
+
+    # Test the ability to reduce the expansion by an lmax
+    Lmax = max(Lcomb)
+    lmax = int(np.ceil(np.sqrt((Lmax + 1)) - 1))
+    if lmax < 4:
+        rshe, _ = calculate_reduced_rshe(f_ng, Y_nL, lmax=lmax)
+        assert len(rshe.L_M) == (lmax + 1)**2
+        assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
