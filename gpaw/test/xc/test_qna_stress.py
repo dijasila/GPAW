@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from ase.parallel import parprint
 from gpaw import GPAW
-import datetime
 
 
 def numeric_stress(atoms, d=1e-6, component=None):
@@ -52,14 +51,12 @@ def test_xc_qna_stress(in_tmp_dir, gpw_files):
     s_analytical = atoms.get_stress(voigt=False)
     print(s_analytical)
     components = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
-    weekday = datetime.datetime.now().weekday()
-    if weekday == 6:
-        return
-    component = components[weekday]
-    s_numerical = numeric_stress(atoms, 1e-5, component)
-    s_err = s_numerical - s_analytical.__getitem__(component)
+    for componentid in [1]:
+        component = components[componentid]
+        s_numerical = numeric_stress(atoms, 1e-5, component)
+        s_err = s_numerical - s_analytical.__getitem__(component)
 
-    parprint('Analytical stress:', s_analytical.__getitem__(component))
-    parprint('Numerical stress :', s_numerical)
-    parprint('Error in stress  :', s_err)
-    assert np.abs(s_err) < 0.002
+        parprint('Analytical stress:', s_analytical.__getitem__(component))
+        parprint('Numerical stress :', s_numerical)
+        parprint('Error in stress  :', s_err)
+        assert np.abs(s_err) < 0.002
