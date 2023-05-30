@@ -55,7 +55,8 @@ runtime_library_dirs = []
 extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', None),
-                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None)]
+                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None),
+                 ('GPAW_MPI_INPLACE', None)]
 if os.getenv('GPAW_GPU'):
     define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
 undef_macros = ['NDEBUG']
