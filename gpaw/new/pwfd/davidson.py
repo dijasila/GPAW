@@ -287,7 +287,7 @@ def calculate_weights(converge_bands: int | str,
         return weight_un
 
     if converge_bands == 'all':
-        return np.ones((nu, nbands))
+        return [np.ones(nbands)] * nu
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
