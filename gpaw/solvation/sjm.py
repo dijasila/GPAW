@@ -194,7 +194,7 @@ class SJM(SolvationGPAW):
 
         deprecated_keys = ['ne', 'potential', 'write_grandcanonical_energy',
                            'potential_equilibration_mode', 'dpot',
-                           'max_pot_deviation', 'doublelayer', 'verbose']
+                           'max_pot_deviation', 'doublelayer']
         msg = ('{:s} is no longer a supported keyword argument for the SJM '
                'class. All SJM arguments should be sent in via the "sj" '
                'dict.')
