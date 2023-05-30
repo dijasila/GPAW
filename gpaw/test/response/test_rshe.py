@@ -6,16 +6,18 @@ import itertools
 
 import numpy as np
 
+from gpaw.sphere.lebedev import Y_nL
+from gpaw.response.rshe import calculate_rshe
+
 
 def generate_combinations():
     """Generate combinations of one and two spherical harmonic indices.
     """
-    lmax = 5
-    nL = (lmax + 1)**2
-    L_L = np.arange(nL)
+    L_L = np.arange(Y_nL.shape[1])
+    oneL_i = list(itertools.combinations(L_L, 1))
     twoL_i = list(itertools.combinations(L_L, 2))
 
-    Lcomb_i = list(L_L) + twoL_i
+    Lcomb_i = oneL_i + twoL_i
 
     return Lcomb_i
 
@@ -23,4 +25,17 @@ def generate_combinations():
 @pytest.mark.response
 @pytest.mark.parametrize('Lcomb', generate_combinations())
 def test_rshe(Lcomb):
-    pass
+    """Test the ability to regenerate a given function based on a
+    real spherical harmonics expansion."""
+
+    # Build the angular dependence of the function on the Lebedev quadrature
+    f_n = np.zeros(Y_nL.shape[0])
+    for L in Lcomb:
+        f_n += Y_nL[:, L]
+    # Build the radial dependence as a Lorentzian
+    f_g = 0.25 / (np.pi * (0.25**2 + np.linspace(0., 2.)**2.))
+    f_ng = f_n[:, np.newaxis] * f_g[np.newaxis]
+
+    # Test the real spherical harmonics expansion without basis reduction
+    rshe = calculate_rshe(f_ng, Y_nL)
+    assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
