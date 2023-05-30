@@ -187,6 +187,24 @@ def temporary_lock(path):
             path.unlink()
 
 
+@contextmanager
+def world_temporary_lock(path):
+    if world.rank == 0:
+        try:
+            with temporary_lock(path):
+                world.sum_scalar(1)
+                yield
+        except Locked:
+            world.sum_scalar(0)
+            raise
+    else:
+        status = world.sum_scalar(0)
+        if status:
+            yield
+        else:
+            raise Locked
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
@@ -208,14 +226,19 @@ class GPWFiles:
         lockfile = self.path / f'{rawname}.lock'
 
         for _attempt in range(60):  # ~60s timeout
-            if nowfs_path.exists() and wfs_path.exists():
+            files_exist = 0
+            if world.rank == 0:
+                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+            files_exist = world.sum_scalar(files_exist)
+
+            if files_exist:
                 self.gpw_files[rawname] = nowfs_path
                 self.gpw_files[rawname + '_wfs'] = wfs_path
 
                 return self.gpw_files[name]
 
             try:
-                with temporary_lock(lockfile):
+                with world_temporary_lock(lockfile):
                     calc = getattr(self, rawname)()
                     nowfs_work_path = nowfs_path.with_suffix('.tmp')
                     wfs_work_path = wfs_path.with_suffix('.tmp')
@@ -223,8 +246,9 @@ class GPWFiles:
                     calc.write(wfs_work_path, mode='all')
                     # By now files should exist *and* be fully written, by us.
                     # Rename them to the final intended paths:
-                    nowfs_work_path.rename(nowfs_path)
-                    wfs_work_path.rename(wfs_path)
+                    if world.rank == 0:
+                        nowfs_work_path.rename(nowfs_path)
+                        wfs_work_path.rename(wfs_path)
             except Locked:
                 import time
                 time.sleep(1)
