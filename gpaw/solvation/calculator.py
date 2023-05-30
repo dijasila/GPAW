@@ -33,9 +33,22 @@ class SolvationGPAW(GPAW):
         if restart is None:
             # If we are not reading from file, use the values given by
             # the user. Otherwise, the values are ignored
-            self.parameters['cavity'] = cavity
-            self.parameters['dielectric'] = dielectric
-            self.parameters['interactions'] = interactions
+            self.cavity = cavity
+            self.dielectric = dielectric
+            self.interactions = interactions
+
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        new_kwargs = dict(cavity=self.cavity,
+                          dielectric=self.dielectric,
+                          interactions=self.interactions)
+        new_kwargs.update(kwargs)
+        return GPAW.new(self, timer=timer, communicator=communicator,
+                        txt=txt, parallel=parallel, **new_kwargs)
 
     def read(self, filename):
         """Read yourself from a file"""
@@ -91,9 +104,9 @@ class SolvationGPAW(GPAW):
                 from gpaw.solvation.interactions import SurfaceInteraction
                 interactions = [SurfaceInteraction(suin.surface_tension)]
 
-            self.parameters['cavity'] = cavity
-            self.parameters['dielectric'] = dielectric
-            self.parameters['interactions'] = interactions
+            self.cavity = cavity
+            self.dielectric = dielectric
+            self.interactions = interactions
 
         reader = GPAW.read(self, filename)
         return reader
@@ -101,9 +114,9 @@ class SolvationGPAW(GPAW):
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
         writer.child('implicit_solvent').write(
-            cavity=self.parameters.cavity,
-            dielectric=self.parameters.dielectric,
-            interactions=self.parameters.interactions[0])
+            cavity=self.cavity,
+            dielectric=self.dielectric,
+            interactions=self.interactions[0])
 
     def create_hamiltonian(self, realspace, mode, xc):
         if not realspace:
@@ -113,9 +126,9 @@ class SolvationGPAW(GPAW):
 
         dens = self.density
         self.hamiltonian = SolvationRealSpaceHamiltonian(
-            cavity=self.parameters.cavity,
-            dielectric=self.parameters.dielectric,
-            interactions=self.parameters.interactions,
+            cavity=self.cavity,
+            dielectric=self.dielectric,
+            interactions=self.interactions,
             gd=dens.gd, finegd=dens.finegd,
             nspins=dens.nspins,
             collinear=dens.collinear,
