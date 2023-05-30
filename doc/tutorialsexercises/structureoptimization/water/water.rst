@@ -95,7 +95,7 @@ direction.  Use a loop structure like::
 
       for ngridpoints in [24, 28, ...]:
           h = a / ngridpoints
-          calc.set(h=h)
+          system.calc = calc.new(h=h)
           energy = system.get_potential_energy()
           ...
 

@@ -58,7 +58,7 @@ opt.run()
 sj['tol'] = 0.01
 sj['always_adjust'] = False
 sj['slope'] = None
-calc.set(sj=sj)
+atoms.calc = calc.new(sj=sj)
 opt = BFGS(atoms, trajectory='qn-Au111-H-sim-1.traj',
            logfile='qn-Au111-H-sim.log')
 opt.run()
