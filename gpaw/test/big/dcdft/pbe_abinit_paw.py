@@ -88,7 +88,7 @@ for name in names:
             prtwf=0,
             prtden=0,
         )
-        atoms.calc.set(**kwargs)  # remaining calc keywords
+        atoms.calc = atoms.calc.new(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()
         c.write(atoms,

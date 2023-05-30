@@ -70,7 +70,7 @@ for name in collection.names:
             chksymbreak=0,
             nsym=1,  # various symmetry problems with various abinits ...
         )
-        atoms.calc.set(**kwargs)  # remaining calc keywords
+        atoms.calc = atoms.calc.new(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()
         c.write(atoms,
