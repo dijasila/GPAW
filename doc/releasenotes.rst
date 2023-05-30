@@ -10,7 +10,7 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0, SciPy 1.6.0
 
 * New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
   objects with tweaked input parameters.  This can often be used to replace
@@ -62,13 +62,28 @@ Git master branch
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
 
+* The PW-mode now includes an ``interpolation`` flag.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
+* The LCAO implementation of direct optimization for variational calculations
+  of excited electronic states now includes :ref:`constrained optimization <mom>`
+  useful for challenging charge transfer excited states.
+
+* The :ref:`direct optimization generalized mode following method <do-gmf>` (DO-GMF) for
+  variational calculations of excited electronic states was added.
+
+* Updated electron-phonon coupling and Raman implementations and documentation. See :ref:`elphtheory` and :ref:`elphraman`.
+
+  .. warning::
+
+     Bugs in previous versions could have led to wrong relative intensities. Please regenerate the Raman tensor.
 
 Version 22.8.0
 ==============
 
 Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
@@ -86,7 +101,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
@@ -129,7 +144,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
    * Fix for latest numpy-1.22.0.
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0, SciPy 1.2.0
 
 * Python 3.7 or later is required now.
 
@@ -167,7 +182,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
     the whole supercell matrix into memory.
 
   * A routine to calculate dipole and nabla (momentum) matrix elements for
-    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+    LCAO wave functions has been added: :git:`gpaw/lcao/dipoletransition.py`
 
 * You can now change all sorts of things about how the SCF cycle decides it
   is converged. You can specify new, non-default convergence keywords like

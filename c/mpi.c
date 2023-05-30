@@ -25,7 +25,11 @@
 #endif
 #include "array.h"
 
-
+#ifdef GPAW_MPI2
+#ifndef GPAW_MPI_INPLACE
+#error "Deprecated: Define or undefine GPAW_MPI_INPLACE, instead of using GPAW_MPI2."
+#endif
+#endif
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
@@ -686,16 +690,16 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	}
       if (root == -1)
 	{
-#ifdef GPAW_MPI2
+#ifdef GPAW_MPI_INPLACE
 	  MPI_Allreduce(MPI_IN_PLACE, Array_BYTES(aobj), n, datatype,
 			operation, self->comm);
 #else
 	  char* b = GPAW_MALLOC(char, n * elemsize);
-	  MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
-			self->comm);
-	  assert(Array_NBYTES(aobj) == n * elemsize);
-	  memcpy(Array_BYTES(aobj), b, n * elemsize);
-	  free(b);
+      MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
+                    self->comm);
+      assert(Array_NBYTES(aobj) == n * elemsize);
+      memcpy(Array_BYTES(aobj), b, n * elemsize);
+      free(b);
 #endif
 	}
       else
@@ -705,7 +709,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	  char* b = 0;
 	  if (rank == root)
 	    {
-#ifdef GPAW_MPI2
+#ifdef GPAW_MPI_INPLACE
 	      MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
 			 datatype, operation, root, self->comm);
 #else
@@ -1320,4 +1324,35 @@ static PyObject * MPICommunicator(MPIObject *self, PyObject *args)
       return (PyObject*)obj;
     }
 }
+
+
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+}
+
 #endif // PARALLEL
