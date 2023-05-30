@@ -14,6 +14,8 @@ from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
+from ase.lattice.compounds import L1_2
+from gpaw import Mixer
 
 
 @contextmanager
@@ -261,6 +263,33 @@ class GPWFiles:
                       txt=self.path / 'o2_pw.txt')
         a.get_potential_energy()
         return a.calc
+
+    def Cu3Au_qna(self):
+        ecut = 300
+        kpts = (1, 1, 1)
+
+        QNA = {'alpha': 2.0,
+               'name': 'QNA',
+               'stencil': 1,
+               'orbital_dependent': False,
+               'parameters': {'Au': (0.125, 0.1), 'Cu': (0.0795, 0.005)},
+               'setup_name': 'PBE',
+               'type': 'qna-gga'}
+
+        atoms = L1_2(['Au', 'Cu'], latticeconstant=3.7)
+        atoms[0].position[0] += 0.01  # Break symmetry already here
+        calc = GPAW(mode=PW(ecut),
+                    eigensolver=Davidson(2),
+                    nbands='120%',
+                    mixer=Mixer(0.4, 7, 50.0),
+                    parallel=dict(domain=1),
+                    convergence={'density': 1e-4},
+                    xc=QNA,
+                    kpts=kpts,
+                    txt=self.path / 'Cu3Au.txt')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     def co_lcao(self):
         d = 1.1
