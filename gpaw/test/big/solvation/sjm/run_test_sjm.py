@@ -73,9 +73,10 @@ E = []
 
 for pot in [4.5, None, 4.3, 4.5]:
     if pot is None:
-        calc.set(sj={'excess_electrons': 0.2, 'target_potential': None})
+        calc = calc.new(sj={'excess_electrons': 0.2, 'target_potential': None})
     else:
-        calc.set(sj={'target_potential': pot})
+        calc = calc.new(sj={'target_potential': pot})
+    atoms.calc = calc
     E.append(atoms.get_potential_energy())
 
     if pot is None:
@@ -87,16 +88,17 @@ assert abs(E[0] - E[-1]) < 1e-2
 
 calc.write('sjm.gpw')
 
-atoms, calc = restart('sjm.gpw', Class=SJM)
-calc.set(sj={'tol': 0.002})
+atoms, calc = restart('sjm.gpw', Class=SJM, sj={'tol': 0.002})
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - 4.5) < 0.002
 
-calc.set(sj={'jelliumregion': {'top': 13}, 'tol': 0.01})
+atoms, calc = restart('sjm.gpw', Class=SJM,
+                      sj={'jelliumregion': {'top': 13}, 'tol': 0.01})
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - 4.5) < 0.01
 
-calc.set(sj={'jelliumregion': {'thickness': 2}})
+atoms, calc = restart('sjm.gpw', Class=SJM,
+                      sj={'jelliumregion': {'thickness': 2}})
 atoms.get_potential_energy()
 assert abs(calc.get_electrode_potential() - 4.5) < 0.01
 

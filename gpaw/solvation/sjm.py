@@ -750,7 +750,9 @@ class SJM(SolvationGPAW):
         dens = self.density
 
         self.hamiltonian = SJM_RealSpaceHamiltonian(
-            *self.stuff_for_hamiltonian,
+            cavity=self.parameters.cavity,
+            dielectric=self.parameters.dielectric,
+            interactions=self.parameters.interactions,
             gd=dens.gd, finegd=dens.finegd,
             nspins=dens.nspins,
             collinear=dens.collinear,

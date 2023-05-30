@@ -28,9 +28,14 @@ class SolvationGPAW(GPAW):
         #    raise IOError('Cavity and dielectric modules need to be '
         #                  'defined in the calculator')
 
-        self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
-
         GPAW.__init__(self, restart, **gpaw_kwargs)
+
+        if restart is None:
+            # If we are not reading from file, use the values given by
+            # the user. Otherwise, the values are ignored
+            self.parameters['cavity'] = cavity
+            self.parameters['dielectric'] = dielectric
+            self.parameters['interactions'] = interactions
 
     def read(self, filename):
         """Read yourself from a file"""
@@ -86,17 +91,19 @@ class SolvationGPAW(GPAW):
                 from gpaw.solvation.interactions import SurfaceInteraction
                 interactions = [SurfaceInteraction(suin.surface_tension)]
 
-            self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
+            self.parameters['cavity'] = cavity
+            self.parameters['dielectric'] = dielectric
+            self.parameters['interactions'] = interactions
 
         reader = GPAW.read(self, filename)
         return reader
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
-        stuff = self.stuff_for_hamiltonian
-        writer.child('implicit_solvent').write(cavity=stuff[0],
-                                               dielectric=stuff[1],
-                                               interactions=stuff[2][0])
+        writer.child('implicit_solvent').write(
+            cavity=self.parameters.cavity,
+            dielectric=self.parameters.dielectric,
+            interactions=self.parameters.interactions[0])
 
     def create_hamiltonian(self, realspace, mode, xc):
         if not realspace:
@@ -106,7 +113,9 @@ class SolvationGPAW(GPAW):
 
         dens = self.density
         self.hamiltonian = SolvationRealSpaceHamiltonian(
-            *self.stuff_for_hamiltonian,
+            cavity=self.parameters.cavity,
+            dielectric=self.parameters.dielectric,
+            interactions=self.parameters.interactions,
             gd=dens.gd, finegd=dens.finegd,
             nspins=dens.nspins,
             collinear=dens.collinear,
