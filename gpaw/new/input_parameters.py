@@ -196,10 +196,11 @@ def kpts(value=None) -> dict[str, Any]:
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):
-        if len(value) == 3 and isinstance(value[0], int):
-            value = {'size': value}
+        kpts = np.array(value)
+        if kpts.shape == (3,):
+            value = {'size': kpts}
         else:
-            value = {'points': np.array(value)}
+            value = {'kpts': kpts}
     return value
 
 

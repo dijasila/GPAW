@@ -83,7 +83,7 @@ class DielectricFunctionCalculator:
                        for thing in more_things])
 
     def collect(self, a_w):
-        return self.blocks1d.collect(a_w)
+        return self.blocks1d.all_gather(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""

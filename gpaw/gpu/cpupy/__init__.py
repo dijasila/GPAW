@@ -78,6 +78,14 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def moveaxis(a, source, destination):
+    return ndarray(np.moveaxis(a._data, source, destination))
+
+
+def vdot(a, b):
+    return np.vdot(a._data, b._data)
+
+
 def fuse():
     return lambda func: func
 
@@ -89,13 +97,16 @@ class ndarray:
             data = np.asarray(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
-        self.shape = data.shape
         self.dtype = data.dtype
         self.size = data.size
         self.flags = data.flags
         self.ndim = data.ndim
         self.nbytes = data.nbytes
         self.data = SimpleNamespace(ptr=data.ctypes.data)
+
+    @property
+    def shape(self):
+        return self._data.shape
 
     @property
     def T(self):
@@ -108,6 +119,12 @@ class ndarray:
     @property
     def imag(self):
         return ndarray(self._data.imag)
+
+    def set(self, a):
+        if self.ndim == 0:
+            self._data.fill(a)
+        else:
+            self._data[:] = a
 
     def get(self):
         return self._data.copy()
@@ -160,6 +177,8 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
+        if isinstance(other, (float, int)):
+            return self._data == other
         return ndarray(self._data == other._data)
 
     def __mul__(self, f):
@@ -232,3 +251,6 @@ class ndarray:
 
     def item(self):
         return self._data.item()
+
+    def trace(self, offset, axis1, axis2):
+        return ndarray(self._data.trace(offset, axis1, axis2))

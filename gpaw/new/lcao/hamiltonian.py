@@ -4,6 +4,7 @@ import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
+from gpaw.new import zip
 from gpaw.new.calculation import DFTState
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian

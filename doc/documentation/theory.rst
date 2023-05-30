@@ -23,7 +23,8 @@ Theory in order of abstraction.
    bse/bse
    xas/xas
    ehrenfest/ehrenfest_theory
-   raman/raman
+   elph/elph
+   elph/raman
    sjm/sjm
 
 

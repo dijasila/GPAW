@@ -130,7 +130,7 @@ equation (9) of [Olsen]_.  The main points to note are that:
 * it requires knowledge of the wavefunctions, not just
   the density, which again makes it more expensive to compute.
 
-* in the formalism used here we calculate `E_\text{EXX}` non-self-consistently;
+* in the formalism used here we calculate `E_\text{EXX}` non self-consistently;
   that is, we use one approximation for the exchange-correlation energy
   (PBE) to obtain the wavefunctions, then use these wavefunctions to
   construct the exchange energy under a different
@@ -203,7 +203,7 @@ The main ingredient here is the response function `\chi_0`, which is nonlocal,
 energy dependent and constructed from a sum of an infinite number of
 unoccupied electronic states.  Therefore like GW calculations, RPA
 calculations are expensive to perform.  We also note that, like for exact
-exchange, we construct `\chi_0` non-self-consistently, here using the
+exchange, we construct `\chi_0` non self-consistently, here using the
 wavefunctions and eigenvalues obtained with the PBE functional.
 
 The good news however is that compared to exact exchange calculations,

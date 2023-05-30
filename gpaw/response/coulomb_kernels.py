@@ -9,7 +9,7 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 class CoulombKernel:
     def __init__(self, truncation, gs):
         self.truncation = truncation
-        assert self.truncation in {None, '2D'}
+        assert self.truncation in {None, '0D', '2D'}
         self._gs = gs
 
     def description(self):
@@ -55,7 +55,12 @@ def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None):
         if qpd.kd.gamma and q_v is None:
             v_G[0] = 0.0
 
-    elif truncation in {'1D', '0D'}:
+    elif truncation == '0D':
+        from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
+        wstc = WignerSeitzTruncatedCoulomb(qpd.gd.cell_cv, np.ones(3, int))
+        v_G = wstc.get_potential(qpd)
+
+    elif truncation in {'1D'}:
         raise feature_removed()
 
     else:

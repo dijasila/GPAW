@@ -10,7 +10,7 @@ Ground-state calculations on a GPU is an experimental feature at the moment:
 * only parallelization over **k**-points
 * no forces
 
-See :git:`gpaw/test/gpu/pw_test.py` for an example.
+See :git:`gpaw/test/gpu/test_pw.py` for an example.
 
 
 The gpaw.gpu module
