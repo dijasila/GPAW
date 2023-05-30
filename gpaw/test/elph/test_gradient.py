@@ -33,7 +33,6 @@ def test_gradient(in_tmp_dir):
 
     # Barrier will be included in elph.run() in the future:
     # https://gitlab.com/ase/ase/-/merge_requests/2903
-    from gpaw.mpi import world
     world.barrier()
 
     Vt_sG = elph.cache['eq']['Vt_sG']
