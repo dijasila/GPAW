@@ -12,8 +12,8 @@ import numpy as np
 from scipy.stats import linregress
 import ase.io
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import (Parameters, equal, InputError,
-                                        PropertyNotPresent)
+from ase.calculators.calculator import (Calculator, Parameters, equal,
+                                        InputError, PropertyNotPresent)
 from ase.dft.bandgap import bandgap
 from ase.parallel import paropen
 
@@ -275,7 +275,7 @@ class SJM(SolvationGPAW):
             # 'sj' keywords are set. The lines below will reinitialize and
             # apply the changed charges.
             if self.atoms:
-                self.set(background_charge=self._create_jellium())
+                self.set_background_charge(self._create_jellium())
 
         if 'tol' in sj_changes:
             try:
@@ -291,7 +291,7 @@ class SJM(SolvationGPAW):
                     if self.atoms and p.slope is not None:
                         p.excess_electrons += ((p.target_potential -
                                                true_potential) / p.slope)
-                        self.set(background_charge=self._create_jellium())
+                        self.set_background_charge(self._create_jellium())
                         msg += ('\n Excess electrons changed to {:.4f} based '
                                 'on slope of {:.4f} V/electron.'
                                 .format(p.excess_electrons, p.slope))
@@ -320,6 +320,28 @@ class SJM(SolvationGPAW):
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'
                          .format(self.wfs.nvalence))
+
+    def set_background_charge(self, background_charge):
+        """ Set the background charge """
+        if self.wfs is None:
+            assert self.hamiltonian is None
+            assert self.density is None
+
+            Calculator.set(self, background_charge=background_charge)
+            self.log('Input parameters:')
+            self.log.print_dict(dict(background_charge=background_charge))
+            self.log()
+        else:
+            if self.density.background_charge:
+                self.density.background_charge = background_charge
+                self.density.background_charge.set_grid_descriptor(
+                    self.density.finegd)
+            self._quick_reinitialization()
+
+            excess_electrons = self.parameters['sj'].excess_electrons
+            self.wfs.nvalence = self.setups.nvalence + excess_electrons
+            self.log('Number of valence electrons is now {:.5f}'
+                     .format(self.wfs.nvalence))
 
     def _quick_reinitialization(self):
         """Minimal reinitialization of electronic-structure stuff when only
@@ -359,7 +381,7 @@ class SJM(SolvationGPAW):
             self.log('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
-            self.set(background_charge=self._create_jellium())
+            self.set_background_charge(self._create_jellium())
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             self.log('Potential found to be {:.5f} V (with {:+.5f} '
                      'electrons)'.format(self.get_electrode_potential(),
@@ -421,7 +443,7 @@ class SJM(SolvationGPAW):
                 system_changes = []
 
             if any([iteration, rerun, 'positions' in system_changes]):
-                self.set(background_charge=self._create_jellium())
+                self.set_background_charge(self._create_jellium())
 
             # Do the calculation.
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
