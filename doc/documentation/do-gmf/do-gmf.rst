@@ -73,13 +73,13 @@ requested as follows::
 
   from gpaw.directmin.etdm import ETDM
 
-  calc.set(eigensolver=ETDM(
-           partial_diagonalizer={'name': 'Davidson', 'logfile': None},
-           linesearch_algo={'name': 'max-step'},
-           searchdir_algo={'name': 'l-bfgs-p_gmf'},
-           need_init_orbs=False),
-           occupations={'name': 'mom', 'numbers': f,
-                        'use_fixed_occupations': True})
+  new_calc = calc.new(eigensolver=ETDM(
+                      partial_diagonalizer={'name': 'Davidson', 'logfile': None},
+		      linesearch_algo={'name': 'max-step'},
+		      searchdir_algo={'name': 'l-bfgs-p_gmf'},
+		      need_init_orbs=False),
+		      occupations={'name': 'mom', 'numbers': f,
+                                   'use_fixed_occupations': True})
 
 where a log file for the partial Hessian diagonalization can be specified and ``f`` contains
 the occupation numbers of the excited state (see :ref:`ethyleneexample` and :ref:`tPPexample`).
@@ -139,10 +139,10 @@ The estimated saddle point order then needs to be specified when requesting a DO
 
   from gpaw.directmin.etdm import ETDM
 
-  calc.set(eigensolver=ETDM(
-           partial_diagonalizer={'name': 'Davidson',
-                                 'sp_order': appr_sp_order},
-           ...)
+  new_calc = calc.new(eigensolver=ETDM(
+                      partial_diagonalizer={'name': 'Davidson',
+                                            'sp_order': appr_sp_order},
+                      ...)
 
 .. _ethyleneexample:
 

@@ -118,6 +118,6 @@ write_potential_and_charge('4.4V')
 # Vary the potential for the traces figure.
 sj = {'target_potential': 4.3,
       'excess_electrons': 0.47848}
-atoms.calc.set(sj=sj)
+atoms.calc = calc.new(sj=sj)
 atoms.get_potential_energy()
 write_potential_and_charge('4.3V')

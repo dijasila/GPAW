@@ -119,7 +119,7 @@ the function ``mom.prepare_mom_calculation`` can be used::
 
 where ``f`` contains the occupation numbers of the excited state
 (see examples below). Alternatively, the MOM calculation can be
-initialized by setting ``calc.set(occupations={'name': 'mom', 'numbers': f}``.
+initialized by setting ``calc.new(occupations={'name': 'mom', 'numbers': f}``.
 A helper function can be used to create the list of excited-state occupation
 numbers::
 
@@ -164,9 +164,9 @@ following ``eigensolver`` has to be specified::
 
   from gpaw.directmin.etdm import ETDM
 
-  calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                            linesearch_algo={'name': 'max-step',
-                                             'max_step': 0.20})
+  calc = calc.new(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                                   linesearch_algo={'name': 'max-step',
+                                                    'max_step': 0.20})
 
 The maximum step length avoids taking too large steps at the
 beginning of the wave function optimization. The default maximum step length
@@ -185,9 +185,9 @@ orbital relaxation effect in charge transfer excited states and thereby signific
 simplifies the subsequent saddle point search, preventing variational collapse.
 Constrained optimization can be performed by using the ``constraints`` keyword::
 
-  calc.set(eigensolver=ETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
-                                         [[h21], [h22],..., [p21], [p22],...],
-                                         ...])
+  calc = calc.new(eigensolver=ETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
+                                               [[h21], [h22],..., [p21], [p22],...],
+                                               ...])
 
 Each ``hij`` refers to the index of the ``j``-th hole in the ``i``-th K-point,
 each ``pij`` to the index of the j-th excited electron in the ``i``-th K-point.

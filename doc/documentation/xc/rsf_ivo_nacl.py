@@ -44,7 +44,7 @@ def calc_me(atoms, nbands):
         pass
     if calc.scf.converged:
         for calcp in calc_parms:
-            calc.set(**calcp)
+            calc = calc.new(**calcp)
             try:
                 calc.calculate(system_changes=[])
             except KohnShamConvergenceError:

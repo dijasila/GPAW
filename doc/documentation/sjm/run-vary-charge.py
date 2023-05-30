@@ -117,7 +117,7 @@ atoms.set_calculator(calc)
 
 for excess_electrons in [-0.2, -0.1, 0., .1, .2]:
     sj['excess_electrons'] = excess_electrons
-    calc.set(sj=sj)
+    atoms.calc = calc.new(sj=sj)
     atoms.get_potential_energy()
     log_potential()
     write_everything(label='{:.4f}'.format(excess_electrons))

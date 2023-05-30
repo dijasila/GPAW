@@ -27,9 +27,9 @@ def get_paw():
 
 
 calc = get_paw()
-calc.set(txt='H2O_LCY_PBE_083.log')
+calc = calc.new(txt='H2O_LCY_PBE_083.log')
 calc_plus = get_paw()
-calc_plus.set(txt='H2O_plus_LCY_PBE_083.log', charge=1)
+calc_plus = calc_plus.new(txt='H2O_plus_LCY_PBE_083.log', charge=1)
 
 h2o.calc = calc
 e_h2o = h2o.get_potential_energy()

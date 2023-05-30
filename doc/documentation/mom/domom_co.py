@@ -41,9 +41,10 @@ for spinpol in [True, False]:
         kpt.C_nM[lumo][:] = pm
         kpt.C_nM[lumo + 1][:] = pp
 
-    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                              linesearch_algo={'name': 'max-step'},
-                              need_init_orbs=False))
+    calc = calc.new(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                                     linesearch_algo={'name': 'max-step'},
+                                     need_init_orbs=False))
+    atoms.calc = calc
 
     # Occupation numbers for sigma->pi* excited state:
     # Remove one electron from homo (sigma) and add one electron to lumo (pi*)
