@@ -203,8 +203,8 @@ class GPAW(Calculator):
         new_kwargs = dict(self.parameters)
         new_kwargs.update(kwargs)
 
-        return GPAW(timer=timer, communicator=communicator,
-                    txt=txt, parallel=new_parallel, **new_kwargs)
+        return self.__class__(timer=timer, communicator=communicator,
+                              txt=txt, parallel=new_parallel, **new_kwargs)
 
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
