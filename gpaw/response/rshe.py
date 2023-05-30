@@ -51,6 +51,10 @@ class RealSphericalHarmonicsExpansion:
     def l_M(self):
         return [self.l_L[L] for L in self.L_M]
 
+    def evaluate_on_quadrature(self):
+        Y_nM = self.Y_nL[:, self.L_M]
+        return Y_nM @ self.f_gM.T
+
     def reduce_expansion(self, fns_g, lmax=-1, wmin=None):
         """Reduce the composite index L=(l,m) to M, which indexes coefficients
         contributing with a weight larger than rshewmin to the surface norm
