@@ -11,9 +11,6 @@ from gpaw.elph import DisplacementRunner, Supercell
 from gpaw.mpi import world
 
 
-@pytest.mark.skip  # see #883
-@pytest.mark.skipif(world.size > 2,
-                    reason='world.size > 2')
 @pytest.mark.elph
 def test_gradient(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
@@ -33,6 +30,10 @@ def test_gradient(in_tmp_dir):
                               calculate_forces=False)
     elph.indices = []
     elph.run()
+
+    # Barrier will be included in elph.run() in the future:
+    # https://gitlab.com/ase/ase/-/merge_requests/2903
+    world.barrier()
 
     Vt_sG = elph.cache['eq']['Vt_sG']
     dH_all_asp = elph.cache['eq']['dH_all_asp']
