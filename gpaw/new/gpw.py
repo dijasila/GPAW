@@ -17,6 +17,7 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.utilities import unpack, unpack2
+from gpaw.typing import DTypeLike
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
@@ -50,9 +51,12 @@ def write_gpw(filename: str,
                    for key, value in calculation.results.items()
                    if key != 'non_collinear_magmoms'}
         writer.child('results').write(**results)
-        writer.child('parameters').write(
-            **{k: v for k, v in params.items()
-               if k not in ['txt', 'parallel']})
+
+        p = {k: v for k, v in params.items() if k not in ['txt', 'parallel']}
+        # ULM does not know about numpy dtypes:
+        if 'dtype' in p:
+            p['dtype'] = np.dtype(p['dtype']).name
+        writer.child('parameters').write(**p)
 
         state = calculation.state
         state.density.write(writer.child('density'))
@@ -104,7 +108,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 def read_gpw(filename: Union[str, Path, IO[str]],
              log: Union[Logger, str, Path, IO[str]] = None,
              parallel: dict[str, Any] = None,
-             force_complex_dtype: bool = False):
+             dtype: DTypeLike = None):
     """
     Read gpw file
 
@@ -125,29 +129,42 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     ha = reader.ha
 
     atoms = read_atoms(reader.atoms)
-
     kwargs = reader.parameters.asdict()
     kwargs['parallel'] = parallel
 
-    if force_complex_dtype:
-        kwargs['force_complex_dtype'] = True
+    if 'dtype' in kwargs:
+        kwargs['dtype'] = np.dtype(kwargs['dtype'])
+
+    # kwargs['nbands'] = reader.wave_functions.eigenvalues.shape[-1]
 
     params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
-
-    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
-        builder.communicators[x] for x in 'kbdD')
 
     if world.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
         D_sap_array = reader.density.atomic_density_matrices
         dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices / ha
+        shape = nt_sR_array.shape[1:]
     else:
         nt_sR_array = None
         vt_sR_array = None
         D_sap_array = None
         dH_sap_array = None
+        shape = None
+
+    if builder.grid.global_shape() != mpi.broadcast(shape, comm=world):
+        # old gpw-file:
+        kwargs.pop('h', None)
+        kwargs['gpts'] = nt_sR_array.shape[1:]
+        params = InputParameters(kwargs, warn=False)
+        builder = create_builder(atoms, params)
+
+    if dtype is not None:
+        params.mode['dtype'] = dtype
+
+    (kpt_comm, band_comm, domain_comm, kpt_band_comm) = (
+        builder.communicators[x] for x in 'kbdD')
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)

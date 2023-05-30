@@ -94,6 +94,9 @@ class DummyFunctions(DistributedArrays[NoGrid]):
     def moment(self):
         return np.zeros(3)
 
+    def to_xp(self, xp):
+        return self
+
 
 class PSCoreDensities:
     def __init__(self, grid, fracpos_ac):
@@ -117,9 +120,11 @@ class TBPotentialCalculator(PotentialCalculator):
         self.stress_vv = None
 
     def calculate_charges(self, vHt_r):
-        return {a: np.zeros(9) for a, setup in enumerate(self.setups)}
+        return AtomArraysLayout(
+            [9] * len(self.atoms),
+            self.nct_R.comm).zeros()
 
-    def _calculate(self, density, vHt_r):
+    def calculate_pseudo_potential(self, density, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms
@@ -158,10 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
+        self.world = world
 
     def iterate(self,
                 state,
@@ -218,11 +224,14 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         occ_calc = self.create_occupation_number_calculator()
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = self.create_eigensolver(hamiltonian)
-        return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
+        return TBSCFLoop(hamiltonian, occ_calc, eigensolver,
+                         self.communicators['w'])
 
     def create_ibz_wave_functions(self,
                                   basis: BasisFunctions,
                                   potential,
+                                  *,
+                                  log=None,
                                   coefficients=None):
         assert self.communicators['w'].size == 1
 
@@ -243,7 +252,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
             vt_r[-1] = 0.0  # ???
             vt = setup.rgd.spline(vt_r, points=300)
             vtphit_j = []
-            for phit in setup.phit_j:
+            for phit in setup.basis_functions_J:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
@@ -251,7 +260,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
-        vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+        vtciexpansions = TCIExpansions([s.basis_functions_J
+                                        for s in self.setups],
                                        [vtphit[s] for s in self.setups],
                                        tciexpansions.I_a)
 

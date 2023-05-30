@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
+from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 
 def coulomb_interaction(omega, gd, kd):

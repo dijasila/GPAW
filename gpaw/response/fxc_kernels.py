@@ -7,31 +7,8 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LDA_dens_fxc, add_LSDA_trans_fxc)
-
-
-class FXCScaling:
-    """Helper for scaling fxc kernels."""
-
-    def __init__(self, mode, lambd=None):
-        self.mode = mode
-        self.lambd = lambd
-
-    @property
-    def has_scaling(self):
-        return self.lambd is not None
-
-    def get_scaling(self):
-        return self.lambd
-
-    def calculate_scaling(self, chiks, Kxc_GG):
-        if chiks.spincomponent in ['+-', '-+']:
-            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
-        else:
-            raise ValueError('No scaling method implemented for '
-                             f'spincomponent={chiks.spincomponent}')
 
 
 class FXCKernel:
@@ -82,13 +59,14 @@ class FXCKernel:
         return Kxc_GG
 
     def save(self, path: Path):
-        """Save the fxc kernel in a .npz file format."""
+        """Save the fxc kernel in a .npz file."""
         assert path.suffix == '.npz'
-        np.savez(path,
-                 fxc_dG=self._fxc_dG,
-                 dG_K=self._dG_K,
-                 GG_shape=self.GG_shape,
-                 volume=self.volume)
+        with open(str(path), 'wb') as fd:
+            np.savez(fd,
+                     fxc_dG=self._fxc_dG,
+                     dG_K=self._dG_K,
+                     GG_shape=self.GG_shape,
+                     volume=self.volume)
 
     @staticmethod
     def from_file(path: Path):
@@ -111,6 +89,11 @@ class AdiabaticFXCCalculator:
 
         self.gs = localft_calc.gs
         self.context = localft_calc.context
+
+    @staticmethod
+    def from_rshe_parameters(*args, **kwargs):
+        return AdiabaticFXCCalculator(
+            LocalFTCalculator.from_rshe_parameters(*args, **kwargs))
 
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, qpd):
@@ -189,7 +172,7 @@ class AdiabaticFXCCalculator:
         # of which the norm is taken. When the number of plane-wave
         # coefficients is large, this step becomes a memory bottleneck, hence
         # the distribution.
-        dGblocks = Blocks1D(self.context.world, dG_dGv.shape[0])
+        dGblocks = Blocks1D(self.context.comm, dG_dGv.shape[0])
         dG_mydGv = dG_dGv[dGblocks.myslice]
 
         # Determine Q index for each dG index
@@ -204,7 +187,7 @@ class AdiabaticFXCCalculator:
             'large_qpd for all dG_dGv'
 
         # Collect the global Q_dG map
-        Q_dG = dGblocks.collect(Q_mydG)
+        Q_dG = dGblocks.all_gather(Q_mydG)
 
         return Q_dG
 

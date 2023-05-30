@@ -23,6 +23,7 @@ module load matplotlib/3.3.3-{tchain}-2020b
 module load scikit-learn/0.23.2-{tchain}-2020b
 module load pytest-xdist/2.1.0-GCCcore-10.2.0
 module load Wannier90/3.1.0-{tchain}-2020b
+unset PYTHONPATH
 """
 
 module_cmds_tc = {
@@ -49,7 +50,8 @@ fi
 dftd3 = """\
 mkdir {venv}/DFTD3
 cd {venv}/DFTD3
-wget http://chemie.uni-bonn.de/pctc/mulliken-center/software/dft-d3/dftd3.tgz
+URL=https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3
+wget $URL/dftd3.tgz
 tar -xf dftd3.tgz
 ssh thul ". {venv}/bin/activate && cd {venv}/DFTD3 && make"
 ln -s {venv}/DFTD3/dftd3 {venv}/bin

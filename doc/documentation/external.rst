@@ -16,7 +16,7 @@ Examples
 
 .. autoclass:: ConstantElectricField
 
->>> # Two point-charges:
+>>> # Two point-charges (in units of |e|):
 >>> from gpaw.external import PointChargePotential
 >>> pc = PointChargePotential([-1, 1], [[4.0, 4.0, 0.0], [4.0, 4.0, 10.0]])
 >>> calc = GPAW(external=pc, ...)

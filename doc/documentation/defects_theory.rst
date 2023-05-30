@@ -152,7 +152,7 @@ Bessel functions.
 .. math::
 
   \phi(\mathbf r) = \int_0^\infty \mathrm{d}k'\, 2qe^{-k'^2\sigma^2/2}
-  \varphi_{k'}(z) J_0(\rho k')\right
+  \varphi_{k'}(z) J_0(\rho k')
 
 Inserting this into the above equation and using the orthogonality relation
 `\int \rho\mathrm{d}\rho J_0(\rho k)J_0(\rho k') = \delta(k - k') / k` we find

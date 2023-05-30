@@ -16,6 +16,8 @@ from gpaw.new.potential import Potential
 
 
 class LCAOWaveFunctions(WaveFunctions):
+    xp = np
+
     def __init__(self,
                  *,
                  setups: Setups,
@@ -55,6 +57,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_MM = T_MM
         self.S_MM = S_MM
         self.P_aMi = P_aMi
+
+        self.bytes_per_band = (self.array_shape(global_shape=True)[0] *
+                               C_nM.data.itemsize)
 
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
