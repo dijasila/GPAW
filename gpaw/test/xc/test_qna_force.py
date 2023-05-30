@@ -5,7 +5,7 @@ from gpaw import GPAW
 
 @pytest.mark.later
 def test_xc_qna_force(in_tmp_dir, gpw_files):
-    calc = GPAW(gpw_files['Cu3Au_qna'])
+    calc = GPAW(gpw_files['Cu3Au_qna'], parallel=dict(domain=1))
     atoms = calc.get_atoms()
     # Displace atoms to have non-zero forces in the first place
     atoms[0].position[0] += 0.1
