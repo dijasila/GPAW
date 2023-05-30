@@ -25,7 +25,11 @@
 #endif
 #include "array.h"
 
-
+#ifdef GPAW_MPI2
+#ifndef GPAW_MPI_INPLACE
+#error "Deprecated: Define or undefine GPAW_MPI_INPLACE, instead of using GPAW_MPI2."
+#endif
+#endif
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
