@@ -86,7 +86,7 @@ class RealSphericalHarmonicsExpansion:
         # at least wmin to the surface norm square on average
         nL = min(self.nL, (lmax + 1)**2)
         L_L = np.arange(nL)
-        L_M = np.where(rshew_L[L_L] > wmin)[0]
+        L_M = np.where(rshew_L[L_L] >= wmin)[0]
         f_gM = f_gL[:, L_M]
         reduced_rshe = RealSphericalHarmonicsExpansion(
             f_gM, self.Y_nL, L_M=L_M)
