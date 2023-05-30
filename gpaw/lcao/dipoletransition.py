@@ -65,6 +65,7 @@ def get_momentum_transitions(wfs, savetofile: bool = True) -> ArrayND:
     momd_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
     moma_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
 
+    B_cv = 2.0 * np.pi * gd.icell_cv
     for kpt in wfs.kpt_u:
         C_nM = kpt.C_nM
         for v in range(3):
@@ -83,9 +84,9 @@ def get_momentum_transitions(wfs, savetofile: bool = True) -> ArrayND:
         moma_skvnm[kpt.s, kpt.k] = moma_vnm
 
         # diagonal term
+        k_v = np.dot(wfs.kd.ibzk_kc[kpt.k], B_cv)
         momd_skvnm[kpt.s, kpt.k] = np.einsum("k,nm->knm",
-                                             wfs.kd.ibzk_kc[kpt.k],
-                                             np.identity(nbands))
+                                             k_v, np.identity(nbands))
 
     mom_skvnm = momd_skvnm - 1j * (mome_skvnm + moma_skvnm)
     wfs.kd.comm.sum(mom_skvnm)

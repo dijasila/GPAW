@@ -1,74 +1,24 @@
 import pytest
-from ase import Atoms
 
-from gpaw import GPAW, PW
 from gpaw.mpi import world
 from gpaw.xc.fxc import FXCCorrelation
 
 
 @pytest.mark.rpa
 @pytest.mark.response
-def test_ralda_ralda_energy_H2(in_tmp_dir, scalapack):
-    if world.size == 1:
-        scalapack1 = None
-        scalapack2 = None
-    elif world.size == 2:
-        scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = None
-    else:
-        scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = (2, world.size // 2, 32)
+@pytest.mark.parametrize('gpw, kwargs, ref_energy, abstol', [
+    ('h2_pw210_rmmdiis_wfs', dict(xc='rALDA', nblocks=min(4, world.size)),
+     -0.8411, 1e-3),
+    ('h2_pw210_rmmdiis_wfs', dict(xc='rAPBE'), -0.7389, 1e-3),
+    ('h_pw210_rmmdiis_wfs', dict(xc='rALDA'), 0.0029, 1e-4),
+    ('h_pw210_rmmdiis_wfs', dict(xc='rAPBE', nblocks=min(4, world.size)),
+     0.0133, 1e-4),
+])
+def test_ralda_energy_H2(in_tmp_dir, gpw_files, scalapack, gpw,
+                         kwargs,
+                         ref_energy, abstol):
+    gpw = gpw_files[gpw]
+    fxc = FXCCorrelation(gpw, **kwargs, ecut=[200])
 
-    # H2
-    H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])
-    H2.set_pbc(True)
-    H2.set_cell((2., 2., 3.))
-    H2.center()
-    calc = GPAW(mode=PW(210, force_complex_dtype=True),
-                eigensolver='rmm-diis',
-                xc='LDA',
-                basis='dzp',
-                nbands=8,
-                parallel={'domain': 1},
-                convergence={'density': 1.e-6})
-    H2.calc = calc
-    H2.get_potential_energy()
-    calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
-    calc.write('H2.gpw', mode='all')
-
-    ralda = FXCCorrelation('H2.gpw', xc='rALDA', nblocks=min(4, world.size),
-                           ecut=[200])
-    E_ralda_H2 = ralda.calculate()
-
-    rapbe = FXCCorrelation('H2.gpw', xc='rAPBE', ecut=[200])
-    E_rapbe_H2 = rapbe.calculate()
-
-    # H
-    H = Atoms('H')
-    H.set_pbc(True)
-    H.set_cell((2., 2., 3.))
-    H.center()
-    calc = GPAW(mode=PW(210, force_complex_dtype=True),
-                eigensolver='rmm-diis',
-                xc='LDA',
-                basis='dzp',
-                nbands=4,
-                hund=True,
-                parallel={'domain': 1},
-                convergence={'density': 1.e-6})
-    H.calc = calc
-    H.get_potential_energy()
-    calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
-    calc.write('H.gpw', mode='all')
-
-    ralda = FXCCorrelation('H.gpw', xc='rALDA', ecut=[200])
-    E_ralda_H = ralda.calculate()
-
-    rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4, world.size),
-                           ecut=[200])
-    E_rapbe_H = rapbe.calculate()
-
-    assert E_ralda_H2 == pytest.approx(-0.8411, abs=0.001)
-    assert E_ralda_H == pytest.approx(0.0029, abs=0.0001)
-    assert E_rapbe_H2 == pytest.approx(-0.7233, abs=0.001)
-    assert E_rapbe_H == pytest.approx(0.0161, abs=0.0001)
+    energy = fxc.calculate()
+    assert energy == pytest.approx(ref_energy, abs=abstol)

@@ -69,6 +69,14 @@ Git master branch
   of excited electronic states now includes :ref:`constrained optimization <mom>`
   useful for challenging charge transfer excited states.
 
+* The :ref:`direct optimization generalized mode following method <do-gmf>` (DO-GMF) for
+  variational calculations of excited electronic states was added.
+
+* Updated electron-phonon coupling and Raman implementations and documentation. See :ref:`elphtheory` and :ref:`elphraman`.
+
+  .. warning::
+
+     Bugs in previous versions could have led to wrong relative intensities. Please regenerate the Raman tensor.
 
 Version 22.8.0
 ==============
@@ -174,7 +182,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
     the whole supercell matrix into memory.
 
   * A routine to calculate dipole and nabla (momentum) matrix elements for
-    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+    LCAO wave functions has been added: :git:`gpaw/lcao/dipoletransition.py`
 
 * You can now change all sorts of things about how the SCF cycle decides it
   is converged. You can specify new, non-default convergence keywords like

@@ -11,6 +11,7 @@ from gpaw.elph import DisplacementRunner, Supercell
 from gpaw.mpi import world
 
 
+@pytest.mark.skip  # see #883
 @pytest.mark.skipif(world.size > 2,
                     reason='world.size > 2')
 @pytest.mark.elph
