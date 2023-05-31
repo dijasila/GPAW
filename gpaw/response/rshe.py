@@ -166,18 +166,18 @@ def calculate_rshe(f_ng, Y_nL) -> RealSphericalHarmonicsExpansion:
 
     Parameters
     ----------
-    Documentation here! XXX
+    f_ng : np.array
+        f as a function of angular index n (on the Lebedev quadrature) and
+        radial index g.
+    Y_nL : np.array
+        Real spherical harmonics on the angular Lebedev quadrature as a
+        function of the composite spherical harmonics index L=(l,m).
     """
-    # Redo this function XXX
-    lmax = min(int(np.sqrt(Y_nL.shape[1])) - 1, 36)
-    nL = (lmax + 1)**2
-    L_L = np.arange(nL)
+    # Include coefficients up to l = 5, where nL = (l + 1)**2
+    nL = min(Y_nL.shape[1], 36)
 
     # Perform the real spherical harmonics expansion
-    f_ngL = np.repeat(f_ng, nL, axis=1).reshape((*f_ng.shape, nL))
-    Y_ngL = np.repeat(Y_nL[:, L_L], f_ng.shape[1],
-                      axis=0).reshape((*f_ng.shape, nL))
-    f_gL = integrate_lebedev(Y_ngL * f_ngL)
+    f_gL = integrate_lebedev(Y_nL[:, np.newaxis, :nL] * f_ng[..., np.newaxis])
 
     return RealSphericalHarmonicsExpansion(f_gL, Y_nL)
 
