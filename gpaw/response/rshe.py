@@ -37,6 +37,36 @@ class RealSphericalHarmonicsExpansion:
             L_M = np.arange(self.nL)
         self.L_M = L_M
 
+    @classmethod
+    def from_spherical_grid(cls, f_ng, Y_nL):
+        r"""Expand the function f(r) in real spherical harmonics.
+
+                / ^    ^     ^
+        f (r) = |dr Y (r) f(rr)
+         lm     /    lm
+
+        Note that the Lebedev quadrature, which is used to perform the angular
+        integral above, is exact up to polynomial order l=11. This implies that
+        expansion coefficients up to l=5 are exact.
+
+        Parameters
+        ----------
+        f_ng : np.array
+            f as a function of angular index n (on the Lebedev quadrature) and
+            radial index g.
+        Y_nL : np.array
+            Real spherical harmonics on the angular Lebedev quadrature as a
+            function of the composite spherical harmonics index L=(l,m).
+        """
+        # Include coefficients up to l = 5, where nL = (l + 1)**2
+        nL = min(Y_nL.shape[1], 36)
+
+        # Integrate Y_lm(r) * f(r) on the angular grid
+        f_gL = integrate_lebedev(
+            Y_nL[:, np.newaxis, :nL] * f_ng[..., np.newaxis])
+
+        return cls(f_gL, Y_nL)
+
     @property
     def nL(self):
         return self.Y_nL.shape[1]
@@ -153,39 +183,10 @@ class RealSphericalHarmonicsExpansion:
         return info_string
 
 
-def calculate_rshe(f_ng, Y_nL) -> RealSphericalHarmonicsExpansion:
-    r"""Expand the function f(r) in real spherical harmonics.
-
-            / ^    ^     ^
-    f (r) = |dr Y (r) f(rr)
-     lm     /    lm
-
-    Note that the Lebedev quadrature, which is used to perform the angular
-    integral above, is exact up to polynomial order l=11. This implies that
-    expansion coefficients up to l=5 are exact.
-
-    Parameters
-    ----------
-    f_ng : np.array
-        f as a function of angular index n (on the Lebedev quadrature) and
-        radial index g.
-    Y_nL : np.array
-        Real spherical harmonics on the angular Lebedev quadrature as a
-        function of the composite spherical harmonics index L=(l,m).
-    """
-    # Include coefficients up to l = 5, where nL = (l + 1)**2
-    nL = min(Y_nL.shape[1], 36)
-
-    # Perform the real spherical harmonics expansion
-    f_gL = integrate_lebedev(Y_nL[:, np.newaxis, :nL] * f_ng[..., np.newaxis])
-
-    return RealSphericalHarmonicsExpansion(f_gL, Y_nL)
-
-
 def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
     """
     Some documentation here! XXX
     """
-    rshe = calculate_rshe(f_ng, Y_nL)
+    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
     dfns_g = integrate_lebedev(f_ng ** 2)
     return rshe.reduce_expansion(dfns_g, lmax=lmax, wmin=wmin)

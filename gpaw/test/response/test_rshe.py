@@ -7,7 +7,8 @@ import itertools
 import numpy as np
 
 from gpaw.sphere.lebedev import Y_nL
-from gpaw.response.rshe import calculate_rshe, calculate_reduced_rshe
+from gpaw.response.rshe import (RealSphericalHarmonicsExpansion,
+                                calculate_reduced_rshe)
 
 
 def generate_combinations():
@@ -37,7 +38,7 @@ def test_rshe(Lcomb):
     f_ng = f_n[:, np.newaxis] * f_g[np.newaxis]
 
     # Test the real spherical harmonics expansion without basis reduction
-    rshe = calculate_rshe(f_ng, Y_nL)
+    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
     assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
 
     # Test the ability to reduce the expansion via minimum weights
