@@ -85,6 +85,10 @@ class RealSphericalHarmonicsExpansion:
         return self.Y_nL.shape[1]
 
     @property
+    def nM(self):
+        return len(self.L_M)
+
+    @property
     def lmax(self):
         flmax = np.sqrt(self.nL)
         lmax = int(flmax)
@@ -109,9 +113,8 @@ class RealSphericalHarmonicsExpansion:
 
 
 def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
-    """
-    Some documentation here! XXX
-    """
+    """Expand a function f(r) in real spherical harmonics with a reduced number
+    of expansion coefficients."""
     rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
     L_M, info_string = assess_rshe_reduction(f_ng, rshe, lmax=lmax, wmin=wmin)
     rshe = rshe.reduce_expansion(L_M)
@@ -128,7 +131,6 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     ----------
     Some documentation here! XXX
     """
-    # Redo me XXX
     # We do not expand beyond l=5
     if lmax == -1:
         lmax = 5
@@ -137,13 +139,13 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     assert isinstance(wmin, float) and wmin >= 0.
 
     # We assume to start with a full expansion
-    assert rshe.f_gM.shape[1] == rshe.nL
+    assert rshe.nM == rshe.nL
     f_gL = rshe.f_gM
 
     # Filter away (l,m)-coefficients based on their average weight in
-    # completing the surface norm square of df
-    fns_g = integrate_lebedev(f_ng ** 2)
-    fw_gL = _calculate_ns_weights(rshe.nL, f_gL, fns_g)
+    # completing the surface norm square f(r)
+    fsns_g = integrate_lebedev(f_ng ** 2)  # surface norm square
+    fw_gL = f_gL ** 2 / fsns_g[:, np.newaxis]  # weight of each L index
     rshew_L = np.average(fw_gL, axis=0)  # Average over the radial grid
 
     # Take rshe coefficients up to l <= lmax (<= 5) which contribute with
@@ -156,17 +158,6 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     info_string = get_reduction_info_string(nL, wmin, fw_gL, rshew_L)
 
     return L_M, info_string
-
-
-def _calculate_ns_weights(nL, df_gL, dfSns_g):
-    """Calculate the weighted contribution of each rsh coefficient to the
-    surface norm square of df as a function of radial grid index g."""
-    # This function is in dire need of clean-up! XXX
-    nallL = df_gL.shape[1]
-    dfSns_gL = np.repeat(dfSns_g, nallL).reshape(dfSns_g.shape[0], nallL)
-    dfSw_gL = df_gL ** 2 / dfSns_gL
-
-    return dfSw_gL
 
 
 def get_reduction_info_string(nL, wmin, fw_gL, rshew_L):
