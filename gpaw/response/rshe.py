@@ -12,13 +12,21 @@ def integrate_lebedev(f_nx):
 
 
 class RealSphericalHarmonicsExpansion:
-    """
-    Some documentation here! XXX
-    """
+    """Expansion in real spherical harmonics of a function f(r)."""
 
     def __init__(self, f_gM, Y_nL, L_M=None):
-        """
-        Some documentation here! XXX
+        """Construct the expansion
+
+        Parameters
+        ----------
+        f_gM : np.array
+            f as a function of radial index g and reduced spherical harmonic
+            index M.
+        Y_nL : np.array
+            Real spherical harmonics on the angular Lebedev quadrature as a
+            function of the composite spherical harmonics index L=(l,m).
+        L_M : np.array
+            L index for every reduced expansion index M.
         """
         self.f_gM = f_gM
         self.Y_nL = Y_nL
@@ -52,13 +60,14 @@ class RealSphericalHarmonicsExpansion:
         return [self.l_L[L] for L in self.L_M]
 
     def evaluate_on_quadrature(self):
+        """Evaluate the function f(r) on the angular Lebedev quadrature."""
         Y_nM = self.Y_nL[:, self.L_M]
         return Y_nM @ self.f_gM.T
 
     def reduce_expansion(self, fns_g, lmax=-1, wmin=None):
         """Reduce the composite index L=(l,m) to M, which indexes coefficients
-        contributing with a weight larger than rshewmin to the surface norm
-        square on average.
+        contributing with a weight larger than wmin to the surface norm square
+        on average.
         Remember to adjust documentation XXX
 
         Parameters
