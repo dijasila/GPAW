@@ -122,14 +122,12 @@ def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
 
 
 def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
-    """Reduce the composite index L=(l,m) to M, which indexes coefficients
-    contributing with a weight larger than wmin to the surface norm square
-    on average.
-    Remember to adjust documentation XXX
+    """Assess how to reduce the number of expansion coefficients.
 
-    Parameters
-    ----------
-    Some documentation here! XXX
+    The composite index L=(l,m) is reduced to an index M, which iterates the
+    expansion coefficients which contribute with a weight larger than wmin to
+    the surface norm square of the function f(r) on average. The M index is
+    further restricted to include coefficients only up to lmax.
     """
     # We do not expand beyond l=5
     if lmax == -1:
@@ -154,16 +152,13 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     L_L = np.arange(nL)
     L_M = np.where(rshew_L[L_L] >= wmin)[0]
 
-    # Construct info string about the reduced expansion
     info_string = get_reduction_info_string(nL, wmin, fw_gL, rshew_L)
 
     return L_M, info_string
 
 
 def get_reduction_info_string(nL, wmin, fw_gL, rshew_L):
-    """
-    Some documentation here! XXX
-    """
+    """Construct info string about the reduced expansion."""
     info_string = '{0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
                                                         'max weight',
                                                         'avg weight',
@@ -184,9 +179,7 @@ def get_reduction_info_string(nL, wmin, fw_gL, rshew_L):
 
 
 def get_rshe_coefficient_info_string(L, nL, rshew, wmin, fw_g):
-    """
-    Some documentation here! XXX
-    """
+    """Construct info string about the weight of a given coefficient."""
     l = int(np.sqrt(L))
     m = L - l * (l + 1)
     included = 'yes' if (rshew > wmin and L < nL) else 'no'
