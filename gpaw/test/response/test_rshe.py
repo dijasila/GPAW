@@ -34,7 +34,7 @@ def test_rshe(Lcomb):
     for L in Lcomb:
         f_n += Y_nL[:, L]
     # Build the radial dependence as a Lorentzian
-    f_g = 0.25 / (np.pi * (0.25**2 + np.linspace(0., 2.)**2.))
+    f_g = 0.25 / (np.pi * (0.25**2 + np.linspace(0., 2., 10)**2.))
     f_ng = f_n[:, np.newaxis] * f_g[np.newaxis]
 
     # Test the real spherical harmonics expansion without basis reduction
