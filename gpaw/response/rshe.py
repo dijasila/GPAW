@@ -67,6 +67,19 @@ class RealSphericalHarmonicsExpansion:
 
         return cls(f_gL, Y_nL)
 
+    def reduce_expansion(self, L_M):
+        """Produce a new expansion with only the spherical hamonic indices L_M.
+        """
+        # Translate requested indices L_M to the internal index M
+        M_M = []
+        for L in L_M:
+            lookup = np.where(self.L_M == L)[0]
+            assert len(lookup) == 1
+            M_M.append(lookup[0])
+
+        return RealSphericalHarmonicsExpansion(
+            self.f_gM[:, M_M], self.Y_nL, L_M=L_M)
+
     @property
     def nL(self):
         return self.Y_nL.shape[1]
@@ -100,11 +113,12 @@ def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
     Some documentation here! XXX
     """
     rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
-    dfns_g = integrate_lebedev(f_ng ** 2)
-    return reduce_expansion(rshe, dfns_g, lmax=lmax, wmin=wmin)
+    L_M, info_string = assess_rshe_reduction(f_ng, rshe, lmax=lmax, wmin=wmin)
+    rshe = rshe.reduce_expansion(L_M)
+    return rshe, info_string
 
 
-def reduce_expansion(rshe, fns_g, lmax=-1, wmin=None):
+def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     """Reduce the composite index L=(l,m) to M, which indexes coefficients
     contributing with a weight larger than wmin to the surface norm square
     on average.
@@ -128,6 +142,7 @@ def reduce_expansion(rshe, fns_g, lmax=-1, wmin=None):
 
     # Filter away (l,m)-coefficients based on their average weight in
     # completing the surface norm square of df
+    fns_g = integrate_lebedev(f_ng ** 2)
     fw_gL = _calculate_ns_weights(rshe.nL, f_gL, fns_g)
     rshew_L = np.average(fw_gL, axis=0)  # Average over the radial grid
 
@@ -136,14 +151,11 @@ def reduce_expansion(rshe, fns_g, lmax=-1, wmin=None):
     nL = min(rshe.nL, (lmax + 1)**2)
     L_L = np.arange(nL)
     L_M = np.where(rshew_L[L_L] >= wmin)[0]
-    f_gM = f_gL[:, L_M]
-    reduced_rshe = RealSphericalHarmonicsExpansion(
-        f_gM, rshe.Y_nL, L_M=L_M)
 
     # Construct info string about the reduced expansion
     info_string = get_reduction_info_string(nL, wmin, fw_gL, rshew_L)
 
-    return reduced_rshe, info_string
+    return L_M, info_string
 
 
 def _calculate_ns_weights(nL, df_gL, dfSns_g):
