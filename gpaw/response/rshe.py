@@ -152,37 +152,38 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     L_L = np.arange(nL)
     L_M = np.where(rshew_L[L_L] >= wmin)[0]
 
-    info_string = get_reduction_info_string(nL, wmin, fw_gL, rshew_L)
+    info_string = get_reduction_info_string(L_M, fw_gL, rshew_L)
 
     return L_M, info_string
 
 
-def get_reduction_info_string(nL, wmin, fw_gL, rshew_L):
+def get_reduction_info_string(L_M, fw_gL, rshew_L):
     """Construct info string about the reduced expansion."""
     info_string = '{0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
                                                         'max weight',
                                                         'avg weight',
                                                         'included')
     for L, (fw_g, rshew) in enumerate(zip(fw_gL.T, rshew_L)):
+        included = L in L_M
         info_string += '\n' + get_rshe_coefficient_info_string(
-            L, nL, rshew, wmin, fw_g)
+            L, included, rshew, fw_g)
 
-    tot_avg_cov = np.average(np.sum(fw_gL, axis=1))
-    avg_cov = np.average(
-        np.sum(fw_gL[:, :nL][:, rshew_L[:nL] > wmin], axis=1))
+    avg_cov = np.average(np.sum(fw_gL[:, L_M], axis=1))
     info_string += f'\nIn total: {avg_cov} of the surface norm square is '\
         'covered on average'
+
+    tot_avg_cov = np.average(np.sum(fw_gL, axis=1))
     info_string += f'\nIn total: {tot_avg_cov} of the surface norm '\
         'square could be covered on average'
 
     return info_string
 
 
-def get_rshe_coefficient_info_string(L, nL, rshew, wmin, fw_g):
+def get_rshe_coefficient_info_string(L, included, rshew, fw_g):
     """Construct info string about the weight of a given coefficient."""
     l = int(np.sqrt(L))
     m = L - l * (l + 1)
-    included = 'yes' if (rshew > wmin and L < nL) else 'no'
+    included = 'yes' if included else 'no'
     info_string = '{0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
                                                             np.max(fw_g),
                                                             rshew,
