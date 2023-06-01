@@ -70,6 +70,3 @@ def test_directmin_lcao(in_tmp_dir):
     niter = calc.get_number_of_iterations()
     assert e == pytest.approx(-13.643156256566218, abs=1.0e-4)
     assert niter == pytest.approx(3, abs=1)
-
-
-test_directmin_lcao(0)
