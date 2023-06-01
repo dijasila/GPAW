@@ -521,7 +521,6 @@ class LCAOForces:
         self.Mstop = ksl.Mstop
         self.setups = setups
         self.hamiltonian = hamiltonian
-        self.wfs = wfs
         self.timer = timer
         self.Fref_av = Fref_av
         self.my_atom_indices = bfs.my_atom_indices
