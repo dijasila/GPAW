@@ -49,15 +49,15 @@ def write_inputs():
           9.92192960       2.74605367e-15    -5.798261302561e-14    -6.679009854849e-14     1.608310263102e-04
     '''.strip())  # noqa: E501
 
-
 def test_embeddingrr_dyadic(in_tmp_dir, write_inputs):
     """
-    Testing if the dyadic is calculated correctly
+    Testing if the dyadic is calculated correctly.
+    Note, that this requires to use "extrapolate" for the interp1d function
     """
     dt, nt = 0.1, 1000
     rremission = RRemission(1e1, [0, 0, 1],
                             [2.98, 3, 0.01, 10, 5000, 3000], [1, 1, 0, 0, 0])
-    dyadic_out_very_good = rremission.dyadicGt(dt, nt)
+    dyadic_out_very_good, _ = rremission.dyadicGt(dt, nt)
     # Test that the first 30 elements of the dyadic agree with the reference
     dyadic_ref = [-0.26509844 + 1.07477307e-15j, -0.2646285 + 5.76719985e-16j,
                   -0.26482334 + 2.78241075e-16j, -0.26470851 - 2.48979644e-16j,
@@ -74,7 +74,7 @@ def test_embeddingrr_dyadic(in_tmp_dir, write_inputs):
                   -0.25471166 + 5.84927072e-16j, -0.25389627 - 5.16080234e-16j,
                   -0.25304015 - 7.72222997e-16j, -0.25216259 - 3.98986399e-16j,
                   -0.25124595 + 4.53738609e-16j, -0.25030692 + 4.82469967e-16j]
-    assert np.allclose(dyadic_out_very_good[:30], dyadic_ref)
+    assert np.allclose(dyadic_out_very_good[:30,-1], dyadic_ref)
 
     """
     Test if doubling resolution = half total time for dyadic
@@ -82,8 +82,9 @@ def test_embeddingrr_dyadic(in_tmp_dir, write_inputs):
     dt, nt = 0.1, 500
     rremission = RRemission(1e1, [0, 0, 1],
                             [2.98, 3, 0.01, 10, 5000, 6000], [1, 1, 0, 0, 0])
-    dyadic_out_very_good_split = rremission.dyadicGt(dt, nt)
-    assert np.allclose(dyadic_out_very_good_split[:30], dyadic_ref)
+    dyadic_out_very_good_split, _ = rremission.dyadicGt(dt, nt)
+    print(dyadic_out_very_good_split[:30,-1])
+    assert np.allclose(dyadic_out_very_good_split[:30,-1], dyadic_ref)
 
 
 def test_embeddingrr(in_tmp_dir, write_inputs):
