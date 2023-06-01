@@ -23,6 +23,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
+from gpaw.response.MPAsamp import mpa_frequency_sampling
 
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
@@ -1105,8 +1106,9 @@ class G0W0(G0W0Calculator):
                           'timeordered': False}
         elif mpa:
             assert not ppa
-            frequencies = [1e-10j, 1j * E0]
+            frequencies = mpa_frequency_sampling(1, [complex(0,1e-10), complex(0,1)], [0.1,0.1], ps='1l', alpha=1)
 
+            print(frequencies)
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
