@@ -33,9 +33,10 @@ def integrate_radial_grid(f_gx, r_g, rcut=None):
         mask_g = r_g <= rcut
         r_g = r_g[mask_g]
         f_gx = f_gx[mask_g]
-    # Perform actual integration using the trapez method
+
+    # Perform actual integration using the radial trapezoidal rule
     f_xg = np.moveaxis(f_gx, 0, -1)
-    f_x = np.trapz(f_xg * r_g**2., x=r_g)
+    f_x = radial_trapz(f_xg, r_g)
 
     return f_x
 
@@ -51,3 +52,28 @@ def find_two_closest_grid_points(r_g, rcut):
     g2 = np.where(abs_diff_g == ad2)[0][0]
 
     return g1, g2
+
+
+def radial_trapz(f_xg, r_g):
+    """
+    Some documentation here! XXX
+    """
+    assert np.all(r_g >= 0.)
+    assert f_xg.shape[-1] == len(r_g)
+
+    # Start and end of each integrated area
+    r0_g = r_g[:-1]
+    r1_g = r_g[1:]
+    f0_xg = f_xg[..., :-1]
+    f1_xg = f_xg[..., :1]
+    assert np.all(r1_g - r0_g > 0.),\
+        'Please give the radial grid in ascending order'
+
+    # Linearly interpolate f(r) between r0 and r1 and integrate r^2 f(r)
+    # in this area
+    integrand_xg = (r1_g**3. * f1_xg - r0_g**3. * f0_xg) / 4.
+    integrand_xg += (r1_g**3. - r0_g**3.) * (r1_g * f0_xg - r0_g * f1_xg)\
+        / (12. * (r1_g - r0_g))
+
+    # Sum over discrete integration areas
+    return np.sum(integrand_xg, axis=-1)
