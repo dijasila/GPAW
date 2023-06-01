@@ -12,8 +12,15 @@ def integrate_lebedev(f_nx):
 
 
 def integrate_radial_grid(f_gx, r_g, rcut=None):
-    """
-    Some documentation here! XXX
+    """Integrate the function f(r) on the radial grid.
+
+    Computes the integral
+
+    /
+    | r^2 dr f(r)
+    /
+
+    for the range of values r on the grid r_g (up to rcut, if specified).
     """
     if rcut is not None:
         assert rcut > 0.
@@ -55,13 +62,35 @@ def find_two_closest_grid_points(r_g, rcut):
 
 
 def radial_trapz(f_xg, r_g):
-    """
-    Some documentation here! XXX
+    r"""Integrate the function f(r) using the radial trapezoidal rule.
+
+    Linearly interpolating,
+
+                    r - r0
+    f(r) ≃ f(r0) + ‾‾‾‾‾‾‾ (f(r1) - f(r0))      for r0 <= r <= r1
+                   r1 - r0
+
+    the integral
+
+    /
+    | r^2 dr f(r)
+    /
+
+    can be constructed in a piecewise manner from each discretized interval
+    r_(n-1) <= r <= r_n, using:
+
+    r1
+    /               1
+    | r^2 dr f(r) ≃ ‾ (r1^3 f(r1) - r0^3 f(r0))
+    /               4
+    r0                r1^3 - r0^3
+                    + ‾‾‾‾‾‾‾‾‾‾‾ (r1 f(r0) - r0 f(r1))
+                      12(r1 - r0)
     """
     assert np.all(r_g >= 0.)
     assert f_xg.shape[-1] == len(r_g)
 
-    # Start and end of each integrated area
+    # Start and end of each discretized interval
     r0_g = r_g[:-1]
     r1_g = r_g[1:]
     f0_xg = f_xg[..., :-1]
@@ -75,5 +104,5 @@ def radial_trapz(f_xg, r_g):
     integrand_xg += (r1_g**3. - r0_g**3.) * (r1_g * f0_xg - r0_g * f1_xg)\
         / (12. * (r1_g - r0_g))
 
-    # Sum over discrete integration areas
+    # Sum over the discretized integration intervals
     return np.sum(integrand_xg, axis=-1)
