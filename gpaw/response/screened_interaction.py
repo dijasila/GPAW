@@ -25,7 +25,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False, E0=Ha, eta=None,
+                            ppa=False,mpa=False, E0=Ha, eta=None,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -48,6 +48,11 @@ def initialize_w_calculator(chi0calc, context, *,
                           context=context)
     if ppa:
         wcalc = PPACalculator(gs, context, qd=qd,
+                              coulomb=coulomb, xckernel=xckernel,
+                              integrate_gamma=integrate_gamma, eta=eta,
+                              q0_correction=q0_correction)
+    elif mpa:
+        wcalc = MPACalculator(gs, context, qd=qd,
                               coulomb=coulomb, xckernel=xckernel,
                               integrate_gamma=integrate_gamma, eta=eta,
                               q0_correction=q0_correction)
@@ -391,3 +396,45 @@ class PPACalculator(WBaseCalculator):
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
 
         return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
+
+class MPACalculator(WBaseCalculator):
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel,
+                 integrate_gamma, q0_correction, eta):
+        super().__init__(gs, context, qd=qd, coulomb=coulomb,
+                         xckernel=xckernel,
+                         integrate_gamma=integrate_gamma,
+                         q0_correction=q0_correction)
+        self.eta = eta
+
+    def get_HW_model(self, chi0,
+                     fxc_mode='GW'):
+        """Calculate the PPA parametrization of screened interaction.
+        """
+        assert len(chi0.wd.omega_w) == 2
+        # E0 directly related to frequency mesh for chi0
+        E0 = chi0.wd.omega_w[1].imag
+
+        dfc = DielectricFunctionCalculator(chi0,
+                                           self.coulomb,
+                                           self.xckernel,
+                                           fxc_mode)
+
+        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
+        self.context.timer.start('Dyson eq.')
+        einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+        omegat_GG = E0 * np.sqrt(einv_wGG[1] /
+                                 (einv_wGG[0] - einv_wGG[1]))
+        R_GG = -0.5 * omegat_GG * einv_wGG[0]
+        W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            self.apply_gamma_correction(W_GG, pi * R_GG,
+                                        V0, sqrtV0,
+                                        dfc.sqrtV_G)
+
+        self.context.timer.stop('Dyson eq.')
+
+        factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+
+        return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
+
