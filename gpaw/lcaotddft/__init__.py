@@ -12,6 +12,11 @@ from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
 from gpaw.tddft.units import attosec_to_autime
+from gpaw.lcaotddft.densitymatrix import DensityMatrix
+from gpaw.tddft.tdopers import TimeDependentDensity
+from gpaw.utilities.scalapack import scalapack_zero
+from scipy.linalg import schur, eigvals, inv, eigh
+from gpaw.blacs import Redistributor
 
 
 def LCAOTDDFT(filename: str, **kwargs) -> Any:
@@ -64,7 +69,12 @@ class OldLCAOTDDFT(GPAW):
                  scale: float = None,
                  parallel: dict = None,
                  communicator: object = None,
-                 txt: str = '-'):
+                 txt: str = '-',
+                 PLCAO_flag: bool = False,
+                 Ehrenfest_flag: bool = True,
+                 Ehrenfest_force_flag: bool = False,
+                 S_flag: bool = True,
+                 calculate_energy: bool = True):
         """"""
         assert filename is not None
         self.time = 0.0
@@ -81,10 +91,21 @@ class OldLCAOTDDFT(GPAW):
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
         self.default_parameters = GPAW.default_parameters.copy()
-        self.default_parameters['symmetry'] = {'point_group': False}
+        self.default_parameters['symmetry'] = {'point_group': False ,'time_reversal':False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
         self.set_positions()
+        self.td_density = TimeDependentDensity(self)
+        self.calculate_energy = calculate_energy
+        self.PLCAO_flag = PLCAO_flag
+        self.Ehrenfest_force_flag = Ehrenfest_force_flag
+        self.Ehrenfest_flag = Ehrenfest_flag
+        self.S_flag = S_flag
+        self.F_EC = np.empty_like(self.atoms.get_positions())
+        self.F_ECsg = np.empty_like(self.atoms.get_positions())
+        # Save old overlap S_MM_old which is necessary for propagating C_MM
+        for kpt in self.wfs.kpt_u:
+            kpt.S_MM_old = kpt.S_MM.copy()
 
     def write(self, filename, mode=''):
         # This function is included here in order to generate
@@ -133,7 +154,7 @@ class OldLCAOTDDFT(GPAW):
 
         # Initialize propagator
         self.propagator.initialize(self)
-
+        
         self.log('Propagator:')
         self.log(self.propagator.get_description())
         self.log()
@@ -231,7 +252,6 @@ class OldLCAOTDDFT(GPAW):
             # Call registered callback functions
             self.action = 'propagate'
             self.call_observers(self.niter)
-
             self.niter += 1
         self.timer.stop('Propagate')
 
@@ -240,3 +260,160 @@ class OldLCAOTDDFT(GPAW):
         self.propagator = create_propagator(**kwargs)
         self.tddft_init()
         self.propagator.control_paw(self)
+
+    def get_td_energy(self):
+ 
+        """Calculate the time-dependent total energy"""
+        if not self.calculate_energy:
+            self.Etot = 0.0
+
+        # self.td_overlap.update(self.wfs)
+        # self.td_density.update()
+        # self.td_hamiltonian.update('density')
+        # self.td_hamiltonian.update(self.td_density.get_density(),self.time)
+        self.td_hamiltonian.update()
+        self.update_eigenvalues()
+        return self.Etot
+
+    def update_eigenvalues(self):
+        np.set_printoptions(precision=4, suppress=1, linewidth=180)
+        # Calculate eigenvalue by non scf hamiltonian diagonalization
+        for kpt in self.wfs.kpt_u:
+            eig = self.wfs.eigensolver
+            H_MM = eig.calculate_hamiltonian_matrix(self.hamiltonian,
+                                                    self.wfs, kpt)
+        # Calculate eigenvalue by rho_uMM * H_MM
+        dmat = DensityMatrix(self)
+        
+        self.e_band_rhoH = 0.0
+        self.e_band = 0.0
+        rho_uMM = dmat.get_density_matrix((self.niter, self.action))
+        get_H_MM = self.td_hamiltonian.get_hamiltonian_matrix
+        ksl = self.wfs.ksl
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            rho_MM = rho_uMM[u]
+
+            # H_MM = get_H_MM(kpt, paw.time)
+            H_MM = get_H_MM(kpt, self.time, addfxc=False, addpot=False)
+
+            if ksl.using_blacs:
+                # rhoH_MM = (rho_MM * H_MM).real  # General case
+                # rhoH_MM = rho_MM.real * H_MM.real  # Hamiltonian is real
+                rhoH_MM = rho_MM.real * H_MM.real + rho_MM.imag * H_MM.imag
+                # Hamiltonian has correct values only in lower half, so
+                # 1. Add lower half and diagonal twice
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'U')
+                e = 2 * np.sum(rhoH_MM)
+                # 2. Reduce the extra diagonal)
+                scalapack_zero(ksl.mmdescriptor, rhoH_MM, 'L')
+                e -= np.sum(rhoH_MM)
+                # Sum over all ranks
+                e = ksl.block_comm.sum(e)
+                # self.e_band_rhoH += e
+
+            else:
+                e = np.sum(rho_MM.T * H_MM).real
+                self.e_band_rhoH += e
+
+        if ksl.using_blacs:
+            e = self.wfs.kd.comm.sum(e)
+            self.e_band_rhoH = e
+        # if self.wfs.kd.comm.rank == 0 and self.wfs.kd.comm.size > 1:
+        #    e = self.wfs.kd.comm.sum(e)
+        #    self.e_band_rhoH = e
+
+        H = self.td_hamiltonian.hamiltonian
+
+        # PAW
+        self.e_band = self.e_band_rhoH
+        self.Ekin = H.e_kinetic0 + self.e_band
+        self.e_coulomb = H.e_coulomb
+        self.Eext = H.e_external
+        self.Ebar = H.e_zero
+        self.Exc = H.e_xc
+        self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
+
+    def save_old_S_MM(self):
+        """Save overlap function from previous MD step"""
+        for kpt in self.wfs.kpt_u:
+            kpt.S_MM_old = kpt.S_MM.copy()
+
+    def basis_change(self, time, time_step):
+        """CHANGE BASIS USING overlap matrix S
+           S(R+dR)^(1/2) PSI(R+dr) = S(R)^(1/2) PSI(R)"""
+        using_blacs = self.wfs.ksl.using_blacs
+
+        if using_blacs is True:
+            nao = self.wfs.ksl.nao
+            MM_descriptor = self.wfs.ksl.blockgrid.new_descriptor(nao, nao,
+                                                                  nao, nao)
+            mm_block_descriptor = self.wfs.ksl.mmdescriptor
+            mm2MM = Redistributor(self.wfs.ksl.block_comm,
+                                  mm_block_descriptor,
+                                  MM_descriptor)
+
+            for kpt in self.wfs.kpt_u:
+                S_MM = kpt.S_MM.copy()
+                S_MM_full = MM_descriptor.empty(dtype=S_MM.dtype)
+                mm2MM.redistribute(S_MM, S_MM_full)
+
+                S_MM_old_full = MM_descriptor.empty(dtype=kpt.S_MM_old.dtype)
+                mm2MM.redistribute(kpt.S_MM_old, S_MM_old_full)
+
+                if self.density.gd.comm.rank == 0:
+                    T1, Seig_v = schur(S_MM_full, output='real')
+                    Seig = eigvals(T1)
+                    Seig_dm12 = np.diag(1 / np.sqrt(Seig))
+
+                    # S^1/2
+                    Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
+
+                    # Old overlap S^-1/2
+                    T2_o, Seig_v_o = schur(S_MM_old_full, output='real')
+                    Seig_o = eigvals(T2_o)
+                    Seig_dp12_o = np.diag(Seig_o**0.5)
+                    Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
+                    C_nM_temp = kpt.C_nM.copy()
+
+                    # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
+                    Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
+                    Sm12xSp12xC_nM = Sm12 @ Sp12xC_nM
+                    t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
+                    kpt.C_nM = t_Sm12xSp12xC_nM.copy()
+                self.density.gd.comm.broadcast(kpt.C_nM, 0)
+                self.td_hamiltonian.update()
+        else:
+            for kpt in self.wfs.kpt_u:
+                S_MM = kpt.S_MM.copy()
+
+                # T1, Seig_v = schur(S_MM, output='real')
+                P_MM=np.diag(self.wfs.P_kM[kpt.q])
+                Seig, Seig_v = eigh(P_MM.T @ S_MM @ P_MM.conj())
+                # Seig = eigvals(T1)
+                # Seig_dm12 = np.diag(1 / np.sqrt(Seig))
+
+                # Calculate S^1/2
+                # Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
+                Sm12 = Seig_v @ np.diag(1/np.sqrt(Seig)) @ Seig_v.T.conj()
+                Sm12=Sm12.T
+                # Old overlap S^-1/2
+                # T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
+                Seig_o, Seig_v_o = eigh(kpt.S_MM_old)
+                # Seig_o = eigvals(T2_o)
+                # Seig_dp12_o = np.diag(Seig_o**0.5)
+                # Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
+                C_nM_temp = kpt.C_nM.copy()
+                Sp12_o = Seig_v_o @ np.diag(np.sqrt(Seig_o)) @ Seig_v_o.T.conj()
+                Sp12_o = Sp12_o.T
+                # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
+                Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
+                Sm12xSp12xC_nM = P_MM @ Sm12 @ Sp12xC_nM
+                t_Sm12xSp12xC_nM = np.transpose(Sm12xSp12xC_nM)
+                kpt.C_nM = t_Sm12xSp12xC_nM.copy()
+        return time + time_step
+
+    def get_F_EC(self):
+        """
+        TO DO
+        Calculate energy conserving forces for LCAO Ehrenfest dynamics
+        """

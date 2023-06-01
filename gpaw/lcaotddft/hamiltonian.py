@@ -6,6 +6,7 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
+import numpy as np
 
 
 class TimeDependentPotential(object):
@@ -161,12 +162,13 @@ class TimeDependentHamiltonian(object):
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
         niter = paw.niter
+        self.PLCAO = PawCorrectionLCAO(self.wfs)
         if self.rremission is not None:
             self.rremission.initialize(paw)
-
         # Reset the density mixer
         # XXX: density mixer is not written to the gpw file
         # XXX: so we need to set it always
+
         self.density.set_mixer(DummyMixer())
         self.update()
 
@@ -273,3 +275,13 @@ class TimeDependentHamiltonian(object):
         if mode in ['all']:
             self.hamiltonian.update(self.density)
         self.timer.stop('Update TDDFT Hamiltonian')
+
+
+class PawCorrectionLCAO:
+    def __init__(self, wfs):
+        # TO DO
+        # Class that allows to calculate 
+        # P = v . D
+        # In order perform LCAO ehrenfest dynamics with
+        # gauge integrator
+        self.wfs = wfs

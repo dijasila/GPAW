@@ -21,6 +21,8 @@ def create_propagator(name, **kwargs):
         return create_propagator(**kwargs)
     elif name == 'sicn':
         return SICNPropagator(**kwargs)
+    elif name == 'edsicn':
+        return EDSICNPropagator(**kwargs)
     elif name == 'ecn':
         return ECNPropagator(**kwargs)
     elif name.endswith('.ulm'):
@@ -345,7 +347,6 @@ class SICNPropagator(ECNPropagator):
         # --------------
         # Predictor step
         # --------------
-        # 1. Store current C_nM
         self.save_wfs()  # kpt.C2_nM = kpt.C_nM
         for kpt in self.wfs.kpt_u:
             # H_MM(t) = <M|H(t)|M>
@@ -363,6 +364,7 @@ class SICNPropagator(ECNPropagator):
         for kpt in self.wfs.kpt_u:
             # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
             kpt.H0_MM += get_H_MM(kpt, time + time_step)
+
             kpt.H0_MM *= 0.5
             # 3. Solve Psi(t+dt) from
             #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
@@ -380,6 +382,74 @@ class SICNPropagator(ECNPropagator):
 
     def todict(self):
         return {'name': 'sicn'}
+
+
+class EDSICNPropagator(ECNPropagator):
+    # This could be merge with SICN (above)
+    def __init__(self):
+        ECNPropagator.__init__(self)
+
+    def initialize(self, paw):
+        ECNPropagator.initialize(self, paw)
+        # Allocate kpt.C2_nM arrays
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM = np.empty_like(kpt.C_nM)
+
+    def propagate(self, time, time_step, v):
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
+        # --------------
+        # Predictor step
+        # --------------
+        # 1. Store current C_nM
+        ksl = self.wfs.ksl
+        using_blacs = ksl.using_blacs
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            if using_blacs:
+                scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+                scalapack_tri2full(self.mm_block_descriptor, kpt.T_MM)
+            # H_MM(t) = <M|H(t)|M>
+            kpt.H0_MM = get_H_MM(kpt, time)
+            # Add P term in case we perform Ehrenfest dynamics
+            if self.hamiltonian.PLCAO_flag is True:
+                kpt.H0_MM += \
+                    self.hamiltonian.PLCAO.get_paw_correction_lcao(v)[u, :, :]
+            # 2. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+        # ---------------
+        # Propagator step
+        # ---------------
+        # 1. Calculate H(t+dt)
+        self.hamiltonian.update()
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
+            if self.hamiltonian.PLCAO_flag is True:
+                # Add P term in case we performe Ehrenfest dynamics
+                kpt.H0_MM += get_H_MM(kpt, time + time_step) + \
+                    self.hamiltonian.PLCAO.get_paw_correction_lcao(v)[u, :, :]
+            else:
+                kpt.H0_MM += get_H_MM(kpt, time + time_step)
+
+            kpt.H0_MM *= 0.5
+            # 3. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+            kpt.H0_MM = None
+        # 4. Calculate new Hamiltonian (and density)
+        self.hamiltonian.update()
+        return time + time_step
+
+    def save_wfs(self):
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM[:] = kpt.C_nM
+
+    def todict(self):
+        return {'name': 'edsicn'}
 
 
 class TaylorPropagator(Propagator):
