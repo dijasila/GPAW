@@ -276,8 +276,8 @@ class ETDM:
                 need_init_orbs=self.need_init_orbs
             )
         else:
-             raise NotImplementedError('ETDM does not work with FD/PW mode '
-                                       'yet. Use directmin instead.')
+            raise NotImplementedError('ETDM does not work with FD/PW mode '
+                                      'yet. Use directmin instead.')
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
 
@@ -552,6 +552,8 @@ class ETDM:
             if self.subspace_optimization:
                 if self.get_grad_norm() < self.subspace_convergence:
                     self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+                    for k, kpt in enumerate(wfs.kpt_u):
+                        wfs.atomic_correction.calculate_projections(wfs, kpt)
                     self.searchdir_algo.reset()
                     self.release_subspace()
                     for kpt in wfs.kpt_u:
