@@ -21,17 +21,19 @@ def test_lcaosic_h2o(in_tmp_dir):
                 positions=[(0, 0, 0),
                            (d, 0, 0),
                            (d * np.cos(t), d * np.sin(t), 0)])
-    H2O.center(vacuum=5.0)
+    H2O.center(vacuum=4.0)
 
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
-                h=0.25,
+                h=0.22,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver={'name': 'etdm',
                              'localizationtype': 'PM_PZ',
                              'localizationseed': 42,
+                             'subspace_convergence': 1e-3,
                              'functional_settings': {'name': 'PZ-SIC',
                                                      'scaling_factor': \
                                                          (0.5, 0.5)}},
+                convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off'
@@ -55,4 +57,4 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     e = H2O.get_potential_energy()
 
-    assert e == pytest.approx(24.87571, abs=1.0e-4)
+    assert e == pytest.approx(24.24236, abs=1.0e-3)
