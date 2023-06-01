@@ -54,7 +54,7 @@ def initialize_w_calculator(chi0calc, context, *,
     elif mpa:
         wcalc = MPACalculator(gs, context, qd=qd,
                               coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma, eta=eta,
+                              integrate_gamma=integrate_gamma, eta=eta, mpa=mpa,
                               q0_correction=q0_correction)
     else:
         if eta is not None:
@@ -355,6 +355,27 @@ class PPAHWModel(HWModel):
                                        x3_GG**2 + x4_GG**2)
         return x_GG, dx_GG
 
+#TODO 
+class MPAHWModel(HWModel):
+    def __init__(self, W_nGG, omegat_nGG, eta, factor):
+        self.W_nGG = W_nGG
+        self.omegat_nGG = omegat_nGG
+        self.eta = eta
+        self.factor = factor
+
+    def get_HW(self, omega, sign):
+        omegat_nGG = self.omegat_nGG
+        W_GG = self.W_GG
+
+        x1_GG = 1 / (omega + omegat_GG - 1j * self.eta)
+        x2_GG = 1 / (omega - omegat_GG + 1j * self.eta)
+        x3_GG = 1 / (omega + omegat_GG - 1j * self.eta * sign)
+        x4_GG = 1 / (omega - omegat_GG - 1j * self.eta * sign)
+        x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
+        dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
+                                       x3_GG**2 + x4_GG**2)
+        return x_GG, dx_GG
+#######
 
 class PPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
@@ -400,12 +421,13 @@ class PPACalculator(WBaseCalculator):
 class MPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
-                 integrate_gamma, q0_correction, eta):
+                 integrate_gamma, q0_correction, eta, mpa):
         super().__init__(gs, context, qd=qd, coulomb=coulomb,
                          xckernel=xckernel,
                          integrate_gamma=integrate_gamma,
                          q0_correction=q0_correction)
         self.eta = eta
+        self.mpa = mpa
 
     def get_HW_model(self, chi0,
                      fxc_mode='GW'):
@@ -425,12 +447,17 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
 
-        print('TODO')
-        """
-        omegat_GG = E0 * np.sqrt(einv_wGG[1] /
-                                 (einv_wGG[0] - einv_wGG[1]))
-        R_GG = -0.5 * omegat_GG * einv_wGG[0]
-        W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
+        nG1 = einv_wGG.shape[1]
+        nG2 = einv_wGG.shape[2]
+        R_nGG = np.zeros(self.mpa['npoles'],nG1,nG2,dtype=complex)
+        omegat_nGG = np.ones(self.mpa['npoles'],nG1,nG2,dtype=complex)
+        for i in range(nG1):
+            for j in range(nG2):
+                omegat_n, R_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, epsinv_wGG[:, i, j])
+                omegat_nGG[:,i,j] = omegat_n
+                R_nGG[:,i,j] = R_n
+
+        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, :, np.newaxis]
         if chi0.optical_limit or self.integrate_gamma != 0:
             self.apply_gamma_correction(W_GG, pi * R_GG,
                                         V0, sqrtV0,
@@ -439,7 +466,6 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        """
 
         return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
 
