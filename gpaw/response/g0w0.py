@@ -63,6 +63,9 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
         elif isinstance(val1, float) and isinstance(val2, float):
             if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
                 return False
+        elif isinstance(val1, np.ndarray):
+            if np.any(val1 != val2):
+                return False
         else:
             if val1 != val2:
                 return False
@@ -1106,9 +1109,7 @@ class G0W0(G0W0Calculator):
                           'timeordered': False}
         elif mpa:
             assert not ppa
-            frequencies = mpa_frequency_sampling(1, [complex(0,1e-10), complex(0,1)], [0.1,0.1], ps='1l', alpha=1)
-
-            print(frequencies)
+            frequencies = Ha * mpa_frequency_sampling(1, [complex(0,1e-10), complex(0,1)], [0.1,0.1], ps='1l', alpha=1)
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
