@@ -4,7 +4,8 @@ from gpaw.response.g0w0 import G0W0
 
 
 @pytest.mark.response
-def test_ppa(in_tmp_dir, gpw_files, scalapack):
+@pytest.mark.parametrize("mpa", [True,False])
+def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
     ref_result = np.asarray([[[11.30094393, 21.62842077],
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])
@@ -13,7 +14,8 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack):
               nbands=9,
               nblocks=1,
               ecut=40,
-              ppa=True)
+              ppa=not mpa,
+              mpa=mpa) 
 
     results = gw.calculate()
     np.testing.assert_allclose(results['qp'], ref_result, rtol=1e-03)
