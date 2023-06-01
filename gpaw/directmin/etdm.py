@@ -434,6 +434,7 @@ class ETDM:
         i1 = i1[ind]
         i2 = i2[ind]
         ind = np.empty_like(ind)
+        ind[:] = -1
         for p1 in range(len(i1)):
             val1 = np.inf
             val2 = np.inf
