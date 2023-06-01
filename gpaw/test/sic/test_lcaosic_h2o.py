@@ -26,7 +26,7 @@ def test_lcaosic_h2o(in_tmp_dir):
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=ETDM(localizationtype='PM',
+                eigensolver=ETDM(localizationtype='PM_PZ',
                                  localizationseed=42,
                                  functional_settings={
                                      'name': 'PZ-SIC',
