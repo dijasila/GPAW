@@ -26,7 +26,7 @@ def test_ehrenfest_LCAO():
                     txt='1_gpaw.kpts.txt',
                     kpts=kpts_gamma)
         atoms.calc = calc
-        E = atoms.get_potential_energy()/len(atoms)
+        E = atoms.get_potential_energy() / len(atoms)
         calc.write('1_gs.gpw', mode='all')
         return E
 
@@ -52,12 +52,10 @@ def test_ehrenfest_LCAO():
         traj_file = inp_gs + '.traj'
         Ekin = 80
         timestep = 32.0  # *0.2 #* np.sqrt(10/Ekin)
-        amu_to_aumass = _amu/_me
+        amu_to_aumass = _amu / _me
         tdcalc = LCAOTDDFT(inp_gs, propagator='edsicn',
-                           #PLCAO_flag=False,
                            Ehrenfest_flag=True,
-                           txt=inp_gs + '_out_td.txt',  S_flag=True)
-                           #Ehrenfest_force_flag=False)
+                           txt=inp_gs + '_out_td.txt', S_flag=True)
         tdcalc.tddft_init()
         f = open(inp_gs + '_td.log', 'w')
         proj_idx = 1
@@ -69,7 +67,7 @@ def test_ehrenfest_LCAO():
         Ekin = Ekin / Hartree
         Mproj *= amu_to_aumass
         for m in np.arange(0, len(v[:, 0]))[2::3]:
-            v[m, 2] = -np.sqrt((2*Ekin)/Mproj) * Bohr / AUT
+            v[m, 2] = -np.sqrt((2 * Ekin) / Mproj) * Bohr / AUT
         tdcalc.atoms.set_velocities(v)
         evv = EhrenfestVelocityVerlet(tdcalc)
         traj = Trajectory(traj_file, 'w', tdcalc.get_atoms())
@@ -79,9 +77,10 @@ def test_ehrenfest_LCAO():
 
         for i in range(niters):
             print("STEP MD i", i)
-            Ekin_p = 0.5*evv.M[proj_idx]*(evv.velocities[proj_idx, 0]**2
-                                          + evv.velocities[proj_idx, 1]**2
-                                          + evv.velocities[proj_idx, 2]**2)
+            Ekin_p = 0.5 * evv.M[proj_idx] * \
+                (evv.velocities[proj_idx, 0]**2
+                 + evv.velocities[proj_idx, 1]**2
+                 + evv.velocities[proj_idx, 2]**2)
             if i % ndiv == 0:
                 # nLow, n, nLowm, nm, eigv, nLow_kM = calculate_norm(tdcalc,
                 #                                                   tdcalc.wfs,
@@ -93,7 +92,7 @@ def test_ehrenfest_LCAO():
                 T = i * timestep
                 ep = Ekin_p * Hartree
                 f.write('%6.2f %18.10f %18.10f %18.10f %18.10f \n' % (T,
-                        ep, ekin, epot, ekin+epot))
+                        ep, ekin, epot, ekin + epot))
                 f.flush()
                 epot = tdcalc.get_td_energy() * Hartree
                 spa = tdcalc.get_atoms()
@@ -102,7 +101,7 @@ def test_ehrenfest_LCAO():
                 traj.write(spa)
             evv.propagate(timestep)
         traj.close()
-        return F_av, ekin+epot
+        return F_av, ekin + epot
 
     inp_gs = ['1_gs.gpw', '2_gs.gpw']
 
@@ -117,10 +116,10 @@ def test_ehrenfest_LCAO():
         E0.append(E)
         print('===========================')
     # print('F error',np.abs(F[0]-F[1]).max())
-    print('F error', np.abs(F0[0]-F0[1]).max())
+    print('F error', np.abs(F0[0] - F0[1]).max())
     print('EEEEE', E0[:])
     print('FFFFF', F0[:])
-    assert np.abs(F0[0]-F0[1]).max() < 1.0e-11
+    assert np.abs(F0[0] - F0[1]).max() < 1.0e-11
 
     equal(F0[0][0], -0.00025, 1e-5)
     equal(F0[1][0], -0.00025, 1e-5)
@@ -135,4 +134,3 @@ def test_ehrenfest_LCAO():
 
     equal(etot_no_gamma, 82.7482268662977, 1e-12)
     equal(F_no_gamma[0, 0], -0.00375, 1e-5)
-
