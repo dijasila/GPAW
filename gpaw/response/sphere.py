@@ -65,7 +65,7 @@ def radial_trapz(f_xg, r_g):
     r0_g = r_g[:-1]
     r1_g = r_g[1:]
     f0_xg = f_xg[..., :-1]
-    f1_xg = f_xg[..., :1]
+    f1_xg = f_xg[..., 1:]
     assert np.all(r1_g - r0_g > 0.),\
         'Please give the radial grid in ascending order'
 
