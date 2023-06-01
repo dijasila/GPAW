@@ -385,7 +385,8 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  exx_vxc_calculator,
-                 ppa=False):
+                 ppa=False,
+                 mpa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -423,11 +424,15 @@ class G0W0Calculator:
         ppa: bool
             Use Godby-Needs plasmon-pole approximation for screened interaction
             and self-energy
+        mpa: bool
+            Use multipole approximation for screened interaction
+            and self-energy
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
+        self.mpa = mpa
         
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
@@ -497,6 +502,10 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
+                               % self.chi0calc.wd.omega_w[1].imag)
+        elif self.mpa:
+            self.context.print('Using multipole approximation:')
+            self.context.print('  Fitting energies: i*E0, E0 = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
@@ -865,6 +874,8 @@ class G0W0Calculator:
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
                 
+                assert not self.mpa
+
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
@@ -958,6 +969,7 @@ class G0W0(G0W0Calculator):
                  ecut_extrapolation=False,
                  xc='RPA',
                  ppa=False,
+                 mpa=False,
                  E0=Ha,
                  eta=0.1,
                  nbands=None,
@@ -1020,6 +1032,9 @@ class G0W0(G0W0Calculator):
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
+         mpa: bool
+            Sets whether the multipole approximation for the
+            dielectric function should be used.
         xc: str
             Kernel to use when including vertex corrections.
         fxc_mode: str
@@ -1081,12 +1096,21 @@ class G0W0(G0W0Calculator):
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
+            assert not mpa
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * E0]
 
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
+        elif mpa:
+            assert not ppa
+            frequencies = [1e-10j, 1j * E0]
+
+            parameters = {'eta': 0,
+                          'hilbert': False,
+                          'timeordered': False}
+
         else:
             # frequencies = self.frequencies
             parameters = {'eta': eta,
@@ -1113,6 +1137,7 @@ class G0W0(G0W0Calculator):
         # XXX called below. This needs to be cleaned up.
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
+                                        mpa=mpa,
                                         xc=xc,
                                         E0=E0, eta=eta / Ha, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
@@ -1138,6 +1163,7 @@ class G0W0(G0W0Calculator):
                          kpts=kpts,
                          exx_vxc_calculator=exx_vxc_calculator,
                          ppa=ppa,
+                         mpa=mpa,
                          **kwargs)
 
     @property
