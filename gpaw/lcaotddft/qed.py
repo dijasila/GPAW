@@ -530,6 +530,11 @@ class RRemission(object):
                     Gw0 = Gw0 - G_freespace
         else:
             Gw = Gw0
+        if self.precomputedG is not None:
+            # We can move the sign to Dt later but the previous version
+            # was missing a sign in g and for test-suit reasons I added this
+            Gw = Gw * (-1)
+            Gw0 = Gw0 * (-1)
         for ii in range(9):
             Dt[:, ii] = -np.gradient(np.fft.ifft(Gw[:, ii].flatten()), deltat)
             # For some reason the explicit derivative works best, version
