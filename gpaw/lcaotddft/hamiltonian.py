@@ -6,7 +6,6 @@ from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import read_wuMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import write_wuMM
-import numpy as np
 
 
 class TimeDependentPotential(object):
@@ -280,7 +279,7 @@ class TimeDependentHamiltonian(object):
 class PawCorrectionLCAO:
     def __init__(self, wfs):
         # TO DO
-        # Class that allows to calculate 
+        # Class that allows to calculate
         # P = v . D
         # In order perform LCAO ehrenfest dynamics with
         # gauge integrator

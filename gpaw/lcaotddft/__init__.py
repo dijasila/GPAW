@@ -15,7 +15,7 @@ from gpaw.tddft.units import attosec_to_autime
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.tddft.tdopers import TimeDependentDensity
 from gpaw.utilities.scalapack import scalapack_zero
-from scipy.linalg import schur, eigvals, inv, eigh
+from scipy.linalg import schur, eigvals, eigh
 from gpaw.blacs import Redistributor
 
 
@@ -91,7 +91,8 @@ class OldLCAOTDDFT(GPAW):
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
         self.default_parameters = GPAW.default_parameters.copy()
-        self.default_parameters['symmetry'] = {'point_group': False ,'time_reversal':False}
+        self.default_parameters['symmetry'] = {'point_group': False,
+                                               'time_reversal': False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
         self.set_positions()
@@ -387,15 +388,15 @@ class OldLCAOTDDFT(GPAW):
                 S_MM = kpt.S_MM.copy()
 
                 # T1, Seig_v = schur(S_MM, output='real')
-                P_MM=np.diag(self.wfs.P_kM[kpt.q])
+                P_MM = np.diag(self.wfs.P_kM[kpt.q])
                 Seig, Seig_v = eigh(P_MM.T @ S_MM @ P_MM.conj())
                 # Seig = eigvals(T1)
                 # Seig_dm12 = np.diag(1 / np.sqrt(Seig))
 
                 # Calculate S^1/2
                 # Sm12 = Seig_v @ Seig_dm12 @ np.conj(Seig_v).T
-                Sm12 = Seig_v @ np.diag(1/np.sqrt(Seig)) @ Seig_v.T.conj()
-                Sm12=Sm12.T
+                Sm12 = Seig_v @ np.diag(1 / np.sqrt(Seig)) @ Seig_v.T.conj()
+                Sm12 = Sm12.T
                 # Old overlap S^-1/2
                 # T2_o, Seig_v_o = schur(kpt.S_MM_old, output='real')
                 Seig_o, Seig_v_o = eigh(kpt.S_MM_old)
@@ -403,7 +404,8 @@ class OldLCAOTDDFT(GPAW):
                 # Seig_dp12_o = np.diag(Seig_o**0.5)
                 # Sp12_o = Seig_v_o @ Seig_dp12_o @ np.conj(Seig_v_o).T
                 C_nM_temp = kpt.C_nM.copy()
-                Sp12_o = Seig_v_o @ np.diag(np.sqrt(Seig_o)) @ Seig_v_o.T.conj()
+                Sp12_o = Seig_v_o @ np.diag(np.sqrt(Seig_o)) \
+                    @ Seig_v_o.T.conj()
                 Sp12_o = Sp12_o.T
                 # Change basis PSI(R+dr) = S(R+dR)^(-1/2)S(R)^(1/2) PSI(R))
                 Sp12xC_nM = Sp12_o @ np.transpose(C_nM_temp)
