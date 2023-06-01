@@ -411,7 +411,8 @@ class MPACalculator(WBaseCalculator):
                      fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
-        assert len(chi0.wd.omega_w) == 2
+        #assert len(chi0.wd.omega_w) == 2
+        print(chi0.wd.omega_w)
         # E0 directly related to frequency mesh for chi0
         E0 = chi0.wd.omega_w[1].imag
 
@@ -423,6 +424,9 @@ class MPACalculator(WBaseCalculator):
         V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+
+        print('TODO')
+        """
         omegat_GG = E0 * np.sqrt(einv_wGG[1] /
                                  (einv_wGG[0] - einv_wGG[1]))
         R_GG = -0.5 * omegat_GG * einv_wGG[0]
@@ -435,6 +439,7 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+        """
 
-        return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
+        return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
 

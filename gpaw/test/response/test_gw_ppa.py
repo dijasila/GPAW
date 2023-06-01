@@ -10,7 +10,7 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
     ref_result = np.asarray([[[11.30094393, 21.62842077],
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])
-    mpa_dict = {'npoles':1, 'wrange':[0j,1j*Ha], 'wshift':[0.1*Ha, 0.1*Ha], 'alpha':1 }
+    mpa_dict = {'npoles':2, 'wrange':[1j*Ha,(2+1j)*Ha], 'wshift':[0.1*Ha, 0.1*Ha], 'alpha':1 }
 
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
