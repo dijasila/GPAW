@@ -1109,7 +1109,9 @@ class G0W0(G0W0Calculator):
                           'timeordered': False}
         elif mpa:
             assert not ppa
-            frequencies = Ha * mpa_frequency_sampling(1, [complex(0,1e-10), complex(0,1)], [0.1,0.1], ps='1l', alpha=1)
+
+            frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'], mpa['wshift'], ps='1l', alpha=mpa['alpha'])
+
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
