@@ -57,4 +57,6 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     e = H2O.get_potential_energy()
 
-    assert e == pytest.approx(24.24236, abs=1.0e-3)
+    assert e == pytest.approx(24.24718, abs=1.0e-3)
+
+test_lcaosic_h2o(0)

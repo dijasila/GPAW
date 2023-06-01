@@ -118,6 +118,8 @@ class ETDM:
         self.orthonormalization = orthonormalization
         self.constraints = constraints
         self.subspace_convergence = subspace_convergence
+        self.subspace_iters = 0
+        self.released_subspace = False
 
         self.gmf = False
         self.searchdir_algo = search_direction(
@@ -453,6 +455,7 @@ class ETDM:
 
     def lock_subspace(self, subspace='oo'):
         self.subspace_optimization = True
+        self.subspace_iters = 1
         if subspace == 'oo':
             self.ind_up = deepcopy(self.ind_oo_up)
             self.a_vec_u = deepcopy(self.a_vec_oo_u)
@@ -461,12 +464,19 @@ class ETDM:
             self.ind_up = deepcopy(self.ind_ov_up)
             self.a_vec_u = deepcopy(self.a_vec_ov_u)
             self.g_vec_u = deepcopy(self.g_vec_ov_u)
+        self.alpha = 1.0
+        self.phi_2i = [None, None]
+        self.der_phi_2i = [None, None]
 
     def release_subspace(self):
         self.subspace_optimization = False
+        self.released_subspace = True
         self.ind_up = self.ind_all_up
         self.a_vec_u = self.a_vec_all_u
         self.g_vec_u = self.g_vec_all_u
+        self.alpha = 1.0
+        self.phi_2i = [None, None]
+        self.der_phi_2i = [None, None]
 
     def iterate(self, ham, wfs, dens):
         """
@@ -487,7 +497,8 @@ class ETDM:
             der_phi_2i = self.der_phi_2i
             c_ref = self.dm_helper.reference_orbitals
 
-            if self.iters == 1:
+            if self.iters == 1 or self.released_subspace or \
+                    (self.subspace_optimization and self.subspace_iters == 1):
                 phi_2i[0], g_vec_u = \
                     self.get_energy_and_gradients(
                         a_vec_u, ham, wfs, dens, c_ref)
