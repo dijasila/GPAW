@@ -509,8 +509,8 @@ class ETDM:
             with wfs.timer('Get Search Direction'):
                 # calculate search direction according to chosen
                 # optimization algorithm (e.g. L-BFGS)
-                p_vec_u = self.searchdir_algo.update_data(wfs, a_vec_u,
-                                                          g_vec_u, precond)
+                p_vec_u = self.searchdir_algo.update_data(
+                    wfs, a_vec_u, g_vec_u, precond=precond)
 
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
