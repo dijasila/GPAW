@@ -14,7 +14,6 @@ from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
 from gpaw.directmin.etdm import ETDM
-from ase.parallel import paropen
 
 
 class LCAO(Mode):
@@ -59,17 +58,17 @@ def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
     for q, C_nM in zip(q_u, C_unM):
         if C_nM is None:
             continue
-        P_M = np.zeros_like(C_nM[0,:])
+        P_M = np.zeros_like(C_nM[0, :])
         P_kM.append(P_M)
         for a in range(len(spos_ac)):
             M1 = setups.M_a[a] - Mstart
             M2 = M1 + setups[a].nao
             M1 = max(0, M1)
-            #P_M = np.zeros_like(C_nM[0,:])
             # FIXME
-            #C_nM[:, M1:M2] *= phase_qa[q, a]  # (may truncate M2)
+            # C_nM[:, M1:M2] *= phase_qa[q, a]  # (may truncate M2)
             P_M[M1:M2] = phase_qa[q, a]  # (may truncate M2)
     return P_kM
+
 
 # replace by class to make data structure perhaps a bit less confusing
 def get_r_and_offsets(nl, spos_ac, cell_cv):
@@ -208,10 +207,10 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_qMM = self.T_qMM = self.P_aqMi = None
 
         if self.dtype == complex and oldspos_ac is not None:
-            self.P_kM=update_phases([kpt.C_nM for kpt in self.kpt_u],
-                          [kpt.q for kpt in self.kpt_u],
-                          self.kd.ibzk_qc, spos_ac, oldspos_ac,
-                          self.setups, Mstart)
+            self.P_kM = update_phases([kpt.C_nM for kpt in self.kpt_u],
+                                      [kpt.q for kpt in self.kpt_u],
+                                      self.kd.ibzk_qc, spos_ac, oldspos_ac,
+                                      self.setups, Mstart)
 
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
@@ -557,22 +556,9 @@ class LCAOForces:
         # TO DO
         pass
 
-    def write_data(self,file_data,mat):
-        for j in np.arange(0,len(mat[:,0])):
-            for k in np.arange(0,len(mat[0,:])):
-                file_data.write('%14.8f ' % (mat[j,k]))
-        file_data.write('\n')
-        file_data.flush()
-        file_data.close()
-
     def get_forces_sum_GS(self):
-        """ This function calculates ground state forces in LCAO mode """
 
-        Fkin_avf = paropen(  'Fkin_av.dat',"a")
-        Fpot_avf = paropen(  'Fpot_av.dat',"a")
-        Ftheta_avf = paropen('Ftheta_av.dat',"a")
-        Frho_avf = paropen(  'Frho_av.dat',"a")
-        Fatom_avf = paropen( 'Fatom_av.dat',"a")
+        """ This function calculates ground state forces in LCAO mode """
 
         if not self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
@@ -582,11 +568,6 @@ class LCAOForces:
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-            self.write_data(Fkin_avf,    Fkin_av)
-            self.write_data(Fpot_avf,    Fpot_av)
-            self.write_data(Ftheta_avf,  Ftheta_av)
-            self.write_data(Frho_avf,    Frho_av)
-            self.write_data(Fatom_avf,   Fatom_av)
 
         else:
             F_av = np.zeros_like(self.Fref_av)
