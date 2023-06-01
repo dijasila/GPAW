@@ -276,8 +276,8 @@ class ETDM:
                 need_init_orbs=self.need_init_orbs
             )
         else:
-             raise NotImplementedError('ETDM does not work with FD/PW mode '
-                                       'yet. Use directmin instead.')
+            raise NotImplementedError('ETDM does not work with FD/PW mode '
+                                      'yet. Use directmin instead.')
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
 
