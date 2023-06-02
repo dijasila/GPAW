@@ -253,7 +253,7 @@ class RRemission(object):
         y_subtracted = y - y_fit
         return [popt, y_subtracted]
 
-    def linear_fit(self, x, y, cutfreq):
+    def l_fit(self, x, y, cutfreq):
         cutupper = int(np.floor(len(x) / 2))
         xcut = x[:cutupper]
         cutlower = np.argmin((x[:cutupper] - cutfreq * 1.5)**2)
@@ -471,13 +471,19 @@ class RRemission(object):
                 print("Dressing G for simplified cavity")
                 for ii in range(3):
                     for jj in range(3):
-                        Gw[:, 3 * ii + jj] = (self.polarization_cavity[ii] *
-                                              self.polarization_cavity[jj] *
-                                              np.reciprocal(np.reciprocal(g_omega)
-                                              - (alpha**2 * omegafft**2 *
-                                                 self.ensemble_number * Xw[:, 3 * ii + jj]
-                                                 * self.polarization_cavity[ii] *
-                                                 self.polarization_cavity[jj])))
+                        Gw[:, 3 * ii + jj] = (
+                            self.polarization_cavity[ii] *
+                            self.polarization_cavity[jj] *
+                            np.reciprocal(
+                                np.reciprocal(g_omega) -
+                                (
+                                    alpha ** 2 * omegafft ** 2 *
+                                    self.ensemble_number * Xw[:, 3 * ii + jj] *
+                                    self.polarization_cavity[ii] *
+                                    self.polarization_cavity[jj]
+                                )
+                            )
+                        )
             else:
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
@@ -493,23 +499,34 @@ class RRemission(object):
                 """
                 for el in range(len(omegafft)):
                     """
-                    For each frequency, reshape Gw0 and Xw into matrix and build
-                    Gw via taking the inverse. Notice, that for Xw=0, Gw=Gw0
-                    and the singular case is also set to Gw=Gw0.
+                    For each frequency, reshape Gw0 and Xw into matrix and
+                    build Gw via taking the inverse. Notice, that for Xw=0,
+                    Gw=Gw0 and the singular case is also set to Gw=Gw0.
                     """
                     if np.sum(np.abs(Gw0[el, :])) > 1e-18:
-                        Gw[el, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(Xw[el, :], (3, 3)))), (-1, ))
+                        Gw[el, :] = np.reshape(
+                            np.linalg.inv(
+                                np.linalg.inv(
+                                    np.reshape(Gw0[el, :], (3, 3))
+                                ) - (alpha**2 * omegafft[el]**2 *
+                                     self.ensemble_number *
+                                     np.reshape(Xw[el, :], (3, 3)))
+                            ),
+                            (-1, )
+                        )
                     else:
                         Gw[el, :] = Gw0[el, :]
+
                 if self.cutofffrequency is not None:
                     for ii in range(3):
-                        [Gbg_re, Gout_re] = self.linear_fit(omegafft,
-                                                            np.real(Gw[:, 4 * ii]),
-                                                            self.cutofffrequency)
-                        [Gbg_im, Gout_im] = self.linear_fit(omegafft,
-                                                            np.imag(Gw[:, 4 * ii]),
-                                                            self.cutofffrequency)
-                        if np.abs(Gbg_im / len(omegafft) / (alpha / (6 * np.pi)) - 1) > 0.1:
+                        [Gbg_re, Gout_re] = self.l_fit(omegafft,
+                                                       np.real(Gw[:, 4 * ii]),
+                                                       self.cutofffrequency)
+                        [Gbg_im, Gout_im] = self.l_fit(omegafft,
+                                                       np.imag(Gw[:, 4 * ii]),
+                                                       self.cutofffrequency)
+                        if (np.abs(Gbg_im / len(omegafft)
+                            / (alpha / (6 * np.pi)) - 1) > 0.1):
                             Gbg[:, 4 * ii] = 1j * Gbg_im * omegafft
                             self.Ggbamp = (Gbg_im / len(omegafft) /
                                            (alpha / (6 * np.pi)))
@@ -586,13 +603,13 @@ class RRemission(object):
         for ii in range(3):
             for jj in range(3):
                 dyadic_t = self.dyadic[:self.itert, 3 * ii + jj]
-                electric_rr_field[ii] += ((4. * np.pi * alpha**2 * deltat *
-                                          (np.dot(dyadic_t[::-1],
-                                                  self.dipolexyz_time[:self.itert, jj])
-                                           - 0.5 * dyadic_t[-1] * self.dipolexyz_time[0, jj]
-                                           - (0.5 * dyadic_t[0]
-                                              * self.dipolexyz_time[self.itert, jj])))
-                                          + (4. * np.pi * alpha**2 *
-                                             self.dyadic_st[3 * ii + jj] *
-                                             self.density.calculate_dipole_moment()[jj]))
+                electric_rr_field[ii] += (
+                    (4. * np.pi * alpha**2 * deltat *
+                     (np.dot(dyadic_t[::-1],
+                             self.dipolexyz_time[:self.itert, jj])
+                      - 0.5 * dyadic_t[-1] * self.dipolexyz_time[0, jj]
+                      - (0.5 * dyadic_t[0] *
+                         self.dipolexyz_time[self.itert, jj])))
+                    + (4. * np.pi * alpha**2 * self.dyadic_st[3 * ii + jj] *
+                       self.density.calculate_dipole_moment()[jj]))
         return np.real(electric_rr_field)
