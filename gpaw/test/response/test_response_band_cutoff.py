@@ -45,4 +45,3 @@ def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-3):
             allset = thisset & allset
 
     return allset
-
