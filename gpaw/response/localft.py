@@ -11,10 +11,9 @@ from ase.units import Bohr
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 from gpaw.spherical_harmonics import Yarr
+from gpaw.sphere.rshe import calculate_reduced_rshe
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
-
-from gpaw.response.rshe import calculate_reduced_rshe
 
 
 class LocalFTCalculator(ABC):

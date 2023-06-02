@@ -7,8 +7,8 @@ import itertools
 import numpy as np
 
 from gpaw.sphere.lebedev import Y_nL
-from gpaw.response.rshe import (RealSphericalHarmonicsExpansion,
-                                calculate_reduced_rshe)
+from gpaw.sphere.rshe import (RealSphericalHarmonicsExpansion,
+                              calculate_reduced_rshe)
 
 
 def generate_combinations():
@@ -23,7 +23,6 @@ def generate_combinations():
     return Lcomb_i
 
 
-@pytest.mark.response
 @pytest.mark.parametrize('Lcomb', generate_combinations())
 def test_rshe(Lcomb):
     """Test the ability to regenerate a given function based on a
@@ -45,6 +44,7 @@ def test_rshe(Lcomb):
     rshe, _ = calculate_reduced_rshe(f_ng, Y_nL, wmin=1e-8)
     assert len(rshe.L_M) == len(Lcomb)
     assert all([L in rshe.L_M for L in Lcomb])
+    assert all([int(np.sqrt(L)) in rshe.l_M for L in Lcomb])
     assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
 
     # Test the ability to reduce the expansion by an lmax
