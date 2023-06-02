@@ -408,17 +408,17 @@ class PPACalculator(WBaseCalculator):
                                  (einv_wGG[0] - einv_wGG[1]))
         R_GG = -0.5 * omegat_GG * einv_wGG[0]
         W_GG = pi * R_GG * dfc.sqrtV_G * dfc.sqrtV_G[:, np.newaxis]
-        #if chi0.optical_limit or self.integrate_gamma != 0:
-        #    self.apply_gamma_correction(W_GG, pi * R_GG,
-        #                                V0, sqrtV0,
-        #                                dfc.sqrtV_G)
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            self.apply_gamma_correction(W_GG, pi * R_GG,
+                                        V0, sqrtV0,
+                                        dfc.sqrtV_G)
 
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
 
-        print('ppa \n R:',R_GG[0,1],'\n om:',omegat_GG[0,1])
-        print('ppa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 1])
+        print('ppa \n W:',W_GG[0,0],'\n om:',omegat_GG[0,0])
+        print('ppa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
 
 class MPACalculator(WBaseCalculator):
@@ -456,24 +456,24 @@ class MPACalculator(WBaseCalculator):
         omegat_nGG = np.ones((self.mpa['npoles'],nG1,nG2),dtype=complex)
         for i in range(nG1):
             for j in range(nG2):
-                omegat_n, R_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, einv_wGG[:, i, j])
+                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, einv_wGG[:, i, j])
                 omegat_nGG[:,i,j] = omegat_n
                 R_nGG[:,i,j] = R_n
 
                 #print('fails',PPcond_rate)
 
-        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, :, np.newaxis]
-        #if chi0.optical_limit or self.integrate_gamma != 0:
-        #    for W_GG,R_GG in zip(W_nGG,R_nGG):
-        #        self.apply_gamma_correction(W_GG, pi * R_GG,
-        #                                    V0, sqrtV0,
-        #                                    dfc.sqrtV_G)
+        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            for W_GG,R_GG in zip(W_nGG,R_nGG):
+                self.apply_gamma_correction(W_GG, pi * R_GG,
+                                            V0, sqrtV0,
+                                            dfc.sqrtV_G)
 
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        print('mpa \n R:',R_nGG[:,0,1],'\n om:',omegat_nGG[:,0,1])
+        print('mpa \n W:',W_nGG[:,0,0],'\n om:',omegat_nGG[:,0,0])
 
-        print('mpa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 1])
+        print('mpa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
 
