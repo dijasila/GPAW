@@ -7,8 +7,8 @@ import itertools
 import numpy as np
 
 from gpaw.sphere.lebedev import Y_nL
-from gpaw.response.rshe import (RealSphericalHarmonicsExpansion,
-                                calculate_reduced_rshe)
+from gpaw.sphere.rshe import (RealSphericalHarmonicsExpansion,
+                              calculate_reduced_rshe)
 
 
 def generate_combinations():
