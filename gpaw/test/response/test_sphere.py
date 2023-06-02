@@ -5,8 +5,8 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
-from gpaw.response.sphere import (radial_trapz, integrate_lebedev,
-                                  integrate_radial_grid)
+from gpaw.sphere.lebedev import integrate_lebedev
+from gpaw.response.sphere import radial_trapz, integrate_radial_grid
 
 
 def generate_analytical_integrals():
