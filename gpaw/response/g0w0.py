@@ -1112,7 +1112,7 @@ class G0W0(G0W0Calculator):
 
             frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'], mpa['wshift'], ps='2l', alpha=mpa['alpha'])
 
-            parameters = {'eta': 0.001,
+            parameters = {'eta': 0.000001,
                           'hilbert': False,
                           'timeordered': False}
 
