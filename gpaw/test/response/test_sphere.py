@@ -4,7 +4,8 @@ import numpy as np
 
 from ase.units import Bohr
 
-from gpaw.response import ResponseContext, ResponseGroundStateAdapter
+from gpaw import GPAW
+
 from gpaw.sphere.lebedev import integrate_lebedev
 from gpaw.response.sphere import radial_trapz, integrate_radial_grid
 
@@ -55,7 +56,6 @@ def generate_analytical_integrals():
     ]
 
 
-@pytest.mark.response
 @pytest.mark.parametrize('analytical_integral',
                          generate_analytical_integrals())
 def test_radial_trapz(analytical_integral):
@@ -72,17 +72,12 @@ def test_radial_trapz(analytical_integral):
         assert abs(result - ref) <= 1e-8 + rtol * ref
 
 
-@pytest.mark.response
 def test_fe_augmentation_sphere(gpw_files):
-    # Create ground state adapter from the iron fixture
-    context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
-                                                  context=context)
-
-    # Extract the spherical grid information
-    pawdata = gs.pawdatasets[0]
-    rgd = pawdata.rgd
-    Y_nL = pawdata.xc_correction.Y_nL
+    # Extract the spherical grid information from the iron fixture
+    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    setup = calc.setups[0]
+    rgd = setup.rgd
+    Y_nL = setup.xc_correction.Y_nL
 
     # Create a function which is unity over the entire grid
     f_ng = np.ones((Y_nL.shape[0], rgd.N))
