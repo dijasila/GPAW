@@ -290,6 +290,19 @@ class AtomArrays:
     def __contains__(self, a):
         return a in self._arrays
 
+    def __iter__(self):
+        self._iter = 0
+        return self
+
+    def __next__(self):
+        if self._iter < len(self._arrays):
+            array = self._arrays[self._iter]
+            self._iter += 1
+            return array
+        else:
+            del self._iter
+            raise StopIteration
+
     def items(self):
         return self._arrays.items()
 
