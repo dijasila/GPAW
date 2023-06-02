@@ -23,7 +23,6 @@ def generate_combinations():
     return Lcomb_i
 
 
-@pytest.mark.response
 @pytest.mark.parametrize('Lcomb', generate_combinations())
 def test_rshe(Lcomb):
     """Test the ability to regenerate a given function based on a
