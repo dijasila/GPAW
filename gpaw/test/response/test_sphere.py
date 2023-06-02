@@ -7,7 +7,7 @@ from ase.units import Bohr
 from gpaw import GPAW
 
 from gpaw.sphere.lebedev import integrate_lebedev
-from gpaw.response.sphere import radial_trapz, integrate_radial_grid
+from gpaw.sphere.integrate import radial_trapz, integrate_radial_grid
 
 
 def generate_analytical_integrals():
