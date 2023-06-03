@@ -301,7 +301,7 @@ class FullFrequencyHWModel(HWModel):
         self.HW_swGG = HW_swGG
         self.factor = factor
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, fsign, f):
         # For more information about how fsign, and wsign works, see
         # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
         # eq. 2.2 endind up to eq. 2.11
@@ -342,7 +342,7 @@ class PPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign):
+    def get_HW(self, omega, sign, f):
         omegat_GG = self.omegat_GG
         W_GG = self.W_GG
 
@@ -362,20 +362,22 @@ class MPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign):
+    def get_HW(self, omega, sign, f):
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
+        x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
+        x2_nGG = (1.0-f) / (omega - omegat_nGG + 1j * self.eta)
 
-        x1_nGG = 1 / (omega + omegat_nGG - 1j * self.eta)
-        x2_nGG = 1 / (omega - omegat_nGG + 1j * self.eta)
-        x3_nGG = 1 / (omega + omegat_nGG - 1j * self.eta * sign)
-        x4_nGG = 1 / (omega - omegat_nGG - 1j * self.eta * sign)
-        x_nGG = self.factor * W_nGG * (sign * (x1_nGG - x2_nGG) + x3_nGG + x4_nGG)
-        dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
-                                       x3_nGG**2 + x4_nGG**2)
-        x_GG = np.sum(x_nGG,axis=0)
-        dx_GG = np.sum(dx_nGG,axis=0)
-        return x_GG, dx_GG
+        #x1_nGG = 1 / (omega + omegat_nGG - 1j * self.eta)
+        #x2_nGG = 1 / (omega - omegat_nGG + 1j * self.eta)
+        #x3_nGG = 1 / (omega + omegat_nGG - 1j * self.eta * sign)
+        #x4_nGG = 1 / (omega - omegat_nGG - 1j * self.eta * sign)
+        #x_nGG = self.factor * W_nGG * (sign * (x1_nGG - x2_nGG) + x3_nGG + x4_nGG)
+        #dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
+        #                               x3_nGG**2 + x4_nGG**2)
+        x_GG = np.sum(self.factor * W_nGG * (x1_nGG+x2_nGG),axis=0)
+        dx_GG = np.zeros_like(x_GG) #np.sum(dx_nGG,axis=0)
+        return 2*x_GG, 2*dx_GG
 #######
 
 class PPACalculator(WBaseCalculator):
