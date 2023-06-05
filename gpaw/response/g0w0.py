@@ -23,6 +23,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
+from gpaw.response.MPAsamp import mpa_frequency_sampling
 
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
@@ -61,6 +62,9 @@ def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
                 return False
         elif isinstance(val1, float) and isinstance(val2, float):
             if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
+                return False
+        elif isinstance(val1, np.ndarray):
+            if np.any(val1 != val2):
                 return False
         else:
             if val1 != val2:
@@ -385,7 +389,8 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  exx_vxc_calculator,
-                 ppa=False):
+                 ppa=False,
+                 mpa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -423,11 +428,15 @@ class G0W0Calculator:
         ppa: bool
             Use Godby-Needs plasmon-pole approximation for screened interaction
             and self-energy
+        mpa: bool
+            Use multipole approximation for screened interaction
+            and self-energy
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
+        self.mpa = mpa
         
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
@@ -497,6 +506,10 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
+                               % self.chi0calc.wd.omega_w[1].imag)
+        elif self.mpa:
+            self.context.print('Using multipole approximation:')
+            self.context.print('  Fitting energies: i*E0, E0 = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
@@ -674,13 +687,27 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
+                f = open(f'Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
+                for occ in [0,1]:
+                    for w in np.linspace(-2, 2, 400):
+                        S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
+                        if S_GG is None:
+                            continue
+                        print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
+                                    dSdw_GG[0,0].real, dSdw_GG[0,0].imag, dSdw_GG[0,1].real, dSdw_GG[0,1].imag,
+                                    file=f)
+                    print(file=f)
+                    print(file=f)
+                    print(file=f)
+                f.close()
+
                 # m is band index of all (both unoccupied and occupied) wave
                 # functions in G
                 for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
                     # 2 * f - 1 will be used to select the branch of Hilbert
                     # transform, see get_HW of screened_interaction.py
                     # at FullFrequencyHWModel class.
-                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1, f)
                     if S_GG is None:
                         continue
 
@@ -865,6 +892,8 @@ class G0W0Calculator:
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
                 
+                assert not self.mpa
+
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
@@ -958,6 +987,7 @@ class G0W0(G0W0Calculator):
                  ecut_extrapolation=False,
                  xc='RPA',
                  ppa=False,
+                 mpa=False,
                  E0=Ha,
                  eta=0.1,
                  nbands=None,
@@ -1020,6 +1050,9 @@ class G0W0(G0W0Calculator):
         ppa: bool
             Sets whether the Godby-Needs plasmon-pole approximation for the
             dielectric function should be used.
+         mpa: bool
+            Sets whether the multipole approximation for the
+            dielectric function should be used.
         xc: str
             Kernel to use when including vertex corrections.
         fxc_mode: str
@@ -1081,12 +1114,22 @@ class G0W0(G0W0Calculator):
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
+            assert not mpa
             # use small imaginary frequency to avoid dividing by zero:
             frequencies = [1e-10j, 1j * E0]
 
             parameters = {'eta': 0,
                           'hilbert': False,
                           'timeordered': False}
+        elif mpa:
+            assert not ppa
+
+            frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'], mpa['wshift'], ps='2l', alpha=mpa['alpha'])
+
+            parameters = {'eta': 0.000001,
+                          'hilbert': False,
+                          'timeordered': False}
+
         else:
             # frequencies = self.frequencies
             parameters = {'eta': eta,
@@ -1113,6 +1156,7 @@ class G0W0(G0W0Calculator):
         # XXX called below. This needs to be cleaned up.
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
+                                        mpa=mpa,
                                         xc=xc,
                                         E0=E0, eta=eta / Ha, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
@@ -1138,6 +1182,7 @@ class G0W0(G0W0Calculator):
                          kpts=kpts,
                          exx_vxc_calculator=exx_vxc_calculator,
                          ppa=ppa,
+                         mpa=mpa,
                          **kwargs)
 
     @property
