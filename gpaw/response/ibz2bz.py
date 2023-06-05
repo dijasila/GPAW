@@ -98,10 +98,12 @@ class IBZ2BZMap:
     def map_pseudo_wave(self, ut_R):
         """Map the periodic part of the pseudo wave from the IBZ -> K.
 
-        The mapping takes place on the coarse real-space grid.
+        For the symmetry operator U, which maps K = U ik, where ik is the
+        irreducible BZ k-point and K does not necessarily lie within the 1BZ,
 
-        NB: The k-point corresponding to the output ut_R does not necessarily
-        lie within the BZ, see map_kpoint().
+        psit_K(r) = psit_ik(U^T r)
+
+        The mapping takes place on the coarse real-space grid.
         """
         # Apply symmetry operations to the periodic part of the pseudo wave
         if not (self.U_cc == np.eye(3)).all():
@@ -120,7 +122,7 @@ class IBZ2BZMap:
         return utout_R
 
     def map_pseudo_wave_to_BZ(self, ut_R):
-        """Map the periodic part of wave function from IBZ -> K in BZ.
+        """Map the periodic part of wave function from IBZ -> k in BZ.
 
         Parameters
         ----------
@@ -145,50 +147,49 @@ class IBZ2BZMap:
     def map_projections(self, projections):
         """Perform IBZ -> K mapping of the PAW projections.
 
-        NB: The projections of atom "a" are mapped onto an atom related to atom
-        "b" by a lattice vector.
+        The projections of atom "a" are mapped onto an atom related to atom
+        "b" by a lattice vector:
+
+        r_b = U^T r_a    (or equivalently: r_b^T = r_a^T U)
+
+        This means that when mapping
+
+        psi_K(r) = psi_ik(U^T r),
+
+        we need to generate the projections at atom a for k-point K based on
+        the projections at atom b for k-point ik.
         """
         mapped_projections = projections.new()
         for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
             # Map projections
-            Pin_ni = projections[b]  # b -> a? XXX
+            Pin_ni = projections[b]
             Pout_ni = Pin_ni @ U_ii
             if self.time_reversal:
                 Pout_ni = np.conj(Pout_ni)
 
             # Store output projections
-            I1, I2 = mapped_projections.map[a]  # a -> b? XXX
+            I1, I2 = mapped_projections.map[a]
             mapped_projections.array[..., I1:I2] = Pout_ni
 
         return mapped_projections
         
     @property
     def U_aii(self):
-        """Phase corrected rotation matrices for the PAW projections.
-
-        The rotation of PAW projections involved in the mapping IBZ -> K is
-        corrected by a phase factor, which depends on the irreducible k-point,
-        corresponding to the Bloch phase associated to the atomic permutations
-        of augmentation spheres.
-        """
+        """Phase corrected rotation matrices for the PAW projections."""
         U_aii = []
         for a, R_ii in enumerate(self.R_aii):
             # The symmetry transformation maps atom "a" to a position which is
             # related to atom "b" by a lattice vector (but which does not
             # necessarily lie within the unit cell)
             b = self.b_a[a]
-            atomic_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
-            assert np.allclose(atomic_shift_c.round(), atomic_shift_c)
-            # A phase factor is added to the rotations of the projectors in
-            # order to let the projections follow the atoms under the symmetry
-            # transformation
-            # XXX There are some serious questions to be addressed here XXX
-            # * Why does the phase factor only depend on the coordinates of the
-            #   irreducible k-point?
-            # * Are the projections mapped effectively to the kpoint related
-            #   to the BZ K by at most a reciprocal lattice vector or to the
-            #   BZ K-point itself?
-            phase_factor = np.exp(2j * np.pi * self.ik_c @ atomic_shift_c)
+            cell_shift_c = self.spos_ac[a] @ self.U_cc - self.spos_ac[b]
+            assert np.allclose(cell_shift_c.round(), cell_shift_c)
+            # This means, that when we want to extract the projections at K for
+            # atom a according to psi_K(r_a) = psi_ik(U^T r_a), we need the
+            # projections at U^T r_a for k-point ik. Since we only have the
+            # projections within the unit cell we need to multiply them with a
+            # phase factor according to the cell shift.
+            phase_factor = np.exp(2j * np.pi * self.ik_c @ cell_shift_c)
             U_ii = R_ii.T * phase_factor
             U_aii.append(U_ii)
 
