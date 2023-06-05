@@ -89,16 +89,20 @@ Some important points are:
   in order to guarantee the convergence of the potential with respect to
   the vacuum size.
   See the documentation on :ref:`advancedpoisson`.
+* Point group symmetries are disabled in TDDFT, since the symmetry is
+  broken by the time-dependent potential. In GPAW versions starting from
+  22.8.1b1, the TDDFT calculation will refuse to start if the ground state
+  has been converged with point group symmetries enabled.
 
 Next we kick the system in the z direction and propagate 3000 steps of 10 as:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 24-36
+   :lines: 25-37
 
 After the time propagation, the spectrum can be calculated:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 38-40
+   :lines: 39-41
 
 This example input script can be downloaded :download:`here <lcaotddft.py>`.
 

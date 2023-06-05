@@ -16,7 +16,8 @@ from gpaw import GPAW
 calc = GPAW(mode='lcao', h=0.3, basis='dzp',
             setups={'Na': '1'},
             poissonsolver=poissonsolver,
-            convergence={'density': 1e-12})
+            convergence={'density': 1e-12},
+            symmetry={'point_group': False})
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')
