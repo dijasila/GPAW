@@ -68,6 +68,15 @@ def run():
     return weight_n, Y_nL, R_nv
 
 
+def integrate_lebedev(f_nx):
+    """Integrate the function f(r) on the angular Lebedev quadrature.
+
+    Here, n is the quadrature index for the angular dependence of the function
+    defined on a spherical grid, while x are some arbitrary extra dimensions.
+    """
+    return 4. * np.pi * np.tensordot(weight_n, f_nx, axes=([0], [0]))
+
+
 if __name__ == '__main__':
     run()
 
