@@ -19,7 +19,7 @@ class InnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
                  tol=1.0e-3, maxiter=50, maxstepxst=0.2,
-                 g_tol=5.0e-4, useprec=False):
+                 g_tol=5.0e-4, useprec=False, momevery=20):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nibzkpts
@@ -28,8 +28,6 @@ class InnerLoop:
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
         self.precond = {}
-        # self.method = 'LBFGS'
-        # self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 6
         self.n_counter = maxiter
         self.maxstep = maxstepxst
@@ -51,6 +49,22 @@ class InnerLoop:
                 raise NotImplementedError
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
             self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
+        self.momcounter = 0
+        self.momevery = momevery
+        self.eks = 0.0
+        self.esic = 0.0
+        self.kappa = 0.0
+
+    def update_ks_energy(self, wfs, dens, ham):
+        wfs.timer.start('Update Kohn-Sham energy')
+        # calc projectors
+        for kpt in wfs.kpt_u:
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+        dens.update(wfs)
+        ham.update(dens, wfs, False)
+        wfs.timer.stop('Update Kohn-Sham energy')
+        return ham.get_energy(0.0, wfs, False)
 
     def get_energy_and_gradients(self, a_k, wfs, dens, ham):
         """
@@ -62,11 +76,11 @@ class InnerLoop:
 
         g_k = {}
         self.e_total = 0.0
+        self.esic = 0.0
         self.kappa = 0.0
-        evals = {}
         evecs = {}
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+        evals = {}
+        for k, kpt in enumerate(wfs.kpt_u):
             n_occ = self.n_occ[k]
             if n_occ == 0:
                 g_k[k] = np.zeros_like(a_k[k])
@@ -76,25 +90,28 @@ class InnerLoop:
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
             kpt.psit_nG[:n_occ] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
-                             axes=1)
-
+                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ], axes=1)
             # calc projectors
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-            del u_mat
+        self.eks = self.update_ks_energy(wfs, dens, ham)
 
-        wfs.timer.start('Energy and gradients')
-        g_k, e_inner, kappa1 = \
-            self.odd_pot.get_energy_and_gradients_inner_loop(
-                wfs, a_k, evals, evecs, dens, ham=ham)
-        wfs.timer.stop('Energy and gradients')
-        if kappa1 > self.kappa:
-            self.kappa = kappa1
-        self.e_total = e_inner
+        for k, kpt in enumerate(wfs.kpt_u):
+
+            wfs.timer.start('Energy and gradients')
+            g_k[k], esic, kappa1 = \
+                self.odd_pot.get_energy_and_gradients_inner_loop(
+                    wfs, kpt, a_k[k], evals[k], evecs[k], dens=dens, ham=ham,
+                    exstate=True)
+            wfs.timer.stop('Energy and gradients')
+            if kappa1 > self.kappa:
+                self.kappa = kappa1
+            self.esic += esic
+
+        self.apply_mom(wfs, dens)
+        self.e_total = self.eks + self.esic
 
         self.kappa = wfs.kd.comm.max(self.kappa)
-        # self.e_total = wfs.kd.comm.sum(self.e_total)
         self.eg_count += 1
         self.total_eg_count += 1
 
@@ -161,16 +178,15 @@ class InnerLoop:
         self.run_count += 1
         self.counter = 0
         self.eg_count = 0
-        self.odd_pot.momcounter = 1
+        self.momcounter = 1
         self.converged = False
         # initial things
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = self.n_occ[k]
-            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:n_occ],
-                                            axes=1)
+            self.psit_knG[k] = np.tensordot(
+                self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
@@ -191,9 +207,8 @@ class InnerLoop:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ = self.n_occ[k]
-                kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
-                                                   self.psit_knG[k],
-                                                   axes=1)
+                kpt.psit_nG[:n_occ] = np.tensordot(
+                    self.U_k[k].conj(), self.psit_knG[k], axes=1)
                 # calc projectors
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
@@ -208,16 +223,6 @@ class InnerLoop:
             del self.psit_knG
             return 0.0, 0
 
-        # get maximum of gradients
-        # max_norm = []
-        # for kpt in wfs.kpt_u:
-        #     k = self.n_kps * kpt.s + kpt.q
-        #     if self.n_occ[k] == 0:
-        #         continue
-        #     max_norm.append(np.max(np.absolute(g_k[k])))
-        # max_norm = np.max(np.asarray(max_norm))
-        # g_max = wfs.world.max(max_norm)
-
         # stuff which are needed for minim.
         phi_0 = self.e_total
         phi_old = None
@@ -227,19 +232,10 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            # esic = self.e_total
-            esic = self.odd_pot.total_sic
-            e_ks = self.odd_pot.eks
-            log_f(log, self.counter, self.kappa, e_ks, esic,
+            log_f(log, self.counter, self.kappa, self.eks, self.esic,
                   outer_counter, g_max)
 
         alpha = 1.0
-        # if self.kappa < self.tol:
-        #     not_converged = False
-        # else:
-        #     not_converged = True
-        # not_converged = \
-        #     g_max > self.g_tol and counter < self.n_counter
         not_converged = True
         while not_converged:
             self.precond = self.update_preconditioning(wfs, self.useprec)
@@ -266,8 +262,7 @@ class InnerLoop:
 
             # broadcast data is gd.comm > 1
             if wfs.gd.comm.size > 1:
-                alpha_phi_der_phi = np.array([alpha, phi_0,
-                                              der_phi_0])
+                alpha_phi_der_phi = np.array([alpha, phi_0, der_phi_0])
                 wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
                 alpha = alpha_phi_der_phi[0]
                 phi_0 = alpha_phi_der_phi[1]
@@ -293,11 +288,8 @@ class InnerLoop:
                 if outer_counter is not None:
                     outer_counter += 1
                 if log is not None:
-                    # esic = phi_0
-                    esic = self.odd_pot.total_sic
-                    e_ks = self.odd_pot.eks
                     log_f(
-                        log, self.counter, self.kappa, e_ks, esic,
+                        log, self.counter, self.kappa, self.eks, self.esic,
                         outer_counter, g_max)
 
                 not_converged = \
@@ -311,22 +303,6 @@ class InnerLoop:
         if log is not None:
             log('INNER LOOP FINISHED.\n')
             log('Total number of e/g calls:' + str(self.eg_count))
-
-        # for kpt in wfs.kpt_u:
-        #     k = self.n_kps * kpt.s + kpt.q
-        #     n_occ = self.n_occ[k]
-        #     if n_occ == 0:
-        #         g_k[k] = np.zeros_like(a_k[k])
-        #         continue
-        #     wfs.timer.start('Unitary matrix')
-        #     u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
-        #     wfs.timer.stop('Unitary matrix')
-        #     self.U_k[k] = u_mat.copy()
-        #     kpt.psit_nG[:n_occ] = \
-        #         np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
-        #                      axes=1)
-        #     # calc projectors
-        #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -343,201 +319,6 @@ class InnerLoop:
             return self.e_total, self.counter
         else:
             return self.e_total, outer_counter
-
-    def get_numerical_gradients(self, A_s, wfs, dens, ham, log,
-                                eps=1.0e-5):
-        # initial things
-        self.psit_knG = {}
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:n_occ],
-                                            axes=1)
-
-        dtype = self.dtype
-        h = [eps, -eps]
-        coef = [1.0, -1.0]
-        Gr_n_x = {}
-        Gr_n_y = {}
-        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham)
-        log("Estimating gradients using finite differences..")
-        log(flush=True)
-
-        if dtype is complex:
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                dim = A_s[k].shape[0]
-                iut = np.triu_indices(dim, 1)
-                dim_gr = iut[0].shape[0]
-
-                for z in range(2):
-                    grad_num = np.zeros(shape=dim_gr,
-                                        dtype=self.dtype)
-                    igr = 0
-                    for i, j in zip(*iut):
-                        log(igr + 1, 'out of', dim_gr, 'for a', k,
-                            'kpt and', z, 'real/compl comp.')
-                        log(flush=True)
-                        A = A_s[k][i][j]
-                        for l in range(2):
-                            if z == 1:
-                                if i == j:
-                                    A_s[k][i][j] = A + 1.0j * h[l]
-                                else:
-                                    A_s[k][i][j] = A + 1.0j * h[
-                                        l]
-                                    A_s[k][j][i] = -np.conjugate(
-                                        A + 1.0j * h[l])
-                            else:
-                                if i == j:
-                                    A_s[k][i][j] = A + 0.0j * h[l]
-                                else:
-                                    A_s[k][i][j] = A + h[
-                                        l]
-                                    A_s[k][j][i] = -np.conjugate(
-                                        A + h[l])
-                            E =\
-                                self.get_energy_and_gradients(
-                                    A_s, wfs, dens)[0]
-                            grad_num[igr] += E * coef[l]
-                        grad_num[igr] *= 1.0 / (2.0 * eps)
-                        if i == j:
-                            A_s[k][i][j] = A
-                        else:
-                            A_s[k][i][j] = A
-                            A_s[k][j][i] = -np.conjugate(A)
-                        igr += 1
-                    if z == 0:
-                        Gr_n_x[k] = grad_num.copy()
-                    else:
-                        Gr_n_y[k] = grad_num.copy()
-                G[k] = G[k][iut]
-
-            Gr_n = {k: (Gr_n_x[k] + 1.0j * Gr_n_y[k]) for k in
-                    Gr_n_x.keys()}
-        else:
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                dim = A_s[k].shape[0]
-                iut = np.triu_indices(dim, 1)
-                dim_gr = iut[0].shape[0]
-                grad_num = np.zeros(shape=dim_gr, dtype=self.dtype)
-
-                igr = 0
-                for i, j in zip(*iut):
-                    # log(k, i, j)
-                    log(igr + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
-                    log(flush=True)
-                    A = A_s[k][i][j]
-                    for l in range(2):
-                        A_s[k][i][j] = A + h[l]
-                        A_s[k][j][i] = -(A + h[l])
-                        E = self.get_energy_and_gradients(
-                            A_s, wfs, dens, ham)[0]
-                        grad_num[igr] += E * coef[l]
-                    grad_num[igr] *= 1.0 / (2.0 * eps)
-                    A_s[k][i][j] = A
-                    A_s[k][j][i] = -A
-                    igr += 1
-
-                Gr_n_x[k] = grad_num.copy()
-                G[k] = G[k][iut]
-
-            Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
-
-        return G, Gr_n
-
-    def get_numerical_hessian(self, A_s, wfs, dens, ham, log, eps=1.0e-5):
-
-        # initial things
-        self.psit_knG = {}
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:n_occ],
-                                            axes=1)
-
-        dtype = self.dtype
-        assert dtype is float
-        h = [eps, -eps]
-        coef = [1.0, -1.0]
-        log("Estimating Hessian using finite differences..")
-        log(flush=True)
-        num_hes = {}
-
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            dim = A_s[k].shape[0]
-            iut = np.tril_indices(dim, -1)
-            dim_gr = iut[0].shape[0]
-            hessian = np.zeros(shape=(dim_gr, dim_gr),
-                               dtype=self.dtype)
-            ih = 0
-            for i, j in zip(*iut):
-                # log(k, i, j)
-                log(ih + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
-                log(flush=True)
-                A = A_s[k][i][j]
-                for l in range(2):
-                    A_s[k][i][j] = A + h[l]
-                    A_s[k][j][i] = -(A + h[l])
-                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham)[1]
-                    g = g[k][iut]
-                    hessian[ih, :] += g * coef[l]
-
-                hessian[ih, :] *= 1.0 / (2.0 * eps)
-
-                A_s[k][i][j] = A
-                A_s[k][j][i] = -A
-                ih += 1
-
-            num_hes[k] = hessian.copy()
-
-        return num_hes
-
-    def get_energy_and_gradients2(self, a_k, wfs, dens):
-
-        """
-        Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
-        Returns E[A] and G[A] at psi = exp(A).T kpt.psi
-        :param a_k: A
-        :return:
-        """
-
-        g_k = {}
-        evals_k = {}
-        evecs_k = {}
-
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            if n_occ == 0:
-                g_k[k] = np.zeros_like(a_k[k])
-                continue
-            wfs.timer.start('Unitary matrix')
-            u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
-            wfs.timer.stop('Unitary matrix')
-            self.U_k[k] = u_mat.copy()
-
-            kpt.psit_nG[:n_occ] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
-                             axes=1)
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            evals_k[k] = evals
-            evecs_k[k] = evecs
-            del u_mat
-
-        wfs.timer.start('Energy and gradients')
-        e_sic, g_k = \
-            self.odd_pot.get_energy_and_gradients_inner_loop2(
-                wfs, a_k, evals_k, evecs_k, dens)
-        self.eg_count += 1
-        wfs.timer.stop('Energy and gradients')
-
-        return e_sic, g_k
 
     def update_preconditioning(self, wfs, use_prec):
         counter = 30
@@ -592,8 +373,31 @@ class InnerLoop:
 
         return hess
 
+    def apply_mom(self, wfs, dens):
+        if self.momcounter % self.momevery == 0:
+            f_sn = {}
+            for kpt in wfs.kpt_u:
+                n_kps = wfs.kd.nibzkpts
+                u = n_kps * kpt.s + kpt.q
+                f_sn[u] = kpt.f_n.copy()
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            self.changedocc = 0
+            for kpt in wfs.kpt_u:
+                n_kps = wfs.kd.nibzkpts
+                u = n_kps * kpt.s + kpt.q
+                self.changedocc = int(
+                    not np.allclose(f_sn[u], kpt.f_n.copy()))
+            self.changedocc = wfs.kd.comm.max(self.changedocc)
+            occ_name = getattr(wfs.occupations, 'name', None)
+            if occ_name == 'mom':
+                for kpt in wfs.kpt_u:
+                    wfs.eigensolver.sort_wavefunctions(wfs, kpt)
+            if self.changedocc:
+                self.restart = 1
+        self.momcounter += 1
 
-def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
+
+def log_f(log, niter, kappa, eks, esic, outer_counter=None, g_max=np.inf):
 
     t = time.localtime()
 
@@ -613,9 +417,9 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
          t[3], t[4], t[5]
          ), end='')
     log('%11.6f  %11.6f  %11.6f  %11.1e  %11.1e' %
-        (Hartree * e_ks,
-         Hartree * e_sic,
-         Hartree * (e_ks + e_sic),
+        (Hartree * eks,
+         Hartree * esic,
+         Hartree * (eks + esic),
          kappa,
          Hartree * g_max), end='')
     log(flush=True)

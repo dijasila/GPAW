@@ -212,7 +212,6 @@ class ETDM:
                'l-sr1p': 'Limited-memory SR1P algorithm'}
 
         lss = {'max-step': 'step size equals one',
-               'parabola': 'Parabolic line search',
                'swc-awc': 'Inexact line search based on cubic interpolation,\n'
                           '                    strong and approximate Wolfe '
                           'conditions'}

@@ -258,15 +258,9 @@ class DirectMin(Eigensolver):
                 self.iloop = None
 
             if self.exstopt:
-                if 'SIC' in self.func_settings['name']:
-                    func_settings = self.func_settings.copy()
-                    func_settings['name'] = 'PZ-SIC-XT'
-                    odd2 = get_functional(func_settings, wfs, dens, ham)
-                else:
-                    odd2 = self.odd
 
                 self.iloop_outer = ILEXST(
-                    odd2, wfs, 'all', self.kappa_tol, self.maxiterxst,
+                    self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
@@ -1179,7 +1173,7 @@ class DirectMin(Eigensolver):
             small_random=False,
             ham=ham)
         self.total_eg_count_iloop_outer += self.iloop_outer.eg_count
-        self.e_sic = self.iloop_outer.odd_pot.total_sic
+        self.e_sic = self.iloop_outer.esic
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             grad_knG[k] += np.tensordot(self.iloop_outer.U_k[k].conj(),

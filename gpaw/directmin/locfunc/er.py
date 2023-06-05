@@ -219,11 +219,12 @@ class ERlocalization:
 
         return np.array([-ec]), dH_ap
 
-    def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
-                                            evals, evec, dens):
+    def get_energy_and_gradients_inner_loop(
+            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
+            exstate=False):
 
         e_sic, l_odd = \
-            self.get_energy_and_hamiltonain_kpt(wfs, dens, kpt)
+            self.get_energy_and_hamiltonian_kpt(wfs, dens, kpt)
         wfs.timer.start('Unitary gradients')
         f = np.ones(l_odd.shape[0])
 
@@ -249,7 +250,7 @@ class ERlocalization:
                 g_mat = g_mat.real
             return 2.0 * g_mat, e_sic, kappa
 
-    def get_energy_and_hamiltonain_kpt(self, wfs, dens, kpt):
+    def get_energy_and_hamiltonian_kpt(self, wfs, dens, kpt):
 
         n_occ = get_n_occ(kpt)
         k = self.n_kps * kpt.s + kpt.q
