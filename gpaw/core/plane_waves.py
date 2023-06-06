@@ -555,8 +555,6 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             if xp is cp and pw.dtype == complex:
                 return abs_square_gpu(a_nG, weights, out)
 
-            print(a_nG.data._data[:, :3])
-
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
             for weight, a_G in zip(weights, a_nG):
                 if weight == 0.0:
@@ -565,9 +563,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 if xp is np:
                     _gpaw.add_to_density(weight, a_R.data, out.data)
                 else:
-                    print(a_R.data._data[:2,0,1])
                     out.data += float(weight) * xp.abs(a_R.data)**2
-                    print(out.data[:2, 0, 1]._data)
             return
 
         # Undistributed work arrays:
@@ -759,16 +755,13 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
             psit_bR = psit_bR[:nb]
         psit_bR[:] = 0.0
         psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data
-        print('AA', psit_bR._data[:, :2, 0, 1])
         psit_bR[:] = cupyx.scipy.fft.ifftn(
             psit_bR,
             shape,
             norm='forward',
             overwrite_x=True)
-        print(psit_bR._data[:, :2,0,1])
         psit_bRz = psit_bR.view(float).reshape((nb, -1, 2))
         nt_R.data += cp.einsum('b, bRz, bRz -> R',
                                weight_n[b1:b2],
                                psit_bRz,
                                psit_bRz).reshape(shape)
-        print(nt_R.data[:2, 0, 1]._data)
