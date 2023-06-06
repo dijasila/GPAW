@@ -184,10 +184,12 @@ class BZWaveFunctions:
                  kd: KPointDescriptor,
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
-                 nelectrons: float):
+                 nelectrons: float,
+                 l_aj: List[List]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
+        self.l_aj = l_aj
 
         self.nbzkpts = kd.nbzkpts
 
@@ -543,8 +545,12 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
                                parallel_layout=parallel_layout)
     else:
         occcalc = None
+    
+    l_aj = {}
+    for a, setup in enumerate(setups):
+        l_aj[a] = setup.l_j
 
-    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, l_aj)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
