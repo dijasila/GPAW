@@ -22,14 +22,17 @@ def get_om_from_calc(calc):
                     Nl = 2 * l + 1
 
                     om_av[a, v] += np.einsum('nsi,nsj,n,ij->',
-                                             P_nsi[:, :, Ni:Ni+Nl].conj(),
-                                             P_nsi[:, :, Ni:Ni+Nl],
+                                             P_nsi[:, :, Ni:Ni + Nl].conj(),
+                                             P_nsi[:, :, Ni:Ni + Nl],
                                              f_n, L_lii[l]).real
 
-                    #A0_nn = P_nsi[:, 0, Ni:Ni+Nl].conj().dot(L_ii).dot(P_nsi[:, 0, Ni:Ni+Nl].T)
-                    #A1_nn = P_nsi[:, 1, Ni:Ni+Nl].conj().dot(L_ii).dot(P_nsi[:, 1, Ni:Ni+Nl].T)
+                    # A0_nn = P_nsi[:, 0, Ni:Ni+Nl].conj()
+                    #               .dot(L_ii).dot(P_nsi[:, 0, Ni:Ni+Nl].T)
+                    # A1_nn = P_nsi[:, 1, Ni:Ni+Nl].conj()
+                    #               .dot(L_ii).dot(P_nsi[:, 1, Ni:Ni+Nl].T)
 
-                    #om_av[a, v] += np.dot(f_n, np.diag(A0_nn) + np.diag(A1_nn)).real
+                    # om_av[a, v] += np.dot(f_n, np.diag(A0_nn)
+                    #                       + np.diag(A1_nn)).real
 
                     Ni += Nl
 
@@ -54,8 +57,8 @@ def get_om_from_soc_eigs(soc):
                     Nl = 2 * l + 1
 
                     om_av[a, v] += np.einsum('nsi,nsj,n,ij->',
-                                             P_nsi[:, :, Ni:Ni+Nl].conj(),
-                                             P_nsi[:, :, Ni:Ni+Nl],
+                                             P_nsi[:, :, Ni:Ni + Nl].conj(),
+                                             P_nsi[:, :, Ni:Ni + Nl],
                                              f_n, L_lii[l]).real
 
                     Ni += Nl
