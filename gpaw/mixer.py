@@ -55,6 +55,7 @@ class BaseMixer:
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
+        self.world = None
 
     def initialize_metric(self, gd):
         self.gd = gd
@@ -161,6 +162,10 @@ class BaseMixer:
             except (ZeroDivisionError, np.linalg.LinAlgError):
                 alpha_i = np.zeros(iold)
                 alpha_i[-1] = 1.0
+                1 / 0
+
+            if self.world:
+                self.world.broadcast(alpha_i, 0)
 
             # Calculate new input density:
             nt_sG[:] = 0.0
@@ -709,7 +714,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
 
 # This is the only object which will be used by Density, sod the others
 class MixerWrapper:
-    def __init__(self, driver, nspins, gd):
+    def __init__(self, driver, nspins, gd, world=None):
         self.driver = driver
 
         self.beta = driver.beta
@@ -720,6 +725,7 @@ class MixerWrapper:
         self.basemixers = self.driver.get_basemixers(nspins)
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
+            basemixer.world = world
 
     def mix(self, nt_sR, D_asp=None):
         if D_asp is not None:
