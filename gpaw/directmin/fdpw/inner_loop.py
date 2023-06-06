@@ -50,16 +50,12 @@ class InnerLoop:
         :return:
         """
 
-        if self.odd_pot.name == 'SPZ-SIC2':
-            return self.get_energy_and_gradients2(a_k, wfs, dens)
-
         g_k = {}
         self.e_total = 0.0
 
         self.kappa = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
             dim2 = self.Unew_k[k].shape[0]
             if dim2 == 0:
                 g_k[k] = np.zeros_like(a_k[k])
@@ -68,21 +64,17 @@ class InnerLoop:
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
-            if wfs.mode == 'lcao':
-                kpt.C_nM[:dim2] = u_mat.T @ self.c_knm[k][:dim2]
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
-            else:
-                kpt.psit_nG[:dim2] = \
-                    np.tensordot(u_mat.T, self.psit_knG[k][:dim2],
-                                 axes=1)
-                # calc projectors
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            kpt.psit_nG[:dim2] = \
+                np.tensordot(u_mat.T, self.psit_knG[k][:dim2], axes=1)
+            # calc projectors
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             del u_mat
+
             wfs.timer.start('Energy and gradients')
             g_k[k], e_sic, kappa1 = \
                 self.odd_pot.get_energy_and_gradients_inner_loop(
-                    wfs, kpt, a_k[k], evals, evecs, dens)
+                    wfs, kpt, a_k[k], evals, evecs, dens=dens, exstate=False)
             wfs.timer.stop('Energy and gradients')
             if kappa1 > self.kappa:
                 self.kappa = kappa1
@@ -164,12 +156,8 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             dim1 = self.U_k[k].shape[0]
-            if wfs.mode == 'lcao':
-                self.c_knm[k] = self.U_k[k].T @ kpt.C_nM[:dim1]
-            else:
-                self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                                kpt.psit_nG[:dim1],
-                                                axes=1)
+            self.psit_knG[k] = np.tensordot(
+                self.U_k[k].T, kpt.psit_nG[:dim1], axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
@@ -198,12 +186,10 @@ class InnerLoop:
         if g_max < self.g_tol:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                # n_occ = self.n_occ[k]
                 dim1 = self.U_k[k].shape[0]
                 if wfs.mode == 'lcao':
                     kpt.C_nM[:dim1] = self.U_k[k].conj() @ self.c_knm[k]
-                    wfs.atomic_correction.calculate_projections(wfs,
-                                                                kpt)
+                    wfs.atomic_correction.calculate_projections(wfs, kpt)
                 else:
                     kpt.psit_nG[:dim1] = np.tensordot(
                         self.U_k[k].conj(), self.psit_knG[k], axes=1)
@@ -229,16 +215,6 @@ class InnerLoop:
             else:
                 return self.e_total, outer_counter
 
-        # get maximum of gradients
-        # max_norm = []
-        # for kpt in wfs.kpt_u:
-        #     k = self.n_kps * kpt.s + kpt.q
-        #     if self.n_occ[k] == 0:
-        #         continue
-        #     max_norm.append(np.max(np.absolute(g_k[k])))
-        # max_norm = np.max(np.asarray(max_norm))
-        # g_max = wfs.world.max(max_norm)
-
         # stuff which are needed for minim.
         phi_0 = self.e_total
         phi_old = None
@@ -252,12 +228,6 @@ class InnerLoop:
                   outer_counter, g_max)
 
         alpha = 1.0
-        # if self.kappa < self.tol:
-        #     not_converged = False
-        # else:
-        #     not_converged = True
-        # not_converged = \
-        #     g_max > self.g_tol and counter < self.n_counter
         not_converged = True
         while not_converged:
 
@@ -335,7 +305,6 @@ class InnerLoop:
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
             dim1 = self.U_k[k].shape[0]
             if wfs.mode == 'lcao':
                 kpt.C_nM[:dim1] = self.U_k[k].conj() @ self.c_knm[k][:dim1]
@@ -496,52 +465,6 @@ class InnerLoop:
             num_hes[k] = hessian.copy()
 
         return num_hes
-
-    def get_energy_and_gradients2(self, a_k, wfs, dens):
-
-        """
-        Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
-        Returns E[A] and G[A] at psi = exp(A).T kpt.psi
-        :param a_k: A
-        :return:
-        """
-
-        g_k = {}
-        evals_k = {}
-        evecs_k = {}
-
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            if n_occ == 0:
-                g_k[k] = np.zeros_like(a_k[k])
-                continue
-            wfs.timer.start('Unitary matrix')
-            u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
-            wfs.timer.stop('Unitary matrix')
-            self.U_k[k] = u_mat.copy()
-
-            if wfs.mode == 'lcao':
-                kpt.C_nM[:n_occ] = u_mat.T @ self.c_knm[k][:n_occ]
-                wfs.atomic_correction.calculate_projections(wfs, kpt)
-            else:
-                kpt.psit_nG[:n_occ] = \
-                    np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
-                                 axes=1)
-                # calc projectors
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            evals_k[k] = evals
-            evecs_k[k] = evecs
-            del u_mat
-
-        wfs.timer.start('Energy and gradients')
-        e_sic, g_k = \
-            self.odd_pot.get_energy_and_gradients_inner_loop2(
-                wfs, a_k, evals_k, evecs_k, dens)
-        self.eg_count += 1
-        wfs.timer.stop('Energy and gradients')
-
-        return e_sic, g_k
 
 
 def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):

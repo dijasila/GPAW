@@ -23,40 +23,15 @@ class KSFDPW:
         self.eks = 0.0
         self.changedocc = 0
         self.restart = 0
-        self.momevery = 20
-        self.momcounter = 0
 
-    def get_energy_and_gradients(self, wfs, grad_knG=None,
-                                 dens=None, U_k=None,
-                                 add_grad=False,
-                                 ham=None):
+    def get_energy_and_gradients(
+            self, wfs, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            ham=None, scalewithocc=True, exstate=False):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        if self.momcounter % self.momevery == 0:
-            f_sn = {}
-            for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nibzkpts
-                u = n_kps * kpt.s + kpt.q
-                f_sn[u] = kpt.f_n.copy()
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            self.changedocc = 0
-            for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nibzkpts
-                u = n_kps * kpt.s + kpt.q
-                self.changedocc = int(
-                    not np.allclose(f_sn[u], kpt.f_n.copy()))
-            self.changedocc = wfs.kd.comm.max(self.changedocc)
-            occ_name = getattr(wfs.occupations, 'name', None)
-            if occ_name == 'mom':
-                for kpt in wfs.kpt_u:
-                    wfs.eigensolver.sort_wavefunctions(wfs, kpt)
-            if self.changedocc:
-                self.restart = 1
-        self.momcounter += 1
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
@@ -67,14 +42,12 @@ class KSFDPW:
             self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k,
                 add_grad=add_grad, ham=ham)
-        # energy = wfs.kd.comm.sum(energy)
         self.eks = energy
         return energy
 
-    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
-                                     dens=None, U_k=None,
-                                     add_grad=False,
-                                     ham=None):
+    def get_energy_and_gradients_kpt(
+            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            ham=None, scalewithocc=True, exstate=False):
 
         k = self.n_kps * kpt.s + kpt.q
         nbands = wfs.bd.nbands
@@ -116,42 +89,38 @@ class KSFDPW:
 
         return 0.0
 
-    def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
-                                            evals, evec, dens,
-                                            ham):
-        nbands = wfs.bd.nbands
-        e_sic = self.get_energy_and_gradients(wfs,
-                                              grad_knG=None,
-                                              dens=dens, U_k=None,
-                                              add_grad=False,
-                                              ham=ham)
-        wfs.timer.start('Unitary gradients')
-        g_k = {}
-        kappa_tmp = 0.0
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            l_odd = wfs.integrate(kpt.psit_nG, self.grad[k], True)
-            # l_odd = np.ascontiguousarray(l_odd)
-            # wfs.gd.comm.sum(l_odd)
-            f = np.ones(nbands)
-            indz = np.absolute(l_odd) > 1.0e-4
-            l_c = 2.0 * l_odd[indz]
-            l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
-            kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
-            if kappa > kappa_tmp:
-                kappa_tmp = kappa
-            if a_mat[k] is None:
-                g_k[k] = l_odd.T
-            else:
-                g_mat = evec[k].T.conj() @ l_odd.T.conj() @ evec[k]
-                g_mat = g_mat * d_matrix(evals[k])
-                g_mat = evec[k] @ g_mat @ evec[k].T.conj()
-                for i in range(g_mat.shape[0]):
-                    g_mat[i][i] *= 0.5
-                if a_mat[k].dtype == float:
-                    g_mat = g_mat.real
-                g_k[k] = 2.0 * g_mat
+    def get_energy_and_gradients_inner_loop(
+            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
+            exstate=True):
 
-        kappa = wfs.kd.comm.max(kappa_tmp)
-        wfs.timer.stop('Unitary gradients')
-        return g_k, e_sic, kappa
+        if not exstate:
+            raise RuntimeError('Attempting to optimize unitary-invariant '
+                'energy in occupied-occupied rotation space.')
+
+        ndim = wfs.bd.nbands
+
+        k = self.n_kps * kpt.s + kpt.q
+        self.grad[k] = np.zeros_like(kpt.psit_nG[:ndim])
+        e_sic = self.get_energy_and_gradients_kpt(
+            wfs, kpt, dens=dens, ham=ham)
+        wfs.timer.start('Unitary gradients')
+        l_odd = wfs.integrate(kpt.psit_nG[:ndim], self.grad[k][:ndim], True)
+        f = np.ones(ndim)
+        indz = np.absolute(l_odd) > 1.0e-4
+        l_c = 2.0 * l_odd[indz]
+        l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+        kappa = np.max(np.absolute(l_odd[indz]) / np.absolute(l_c))
+
+        if a_mat is None:
+            wfs.timer.stop('Unitary gradients')
+            return l_odd.T, e_sic, kappa
+        else:
+            g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
+            g_mat = g_mat * d_matrix(evals)
+            g_mat = evec @ g_mat @ evec.T.conj()
+            for i in range(g_mat.shape[0]):
+                g_mat[i][i] *= 0.5
+            wfs.timer.stop('Unitary gradients')
+            if a_mat.dtype == float:
+                g_mat = g_mat.real
+            return 2.0 * g_mat, e_sic, kappa

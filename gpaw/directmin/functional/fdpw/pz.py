@@ -8,7 +8,6 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
-#from gpaw.wavefunctions.pw import PWLFC   circular import
 from gpaw.utilities.ewald import madelung
 import _gpaw
 from gpaw.utilities.partition import AtomPartition
@@ -42,31 +41,25 @@ class PZSICFDPW:
             assert self.sic_coarse_grid
             self.pd2 = dens.pd2
             self.pd3 = dens.pd3
-            self.ghat = PWLFC([setup.ghat_l for setup in self.setups],
-                              self.pd2,
-                              )
+            self.ghat = PWLFC(
+                [setup.ghat_l for setup in self.setups], self.pd2)
             rank_a = wfs.gd.get_ranks_from_positions(spos_ac)
-            atom_partition = AtomPartition(wfs.gd.comm, rank_a,
-                                           name='gd')
+            atom_partition = AtomPartition(wfs.gd.comm, rank_a, name='gd')
             self.ghat.set_positions(spos_ac, atom_partition)
             self.corr = madelung(wfs.gd.cell_cv)
             self.corr_q = 1.0
             for nc in self.pd2.gd.N_c:
                 self.corr_q *= nc
             self.corr_q *= self.corr
-            # corr = np.zeros_like(dens.nt_sG[0]) + self.corr
-            # self.corr_q = self.pd2.fft(corr)
 
             self.G2 = self.pd2.G2_qG[0].copy()
             if self.pd2.gd.comm.rank == 0:
                 self.G2[0] = 1.0
         else:
             if self.sic_coarse_grid:
-                self.ghat = LFC(self.cgd,
-                                [setup.ghat_l for setup
-                                 in self.setups],
-                                integral=np.sqrt(4 * np.pi),
-                                forces=True)
+                self.ghat = LFC(
+                    self.cgd, [setup.ghat_l for setup in self.setups],
+                    integral=np.sqrt(4 * np.pi), forces=True)
                 self.ghat.set_positions(spos_ac)
             else:
                 self.ghat = dens.ghat  # we usually solve poiss. on finegd
@@ -78,11 +71,9 @@ class PZSICFDPW:
             self.poiss = PoissonSolver(use_charge_center=True,
                                        use_charged_periodic_corrections=True)
         elif poisson_solver == 'GS':
-            self.poiss = PoissonSolver(name='fd',
-                                       relax=poisson_solver,
-                                       eps=1.0e-16,
-                                       use_charge_center=True,
-                                       use_charged_periodic_corrections=True)
+            self.poiss = PoissonSolver(
+                name='fd', relax=poisson_solver, eps=1.0e-16,
+                use_charge_center=True, use_charged_periodic_corrections=True)
 
         if self.sic_coarse_grid is True:
             self.poiss.set_grid_descriptor(self.cgd)
@@ -91,7 +82,6 @@ class PZSICFDPW:
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
-        # self.timer = wfs.timer
         self.dtype = wfs.dtype
         self.eigv_s = {}
         self.lagr_diag_s = {}
@@ -114,20 +104,13 @@ class PZSICFDPW:
                 n_occ = get_n_occ(kpt)
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
-        # self.t_pspot = 0.0
-        # self.t_paw = 0.0
-        # self.t_paw_xc = 0.0
-        # self.t_paw_hartree = 0.0
-        # self.t_waiting_time = 0.0
-
     def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
 
         if wfs.mode == 'pw':
             nt_G = wfs.pd.gd.zeros(global_array=True)
             psit_G = wfs.pd.alltoall1(kpt.psit.array[n: n + 1], kpt.q)
             if psit_G is not None:
-                psit_R = wfs.pd.ifft(psit_G, kpt.q,
-                                     local=True, safe=False)
+                psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True, safe=False)
                 _gpaw.add_to_density(1.0, psit_R, nt_G)
             wfs.pd.gd.comm.sum(nt_G)
             nt_G = wfs.pd.gd.distribute(nt_G)
@@ -145,57 +128,80 @@ class PZSICFDPW:
 
         return nt_G, Q_aL, D_ap
 
-    def get_energy_and_gradients(self, wfs, grad_knG=None,
-                                 dens=None, U_k=None, add_grad=False,
-                                 scalewithocc=True):
+    def get_energy_and_gradients(
+            self, wfs, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            ham=None, scalewithocc=True, exstate=False):
 
         e_sic = 0.0
         for kpt in wfs.kpt_u:
             e_sic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, U_k, add_grad=add_grad,
-                scalewithocc=scalewithocc)
+                wfs, kpt, grad_knG, dens, U_k, add_grad, ham, scalewithocc,
+                exstate)
         self.total_sic = wfs.kd.comm.sum(e_sic)
         return self.total_sic
 
-    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG=None,
-                                     dens=None, U_k=None, add_grad=False,
-                                     scalewithocc=True):
+    def get_energy_and_gradients_kpt(
+            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            ham=None, scalewithocc=True, exstate=False):
+
+        k = self.n_kps * kpt.s + kpt.q
+        n_occ = get_n_occ(kpt)
+        self.grad[k] = np.zeros_like(kpt.psit_nG) if exstate \
+            else np.zeros_like(kpt.psit_nG[:n_occ])
+
+        if exstate:
+            self.get_gradient_ks_kpt(wfs, kpt, ham=ham)
+        esic = self.get_esic_add_sic_gradient_kpt(
+            wfs, kpt, grad_knG, dens, U_k, add_grad, scalewithocc,
+            exstate=exstate)
+
+        return esic
+
+    def get_gradient_ks_kpt(self, wfs, kpt, ham=None):
+
+        k = self.n_kps * kpt.s + kpt.q
+        wfs.timer.start('KS e/g grid calculations')
+        wfs.apply_pseudo_hamiltonian(kpt, ham, kpt.psit_nG, self.grad[k])
+
+        c_axi = {}
+        for a, P_xi in kpt.P_ani.items():
+            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            c_xi = np.dot(P_xi, dH_ii)
+            c_axi[a] = c_xi
+
+        # not sure about this:
+        ham.xc.add_correction(kpt, kpt.psit_nG, self.grad[k],
+                              kpt.P_ani, c_axi, n_x=None,
+                              calculate_change=False)
+        # add projectors to the H|psi_i>
+        wfs.pt.add(self.grad[k], c_axi, kpt.q)
+        # scale with occupation numbers
+        for i, f in enumerate(kpt.f_n):
+            self.grad[k][i] *= f
+
+        wfs.timer.stop('KS e/g grid calculations')
+
+        return 0.0
+
+    def get_esic_add_sic_gradient_kpt(
+            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            scalewithocc=True, exstate=False):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
         e_total_sic = np.array([])
 
-        # if rewrite_grad:
-        #     grad = grad_knG[k][:n_occ]
-        # else:
-        self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
-
-        # t_projectors = 0.0
-        # t_get_orbdens = 0.0
-        # t_get_pz_sic = 0.0
-        # self.t_paw = 0.0
-        # self.t_paw_hartree = 0.0
-        # self.t_paw_xc = 0.0
-        # self.t_waiting_time = 0.0
-        # self.t_pspot = 0.0
-
         for i in range(n_occ):
             if wfs.mode == 'pw':
-                e_sic, vt_G, dH_ap = self.get_si_pot_dh_pw(wfs, kpt, i)
+                e_sic, vt_G, dH_ap = self.get_si_pot_dh_pw(
+                    wfs, kpt, i, exstate=exstate)
             else:
-                # t1 = time.time()
                 nt_G, Q_aL, D_ap = \
                     self.get_orbdens_compcharge_dm_kpt(wfs, kpt, i)
-                # t2 = time.time()
-                # t_get_orbdens += t2 - t1
-
-                # calculate sic energy, sic pseudo-potential and Hartree
-                # t1 = time.time()
                 e_sic, vt_G, dH_ap = \
                     self.get_pz_sic_ith_kpt(
                         nt_G, Q_aL, D_ap, i, k, wfs.timer)
-                # t_get_pz_sic += time.time() - t1
 
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
@@ -211,15 +217,16 @@ class PZSICFDPW:
                     vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
                 else:
                     vtpsit_G = wfs.pd.tmp_G
-                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i: i + 1])
+                tmp = np.zeros_like(self.grad[k][i: i + 1])
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, tmp)
+                self.grad[k][i] += tmp[0]
                 if scalewithocc:
                     self.grad[k][i] *= kpt.f_n[i]
             else:
                 if scalewithocc:
-                    self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+                    self.grad[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
                 else:
-                    self.grad[k][i] = kpt.psit_nG[i] * vt_G
-            # t1 = time.time()
+                    self.grad[k][i] += kpt.psit_nG[i] * vt_G
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
@@ -227,30 +234,26 @@ class PZSICFDPW:
                 c_axi[a] = c_xi * kpt.f_n[i]
             # add projectors to
             wfs.pt.add(self.grad[k][i], c_axi, kpt.q)
-            # t_projectors += time.time() - t1
 
-        # parprint('get_orbdens_compcharge_dm_kpt: %3.4f' % t_get_orbdens)
-        # parprint('get_pz_sic_ith_kpt: %3.4f' % t_get_pz_sic)
-        # parprint('add projectors: %3.4f' % t_get_orbdens)
-        # parprint('pseudo pot: %3.4f' % self.t_pspot)
-        # parprint('paw: %3.4f' % self.t_paw)
-        # self.t_paw_xc = wfs.world.max(self.t_paw_xc)
-        # self.t_paw_hartree = wfs.world.max(self.t_paw_hartree)
-        # self.t_waiting_time = wfs.world.max(self.t_waiting_time)
-        # parprint('paw_xc: %3.4f' % self.t_paw_xc)
-        # parprint('paw_hartree: %3.4f' % self.t_paw_hartree)
-        # parprint('t_waiting_time: %3.4f' % self.t_waiting_time)
-
-        if add_grad:
+        if exstate:
             if U_k is not None:
-                grad_knG[k][:n_occ] += np.tensordot(
-                    U_k[k][:n_occ, :n_occ].conj(), self.grad[k], axes=1)
-            else:
-                grad_knG[k][:n_occ] += self.grad[k]
+                grad_knG[k][:] += np.tensordot(
+                    U_k[k].conj(), self.grad[k], axes=1)
+            if add_grad:
+                grad_knG[k][:] += self.grad[k]
         else:
-            if U_k is not None:
-                self.grad[k][:] = np.tensordot(
-                    U_k[k][:n_occ, :n_occ].conj(), self.grad[k], axes=1)
+            if add_grad:
+                if U_k is not None:
+                    grad_knG[k][:n_occ] += np.tensordot(
+                        U_k[k][:n_occ, :n_occ].conj(), self.grad[k][:n_occ],
+                        axes=1)
+                else:
+                    grad_knG[k][:n_occ] += self.grad[k][:n_occ]
+            else:
+                if U_k is not None:
+                    self.grad[k][:] = np.tensordot(
+                        U_k[k][:n_occ, :n_occ].conj(), self.grad[k][:n_occ],
+                        axes=1)
 
         self.e_sic_by_orbitals[k] = \
             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
@@ -320,26 +323,18 @@ class PZSICFDPW:
     def get_paw_corrections(self, D_ap, vHt_g):
 
         # XC-PAW
-        # t1 = time.time()
         dH_ap = {}
 
         exc = 0.0
         for a, D_p in D_ap.items():
             setup = self.setups[a]
-            # denszero = np.max(np.absolute(D_p)) < 1.0e-12
-            # if denszero:
-            #     exc += 0.0
-            #     dH_ap[a] = np.zeros_like(D_p)
-            # else:
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-            exc += self.xc.calculate_paw_correction(setup, D_sp,
-                                                    dH_sp,
-                                                    addcoredensity=False)
+            exc += self.xc.calculate_paw_correction(
+                setup, D_sp, dH_sp, addcoredensity=False)
             dH_ap[a] = -dH_sp[0] * self.beta_x
-        # self.t_paw_xc += time.time() - t1
+
         # Hartree-PAW
-        # t1 = time.time()
         ec = 0.0
         W_aL = self.ghat.dict()
         self.ghat.integrate(vHt_g, W_aL)
@@ -352,39 +347,34 @@ class PZSICFDPW:
             dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
                                              W_aL[a])) * self.beta_c
 
-        # self.t_paw_hartree += time.time() - t1
-        # t1 = time.time()
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
             exc = self.finegd.comm.sum(exc)
         else:
             ec = self.cgd.comm.sum(ec)
             exc = self.cgd.comm.sum(exc)
-        # self.t_waiting_time += time.time() - t1
 
         return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
-    def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
-                                            evals, evec, dens):
-        n_occ = 0
-        for f in kpt.f_n:
-            if f > 1.0e-10:
-                n_occ += 1
+    def get_energy_and_gradients_inner_loop(
+            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
+            exstate=False):
+
+        if exstate:
+            ndim = wfs.bd.nbands
+        else:
+            ndim = 0
+            for f in kpt.f_n:
+                if f > 1.0e-10:
+                    ndim += 1
 
         k = self.n_kps * kpt.s + kpt.q
-        # t1 = time.time()
-        self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
-        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad_knG=None,
-                                                  dens=None,
-                                                  U_k=None,
-                                                  add_grad=False)
-        # parprint('energy_and_gradient total:', time.time() - t1)
+        self.grad[k] = np.zeros_like(kpt.psit_nG[:ndim])
+        e_sic = self.get_energy_and_gradients_kpt(
+            wfs, kpt, dens=dens, ham=ham, exstate=exstate)
         wfs.timer.start('Unitary gradients')
-        l_odd = wfs.integrate(kpt.psit_nG[:n_occ],
-                              self.grad[k][:n_occ], True)
-        # l_odd = np.ascontiguousarray(l_odd)
-        # self.cgd.comm.sum(l_odd)
-        f = np.ones(n_occ)
+        l_odd = wfs.integrate(kpt.psit_nG[:ndim], self.grad[k][:ndim], True)
+        f = np.ones(ndim)
         indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
@@ -404,7 +394,7 @@ class PZSICFDPW:
                 g_mat = g_mat.real
             return 2.0 * g_mat, e_sic, kappa
 
-    def get_odd_corrections_to_forces(self, F_av, wfs, kpt):
+    def get_odd_corrections_to_forces(self, F_av, wfs, kpt, exstate=False):
 
         n_occ = get_n_occ(kpt)
         n_kps = self.n_kps
@@ -423,8 +413,8 @@ class PZSICFDPW:
                     self.get_paw_corrections(D_ap, v_ht_g)
             elif wfs.mode == 'pw':
                 e_sic, vt_G, dH_ap, Q_aL, v_ht_g = \
-                    self.get_si_pot_dh_pw(wfs, kpt, m,
-                                          returnQalandVhq=True)
+                    self.get_si_pot_dh_pw(
+                        wfs, kpt, m, returnQalandVhq=True, exstate=exstate)
             else:
                 raise NotImplementedError
 
@@ -463,18 +453,14 @@ class PZSICFDPW:
         # sic pseudo-potential and Hartree
         timer.start('Get Pseudo Potential')
         # calculate sic energy, sic pseudo-potential and Hartree
-        # t1 = time.time()
         e_pz, vt_G, v_ht_g = \
             self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
-        # self.t_pspot += time.time() - t1
         timer.stop('Get Pseudo Potential')
 
         # calculate PAW corrections
         timer.start('PAW')
-        # t1 = time.time()
         # calculate PAW corrections
         e_pz_paw_m, dH_ap = self.get_paw_corrections(D_ap, v_ht_g)
-        # self.t_paw += time.time() - t1
         timer.stop('PAW')
 
         # total sic:
@@ -482,7 +468,8 @@ class PZSICFDPW:
 
         return e_pz, vt_G, dH_ap
 
-    def get_si_pot_dh_pw(self, wfs, kpt, n, returnQalandVhq=False):
+    def get_si_pot_dh_pw(
+            self, wfs, kpt, n, returnQalandVhq=False, exstate=False):
 
         wfs.timer.start("IFFT: Get density on real grid")
         nt_G = wfs.pd.gd.zeros(global_array=True)
@@ -520,9 +507,6 @@ class PZSICFDPW:
         wfs.timer.start("Calc. PAW-XC")
         excpaw = 0.0
         for a, D_p in D_ap.items():
-            # if np.max(abs(D_p)) < 1.0e-2:
-            #     dH_ap[a] = np.zeros(len(D_p))
-            #     continue
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
@@ -539,8 +523,7 @@ class PZSICFDPW:
         wfs.timer.stop("FFT density")
 
         wfs.timer.start("Calc. Hartree on pseudo density")
-        realspace = False
-        if realspace:
+        if exstate:
             nt_G = self.pd2.ifft(nt_Q)
             vHt = np.zeros_like(nt_G)
             self.poiss.solve(vHt, nt_G, zero_initial_phi=False)
@@ -555,8 +538,6 @@ class PZSICFDPW:
             if self.pd2.gd.comm.rank == 0:
                 vHt_q[0] += self.corr_q
             vHt = self.pd2.ifft(vHt_q)
-            # vHt = self.pd2.ifft(vHt_q) + self.corr
-            # vHt_q = self.pd2.fft(vHt)
             ehart += self.corr / 2.0
         wfs.timer.stop("Calc. Hartree on pseudo density")
 
@@ -582,5 +563,5 @@ class PZSICFDPW:
             return np.array([-ehart * self.beta_c, -exc * self.beta_x]), \
                 vt_G, dH_ap, Q_aL, vHt_q
         else:
-            return np.array([-ehart * self.beta_c, -exc * self.beta_x]),\
+            return np.array([-ehart * self.beta_c, -exc * self.beta_x]), \
                 vt_G, dH_ap
