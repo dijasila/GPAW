@@ -29,7 +29,8 @@ def test_mom_directopt_pw(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    calc.set(eigensolver=DirectMin(exstopt=True))
+    calc.set(eigensolver=DirectMin(exstopt=True,
+                                   printinnerloop=True))
     excite_and_sort(calc.wfs, 0, 0, (0, 0), 'fdpw')
     f_sn = []
     for spin in range(calc.get_number_of_spins()):

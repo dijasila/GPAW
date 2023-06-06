@@ -45,7 +45,8 @@ def test_pwsic_h2o(in_tmp_dir):
                              },
         localizationseed=42,
         localizationtype='FB_ER',
-        g_tol=5.0e-3))
+        g_tol=5.0e-3,
+        printinnerloop=True))
 
     e = H2O.get_potential_energy()
     assert e == pytest.approx(-2.853350, abs=1.0e-3)
