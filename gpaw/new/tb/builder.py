@@ -163,10 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
+        self.world = world
 
     def iterate(self,
                 state,
@@ -223,7 +224,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         occ_calc = self.create_occupation_number_calculator()
         hamiltonian = self.create_hamiltonian_operator()
         eigensolver = self.create_eigensolver(hamiltonian)
-        return TBSCFLoop(hamiltonian, occ_calc, eigensolver)
+        return TBSCFLoop(hamiltonian, occ_calc, eigensolver,
+                         self.communicators['w'])
 
     def create_ibz_wave_functions(self,
                                   basis: BasisFunctions,

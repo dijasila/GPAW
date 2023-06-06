@@ -11,14 +11,12 @@ from ase.units import Ha
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data, Chi0DrudeData
-from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.frequencies import (FrequencyDescriptor,
-                                       FrequencyGridDescriptor,
                                        NonLinearFrequencyDescriptor)
 from gpaw.response.hilbert import HilbertTransform
-from gpaw.response.integrators import (Integrator, PointIntegrator,
-                                       TetrahedronIntegrator)
+from gpaw.response.integrators import (
+    Integrand, Integrator, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import block_partition
@@ -40,6 +38,126 @@ def find_maximum_frequency(kpt_u, context, nbands=0):
     context.print('Maximum eigenvalue: %10.3f eV' % (epsmax * Ha))
 
     return epsmax - epsmin
+
+
+class Chi0Integrand(Integrand):
+    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+        self._chi0calc = chi0calc
+
+        # In a normal response calculation, we include transitions from all
+        # completely and partially unoccupied bands to range(m1, m2)
+        self.n1 = 0
+        self.n2 = chi0calc.nocc2
+        self.m1 = m1
+        self.m2 = m2
+
+        self.context = chi0calc.context
+        self.pair = chi0calc.pair
+        self.gs = chi0calc.gs
+
+        self.qpd = qpd
+        self.analyzer = analyzer
+        self.integrationmode = chi0calc.integrationmode
+        self.optical = optical
+
+    @timer('Get matrix element')
+    def matrix_element(self, k_v, s):
+        """Return pair density matrix element for integration.
+
+        A pair density is defined as::
+
+         <snk| e^(-i (q + G) r) |s'mk+q>,
+
+        where s and s' are spins, n and m are band indices, k is
+        the kpoint and q is the momentum transfer. For dielectric
+        response s'=s, for the transverse magnetic response
+        s' is flipped with respect to s.
+
+        Parameters
+        ----------
+        k_v : ndarray
+            Kpoint coordinate in cartesian coordinates.
+        s : int
+            Spin index.
+
+        If self.optical, then return optical pair densities, that is, the
+        head and wings matrix elements indexed by:
+        # P = (x, y, v, G1, G2, ...).
+
+        Return
+        ------
+        n_nmG : ndarray
+            Pair densities.
+        """
+
+        if self.optical:
+            target_method = self.pair.get_optical_pair_density
+            out_ngmax = self.qpd.ngmax + 2
+        else:
+            target_method = self.pair.get_pair_density
+            out_ngmax = self.qpd.ngmax
+
+        return self._get_any_matrix_element(
+            k_v, s, block=not self.optical,
+            target_method=target_method,
+        ).reshape(-1, out_ngmax)
+
+    def _get_any_matrix_element(self, k_v, s, block, target_method):
+        assert self.m1 <= self.m2
+        qpd = self.qpd
+
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
+                         self.analyzer.how_many_symmetries())
+
+        # Here we're again setting pawcorr willy-nilly
+        if self._chi0calc.pawcorr is None:
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            self._chi0calc.pawcorr = pairden_paw_corr(qpd)
+
+        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, self.n1, self.n2,
+                                            self.m1, self.m2, block=block)
+        m_m = np.arange(self.m1, self.m2)
+        n_n = np.arange(self.n1, self.n2)
+        n_nmG = target_method(qpd, kptpair, n_n, m_m,
+                              pawcorr=self._chi0calc.pawcorr,
+                              block=block)
+
+        if self.integrationmode is None:
+            n_nmG *= weight
+
+        df_nm = kptpair.get_occupation_differences(n_n, m_m)
+        df_nm[df_nm <= 1e-20] = 0.0
+        n_nmG *= df_nm[..., np.newaxis]**0.5
+
+        return n_nmG
+
+    @timer('Get eigenvalues')
+    def eigenvalues(self, k_v, s):
+        """A function that can return the eigenvalues.
+
+        A simple function describing the integrand of
+        the response function which gives an output that
+        is compatible with the gpaw k-point integration
+        routines."""
+
+        qpd = self.qpd
+        gs = self.gs
+        kd = gs.kd
+
+        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        K1 = self.pair.find_kpoint(k_c)
+        K2 = self.pair.find_kpoint(k_c + qpd.q_c)
+
+        ik1 = kd.bz2ibz_k[K1]
+        ik2 = kd.bz2ibz_k[K2]
+        kpt1 = gs.kpt_qs[ik1][s]
+        assert kd.comm.size == 1
+        kpt2 = gs.kpt_qs[ik2][s]
+        deps_nm = np.subtract(kpt1.eps_n[self.n1:self.n2][:, np.newaxis],
+                              kpt2.eps_n[self.m1:self.m2])
+        return deps_nm.reshape(-1)
 
 
 class Chi0Calculator:
@@ -130,6 +248,7 @@ class Chi0Calculator:
         # transitions to the head of the chi0 wings. This is handled by a
         # separate calculator, provided that intraband is set to True.
         if metallic and intraband:
+            from gpaw.response.drude import Chi0DrudeCalculator
             if rate == 'eta':
                 rate = eta
             self.rate = rate
@@ -263,15 +382,10 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation(m1, m2)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
-        get_matrix_element = partial(
-            self.get_matrix_element, **mat_kwargs)
-        get_eigenvalues = partial(
-            self.get_eigenvalues, **eig_kwargs)
+        integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
+                                  optical=False, m1=m1, m2=m2)
 
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
@@ -282,8 +396,7 @@ class Chi0Calculator:
             out_WgG = chi0.chi0_WgG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(get_matrix_element,
-                                        get_eigenvalues),
+                             integrand=integrand,
                              x=self.wd,  # Frequency Descriptor
                              out_wxx=out_WgG,  # Output array
                              **extraargs)
@@ -314,15 +427,10 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation(m1, m2)
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
         kind, extraargs = self.get_integral_kind()
 
-        get_optical_matrix_element = partial(
-            self.get_optical_matrix_element, **mat_kwargs)
-        get_eigenvalues = partial(
-            self.get_eigenvalues, **eig_kwargs)
+        integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
+                                  optical=True, m1=m1, m2=m2)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
@@ -333,8 +441,7 @@ class Chi0Calculator:
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
-                             integrand=(get_optical_matrix_element,
-                                        get_eigenvalues),
+                             integrand=integrand,
                              x=self.wd,  # Frequency Descriptor
                              out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)
@@ -376,11 +483,37 @@ class Chi0Calculator:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             cls = TetrahedronIntegrator  # type: ignore
+            if not all([self.disable_point_group,
+                        self.disable_time_reversal,
+                        self.disable_non_symmorphic]):
+                self.check_high_symmetry_ibz_kpts()
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
 
         return cls
+
+    def check_high_symmetry_ibz_kpts(self):
+        """Check that the ground state includes all corners of the IBZ."""
+        ibz_vertices_kc = self.gs.get_ibz_vertices()
+        # Here we mimic the k-point grid compatibility check of
+        # gpaw.bztools.find_high_symmetry_monkhorst_pack()
+        bzk_kc = self.gs.kd.bzk_kc
+        for ibz_vertex_c in ibz_vertices_kc:
+            # Relative coordinate difference to the k-point grid
+            diff_kc = np.abs(bzk_kc - ibz_vertex_c)[:, self.gs.pbc].round(6)
+            # The ibz vertex should exits in the BZ grid up to a reciprocal
+            # lattice vector, meaning that the relative coordinate difference
+            # is allowed to be an integer. Thus, at least one relative k-point
+            # difference should vanish, modulo 1
+            mod_diff_kc = np.mod(diff_kc, 1)
+            nodiff_k = np.all(mod_diff_kc < 1e-5, axis=1)
+            if not np.any(nodiff_k):
+                raise ValueError(
+                    'The ground state k-point grid does not include all '
+                    'vertices of the IBZ. '
+                    'Please use find_high_symmetry_monkhorst_pack() from '
+                    'gpaw.bztools to generate your k-point grid.')
 
     def update_integrator_kwargs(self, kwargs, block_distributed=True):
         # Update the energy shift
@@ -421,26 +554,6 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integrator_arguments(self, qpd, analyzer, bandsum):
-        # Prepare keyword arguments for the integrator
-        mat_kwargs = {'qpd': qpd,
-                      'symmetry': analyzer,
-                      'integrationmode': self.integrationmode}
-        eig_kwargs = {'qpd': qpd}
-
-        mat_kwargs.update(bandsum)
-        eig_kwargs.update(bandsum)
-
-        return mat_kwargs, eig_kwargs
-
-    def get_band_summation(self, m1, m2):
-        """Define band summation."""
-        # In a normal response calculation, we include transitions from all
-        # completely and partially unoccupied bands to range(m1, m2)
-        bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
-
-        return bandsum
-
     def get_integral_kind(self):
         """Determine what "kind" of integral to make."""
         extraargs = {}
@@ -467,7 +580,7 @@ class Chi0Calculator:
         return kind, extraargs
 
     @timer('Get kpoints')
-    def get_kpoints(self, qpd, integrationmode=None):
+    def get_kpoints(self, qpd, integrationmode):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
             self.gs.kd, qpd, self.context,
@@ -487,147 +600,7 @@ class Chi0Calculator:
                                    axis=0)
 
         bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
-
         return bzk_kv, analyzer
-
-    @timer('Get matrix element')
-    def get_matrix_element(self, k_v, s, n1, n2,
-                           m1, m2, *, qpd,
-                           symmetry, integrationmode=None):
-        """A function that returns pair-densities.
-
-        A pair density is defined as::
-
-         <snk| e^(-i (q + G) r) |s'mk+q>,
-
-        where s and s' are spins, n and m are band indices, k is
-        the kpoint and q is the momentum transfer. For dielectric
-        response s'=s, for the transverse magnetic response
-        s' is flipped with respect to s.
-
-        Parameters
-        ----------
-        k_v : ndarray
-            Kpoint coordinate in cartesian coordinates.
-        s : int
-            Spin index.
-        n1 : int
-            Lower occupied band index.
-        n2 : int
-            Upper occupied band index.
-        m1 : int
-            Lower unoccupied band index.
-        m2 : int
-            Upper unoccupied band index.
-        qpd : SingleQPWDescriptor instance
-        symmetry: gpaw.response.pair.PWSymmetryAnalyzer instance
-            Symmetry analyzer object for handling symmetries of the kpoints.
-        integrationmode : str
-            The integration mode employed.
-
-        Return
-        ------
-        n_nmG : ndarray
-            Pair densities.
-        """
-        assert m1 <= m2
-
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        nG = qpd.ngmax
-        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                         symmetry.how_many_symmetries())
-        if self.pawcorr is None:
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(qpd)
-
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=True)
-        m_m = np.arange(m1, m2)
-        n_n = np.arange(n1, n2)
-        n_nmG = self.pair.get_pair_density(qpd, kptpair, n_n, m_m,
-                                           pawcorr=self.pawcorr,
-                                           block=True)
-
-        if integrationmode is None:
-            n_nmG *= weight
-
-        df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        df_nm[df_nm <= 1e-20] = 0.0
-        n_nmG *= df_nm[..., np.newaxis]**0.5
-
-        return n_nmG.reshape(-1, nG)
-
-    @timer('Get matrix element')
-    def get_optical_matrix_element(self, k_v, s,
-                                   n1, n2,
-                                   m1, m2, *,
-                                   qpd, symmetry,
-                                   integrationmode=None):
-        """A function that returns optical pair densities, that is the
-        head and wings matrix elements, indexed by:
-        # P = (x, y, v, G1, G2, ...)."""
-        assert m1 <= m2
-
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        nG = qpd.ngmax
-        weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                         symmetry.how_many_symmetries())
-        if self.pawcorr is None:
-            pairden_paw_corr = self.gs.pair_density_paw_corrections
-            self.pawcorr = pairden_paw_corr(qpd)
-
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, n1, n2,
-                                            m1, m2, block=False)
-        m_m = np.arange(m1, m2)
-        n_n = np.arange(n1, n2)
-        n_nmP = self.pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
-                                                   pawcorr=self.pawcorr,
-                                                   block=False)
-
-        if integrationmode is None:
-            n_nmP *= weight
-
-        df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        df_nm[df_nm <= 1e-20] = 0.0
-        n_nmP *= df_nm[..., np.newaxis]**0.5
-
-        return n_nmP.reshape(-1, nG + 2)
-
-    @timer('Get eigenvalues')
-    def get_eigenvalues(self, k_v, s, n1, n2,
-                        m1, m2, *, qpd,
-                        gs=None, filter=False):
-        """A function that can return the eigenvalues.
-
-        A simple function describing the integrand of
-        the response function which gives an output that
-        is compatible with the gpaw k-point integration
-        routines."""
-        if gs is None:
-            gs = self.gs
-
-        kd = gs.kd
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = qpd.q_c
-        K1 = self.pair.find_kpoint(k_c)
-        K2 = self.pair.find_kpoint(k_c + q_c)
-
-        ik1 = kd.bz2ibz_k[K1]
-        ik2 = kd.bz2ibz_k[K2]
-        kpt1 = gs.kpt_qs[ik1][s]
-        assert gs.kd.comm.size == 1
-        kpt2 = gs.kpt_qs[ik2][s]
-        deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
-                              kpt2.eps_n[m1:m2])
-
-        if filter:
-            fermi_level = self.gs.fermi_level
-            deps_nm[kpt1.eps_n[n1:n2] > fermi_level, :] = np.nan
-            deps_nm[:, kpt2.eps_n[m1:m2] < fermi_level] = np.nan
-
-        return deps_nm.reshape(-1)
 
     def print_info(self, qpd):
 
@@ -701,181 +674,6 @@ class Chi0Calculator:
         gs_str += nls + 'Occupied states memory: %f M / cpu' % occsize
 
         return gs_str
-
-
-class Chi0DrudeCalculator(Chi0Calculator):
-    """Class for calculating the plasma frequency contribution to Chi0,
-    that is, the contribution from intraband transitions inside of metallic
-    bands. This corresponds directly to the dielectric function in the Drude
-    model."""
-
-    def __init__(self, pair,
-                 disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True,
-                 integrationmode=None):
-        self.pair = pair
-        self.gs = pair.gs
-        self.context = pair.context
-
-        self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        self.integrationmode = integrationmode
-
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
-
-    def calculate(self, wd, rate, spin='all'):
-        """Calculate the Drude dielectric response.
-
-        Parameters
-        ----------
-        wd : FrequencyDescriptor
-            Frequencies to evaluate the reponse function at.
-        rate : float
-            Plasma frequency decay rate (in eV), corresponding to the
-            imaginary part of the complex frequency.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-        """
-        self.print_info(wd, rate)
-
-        # Parse the spin input
-        spins = self.get_spins(spin)
-
-        chi0_drude = Chi0DrudeData.from_frequency_descriptor(wd, rate)
-        self._calculate(chi0_drude, spins)
-
-        return chi0_drude
-
-    def _calculate(self, chi0_drude: Chi0DrudeData, spins):
-        """In-place calculation of the Drude dielectric response function,
-        based on the free-space plasma frequency of the intraband transitions.
-        """
-        # Create a dummy plane-wave descriptor. We need this for the symmetry
-        # analysis -> see discussion in gpaw.response.jdos
-        qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
-                                         ecut=1e-3, gd=self.gs.gd)
-
-        integrator = self.initialize_integrator()
-        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        bandsum = self.get_band_summation()
-        mat_kwargs, eig_kwargs = self.get_integrator_arguments(qpd, analyzer,
-                                                               bandsum)
-        kind, extraargs = self.get_integral_kind()
-
-        get_plasmafreq_matrix_element = partial(
-            self.get_plasmafreq_matrix_element, **mat_kwargs)
-        get_plasmafreq_eigenvalue = partial(
-            self.get_plasmafreq_eigenvalue, **eig_kwargs)
-
-        # Integrate using temporary array
-        tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
-        integrator.integrate(kind=kind,  # Kind of integral
-                             domain=domain,  # Integration domain
-                             integrand=(get_plasmafreq_matrix_element,
-                                        get_plasmafreq_eigenvalue),
-                             out_wxx=tmp_plasmafreq_wvv,  # Output array
-                             **extraargs)  # Extra args for int. method
-        tmp_plasmafreq_wvv *= prefactor
-
-        # Store the plasma frequency itself and print it for anyone to use
-        plasmafreq_vv = tmp_plasmafreq_wvv[0].copy()
-        analyzer.symmetrize_wvv(plasmafreq_vv[np.newaxis])
-        chi0_drude.plasmafreq_vv += 4 * np.pi * plasmafreq_vv
-        self.context.print('Plasma frequency:', flush=False)
-        self.context.print((chi0_drude.plasmafreq_vv**0.5 * Ha).round(2))
-
-        # Calculate the Drude dielectric response function from the
-        # free-space plasma frequency
-        # χ_D(ω+iη) = ω_p^2 / (ω+iη)^2
-        assert chi0_drude.zd.upper_half_plane
-        chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
-            / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
-
-    def update_integrator_kwargs(self, *unused, **ignored):
-        """The Drude calculator uses only standard integrator kwargs."""
-        pass
-
-    def get_band_summation(self):
-        """Define the band summation."""
-        # When doing a calculation of the intraband response, we need only to
-        # integrate the partially unoccupied bands.
-        bandsum = {'n1': self.nocc1, 'n2': self.nocc2}
-
-        return bandsum
-
-    def get_integral_kind(self):
-        """Define what "kind" of integral to make."""
-        extraargs = {}
-        # The plasma frequency integral is special in the way, that only
-        # the spectral part is needed
-        kind = 'spectral function'
-        if self.integrationmode is None:
-            # Calculate intraband transitions at finite fermi smearing
-            extraargs['intraband'] = True  # Calculate intraband
-        elif self.integrationmode == 'tetrahedron integration':
-            # Calculate intraband transitions at T=0
-            fermi_level = self.gs.fermi_level
-            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-
-        return kind, extraargs
-
-    def get_plasmafreq_matrix_element(self, k_v, s, n1, n2,
-                                      *, qpd,
-                                      symmetry,
-                                      integrationmode=None):
-        """NB: In dire need of documentation! XXX."""
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self.pair.get_k_point(s, k_c, n1, n2)
-        n_n = range(n1, n2)
-
-        vel_nv = self.pair.intraband_pair_density(kpt1, n_n)
-
-        if integrationmode is None:
-            f_n = kpt1.f_n
-            width = self.gs.get_occupations_width()
-            if width > 1e-15:
-                dfde_n = - 1. / width * (f_n - f_n**2.0)
-            else:
-                dfde_n = np.zeros_like(f_n)
-            vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
-            weight = np.sqrt(symmetry.get_kpoint_weight(k_c) /
-                             symmetry.how_many_symmetries())
-            vel_nv *= weight
-
-        return vel_nv
-
-    def get_plasmafreq_eigenvalue(self, k_v, s,
-                                  n1, n2, *, qpd):
-        """A function that can return the intraband eigenvalues.
-
-        A simple function describing the integrand of
-        the response function which gives an output that
-        is compatible with the gpaw k-point integration
-        routines."""
-        gs = self.gs
-        kd = gs.kd
-        k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.pair.find_kpoint(k_c)
-        ik = kd.bz2ibz_k[K1]
-        kpt1 = gs.kpt_qs[ik][s]
-        assert gs.kd.comm.size == 1
-
-        return kpt1.eps_n[n1:n2]
-
-    def print_info(self, wd, rate):
-        p = partial(self.context.print, flush=False)
-
-        p('%s' % ctime())
-        p('Called chi0_drude.calculate() with:')
-        p('    Number of frequency points: %d' % len(wd))
-        p('    Plasma frequency decay rate: %f eV' % rate)
-        p()
-        p(self.get_gs_info_string(tab='    '))
-        self.context.print('')
 
 
 class Chi0(Chi0Calculator):

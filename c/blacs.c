@@ -761,14 +761,10 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 
   // adesc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc; this can be relaxed a bit according to pdsyevd.f
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
 
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
@@ -876,12 +872,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
 
   // a desc
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsyevx.f
 
@@ -1019,12 +1011,8 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsyevx.f
 
@@ -1138,12 +1126,8 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc can be relaxed a bit according to pdsyevd.f
 
@@ -1337,12 +1321,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
 
   // a desc
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsygvx.f
 
@@ -1485,12 +1465,8 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc can be relaxed a bit according to pdsyevd.f
 
@@ -1685,13 +1661,9 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
 
   // adesc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
-  int p = a_n - 1;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
+  int p = n - 1;
 
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
@@ -1744,12 +1716,8 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OOs", &a, &desca, &uplo))
     return NULL;
 
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-  // Only square matrices
-  assert (a_m == a_n);
-
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
      {
@@ -1823,25 +1791,18 @@ PyObject* scalapack_solve(PyObject *self, PyObject *args) {
     return NULL;
 
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
   int a_mb     = INTP(desca)[4];
-  // Only square matrices
-  assert (a_m == a_n);
 
-  int b_m      = INTP(descb)[2];
-  int b_n      = INTP(descb)[3];
-  // Equation valid
-  assert (a_n == b_m);
-
-  int n = a_n;
-  int nrhs = b_n;
+  assert(n == INTP(descb)[2]);  // Equation valid
+  int nrhs = INTP(descb)[3];
 
   int nprow, npcol, myrow, mycol, locM;
 
   Cblacs_gridinfo_(a_ConTxt, &nprow, &npcol, &myrow, &mycol);
   // LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
-  locM = (((a_m/a_mb) + 1)/nprow + 1) * a_mb;
+  locM = (((n/a_mb) + 1)/nprow + 1) * a_mb;
 
   /*
    *  IPIV    (local output) INTEGER array, dimension ( LOCr(M_A)+MB_A )

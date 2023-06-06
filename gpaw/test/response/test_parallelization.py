@@ -17,6 +17,14 @@ def test_blocks1d_collect():
     for array in [dat_i, dat_ij, dat_ijk]:
         blocks = Blocks1D(world, array.shape[0])
         local_array = array[blocks.myslice]
-        collected_array = blocks.collect(local_array)
 
+        # Test all-gather
+        collected_array = blocks.all_gather(local_array)
         assert np.all(array == collected_array)
+
+        # Test gather
+        collected_array = blocks.gather(local_array)
+        if world.rank == 0:
+            assert np.all(array == collected_array)
+        else:
+            assert collected_array is None
