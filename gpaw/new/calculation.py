@@ -317,6 +317,7 @@ class DFTCalculation:
 
         density = self.state.density.new(builder.grid)
         density.normalize()
+        self.scf_loop.world.broadcast(density.nt_sR.data, 0)
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()
