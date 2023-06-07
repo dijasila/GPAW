@@ -162,7 +162,6 @@ class BaseMixer:
             except (ZeroDivisionError, np.linalg.LinAlgError):
                 alpha_i = np.zeros(iold)
                 alpha_i[-1] = 1.0
-                1 / 0
 
             if self.world:
                 self.world.broadcast(alpha_i, 0)

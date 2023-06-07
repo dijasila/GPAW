@@ -72,22 +72,8 @@ class PotentialCalculator:
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc, kpt_comm)
 
-        from gpaw.mpi import world
-        N = len(corrections)
-        E = np.zeros((world.size, 2 * N))
-        E[world.rank, :N] = list(corrections.values())
-        E[world.rank, N:] = [energies[key] for key in corrections]
-        world.sum(E)
-        err = E.ptp(axis=0)
-        if max(err) > 1e-14:
-            if world.rank == 0:
-                print(corrections)
-                print(err)
-            raise ValueError
-
         for key, e in corrections.items():
-            # print(
-            #     f'RANK{world.rank}: {key:10} {energies[key]:15.9f} {e:15.9f}')
+            # print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL

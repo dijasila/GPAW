@@ -9,23 +9,6 @@ from gpaw.new.pw.stress import calculate_stress
 from gpaw.setup import Setups
 
 
-def check(a, f=0):
-    from gpaw.mpi import world
-    A = np.zeros((world.size,) + a.shape)
-    A[world.rank] = a
-    world.sum(A)
-    err = A.ptp(axis=0)
-    E = err.max()
-    if f:
-        print('FFF', E)
-        return
-    if E > 1e-15:
-        if world.rank == 0:
-            if err.ndim == 1:
-                print(err)
-        raise ValueError
-
-
 class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
                  grid,
