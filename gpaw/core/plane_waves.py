@@ -740,7 +740,7 @@ def find_reciprocal_vectors(ecut: float,
 def abs_square_gpu(psit_nG, weight_n, nt_R):
     from gpaw.gpu import cupyx
     pw = psit_nG.desc
-    plan = nt_R.desc.fft_plans(xp=cp)
+    plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
     Q_G = plan.indices(pw)
     weight_n = cp.asarray(weight_n)
     N = len(weight_n)
