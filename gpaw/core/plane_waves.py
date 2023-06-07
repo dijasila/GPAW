@@ -535,7 +535,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions) -> None:
+                   out: UniformGridFunctions,
+                   _slow: bool = False) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -552,7 +553,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         a_nG = self
 
         if domain_comm.size == 1:
-            if xp is cp and pw.dtype == complex:
+            if not _slow and xp is cp and pw.dtype == complex:
                 return abs_square_gpu(a_nG, weights, out)
 
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
