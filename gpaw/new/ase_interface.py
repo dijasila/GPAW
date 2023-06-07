@@ -378,6 +378,10 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.ibz.kpt_kc.copy()
 
+    def get_orbital_magnetization(self):
+        from gpaw.new.orbmag import get_om_from_calc
+        return get_om_from_calc(self)
+
     def calculate(self, atoms, properties=None, system_changes=None):
         if properties is None:
             properties = ['energy']
