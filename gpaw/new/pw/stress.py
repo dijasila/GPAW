@@ -86,7 +86,8 @@ def get_wfs_stress(ibzwfs: IBZWaveFunctions,
         occ_n = xp.asarray(wfs.weight * wfs.spin_degeneracy * wfs.myocc_n)
         sigma_vv += get_kinetic_stress(wfs, occ_n)
         sigma_vv += get_paw_stress(wfs, dH_asii, occ_n)
-    synchronize()
+    if xp is not np:
+        synchronize()
     ibzwfs.kpt_comm.sum(sigma_vv)
     return sigma_vv
 
