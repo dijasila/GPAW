@@ -59,7 +59,7 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     int itemsize = Array_ITEMSIZE(f_GI_obj);
     pwlfc_expand_gpu_launch_kernel(itemsize, f_Gs, emiGR_Ga, Y_GL, l_s, a_J, s_J, f_GI,
                                        I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
-    hipDeviceSynchronize(); // Is needed?
+    //hipDeviceSynchronize(); // Is needed?
     Py_RETURN_NONE;
 }
 

@@ -153,5 +153,5 @@ extern "C" void pwlfc_expand_gpu_launch_kernel(int itemsize,
                            nsplines,
                            cc);
     }
-    //hipDeviceSynchronize();
+    hipDeviceSynchronize();
 }
