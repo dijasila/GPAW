@@ -30,17 +30,19 @@ def abs_square(a: float,  # lattice constant
     return t
 
 
-@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('xp',
+                         [np,
+                          pytest.param(cp, marks=pytest.mark.gpu)])
 @pytest.mark.parametrize('nbands', [2, 17])
 def test_pw_abs_square(xp, nbands):
     abs_square(a=2.5, N=6, B=nbands, xp=xp)
 
 
 def main():
-    t = abs_square(6.0, 32, 100, cp)  # warmup
+    """Test speedup for larger system."""
+    abs_square(6.0, 32, 100, cp)  # GPU-warmup
     t = abs_square(6.0, 32, 100, cp)
     print('Fast:', t)
-    abs_square(6.0, 32, 100, cp, slow=True)
     t = abs_square(6.0, 32, 100, cp, slow=True)
     print('Slow:', t)
 
