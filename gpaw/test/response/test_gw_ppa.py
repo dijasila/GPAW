@@ -4,6 +4,21 @@ from gpaw.response.g0w0 import G0W0
 
 from ase.units import Hartree as Ha
 
+def Whook(gw, Wdict):
+    f = open(f'Wmodel_ppa{gw.ppa}_mpa{True if gw.mpa else False}.txt', 'w')
+    for occ in [0,1]:
+        for w in np.linspace(-2, 2, 400):
+            S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
+            if S_GG is None:
+                continue
+            print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
+                        dSdw_GG[0,0].real, dSdw_GG[0,0].imag, dSdw_GG[0,1].real, dSdw_GG[0,1].imag,
+                        file=f)
+        print(file=f)
+        print(file=f)
+        print(file=f)
+    f.close()
+
 @pytest.mark.response
 def test_ff(in_tmp_dir, gpw_files, scalapack):
     ref_result = np.asarray([[[11.30094393, 21.62842077],

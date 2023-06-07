@@ -40,14 +40,14 @@ def numeric_stress(atoms, d=1e-6, component=None):
 @pytest.mark.later
 @pytest.mark.slow
 def test_xc_qna_stress(in_tmp_dir, gpw_files):
-    calc = GPAW(gpw_files['Cu3Au_qna'])
+    calc = GPAW(gpw_files['Cu3Au_qna'], txt='a.txt')
     atoms = calc.get_atoms()
     atoms.set_cell(np.dot(atoms.cell,
                           [[1.02, 0, 0.03],
                            [0, 0.99, -0.02],
                            [0.2, -0.01, 1.03]]),
                    scale_atoms=True)
-
+    atoms.get_potential_energy()
     s_analytical = atoms.get_stress(voigt=False)
     print(s_analytical)
     components = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]

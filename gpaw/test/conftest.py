@@ -287,8 +287,8 @@ class GPWFiles:
                     parallel=dict(domain=1),
                     convergence={'density': 1e-4},
                     xc=QNA,
-                    kpts=kpts,
-                    txt=self.path / 'Cu3Au.txt')
+                    kpts=kpts)
+                    #txt=self.path / 'Cu3Au.txt')
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc

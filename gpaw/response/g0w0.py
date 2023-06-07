@@ -668,6 +668,9 @@ class G0W0Calculator:
             shift0_c = Q_c - symop.apply(qpd.q_c)
             self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
 
+        Whook = self.hooks.get('W', None)
+        Whook and Whook(self, Wdict)
+
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
             n_mG = get_nmG(kpt1, kpt2,
@@ -687,19 +690,6 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
-                f = open(f'Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
-                for occ in [0,1]:
-                    for w in np.linspace(-2, 2, 400):
-                        S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
-                        if S_GG is None:
-                            continue
-                        print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
-                                    dSdw_GG[0,0].real, dSdw_GG[0,0].imag, dSdw_GG[0,1].real, dSdw_GG[0,1].imag,
-                                    file=f)
-                    print(file=f)
-                    print(file=f)
-                    print(file=f)
-                f.close()
 
                 # m is band index of all (both unoccupied and occupied) wave
                 # functions in G
@@ -1085,6 +1075,9 @@ class G0W0(G0W0Calculator):
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
         """
+
+        self.hooks = dict()
+
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         # (calc can not actually be a calculator at all.)
@@ -1184,6 +1177,9 @@ class G0W0(G0W0Calculator):
                          ppa=ppa,
                          mpa=mpa,
                          **kwargs)
+
+    def add_hook(self, slot, hook):
+        self.hooks[slot] = hook
 
     @property
     def results_GW(self):

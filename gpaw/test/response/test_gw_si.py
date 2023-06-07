@@ -18,6 +18,7 @@ def generate_si_systems():
 
 
 def run(atoms, symm, nblocks):
+    atoms.translate([0,1,2])
     atoms.calc = GPAW(mode=PW(250),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
@@ -84,6 +85,7 @@ def test_few_freq_response_gwsi(in_tmp_dir, scalapack):
 
     # This test has very few frequencies and tests that the code doesn't crash.
     atoms = bulk('Si', 'diamond', a=5.43)
+    atoms.translate([0,1,2])
     atoms.calc = GPAW(mode=PW(250),
                       eigensolver='rmm-diis',
                       occupations=FermiDirac(0.01),
