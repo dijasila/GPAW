@@ -177,6 +177,8 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
+        if isinstance(other, (float, int)):
+            return self._data == other
         return ndarray(self._data == other._data)
 
     def __mul__(self, f):

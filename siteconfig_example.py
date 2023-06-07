@@ -79,6 +79,9 @@ if 0:
     if 'xc' not in libraries:
         libraries.append('xc')
 
+# Enable this, if your MPI doesn't support MPI_INPLACE
+if 0:
+    undef_macros.append('GPAW_MPI_INPLACE')
 
 # libvdwxc:
 if 0:

@@ -9,7 +9,7 @@ GPAW offers two ways of calculating Raman intensities. One can use the `ASE Rama
 with the GPAW LRTDDFT module as shown in the Resonant Raman tutorial :ref:`resonant_raman_water`.
 
 GPAW also implements Raman spectroscopy for zone-center phonons of extended systems
-using the electron-phonon coupling (see :ref:`elph`) within 3rd order perturbation 
+using the electron-phonon coupling (see :ref:`elphtheory` and :ref:`elph`) within 3rd order perturbation
 theory :dfn:`Taghizadeh et a.` [#Taghizadeh2020]_ , which is discussed here. This method is currently only
 implementated for the LCAO mode.
 
@@ -17,7 +17,7 @@ The Stokes Raman intensity can be written as
 
 .. math::
 
-    I(\omega) = I_0 \sum_\nu \frac{n_\nu+1}{\omega_\nu} \vert 
+    I(\omega) = I_0 \sum_\nu \frac{n_\nu+1}{\omega_\nu} \vert
     \sum_{\alpha, \beta} u_{in}^\alpha R_{\alpha \beta}^\nu u_{out}^\beta
     \vert^2 \delta(\omega-\omega_\nu)
 
@@ -45,18 +45,12 @@ elements `p_{ij}^\alpha=\langle i \mathbf{k} | \hat p^\alpha| j \mathbf{k} \rang
 the electron-phonon matrix `g_{ij}^\nu = \langle i \mathbf{k} \vert \partial_{\nu{q=0}} V^{KS} \vert j \mathbf{k} \rangle`
 in the optical limit `\mathbf{q}=0` and of course knowledge of the electronic
 states and phonon modes throughout the Brillouin zone.
-For these calculations we can employ in the :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`
+For these calculations we can employ in the :meth:`~gpaw.lcao.dipoletransition.get_momentum_transitions`
 method, the GPAW electron-phonon module :ref:`elph` and the ASE phonon module, respectively.
 
-The :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions` method is
-currently not aware of symmetry. It is therefore required to switch off
-point-group symmetry in GPAW, so that matrix elements for all k-points and not
-just the irreducible ones are calculated. The momentum matrix elements transform
-as `p \rightarrow -p^*` under time-reversal symmetry `\mathbf{k} \rightarrow -\mathbf{k}`.
-Accordingly, it is possible to enable time-reversal symmetry.
-By default the routine saves a file called ``mom_skvnm.npy`` containing the
+It is required to calculate all properties for the full Brillouin zone using `symmetry=off`. By default the routine saves a file called ``mom_skvnm.npy`` containing the
 momentum matrix. This can be deactivated using the ``savetofile`` switch. The
-matrix is always the return value of :meth:`~gpaw.raman.dipoletransition.get_momentum_transitions`.
+matrix is always the return value of :meth:`~gpaw.lcao.dipoletransition.get_momentum_transitions`.
 
 Energy changes for phonons and potential changes for electron-phonon couplings
 are both computed using a finite displacement technique. Both quantities can be
@@ -69,10 +63,6 @@ a sufficiently large supercell for the finite displacement simulations.
 
 If phonon and effective potential are calculated simultaenously, results are saved
 in the same cache files with default name `elph`.
-
-The Raman module offers a wrapper, :meth:`~gpaw.raman.elph.EPC`, around the
-:meth:`~gpaw.elph.electronphonon.ElectronPhononCoupling` class to facilitate easier
-computation of the electron-phonon matrix.
 
 Some more details are elaborated in the related tutorial :ref:`elphraman`.
 
@@ -89,11 +79,10 @@ References
 Code
 ----
 
-.. autofunction:: gpaw.raman.dipoletransition.get_momentum_transitions
-.. autoclass:: gpaw.raman.elph.EPC
-.. autofunction:: gpaw.raman.elph.EPC.calculate_supercell_matrix
-.. autofunction:: gpaw.raman.elph.EPC.get_elph_matrix
-.. autofunction:: gpaw.raman.raman.calculate_raman
-.. autofunction:: gpaw.raman.raman.calculate_raman_intensity
-.. autofunction:: gpaw.raman.raman.plot_raman
+.. autoclass:: gpaw.elph.ResonantRamanCalculator
+    :members:
 
+.. autoclass:: gpaw.elph.RamanData
+    :members:
+
+.. autofunction:: gpaw.lcao.dipoletransition.get_momentum_transitions

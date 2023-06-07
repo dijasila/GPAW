@@ -10,6 +10,7 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import NewPairDensityCalculator
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 
 
@@ -37,7 +38,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
                  nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
-                 bundle_integrals=True, bandsummation='pairwise',
+                 bandsummation='pairwise',
                  **kwargs):
         """Contruct the ChiKSCalculator
 
@@ -59,10 +60,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
             the run-time).
             'pairwise': sum over pairs of bands
             'double': double sum over band indices.
-        bundle_integrals : bool
-            Do the k-point integrals (large matrix multiplications)
-            simultaneously for all frequencies (does not change the result,
-            but can affect the overall performance).
         kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
@@ -74,7 +71,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
         self.gammacentered = gammacentered
         self.nbands = nbands
-        self.bundle_integrals = bundle_integrals
         self.bandsummation = bandsummation
 
         self.pair_density_calc = NewPairDensityCalculator(gs, context)
@@ -92,26 +88,33 @@ class ChiKSCalculator(PairFunctionIntegrator):
         zd : ComplexFrequencyDescriptor
             Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
         """
+        return self._calculate(*self._set_up_internals(spincomponent, q_c, zd))
+
+    def _set_up_internals(self, spincomponent, q_c, zd,
+                          distribution='GZg'):
+        r"""Set up internal data objects to calculate χ_KS."""
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
         qpdi = self.get_pw_descriptor(q_c, internal=True)
 
-        # Analyze the requested spin component
-        spinrot = get_spin_rotation(spincomponent)
-
         # Prepare to sum over bands and spins
         transitions = self.get_band_and_spin_transitions(
-            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+            spincomponent, nbands=self.nbands,
+            bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
-            qpdi, len(zd), spincomponent, self.nbands, len(transitions)))
-
-        self.context.print('Initializing pair density PAW corrections')
-        self.pair_density_calc.initialize_paw_corrections(qpdi)
+            qpdi, len(zd), spincomponent, len(transitions)))
 
         # Create data structure
-        chiks = self.create_chiks(spincomponent, qpdi, zd)
+        chiks = self.create_chiks(spincomponent, qpdi, zd, distribution)
+
+        return chiks, transitions
+
+    def _calculate(self, chiks: Chi, transitions: PairTransitions):
+        r"""Integrate χ_KS according to the specified transitions."""
+        self.context.print('Initializing pair density PAW corrections')
+        self.pair_density_calc.initialize_paw_corrections(chiks.qpd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, transitions)
@@ -168,16 +171,12 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return qpd
 
-    def create_chiks(self, spincomponent, qpd, zd):
+    def create_chiks(self, spincomponent, qpd, zd, distribution):
         """Create a new Chi object to be integrated."""
-        if self.bundle_integrals:
-            distribution = 'GZg'
-        else:
-            distribution = 'ZgG'
+        assert distribution in ['GZg', 'ZgG']
         blockdist = PlaneWaveBlockDistributor(self.context.comm,
                                               self.blockcomm,
                                               self.intrablockcomm)
-
         return Chi(spincomponent, qpd, zd,
                    blockdist, distribution=distribution)
 
@@ -333,7 +332,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         return chiks
 
-    def get_info_string(self, qpd, nz, spincomponent, nbands, nt):
+    def get_info_string(self, qpd, nz, spincomponent, nt):
         r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
@@ -344,14 +343,14 @@ class ChiKSCalculator(PairFunctionIntegrator):
 
         s = '\n'
 
-        s += 'Calculating the Kohn-Sham susceptibility with:\n'
+        s += 'Setting up a Kohn-Sham susceptibility calculation with:\n'
         s += '    Spin component: %s\n' % spincomponent
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
         s += '    Number of frequency points: %d\n' % nz
-        if nbands is None:
+        if self.nbands is None:
             s += '    Bands included: All\n'
         else:
-            s += '    Number of bands included: %d\n' % nbands
+            s += '    Number of bands included: %d\n' % self.nbands
         s += 'Resulting in:\n'
         s += '    A total number of band and spin transitions of: %d\n' % nt
         s += '\n'
@@ -472,16 +471,6 @@ def regularize_intraband_transitions(denom_wt, transitions, deps_t):
     degenerate_t = np.abs(deps_t) < 1e-8
 
     denom_wt[:, intraband_t & degenerate_t] = 1.
-    
-
-def get_spin_rotation(spincomponent):
-    """Get the spin rotation corresponding to the given spin component."""
-    if spincomponent == '00':
-        return '0'
-    elif spincomponent in ['uu', 'dd', '+-', '-+']:
-        return spincomponent[-1]
-    else:
-        raise ValueError(spincomponent)
 
 
 def get_smat_components(spincomponent, s1_t, s2_t):
