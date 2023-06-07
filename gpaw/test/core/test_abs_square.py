@@ -7,12 +7,10 @@ from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.gpu import cupy as cp
 
 
-@pytest.mark.parametrize('xp', [np, cp])
-def test_pw_abs_square(xp):
-    abs_square(a=2.5, N=10, B=17, xp=xp)
-
-
-def abs_square(a, N, B, xp):
+def abs_square(a: float,  # lattice constanc
+               N: int,  # number of grid-points
+               B: int,  # number of bands
+               xp) -> float:
     grid = UniformGrid(cell=[a, a, a], size=[N, N, N])
     ecut = 0.5 * (np.pi * N / a)
     pw = PlaneWaves(ecut=ecut, cell=grid.cell, dtype=complex)
@@ -25,6 +23,11 @@ def abs_square(a, N, B, xp):
     t = time() - t
     assert nt_R.integrate() == pytest.approx(a**3 * weight_n.sum())
     return t
+
+
+@pytest.mark.parametrize('xp', [np, cp])
+def test_pw_abs_square(xp):
+    abs_square(a=2.5, N=10, B=17, xp=xp)
 
 
 if __name__ == '__main__':
