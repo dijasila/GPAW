@@ -13,7 +13,7 @@ calc.write('wfs.gpw', mode='all')
 os.mkdir('ff')
 os.chdir('ff')
 gw = G0W0('../wfs.gpw', 
-          bands=(3, 5),
+          bands=(0, 8),
           nbands=50,
           nblocks=1,
           ecut=40)
@@ -25,7 +25,7 @@ os.chdir('mpa')
 
 mpa_dict = {'npoles':8, 'wrange':[1j*Ha,(1.5+1j)*Ha], 'wshift':[0.01*Ha, 0.1*Ha], 'alpha':1 }
 gw = G0W0('../wfs.gpw', 
-          bands=(3, 5),
+          bands=(0, 8),
           nbands=50,
           nblocks=1,
           ecut=40,  

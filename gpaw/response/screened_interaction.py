@@ -145,7 +145,7 @@ class WBaseCalculator():
         Coulomb interaction.
         XXX: Understand and document exact expressions
         """
-        #W_GG[0, 0] = einv_GG[0, 0] * V0
+        W_GG[0, 0] = einv_GG[0, 0] * V0
         #W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
         #W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 

@@ -655,7 +655,7 @@ class G0W0Calculator:
         self.context.comm.barrier()
         return paths
 
-    def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
+    def calculate_q(self, ie, k, k2, kpt1, kpt2, qpd, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -687,7 +687,7 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
-                f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
+                f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_k2_{k2}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
                 for occ in [0,1]:
                     for w in np.linspace(-2, 2, 400):
                         S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
@@ -848,8 +848,10 @@ class G0W0Calculator:
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
+                    k2 = self.wcalc.gs.kd.bz2ibz_k[kpt2.K]
+                    j = self.kpts.index(k2)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, qpdi, Wdict,
+                    self.calculate_q(ie, i, j, kpt1, kpt2, qpdi, Wdict,
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
