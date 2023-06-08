@@ -120,6 +120,7 @@ def main():
 
     packages = ['myqueue',
                 'graphviz',
+                'scikit-learn',
                 'qeh']
     run(f'. {activate} && pip install -q ' + ' '.join(packages))
 
