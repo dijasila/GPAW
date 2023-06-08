@@ -10,9 +10,8 @@ calc = GPAW(mode='lcao', h=0.18, basis='dzp',
             xc='PBE',
             occupations=FermiDirac(0.01),
             symmetry={'point_group': False},
-            convergence={'energy': 2e-5, 'density': 1e-5},
             txt='supercell.txt',
-            parallel={'domain': 1})
+            parallel={'domain': 1, 'band': 1})
 
 atoms_N.calc = calc
 atoms_N.get_potential_energy()

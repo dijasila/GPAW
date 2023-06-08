@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import numpy as np
 from gpaw.response import timer
 from scipy.spatial import Delaunay
@@ -7,6 +8,16 @@ import _gpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D, block_partition
+
+
+class Integrand(ABC):
+    @abstractmethod
+    def matrix_element(self, k_v, s):
+        ...
+
+    @abstractmethod
+    def eigenvalues(self, k_v, s):
+        ...
 
 
 def czher(alpha: float, x, A) -> None:
@@ -125,7 +136,6 @@ class PointIntegrator(Integrator):
         """
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
-        get_matrix_element, get_eigenvalues = integrand
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
@@ -134,10 +144,10 @@ class PointIntegrator(Integrator):
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(mydomain_t):
-            n_MG = get_matrix_element(*arguments)
+            n_MG = integrand.matrix_element(*arguments)
             if n_MG is None:
                 continue
-            deps_M = get_eigenvalues(*arguments)
+            deps_M = integrand.eigenvalues(*arguments)
 
             if intraband:
                 assert eta is None
@@ -182,7 +192,7 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, eta=None):
+    def update(self, n_mG, deps_m, wd, chi0_wGG, eta):
         """Update chi."""
 
         deps_m += self.eshift * np.sign(deps_m)
@@ -291,7 +301,7 @@ class PointIntegrator(Integrator):
             chi0_wvv[0] += x_vv
 
     @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta=None):
+    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta):
         """Optical limit update of chi."""
         deps1_m = deps_m + 1j * eta
         deps2_m = deps_m - 1j * eta
@@ -396,7 +406,6 @@ class TetrahedronIntegrator(Integrator):
         # Input domain
         td = self.tesselate(domain[0])
         args = domain[1:]
-        get_matrix_element, get_eigenvalues = integrand
 
         # Relevant quantities
         bzk_kc = td.points
@@ -447,7 +456,7 @@ class TetrahedronIntegrator(Integrator):
                     arguments = np.unravel_index(t, shape)
                 for K in range(nk):
                     k_c = bzk_kc[K]
-                    deps_M = -get_eigenvalues(k_c, *arguments)
+                    deps_M = -integrand.eigenvalues(k_c, *arguments)
                     if deps_tMk is None:
                         deps_tMk = np.zeros([nterms] +
                                             list(deps_M.shape) +
@@ -464,8 +473,8 @@ class TetrahedronIntegrator(Integrator):
                 t = np.ravel_multi_index(arguments[:-1], shape)
             deps_Mk = deps_tMk[t]
             teteps_Mk = deps_Mk[:, neighbours_k[K]]
-            n_MG = get_matrix_element(bzk_kc[K],
-                                      *arguments[:-1])
+            n_MG = integrand.matrix_element(bzk_kc[K],
+                                            *arguments[:-1])
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(
