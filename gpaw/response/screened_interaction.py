@@ -145,9 +145,9 @@ class WBaseCalculator():
         Coulomb interaction.
         XXX: Understand and document exact expressions
         """
-        W_GG[0, 0] = einv_GG[0, 0] * V0
-        W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
-        W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+        #W_GG[0, 0] = einv_GG[0, 0] * V0
+        #W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+        #W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
     
 class WCalculator(WBaseCalculator):
@@ -353,7 +353,7 @@ class PPAHWModel(HWModel):
         x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
         dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
                                        x3_GG**2 + x4_GG**2)
-        return x_GG, dx_GG
+        return x_GG.T.conj(), dx_GG.T.conj()
 
 class MPAHWModel(HWModel):
     def __init__(self, W_nGG, omegat_nGG, eta, factor):
@@ -377,7 +377,7 @@ class MPAHWModel(HWModel):
         #                               x3_nGG**2 + x4_nGG**2)
         x_GG = np.sum(self.factor * W_nGG * (x1_nGG+x2_nGG),axis=0)
         dx_GG = np.zeros_like(x_GG) #np.sum(dx_nGG,axis=0)
-        return 2*x_GG, 2*dx_GG
+        return 2*x_GG.T.conj(), 2*dx_GG.T.conj()
 #######
 
 class PPACalculator(WBaseCalculator):
@@ -465,6 +465,7 @@ class MPACalculator(WBaseCalculator):
                 #print('fails',PPcond_rate)
 
         W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
+        
         if chi0.optical_limit or self.integrate_gamma != 0:
             for W_GG,R_GG in zip(W_nGG,R_nGG):
                 self.apply_gamma_correction(W_GG, pi * R_GG,

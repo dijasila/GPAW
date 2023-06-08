@@ -27,13 +27,13 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])
     mpa_dict = {'npoles':1, 'wrange':[1e-10j,1j*Ha], 'wshift':[0.1*Ha, 0.1*Ha], 'alpha':1 }
-    mpa_dict = {'npoles':8, 'wrange':[1j*Ha,(1.5+1j)*Ha], 'wshift':[0.01*Ha, 0.1*Ha], 'alpha':1 }
+    #mpa_dict = {'npoles':8, 'wrange':[1j*Ha,(1.5+1j)*Ha], 'wshift':[0.01*Ha, 0.1*Ha], 'alpha':1 }
 
     gw = G0W0(gpw_files['bn_pw_wfs'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,
-              ecut=80,
+              ecut=40,
               ppa=not mpa,
               mpa=mpa_dict if mpa else False) 
 

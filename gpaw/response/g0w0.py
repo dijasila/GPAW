@@ -687,15 +687,14 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
-                f = open(f'Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
+                f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
                 for occ in [0,1]:
                     for w in np.linspace(-2, 2, 400):
                         S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
                         if S_GG is None:
                             continue
                         print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
-                                    dSdw_GG[0,0].real, dSdw_GG[0,0].imag, dSdw_GG[0,1].real, dSdw_GG[0,1].imag,
-                                    file=f)
+                                      S_GG[2,3].real, S_GG[2,3].imag,file=f)
                     print(file=f)
                     print(file=f)
                     print(file=f)
