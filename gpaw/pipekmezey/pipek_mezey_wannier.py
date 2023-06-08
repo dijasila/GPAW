@@ -67,7 +67,7 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     fvalue = fvalueold + 10
     count = 0
     V = np.zeros(func.get_gradients().shape, dtype=complex)
-    #
+    
     while abs((fvalue - fvalueold) / fvalue) > tolerance:
         fvalueold = fvalue
         dF = func.get_gradients()
@@ -75,12 +75,12 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
         V += step * dF
         func.step(V)
         fvalue = func.get_function_value()
-        #
+        
         if fvalue < fvalueold:
             step *= 0.5
         count += 1
         func.niter = count
-        #
+        
         if verbose:
             parprint('MDmin: iter=%s, step=%s, value=%s'
                      % (count, step, fvalue))
@@ -92,31 +92,27 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
 
 
 def get_kklists(Nk, Gd, Nd, kpt):
-    #
     list_dk = np.zeros((Nd, Nk), int)
     k0_dk = np.zeros((Nd, Nk, 3), int)
-    #
     kd_c = np.empty(3)
-    #
+
     for c in range(3):
-        #
         sl = np.argsort(kpt[:, c], kind='mergesort')
         sk_kc = np.take(kpt, sl, axis=0)
         kd_c[c] = max([sk_kc[n + 1, c] - sk_kc[n, c]
                        for n in range(Nk - 1)])
-    #
-    for d, Gdir in enumerate(Gd):
-        #
+    
+    for d, Gdir in enumerate(Gd):        
         for k, k_c in enumerate(kpt):
-            #
             G_c = np.where(Gdir > 0, kd_c, 0)
+
             if max(G_c) < 1e-4:
                 list_dk[d, k] = k
                 k0_dk[d, k] = Gdir
             else:
                 list_dk[d, k], k0_dk[d, k] = \
                     neighbor_k_search(k_c, G_c, kpt)
-    #
+    
     return list_dk, k0_dk
 
 
@@ -149,11 +145,11 @@ def random_orthogonal(rng, s, dtype=float):
 
 
 class PipekMezey:
-    #
+    
     def __init__(self, wfs=None, calc=None,
                  method='W', penalty=2.0, spin=0,
                  mu=None, dtype=None, seed=None):
-        #
+        
         assert wfs or calc is not None
 
         if calc is not None:
@@ -165,11 +161,11 @@ class PipekMezey:
             self.mode = self.wfs.mode
         else:
             self.mode = None
-        #
+        
         self.method = method  # Charge partitioning scheme
         self.penalty = abs(penalty)  # penalty exponent
         self.mu = mu  # WF variance (if 'H')
-        #
+        
         self.gd = self.wfs.gd
         # Allow complex rotations
         if dtype is not None:
@@ -196,7 +192,6 @@ class PipekMezey:
                            len(self.wfs.kpt_u))
 
         f_n = self.wfs.kpt_u[u].f_n
-        
         self.nocc = 0
         while f_n[self.nocc] > 1e-10:
             self.nocc += 1
@@ -208,9 +203,9 @@ class PipekMezey:
 
         # kpts and dirs
         self.k_kc = self.wfs.kd.bzk_kc
-        #
+        
         assert len(self.wfs.kd.ibzk_kc) == len(self.k_kc)
-        #
+        
         self.kgd = get_monkhorst_pack_size_and_offset(self.k_kc)[0]
         self.k_kc *= -1  # Bloch phase sign conv. GPAW
 
@@ -249,16 +244,12 @@ class PipekMezey:
         if calc is not None and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_restart_file()
 
-        # If LCAO need to make sure wave function array is available
+        # initialize wfs array if lcao
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
 
-        # a = time()
-
         for d, dG in enumerate(self.Gd):
-            #
             for k in range(self.Nk):
-                #
                 k1 = self.lst_dk[d, k]
                 k0 = k0_dk[d, k]
                 k_kc = self.wfs.kd.bzk_kc
@@ -268,7 +259,7 @@ class PipekMezey:
                                len(self.wfs.kpt_u))
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
-                #
+                
                 if self.wfs.mode == 'pw':
                     cmo = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
                     cmo1 = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
@@ -283,7 +274,7 @@ class PipekMezey:
                              np.dot(np.indices(self.gd.n_c).T +
                                     self.gd.beg_c,
                                     Gc / self.gd.N_c).T)
-                # for each atom
+                # WFs per atom
                 for atom in self.atoms:
                     WF = self.get_weight_function_atom(atom.index)
                     pw = (e_G * WF * cmo1)
@@ -295,9 +286,8 @@ class PipekMezey:
                 P_ani1 = self.wfs.kpt_u[u1].P_ani
 
                 spos_ac = self.atoms.get_scaled_positions()
-                #
+
                 for A, P_ni in self.wfs.kpt_u[u].P_ani.items():
-                    #
                     dS_ii = self.setups[A].dO_ii
                     P_n = P_ni[:self.nocc]
                     P_n1 = P_ani1[A][:self.nocc]
@@ -305,14 +295,11 @@ class PipekMezey:
                     e = np.exp(-2j * pi * np.dot(Gc, spos_ac[A]))
                     Qadk_nm[A, d, k] += \
                         e * P_n.conj().dot(dS_ii.dot(P_n1.T))
-        #
+
         # Sum over domains
         self.gd.comm.sum(Qadk_nm)
         self.Qadk_nm = Qadk_nm.copy()
         self.Qadk_nn = np.zeros_like(self.Qadk_nm)
-        #
-        # b = time()
-        # parprint('Time spent initializing', b - a)
 
         # Initial W_k: Start from random WW*=I
         for k in range(self.Nk):
@@ -328,7 +315,7 @@ class PipekMezey:
     def step(self, dX):
         No = self.nocc
         Nk = self.Nk
-        #
+
         A_kww = dX[:Nk * No ** 2].reshape(Nk, No, No)
         for U, A in zip(self.W_k, A_kww):
             H = -1.j * A.conj()
@@ -338,7 +325,6 @@ class PipekMezey:
                 U[:] = np.dot(U, dU).real
             else:
                 U[:] = np.dot(U, dU)
-
         self.update()
 
     def get_weight_function_atom(self, index):
@@ -394,35 +380,29 @@ class PipekMezey:
         # Over a and diag
         for a in range(self.Na):
             self.P += np.sum(Qa_nn[a].diagonal())
-        #
+
         self.P /= np.sum(self.wd)
-        #
         self.P_n.append(self.P)
-        #
+
         return self.P
 
     def get_gradients(self):
-        #
         No = self.nocc
-        #
         dW = []
-        #
+
         for k in range(self.Nk):
-            #
             Wtemp = np.zeros((No, No), complex)
-            #
+
             for a in range(self.Na):
                 for d, wd in enumerate(self.wd):
-                    #
                     diagQ = self.Qad_nn[a, d].diagonal()
                     Qa_ii = np.repeat(diagQ, No).reshape(No, No)
                     k2 = self.invlst_dk[d, k]
                     Qk_nn = self.Qadk_nn[a, d]
                     temp = Qa_ii.T * Qk_nn[k].conj() - \
                         Qa_ii * Qk_nn[k2].conj()
-
                     Wtemp += wd * (temp - dagger(temp))
-            #
+
             dW.append(Wtemp.ravel())
-        #
+
         return np.concatenate(dW)

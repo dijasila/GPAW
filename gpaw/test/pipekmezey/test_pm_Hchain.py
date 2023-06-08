@@ -1,12 +1,10 @@
 import pytest
 from ase import Atoms
 from ase.dft.kpoints import monkhorst_pack
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, mpi
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 import numpy
 from gpaw.test import equal
-
-numpy.random.seed(25)
 
 @pytest.mark.pipekmezey
 def test_pipekmezey_chain(in_tmp_dir):
@@ -28,7 +26,8 @@ def test_pipekmezey_chain(in_tmp_dir):
                 convergence={'density' : 1e-4,
                              'eigenstates' : 1e-4},
                 symmetry={'point_group': False, 
-                          'time_reversal': False})
+                          'time_reversal': False},
+                parallel={'domain' : mpi.world.size})
     
     calc.atoms = atoms
     calc.calculate()
