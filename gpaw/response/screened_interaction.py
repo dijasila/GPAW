@@ -376,7 +376,15 @@ class MPAHWModel(HWModel):
         #dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
         #                               x3_nGG**2 + x4_nGG**2)
         x_GG = np.sum(self.factor * W_nGG * (x1_nGG+x2_nGG),axis=0)
-        dx_GG = np.zeros_like(x_GG) #np.sum(dx_nGG,axis=0)
+
+        eps = 0.05
+        xp_nGG = f / (omega+eps + omegat_nGG - 1j * self.eta)
+        xp_nGG += (1.0-f) / (omega+eps - omegat_nGG + 1j * self.eta)
+        xm_nGG = f / (omega-eps + omegat_nGG - 1j * self.eta)
+        xm_nGG += (1.0-f) / (omega-eps - omegat_nGG + 1j * self.eta)
+        dx_GG = np.sum(self.factor * W_nGG * (xp_nGG-xm_nGG)/(2*eps) ,axis=0)
+        
+
         return 2*x_GG.T.conj(), 2*dx_GG.T.conj()
 #######
 
