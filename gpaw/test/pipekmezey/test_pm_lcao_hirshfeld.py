@@ -5,8 +5,6 @@ from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 import numpy
 from gpaw.test import equal
 
-numpy.random.seed(25)
-
 @pytest.mark.pipekmezey
 def test_pipekmezey_lcao_hirshfeld(in_tmp_dir):
 
