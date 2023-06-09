@@ -17,7 +17,7 @@ Git master branch
 Version 23.6.0
 ==============
 
-Jun 8, 2023: :git:`23.6.0 <../23.6.0>`
+Jun 9, 2023: :git:`23.6.0 <../23.6.0>`
 
 * Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
   SciPy 1.6.0
