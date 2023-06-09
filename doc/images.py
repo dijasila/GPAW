@@ -20,7 +20,7 @@ import os
 
 
 srcpath = 'https://wiki.fysik.dtu.dk/gpaw-files'
-agtspath = 'http://wiki.fysik.dtu.dk'
+agtspath = 'https://wiki.fysik.dtu.dk'
 
 
 def get(path, names, target=None, source=None):
