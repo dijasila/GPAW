@@ -460,7 +460,7 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
                 drhoD_qz[iq, :] += 1. / L * np.exp(1j * qGr_R) * \
                     chi_wGG[0, iG, iG1] * factor1
     # Normalize induced densities with chi
-    if not nw == 0:
+    if nw != 0:
         drhoM_qz /= np.repeat(chiM_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
                               axis=1)
         drhoD_qz /= np.repeat(chiD_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
