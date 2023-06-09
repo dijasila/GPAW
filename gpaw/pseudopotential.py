@@ -247,8 +247,12 @@ class PseudoPotential(BaseSetup):
         if basis is None:
             basis = data.create_basis_functions()
 
-        self.pseudo_partial_waves_j = None  # XXX what do we do?
         self.basis_functions_J = basis.tosplines()
+
+        # We declare (for the benefit of the wavefunctions reuse method)
+        # that we have no PAW projectors as such.  This makes the
+        # 'paw' wfs reuse method a no-op.
+        self.pseudo_partial_waves_j = []
 
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1

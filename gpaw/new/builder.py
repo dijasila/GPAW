@@ -5,6 +5,7 @@ import os
 from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
+import _gpaw
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
@@ -13,12 +14,15 @@ from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
-from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
+from gpaw.mpi import (MPIComm, Parallelization, serial_comm, synchronize_atoms,
+                      world)
 from gpaw.new import cached_property, prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
@@ -27,7 +31,6 @@ from gpaw.new.xc import XCFunctional
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.new.ibzwfs import IBZWaveFunctions
 
 
 def builder(atoms: Atoms,
@@ -63,6 +66,7 @@ class DFTComponentsBuilder:
         parallel = params.parallel
         world = parallel['world']
 
+        synchronize_atoms(atoms, world)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -97,7 +101,7 @@ class DFTComponentsBuilder:
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
-                                                  d, k, b)
+                                                  d, k, b, self.xp)
 
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
@@ -154,6 +158,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def xp(self) -> ModuleType:
+        """Array module: Numpy or Cupy."""
         if self.params.parallel['gpu']:
             from gpaw.gpu import cupy, cupy_is_fake
             assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
@@ -169,7 +174,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def nct_R(self):
-        out = self.grid.empty()
+        out = self.grid.empty(xp=self.xp)
         nct_aX = self.get_pseudo_core_densities()
         nct_aX.to_uniform_grid(out=out,
                                scale=1.0 / (self.ncomponents % 3))
@@ -215,7 +220,9 @@ class DFTComponentsBuilder:
         mixer = MixerWrapper(
             get_mixer_from_keywords(self.atoms.pbc.any(),
                                     self.ncomponents, **self.params.mixer),
-            self.ncomponents, self.grid._gd)
+            self.ncomponents,
+            self.grid._gd,
+            world=self.communicators['w'])
 
         occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
@@ -272,7 +279,8 @@ def create_communicators(comm: MPIComm = None,
                          nibzkpts: int = 1,
                          domain: Union[int, tuple[int, int, int]] = None,
                          kpt: int = None,
-                         band: int = None) -> dict[str, MPIComm]:
+                         band: int = None,
+                         xp: ModuleType = np) -> dict[str, MPIComm]:
     parallelization = Parallelization(comm or world, nibzkpts)
     if domain is not None and not isinstance(domain, int):
         domain = prod(domain)
@@ -281,6 +289,15 @@ def create_communicators(comm: MPIComm = None,
                         band=band)
     comms = parallelization.build_communicators()
     comms['w'] = comm
+
+    # We replace size=1 MPI communications with serial_comm so that
+    # serial_comm.sum(<cupy-array>) works: XXX
+    comms = {key: comm if comm.size > 1 else serial_comm
+             for key, comm in comms.items()}
+
+    if xp is not np and not getattr(_gpaw, 'gpu_aware_mpi', False):
+        comms = {key: CuPyMPI(comm) for key, comm in comms.items()}
+
     return comms
 
 
@@ -335,9 +352,9 @@ def normalize_initial_magmoms(
 
 
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
-    if 'points' in kpts:
+    if 'kpts' in kpts:
         assert len(kpts) == 1, kpts
-        return BZPoints(kpts['points'])
+        return BZPoints(kpts['kpts'])
     size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
     return MonkhorstPackKPoints(size, offset)
 

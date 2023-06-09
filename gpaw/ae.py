@@ -3,9 +3,9 @@
 import numpy as np
 from scipy.special import erf
 
-from gpaw.spline import Spline
-from gpaw.setup import BaseSetup
 from gpaw.basis_data import Basis
+from gpaw.setup import BaseSetup
+from gpaw.spline import Spline
 
 
 class HydrogenAllElectronSetup(BaseSetup):
@@ -25,7 +25,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.l_j = [0]
         self.l_orb_J = [0]
         self.n_j = [1]
-        self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
+        self.tauct = self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
         self.N0_p = np.zeros(0)
         rc = 2.0

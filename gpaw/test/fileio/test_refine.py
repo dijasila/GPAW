@@ -24,7 +24,7 @@ def test_fileio_refine(in_tmp_dir):
         calc.write(restart_wf, 'all')
 
         # refine the result directly
-        calc.set(convergence={'energy': 0.00001})
+        H.calc = calc.new(convergence={'energy': 0.00001})
         Edirect = H.get_potential_energy()
 
     # refine the result after reading from a file

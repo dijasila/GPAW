@@ -16,7 +16,7 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         spherical_geometry_factor,
                                         cylindrical_geometry_factor,
                                         parallelepipedic_geometry_factor)
-from gpaw.response.susceptibility import get_pw_coordinates
+from gpaw.response.pair_functions import get_pw_coordinates
 
 
 # ---------- Actual tests ---------- #

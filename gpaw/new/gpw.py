@@ -135,6 +135,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     if 'dtype' in kwargs:
         kwargs['dtype'] = np.dtype(kwargs['dtype'])
 
+    # kwargs['nbands'] = reader.wave_functions.eigenvalues.shape[-1]
+
     params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params)
 

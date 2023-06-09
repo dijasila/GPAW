@@ -1,4 +1,5 @@
 from time import ctime
+from sys import stdout
 
 from inspect import isgeneratorfunction
 from functools import wraps
@@ -10,14 +11,16 @@ import gpaw.mpi as mpi
 
 
 class ResponseContext:
-    def __init__(self, txt='-', timer=None, world=mpi.world):
-        self.world = world
+    def __init__(self, txt='-', timer=None, comm=mpi.world):
+        self.comm = comm
+        self.iocontext = IOContext()
         self.open(txt)
         self.set_timer(timer)
 
     def open(self, txt):
-        self.iocontext = IOContext()
-        self.fd = self.iocontext.openfile(txt, self.world)
+        if txt is stdout and self.comm.rank != 0:
+            txt = None
+        self.fd = self.iocontext.openfile(txt, self.comm)
 
     def set_timer(self, timer):
         self.timer = timer or Timer()
@@ -29,7 +32,7 @@ class ResponseContext:
         self.close()
 
     def with_txt(self, txt):
-        return ResponseContext(txt=txt, world=self.world, timer=self.timer)
+        return ResponseContext(txt=txt, comm=self.comm, timer=self.timer)
 
     def print(self, *args, flush=True, **kwargs):
         print(*args, file=self.fd, flush=flush, **kwargs)

@@ -20,7 +20,7 @@ class DielectricFunctionCalculator:
         self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
-        self.blocks1d = Blocks1D(self.context.world, len(self.wd))
+        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
 
@@ -83,7 +83,7 @@ class DielectricFunctionCalculator:
                        for thing in more_things])
 
     def collect(self, a_w):
-        return self.blocks1d.collect(a_w)
+        return self.blocks1d.all_gather(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
@@ -380,7 +380,7 @@ class DielectricFunctionCalculator:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     eels_NLFC_w, eels_LFC_w)
@@ -449,7 +449,7 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         # Write results file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     alpha0_w, alpha_w)
@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 nbands=None, eta=0.2, threshold=1,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -504,24 +504,21 @@ class DielectricFunction(DielectricFunctionCalculator):
         """Creates a DielectricFunction object.
 
         calc: str
-            The groundstate calculation file that the linear response
+            The ground-state calculation file that the linear response
             calculation is based on.
         frequencies:
             Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            Can be an array of frequencies to evaluate the response function at
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
         hilbert: bool
             Use hilbert transform.
         nbands: int
-            Number of bands from calc.
+            Number of bands from calculation.
         eta: float
             Broadening parameter.
-        ftol: float
-            Threshold for including close to equally occupied orbitals,
-            f_ik - f_jk > ftol.
         threshold: float
             Threshold for matrix elements in optical response perturbation
             theory.
@@ -536,7 +533,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Output file.
         truncation: str or None
             None for no truncation.
-            'wigner-seitz' for Wigner Seitz truncated Coulomb.
             '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
@@ -558,7 +554,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             pair=pair,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
-            ftol=ftol,
             intraband=intraband,
             disable_point_group=disable_point_group,
             disable_time_reversal=disable_time_reversal,

@@ -10,7 +10,21 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+
+Version 23.6.0
+==============
+
+Jun 9, 2023: :git:`23.6.0 <../23.6.0>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
+  objects with tweaked input parameters.  This can often be used to replace
+  the use of the ``set`` method which we are planning to remove.
 
 * A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
   calculations done with versions 22.1 and 22.8.
@@ -48,7 +62,7 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Added relative tolerance for force convergence. This is useful for geometry 
+* Added relative tolerance for force convergence. This is useful for geometry
   optimizations to adaptively converge forces. See :ref:`custom_convergence`.
 
 * Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
@@ -58,13 +72,33 @@ Git master branch
   ``convergence={'energy': Energy(tol=..., relative=False)}``.
   See the :class:`gpaw.convergence_criteria.Energy` class.
 
+* The PW-mode now includes an ``interpolation`` flag.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
+* The LCAO implementation of direct optimization for variational calculations
+  of excited electronic states now includes
+  :ref:`constrained optimization <mom>`
+  useful for challenging charge transfer excited states.
+
+* The :ref:`direct optimization generalized mode following method <do-gmf>`
+  (DO-GMF) for variational calculations of excited electronic states was added.
+
+* Updated electron-phonon coupling and Raman implementations and
+  documentation. See :ref:`elphtheory` and :ref:`elphraman`.
+
+  .. warning::
+
+     Bugs in previous versions could have led to wrong relative intensities.
+     Please regenerate the Raman tensor.
+
 
 Version 22.8.0
 ==============
 
 Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0,
+  SciPy 1.2.0
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
@@ -82,7 +116,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
@@ -96,8 +130,9 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   systems during SCF iterations.
   See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
 
-* Functionality to compute magnon dispersions for ferromagnets in the classical
-  isotropic Heisenberg model has been added, see ``gpaw.response.heisenberg``
+* Functionality to compute magnon dispersions for ferromagnets in the
+  classical isotropic Heisenberg model has been added, see
+  ``gpaw.response.heisenberg``
 
 * A new module ``gpaw.response.mft``, see :ref:`mft`, has been added for the
   calculation of isotropic Heisenberg exchange parameters within a linear
@@ -125,7 +160,8 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
    * Fix for latest numpy-1.22.0.
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0,
+  SciPy 1.2.0
 
 * Python 3.7 or later is required now.
 
@@ -154,8 +190,8 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
   See :class:`gpaw.bfield.BField` and this example:
   :git:`gpaw/test/ext_potential/test_b_field.py`.
 
-* :ref:`raman` calculations for extended systems using electron-phonon coupling
-  are now implemented in the LCAO mode.
+* :ref:`raman` calculations for extended systems using electron-phonon
+  coupling are now implemented in the LCAO mode.
 
   * An example can be found under :ref:`elphraman`.
 
@@ -163,7 +199,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
     the whole supercell matrix into memory.
 
   * A routine to calculate dipole and nabla (momentum) matrix elements for
-    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+    LCAO wave functions has been added: :git:`gpaw/lcao/dipoletransition.py`
 
 * You can now change all sorts of things about how the SCF cycle decides it
   is converged. You can specify new, non-default convergence keywords like
@@ -309,8 +345,9 @@ Oct 19, 2020: :git:`20.10.0 <../20.10.0>`
 
 * Corresponding ASE release: ASE-3.20.1.
 
-* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.  Angles are given in degrees (was radians before).
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles
+  parallelization and uses symmetry.  Angles are given in degrees
+  (was radians before).
 
 * The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
   :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
@@ -1066,8 +1103,8 @@ Apr 8, 2014: :git:`0.10.0 <../0.10.0>`.
 
        setups={'Ag': '11'}
 
-     See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
-     for available setups.
+     See :ref:`manual_setups` and list the contents of
+     :envvar:`GPAW_SETUP_PATH` for available setups.
 
 * new ``dzp`` basis set generated for all the new setups, see
   https://trac.fysik.dtu.dk/projects/gpaw/ticket/241
