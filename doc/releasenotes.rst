@@ -78,6 +78,9 @@ Git master branch
 
      Bugs in previous versions could have led to wrong relative intensities. Please regenerate the Raman tensor.
 
+* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
+  now throw an error if the ground state contains point group symmetries
+
 Version 22.8.0
 ==============
 
