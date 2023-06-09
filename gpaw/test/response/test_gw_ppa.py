@@ -4,7 +4,7 @@ from gpaw.response.g0w0 import G0W0
 
 
 @pytest.mark.response
-def test_ppa(in_tmp_dir, gpw_files, scalapack):
+def test_ppa(in_tmp_dir, gpw_files, scalapack, needs_ase_master):
     ref_result = np.asarray([[[11.30094393, 21.62842077],
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])

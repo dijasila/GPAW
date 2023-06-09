@@ -7,7 +7,8 @@ from gpaw.response.g0w0 import G0W0
 
 
 @pytest.mark.response
-def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files):
+def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files,
+                                     needs_ase_master):
     gw = G0W0(gpw_files['hbn_pw_wfs'],
               'gw-hBN',
               ecut=50,
