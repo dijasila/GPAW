@@ -71,6 +71,7 @@ def ground_state():
                 convergence={'density': 1e-8},
                 communicator=serial_comm,
                 xc='LDA',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
