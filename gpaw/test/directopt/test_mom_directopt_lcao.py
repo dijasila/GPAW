@@ -51,7 +51,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
             rotate_orbitals(calc.wfs.eigensolver, calc.wfs,
                             [[3, 4]], [angle], [0])
             angle *= np.pi / 180.0
-            C_M_new = np.cos(angle) * C_M_old[3] - np.sin(angle) * C_M_old[4]
+            C_M_new = np.cos(angle) * C_M_old[3] + np.sin(angle) * C_M_old[4]
             assert calc.wfs.kpt_u[0].C_nM[3] == \
                    pytest.approx(C_M_new, abs=1e-4)
 

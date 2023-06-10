@@ -393,7 +393,7 @@ def rotate_orbitals(etdm, wfs, indices, angles, channels):
     :param channels:   List of spin channels.
     """
 
-    angles = np.array(angles) * np.pi / 180.0
+    angles = - np.array(angles) * np.pi / 180.0
     a_vec_u = get_a_vec_u(etdm, wfs, indices, angles, channels)
     c = {}
     for kpt in wfs.kpt_u:
