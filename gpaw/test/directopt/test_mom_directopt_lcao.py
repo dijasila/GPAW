@@ -43,14 +43,15 @@ def test_mom_directopt_lcao(in_tmp_dir):
     prepare_mom_calculation(calc, H2O, f_sn)
 
     def rotate_homo_lumo(calc=calc):
-        a = 70
+        angle = 70
         iters = calc.get_number_of_iterations()
         if iters == 3:
             # Exercise rotate_orbitals
             C_M_old = calc.wfs.kpt_u[0].C_nM.copy()
-            rotate_orbitals(calc.wfs, [3, 4], a, 0)
-            a *= np.pi / 180.0
-            C_M_new = np.cos(a) * C_M_old[3] + np.sin(a) * C_M_old[4]
+            rotate_orbitals(calc.wfs.eigensolver, calc.wfs,
+                            [[3, 4]], [angle], [0])
+            angle *= np.pi / 180.0
+            C_M_new = np.cos(angle) * C_M_old[3] - np.sin(angle) * C_M_old[4]
             assert calc.wfs.kpt_u[0].C_nM[3] == \
                    pytest.approx(C_M_new, abs=1e-4)
 
