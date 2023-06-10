@@ -160,30 +160,6 @@ def minimum_cubic_interpol(x_0, x_1, f_0, f_1, df_0, df_1):
     return x_min
 
 
-def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
-    """
-    given f(x0), f'(x0) and f(x1)
-    calc. x_min where parabola interpolation
-    f(x) = a x^2 + b x + c is minimal
-    :return: x_min
-    """
-    assert x_0 <= x_1
-
-    r = x_1 - x_0
-    a = (f_1 - f_0 - r * df_0) / r ** 2
-    b = df_0
-    c = f_0
-
-    a_min = - b / (2.0 * a)
-    f_min = a * a_min ** 2 + b * a_min + c
-    if f_min > f_1:
-        a_min = x_1 - x_0
-        if f_0 < f_1:
-            a_min = 0
-    x_min = a_min + x_0
-    return x_min
-
-
 def matrix_function(evals, evecs, func=lambda x: x):
     """
     calculate matrix function func(A)

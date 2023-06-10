@@ -6,8 +6,7 @@ It is for lcao
 """
 
 import numpy as np
-from gpaw.directmin.tools import minimum_cubic_interpol, \
-    minimum_parabola_interpol
+from gpaw.directmin.tools import minimum_cubic_interpol
 
 
 def is_descent(phi_0, phi_j, eps=1.0e-2):
