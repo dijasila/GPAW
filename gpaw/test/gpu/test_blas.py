@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from gpaw.utilities.blas import (axpy, dotc, dotu, gemm, gemv, mmm, rk, r2k,
-                                 scal)
+from gpaw.utilities.blas import gpu_axpy, mmm
+from gpaw.gpu import cupy as cp
 
 
 @pytest.mark.gpu
@@ -32,18 +32,18 @@ def test_blas(gpu, dtype):
         y.real = rng.random((N,))
         y.imag = rng.random((N,))
 
-    a_gpu = gpu.copy_to_device(a)
-    b_gpu = gpu.copy_to_device(b)
-    c_gpu = gpu.copy_to_device(c)
-    x_gpu = gpu.copy_to_device(x)
-    y_gpu = gpu.copy_to_device(y)
+    a_gpu = cp.asarray(a)
+    b_gpu = cp.asarray(b)
+    c_gpu = cp.asarray(c)
+    x_gpu = cp.asarray(x)
+    y_gpu = cp.asarray(y)
 
     # axpy
-    axpy(0.5, x, y)
+    y += 0.5 * x
     check_cpu = y.sum()
 
-    axpy(0.5, x_gpu, y_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(y_gpu.sum())
+    gpu_axpy(0.5, x_gpu, y_gpu)
+    check_gpu = y_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 

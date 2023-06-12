@@ -12,11 +12,10 @@ http://www.netlib.org/lapack/lug/node145.html
 """
 from typing import TypeVar
 
-import numpy as np
-
 import _gpaw
-from gpaw import debug
-from gpaw import gpu
+import numpy as np
+import scipy.linalg.blas as blas
+from gpaw import debug, gpu
 from gpaw.new import prod
 from gpaw.typing import Array2D, ArrayND
 from gpaw.utilities import is_contiguous
@@ -191,7 +190,7 @@ def gpu_gemm(alpha, a, b, beta, c, transa='n'):
                    a.dtype, transa)
 
 
-def gemv(alpha, a, x, beta, y, trans='t'):
+def gpu_gemv(alpha, a, x, beta, y, trans='t'):
     """General Matrix Vector product.
 
     Performs the operation::
@@ -239,6 +238,27 @@ def gemv(alpha, a, x, beta, y, trans='t'):
 
 
 def axpy(alpha, x, y):
+    """alpha x plus y.
+
+    Performs the operation::
+
+      y <- alpha * x + y
+
+    """
+    if x.size == 0:
+        return
+    assert x.flags.contiguous
+    assert y.flags.contiguous
+    x = x.ravel()
+    y = y.ravel()
+    if x.dtype == float:
+        z = blas.daxpy(x, y, a=alpha)
+    else:
+        z = blas.zaxpy(x, y, a=alpha)
+    assert z is y, (x, y, x.shape, y.shape)
+
+
+def gpu_axpy(alpha, x, y):
     """alpha x plus y.
 
     Performs the operation::

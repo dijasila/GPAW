@@ -14,12 +14,11 @@ from gpaw.dipole_correction import DipoleCorrection, dipole_correction
 from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy, dotu
+from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
-from gpaw import gpu
 
 POISSON_GRID_WARNING = """Grid unsuitable for FDPoissonSolver!
 
@@ -295,7 +294,7 @@ class BasePoissonSolver(_PoissonSolver):
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False, use_gpu=False,
+                 remove_moment=None, use_charge_center=False,
                  metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             remove_moment=remove_moment,
@@ -305,15 +304,11 @@ class FDPoissonSolver(BasePoissonSolver):
         self.relax = relax
         self.nn = nn
         self.maxiter = maxiter
-        self.use_gpu = use_gpu
 
         # Relaxation method
         if relax == 'GS':
             # Gauss-Seidel
             self.relax_method = 1
-            if use_gpu:
-                raise NotImplementedError(
-                    'Relaxation method %s on GPUs' % relax)
         elif relax == 'J':
             # Jacobi
             self.relax_method = 2
@@ -332,20 +327,16 @@ class FDPoissonSolver(BasePoissonSolver):
     def get_stencil(self):
         return self.nn
 
-    def create_laplace(self, gd, scale=1.0, n=1, dtype=float, use_gpu=False):
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float):
         """Instantiate and return a Laplace operator
 
         Allows subclasses to change the Laplace operator
         """
-        return Laplace(gd, scale, n, dtype, use_gpu=use_gpu)
+        return Laplace(gd, scale, n, dtype)
 
-    def set_grid_descriptor(self, gd, use_gpu=False):
+    def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd
-
-        if not self.use_gpu:
-            self.use_gpu = use_gpu
-
         scale = -0.25 / pi
 
         if self.nn == 'M':
@@ -353,11 +344,10 @@ class FDPoissonSolver(BasePoissonSolver):
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale, use_gpu=self.use_gpu)]
-            self.B = LaplaceB(gd, use_gpu=self.use_gpu)
+            self.operators = [LaplaceA(gd, -scale)]
+            self.B = LaplaceB(gd)
         else:
-            self.operators = [self.create_laplace(gd, scale, self.nn,
-                                                  use_gpu=self.use_gpu)]
+            self.operators = [self.create_laplace(gd, scale, self.nn)]
             self.B = None
 
         self.interpolators = []
@@ -376,12 +366,9 @@ class FDPoissonSolver(BasePoissonSolver):
                 gd2 = gd.coarsen()
             except ValueError:
                 break
-            self.operators.append(
-                self.create_laplace(gd2, scale, 1, use_gpu=self.use_gpu))
-            self.interpolators.append(Transformer(gd2, gd,
-                                                  use_gpu=self.use_gpu))
-            self.restrictors.append(Transformer(gd, gd2,
-                                                use_gpu=self.use_gpu))
+            self.operators.append(self.create_laplace(gd2, scale, 1))
+            self.interpolators.append(Transformer(gd2, gd))
+            self.restrictors.append(Transformer(gd, gd2))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -437,14 +424,14 @@ class FDPoissonSolver(BasePoissonSolver):
             return
         # Should probably be renamed allocate
         gd = self.gd
-        self.rhos = [gd.empty(use_gpu=self.use_gpu)]
+        self.rhos = [gd.empty()]
         self.phis = [None]
-        self.residuals = [gd.empty(use_gpu=self.use_gpu)]
+        self.residuals = [gd.empty()]
         for level in range(self.levels):
             gd2 = gd.coarsen()
-            self.phis.append(gd2.empty(use_gpu=self.use_gpu))
-            self.rhos.append(gd2.empty(use_gpu=self.use_gpu))
-            self.residuals.append(gd2.empty(use_gpu=self.use_gpu))
+            self.phis.append(gd2.empty())
+            self.rhos.append(gd2.empty())
+            self.residuals.append(gd2.empty())
             gd = gd2
         assert len(self.phis) == len(self.rhos)
         level += 1
@@ -457,20 +444,13 @@ class FDPoissonSolver(BasePoissonSolver):
 
     def solve_neutral(self, phi, rho, timer=None):
         self._init()
+        self.phis[0] = phi
         eps = self.eps
 
-        if not isinstance(self.phis[1], np.ndarray):
-            self.phis[0] = gpu.copy_to_device(phi)
-            if self.B is None:
-                gpu.copy_to_device(rho, self.rhos[0])
-            else:
-                self.B.apply(gpu.copy_to_device(rho), out=self.rhos[0])
+        if self.B is None:
+            self.rhos[0][:] = rho
         else:
-            self.phis[0] = phi
-            if self.B is None:
-                self.rhos[0][:] = rho
-            else:
-                self.B.apply(rho, self.rhos[0])
+            self.B.apply(rho, self.rhos[0])
 
         niter = 1
         maxiter = self.maxiter
@@ -479,9 +459,6 @@ class FDPoissonSolver(BasePoissonSolver):
         if niter == maxiter:
             msg = 'Poisson solver did not converge in %d iterations!' % maxiter
             raise PoissonConvergenceError(msg)
-
-        if not isinstance(self.phis[0], np.ndarray):
-            gpu.copy_to_host(self.phis[0], out=phi)
 
         # Set the average potential to zero in periodic systems
         if np.alltrue(self.gd.pbc_c):
@@ -509,7 +486,7 @@ class FDPoissonSolver(BasePoissonSolver):
             residual -= self.rhos[level]
             self.restrictors[level].apply(residual,
                                           self.rhos[level + 1])
-            self.phis[level + 1].fill(0.0)
+            self.phis[level + 1][:] = 0.0
             self.iterate2(4.0 * step, level + 1)
             self.interpolators[level].apply(self.phis[level + 1], residual)
             self.phis[level] -= residual
@@ -522,11 +499,8 @@ class FDPoissonSolver(BasePoissonSolver):
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            if not isinstance(residual, np.ndarray):
-                error = self.gd.comm.sum(dotu(residual, residual)) * self.gd.dv
-            else:
-                error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                                residual.ravel())) * self.gd.dv
+            error = self.gd.comm.sum(np.dot(residual.ravel(),
+                                            residual.ravel())) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
@@ -582,7 +556,6 @@ class FFTPoissonSolver(BasePoissonSolver):
 
     def __init__(self):
         super(FFTPoissonSolver, self).__init__()
-        self.use_gpu = False
         self._initialized = False
 
     def get_description(self):
@@ -841,10 +814,9 @@ class BadAxesError(ValueError):
 
 
 class FastPoissonSolver(BasePoissonSolver):
-    def __init__(self, nn=3, use_gpu=False, **kwargs):
+    def __init__(self, nn=3, **kwargs):
         BasePoissonSolver.__init__(self, **kwargs)
         self.nn = nn
-        self.use_gpu = use_gpu
         # We may later enable this to work with Cholesky, but not now:
         self.use_cholesky = False
 
@@ -936,7 +908,7 @@ class FastPoissonSolver(BasePoissonSolver):
             r_cx[axis] = 0.0
         np.exp(r_cx, out=r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
-        laplace = Laplace(self.gd, -0.25 / pi, self.nn, use_gpu=self.use_gpu)
+        laplace = Laplace(self.gd, -0.25 / pi, self.nn)
         self.stencil_description = laplace.description
 
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
