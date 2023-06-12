@@ -1,7 +1,6 @@
 import numpy as np
 
 from gpaw.matrix import Matrix, create_distribution
-from gpaw import gpu
 
 
 class MatrixInFile:
@@ -11,31 +10,20 @@ class MatrixInFile:
         self.array = data  # pointer to data in a file
         self.dist = create_distribution(M, N, *dist)
 
-    def view(self, i, j):
-        return self.array[i:j]
-
 
 class ArrayWaveFunctions:
-    def __init__(self, M, N, dtype, data, dist, collinear, use_gpu=False):
+    def __init__(self, M, N, dtype, data, dist, collinear):
         self.collinear = collinear
         if not collinear:
             N *= 2
-        if data is None \
-                or isinstance(data, np.ndarray) \
-                or isinstance(data, gpu.cupy.ndarray):
-            self.matrix = Matrix(M, N, dtype, data, dist, use_gpu)
-            self.in_memory = True
-        elif isinstance(data, Matrix):
-            self.matrix = data
+        if data is None or isinstance(data, np.ndarray):
+            self.matrix = Matrix(M, N, dtype, data, dist)
             self.in_memory = True
         else:
             self.matrix = MatrixInFile(M, N, dtype, data, dist)
             self.in_memory = False
         self.comm = None
         self.dtype = self.matrix.dtype
-        self.use_gpu = use_gpu
-        self._buffers = None
-        self._cached_view = {}
 
     def __len__(self):
         return len(self.matrix)
@@ -49,16 +37,12 @@ class ArrayWaveFunctions:
             assert opb in 'TC' and b.comm is self.comm
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False,
-                        use_gpu=None):
-        if use_gpu is None:
-            use_gpu = self.use_gpu
+                        operator=None, result=None, serial=False):
         if out is None:
             out = Matrix(len(self), len(other or self), dtype=self.dtype,
                          dist=(self.matrix.dist.comm,
                                self.matrix.dist.rows,
-                               self.matrix.dist.columns),
-                         use_gpu=use_gpu)
+                               self.matrix.dist.columns))
         if other is None or isinstance(other, ArrayWaveFunctions):
             assert cc
             if other is None:
@@ -92,21 +76,12 @@ class ArrayWaveFunctions:
         return self
 
     def eval(self, matrix):
-        if not isinstance(self.matrix.array, np.ndarray):
-            if not isinstance(matrix.array, np.ndarray):
-                gpu.cupy.copyto(matrix.array, self.matrix.array)
-            else:
-                gpu.copy_to_host(self.matrix.array, out=matrix.array)
-        elif not isinstance(matrix.array, np.ndarray):
-            gpu.copy_to_device(self.matrix.array, out=matrix.array)
-        else:
-            matrix.array[:] = self.matrix.array
+        matrix.array[:] = self.matrix.array
 
     def read_from_file(self):
         """Read wave functions from file into memory."""
         matrix = Matrix(*self.matrix.shape,
-                        dtype=self.dtype, dist=self.matrix.dist,
-                        use_gpu=self.use_gpu)
+                        dtype=self.dtype, dist=self.matrix.dist)
         # Read band by band to save memory
         rows = matrix.dist.rows
         blocksize = (matrix.shape[0] + rows - 1) // rows
@@ -124,25 +99,13 @@ class ArrayWaveFunctions:
         self.matrix = matrix
         self.in_memory = True
 
-    def sync_to_gpu(self):
-        self.matrix.sync_to_gpu()
-
-    def sync_to_cpu(self):
-        self.matrix.sync_to_cpu()
-
-    def get_buffers(self, nbands):
-        if len(self) != nbands or self._buffers is None:
-            self._buffers = [self.new(nbands=nbands, dist=None),
-                             self.new(nbands=nbands, dist=None)]
-        return self._buffers
-
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
-                 spin=0, collinear=True, use_gpu=False):
+                 spin=0, collinear=True):
         ngpts = gd.n_c.prod()
         ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist,
-                                    collinear, use_gpu)
+                                    collinear)
 
         M = self.matrix
 
@@ -179,19 +142,13 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
                                         self.gd, self.dtype,
                                         buf,
                                         self.kpt, dist,
-                                        self.spin,
-                                        use_gpu=self.use_gpu)
+                                        self.spin)
 
     def view(self, n1, n2):
-        key = (n1, n2)
-        if key not in self._cached_view:
-            self._cached_view[key] = \
-                UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
-                                         self.matrix.view(n1, n2),
-                                         self.kpt, None,
-                                         self.spin,
-                                         use_gpu=self.use_gpu)
-        return self._cached_view[key]
+        return UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
+                                        self.array[n1:n2],
+                                        self.kpt, None,
+                                        self.spin)
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -203,22 +160,17 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=0, dist=None,
-                 spin=0, collinear=True, use_gpu=False):
+                 spin=0, collinear=True):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
-            # XXX why ???
-            # assert data.dtype == complex
-            from warnings import warn
-            if data.dtype != complex:
-                warn('data.dtype != complex: '
-                     f'data.dtype={data.dtype}, dtype={dtype}')
+            assert data.dtype == complex
         if dtype == float:
             ng *= 2
             if isinstance(data, np.ndarray):
                 data = data.view(float)
 
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
-                                    collinear, use_gpu)
+                                    collinear)
         self.pd = pd
         self.gd = pd.gd
         self.comm = pd.gd.comm
@@ -235,7 +187,6 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
         if not self.in_memory:
             return self.matrix.array
         elif self.dtype == float:
-            # XXX why float -> complex ???
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
@@ -253,17 +204,13 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False,
-                        use_gpu=None):
-        if use_gpu is None:
-            use_gpu = self.use_gpu
+                        operator=None, result=None, serial=False):
         if other is None or isinstance(other, ArrayWaveFunctions):
             if out is None:
                 out = Matrix(len(self), len(other or self), dtype=self.dtype,
                              dist=(self.matrix.dist.comm,
                                    self.matrix.dist.rows,
-                                   self.matrix.dist.columns),
-                             use_gpu=use_gpu)
+                                   self.matrix.dist.columns))
             assert cc
             if other is None:
                 assert symmetric
@@ -303,29 +250,16 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                self.pd, self.dtype,
                                                buf,
                                                self.kpt, dist,
-                                               self.spin, self.collinear,
-                                               self.use_gpu)
+                                               self.spin, self.collinear)
 
     def view(self, n1, n2):
-        key = (n1, n2)
-        if key not in self._cached_view:
-            # XXX forcing complex due to assert in __init__(); why ???
-            # print('XXX')
-            # print(self.array[n1:n2].dtype)
-            # print(self.matrix.view(n1, n2).dtype)
-            self._cached_view[key] = \
-                PlaneWaveExpansionWaveFunctions(
-                    n2 - n1, self.pd, self.dtype,
-                    # self.array[n1:n2],
-                    self.matrix.view(n1, n2),
-                    self.kpt, None,
-                    self.spin, self.collinear,
-                    self.use_gpu)
-        return self._cached_view[key]
+        return PlaneWaveExpansionWaveFunctions(n2 - n1, self.pd, self.dtype,
+                                               self.array[n1:n2],
+                                               self.kpt, None,
+                                               self.spin, self.collinear)
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
-    out.sync_to_cpu()
     if psit1.comm:
         if psit2 is not None:
             assert psit2.comm is psit1.comm
@@ -338,14 +272,12 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     n = (N + comm.size - 1) // comm.size
     mynbands = len(psit1.matrix.array)
 
-    buf1, buf2 = psit1.get_buffers(n)
+    buf1 = psit1.new(nbands=n, dist=None)
+    buf2 = psit1.new(nbands=n, dist=None)
     half = comm.size // 2
     psit = psit1.view(0, mynbands)
     if psit2 is not None:
         psit2 = psit2.view(0, mynbands)
-    if psit1.matrix.on_gpu:
-        psit1.matrix.sync()
-    send_array = psit1.matrix._array_cpu
 
     for r in range(half + 1):
         rrequest = None
@@ -359,8 +291,8 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             n2 = min(n1 + n, N)
             if not (skip and comm.rank < half) and n2 > n1:
                 rrequest = comm.receive(buf1.array[:n2 - n1], rrank, 11, False)
-            if not (skip and comm.rank >= half) and len(send_array) > 0:
-                srequest = comm.send(send_array, srank, 11, False)
+            if not (skip and comm.rank >= half) and len(psit1.array) > 0:
+                srequest = comm.send(psit1.array, srank, 11, False)
 
         if r == 0:
             if operator:
@@ -371,7 +303,6 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
             m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
                                         serial=True)
-            m12.sync_to_cpu()
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
@@ -407,8 +338,6 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     comm.waitall(requests)
     for n1, n2, block in blocks:
         out.array[:, n1:n2] = block
-    if out.use_gpu:
-        out.sync_to_gpu()
 
 
 def operate_and_multiply_not_symmetric(psit1, dv, out, psit2):

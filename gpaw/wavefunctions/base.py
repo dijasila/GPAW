@@ -36,7 +36,7 @@ class WaveFunctions:
     """
 
     def __init__(self, gd, nvalence, setups, bd, dtype, collinear,
-                 world, kd, kptband_comm, timer, use_gpu=False):
+                 world, kd, kptband_comm, timer):
         self.gd = gd
         self.nspins = kd.nspins
         self.collinear = collinear
@@ -50,10 +50,8 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear,
-                                         use_gpu)
+        self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
-        self.use_gpu = bool(use_gpu)
 
         self.occupations = None
         self.fermi_levels = None
@@ -68,25 +66,6 @@ class WaveFunctions:
     def fermi_level(self):
         assert len(self.fermi_levels) == 1
         return self.fermi_levels[0]
-
-    @property
-    def use_gpu(self) -> bool:
-        return self._use_gpu
-
-    @use_gpu.setter
-    def use_gpu(self, value: bool):
-        self._use_gpu = value
-        for kpt in self.kpt_u:
-            kpt.use_gpu = value
-        self.eigensolver = None
-
-    def sync_to_gpu(self):
-        for kpt in self.kpt_u:
-            kpt.sync_to_gpu()
-
-    def sync_to_cpu(self):
-        for kpt in self.kpt_u:
-            kpt.sync_to_cpu()
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -429,7 +408,7 @@ class WaveFunctions:
             # allocate full wave function and receive
             shape = () if self.collinear else (2,)
             psit_G = self.empty(shape, global_array=True,
-                                realspace=realspace, use_gpu=False)
+                                realspace=realspace)
             # XXX this will fail when using non-standard nesting
             # of communicators.
             world_rank = (kpt_rank * self.gd.comm.size *

@@ -36,15 +36,9 @@ PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* GG_shuffle(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_BLAS
-PyObject* scal(PyObject *self, PyObject *args);
 PyObject* mmm(PyObject *self, PyObject *args);
-PyObject* gemm(PyObject *self, PyObject *args);
-PyObject* gemv(PyObject *self, PyObject *args);
-PyObject* axpy(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
-PyObject* dotc(PyObject *self, PyObject *args);
-PyObject* dotu(PyObject *self, PyObject *args);
 #endif
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
@@ -202,15 +196,9 @@ static PyMethodDef functions[] = {
     {"GG_shuffle", GG_shuffle, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_BLAS
-    {"scal", scal, METH_VARARGS, 0},
     {"mmm", mmm, METH_VARARGS, 0},
-    {"gemm", gemm, METH_VARARGS, 0},
-    {"gemv", gemv, METH_VARARGS, 0},
-    {"axpy", axpy, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
-    {"dotc", dotc, METH_VARARGS, 0},
-    {"dotu", dotu, METH_VARARGS, 0},
 #endif
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},

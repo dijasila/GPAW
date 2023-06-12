@@ -237,7 +237,7 @@ class FDPWWaveFunctions(WaveFunctions):
             self._work_matrix_nn = Matrix(
                 self.bd.nbands, self.bd.nbands,
                 self.dtype,
-                dist=(self.bd.comm, self.bd.comm.size), use_gpu=self.use_gpu)
+                dist=(self.bd.comm, self.bd.comm.size))
         return self._work_matrix_nn
 
     def __str__(self):
@@ -287,7 +287,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                              [setup.basis_functions_J
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
-                                             cut=True, use_gpu=self.use_gpu)
+                                             cut=True)
             basis_functions.set_positions(spos_ac)
         else:
             self.initialize_wave_functions_from_restart_file()
