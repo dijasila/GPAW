@@ -79,47 +79,24 @@ def mmm(alpha: T,
     else:
         assert a.dtype == complex
 
-    _mmm(alpha, a, opa, b, opb, beta, c, use_gpu)
+    _gpaw.mmm(alpha, a, opa, b, opb, beta, c, use_gpu)
 
 
-def _mmm(alpha, a, opa, b, opb, beta, c, use_gpu=None):
+def gpu_mmm(alpha, a, opa, b, opb, beta, c, use_gpu=None):
     """Launch CPU or GPU version of mmm()."""
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
-    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
-
-    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if b_gpu is None:
-            b_gpu = gpu.copy_to_device(b_cpu)
-        if c_gpu is None:
-            c_gpu = gpu.copy_to_device(c_cpu)
-        m = b.shape[1] if opb == 'N' else b.shape[0]
-        n = a.shape[0] if opa == 'N' else a.shape[1]
-        k = b.shape[0] if opb == 'N' else b.shape[1]
-        lda = a_gpu.strides[0] // a_gpu.itemsize
-        ldb = b_gpu.strides[0] // b_gpu.itemsize
-        ldc = c_gpu.strides[0] // c_gpu.itemsize
-        _gpaw.mmm_gpu(alpha, gpu.get_pointer(a_gpu), lda, opa,
-                      gpu.get_pointer(b_gpu), ldb, opb, beta,
-                      gpu.get_pointer(c_gpu), ldc, c_gpu.itemsize,
-                      m, n, k)
-        if c_cpu is not None:
-            gpu.copy_to_host(c_gpu, out=c_cpu)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if b_cpu is None:
-            b_cpu = gpu.copy_to_host(b_gpu)
-        if c_cpu is None:
-            c_cpu = gpu.copy_to_host(c_gpu)
-        _gpaw.mmm(alpha, a_cpu, opa, b_cpu, opb, beta, c_cpu)
-        if c_gpu is not None:
-            gpu.copy_to_device(c_cpu, out=c_gpu)
+    m = b.shape[1] if opb == 'N' else b.shape[0]
+    n = a.shape[0] if opa == 'N' else a.shape[1]
+    k = b.shape[0] if opb == 'N' else b.shape[1]
+    lda = a.strides[0] // a.itemsize
+    ldb = b.strides[0] // b.itemsize
+    ldc = c.strides[0] // c.itemsize
+    _gpaw.mmm_gpu(alpha, a.data.ptr, lda, opa,
+                  b.data.ptr, ldb, opb, beta,
+                  c.data.ptr, ldc, c.itemsize,
+                  m, n, k)
 
 
-def scal(alpha, x):
+def gpu_scal(alpha, x):
     """alpha x
 
     Performs the operation::
@@ -134,11 +111,7 @@ def scal(alpha, x):
             assert isinstance(alpha, float)
             assert x.dtype in [float, complex]
             assert x.flags.c_contiguous
-
-    if not isinstance(x, np.ndarray):
-        _gpaw.scal_gpu(alpha, gpu.get_pointer(x), x.shape, x.dtype)
-    else:
-        _gpaw.scal(alpha, x)
+    _gpaw.scal_gpu(alpha, gpu.get_pointer(x), x.shape, x.dtype)
 
 
 def to2d(array: ArrayND) -> Array2D:
@@ -165,7 +138,7 @@ def mmmx(alpha: T,
     mmm(alpha, to2d(a), opa, to2d(b), opb, beta, to2d(c))
 
 
-def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
+def gpu_gemm(alpha, a, b, beta, c, transa='n'):
     """General Matrix Multiply.
 
     Performs the operation::
@@ -212,36 +185,13 @@ def gemm(alpha, a, b, beta, c, transa='n', use_gpu=False):
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
 
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
-    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
-
-    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if b_gpu is None:
-            b_gpu = gpu.copy_to_device(b_cpu)
-        if c_gpu is None:
-            c_gpu = gpu.copy_to_device(c_cpu)
-        _gpaw.gemm_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
-                       gpu.get_pointer(b_gpu), b_gpu.shape, beta,
-                       gpu.get_pointer(c_gpu), c_gpu.shape,
-                       a_gpu.dtype, transa)
-        if c_cpu is not None:
-            gpu.copy_to_host(c_gpu, out=c_cpu)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if b_cpu is None:
-            b_cpu = gpu.copy_to_host(b_gpu)
-        if c_cpu is None:
-            c_cpu = gpu.copy_to_host(c_gpu)
-        _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
-        if c_gpu is not None:
-            gpu.copy_to_device(c_cpu, out=c_gpu)
+    _gpaw.gemm_gpu(alpha, a.data.ptr, a.shape,
+                   b.data.ptr, b.shape, beta,
+                   c.data.ptr, c.shape,
+                   a.dtype, transa)
 
 
-def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
+def gemv(alpha, a, x, beta, y, trans='t'):
     """General Matrix Vector product.
 
     Performs the operation::
@@ -282,36 +232,13 @@ def gemv(alpha, a, x, beta, y, trans='t', use_gpu=False):
             assert a.shape[-1] == x.shape[0]
             assert a.shape[:-1] == y.shape
 
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    x_cpu, x_gpu = (x, None) if isinstance(x, np.ndarray) else (None, x)
-    y_cpu, y_gpu = (y, None) if isinstance(y, np.ndarray) else (None, y)
-
-    if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if x_gpu is None:
-            x_gpu = gpu.copy_to_device(x_cpu)
-        if y_gpu is None:
-            y_gpu = gpu.copy_to_device(y_cpu)
-        _gpaw.gemv_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
-                       gpu.get_pointer(x_gpu), x_gpu.shape, beta,
-                       gpu.get_pointer(y_gpu), a_gpu.dtype,
-                       trans)
-        if y_cpu is not None:
-            gpu.copy_to_host(y_gpu, out=y_cpu)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if x_cpu is None:
-            x_cpu = gpu.copy_to_host(x_gpu)
-        if y_cpu is None:
-            y_cpu = gpu.copy_to_host(y_gpu)
-        _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
-        if y_gpu is not None:
-            gpu.copy_to_device(y_cpu, out=y_gpu)
+    _gpaw.gemv_gpu(alpha, a.data.ptr, a.shape,
+                   x.data.ptr, x.shape, beta,
+                   y.data.ptr, a.dtype,
+                   trans)
 
 
-def axpy(alpha, x, y, use_gpu=None):
+def axpy(alpha, x, y):
     """alpha x plus y.
 
     Performs the operation::
@@ -329,30 +256,12 @@ def axpy(alpha, x, y, use_gpu=None):
             assert x.flags.c_contiguous and y.flags.c_contiguous
         assert x.shape == y.shape
 
-    x_cpu, x_gpu = (x, None) if isinstance(x, np.ndarray) else (None, x)
-    y_cpu, y_gpu = (y, None) if isinstance(y, np.ndarray) else (None, y)
-
-    if use_gpu or (use_gpu is None and not isinstance(y, np.ndarray)):
-        if x_gpu is None:
-            x_gpu = gpu.copy_to_device(x_cpu)
-        if y_gpu is None:
-            y_gpu = gpu.copy_to_device(y_cpu)
-        _gpaw.axpy_gpu(alpha, gpu.get_pointer(x_gpu), x_gpu.shape,
-                       gpu.get_pointer(y_gpu), y_gpu.shape,
-                       x_gpu.dtype)
-        if y_cpu is not None:
-            gpu.copy_to_host(y_gpu, out=y_cpu)
-    else:
-        if x_cpu is None:
-            x_cpu = gpu.copy_to_host(x_gpu)
-        if y_cpu is None:
-            y_cpu = gpu.copy_to_host(y_gpu)
-        _gpaw.axpy(alpha, x_cpu, y_cpu)
-        if y_gpu is not None:
-            gpu.copy_to_device(y_cpu, out=y_gpu)
+    _gpaw.axpy_gpu(alpha, gpu.get_pointer(x), x.shape,
+                   y.data.ptr, y.shape,
+                   x.dtype)
 
 
-def rk(alpha, a, beta, c, trans='c', use_gpu=None):
+def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
     For ``trans='c'`` the following operation is performed:::
@@ -383,35 +292,17 @@ def rk(alpha, a, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
 
-    _rk(alpha, a, beta, c, trans, use_gpu)
+    _gpaw.rk(alpha, a, beta, c, trans)
 
 
-def _rk(alpha, a, beta, c, trans='c', use_gpu=None):
+def gpu_rk(alpha, a, beta, c, trans='c'):
     """Launch CPU or GPU version of rk()."""
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
-
-    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if c_gpu is None:
-            c_gpu = gpu.copy_to_device(c_cpu)
-        _gpaw.rk_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
-                     beta, gpu.get_pointer(c_gpu), c_gpu.shape,
-                     a_gpu.dtype)
-        if c_cpu is not None:
-            gpu.copy_to_host(c_gpu, out=c_cpu)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if c_cpu is None:
-            c_cpu = gpu.copy_to_host(c_gpu)
-        _gpaw.rk(alpha, a_cpu, beta, c_cpu, trans)
-        if c_gpu is not None:
-            gpu.copy_to_device(c_cpu, out=c_gpu)
+    _gpaw.rk_gpu(alpha, a.data.ptr, a.shape,
+                 beta, c.data.ptr, c.shape,
+                 a.dtype)
 
 
-def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
+def r2k(alpha, a, b, beta, c, trans='c'):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -452,41 +343,18 @@ def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
             assert c.shape == (a.shape[1], a.shape[1])
         assert c.strides[1] == c.itemsize
 
-    _r2k(alpha, a, b, beta, c, trans, use_gpu)
+    _gpaw.r2k(alpha, a, b, beta, c, trans)
 
 
-def _r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):
+def gpu_r2k(alpha, a, b, beta, c, trans='c'):
     """Launch CPU or GPU version of r2k()."""
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
-    c_cpu, c_gpu = (c, None) if isinstance(c, np.ndarray) else (None, c)
-
-    if use_gpu or (use_gpu is None and not isinstance(c, np.ndarray)):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if b_gpu is None:
-            b_gpu = gpu.copy_to_device(b_cpu)
-        if c_gpu is None:
-            c_gpu = gpu.copy_to_device(c_cpu)
-        _gpaw.r2k_gpu(alpha, gpu.get_pointer(a_gpu), a_gpu.shape,
-                      gpu.get_pointer(b_gpu), b_gpu.shape, beta,
-                      gpu.get_pointer(c_gpu), c_gpu.shape,
-                      a_gpu.dtype)
-        if c_cpu is not None:
-            gpu.copy_to_host(c_gpu, out=c_cpu)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if b_cpu is None:
-            b_cpu = gpu.copy_to_host(b_gpu)
-        if c_cpu is None:
-            c_cpu = gpu.copy_to_host(c_gpu)
-        _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu, trans)
-        if c_gpu is not None:
-            gpu.copy_to_device(c_cpu, out=c_gpu)
+    _gpaw.r2k_gpu(alpha, a.data.ptr, a.shape,
+                  b.data.ptr, b.shape, beta,
+                  c.data.ptr, c.shape,
+                  a.dtype)
 
 
-def dotc(a, b):
+def gpu_dotc(a, b):
     r"""Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
@@ -504,25 +372,11 @@ def dotc(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
-
-    if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if b_gpu is None:
-            b_gpu = gpu.copy_to_device(b_cpu)
-        return _gpaw.dotc_gpu(gpu.get_pointer(a_gpu), a.shape,
-                              gpu.get_pointer(b_gpu), a.dtype)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if b_cpu is None:
-            b_cpu = gpu.copy_to_host(b_gpu)
-        return _gpaw.dotc(a_cpu, b_cpu)
+    return _gpaw.dotc_gpu(a.data.ptr, a.shape,
+                          b.data.ptr, a.dtype)
 
 
-def dotu(a, b):
+def gpaw_dotu(a, b):
     """Dot product, NOT conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
@@ -540,22 +394,8 @@ def dotu(a, b):
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
 
-    a_cpu, a_gpu = (a, None) if isinstance(a, np.ndarray) else (None, a)
-    b_cpu, b_gpu = (b, None) if isinstance(b, np.ndarray) else (None, b)
-
-    if not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
-        if a_gpu is None:
-            a_gpu = gpu.copy_to_device(a_cpu)
-        if b_gpu is None:
-            b_gpu = gpu.copy_to_device(b_cpu)
-        return _gpaw.dotu_gpu(gpu.get_pointer(a_gpu), a.shape,
-                              gpu.get_pointer(b_gpu), a.dtype)
-    else:
-        if a_cpu is None:
-            a_cpu = gpu.copy_to_host(a_gpu)
-        if b_cpu is None:
-            b_cpu = gpu.copy_to_host(b_gpu)
-        return _gpaw.dotu(a_cpu, b_cpu)
+    return _gpaw.dotu_gpu(a.data.ptr, a.shape,
+                          b.data.ptr, a.dtype)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
@@ -625,22 +465,7 @@ if not hasattr(_gpaw, 'mmm'):
             return m.conj().T
         raise ValueError(f'unknown op: {o}')
 
-    def scal(alpha, x):  # noqa
-        x *= alpha
-
-    def axpy(alpha, x, y, use_gpu=None):  # noqa
-        y += alpha * x
-
-    def gemv(alpha, a, x, beta, y, trans='t', use_gpu=None):  # noqa
-        y[:] = alpha * op(trans, a).dot(x) + beta * y
-
-    def dotc(a, b):  # noqa
-        return a.conj().dot(b)
-
-    def dotu(a, b):  # noqa
-        return a.dot(b)
-
-    def rk(alpha, a, beta, c, trans='c', use_gpu=None):  # noqa
+    def rk(alpha, a, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
         if beta == 0:
@@ -653,7 +478,7 @@ if not hasattr(_gpaw, 'mmm'):
             a = a.reshape((len(a), -1))
             c += alpha * a.dot(a.conj().T)
 
-    def r2k(alpha, a, b, beta, c, trans='c', use_gpu=None):  # noqa
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
         if c.size == 0:
             return
         if beta == 0.0:
@@ -680,9 +505,9 @@ if not hasattr(_gpaw, 'mmm'):
     gemmdot = _gemmdot
 
 elif not debug:
-    mmm = _mmm  # noqa
-    rk = _rk  # noqa
-    r2k = _r2k  # noqa
+    mmm = _gpaw.mmm  # noqa
+    rk = _gpaw.rk  # noqa
+    r2k = _gpaw.r2k  # noqa
     gemmdot = _gemmdot
 
 else:
