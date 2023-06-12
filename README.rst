@@ -11,7 +11,7 @@ projector-augmented wave (PAW) method and the atomic simulation environment
 (ASE_). It uses plane-waves, atom-centered basis-functions or real-space
 uniform grids combined with multigrid methods.
 
-Webpage: http://wiki.fysik.dtu.dk/gpaw
+Webpage: https://wiki.fysik.dtu.dk/gpaw
 
 
 Requirements
@@ -100,8 +100,8 @@ Once you have familiarized yourself with ASE_ and NumPy_, you should take a
 look at the GPAW exercises_ and tutorials_.
 
 
-.. _Python: http://www.python.org/
-.. _ASE: http://wiki.fysik.dtu.dk/ase
+.. _Python: https://www.python.org/
+.. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
 .. _LibXC: http://www.tddft.org/programs/libxc/
@@ -111,7 +111,7 @@ look at the GPAW exercises_ and tutorials_.
 .. _BLACS: http://www.netlib.org/blacs/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
-.. _Matrix: https://matrix.io/#/#gpaw:matrix.org
+.. _Matrix: https://app.element.io/#/room/#gpaw:matrix.org
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html

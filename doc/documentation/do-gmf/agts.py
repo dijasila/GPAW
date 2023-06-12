@@ -6,7 +6,7 @@ from myqueue.workflow import run
 def workflow():
     with run(script='H2_instability.py', cores=8):
         run(function=check_instability)
-    with run(script='tPP.py', cores=8):
+    with run(script='tPP.py', cores=8, tmax='1h'):
         run(function=check_tPP)
     with run(script='ethylene.py', cores=8):
         run(function=check_ethylene)
