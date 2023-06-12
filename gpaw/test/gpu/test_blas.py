@@ -1,7 +1,10 @@
-import pytest
 import numpy as np
-from gpaw.utilities.blas import gpu_axpy, mmm
+import pytest
+
 from gpaw.gpu import cupy as cp
+from gpaw.utilities.blas import (gpu_axpy, gpu_dotc, gpu_dotu, gpu_gemm,
+                                 gpu_gemv, gpu_mmm, gpu_r2k, gpu_rk, gpu_scal,
+                                 mmm, r2k, rk)
 
 
 @pytest.mark.gpu
@@ -51,26 +54,28 @@ def test_blas(gpu, dtype):
     mmm(0.5, a, 'N', b, 'N', 0.2, c)
     check_cpu = c.sum()
 
-    mmm(0.5, a_gpu, 'N', b_gpu, 'N', 0.2, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    gpu_mmm(0.5, a_gpu, 'N', b_gpu, 'N', 0.2, c_gpu)
+    check_gpu = c_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # gemm
-    gemm(0.5, a, b, 0.2, c)
+    c *= 0.2
+    c += 0.5 * b @ a
     check_cpu = c.sum()
 
-    gemm(0.5, a_gpu, b_gpu, 0.2, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    gpu_gemm(0.5, a_gpu, b_gpu, 0.2, c_gpu)
+    check_gpu = c_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # gemv
-    gemv(0.5, a, x, 0.2, y)
+    y *= 0.2
+    y += 0.5 * a @ x
     check_cpu = y.sum()
 
-    gemv(0.5, a_gpu, x_gpu, 0.2, y_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(y_gpu.sum())
+    gpu_gemv(0.5, a_gpu, x_gpu, 0.2, y_gpu)
+    check_gpu = y_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
@@ -78,8 +83,8 @@ def test_blas(gpu, dtype):
     rk(0.5, a, 0.2, c)
     check_cpu = c.sum()
 
-    rk(0.5, a_gpu, 0.2, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    gpu_rk(0.5, a_gpu, 0.2, c_gpu)
+    check_gpu = c_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
@@ -87,30 +92,30 @@ def test_blas(gpu, dtype):
     r2k(0.5, a, b, 0.2, c)
     check_cpu = c.sum()
 
-    r2k(0.5, a_gpu, b_gpu, 0.2, c_gpu, use_gpu=True)
-    check_gpu = gpu.copy_to_host(c_gpu.sum())
+    gpu_r2k(0.5, a_gpu, b_gpu, 0.2, c_gpu)
+    check_gpu = c_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # dotc
-    check_cpu = dotc(x, y)
+    check_cpu = x.conj() @ y
 
-    check_gpu = dotc(x_gpu, y_gpu)
+    check_gpu = gpu_dotc(x_gpu, y_gpu)
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # dotu
-    check_cpu = dotu(x, y)
+    check_cpu = x @ y
 
-    check_gpu = dotu(x_gpu, y_gpu)
+    check_gpu = gpu_dotu(x_gpu, y_gpu)
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)
 
     # scal
-    scal(0.5, a)
+    a *= 0.5
     check_cpu = a.sum()
 
-    scal(0.5, a_gpu)
-    check_gpu = gpu.copy_to_host(a_gpu.sum())
+    gpu_scal(0.5, a_gpu)
+    check_gpu = a_gpu.sum().get()
 
     assert check_cpu == pytest.approx(check_gpu, rel=1e-14)

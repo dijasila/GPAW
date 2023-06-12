@@ -15,7 +15,7 @@ from typing import TypeVar
 import _gpaw
 import numpy as np
 import scipy.linalg.blas as blas
-from gpaw import debug, gpu
+from gpaw import debug
 from gpaw.new import prod
 from gpaw.typing import Array2D, ArrayND
 from gpaw.utilities import is_contiguous
@@ -109,7 +109,7 @@ def gpu_scal(alpha, x):
             assert isinstance(alpha, float)
             assert x.dtype in [float, complex]
             assert x.flags.c_contiguous
-    _gpaw.scal_gpu(alpha, gpu.get_pointer(x), x.shape, x.dtype)
+    _gpaw.scal_gpu(alpha, x.data.ptr, x.shape, x.dtype)
 
 
 def to2d(array: ArrayND) -> Array2D:
@@ -265,7 +265,7 @@ def gpu_axpy(alpha, x, y):
             assert x.flags.c_contiguous and y.flags.c_contiguous
         assert x.shape == y.shape
 
-    _gpaw.axpy_gpu(alpha, gpu.get_pointer(x), x.shape,
+    _gpaw.axpy_gpu(alpha, x.data.ptr, x.shape,
                    y.data.ptr, y.shape,
                    x.dtype)
 
@@ -385,7 +385,7 @@ def gpu_dotc(a, b):
                           b.data.ptr, a.dtype)
 
 
-def gpaw_dotu(a, b):
+def gpu_dotu(a, b):
     """Dot product, NOT conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
