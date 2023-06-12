@@ -7,7 +7,6 @@ import _gpaw
 from gpaw import debug
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
 from gpaw.utilities import smallest_safe_grid_spacing
-from gpaw import gpu
 
 """
 
@@ -224,14 +223,14 @@ class LocalizedFunctionsCollection(BaseLFC):
 
     """
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None, use_gpu=False):
+                 integral=None, forces=None, xp=np):
         self.gd = gd
         self.kd = kd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
         self.dtype = dtype
         self.Mmax = None
-        self.use_gpu = use_gpu
+        self.xp = xp
 
         if kd is None:
             self.ibzk_qc = np.zeros((1, 3))
@@ -343,7 +342,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.W_B = self.W_B[indices]
 
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW, self.use_gpu)
+                             self.gd.dv, self.phase_qW, self.xp is not np)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -405,14 +404,13 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if isinstance(c_axi, float):
             assert q == -1 and a_xG.ndim == 3
-            c_xM = np.empty(self.Mmax)
+            c_xM = self.xp.empty(self.Mmax)
             c_xM.fill(c_axi)
-            if not isinstance(a_xG, np.ndarray):
+            if self.xp is not np:
                 if self.Mmax > 0:
-                    c_xM_gpu = gpu.copy_to_device(c_xM)
-                    self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
-                                     c_xM_gpu.shape,
-                                     gpu.get_pointer(a_xG),
+                    self.lfc.add_gpu(c_xM.data.ptr,
+                                     c_xM.shape,
+                                     a_xG.data.ptr,
                                      a_xG.shape, q)
             else:
                 self.lfc.add(c_xM, a_xG, q)
@@ -449,26 +447,27 @@ class LocalizedFunctionsCollection(BaseLFC):
         for request in requests:
             comm.wait(request)
 
-        c_xM = np.empty(xshape + (self.Mmax,), dtype)
-        M1 = 0
-        for a in self.atom_indices:
-            c_xi = c_axi.get(a)
-            sphere = self.sphere_a[a]
-            M2 = M1 + sphere.Mmax
-            if c_xi is None:
-                c_xi = b_axi[a]
-            c_xM[..., M1:M2] = c_xi
-            M1 = M2
-
-        if not isinstance(a_xG, np.ndarray):
-            if self.Mmax > 0:
-                c_xM_gpu = gpu.copy_to_device(c_xM)
-                self.lfc.add_gpu(gpu.get_pointer(c_xM_gpu),
-                                 c_xM_gpu.shape,
-                                 gpu.get_pointer(a_xG),
-                                 a_xG.shape, q)
-        else:
+        if self.xp is np:
+            c_xM = np.empty(xshape + (self.Mmax,), dtype)
+            M1 = 0
+            for a in self.atom_indices:
+                c_xi = c_axi.get(a)
+                sphere = self.sphere_a[a]
+                M2 = M1 + sphere.Mmax
+                if c_xi is None:
+                    c_xi = b_axi[a]
+                c_xM[..., M1:M2] = c_xi
+                M1 = M2
             self.lfc.add(c_xM, a_xG, q)
+            return
+
+        assert comm.size == 1
+        if self.Mmax > 0:
+            c_xM = c_axi.data
+            self.lfc.add_gpu(c_xM.data.ptr,
+                             c_xM.shape,
+                             a_xG.data.ptr,
+                             a_xG.shape, q)
 
     def add_derivative(self, a, v, a_xG, c_axi=1.0, q=-1):
         """Add derivative of localized functions on atom to extended arrays.
