@@ -21,7 +21,6 @@ from gpaw.domain import Domain
 from gpaw.new import prod
 from gpaw.typing import Array1D, Array3D, Vector
 from gpaw.utilities.blas import mmm, r2k, rk
-from gpaw import gpu
 
 NONBLOCKING = False
 
@@ -224,8 +223,7 @@ class GridDescriptor(Domain):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False, pad=False,
-              use_gpu=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -233,11 +231,9 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad,
-                               use_gpu=use_gpu)
+        return self._new_array(n, dtype, True, global_array, pad)
 
-    def empty(self, n=(), dtype=float, global_array=False, pad=False,
-              use_gpu=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -245,11 +241,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad,
-                               use_gpu=use_gpu)
+        return self._new_array(n, dtype, False, global_array, pad)
 
     def _new_array(self, n=(), dtype=float, zero=True,
-                   global_array=False, pad=False, use_gpu=False):
+                   global_array=False, pad=False):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -260,16 +255,10 @@ class GridDescriptor(Domain):
 
         shape = n + tuple(shape)
 
-        if use_gpu:
-            if zero:
-                return gpu.cupy.zeros(tuple(int(x) for x in shape), dtype)
-            else:
-                return gpu.cupy.empty(tuple(int(x) for x in shape), dtype)
+        if zero:
+            return np.zeros(shape, dtype)
         else:
-            if zero:
-                return np.zeros(shape, dtype)
-            else:
-                return np.empty(shape, dtype)
+            return np.empty(shape, dtype)
 
     def get_axial_communicator(self, axis):
         peer_ranks = []
@@ -309,35 +298,18 @@ class GridDescriptor(Domain):
             return result
 
         gsize = prod(a_xg.shape[-3:])
-        if not isinstance(a_xg, np.ndarray):
-            nd = a_xg.size // gsize
-            A_xg = a_xg.reshape((nd,) + a_xg.shape[-3:])
-            nd = b_yg.size // gsize
-            B_yg = b_yg.reshape((nd,) + b_yg.shape[-3:])
-        else:
-            A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
-            B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
+        A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
+        B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
         result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
-        if not isinstance(a_xg, np.ndarray):
-            result_gpu = gpu.copy_to_device(result_yx)
-            if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_gpu)
-            elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_gpu)
-            else:
-                # gemm(self.dv, A_xg, B_yg, 0.0, result_gpu, 'c')
-                mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_gpu)
-            gpu.copy_to_host(result_gpu, out=result_yx)
+        if a_xg is b_yg:
+            rk(self.dv, A_xg, 0.0, result_yx)
+        elif hermitian:
+            r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
-            if a_xg is b_yg:
-                rk(self.dv, A_xg, 0.0, result_yx)
-            elif hermitian:
-                r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
-            else:
-                # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
-                mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
+            # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if global_integral:
             self.comm.sum(result_yx)
@@ -547,14 +519,7 @@ class GridDescriptor(Domain):
         if self.comm.size == 1:
             if out is None:
                 return B_xg
-            elif not isinstance(out, np.ndarray):
-                if not isinstance(B_xg, np.ndarray):
-                    B_xg_gpu = B_xg
-                else:
-                    B_xg_gpu = gpu.copy_to_device(B_xg)
-                gpu.cupy.copyto(out, B_xg_gpu)
-            else:
-                out[:] = B_xg
+            out[:] = B_xg
             return out
 
         if out is None:
