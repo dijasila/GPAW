@@ -52,7 +52,6 @@ from gpaw.wavefunctions.mode import create_wave_function_mode
 from gpaw.xc import XC
 from gpaw.xc.kernel import XCKernel
 from gpaw.xc.sic import SIC
-from gpaw import gpu
 
 
 class GPAW(Calculator):
@@ -97,7 +96,6 @@ class GPAW(Calculator):
                         'density': 1.0e-4,  # electrons / electron
                         'eigenstates': 4.0e-8,  # eV^2 / electron
                         'bands': 'occupied'},
-        'gpu': False,
         'verbose': 0,
         'fixdensity': False,  # deprecated
         'dtype': None}  # deprecated
@@ -450,7 +448,7 @@ class GPAW(Calculator):
                 yield from self.scf.irun(
                     self.wfs, self.hamiltonian,
                     self.density,
-                    self.log, self.call_observers, use_gpu=self.use_gpu)
+                    self.log, self.call_observers)
 
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
@@ -581,9 +579,6 @@ class GPAW(Calculator):
             if key in ['convergence', 'fixdensity', 'maxiter']:
                 continue
 
-            if key in ['gpu']:
-                continue
-
             # Check nested arguments
             if key in ['experimental']:
                 changed_parameters2 = changed_parameters[key]
@@ -661,9 +656,6 @@ class GPAW(Calculator):
         """Inexpensive initialization."""
 
         self.log('Initialize ...\n')
-
-        gpu.setup()
-        self.use_gpu = not gpu.cupy_is_fake
 
         if atoms is None:
             atoms = self.atoms
@@ -953,9 +945,6 @@ class GPAW(Calculator):
 
         print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
-        if self.use_gpu:
-            self.log('Using GPUs')
-
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
@@ -1107,8 +1096,7 @@ class GPAW(Calculator):
             if nbands_converge < 0:
                 nbands_converge += nbands
         eigensolver = get_eigensolver(self.parameters.eigensolver, mode,
-                                      self.parameters.convergence,
-                                      use_gpu=self.use_gpu)
+                                      self.parameters.convergence)
         eigensolver.nbands_converge = nbands_converge
         # XXX Eigensolver class doesn't define an nbands_converge property
 
@@ -1298,8 +1286,7 @@ class GPAW(Calculator):
 
         wfs_kwargs = dict(gd=gd, nvalence=nvalence, setups=setups,
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
-                          kptband_comm=kptband_comm, timer=self.timer,
-                          use_gpu=self.use_gpu)
+                          kptband_comm=kptband_comm, timer=self.timer)
 
         if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
