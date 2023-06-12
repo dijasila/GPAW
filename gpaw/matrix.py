@@ -5,7 +5,6 @@ import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
-from gpaw import gpu
 from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
 
@@ -71,7 +70,7 @@ def suggest_blocking(N, ncpus):
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None, use_gpu=False):
+    def __init__(self, M, N, dtype=None, data=None, dist=None):
         """Matrix object.
 
         M: int
@@ -96,77 +95,18 @@ class Matrix:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
 
-        self.use_gpu = use_gpu
-        self.on_gpu = None
-
         dist = dist or ()
         if isinstance(dist, tuple):
             dist = create_distribution(M, N, *dist)
         self.dist = dist
 
-        self.array = data
+        if data is None:
+            self.array = np.empty(dist.shape, self.dtype)
+        else:
+            self.array = data.reshape(dist.shape)
 
         self.comm = serial_comm
         self.state = 'everything is fine'
-
-    @property
-    def array(self):
-        if self.on_gpu:
-            return self._array_gpu
-        else:
-            return self._array_cpu
-
-    @array.setter
-    def array(self, data):
-        if data is None:
-            self._array_cpu = np.empty(self.dist.shape, self.dtype)
-            self._array_gpu = None
-            if self.use_gpu:
-                self._array_gpu = gpu.cupy.empty(self.dist.shape, self.dtype)
-        elif isinstance(data, tuple):
-            self._array_cpu = data[0].reshape(self.dist.shape)
-            self._array_gpu = data[1].reshape(self.dist.shape)
-        elif not isinstance(data, np.ndarray):
-            self._array_gpu = data.reshape(self.dist.shape)
-            self._array_cpu = gpu.copy_to_host(self._array_gpu)
-            if not self.use_gpu:
-                self._array_gpu = None
-        else:
-            self._array_cpu = data.reshape(self.dist.shape)
-            self._array_gpu = None
-            if self.use_gpu:
-                self._array_gpu = gpu.copy_to_device(self._array_cpu)
-        self.on_gpu = bool(self.use_gpu)
-
-    def view(self, i, j):
-        if self.use_gpu:
-            data = (self._array_cpu[i:j], self._array_gpu[i:j])
-        else:
-            data = self._array_cpu[i:j]
-        return Matrix(j - i, *self.shape[1:],
-                      data=data, dtype=self.dtype, use_gpu=self.use_gpu)
-
-    def sync(self):
-        try:
-            if self.on_gpu:
-                gpu.copy_to_host(self._array_gpu, out=self._array_cpu)
-            else:
-                gpu.copy_to_device(self._array_cpu, out=self._array_gpu)
-        except AttributeError:
-            pass
-
-    def sync_to_gpu(self):
-        if not self.use_gpu:
-            self.use_gpu = True
-            self._array_gpu = gpu.cupy.empty_like(self._array_cpu)
-        if not self.on_gpu:
-            self.sync()
-            self.on_gpu = True
-
-    def sync_to_cpu(self):
-        if self.on_gpu:
-            self.sync()
-            self.on_gpu = False
 
     def __len__(self):
         return self.shape[0]
@@ -175,15 +115,14 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit', use_gpu=None):
+    def new(self, dist='inherit'):
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
         distribution.
         """
         return Matrix(*self.shape, dtype=self.dtype,
-                      dist=self.dist if dist == 'inherit' else dist,
-                      use_gpu=self.use_gpu if use_gpu is None else use_gpu)
+                      dist=self.dist if dist == 'inherit' else dist)
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
@@ -233,7 +172,6 @@ class Matrix:
         """Redistribute to other BLACS layout."""
         if self is other:
             return
-
         d1 = self.dist
         d2 = other.dist
         n1 = d1.rows * d1.columns
@@ -293,13 +231,12 @@ class Matrix:
 
         Only the lower part is used.
         """
-        self.sync_to_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
         if self.comm.rank == 0:
             if self.dist.comm.size > 1:
-                S = self.new(dist=(self.dist.comm, 1, 1), use_gpu=False)
+                S = self.new(dist=(self.dist.comm, 1, 1))
                 self.redist(S)
             else:
                 S = self
@@ -319,8 +256,6 @@ class Matrix:
         if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
-        if self.use_gpu:
-            self.sync_to_gpu()
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
@@ -335,7 +270,6 @@ class Matrix:
         """
         slcomm, rows, columns, blocksize = scalapack
 
-        self.sync_to_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
@@ -347,7 +281,7 @@ class Matrix:
                   blocksize != self.dist.blocksize)
 
         if redist:
-            H = self.new(dist=dist, use_gpu=False)
+            H = self.new(dist=dist)
             self.redist(H)
         else:
             assert self.dist.comm.size == slcomm.size
@@ -389,18 +323,13 @@ class Matrix:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
-        if self.use_gpu:
-            self.sync_to_gpu()
 
         return eps
 
     def complex_conjugate(self):
         """Inplace complex conjugation."""
         if self.dtype == complex:
-            self.sync_to_cpu()
             np.negative(self.array.imag, self.array.imag)
-            if self.use_gpu:
-                self.sync_to_gpu()
 
 
 def _matrix(M):
@@ -544,10 +473,6 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 
 
 def fastmmm(m1, m2, m3, beta):
-    m1.sync_to_cpu()
-    m2.sync_to_cpu()
-    m3.sync_to_cpu()
-
     comm = m1.dist.comm
 
     buf1 = m2.array
@@ -589,13 +514,6 @@ def fastmmm(m1, m2, m3, beta):
         if srequest:
             comm.wait(srequest)
 
-    if m1.use_gpu:
-        m1.sync_to_gpu()
-    if m2.use_gpu:
-        m2.sync_to_gpu()
-    if m3.use_gpu:
-        m3.sync_to_gpu()
-
     return m3
 
 
@@ -605,10 +523,6 @@ def fastmmm2(a, b, out):
         if a.comm.size > 1:
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
-
-    a.sync_to_cpu()
-    b.sync_to_cpu()
-    out.sync_to_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -680,13 +594,6 @@ def fastmmm2(a, b, out):
     for m1, m2, block in blocks:
         out.array[:, m1:m2] += block
 
-    if a.use_gpu:
-        a.sync_to_gpu()
-    if b.use_gpu:
-        b.sync_to_gpu()
-    if out.use_gpu:
-        out.sync_to_gpu()
-
     return out
 
 
@@ -696,10 +603,6 @@ def fastmmm2notsym(a, b, out):
         if a.comm.size > 1:
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
-
-    a.sync_to_cpu()
-    b.sync_to_cpu()
-    out.sync_to_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -737,12 +640,5 @@ def fastmmm2notsym(a, b, out):
 
         bb = buf1
         buf1, buf2 = buf2, buf1
-
-    if a.use_gpu:
-        a.sync_to_gpu()
-    if b.use_gpu:
-        b.sync_to_gpu()
-    if out.use_gpu:
-        out.sync_to_gpu()
 
     return out
