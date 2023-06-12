@@ -93,12 +93,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
     def __init__(self, ksl, gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer,
-                 atomic_correction=None, collinear=True,
-                 use_gpu=False):
+                 atomic_correction=None, collinear=True):
         WaveFunctions.__init__(self, gd, nvalence, setups, bd,
                                dtype, collinear, world, kd,
-                               kptband_comm, timer,
-                               use_gpu=use_gpu)
+                               kptband_comm, timer)
         self.ksl = ksl
         self.S_qMM = None
         self.T_qMM = None
@@ -144,7 +142,7 @@ class LCAOWaveFunctions(WaveFunctions):
         elif type == 'gramschmidt':
             kpt.C_nM[:] = gramschmidt_lcao(kpt.C_nM, kpt.S_MM.conj())
 
-    def empty(self, n=(), global_array=False, realspace=False, use_gpu=False):
+    def empty(self, n=(), global_array=False, realspace=False):
         if realspace:
             return self.gd.empty(n, self.dtype, global_array)
         else:

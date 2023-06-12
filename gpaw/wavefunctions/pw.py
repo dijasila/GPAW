@@ -178,7 +178,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
-                 world, kd, kptband_comm, timer, use_gpu=False):
+                 world, kd, kptband_comm, timer):
         self.ecut = ecut
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
@@ -190,11 +190,9 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
-                                   kptband_comm=kptband_comm, timer=timer,
-                                   use_gpu=use_gpu)
+                                   kptband_comm=kptband_comm, timer=timer)
 
-    def empty(self, n=(), global_array=False, realspace=False, q=None,
-              use_gpu=False):
+    def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):
             n = (n,)
         if realspace:

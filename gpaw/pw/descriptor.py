@@ -148,8 +148,7 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None, global_array=False,
-              use_gpu=False):
+    def zeros(self, x=(), dtype=None, q=None, global_array=False):
         """Return zeroed array.
 
         The shape of the array will be x + (ng,) where ng is the number
@@ -161,8 +160,7 @@ class PWDescriptor:
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None, global_array=False,
-              use_gpu=False):
+    def empty(self, x=(), dtype=None, q=None, global_array=False):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype

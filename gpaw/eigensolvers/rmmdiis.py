@@ -80,9 +80,8 @@ class RMMDIIS(Eigensolver):
                 self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n,
                                          R, P2)
 
-        def integrate(a_xG, b_xG):
-            return [np.real(wfs.integrate(a_G, b_G, global_integral=False))
-                    for a_G, b_G in zip(a_xG, b_xG)]
+        def integrate(a_G, b_G):
+            return np.real(wfs.integrate(a_G, b_G, global_integral=False))
 
         comm = wfs.gd.comm
 
@@ -123,7 +122,10 @@ class RMMDIIS(Eigensolver):
                                              P, kpt.eps_n[n_x], Rb, P2, n_x)
 
             errors_x[:] = 0.0
-            errors_x[:n2 - n1] = weights[n1:n2] * integrate(Rb.array, Rb.array)
+            for n in range(n1, n2):
+                weight = weights[n]
+                errors_x[n - n1] = weight * integrate(Rb.array[n - n1],
+                                                      Rb.array[n - n1])
             comm.sum(errors_x)
             error += np.sum(errors_x)
 
@@ -154,8 +156,9 @@ class RMMDIIS(Eigensolver):
 
             # Find lam that minimizes the norm of R'_G = R_G + lam dR_G
             with self.timer('Find lambda'):
-                RdR_x = np.array(integrate(Rb.array, dR.array))
-                dRdR_x = np.array(integrate(dR.array, dR.array))
+                RdR_x = np.array([integrate(dR_G, R_G)
+                                  for R_G, dR_G in zip(Rb.array, dR.array)])
+                dRdR_x = np.array([integrate(dR_G, dR_G) for dR_G in dR.array])
                 comm.sum(RdR_x)
                 comm.sum(dRdR_x)
                 lam_x = -RdR_x / dRdR_x
