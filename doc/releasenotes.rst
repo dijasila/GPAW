@@ -13,6 +13,9 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
+  now throw an error if the ground state contains point group symmetries
+
 
 Version 23.6.0
 ==============
@@ -91,9 +94,6 @@ Jun 9, 2023: :git:`23.6.0 <../23.6.0>`
      Bugs in previous versions could have led to wrong relative intensities.
      Please regenerate the Raman tensor.
 
-
-* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
-  now throw an error if the ground state contains point group symmetries
 
 Version 22.8.0
 ==============
