@@ -65,34 +65,6 @@ def as_xp(array, xp):
     return array
 
 
-def get_pointer(array):
-    if isinstance(array, np.ndarray):
-        return array.ctypes.data
-    elif cupy_is_fake:
-        return array._data.ctypes.data
-    return array.data.ptr
-
-
-def copy_to_host(a, out=None):
-    if isinstance(a, cupy.ndarray):
-        return cupy.asnumpy(a, out=out)
-    elif out is None:
-        return a.copy()
-    else:
-        np.copyto(out, a)
-        return out
-
-
-def copy_to_device(a, out=None):
-    if not isinstance(a, cupy.ndarray):
-        a = cupy.asarray(a)
-    if out is None:
-        return a
-    else:
-        cupy.copyto(out, a)
-        return out
-
-
 def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
     """Wrapper for ``eigh()``.
 

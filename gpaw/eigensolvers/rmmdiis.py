@@ -4,7 +4,6 @@ from functools import partial
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.mblas import multi_dotc
 from gpaw.eigensolvers.eigensolver import Eigensolver
 
 

@@ -17,16 +17,11 @@ void operator_dealloc_gpu(int force);
 void reduce_dealloc_gpu();
 void lfc_reduce_dealloc_gpu();
 
-struct gpuDeviceProp _gpaw_gpu_dev_prop;
 
 PyObject* gpaw_gpu_init(PyObject *self, PyObject *args)
 {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
-
-    int device;
-    gpuGetDevice(&device);
-    gpuGetDeviceProperties(&_gpaw_gpu_dev_prop, device);
 
     bc_init_buffers_gpu();
     transformer_init_buffers_gpu();
