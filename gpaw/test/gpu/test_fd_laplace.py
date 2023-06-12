@@ -43,7 +43,7 @@ def test_fd_laplace(gpu, pbc):
                      - 3.0 / sigma) * a
 
     b = np.zeros_like(a)
-    a_gpu = cp.ndarray(a)
+    a_gpu = cp.asarray(a)
     b_gpu = cp.zeros_like(a_gpu)
 
     # Laplace
