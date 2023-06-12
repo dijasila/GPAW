@@ -8,3 +8,5 @@ def gpu():
         gpaw.gpu.setup()
     except AttributeError:
         pytest.skip('Not compiled with gpu=True')
+    if gpaw.gpu.cupy_is_fake:
+        pytest.skip('No cupy')

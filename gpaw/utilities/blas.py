@@ -42,8 +42,7 @@ def mmm(alpha: T,
         b: Array2D,
         opb: str,
         beta: T,
-        c: Array2D,
-        use_gpu: bool = None) -> None:
+        c: Array2D) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='N' and opb='N', we have:::
@@ -78,10 +77,10 @@ def mmm(alpha: T,
     else:
         assert a.dtype == complex
 
-    _gpaw.mmm(alpha, a, opa, b, opb, beta, c, use_gpu)
+    _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
 
 
-def gpu_mmm(alpha, a, opa, b, opb, beta, c, use_gpu=None):
+def gpu_mmm(alpha, a, opa, b, opb, beta, c):
     """Launch CPU or GPU version of mmm()."""
     m = b.shape[1] if opb == 'N' else b.shape[0]
     n = a.shape[0] if opa == 'N' else a.shape[1]
@@ -204,16 +203,6 @@ def gpu_gemv(alpha, a, x, beta, y, trans='t'):
 
     If trans='c', the complex conjugate of a is used. The default is
     trans='t', i.e. behaviour like np.dot with a 2D matrix and a vector.
-
-    Example::
-
-      >>> A_mn = np.arange(6.0).reshape(2, 3)
-      >>> x_n = np.arange(3.0)
-      >>> y_m = np.dot(A_mn, x_n)
-      >>> # or better yet
-      >>> y_m = np.zeros(A_mn.shape[0], A_mn.dtype)
-      >>> gemv(1.0, A_mn, x_n, 0.0, y_m)
-
     """
     if debug:
         assert (a.dtype == float and x.dtype == float and y.dtype == float and
@@ -515,7 +504,7 @@ if not hasattr(_gpaw, 'mmm'):
 
     def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
             b: np.ndarray, opb: str,
-            beta: T, c: np.ndarray, use_gpu: bool = None) -> None:
+            beta: T, c: np.ndarray) -> None:
         if beta == 0.0:
             c[:] = 0.0
         else:
