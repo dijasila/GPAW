@@ -1,5 +1,4 @@
-# Simple example of the use of LCAO-TDDFT code
-
+# P1
 # Sodium dimer
 from ase.build import molecule
 atoms = molecule('Na2')
@@ -21,7 +20,7 @@ calc = GPAW(mode='lcao', h=0.3, basis='dzp',
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')
-
+# P2
 # Time-propagation calculation
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
@@ -35,7 +34,7 @@ td_calc.absorption_kick([0.0, 0.0, 1e-5])
 td_calc.propagate(10, 3000)
 # Save the state for restarting later
 td_calc.write('td.gpw', mode='all')
-
+# P3
 # Analyze the results
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 photoabsorption_spectrum('dm.dat', 'spec.dat')

@@ -68,7 +68,8 @@ Example usage
 First we do a standard ground-state calculation with the ``GPAW`` calculator:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 3-22
+   :start-after: P1
+   :end-before: P2
 
 Some important points are:
 
@@ -97,12 +98,13 @@ Some important points are:
 Next we kick the system in the z direction and propagate 3000 steps of 10 as:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 25-37
+   :start-after: P2
+   :end-before: P3
 
 After the time propagation, the spectrum can be calculated:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 39-41
+   :start-after: P3
 
 This example input script can be downloaded :download:`here <lcaotddft.py>`.
 
