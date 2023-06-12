@@ -268,7 +268,7 @@ class KPointDescriptor:
         kd.set_communicator(comm)
         return kd
 
-    def create_k_points(self, sdisp_cd, collinear, use_gpu=False):
+    def create_k_points(self, sdisp_cd, collinear):
         """Return a list of KPoints."""
 
         kpt_qs = []
@@ -287,8 +287,7 @@ class KPointDescriptor:
             else:
                 spins = [None]
                 weight *= 0.5
-            kpt_qs.append([KPoint(weightk, weight, s, k, q, phase_cd,
-                                  use_gpu=use_gpu)
+            kpt_qs.append([KPoint(weightk, weight, s, k, q, phase_cd)
                            for s in spins])
 
         return kpt_qs

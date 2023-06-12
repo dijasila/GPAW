@@ -27,8 +27,7 @@ class KPoint:
                  s: int,
                  k: int,
                  q: int,
-                 phase_cd=None,
-                 use_gpu=False):
+                 phase_cd=None):
         """Construct k-point object.
 
         Parameters:
@@ -63,32 +62,10 @@ class KPoint:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
 
-        self.use_gpu = bool(use_gpu)
-
         # LCAO stuff:
         self.rho_MM = None
         self.S_MM = None
         self.T_MM = None
-
-    def sync_to_gpu(self):
-        if self.psit is not None:
-            self.psit.sync_to_gpu()
-
-    def sync_to_cpu(self):
-        if self.psit is not None:
-            self.psit.sync_to_cpu()
-
-    @property
-    def use_gpu(self) -> bool:
-        return self._use_gpu
-
-    @use_gpu.setter
-    def use_gpu(self, value: bool):
-        self._use_gpu = value
-        if self._use_gpu:
-            self.sync_to_gpu()
-        else:
-            self.sync_to_cpu()
 
     def __repr__(self):
         return (f'KPoint(weight={self.weight}, weightk={self.weightk}, '

@@ -13,7 +13,6 @@ from numpy.fft import fftn, ifftn
 
 import _gpaw
 from gpaw import debug
-from gpaw import gpu
 
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
@@ -35,7 +34,7 @@ derivatives = [[1 / 2],
 
 class FDOperator:
     def __init__(self, coef_p, offset_pc, gd, dtype=float,
-                 description=None, use_gpu=False):
+                 description=None, xp=np):
         """FDOperator(coefs, offsets, gd, dtype) -> FDOperator object.
         """
 
@@ -80,11 +79,11 @@ class FDOperator:
         self.comm = comm
         self.cfd = cfd
 
-        self.use_gpu = use_gpu
+        self.xp = xp
 
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
-                                       comm, cfd, self.use_gpu)
+                                       comm, cfd, xp is not np)
 
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
@@ -94,45 +93,21 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        if not isinstance(in_xg, np.ndarray):
-            _out = None
-            if isinstance(out_xg, np.ndarray):
-                _out = out_xg
-                out_xg = gpu.copy_to_device(out_xg)
-            self.operator.apply_gpu(gpu.get_pointer(in_xg),
-                                    gpu.get_pointer(out_xg),
-                                    in_xg.shape, in_xg.dtype, phase_cd)
-            if _out is not None:
-                gpu.copy_to_host(out_xg, out=_out)
-        else:
-            _out = None
-            if not isinstance(out_xg, np.ndarray):
-                _out = out_xg
-                out_xg = gpu.copy_to_host(out_xg)
+        if self.xp is np:
             self.operator.apply(in_xg, out_xg, phase_cd)
-            if _out is not None:
-                gpu.copy_to_device(out_xg, out=_out)
+        else:
+            self.operator.apply_gpu(in_xg.data.ptr,
+                                    out_xg.data.ptr,
+                                    in_xg.shape, in_xg.dtype, phase_cd)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        if not isinstance(s_g, np.ndarray):
-            _func = None
-            if isinstance(f_g, np.ndarray):
-                _func = f_g
-                f_g = gpu.copy_to_device(_func)
-            self.operator.relax_gpu(relax_method,
-                                    gpu.get_pointer(f_g),
-                                    gpu.get_pointer(s_g),
-                                    n, w)
-            if _func:
-                gpu.copy_to_host(f_g, out=_func)
-        else:
-            _func = None
-            if not isinstance(f_g, np.ndarray):
-                _func = f_g
-                f_g = gpu.copy_to_host(f_g)
+        if self.xp is np:
             self.operator.relax(relax_method, f_g, s_g, n, w)
-            if _func:
-                gpu.copy_to_device(f_g, out=_func)
+        else:
+            self.operator.relax_gpu(relax_method,
+                                    f_g.data.ptr,
+                                    s_g.data.ptr,
+                                    n, w)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()
@@ -168,15 +143,15 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 
-def Laplace(gd, scale=1.0, n=1, dtype=float, use_gpu=False):
+def Laplace(gd, scale=1.0, n=1, dtype=float, xp=np):
     if n == 9:
         return FTLaplace(gd, scale, dtype)
     else:
-        return GUCLaplace(gd, scale, n, dtype, use_gpu=use_gpu)
+        return GUCLaplace(gd, scale, n, dtype, xp=xp)
 
 
 class GUCLaplace(FDOperator):
-    def __init__(self, gd, scale=1.0, n=1, dtype=float, use_gpu=False):
+    def __init__(self, gd, scale=1.0, n=1, dtype=float, xp=np):
         """Laplacian for general non orthorhombic grid.
 
         gd: GridDescriptor
@@ -225,7 +200,7 @@ class GUCLaplace(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, use_gpu=use_gpu)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype, xp=xp)
 
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Laplacian' %
@@ -233,7 +208,7 @@ class GUCLaplace(FDOperator):
 
 
 class Gradient(FDOperator):
-    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, use_gpu=False):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, xp=np):
         """Symmetric gradient for general non orthorhombic grid.
 
         gd: GridDescriptor
@@ -302,7 +277,7 @@ class Gradient(FDOperator):
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
             coefs.extend(-c * stencil)
 
-        FDOperator.__init__(self, coefs, offsets, gd, dtype, use_gpu=use_gpu)
+        FDOperator.__init__(self, coefs, offsets, gd, dtype, xp=xp)
 
         self.description = (
             'Finite-difference {}-derivative with O(h^{}) error ({} points)'
@@ -310,7 +285,7 @@ class Gradient(FDOperator):
 
 
 class LaplaceA(FDOperator):
-    def __init__(self, gd, scale, dtype=float, use_gpu=False):
+    def __init__(self, gd, scale, dtype=float, xp=np):
         assert gd.orthogonal
         c = np.divide(-1 / 12, gd.h_cv.diagonal()**2) * scale  # Why divide?
         c0 = c[1] + c[2]
@@ -335,11 +310,11 @@ class LaplaceA(FDOperator):
                              (-1, -1, 0), (-1, 1, 0), (1, -1, 0), (1, 1, 0)],
                             gd, dtype,
                             'O(h^4) Mehrstellen Laplacian (A)',
-                            use_gpu=use_gpu)
+                            xp=xp)
 
 
 class LaplaceB(FDOperator):
-    def __init__(self, gd, dtype=float, use_gpu=False):
+    def __init__(self, gd, dtype=float, xp=np):
         a = 0.5
         b = 1.0 / 12.0
         FDOperator.__init__(self,
@@ -351,7 +326,7 @@ class LaplaceB(FDOperator):
                              (0, 0, -1), (0, 0, 1)],
                             gd, dtype,
                             'O(h^4) Mehrstellen Laplacian (B)',
-                            use_gpu=use_gpu)
+                            xp=xp)
 
 
 class FTLaplace:
@@ -383,7 +358,7 @@ class FTLaplace:
 
 
 class OldGradient(FDOperator):
-    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, use_gpu=False):
+    def __init__(self, gd, v, scale=1.0, n=1, dtype=float, xp=np):
         h = (gd.h_cv**2).sum(1)**0.5
         d = gd.xxxiucell_cv[:, v]
         A = np.zeros((2 * n + 1, 2 * n + 1))
@@ -405,4 +380,4 @@ class OldGradient(FDOperator):
 
         FDOperator.__init__(self, coef_p, offset_pc, gd, dtype,
                             'O(h^%d) %s-gradient stencil' % (2 * n, 'xyz'[v]),
-                            use_gpu=use_gpu)
+                            xp=xp)
