@@ -571,19 +571,15 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         dtype = a_xG.dtype
 
-        if not isinstance(a_xG, np.ndarray):
+        c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
+        if self.xp is np:
+            self.lfc.integrate(a_xG, c_xM, q)
+        else:
             if self.Mmax > 0:
-                c_xM_gpu = gpu.cupy.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(gpu.get_pointer(a_xG),
                                        a_xG.shape,
                                        gpu.get_pointer(c_xM_gpu),
                                        c_xM_gpu.shape, q)
-                c_xM = gpu.copy_to_host(c_xM_gpu) * self.gd.dv
-            else:
-                c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-        else:
-            c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-            self.lfc.integrate(a_xG, c_xM, q)
 
         comm = self.gd.comm
         rank = comm.rank
