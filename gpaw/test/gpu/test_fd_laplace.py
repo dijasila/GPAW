@@ -1,7 +1,9 @@
-import pytest
 import numpy as np
-from gpaw.grid_descriptor import GridDescriptor
+import pytest
+
 from gpaw.fd_operators import Laplace
+from gpaw.gpu import cupy as cp
+from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world
 
 
@@ -41,15 +43,13 @@ def test_fd_laplace(gpu, pbc):
                      - 3.0 / sigma) * a
 
     b = np.zeros_like(a)
-    a_gpu = gpu.copy_to_device(a)
-    b_gpu = gpu.cupy.zeros_like(a_gpu)
+    a_gpu = cp.ndarray(a)
+    b_gpu = cp.zeros_like(a_gpu)
 
     # Laplace
-    Laplace(gd, 1.0, 3, dtype=dtype) \
-        .apply(a, b, phase_cd=phase)
-    Laplace(gd, 1.0, 3, dtype=dtype, use_gpu=True) \
-        .apply(a_gpu, b_gpu, phase_cd=phase)
-    b_ref = gpu.copy_to_host(b_gpu)
+    Laplace(gd, 1.0, 3, dtype=dtype).apply(a, b, phase_cd=phase)
+    Laplace(gd, 1.0, 3, dtype=dtype, xp=cp).apply(a_gpu, b_gpu, phase_cd=phase)
+    b_ref = b_gpu.get()
 
     assert b == pytest.approx(b_ref, abs=1e-12)
     # Neglect boundaries in check to analytic solution
