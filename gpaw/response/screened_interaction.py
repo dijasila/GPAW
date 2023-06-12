@@ -146,8 +146,8 @@ class WBaseCalculator():
         XXX: Understand and document exact expressions
         """
         W_GG[0, 0] = einv_GG[0, 0] * V0
-        #W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
-        #W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
+        W_GG[0, 1:] = einv_GG[0, 1:] * sqrtV_G[1:] * sqrtV0
+        W_GG[1:, 0] = einv_GG[1:, 0] * sqrtV0 * sqrtV_G[1:]
 
     
 class WCalculator(WBaseCalculator):
@@ -362,7 +362,7 @@ class MPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign, f):
+    def get_HW(self, omega, sign, f, derivative=True):
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
         x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
@@ -375,17 +375,20 @@ class MPAHWModel(HWModel):
         #x_nGG = self.factor * W_nGG * (sign * (x1_nGG - x2_nGG) + x3_nGG + x4_nGG)
         #dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
         #                               x3_nGG**2 + x4_nGG**2)
-        x_GG = np.sum(self.factor * W_nGG * (x1_nGG+x2_nGG),axis=0)
+        x_GG = (2*self.factor)*np.sum(W_nGG * (x1_nGG+x2_nGG),axis=0) # Why 2 here
+
+        if not derivative:
+            return x_GG.T.conj()
 
         eps = 0.05
         xp_nGG = f / (omega+eps + omegat_nGG - 1j * self.eta)
         xp_nGG += (1.0-f) / (omega+eps - omegat_nGG + 1j * self.eta)
         xm_nGG = f / (omega-eps + omegat_nGG - 1j * self.eta)
         xm_nGG += (1.0-f) / (omega-eps - omegat_nGG + 1j * self.eta)
-        dx_GG = np.sum(self.factor * W_nGG * (xp_nGG-xm_nGG)/(2*eps) ,axis=0)
+        dx_GG = 2*self.factor*np.sum(W_nGG * (xp_nGG-xm_nGG)/(2*eps), axis=0) # Why 2 here
         
 
-        return 2*x_GG.T.conj(), 2*dx_GG.T.conj()
+        return x_GG.T.conj(), dx_GG.T.conj()
 #######
 
 class PPACalculator(WBaseCalculator):
