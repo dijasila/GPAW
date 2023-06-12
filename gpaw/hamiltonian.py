@@ -9,14 +9,11 @@ from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
 from gpaw.lfc import LFC
 from gpaw.poisson import PoissonSolver
-from gpaw.utilities.linalg import (elementwise_multiply_add,
-                                   multi_elementwise_multiply_add)
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
                             unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-from gpaw import gpu
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -51,7 +48,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
-                 redistributor, vext=None, use_gpu=False):
+                 redistributor, vext=None):
         self.gd = gd
         self.finegd = finegd
         self.nspins = nspins
@@ -59,7 +56,6 @@ class Hamiltonian:
         self.setups = setups
         self.timer = timer
         self.xc = xc
-        self.use_gpu = use_gpu
         self.world = world
         self.redistributor = redistributor
 
@@ -69,8 +65,6 @@ class Hamiltonian:
         self.dH_asp = None
         self.vt_xG = None
         self.vt_sG = None
-        if self.use_gpu:
-            self.vt_sG_gpu = None
         self.vt_vG = None
         self.vHt_g = None
         self.vt_xg = None
@@ -227,8 +221,6 @@ class Hamiltonian:
         self.vt_xG = self.gd.empty(self.ncomponents)
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
-        if self.use_gpu:
-            self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
 
     def update(self, density, wfs=None, kin_en_using_band=True):
         """Calculate effective potential.
@@ -244,13 +236,6 @@ class Hamiltonian:
 
         finegrid_energies = self.update_pseudo_potential(density)
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
-
-        if self.use_gpu:
-            if self.vt_sG_gpu is None or \
-                    self.vt_sG_gpu.shape != self.vt_sG.shape:
-                self.vt_sG_gpu = gpu.copy_to_device(self.vt_sG)
-            else:
-                gpu.copy_to_device(self.vt_sG, out=self.vt_sG_gpu)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
@@ -437,24 +422,12 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        if self.use_gpu or not isinstance(psit_nG, np.ndarray):
-            if self.use_gpu:
-                vt_G = self.vt_sG_gpu[s]
-            else:
-                vt_G = gpu.copy_to_device(self.vt_sG[s])
-            if isinstance(psit_nG, np.ndarray):
-                psit_nG = gpu.copy_to_device(psit_nG)
-            if len(psit_nG.shape) == 3:
-                elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG)
-            else:
-                multi_elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG)
+        vt_G = self.vt_sG[s]
+        if psit_nG.ndim == 3:
+            Htpsit_nG += psit_nG * vt_G
         else:
-            vt_G = self.vt_sG[s]
-            if len(psit_nG.shape) == 3:
-                Htpsit_nG += psit_nG * vt_G
-            else:
-                for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
-                    Htpsit_G += psit_G * vt_G
+            for psit_G, Htpsit_G in zip(psit_nG, Htpsit_nG):
+                Htpsit_G += psit_G * vt_G
 
     def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply the Hamiltonian operator to a set of vectors.
@@ -676,23 +649,20 @@ class Hamiltonian:
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None, use_gpu=False,
+                 psolver=None, stencil=3, redistributor=None,
                  charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,
-                             redistributor=redistributor, use_gpu=use_gpu)
+                             redistributor=redistributor)
 
         # Solver for the Poisson equation:
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = PoissonSolver(**psolver, use_gpu=self.use_gpu)
+            psolver = PoissonSolver(**psolver)
         self.poisson = psolver
-        try:
-            self.poisson.set_grid_descriptor(finegd, use_gpu=self.use_gpu)
-        except TypeError:
-            self.poisson.set_grid_descriptor(finegd)
+        self.poisson.set_grid_descriptor(self.finegd)
 
         # Restrictor function for the potential:
         self.restrictor = Transformer(self.finegd, self.redistributor.aux_gd,
