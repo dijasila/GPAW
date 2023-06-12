@@ -4,7 +4,7 @@ from gpaw import GPAW
 
 def test_ae_potential():
     h = Atoms('H',
-              cell=[2, 2, 2],
+              cell=[2.01, 2.01, 2.01],
               pbc=True)
     h.calc = GPAW(
         mode='lcao',

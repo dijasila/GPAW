@@ -732,7 +732,7 @@ class GPAW(Calculator):
             raise ValueError('LCAO mode does not support '
                              'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
+        realspace = mode.interpolation != 'fft'
 
         self.create_setups(mode, xc)
 

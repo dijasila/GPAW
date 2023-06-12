@@ -14,20 +14,22 @@ from gpaw.response.pair_transitions import PairTransitions
 
 
 class PairFunctionIntegrator(ABC):
-    r"""Baseclass for computing pair functions in the Kohn-Sham system of
-    collinear periodic crystals in absence of spin-orbit coupling.
+    r"""Baseclass for computing pair functions in the Kohn-Sham system.
 
-    A pair function is understood as any function, which can be constructed as
-    a sum over transitions between Kohn-Sham eigenstates at k and k + q,
+    The implementation is currently restricted collinear periodic crystals in
+    absence of spin-orbit coupling.
+
+    In the Kohn-Sham system, pair functions (see the PairFunciton class for
+    further descriptions) can be constructed straight-forwardly as a sum over
+    transitions between Kohn-Sham eigenstates at k and k + q,
                   __  __  __                            __
                1  \   \   \                          1  \
     pf(q,z) =  ‾  /   /   /   pf_nks,n'k+qs'(q,z) =  ‾  /  pf_T(q,z)
                V  ‾‾  ‾‾  ‾‾                         V  ‾‾
                   k  n,n' s,s'                          T
 
-    where z is decodes any additional variables (usually this will be some sort
-    of complex frequency). In the notation used here, V is the crystal volume
-    and T is a composit index encoding all relevant transitions:
+    where V is the crystal volume and T is a composite index encoding all
+    relevant transitions:
 
     T: (n, k, s) -> (n', k + q, s')
 
@@ -224,7 +226,7 @@ class PairFunctionIntegrator(ABC):
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
+    def get_band_and_spin_transitions(self, spincomponent, nbands=None,
                                       bandsummation='pairwise'):
         """Get band and spin transitions (n, s) -> (n', s') to integrate."""
         nspins = self.gs.nspins
@@ -236,7 +238,7 @@ class PairFunctionIntegrator(ABC):
         assert nbands <= gsnbands
 
         transitions = PairTransitions.from_transitions_domain_arguments(
-            spin_rotation, nbands, nocc1, nocc2, nspins, bandsummation)
+            spincomponent, nbands, nocc1, nocc2, nspins, bandsummation)
 
         return transitions
 

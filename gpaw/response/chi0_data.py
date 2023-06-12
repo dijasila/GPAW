@@ -9,7 +9,7 @@ from gpaw.response.pw_parallelization import (Blocks1D,
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        ComplexFrequencyDescriptor)
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
-                                          map_WgG_array_to_reduced_pd)
+                                          map_ZgG_array_to_reduced_pd)
 
 
 class Chi0Descriptors:
@@ -252,7 +252,7 @@ class AugmentedBodyData(BodyData):
         # Create a new AugmentedBodyData object
         new_abd = self._new(descriptors, self.blockdist)
 
-        new_abd.data_WgG[:] = map_WgG_array_to_reduced_pd(self.qpd, qpd,
+        new_abd.data_WgG[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
                                                           self.blockdist,
                                                           self.data_WgG)
         if self.optical_limit:

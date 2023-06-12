@@ -56,7 +56,8 @@ runtime_library_dirs = []
 extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', None),
-                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None)]
+                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None),
+                 ('GPAW_MPI_INPLACE', None)]
 undef_macros = ['NDEBUG']
 
 gpu_target = None
@@ -258,6 +259,9 @@ runtime_library_dirs = [str(dir) for dir in runtime_library_dirs]
 library_dirs = [str(dir) for dir in library_dirs]
 include_dirs = [str(dir) for dir in include_dirs]
 
+define_macros = [(macro, value) for macro, value in define_macros
+                 if macro not in undef_macros]
+
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,
@@ -389,7 +393,7 @@ setup(name='gpaw',
           'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
       install_requires=[f'ase>={ase_version_required}',
-                        'scipy>=1.2.0',
+                        'scipy>=1.6.0',
                         'pyyaml'],
       extras_require={'docs': ['sphinx-rtd-theme',
                                'graphviz'],

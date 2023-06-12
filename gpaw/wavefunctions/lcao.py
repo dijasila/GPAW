@@ -398,8 +398,8 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.basis_functions, self.newtci,
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
-                                    self.spos_ac, self.timer,
-                                    Fref_av)
+                                    self, self.spos_ac,
+                                    self.timer, Fref_av)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         self.timer.stop('LCAO forces')
@@ -471,7 +471,7 @@ class LCAOWaveFunctions(WaveFunctions):
 class LCAOforces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
-                 P_aqMi, setups, manytci, hamiltonian, spos_ac,
+                 P_aqMi, setups, manytci, hamiltonian, wfs, spos_ac,
                  timer, Fref_av):
         """ Object which calculates LCAO forces """
 
@@ -493,6 +493,7 @@ class LCAOforces:
         self.Mstop = ksl.Mstop
         self.setups = setups
         self.hamiltonian = hamiltonian
+        self.wfs = wfs
         self.timer = timer
         self.Fref_av = Fref_av
         self.my_atom_indices = bfs.my_atom_indices
@@ -593,8 +594,8 @@ class LCAOforces:
             rhoT_uMM = []
             ET_uMM = []
             for kpt in self.kpt_u:
-                H_MM = self.eigensolver.calculate_hamiltonian_matrix(
-                    self.hamiltonian, self, kpt)
+                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self.wfs, kpt)
                 tri2full(H_MM)
                 S_MM = kpt.S_MM.copy()
                 tri2full(S_MM)
