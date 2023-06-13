@@ -16,13 +16,13 @@ import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, dtype=float, use_gpu=False):
+    def __init__(self, gdin, gdout, nn=1, dtype=float, xp=np):
         self.gdin = gdin
         self.gdout = gdout
         self.nn = nn
         assert 1 <= nn <= 4
         self.dtype = dtype
-        self.use_gpu = use_gpu
+        self.xp = xp
 
         pad_cd = np.empty((3, 2), int)
         neighborpad_cd = np.empty((3, 2), int)
@@ -73,33 +73,19 @@ class _Transformer:
                                              neighborpad_cd, skip_cd,
                                              gdin.neighbor_cd,
                                              dtype == float, comm,
-                                             self.interpolate, self.use_gpu)
+                                             self.interpolate,
+                                             xp is not np)
 
     def apply(self, input, output=None, phases=None):
-        on_gpu = not isinstance(input, np.ndarray)
         if output is None:
             output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
-                                      use_gpu=on_gpu)
-        if on_gpu:
-            _output = None
-            if isinstance(output, np.ndarray):
-                _output = output
-                output = gpu.copy_to_device(output)
-            self.transformer.apply_gpu(gpu.get_pointer(input),
-                                       gpu.get_pointer(output),
-                                       input.shape, input.dtype, phases)
-            if _output is not None:
-                gpu.copy_to_host(output, out=_output)
-                output = _output
-        else:
-            _output = None
-            if not isinstance(output, np.ndarray):
-                _output = output
-                output = gpu.copy_to_host(output)
+                                      xp=self.xp)
+        if self.xp is np:
             self.transformer.apply(input, output, phases)
-            if _output is not None:
-                gpu.copy_to_device(output, out=_output)
-                output = _output
+        else:
+            self.transformer.apply_gpu(input.data.ptr,
+                                       output.data.ptr,
+                                       input.shape, input.dtype, phases)
         return output
 
     def get_async_sizes(self):
@@ -130,9 +116,9 @@ class TransformerWrapper:
         return self.transformer.get_async_sizes()
 
 
-def Transformer(gdin, gdout, nn=1, dtype=float, use_gpu=False):
+def Transformer(gdin, gdout, nn=1, dtype=float, xp=np):
     if nn != 9:
-        t = _Transformer(gdin, gdout, nn, dtype, use_gpu)
+        t = _Transformer(gdin, gdout, nn, dtype, xp)
         if debug:
             t = TransformerWrapper(t)
         return t

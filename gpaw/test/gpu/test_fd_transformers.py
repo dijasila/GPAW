@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.transformers import Transformer
 from gpaw.mpi import world
+from gpaw.gpu import cupy as cp
 
 
 @pytest.mark.gpu
@@ -36,25 +37,23 @@ def test_fd_transformers(gpu, pbc):
     a = gd.zeros(dtype=dtype)
     a[:] = np.exp(-((x - mu)**2 + (y - mu)**2 + (z - mu)**2) / (2.0 * sigma))
 
-    a_gpu = gpu.copy_to_device(a)
+    a_gpu = cp.asarray(a)
 
     # Transformers
     coarsegd = gd.coarsen()
     a_coarse = coarsegd.zeros(dtype=dtype)
-    a_coarse_gpu = gpu.cupy.zeros_like(a_coarse)
+    a_coarse_gpu = cp.zeros_like(a_coarse)
 
     # Restrict
-    Transformer(gd, coarsegd, 1, dtype=dtype) \
-        .apply(a, a_coarse, phases=phase)
-    Transformer(gd, coarsegd, 1, dtype=dtype, use_gpu=True) \
-        .apply(a_gpu, a_coarse_gpu, phases=phase)
-    a_coarse_ref = gpu.copy_to_host(a_coarse_gpu)
+    Transformer(gd, coarsegd, 1, dtype=dtype).apply(a, a_coarse, phases=phase)
+    Transformer(gd, coarsegd, 1, dtype=dtype, xp=cp).apply(
+        a_gpu, a_coarse_gpu, phases=phase)
+    a_coarse_ref = a_coarse_gpu.get()
     assert a_coarse == pytest.approx(a_coarse_ref, abs=1e-14)
 
     # Interpolate
-    Transformer(coarsegd, gd, 1, dtype=dtype) \
-        .apply(a_coarse, a, phases=phase)
-    Transformer(coarsegd, gd, 1, dtype=dtype, use_gpu=True) \
-        .apply(a_coarse_gpu, a_gpu, phases=phase)
-    a_ref = gpu.copy_to_host(a_gpu)
+    Transformer(coarsegd, gd, 1, dtype=dtype).apply(a_coarse, a, phases=phase)
+    Transformer(coarsegd, gd, 1, dtype=dtype, xp=cp).apply(
+        a_coarse_gpu, a_gpu, phases=phase)
+    a_ref = a_gpu.get()
     assert a == pytest.approx(a_ref, abs=1e-14)

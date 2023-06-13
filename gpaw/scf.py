@@ -45,9 +45,7 @@ class SCFLoop:
         self.converged = False
         self.eigensolver_used = None
 
-    def irun(self, wfs, ham, dens, log, callback, use_gpu=False):
-        if use_gpu:
-            wfs.sync_to_gpu()
+    def irun(self, wfs, ham, dens, log, callback):
 
         self.eigensolver_used = getattr(wfs.eigensolver, "name", None)
         self.check_eigensolver_state(wfs, ham, dens)
@@ -72,9 +70,6 @@ class SCFLoop:
 
         # Don't fix the density in the next step.
         self.niter_fixdensity = 0
-
-        if use_gpu:
-            wfs.sync_to_cpu()
 
         if not converged:
             self.not_converged(dens, ham, wfs, log)

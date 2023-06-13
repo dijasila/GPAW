@@ -9,8 +9,6 @@ functions.
 """
 import numpy as np
 
-from gpaw import gpu
-
 
 class OverlapCorrections:
     def __init__(self, setups):
@@ -53,10 +51,7 @@ class Overlap:
             When False, existing P_ani are used
 
         """
-        if not isinstance(a_xG, np.ndarray):
-            gpu.cupy.copyto(b_xG, a_xG)
-        else:
-            b_xG[:] = a_xG
+        b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 
@@ -74,10 +69,7 @@ class Overlap:
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""
 
-        if not isinstance(a_xG, np.ndarray):
-            gpu.cupy.copyto(b_xG, a_xG)
-        else:
-            b_xG[:] = a_xG
+        b_xG[:] = a_xG
         shape = a_xG.shape[:-3]
         P_axi = wfs.pt.dict(shape)
 
