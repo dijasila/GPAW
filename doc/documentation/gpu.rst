@@ -11,7 +11,7 @@ Ground-state calculations on a GPU is an experimental feature at the moment:
 
 See :git:`gpaw/test/gpu/test_pw.py` for an example.
 
-.. tips::
+.. tip::
 
    >>> import numpy as np
    >>> from gpaw.gpu import cupy as cp
