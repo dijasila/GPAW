@@ -92,6 +92,6 @@ def test_fe_augmentation_sphere(gpw_files):
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
 
         # Integrate radial components, then angular
-        f_n = integrate_radial_grid(f_ng.T, rgd.r_g, rcut=rcut)
+        f_n = integrate_radial_grid(f_ng, rgd.r_g, rcut=rcut)
         vol = integrate_lebedev(f_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref

@@ -12,7 +12,7 @@ def integrate_lebedev(f_nx):
     return 4. * np.pi * np.tensordot(weight_n, f_nx, axes=([0], [0]))
 
 
-def integrate_radial_grid(f_gx, r_g, rcut=None):
+def integrate_radial_grid(f_xg, r_g, rcut=None):
     """Integrate the function f(r) on the radial grid.
 
     Computes the integral
@@ -24,16 +24,15 @@ def integrate_radial_grid(f_gx, r_g, rcut=None):
     for the range of values r on the grid r_g (up to rcut, if specified).
     """
     if rcut is not None:
-        f_gx, r_g = truncate_radial_grid(f_gx, r_g, rcut)
+        f_xg, r_g = truncate_radial_grid(f_xg, r_g, rcut)
 
     # Perform actual integration using the radial trapezoidal rule
-    f_xg = np.moveaxis(f_gx, 0, -1)
     f_x = radial_trapz(f_xg, r_g)
 
     return f_x
 
 
-def truncate_radial_grid(f_gx, r_g, rcut):
+def truncate_radial_grid(f_xg, r_g, rcut):
     """Truncate the radial grid representation of a function f(r) at r=rcut.
 
     If rcut is not part of the original grid, it will be added as a grid point,
@@ -41,6 +40,7 @@ def truncate_radial_grid(f_gx, r_g, rcut):
     assert rcut > 0.
     assert np.any(r_g >= rcut)
     if rcut not in r_g:
+        f_gx = np.moveaxis(f_xg, -1, 0)
         # Find the two points closest to rcut and interpolate between them
         # to get the value at rcut
         g1, g2 = find_two_closest_grid_points(r_g, rcut)
@@ -51,12 +51,13 @@ def truncate_radial_grid(f_gx, r_g, rcut):
         # Add rcut as a grid point
         r_g = np.append(r_g, np.array([rcut]))
         f_gx = np.append(f_gx, np.array([f_interpolated_x]), axis=0)
+        f_xg = np.moveaxis(f_gx, 0, -1)
     # Pick out the grid points inside rcut
     mask_g = r_g <= rcut
     r_g = r_g[mask_g]
-    f_gx = f_gx[mask_g]
+    f_xg = f_xg[..., mask_g]
 
-    return f_gx, r_g
+    return f_xg, r_g
 
 
 def find_two_closest_grid_points(r_g, rcut):
