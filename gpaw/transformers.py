@@ -11,7 +11,6 @@ import numpy as np
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
-from gpaw import gpu
 import _gpaw
 
 
