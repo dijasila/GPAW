@@ -38,15 +38,8 @@ def test_lfc(gpu, dtype):
 
     assert b == pytest.approx(b_ref, abs=1e-12)
 
-    # integrate
-    P_ani = {}
-    P_ani_gpu = {}
-    for a in c.my_atom_indices:
-        P_ani[a] = np.empty((1), dtype=dtype)
-        P_ani_gpu[a] = np.empty((1), dtype=dtype)
-
     c.integrate(b, P_ani, q=q)
-    c_gpu.integrate(b_gpu, P_ani_gpu, q=q)
+    c_gpu.integrate(b_gpu, P_gpu_ani, q=q)
 
-    for P_ni, P_ni_gpu in zip(P_ani, P_ani_gpu):
-        assert P_ni == pytest.approx(P_ni_gpu, abs=1e-12)
+    for a, P_ni in P_ani.items():
+        assert P_ni == pytest.approx(P_gpu_ani[a].get(), abs=1e-12)
