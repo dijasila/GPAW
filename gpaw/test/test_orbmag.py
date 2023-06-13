@@ -3,7 +3,6 @@ import numpy as np
 from ase.build import bulk
 from gpaw.new.ase_interface import GPAW
 from gpaw.spinorbit import soc_eigenstates
-from gpaw.mpi import world
 
 
 def test_orbmag_Ni():
