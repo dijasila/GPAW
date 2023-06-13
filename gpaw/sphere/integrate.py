@@ -120,7 +120,7 @@ def radial_trapz(f_xg, r_g):
     return np.sum(integrand_xg, axis=-1)
 
 
-def radial_truncation_function(r_g, rcut, drcut):
+def radial_truncation_function(r_g, rcut, drcut=None):
     r"""Generate smooth radial truncation function θ(r-rc).
 
     The function is generated to interpolate smoothly between the values
@@ -142,6 +142,10 @@ def radial_truncation_function(r_g, rcut, drcut):
            f(1/2+[r-rc]/Δrc) + f(1/2-[r-rc]/Δrc)
     """
     assert np.all(r_g >= 0.)
+    if drcut is None:
+        # As a default, define Δrc to match the grid sampling around the cutoff
+        g1, g2 = find_two_closest_grid_points(r_g, rcut)
+        drcut = abs(r_g[g2] - r_g[g1])
     assert rcut > 0. and drcut > 0. and rcut - drcut / 2. >= 0.
     assert np.any(r_g >= rcut + drcut / 2.)
 

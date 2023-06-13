@@ -7,7 +7,6 @@ from ase.units import Bohr
 from gpaw import GPAW
 
 from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
-                                   find_two_closest_grid_points,
                                    radial_truncation_function)
 
 
@@ -104,10 +103,7 @@ def test_fe_augmentation_sphere(gpw_files):
             # This method relies on a dense grid sampling to be accurate,
             # so we only test values inside the augmentation sphere
             continue
-        # Define Δrc to match the grid sampling around the cutoff
-        g1, g2 = find_two_closest_grid_points(r_g, rcut)
-        drcut = abs(r_g[g2] - r_g[g1])
-        theta_g = radial_truncation_function(r_g, rcut, drcut)
+        theta_g = radial_truncation_function(r_g, rcut)
         ft_ng = f_ng * theta_g[np.newaxis]
         # Integrate angular components, then radial
         ft_g = integrate_lebedev(ft_ng)
