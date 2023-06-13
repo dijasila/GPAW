@@ -121,8 +121,25 @@ def radial_trapz(f_xg, r_g):
 
 
 def radial_truncation_function(r_g, rcut, drcut):
-    """
-    Some documentation here! XXX
+    r"""Generate smooth radial truncation function θ(r-rc).
+
+    The function is generated to interpolate smoothly between the values
+
+           ( 1    for r <= rc - Δrc/2
+    θ(r) = < 1/2  for r = rc
+           ( 0    for r >= rc + Δrc/2
+
+    In the interpolation region, the nonanalytic smooth function
+
+           ( exp(-1/x)  for x >= 0
+    f(x) = <
+           ( 0          for x < 0
+
+    is used to define θ(r), in order for all derivatives to be continous:
+
+                     f(1/2-[r-rc]/Δrc)
+    θ(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾  for rc-Δrc/2 < r < rc+Δrc/2
+           f(1/2+[r-rc]/Δrc) + f(1/2-[r-rc]/Δrc)
     """
     assert np.all(r_g >= 0.)
     assert rcut > 0. and drcut > 0. and rcut - drcut / 2. >= 0.
@@ -133,7 +150,7 @@ def radial_truncation_function(r_g, rcut, drcut):
         out[x > 0] = np.exp(-1 / x[x > 0])
         return out
 
-    # Create array of ones inside rcut + drcut/2
+    # Create array of ones inside rc + Δrc/2
     theta_g = np.ones_like(r_g)
     theta_g[r_g >= rcut + drcut / 2.] = 0.
 
