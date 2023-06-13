@@ -7,6 +7,7 @@ from scipy.interpolate import make_interp_spline, splder
 
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
+from gpaw.sphere.integrate import integrate_radial_grid
 
 
 def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
@@ -93,6 +94,9 @@ class RadialGridDescriptor(ABC):
         assert n >= -2
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
+
+    def integrate_precisely(self, a_xg, rcut=None):
+        return integrate_radial_grid(a_xg, self.r_g, rcut=rcut)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
         r"""Calculates the radial grid yukawa integral.
