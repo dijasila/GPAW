@@ -131,9 +131,9 @@ def radial_truncation_function(r_g, rcut, drcut=None):
 
     In the interpolation region, the nonanalytic smooth function
 
-           ( exp(-1/x)  for x >= 0
+           ( exp(-1/x)  for x > 0
     f(x) = <
-           ( 0          for x < 0
+           ( 0          for x <= 0
 
     is used to define θ(r), in order for all derivatives to be continous:
 
