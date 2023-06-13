@@ -6,8 +6,7 @@ from ase.units import Bohr
 
 from gpaw import GPAW
 
-from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
-                                   integrate_radial_grid)
+from gpaw.sphere.integrate import integrate_lebedev, radial_trapz
 
 
 def generate_analytical_integrals():
@@ -88,10 +87,10 @@ def test_fe_augmentation_sphere(gpw_files):
         ref = 4 * np.pi * rcut**3. / 3.
         # Integrate angular components, then radial
         f_g = integrate_lebedev(f_ng)
-        vol = integrate_radial_grid(f_g, rgd.r_g, rcut=rcut)
+        vol = rgd.integrate_trapz(f_g, rcut=rcut)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
 
         # Integrate radial components, then angular
-        f_n = integrate_radial_grid(f_ng.T, rgd.r_g, rcut=rcut)
+        f_n = rgd.integrate_trapz(f_ng, rcut=rcut)
         vol = integrate_lebedev(f_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
