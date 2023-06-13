@@ -424,7 +424,7 @@ static PyObject* moduleinit(void)
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
     // Version number of C-code.  Keep in sync with gpaw/__init__.py
-    PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(4));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
