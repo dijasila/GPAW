@@ -118,3 +118,46 @@ def radial_trapz(f_xg, r_g):
 
     # Sum over the discretized integration intervals
     return np.sum(integrand_xg, axis=-1)
+
+
+def radial_truncation_function(r_g, rcut, drcut):
+    """
+    Some documentation here! XXX
+    """
+    assert np.all(r_g >= 0.)
+    assert rcut > 0. and drcut > 0. and rcut - drcut / 2. >= 0.
+    assert np.any(r_g >= rcut + drcut / 2.)
+
+    def f(x):
+        out = np.zeros_like(x)
+        out[x > 0] = np.exp(-1 / x[x > 0])
+        return out
+
+    # Create array of ones inside rcut + drcut/2
+    theta_g = np.ones_like(r_g)
+    theta_g[r_g >= rcut + drcut / 2.] = 0.
+
+    # Add smooth truncation
+    gmask = np.logical_and(rcut - drcut / 2. < r_g, r_g < rcut + drcut / 2.)
+    tr_g = r_g[gmask]
+    theta_g[gmask] = f(1 / 2. - (tr_g - rcut) / drcut) \
+        / (f(1 / 2. + (tr_g - rcut) / drcut)
+           + f(1 / 2. - (tr_g - rcut) / drcut))
+
+    return theta_g
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    r_g = np.linspace(0., 4., 200)
+
+    plt.subplot(1, 2, 1)
+    plt.plot(r_g, radial_truncation_function(r_g, 1.0, 1.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 2.0, 1.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 3.0, 1.0))
+    plt.subplot(1, 2, 2)
+    plt.plot(r_g, radial_truncation_function(r_g, 1.0, 2.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 2.0, 2.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 3.0, 2.0))
+    plt.show()
