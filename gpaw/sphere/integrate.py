@@ -24,29 +24,39 @@ def integrate_radial_grid(f_gx, r_g, rcut=None):
     for the range of values r on the grid r_g (up to rcut, if specified).
     """
     if rcut is not None:
-        assert rcut > 0.
-        assert np.any(r_g >= rcut)
-        if rcut not in r_g:
-            # Find the two points closest to rcut and interpolate between them
-            # to get the value at rcut
-            g1, g2 = find_two_closest_grid_points(r_g, rcut)
-            r1 = r_g[g1]
-            r2 = r_g[g2]
-            lambd = (rcut - r1) / (r2 - r1)
-            f_interpolated_x = (1 - lambd) * f_gx[g1] + lambd * f_gx[g2]
-            # Add rcut as a grid point
-            r_g = np.append(r_g, np.array([rcut]))
-            f_gx = np.append(f_gx, np.array([f_interpolated_x]), axis=0)
-        # Integrate only grid points inside rcut
-        mask_g = r_g <= rcut
-        r_g = r_g[mask_g]
-        f_gx = f_gx[mask_g]
+        f_gx, r_g = truncate_radial_grid(f_gx, r_g, rcut)
 
     # Perform actual integration using the radial trapezoidal rule
     f_xg = np.moveaxis(f_gx, 0, -1)
     f_x = radial_trapz(f_xg, r_g)
 
     return f_x
+
+
+def truncate_radial_grid(f_gx, r_g, rcut):
+    """Truncate the radial grid representation of a function f(r) at r=rcut.
+
+    If rcut is not part of the original grid, it will be added as a grid point,
+    with f(rcut) determined by linear interpolation."""
+    assert rcut > 0.
+    assert np.any(r_g >= rcut)
+    if rcut not in r_g:
+        # Find the two points closest to rcut and interpolate between them
+        # to get the value at rcut
+        g1, g2 = find_two_closest_grid_points(r_g, rcut)
+        r1 = r_g[g1]
+        r2 = r_g[g2]
+        lambd = (rcut - r1) / (r2 - r1)
+        f_interpolated_x = (1 - lambd) * f_gx[g1] + lambd * f_gx[g2]
+        # Add rcut as a grid point
+        r_g = np.append(r_g, np.array([rcut]))
+        f_gx = np.append(f_gx, np.array([f_interpolated_x]), axis=0)
+    # Pick out the grid points inside rcut
+    mask_g = r_g <= rcut
+    r_g = r_g[mask_g]
+    f_gx = f_gx[mask_g]
+
+    return f_gx, r_g
 
 
 def find_two_closest_grid_points(r_g, rcut):
