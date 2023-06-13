@@ -7,12 +7,13 @@ L_vlii = get_L_vlmm()
 
 def get_om_from_calc(calc):
     if not calc.density.ncomponents == 4:
-        raise AssertionError('Collinear calculations require spin-orbit ' +
+        raise AssertionError('Collinear calculations require spin-orbit '
                              'coupling for nonzero orbital magnetization.')
     if not calc.params.soc:
         import warnings
-        warnings.warn('Calculation was performed without spin-orbit ' +
-                      'coupling. Orbital magnetization may not be accurate')
+        warnings.warn('Non-collinear calculation was performed without spin'
+                      '-orbit coupling. Orbital magnetization may not be '
+                      'accurate.')
 
     om_av = np.zeros([len(calc.atoms), 3])
 
@@ -35,10 +36,10 @@ def get_om_from_calc(calc):
 
 
 def get_om_from_soc_eigs(soc):
-    
+
     l_aj = soc.l_aj
     om_av = np.zeros([len(l_aj), 3])
-    
+
     for wfs, weight in zip(soc.wfs.values(), soc.weights()):
         f_n = wfs.f_m * weight
         for a, l_j in l_aj.items():
