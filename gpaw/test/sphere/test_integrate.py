@@ -87,10 +87,10 @@ def test_fe_augmentation_sphere(gpw_files):
         ref = 4 * np.pi * rcut**3. / 3.
         # Integrate angular components, then radial
         f_g = integrate_lebedev(f_ng)
-        vol = rgd.integrate_precisely(f_g, rcut=rcut)
+        vol = rgd.integrate_trapz(f_g, rcut=rcut)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
 
         # Integrate radial components, then angular
-        f_n = rgd.integrate_precisely(f_ng, rcut=rcut)
+        f_n = rgd.integrate_trapz(f_ng, rcut=rcut)
         vol = integrate_lebedev(f_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref

@@ -95,7 +95,7 @@ class RadialGridDescriptor(ABC):
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
-    def integrate_precisely(self, a_xg, rcut=None):
+    def integrate_trapz(self, a_xg, rcut=None):
         return integrate_radial_grid(a_xg, self.r_g, rcut=rcut)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
