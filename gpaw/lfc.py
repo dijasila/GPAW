@@ -945,11 +945,11 @@ class LocalizedFunctionsCollection(BaseLFC):
 
 class BasisFunctions(LocalizedFunctionsCollection):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None, use_gpu=False):
+                 integral=None, forces=None, xp=np):
         LocalizedFunctionsCollection.__init__(self, gd, spline_aj,
                                               kd, cut,
                                               dtype, integral,
-                                              forces, use_gpu=use_gpu)
+                                              forces, xp=xp)
         self.use_global_indices = True
 
         self.Mstart = None
