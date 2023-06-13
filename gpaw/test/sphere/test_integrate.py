@@ -6,7 +6,9 @@ from ase.units import Bohr
 
 from gpaw import GPAW
 
-from gpaw.sphere.integrate import integrate_lebedev, radial_trapz
+from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
+                                   find_two_closest_grid_points,
+                                   radial_truncation_function)
 
 
 def generate_analytical_integrals():
@@ -83,14 +85,36 @@ def test_fe_augmentation_sphere(gpw_files):
 
     # Integrate f(r) with different cutoffs, to check that the volume is
     # correctly recovered
-    for rcut in np.linspace(0.1 / Bohr, np.max(rgd.r_g), 100):
+    r_g = rgd.r_g
+    for rcut in np.linspace(0.1 / Bohr, np.max(r_g), 100):
         ref = 4 * np.pi * rcut**3. / 3.
+
+        # Do standard numerical truncation
         # Integrate angular components, then radial
         f_g = integrate_lebedev(f_ng)
         vol = rgd.integrate_trapz(f_g, rcut=rcut)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
-
         # Integrate radial components, then angular
         f_n = rgd.integrate_trapz(f_ng, rcut=rcut)
         vol = integrate_lebedev(f_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+
+        # Integrate f(r) θ(r-rc) using a smooth truncation function
+        if rcut > np.max(setup.rcut_j):
+            # This method relies on a dense grid sampling to be accurate,
+            # so we only test values inside the augmentation sphere
+            continue
+        # Define Δrc to match the grid sampling around the cutoff
+        g1, g2 = find_two_closest_grid_points(r_g, rcut)
+        drcut = abs(r_g[g2] - r_g[g1])
+        theta_g = radial_truncation_function(r_g, rcut, drcut)
+        ft_ng = f_ng * theta_g[np.newaxis]
+        # Integrate angular components, then radial
+        ft_g = integrate_lebedev(ft_ng)
+        vol = rgd.integrate_trapz(ft_g)
+        assert abs(vol - ref) <= 1e-8 + 5e-4 * ref
+        # Integrate radial components, then angular
+        ft_n = rgd.integrate_trapz(ft_ng)
+        vol = integrate_lebedev(ft_n)
+        assert abs(vol - ref) <= 1e-8 + 5e-4 * ref
+        
