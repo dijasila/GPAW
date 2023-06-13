@@ -287,6 +287,10 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
+    def get_orbital_magnetization(self):
+        from gpaw.new.orbmag import get_om_from_soc_eigs
+        return get_om_from_soc_eigs(self)
+
     def pdos_weights(self,
                      a: int,
                      indices: List[int],
