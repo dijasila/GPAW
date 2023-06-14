@@ -123,7 +123,7 @@ def radial_trapz(f_xg, r_g):
 
 
 def radial_truncation_function(r_g, rcut, drcut=None, lambd=None):
-    r"""Generate smooth radial truncation function θ(r-rc).
+    r"""Generate smooth radial truncation function θ(r<rc).
 
     The function is generated to interpolate smoothly between the values
 
@@ -179,10 +179,15 @@ def radial_truncation_function(r_g, rcut, drcut=None, lambd=None):
 
 
 def find_volume_conserving_lambd(r_g, rcut, drcut):
+    r"""Determine the scaling factor λ to conserve the spherical volume.
+
+    For a given rc and drc, λ is determined to make θ(r) numerically satisfy:
+       ∞
+       /
+    4π | r^2 dr θ(r) = 4π rc^3/3
+       /
+       0
     """
-    Some documentation here! XXX
-    """
-    # Correct spherical integration volume
     ref = 4 * np.pi * rcut**3. / 3.
 
     def integration_volume_error(lambd):

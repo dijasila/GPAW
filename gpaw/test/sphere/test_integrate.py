@@ -98,7 +98,7 @@ def test_fe_augmentation_sphere(gpw_files):
         vol = integrate_lebedev(f_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
 
-        # Integrate f(r) θ(r-rc) using a smooth truncation function
+        # Integrate f(r) θ(r<rc) using a smooth truncation function
         if rcut > np.max(setup.rcut_j):
             # This method relies on a sufficiently dense grid sampling to be
             # accurate, so we only test values inside the augmentation sphere
