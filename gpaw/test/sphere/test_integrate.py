@@ -72,6 +72,20 @@ def test_radial_trapz(analytical_integral):
         assert abs(result - ref) <= 1e-8 + rtol * ref
 
 
+@pytest.mark.parametrize('rc', np.linspace(0.5, 4.5, 9))
+def test_smooth_truncation_function(rc):
+    # Define radial grid
+    r_g = np.linspace(0., 5.0, 501)
+    # Calculate spherical volume corresponding to the cutoff
+    ref = 4 * np.pi * rc**3. / 3.
+    # Test drc from grid spacing x2 to grid spacing x50
+    for drc in np.linspace(0.02, 0.5, 10):
+        theta_g = radial_truncation_function(r_g, rc, drc)
+        # Calculate spherical volume with truncation function
+        vol = 4 * np.pi * radial_trapz(theta_g, r_g)
+        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+
+
 def test_fe_augmentation_sphere(gpw_files):
     # Extract the spherical grid information from the iron fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
