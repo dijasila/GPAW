@@ -518,8 +518,8 @@ class Matrix:
 
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
-                u = self.xp.triu_indices(M, 1)
-                self.data[u] = self.data.T[u].conj()
+                lower = self.xp.tri(M, -1, dtype=bool)
+                self.data.T[lower] = self.data[lower].conj()
             return
 
         desc = dist.desc
