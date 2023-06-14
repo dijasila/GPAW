@@ -100,17 +100,17 @@ def test_fe_augmentation_sphere(gpw_files):
 
         # Integrate f(r) θ(r-rc) using a smooth truncation function
         if rcut > np.max(setup.rcut_j):
-            # This method relies on a dense grid sampling to be accurate,
-            # so we only test values inside the augmentation sphere
+            # This method relies on a sufficiently dense grid sampling to be
+            # accurate, so we only test values inside the augmentation sphere
             continue
         theta_g = radial_truncation_function(r_g, rcut)
         ft_ng = f_ng * theta_g[np.newaxis]
         # Integrate angular components, then radial
         ft_g = integrate_lebedev(ft_ng)
         vol = rgd.integrate_trapz(ft_g)
-        assert abs(vol - ref) <= 1e-8 + 5e-4 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
         # Integrate radial components, then angular
         ft_n = rgd.integrate_trapz(ft_ng)
         vol = integrate_lebedev(ft_n)
-        assert abs(vol - ref) <= 1e-8 + 5e-4 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
         
