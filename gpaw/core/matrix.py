@@ -518,7 +518,7 @@ class Matrix:
 
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
-                lower = self.xp.tri(M, -1, dtype=bool)
+                lower = self.xp.tri(M, k=-1, dtype=bool)
                 self.data.T[lower] = self.data[lower].conj()
             return
 
