@@ -210,21 +210,19 @@ def find_volume_conserving_lambd(r_g, rcut, drcut):
     return lambd
 
 
-def spherical_truncation_function(gd, spos_c, rcut):
+def spherical_truncation_function(gd, spos_c, rcut,
+                                  drcut=None, lambd=None):
     """
     Documentation here! XXX
     """
-    # XXX To do XXX
-    # * Figure out, how we want to return parameters for theta
-    # * Figure out, if we return theta, lfc or something third?
-
-    # Find "diameter" of each grid point volume
-    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
-    # Truncate the sphere smoothly over two such diameters
-    drcut = 2 * diam
+    if drcut is None:
+        assert lambd is None
+        drcut, lambd = default_spherical_truncation_parameters(gd, rcut)
+    else:
+        assert lambd is not None
 
     # Lay out truncation function on the radial grid and generate spline
-    r_g = np.linspace(0., rcut + 2 * drcut, 1001)
+    r_g = _uniform_radial_grid(rcut, drcut)
     theta_g = radial_truncation_function(r_g, rcut, drcut)
     spline = Spline(l=0, rmax=max(r_g),
                     # The input f_g is the expansion coefficient of the
@@ -239,6 +237,24 @@ def spherical_truncation_function(gd, spos_c, rcut):
     lfc.add(theta_R)
 
     return theta_R
+
+
+def default_spherical_truncation_parameters(gd, rcut):
+    """Define default parameters for the spherical truncation function."""
+    # Find "diameter" of each grid point volume
+    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
+    # Truncate the sphere smoothly over two such diameters
+    drcut = 2 * diam
+
+    # Optimize lambd to conserve the sphere volume
+    r_g = _uniform_radial_grid(rcut, drcut)
+    lambd = find_volume_conserving_lambd(r_g, rcut, drcut)
+
+    return drcut, lambd
+
+
+def _uniform_radial_grid(rcut, drcut):
+    return np.linspace(0., rcut + 2 * drcut, 251)
     
 
 if __name__ == '__main__':
