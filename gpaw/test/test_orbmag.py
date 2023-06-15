@@ -8,7 +8,8 @@ from gpaw.spinorbit import soc_eigenstates
 def test_orbmag_Ni():
     a = 3.48
     mm = 0.5
-    theta = np.rad2deg(np.arccos(1 / np.sqrt(3)))
+    easy_axis = 1 / np.sqrt(3) * np.array([1, 1, 1])
+    theta = np.rad2deg(np.arccos(easy_axis[2]))
     phi = 45
 
     mode = {'name': 'pw', 'ecut': 400}
@@ -29,7 +30,7 @@ def test_orbmag_Ni():
     with pytest.raises(AssertionError, match='Collinear calculations*'):
         calc.get_orbital_magnetization()
     soc = soc_eigenstates(calc, theta=theta, phi=phi)
-    om_col_v = soc.get_orbital_magnetization()
+    orbmag_col_v = soc.get_orbital_magnetization()
 
     crystal_ncol = bulk('Ni', 'fcc', a=a)
     crystal_ncol.center()
@@ -42,7 +43,7 @@ def test_orbmag_Ni():
     crystal_ncol.calc = calc
     crystal_ncol.get_potential_energy()
     soc = soc_eigenstates(calc)
-    om_ncol_v = soc.get_orbital_magnetization()
+    orbmag_ncol_v = soc.get_orbital_magnetization()
     
     crystal_ncolsoc = bulk('Ni', 'fcc', a=a)
     crystal_ncolsoc.center()
@@ -53,12 +54,12 @@ def test_orbmag_Ni():
     
     crystal_ncolsoc.calc = calc
     crystal_ncolsoc.get_potential_energy()
-    om_ncolsoc_v = calc.get_orbital_magnetization()
-    assert np.linalg.norm(om_ncolsoc_v) == pytest.approx(0.0442, abs=1e-4)
+    orbmag_ncolsoc_v = calc.get_orbital_magnetization()
+    assert np.linalg.norm(orbmag_ncolsoc_v) == pytest.approx(0.0442, abs=1e-4)
     
-    dif1 = np.linalg.norm(om_col_v - om_ncol_v)
-    dif2 = np.linalg.norm(om_col_v - om_ncolsoc_v)
-    dif3 = np.linalg.norm(om_ncol_v - om_ncolsoc_v)
+    dif1 = np.linalg.norm(orbmag_col_v - orbmag_ncol_v)
+    dif2 = np.linalg.norm(orbmag_col_v - orbmag_ncolsoc_v)
+    dif3 = np.linalg.norm(orbmag_ncol_v - orbmag_ncolsoc_v)
     
     assert dif1 == pytest.approx(0.0, abs=1.0e-6)
     assert dif2 == pytest.approx(0.0, abs=5.0e-3)

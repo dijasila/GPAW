@@ -288,8 +288,8 @@ class BZWaveFunctions:
                              broadcast=broadcast)
 
     def get_orbital_magnetization(self):
-        from gpaw.new.orbmag import get_om_from_soc_eigs
-        return get_om_from_soc_eigs(self)
+        from gpaw.new.orbmag import get_orbmag_from_soc_eigs
+        return get_orbmag_from_soc_eigs(self)
 
     def pdos_weights(self,
                      a: int,

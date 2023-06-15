@@ -5,7 +5,7 @@ from gpaw.spinorbit import get_L_vlmm
 L_vlii = get_L_vlmm()
 
 
-def get_om_from_calc(calc):
+def get_orbmag_from_calc(calc):
     if not calc.density.ncomponents == 4:
         raise AssertionError('Collinear calculations require spin-orbit '
                              'coupling for nonzero orbital magnetization.')
@@ -15,45 +15,40 @@ def get_om_from_calc(calc):
                       '-orbit coupling. Orbital magnetization may not be '
                       'accurate.')
 
-    om_av = np.zeros([len(calc.atoms), 3])
-
+    orbmag_av = np.zeros([len(calc.atoms), 3])
     for wfs in calc.wfs.kpt_u:
         f_n = wfs.f_n
         for (a, P_nsi), setup in zip(wfs.P_ani.items(), calc.setups):
-            Ni = 0
-            for l in setup.l_j:
-                Nl = 2 * l + 1
-                for v in range(3):
-                    om_av[a, v] += np.einsum('nsi,nsj,n,ij->',
-                                             P_nsi[:, :, Ni:Ni + Nl].conj(),
-                                             P_nsi[:, :, Ni:Ni + Nl],
-                                             f_n, L_vlii[v][l]).real
-                Ni += Nl
+            orbmag_av[a] += get_orbmag_1k1a(f_n, P_nsi, setup.l_j)
 
-    world.sum(om_av)
+    world.sum(orbmag_av)
 
-    return om_av
+    return orbmag_av
 
 
-def get_om_from_soc_eigs(soc):
+def get_orbmag_from_soc_eigs(soc):
 
-    l_aj = soc.l_aj
-    om_av = np.zeros([len(l_aj), 3])
-
+    orbmag_av = np.zeros([len(soc.l_aj), 3])
     for wfs, weight in zip(soc.wfs.values(), soc.weights()):
         f_n = wfs.f_m * weight
-        for a, l_j in l_aj.items():
-            P_nsi = wfs.projections[a]
-            Ni = 0
-            for l in l_j:
-                Nl = 2 * l + 1
-                for v in range(3):
-                    om_av[a, v] += np.einsum('nsi,nsj,n,ij->',
-                                             P_nsi[:, :, Ni:Ni + Nl].conj(),
-                                             P_nsi[:, :, Ni:Ni + Nl],
-                                             f_n, L_vlii[v][l]).real
-                Ni += Nl
+        for a, l_j in soc.l_aj.items():
+            orbmag_av[a] += get_orbmag_1k1a(f_n, wfs.projections[a], l_j)
 
-    world.sum(om_av)
+    world.sum(orbmag_av)
 
-    return om_av
+    return orbmag_av
+
+
+def get_orbmag_1k1a(f_n, P_nsi, l_j):
+    orbmag_v = np.zeros(3)
+    Ni = 0
+    for l in l_j:
+        Nl = 2 * l + 1
+        for v in range(3):
+            orbmag_v[v] += np.einsum('nsi,nsj,n,ij->',
+                                     P_nsi[:, :, Ni:Ni + Nl].conj(),
+                                     P_nsi[:, :, Ni:Ni + Nl],
+                                     f_n, L_vlii[v][l]).real
+        Ni += Nl
+
+    return orbmag_v
