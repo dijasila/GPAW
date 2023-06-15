@@ -7,7 +7,8 @@ from ase.units import Bohr
 from gpaw import GPAW
 
 from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
-                                   radial_truncation_function)
+                                   radial_truncation_function,
+                                   spherical_truncation_function)
 
 
 def generate_analytical_integrals():
@@ -128,3 +129,21 @@ def test_fe_augmentation_sphere(gpw_files):
         vol = integrate_lebedev(ft_n)
         assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
         
+
+def test_fe_spherical_truncation_function(gpw_files):
+    # Extract the grid information from the iron fixture
+    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    finegd = calc.density.finegd
+    spos_ac = calc.spos_ac
+
+    # Integrate θ(r) with different cutoffs, to check that the sphere volume
+    # is correctly recovered
+    a = 2.867  # lattice constant in Å
+    rcut_max = a / (2 * Bohr)  # a / 2 in Bohr
+    for rcut in np.linspace(rcut_max / 4, rcut_max, 13):
+        ref = 4 * np.pi * rcut**3. / 3.
+
+        # Use grid descriptor for integration
+        theta_r = spherical_truncation_function(finegd, spos_ac[0], rcut)
+        vol = finegd.integrate(theta_r)
+        assert abs(vol - ref) <= 1e-8 + 1e-2 * ref

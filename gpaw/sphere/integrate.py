@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy.optimize import minimize
 
+from gpaw.spline import Spline
+from gpaw.lfc import LocalizedFunctionsCollection
 from gpaw.sphere.lebedev import weight_n
 
 
@@ -207,6 +209,37 @@ def find_volume_conserving_lambd(r_g, rcut, drcut):
 
     return lambd
 
+
+def spherical_truncation_function(gd, spos_c, rcut):
+    """
+    Documentation here! XXX
+    """
+    # XXX To do XXX
+    # * Figure out, how we want to return parameters for theta
+    # * Figure out, if we return theta, lfc or something third?
+
+    # Find "diameter" of each grid point volume
+    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
+    # Truncate the sphere smoothly over two such diameters
+    drcut = 2 * diam
+
+    # Lay out truncation function on the radial grid and generate spline
+    r_g = np.linspace(0., rcut + 2 * drcut, 1001)
+    theta_g = radial_truncation_function(r_g, rcut, drcut)
+    spline = Spline(l=0, rmax=max(r_g),
+                    # The input f_g is the expansion coefficient of the
+                    # requested spherical harmonic for the function in
+                    # question. For l=0, Y = 1/sqrt(4π):
+                    f_g=np.sqrt(4 * np.pi) * theta_g)
+
+    # Evaluate truncation function on the real-space grid
+    lfc = LocalizedFunctionsCollection(gd, [[spline]], dtype=float)
+    lfc.set_positions([spos_c])
+    theta_R = gd.zeros(dtype=float)
+    lfc.add(theta_R)
+
+    return theta_R
+    
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
