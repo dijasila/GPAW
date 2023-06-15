@@ -213,8 +213,13 @@ def find_volume_conserving_lambd(rcut, drcut, r_g=None):
 
 
 def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
-    """
-    Documentation here! XXX
+    r"""Generate truncation function θ(r<rc) for a sphere centered at spos_c.
+
+    The smooth radial truncation function θ(r<rc) is used to generate a
+    smoothly truncated sphere of radius rcut and centered at the scaled
+    position spos_c on the real-space grid described by gd.
+
+    See radial_truncation_function() for the functional form of θ(r<rc).
     """
     if drcut is None:
         drcut = default_spherical_drcut(gd)
