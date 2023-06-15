@@ -181,7 +181,9 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
-        synchronize()
+
+        if self.xp is not np:
+            synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -264,7 +266,8 @@ class IBZWaveFunctions:
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
-        synchronize()
+        if self.xp is not np:
+            synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
@@ -386,10 +389,11 @@ class IBZWaveFunctions:
             if self.nspins == 1:
                 skipping = False
                 log(f'  Band      eig [eV]   occ [0-{D}]')
-                for n, (e, f) in enumerate(zip(eig_skn[0, k],
-                                               occ_skn[0, k])):
-                    # First, last and +-2.0 eV window around fermi level:
-                    if n == 0 or abs(e - fl[0]) < 2.0 or n == nbands - 1:
+                eig_n = eig_skn[0, k]
+                n0 = (eig_n < fl[0]).sum() - 0.5
+                for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
+                    # First, last and +-8 bands window around fermi level:
+                    if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
                         log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
                         skipping = False
                     else:

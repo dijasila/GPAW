@@ -62,7 +62,8 @@ reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
                                   {'point_group': False}])
 @pytest.mark.parametrize('nblocks',
                          [x for x in [1, 2, 4, 8] if x <= world.size])
-def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
+def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack,
+                       needs_ase_master):
     assert run(si, symm, nblocks) == reference
 
 
@@ -70,13 +71,14 @@ def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack):
 @pytest.mark.ci
 @pytest.mark.parametrize('si', generate_si_systems())
 @pytest.mark.parametrize('symm', [{}])
-def test_small_response_gwsi(in_tmp_dir, si, symm, scalapack):
+def test_small_response_gwsi(in_tmp_dir, si, symm, scalapack,
+                             needs_ase_master):
     assert run(si, symm, 1) == reference
 
 
 @pytest.mark.response
 @pytest.mark.ci
-def test_few_freq_response_gwsi(in_tmp_dir, scalapack):
+def test_few_freq_response_gwsi(in_tmp_dir, scalapack, needs_ase_master):
     if world.size > 1:
         nblocks = 2
     else:

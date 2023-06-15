@@ -78,6 +78,10 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def tri(n, k=0, dtype=float):
+    return ndarray(np.tri(n, k=k, dtype=dtype))
+
+
 def moveaxis(a, source, destination):
     return ndarray(np.moveaxis(a._data, source, destination))
 
@@ -177,6 +181,8 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
+        if isinstance(other, (float, int)):
+            return self._data == other
         return ndarray(self._data == other._data)
 
     def __mul__(self, f):

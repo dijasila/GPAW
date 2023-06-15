@@ -6,7 +6,6 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
-from gpaw.response.susceptibility import symmetrize_reciprocity
 
 # ASE modules
 from ase.units import Hartree
@@ -157,7 +156,8 @@ class IsotropicExchangeCalculator:
 
         zd = ComplexFrequencyDescriptor.from_array([0. + 0.j])
         chiks = self.chiks_calc.calculate('+-', q_c, zd)
-        symmetrize_reciprocity(chiks.qpd, chiks.array)
+        if np.allclose(q_c, 0.):
+            chiks.symmetrize_reciprocity()
 
         # Take the reactive part
         chiksr = chiks.copy_reactive_part()

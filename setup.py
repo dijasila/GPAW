@@ -15,7 +15,8 @@ from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.develop import develop as _develop
 from setuptools.command.install import install as _install
 
-from config import build_interpreter, check_dependencies, write_configuration
+from config import (build_gpu, build_interpreter, check_dependencies,
+                    write_configuration)
 
 assert sys.version_info >= (3, 7)
 
@@ -55,10 +56,14 @@ runtime_library_dirs = []
 extra_objects = []
 define_macros = [('NPY_NO_DEPRECATED_API', '7'),
                  ('GPAW_NO_UNDERSCORE_CBLACS', None),
-                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None)]
-if os.getenv('GPAW_GPU'):
-    define_macros.append(('GPAW_GPU_AWARE_MPI', '1'))
+                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', None),
+                 ('GPAW_MPI_INPLACE', None)]
 undef_macros = ['NDEBUG']
+
+gpu_target = None
+gpu_compiler = None
+gpu_compile_args = []
+gpu_include_dirs = []
 
 parallel_python_interpreter = False
 compiler = None
@@ -69,6 +74,7 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
+gpu = False
 
 # Advanced:
 # If these are defined, they replace
@@ -186,18 +192,52 @@ platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
+if gpu:
+    valid_gpu_targets = ['cuda', 'hip-amd', 'hip-cuda']
+    if gpu_target not in valid_gpu_targets:
+        raise ValueError('Invalid gpu_target in configuration: '
+                         'gpu_target should be one of '
+                         f'{str(valid_gpu_targets)}.')
+    if gpu_compiler is None:
+        if gpu_target.startswith('hip'):
+            gpu_compiler = 'hipcc'
+        elif gpu_target == 'cuda':
+            gpu_compiler = 'nvcc'
+
+    if gpu_target == 'cuda':
+        gpu_compile_args += ['-x', 'cu']
+
+    if '-fPIC' not in ' '.join(gpu_compile_args):
+        if gpu_target in ['cuda', 'hip-cuda']:
+            gpu_compile_args += ['-Xcompiler']
+        gpu_compile_args += ['-fPIC']
+
+
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
                    (nolibxc, 'GPAW_WITHOUT_LIBXC'),
                    (mpi, 'PARALLEL'),
                    (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
-                   (elpa, 'GPAW_WITH_ELPA')]:
+                   (elpa, 'GPAW_WITH_ELPA'),
+                   (gpu, 'GPAW_GPU'),
+                   (gpu, 'GPAW_GPU_AWARE_MPI'),
+                   (gpu and gpu_target == 'cuda',
+                       'GPAW_CUDA'),
+                   (gpu and gpu_target.startswith('hip'),
+                       'GPAW_HIP'),
+                   (gpu and gpu_target == 'hip-amd',
+                       '__HIP_PLATFORM_AMD__'),
+                   (gpu and gpu_target == 'hip-cuda',
+                       '__HIP_PLATFORM_NVIDIA__'),
+                   ]:
     if flag and name not in [n for (n, _) in define_macros]:
         define_macros.append((name, None))
 
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
+if gpu:
+    sources += Path('c/gpu').glob('*.c')
 sources += Path('c/xc').glob('*.c')
 sources.remove(Path('c/main.c'))  # For gpaw-python executable only
 if nolibxc:
@@ -219,6 +259,9 @@ runtime_library_dirs = [str(dir) for dir in runtime_library_dirs]
 library_dirs = [str(dir) for dir in library_dirs]
 include_dirs = [str(dir) for dir in include_dirs]
 
+define_macros = [(macro, value) for macro, value in define_macros
+                 if macro not in undef_macros]
+
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,
@@ -233,35 +276,6 @@ extensions = [Extension('_gpaw',
                         language='c')]
 
 
-if os.environ.get('GPAW_GPU'):
-    # Hardcoded for LUMI right now!
-    target = os.environ.get('HCC_AMDGPU_TARGET', 'gfx90a')
-    # TODO: Build this also via extension
-    assert os.system(
-        f'HCC_AMDGPU_TARGET={target} hipcc -fPIC -fgpu-rdc '
-        '-c c/gpu/hip_kernels.cpp -o c/gpu/hip_kernels.o') == 0
-    assert os.system(
-        f'HCC_AMDGPU_TARGET={target} hipcc -shared -fgpu-rdc --hip-link '
-        '-o c/gpu/hip_kernels.so c/gpu/hip_kernels.o') == 0
-
-    extensions.append(
-        Extension('_gpaw_gpu',
-                  ['c/gpu/gpaw_gpu.c'],
-                  libraries=[],
-                  library_dirs=['c/gpu'],
-                  setup_requires=['numpy'],
-                  include_dirs=include_dirs,
-                  define_macros=[('NPY_NO_DEPRECATED_API', 7)],
-                  undef_macros=[],
-                  extra_link_args=[
-                      f'-Wl,-rpath={Path("c/gpu").resolve()}'],
-                  extra_compile_args=['-std=c99'],
-                  # ,'-Werror=implicit-function-declaration'],
-                  runtime_library_dirs=['c/gpu'],
-                  extra_objects=[
-                      str(Path('c/gpu/hip_kernels.so').resolve())]))
-
-
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
                     runtime_library_dirs, extra_objects, compiler)
@@ -271,6 +285,17 @@ class build_ext(_build_ext):
     def run(self):
         import numpy as np
         self.include_dirs.append(np.get_include())
+
+        if self.link_objects is None:
+            self.link_objects = []
+
+        if gpu:
+            objects = build_gpu(gpu_compiler, gpu_compile_args,
+                                gpu_include_dirs + self.include_dirs,
+                                define_macros, undef_macros,
+                                self.build_temp)
+            self.link_objects += objects
+
         super().run()
 
     def build_extensions(self):
@@ -368,7 +393,7 @@ setup(name='gpaw',
           'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
       install_requires=[f'ase>={ase_version_required}',
-                        'scipy>=1.2.0',
+                        'scipy>=1.6.0',
                         'pyyaml'],
       extras_require={'docs': ['sphinx-rtd-theme',
                                'graphviz'],

@@ -26,7 +26,7 @@ submit the polarization script and print the polarization by rerunning the
 script above in the terminal. The calculation adds the contribution from the
 electrons and the nucleii, which implies that the result is independent of the
 positions of the atoms relative to the unit cell. The results should be 0.27
-`C/m^2` for LDA and  0.47 `C/m^2` for PBE , which agrees with the values from
+`C/m^2` for LDA and 0.45 `C/m^2` for PBE , which agrees with the values from
 literature [#Zhang]_.  Technically this approach is incorrect since an
 adiabatic path between a non-polar reference structure (in this case the cubic
 phase of BaTiO3) and the polar phase (the tetragonal phase of BaTiO3) is
@@ -65,7 +65,7 @@ charges tell us how the atoms are affected by an external electric field.
 Topological properties of stanene from parallel transport
 =========================================================
 
-As a last example we demonstrate how the `k`-space Berry phases can be applied
+We will now demonstrate how the `k`-space Berry phases can be applied
 to extract topological properties of solids. For an isolated band we can
 calculate the Berry phase
 
@@ -109,10 +109,30 @@ moments of hybrid Wannier functions localized along the `x`-direction and
 these functions have a spinorial structure with a well-defined value of
 `\langle S_z\rangle`. [#Olsen]_
 
+Polarization from from parallel transport
+=========================================
+
+The parallel transport module can also be used to calculate the polarization.
+Strictly speaking the parallel transport algorithm is not required for the
+polarization because it involves a trace over occupied bands. Nevertheless,
+it is reassuring that we obtain the correct polarization from the parallel
+transport. More importantly, the parallel transport supports spin-orbit
+coupling and non-collinear magnetism, which the polarization module introduced
+above does not. The script
+
+.. literalinclude:: parallel_BaTiO3.py
+
+calculates the polarization of BaTiO3 from the parallel transport module. Note
+that the parallel transport only supports 2D `k` grids and we thus loop
+over slices at fixed `k_y` to calculate the polarization. It is also important
+to realize that the phases at individual points are only defined modulo `2\pi`
+and the phases has to be chosen such that the bands are continuous. The script
+is seen to exactly reproduce the value of 0.45 `C/m^2` found above. Spin-orbit
+coupling may be switched on by setting scale=1 in the script.
+
 .. [#Zhang] Y. Zhang, J. Sun, J. P. Perdew, and X. Wu
 	    :doi:`10.1103/PhysRevB.96.035143`
 .. [#King-Smith] R. D. King-Smith, D. Vanderbilt
 	    :doi:`10.1103/PhysRevB.47.1651`
 .. [#Olsen] T. Olsen, E. Andersen, T. Okugawa, D. Torelli, T. Deilmann, K. S. Thygesen
-	    :arxiv:`1812.06666`
-
+	    :doi:`10.1103/PhysRevMaterials.3.024005`

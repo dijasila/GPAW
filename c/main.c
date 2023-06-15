@@ -38,6 +38,12 @@ gpaw_main()
 int
 main(int argc, char **argv)
 {
+#ifdef GPAW_GPU
+    int granted;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+    if (granted < MPI_THREAD_MULTIPLE)
+        exit(1);
+#else
 #ifndef _OPENMP
     MPI_Init(&argc, &argv);
 #else
@@ -45,6 +51,7 @@ main(int argc, char **argv)
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
+#endif
 #endif
 
 #define PyChar wchar_t

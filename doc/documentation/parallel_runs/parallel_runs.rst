@@ -9,6 +9,7 @@ Parallel runs
 
 .. _parallel_running_jobs:
 
+
 Running jobs in parallel
 ========================
 
@@ -21,7 +22,6 @@ the unit cell.  This choice can be overruled, see
 :ref:`manual_parallelization_types`. Complementary OpenMP
 parallelization can improve the performance in some cases, see
 :ref:`manual_openmp`.
-
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
@@ -40,6 +40,17 @@ do one of these two::
 
 The first two are the recommended ones:  The *gpaw* script will make sure
 that imports are done in an efficient way.
+
+.. tip::
+
+   You can use the :envvar:`GPAW_MPI_OPTIONS` to pass options to ``mpiexex``.
+   Example::
+
+     GPAW_MPI_OPTIONS="--oversubscribe"
+
+.. envvar:: GPAW_MPI_OPTIONS
+
+    Options for ``mpiexec``.
 
 
 Submitting a job to a queuing system

@@ -25,7 +25,11 @@
 #endif
 #include "array.h"
 
-
+#ifdef GPAW_MPI2
+#ifndef GPAW_MPI_INPLACE
+#error "Deprecated: Define or undefine GPAW_MPI_INPLACE, instead of using GPAW_MPI2."
+#endif
+#endif
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
@@ -203,45 +207,52 @@ static void mpi_ensure_initialized(void)
     MPI_Initialized(&already_initialized);
     if (!already_initialized)
     {
-	// if not, let's initialize it
-#ifndef _OPENMP
-	ierr = MPI_Init(NULL, NULL);
-	if (ierr == MPI_SUCCESS)
-	{
-	    // No problem: register finalization when at Python exit
-	    Py_AtExit(*mpi_ensure_finalized);
-	}
-	else
-	{
-	    // We have a problem: raise an exception
-	    char err[MPI_MAX_ERROR_STRING];
-	    int resultlen;
-	    MPI_Error_string(ierr, err, &resultlen);
-	    PyErr_SetString(PyExc_RuntimeError, err);
-	}
-#else
-	int granted;
-	ierr = MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &granted);
-	if (ierr == MPI_SUCCESS && granted == MPI_THREAD_MULTIPLE)
-	{
-	    // No problem: register finalization when at Python exit
-	    Py_AtExit(*mpi_ensure_finalized);
-	}
-	else if (granted != MPI_THREAD_MULTIPLE)
-	{
-	    // We have a problem: raise an exception
-	    char err[MPI_MAX_ERROR_STRING] = "MPI_THREAD_MULTIPLE is not supported";
-	    PyErr_SetString(PyExc_RuntimeError, err);
-	}
-	else
-	{
-	    // We have a problem: raise an exception
-	    char err[MPI_MAX_ERROR_STRING];
-	    int resultlen;
-	    MPI_Error_string(ierr, err, &resultlen);
-	    PyErr_SetString(PyExc_RuntimeError, err);
-	}
+        // if not, let's initialize it
+        int use_threads = 0;
+#ifdef GPAW_GPU
+        use_threads = 1;
 #endif
+#ifdef _OPENMP
+        use_threads = 1;
+#endif
+        if (!use_threads) {
+            ierr = MPI_Init(NULL, NULL);
+            if (ierr == MPI_SUCCESS)
+            {
+                // No problem: register finalization when at Python exit
+                Py_AtExit(*mpi_ensure_finalized);
+            }
+            else
+            {
+                // We have a problem: raise an exception
+                char err[MPI_MAX_ERROR_STRING];
+                int resultlen;
+                MPI_Error_string(ierr, err, &resultlen);
+                PyErr_SetString(PyExc_RuntimeError, err);
+            }
+        } else {
+            int granted;
+            ierr = MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &granted);
+            if (ierr == MPI_SUCCESS && granted == MPI_THREAD_MULTIPLE)
+            {
+                // No problem: register finalization when at Python exit
+                Py_AtExit(*mpi_ensure_finalized);
+            }
+            else if (granted != MPI_THREAD_MULTIPLE)
+            {
+                // We have a problem: raise an exception
+                char err[MPI_MAX_ERROR_STRING] = "MPI_THREAD_MULTIPLE is not supported";
+                PyErr_SetString(PyExc_RuntimeError, err);
+            }
+            else
+            {
+                // We have a problem: raise an exception
+                char err[MPI_MAX_ERROR_STRING];
+                int resultlen;
+                MPI_Error_string(ierr, err, &resultlen);
+                PyErr_SetString(PyExc_RuntimeError, err);
+            }
+        }
     }
 }
 
@@ -686,16 +697,16 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	}
       if (root == -1)
 	{
-#ifdef GPAW_MPI2
+#ifdef GPAW_MPI_INPLACE
 	  MPI_Allreduce(MPI_IN_PLACE, Array_BYTES(aobj), n, datatype,
 			operation, self->comm);
 #else
 	  char* b = GPAW_MALLOC(char, n * elemsize);
-	  MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
-			self->comm);
-	  assert(Array_NBYTES(aobj) == n * elemsize);
-	  memcpy(Array_BYTES(aobj), b, n * elemsize);
-	  free(b);
+      MPI_Allreduce(Array_BYTES(aobj), b, n, datatype, operation,
+                    self->comm);
+      assert(Array_NBYTES(aobj) == n * elemsize);
+      memcpy(Array_BYTES(aobj), b, n * elemsize);
+      free(b);
 #endif
 	}
       else
@@ -705,7 +716,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	  char* b = 0;
 	  if (rank == root)
 	    {
-#ifdef GPAW_MPI2
+#ifdef GPAW_MPI_INPLACE
 	      MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
 			 datatype, operation, root, self->comm);
 #else

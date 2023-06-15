@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.response import ResponseContext
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import PairFunction
-from gpaw.response.chiks import get_spin_rotation, get_temporal_part
+from gpaw.response.chiks import get_temporal_part
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 
 
@@ -11,9 +11,7 @@ class JDOS(PairFunction):
 
     def __init__(self, spincomponent, qpd, zd):
         self.spincomponent = spincomponent
-        self.zd = zd
-
-        super().__init__(qpd)
+        super().__init__(qpd, zd)
     
     def zeros(self):
         nz = len(self.zd)
@@ -82,12 +80,10 @@ class JDOSCalculator(PairFunctionIntegrator):
         assert isinstance(zd, ComplexFrequencyDescriptor)
         assert zd.upper_half_plane
 
-        # Analyze the requested spin component
-        spinrot = get_spin_rotation(spincomponent)
-
         # Prepare to sum over bands and spins
         transitions = self.get_band_and_spin_transitions(
-            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+            spincomponent, nbands=self.nbands,
+            bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
             q_c, len(zd), spincomponent, self.nbands, len(transitions)))
