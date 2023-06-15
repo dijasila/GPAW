@@ -37,13 +37,13 @@ class PWHamiltonian(Hamiltonian):
         e_kin_G = xp.asarray(psit_G.desc.ekin_G)
         domain_comm = psit_nG.desc.comm
         mynbands = psit_nG.mydims[0]
-        vtpsit_G = pw.empty(xp=xp)
+        vtpsit_G = pw_local.empty(xp=xp)
         for n1 in range(0, mynbands, domain_comm.size):
             n2 = min(n1 + domain_comm.size, mynbands)
             psit_nG[n1:n2].gather_all(psit_G)
             psit_G.ifft(out=tmp_R)
             tmp_R.data *= vt_R.data
-            tmp_R.fft(pw=psit_G.desc, out=vtpsit_G)
+            tmp_R.fft(out=vtpsit_G)
             psit_G.data *= e_kin_G
             vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
