@@ -1,5 +1,7 @@
 import numpy as np
 
+from scipy.optimize import minimize
+
 from gpaw.sphere.lebedev import weight_n
 
 
@@ -118,3 +120,105 @@ def radial_trapz(f_xg, r_g):
 
     # Sum over the discretized integration intervals
     return np.sum(integrand_xg, axis=-1)
+
+
+def radial_truncation_function(r_g, rcut, drcut=None, lambd=None):
+    r"""Generate smooth radial truncation function θ(r<rc).
+
+    The function is generated to interpolate smoothly between the values
+
+           ( 1    for r <= rc - Δrc/2
+    θ(r) = < λ    for r = rc
+           ( 0    for r >= rc + Δrc/2
+
+    In the interpolation region, rc - Δrc/2 < r < rc + Δrc/2, the nonanalytic
+    smooth function
+
+           ( exp(-1/x)  for x > 0
+    f(x) = <
+           ( 0          for x <= 0
+
+    is used to define θ(r), in order for all derivatives to be continous:
+
+                        f(1/2-[r-rc]/Δrc)
+    θ(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+           f(1/2-[r-rc]/Δrc) + (1-λ)f(1/2+[r-rc]/Δrc)/λ
+
+    Unless given as an input, we choose 0 < λ < 1 to conserve the spherical
+    integration volume, 4π rc^3/3.
+    """
+    assert np.all(r_g >= 0.)
+    if drcut is None:
+        # As a default, define Δrc to match twice the grid sampling around the
+        # cutoff
+        g1, g2 = find_two_closest_grid_points(r_g, rcut)
+        drcut = 2 * abs(r_g[g2] - r_g[g1])
+    assert rcut > 0. and drcut > 0. and rcut - drcut / 2. >= 0.
+    if lambd is None:
+        lambd = find_volume_conserving_lambd(r_g, rcut, drcut)
+    assert 0. < lambd and lambd < 1.
+    assert np.any(r_g >= rcut + drcut / 2.)
+
+    def f(x):
+        out = np.zeros_like(x)
+        out[x > 0] = np.exp(-1 / x[x > 0])
+        return out
+
+    # Create array of ones inside rc + Δrc/2
+    theta_g = np.ones_like(r_g)
+    theta_g[r_g >= rcut + drcut / 2.] = 0.
+
+    # Add smooth truncation
+    gmask = np.logical_and(rcut - drcut / 2. < r_g, r_g < rcut + drcut / 2.)
+    tr_g = r_g[gmask]
+    theta_g[gmask] = f(1 / 2. - (tr_g - rcut) / drcut) \
+        / (f(1 / 2. - (tr_g - rcut) / drcut)
+           + (1 - lambd) * f(1 / 2. + (tr_g - rcut) / drcut) / lambd)
+
+    return theta_g
+
+
+def find_volume_conserving_lambd(r_g, rcut, drcut):
+    r"""Determine the scaling factor λ to conserve the spherical volume.
+
+    For a given rc and drc, λ is determined to make θ(r) numerically satisfy:
+       ∞
+       /
+    4π | r^2 dr θ(r) = 4π rc^3/3
+       /
+       0
+    """
+    ref = 4 * np.pi * rcut**3. / 3.
+
+    def integration_volume_error(lambd):
+        theta_g = radial_truncation_function(r_g, rcut, drcut, lambd)
+        vol = 4 * np.pi * radial_trapz(theta_g, r_g)
+        return abs(vol - ref)
+
+    opt_result = minimize(integration_volume_error,
+                          1 / 2.,  # start guess
+                          bounds=[(1e-8, 1 - 1e-8)],
+                          tol=1e-8 + 1e-6 * ref)
+    if opt_result.success:
+        lambd = opt_result.x[0]
+    else:
+        raise Exception('Could not find an appropriate truncation scaling λ',
+                        opt_result.message)
+
+    return lambd
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    r_g = np.linspace(0., 4., 200)
+
+    plt.subplot(1, 2, 1)
+    plt.plot(r_g, radial_truncation_function(r_g, 1.0, 1.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 2.0, 1.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 3.0, 1.0))
+    plt.subplot(1, 2, 2)
+    plt.plot(r_g, radial_truncation_function(r_g, 1.0, 2.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 2.0, 2.0))
+    plt.plot(r_g, radial_truncation_function(r_g, 3.0, 2.0))
+    plt.show()
