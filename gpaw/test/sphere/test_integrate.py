@@ -141,10 +141,10 @@ def test_fe_spherical_truncation_function(gpw_files):
     # Integrate θ(r) with different cutoffs, to check that the sphere volume
     # is correctly recovered
     a = 2.867  # lattice constant in Å
-    rcut_max = a / (2 * Bohr)  # a / 2 in Bohr
+    rcut_max = 2 * a / (3 * Bohr)  # 2a / 3 in Bohr
     # Get default drcut for the real-space grid
     drcut = default_spherical_drcut(finegd)
-    for rcut in np.linspace(rcut_max / 4, rcut_max, 13):
+    for rcut in np.linspace(rcut_max / 6, rcut_max, 13):
         ref = 4 * np.pi * rcut**3. / 3.
 
         # Optimize λ-parameter, generate θ(r) and integrate
