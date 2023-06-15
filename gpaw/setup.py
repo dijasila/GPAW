@@ -1486,6 +1486,16 @@ class Setups(list):
                 dS_ii = xp.asarray(self[a].dO_ii)
                 out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
 
+    def inverse_overlap_correction(self, P_ani, out_ani):
+        if len(P_ani.dims) == 2:  # (band, spinor)
+            subscripts = 'nsi, ij -> nsj'
+        else:
+            subscripts = 'ni, ij -> nj'
+        for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            dC_ii = self[a].dC_ii
+            np.einsum(subscripts, P_ni, dC_ii, out=out_ni)
+        return out_ani
+
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
         dphi_aj = []
