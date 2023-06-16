@@ -6,9 +6,12 @@ from gpaw.spinorbit import soc_eigenstates
 
 
 def test_orbmag_Ni():
+
+    # Parameters
+
     a = 3.48
     mm = 0.5
-    easy_axis = 1 / np.sqrt(3) * np.array([1, 1, 1])
+    easy_axis = 1 / np.sqrt(3) * np.ones(3)
     theta = np.rad2deg(np.arccos(easy_axis[2]))
     phi = 45
 
@@ -18,49 +21,73 @@ def test_orbmag_Ni():
     occ = {'name': 'fermi-dirac', 'width': 0.05}
     conv = {'density': 1e-04}
 
-    crystal_col = bulk('Ni', 'fcc', a=a)
-    crystal_col.center()
-    crystal_col.set_initial_magnetic_moments([mm])
+    # Collinear calculation
 
     calc = GPAW(mode=mode, xc='LDA', kpts=kpts, parallel=par,
                 occupations=occ, convergence=conv)
-
+    crystal_col = bulk('Ni', 'fcc', a=a)
+    crystal_col.center()
+    crystal_col.set_initial_magnetic_moments([mm])
     crystal_col.calc = calc
-    crystal_col.get_potential_energy()
+
+    energy_col = crystal_col.get_potential_energy()
     with pytest.raises(AssertionError, match='Collinear calculations*'):
         calc.get_orbital_magnetization()
-    soc = soc_eigenstates(calc, theta=theta, phi=phi)
-    orbmag_col_v = soc.get_orbital_magnetization()
+    magmoms_col_v, _ = calc.calculation.state.density \
+        .calculate_magnetic_moments()
+    orbmag_col_v = soc_eigenstates(calc, theta=theta, phi=phi) \
+        .get_orbital_magnetization()[0]
 
+    # Non-collinear calculation without self-consistent spin-orbit
+
+    calc = GPAW(mode=mode, xc='LDA', kpts=kpts, parallel=par,
+                occupations=occ, convergence=conv, symmetry='off',
+                magmoms=[mm * easy_axis])
     crystal_ncol = bulk('Ni', 'fcc', a=a)
     crystal_ncol.center()
-    magmoms = [[mm / np.sqrt(3), mm / np.sqrt(3), mm / np.sqrt(3)]]
-    
-    calc = GPAW(mode=mode, xc='LDA', kpts=kpts, parallel=par,
-                occupations=occ, convergence=conv,
-                symmetry='off', magmoms=magmoms)
-    
     crystal_ncol.calc = calc
-    crystal_ncol.get_potential_energy()
-    soc = soc_eigenstates(calc)
-    orbmag_ncol_v = soc.get_orbital_magnetization()
+
+    energy_ncol = crystal_ncol.get_potential_energy()
+    magmoms_ncol_v, _ = calc.calculation.state.density \
+        .calculate_magnetic_moments()
+    orbmag_ncol_v = soc_eigenstates(calc).get_orbital_magnetization()[0]
     
+    # Test that col and ncol give the same groundstate (with rotated magmoms)
+    # and the same orbital magnetization from the soc_eigenstates module
+
+    dif_energy = energy_ncol - energy_col
+    dif_magmom = np.linalg.norm(magmoms_ncol_v) - magmoms_col_v[2]
+    dif_orbmag = np.linalg.norm(orbmag_col_v - orbmag_ncol_v) 
+
+    assert dif_energy == pytest.approx(0, abs=1.0e-6)
+    assert dif_magmom == pytest.approx(0, abs=1.0e-6)
+    assert dif_orbmag == pytest.approx(0, abs=1.0e-6)
+    
+    # Non-collinear calculation with self-consistent spin-orbit
+
+    calc = GPAW(mode=mode, xc='LDA', kpts=kpts, parallel=par,
+                occupations=occ, convergence=conv, symmetry='off',
+                magmoms=[mm * easy_axis], soc=True)
     crystal_ncolsoc = bulk('Ni', 'fcc', a=a)
     crystal_ncolsoc.center()
-    
-    calc = GPAW(mode=mode, xc='LDA', kpts=kpts, parallel=par,
-                occupations=occ, convergence=conv,
-                symmetry='off', magmoms=magmoms, soc=True)
-    
     crystal_ncolsoc.calc = calc
+
     crystal_ncolsoc.get_potential_energy()
-    orbmag_ncolsoc_v = calc.get_orbital_magnetization()
-    assert np.linalg.norm(orbmag_ncolsoc_v) == pytest.approx(0.0442, abs=1e-4)
+    orbmag_ncolsoc_v = calc.get_orbital_magnetization()[0]
     
-    dif1 = np.linalg.norm(orbmag_col_v - orbmag_ncol_v)
-    dif2 = np.linalg.norm(orbmag_col_v - orbmag_ncolsoc_v)
-    dif3 = np.linalg.norm(orbmag_ncol_v - orbmag_ncolsoc_v)
-    
-    assert dif1 == pytest.approx(0.0, abs=1.0e-6)
-    assert dif2 == pytest.approx(0.0, abs=5.0e-3)
-    assert dif3 == pytest.approx(0.0, abs=5.0e-3)
+    # Assert direction and magnitude of orbital magnetization
+    assert np.linalg.norm(orbmag_ncolsoc_v) == \
+           pytest.approx(0.044260262840633, abs=1e-6)
+    assert np.dot(orbmag_ncolsoc_v, easy_axis) == \
+           pytest.approx(0.044260262840633, abs=1e-6)
+
+    # Get difference between orbital magnetizations when soc is included
+    # self-consistently. Assert that this difference doesn't change.
+
+    dif_orbmag2 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_col_v)
+    dif_orbmag3 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_ncol_v)
+    from ase.parallel import parprint
+    parprint(dif_orbmag2)
+    parprint(dif_orbmag3)
+    assert dif_orbmag2 == pytest.approx(0.0022177, abs=1e-6)
+    assert dif_orbmag3 == pytest.approx(0.0022177, abs=1e-6)
