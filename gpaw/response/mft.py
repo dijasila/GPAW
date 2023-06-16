@@ -12,6 +12,8 @@ from gpaw.response.site_kernels import SiteKernels
 # ASE modules
 from ase.units import Hartree, Bohr
 
+from ase.neighborlist import natural_cutoffs, build_neighbor_list
+
 
 class IsotropicExchangeCalculator:
     r"""Calculator class for the Heisenberg exchange constants
@@ -197,8 +199,35 @@ class AtomicSiteData:
         augmentation sphere.
         """
         atoms = gs.atoms
-        rmin_A = np.array([default_spherical_drcut(gs.gd)] * len(atoms))
-        return rmin_A, np.array([2.0])
+        drcut = default_spherical_drcut(gs.gd)
+        rmin_A = np.array([drcut / 2] * len(atoms))
+
+        # Find neighbours based on covalent radii
+        cutoffs = natural_cutoffs(atoms, mult=2)
+        neighbourlist = build_neighbor_list(atoms, cutoffs)
+        # Determine rmax for each atom
+        augr_A = gs.get_aug_radii()
+        rmax_A = []
+        for A in range(len(atoms)):
+            pos = atoms.positions[A]
+            # Calculate the distance to the augmentation sphere of each
+            # neighbour
+            aug_distances = []
+            for An, offset in zip(*neighbourlist.get_neighbors(A)):
+                if An == A and np.all(offset == 0):
+                    continue  # The atom itself is somehow a neighbour...
+                posn = atoms.positions[An] + offset @ atoms.get_cell()
+                dist = np.linalg.norm(posn - pos) / Bohr  # Å -> Bohr
+                aug_dist = dist - augr_A[An]
+                assert aug_dist > 0.
+                aug_distances.append(aug_dist)
+            # In order for PAW corrections to be valid, we need a sphere of
+            # radius rcut not to overlap with any neighbouring augmentation
+            # spheres
+            rmax_A.append(min(aug_distances))
+        rmax_A = np.array(rmax_A)
+
+        return rmin_A, rmax_A
 
     @staticmethod
     def valid_site_radii_range(gs):
@@ -214,8 +243,8 @@ class AtomicSiteData:
         for a, A in enumerate(self.A_a):
             if not np.all(
                     np.logical_and(
-                        self.rc_ap[a] >= rmin_A[A],
-                        self.rc_ap[a] <= rmax_A[A])):
+                        self.rc_ap[a] > rmin_A[A] - 1e-8,
+                        self.rc_ap[a] < rmax_A[A] + 1e-8)):
                 return False
         return True
         
