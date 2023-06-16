@@ -231,9 +231,7 @@ class AtomicSiteData:
 
     @staticmethod
     def valid_site_radii_range(gs):
-        """
-        Some documentation here! XXX
-        """
+        """Get the valid site radii for all atoms in a given ground state."""
         rmin_A, rmax_A = AtomicSiteData._valid_site_radii_range(gs)
         # Convert to external units (Bohr to Å)
         return rmin_A * Bohr, rmax_A * Bohr
@@ -248,4 +246,7 @@ class AtomicSiteData:
                 return False
         return True
         
-        
+    def calculate_magnetization(self):
+        """
+        Some documentation here! XXX
+        """
