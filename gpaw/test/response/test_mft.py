@@ -255,7 +255,23 @@ def test_Fe_site_magnetization(gpw_files):
         AtomicSiteData(  # Too large radii
             gs, indices=[0], radii=[np.linspace(rmax, rmax * 1.2, 5)])
     # Define atomic sites to span the valid range
-    rc_p = np.linspace(rmin_a[0], rmax_a[0], 100)
+    rc_r = np.linspace(rmin_a[0], rmax_a[0], 100)
     # Add the radius of the augmentation sphere explicitly
-    rc_p = np.append(rc_p, [augr * Bohr])
-    atomic_sites = AtomicSiteData(gs, indices=[0], radii=[rc_p])
+    rc_r = np.append(rc_r, [augr * Bohr])
+    atomic_sites = AtomicSiteData(gs, indices=[0], radii=[rc_r])
+
+    # Calculate site magnetization
+    magmom_ar = atomic_sites.calculate_magnetic_moments()
+    magmom_r = magmom_ar[0]
+
+    # Test that a cutoff at the augmentation sphere radius reproduces
+    # the local magnetic moment of the GPAW calculation
+    magmom_at_augr = calc.get_atoms().get_magnetic_moments()[0]
+    assert abs(magmom_r[-1] - magmom_at_augr) < 1e-2
+
+    import matplotlib.pyplot as plt
+    plt.plot(rc_r[:-1], magmom_r[:-1])
+    plt.axvline(augr * Bohr, c='0.5', linestyle='--')
+    plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
+    plt.show()
