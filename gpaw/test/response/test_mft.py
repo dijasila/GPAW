@@ -10,10 +10,12 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw import GPAW
+from gpaw.sphere.integrate import integrate_lebedev
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
+from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
+                                   add_magnetization)
 from gpaw.response.mft import IsotropicExchangeCalculator, AtomicSiteData
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -269,8 +271,27 @@ def test_Fe_site_magnetization(gpw_files):
     magmom_at_augr = calc.get_atoms().get_magnetic_moments()[0]
     assert abs(magmom_r[-1] - magmom_at_augr) < 1e-2
 
+    # Do a manual calculation of the magnetic moment using the
+    # all-electron partial waves
+    # Calculate all-electron m(r)
+    microsetup = atomic_sites.microsetup_a[0]
+    m_ng = np.array([microsetup.rgd.zeros()
+                     for n in range(microsetup.Y_nL.shape[0])])
+    for n, Y_L in enumerate(microsetup.Y_nL):
+        n_sg = np.dot(Y_L, microsetup.n_sLg)
+        add_magnetization(microsetup.rgd, n_sg, m_ng[n, :])
+    # Integrate with varrying radii
+    m_g = integrate_lebedev(m_ng)
+    ae_magmom_r = np.array([
+        microsetup.rgd.integrate_trapz(m_g, rcut=rcut / Bohr)
+        for rcut in rc_r])
+    # Test that values match approximately inside the augmentation sphere
+    inaug_r = rc_r <= augr * Bohr
+    assert magmom_r[inaug_r] == pytest.approx(ae_magmom_r[inaug_r], abs=3e-2)
+
     import matplotlib.pyplot as plt
     plt.plot(rc_r[:-1], magmom_r[:-1])
+    plt.plot(rc_r[:-1], ae_magmom_r[:-1], zorder=0)
     plt.axvline(augr * Bohr, c='0.5', linestyle='--')
     plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
