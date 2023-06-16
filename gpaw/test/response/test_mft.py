@@ -289,10 +289,10 @@ def test_Fe_site_magnetization(gpw_files):
     inaug_r = rc_r <= augr * Bohr
     assert magmom_r[inaug_r] == pytest.approx(ae_magmom_r[inaug_r], abs=3e-2)
 
-    import matplotlib.pyplot as plt
-    plt.plot(rc_r[:-1], magmom_r[:-1])
-    plt.plot(rc_r[:-1], ae_magmom_r[:-1], zorder=0)
-    plt.axvline(augr * Bohr, c='0.5', linestyle='--')
-    plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
-    plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
-    plt.show()
+    # import matplotlib.pyplot as plt
+    # plt.plot(rc_r[:-1], magmom_r[:-1])
+    # plt.plot(rc_r[:-1], ae_magmom_r[:-1], zorder=0)
+    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
+    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
+    # plt.show()
