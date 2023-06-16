@@ -244,7 +244,8 @@ def test_Fe_site_magnetization(gpw_files):
     # We expect rmax to be equal to the nearest neighbour distance
     # subtracted with the augmentation sphere radius. For a bcc lattice,
     # nn_dist = sqrt(3) a / 2:
-    rmax_expected = np.sqrt(3) * 2.867 / 2. - 2.2 * Bohr
+    augr = gs.get_aug_radii()[0]
+    rmax_expected = np.sqrt(3) * 2.867 / 2. - augr * Bohr
     assert abs(rmax - rmax_expected) < 1e-6
     # Test that an error is raised outside the valid range
     with pytest.raises(AssertionError):
@@ -254,5 +255,7 @@ def test_Fe_site_magnetization(gpw_files):
         AtomicSiteData(  # Too large radii
             gs, indices=[0], radii=[np.linspace(rmax, rmax * 1.2, 5)])
     # Define atomic sites to span the valid range
-    atomic_sites = AtomicSiteData(
-        gs, indices=[0], radii=[np.linspace(rmin_a[0], rmax_a[0], 100)])
+    rc_p = np.linspace(rmin_a[0], rmax_a[0], 100)
+    # Add the radius of the augmentation sphere explicitly
+    rc_p = np.append(rc_p, [augr * Bohr])
+    atomic_sites = AtomicSiteData(gs, indices=[0], radii=[rc_p])
