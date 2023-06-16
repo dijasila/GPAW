@@ -57,7 +57,7 @@ def test_orbmag_Ni():
 
     dif_energy = energy_ncol - energy_col
     dif_magmom = np.linalg.norm(magmoms_ncol_v) - magmoms_col_v[2]
-    dif_orbmag = np.linalg.norm(orbmag_col_v - orbmag_ncol_v) 
+    dif_orbmag = np.linalg.norm(orbmag_col_v - orbmag_ncol_v)
 
     assert dif_energy == pytest.approx(0, abs=1.0e-6)
     assert dif_magmom == pytest.approx(0, abs=1.0e-6)
@@ -86,8 +86,6 @@ def test_orbmag_Ni():
 
     dif_orbmag2 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_col_v)
     dif_orbmag3 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_ncol_v)
-    from ase.parallel import parprint
-    parprint(dif_orbmag2)
-    parprint(dif_orbmag3)
+
     assert dif_orbmag2 == pytest.approx(0.0022177, abs=1e-6)
     assert dif_orbmag3 == pytest.approx(0.0022177, abs=1e-6)
