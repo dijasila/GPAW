@@ -2,11 +2,13 @@
 import numpy as np
 
 # GPAW modules
-from gpaw.sphere.integrate import default_spherical_drcut
+from gpaw.sphere.integrate import (default_spherical_drcut,
+                                   find_volume_conserving_lambd)
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
+from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
+                                   add_magnetization, extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
 
 # ASE modules
@@ -177,6 +179,7 @@ class AtomicSiteData:
         Some documentation here! XXX
         """
         self.A_a = np.asarray(indices)
+        assert len(np.unique(self.A_a)) == len(self.A_a)
 
         # Parse the input atomic radii
         rc_ap = np.asarray(radii)
@@ -189,6 +192,16 @@ class AtomicSiteData:
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
+        # Extract the scaled positions of each site
+        self.spos_ac = gs.spos_ac[self.A_a]
+
+        # Extract micro setups for each atomic site
+        self.microsetup_a = [extract_micro_setup(gs, A) for A in self.A_a]
+
+        # Extract pseudo density on the fine real-space grid
+        self.finegd = gs.finegd
+        self.nt_sr = gs.nt_sr
+
     @staticmethod
     def _valid_site_radii_range(gs):
         """For each atom in gs, determine the valid site radii range in Bohr.
@@ -199,7 +212,7 @@ class AtomicSiteData:
         augmentation sphere.
         """
         atoms = gs.atoms
-        drcut = default_spherical_drcut(gs.gd)
+        drcut = default_spherical_drcut(gs.finegd)
         rmin_A = np.array([drcut / 2] * len(atoms))
 
         # Find neighbours based on covalent radii
@@ -246,7 +259,42 @@ class AtomicSiteData:
                 return False
         return True
         
-    def calculate_magnetization(self):
+    def calculate_magnetic_moments(self):
         """
         Some documentation here! XXX
         """
+        magmom_ap = self.integrate_local_function(add_magnetization)
+        return magmom_ap
+
+    def integrate_local_function(self, add_f):
+        """
+        Some documentation here! XXX
+        """
+        drcut = default_spherical_drcut(self.finegd)
+        out_ap = []
+        for spos_c, microsetup, rc_p in zip(
+                self.spos_ac, self.microsetup_a, self.rc_ap):
+            out_p = []
+            for rcut in rc_p:
+                # Determine λ-parameter for the smooth truncation function
+                lambd = find_volume_conserving_lambd(rcut, drcut)
+                # Integrate local function
+                out = self._integrate_pseudo_contribution(
+                    add_f, rcut, drcut, lambd)
+                out += self._integrate_paw_correction(
+                    add_f, rcut, drcut, lambd)
+                out_p.append(out)
+            out_ap.append(out_p)
+        return np.array(out_ap)
+
+    def _integrate_pseudo_contribution(self, add_f, rcut, drcut, lambd):
+        """
+        Some documentation here! XXX
+        """
+        return 1.
+
+    def _integrate_paw_correction(self, add_f, rcut, drcut, lambd):
+        """
+        Some documentation here! XXX
+        """
+        return 0.
