@@ -238,6 +238,31 @@ class MicroSetup:
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
 
+    def evaluate_paw_correction(self, add_f):
+        r"""Evaluate Δf_a[n_a,ñ_a](r) for a given function f(r).
+
+        Returns
+        -------
+        df_ng : nd.array
+            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
+        """
+        rgd = self.rgd
+        f_g = rgd.zeros()
+        ft_g = rgd.zeros()
+        df_ng = np.array([rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            f_g[:] = 0.
+            n_sg = np.dot(Y_L, self.n_sLg)
+            add_f(rgd, n_sg, f_g)
+
+            ft_g[:] = 0.
+            nt_sg = np.dot(Y_L, self.nt_sLg)
+            add_f(rgd, nt_sg, ft_g)
+
+            df_ng[n, :] = f_g - ft_g
+
+        return df_ng
+
 
 def extract_micro_setup(gs, a):
     """Extract the all-electron and pseudo spin-densities inside augmentation
@@ -438,30 +463,7 @@ class LocalPAWFTEngine:
 
     @timer('Calculate PAW correction inside augmentation spheres')
     def _calculate_df(self, micro_setup):
-        r"""Calculate Δf_a[n_a,ñ_a](r).
-
-        Returns
-        -------
-        df_ng : nd.array
-            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
-        """
-        rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
-
-        f_g = rgd.zeros()
-        ft_g = rgd.zeros()
-        df_ng = np.array([rgd.zeros() for n in range(Y_nL.shape[0])])
-        for n, Y_L in enumerate(Y_nL):
-            f_g[:] = 0.
-            n_sg = np.dot(Y_L, micro_setup.n_sLg)
-            self._add_f(rgd, n_sg, f_g)
-
-            ft_g[:] = 0.
-            nt_sg = np.dot(Y_L, micro_setup.nt_sLg)
-            self._add_f(rgd, nt_sg, ft_g)
-
-            df_ng[n, :] = f_g - ft_g
-
-        return df_ng
+        return micro_setup.evaluate_paw_correction(self._add_f)
 
     @staticmethod
     def get_reduced_radial_grid(df_ng, rgd):
