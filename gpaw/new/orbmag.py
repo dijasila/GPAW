@@ -1,5 +1,4 @@
 import numpy as np
-from gpaw.mpi import world
 from gpaw.spinorbit import get_L_vlmm
 
 L_vlii = get_L_vlmm()
