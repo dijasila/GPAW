@@ -2,7 +2,8 @@
 import numpy as np
 
 # GPAW modules
-from gpaw.sphere.integrate import (radial_truncation_function,
+from gpaw.sphere.integrate import (integrate_lebedev,
+                                   radial_truncation_function,
                                    spherical_truncation_function,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
@@ -284,7 +285,7 @@ class AtomicSiteData:
                 out = self._integrate_pseudo_contribution(
                     add_f, spos_c, rcut, drcut, lambd)
                 out += self._integrate_paw_correction(
-                    add_f, rcut, drcut, lambd)
+                    add_f, microsetup, rcut, drcut, lambd)
                 out_p.append(out)
             out_ap.append(out_p)
         return np.array(out_ap)
@@ -303,8 +304,15 @@ class AtomicSiteData:
 
         return self.finegd.integrate(ft_r * theta_r)
 
-    def _integrate_paw_correction(self, add_f, rcut, drcut, lambd):
+    def _integrate_paw_correction(self, add_f, microsetup, rcut, drcut, lambd):
         """
         Some documentation here! XXX
         """
-        return 0.
+        # Evaluate the PAW correction and integrate angular components
+        df_ng = microsetup.evaluate_paw_correction(add_f)
+        df_g = integrate_lebedev(df_ng)
+        # Evaluate the smooth truncation function
+        theta_g = radial_truncation_function(
+            microsetup.rgd.r_g, rcut, drcut, lambd)
+
+        return microsetup.rgd.integrate_trapz(df_g * theta_g)
