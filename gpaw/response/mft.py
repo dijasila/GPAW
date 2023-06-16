@@ -163,3 +163,40 @@ class IsotropicExchangeCalculator:
         chiksr = chiks.copy_reactive_part()
 
         return chiksr
+
+
+class AtomicSiteData:
+    r"""Data object for spherical atomic sites."""
+
+    def __init__(self, gs, indices, radii):
+        """
+        Some documentation here! XXX
+        """
+        assert self._in_valid_site_radii_range(gs, indices, radii),\
+            'Please provide site radii in the valid range, see '\
+            'AtomicSiteData.valid_site_radii_range()'
+
+        # Some data normalization to do XXX
+        self.A_a = indices
+        self.rc_pa = radii
+
+    @staticmethod
+    def _valid_site_radii_range(atoms, rcut_A):
+        # To do XXX
+        return [0.1], [2.0]
+
+    @staticmethod
+    def valid_site_radii_range(gs):
+        """
+        Some documentation here! XXX
+        """
+        return AtomicSiteData._valid_site_radii_range(
+            gs.atoms, gs.get_aug_radii())
+
+    @staticmethod
+    def _in_valid_site_radii_range(gs, indices, radii):
+        rmin_A, rmax_A = AtomicSiteData.valid_site_radii_range(gs)
+        # Actual check to do XXX
+        return 1
+        
+        

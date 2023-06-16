@@ -12,7 +12,7 @@ from gpaw import GPAW
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
-from gpaw.response.mft import IsotropicExchangeCalculator
+from gpaw.response.mft import IsotropicExchangeCalculator, AtomicSiteData
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -227,3 +227,15 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
                        test_mw_qn[:, 1, np.newaxis], rtol=mw_ctol)
     # Check that symmetry toggle do not change the magnon energies
     assert np.allclose(mwuc_qs[1:, 0], mwuc_qs[1:, 1], rtol=mw_ctol)
+
+
+@pytest.mark.response
+def test_Fe_site_magnetization(gpw_files):
+    # Set up ground state adapter
+    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    gs = ResponseGroundStateAdapter(calc)
+
+    # Define atomic site (only one magnetic atom in the unit cell)
+    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
+    atomic_sites = AtomicSiteData(
+        gs, indices=[0], radii=[np.linspace(rmin_a[0], rmax_a[0], 100)])
