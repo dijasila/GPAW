@@ -1,5 +1,7 @@
 from math import pi
 
+import numpy as np
+
 from gpaw.core import UniformGrid
 from gpaw.new import zip
 from gpaw.new.pot_calc import PotentialCalculator
@@ -13,7 +15,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver,
                  nct_aR, nct_R,
-                 interpolation_stencil_range=3):
+                 interpolation_stencil_range=3,
+                 xp=np):
         self.fine_grid = fine_grid
         self.nct_aR = nct_aR
 
@@ -21,18 +24,19 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         atomdist = nct_aR.atomdist
 
         self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac,
-                                                      atomdist)
+                                                      atomdist, xp=xp)
         self.ghat_aLr = setups.create_compensation_charges(fine_grid,
                                                            fracpos_ac,
-                                                           atomdist)
+                                                           atomdist,
+                                                           xp=xp)
 
-        self.vbar_r = fine_grid.empty()
+        self.vbar_r = fine_grid.empty(xp=xp)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
 
         n = interpolation_stencil_range
         self.interpolation_stencil_range = n
-        self.interpolate = wf_grid.transformer(fine_grid, n)
-        self.restrict = fine_grid.transformer(wf_grid, n)
+        self.interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
+        self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
 

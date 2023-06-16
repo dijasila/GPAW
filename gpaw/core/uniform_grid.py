@@ -174,18 +174,18 @@ class UniformGrid(Domain):
                                                 cut=cut,
                                                 xp=xp)
 
-    def transformer(self, other: UniformGrid, stencil_range=3):
+    def transformer(self, other: UniformGrid, stencil_range=3, xp=np):
         """Create transformer from one grid to another.
 
         (for interpolation and restriction).
         """
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, nn=stencil_range).apply
+        apply = Transformer(self._gd, other._gd, nn=stencil_range, xp=xp).apply
 
         def transform(functions, out=None):
             if out is None:
-                out = other.empty(functions.dims, functions.comm)
+                out = other.empty(functions.dims, functions.comm, xp=xp)
             for input, output in zip(functions._arrays(), out._arrays()):
                 apply(input, output)
             return out
