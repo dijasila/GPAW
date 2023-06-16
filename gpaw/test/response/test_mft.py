@@ -235,7 +235,17 @@ def test_Fe_site_magnetization(gpw_files):
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
 
-    # Define atomic site (only one magnetic atom in the unit cell)
+    # Extract valid site radii range
     rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
+    rmin = rmin_a[0]  # Only one magnetic atom in the unit cell
+    rmax = rmax_a[0]
+    # Test that an error is raised outside the valid range
+    with pytest.raises(AssertionError):
+        AtomicSiteData(  # Too small radii
+            gs, indices=[0], radii=[np.linspace(rmin * 0.8, rmin, 5)])
+    with pytest.raises(AssertionError):
+        AtomicSiteData(  # Too large radii
+            gs, indices=[0], radii=[np.linspace(rmax, rmax * 1.2, 5)])
+    # Define atomic sites to span the valid range
     atomic_sites = AtomicSiteData(
         gs, indices=[0], radii=[np.linspace(rmin_a[0], rmax_a[0], 100)])
