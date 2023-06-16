@@ -224,61 +224,10 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
 
-        micro_setups = [self.extract_micro_setup(a)
+        micro_setups = [extract_micro_setup(self.gs, a)
                         for a in range(len(self.gs.atoms))]
 
         return R_av, micro_setups
-
-    def extract_micro_setup(self, a):
-        """Extract the all-electron and pseudo spin-densities inside
-        augmentation sphere a as well as the relevant radial and angular grid
-        data.
-
-        Returns
-        -------
-        micro_setup : MicroSetup
-        """
-        pawdata = self.gs.pawdatasets[a]
-        # Radial grid descriptor:
-        rgd = pawdata.xc_correction.rgd
-        # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = pawdata.xc_correction.Y_nL
-
-        D_sp = self.gs.D_asp[a]  # atomic density matrix
-        n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
-
-        return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
-
-    @staticmethod
-    def calculate_atom_centered_densities(pawdata, D_sp):
-        """Calculate the all-electron and pseudo densities inside the
-        augmentation sphere.
-
-        Returns
-        -------
-        n_sLg : nd.array
-            all-electron density
-        nt_sLg : nd.array
-            pseudo density
-        (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
-        """
-        n_qg = pawdata.xc_correction.n_qg
-        nt_qg = pawdata.xc_correction.nt_qg
-        nc_g = pawdata.xc_correction.nc_g
-        nct_g = pawdata.xc_correction.nct_g
-
-        B_pqL = pawdata.xc_correction.B_pqL
-        D_sLq = np.inner(D_sp, B_pqL.T)
-        nspins = len(D_sp)
-
-        n_sLg = np.dot(D_sLq, n_qg)
-        nt_sLg = np.dot(D_sLq, nt_qg)
-
-        # Add core density
-        n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-        nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-        return n_sLg, nt_sLg
 
 
 class MicroSetup:
@@ -288,6 +237,56 @@ class MicroSetup:
         self.Y_nL = Y_nL
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
+
+
+def extract_micro_setup(gs, a):
+    """Extract the all-electron and pseudo spin-densities inside augmentation
+    sphere a, as well as the relevant radial and angular grid data.
+
+    Returns
+    -------
+    micro_setup : MicroSetup
+    """
+    pawdata = gs.pawdatasets[a]
+    # Radial grid descriptor:
+    rgd = pawdata.xc_correction.rgd
+    # Spherical harmonics on the Lebedev quadrature:
+    Y_nL = pawdata.xc_correction.Y_nL
+
+    D_sp = gs.D_asp[a]  # atomic density matrix
+    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata, D_sp)
+
+    return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
+
+
+def calculate_atom_centered_densities(pawdata, D_sp):
+    """Calculate the AE and pseudo densities inside the augmentation sphere.
+
+    Returns
+    -------
+    n_sLg : nd.array
+        all-electron density
+    nt_sLg : nd.array
+        pseudo density
+    (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
+    """
+    n_qg = pawdata.xc_correction.n_qg
+    nt_qg = pawdata.xc_correction.nt_qg
+    nc_g = pawdata.xc_correction.nc_g
+    nct_g = pawdata.xc_correction.nct_g
+
+    B_pqL = pawdata.xc_correction.B_pqL
+    D_sLq = np.inner(D_sp, B_pqL.T)
+    nspins = len(D_sp)
+
+    n_sLg = np.dot(D_sLq, n_qg)
+    nt_sLg = np.dot(D_sLq, nt_qg)
+
+    # Add core density
+    n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+    nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+
+    return n_sLg, nt_sLg
 
 
 class LocalPAWFTEngine:
