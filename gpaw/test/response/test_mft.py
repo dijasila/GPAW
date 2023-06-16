@@ -7,6 +7,8 @@ import pytest
 import numpy as np
 
 # Script modules
+from ase.units import Bohr
+
 from gpaw import GPAW
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
@@ -239,6 +241,11 @@ def test_Fe_site_magnetization(gpw_files):
     rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
     rmin = rmin_a[0]  # Only one magnetic atom in the unit cell
     rmax = rmax_a[0]
+    # We expect rmax to be equal to the nearest neighbour distance
+    # subtracted with the augmentation sphere radius. For a bcc lattice,
+    # nn_dist = sqrt(3) a / 2:
+    rmax_expected = np.sqrt(3) * 2.867 / 2. - 2.2 * Bohr
+    assert abs(rmax - rmax_expected) < 1e-6
     # Test that an error is raised outside the valid range
     with pytest.raises(AssertionError):
         AtomicSiteData(  # Too small radii
