@@ -172,13 +172,15 @@ class AtomicSiteData:
         """
         Some documentation here! XXX
         """
-        assert self._in_valid_site_radii_range(gs, indices, radii),\
-            'Please provide site radii in the valid range, see '\
-            'AtomicSiteData.valid_site_radii_range()'
+        self.A_a = np.asarray(indices)
 
         # Some data normalization to do XXX
-        self.A_a = indices
+        radii = np.asarray(radii)
         self.rc_pa = radii
+
+        assert self._in_valid_site_radii_range(gs),\
+            'Please provide site radii in the valid range, see '\
+            'AtomicSiteData.valid_site_radii_range()'
 
     @staticmethod
     def _valid_site_radii_range(atoms, rcut_A):
@@ -193,10 +195,14 @@ class AtomicSiteData:
         return AtomicSiteData._valid_site_radii_range(
             gs.atoms, gs.get_aug_radii())
 
-    @staticmethod
-    def _in_valid_site_radii_range(gs, indices, radii):
+    def _in_valid_site_radii_range(self, gs):
         rmin_A, rmax_A = AtomicSiteData.valid_site_radii_range(gs)
-        # Actual check to do XXX
-        return 1
+        for a, A in enumerate(self.A_a):
+            if not np.all(
+                    np.logical_and(
+                        self.rc_pa[:, a] >= rmin_A[A],
+                        self.rc_pa[:, a] <= rmax_A[A])):
+                return False
+        return True
         
         
