@@ -8,7 +8,7 @@ from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
 from gpaw.response.site_kernels import SiteKernels
 
 # ASE modules
-from ase.units import Hartree
+from ase.units import Hartree, Bohr
 
 
 class IsotropicExchangeCalculator:
@@ -174,29 +174,33 @@ class AtomicSiteData:
         """
         self.A_a = np.asarray(indices)
 
-        # Some data normalization to do XXX
-        radii = np.asarray(radii)
-        self.rc_ap = radii
+        # Parse the input atomic radii
+        rc_ap = np.asarray(radii)
+        assert rc_ap.ndim == 2
+        assert rc_ap.shape[0] == len(self.A_a)
+        # Convert radii to internal units (Å to Bohr)
+        self.rc_ap = rc_ap / Bohr
 
         assert self._in_valid_site_radii_range(gs),\
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
     @staticmethod
-    def _valid_site_radii_range(atoms, rcut_A):
+    def _valid_site_radii_range(gs):
         # To do XXX
-        return [0.1], [2.0]
+        return np.array([0.1]), np.array([2.0])
 
     @staticmethod
     def valid_site_radii_range(gs):
         """
         Some documentation here! XXX
         """
-        return AtomicSiteData._valid_site_radii_range(
-            gs.atoms, gs.get_aug_radii())
+        rmin_A, rmax_A = AtomicSiteData._valid_site_radii_range(gs)
+        # Convert to external units (Bohr to Å)
+        return rmin_A * Bohr, rmax_A * Bohr
 
     def _in_valid_site_radii_range(self, gs):
-        rmin_A, rmax_A = AtomicSiteData.valid_site_radii_range(gs)
+        rmin_A, rmax_A = AtomicSiteData._valid_site_radii_range(gs)
         for a, A in enumerate(self.A_a):
             if not np.all(
                     np.logical_and(
