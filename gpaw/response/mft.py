@@ -2,6 +2,8 @@
 import numpy as np
 
 # GPAW modules
+from gpaw.sphere.integrate import default_spherical_drcut
+
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Bxc
@@ -187,8 +189,16 @@ class AtomicSiteData:
 
     @staticmethod
     def _valid_site_radii_range(gs):
-        # To do XXX
-        return np.array([0.1]), np.array([2.0])
+        """For each atom in gs, determine the valid site radii range in Bohr.
+
+        The lower bound is determined by the spherical truncation width, when
+        truncating integrals on the real-space grid.
+        The upper bound is determined by the distance to the nearest
+        augmentation sphere.
+        """
+        atoms = gs.atoms
+        rmin_A = np.array([default_spherical_drcut(gs.gd)] * len(atoms))
+        return rmin_A, np.array([2.0])
 
     @staticmethod
     def valid_site_radii_range(gs):
