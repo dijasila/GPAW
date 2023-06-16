@@ -2,6 +2,8 @@ import numpy as np
 
 from scipy.optimize import minimize
 
+from gpaw.spline import Spline
+from gpaw.lfc import LocalizedFunctionsCollection
 from gpaw.sphere.lebedev import weight_n
 
 
@@ -155,7 +157,7 @@ def radial_truncation_function(r_g, rcut, drcut=None, lambd=None):
         drcut = 2 * abs(r_g[g2] - r_g[g1])
     assert rcut > 0. and drcut > 0. and rcut - drcut / 2. >= 0.
     if lambd is None:
-        lambd = find_volume_conserving_lambd(r_g, rcut, drcut)
+        lambd = find_volume_conserving_lambd(rcut, drcut, r_g)
     assert 0. < lambd and lambd < 1.
     assert np.any(r_g >= rcut + drcut / 2.)
 
@@ -178,7 +180,7 @@ def radial_truncation_function(r_g, rcut, drcut=None, lambd=None):
     return theta_g
 
 
-def find_volume_conserving_lambd(r_g, rcut, drcut):
+def find_volume_conserving_lambd(rcut, drcut, r_g=None):
     r"""Determine the scaling factor λ to conserve the spherical volume.
 
     For a given rc and drc, λ is determined to make θ(r) numerically satisfy:
@@ -188,6 +190,8 @@ def find_volume_conserving_lambd(r_g, rcut, drcut):
        /
        0
     """
+    if r_g is None:
+        r_g = _uniform_radial_grid(rcut, drcut)
     ref = 4 * np.pi * rcut**3. / 3.
 
     def integration_volume_error(lambd):
@@ -207,6 +211,51 @@ def find_volume_conserving_lambd(r_g, rcut, drcut):
 
     return lambd
 
+
+def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
+    r"""Generate truncation function θ(r<rc) for a sphere centered at spos_c.
+
+    The smooth radial truncation function θ(r<rc) is used to generate a
+    smoothly truncated sphere of radius rcut and centered at the scaled
+    position spos_c on the real-space grid described by gd.
+
+    See radial_truncation_function() for the functional form of θ(r<rc).
+    """
+    if drcut is None:
+        drcut = default_spherical_drcut(gd)
+    if lambd is None:
+        lambd = find_volume_conserving_lambd(rcut, drcut)
+
+    # Lay out truncation function on a radial grid and generate spline
+    r_g = _uniform_radial_grid(rcut, drcut)
+    theta_g = radial_truncation_function(r_g, rcut, drcut, lambd)
+    spline = Spline(l=0, rmax=max(r_g),
+                    # The input f_g is the expansion coefficient of the
+                    # requested spherical harmonic for the function in
+                    # question. For l=0, Y = 1/sqrt(4π):
+                    f_g=np.sqrt(4 * np.pi) * theta_g)
+
+    # Evaluate truncation function on the real-space grid
+    lfc = LocalizedFunctionsCollection(gd, [[spline]], dtype=float)
+    lfc.set_positions([spos_c])
+    theta_R = gd.zeros(dtype=float)
+    lfc.add(theta_R)
+
+    return theta_R
+
+
+def default_spherical_drcut(gd):
+    """Define default width for the spherical truncation function."""
+    # Find "diameter" of each grid point volume
+    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
+    # Truncate the sphere smoothly over two such diameters
+    drcut = 2 * diam
+    return drcut
+
+
+def _uniform_radial_grid(rcut, drcut):
+    return np.linspace(0., rcut + 2 * drcut, 251)
+    
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
