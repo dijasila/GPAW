@@ -128,7 +128,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                         dtype=self.grid.dtype,
                         integral=self.integral,
                         forces=True,
-                        cut=self.cut)
+                        cut=self.cut,
+                        xp=self.xp)
         self._lfc.set_positions(self.fracpos_ac)
 
         if self._atomdist is None:
