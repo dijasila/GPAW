@@ -2,7 +2,9 @@
 import numpy as np
 
 # GPAW modules
-from gpaw.sphere.integrate import (default_spherical_drcut,
+from gpaw.sphere.integrate import (radial_truncation_function,
+                                   spherical_truncation_function,
+                                   default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
@@ -280,18 +282,26 @@ class AtomicSiteData:
                 lambd = find_volume_conserving_lambd(rcut, drcut)
                 # Integrate local function
                 out = self._integrate_pseudo_contribution(
-                    add_f, rcut, drcut, lambd)
+                    add_f, spos_c, rcut, drcut, lambd)
                 out += self._integrate_paw_correction(
                     add_f, rcut, drcut, lambd)
                 out_p.append(out)
             out_ap.append(out_p)
         return np.array(out_ap)
 
-    def _integrate_pseudo_contribution(self, add_f, rcut, drcut, lambd):
+    def _integrate_pseudo_contribution(self, add_f, spos_c,
+                                       rcut, drcut, lambd):
         """
         Some documentation here! XXX
         """
-        return 1.
+        # Evaluate the local function on the real-space grid
+        ft_r = self.finegd.zeros()
+        add_f(self.finegd, self.nt_sr, ft_r)
+        # Evaluate the smooth truncation function
+        theta_r = spherical_truncation_function(
+            self.finegd, spos_c, rcut, drcut, lambd)
+
+        return self.finegd.integrate(ft_r * theta_r)
 
     def _integrate_paw_correction(self, add_f, rcut, drcut, lambd):
         """
