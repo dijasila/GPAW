@@ -176,7 +176,7 @@ class AtomicSiteData:
 
         # Some data normalization to do XXX
         radii = np.asarray(radii)
-        self.rc_pa = radii
+        self.rc_ap = radii
 
         assert self._in_valid_site_radii_range(gs),\
             'Please provide site radii in the valid range, see '\
@@ -200,8 +200,8 @@ class AtomicSiteData:
         for a, A in enumerate(self.A_a):
             if not np.all(
                     np.logical_and(
-                        self.rc_pa[:, a] >= rmin_A[A],
-                        self.rc_pa[:, a] <= rmax_A[A])):
+                        self.rc_ap[a] >= rmin_A[A],
+                        self.rc_ap[a] <= rmax_A[A])):
                 return False
         return True
         
