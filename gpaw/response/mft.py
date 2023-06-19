@@ -204,15 +204,23 @@ class AtomicSiteData:
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
-        # Extract the scaled positions of each site
+        # Extract the scaled positions and microsetups for each atomic site
         self.spos_ac = gs.spos_ac[self.A_a]
-
-        # Extract micro setups for each atomic site
         self.microsetup_a = [extract_micro_setup(gs, A) for A in self.A_a]
 
         # Extract pseudo density on the fine real-space grid
         self.finegd = gs.finegd
         self.nt_sr = gs.nt_sr
+
+        # Set up the atomic truncation functions which define the sites
+        self.drcut = default_spherical_drcut(self.finegd)
+        self.lambd_pa = np.array([[find_volume_conserving_lambd(
+                                   rcut, self.drcut)
+                                   for rcut in rc_a] for rc_a in self.rc_pa])
+
+    @property
+    def nsites(self):
+        return len(self.A_a)
 
     @staticmethod
     def _valid_site_radii_range(gs):
@@ -283,61 +291,60 @@ class AtomicSiteData:
         a smooth truncation function θ(|r-r_a|<rc_p):
 
                /
-        f_pa = | dr θ(|r-r_a|<rc_p) f(n(r))
+        f_pa = | dr θ(|r-r_a|<rc_pa) f(n(r))
                /
         """
-        drcut = default_spherical_drcut(self.finegd)
-        out_pa = []
-        for rc_a in self.rc_pa:
-            out_a = []
-            for spos_c, microsetup, rcut in zip(
-                    self.spos_ac, self.microsetup_a, rc_a):
-                # Determine λ-parameter for the smooth truncation function
-                lambd = find_volume_conserving_lambd(rcut, drcut)
-                # Integrate local function
-                out = self._integrate_pseudo_contribution(
-                    add_f, spos_c, rcut, drcut, lambd)
-                out += self._integrate_paw_correction(
-                    add_f, microsetup, rcut, drcut, lambd)
-                out_a.append(out)
-            out_pa.append(out_a)
-        return np.array(out_pa)
+        out_pa = self._integrate_pseudo_contribution(add_f)
+        out_pa += self._integrate_paw_correction(add_f)
+        return out_pa
 
-    def _integrate_pseudo_contribution(self, add_f, spos_c,
-                                       rcut, drcut, lambd):
-        """Calculate the pseudo contribution to an atomic site integral.
+    def _integrate_pseudo_contribution(self, add_f):
+        """Calculate the pseudo contribution to the atomic site integrals.
 
         For local functions of the density, the pseudo contribution is
         evaluated by a numerical integration on the real-space grid:
         
-        ̰       /
-        f_pa = | dr θ(|r-r_a|<rc_p) f(ñ(r))
-               /
+        ̰      /
+        f_pa = | dr θ(|r-r_a|<rc_pa) f(ñ(r))
+              /
         """
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
         add_f(self.finegd, self.nt_sr, ft_r)
-        # Evaluate the smooth truncation function
-        theta_r = spherical_truncation_function(
-            self.finegd, spos_c, rcut, drcut, lambd)
+        out_pa = []
+        for rc_a, lambd_a in zip(self.rc_pa, self.lambd_pa):
+            out_a = []
+            for spos_c, rcut, lambd in zip(self.spos_ac, rc_a, lambd_a):
+                # Evaluate the smooth truncation function
+                theta_r = spherical_truncation_function(
+                    self.finegd, spos_c, rcut, self.drcut, lambd)
+                # Integrate θ(r) f(r) on the real-space grid
+                out_a.append(self.finegd.integrate(theta_r * ft_r))
+            out_pa.append(out_a)
+        return np.array(out_pa)
 
-        return self.finegd.integrate(ft_r * theta_r)
-
-    def _integrate_paw_correction(self, add_f, microsetup, rcut, drcut, lambd):
+    def _integrate_paw_correction(self, add_f):
         """Calculate the PAW correction to an atomic site integral.
 
         The PAW correction is evaluated on the atom centered radial grid, using
         the all-electron and pseudo densities generated from the partial waves:
 
                 /
-        Δf_pa = | dr θ(r<rc_p) [f(n_a(r)) - f(ñ_a(r))]
+        Δf_pa = | dr θ(r<rc_pa) [f(n_a(r)) - f(ñ_a(r))]
                 /
         """
-        # Evaluate the PAW correction and integrate angular components
-        df_ng = microsetup.evaluate_paw_correction(add_f)
-        df_g = integrate_lebedev(df_ng)
-        # Evaluate the smooth truncation function
-        theta_g = radial_truncation_function(
-            microsetup.rgd.r_g, rcut, drcut, lambd)
-
-        return microsetup.rgd.integrate_trapz(df_g * theta_g)
+        out_ap = []
+        for microsetup, rc_p, lambd_p in zip(
+                self.microsetup_a, self.rc_pa.T, self.lambd_pa.T):
+            out_p = []
+            # Evaluate the PAW correction and integrate angular components
+            df_ng = microsetup.evaluate_paw_correction(add_f)
+            df_g = integrate_lebedev(df_ng)
+            for rcut, lambd in zip(rc_p, lambd_p):
+                # Evaluate the smooth truncation function
+                theta_g = radial_truncation_function(
+                    microsetup.rgd.r_g, rcut, self.drcut, lambd)
+                # Integrate θ(r) Δf(r) on the radial grid
+                out_p.append(microsetup.rgd.integrate_trapz(df_g * theta_g))
+            out_ap.append(out_p)
+        return np.array(out_ap).T
