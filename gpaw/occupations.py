@@ -86,7 +86,7 @@ def methfessel_paxton(eig: np.ndarray,
 
 
 def coff_function(n):
-    return (-1)**n / (np.product(np.arange(1, n + 1)) *
+    return (-1)**n / (np.prod(np.arange(1, n + 1)) *
                       4**n * np.sqrt(np.pi))
 
 
