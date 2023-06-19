@@ -735,7 +735,7 @@ class Davidson(object):
                                                          'line search.'
             a_vec_u = self.do_line_search(
                 wfs, dens, ham, n_dim, c_ref, instability)
-        self.etdm.rotate_wavefunctions(wfs, a_vec_u, n_dim, c_ref)
+        self.etdm.rotate_wavefunctions(wfs, a_vec_u, c_ref)
 
     def displace(self, instability):
         a_vec_u = deepcopy(self.etdm.a_vec_u)
