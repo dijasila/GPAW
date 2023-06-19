@@ -379,6 +379,7 @@ class ASECalculator:
         return state.ibzwfs.ibz.kpt_kc.copy()
 
     def get_orbital_magnetization(self):
+        """Return the orbital magnetizaton vector for each atom."""
         from gpaw.new.orbmag import get_orbmag_from_calc
         return get_orbmag_from_calc(self)
 

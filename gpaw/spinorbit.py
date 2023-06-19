@@ -288,6 +288,7 @@ class BZWaveFunctions:
                              broadcast=broadcast)
 
     def get_orbital_magnetization(self):
+        """Return the orbital magnetizaton vector for each atom."""
         from gpaw.new.orbmag import get_orbmag_from_soc_eigs
         return get_orbmag_from_soc_eigs(self)
 
