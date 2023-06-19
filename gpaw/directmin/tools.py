@@ -4,6 +4,7 @@ Tools for directmin
 
 import numpy as np
 import scipy.linalg as lalg
+from copy import deepcopy
 
 
 def expm_ed(a_mat, evalevec=False):
@@ -156,30 +157,6 @@ def minimum_cubic_interpol(x_0, x_1, f_0, f_1, df_0, df_1):
             else:
                 x_min = x_1
 
-    return x_min
-
-
-def minimum_parabola_interpol(x_0, x_1, f_0, f_1, df_0):
-    """
-    given f(x0), f'(x0) and f(x1)
-    calc. x_min where parabola interpolation
-    f(x) = a x^2 + b x + c is minimal
-    :return: x_min
-    """
-    assert x_0 <= x_1
-
-    r = x_1 - x_0
-    a = (f_1 - f_0 - r * df_0) / r ** 2
-    b = df_0
-    c = f_0
-
-    a_min = - b / (2.0 * a)
-    f_min = a * a_min ** 2 + b * a_min + c
-    if f_min > f_1:
-        a_min = x_1 - x_0
-        if f_0 < f_1:
-            a_min = 0
-    x_min = a_min + x_0
     return x_min
 
 
@@ -398,23 +375,31 @@ def array_to_dict(x, dim):
     return y
 
 
-def rotate_orbitals(wfs, orbitals, angle, channel):
+def rotate_orbitals(etdm, wfs, indices, angles, channels):
     """
-    Applies a single rotation between two orbitals.
+    Applies rotations between pairs of orbitals.
 
-    :param wfs:
-    :param orbitals: List of two orbital indices
-    :param angle: Rotation angle (deg.)
-    :param channel: Spin channel of the orbitals
+    :param etdm:       ETDM object for a converged or at least initialized
+                       calculation
+    :param indices:    List of indices. Each element must be a list of an
+                       orbital pair corresponding to the orbital rotation.
+                       For occupied-virtual rotations (unitary invariant or
+                       sparse representations), the first index represents the
+                       occupied, the second the virtual orbital.
+                       For occupied-occupied rotations (sparse representation
+                       only), the first index must always be smaller than the
+                       second.
+    :param angles:     List of angles in radians.
+    :param channels:   List of spin channels.
     """
 
-    a = angle * np.pi / 180.0
-    i = channel
-    c = wfs.kpt_u[i].C_nM.copy()
-    wfs.kpt_u[i].C_nM[orbitals[0]] = \
-        np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
-    wfs.kpt_u[i].C_nM[orbitals[1]] = \
-        np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
+    angles = - np.array(angles) * np.pi / 180.0
+    a_vec_u = get_a_vec_u(etdm, wfs, indices, angles, channels)
+    c = {}
+    for kpt in wfs.kpt_u:
+        k = etdm.kpointval(kpt)
+        c[k] = wfs.kpt_u[k].C_nM.copy()
+    etdm.rotate_wavefunctions(wfs, a_vec_u, c)
 
 
 def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
@@ -447,7 +432,7 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
 
     new_vec_u = {}
     ind_up = etdm.ind_up
-    a_vec_u = etdm.a_vec_u
+    a_vec_u = deepcopy(etdm.a_vec_u)
     conversion = []
     for k in a_vec_u.keys():
         new_vec_u[k] = np.zeros_like(a_vec_u[k])

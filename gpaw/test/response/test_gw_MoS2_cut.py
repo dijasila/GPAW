@@ -39,7 +39,7 @@ def gpwfile(in_tmp_dir):
 
 
 @pytest.mark.response
-def test_response_gw_MoS2_cut(scalapack, gpwfile):
+def test_response_gw_MoS2_cut(scalapack, gpwfile, needs_ase_master):
     gw = G0W0(gpwfile,
               'gw-test',
               nbands=15,

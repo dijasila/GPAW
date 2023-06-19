@@ -53,87 +53,11 @@ from scipy.linalg import inv, sqrtm
 from math import pi
 from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
-from ase.dft.wannier import neighbor_k_search, calculate_weights
+from gpaw.pipekmezey.wannier_basic import md_min, get_atoms_object_from_wfs
+from ase.dft.wannier import (neighbor_k_search, calculate_weights, get_kklst,
+                             get_invkklst)
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.parallel import world, parprint
-
-
-def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
-    if verbose:
-        parprint('Localize with step =', step,
-                 'and tolerance =', tolerance)
-    t = -time()
-    fvalueold = 0.
-    fvalue = fvalueold + 10
-    count = 0
-    V = np.zeros(func.get_gradients().shape, dtype=complex)
-    
-    while abs((fvalue - fvalueold) / fvalue) > tolerance:
-        fvalueold = fvalue
-        dF = func.get_gradients()
-        V *= (dF * V.conj()).real > 0
-        V += step * dF
-        func.step(V)
-        fvalue = func.get_function_value()
-        
-        if fvalue < fvalueold:
-            step *= 0.5
-        count += 1
-        func.niter = count
-        
-        if verbose:
-            parprint('MDmin: iter=%s, step=%s, value=%s'
-                     % (count, step, fvalue))
-    t += time()
-    if verbose:
-        parprint('%d iterations in %0.2f seconds(%0.2f ms/iter),'
-                 ' endstep = %s'
-                 % (count, t, t * 1000. / count, step))
-
-
-def get_kklists(Nk, Gd, Nd, kpt):
-    list_dk = np.zeros((Nd, Nk), int)
-    k0_dk = np.zeros((Nd, Nk, 3), int)
-    kd_c = np.empty(3)
-
-    for c in range(3):
-        sl = np.argsort(kpt[:, c], kind='mergesort')
-        sk_kc = np.take(kpt, sl, axis=0)
-        kd_c[c] = max([sk_kc[n + 1, c] - sk_kc[n, c]
-                       for n in range(Nk - 1)])
-    
-    for d, Gdir in enumerate(Gd):        
-        for k, k_c in enumerate(kpt):
-            G_c = np.where(Gdir > 0, kd_c, 0)
-
-            if max(G_c) < 1e-4:
-                list_dk[d, k] = k
-                k0_dk[d, k] = Gdir
-            else:
-                list_dk[d, k], k0_dk[d, k] = \
-                    neighbor_k_search(k_c, G_c, kpt)
-    
-    return list_dk, k0_dk
-
-
-def get_atoms_object_from_wfs(wfs):
-    from ase.units import Bohr
-    from ase import Atoms
-
-    spos_ac = wfs.spos_ac
-    cell_cv = wfs.gd.cell_cv
-    positions = spos_ac * cell_cv.diagonal() * Bohr
-
-    string = ''
-    for a, atoms in enumerate(wfs.setups):
-        string += atoms.symbol
-
-    atoms = Atoms(string)
-    atoms.positions = positions
-    atoms.cell = cell_cv * Bohr
-
-    return atoms
-
 
 def random_orthogonal(rng, s, dtype=float):
     # Make a random orthogonal matrix of dim s x s,
@@ -145,7 +69,33 @@ def random_orthogonal(rng, s, dtype=float):
 
 
 class PipekMezey:
-    
+    """ General Pipek-Mezey Wannier functions:
+        J. Chem. Theory Comput. 2017, 13, 2, 460–474
+
+        Parameters
+        ----------
+        wfs  : GPAW wfs object
+        calc : GPAW calculator object
+
+        method : string
+           'W' Wigner-Seitz or 'H' Hirshfeld
+
+        penalty : int
+           positive (int) value for maximization (localization)
+           negative (int) value for minimization (delocalized)
+
+        spin  : int
+           spin channel index
+        mu    : float
+           variance for Hirshfeld density
+        dtype : dtype
+           real or cmplx rotation matrix
+        seed  : int
+           seed for random initial guess for unitary matrix
+        ----------
+
+    """
+
     def __init__(self, wfs=None, calc=None,
                  method='W', penalty=2.0, spin=0,
                  mu=None, dtype=None, seed=None):
@@ -219,21 +169,9 @@ class PipekMezey:
         self.wd, self.Gd = calculate_weights(largecell)
         self.Nd = len(self.wd)
 
-        # Get neighbor kpt lists
-        if self.Nk == 1:
-            self.lst_dk = np.zeros((self.Nd, 1), int)
-            k0_dk = self.Gd.reshape(-1, 1, 3)
-        else:
-            self.lst_dk, k0_dk = get_kklists(self.Nk,
-                                             self.Gd,
-                                             self.Nd,
-                                             self.k_kc)
-        #
-        self.invlst_dk = np.empty((self.Nd, self.Nk), int)
-        for d in range(self.Nd):
-            for k1 in range(self.Nk):
-                self.invlst_dk[d, k1] = \
-                    self.lst_dk[d].tolist().index(k1)
+        # Get neighbor kpt list and inverse kpt list
+        self.lst_dk, k0_dk = get_kklst(self.k_kc, self.Gd)
+        self.invlst_dk = get_invkklst(self.lst_dk)
 
         # Using WFa and k-d lists make overlap matrix
         Qadk_nm = np.zeros((self.Na,
@@ -344,7 +282,7 @@ class PipekMezey:
         return WFa
 
     def localize(self, step=0.25, tolerance=1e-8, verbose=False):
-        md_min(self, step, tolerance, verbose, self.gd)
+        md_min(self, step, tolerance, verbose)
 
     def update(self):
         for a in range(self.Na):

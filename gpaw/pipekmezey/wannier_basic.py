@@ -11,85 +11,12 @@ from time import time
 from math import pi
 import numpy as np
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+from ase.dft.wannier import (neighbor_k_search, calculate_weights, gram_schmidt,
+                             get_kklst, get_invkklst)
 from ase.transport.tools import dagger, normalize
+from ase.parallel import parprint
 
 dag = dagger
-
-
-def gram_schmidt(U):
-    """
-    Orthonormalize columns of U according to the Gram-Schmidt proc.
-
-    """
-    for i, col in enumerate(U.T):
-        for col2 in U.T[:i]:
-            col -= col2 * np.dot(col2.conj(), col)
-        col /= np.linalg.norm(col)
-
-
-def gram_schmidt_single(U, n):
-    """Orthogonalize columns of U to column n"""
-    N = len(U.T)
-    v_n = U.T[n]
-    indices = list(range(N))
-    del indices[indices.index(n)]
-    for i in indices:
-        v_i = U.T[i]
-        v_i -= v_n * np.dot(v_n.conj(), v_i)
-
-
-def lowdin(U, S=None):
-    """Orthonormalize columns of U according to the Lowdin procedure.
-
-    If the overlap matrix is know, it can be specified in S.
-    """
-    if S is None:
-        S = np.dot(dag(U), U)
-    eig, rot = np.linalg.eigh(S)
-    rot = np.dot(rot / np.sqrt(eig), dag(rot))
-    U[:] = np.dot(U, rot)
-
-
-def neighbor_k_search(k_c, G_c, kpt_kc, tol=1e-4):
-    # search for k1 (in kpt_kc) and k0 (in alldir), such that
-    # k1 - k - G + k0 = 0
-    alldir_dc = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1],
-                          [1, 1, 0], [1, 0, 1], [0, 1, 1]], int)
-    for k0_c in alldir_dc:
-        for k1, k1_c in enumerate(kpt_kc):
-            if np.linalg.norm(k1_c - k_c - G_c + k0_c) < tol:
-                return k1, k0_c
-
-    print('Wannier: Did not find matching kpoint for kpt=', k_c)
-    print('Probably non-uniform k-point grid')
-    raise NotImplementedError
-
-
-def calculate_weights(cell_cc):
-    """ Weights are used for non-cubic cells, see PRB **61**, 10040"""
-    alldirs_dc = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1],
-                           [1, 1, 0], [1, 0, 1], [0, 1, 1]],
-                          dtype=int)
-    g = np.dot(cell_cc, cell_cc.T)
-    # NOTE: Only first 3 of following 6 weights are presently used:
-    w = np.zeros(6)
-    w[0] = g[0, 0] - g[0, 1] - g[0, 2]
-    w[1] = g[1, 1] - g[0, 1] - g[1, 2]
-    w[2] = g[2, 2] - g[0, 2] - g[1, 2]
-    w[3] = g[0, 1]
-    w[4] = g[0, 2]
-    w[5] = g[1, 2]
-    # Make sure that first 3 Gdir vectors are included -
-    # these are used to calculate Wanniercenters.
-    Gdir_dc = alldirs_dc[:3]
-    weight_d = w[:3]
-    for d in range(3, 6):
-        if abs(w[d]) > 1e-5:
-            Gdir_dc = np.concatenate((Gdir_dc, alldirs_dc[d:d + 1]))
-            weight_d = np.concatenate((weight_d, w[d:d + 1]))
-    weight_d /= max(abs(weight_d))
-    return weight_d, Gdir_dc
-
 
 def random_orthogonal_matrix(dim, rng, real=False):
     """Generate a random orthogonal matrix"""
@@ -105,118 +32,37 @@ def random_orthogonal_matrix(dim, rng, real=False):
         val, vec = np.linalg.eig(H)
         return np.dot(vec * np.exp(1.j * val), dag(vec))
 
-
-def steepest_descent(func, step=.005, tolerance=1e-6, **kwargs):
+def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):   
+    if verbose:                 
+        parprint('Localize with step =', step,
+                 'and tolerance =', tolerance)
+    t = -time()
     fvalueold = 0.
     fvalue = fvalueold + 10
     count = 0
-    while abs((fvalue - fvalueold) / fvalue) > tolerance:
-        fvalueold = fvalue
-        dF = func.get_gradients()
-        func.step(dF * step, **kwargs)
-        fvalue = func.get_functional_value()
-        count += 1
-        print('SteepestDescent: iter=%s, value=%s' % (count, fvalue))
-
-
-def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
-    if verbose:
-        print('Localize with step =', step, 'and tolerance =',
-              tolerance)
-        t = -time()
-    fvalueold = 0.
-    fvalue = fvalueold + 10
-    count = 0
-    V = np.zeros_like(func.get_gradients())
+    V = np.zeros(func.get_gradients().shape, dtype=complex)
+         
     while abs((fvalue - fvalueold) / fvalue) > tolerance:
         fvalueold = fvalue
         dF = func.get_gradients()
         V *= (dF * V.conj()).real > 0
         V += step * dF
         func.step(V, **kwargs)
-        fvalue = func.get_functional_value()
+        fvalue = func.get_function_value()
+         
         if fvalue < fvalueold:
             step *= 0.5
         count += 1
+        func.niter = count
+         
         if verbose:
-            print('MDmin: iter=%s, '
-                  'step=%s, value=%s' % (count, step, fvalue))
+            parprint('MDmin: iter=%s, step=%s, value=%s'
+                     % (count, step, fvalue))
+    t += time()
     if verbose:
-        t += time()
-        print(
-            '%d iterations in %0.2f seconds'
-            ' (%0.2f ms/iter), endstep = %s' % (
-                count, t, t * 1000. / count, step))
-
-
-def rotation_from_projection2(proj_nw, fixed):
-    V_ni = proj_nw
-    Nb, Nw = proj_nw.shape
-    M = fixed
-    L = Nw - M
-    print('M=%i, L=%i, Nb=%i, Nw=%i' % (M, L, Nb, Nw))
-    U_ww = np.zeros((Nw, Nw), dtype=proj_nw.dtype)
-    c_ul = np.zeros((Nb - M, L), dtype=proj_nw.dtype)
-    for V_n in V_ni.T:
-        V_n /= np.linalg.norm(V_n)
-
-    # Find EDF
-    P_ui = V_ni[M:].copy()
-    la = np.linalg
-    for l in range(L):
-        norm_list = np.array([la.norm(v) for v in P_ui.T])
-        perm_list = np.argsort(-norm_list)
-        P_ui = P_ui[:, perm_list].copy()  # largest norm to the left
-        P_ui[:, 0] /= la.norm(P_ui[:, 0])  # normalize
-        c_ul[:, l] = P_ui[:, 0]  # save normalized EDF
-        gram_schmidt_single(P_ui, 0)  # ortho remain. to this EDF
-        P_ui = P_ui[:, 1:].copy()  # remove this EDF
-
-    U_ww[:M] = V_ni[:M, :]
-    U_ww[M:] = np.dot(c_ul.T.conj(), V_ni[M:])
-    gram_schmidt(U_ww)
-    return U_ww, c_ul
-
-
-def rotation_from_projection(proj_nw, fixed, ortho=True):
-    """Determine rotation and coefficient matrices from projections
-
-    proj_nw = <psi_n|p_w>
-    psi_n: eigenstates
-    p_w: localized function
-
-    Nb (n) = Number of bands
-    Nw (w) = Number of wannier functions
-    M  (f) = Number of fixed states
-    L  (l) = Number of extra degrees of freedom
-    U  (u) = Number of non-fixed states
-    """
-
-    Nb, Nw = proj_nw.shape
-    M = fixed
-    L = Nw - M
-
-    U_ww = np.empty((Nw, Nw), dtype=proj_nw.dtype)
-    U_ww[:M] = proj_nw[:M]
-
-    if L > 0:
-        proj_uw = proj_nw[M:]
-        eig_w, C_ww = np.linalg.eigh(np.dot(dag(proj_uw), proj_uw))
-        C_ul = np.dot(proj_uw, C_ww[:, np.argsort(-eig_w.real)[:L]])
-        # eig_u, C_uu = np.linalg.eigh(np.dot(proj_uw, dag(proj_uw)))
-        # C_ul = C_uu[:, np.argsort(-eig_u.real)[:L]]
-
-        U_ww[M:] = np.dot(dag(C_ul), proj_uw)
-    else:
-        C_ul = np.empty((Nb - M, 0))
-
-    normalize(C_ul)
-    if ortho:
-        lowdin(U_ww)
-    else:
-        normalize(U_ww)
-
-    return U_ww, C_ul
+        parprint('%d iterations in %0.2f seconds(%0.2f ms/iter),'
+                 ' endstep = %s'
+                 % (count, t, t * 1000. / count, step))
 
 
 def get_atoms_object_from_wfs(wfs):
@@ -287,52 +133,9 @@ class WannierLocalization:
             calculate_weights(self.largeunitcell_cc)
         self.Ndir = len(self.weight_d)  # Number of directions
 
-        # Set the list of neighboring k-points k1,
-        # and the "wrapping" k0,
-        # such that k1 - k - G + k0 = 0
-        #
-        # Example: kpoints = (-0.375,-0.125,0.125,0.375), dir=0
-        # G = [0.25,0,0]
-        # k=0.375, k1= -0.375 : -0.375-0.375-0.25 => k0 = [1, 0, 0]
-        #
-        # For a gamma point calculation k1 = k = 0,
-        # k0 = [1, 0, 0] for dir = 0
-        if self.Nk == 1:
-            self.kklst_dk = np.zeros((self.Ndir, 1), int)
-            k0_dkc = self.Gdir_dc.reshape(-1, 1, 3)
-        else:
-            self.kklst_dk = np.empty((self.Ndir, self.Nk), int)
-            k0_dkc = np.empty((self.Ndir, self.Nk, 3), int)
-
-            # Distance between kpoints
-            kdist_c = np.empty(3)
-            for c in range(3):
-                # make a sorted list of the kpoint values
-                # in this direction
-                slist = np.argsort(self.kpt_kc[:, c],
-                                   kind='mergesort')
-                skpoints_kc = np.take(self.kpt_kc, slist, axis=0)
-                kdist_c[c] = max(
-                    [skpoints_kc[n + 1, c] - skpoints_kc[n, c]
-                     for n in range(self.Nk - 1)])
-
-            for d, Gdir_c in enumerate(self.Gdir_dc):
-                for k, k_c in enumerate(self.kpt_kc):
-                    # setup dist vector to next kpoint
-                    G_c = np.where(Gdir_c > 0, kdist_c, 0)
-                    if max(G_c) < 1e-4:
-                        self.kklst_dk[d, k] = k
-                        k0_dkc[d, k] = Gdir_c
-                    else:
-                        self.kklst_dk[d, k], k0_dkc[d, k] = \
-                            neighbor_k_search(k_c, G_c, self.kpt_kc)
-
-        # Set the inverse list of neighboring k-points
-        self.invkklst_dk = np.empty((self.Ndir, self.Nk), int)
-        for d in range(self.Ndir):
-            for k1 in range(self.Nk):
-                self.invkklst_dk[d, k1] = self.kklst_dk[
-                    d].tolist().index(k1)
+        # Get neighbor kpt list and inverse kpt list
+        self.kklst_dk, k0_dkc = get_kklst(self.kpt_kc, self.Gdir_dc)
+        self.invkklst_dk = get_invkklst(self.kklst_dk)
 
         Nw = self.nwannier
         Z_dknn = np.zeros((self.Ndir, self.Nk, Nw, Nw),
@@ -355,7 +158,6 @@ class WannierLocalization:
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
 
-                #
                 if self.wfs.mode == 'pw':
                     cmo = self.gd.zeros(Nw, dtype=self.wfs.dtype)
                     cmo1 = self.gd.zeros(Nw, dtype=self.wfs.dtype)
@@ -366,9 +168,6 @@ class WannierLocalization:
                     cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
                     cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
 
-                # cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
-                # cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
-                #
                 e_G = np.exp(-2.j * pi *
                              np.dot(np.indices(self.gd.n_c).T +
                                     self.gd.beg_c,
@@ -447,7 +246,7 @@ class WannierLocalization:
         md_min(self, step, tolerance, verbose=self.verbose,
                updaterot=updaterot)
 
-    def get_functional_value(self):
+    def get_function_value(self):
         """Calculate the value of the spread functional.
 
         ::

@@ -4,6 +4,7 @@ from gpaw import GPAW, LCAO
 from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.tools import rotate_orbitals
 
 from ase import Atoms
 import numpy as np
@@ -42,12 +43,18 @@ def test_mom_directopt_lcao(in_tmp_dir):
     prepare_mom_calculation(calc, H2O, f_sn)
 
     def rotate_homo_lumo(calc=calc):
-        a = 70 / 180 * np.pi
+        angle = 70
         iters = calc.get_number_of_iterations()
         if iters == 3:
-            c = calc.wfs.kpt_u[0].C_nM.copy()
-            calc.wfs.kpt_u[0].C_nM[3] = np.cos(a) * c[3] + np.sin(a) * c[4]
-            calc.wfs.kpt_u[0].C_nM[4] = np.cos(a) * c[4] - np.sin(a) * c[3]
+            # Exercise rotate_orbitals
+            C_M_old = calc.wfs.kpt_u[0].C_nM.copy()
+            rotate_orbitals(calc.wfs.eigensolver, calc.wfs,
+                            [[3, 4]], [angle], [0])
+            angle *= np.pi / 180.0
+            C_M_new = np.cos(angle) * C_M_old[3] + np.sin(angle) * C_M_old[4]
+            assert calc.wfs.kpt_u[0].C_nM[3] == \
+                   pytest.approx(C_M_new, abs=1e-4)
+
             counter = calc.wfs.eigensolver.update_ref_orbs_counter
             calc.wfs.eigensolver.update_ref_orbs_counter = iters + 1
             calc.wfs.eigensolver.update_ref_orbitals(calc.wfs,
