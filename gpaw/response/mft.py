@@ -8,6 +8,7 @@ from gpaw.sphere.integrate import (integrate_lebedev,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
+from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
@@ -177,11 +178,19 @@ class IsotropicExchangeCalculator:
 class AtomicSiteData:
     r"""Data object for spherical atomic sites."""
 
-    def __init__(self, gs, indices, radii):
-        """
-        Some documentation here! XXX
+    def __init__(self, gs: ResponseGroundStateAdapter,
+                 indices, radii):
+        """Construct the atomic site data object from a ground state adapter.
+
+        Parameters
+        ----------
+        indices : 1D array-like
+            Atomic index A for each site index a.
+        radii : 2D array-like
+            Atomic radius rc for each site partitioning p and site index a.
         """
         self.A_a = np.asarray(indices)
+        assert self.A_a.ndim == 1
         assert len(np.unique(self.A_a)) == len(self.A_a)
 
         # Parse the input atomic radii
@@ -263,15 +272,19 @@ class AtomicSiteData:
         return True
         
     def calculate_magnetic_moments(self):
-        """
-        Some documentation here! XXX
-        """
+        """Calculate the magnetic moments for each site partitioning."""
         magmom_pa = self.integrate_local_function(add_magnetization)
         return magmom_pa
 
     def integrate_local_function(self, add_f):
-        """
-        Some documentation here! XXX
+        r"""Integrate a local function f[n](r) = f(n(r)) over the atomic sites.
+
+        For every partitioning p and site index a, the integral is defined via
+        a smooth truncation function θ(|r-r_a|<rc_p):
+
+               /
+        f_pa = | dr θ(|r-r_a|<rc_p) f(n(r))
+               /
         """
         drcut = default_spherical_drcut(self.finegd)
         out_pa = []
@@ -292,8 +305,14 @@ class AtomicSiteData:
 
     def _integrate_pseudo_contribution(self, add_f, spos_c,
                                        rcut, drcut, lambd):
-        """
-        Some documentation here! XXX
+        """Calculate the pseudo contribution to an atomic site integral.
+
+        For local functions of the density, the pseudo contribution is
+        evaluated by a numerical integration on the real-space grid:
+        
+        ̰       /
+        f_pa = | dr θ(|r-r_a|<rc_p) f(ñ(r))
+               /
         """
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
@@ -305,8 +324,14 @@ class AtomicSiteData:
         return self.finegd.integrate(ft_r * theta_r)
 
     def _integrate_paw_correction(self, add_f, microsetup, rcut, drcut, lambd):
-        """
-        Some documentation here! XXX
+        """Calculate the PAW correction to an atomic site integral.
+
+        The PAW correction is evaluated on the atom centered radial grid, using
+        the all-electron and pseudo densities generated from the partial waves:
+
+                /
+        Δf_pa = | dr θ(r<rc_p) [f(n_a(r)) - f(ñ_a(r))]
+                /
         """
         # Evaluate the PAW correction and integrate angular components
         df_ng = microsetup.evaluate_paw_correction(add_f)
