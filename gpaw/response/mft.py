@@ -185,11 +185,11 @@ class AtomicSiteData:
         assert len(np.unique(self.A_a)) == len(self.A_a)
 
         # Parse the input atomic radii
-        rc_ap = np.asarray(radii)
-        assert rc_ap.ndim == 2
-        assert rc_ap.shape[0] == len(self.A_a)
+        rc_pa = np.asarray(radii)
+        assert rc_pa.ndim == 2
+        assert rc_pa.shape[1] == len(self.A_a)
         # Convert radii to internal units (Å to Bohr)
-        self.rc_ap = rc_ap / Bohr
+        self.rc_pa = rc_pa / Bohr
 
         assert self._in_valid_site_radii_range(gs),\
             'Please provide site radii in the valid range, see '\
@@ -257,8 +257,8 @@ class AtomicSiteData:
         for a, A in enumerate(self.A_a):
             if not np.all(
                     np.logical_and(
-                        self.rc_ap[a] > rmin_A[A] - 1e-8,
-                        self.rc_ap[a] < rmax_A[A] + 1e-8)):
+                        self.rc_pa[:, a] > rmin_A[A] - 1e-8,
+                        self.rc_pa[:, a] < rmax_A[A] + 1e-8)):
                 return False
         return True
         
@@ -266,19 +266,19 @@ class AtomicSiteData:
         """
         Some documentation here! XXX
         """
-        magmom_ap = self.integrate_local_function(add_magnetization)
-        return magmom_ap
+        magmom_pa = self.integrate_local_function(add_magnetization)
+        return magmom_pa
 
     def integrate_local_function(self, add_f):
         """
         Some documentation here! XXX
         """
         drcut = default_spherical_drcut(self.finegd)
-        out_ap = []
-        for spos_c, microsetup, rc_p in zip(
-                self.spos_ac, self.microsetup_a, self.rc_ap):
-            out_p = []
-            for rcut in rc_p:
+        out_pa = []
+        for rc_a in self.rc_pa:
+            out_a = []
+            for spos_c, microsetup, rcut in zip(
+                    self.spos_ac, self.microsetup_a, rc_a):
                 # Determine λ-parameter for the smooth truncation function
                 lambd = find_volume_conserving_lambd(rcut, drcut)
                 # Integrate local function
@@ -286,9 +286,9 @@ class AtomicSiteData:
                     add_f, spos_c, rcut, drcut, lambd)
                 out += self._integrate_paw_correction(
                     add_f, microsetup, rcut, drcut, lambd)
-                out_p.append(out)
-            out_ap.append(out_p)
-        return np.array(out_ap)
+                out_a.append(out)
+            out_pa.append(out_a)
+        return np.array(out_pa)
 
     def _integrate_pseudo_contribution(self, add_f, spos_c,
                                        rcut, drcut, lambd):

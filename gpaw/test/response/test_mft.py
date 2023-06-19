@@ -251,20 +251,25 @@ def test_Fe_site_magnetization(gpw_files):
     assert abs(rmax - rmax_expected) < 1e-6
     # Test that an error is raised outside the valid range
     with pytest.raises(AssertionError):
-        AtomicSiteData(  # Too small radii
-            gs, indices=[0], radii=[np.linspace(rmin * 0.8, rmin, 5)])
+        AtomicSiteData(
+            gs, indices=[0],
+            # Too small radii
+            radii=np.array([np.linspace(rmin * 0.8, rmin, 5)]).T)
     with pytest.raises(AssertionError):
-        AtomicSiteData(  # Too large radii
-            gs, indices=[0], radii=[np.linspace(rmax, rmax * 1.2, 5)])
+        AtomicSiteData(
+            gs, indices=[0],
+            # Too large radii
+            radii=np.array([np.linspace(rmax, rmax * 1.2, 5)]).T)
     # Define atomic sites to span the valid range
     rc_r = np.linspace(rmin_a[0], rmax_a[0], 100)
     # Add the radius of the augmentation sphere explicitly
     rc_r = np.append(rc_r, [augr * Bohr])
-    atomic_sites = AtomicSiteData(gs, indices=[0], radii=[rc_r])
+    rc_ra = np.array([rc_r]).T
+    atomic_sites = AtomicSiteData(gs, indices=[0], radii=rc_ra)
 
     # Calculate site magnetization
-    magmom_ar = atomic_sites.calculate_magnetic_moments()
-    magmom_r = magmom_ar[0]
+    magmom_ra = atomic_sites.calculate_magnetic_moments()
+    magmom_r = magmom_ra[:, 0]
 
     # Test that a cutoff at the augmentation sphere radius reproduces
     # the local magnetic moment of the GPAW calculation
