@@ -503,10 +503,11 @@ class ETDM:
                     self.get_energy_and_gradients(
                         a_vec_u, ham, wfs, dens, c_ref)
             else:
-                g_vec_u = self.g_vec_u_original if self.gmf else self.g_vec_u
+                g_vec_u = self.g_vec_u_original if self.gmf \
+                    and not self.subspace_optimization else self.g_vec_u
 
             make_pd = False
-            if self.gmf:
+            if self.gmf and not self.subspace_optimization:
                 with wfs.timer('Partial Hessian diagonalization'):
                     self.searchdir_algo.update_eigenpairs(
                         g_vec_u, wfs, ham, dens)
@@ -521,7 +522,8 @@ class ETDM:
                 # calculate search direction according to chosen
                 # optimization algorithm (e.g. L-BFGS)
                 p_vec_u = self.searchdir_algo.update_data(
-                    wfs, a_vec_u, g_vec_u, precond=precond)
+                    wfs, a_vec_u, g_vec_u, precond=precond,
+                    subspace=self.subspace_optimization)
 
             # recalculate derivative with new search direction
             der_phi_2i[0] = 0.0
@@ -663,7 +665,7 @@ class ETDM:
 
             # If GMF is used save the original gradient and invert the parallel
             # projection onto the eigenvectors with negative eigenvalues
-            if self.gmf:
+            if self.gmf and not self.subspace_optimization:
                 self.g_vec_u_original = deepcopy(g_vec_u)
                 g_vec_u = self.searchdir_algo.invert_parallel_grad(g_vec_u)
 

@@ -33,7 +33,8 @@ class SearchDirectionBase(object):
                                   'method.')
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
         raise NotImplementedError('Search direction class needs '
                                   '\'update_data\' method.')
 
@@ -165,8 +166,10 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         return res
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
-        g_k1 = self.invert_parallel_grad(g_k1)
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
+        if not subspace:
+            g_k1 = self.invert_parallel_grad(g_k1)
         return self.sd.update_data(wfs, x_k1, g_k1, dimensions=dimensions,
                                    precond=precond, mode=mode)
 
@@ -189,7 +192,8 @@ class SteepestDescent(SearchDirectionBase):
         return {'name': self.name}
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
 
         if precond is None:
             p_k = minus(g_k1)
@@ -218,7 +222,8 @@ class FRcg(SteepestDescent):
         return {'name': self.name}
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
 
         if precond is not None:
             g_k1 = apply_prec(precond, g_k1, 1.0, wfs, mode)
@@ -270,7 +275,8 @@ class LBFGS(SearchDirectionBase):
                 'memory': self.memory}
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
 
         self.iters += 1
 
@@ -391,7 +397,8 @@ class LBFGS_P(SearchDirectionBase):
                 'beta_0': self.beta_0}
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
         # For L-BFGS-P, the preconditioner passed here has to be differentiated
         # from the preconditioner passed in ETDM. To keep the UI of this member
         # function consistent, the term precond is still used in the signature
@@ -532,7 +539,8 @@ class LSR1P(SearchDirectionBase):
                 'method': self.method}
 
     def update_data(
-            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None):
+            self, wfs, x_k1, g_k1, dimensions=None, precond=None, mode=None,
+            subspace=False):
 
         if precond is not None:
             bg_k1 = apply_prec(precond, g_k1, 1.0, wfs, mode)
