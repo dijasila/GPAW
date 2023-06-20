@@ -1,6 +1,6 @@
-r"""This module calculates the orbital magnet moment vector for each atom.
+r"""This module calculates the orbital magnetic moment vector for each atom.
 
-The orbital magnet moment is calculated in the atom-centred approximation
+The orbital magnetic moment is calculated in the atom-centred approximation
 where only the PAW correction to the wave function is assumed to contribute.
 This leads to the equation (presented in SI units):
 
