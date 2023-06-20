@@ -2,15 +2,13 @@
 
 Check that calculate_gradient is capable of reading stuff properly.
 """
+import ase.units as units
 import numpy as np
 import pytest
-
 from ase.build import bulk
-import ase.units as units
-
 from gpaw import GPAW
-from gpaw.elph import DisplacementRunner
-from gpaw.elph import Supercell
+from gpaw.elph import DisplacementRunner, Supercell
+from gpaw.mpi import world
 
 
 @pytest.mark.elph
@@ -32,6 +30,10 @@ def test_gradient(in_tmp_dir):
                               calculate_forces=False)
     elph.indices = []
     elph.run()
+
+    # Barrier will be included in elph.run() in the future:
+    # https://gitlab.com/ase/ase/-/merge_requests/2903
+    world.barrier()
 
     Vt_sG = elph.cache['eq']['Vt_sG']
     dH_all_asp = elph.cache['eq']['dH_all_asp']

@@ -226,7 +226,7 @@ class PairFunctionIntegrator(ABC):
             disable_time_reversal=self.disable_time_reversal,
             disable_non_symmorphic=self.disable_non_symmorphic)
 
-    def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
+    def get_band_and_spin_transitions(self, spincomponent, nbands=None,
                                       bandsummation='pairwise'):
         """Get band and spin transitions (n, s) -> (n', s') to integrate."""
         nspins = self.gs.nspins
@@ -238,7 +238,7 @@ class PairFunctionIntegrator(ABC):
         assert nbands <= gsnbands
 
         transitions = PairTransitions.from_transitions_domain_arguments(
-            spin_rotation, nbands, nocc1, nocc2, nspins, bandsummation)
+            spincomponent, nbands, nocc1, nocc2, nspins, bandsummation)
 
         return transitions
 

@@ -163,6 +163,7 @@ class DOSCalculator:
         filename: str
             Name of restart-file or GPAW calculator object.
         """
+        from gpaw.calculator import GPAW
         if not isinstance(filename, (str, Path)):
             calc = filename
         else:

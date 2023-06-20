@@ -337,7 +337,6 @@ class Chi(LatticePeriodicPairFunction):
             (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
         assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
             'Spin-density operators has to be each others hermitian conjugates'
-
         chiksr = self.new(distribution='zGG')
         chiks_zGG = self.array
         chiksr.array += chiks_zGG
@@ -345,6 +344,37 @@ class Chi(LatticePeriodicPairFunction):
         chiksr.array /= 2.
 
         return chiksr
+
+    def copy_dissipative_part(self):
+        r"""Return a copy of the dissipative part of the susceptibility.
+
+        The dissipative part of the susceptibility is defined as (see
+        [PRB 103, 245110 (2021)]):
+
+                           1
+        χ_GG'^(μν")(q,z) = ‾‾ [χ_GG'^μν(q,z) - χ_(-G'-G)^νμ(-q,-z*)].
+                           2i
+
+        Similar to the reactive part, this expression reduces to the
+        anti-Hermitian part of the susceptibility in terms of the plane-wave
+        basis, whenever the density operators n^μ(r) and n^ν(r) are each others
+        Hermitian conjugates:
+
+                           1
+        χ_GG'^(μν")(q,z) = ‾‾ [χ_GG'^μν(q,z) - χ_G'G^(μν*)(q,z)].
+                           2i
+        """
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
+        chiksd = self.new(distribution='zGG')
+        chiks_zGG = self.array
+        chiksd.array += chiks_zGG
+        chiksd.array -= np.conj(np.transpose(chiks_zGG, (0, 2, 1)))
+        chiksd.array /= 2.j
+
+        return chiksd
 
     def symmetrize_reciprocity(self):
         r"""Symmetrize the reciprocity of the susceptibility (for q=0).
@@ -358,7 +388,10 @@ class Chi(LatticePeriodicPairFunction):
         For q=0, we may symmetrize the susceptibility in this sense for free.
         """
         assert np.allclose(self.q_c, 0.)
-        assert self.distribution == 'zGG' or self.blocks1d.blockcomm.size == 1
+        assert self.distribution == 'zGG' or \
+            (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+            'Spin-density operators has to be each others hermitian conjugates'
         invmap_GG = get_inverted_pw_mapping(self.qpd, self.qpd)
         for chi_GG in self.array:
             # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2

@@ -220,7 +220,9 @@ class DFTComponentsBuilder:
         mixer = MixerWrapper(
             get_mixer_from_keywords(self.atoms.pbc.any(),
                                     self.ncomponents, **self.params.mixer),
-            self.ncomponents, self.grid._gd)
+            self.ncomponents,
+            self.grid._gd,
+            world=self.communicators['w'])
 
         occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
