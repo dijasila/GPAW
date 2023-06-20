@@ -392,7 +392,7 @@ class Kmatrix:
                 # Write only lower triangle of K-matrix
                 for [i, p, j, q, Kipjq] in K:
                     self.Kfile.write("%5d %5d %5d %5d %22.16lf\n" %
-                                     (i, p, j, q, Kipjq))
+                                     (i, p, j, q, Kipjq[0]))
                 self.Kfile.flush()  # flush K-matrix before ready_rows
 
                 # Write and flush ready rows
