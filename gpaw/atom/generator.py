@@ -359,7 +359,7 @@ class Generator(AllElectron):
 
                 coefs.append(a)
                 if nodeless:
-                    if not np.alltrue(s[1:gc] > 0.0):
+                    if not (s[1:gc] > 0.0).all():
                         raise RuntimeError(
                             'Error: The %d%s pseudo wave has a node!' %
                             (n_ln[l][0], 'spdf'[l]))
