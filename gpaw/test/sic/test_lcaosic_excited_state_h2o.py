@@ -30,9 +30,11 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
-                occupations={'name': 'mom', 'numbers': f_sn, 'use_fixed_occupations': True},
+                occupations={'name': 'mom', 'numbers': f_sn,
+                             'use_fixed_occupations': True},
                 eigensolver=ETDM(localizationtype='PM_PZ',
                                  localizationseed=42,
+                                 subspace_convergence=1e-2,
                                  functional_settings={
                                      'name': 'PZ-SIC',
                                      'scaling_factor': \
@@ -52,12 +54,17 @@ def test_lcaosic_h2o(in_tmp_dir):
     dave = Davidson(calc.wfs.eigensolver, None)
     appr_sp_order = dave.estimate_sp_order(calc)
     calc.set(eigensolver=ETDM(
-        partial_diagonalizer={'name': 'Davidson', 'logfile': None, 'seed': 42},
+        partial_diagonalizer={
+            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-1},
         linesearch_algo={'name': 'max-step'},
         searchdir_algo={'name': 'LBFGS-P_GMF'},
+        functional_settings={'name': 'PZ-SIC', 'scaling_factor': (0.5, 0.5)},
         need_init_orbs=False),
         occupations={'name': 'mom', 'numbers': f_sn,
                      'use_fixed_occupations': True})
+
+    e = H2O.get_potential_energy()
+    f = H2O.get_forces()
 
     numeric = False
     if numeric:
