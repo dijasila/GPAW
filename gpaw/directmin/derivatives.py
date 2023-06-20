@@ -647,7 +647,7 @@ class Davidson(object):
         self.logger('\nResidual maximum components:\n', flush=True)
         self.logger(indices, flush=True)
         text = ''
-        temp = list(np.round_(deepcopy(self.error_e), 6))
+        temp = list(np.round(deepcopy(self.error_e), 6))
         for i in range(self.l):
             text += '%10s '
             temp[i] = str(temp[i])
