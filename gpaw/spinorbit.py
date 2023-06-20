@@ -287,8 +287,8 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
-    def get_orbital_magnetization(self):
-        """Return the orbital magnetizaton vector for each atom."""
+    def get_orbital_magnetic_moments(self):
+        """Return the orbital magnetic moment vector for each atom."""
         from gpaw.new.orbmag import get_orbmag_from_soc_eigs
         return get_orbmag_from_soc_eigs(self)
 
