@@ -2,6 +2,9 @@ import pytest
 
 from gpaw import GPAW, LCAO
 from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.tools import excite
+from gpaw.directmin.derivatives import Davidson
+from gpaw.mom import prepare_mom_calculation
 from ase import Atoms
 import numpy as np
 
@@ -35,18 +38,17 @@ def test_lcaosic_h2o(in_tmp_dir):
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
+                spinpol=True,
                 symmetry='off'
                 )
     H2O.calc = calc
-    e = H2O.get_potential_energy()
-    f = H2O.get_forces()
+    H2O.get_potential_energy()
 
-    assert e == pytest.approx(-12.16352, abs=1e-3)
+    f_sn = excite(calc, 0, 0, spin=(0, 0))
+    prepare_mom_calculation(calc, H2O, f_sn)
 
-    f2 = np.array([[-4.21747862, -4.63118948, 0.00303988],
-                   [5.66636141, -0.51037693, -0.00049136],
-                   [-1.96478031, 5.4043045, -0.0006107]])
-    assert f2 == pytest.approx(f, abs=0.1)
+    dave = Davidson(calc.wfs.eigensolver, None)
+    appr_sp_order = dave.estimate_sp_order(calc)
 
     numeric = False
     if numeric:
@@ -58,11 +60,7 @@ def test_lcaosic_h2o(in_tmp_dir):
         print(f_num)
         print(f - f_num, np.abs(f - f_num).max())
 
-    calc.write('h2o.gpw', mode='all')
-    from gpaw import restart
-    H2O, calc = restart('h2o.gpw', txt='-')
-    H2O.positions += 1.0e-6
-    f3 = H2O.get_forces()
-    niter = calc.get_number_of_iterations()
-    assert niter == pytest.approx(4, abs=3)
+
     assert f2 == pytest.approx(f3, abs=0.1)
+
+test_lcaosic_h2o(0)
