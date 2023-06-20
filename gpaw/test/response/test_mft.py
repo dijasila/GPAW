@@ -296,3 +296,27 @@ def test_Fe_site_magnetization(gpw_files):
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
     # plt.show()
+
+
+@pytest.mark.response
+def test_Co_site_data(gpw_files):
+    # Set up ground state adapter
+    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    gs = ResponseGroundStateAdapter(calc)
+
+    # Extract valid site radii range
+    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
+    # The valid ranges should be equal due to symmetry
+    assert abs(rmin_a[1] - rmin_a[0]) < 1e-8
+    assert abs(rmax_a[1] - rmax_a[0]) < 1e-8
+    rmin = rmin_a[0]
+    rmax = rmax_a[0]
+    # We expect rmax to be equal to the nearest neighbour distance
+    # subtracted with the augmentation sphere radius. For the hcp-lattice,
+    # nn_dist = min(a, sqrt(a^2/3 + c^2/4)):
+    augr_a = gs.get_aug_radii()
+    assert abs(augr_a[1] - augr_a[0]) < 1e-8
+    augr = augr_a[0]
+    rmax_expected = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
+    rmax_expected -= augr * Bohr
+    assert abs(rmax - rmax_expected) < 1e-6
