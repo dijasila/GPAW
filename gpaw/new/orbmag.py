@@ -12,7 +12,8 @@ This leads to the equation
    orb,v     2m  ===  ===   kn  \ knsi/  knsj  vij
                  kn   sij
 
-NB: The negative sign is neglected in the actual calculation as a convention.
+NB: As a convention, the orbital magnetization is described from electronic
+charge q = -e, i.e. without the negative sign.
 
 The orbital magnetization is returned in units of μ_B as an array, orbmag_av,
  where a and v are indices for atoms and Cartesian axes, respectively.
