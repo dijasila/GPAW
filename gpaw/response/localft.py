@@ -621,7 +621,8 @@ def add_LSDA_spin_splitting(gd, n_sR, Δxc_R):
 
     Δ^(xc)(r) = - 2 B^(xc)(r) m(r).
     """
-    Δxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) * calculate_magnetization(n_sR)
+    Δxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) \
+        * calculate_magnetization(n_sR)
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):

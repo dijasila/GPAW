@@ -360,7 +360,7 @@ def test_Co_site_data(gpw_files):
 
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
-    # plt.plot(rc_r, magmom_ar[0, :nr-1])
+    # plt.plot(rc_r, magmom_ar[0, :nr - 1])
     # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
