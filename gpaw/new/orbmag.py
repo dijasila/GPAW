@@ -12,9 +12,7 @@ This leads to the equation (presented in SI units):
    orb,v     2m  ===  ===   kn  \ knsi/  knsj  vij
                  kn   sij
 
-      a
-with L    containing the matrix elements of the angular momentum operator
-      vij
+with L_vij containing the matrix elements of the angular momentum operator
 between two partial waves.
 
 NB: As a convention, the orbital magnetization is returned without the sign of
@@ -28,7 +26,7 @@ import numpy as np
 
 from gpaw.spinorbit import get_L_vlmm
 
-L_vlii = get_L_vlmm()
+L_vlmm = get_L_vlmm()
 
 
 def get_orbmag_from_calc(calc):
@@ -70,16 +68,21 @@ def get_orbmag_from_soc_eigs(soc):
 
 
 def calculate_orbmag_1k(f_n, P_nsi, l_j):
-    """Calculate contribution to orbital magnetization for a single k-point."""
+    """Calculate contribution to orbital magnetization for a single k-point.
+
+    Only partial waves with the same radial function (j index) may yield
+    nonzero contributions, so the sum can be limited to diagonal blocks
+    of shape [2 * l_j + 1, 2 * l_j +1] where l_j is the angular momentum
+    quantum number of the j'th radial function."""
     orbmag_v = np.zeros(3)
     Ni = 0
     for l in l_j:
-        Nl = 2 * l + 1
+        Nm = 2 * l + 1
         for v in range(3):
             orbmag_v[v] += np.einsum('nsi,nsj,n,ij->',
-                                     P_nsi[:, :, Ni:Ni + Nl].conj(),
-                                     P_nsi[:, :, Ni:Ni + Nl],
-                                     f_n, L_vlii[v][l]).real
-        Ni += Nl
+                                     P_nsi[:, :, Ni:Ni + Nm].conj(),
+                                     P_nsi[:, :, Ni:Ni + Nm],
+                                     f_n, L_vlmm[v][l]).real
+        Ni += Nm
 
     return orbmag_v
