@@ -12,7 +12,8 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
-                                   add_magnetization, extract_micro_setup)
+                                   add_magnetization, add_LSDA_spin_splitting,
+                                   extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
 
 # ASE modules
@@ -291,6 +292,11 @@ class AtomicSiteData:
         """Calculate the magnetic moments at each atomic site."""
         magmom_ap = self.integrate_local_function(add_magnetization)
         return magmom_ap
+
+    def calculate_spin_splitting(self):
+        r"""Calculate the spin splitting Δ^(xc) for each atomic site."""
+        Δxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
+        return Δxc_ap * Hartree  # return the splitting in eV
 
     def integrate_local_function(self, add_f):
         r"""Integrate a local function f[n](r) = f(n(r)) over the atomic sites.

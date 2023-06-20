@@ -322,7 +322,7 @@ def test_Co_site_data(gpw_files):
     assert abs(rmax - rmax_expected) < 1e-6
 
     # Use radii spanning the entire valid range
-    rc_r = np.linspace(rmin, rmax, 100)
+    rc_r = np.linspace(rmin, rmax, 101)
     # Add the radius of the augmentation sphere explicitly
     rc_r = np.append(rc_r, [augr * Bohr])
     nr = len(rc_r)
@@ -345,3 +345,28 @@ def test_Co_site_data(gpw_files):
     assert magmom_ar[0, 2 * nr:] == pytest.approx([magmom_ar[0, -1]] * nr)
     assert magmom_ar[1, nr:2 * nr] == pytest.approx([magmom_ar[1, -1]] * nr)
     assert magmom_ar[1, 2 * nr:] == pytest.approx(magmom_ar[1, :nr])
+
+    # Calculate the atomic spin splitting
+    rc_r = rc_r[:-1]
+    atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
+    Δxc_ar = atomic_sites.calculate_spin_splitting()
+    print(Δxc_ar[0, ::20])
+
+    # Test that the spin splitting comes out as expected
+    assert Δxc_ar[0] == pytest.approx(Δxc_ar[1])
+    assert Δxc_ar[0, ::20] == pytest.approx([0.08480429, 1.54950144,
+                                             2.52780679, 2.79983388,
+                                             2.82746363, 2.8367686], rel=1e-3)
+
+    # import matplotlib.pyplot as plt
+    # plt.subplot(1, 2, 1)
+    # plt.plot(rc_r, magmom_ar[0, :nr-1])
+    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
+    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
+    # plt.subplot(1, 2, 2)
+    # plt.plot(rc_r, Δxc_ar[0])
+    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
+    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
+    # plt.show()
