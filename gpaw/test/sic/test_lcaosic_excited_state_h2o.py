@@ -34,7 +34,6 @@ def test_lcaosic_h2o(in_tmp_dir):
                              'use_fixed_occupations': True},
                 eigensolver=ETDM(localizationtype='PM_PZ',
                                  localizationseed=42,
-                                 subspace_convergence=1e-2,
                                  functional_settings={
                                      'name': 'PZ-SIC',
                                      'scaling_factor': \
@@ -55,7 +54,8 @@ def test_lcaosic_h2o(in_tmp_dir):
     appr_sp_order = dave.estimate_sp_order(calc)
     calc.set(eigensolver=ETDM(
         partial_diagonalizer={
-            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-1},
+            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-1,
+            'remember_sp_order': True, 'sp_order': appr_sp_order, 'm': 30},
         linesearch_algo={'name': 'max-step'},
         searchdir_algo={'name': 'LBFGS-P_GMF'},
         functional_settings={'name': 'PZ-SIC', 'scaling_factor': (0.5, 0.5)},

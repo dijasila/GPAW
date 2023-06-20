@@ -785,7 +785,8 @@ class ETDM:
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
-                if not sort_eigenvalues:
+                if not sort_eigenvalues \
+                        or self.dm_helper.func.name == 'PZ-SIC':
                     self.sort_orbitals_mom(wfs)
                 else:
                     self.sort_orbitals(ham, wfs, use_eps=True)
