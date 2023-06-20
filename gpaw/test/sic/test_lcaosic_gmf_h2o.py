@@ -2,6 +2,9 @@ import pytest
 
 from gpaw import GPAW, LCAO
 from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.tools import excite
+from gpaw.directmin.derivatives import Davidson
+from gpaw.mom import prepare_mom_calculation
 from ase import Atoms
 import numpy as np
 
@@ -23,9 +26,12 @@ def test_lcaosic_h2o(in_tmp_dir):
                            (d * np.cos(t), d * np.sin(t), 0)])
     H2O.center(vacuum=4.0)
 
+    f_sn = [[1,1,1,1,0,0], [1,1,1,1,0,0]]
+
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
-                occupations={'name': 'fixed-uniform'},
+                occupations={'name': 'mom', 'numbers': f_sn,
+                             'use_fixed_occupations': True},
                 eigensolver=ETDM(localizationtype='PM_PZ',
                                  localizationseed=42,
                                  functional_settings={
@@ -35,20 +41,38 @@ def test_lcaosic_h2o(in_tmp_dir):
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
+                spinpol=True,
                 symmetry='off'
                 )
     H2O.calc = calc
+    H2O.get_potential_energy()
+
+    f_sn = excite(calc, 0, 0, spin=(0, 0))
+    for k, kpt in enumerate(calc.wfs.kpt_u):
+        kpt.f_n = f_sn[k]
+
+    dave = Davidson(calc.wfs.eigensolver, None)
+    appr_sp_order = dave.estimate_sp_order(calc)
+
+    calc.set(eigensolver=ETDM(
+        partial_diagonalizer={
+            'name': 'Davidson', 'logfile': None, 'seed': 42, 'm': 30,
+            'remember_sp_order': True, 'sp_order': appr_sp_order},
+        linesearch_algo={'name': 'max-step'},
+        searchdir_algo={'name': 'LBFGS-P_GMF'},
+        functional_settings={'name': 'PZ-SIC', 'scaling_factor': (0.5, 0.5)},
+        need_init_orbs=False),
+        occupations={'name': 'mom', 'numbers': f_sn,
+                     'use_fixed_occupations': True})
+
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    assert e == pytest.approx(-12.16352, abs=1e-3)
+    f_num = [[-1.16916945e+01, -1.27929188e+01, 1.04419787e-02],
+             [1.64474334e+01, -1.25908321e+00, -3.04315451e-03],
+             [-4.99662063e+00, 1.40785094e+01, -1.13466702e-03]]
 
-    f2 = np.array([[-4.21747862, -4.63118948, 0.00303988],
-                   [5.66636141, -0.51037693, -0.00049136],
-                   [-1.96478031, 5.4043045, -0.0006107]])
-    assert f2 == pytest.approx(f, abs=0.1)
-
-    numeric = False
+    numeric = True
     if numeric:
         from ase.calculators.test import numeric_force
         f_num = np.array([[numeric_force(H2O, a, i)
@@ -58,11 +82,5 @@ def test_lcaosic_h2o(in_tmp_dir):
         print(f_num)
         print(f - f_num, np.abs(f - f_num).max())
 
-    calc.write('h2o.gpw', mode='all')
-    from gpaw import restart
-    H2O, calc = restart('h2o.gpw', txt='-')
-    H2O.positions += 1.0e-6
-    f3 = H2O.get_forces()
-    niter = calc.get_number_of_iterations()
-    assert niter == pytest.approx(4, abs=3)
-    assert f2 == pytest.approx(f3, abs=0.1)
+
+    assert f == pytest.approx(f_num, abs=0.1)
