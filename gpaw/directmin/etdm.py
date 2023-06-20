@@ -46,7 +46,7 @@ class ETDM:
                  need_localization=True,
                  need_init_orbs=True,
                  constraints=None,
-                 subspace_convergence=1e-4
+                 subspace_convergence=5e-4
                  ):
         """
         This class performs the exponential transformation
