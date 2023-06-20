@@ -26,9 +26,11 @@ def test_lcaosic_h2o(in_tmp_dir):
                            (d * np.cos(t), d * np.sin(t), 0)])
     H2O.center(vacuum=4.0)
 
+    f_sn = [[1,1,1,1,0,0], [1,1,1,1,0,0]]
+
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
-                occupations={'name': 'fixed-uniform'},
+                occupations={'name': 'mom', 'numbers': f_sn, 'use_fixed_occupations': True},
                 eigensolver=ETDM(localizationtype='PM_PZ',
                                  localizationseed=42,
                                  functional_settings={
@@ -45,10 +47,17 @@ def test_lcaosic_h2o(in_tmp_dir):
     H2O.get_potential_energy()
 
     f_sn = excite(calc, 0, 0, spin=(0, 0))
-    prepare_mom_calculation(calc, H2O, f_sn)
-
+    for k, kpt in enumerate(calc.wfs.kpt_u):
+        kpt.f_n = f_sn[k]
     dave = Davidson(calc.wfs.eigensolver, None)
     appr_sp_order = dave.estimate_sp_order(calc)
+    calc.set(eigensolver=ETDM(
+        partial_diagonalizer={'name': 'Davidson', 'logfile': None, 'seed': 42},
+        linesearch_algo={'name': 'max-step'},
+        searchdir_algo={'name': 'LBFGS-P_GMF'},
+        need_init_orbs=False),
+        occupations={'name': 'mom', 'numbers': f_sn,
+                     'use_fixed_occupations': True})
 
     numeric = False
     if numeric:
