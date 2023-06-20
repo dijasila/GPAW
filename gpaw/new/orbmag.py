@@ -2,7 +2,7 @@ r"""This module calculates the orbital magnetization vector for each atom.
 
 The orbital magnetization is calculated in the atom-centred approximation
 where only the PAW correction to the wave function is assumed to contribute.
-This leads to the equation
+This leads to the equation (presented in SI units):
 
 ::
 
@@ -12,8 +12,13 @@ This leads to the equation
    orb,v     2m  ===  ===   kn  \ knsi/  knsj  vij
                  kn   sij
 
-NB: As a convention, the orbital magnetization is described from electronic
-charge q = -e, i.e. without the negative sign.
+      a
+with L    containing the matrix elements of the angular momentum operator
+      vij
+between two partial waves.
+
+NB: As a convention, the orbital magnetization is returned without the sign of
+the negative electronic charge q = -e.
 
 The orbital magnetization is returned in units of μ_B as an array, orbmag_av,
  where a and v are indices for atoms and Cartesian axes, respectively.
