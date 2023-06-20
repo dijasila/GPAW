@@ -320,3 +320,20 @@ def test_Co_site_data(gpw_files):
     rmax_expected = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rmax_expected -= augr * Bohr
     assert abs(rmax - rmax_expected) < 1e-6
+
+    # Use radii spanning the entire valid range
+    rc_r = np.linspace(rmin, rmax, 100)
+    # Add the radius of the augmentation sphere explicitly
+    rc_r = np.append(rc_r, [augr * Bohr])
+    # Varry the site radii together and independently
+    rc1_r = list(rc_r) + list(rc_r) + [augr * Bohr] * len(rc_r)
+    rc2_r = list(rc_r) + [augr * Bohr] * len(rc_r) + list(rc_r)
+    atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc1_r, rc2_r])
+
+    # Calculate site magnetization
+    magmom_ar = atomic_sites.calculate_magnetic_moments()
+
+    # Test that the magnetization inside the augmentation sphere matches
+    # the local magnetic moment of the GPAW calculation
+    magmom_at_augr_a = calc.get_atoms().get_magnetic_moments()
+    assert magmom_ar[:, -1] == pytest.approx(magmom_at_augr_a, abs=2e-2)
