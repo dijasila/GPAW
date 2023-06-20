@@ -683,7 +683,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     else:
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
-    if gmax is None and np.alltrue(c0 > 0):
+    if gmax is None and (c0 > 0).all():
         raise ConvergenceError('Bad initial electron density guess!')
 
     c1 = c10
@@ -762,7 +762,7 @@ def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel,
     else:
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
-    if gmax is None and np.alltrue(c0 > 0):
+    if gmax is None and (c0 > 0).all():
         print("""
 Problem with initial electron density guess!  Try to run the program
 with the '-n' option (non-scalar-relativistic calculation) and then

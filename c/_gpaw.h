@@ -6,6 +6,7 @@
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #include <numpy/arrayobject.h>
+
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
@@ -157,6 +158,34 @@ PyObject* adjust_momenta(PyObject *self, PyObject *args);
 PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
 
 
+#ifdef GPAW_GPU
+PyObject* gpaw_gpu_init(PyObject *self, PyObject *args);
+PyObject* gpaw_gpu_delete(PyObject *self, PyObject *args);
+PyObject* csign_gpu(PyObject *self, PyObject *args);
+PyObject* scal_gpu(PyObject *self, PyObject *args);
+PyObject* multi_scal_gpu(PyObject *self, PyObject *args);
+PyObject* mmm_gpu(PyObject *self, PyObject *args);
+PyObject* gemm_gpu(PyObject *self, PyObject *args);
+PyObject* gemv_gpu(PyObject *self, PyObject *args);
+PyObject* rk_gpu(PyObject *self, PyObject *args);
+PyObject* axpy_gpu(PyObject *self, PyObject *args);
+PyObject* multi_axpy_gpu(PyObject *self, PyObject *args);
+PyObject* r2k_gpu(PyObject *self, PyObject *args);
+PyObject* dotc_gpu(PyObject *self, PyObject *args);
+PyObject* dotu_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotu_gpu(PyObject *self, PyObject *args);
+PyObject* multi_dotc_gpu(PyObject *self, PyObject *args);
+PyObject* add_linear_field_gpu(PyObject *self, PyObject *args);
+PyObject* elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
+PyObject* multi_elementwise_multiply_add_gpu(PyObject *self, PyObject *args);
+PyObject* ax2py_gpu(PyObject *self, PyObject *args);
+PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args);
+PyObject* axpbyz_gpu(PyObject *self, PyObject *args);
+PyObject* axpbz_gpu(PyObject *self, PyObject *args);
+PyObject* fill_gpu(PyObject *self, PyObject *args);
+PyObject* pwlfc_expand_gpu(PyObject *self, PyObject *args);
+#endif
+
 static PyMethodDef functions[] = {
     {"symmetrize", symmetrize, METH_VARARGS, 0},
     {"symmetrize_ft", symmetrize_ft, METH_VARARGS, 0},
@@ -282,6 +311,35 @@ static PyMethodDef functions[] = {
 #ifdef GPAW_GITHASH
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
+#ifdef GPAW_GPU
+    {"gpaw_gpu_init", gpaw_gpu_init, METH_VARARGS, 0},
+    {"gpaw_gpu_delete", gpaw_gpu_delete, METH_VARARGS, 0},
+    {"csign_gpu", csign_gpu, METH_VARARGS, 0},
+    {"scal_gpu", scal_gpu, METH_VARARGS, 0},
+    {"multi_scal_gpu", multi_scal_gpu, METH_VARARGS, 0},
+    {"mmm_gpu", mmm_gpu, METH_VARARGS, 0},
+    {"gemm_gpu", gemm_gpu, METH_VARARGS, 0},
+    {"gemv_gpu", gemv_gpu, METH_VARARGS, 0},
+    {"axpy_gpu", axpy_gpu, METH_VARARGS, 0},
+    {"multi_axpy_gpu", multi_axpy_gpu, METH_VARARGS, 0},
+    {"rk_gpu",  rk_gpu,  METH_VARARGS, 0},
+    {"r2k_gpu", r2k_gpu, METH_VARARGS, 0},
+    {"dotc_gpu", dotc_gpu, METH_VARARGS, 0},
+    {"dotu_gpu", dotu_gpu, METH_VARARGS, 0},
+    {"multi_dotu_gpu", multi_dotu_gpu, METH_VARARGS, 0},
+    {"multi_dotc_gpu", multi_dotc_gpu, METH_VARARGS, 0},
+    {"add_linear_field_gpu", add_linear_field_gpu, METH_VARARGS, 0},
+    {"elementwise_multiply_add_gpu", elementwise_multiply_add_gpu,
+        METH_VARARGS, 0},
+    {"multi_elementwise_multiply_add_gpu", multi_elementwise_multiply_add_gpu,
+        METH_VARARGS, 0},
+    {"ax2py_gpu", ax2py_gpu, METH_VARARGS, 0},
+    {"multi_ax2py_gpu", multi_ax2py_gpu, METH_VARARGS, 0},
+    {"axpbyz_gpu", axpbyz_gpu, METH_VARARGS, 0},
+    {"axpbz_gpu", axpbz_gpu, METH_VARARGS, 0},
+    {"fill_gpu", fill_gpu, METH_VARARGS, 0},
+    {"pwlfc_expand_gpu", pwlfc_expand_gpu, METH_VARARGS, 0},
+#endif // GPAW_GPU
     {0, 0, 0, 0}
 };
 
@@ -366,7 +424,7 @@ static PyObject* moduleinit(void)
     PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
     // Version number of C-code.  Keep in sync with gpaw/__init__.py
-    PyObject_SetAttrString(m, "version", PyLong_FromLong(3));
+    PyObject_SetAttrString(m, "version", PyLong_FromLong(4));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
