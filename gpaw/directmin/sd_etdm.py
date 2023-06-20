@@ -173,6 +173,9 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         return self.sd.update_data(wfs, x_k1, g_k1, dimensions=dimensions,
                                    precond=precond, mode=mode)
 
+    def reset(self):
+        self.sd.reset()
+
 
 class SteepestDescent(SearchDirectionBase):
     """
