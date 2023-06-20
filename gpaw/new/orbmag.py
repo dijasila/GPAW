@@ -77,7 +77,7 @@ def calculate_orbmag_1k(f_n, P_nsi, l_j):
         Angular momentum quantum number for each radial function j
 
     NB: i is an index for all partial waves for one atom and j is index for
-    only the radial wave function which is used to build all of the partial 
+    only the radial wave function which is used to build all of the partial
     waves. i and j do not refer to the same kind of index.
 
     Only partial waves with the same radial function (j index) may yield
