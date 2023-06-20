@@ -786,6 +786,8 @@ class Davidson(object):
         for kpt in calc.wfs.kpt_u:
             self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
         self.etdm.constraints = deepcopy(constraints_copy)
+        if calc.wfs.dtype is complex:
+            appr_sp_order *= 2
         return appr_sp_order
 
 
