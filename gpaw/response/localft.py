@@ -584,10 +584,18 @@ def add_total_density(gd, n_sR, n_R):
 
 
 def add_magnetization(gd, n_sR, m_R):
-    m_R += n_sR[0] - n_sR[1]
+    m_R += calculate_magnetization(n_sR)
+
+
+def calculate_magnetization(n_sR):
+    return n_sR[0] - n_sR[1]
 
 
 def add_LSDA_Bxc(gd, n_sR, Bxc_R):
+    Bxc_R += calculate_LSDA_Bxc(gd, n_sR)
+
+
+def calculate_LSDA_Bxc(gd, n_sR):
     """Calculate B^(xc) in the local spin-density approximation for a collinear
     system and add it to the output array Bxc_R:
 
@@ -603,8 +611,17 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     xc = XC('LDA')
     xc.calculate(gd, n_sR, v_sg=v_sR)
 
-    # Add B^(xc) in real space to the output array
-    Bxc_R += (v_sR[0] - v_sR[1]) / 2
+    return (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LSDA_spin_splitting(gd, n_sR, Δxc_R):
+    """Calculate and add the LSDA spin splitting to the output array.
+
+    The spin splitting is defined as:
+
+    Δ^(xc)(r) = - 2 B^(xc)(r) m(r).
+    """
+    Δxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) * calculate_magnetization(n_sR)
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
