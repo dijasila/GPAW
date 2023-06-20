@@ -54,7 +54,7 @@ def test_lcaosic_h2o(in_tmp_dir):
     appr_sp_order = dave.estimate_sp_order(calc)
     calc.set(eigensolver=ETDM(
         partial_diagonalizer={
-            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-1,
+            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-2,
             'remember_sp_order': True, 'sp_order': appr_sp_order, 'm': 30},
         linesearch_algo={'name': 'max-step'},
         searchdir_algo={'name': 'LBFGS-P_GMF'},
@@ -66,7 +66,11 @@ def test_lcaosic_h2o(in_tmp_dir):
     e = H2O.get_potential_energy()
     f = H2O.get_forces()
 
-    numeric = False
+    f_num = [[-1.16916945e+01, -1.27929188e+01, 1.04419787e-02],
+             [1.64474334e+01, -1.25908321e+00, -3.04315451e-03],
+             [-4.99662063e+00, 1.40785094e+01, -1.13466702e-03]]
+
+    numeric = True
     if numeric:
         from ase.calculators.test import numeric_force
         f_num = np.array([[numeric_force(H2O, a, i)
@@ -77,6 +81,6 @@ def test_lcaosic_h2o(in_tmp_dir):
         print(f - f_num, np.abs(f - f_num).max())
 
 
-    assert f2 == pytest.approx(f3, abs=0.1)
+    assert f == pytest.approx(f_num, abs=0.1)
 
 test_lcaosic_h2o(0)
