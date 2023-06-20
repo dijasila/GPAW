@@ -325,9 +325,10 @@ def test_Co_site_data(gpw_files):
     rc_r = np.linspace(rmin, rmax, 100)
     # Add the radius of the augmentation sphere explicitly
     rc_r = np.append(rc_r, [augr * Bohr])
+    nr = len(rc_r)
     # Varry the site radii together and independently
-    rc1_r = list(rc_r) + list(rc_r) + [augr * Bohr] * len(rc_r)
-    rc2_r = list(rc_r) + [augr * Bohr] * len(rc_r) + list(rc_r)
+    rc1_r = list(rc_r) + list(rc_r) + [augr * Bohr] * nr
+    rc2_r = list(rc_r) + [augr * Bohr] * nr + list(rc_r)
     atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc1_r, rc2_r])
 
     # Calculate site magnetization
@@ -337,3 +338,10 @@ def test_Co_site_data(gpw_files):
     # the local magnetic moment of the GPAW calculation
     magmom_at_augr_a = calc.get_atoms().get_magnetic_moments()
     assert magmom_ar[:, -1] == pytest.approx(magmom_at_augr_a, abs=2e-2)
+
+    # Test consistency of varrying radii
+    assert magmom_ar[0, :nr] == pytest.approx(magmom_ar[1, :nr])
+    assert magmom_ar[0, nr:2 * nr] == pytest.approx(magmom_ar[0, :nr])
+    assert magmom_ar[0, 2 * nr:] == pytest.approx([magmom_ar[0, -1]] * nr)
+    assert magmom_ar[1, nr:2 * nr] == pytest.approx([magmom_ar[1, -1]] * nr)
+    assert magmom_ar[1, 2 * nr:] == pytest.approx(magmom_ar[1, :nr])
