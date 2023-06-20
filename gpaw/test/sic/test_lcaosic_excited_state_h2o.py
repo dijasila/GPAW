@@ -50,12 +50,14 @@ def test_lcaosic_h2o(in_tmp_dir):
     f_sn = excite(calc, 0, 0, spin=(0, 0))
     for k, kpt in enumerate(calc.wfs.kpt_u):
         kpt.f_n = f_sn[k]
+
     dave = Davidson(calc.wfs.eigensolver, None)
     appr_sp_order = dave.estimate_sp_order(calc)
+
     calc.set(eigensolver=ETDM(
         partial_diagonalizer={
-            'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42, 'eps': 1e-2,
-            'remember_sp_order': True, 'sp_order': appr_sp_order, 'm': 30},
+            'name': 'Davidson', 'logfile': None, 'seed': 42, 'm': 30,
+            'remember_sp_order': True, 'sp_order': appr_sp_order},
         linesearch_algo={'name': 'max-step'},
         searchdir_algo={'name': 'LBFGS-P_GMF'},
         functional_settings={'name': 'PZ-SIC', 'scaling_factor': (0.5, 0.5)},
@@ -82,5 +84,3 @@ def test_lcaosic_h2o(in_tmp_dir):
 
 
     assert f == pytest.approx(f_num, abs=0.1)
-
-test_lcaosic_h2o(0)
