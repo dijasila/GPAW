@@ -11,9 +11,9 @@ from time import time
 from math import pi
 import numpy as np
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-from ase.dft.wannier import (neighbor_k_search, calculate_weights, gram_schmidt,
+from ase.dft.wannier import (calculate_weights, gram_schmidt,
                              get_kklst, get_invkklst)
-from ase.transport.tools import dagger, normalize
+from ase.transport.tools import dagger
 from ase.parallel import parprint
 
 dag = dagger
