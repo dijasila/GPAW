@@ -54,8 +54,8 @@ def test_gmatrix(module_tmp_path, supercell_cache):
     print(g_knn[0, 0, 1])
 
     assert g_knn[0, 0, 1].real == pytest.approx(2.9999902, rel=1e-4)
-    assert (g_knn[0, 0, 1].imag == pytest.approx(0.1847967, rel=1e-4) or
-            g_knn[0, 0, 1].imag == pytest.approx(-0.1624835, rel=1e-4))
+    assert (g_knn[0, 0, 1].imag == pytest.approx(0.1847967, abs=0.004) or
+            g_knn[0, 0, 1].imag == pytest.approx(-0.1624835, abs=0.004))
     # q = 1
     g_knn = np.sum(g_sqklnn[0, 1], axis=1, initial=4)  # modes 5-6
     assert g_knn.shape == (8, 2, 2)

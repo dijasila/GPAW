@@ -2,7 +2,6 @@ from __future__ import annotations
 from math import pi
 
 import _gpaw
-import gpaw.gpu.kernels as gpu_kernels
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
@@ -239,13 +238,17 @@ class PWLFC(BaseLFC):
             _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
-            return f_GI
-        elif cupy_is_fake or getattr(_gpaw, 'gpu_aware_mpi', False):
-            gpu_kernels.pwacf_expand(f_Gs, emiGR_Ga, Y_GL,
-                                     self.l_s, self.a_J, self.s_J,
-                                     cc, f_GI, self.I_J)
-            return f_GI
+        elif cupy_is_fake:
+            _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
+                               self.l_s._data, self.a_J._data, self.s_J._data,
+                               cc, f_GI._data)
+        else:
+            _gpaw.pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
+                                   self.l_s, self.a_J, self.s_J,
+                                   cc, f_GI, self.I_J)
+        return f_GI
 
+        # XXX This is never reachable
         # Equivalent slow Python code:
         f_GI = xp.empty((G2 - G1, self.nI), complex)
         I1 = 0

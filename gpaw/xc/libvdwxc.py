@@ -202,7 +202,7 @@ class RedistWrapper:
 class FFTDistribution:
     def __init__(self, gd, parsize_c):
         self.input_gd = gd
-        assert np.product(parsize_c) == gd.comm.size
+        assert np.prod(parsize_c) == gd.comm.size
         self.local_input_size_c = gd.n_c
         self.domains_in = Domains(gd.n_cp)
         N_c = gd.get_size_of_global_array(pad=True)
@@ -652,7 +652,7 @@ class CXGGAKernel:
 def test_derivatives():
     gen = np.random.RandomState(1)
     shape = (1, 20, 20, 20)
-    ngpts = np.product(shape)
+    ngpts = np.prod(shape)
     n_sg = gen.rand(*shape)
     sigma_xg = np.zeros(shape)
     sigma_xg[:] = gen.rand(*shape)
