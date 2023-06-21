@@ -158,7 +158,7 @@ class G0W0Outputs:
         self.sigma_skn = np.zeros(shape)
         self.dsigma_skn = np.zeros(shape)
         invN_i = ecut_e**(-3. / 2)
-        for m in range(np.product(shape)):
+        for m in range(np.prod(shape)):
             s, k, n = np.unravel_index(m, shape)
 
             slope, intercept, r_value, p_value, std_err = \

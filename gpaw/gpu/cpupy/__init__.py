@@ -78,6 +78,10 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def tri(n, k=0, dtype=float):
+    return ndarray(np.tri(n, k=k, dtype=dtype))
+
+
 def moveaxis(a, source, destination):
     return ndarray(np.moveaxis(a._data, source, destination))
 
