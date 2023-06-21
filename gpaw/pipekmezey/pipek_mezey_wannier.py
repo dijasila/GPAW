@@ -58,6 +58,7 @@ from ase.dft.wannier import (calculate_weights, get_kklst,
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.parallel import world
 
+
 def random_orthogonal(rng, s, dtype=float):
     # Make a random orthogonal matrix of dim s x s,
     # such that WW* = I = W*W

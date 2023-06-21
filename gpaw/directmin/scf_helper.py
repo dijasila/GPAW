@@ -1,6 +1,7 @@
 import warnings
 from ase.units import Ha
 
+
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     if eigensolver_name == 'etdm':
         if hasattr(wfs.eigensolver, 'e_sic'):
@@ -93,6 +94,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
             log(
                 '\nOccupied states converged after'
                 ' {:d} e/g evaluations'.format(niter))
+
 
 def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
 

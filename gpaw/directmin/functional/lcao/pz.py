@@ -677,7 +677,6 @@ class PZSICLCAO:
 
         return F_av * (3.0 - wfs.nspins)
 
-
     def get_lagrange_matrices(self, h_mm, c_nm, f_n, kpt,
                               wfs, occupied_only=False,
                               update_eigenvalues=False,

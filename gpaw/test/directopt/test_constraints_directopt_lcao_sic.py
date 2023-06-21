@@ -6,7 +6,7 @@ from ase import Atoms
 import numpy as np
 
 
-def test_lcaosic_h2o(in_tmp_dir):
+def test_constraints_directopt_lcao_sic(in_tmp_dir):
     """
     test Perdew-Zunger Self-Interaction
     Correction  in LCAO mode using DirectMin
@@ -31,7 +31,7 @@ def test_lcaosic_h2o(in_tmp_dir):
                              'localizationseed': 42,
                              'subspace_convergence': 1e-3,
                              'functional_settings': {'name': 'PZ-SIC',
-                                                     'scaling_factor': \
+                                                     'scaling_factor':
                                                          (0.5, 0.5)}},
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
@@ -50,7 +50,7 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     calc.set(eigensolver={'name': 'etdm',
                           'functional_settings': {'name': 'PZ-SIC',
-                                                  'scaling_factor': \
+                                                  'scaling_factor':
                                                       (0.5, 0.5)},
                           'constraints': [[[homo], [lumo]]],
                           'need_init_orbs': False})

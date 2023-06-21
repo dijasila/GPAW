@@ -18,6 +18,7 @@ from ase.parallel import parprint
 
 dag = dagger
 
+
 def random_orthogonal_matrix(dim, rng, real=False):
     """Generate a random orthogonal matrix"""
 
@@ -32,7 +33,8 @@ def random_orthogonal_matrix(dim, rng, real=False):
         val, vec = np.linalg.eig(H)
         return np.dot(vec * np.exp(1.j * val), dag(vec))
 
-def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):   
+
+def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
     if verbose:                 
         parprint('Localize with step =', step,
                  'and tolerance =', tolerance)

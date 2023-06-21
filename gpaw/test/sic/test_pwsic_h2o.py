@@ -60,8 +60,8 @@ def test_pwsic_h2o(in_tmp_dir):
     if numeric:
         from ase.calculators.test import numeric_force
         f_num = np.array([[numeric_force(H2O, a, i)
-                             for i in range(3)]
-                            for a in range(len(H2O))])
+                           for i in range(3)]
+                          for a in range(len(H2O))])
         print('Numerical forces')
         print(f_num)
         print(f - f_num, np.abs(f - f_num).max())

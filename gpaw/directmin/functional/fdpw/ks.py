@@ -95,7 +95,7 @@ class KSFDPW:
 
         if not exstate:
             raise RuntimeError('Attempting to optimize unitary-invariant '
-                'energy in occupied-occupied rotation space.')
+                               'energy in occupied-occupied rotation space.')
 
         ndim = wfs.bd.nbands
 

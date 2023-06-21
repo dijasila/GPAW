@@ -100,8 +100,7 @@ class KSLCAO:
         Calculate residual error of KS equations
         """
         occ = sum(f_n > 1.0e-10)
-        hc_mn = hc_mn[:, :occ] - \
-                S_MM.conj() @ c_nm[:occ].T @ h_ij[:occ, :occ]
+        hc_mn = hc_mn[:, :occ] - S_MM.conj() @ c_nm[:occ].T @ h_ij[:occ, :occ]
         if constraints:
             # Zero out the components of the residual that are constrained,
             # so that the constrained degrees of freedom are always considered

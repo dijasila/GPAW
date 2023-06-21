@@ -7,6 +7,7 @@ from gpaw.convergence_criteria import check_convergence
 from gpaw.forces import calculate_forces
 from gpaw.directmin.scf_helper import do_if_converged, check_eigensolver_state
 
+
 class SCFLoop:
     """Self-consistent field loop."""
     def __init__(self, criteria, maxiter=100, niter_fixdensity=None):
@@ -140,7 +141,8 @@ class SCFLoop:
     def update_ham_and_dens(self, wfs, ham, dens):
 
         to_update = self.niter > self.niter_fixdensity and not dens.fixed
-        if self.eigensolver_name == 'etdm' or self.eigensolver_name == 'directmin' \
+        if self.eigensolver_name == 'etdm' \
+                or self.eigensolver_name == 'directmin' \
                 or not to_update:
             ham.npoisson = 0
         else:

@@ -5,7 +5,6 @@ from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
-#from gpaw.directmin.etdm import ETDM
 from gpaw.directmin.fdpw.directmin import DirectMin
 
 

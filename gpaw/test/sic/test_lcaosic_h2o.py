@@ -30,7 +30,7 @@ def test_lcaosic_h2o(in_tmp_dir):
                                  localizationseed=42,
                                  functional_settings={
                                      'name': 'PZ-SIC',
-                                     'scaling_factor': \
+                                     'scaling_factor':
                                          (0.5, 0.5)}),  # SIC/2
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},

@@ -9,7 +9,7 @@ from ase import Atoms
 import numpy as np
 
 
-def test_lcaosic_h2o(in_tmp_dir):
+def test_lcaosic_gmf_h2o(in_tmp_dir):
     """
     test Perdew-Zunger Self-Interaction
     Correction  in LCAO mode using DirectMin
@@ -70,9 +70,9 @@ def test_lcaosic_h2o(in_tmp_dir):
 
     f = H2O.get_forces()
 
-    f_num = np.array([[-8.01206297e+00, -1.51553367e+01,  3.60670227e-03],
+    f_num = np.array([[-8.01206297e+00, -1.51553367e+01, 3.60670227e-03],
                       [1.42287594e+01, -9.81724693e-01, -5.09333905e-04],
-                      [-4.92299436e+00,  1.55306540e+01,  2.12438557e-03]])
+                      [-4.92299436e+00, 1.55306540e+01, 2.12438557e-03]])
 
     numeric = True
     if numeric:
