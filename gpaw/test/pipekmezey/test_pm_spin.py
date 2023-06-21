@@ -2,20 +2,19 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-import numpy
 from gpaw.test import equal
 
 
 @pytest.mark.pipekmezey
 def test_pipekmezey_spin(in_tmp_dir):
 
-    atoms = Atoms('O2', 
+    atoms = Atoms('O2',
                   positions=[[0, 0, 0],
                              [0, 0, 1.207]])
     atoms.center(vacuum=5)
 
-    calc = GPAW(mode='fd', 
-                h=0.24, 
+    calc = GPAW(mode='fd',
+                h=0.24,
                 convergence={'density': 1e-4,
                              'eigenstates': 1e-4},
                 hund=True)

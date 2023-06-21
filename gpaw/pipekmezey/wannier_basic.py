@@ -35,7 +35,7 @@ def random_orthogonal_matrix(dim, rng, real=False):
 
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
-    if verbose:                 
+    if verbose:
         parprint('Localize with step =', step,
                  'and tolerance =', tolerance)
     t = -time()

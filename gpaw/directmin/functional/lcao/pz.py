@@ -553,8 +553,8 @@ class PZSICLCAO:
                 #         mu in a; nu
                 #
 
-                dThetadRE_vMM = (
-                        dThetadR_qvMM[kpt.q] * sfrhoT_MM[np.newaxis]).real
+                dThetadRE_vMM = (dThetadR_qvMM[kpt.q] *
+                                 sfrhoT_MM[np.newaxis]).real
                 for a, M1, M2 in my_slices():
                     Ftheta_av[a, :] += \
                         -2.0 * dThetadRE_vMM[:, M1:M2].sum(-1).sum(-1)
