@@ -266,6 +266,8 @@ def integrate(ghat, a_xG, f_GI):
     mmm(alpha, a_xG, 'N', f_GI, 'N', 0.0, b_xI)
     if ghat.pd.dtype == complex:
         f_GI.imag[:] = -f_GI.imag
+    else:
+        f_GI[0] *= 2.0
     for a, I1, I2 in ghat.my_indices:
         yield a, ghat.eikR_qa[0][a] * c_xI[..., I1:I2]
 
