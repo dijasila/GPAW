@@ -30,8 +30,8 @@ stages:
       libraries = []
       library_dirs = []
       include_dirs = []
-      extra_compile_args = ['-O3',
-                            '-fPIC',
+      extra_compile_args = ['-fPIC',
+                            '-O3',
                             '-g',
                             '-fopenmp',
                             '-Wall',
@@ -114,9 +114,12 @@ build-cuda:
   script:
     - |
       cat << EOF >> siteconfig.py
-      cuda = True
+      gpu = True
+      gpu_target = 'cuda'
       gpu_compiler = 'nvcc'
-      gpu_compile_args = ['-g', '-O3', '-gencode arch=compute_60,code=sm_60']
+      gpu_compile_args = ['-O3',
+                          '-g',
+                          '-gencode', 'arch=compute_60,code=sm_60']
       libraries += ['cudart', 'cublas']
       EOF
     - cat siteconfig.py
@@ -150,7 +153,7 @@ prepare-libxc:
   before_script:
     - export PREFIX=`realpath $PREFIX`
   script:
-    - git clone -b 6.2.0 https://gitlab.com/libxc/libxc.git
+    - git clone -b 6.2.2 https://gitlab.com/libxc/libxc.git
     - cd libxc
     - autoreconf -i
     - >

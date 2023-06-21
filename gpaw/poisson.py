@@ -484,10 +484,10 @@ class FDPoissonSolver(BasePoissonSolver):
             raise PoissonConvergenceError(msg)
 
         # Set the average potential to zero in periodic systems
-        if np.alltrue(self.gd.pbc_c):
+        if (self.gd.pbc_c).all():
             phi_ave = self.gd.comm.sum(np.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
-            phi_ave /= np.product(N_c)
+            phi_ave /= np.prod(N_c)
             phi -= phi_ave
 
         return niter

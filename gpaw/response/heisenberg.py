@@ -147,6 +147,6 @@ def get_q0_index(q_qc):
     q0_indices = np.argwhere(np.all(q_qc == 0, axis=1))
 
     if len(q0_indices) >= 1:
-        return int(q0_indices[0])
+        return int(q0_indices[0, 0])
     else:
         raise ValueError('q_qc has to include q=0, i.e. q_c = [0., 0., 0.]')

@@ -958,7 +958,7 @@ def scalapack():
     This fixture otherwise does not return or do anything."""
     from gpaw.utilities import compiled_with_sl
     if not compiled_with_sl():
-        pytest.skip(reason='no scalapack')
+        pytest.skip('no scalapack')
 
 
 @pytest.fixture
@@ -967,7 +967,7 @@ def needs_ase_master():
     try:
         MultiFileJSONCache('bla-bla', comm=None)
     except TypeError:
-        pytest.skip(reason='ASE is too old')
+        pytest.skip('ASE is too old')
 
 
 def pytest_report_header(config, startdir):
