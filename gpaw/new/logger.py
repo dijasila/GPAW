@@ -33,7 +33,7 @@ class Logger:
 
         self.indentation = ''
 
-    def close(self) -> None:
+    def __del__(self) -> None:
         if self.close_fd:
             self.fd.close()
 

@@ -221,7 +221,6 @@ class ASECalculator:
         self.timer.write(self.log)
         mib = maxrss() / 1024**2
         self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        self.log.close()
 
     def get_potential_energy(self,
                              atoms: Atoms,
