@@ -2,7 +2,6 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-import numpy
 from gpaw.test import equal
 
 

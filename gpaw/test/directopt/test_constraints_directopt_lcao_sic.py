@@ -1,7 +1,6 @@
 import pytest
 
 from gpaw import GPAW, LCAO
-from gpaw.directmin.etdm import ETDM
 from ase import Atoms
 import numpy as np
 
