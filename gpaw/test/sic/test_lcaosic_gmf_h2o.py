@@ -65,7 +65,7 @@ def test_lcaosic_h2o(in_tmp_dir):
         occupations={'name': 'mom', 'numbers': f_sn,
                      'use_fixed_occupations': True})
 
-    e = H2O.get_potential_energy()
+    H2O.get_potential_energy()
     f = H2O.get_forces()
 
     f_num = [[-1.16916945e+01, -1.27929188e+01, 1.04419787e-02],
