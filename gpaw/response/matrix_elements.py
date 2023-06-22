@@ -222,14 +222,36 @@ class SitePairDensityCalculator:
 
     @timer('Calculate site pair density')
     def __call__(self, kptpair):
-        """
-        Some documentation here! XXX
+        """Calculate the site pair density for all transitions t.
+
+        The calculation is split in a pseudo site pair density contribution and
+        a PAW correction,
+
+        n^a_kt = ñ^a_kt + Δn_kt,
+
+        see [publication in preparation] for details.
 
         XXX To do XXX
-        * Split calculation in pseudo and paw (return tblocks, n_mytap)
+        * Split calculation in pseudo and paw
         * Implement paw correction
         * Implement pseudo contribution
         * Build sum rule calculator
         * Test the beast via sum rule calculator
         * Clean up documentation
+        """
+        # Initialize site pair density
+        n_mytap = np.zeros((kptpair.tblocks.blocksize,)
+                           + self.atomic_site_data.shape, dtype=complex)
+        self.add_pseudo_contribution(kptpair, n_mytap)
+        self.add_paw_correction(kptpair, n_mytap)
+        return n_mytap
+
+    def add_pseudo_contribution(self, kptpair, n_mytap):
+        """
+        Some documentation here! XXX
+        """
+
+    def add_paw_correction(self, kptpair, n_mytap):
+        """
+        Some documentation here! XXX
         """
