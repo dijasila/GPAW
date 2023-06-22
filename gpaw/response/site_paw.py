@@ -4,20 +4,20 @@ from gpaw.gaunt import gaunt
 from gpaw.sphere.integrate import radial_truncation_function
 
 
-def calculate_site_pair_density_correction(pawdata, rcut_r, drcut, lambd_r):
+def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
     r"""Calculate PAW correction to the site pair density.
 
     For each pair of partial waves, the PAW correction to the site pair density
     is given by:
 
-     a      0,mi,mi' /                  a    a     ̰ a   ̰ a
+     ap     0,mi,mi' /                  a    a     ̰ a   ̰ a
     N    = g         | r^2 dr θ(r<rc) [φ(r) φ(r) - φ(r) φ(r)]
-     ii'    0,li,li' /                  i    i'     i    i'
+     ii'    0,li,li' /         p        i    i'     i    i'
 
     where g refer to the Gaunt coefficients.
 
-    Here, we evaluate the correction N_ii'^a for various smooth truncation
-    functions θ(r<rc), parametrized by rc, Δrc and λ.
+    Here, we evaluate the correction N_ii'^ap for various smooth truncation
+    functions θ_p(r<rc), parametrized by rc, Δrc and λ.
     """
     rgd = pawdata.rgd
     ni = pawdata.ni  # Number of partial waves
@@ -28,11 +28,11 @@ def calculate_site_pair_density_correction(pawdata, rcut_r, drcut, lambd_r):
     phit_jg = pawdata.data.phit_jg
 
     # Calculate smooth truncation functions and allocate array
-    nr = len(rcut_r)
-    assert len(lambd_r) == nr
-    theta_rg = [radial_truncation_function(rgd.r_g, rcut, drcut, lambd)
-                for rcut, lambd in zip(rcut_r, lambd_r)]
-    N_rii = np.zeros((nr, ni, ni), dtype=float)
+    np = len(rcut_p)
+    assert len(lambd_p) == np
+    theta_pg = [radial_truncation_function(rgd.r_g, rcut, drcut, lambd)
+                for rcut, lambd in zip(rcut_p, lambd_p)]
+    N_pii = np.zeros((np, ni, ni), dtype=float)
 
     # Loop of radial function indices for partial waves i and i'
     i1_counter = 0
@@ -53,11 +53,11 @@ def calculate_site_pair_density_correction(pawdata, rcut_r, drcut, lambd_r):
                     i2 = i2_counter + m2
 
                     # Integrate correction
-                    for r, theta_g in enumerate(theta_rg):
-                        N_rii[r, i1, i2] += gaunt_coeff * rgd.integrate_trapz(
+                    for p, theta_g in enumerate(theta_pg):
+                        N_pii[p, i1, i2] += gaunt_coeff * rgd.integrate_trapz(
                             theta_g * dn_g)
 
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-    return N_rii
+    return N_pii

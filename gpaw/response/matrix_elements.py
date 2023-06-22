@@ -211,9 +211,7 @@ class SitePairDensityCalculator:
         return self._N_apii
 
     def calculate_paw_correction_tensor(self):
-        """
-        Some documentation here! XXX
-        """
+        """Calculate the site pair density correction tensor N_ii'^ap."""
         N_apii = []
         adata = self.atomic_site_data
         for A, rc_p, lambd_p in zip(adata.A_a, adata.rc_ap, adata.lambd_ap):
