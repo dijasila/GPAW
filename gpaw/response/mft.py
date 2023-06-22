@@ -319,9 +319,9 @@ class AtomicSiteData:
         For local functions of the density, the pseudo contribution is
         evaluated by a numerical integration on the real-space grid:
         
-        ̰      /
+        ̰       /
         f_ap = | dr θ(|r-r_a|<rc_ap) f(ñ(r))
-              /
+               /
         """
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
@@ -343,7 +343,7 @@ class AtomicSiteData:
         the all-electron and pseudo densities generated from the partial waves:
 
                 /
-        Δf_ap = | dr θ(r<rc_ap) [f(n_a(r)) - f(ñ_a(r))]
+        Δf_ap = | r^2 dr θ(r<rc_ap) [f(n_a(r)) - f(ñ_a(r))]
                 /
         """
         for a, (microsetup, rc_p, lambd_p) in enumerate(zip(
