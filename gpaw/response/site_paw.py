@@ -28,11 +28,11 @@ def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
     phit_jg = pawdata.data.phit_jg
 
     # Calculate smooth truncation functions and allocate array
-    np = len(rcut_p)
-    assert len(lambd_p) == np
+    Np = len(rcut_p)
+    assert len(lambd_p) == Np
     theta_pg = [radial_truncation_function(rgd.r_g, rcut, drcut, lambd)
                 for rcut, lambd in zip(rcut_p, lambd_p)]
-    N_pii = np.zeros((np, ni, ni), dtype=float)
+    N_pii = np.zeros((Np, ni, ni), dtype=float)
 
     # Loop of radial function indices for partial waves i and i'
     i1_counter = 0
