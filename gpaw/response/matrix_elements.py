@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
+from gpaw.response.site_paw import calculate_site_pair_density_correction
 
 
 class PairDensity:
@@ -179,3 +180,58 @@ class NewPairDensityCalculator:
                 self.gs.global_pd.ifft(psit_G, ikpt.ik))
 
         return ut_hR
+
+
+class SitePairDensityCalculator:
+    r"""Class for calculating site pair densities.
+
+    The site pair density is defined via a smooth truncation function Θ(r∊Ω_a)
+    which interpolates smoothly bewteen unity for positions inside the
+    spherical site volume and zero outide it:
+
+    n^a_kt = n^a_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_a)|ψ_n'k+qs'>_V0
+
+             /
+           = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
+             /V0
+    """
+
+    def __init__(self, gs, context, atomic_site_data):
+        """Construct the SitePairDensityCalculator."""
+        self.gs = gs
+        self.context = context
+        self.atomic_site_data = atomic_site_data
+
+        # PAW correction tensor
+        self._N_apii = None
+
+    def get_paw_correction_tensor(self):
+        if self._N_apii is None:
+            self._N_apii = self.calculate_paw_correction_tensor()
+        return self._N_apii
+
+    def calculate_paw_correction_tensor(self):
+        """
+        Some documentation here! XXX
+        """
+        N_apii = []
+        adata = self.atomic_site_data
+        for A, rc_p, lambd_p in zip(adata.A_a, adata.rc_ap, adata.lambd_ap):
+            pawdata = self.gs.pawdatasets[A]
+            N_apii.append(calculate_site_pair_density_correction(
+                pawdata, rc_p, adata.drcut, lambd_p))
+        return N_apii
+
+    @timer('Calculate site pair density')
+    def __call__(self, kptpair):
+        """
+        Some documentation here! XXX
+
+        XXX To do XXX
+        * Split calculation in pseudo and paw (return tblocks, n_mytap)
+        * Implement paw correction
+        * Implement pseudo contribution
+        * Build sum rule calculator
+        * Test the beast via sum rule calculator
+        * Clean up documentation
+        """
