@@ -15,6 +15,7 @@ from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
                                    add_magnetization, add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
+from gpaw.response.pair_integrator import PairFunctionIntegrator
 
 # ASE modules
 from ase.units import Hartree, Bohr
@@ -357,3 +358,18 @@ class AtomicSiteData:
                     microsetup.rgd.r_g, rcut, self.drcut, lambd)
                 # Integrate θ(r) Δf(r) on the radial grid
                 out_ap[a, p] += microsetup.rgd.integrate_trapz(df_g * theta_g)
+
+
+class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
+    r"""Site magnetization calculator utilizing a sum rule.
+
+    The site magnetization can be calculated from the site pair densities via
+    the following sum rule [publication in preparation]:
+                     __  __
+                 1   \   \
+    ̄n_ab^z(q) = ‾‾‾  /   /  (f_nk↑ - f_mk+q↓) n^a_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑)
+                N_k  ‾‾  ‾‾
+                     k   n,m
+
+              = δ_(a,b) n_a^z
+    """
