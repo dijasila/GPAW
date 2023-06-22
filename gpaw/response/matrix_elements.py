@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
 
 from gpaw.response import timer
@@ -29,7 +31,82 @@ class PairDensity:
         return n_tG
 
 
-class NewPairDensityCalculator:
+class MatrixElementCalculator(ABC):
+    r"""Abstract base class for matrix element calculators.
+
+    In the PAW method, Kohn-Sham matrix elements,
+                            ˰
+    A_(nks,n'k's') = <ψ_nks|A|ψ_n'k's'>
+
+    can be evaluated in the space of pseudo waves using the pseudo operator
+            __  __
+    ˷   ˰   \   \   ˷           ˰           ˷    ˰ ˷       ˷
+    A = A + /   /  |p_ai>[<φ_ai|A|φ_ai'> - <φ_ai|A|φ_ai'>]<p_ai'|
+            ‾‾  ‾‾
+            a   i,i'
+
+    to which effect,
+                      ˷     ˷ ˷
+    A_(nks,n'k's') = <ψ_nks|A|ψ_n'k's'>
+
+    This is an abstract base class for calculating such matrix elements for a
+    number of band and spin transitions t=(n,s)->(n',s') for a given k-point
+    pair k and k + q:
+
+    A_kt = A_(nks,n'k+qs')
+    """
+
+    def add_pseudo_contribution(self, kptpair, *args):
+        """Add the pseudo matrix element to and output array.
+
+        The pseudo matrix element is evaluated on the coarse real-space grid
+        and integrated:
+
+        ˷       ˷     ˰ ˷
+        A_kt = <ψ_nks|A|ψ_n'k+qs'>_V0
+
+               /    ˷          ˰ ˷
+             = | dr ψ_nks^*(r) A ψ_n'k+qs'(r)
+               /V0
+
+        where the Kohn-Sham orbitals are normalized to the unit cell volume V0.
+        """
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
+
+        # Map the k-points from the irreducible part of the BZ to the BZ
+        # k-point K (up to a reciprocal lattice vector)
+        k1_c = self.gs.ibz2bz[kptpair.K1].map_kpoint()
+        k2_c = self.gs.ibz2bz[kptpair.K2].map_kpoint()
+
+        # Fourier transform the periodic part of the pseudo waves to the coarse
+        # real-space grid and map them to the BZ k-point K (up to the same
+        # reciprocal lattice vector as above)
+        ut1_hR = self.get_periodic_pseudo_waves(kptpair.K1, ikpt1)
+        ut2_hR = self.get_periodic_pseudo_waves(kptpair.K2, ikpt2)
+
+        # Fold out the pseudo waves to the transition index
+        ut1_mytR = ut1_hR[ikpt1.h_myt]
+        ut2_mytR = ut2_hR[ikpt2.h_myt]
+
+        self._add_pseudo_contribution(k1_c, k2_c, ut1_mytR, ut2_mytR, *args)
+
+    @abstractmethod
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR, *args):
+        """Add pseudo contribution based on the pseudo waves in real space."""
+
+    def get_periodic_pseudo_waves(self, K, ikpt):
+        """FFT the Kohn-Sham orbitals to real space and map them from the
+        irreducible k-point to the k-point in question."""
+        ut_hR = self.gs.gd.empty(ikpt.nh, self.gs.dtype)
+        for h, psit_G in enumerate(ikpt.psit_hG):
+            ut_hR[h] = self.gs.ibz2bz[K].map_pseudo_wave(
+                self.gs.global_pd.ifft(psit_G, ikpt.ik))
+
+        return ut_hR
+
+
+class NewPairDensityCalculator(MatrixElementCalculator):
     r"""Class for calculating pair densities
 
     n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
@@ -76,13 +153,14 @@ class NewPairDensityCalculator:
         pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
         n_mytG = pair_density.local_array_view
 
-        self.add_pseudo_pair_density(kptpair, qpd, n_mytG)
+        self.add_pseudo_contribution(kptpair, qpd, n_mytG)
         self.add_paw_correction(kptpair, qpd, n_mytG)
 
         return pair_density
 
     @timer('Calculate the pseudo pair density')
-    def add_pseudo_pair_density(self, kptpair, qpd, n_mytG):
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 qpd, n_mytG):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
@@ -94,26 +172,11 @@ class NewPairDensityCalculator:
                                  ˷          ˷
                   = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
         """
-        ikpt1 = kptpair.ikpt1
-        ikpt2 = kptpair.ikpt2
-
-        # Map the k-points from the irreducible part of the BZ to the BZ
-        # k-point K (up to a reciprocal lattice vector)
-        k1_c = self.gs.ibz2bz[kptpair.K1].map_kpoint()
-        k2_c = self.gs.ibz2bz[kptpair.K2].map_kpoint()
-
-        # Fourier transform the periodic part of the pseudo waves to the coarse
-        # real-space grid and map them to the BZ k-point K (up to the same
-        # reciprocal lattice vector as above)
-        ut1_hR = self.get_periodic_pseudo_waves(kptpair.K1, ikpt1)
-        ut2_hR = self.get_periodic_pseudo_waves(kptpair.K2, ikpt2)
-
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
         # This phase does not necessarily vanish, since k2_c only is required
         # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
-        ut1cc_mytR = ut1_hR[ikpt1.h_myt].conj()
-        nt_mytR = ut1cc_mytR * ut2_hR[ikpt2.h_myt]
+        nt_mytR = ut1_mytR.conj() * ut2_mytR
 
         # Get the FFT indices corresponding to the Fourier transform
         #                       ˷          ˷
@@ -122,8 +185,6 @@ class NewPairDensityCalculator:
 
         # Add the desired plane-wave components of the FFT'ed pseudo pair
         # density to the output array
-        nlocalt = kptpair.tblocks.nlocal
-        assert len(n_mytG) == len(nt_mytR) == nlocalt
         for n_G, n_R in zip(n_mytG, nt_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
@@ -170,16 +231,6 @@ class NewPairDensityCalculator:
                 * P2_myti[:, np.newaxis]
             # Sum over projector indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
-
-    def get_periodic_pseudo_waves(self, K, ikpt):
-        """FFT the Kohn-Sham orbitals to real space and map them from the
-        irreducible k-point to the k-point in question."""
-        ut_hR = self.gs.gd.empty(ikpt.nh, self.gs.dtype)
-        for h, psit_G in enumerate(ikpt.psit_hG):
-            ut_hR[h] = self.gs.ibz2bz[K].map_pseudo_wave(
-                self.gs.global_pd.ifft(psit_G, ikpt.ik))
-
-        return ut_hR
 
 
 class SitePairDensityCalculator:
@@ -247,8 +298,14 @@ class SitePairDensityCalculator:
         return n_mytap
 
     def add_pseudo_contribution(self, kptpair, n_mytap):
-        """
-        Some documentation here! XXX
+        """Add the pseudo site pair density to the output array.
+
+        The pseudo pair density is evaluated on the coarse real-space grid and
+        integrated together with the smooth truncation function:
+
+                 /             ˷          ˷
+        ñ^a_kt = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
+                 /V0
         """
 
     def add_paw_correction(self, kptpair, n_mytap):
