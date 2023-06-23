@@ -57,19 +57,17 @@ class MatrixElementCalculator(ABC):
     """
 
     def add_pseudo_contribution(self, kptpair, *args):
-        """Add the pseudo matrix element to and output array.
+        """Add the pseudo matrix element to an output array.
 
         The pseudo matrix element is evaluated on the coarse real-space grid
         and integrated:
 
         ˷       ˷     ˰ ˷
-        A_kt = <ψ_nks|A|ψ_n'k+qs'>_V0
+        A_kt = <ψ_nks|A|ψ_n'k+qs'>
 
                /    ˷          ˰ ˷
              = | dr ψ_nks^*(r) A ψ_n'k+qs'(r)
-               /V0
-
-        where the Kohn-Sham orbitals are normalized to the unit cell volume V0.
+               /
         """
         ikpt1 = kptpair.ikpt1
         ikpt2 = kptpair.ikpt2
@@ -91,9 +89,52 @@ class MatrixElementCalculator(ABC):
 
         self._add_pseudo_contribution(k1_c, k2_c, ut1_mytR, ut2_mytR, *args)
 
+    def add_paw_correction(self, kptpair, *args):
+        r"""Add the matrix element PAW correction to an output array.
+
+        The PAW correction is calculated using the projector overlaps of the
+        pseudo waves:
+                __  __
+                \   \   ˷     ˷              ˷     ˷
+        ΔA_kt = /   /  <ψ_nks|p_ai> ΔA_aii' <p_ai'|ψ_n'k+qs'>
+                ‾‾  ‾‾
+                a   i,i'
+
+        where the PAW correction tensor is calculated on a radial grid inside
+        each augmentation sphere of position R_a, using the atom-centered
+        partial waves φ_ai(r):
+                        ˰           ˷    ˰ ˷
+        ΔA_aii' = <φ_ai|A|φ_ai'> - <φ_ai|A|φ_ai'>
+
+                  /                   ˰
+                = | dr [φ_ai^*(r-R_a) A φ_ai'(r-R_a)
+                  /       ˷             ˰ ˷
+                        - φ_ai^*(r-R_a) A φ_ai'(r-R_a)]
+        """
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
+
+        # Map the projections from the irreducible part of the BZ to the BZ
+        # k-point K
+        P1h = self.gs.ibz2bz[kptpair.K1].map_projections(ikpt1.Ph)
+        P2h = self.gs.ibz2bz[kptpair.K2].map_projections(ikpt2.Ph)
+
+        # Fold out the projectors to the transition index
+        P1_amyti = ikpt1.projectors_in_transition_index(P1h)
+        P2_amyti = ikpt2.projectors_in_transition_index(P2h)
+        assert P1_amyti.atom_partition.comm.size ==\
+            P2_amyti.atom_partition.comm.size == 1,\
+            'We need access to the projections of all atoms'
+
+        self._add_paw_correction(P1_amyti, P2_amyti, *args)
+
     @abstractmethod
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR, *args):
         """Add pseudo contribution based on the pseudo waves in real space."""
+
+    @abstractmethod
+    def _add_paw_correction(self, P1_amyti, P2_amyti, *args):
+        """Add paw correction based on the projector overlaps."""
 
     def get_periodic_pseudo_waves(self, K, ikpt):
         """FFT the Kohn-Sham orbitals to real space and map them from the
@@ -109,11 +150,11 @@ class MatrixElementCalculator(ABC):
 class NewPairDensityCalculator(MatrixElementCalculator):
     r"""Class for calculating pair densities
 
-    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
 
                 /
               = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
-                /V0
+                /
 
     for a single k-point pair (k, k + q) in the plane-wave mode."""
     def __init__(self, gs, context):
@@ -164,13 +205,15 @@ class NewPairDensityCalculator(MatrixElementCalculator):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
-        grid and then FFT'ed to reciprocal space:
+        grid and then FFT'ed to reciprocal space,
 
                     /               ˷          ˷
         ñ_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
                     /V0
                                  ˷          ˷
                   = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
+
+        where the Kohn-Sham orbitals are normalized to the unit cell.
         """
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
@@ -189,47 +232,29 @@ class NewPairDensityCalculator(MatrixElementCalculator):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def add_paw_correction(self, kptpair, qpd, n_mytG):
+    def _add_paw_correction(self, P1_amyti, P2_amyti, qpd, n_mytG):
         r"""Add the pair-density PAW correction to the output array.
 
-        The correction is calculated as a sum over augmentation spheres a
-        and projector indices i and j,
+        The correction is calculated from
                      __  __
                      \   \   ˷     ˷     ˷    ˷
-        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_aj|ψ_n'k+qs'> Q_aij(G+q)
+        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_ai'|ψ_n'k+qs'> Q_aii'(G+q)
                      ‾‾  ‾‾
-                     a   i,j
+                     a   i,i'
 
-        where the pair-density PAW correction tensor is calculated from the
-        smooth and all-electron partial waves:
+        where the pair-density PAW correction tensor is given by:
 
-                     /
-        Q_aij(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_aj(r-R_a)
-                     /V0                ˷             ˷
-                                      - φ_ai^*(r-R_a) φ_aj(r-R_a)]
+                      /
+        Q_aii'(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_ai'(r-R_a)
+                      /                  ˷             ˷
+                                       - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
         """
-        ikpt1 = kptpair.ikpt1
-        ikpt2 = kptpair.ikpt2
-
-        # Map the projections from the irreducible part of the BZ to the BZ
-        # k-point K
-        P1h = self.gs.ibz2bz[kptpair.K1].map_projections(ikpt1.Ph)
-        P2h = self.gs.ibz2bz[kptpair.K2].map_projections(ikpt2.Ph)
-
-        # Calculate the actual PAW corrections
         Q_aGii = self.get_paw_corrections(qpd).Q_aGii
-        P1 = ikpt1.projectors_in_transition_index(P1h)
-        P2 = ikpt2.projectors_in_transition_index(P2h)
-        for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
-            assert P1.atom_partition.comm.size ==\
-                P2.atom_partition.comm.size == 1,\
-                'We need access to the projections of all atoms'
-            P1_myti = P1[a]
-            P2_myti = P2[a]
-            # Make outer product of the projectors in the projector index i,j
-            P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
-                * P2_myti[:, np.newaxis]
-            # Sum over projector indices and add correction to the output
+        for a, Q_Gii in enumerate(Q_aGii):
+            # Make outer product of the projector overlaps
+            P1ccP2_mytii = P1_amyti[a].conj()[..., np.newaxis] \
+                * P2_amyti[a][:, np.newaxis]
+            # Sum over partial wave indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
 
@@ -240,11 +265,11 @@ class SitePairDensityCalculator:
     which interpolates smoothly bewteen unity for positions inside the
     spherical site volume and zero outide it:
 
-    n^a_kt = n^a_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_a)|ψ_n'k+qs'>_V0
+    n^a_kt = n^a_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_a)|ψ_n'k+qs'>
 
              /
            = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
-             /V0
+             /
     """
 
     def __init__(self, gs, context, atomic_site_data):
@@ -305,7 +330,7 @@ class SitePairDensityCalculator:
 
                  /             ˷          ˷
         ñ^a_kt = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
-                 /V0
+                 /
         """
 
     def add_paw_correction(self, kptpair, n_mytap):
