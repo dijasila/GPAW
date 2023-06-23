@@ -6,17 +6,18 @@ This leads to the equation (presented in SI units):
 
 ::
 
-                === ===
-   a         e  \   \        / a   \*  a     a
-  m      = - -- /   /   f   | P     | P     L
-   orb,v     2m === ===  kn  \ knsi/   knsj  vij
-                kn  sij
+                 ===  ===
+   a         e   \    \         / a   \*  a      a
+  m      = - --  /    /    f   | P     | P      L
+   orb,v     2m  ===  ===   kn  \ knsi/   knsi'  vii'
+                 kn   sii'
 
-with L^a_vij containing the matrix elements of the angular momentum operator
+with L^a_vii' containing the matrix elements of the angular momentum operator
 between two partial waves centred at atom a.
 
 The orbital magnetic moments are returned in units of μ_B without the sign of
-the negative electronic charge, q = - e."""
+the negative electronic charge, q = - e.
+"""
 
 import numpy as np
 
@@ -64,7 +65,7 @@ def get_orbmag_from_soc_eigs(soc):
 
 
 def calculate_orbmag_1k(f_n, P_nsi, l_j):
-    """Calculate contribution to orbital magnetic moments for a single k-point.
+    """Calculate contribution to orbital magnetic moment for a single k-point.
 
     Parameters
     ----------

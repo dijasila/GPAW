@@ -16,6 +16,7 @@ from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
 from ase.lattice.compounds import L1_2
 from gpaw import Mixer
+from gpaw.new.ase_interface import GPAW as GPAWNew
 
 
 @contextmanager
@@ -207,6 +208,38 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    def fcc_Ni_col(self):
+        return self.fcc_Ni('col')
+
+    def fcc_Ni_ncol(self):
+        return self.fcc_Ni('ncol')
+
+    def fcc_Ni_ncolsoc(self):
+        return self.fcc_Ni('ncolsoc')
+
+    def fcc_Ni(self, calc_type):
+        Ni = bulk('Ni', 'fcc', 3.48)
+        Ni.center()
+
+        mm = 0.5
+        easy_axis = 1 / np.sqrt(3) * np.ones(3)
+        Ni.set_initial_magnetic_moments([mm])
+
+        symmetry = {'point_group': True, 'time_reversal': True} if \
+            calc_type == 'col' else 'off'
+        magmoms = None if calc_type == 'col' else [mm * easy_axis]
+        soc = True if calc_type == 'ncolsoc' else False
+
+        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 400}, xc='LDA',
+                          kpts={'size': (4, 4, 4), 'gamma': True},
+                          parallel={'domain': 1, 'band': 1},
+                          symmetry=symmetry,
+                          occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          magmoms=magmoms, soc=soc,
+                          txt=self.path / f'fcc_Ni_{calc_type}.txt')
+        Ni.get_potential_energy()
+        return Ni.calc
 
     def h2_pw(self):
         return self.h2({'name': 'pw', 'ecut': 200})
