@@ -258,18 +258,20 @@ class NewPairDensityCalculator(MatrixElementCalculator):
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
 
-class SitePairDensityCalculator:
+class SitePairDensityCalculator(MatrixElementCalculator):
     r"""Class for calculating site pair densities.
 
     The site pair density is defined via a smooth truncation function Θ(r∊Ω_a)
-    which interpolates smoothly bewteen unity for positions inside the
-    spherical site volume and zero outide it:
+    which interpolates smoothly bewteen unity for positions inside a spherical
+    site volume and zero outside it:
 
     n^a_kt = n^a_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_a)|ψ_n'k+qs'>
 
              /
            = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
              /
+
+    For details, see [publication in preparation].
     """
 
     def __init__(self, gs, context, atomic_site_data):
@@ -301,18 +303,15 @@ class SitePairDensityCalculator:
         """Calculate the site pair density for all transitions t.
 
         The calculation is split in a pseudo site pair density contribution and
-        a PAW correction,
+        a PAW correction:
 
-        n^a_kt = ñ^a_kt + Δn_kt,
-
-        see [publication in preparation] for details.
+        n^a_kt = ñ^a_kt + Δn_kt
 
         XXX To do XXX
-        * Split calculation in pseudo and paw
         * Implement paw correction
         * Implement pseudo contribution
         * Build sum rule calculator
-        * Test the beast via sum rule calculator
+        * Test the sum rule calculator
         * Clean up documentation
         """
         # Initialize site pair density
@@ -322,18 +321,21 @@ class SitePairDensityCalculator:
         self.add_paw_correction(kptpair, n_mytap)
         return n_mytap
 
-    def add_pseudo_contribution(self, kptpair, n_mytap):
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 n_mytap):
         """Add the pseudo site pair density to the output array.
 
         The pseudo pair density is evaluated on the coarse real-space grid and
-        integrated together with the smooth truncation function:
+        integrated together with the smooth truncation function,
 
                  /             ˷          ˷
         ñ^a_kt = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
                  /
+
+        where the Kohn-Sham orbitals are normalized to the unit cell.
         """
 
-    def add_paw_correction(self, kptpair, n_mytap):
+    def _add_paw_correction(self, P1_amyti, P2_amyti, n_mytap):
         """
         Some documentation here! XXX
         """
