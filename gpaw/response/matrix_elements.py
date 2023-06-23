@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from gpaw.sphere.integrate import spherical_truncation_function
+
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
@@ -309,7 +311,6 @@ class SitePairDensityCalculator(MatrixElementCalculator):
 
         XXX To do XXX
         * Implement paw correction
-        * Implement pseudo contribution
         * Build sum rule calculator
         * Test the sum rule calculator
         * Clean up documentation
@@ -321,6 +322,7 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         self.add_paw_correction(kptpair, n_mytap)
         return n_mytap
 
+    @timer('Calculate pseudo site pair density')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
                                  n_mytap):
         """Add the pseudo site pair density to the output array.
@@ -334,7 +336,26 @@ class SitePairDensityCalculator(MatrixElementCalculator):
 
         where the Kohn-Sham orbitals are normalized to the unit cell.
         """
+        # Construct pseudo waves with Bloch phases
+        r_cR = self.gs.ibz2bz.r_cR  # scaled grid coordinates
+        psi1_mytR = np.exp(2j * np.pi * k1_c @ r_cR)[np.newaxis] * ut1_mytR
+        psi2_mytR = np.exp(2j * np.pi * k2_c @ r_cR)[np.newaxis] * ut2_mytR
+        # Calculate real-space pair densities
+        n_mytR = psi1_mytR.conj() * psi2_mytR
 
+        # Loop over sites and partitionings
+        adata = self.atomic_site_data
+        for a, (spos_c, rcut_p, lambd_p) in enumerate(zip(
+                adata.spos_ac, adata.rcut_ap, adata.lambd_ap)):
+            for p, (rcut, lambd) in enumerate(zip(rcut_p, lambd_p)):
+                # Generate smooth spherical truncation function Θ(r∊Ω_a)
+                theta_R = spherical_truncation_function(
+                    self.gs.gd, spos_c, rcut, adata.drcut, lambd)
+                # Integrate and add pseudo contribution
+                n_mytap[:, a, p] += self.gs.gd.integrate(
+                    theta_R[np.newaxis] * n_mytR)
+
+    @timer('Calculate site pair density PAW correction')
     def _add_paw_correction(self, P1_amyti, P2_amyti, n_mytap):
         """
         Some documentation here! XXX
