@@ -8,29 +8,6 @@ from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_pair_density_correction
 
 
-class PairDensity:
-    """Data class for transition distributed pair density arrays."""
-
-    def __init__(self, tblocks, n_mytG):
-        self.tblocks = tblocks
-        self.n_mytG = n_mytG
-
-    @classmethod
-    def from_qpd(cls, tblocks, qpd):
-        n_mytG = qpd.zeros(tblocks.blocksize)
-        return cls(tblocks, n_mytG)
-
-    @property
-    def local_array_view(self):
-        return self.n_mytG[:self.tblocks.nlocal]
-
-    def get_global_array(self):
-        """Get the global (all gathered) pair density array n_tG."""
-        n_tG = self.tblocks.all_gather(self.n_mytG)
-
-        return n_tG
-
-
 class MatrixElementCalculator(ABC):
     r"""Abstract base class for matrix element calculators.
 
@@ -145,6 +122,29 @@ class MatrixElementCalculator(ABC):
                 self.gs.global_pd.ifft(psit_G, ikpt.ik))
 
         return ut_hR
+
+
+class PairDensity:
+    """Data class for transition distributed pair density arrays."""
+
+    def __init__(self, tblocks, n_mytG):
+        self.tblocks = tblocks
+        self.n_mytG = n_mytG
+
+    @classmethod
+    def from_qpd(cls, tblocks, qpd):
+        n_mytG = qpd.zeros(tblocks.blocksize)
+        return cls(tblocks, n_mytG)
+
+    @property
+    def local_array_view(self):
+        return self.n_mytG[:self.tblocks.nlocal]
+
+    def get_global_array(self):
+        """Get the global (all gathered) pair density array n_tG."""
+        n_tG = self.tblocks.all_gather(self.n_mytG)
+
+        return n_tG
 
 
 class NewPairDensityCalculator(MatrixElementCalculator):
