@@ -263,14 +263,14 @@ class NewPairDensityCalculator(MatrixElementCalculator):
 class SitePairDensityCalculator(MatrixElementCalculator):
     r"""Class for calculating site pair densities.
 
-    The site pair density is defined via a smooth truncation function Θ(r∊Ω_a)
-    which interpolates smoothly bewteen unity for positions inside a spherical
-    site volume and zero outside it:
+    The site pair density is defined via smooth truncation functions Θ(r∊Ω_ap)
+    for every site a and site partitioning p, interpolating smoothly between
+    unity for positions inside the spherical site volume and zero outside it:
 
-    n^a_kt = n^a_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_a)|ψ_n'k+qs'>
+    n^ap_kt = n^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)|ψ_n'k+qs'>
 
              /
-           = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
+           = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
              /
 
     For details, see [publication in preparation].
@@ -307,13 +307,7 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         The calculation is split in a pseudo site pair density contribution and
         a PAW correction:
 
-        n^a_kt = ñ^a_kt + Δn_kt
-
-        XXX To do XXX
-        * Implement paw correction
-        * Build sum rule calculator
-        * Test the sum rule calculator
-        * Clean up documentation
+        n^ap_kt = ñ^ap_kt + Δn^ap_kt
         """
         # Initialize site pair density
         n_mytap = np.zeros((kptpair.tblocks.blocksize,)
@@ -331,7 +325,7 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         integrated together with the smooth truncation function,
 
                  /             ˷          ˷
-        ñ^a_kt = | dr Θ(r∊Ω_a) ψ_nks^*(r) ψ_n'k+qs'(r)
+        ñ^ap_kt = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
                  /
 
         where the Kohn-Sham orbitals are normalized to the unit cell.
@@ -356,7 +350,23 @@ class SitePairDensityCalculator(MatrixElementCalculator):
                     theta_R[np.newaxis] * n_mytR)
 
     @timer('Calculate site pair density PAW correction')
-    def _add_paw_correction(self, P1_amyti, P2_amyti, n_mytap):
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti, n_mytap):
+        r"""Add the site pair density PAW correction to the output array.
+
+        For every site a, we only need a PAW correction for that site itself,
+                   __
+                   \   ˷     ˷              ˷     ˷
+        Δn^ap_kt = /  <ψ_nks|p_ai> N_apii' <p_ai'|ψ_n'k+qs'>
+                   ‾‾
+                   i,i'
+
+        where N_apii' is the site pair density correction tensor.
         """
-        Some documentation here! XXX
-        """
+        N_apii = self.get_paw_correction_tensor()
+        for a, (A, N_pii) in enumerate(zip(
+                self.atomic_site_data.A_a, N_apii)):
+            # Make outer product of the projector overlaps
+            P1ccP2_mytii = P1_Amyti[A].conj()[..., np.newaxis] \
+                * P2_Amyti[A][:, np.newaxis]
+            # Sum over partial wave indices and add correction to the output
+            n_mytap[:, a] += np.einsum('tij, pij -> tp', P1ccP2_mytii, N_pii)
