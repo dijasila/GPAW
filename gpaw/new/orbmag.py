@@ -42,7 +42,8 @@ def get_orbmag_from_calc(calc):
     for wfs in calc.wfs.kpt_u:
         f_n = wfs.f_n
         for (a, P_nsi), setup in zip(wfs.P_ani.items(), calc.setups):
-            orbmag_av[a] += calculate_orbmag_1k(f_n, P_nsi, setup.l_j)
+            orbmag_av[a] += calculate_orbmag_1k(f_n, P_nsi,
+                                                (setup.n_j, setup.l_j))
 
     calc.wfs.kd.comm.sum(orbmag_av)
 
@@ -53,18 +54,18 @@ def get_orbmag_from_soc_eigs(soc):
     "Return orbital magnetic moment vectors calculated from nscf spinors."
     assert soc.bcomm.size == 1 and soc.domain_comm.size == 1
 
-    orbmag_av = np.zeros([len(soc.l_aj), 3])
+    orbmag_av = np.zeros([len(soc.nl_aj), 3])
     for wfs, weight in zip(soc.wfs.values(), soc.weights()):
         f_n = wfs.f_m * weight
-        for a, l_j in soc.l_aj.items():
-            orbmag_av[a] += calculate_orbmag_1k(f_n, wfs.projections[a], l_j)
+        for a, nl_j in soc.nl_aj.items():
+            orbmag_av[a] += calculate_orbmag_1k(f_n, wfs.projections[a], nl_j)
 
     soc.kpt_comm.sum(orbmag_av)
 
     return orbmag_av
 
 
-def calculate_orbmag_1k(f_n, P_nsi, l_j):
+def calculate_orbmag_1k(f_n, P_nsi, nl_j):
     """Calculate contribution to orbital magnetic moment for a single k-point.
 
     Parameters
@@ -74,22 +75,29 @@ def calculate_orbmag_1k(f_n, P_nsi, l_j):
         (Fermi-Dirac occupation multiplied by k-point weight)
     P_nsi : ndarray
         Projector overlaps for each state n, spin s, and partial wave i
-    l_j : list or ndarray
-        Angular momentum quantum number for each radial function j
+    nl_j : tuple of lists or ndarrays
+        Principal quantum number and angular momentum quantum number
+        for each radial function
 
-    NB: i is an index for all partial waves for one atom and j is index for
+    NB: i is an index for all partial waves for one atom and j is an index for
     only the radial wave function which is used to build all of the partial
     waves. i and j do not refer to the same kind of index.
 
-    Only partial waves with the same radial function (j index) may yield
-    nonzero contributions, so the sum can be limited to diagonal blocks
+    Only pairs of partial waves with the same radial function may yield
+    nonzero contributions. The sum can therefore be limited to diagonal blocks
     of shape [2 * l_j + 1, 2 * l_j +1] where l_j is the angular momentum
-    quantum number of the j'th radial function."""
+    quantum number of the j'th radial function.
+
+    Partials with unbounded radial functions (negative n_j) are skipped.
+    """
 
     orbmag_v = np.zeros(3)
     Ni = 0
-    for l in l_j:
+    for n, l in zip(nl_j[0], nl_j[1]):
         Nm = 2 * l + 1
+        if n < 0:
+            Ni += Nm
+            continue
         for v in range(3):
             orbmag_v[v] += np.einsum('nsi,nsj,n,ij->',
                                      P_nsi[:, :, Ni:Ni + Nm].conj(),
