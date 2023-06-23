@@ -8,7 +8,7 @@ from gpaw.sphere.integrate import (integrate_lebedev,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
@@ -372,4 +372,28 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
                      k   n,m
 
               = δ_(a,b) n_a^z
+
+    XXX To do XXX
+    * Build sum rule calculator
+    * Test the sum rule calculator
+    * Clean up documentation
     """
+
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext | None = None,
+                 nbands: int | None = None):
+        """Construct the sum rule site magnetization calculator."""
+        if context is None:
+            context = ResponseContext()
+        super().__init__(gs, context)
+
+        self.nbands = nbands
+        self.site_pair_density_calc = None
+
+    def __call__(self, q_c,
+                 atomic_site_data: AtomicSiteData):
+        """Calculate the site magnetization for a given wave vector q_c."""
+
+        # Do me! XXX
+        
