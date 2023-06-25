@@ -185,7 +185,7 @@ class BZWaveFunctions:
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 nl_aj: Dict[int, Tuple]):
+                 nl_aj: Dict[int, Tuple[int, int]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons

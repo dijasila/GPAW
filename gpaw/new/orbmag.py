@@ -77,7 +77,7 @@ def calculate_orbmag_1k(f_n, P_nsi, nl_j):
         Projector overlaps for each state n, spin s, and partial wave i
     nl_j : tuple of lists or ndarrays
         Principal quantum number and angular momentum quantum number
-        for each radial function
+        for each radial function j
 
     NB: i is an index for all partial waves for one atom and j is an index for
     only the radial wave function which is used to build all of the partial
