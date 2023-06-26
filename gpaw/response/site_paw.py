@@ -10,9 +10,9 @@ def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
     For each pair of partial waves, the PAW correction to the site pair density
     is given by:
 
-     ap     0,mi,mi' /                  a    a     ̰ a   ̰ a
-    N    = g         | r^2 dr θ(r<rc) [φ(r) φ(r) - φ(r) φ(r)]
-     ii'    0,li,li' /         p        i    i'     i    i'
+     ap     __  0,mi,mi' /                  a    a     ̰ a   ̰ a
+    N    = √4π g         | r^2 dr θ(r<rc) [φ(r) φ(r) - φ(r) φ(r)]
+     ii'        0,li,li' /         p        i    i'     i    i'
 
     where g refer to the Gaunt coefficients.
 
@@ -60,4 +60,4 @@ def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-    return N_pii
+    return np.sqrt(4 * np.pi) * N_pii
