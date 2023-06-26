@@ -374,10 +374,11 @@ def test_Co_site_data(gpw_files):
 
 
 @pytest.mark.response
-def test_Co_site_magnetization_sum_rule(gpw_files):
+def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
+    context = ResponseContext('Co_sum_rule.txt')
 
     # Set up atomic sites
     rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
@@ -385,8 +386,9 @@ def test_Co_site_magnetization_sum_rule(gpw_files):
     atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
     # Set up calculator and calculate site magnetization by sum rule
-    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs)
+    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs, context)
     site_mag = sum_rule_site_mag_calc([0., 0., 0.], atomic_site_data)
+    context.write_timer()
 
     # XXX To do XXX #
     # * Compare to site magnetization from atomic site data
