@@ -378,7 +378,7 @@ class MPAHWModel(HWModel):
         x_GG = (2*self.factor)*np.sum(W_nGG * (x1_nGG+x2_nGG),axis=0) # Why 2 here
 
         if not derivative:
-            return x_GG.T.conj()
+            return x_GG.conj()
 
         eps = 0.05
         xp_nGG = f / (omega+eps + omegat_nGG - 1j * self.eta)
@@ -388,7 +388,8 @@ class MPAHWModel(HWModel):
         dx_GG = 2*self.factor*np.sum(W_nGG * (xp_nGG-xm_nGG)/(2*eps), axis=0) # Why 2 here
         
 
-        return x_GG.T.conj(), dx_GG.T.conj()
+        return x_GG.conj(), dx_GG.conj()
+        #return x_GG.T.conj(), dx_GG.T.conj()
 #######
 
 class PPACalculator(WBaseCalculator):
@@ -450,7 +451,6 @@ class MPACalculator(WBaseCalculator):
         """Calculate the PPA parametrization of screened interaction.
         """
         #assert len(chi0.wd.omega_w) == 2
-        print(chi0.wd.omega_w)
         # E0 directly related to frequency mesh for chi0
         E0 = chi0.wd.omega_w[1].imag
 
@@ -462,18 +462,24 @@ class MPACalculator(WBaseCalculator):
         V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+        
+        einv_WgG = chi0.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
 
-        nG1 = einv_wGG.shape[1]
-        nG2 = einv_wGG.shape[2]
+        nG1 = einv_WgG.shape[1]
+        nG2 = einv_WgG.shape[2]
         R_nGG = np.zeros((self.mpa['npoles'],nG1,nG2),dtype=complex)
         omegat_nGG = np.ones((self.mpa['npoles'],nG1,nG2),dtype=complex)
         for i in range(nG1):
             for j in range(nG2):
-                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, einv_wGG[:, i, j])
+                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
+                omegat_n -= (0.1j/27.21)   # XXX
                 omegat_nGG[:,i,j] = omegat_n
                 R_nGG[:,i,j] = R_n
 
                 #print('fails',PPcond_rate)
+
+        R_nGG = chi0.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
+        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'wGG')
 
         W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
         
@@ -482,6 +488,11 @@ class MPACalculator(WBaseCalculator):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
+        W_nGG = np.transpose(W_nGG, axes=(0,2,1))
+        omegat_nGG = np.transpose(omegat_nGG, axes=(0,2,1))
+
+        W_nGG = chi0.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
+        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'WgG')
 
         self.context.timer.stop('Dyson eq.')
 

@@ -445,6 +445,8 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.mpa = mpa
+        if evaluate_sigma is None:
+            evaluate_sigma = np.array([])
         self.evaluate_sigma = evaluate_sigma
 
         # Note: self.chi0calc.wd should be our only representation
@@ -727,6 +729,7 @@ class G0W0Calculator:
                             S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, 2 * f - 1, f)
                             if S_GG is None:
                                 continue
+                            #print(myn_G.shape, S_GG.shape, nc_G.shape)
                             sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += myn_G @ S_GG @ nc_G
 
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1, f)
@@ -1114,6 +1117,7 @@ class G0W0(G0W0Calculator):
             assert fxc_modes is None
         if fxc_modes:
             assert fxc_mode is None
+
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
