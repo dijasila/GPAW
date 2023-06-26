@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # General modules
 import numpy as np
 
@@ -15,7 +17,9 @@ from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
                                    add_magnetization, add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.matrix_elements import SitePairDensityCalculator
 
 # ASE modules
 from ase.units import Hartree, Bohr
@@ -360,6 +364,29 @@ class AtomicSiteData:
                 out_ap[a, p] += microsetup.rgd.integrate_trapz(df_g * theta_g)
 
 
+class SumRuleSiteMagnetization(PairFunction):
+    """Data object for the sum rule site magnetization."""
+
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 atomic_site_data: AtomicSiteData):
+        self.qpd = qpd
+        self.q_c = qpd.q_c
+
+        self.atomic_site_data = atomic_site_data
+
+        self.array = self.zeros()
+
+    @property
+    def shape(self):
+        nsites = self.atomic_site_data.nsites
+        npartitions = self.atomic_site_data.npartitions
+        return nsites, nsites, npartitions
+        
+    def zeros(self):
+        return np.zeros(self.shape, dtype=float)
+
+
 class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
     r"""Site magnetization calculator utilizing a sum rule.
 
@@ -391,9 +418,23 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         self.nbands = nbands
         self.site_pair_density_calc = None
 
-    def __call__(self, q_c,
-                 atomic_site_data: AtomicSiteData):
+    def __call__(self, q_c, atomic_site_data: AtomicSiteData):
         """Calculate the site magnetization for a given wave vector q_c."""
+        self.site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
 
-        # Do me! XXX
-        
+        # Set up data object (without a plane-wave representation, which is
+        # irrelevant in this case)
+        qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
+        site_mag = SumRuleSiteMagnetization(qpd, atomic_site_data)
+
+        # Perform actual calculation
+        self.context.print('Calculating sum rule site magnetization')
+        transitions = self.get_band_and_spin_transitions(
+            '+-', nbands=self.nbands, bandsummation='double')
+        self._integrate(site_mag, transitions)
+
+    def add_integrand(self, kptpair, weight, site_mag):
+        """
+        Documentation here! XXX
+        """
