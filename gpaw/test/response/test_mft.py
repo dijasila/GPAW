@@ -380,6 +380,9 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
 
+    # XXX
+    q_c = [0., 0., 0.]
+
     # Set up atomic sites
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
     # Make sure that the two sites do not overlap
@@ -389,7 +392,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
 
     # Set up calculator and calculate site magnetization by sum rule
     sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs, context)
-    site_mag_abr = sum_rule_site_mag_calc([0., 0., 0.], atomic_site_data)
+    site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
     context.write_timer()
 
     # Test that the sum rule site magnetization should be a diagonal real array
@@ -402,14 +405,18 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     # Test that the magnetic moments on the two Co atoms are identical
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
 
-    # Test that the result matches a conventional calculation
+    # Test that the result matches a conventional calculation at close-packing
     magmom_ar = atomic_site_data.calculate_magnetic_moments()
-    assert site_mag_ar == pytest.approx(magmom_ar, rel=1e-2)
+    assert site_mag_ar[:, -1] == pytest.approx(magmom_ar[:, -1], rel=1e-3)
+
+    # Test values against reference
+    print(site_mag_ar[0, ::20])
+    assert site_mag_ar[0, ::20] == pytest.approx(
+        np.array([0.00202257, 0.20283369, 0.77668115,
+                  1.26833999, 1.55314067, 1.62412787]), rel=1e-4)
 
     # XXX To do XXX #
-    # * Compare to site magnetization from atomic site data
     # * Vary the wave vector q_c
-    # * Create a plot for visual comparison
     # * Test block parallelization
 
     # import matplotlib.pyplot as plt
@@ -417,4 +424,5 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     # plt.plot(rc_r, magmom_ar[0], zorder=0)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
+    # plt.title(q_c)
     # plt.show()
