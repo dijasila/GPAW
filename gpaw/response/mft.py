@@ -399,10 +399,6 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
                      k   n,m
 
               = δ_(a,b) n_a^z
-
-    XXX To do XXX
-    * Test the sum rule calculator
-    * Clean up documentation
     """
 
     def __init__(self,
@@ -435,6 +431,8 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         # Perform actual calculation
         self.context.print('Calculating sum rule site magnetization')
         self._integrate(site_mag, transitions)
+
+        return site_mag.array
 
     def add_integrand(self, kptpair, weight, site_mag):
         r"""Add the site magnetization integrand of the outer k-point integral.
