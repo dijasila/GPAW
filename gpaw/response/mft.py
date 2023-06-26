@@ -201,6 +201,10 @@ class AtomicSiteData:
         # Convert radii to internal units (Å to Bohr)
         self.rc_ap = rc_ap / Bohr
 
+        self.nsites = len(self.A_a)
+        self.npartitions = self.rc_ap.shape[1]
+        self.shape = (self.nsites, self.npartitions)
+
         assert self._in_valid_site_radii_range(gs),\
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
@@ -218,18 +222,6 @@ class AtomicSiteData:
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
-
-    @property
-    def nsites(self):
-        return len(self.A_a)
-
-    @property
-    def npartitions(self):
-        return self.rc_ap.shape[1]
-
-    @property
-    def shape(self):
-        return (self.nsites, self.npartitions)
 
     @staticmethod
     def _valid_site_radii_range(gs):
