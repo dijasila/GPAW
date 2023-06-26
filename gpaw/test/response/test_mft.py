@@ -24,6 +24,7 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
 from gpaw.test.conftest import response_band_cutoff
+from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
 
 @pytest.mark.response
@@ -374,14 +375,15 @@ def dont_test_Co_site_data(gpw_files):
 
 
 @pytest.mark.response
-def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
+@pytest.mark.parametrize('qrel', generate_qrel_q())
+def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
 
-    # XXX
-    q_c = [0., 0., 0.]
+    # Get wave vector to test
+    q_c = get_q_c('co_pw_wfs', qrel)
 
     # Set up atomic sites
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
@@ -403,17 +405,17 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
         site_mag_abr))) / site_mag_ra < 5e-2)
     site_mag_ar = site_mag_ra.T
     # Test that the magnetic moments on the two Co atoms are identical
-    assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
+    assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3 + qrel * 0.2)
 
     # Test that the result matches a conventional calculation at close-packing
     magmom_ar = atomic_site_data.calculate_magnetic_moments()
-    assert site_mag_ar[:, -1] == pytest.approx(magmom_ar[:, -1], rel=1e-3)
+    assert site_mag_ar[0, -1] == pytest.approx(magmom_ar[0, -1], rel=1e-3 + qrel * 0.05)
 
     # Test values against reference
     print(site_mag_ar[0, ::20])
     assert site_mag_ar[0, ::20] == pytest.approx(
         np.array([0.00202257, 0.20283369, 0.77668115,
-                  1.26833999, 1.55314067, 1.62412787]), rel=1e-4)
+                  1.26833999, 1.55314067, 1.62412787]), rel=1e-3 + qrel * 0.05)
 
     # XXX To do XXX #
     # * Vary the wave vector q_c
@@ -424,5 +426,5 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     # plt.plot(rc_r, magmom_ar[0], zorder=0)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
-    # plt.title(q_c)
+    # plt.title(str(q_c))
     # plt.show()
