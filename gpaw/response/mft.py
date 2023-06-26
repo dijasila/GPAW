@@ -420,8 +420,13 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
 
     def __call__(self, q_c, atomic_site_data: AtomicSiteData):
         """Calculate the site magnetization for a given wave vector q_c."""
+        # Set up internals and print info string
         self.site_pair_density_calc = SitePairDensityCalculator(
             self.gs, self.context, atomic_site_data)
+        transitions = self.get_band_and_spin_transitions(
+            '+-', nbands=self.nbands, bandsummation='double')
+        self.context.print(self.get_info_string(
+            q_c, self.nbands, len(transitions)))
 
         # Set up data object (without a plane-wave representation, which is
         # irrelevant in this case)
@@ -430,11 +435,27 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
 
         # Perform actual calculation
         self.context.print('Calculating sum rule site magnetization')
-        transitions = self.get_band_and_spin_transitions(
-            '+-', nbands=self.nbands, bandsummation='double')
         self._integrate(site_mag, transitions)
 
     def add_integrand(self, kptpair, weight, site_mag):
         """
         Documentation here! XXX
         """
+
+    def get_info_string(self, q_c, nbands, nt):
+        """Get information about the calculation"""
+        s = '\n'
+
+        s += 'Calculating the sum rule site magnetization with:\n'
+        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
+        if nbands is None:
+            s += '    Bands included: All\n'
+        else:
+            s += '    Number of bands included: %d\n' % nbands
+        s += 'Resulting in:\n'
+        s += '    A total number of band and spin transitions of: %d\n' % nt
+        s += '\n'
+
+        s += self.get_basic_info_string()
+
+        return s
