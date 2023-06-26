@@ -326,9 +326,9 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         The pseudo pair density is evaluated on the coarse real-space grid and
         integrated together with the smooth truncation function,
 
-                 /             ˷          ˷
+                  /              ˷          ˷
         ñ^ap_kt = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
-                 /
+                  /
 
         where the Kohn-Sham orbitals are normalized to the unit cell.
         """
