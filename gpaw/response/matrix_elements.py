@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from gpaw.utilities.blas import gemmdot
+
 from gpaw.sphere.integrate import spherical_truncation_function
 
 from gpaw.response import timer
@@ -332,16 +334,18 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         """
         # Construct pseudo waves with Bloch phases
         r_cR = self.gs.ibz2bz.r_cR  # scaled grid coordinates
-        psi1_mytR = np.exp(2j * np.pi * k1_c @ r_cR)[np.newaxis] * ut1_mytR
-        psi2_mytR = np.exp(2j * np.pi * k2_c @ r_cR)[np.newaxis] * ut2_mytR
+        psi1_mytR = np.exp(2j * np.pi * gemmdot(k1_c, r_cR))[np.newaxis]\
+            * ut1_mytR
+        psi2_mytR = np.exp(2j * np.pi * gemmdot(k2_c, r_cR))[np.newaxis]\
+            * ut2_mytR
         # Calculate real-space pair densities
         n_mytR = psi1_mytR.conj() * psi2_mytR
 
         # Loop over sites and partitionings
         adata = self.atomic_site_data
-        for a, (spos_c, rcut_p, lambd_p) in enumerate(zip(
-                adata.spos_ac, adata.rcut_ap, adata.lambd_ap)):
-            for p, (rcut, lambd) in enumerate(zip(rcut_p, lambd_p)):
+        for a, (spos_c, rc_p, lambd_p) in enumerate(zip(
+                adata.spos_ac, adata.rc_ap, adata.lambd_ap)):
+            for p, (rcut, lambd) in enumerate(zip(rc_p, lambd_p)):
                 # Generate smooth spherical truncation function Θ(r∊Ω_a)
                 theta_R = spherical_truncation_function(
                     self.gs.gd, spos_c, rcut, adata.drcut, lambd)
