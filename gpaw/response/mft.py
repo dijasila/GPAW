@@ -286,8 +286,8 @@ class AtomicSiteData:
 
     def calculate_spin_splitting(self):
         r"""Calculate the spin splitting Δ^(xc) for each atomic site."""
-        Δxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
-        return Δxc_ap * Hartree  # return the splitting in eV
+        dxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
+        return dxc_ap * Hartree  # return the splitting in eV
 
     def integrate_local_function(self, add_f):
         r"""Integrate a local function f[n](r) = f(n(r)) over the atomic sites.
