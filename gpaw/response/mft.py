@@ -12,7 +12,7 @@ from gpaw.sphere.integrate import (integrate_lebedev,
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
                                    add_magnetization, add_LSDA_spin_splitting,
                                    extract_micro_setup)
@@ -445,27 +445,35 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
                        k
 
         the integrand is given by
-                     __
-                     \
-        (...)_k = V0 /  (f_nk↑ - f_mk+q↓) n^a_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑)
-                     ‾‾
-                     n,m
+                     __   __
+                     \    \   /
+        (...)_k = V0 /    /   | σ^+_ss' (f_nks - f_n'k+qs')
+                     ‾‾   ‾‾  \                                       \
+                    n,n' s,s'   × n^a_(nks,n'k+qs') n^b_(n'k+qs',nks) |
+                                                                      /
 
-        where V0 is the cell volume.
+        where V0 is the cell volume and σ^+ is the spin-raising Pauli matrix
         """
-        # Calculate site pair densties and occupation differences
+        # Calculate site pair densties
         n_mytap = self.site_pair_density_calc(kptpair)
-        df_myt = kptpair.ikpt2.f_myt - kptpair.ikpt1.f_myt
+        # Calculate the product between the spin-lowering Pauli matrix and the
+        # occupational differences
+        smatmin = smat('+')
+        s1_myt = kptpair.transitions.s1_t[kptpair.tblocks.myslice]
+        s2_myt = kptpair.transitions.s2_t[kptpair.tblocks.myslice]
+        smat_myt = smatmin[s1_myt, s2_myt]
+        df_myt = kptpair.ikpt1.f_myt - kptpair.ikpt2.f_myt
+        smatdf_myt = smat_myt * df_myt
 
         # Calculate integrand
         nncc_mytabp = n_mytap[:, :, np.newaxis] * n_mytap.conj()[:, np.newaxis]
         # Sum over local transitions
-        integrand_abp = np.einsum('t, tabp -> abp', df_myt, nncc_mytabp)
+        integrand_abp = np.einsum('t, tabp -> abp', smatdf_myt, nncc_mytabp)
         # Sum over distributed transitions
         kptpair.tblocks.blockcomm.sum(integrand_abp)
 
         # Add integrand to output array
-        site_mag.array[:] += self.gs.volume * integrand_abp
+        site_mag.array[:] += self.gs.volume * weight * integrand_abp
 
     def get_info_string(self, q_c, nbands, nt):
         """Get information about the calculation"""
