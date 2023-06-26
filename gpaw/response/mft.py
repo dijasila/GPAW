@@ -438,9 +438,37 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         self._integrate(site_mag, transitions)
 
     def add_integrand(self, kptpair, weight, site_mag):
+        r"""Add the site magnetization integrand of the outer k-point integral.
+
+        With
+                       __
+                    1  \
+        ̄n_ab^z(q) = ‾  /  (...)_k
+                    V  ‾‾
+                       k
+
+        the integrand is given by
+                     __
+                     \
+        (...)_k = V0 /  (f_nk↑ - f_mk+q↓) n^a_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑)
+                     ‾‾
+                     n,m
+
+        where V0 is the cell volume.
         """
-        Documentation here! XXX
-        """
+        # Calculate site pair densties and occupation differences
+        n_mytap = self.site_pair_density_calc(kptpair)
+        df_myt = kptpair.ikpt2.f_myt - kptpair.ikpt1.f_myt
+
+        # Calculate integrand
+        nncc_mytabp = n_mytap[:, :, np.newaxis] * n_mytap.conj()[:, np.newaxis]
+        # Sum over local transitions
+        integrand_abp = np.einsum('t, tabp -> abp', df_myt, nncc_mytabp)
+        # Sum over distributed transitions
+        kptpair.tblocks.blockcomm.sum(integrand_abp)
+
+        # Add integrand to output array
+        site_mag.array += self.gs.volume * integrand_abp
 
     def get_info_string(self, q_c, nbands, nt):
         """Get information about the calculation"""
