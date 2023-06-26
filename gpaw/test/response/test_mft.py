@@ -402,8 +402,9 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     # Test that the magnetic moments on the two Co atoms are identical
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
 
-    # # Test that the result matches a conventional calculation
-    # magmom_ar = atomic_site_data.calculate_magnetic_moments()
+    # Test that the result matches a conventional calculation
+    magmom_ar = atomic_site_data.calculate_magnetic_moments()
+    assert site_mag_ar == pytest.approx(magmom_ar, rel=1e-2)
 
     # XXX To do XXX #
     # * Compare to site magnetization from atomic site data
