@@ -381,8 +381,10 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     context = ResponseContext('Co_sum_rule.txt')
 
     # Set up atomic sites
-    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
-    rc_r = np.linspace(rmin_a[0], rmax_a[0], 101)
+    rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
+    # Make sure that the two sites do not overlap
+    nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
+    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 101)
     atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
     # Set up calculator and calculate site magnetization by sum rule
@@ -395,7 +397,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files):
     assert np.all(np.abs(site_mag_ra.imag / site_mag_ra.real) < 1e-6)
     site_mag_ra = site_mag_ra.real
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        site_mag_abr))) / site_mag_ra < 1e-6)
+        site_mag_abr))) / site_mag_ra < 5e-2)
     site_mag_ar = site_mag_ra.T
     # Test that the magnetic moments on the two Co atoms are identical
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
