@@ -16,7 +16,8 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_magnetization)
-from gpaw.response.mft import IsotropicExchangeCalculator, AtomicSiteData
+from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
+                               SumRuleSiteMagnetizationCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -370,3 +371,24 @@ def test_Co_site_data(gpw_files):
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
     # plt.show()
+
+
+@pytest.mark.response
+def test_Co_site_magnetization_sum_rule(gpw_files):
+    # Set up ground state adapter
+    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    gs = ResponseGroundStateAdapter(calc)
+
+    # Set up atomic sites
+    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
+    rc_r = np.linspace(rmin_a[0], rmax_a[0], 101)
+    atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
+
+    # Set up calculator and calculate site magnetization by sum rule
+    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs)
+    site_mag = sum_rule_site_mag_calc([0., 0., 0.], atomic_site_data)
+
+    # XXX To do XXX #
+    # * Compare to site magnetization from atomic site data
+    # * Vary the wave vector q_c
+    # * Create a plot for visual comparison
