@@ -238,7 +238,8 @@ class AtomicSiteData:
 
         # Find neighbours based on covalent radii
         cutoffs = natural_cutoffs(atoms, mult=2)
-        neighbourlist = build_neighbor_list(atoms, cutoffs)
+        neighbourlist = build_neighbor_list(atoms, cutoffs,
+                                            self_interaction=False)
         # Determine rmax for each atom
         augr_A = gs.get_aug_radii()
         rmax_A = []
@@ -248,8 +249,6 @@ class AtomicSiteData:
             # neighbour
             aug_distances = []
             for An, offset in zip(*neighbourlist.get_neighbors(A)):
-                if An == A and np.all(offset == 0):
-                    continue  # The atom itself is somehow a neighbour...
                 posn = atoms.positions[An] + offset @ atoms.get_cell()
                 dist = np.linalg.norm(posn - pos) / Bohr  # Å -> Bohr
                 aug_dist = dist - augr_A[An]
