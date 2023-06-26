@@ -384,7 +384,7 @@ class SumRuleSiteMagnetization(PairFunction):
         return nsites, nsites, npartitions
         
     def zeros(self):
-        return np.zeros(self.shape, dtype=float)
+        return np.zeros(self.shape, dtype=complex)
 
 
 class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
@@ -401,7 +401,6 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
               = δ_(a,b) n_a^z
 
     XXX To do XXX
-    * Build sum rule calculator
     * Test the sum rule calculator
     * Clean up documentation
     """
@@ -468,7 +467,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         kptpair.tblocks.blockcomm.sum(integrand_abp)
 
         # Add integrand to output array
-        site_mag.array += self.gs.volume * integrand_abp
+        site_mag.array[:] += self.gs.volume * integrand_abp
 
     def get_info_string(self, q_c, nbands, nt):
         """Get information about the calculation"""
