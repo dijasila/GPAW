@@ -2,13 +2,11 @@ import pytest
 from gpaw.mpi import world
 from ase import Atoms, Atom
 from ase.build import molecule
-from ase.parallel import barrier
 from ase.units import Hartree, mol, kcal
 from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import FermiDirac
 from gpaw.test import gen
-from gpaw.mpi import rank
 
 
 pytestmark = pytest.mark.skipif(world.size < 4,
@@ -95,7 +93,7 @@ data['H'] = {
     'dHf_0_A': 51.63 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
 
 
-def calculate(element, h, vacuum, xc, magmom):
+def calculate(element, vacuum, xc, magmom):
 
     atom = Atoms([Atom(element, (0, 0, 0))])
     if magmom > 0.0:
@@ -109,7 +107,7 @@ def calculate(element, h, vacuum, xc, magmom):
         mixer = MixerSum(0.4, nmaxold=1, weight=100)
         atom.set_positions(atom.get_positions() + [0.0, 0.0, 0.0001])
 
-    calc_atom = GPAW(h=h, xc=_xc(data[element][xc][2]),
+    calc_atom = GPAW(xc=_xc(data[element][xc][2]),
                      experimental={'niter_fixdensity': 2},
                      eigensolver='rmm-diis',
                      occupations=FermiDirac(0.0, fixmagmom=True),
@@ -126,7 +124,7 @@ def calculate(element, h, vacuum, xc, magmom):
         mms = [1.0 for i in range(len(compound))]
         compound.set_initial_magnetic_moments(mms)
 
-    calc = GPAW(h=h, xc=_xc(data[element][xc][2]),
+    calc = GPAW(xc=_xc(data[element][xc][2]),
                 experimental={'niter_fixdensity': 2},
                 eigensolver='rmm-diis',
                 mixer=mixer,
@@ -153,7 +151,7 @@ def calculate(element, h, vacuum, xc, magmom):
                2 * data[element]['H_298_H_0_A']) * (mol / kcal)
     de = dHf_298 - data[element][xc][1]
 
-    print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
+    print((xc, vacuum, dHf_298, data[element][xc][1], de,
            de / data[element][xc][1]))
     if element == 'H':
         assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
@@ -177,10 +175,9 @@ E_ref = {'H': {'B3LYP': -0.11369634560501423,
 @pytest.mark.parametrize('xc', ['PBE0', 'B3LYP'])
 def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths, xc):
     element = 'H'
-    h = 0.2
     vacuum = 4.5
 
     setup = data[element][xc][2]
     enable_exx = data[element][xc][3] == 'hyb_gga'  # only for hybrids
     gen(element, exx=enable_exx, xcname=setup, write_xml=True)
-    calculate(element, h, vacuum, xc, data[element]['magmom'])
+    calculate(element, vacuum, xc, data[element]['magmom'])
