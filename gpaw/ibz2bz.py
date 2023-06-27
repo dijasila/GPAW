@@ -207,11 +207,11 @@ def get_overlap(bands,
                 proj1: Projections,
                 proj2: Projections,
                 dO_aii):
-    """ Computes overlap of all-electron wavefunctions
-    Similar to gpaw.berryphase.get_overlap but adapted
-    to work with projector objects rather than arrays.
-    XXX Eventually berryphase.get_overlap should be replaced
-    by this function
+    """Computes the overlap between all-electron wave functions.
+
+    Similar to gpaw.berryphase.get_overlap but adapted to work with projector
+    objects rather than arrays.
+    Eventually berryphase.get_overlap should be replaced by this function. XXX
 
     Parameters
     ----------
@@ -244,3 +244,17 @@ def get_overlap_coefficients(wfs):
     for a in wfs.kpt_u[0].projections.map:
         dO_aii[a] = wfs.setups[a].dO_ii
     return dO_aii
+
+
+def get_phase_shifted_overlap_coefficients(dO_aii, spos_ac, K_c):
+    """Apply phase shift to overlap coefficients.
+
+    Applies a Bloch phase factor e^(iK.R_a) to the overlap coefficients dO_aii
+    at each (scaled) atomic position spos_ac (R_a) for the input (scaled) wave
+    vector K_c.
+    """
+    new_dO_aii = {}
+    for a, dO_ii in dO_aii.items():
+        phase_factor = np.exp(2j * np.pi * K_c @ spos_ac[a])
+        new_dO_aii[a] = phase_factor * dO_ii
+    return new_dO_aii
