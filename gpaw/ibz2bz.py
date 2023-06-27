@@ -160,16 +160,19 @@ class IBZ2BZMap:
         the projections at atom b for k-point ik.
         """
         mapped_projections = projections.new()
-        for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
-            # Map projections
-            Pin_ni = projections[b]
-            Pout_ni = Pin_ni @ U_ii
-            if self.time_reversal:
-                Pout_ni = np.conj(Pout_ni)
+        if mapped_projections.atom_partition.comm.rank == 0:
+            for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
+                # Map projections
+                Pin_ni = projections[b]
+                Pout_ni = Pin_ni @ U_ii
+                if self.time_reversal:
+                    Pout_ni = np.conj(Pout_ni)
 
-            # Store output projections
-            I1, I2 = mapped_projections.map[a]
-            mapped_projections.array[..., I1:I2] = Pout_ni
+                # Store output projections
+                I1, I2 = mapped_projections.map[a]
+                mapped_projections.array[..., I1:I2] = Pout_ni
+        else:
+            assert len(mapped_projections.indices) == 0
 
         return mapped_projections
         
