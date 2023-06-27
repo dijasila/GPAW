@@ -42,6 +42,13 @@ void myzgemm(char *transa, char *transb, int *m, int * n,
 }
 #endif
 
+#ifdef GPAW_GPU
+void lfc_dealloc_gpu(LFCObject *self);
+PyObject* NewLFCObject_gpu(LFCObject *self, PyObject *args);
+PyObject* add_gpu(LFCObject *self, PyObject *args);
+PyObject* integrate_gpu(LFCObject *self, PyObject *args);
+#endif
+
 static void lfc_dealloc(LFCObject *self)
 {
     if (self->bloch_boundary_conditions)
@@ -51,6 +58,11 @@ static void lfc_dealloc(LFCObject *self)
     free(self->ngm_W);
     free(self->i_W);
     free(self->volume_W);
+#ifdef GPAW_GPU
+    if (self->use_gpu) {
+        lfc_dealloc_gpu(self);
+    }
+#endif
     PyObject_DEL(self);
 }
 
@@ -108,6 +120,12 @@ static PyMethodDef lfc_methods[] = {
      (PyCFunction)second_derivative, METH_VARARGS, 0},
     {"add_derivative",
      (PyCFunction)add_derivative, METH_VARARGS, 0},
+#ifdef GPAW_GPU
+    {"integrate_gpu",
+     (PyCFunction)integrate_gpu, METH_VARARGS, 0},
+    {"add_gpu",
+     (PyCFunction)add_gpu, METH_VARARGS, 0},
+#endif
     {NULL, NULL, 0, NULL}
 };
 
@@ -133,16 +151,20 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   PyArrayObject* W_B_obj;
   double dv;
   PyArrayObject* phase_kW_obj;
+  int use_gpu = 0;
 
-  if (!PyArg_ParseTuple(args, "OOOOdO",
+  if (!PyArg_ParseTuple(args, "OOOOdO|i",
                         &A_Wgm_obj, &M_W_obj, &G_B_obj, &W_B_obj, &dv,
-                        &phase_kW_obj))
+                        &phase_kW_obj, &use_gpu))
     return NULL;
 
   LFCObject *self = PyObject_NEW(LFCObject, &LFCType);
   if (self == NULL)
     return NULL;
 
+#ifdef GPAW_GPU
+  self->use_gpu = use_gpu;
+#endif
   self->dv = dv;
 
   const int* M_W = (const int*)PyArray_DATA(M_W_obj);
@@ -199,6 +221,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   self->volume_W = GPAW_MALLOC(LFVolume, nthreads * nW);
   self->i_W      = GPAW_MALLOC(int, nthreads * nW);
   self->ngm_W = GPAW_MALLOC(int, nW);
+  self->nimax = nimax;
 
   int nmmax = 0;
   for (int W = 0; W < nW; W++) {
@@ -225,6 +248,11 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   /* Zero volume_i just in case since it will contain pointers to volume_W. */
   memset(self->volume_i, 0, sizeof(LFVolume *) * nthreads * nimax);
 
+#ifdef GPAW_GPU
+  if (use_gpu) {
+    NewLFCObject_gpu(self, args);
+  }
+#endif
   return (PyObject*)self;
 }
 

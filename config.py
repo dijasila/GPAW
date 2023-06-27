@@ -5,6 +5,8 @@ import sys
 import re
 import shlex
 from sysconfig import get_config_var, get_platform
+from subprocess import run
+from pathlib import Path
 from stat import ST_MTIME
 
 
@@ -114,14 +116,60 @@ def build_interpreter(
 
     # Link the custom interpreter
     compiler.link_executable(
-            objects, exename,
-            output_dir=str(build_bin),
-            extra_preargs=extra_preargs,
-            libraries=extension.libraries,
-            library_dirs=extension.library_dirs,
-            runtime_library_dirs=extension.runtime_library_dirs,
-            extra_postargs=extra_postargs,
-            debug=debug,
-            target_lang=extension.language)
-
+        objects, exename,
+        output_dir=str(build_bin),
+        extra_preargs=extra_preargs,
+        libraries=extension.libraries,
+        library_dirs=extension.library_dirs,
+        runtime_library_dirs=extension.runtime_library_dirs,
+        extra_postargs=extra_postargs,
+        debug=debug,
+        target_lang=extension.language)
     return build_bin / exename
+
+
+def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
+              define_macros, undef_macros, build_temp):
+    print('building gpu kernels', flush=True)
+
+    kernels_dpath = Path('c/gpu/kernels')
+
+    # Create temp build directory
+    build_temp_kernels_dpath = build_temp / kernels_dpath
+    if not build_temp_kernels_dpath.exists():
+        print(f'creating {build_temp_kernels_dpath}', flush=True)
+        build_temp_kernels_dpath.mkdir(parents=True)
+
+    # Glob all kernel files, but remove those included by other kernels
+    kernels = sorted(kernels_dpath.glob('*.cpp'))
+    for name in ['lfc-reduce.cpp',
+                 'lfc-reduce-kernel.cpp',
+                 'reduce.cpp',
+                 'reduce-kernel.cpp']:
+        kernels.remove(kernels_dpath / name)
+
+    # Compile GPU kernels
+    objects = []
+    for src in kernels:
+        obj = build_temp / src.with_suffix('.o')
+        objects.append(str(obj))
+        run_args = [gpu_compiler]
+        run_args += gpu_compile_args
+        for (name, value) in define_macros:
+            arg = f'-D{name}'
+            if value is not None:
+                arg += f'={value}'
+            run_args += [arg]
+        run_args += [f'-U{name}' for name in undef_macros]
+        run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
+        run_args += ['-c', str(src)]
+        run_args += ['-o', str(obj)]
+        print(shlex.join(run_args), flush=True)
+        p = run(run_args, check=False, shell=False)
+        if p.returncode != 0:
+            print(f'error: command {repr(gpu_compiler)} failed '
+                  f'with exit code {p.returncode}',
+                  file=sys.stderr, flush=True)
+            sys.exit(1)
+
+    return objects
