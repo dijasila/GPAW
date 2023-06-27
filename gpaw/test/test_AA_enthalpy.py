@@ -98,87 +98,91 @@ data['H'] = {
     'dHf_0_A': 51.63 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
 
 
-@pytest.mark.slow
-def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
-    def calculate(element, h, vacuum, xc, magmom):
+def calculate(element, h, vacuum, xc, magmom):
 
-        atom = Atoms([Atom(element, (0, 0, 0))])
-        if magmom > 0.0:
-            mms = [magmom for i in range(len(atom))]
-            atom.set_initial_magnetic_moments(mms)
+    atom = Atoms([Atom(element, (0, 0, 0))])
+    if magmom > 0.0:
+        mms = [magmom for i in range(len(atom))]
+        atom.set_initial_magnetic_moments(mms)
 
-        atom.center(vacuum=vacuum)
+    atom.center(vacuum=vacuum)
 
+    mixer = MixerSum(beta=0.4)
+    if element == 'O':
+        mixer = MixerSum(0.4, nmaxold=1, weight=100)
+        atom.set_positions(atom.get_positions() + [0.0, 0.0, 0.0001])
+
+    calc_atom = GPAW(h=h, xc=_xc(data[element][xc][2]),
+                     experimental={'niter_fixdensity': 2},
+                     eigensolver='rmm-diis',
+                     occupations=FermiDirac(0.0, fixmagmom=True),
+                     mixer=mixer,
+                     parallel=dict(augment_grids=True),
+                     nbands=-2,
+                     txt='%s.%s.txt' % (element, xc))
+    atom.calc = calc_atom
+
+    mixer = Mixer(beta=0.4, weight=100)
+    compound = molecule(element + '2')
+    if compound == 'O2':
         mixer = MixerSum(beta=0.4)
-        if element == 'O':
-            mixer = MixerSum(0.4, nmaxold=1, weight=100)
-            atom.set_positions(atom.get_positions() + [0.0, 0.0, 0.0001])
+        mms = [1.0 for i in range(len(compound))]
+        compound.set_initial_magnetic_moments(mms)
 
-        calc_atom = GPAW(h=h, xc=_xc(data[element][xc][2]),
-                         experimental={'niter_fixdensity': 2},
-                         eigensolver='rmm-diis',
-                         occupations=FermiDirac(0.0, fixmagmom=True),
-                         mixer=mixer,
-                         parallel=dict(augment_grids=True),
-                         nbands=-2,
-                         txt='%s.%s.txt' % (element, xc))
-        atom.calc = calc_atom
+    calc = GPAW(h=h, xc=_xc(data[element][xc][2]),
+                experimental={'niter_fixdensity': 2},
+                eigensolver='rmm-diis',
+                mixer=mixer,
+                parallel=dict(augment_grids=True),
+                txt='%s2.%s.txt' % (element, xc))
+    compound.set_distance(0, 1, data[element]['R_AA_B3LYP'])
+    compound.center(vacuum=vacuum)
 
-        mixer = Mixer(beta=0.4, weight=100)
-        compound = molecule(element + '2')
-        if compound == 'O2':
-            mixer = MixerSum(beta=0.4)
-            mms = [1.0 for i in range(len(compound))]
-            compound.set_initial_magnetic_moments(mms)
+    compound.calc = calc
 
-        calc = GPAW(h=h, xc=_xc(data[element][xc][2]),
-                    experimental={'niter_fixdensity': 2},
-                    eigensolver='rmm-diis',
-                    mixer=mixer,
-                    parallel=dict(augment_grids=True),
-                    txt='%s2.%s.txt' % (element, xc))
-        compound.set_distance(0, 1, data[element]['R_AA_B3LYP'])
-        compound.center(vacuum=vacuum)
-
-        compound.calc = calc
-
-        if data[element][xc][3] == 'hyb_gga':  # only for hybrids
-            e_atom = atom.get_potential_energy()
-            e_compound = compound.get_potential_energy()
-
-            atom.calc = calc_atom.new(xc=_xc(xc))
-            compound.calc = calc.new(xc=_xc(xc))
-
+    if data[element][xc][3] == 'hyb_gga':  # only for hybrids
         e_atom = atom.get_potential_energy()
         e_compound = compound.get_potential_energy()
 
-        dHf_0 = (e_compound - 2 * e_atom + data[element]['ZPE_AA_B3LYP'] +
-                 2 * data[element]['dHf_0_A'])
-        dHf_298 = (dHf_0 + data[element]['H_298_H_0_AA_B3LYP'] -
-                   2 * data[element]['H_298_H_0_A']) * (mol / kcal)
-        de = dHf_298 - data[element][xc][1]
-        E[element][xc] = de
-        if rank == 0:
-            print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
-                   de / data[element][xc][1]))
-            if element == 'H':
-                assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
-            elif element == 'O':
-                assert dHf_298 == pytest.approx(data[element][xc][1], abs=7.5)
-            else:
-                assert dHf_298 == pytest.approx(data[element][xc][1], abs=2.15)
-            assert de == pytest.approx(E_ref[element][xc], abs=0.06)
+        atom.calc = calc_atom.new(xc=_xc(xc))
+        compound.calc = calc.new(xc=_xc(xc))
+
+    e_atom = atom.get_potential_energy()
+    e_compound = compound.get_potential_energy()
+
+    dHf_0 = (e_compound - 2 * e_atom + data[element]['ZPE_AA_B3LYP'] +
+             2 * data[element]['dHf_0_A'])
+    dHf_298 = (dHf_0 + data[element]['H_298_H_0_AA_B3LYP'] -
+               2 * data[element]['H_298_H_0_A']) * (mol / kcal)
+    de = dHf_298 - data[element][xc][1]
+    # E[element][xc] = de
+    if rank == 0:
+        print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
+               de / data[element][xc][1]))
+        if element == 'H':
+            assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
+
+        elif element == 'O':
+            assert dHf_298 == pytest.approx(data[element][xc][1], abs=7.5)
+        else:
+            assert dHf_298 == pytest.approx(data[element][xc][1], abs=2.15)
+        assert de == pytest.approx(E_ref[element][xc], abs=0.06)
+
+
+E_ref = {'H': {'HCTH407': 0.19286893273630645,
+               'B3LYP': -0.11369634560501423,
+               'PBE0': -0.21413764474738262,
+               'PBEH': -0.14147808591211231},
+         'N': {'HCTH407': 2.1354017840869268,
+               'B3LYP': 0.63466589919873972,
+               'PBE0': -0.33376468078480226,
+               'PBEH': -0.30365500626180042}}  # svnversion 5599 # -np 4
+
+
+@pytest.mark.slow
+def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
 
     E = {}
-
-    E_ref = {'H': {'HCTH407': 0.19286893273630645,
-                   'B3LYP': -0.11369634560501423,
-                   'PBE0': -0.21413764474738262,
-                   'PBEH': -0.14147808591211231},
-             'N': {'HCTH407': 2.1354017840869268,
-                   'B3LYP': 0.63466589919873972,
-                   'PBE0': -0.33376468078480226,
-                   'PBEH': -0.30365500626180042}}  # svnversion 5599 # -np 4
 
     for element in ['H']:  # , 'N']:#, 'O']: # oxygen atom fails to converge
         E[element] = {}
