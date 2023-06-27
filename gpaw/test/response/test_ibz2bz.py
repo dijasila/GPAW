@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from gpaw import GPAW
-from gpaw.response.ibz2bz import IBZ2BZMaps
+from gpaw.response.ibz2bz import IBZ2BZMaps, get_overlap
 import gpaw.mpi as mpi
 from gpaw.test.conftest import response_band_cutoff
 
@@ -114,42 +114,6 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
                                        proj_sym, proj_nosym, dO_aii,
                                        wfs.gd.dv, atol)
                 n += dim
-
-
-def get_overlap(bands, ut1_nR, ut2_nR, proj1, proj2, dO_aii, dv):
-    """ Computes overlap of all-electron wavefunctions
-    Similar to gpaw.berryphase.get_overlap but adapted
-    to work with projector objects rather than arrays.
-    XXX Eventually berryphase.get_overlap should be replaced
-    by this function
-
-    Parameters
-    ----------
-    bands:  integer list
-            bands to calculate overlap for
-    ut1_nR:  np.array
-            ut_nR array
-    ut2_nR:  np.array
-            ut_nR array
-    proj1: GPAW Projections object
-    proj2: GPAW Projections object
-    dO_aii: dict
-            overlaps from setups
-    dv:     float
-            calc.wfs.gd.dv
-    """
-    NR = np.prod(np.shape(ut1_nR)[1:])
-    ut1_nR = np.reshape(ut1_nR, (len(ut1_nR), NR))
-    ut2_nR = np.reshape(ut2_nR, (len(ut2_nR), NR))
-    M_nn = (ut1_nR[bands].conj() @ ut2_nR[bands].T) * dv
-
-    for a in proj1.map:
-        P1_ni = proj1[a][bands]
-        P2_ni = proj2[a][bands]
-        dO_ii = dO_aii[a]
-        M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
-
-    return M_nn
 
 
 def equal_dicts(dict_1, dict_2, atol):
