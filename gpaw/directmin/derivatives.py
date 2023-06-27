@@ -155,7 +155,7 @@ class Davidson(object):
 
     def __init__(self, etdm, logfile, fd_mode=None, m=None, h=None,
                  eps=None, cap_krylov=None, gmf=False,
-                 accurate_first_pdiag=True, remember_sp_order=False,
+                 accurate_first_pdiag=True, remember_sp_order=None,
                  sp_order=None, seed=None):
         """
         :param etdm: ETDM object for which the partial eigendecomposition
@@ -197,6 +197,7 @@ class Davidson(object):
         :param seed: Seed for random perturbation of initial Krylov space.
         """
 
+        self.name = 'Davidson'
         self.gmf = gmf
         self.etdm = etdm
         self.fd_mode = fd_mode
@@ -773,21 +774,21 @@ class Davidson(object):
         return a_vec_u
 
     def estimate_sp_order(self, calc, method='appr-hess', target_more=1):
+        self.etdm.sort_orbitals_mom(calc.wfs, update_mom=method == 'full-hess')
         appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
             calc.wfs)
         if calc.wfs.dtype is complex:
             appr_sp_order *= 2
         if method == 'full-hess':
-            self.etdm.sort_orbitals_mom(calc.wfs)
             constraints_copy = deepcopy(self.etdm.constraints)
             self.etdm.constraints = [[] for _ in range(len(calc.wfs.kpt_u))]
             self.sp_order = appr_sp_order + target_more
             self.run(calc.wfs, calc.hamiltonian, calc.density)
             appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
                 calc.wfs, use_prev=True)
-            for kpt in calc.wfs.kpt_u:
-                self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
             self.etdm.constraints = deepcopy(constraints_copy)
+        for kpt in calc.wfs.kpt_u:
+            self.etdm.sort_orbitals(calc.hamiltonian, calc.wfs, kpt)
         return appr_sp_order
 
 
