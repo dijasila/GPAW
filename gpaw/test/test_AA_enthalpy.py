@@ -10,90 +10,96 @@ from gpaw.occupations import FermiDirac
 from gpaw.test import gen
 from gpaw.mpi import rank
 
+
 pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
+def _xc(name):
+    return {'name': name, 'stencil': 1}
+
+
+data = {}
+
+
+# data (from tables.pdf of 10.1063/1.1626543)
+data['N'] = {
+    # intermolecular distance (A),
+    # formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    'exp': (1.098, 0.0, 'none', 'none'),
+    'HCTH407': (1.097, 7.9, 'HCTH407', 'gga'),
+    'PBE': (1.103, -15.1, 'PBE', 'gga'),
+    'BLYP': (1.103, -11.7, 'BLYP', 'gga'),
+    'BP86': (1.104, -15.6, 'BP86', 'gga'),
+    'BPW91': (1.103, -8.5, 'BPW91', 'gga'),
+    'B3LYP': (1.092, -1.03, 'BLYP', 'hyb_gga'),
+    'B3PW91': (1.091, 2.8, 'PW91', 'hyb_gga'),
+    'PBE0': (1.090, 3.1, 'PBE', 'hyb_gga'),
+    'PBEH': (1.090, 3.1, 'PBE', 'hyb_gga'),
+    'magmom': 3.0,
+    # tables.pdf:
+    # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
+    'R_AA_B3LYP': 1.092,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+    'ZPE_AA_B3LYP': 0.005457 * Hartree,  # (from benchmarks.txt of
+                                         # 10.1063/1.1626543) (eV)
+    'H_298_H_0_AA_B3LYP': 0.003304 * Hartree,  # (from benchmarks.txt of
+                                               # 10.1063/1.1626543) (eV)
+    'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
+    'dHf_0_A': 112.53 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
+
+
+data['O'] = {
+    # intermolecular distance (A),
+    # formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    'exp': (1.208, 0.0, 'none', 'none'),
+    'HCTH407': (1.202, -14.5, 'HCTH407', 'gga'),
+    'PBE': (1.218, -23.6, 'PBE', 'gga'),
+    'BLYP': (1.229, -15.4, 'BLYP', 'gga'),
+    'BP86': (1.220, -21.9, 'BP86', 'gga'),
+    'BPW91': (1.219, -17.9, 'BPW91', 'gga'),
+    'B3LYP': (1.204, -3.7, 'BLYP', 'hyb_gga'),
+    'B3PW91': (1.197, -5.1, 'PW91', 'hyb_gga'),
+    'PBE0': (1.192, -4.3, 'PBE', 'hyb_gga'),
+    'PBEH': (1.192, -4.3, 'PBE', 'hyb_gga'),
+    'magmom': 2.0,
+    # tables.pdf:
+    # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
+    'R_AA_B3LYP': 1.204,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+    'ZPE_AA_B3LYP': 0.003736 * Hartree,  # (from benchmarks.txt of
+                                         # 10.1063/1.1626543) (eV)
+    'H_298_H_0_AA_B3LYP': 0.003307 * Hartree,
+    # (from benchmarks.txt of 10.1063/1.1626543) (eV)
+    'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
+    'dHf_0_A': 58.99 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
+
+
+data['H'] = {
+    # intermolecular distance (A),
+    # formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    'exp': (0.741, 0.0, 'none', 'none'),
+    'HCTH407': (0.744, 1.8, 'HCTH407', 'gga'),
+    'PBE': (0.750, 5.1, 'PBE', 'gga'),
+    'BLYP': (0.746, 0.3, 'BLYP', 'gga'),
+    'BP86': (0.750, -1.8, 'BP86', 'gga'),
+    'BPW91': (0.748, 4.0, 'BPW91', 'gga'),
+    'B3LYP': (0.742, -0.5, 'BLYP', 'hyb_gga'),
+    'B3PW91': (0.744, 2.4, 'PW91', 'hyb_gga'),
+    'PBE0': (0.745, 5.3, 'PBE', 'hyb_gga'),
+    'PBEH': (0.745, 5.3, 'PBE', 'hyb_gga'),
+    'magmom': 1.0,
+    # tables.pdf:
+    # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
+    'R_AA_B3LYP': 0.742,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+    'ZPE_AA_B3LYP': 0.010025 * Hartree,  # (from benchmarks.txt of
+                                         # 10.1063/1.1626543) (eV)
+    'H_298_H_0_AA_B3LYP': 0.003305 * Hartree,  # (from benchmarks.txt of
+                                               # 10.1063/1.1626543) (eV)
+    'H_298_H_0_A': 1.01 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
+    'dHf_0_A': 51.63 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
+
+
 @pytest.mark.slow
 def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
-    data = {}
-
-    def _xc(name):
-        return {'name': name, 'stencil': 1}
-
-    # data (from tables.pdf of 10.1063/1.1626543)
-    data['N'] = {
-        # intermolecular distance (A),
-        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
-        'exp': (1.098, 0.0, 'none', 'none'),
-        'HCTH407': (1.097, 7.9, 'HCTH407', 'gga'),
-        'PBE': (1.103, -15.1, 'PBE', 'gga'),
-        'BLYP': (1.103, -11.7, 'BLYP', 'gga'),
-        'BP86': (1.104, -15.6, 'BP86', 'gga'),
-        'BPW91': (1.103, -8.5, 'BPW91', 'gga'),
-        'B3LYP': (1.092, -1.03, 'BLYP', 'hyb_gga'),
-        'B3PW91': (1.091, 2.8, 'PW91', 'hyb_gga'),
-        'PBE0': (1.090, 3.1, 'PBE', 'hyb_gga'),
-        'PBEH': (1.090, 3.1, 'PBE', 'hyb_gga'),
-        'magmom': 3.0,
-        # tables.pdf:
-        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
-        'R_AA_B3LYP': 1.092,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
-        'ZPE_AA_B3LYP': 0.005457 * Hartree,  # (from benchmarks.txt of
-                                             # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003304 * Hartree,  # (from benchmarks.txt of
-                                                   # 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
-        'dHf_0_A': 112.53 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
-
-    data['O'] = {
-        # intermolecular distance (A),
-        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
-        'exp': (1.208, 0.0, 'none', 'none'),
-        'HCTH407': (1.202, -14.5, 'HCTH407', 'gga'),
-        'PBE': (1.218, -23.6, 'PBE', 'gga'),
-        'BLYP': (1.229, -15.4, 'BLYP', 'gga'),
-        'BP86': (1.220, -21.9, 'BP86', 'gga'),
-        'BPW91': (1.219, -17.9, 'BPW91', 'gga'),
-        'B3LYP': (1.204, -3.7, 'BLYP', 'hyb_gga'),
-        'B3PW91': (1.197, -5.1, 'PW91', 'hyb_gga'),
-        'PBE0': (1.192, -4.3, 'PBE', 'hyb_gga'),
-        'PBEH': (1.192, -4.3, 'PBE', 'hyb_gga'),
-        'magmom': 2.0,
-        # tables.pdf:
-        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
-        'R_AA_B3LYP': 1.204,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
-        'ZPE_AA_B3LYP': 0.003736 * Hartree,  # (from benchmarks.txt of
-                                             # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003307 * Hartree,
-        # (from benchmarks.txt of 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
-        'dHf_0_A': 58.99 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
-
-    data['H'] = {
-        # intermolecular distance (A),
-        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
-        'exp': (0.741, 0.0, 'none', 'none'),
-        'HCTH407': (0.744, 1.8, 'HCTH407', 'gga'),
-        'PBE': (0.750, 5.1, 'PBE', 'gga'),
-        'BLYP': (0.746, 0.3, 'BLYP', 'gga'),
-        'BP86': (0.750, -1.8, 'BP86', 'gga'),
-        'BPW91': (0.748, 4.0, 'BPW91', 'gga'),
-        'B3LYP': (0.742, -0.5, 'BLYP', 'hyb_gga'),
-        'B3PW91': (0.744, 2.4, 'PW91', 'hyb_gga'),
-        'PBE0': (0.745, 5.3, 'PBE', 'hyb_gga'),
-        'PBEH': (0.745, 5.3, 'PBE', 'hyb_gga'),
-        'magmom': 1.0,
-        # tables.pdf:
-        # https://aip.scitation.org/doi/suppl/10.1063/1.1626543/suppl_file/tables.pdf
-        'R_AA_B3LYP': 0.742,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
-        'ZPE_AA_B3LYP': 0.010025 * Hartree,  # (from benchmarks.txt of
-                                             # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003305 * Hartree,  # (from benchmarks.txt of
-                                                   # 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.01 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
-        'dHf_0_A': 51.63 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
-
     def calculate(element, h, vacuum, xc, magmom):
 
         atom = Atoms([Atom(element, (0, 0, 0))])
