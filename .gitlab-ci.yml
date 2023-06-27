@@ -398,9 +398,9 @@ docs:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
       pytest --instafail -x -r s --durations 30 --color=yes
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  # rules:
+    # - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
 nightly-serial:
@@ -418,6 +418,7 @@ nightly-mpi-2:
     - .nightly
 
 
+# Let's disable until we get mpi-2 to work at least
 nightly-mpi-4:
   variables:
     GPAW_MPI_NPROCS: "4"
