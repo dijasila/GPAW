@@ -571,9 +571,9 @@ class GPWFiles:
         # Define input parameters
         xc = 'LDA'
         kpts = 4
-        pw = 300
+        pw = 200
         occw = 0.01
-        conv = {'density': 1.e-8,
+        conv = {'density': 1.e-4,
                 'bands': band_cutoff + 1}
 
         a = 3.840
