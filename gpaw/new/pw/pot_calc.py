@@ -70,7 +70,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         pw = self.vbar_g.desc
 
         if pw.comm.rank == 0:
-            indices = self.xp0.asarray(self.pw0.indices(self.fftplan.shape))
+            indices = self.xp.asarray(self.pw0.indices(self.fftplan.shape))
             nt0_g = self.pw0.zeros(xp=self.xp)
         else:
             nt0_g = None
@@ -83,7 +83,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 nt0_g.data += self.xp.asarray(
                     self.fftplan.tmp_Q.ravel()[indices])
 
-        return nt_sr.to_xp(self.xp), pw, nt0_g
+        return nt_sr, pw, nt0_g
 
     def calculate_pseudo_potential(self, density, vHt_h):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
@@ -131,7 +131,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                     vt0_g.data[g] += data
             vt0_R = vt0_g.ifft(
                 plan=self.fftplan,
-                grid=density.nt_sR.desc.new(comm=None)).to_xp(self.xp)
+                grid=density.nt_sR.desc.new(comm=None))
         else:
             pw.comm.send(vHt_h.data[self.h_g], 0)
 
@@ -159,9 +159,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         vtmp_R = vt_sR.desc.empty(xp=self.xp)
         e_kinetic = 0.0
         for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            vxct_r.to_xp(self.xp0).fft_restrict(
-                self.fftplan2, self.fftplan, out=vtmp_R)
-            vt_R.data += vtmp_R.to_xp(self.xp).data
+            vxct_r.fft_restrict(self.fftplan2, self.fftplan, out=vtmp_R)
+            vt_R.data += vtmp_R.data
             if density:
                 e_kinetic -= vt_R.integrate(density.nt_sR[spin])
                 if spin < density.ndensities:
