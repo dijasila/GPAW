@@ -13,6 +13,8 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* Removed the utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
+
 
 Version 23.6.0
 ==============
