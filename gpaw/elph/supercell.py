@@ -330,7 +330,7 @@ class Supercell:
         dtype = supercell_cache["info"]["gtype"]
         natom = supercell_cache["info"]["natom"]
         nx = natom * 3
-        g_xsNNMM = np.empty([nx,] + list(shape), dtype=dtype)
+        g_xsNNMM = np.empty([nx, ] + list(shape), dtype=dtype)
         for x in range(nx):
             g_xsNNMM[x] = supercell_cache[str(x)]
         basis_info = supercell_cache["basis"]

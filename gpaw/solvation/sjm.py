@@ -431,7 +431,7 @@ class SJM(SolvationGPAW):
                    f'{p.excess_electrons:+.5f} excess electrons, attempt '
                    f'{iteration:d}/{p.max_iters:d}')
             msg += ' rerun).' if rerun else ').'
-            self.log(msg)
+            self.log(msg, flush=True)
 
             # Check if we took too big of a step.
             try:
@@ -459,15 +459,15 @@ class SJM(SolvationGPAW):
             rerun = False
 
             # Store attempt and calculate slope.
-            previous_electrons += [p.excess_electrons]
-            previous_potentials += [true_potential]
+            previous_electrons.append(float(p.excess_electrons))
+            previous_potentials.append(float(true_potential))
             if len(previous_electrons) > 1:
                 slope = _calculate_slope(previous_electrons,
                                          previous_potentials)
                 self.log('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
                          .format(len(previous_electrons[-4:]), slope))
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * slope)
                 self.log(f'or apparent capacitance of {capacitance:.4f} '
                          'muF/cm^2')
@@ -477,6 +477,7 @@ class SJM(SolvationGPAW):
                              f'{p.slope:.4f} V/electron.')
                 else:
                     p.slope = slope
+                self.log.flush()
 
             # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
@@ -488,7 +489,7 @@ class SJM(SolvationGPAW):
 
             # Guess slope if we don't have enough information yet.
             if p.slope is None:
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 p.slope = -1.6022e3 / (area * 10.)
                 self.log('No slope provided, guessing a slope of '
                          f'{p.slope:.4f} corresponding\nto an apparent '
@@ -514,7 +515,7 @@ class SJM(SolvationGPAW):
         msg = textwrap.fill(msg) + '\n'
         for n, p in zip(previous_electrons, previous_potentials):
             msg += '{:+.6f} {:.6f}\n'.format(n, p)
-        self.log(msg)
+        self.log(msg, flush=True)
         raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',

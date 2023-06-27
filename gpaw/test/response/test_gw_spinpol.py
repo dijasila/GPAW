@@ -7,7 +7,7 @@ from gpaw.mpi import world
 
 
 @pytest.mark.response
-def test_gw_spinpol(in_tmp_dir, gpw_files):
+def test_gw_spinpol(in_tmp_dir, gpw_files, needs_ase_master):
 
     if world.size > 1:
         nblocks = 2

@@ -4,44 +4,7 @@
 Electron-phonon coupling
 ========================
 
-Electron-phonon coupling is important for many interesting physical properties and effects. The first order electron-phonon coupling can be computed in GPAW in the LCAO mode and saved to disk for post-processing.
-
-
-Introduction
-============
-
-The electron-phonon Hamiltonian can be defined as
-
-.. math::
-
-    H_{el-ph} = \sum_{l,mn} g_{mn}^l c^{*}_m c_n ( a_l^{*} + a_l  ) .
-
-The phonon modes `l` are coupled to the electronic states `m`, `n` via the
-electron-phonon coupling matrix (see Ref. [#Giustino2017]_)
-
-.. math::
-
-    g_{mn}^l = \sqrt{  \frac{\hbar}{2 M \omega_l}} \langle m \vert \nabla_u V_{eff} \cdot \mathbf e_l \vert n \rangle .
-
-`\omega_l` and `\mathbf e_l` are the frequency and mass-scaled polarization
-vector of the `l`-th phonon. `M` is total mass of the unit cell and
-`\nabla_u` denotes the gradient with respect to atomic displacements. The
-**k** and **q** momenta are implicit.
-
-The implementation is based on finite-difference calculations of the the
-atomic gradients of the effective potential expressed on a real-space grid.
-The electron-phonon couplings are obtained from LCAO representations of the
-atomic gradients of the effective potential and the electronic states.
-
-The current implementation supports spin-paired and spin-polarized computations.
-
-A short example is given below. Another worked out example can be found in the
-tutorial for Raman calculations :ref:`here <elphraman>`.
-
-Example
-=======
-
-At the heart of the electron-phonon coupling is the calculation of the gradient of the effective potential, which is done using finite displacements just like the phonons. Those two calculations can run simultaneous, if the required set of parameters coincide. The electron-phonon matrix is quite sensitive to self-interaction of a displaced atom with its periodic images, so a sufficiently large supercell needs to be used. The (3x3x3) supercell used in this example is a bit small, if you need the electron-phonon matrix for non-zero momenta. When using a supercell for the calculation you have to consider, that the atoms object needs to contain the primitive cell, not the supercell, while the parameters for the calculator object need to be good for the supercell, not the primitive cell. (:git:`~doc/tutorialsexercises/vibrational/elph/effective_potential.py`)
+At the heart of the electron-phonon coupling is the calculation of the gradient of the effective potential, which is done using finite displacements just like the phonons. Those two calculations can run simultaneous, if the required set of parameters coincide. The electron-phonon matrix is quite sensitive to self-interaction of a displaced atom with its periodic images, so a sufficiently large supercell needs to be used. The (3x3x3) supercell used in this example is a bit too small. When using a supercell for the calculation you have to consider, that the atoms object needs to contain the primitive cell, not the supercell, while the parameters for the calculator object need to be good for the supercell, not the primitive cell. (:git:`~doc/tutorialsexercises/vibrational/elph/effective_potential.py`)
 
 .. literalinclude:: effective_potential.py
 
@@ -97,21 +60,5 @@ Converge the deformation potential of Si with respect to the supercell size, k-p
 References
 ----------
 
-.. [#Giustino2017] F. Giustino, "Electron-phonon interactions from first principles", Reviews of Modern Physics 89, 015003 (2017).
-
 .. [#Li2017] Z. Li, P. Graziosi, and N. Neophytou, "Deformation potential extraction and computationally efficient mobility calculations in silicon from first principles", Physical Review B 104, 195201 (2021)
 
-Code
-====
-
-.. autoclass:: gpaw.elph.DisplacementRunner
-    :members:
-
-.. autoclass:: gpaw.elph.Supercell
-    :members:
-
-.. autoclass:: gpaw.elph.ElectronPhononMatrix
-    :members:
-
-.. autoclass:: gpaw.elph.electronphonon.ElectronPhononCoupling
-    :members:

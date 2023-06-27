@@ -217,13 +217,10 @@ class ASECalculator:
         return self.calculation.results['forces']
 
     def __del__(self):
-        try:
-            self.log('---')
-            self.timer.write(self.log)
-            mib = maxrss() / 1024**2
-            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        except (NameError, AttributeError):
-            pass
+        self.log('---')
+        self.timer.write(self.log)
+        mib = maxrss() / 1024**2
+        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
                              atoms: Atoms,
@@ -355,14 +352,24 @@ class ASECalculator:
             skip_core=skip_core)
         return n_sr.to_pbc_grid().data.sum(0)
 
-    def get_eigenvalues(self, kpt=0, spin=0):
+    def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         state = self.calculation.state
-        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+        eig_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+        if broadcast:
+            if self.world.rank != 0:
+                eig_n = np.empty(state.ibzwfs.nbands)
+            self.world.broadcast(eig_n, 0)
+        return eig_n
 
-    def get_occupation_numbers(self, kpt=0, spin=0):
+    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         state = self.calculation.state
         weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
-        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
+        occ_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
+        if broadcast:
+            if self.world.rank != 0:
+                occ_n = np.empty(state.ibzwfs.nbands)
+            self.world.broadcast(occ_n, 0)
+        return occ_n
 
     def get_reference_energy(self):
         return self.calculation.setups.Eref * Ha

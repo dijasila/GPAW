@@ -7,7 +7,7 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
-from gpaw.response.ibz2bz import IBZ2BZMaps
+from gpaw.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:

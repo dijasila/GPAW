@@ -15,7 +15,8 @@ from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.susceptibility import (ChiFactory, spectral_decomposition,
+                                          read_eigenmode_lineshapes)
 from gpaw.response.localft import LocalGridFTCalculator, LocalPAWFTCalculator
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling, HXCKernel
@@ -44,18 +45,22 @@ def set_up_fxc_calculators(gs, context):
 def get_test_values(identifier):
     test_mw1 = 0.  # meV
     test_Ipeak1 = 7.48  # a.u.
+    test_Ipeak3 = 19.83  # a.u.
     if identifier == 'grid':
         test_fxcs = 1.059
         test_mw2 = 363.  # meV
         test_Ipeak2 = 3.47  # a.u.
+        test_Ipeak4 = 9.20  # a.u.
     elif identifier == 'paw':
         test_fxcs = 1.131
         test_mw2 = 352.  # meV
         test_Ipeak2 = 3.35  # a.u.
+        test_Ipeak4 = 9.14  # a.u.
     else:
         raise ValueError(f'Invalid identifier {identifier}')
 
-    return test_fxcs, test_mw1, test_mw2, test_Ipeak1, test_Ipeak2
+    return (test_fxcs, test_mw1, test_mw2,
+            test_Ipeak1, test_Ipeak2, test_Ipeak3, test_Ipeak4)
 
 
 @pytest.mark.kspair
@@ -87,7 +92,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                                  gammacentered=True,
                                  nblocks=nblocks)
     fxckwargs_and_identifiers = set_up_fxc_calculators(gs, context)
-    
+
     chi_factory = ChiFactory(
         chiks_calc,
         # Use the first fxc_calculator for the ChiFactory
@@ -122,6 +127,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
 
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
+            Amaj, _ = spectral_decomposition(chi, pos_eigs=10, neg_eigs=0)
+            Amaj.write_eigenmode_lineshapes(identifier + '_Amaj_modes'
+                                            + '_%d.csv' % (q + 1), nmodes=1)
 
         chi_factory.context.write_timer()
 
@@ -132,12 +140,14 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     # Compare results to test values
     for fxckwargs, identifier in fxckwargs_and_identifiers:
         fxcs = fxckwargs['hxc_scaling'].lambd
-        _, _, mw1, Ipeak1, _, _, mw2, Ipeak2 = extract_data(identifier)
+        (_, _, mw1, Ipeak1, _, _, mw2, Ipeak2,
+         _, _, mw3, Ipeak3, _, _, mw4, Ipeak4) = extract_data(identifier)
 
-        print(fxcs, mw1, mw2, Ipeak1, Ipeak2)
+        print(fxcs, mw1, mw2, Ipeak1, Ipeak2, mw3, Ipeak3, mw4, Ipeak4)
 
         (test_fxcs, test_mw1, test_mw2,
-         test_Ipeak1, test_Ipeak2) = get_test_values(identifier)
+         test_Ipeak1, test_Ipeak2,
+         test_Ipeak3, test_Ipeak4) = get_test_values(identifier)
 
         # fxc scaling:
         assert fxcs == pytest.approx(test_fxcs, abs=0.005)
@@ -145,16 +155,24 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         # Magnon peak:
         assert mw1 == pytest.approx(test_mw1, abs=20.)
         assert mw2 == pytest.approx(test_mw2, abs=50.)
+        assert mw3 == pytest.approx(mw1, abs=10.)
+        assert mw4 == pytest.approx(mw2, abs=10.)
 
         # Scattering function intensity:
         assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
         assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
+        assert Ipeak3 == pytest.approx(test_Ipeak3, abs=0.5)
+        assert Ipeak4 == pytest.approx(test_Ipeak4, abs=0.7)
 
 
 def extract_data(identifier):
     # Read data
     w1_w, chi1_w = read_pair_function(identifier + '_iron_dsus_1.csv')
     w2_w, chi2_w = read_pair_function(identifier + '_iron_dsus_2.csv')
+    w3_w, s3_wm = read_eigenmode_lineshapes(identifier + '_Amaj_modes_1.csv')
+    w4_w, s4_wm = read_eigenmode_lineshapes(identifier + '_Amaj_modes_2.csv')
+    s3_w = s3_wm[:, 0]
+    s4_w = s4_wm[:, 0]
 
     # Spectral function
     S1_w = -chi1_w.imag
@@ -163,23 +181,36 @@ def extract_data(identifier):
     # Identify peaks
     wpeak1, Ipeak1 = findpeak(w1_w, S1_w)
     wpeak2, Ipeak2 = findpeak(w2_w, S2_w)
+    wpeak3, Ipeak3 = findpeak(w3_w, s3_w)
+    wpeak4, Ipeak4 = findpeak(w4_w, s4_w)
 
     # Peak positions in meV
     mw1 = wpeak1 * 1000
     mw2 = wpeak2 * 1000
+    mw3 = wpeak3 * 1000
+    mw4 = wpeak4 * 1000
 
-    return w1_w, S1_w, mw1, Ipeak1, w2_w, S2_w, mw2, Ipeak2
+    return (w1_w, S1_w, mw1, Ipeak1, w2_w, S2_w, mw2, Ipeak2,
+            w3_w, s3_w, mw3, Ipeak3, w4_w, s4_w, mw4, Ipeak4)
 
 
 def plot_comparison(identifier1, identifier2):
-    w11_w, S11_w, _, _, w12_w, S12_w, _, _ = extract_data(identifier1)
-    w21_w, S21_w, _, _, w22_w, S22_w, _, _ = extract_data(identifier2)
+    (w11_w, S11_w, _, _, w12_w, S12_w, _, _,
+     w13_w, s13_w, _, _, w14_w, s14_w, _, _) = extract_data(identifier1)
+    (w21_w, S21_w, _, _, w22_w, S22_w, _, _,
+     w23_w, s23_w, _, _, w24_w, s24_w, _, _) = extract_data(identifier2)
 
     import matplotlib.pyplot as plt
-    plt.subplot(1, 2, 1)
+    plt.subplot(2, 2, 1)
     plt.plot(w11_w, S11_w)
     plt.plot(w21_w, S21_w)
-    plt.subplot(1, 2, 2)
+    plt.subplot(2, 2, 2)
     plt.plot(w12_w, S12_w)
     plt.plot(w22_w, S22_w)
+    plt.subplot(2, 2, 3)
+    plt.plot(w13_w, s13_w)
+    plt.plot(w23_w, s23_w)
+    plt.subplot(2, 2, 4)
+    plt.plot(w14_w, s14_w)
+    plt.plot(w24_w, s24_w)
     plt.show()
