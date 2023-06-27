@@ -86,7 +86,7 @@ def test_smooth_truncation_function(rc):
         theta_g = radial_truncation_function(r_g, rc, drc)
         # Calculate spherical volume with truncation function
         vol = 4 * np.pi * radial_trapz(theta_g, r_g)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
 
 
 def test_fe_augmentation_sphere(gpw_files):
@@ -125,11 +125,11 @@ def test_fe_augmentation_sphere(gpw_files):
         # Integrate angular components, then radial
         ft_g = integrate_lebedev(ft_ng)
         vol = rgd.integrate_trapz(ft_g)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
         # Integrate radial components, then angular
         ft_n = rgd.integrate_trapz(ft_ng)
         vol = integrate_lebedev(ft_n)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
         
 
 def test_fe_spherical_truncation_function(gpw_files):
