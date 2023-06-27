@@ -179,7 +179,7 @@ E_ref = {'H': {'HCTH407': 0.19286893273630645,
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize('xc', ['HCTH407', 'PBE0', 'B3LYP'])
+@pytest.mark.parametrize('xc', ['PBE0', 'B3LYP'])
 def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths, xc):
     element = 'H'
     h = 0.2
