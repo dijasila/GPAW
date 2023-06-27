@@ -95,10 +95,12 @@ class InputParameters:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
             if 'soc' in self.experimental:
-                warnings.warn('Please use new "soc" parameter.')
+                warnings.warn('Please use new "soc" parameter.',
+                              DeprecationWarning)
                 self.soc = self.experimental.pop('soc')
             if 'magmoms' in self.experimental:
-                warnings.warn('Please use new "magmoms" parameter.')
+                warnings.warn('Please use new "magmoms" parameter.',
+                              DeprecationWarning)
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
@@ -110,14 +112,16 @@ class InputParameters:
                     'Please use '
                     f'GPAW(dtype={self.dtype}, '
                     '...)',
+                    # DeprecationWarning,
                     stacklevel=3)
             self.keys.append('dtype')
             self.keys.sort()
 
         if self.communicator is not None:
             self.parallel['world'] = self.communicator
-            warnings.warn('Please use parallel={''world'': ...} '
-                          'instead of communicator=...')
+            warnings.warn(('Please use parallel={''world'': ...} '
+                           'instead of communicator=...'),
+                          DeprecationWarning)
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -221,7 +225,11 @@ def mixer(value=None):
 
 
 @input_parameter
-def mode(value='fd'):
+def mode(value=None):
+    if value is None:
+        warnings.warn('Implicit choice of finite-difference mode deprecated',
+                      DeprecationWarning)
+        value = 'fd'
     if isinstance(value, str):
         return {'name': value}
     gc = value.pop('gammacentered', False)

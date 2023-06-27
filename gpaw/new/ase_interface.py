@@ -443,7 +443,8 @@ class ASECalculator:
                                      scalapack=None,
                                      expert: bool = None) -> None:
         if expert is not None:
-            warnings.warn('Ignoring deprecated "expert" argument')
+            warnings.warn('Ignoring deprecated "expert" argument',
+                          DeprecationWarning)
         state = self.calculation.state
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,
