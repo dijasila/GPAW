@@ -400,7 +400,7 @@ docs:
       pytest --instafail -x -r s --durations 30 --color=yes
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
-  when: manual
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
 nightly-serial:
