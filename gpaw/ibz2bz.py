@@ -231,10 +231,18 @@ def _get_overlap(bands, dv, ut1_nR, ut2_nR, proj1, proj2, dO_aii):
     M_nn = (ut1_nR.conj() @ ut2_nR.T) * dv
 
     for a in proj1.map:
-        P1_ni = proj1[a][bands]
-        P2_ni = proj2[a][bands]
         dO_ii = dO_aii[a]
-        M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
+        if proj1.collinear:
+            P1_ni = proj1[a][bands]
+            P2_ni = proj2[a][bands]
+            M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
+        else:
+            # We have an additional spinor index s to sum over
+            P1_nsi = proj1[a][bands]
+            P2_nsi = proj2[a][bands]
+            assert P1_nsi.shape[1] == 2
+            for s in range(2):
+                M_nn += P1_nsi[:, s].conj() @ (dO_ii) @ (P2_nsi[:, s].T)
 
     return M_nn
 
