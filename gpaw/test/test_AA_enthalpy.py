@@ -155,18 +155,17 @@ def calculate(element, h, vacuum, xc, magmom):
     dHf_298 = (dHf_0 + data[element]['H_298_H_0_AA_B3LYP'] -
                2 * data[element]['H_298_H_0_A']) * (mol / kcal)
     de = dHf_298 - data[element][xc][1]
-    # E[element][xc] = de
-    if rank == 0:
-        print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
-               de / data[element][xc][1]))
-        if element == 'H':
-            assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
 
-        elif element == 'O':
-            assert dHf_298 == pytest.approx(data[element][xc][1], abs=7.5)
-        else:
-            assert dHf_298 == pytest.approx(data[element][xc][1], abs=2.15)
-        assert de == pytest.approx(E_ref[element][xc], abs=0.06)
+    print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
+           de / data[element][xc][1]))
+    if element == 'H':
+        assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
+
+    elif element == 'O':
+        assert dHf_298 == pytest.approx(data[element][xc][1], abs=7.5)
+    else:
+        assert dHf_298 == pytest.approx(data[element][xc][1], abs=2.15)
+    assert de == pytest.approx(E_ref[element][xc], abs=0.06)
 
 
 E_ref = {'H': {'HCTH407': 0.19286893273630645,
