@@ -181,19 +181,13 @@ E_ref = {'H': {'HCTH407': 0.19286893273630645,
 
 @pytest.mark.slow
 def test_exx_AA_enthalpy(in_tmp_dir, add_cwd_to_setup_paths):
+    element = 'H'
+    h = 0.2
+    vacuum = 4.5
 
-    E = {}
-
-    for element in ['H']:  # , 'N']:#, 'O']: # oxygen atom fails to converge
-        E[element] = {}
-        for xc in ['HCTH407', 'PBE0', 'B3LYP']:
-            setup = data[element][xc][2]
-            if data[element][xc][3] == 'hyb_gga':  # only for hybrids
-                exx = True
-            else:
-                exx = False
-            gen(element, exx=exx, xcname=setup, write_xml=True)
-            for h in [0.20]:
-                for vacuum in [4.5]:
-                    calculate(element, h, vacuum, xc, data[element]['magmom'])
-            barrier()
+    for xc in ['HCTH407', 'PBE0', 'B3LYP']:
+        setup = data[element][xc][2]
+        enable_exx = data[element][xc][3] == 'hyb_gga'  # only for hybrids
+        gen(element, exx=enable_exx, xcname=setup, write_xml=True)
+        calculate(element, h, vacuum, xc, data[element]['magmom'])
+        barrier()
