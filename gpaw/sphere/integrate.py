@@ -197,12 +197,13 @@ def find_volume_conserving_lambd(rcut, drcut, r_g=None):
     def integration_volume_error(lambd):
         theta_g = radial_truncation_function(r_g, rcut, drcut, lambd)
         vol = 4 * np.pi * radial_trapz(theta_g, r_g)
-        return np.sqrt((vol - ref)**2. + 1e-12)
+        return (vol - ref)**2.
 
     opt_result = minimize(integration_volume_error,
                           1 / 2.,  # start guess
                           bounds=[(1e-8, 1 - 1e-8)],
-                          tol=1e-8 + 1e-6 * ref)
+                          method='L-BFGS-B',
+                          options={'ftol': 1e-12})
     if opt_result.success:
         lambd = opt_result.x[0]
     else:
