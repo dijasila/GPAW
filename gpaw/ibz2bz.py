@@ -233,3 +233,10 @@ def get_overlap(bands, ut1_nR, ut2_nR, proj1, proj2, dO_aii, dv):
         M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
 
     return M_nn
+
+
+def get_overlap_coefficients(wfs):
+    dO_aii = {}
+    for a in wfs.kpt_u[0].projections.map:
+        dO_aii[a] = wfs.setups[a].dO_ii
+    return dO_aii

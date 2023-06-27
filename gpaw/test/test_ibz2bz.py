@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from gpaw import GPAW
-from gpaw.ibz2bz import IBZ2BZMaps, get_overlap
+from gpaw.ibz2bz import IBZ2BZMaps, get_overlap, get_overlap_coefficients
 import gpaw.mpi as mpi
 from gpaw.test.conftest import response_band_cutoff
 
@@ -150,13 +150,6 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
                               atol=atol)
 
 
-def get_overlaps_from_setups(wfs):
-    dO_aii = {}
-    for a in wfs.kpt_u[0].projections.map:
-        dO_aii[a] = wfs.setups[a].dO_ii
-    return dO_aii
-
-
 def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
                            proj_sym, proj_nosym, dO_aii,
                            dv, atol):
@@ -190,7 +183,7 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
     proj_nosym: Projections object
         Projections for two calculations
     dO_aii: dict with np.arrays
-       see get_overlaps_from_setups
+       see ibz2bz.get_overlap_coefficients
     dv:     float
             calc.wfs.gd.dv
     atol: float
@@ -229,6 +222,6 @@ def get_ibz_data_from_wfs(wfs, nbands, ik, s):
     proj = kpt.projections.new(nbands=nbands, bcomm=None)
     proj.array[:] = kpt.projections.array[:nbands]
 
-    # get overlaps
-    dO_aii = get_overlaps_from_setups(wfs)
+    # Get overlap coefficients from PAW setups
+    dO_aii = get_overlap_coefficients(wfs)
     return eps_n, ut_nR, proj, dO_aii
