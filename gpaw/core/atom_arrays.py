@@ -266,7 +266,7 @@ class AtomArrays:
 
     def to_xp(self, xp):
         if self.layout.xp is xp:
-            1 / 0
+            assert xp is np
             return self
         if xp is np:
             return self.new(layout=self.layout.new(xp=np),
