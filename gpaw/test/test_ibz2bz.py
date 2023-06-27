@@ -108,10 +108,10 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
                 # are the same up to phase
                 bands = range(n, n + dim)
 
-                check_all_electron_wfs(bands, ut_nR_sym,
-                                       ut_nR_nosym,
+                check_all_electron_wfs(bands, wfs.gd,
+                                       ut_nR_sym, ut_nR_nosym,
                                        proj_sym, proj_nosym, dO_aii,
-                                       wfs.gd.dv, atol)
+                                       atol)
                 n += dim
 
 
@@ -150,9 +150,9 @@ def compare_projections(proj_sym, proj_nosym, n, atol):
                               atol=atol)
 
 
-def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
+def check_all_electron_wfs(bands, gd, ut1_nR, ut2_nR,
                            proj_sym, proj_nosym, dO_aii,
-                           dv, atol):
+                           atol):
     """sets up transformation matrix between symmetry
        transformed u:s and normal u:s in degenerate subspace
        and asserts that it is unitary. It also checks that
@@ -190,12 +190,12 @@ def check_all_electron_wfs(bands, ut1_nR, ut2_nR,
        absolute tolerance when comparing arrays
     """
     M_nn = get_overlap(bands,
+                       gd,
                        ut1_nR,
                        ut2_nR,
                        proj_sym,
                        proj_nosym,
-                       dO_aii,
-                       dv)
+                       dO_aii)
 
     # Check so that transformation matrix is unitary
     MMdag_nn = M_nn @ M_nn.T.conj()

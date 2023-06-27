@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 import numpy as np
 from gpaw.utilities.blas import gemmdot
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.projections import Projections
 
 
 class IBZ2BZMaps(Sequence):
@@ -199,7 +201,12 @@ class IBZ2BZMap:
         return U_aii
 
 
-def get_overlap(bands, ut1_nR, ut2_nR, proj1, proj2, dO_aii, dv):
+def get_overlap(bands,
+                gd: GridDescriptor,
+                ut1_nR, ut2_nR,
+                proj1: Projections,
+                proj2: Projections,
+                dO_aii):
     """ Computes overlap of all-electron wavefunctions
     Similar to gpaw.berryphase.get_overlap but adapted
     to work with projector objects rather than arrays.
@@ -208,19 +215,16 @@ def get_overlap(bands, ut1_nR, ut2_nR, proj1, proj2, dO_aii, dv):
 
     Parameters
     ----------
-    bands:  integer list
-            bands to calculate overlap for
-    ut1_nR:  np.array
-            ut_nR array
-    ut2_nR:  np.array
-            ut_nR array
-    proj1: GPAW Projections object
-    proj2: GPAW Projections object
+    bands:  list of integers
+        Band indices to calculate overlap for
     dO_aii: dict
-            overlaps from setups
-    dv:     float
-            calc.wfs.gd.dv
+        Overlap coefficients for the partial waves in the PAW setups.
+        Can be extracted via get_overlap_coefficients().
     """
+    return _get_overlap(bands, gd.dv, ut1_nR, ut2_nR, proj1, proj2, dO_aii)
+
+
+def _get_overlap(bands, dv, ut1_nR, ut2_nR, proj1, proj2, dO_aii):
     NR = np.prod(np.shape(ut1_nR)[1:])
     ut1_nR = np.reshape(ut1_nR, (len(ut1_nR), NR))
     ut2_nR = np.reshape(ut2_nR, (len(ut2_nR), NR))
