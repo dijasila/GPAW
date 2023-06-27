@@ -382,7 +382,7 @@ docs:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "300"
+    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
