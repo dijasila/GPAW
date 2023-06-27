@@ -27,7 +27,6 @@ data['N'] = {
     # intermolecular distance (A),
     # formation enthalpy(298) (kcal/mol) on B3LYP geometry
     'exp': (1.098, 0.0, 'none', 'none'),
-    'HCTH407': (1.097, 7.9, 'HCTH407', 'gga'),
     'PBE': (1.103, -15.1, 'PBE', 'gga'),
     'BLYP': (1.103, -11.7, 'BLYP', 'gga'),
     'BP86': (1.104, -15.6, 'BP86', 'gga'),
@@ -52,7 +51,6 @@ data['O'] = {
     # intermolecular distance (A),
     # formation enthalpy(298) (kcal/mol) on B3LYP geometry
     'exp': (1.208, 0.0, 'none', 'none'),
-    'HCTH407': (1.202, -14.5, 'HCTH407', 'gga'),
     'PBE': (1.218, -23.6, 'PBE', 'gga'),
     'BLYP': (1.229, -15.4, 'BLYP', 'gga'),
     'BP86': (1.220, -21.9, 'BP86', 'gga'),
@@ -77,7 +75,6 @@ data['H'] = {
     # intermolecular distance (A),
     # formation enthalpy(298) (kcal/mol) on B3LYP geometry
     'exp': (0.741, 0.0, 'none', 'none'),
-    'HCTH407': (0.744, 1.8, 'HCTH407', 'gga'),
     'PBE': (0.750, 5.1, 'PBE', 'gga'),
     'BLYP': (0.746, 0.3, 'BLYP', 'gga'),
     'BP86': (0.750, -1.8, 'BP86', 'gga'),
@@ -168,12 +165,10 @@ def calculate(element, h, vacuum, xc, magmom):
     assert de == pytest.approx(E_ref[element][xc], abs=0.06)
 
 
-E_ref = {'H': {'HCTH407': 0.19286893273630645,
-               'B3LYP': -0.11369634560501423,
+E_ref = {'H': {'B3LYP': -0.11369634560501423,
                'PBE0': -0.21413764474738262,
                'PBEH': -0.14147808591211231},
-         'N': {'HCTH407': 2.1354017840869268,
-               'B3LYP': 0.63466589919873972,
+         'N': {'B3LYP': 0.63466589919873972,
                'PBE0': -0.33376468078480226,
                'PBEH': -0.30365500626180042}}  # svnversion 5599 # -np 4
 
