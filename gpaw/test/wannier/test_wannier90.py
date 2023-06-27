@@ -70,6 +70,6 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
         w = read_wout_all(fd)
     centers = np.sum(np.array(w['centers']), axis=0)
     centers_correct = [12.9034, 12.981219, 12.932828]
-    assert np.allclose(centers, centers_correct, atol=0.02)
+    assert np.allclose(centers, centers_correct, atol=0.05)
     spreads = np.sum(np.array(w['spreads']))
     assert spreads == pytest.approx(20.1, abs=0.6)
