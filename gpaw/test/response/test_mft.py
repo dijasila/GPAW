@@ -409,13 +409,14 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
     # Test that the result matches a conventional calculation at close-packing
     magmom_ar = atomic_site_data.calculate_magnetic_moments()
-    assert site_mag_ar[0, -1] == pytest.approx(magmom_ar[0, -1], rel=1e-3)
+    assert np.average(site_mag_ar, axis=0)[-1] == pytest.approx(
+        np.average(magmom_ar, axis=0)[-1], rel=1e-3)
 
     # Test values against reference
-    print(site_mag_ar[0, ::20])
-    assert site_mag_ar[0, ::20] == pytest.approx(
-        np.array([0.00202257, 0.20283369, 0.77668115,
-                  1.26833999, 1.55314067, 1.62412787]), rel=1e-2)
+    print(np.average(site_mag_ar, axis=0)[::20])
+    assert np.average(site_mag_ar, axis=0)[::20] == pytest.approx(
+        np.array([0.00202567, 0.20297462, 0.77600827,
+                  1.26539897, 1.54881803, 1.62464344]), rel=5e-3)
 
     # import matplotlib.pyplot as plt
     # plt.plot(rc_r, site_mag_ar[0])
