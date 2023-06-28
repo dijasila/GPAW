@@ -60,7 +60,32 @@ class MatrixElementCalculator(ABC):
     A_kt = A_(nks,n'k+qs')
     """
 
-    def add_pseudo_contribution(self, kptpair, *args):
+    def __init__(self, gs, context):
+        self.gs = gs
+        self.context = context
+
+    @timer('Calculate matrix element')
+    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> MatrixElement:
+        r"""Calculate the matrix element for all transitions t.
+
+        The calculation is split into a pseudo contribution and a PAW
+        correction:
+               ˷
+        A_kt = A_kt + ΔA_kt,
+
+        see [PRB 103, 245110 (2021)] for additional details and references.
+        """
+        matrix_element = self.create_matrix_element(kptpair.tblocks, qpd)
+        self.add_pseudo_contribution(kptpair, matrix_element)
+        self.add_paw_correction(kptpair, matrix_element)
+
+        return matrix_element
+
+    @abstractmethod
+    def create_matrix_element(self, tblocks, qpd):
+        """Return a new MatrixElement instance."""
+
+    def add_pseudo_contribution(self, kptpair, matrix_element):
         """Add the pseudo matrix element to an output array.
 
         The pseudo matrix element is evaluated on the coarse real-space grid
@@ -91,9 +116,10 @@ class MatrixElementCalculator(ABC):
         ut1_mytR = ut1_hR[ikpt1.h_myt]
         ut2_mytR = ut2_hR[ikpt2.h_myt]
 
-        self._add_pseudo_contribution(k1_c, k2_c, ut1_mytR, ut2_mytR, *args)
+        self._add_pseudo_contribution(
+            k1_c, k2_c, ut1_mytR, ut2_mytR, matrix_element)
 
-    def add_paw_correction(self, kptpair, *args):
+    def add_paw_correction(self, kptpair, matrix_element):
         r"""Add the matrix element PAW correction to an output array.
 
         The PAW correction is calculated using the projector overlaps of the
@@ -130,14 +156,15 @@ class MatrixElementCalculator(ABC):
             P2_amyti.atom_partition.comm.size == 1,\
             'We need access to the projections of all atoms'
 
-        self._add_paw_correction(P1_amyti, P2_amyti, *args)
+        self._add_paw_correction(P1_amyti, P2_amyti, matrix_element)
 
     @abstractmethod
-    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR, *args):
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 matrix_element):
         """Add pseudo contribution based on the pseudo waves in real space."""
 
     @abstractmethod
-    def _add_paw_correction(self, P1_amyti, P2_amyti, *args):
+    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
         """Add paw correction based on the projector overlaps."""
 
     def get_periodic_pseudo_waves(self, K, ikpt):
@@ -166,10 +193,14 @@ class NewPairDensityCalculator(MatrixElementCalculator):
               = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
                 /
 
-    for a single k-point pair (k, k + q) in the plane-wave mode."""
+    for a single k-point pair (k, k + q) in the plane-wave mode.
+
+    As always, the calculation is split in a pseudo contribution and a PAW
+    correction, n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q).
+    """
+
     def __init__(self, gs, context):
-        self.gs = gs
-        self.context = context
+        super().__init__(gs, context)
 
         # Save PAW correction for all calls with same q_c
         self._pawcorr = None
@@ -189,29 +220,13 @@ class NewPairDensityCalculator(MatrixElementCalculator):
 
         return self._pawcorr
 
-    @timer('Calculate pair density')
-    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
-        r"""Calculate the pair density for all transitions t.
-
-        In the PAW method, the all-electron pair density is calculated in
-        two contributions, the pseudo pair density and a PAW correction,
-
-        n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q),
-
-        see [PRB 103, 245110 (2021)] for details.
-        """
-        # Initialize a blank pair density object
-        pair_density = PairDensity(kptpair.tblocks, qpd)
-        n_mytG = pair_density.local_array_view
-
-        self.add_pseudo_contribution(kptpair, qpd, n_mytG)
-        self.add_paw_correction(kptpair, qpd, n_mytG)
-
-        return pair_density
+    @staticmethod
+    def create_matrix_element(tblocks, qpd):
+        return PairDensity(tblocks, qpd)
 
     @timer('Calculate the pseudo pair density')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 qpd, n_mytG):
+                                 pair_density):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
@@ -225,6 +240,9 @@ class NewPairDensityCalculator(MatrixElementCalculator):
 
         where the Kohn-Sham orbitals are normalized to the unit cell.
         """
+        qpd = pair_density.qpd
+        n_mytG = pair_density.local_array_view
+
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
         # This phase does not necessarily vanish, since k2_c only is required
@@ -242,7 +260,7 @@ class NewPairDensityCalculator(MatrixElementCalculator):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def _add_paw_correction(self, P1_amyti, P2_amyti, qpd, n_mytG):
+    def _add_paw_correction(self, P1_amyti, P2_amyti, pair_density):
         r"""Add the pair-density PAW correction to the output array.
 
         The correction is calculated from
@@ -259,13 +277,27 @@ class NewPairDensityCalculator(MatrixElementCalculator):
                       /                  ˷             ˷
                                        - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
         """
-        Q_aGii = self.get_paw_corrections(qpd).Q_aGii
+        n_mytG = pair_density.local_array_view
+        Q_aGii = self.get_paw_corrections(pair_density.qpd).Q_aGii
         for a, Q_Gii in enumerate(Q_aGii):
             # Make outer product of the projector overlaps
             P1ccP2_mytii = P1_amyti[a].conj()[..., np.newaxis] \
                 * P2_amyti[a][:, np.newaxis]
             # Sum over partial wave indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
+
+
+class SitePairDensity(MatrixElement):
+
+    def __init__(self, tblocks, qpd, atomic_site_data):
+        self.nsites = atomic_site_data.nsites
+        self.npartitions = atomic_site_data.npartitions
+        super().__init__(tblocks, qpd)
+
+    def zeros(self):
+        return np.zeros(
+            (self.tblocks.blocksize, self.nsites, self.npartitions),
+            dtype=complex)
 
 
 class SitePairDensityCalculator(MatrixElementCalculator):
@@ -286,8 +318,7 @@ class SitePairDensityCalculator(MatrixElementCalculator):
 
     def __init__(self, gs, context, atomic_site_data):
         """Construct the SitePairDensityCalculator."""
-        self.gs = gs
-        self.context = context
+        super().__init__(gs, context)
         self.atomic_site_data = atomic_site_data
 
         # Set up spherical truncation function collection on the coarse
@@ -315,25 +346,12 @@ class SitePairDensityCalculator(MatrixElementCalculator):
                 pawdata, rc_p, adata.drcut, lambd_p))
         return N_apii
 
-    @timer('Calculate site pair density')
-    def __call__(self, kptpair):
-        """Calculate the site pair density for all transitions t.
-
-        The calculation is split in a pseudo site pair density contribution and
-        a PAW correction:
-
-        n^ap_kt = ñ^ap_kt + Δn^ap_kt
-        """
-        # Initialize site pair density
-        n_mytap = np.zeros((kptpair.tblocks.blocksize,)
-                           + self.atomic_site_data.shape, dtype=complex)
-        self.add_pseudo_contribution(kptpair, n_mytap)
-        self.add_paw_correction(kptpair, n_mytap)
-        return n_mytap
+    def create_matrix_element(self, tblocks, qpd):
+        return SitePairDensity(tblocks, qpd, self.atomic_site_data)
 
     @timer('Calculate pseudo site pair density')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 n_mytap):
+                                 site_pair_density):
         """Add the pseudo site pair density to the output array.
 
         The pseudo pair density is evaluated on the coarse real-space grid and
@@ -362,11 +380,12 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         self.stfc.integrate(nt_mytR, nt_amytp, q=0)
 
         # Add integral to output array
+        n_mytap = site_pair_density.array
         for a in range(adata.nsites):
             n_mytap[:, a] += nt_amytp[a]
 
     @timer('Calculate site pair density PAW correction')
-    def _add_paw_correction(self, P1_Amyti, P2_Amyti, n_mytap):
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_pair_density):
         r"""Add the site pair density PAW correction to the output array.
 
         For every site a, we only need a PAW correction for that site itself,
@@ -378,6 +397,7 @@ class SitePairDensityCalculator(MatrixElementCalculator):
 
         where N_apii' is the site pair density correction tensor.
         """
+        n_mytap = site_pair_density.array
         N_apii = self.get_paw_correction_tensor()
         for a, (A, N_pii) in enumerate(zip(
                 self.atomic_site_data.A_a, N_apii)):

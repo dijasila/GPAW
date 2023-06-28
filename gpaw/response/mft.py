@@ -447,7 +447,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         where V0 is the cell volume and σ^+ is the spin-raising Pauli matrix
         """
         # Calculate site pair densties
-        n_mytap = self.site_pair_density_calc(kptpair)
+        site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
         # Calculate the product between the spin-lowering Pauli matrix and the
         # occupational differences
         smatmin = smat('+')
@@ -458,6 +458,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         smatdf_myt = smat_myt * df_myt
 
         # Calculate integrand
+        n_mytap = site_pair_density.array
         nncc_mytabp = n_mytap[:, :, np.newaxis] * n_mytap.conj()[:, np.newaxis]
         # Sum over local transitions
         integrand_abp = np.einsum('t, tabp -> abp', smatdf_myt, nncc_mytabp)
