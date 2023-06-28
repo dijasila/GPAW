@@ -190,7 +190,7 @@ def test_co_spherical_truncation_function_collection(gpw_files):
     # Integrate collection of spherical truncation functions
     ones_r = finegd.empty()
     ones_r[:] = 1.
-    vol_aj = {0: np.zeros(len(rcut_j)), 1: np.zeros(len(rcut_j))}
+    vol_aj = {0: np.empty(len(rcut_j)), 1: np.empty(len(rcut_j))}
     stfc.integrate(ones_r, vol_aj)
 
     # Check that the integrated volume matches the spherical volume and an
