@@ -12,6 +12,29 @@ from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_pair_density_correction
 
 
+class MatrixElement(ABC):
+    """Data class for transitions distributed Kohn-Sham matrix elements."""
+
+    def __init__(self, tblocks, qpd):
+        self.tblocks = tblocks
+        self.qpd = qpd
+
+        self.array = self.zeros()
+        assert self.array.shape[0] == tblocks.blocksize
+
+    @abstractmethod
+    def zeros(self):
+        """Generate matrix element array with zeros."""
+
+    @property
+    def local_array_view(self):
+        return self.array[:self.tblocks.nlocal]
+
+    def get_global_array(self):
+        """Get the global (all gathered) matrix element."""
+        return self.tblocks.all_gather(self.array)
+
+
 class MatrixElementCalculator(ABC):
     r"""Abstract base class for matrix element calculators.
 
@@ -128,27 +151,10 @@ class MatrixElementCalculator(ABC):
         return ut_hR
 
 
-class PairDensity:
-    """Data class for transition distributed pair density arrays."""
+class PairDensity(MatrixElement):
 
-    def __init__(self, tblocks, n_mytG):
-        self.tblocks = tblocks
-        self.n_mytG = n_mytG
-
-    @classmethod
-    def from_qpd(cls, tblocks, qpd):
-        n_mytG = qpd.zeros(tblocks.blocksize)
-        return cls(tblocks, n_mytG)
-
-    @property
-    def local_array_view(self):
-        return self.n_mytG[:self.tblocks.nlocal]
-
-    def get_global_array(self):
-        """Get the global (all gathered) pair density array n_tG."""
-        n_tG = self.tblocks.all_gather(self.n_mytG)
-
-        return n_tG
+    def zeros(self):
+        return self.qpd.zeros(self.tblocks.blocksize)
 
 
 class NewPairDensityCalculator(MatrixElementCalculator):
@@ -195,7 +201,7 @@ class NewPairDensityCalculator(MatrixElementCalculator):
         see [PRB 103, 245110 (2021)] for details.
         """
         # Initialize a blank pair density object
-        pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
+        pair_density = PairDensity(kptpair.tblocks, qpd)
         n_mytG = pair_density.local_array_view
 
         self.add_pseudo_contribution(kptpair, qpd, n_mytG)
