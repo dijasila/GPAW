@@ -43,7 +43,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         _, M = data.shape
         if wfs.dtype == complex:
             data = data.astype(complex)
-        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm,))
+        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm, -1, 1))
         if wfs.dtype == complex:
             phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)

@@ -94,15 +94,14 @@ def create_lcao_ibzwfs(basis, potential,
     kpt_qc = ibz.kpt_kc[here_k]
 
     tciexpansions = TCIExpansions.new_from_setups(setups)
-    # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
     manytci = tciexpansions.get_manytci_calculator(
         setups, grid._gd, fracpos_ac,
         kpt_qc, dtype, NullTimer())
 
     my_atom_indices = basis.my_atom_indices
-    S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm,
-                                       0, setups.nao,
-                                       False)
+    M1 = basis.Mstart
+    M2 = basis.Mstop
+    S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm, M1, M2, True)
     if dtype == complex:
         np.negative(S_qMM.imag, S_qMM.imag)
         np.negative(T_qMM.imag, T_qMM.imag)
@@ -114,7 +113,7 @@ def create_lcao_ibzwfs(basis, potential,
     for a, P_qMi in P_aqMi.items():
         dO_ii = setups[a].dO_ii
         for P_Mi, S_MM in zip(P_qMi, S_qMM):
-            S_MM += P_Mi.conj() @ dO_ii @ P_Mi.T
+            S_MM += P_Mi[M1:M2].conj() @ dO_ii @ P_Mi.T
     domain_comm.sum(S_qMM)
 
     # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)

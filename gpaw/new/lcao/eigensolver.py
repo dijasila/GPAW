@@ -21,6 +21,7 @@ class LCAOEigensolver(Eigensolver):
                  wfs: LCAOWaveFunctions,
                  matrix_calculator: HamiltonianMatrixCalculator):
         H_MM = matrix_calculator.calculate_matrix(wfs)
+        print(H_MM.data, wfs.L_MM.data)
         eig_M = H_MM.eighg(wfs.L_MM, wfs.domain_comm)
         N = min(len(eig_M), wfs.nbands)
         wfs._eig_n = np.empty(wfs.nbands)

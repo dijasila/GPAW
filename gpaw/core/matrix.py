@@ -117,6 +117,7 @@ class Matrix:
         if data is None:
             self.data = self.xp.empty(dist.shape, self.dtype)
         else:
+            assert data.shape == dist.shape, (data.shape, dist.shape)
             self.data = data.reshape(dist.shape)
 
     def __repr__(self):
