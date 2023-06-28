@@ -222,6 +222,9 @@ class ResponseGroundStateAdapter:
         _, ibz_vertices_kc = get_bz(self._calc)
         return ibz_vertices_kc
 
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
+
 
 # Contains all the relevant information
 # from Setups class for response calculators
