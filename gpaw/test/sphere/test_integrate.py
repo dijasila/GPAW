@@ -9,6 +9,7 @@ from gpaw import GPAW
 from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
                                    radial_truncation_function,
                                    periodic_truncation_function,
+                                   spherical_truncation_function_collection,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -169,3 +170,37 @@ def test_fe_periodic_truncation_function(gpw_files):
         periodic_truncation_function(finegd, spos_ac[0], rcut,
                                      lambd=0.75))
     assert abs(vol - diff_vol) > 1e-2 * ref
+
+
+def test_co_spherical_truncation_function_collection(gpw_files):
+    # Extract grid information from the cobalt fixture
+    calc = GPAW(gpw_files['co_pw_wfs'], txt=None)
+    finegd = calc.density.finegd
+    spos_ac = calc.spos_ac
+    drcut = default_spherical_drcut(finegd)
+
+    # Generate collection of spherical truncation functions with varrying rcut
+    a = 2.5071
+    c = 4.0695
+    nn_dist = min(a, np.sqrt(a**2 / 3 + c**2 / 4))
+    rcut_j = np.linspace(drcut, 2 * nn_dist / 3, 13)
+    rcut_aj = [rcut_j, rcut_j]
+    stfc = spherical_truncation_function_collection(finegd, spos_ac, rcut_aj)
+
+    # Integrate collection of spherical truncation functions
+    ones_r = finegd.empty()
+    ones_r[:] = 1.
+    vol_aj = {0: np.zeros(len(rcut_j)), 1: np.zeros(len(rcut_j))}
+    stfc.integrate(ones_r, vol_aj)
+
+    # Check that the integrated volume matches the spherical volume and an
+    # analogous manual integration
+    for a, spos_c in enumerate(spos_ac):
+        for rcut, vol in zip(rcut_j, vol_aj[a]):
+            ref = 4 * np.pi * rcut**3. / 3.
+            assert abs(vol - ref) <= 1e-8 + 1e-2 * ref
+
+            # "Manual" integration
+            theta_r = periodic_truncation_function(finegd, spos_c, rcut, drcut)
+            manual_vol = finegd.integrate(theta_r)
+            assert abs(vol - manual_vol) <= 1e-8 + 1e-6 * ref
