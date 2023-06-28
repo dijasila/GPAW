@@ -34,10 +34,8 @@ def test_wannier90(gpw_files, in_tmp_dir):
                     seed=seed,
                     num_iter=1000,
                     plot=False)
-    try:
-        os.system('wannier90.x -pp ' + seed)
-    except FileNotFoundError:
-        return  # no wannier90.x executable
+
+    os.system('wannier90.x -pp ' + seed)
     w90.write_projections(calc, orbitals_ai=o_ai, seed=seed)
     w90.write_eigenvalues(calc, seed=seed)
     w90.write_overlaps(calc, seed=seed)
@@ -69,10 +67,7 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
                     dis_num_iter=500,
                     dis_mix_ratio=1.0,
                     seed=seed)
-    try:
-        os.system('wannier90.x -pp ' + seed)
-    except FileNotFoundError:
-        return  # no wannier90.x executable
+    os.system('wannier90.x -pp ' + seed)
     w90.write_projections(calc,
                           seed=seed, soc=soc)
     w90.write_eigenvalues(calc, seed=seed, soc=soc)
