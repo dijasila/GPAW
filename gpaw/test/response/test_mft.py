@@ -351,12 +351,12 @@ def dont_test_Co_site_data(gpw_files):
     # Calculate the atomic spin splitting
     rc_r = rc_r[:-1]
     atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
-    Δxc_ar = atomic_sites.calculate_spin_splitting()
-    print(Δxc_ar[0, ::20])
+    dxc_ar = atomic_sites.calculate_spin_splitting()
+    print(dxc_ar[0, ::20])
 
     # Test that the spin splitting comes out as expected
-    assert Δxc_ar[0] == pytest.approx(Δxc_ar[1])
-    assert Δxc_ar[0, ::20] == pytest.approx([0.08480429, 1.54950144,
+    assert dxc_ar[0] == pytest.approx(dxc_ar[1])
+    assert dxc_ar[0, ::20] == pytest.approx([0.08480429, 1.54950144,
                                              2.52780679, 2.79983388,
                                              2.82746363, 2.8367686], rel=1e-3)
 

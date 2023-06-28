@@ -6,7 +6,7 @@ import numpy as np
 # GPAW modules
 from gpaw.sphere.integrate import (integrate_lebedev,
                                    radial_truncation_function,
-                                   spherical_truncation_function,
+                                   spherical_truncation_function_collection,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -206,6 +206,10 @@ class AtomicSiteData:
         # Convert radii to internal units (Å to Bohr)
         self.rc_ap = rc_ap / Bohr
 
+        self.nsites = len(self.A_a)
+        self.npartitions = self.rc_ap.shape[1]
+        self.shape = (self.nsites, self.npartitions)
+
         assert self._in_valid_site_radii_range(gs),\
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
@@ -223,18 +227,8 @@ class AtomicSiteData:
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
-
-    @property
-    def nsites(self):
-        return len(self.A_a)
-
-    @property
-    def npartitions(self):
-        return self.rc_ap.shape[1]
-
-    @property
-    def shape(self):
-        return (self.nsites, self.npartitions)
+        self.stfc = spherical_truncation_function_collection(
+            self.finegd, self.spos_ac, self.rc_ap, self.drcut, self.lambd_ap)
 
     @staticmethod
     def _valid_site_radii_range(gs):
@@ -251,7 +245,8 @@ class AtomicSiteData:
 
         # Find neighbours based on covalent radii
         cutoffs = natural_cutoffs(atoms, mult=2)
-        neighbourlist = build_neighbor_list(atoms, cutoffs)
+        neighbourlist = build_neighbor_list(atoms, cutoffs,
+                                            self_interaction=False)
         # Determine rmax for each atom
         augr_A = gs.get_aug_radii()
         rmax_A = []
@@ -261,8 +256,6 @@ class AtomicSiteData:
             # neighbour
             aug_distances = []
             for An, offset in zip(*neighbourlist.get_neighbors(A)):
-                if An == A and np.all(offset == 0):
-                    continue  # The atom itself is somehow a neighbour...
                 posn = atoms.positions[An] + offset @ atoms.get_cell()
                 dist = np.linalg.norm(posn - pos) / Bohr  # Å -> Bohr
                 aug_dist = dist - augr_A[An]
@@ -300,8 +293,8 @@ class AtomicSiteData:
 
     def calculate_spin_splitting(self):
         r"""Calculate the spin splitting Δ^(xc) for each atomic site."""
-        Δxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
-        return Δxc_ap * Hartree  # return the splitting in eV
+        dxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
+        return dxc_ap * Hartree  # return the splitting in eV
 
     def integrate_local_function(self, add_f):
         r"""Integrate a local function f[n](r) = f(n(r)) over the atomic sites.
@@ -331,15 +324,14 @@ class AtomicSiteData:
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
         add_f(self.finegd, self.nt_sr, ft_r)
-        for p, (rc_a, lambd_a) in enumerate(zip(
-                self.rc_ap.T, self.lambd_ap.T)):
-            for a, (spos_c, rcut, lambd) in enumerate(zip(
-                    self.spos_ac, rc_a, lambd_a)):
-                # Evaluate the smooth truncation function
-                theta_r = spherical_truncation_function(
-                    self.finegd, spos_c, rcut, self.drcut, lambd)
-                # Integrate θ(r) f(r) on the real-space grid
-                out_ap[a, p] += self.finegd.integrate(theta_r * ft_r)
+
+        # Integrate θ(|r-r_a|<rc_ap) f(ñ(r))
+        ftdict_ap = {a: np.empty(self.npartitions) for a in range(self.nsites)}
+        self.stfc.integrate(ft_r, ftdict_ap)
+
+        # Add pseudo contribution to the output array
+        for a in range(self.nsites):
+            out_ap[a] += ftdict_ap[a]
 
     def _integrate_paw_correction(self, add_f, out_ap):
         """Calculate the PAW correction to an atomic site integral.

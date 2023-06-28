@@ -614,14 +614,14 @@ def calculate_LSDA_Bxc(gd, n_sR):
     return (v_sR[0] - v_sR[1]) / 2
 
 
-def add_LSDA_spin_splitting(gd, n_sR, Δxc_R):
+def add_LSDA_spin_splitting(gd, n_sR, dxc_R):
     """Calculate and add the LSDA spin splitting to the output array.
 
     The spin splitting is defined as:
 
     Δ^(xc)(r) = - 2 B^(xc)(r) m(r).
     """
-    Δxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) \
+    dxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) \
         * calculate_magnetization(n_sR)
 
 
