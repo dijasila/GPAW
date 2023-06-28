@@ -13,7 +13,7 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
-* Removed the utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
+* Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 
 Version 23.6.0
@@ -776,7 +776,7 @@ May 29, 2018: :git:`1.4.0 <../1.4.0>`
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
 
-* New utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
+* New utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 
 Version 1.3.0
