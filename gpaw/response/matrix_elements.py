@@ -321,13 +321,6 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         super().__init__(gs, context)
         self.atomic_site_data = atomic_site_data
 
-        # Set up spherical truncation function collection on the coarse
-        # real-space grid
-        adata = atomic_site_data
-        self.stfc = spherical_truncation_function_collection(
-            gs.gd, adata.spos_ac, adata.rc_ap, adata.drcut, adata.lambd_ap,
-            dtype=complex)
-
         # PAW correction tensor
         self._N_apii = None
 
@@ -372,12 +365,19 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         # Calculate real-space pair densities ñ_kt(r)
         nt_mytR = psit1_mytR.conj() * psit2_mytR
 
+        # Set up spherical truncation function collection on the coarse
+        # real-space grid with the KPointDescriptor of the q-point.
+        adata = self.atomic_site_data
+        stfc = spherical_truncation_function_collection(
+            self.gs.gd, adata.spos_ac,
+            adata.rc_ap, adata.drcut, adata.lambd_ap,
+            kd=site_pair_density.qpd.kd, dtype=complex)
+
         # Integrate Θ(r∊Ω_ap) ñ_kt(r)
         ntlocal = nt_mytR.shape[0]
-        adata = self.atomic_site_data
         nt_amytp = {a: np.empty((ntlocal, adata.npartitions), dtype=complex)
                     for a in range(adata.nsites)}
-        self.stfc.integrate(nt_mytR, nt_amytp, q=0)
+        stfc.integrate(nt_mytR, nt_amytp, q=0)
 
         # Add integral to output array
         n_mytap = site_pair_density.array
