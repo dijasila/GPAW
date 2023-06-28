@@ -223,7 +223,7 @@ def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
     """
     # Generate a spherical truncation function collection with a single
     # truncation function
-    stfc = spherical_truncation_function_collective(
+    stfc = spherical_truncation_function_collection(
         gd, spos_ac=[spos_c],
         rcut_aj=[[rcut]], drcut=drcut, lambd_aj=[[lambd]])
 
@@ -235,7 +235,7 @@ def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
     return theta_R
 
 
-def spherical_truncation_function_collective(gd, spos_ac, rcut_aj,
+def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
                                              drcut=None, lambd_aj=None):
     """Generate a collection of spherical truncation functions θ(|r-r_a|<rc_aj)
 
