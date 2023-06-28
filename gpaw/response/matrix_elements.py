@@ -4,8 +4,7 @@ import numpy as np
 
 from gpaw.utilities.blas import gemmdot
 
-from gpaw.sphere.integrate import (spherical_truncation_function_collection,
-                                   periodic_truncation_function)
+from gpaw.sphere.integrate import spherical_truncation_function_collection
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
