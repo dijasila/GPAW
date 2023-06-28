@@ -397,12 +397,14 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
     context.write_timer()
 
-    # Test that the sum rule site magnetization should be a diagonal real array
+    # Test that the sum rule site magnetization is a positive-valued diagonal
+    # real array
     site_mag_ra = site_mag_abr.diagonal()
-    assert np.all(np.abs(site_mag_ra.imag / site_mag_ra.real) < 1e-6)
+    assert np.all(site_mag_ra.real > 0)
+    assert np.all(np.abs(site_mag_ra.imag) / site_mag_ra.real < 1e-6)
     site_mag_ra = site_mag_ra.real
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        site_mag_abr))) / site_mag_ra < 5e-2)
+        site_mag_abr))) / site_mag_ra < 1e-2)
     site_mag_ar = site_mag_ra.T
     # Test that the magnetic moments on the two Co atoms are identical
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
