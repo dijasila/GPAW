@@ -237,7 +237,7 @@ def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
 
 def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
                                              drcut=None, lambd_aj=None,
-                                             dtype=float):
+                                             kd=None, dtype=float):
     """Generate a collection of spherical truncation functions θ(|r-r_a|<rc_aj)
 
     Generates a LocalizedFunctionsCollection with radial truncation functions
@@ -262,7 +262,7 @@ def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
         spline_aj.append(spline_j)
 
     # Generate the spherical truncation function collection (stfc)
-    stfc = LocalizedFunctionsCollection(gd, spline_aj, dtype=dtype)
+    stfc = LocalizedFunctionsCollection(gd, spline_aj, kd=kd, dtype=dtype)
     stfc.set_positions(spos_ac)
 
     return stfc
