@@ -4,7 +4,8 @@ import numpy as np
 
 from gpaw.utilities.blas import gemmdot
 
-from gpaw.sphere.integrate import spherical_truncation_function
+from gpaw.sphere.integrate import (spherical_truncation_function_collection,
+                                   periodic_truncation_function)
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
@@ -284,6 +285,13 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         self.context = context
         self.atomic_site_data = atomic_site_data
 
+        # Set up spherical truncation function collection on the coarse
+        # real-space grid
+        adata = atomic_site_data
+        self.stfc = spherical_truncation_function_collection(
+            gs.gd, adata.spos_ac, adata.rc_ap, adata.drcut, adata.lambd_ap,
+            dtype=complex)
+
         # PAW correction tensor
         self._N_apii = None
 
@@ -334,24 +342,23 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         """
         # Construct pseudo waves with Bloch phases
         r_cR = self.gs.ibz2bz.r_cR  # scaled grid coordinates
-        psi1_mytR = np.exp(2j * np.pi * gemmdot(k1_c, r_cR))[np.newaxis]\
+        psit1_mytR = np.exp(2j * np.pi * gemmdot(k1_c, r_cR))[np.newaxis]\
             * ut1_mytR
-        psi2_mytR = np.exp(2j * np.pi * gemmdot(k2_c, r_cR))[np.newaxis]\
+        psit2_mytR = np.exp(2j * np.pi * gemmdot(k2_c, r_cR))[np.newaxis]\
             * ut2_mytR
-        # Calculate real-space pair densities
-        n_mytR = psi1_mytR.conj() * psi2_mytR
+        # Calculate real-space pair densities ñ_kt(r)
+        nt_mytR = psit1_mytR.conj() * psit2_mytR
 
-        # Loop over sites and partitionings
+        # Integrate Θ(r∊Ω_ap) ñ_kt(r)
+        ntlocal = nt_mytR.shape[0]
         adata = self.atomic_site_data
-        for a, (spos_c, rc_p, lambd_p) in enumerate(zip(
-                adata.spos_ac, adata.rc_ap, adata.lambd_ap)):
-            for p, (rcut, lambd) in enumerate(zip(rc_p, lambd_p)):
-                # Generate smooth spherical truncation function Θ(r∊Ω_a)
-                theta_R = spherical_truncation_function(
-                    self.gs.gd, spos_c, rcut, adata.drcut, lambd)
-                # Integrate and add pseudo contribution
-                n_mytap[:, a, p] += self.gs.gd.integrate(
-                    theta_R[np.newaxis] * n_mytR)
+        nt_amytp = {a: np.empty((ntlocal, adata.npartitions), dtype=complex)
+                    for a in range(adata.nsites)}
+        self.stfc.integrate(nt_mytR, nt_amytp, q=0)
+
+        # Add integral to output array
+        for a in range(adata.nsites):
+            n_mytap[:, a] += nt_amytp[a]
 
     @timer('Calculate site pair density PAW correction')
     def _add_paw_correction(self, P1_Amyti, P2_Amyti, n_mytap):
