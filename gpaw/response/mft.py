@@ -4,7 +4,7 @@ import numpy as np
 # GPAW modules
 from gpaw.sphere.integrate import (integrate_lebedev,
                                    radial_truncation_function,
-                                   periodic_truncation_function,
+                                   spherical_truncation_function_collection,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -222,6 +222,8 @@ class AtomicSiteData:
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
+        self.stfc = spherical_truncation_function_collection(
+            self.finegd, self.spos_ac, self.rc_ap, self.drcut, self.lambd_ap)
 
     @staticmethod
     def _valid_site_radii_range(gs):
@@ -317,15 +319,14 @@ class AtomicSiteData:
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
         add_f(self.finegd, self.nt_sr, ft_r)
-        for p, (rc_a, lambd_a) in enumerate(zip(
-                self.rc_ap.T, self.lambd_ap.T)):
-            for a, (spos_c, rcut, lambd) in enumerate(zip(
-                    self.spos_ac, rc_a, lambd_a)):
-                # Evaluate the smooth truncation function
-                theta_r = periodic_truncation_function(
-                    self.finegd, spos_c, rcut, self.drcut, lambd)
-                # Integrate θ(r) f(r) on the real-space grid
-                out_ap[a, p] += self.finegd.integrate(theta_r * ft_r)
+
+        # Integrate θ(|r-r_a|<rc_ap) f(ñ(r))
+        ftdict_ap = {a: np.empty(self.npartitions) for a in range(self.nsites)}
+        self.stfc.integrate(ft_r, ftdict_ap)
+
+        # Add pseudo contribution to the output array
+        for a in range(self.nsites):
+            out_ap[a] += ftdict_ap[a]
 
     def _integrate_paw_correction(self, add_f, out_ap):
         """Calculate the PAW correction to an atomic site integral.
