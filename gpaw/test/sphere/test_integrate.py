@@ -8,7 +8,7 @@ from gpaw import GPAW
 
 from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
                                    radial_truncation_function,
-                                   spherical_truncation_function,
+                                   periodic_truncation_function,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -132,7 +132,7 @@ def test_fe_augmentation_sphere(gpw_files):
         assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
         
 
-def test_fe_spherical_truncation_function(gpw_files):
+def test_fe_periodic_truncation_function(gpw_files):
     # Extract the grid information from the iron fixture
     calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
     finegd = calc.density.finegd
@@ -149,23 +149,23 @@ def test_fe_spherical_truncation_function(gpw_files):
 
         # Optimize λ-parameter, generate θ(r) and integrate
         lambd = find_volume_conserving_lambd(rcut, drcut)
-        theta_r = spherical_truncation_function(finegd, spos_ac[0],
-                                                rcut, drcut, lambd)
+        theta_r = periodic_truncation_function(finegd, spos_ac[0],
+                                               rcut, drcut, lambd)
         vol = finegd.integrate(theta_r)
         assert abs(vol - ref) <= 1e-8 + 1e-2 * ref
 
     # Make sure that the default works as expected
     default_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut))
+        periodic_truncation_function(finegd, spos_ac[0], rcut))
     assert abs(vol - default_vol) < 1e-8
     # Make sure that we get a different value numerically, if we change drcut
     diff_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut,
-                                      drcut=drcut * 1.5))
+        periodic_truncation_function(finegd, spos_ac[0], rcut,
+                                     drcut=drcut * 1.5))
     assert abs(vol - diff_vol) > 1e-8
     # Test that the actual value of the integral changes, if we use a different
     # λ-parameter
     diff_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut,
-                                      lambd=0.75))
+        periodic_truncation_function(finegd, spos_ac[0], rcut,
+                                     lambd=0.75))
     assert abs(vol - diff_vol) > 1e-2 * ref

@@ -213,17 +213,31 @@ def find_volume_conserving_lambd(rcut, drcut, r_g=None):
     return lambd
 
 
-def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
-    r"""Generate truncation function θ(r<rc) for a sphere centered at spos_c.
+def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
+    r"""Generate periodic images of the spherical truncation function θ.
 
-    The smooth radial truncation function θ(r<rc) is used to generate a
-    smoothly truncated sphere of radius rcut and centered at the scaled
-    position spos_c on the real-space grid described by gd.
+    The smooth radial truncation function θ(r<rc) is used to define a
+    smoothly truncated sphere of radius rcut, centered at the scaled
+    position spos_c. The sphere is periodically repeated on the real-space grid
+    described by gd.
 
     See radial_truncation_function() for the functional form of θ(r<rc).
     """
     if drcut is None:
         drcut = default_spherical_drcut(gd)
+    spline = radial_truncation_function_spline(rcut, drcut, lambd)
+
+    # Evaluate truncation function on the real-space grid
+    lfc = LocalizedFunctionsCollection(gd, [[spline]], dtype=float)
+    lfc.set_positions([spos_c])
+    theta_R = gd.zeros(dtype=float)
+    lfc.add(theta_R)
+    return theta_R
+
+
+def radial_truncation_function_spline(rcut, drcut, lambd=None):
+    """Generate spline representation of the radial truncation function θ(r<rc)
+    """
     if lambd is None:
         lambd = find_volume_conserving_lambd(rcut, drcut)
 
@@ -235,14 +249,7 @@ def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
                     # requested spherical harmonic for the function in
                     # question. For l=0, Y = 1/sqrt(4π):
                     f_g=np.sqrt(4 * np.pi) * theta_g)
-
-    # Evaluate truncation function on the real-space grid
-    lfc = LocalizedFunctionsCollection(gd, [[spline]], dtype=float)
-    lfc.set_positions([spos_c])
-    theta_R = gd.zeros(dtype=float)
-    lfc.add(theta_R)
-
-    return theta_R
+    return spline
 
 
 def default_spherical_drcut(gd):

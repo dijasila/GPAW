@@ -4,7 +4,7 @@ import numpy as np
 # GPAW modules
 from gpaw.sphere.integrate import (integrate_lebedev,
                                    radial_truncation_function,
-                                   spherical_truncation_function,
+                                   periodic_truncation_function,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -322,7 +322,7 @@ class AtomicSiteData:
             for a, (spos_c, rcut, lambd) in enumerate(zip(
                     self.spos_ac, rc_a, lambd_a)):
                 # Evaluate the smooth truncation function
-                theta_r = spherical_truncation_function(
+                theta_r = periodic_truncation_function(
                     self.finegd, spos_c, rcut, self.drcut, lambd)
                 # Integrate θ(r) f(r) on the real-space grid
                 out_ap[a, p] += self.finegd.integrate(theta_r * ft_r)
