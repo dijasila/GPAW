@@ -6,10 +6,22 @@ import gpaw.wannier90 as w90
 from gpaw.wannier.w90 import read_wout_all
 from pathlib import Path
 from gpaw.spinorbit import soc_eigenstates
+from subprocess import PIPE, run
+
+
+def out():
+    result = run('wannier90.x --version',
+                 stdout=PIPE,
+                 stderr=PIPE,
+                 universal_newlines=True,
+                 shell=True)
+    return result.stdout
 
 
 @pytest.mark.wannier
 @pytest.mark.serial
+@pytest.mark.skipif(': 3.' not in out(),
+                    reason="requires at least Wannier90 version 3.0")
 def test_wannier90(gpw_files, in_tmp_dir):
     o_ai = [[], [0, 1, 2, 3]]
     bands = range(4)
@@ -42,6 +54,8 @@ def test_wannier90(gpw_files, in_tmp_dir):
 
 @pytest.mark.wannier
 @pytest.mark.serial
+@pytest.mark.skipif(': 3.' not in out(),
+                    reason="requires at least Wannier90 version 3.0")
 def test_wannier90_soc(gpw_files, in_tmp_dir):
     calc = GPAW(gpw_files['fe_pw_nosym_wfs'])
     soc = soc_eigenstates(calc)
