@@ -28,7 +28,7 @@ from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
 
 @pytest.mark.response
-def dont_test_Fe_bcc(in_tmp_dir, gpw_files):
+def test_Fe_bcc(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
     # MFT calculation
@@ -113,7 +113,7 @@ def dont_test_Fe_bcc(in_tmp_dir, gpw_files):
 
 
 @pytest.mark.response
-def dont_test_Co_hcp(in_tmp_dir, gpw_files):
+def test_Co_hcp(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
 
     # MFT calculation
@@ -236,7 +236,7 @@ def dont_test_Co_hcp(in_tmp_dir, gpw_files):
 
 
 @pytest.mark.response
-def dont_test_Fe_site_magnetization(gpw_files):
+def test_Fe_site_magnetization(gpw_files):
     # Set up ground state adapter
     calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
@@ -301,7 +301,7 @@ def dont_test_Fe_site_magnetization(gpw_files):
 
 
 @pytest.mark.response
-def dont_test_Co_site_data(gpw_files):
+def test_Co_site_data(gpw_files):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
