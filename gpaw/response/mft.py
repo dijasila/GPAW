@@ -408,7 +408,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
                          disable_time_reversal=True)
 
         self.nbands = nbands
-        self.site_pair_density_calc = None
+        self.site_pair_density_calc: SitePairDensityCalculator | None = None
 
     def __call__(self, q_c, atomic_site_data: AtomicSiteData):
         """Calculate the site magnetization for a given wave vector q_c."""
