@@ -516,13 +516,15 @@ class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
         """
         # Calculate site pair densties
         site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
+        assert site_pair_density.tblocks.blockcomm.size == 1
         n_tap = site_pair_density.get_global_array()
 
         # Calculate Pauli matrix factors multiply the occupations
         sigz = smat('z')
-        sigz_t = sigz[kptpair.s1_t, kptpair.s2_t]
+        sigz_t = sigz[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
         f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
         sigzf_t = sigz_t * f_t
 
         # Calculate and add integrand
-        site_mag.array[:] += self.gs.volume * weight * sigzf_t @ n_tap
+        site_mag.array[:] += self.gs.volume * weight * np.einsum(
+            't, tap -> ap', sigzf_t, n_tap)
