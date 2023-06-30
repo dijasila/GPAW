@@ -463,7 +463,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         smatdf_myt = smat_myt * df_myt
 
         # Calculate integrand
-        n_mytap = site_pair_density.array
+        n_mytap = site_pair_density.local_array_view
         nncc_mytabp = n_mytap[:, :, np.newaxis] * n_mytap.conj()[:, np.newaxis]
         # Sum over local transitions
         integrand_abp = np.einsum('t, tabp -> abp', smatdf_myt, nncc_mytabp)
