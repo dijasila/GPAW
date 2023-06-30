@@ -400,7 +400,12 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         """Construct the sum rule site magnetization calculator."""
         if context is None:
             context = ResponseContext()
-        super().__init__(gs, context)
+        super().__init__(gs, context,
+                         # Disable use of symmetries for now. The sum rule site
+                         # magnetization symmetries can always be derived and
+                         # implemented at a later stage.
+                         disable_point_group=True,
+                         disable_time_reversal=True)
 
         self.nbands = nbands
         self.site_pair_density_calc = None
