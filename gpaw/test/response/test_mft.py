@@ -407,7 +407,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
         site_mag_abr))) / site_mag_ra < 1e-2)
     site_mag_ar = site_mag_ra.T
     # Test that the magnetic moments on the two Co atoms are identical
-    assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
+    assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=1e-4)
 
     # Test that the result matches a conventional calculation at close-packing
     close_packed_atomic_sites = AtomicSiteData(
