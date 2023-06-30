@@ -145,10 +145,7 @@ class KPointDescriptor:
         self.nbzkpts = len(self.bzk_kc)
 
         # Gamma-point calculation?
-        self.gamma = self.nbzkpts == 1 and np.allclose(self.bzk_kc, 0)
-        if self.gamma:
-            self.bzk_kc[:] = 0.0
-            self.offset_c = np.zeros(3)
+        self.gamma = self.nbzkpts == 1 and not self.bzk_kc.any()
 
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
