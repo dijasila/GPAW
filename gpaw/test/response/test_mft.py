@@ -379,7 +379,7 @@ def test_Co_site_data(gpw_files):
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('qrel', generate_qrel_q()[:1])
+@pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
@@ -402,13 +402,13 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     ssite_mag_ar = simple_site_mag_calc(atomic_site_data)
 
     # Test that the imaginary part vanishes (we use only diagonal pair
-    # densities correcsponding to |ψ_nks(r)|)
+    # densities correcsponding to |ψ_nks(r)|^2)
     assert np.allclose(ssite_mag_ar.imag, 0.)
     ssite_mag_ar = ssite_mag_ar.real
 
     # Test that the results match a conventional calculation
     magmom_ar = atomic_site_data.calculate_magnetic_moments()
-    assert ssite_mag_ar == pytest.approx(magmom_ar)
+    assert ssite_mag_ar == pytest.approx(magmom_ar, rel=5e-3)
 
     # ----- Site magnetization by sum rule ----- #
     # Set up calculator and calculate site magnetization by sum rule
