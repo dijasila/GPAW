@@ -83,10 +83,10 @@ class IsotropicExchangeCalculator:
         assert localft_calc.gs is chiks_calc.gs
         self.localft_calc = localft_calc
 
-        # Bxc field buffer
-        self._Bxc_G = None
+        # W_xc^z buffer
+        self._Wxc_G = None
 
-        # chiksr buffer
+        # χ_KS^('+-) buffer
         self._chiksr = None
 
     def __call__(self, q_c, site_kernels: SiteKernels, txt=None):
@@ -110,7 +110,7 @@ class IsotropicExchangeCalculator:
             and b for all the site partitions p given by the site_kernels.
         """
         # Get ingredients
-        Bxc_G = self.get_Bxc()
+        Wxc_G = self.get_Wxc()
         chiksr = self.get_chiksr(q_c, txt=txt)
         qpd, chiksr_GG = chiksr.qpd, chiksr.array[0]  # array = chiksr_zGG
         V0 = qpd.gd.volume
@@ -123,8 +123,8 @@ class IsotropicExchangeCalculator:
         for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(qpd)):
             for a in range(nsites):
                 for b in range(nsites):
-                    J = np.conj(Bxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
-                        @ K_aGG[b] @ Bxc_G
+                    J = np.conj(Wxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
+                        @ K_aGG[b] @ Wxc_G
                     J_ab[a, b] = - 2. * J / V0
 
         # Transpose to have the partitions index last
@@ -132,16 +132,15 @@ class IsotropicExchangeCalculator:
 
         return J_abp * Hartree  # Convert from Hartree to eV
 
-    def get_Bxc(self):
+    def get_Wxc(self):
         """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate if buffer is empty
-            self._Bxc_G = self._calculate_Bxc()
+        if self._Wxc_G is None:  # Calculate if buffer is empty
+            self._Wxc_G = self._calculate_Wxc()
 
-        return self._Bxc_G
+        return self._Wxc_G
 
-    def _calculate_Bxc(self):
-        """Use the PlaneWaveBxc calculator to calculate the plane wave
-        coefficients B^xc_G"""
+    def _calculate_Wxc(self):
+        """Calculate the Fourier transform W_xc^z(G)."""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
         qpd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
