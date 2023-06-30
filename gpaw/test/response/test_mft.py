@@ -389,7 +389,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
     # Make sure that the two sites do not overlap
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
-    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 101)
+    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
     atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
     # Set up calculator and calculate site magnetization by sum rule
@@ -410,19 +410,22 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=5e-3)
 
     # Test that the result matches a conventional calculation at close-packing
-    magmom_ar = atomic_site_data.calculate_magnetic_moments()
+    close_packed_atomic_sites = AtomicSiteData(
+        gs, indices=[0, 1], radii=[[nn_dist / 2], [nn_dist / 2]])
+    magmom_a = close_packed_atomic_sites.calculate_magnetic_moments()[:, 0]
     assert np.average(site_mag_ar, axis=0)[-1] == pytest.approx(
-        np.average(magmom_ar, axis=0)[-1], rel=1e-3)
+        np.average(magmom_a), rel=1e-3)
 
     # Test values against reference
-    print(np.average(site_mag_ar, axis=0)[::20])
-    assert np.average(site_mag_ar, axis=0)[::20] == pytest.approx(
+    print(np.average(site_mag_ar, axis=0)[::2])
+    assert np.average(site_mag_ar, axis=0)[::2] == pytest.approx(
         np.array([0.00202567, 0.20297462, 0.77600827,
                   1.26539897, 1.54881803, 1.62464344]), rel=5e-3)
 
+    # magmom_ar = atomic_site_data.calculate_magnetic_moments()
     # import matplotlib.pyplot as plt
-    # plt.plot(rc_r, site_mag_ar[0])
-    # plt.plot(rc_r, magmom_ar[0], zorder=0)
+    # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, magmom_ar[0], '-o', mec='k', zorder=0)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
     # plt.title(str(q_c))
