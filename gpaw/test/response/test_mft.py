@@ -485,8 +485,8 @@ class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
         # Loop over bands, which are fully or partially occupied
         nocc2 = self.kptpair_extractor.nocc2
         n_n = list(range(nocc2))
-        n_t = n_n + n_n
-        s_t = [0] * nocc2 + [1] * nocc2
+        n_t = np.array(n_n + n_n)
+        s_t = np.array([0] * nocc2 + [1] * nocc2)
         transitions = PairTransitions(n1_t=n_t, n2_t=n_t, s1_t=s_t, s2_t=s_t)
 
         # Set up data object with q=0
