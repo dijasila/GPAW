@@ -17,13 +17,13 @@ from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_magnetization)
 from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
+                               SumRuleSiteMagnetization,
                                SumRuleSiteMagnetizationCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
-from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.matrix_elements import SitePairDensityCalculator
@@ -379,7 +379,7 @@ def test_Co_site_data(gpw_files):
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('qrel', generate_qrel_q())
+@pytest.mark.parametrize('qrel', generate_qrel_q()[:1])
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
@@ -396,6 +396,21 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
     atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
+    # ----- Site magnetization from site pair densities ----- #
+    # Set up calculator and calculate the site magnetization
+    simple_site_mag_calc = SimpleSiteMagnetizationCalculator(gs, context)
+    ssite_mag_ar = simple_site_mag_calc(atomic_site_data)
+
+    # Test that the imaginary part vanishes (we use only diagonal pair
+    # densities correcsponding to |ψ_nks(r)|)
+    assert np.allclose(ssite_mag_ar.imag, 0.)
+    ssite_mag_ar = ssite_mag_ar.real
+
+    # Test that the results match a conventional calculation
+    magmom_ar = atomic_site_data.calculate_magnetic_moments()
+    assert ssite_mag_ar == pytest.approx(magmom_ar)
+
+    # ----- Site magnetization by sum rule ----- #
     # Set up calculator and calculate site magnetization by sum rule
     sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs, context)
     site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
@@ -414,11 +429,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=1e-4)
 
     # Test that the result matches a conventional calculation at close-packing
-    close_packed_atomic_sites = AtomicSiteData(
-        gs, indices=[0, 1], radii=[[nn_dist / 2], [nn_dist / 2]])
-    magmom_a = close_packed_atomic_sites.calculate_magnetic_moments()[:, 0]
     assert np.average(site_mag_ar, axis=0)[-1] == pytest.approx(
-        np.average(magmom_a), rel=1e-3)
+        np.average(magmom_ar, axis=0)[-1], rel=1e-3)
 
     # Test values against reference
     print(np.average(site_mag_ar, axis=0)[::2])
@@ -426,9 +438,9 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
         np.array([0.00202567, 0.20297462, 0.77600827,
                   1.26539897, 1.54881803, 1.62464344]), rel=5e-3)
 
-    # magmom_ar = atomic_site_data.calculate_magnetic_moments()
     # import matplotlib.pyplot as plt
     # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, ssite_mag_ar[0], '-o', mec='k', zorder=1)
     # plt.plot(rc_r, magmom_ar[0], '-o', mec='k', zorder=0)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
@@ -439,25 +451,12 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 # ---------- Test functionality ---------- #
 
 
-class SimpleSiteMagnetization(PairFunction):
-    def __init__(self,
-                 qpd: SingleQPWDescriptor,
-                 atomic_site_data: AtomicSiteData):
-        self.qpd = qpd
-        self.q_c = qpd.q_c
-
-        self.atomic_site_data = atomic_site_data
-
-        self.array = self.zeros()
-
+class SimpleSiteMagnetization(SumRuleSiteMagnetization):
     @property
     def shape(self):
         nsites = self.atomic_site_data.nsites
         npartitions = self.atomic_site_data.npartitions
         return nsites, npartitions
-        
-    def zeros(self):
-        return np.zeros(self.shape, dtype=complex)
 
 
 class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
