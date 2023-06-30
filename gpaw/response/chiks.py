@@ -494,5 +494,7 @@ def smat(spinrot):
         return np.array([[0, 0], [1, 0]])
     elif spinrot == '+':
         return np.array([[0, 1], [0, 0]])
+    elif spinrot == 'z':
+        return np.array([[1, 0], [0, -1]])
     else:
         raise ValueError(spinrot)
