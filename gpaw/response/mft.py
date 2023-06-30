@@ -11,8 +11,10 @@ from gpaw.sphere.integrate import (integrate_lebedev,
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
-                                   add_magnetization, add_LSDA_spin_splitting,
+from gpaw.response.localft import (LocalFTCalculator,
+                                   add_LSDA_Wxc,
+                                   add_spin_polarization,
+                                   add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
 
@@ -129,7 +131,7 @@ class IsotropicExchangeCalculator:
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
         qpd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
 
-        return self.localft_calc(qpd0, add_LSDA_Bxc)
+        return self.localft_calc(qpd0, add_LSDA_Wxc)
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
@@ -281,7 +283,7 @@ class AtomicSiteData:
         
     def calculate_magnetic_moments(self):
         """Calculate the magnetic moments at each atomic site."""
-        magmom_ap = self.integrate_local_function(add_magnetization)
+        magmom_ap = self.integrate_local_function(add_spin_polarization)
         return magmom_ap
 
     def calculate_spin_splitting(self):
