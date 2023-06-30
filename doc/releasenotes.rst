@@ -15,8 +15,6 @@ Git master branch
 
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
-* Fixed typo.
-
 
 Version 23.6.0
 ==============
