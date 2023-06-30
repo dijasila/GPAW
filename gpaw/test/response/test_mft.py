@@ -13,7 +13,7 @@ from gpaw import GPAW
 from gpaw.sphere.integrate import integrate_lebedev
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_magnetization)
 from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
@@ -23,6 +23,10 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
+from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_transitions import PairTransitions
+from gpaw.response.matrix_elements import SitePairDensityCalculator
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
@@ -430,3 +434,96 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
     # plt.title(str(q_c))
     # plt.show()
+
+
+# ---------- Test functionality ---------- #
+
+
+class SimpleSiteMagnetization(PairFunction):
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 atomic_site_data: AtomicSiteData):
+        self.qpd = qpd
+        self.q_c = qpd.q_c
+
+        self.atomic_site_data = atomic_site_data
+
+        self.array = self.zeros()
+
+    @property
+    def shape(self):
+        nsites = self.atomic_site_data.nsites
+        npartitions = self.atomic_site_data.npartitions
+        return nsites, npartitions
+        
+    def zeros(self):
+        return np.zeros(self.shape, dtype=complex)
+
+
+class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
+    r"""Calculate the site magnetization using site pair densities.
+
+    The site magnetization can be calculate from the diagonals of the site pair
+    densities as follows:
+                 __  __
+             1   \   \
+    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
+    """
+
+    def __init__(self, gs, context):
+        super().__init__(gs, context,
+                         disable_point_group=True,
+                         disable_time_reversal=True)
+        self.site_pair_density_calc: SitePairDensityCalculator | None = None
+
+    def __call__(self, atomic_site_data):
+        self.site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
+
+        # Set up transitions
+        # Loop over bands, which are fully or partially occupied
+        nocc2 = self.kptpair_extractor.nocc2
+        n_n = list(range(nocc2))
+        n_t = n_n + n_n
+        s_t = [0] * nocc2 + [1] * nocc2
+        transitions = PairTransitions(n1_t=n_t, n2_t=n_t, s1_t=s_t, s2_t=s_t)
+
+        # Set up data object with q=0
+        qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
+        site_mag = SimpleSiteMagnetization(qpd, atomic_site_data)
+
+        # Perform actual calculation
+        self._integrate(site_mag, transitions)
+        return site_mag.array
+
+    def add_integrand(self, kptpair, weight, site_mag):
+        r"""Add the site magnetization integrand of the outer k-point integral.
+
+        With
+                   __
+                1  \
+        n_a^z = ‾  /  (...)_k
+                V  ‾‾
+                   k
+
+        the integrand has to be multiplied with the cell volume V0:
+                     __
+                     \
+        (...)_k = V0 /  σ^z_ss f_nks n^a_(nks,nks)
+                     ‾‾
+                     n,s
+        """
+        # Calculate site pair densties
+        site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
+        n_tap = site_pair_density.get_global_array()
+
+        # Calculate Pauli matrix factors multiply the occupations
+        sigz = smat('z')
+        sigz_t = sigz[kptpair.s1_t, kptpair.s2_t]
+        f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
+        sigzf_t = sigz_t * f_t
+
+        # Calculate and add integrand
+        site_mag.array[:] += self.gs.volume * weight * sigzf_t @ n_tap
