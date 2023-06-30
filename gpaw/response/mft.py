@@ -28,12 +28,12 @@ class IsotropicExchangeCalculator:
     r"""Calculator class for the Heisenberg exchange constants
 
     _           2
-    J^ab(q) = - ‾‾ B^(xc†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) B^(xc)
+    J^ab(q) = - ‾‾ B^(xc†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) B^(xc)            (1)
                 V0
 
     calculated for an isotropic system in a plane wave representation using
     the magnetic force theorem within second order perturbation theory, see
-    [arXiv:2204.04169].
+    [J. Phys.: Condens. Matter 35 (2023) 105802].
 
     Entering the formula for the isotropic exchange constant at wave vector q
     between sublattice a and b is the unit cell volume V0, the functional
@@ -41,6 +41,21 @@ class IsotropicExchangeCalculator:
     magnitude of the magnetization B^(xc), the sublattice site kernels K^a(q)
     and K^b(q) as well as the reactive part of the static transverse magnetic
     susceptibility of the Kohn-Sham system χ_KS^('+-)(q).
+
+    NB: To achieve numerical stability of the plane-wave implementation, we
+    use instead the following expression to calculate exchange parameters:
+
+    ˷           2
+    J^ab(q) = - ‾‾ W_xc^(z†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) W_xc^z          (2)
+                V0
+
+    We do this since B^(xc)(r) = |W_xc^z(r)| is nonanalytic in points of space
+    where the spin-polarization changes sign, why it is problematic to evaluate
+    Eq. (1) numerically within a plane-wave representation.
+    If the site partitionings only include spin-polarization of the same sign,
+    Eqs. (1) and (2) should yield identical exchange parameters, but for
+    antiferromagnetically aligned sites, the coupling constants differ by a
+    sign.
 
     The site kernels encode the partitioning of real space into sites of the
     Heisenberg model. This is not a uniquely defined procedure, why the user
