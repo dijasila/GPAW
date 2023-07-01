@@ -84,3 +84,5 @@ Code
 
 .. autoclass:: gpaw.elph.RamanData
     :members:
+
+.. autofunction:: gpaw.lcao.dipoletransition.get_momentum_transitions

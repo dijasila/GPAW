@@ -19,15 +19,14 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 def generate_system_s(spincomponents=['00', '+-']):
-    # Compute chiks for different materials and spin-components, using
-    # system specific tolerances
-    system_s = [  # wfs, spincomponent, atol, rtol
-        ('fancy_si_pw_wfs', '00', 1e-8, 1e-5),
-        ('al_pw_wfs', '00', 5e-4, 1e-3),  # tolerance could be better -> #788
-        ('fe_pw_wfs', '00', 1e-8, 1e-5),
-        ('fe_pw_wfs', '+-', 8e-3, 1e-3),  # tolerance could be better -> #788
-        ('co_pw_wfs', '00', 5e-3, 1e-3),  # tolerance could be better -> #788
-        ('co_pw_wfs', '+-', 5e-4, 1e-3),  # tolerance could be better -> #788
+    # Compute chiks for different materials and spin components
+    system_s = [  # wfs, spincomponent
+        ('fancy_si_pw_wfs', '00'),
+        ('al_pw_wfs', '00'),
+        ('fe_pw_wfs', '00'),
+        ('fe_pw_wfs', '+-'),
+        ('co_pw_wfs', '00'),
+        ('co_pw_wfs', '+-'),
     ]
 
     # Filter spincomponents
@@ -57,6 +56,67 @@ def get_q_c(wfs, qrel):
         raise ValueError('Invalid wfs', wfs)
 
     return q_c
+
+
+def get_tolerances(system, qrel):
+    # Define tolerance for each test system
+    wfs, spincomponent = system
+    identifier = wfs + '_' + spincomponent
+
+    # Si and Fe the density-density response has perfect symmetry
+    atols = {
+        'fancy_si_pw_wfs_00': 1e-8,
+        'fe_pw_wfs_00': 1e-8,
+    }
+
+    # For Al, the symmetries are not perfectly conserved, but worst for the
+    # q-point q_X
+    if qrel == 0.0:
+        al_atol = 1e-6
+    elif qrel == 0.25:
+        al_atol = 5e-5
+    elif qrel == 0.5:
+        al_atol = 2e-4
+    atols['al_pw_wfs_00'] = al_atol
+
+    # For Fe, the symmetries are not perfectly conserved for the
+    # transverse magnetic response
+    if qrel == 0.0:
+        fet_atol = 2e-3
+    elif qrel == 0.25:
+        fet_atol = 8e-3
+    elif qrel == 0.5:
+        fet_atol = 5e-4
+    atols['fe_pw_wfs_+-'] = fet_atol
+
+    # For the density-density reponse in Co, the symmetries are not perfectly
+    # conserved for any of the q-points, but quite well conserved for q = 0
+    if qrel == 0.0:
+        co_atol = 5e-5
+    elif qrel == 0.25:
+        co_atol = 5e-3
+    elif qrel == 0.5:
+        co_atol = 1e-3
+    atols['co_pw_wfs_00'] = co_atol
+
+    # For the transverse magnetic response in Co, the symmetries are not
+    # perfectly conserved for any of the q-points, but again quite well
+    # conserved for q = 0
+    if qrel == 0.0:
+        cot_atol = 5e-5
+    elif qrel == 0.25:
+        cot_atol = 5e-4
+    elif qrel == 0.5:
+        cot_atol = 5e-4
+    atols['co_pw_wfs_+-'] = cot_atol
+
+    if identifier not in atols.keys():
+        raise ValueError(system, qrel)
+
+    atol = atols[identifier]
+    rtol = 1e-5
+
+    return atol, rtol
 
 
 def generate_gc_g():
@@ -97,13 +157,17 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
-    wfs, spincomponent, atol, rtol = system
+    wfs, spincomponent = system
+    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
     # Test vanishing and finite real and imaginary frequencies
     frequencies = np.array([0., 0.05, 0.1, 0.2])
-    complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
+
+    # We add a small (1e-6j) imaginary part to avoid risky floating point
+    # operations that may cause NaNs or divide-by-zero.
+    complex_frequencies = list(frequencies + 1e-6j) + list(frequencies + 0.1j)
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
     # Part 2: Check toggling of calculation parameters
@@ -191,7 +255,8 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # Part 1: chiks calculation
-    wfs, spincomponent, atol, rtol = system
+    wfs, spincomponent = system
+    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50

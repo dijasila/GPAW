@@ -14,6 +14,8 @@ from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
+from ase.lattice.compounds import L1_2
+from gpaw import Mixer
 
 
 @contextmanager
@@ -120,6 +122,9 @@ def gpw_files(request, tmp_path_factory):
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
 
+    * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
+      ``v2br4_pw`` and ``v2br4_pw_nosym``
+
     * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
 
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
@@ -127,6 +132,8 @@ def gpw_files(request, tmp_path_factory):
 
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
+
+    * Bulk C, LDA, 2x2x2 k-points (gamma centered), ``c_pw``
 
     * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
       and ``co_pw_nosym``
@@ -163,6 +170,41 @@ def gpw_files(request, tmp_path_factory):
     return GPWFiles(Path(path))
 
 
+class Locked(FileExistsError):
+    pass
+
+
+@contextmanager
+def temporary_lock(path):
+    fd = None
+    try:
+        with path.open('x') as fd:
+            yield
+    except FileExistsError:
+        raise Locked()
+    finally:
+        if fd is not None:
+            path.unlink()
+
+
+@contextmanager
+def world_temporary_lock(path):
+    if world.rank == 0:
+        try:
+            with temporary_lock(path):
+                world.sum_scalar(1)
+                yield
+        except Locked:
+            world.sum_scalar(0)
+            raise
+    else:
+        status = world.sum_scalar(0)
+        if status:
+            yield
+        else:
+            raise Locked
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
@@ -173,16 +215,45 @@ class GPWFiles:
             self.gpw_files[file.name[:-4]] = file
 
     def __getitem__(self, name: str) -> Path:
-        if name not in self.gpw_files:
-            rawname, _, _ = name.partition('_wfs')
-            calc = getattr(self, rawname)()
-            path = self.path / (rawname + '.gpw')
-            calc.write(path)
-            self.gpw_files[rawname] = path
-            path = self.path / (rawname + '_wfs.gpw')
-            calc.write(path, mode='all')
-            self.gpw_files[rawname + '_wfs'] = path
-        return self.gpw_files[name]
+        if name in self.gpw_files:
+            return self.gpw_files[name]
+
+        rawname, _, _ = name.partition('_wfs')
+        nowfs_path = self.path / (rawname + '.gpw')
+        wfs_path = self.path / (rawname + '_wfs.gpw')
+
+        # (Note we need to lock based on rawname.)
+        lockfile = self.path / f'{rawname}.lock'
+
+        for _attempt in range(60):  # ~60s timeout
+            files_exist = 0
+            if world.rank == 0:
+                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+            files_exist = world.sum_scalar(files_exist)
+
+            if files_exist:
+                self.gpw_files[rawname] = nowfs_path
+                self.gpw_files[rawname + '_wfs'] = wfs_path
+
+                return self.gpw_files[name]
+
+            try:
+                with world_temporary_lock(lockfile):
+                    calc = getattr(self, rawname)()
+                    nowfs_work_path = nowfs_path.with_suffix('.tmp')
+                    wfs_work_path = wfs_path.with_suffix('.tmp')
+                    calc.write(nowfs_work_path)
+                    calc.write(wfs_work_path, mode='all')
+                    # By now files should exist *and* be fully written, by us.
+                    # Rename them to the final intended paths:
+                    if world.rank == 0:
+                        nowfs_work_path.rename(nowfs_path)
+                        wfs_work_path.rename(wfs_path)
+            except Locked:
+                import time
+                time.sleep(1)
+
+        raise RuntimeError(f'GPW fixture generation takes too long: {name}')
 
     def bcc_li_pw(self):
         return self.bcc_li({'name': 'pw', 'ecut': 200})
@@ -258,6 +329,33 @@ class GPWFiles:
                       txt=self.path / 'o2_pw.txt')
         a.get_potential_energy()
         return a.calc
+
+    def Cu3Au_qna(self):
+        ecut = 300
+        kpts = (1, 1, 1)
+
+        QNA = {'alpha': 2.0,
+               'name': 'QNA',
+               'stencil': 1,
+               'orbital_dependent': False,
+               'parameters': {'Au': (0.125, 0.1), 'Cu': (0.0795, 0.005)},
+               'setup_name': 'PBE',
+               'type': 'qna-gga'}
+
+        atoms = L1_2(['Au', 'Cu'], latticeconstant=3.7)
+        atoms[0].position[0] += 0.01  # Break symmetry already here
+        calc = GPAW(mode=PW(ecut),
+                    eigensolver=Davidson(2),
+                    nbands='120%',
+                    mixer=Mixer(0.4, 7, 50.0),
+                    parallel=dict(domain=1),
+                    convergence={'density': 1e-4},
+                    xc=QNA,
+                    kpts=kpts,
+                    txt=self.path / 'Cu3Au.txt')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     def co_lcao(self):
         d = 1.1
@@ -475,6 +573,19 @@ class GPWFiles:
         # calc.write('Ni.gpw', mode='all')
         return calc
 
+    def c_pw(self):
+        atoms = bulk('C')
+        atoms.center()
+        calc = GPAW(mode=PW(150),
+                    convergence={'bands': 6},
+                    nbands=12,
+                    kpts={'gamma': True, 'size': (2, 2, 2)},
+                    xc='LDA')
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
     def nicl2_pw(self):
         from ase.build import mx2
 
@@ -512,6 +623,60 @@ class GPWFiles:
         atoms.get_potential_energy()
 
         return atoms.calc
+
+    @with_band_cutoff(gpw='v2br4_pw_wfs',
+                      band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
+    def _v2br4(self, *, band_cutoff, symmetry=None):
+        from ase.build import mx2
+
+        if symmetry is None:
+            symmetry = {}
+
+        # Define input parameters
+        xc = 'LDA'
+        kpts = 4
+        pw = 200
+        occw = 0.01
+        conv = {'density': 1.e-4,
+                'bands': band_cutoff + 1}
+
+        a = 3.840
+        thickness = 2.897
+        vacuum = 3.0
+        mm = 3.0
+
+        # Set up atoms
+        atoms = mx2(formula='VBr2', kind='1T', a=a,
+                    thickness=thickness, vacuum=vacuum)
+        atoms = atoms.repeat((1, 2, 1))
+        atoms.set_initial_magnetic_moments([mm, 0.0, 0.0, -mm, 0.0, 0.0])
+        # Use pbc to allow for real-space density interpolation
+        atoms.pbc = True
+
+        # Set up calculator
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(
+            xc=xc,
+            mode=PW(pw,
+                    # Interpolate the density in real-space
+                    interpolation=3),
+            kpts={'size': (kpts, kpts // 2, 1), 'gamma': True},
+            setups={'V': '5'},
+            nbands=band_cutoff + 12,
+            occupations=FermiDirac(occw),
+            convergence=conv,
+            symmetry=symmetry,
+            txt=self.path / f'v2br4_pw{tag}.txt')
+
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    def v2br4_pw(self):
+        return self._v2br4()
+
+    def v2br4_pw_nosym(self):
+        return self._v2br4(symmetry='off')
 
     @with_band_cutoff(gpw='fe_pw_wfs',
                       band_cutoff=9)  # 4s, 4p, 3d = 9
@@ -734,7 +899,7 @@ class GPWFiles:
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
-    
+
     def h_pw210_rmmdiis(self):
         return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
 
@@ -856,7 +1021,16 @@ def scalapack():
     This fixture otherwise does not return or do anything."""
     from gpaw.utilities import compiled_with_sl
     if not compiled_with_sl():
-        pytest.skip(reason='no scalapack')
+        pytest.skip('no scalapack')
+
+
+@pytest.fixture
+def needs_ase_master():
+    from ase.utils.filecache import MultiFileJSONCache
+    try:
+        MultiFileJSONCache('bla-bla', comm=None)
+    except TypeError:
+        pytest.skip('ASE is too old')
 
 
 def pytest_report_header(config, startdir):

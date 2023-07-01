@@ -181,7 +181,9 @@ class IBZWaveFunctions:
         and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
-        synchronize()
+
+        if self.xp is not np:
+            synchronize()
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
 
@@ -264,7 +266,8 @@ class IBZWaveFunctions:
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
-        synchronize()
+        if self.xp is not np:
+            synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
