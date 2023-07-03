@@ -73,7 +73,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.get_distributed_frequencies_array()
+            chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things

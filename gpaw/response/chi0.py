@@ -391,7 +391,7 @@ class Chi0Calculator:
         chi0.chi0_WgG[:] /= prefactor
         if self.hilbert:
             # Allocate a temporary array for the spectral function
-            out_WgG = chi0.zeros()
+            out_WgG = chi0.body.zeros()
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0.chi0_WgG
@@ -414,11 +414,11 @@ class Chi0Calculator:
             chi0.chi0_WgG[:] += out_WgG
         chi0.chi0_WgG[:] *= prefactor
 
-        tmp_chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        tmp_chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
         # The line below is borderline illegal and should be changed! XXX
-        chi0.chi0_WgG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
-                                                        chi0.nw, 'WgG')
+        chi0.body.data_WgG[:] = chi0.body.blockdist.distribute_as(
+            tmp_chi0_wGG, chi0.body.nw, 'WgG')
 
     def _update_chi0_optical_extension(
             self,

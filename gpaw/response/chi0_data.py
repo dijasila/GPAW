@@ -149,6 +149,17 @@ class BodyData:
 
         return data_x
 
+    def copy_with_reduced_pd(self, new_descriptors):
+        """Make a copy corresponding to a new plane-wave description."""
+        assert new_descriptors.wd is self.descriptors.wd
+        new_chi0_body = BodyData(new_descriptors, self.blockdist)
+
+        # Map data to reduced plane-wave representation
+        new_chi0_body.data_WgG[:] = map_ZgG_array_to_reduced_pd(
+            self.qpd, new_descriptors.qpd, self.blockdist, self.data_WgG)
+
+        return new_chi0_body
+
 
 class Chi0DrudeData:
     def __init__(self, zd: ComplexFrequencyDescriptor):
@@ -185,6 +196,7 @@ class Chi0DrudeData:
 class Chi0OpticalExtensionData:
     def __init__(self, descriptors):
         assert descriptors.optical_limit
+        self.descriptors = descriptors
         self.wd = descriptors.wd
         self.qpd = descriptors.qpd
 
@@ -220,77 +232,75 @@ class Chi0OpticalExtensionData:
     def WxvG_shape(self):
         return (self.nw, 2, 3, self.nG)
 
-    def copy_with_reduced_pd(self, qpd):
-        # Create new data object, with the updated qpd
-        descriptors = Chi0Descriptors(self.wd, qpd)
-        new_chi0_optical_extension = self._new(descriptors)
+    def copy_with_reduced_pd(self, new_descriptors):
+        """Make a copy corresponding to a new plane-wave description."""
+        assert new_descriptors.wd is self.descriptors.wd
+        new_chi0_optical_extension = Chi0OpticalExtensionData(new_descriptors)
 
         # Copy the head (present in any plane-wave representation)
         new_chi0_optical_extension.head_Wvv[:] = self.head_Wvv
 
         # Map the wings to the reduced plane-wave description
-        G2_G1 = PWMapping(qpd, self.qpd).G2_G1
+        G2_G1 = PWMapping(new_descriptors.qpd, self.qpd).G2_G1
         new_chi0_optical_extension.wings_WxvG[:] \
             = self.wings_WxvG[..., G2_G1]
 
         return new_chi0_optical_extension
 
-    @classmethod
-    def _new(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
 
+class Chi0Data:
+    """Container object for the chi0 data objects for a single q-point,
+    while holding also the corresponding basis descriptors and block
+    distributor."""
 
-class AugmentedBodyData(BodyData):
-    """Data object containing the body data along with the optical extension
-    data, if the data concerns the optical limit."""
+    def __init__(self, chi0_body: BodyData,
+                 chi0_optical_extension: Chi0OpticalExtensionData = None):
+        self.descriptors = chi0_body.descriptors
+        self.wd = self.descriptors.wd
+        self.qpd = self.descriptors.qpd
 
-    def __init__(self, descriptors, blockdist):
-        super().__init__(descriptors, blockdist)
+        self.body = chi0_body
 
         if self.optical_limit:
-            self.optical_extension = Chi0OpticalExtensionData(self.descriptors)
+            assert chi0_optical_extension is not None
+            assert chi0_optical_extension.descriptors is self.descriptors
+            self.optical_extension = chi0_optical_extension
+        else:
+            assert chi0_optical_extension is None
+
+    @staticmethod
+    def from_descriptor_arguments(*args):
+        chi0_body = BodyData.from_descriptor_arguments(*args)
+        if chi0_body.descriptors.optical_limit:
+            chi0_optical_extension = Chi0OpticalExtensionData(
+                chi0_body.descriptors)
+        else:
+            chi0_optical_extension = None
+        return Chi0Data(chi0_body, chi0_optical_extension)
 
     @property
     def optical_limit(self):
         return self.descriptors.optical_limit
 
     @property
-    def Wvv_shape(self):
-        if self.optical_limit:
-            return self.optical_extension.Wvv_shape
-
-    @property
-    def WxvG_shape(self):
-        if self.optical_limit:
-            return self.optical_extension.WxvG_shape
+    def nw(self):
+        return len(self.wd)
 
     def copy_with_reduced_pd(self, qpd):
-        descriptors = Chi0Descriptors(self.wd, qpd)
-        # Create a new AugmentedBodyData object
-        new_abd = self._new(descriptors, self.blockdist)
-
-        new_abd.data_WgG[:] = map_ZgG_array_to_reduced_pd(self.qpd, qpd,
-                                                          self.blockdist,
-                                                          self.data_WgG)
+        """Make a copy of the data object, reducing the plane wave basis."""
+        new_descriptors = Chi0Descriptors(self.descriptors.wd, qpd)
+        new_body = self.body.copy_with_reduced_pd(new_descriptors)
         if self.optical_limit:
-            new_abd.optical_extension = \
-                self.optical_extension.copy_with_reduced_pd(qpd)
+            new_optical_extension = \
+                self.optical_extension.copy_with_reduced_pd(new_descriptors)
+        else:
+            new_optical_extension = None
 
-        return new_abd
-
-    @classmethod
-    def _new(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
-
-
-class Chi0Data(AugmentedBodyData):
-    """Data object containing the chi0 data arrays for a single q-point,
-    while holding also the corresponding basis descriptors and block
-    distributor."""
+        return Chi0Data(new_body, new_optical_extension)
 
     @property
     def chi0_WgG(self):
-        return self.data_WgG
+        return self.body.data_WgG
 
     @property
     def chi0_Wvv(self):
