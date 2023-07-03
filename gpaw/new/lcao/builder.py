@@ -101,25 +101,35 @@ def create_lcao_ibzwfs(basis, potential,
     my_atom_indices = basis.my_atom_indices
     M1 = basis.Mstart
     M2 = basis.Mstop
-    S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm, M1, M2, True)
+    S0_qMM, T0_qMM = manytci.O_qMM_T_qMM(domain_comm, M1, M2, True)
     if dtype == complex:
-        np.negative(S_qMM.imag, S_qMM.imag)
-        np.negative(T_qMM.imag, T_qMM.imag)
+        np.negative(S0_qMM.imag, S0_qMM.imag)
+        np.negative(T0_qMM.imag, T0_qMM.imag)
 
     P_aqMi = manytci.P_aqMi(my_atom_indices)
     P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
-              for q in range(len(S_qMM))]
+              for q in range(len(S0_qMM))]
 
     for a, P_qMi in P_aqMi.items():
         dO_ii = setups[a].dO_ii
-        for P_Mi, S_MM in zip(P_qMi, S_qMM):
+        for P_Mi, S_MM in zip(P_qMi, S0_qMM):
             S_MM += P_Mi[M1:M2].conj() @ dO_ii @ P_Mi.T
-    domain_comm.sum(S_qMM)
+    domain_comm.sum(S0_qMM)
 
     # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
     # self.atomic_correction.add_overlap_correction(newS_qMM)
 
     nao = setups.nao
+
+    S_qMM = [Matrix(nao, nao, data=S_MM,
+                    dist=(band_comm, band_comm.size, 1)) for S_MM in S0_qMM]
+    T_qMM = [Matrix(nao, nao, data=T_MM,
+                    dist=(band_comm, band_comm.size, 1)) for T_MM in T0_qMM]
+
+    for S_MM in S_qMM:
+        S_MM.tril2full()
+    for T_MM in T_qMM:
+        T_MM.tril2full()
 
     tci_derivatives = TCIDerivatives(manytci, atomdist, nao)
 
@@ -135,8 +145,7 @@ def create_lcao_ibzwfs(basis, potential,
             tci_derivatives=tci_derivatives,
             basis=basis,
             C_nM=C_nM,
-            S_MM=Matrix(nao, nao, data=S_qMM[q],
-                        dist=(band_comm, band_comm.size, 1)),
+            S_MM=S_qMM[q],
             T_MM=T_qMM[q],
             P_aMi=P_qaMi[q],
             kpt_c=kpt_c,

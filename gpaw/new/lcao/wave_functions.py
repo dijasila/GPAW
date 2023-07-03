@@ -26,7 +26,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  basis,
                  C_nM: Matrix,
                  S_MM: Matrix,
-                 T_MM: Array2D,
+                 T_MM: Matrix,
                  P_aMi,
                  fracpos_ac: Array2D,
                  atomdist: AtomDistribution,
@@ -141,7 +141,7 @@ class LCAOWaveFunctions(WaveFunctions):
             rho_MM = (C_nM.T.conj() * f_n) @ C_nM
             self.band_comm.sum(rho_MM)
         else:
-            rho_MM = np.empty_like(self.T_MM)
+            rho_MM = np.empty_like(self.T_MM.data)
         self.domain_comm.broadcast(rho_MM, 0)
 
         return rho_MM

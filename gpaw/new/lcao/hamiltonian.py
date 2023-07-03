@@ -74,7 +74,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
     def _calculate_matrix_with_kinetic(self,
                                        wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self._calculate_matrix_without_kinetic(wfs)
-        H_MM.data += wfs.T_MM
+        H_MM.data += wfs.T_MM.data
 
         wfs.domain_comm.sum(H_MM.data, 0)
 
