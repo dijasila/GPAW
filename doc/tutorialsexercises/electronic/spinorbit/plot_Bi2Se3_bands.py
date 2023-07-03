@@ -24,7 +24,8 @@ for e_k in e_nk:
 soc = soc_eigenstates(calc, scale=1.0)
 e_nk = soc.eigenvalues().T - soc.fermi_level
 
-plt.xticks(X, [r'$\Gamma$', 'Z', 'F', r'$\Gamma$', 'L'], size=24)
+plt.xticks(X, [r'$\Gamma$' if label == 'G' else label for label in labels],
+           size=24)
 plt.yticks(size=20)
 for i in range(len(X))[1:-1]:
     plt.plot(2 * [X[i]], [1.1 * np.min(e_nk), 1.1 * np.max(e_nk)],
