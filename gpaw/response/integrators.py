@@ -156,18 +156,22 @@ class PointIntegrator(Integrator):
                 self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
                 assert eta is None
-                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
+                task = HermitianOpticalLimit(wd=x)
+                task.run(n_MG, deps_M, out_wxx)
+                #self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
                 assert eta is None
                 self.update_hilbert(n_MG, deps_M, x, out_wxx)
             elif hilbert and wings:
                 assert eta is None
                 task = HilbertOpticalLimit(wd=x)
-                task.run(n_MG, deps_M, out_wxx=out_wxx)
+                task.run(n_MG, deps_M, out_wxx)
                 #self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
-                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                                          eta=eta)
+                task = OpticalLimit(wd=x, eta=eta)
+                task.run(n_MG, deps_M, out_wxx)
+                #self.update_optical_limit(n_MG, deps_M, x, out_wxx,
+                #                          eta=eta)
             else:
                 self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
@@ -300,21 +304,32 @@ class PointIntegrator(Integrator):
             x_vv = np.outer(vel_v, vel_v)
             chi0_wvv[0] += x_vv
 
-    @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta):
-        """Optical limit update of chi."""
-        deps1_m = deps_m + 1j * eta
-        deps2_m = deps_m - 1j * eta
 
-        for w, omega in enumerate(wd.omega_w):
+class OpticalLimit:
+    def __init__(self, wd, eta):
+        self.wd = wd
+        self.eta = eta
+
+    # @timer('CHI_0 optical limit update')
+    def run(self, n_mG, deps_m, chi0_wxvG):
+        """Optical limit update of chi."""
+        deps1_m = deps_m + 1j * self.eta
+        deps2_m = deps_m - 1j * self.eta
+
+        for w, omega in enumerate(self.wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
-    @timer('CHI_0 hermitian optical limit update')
-    def update_hermitian_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+
+class HermitianOpticalLimit:
+    def __init__(self, wd):
+        self.wd = wd
+
+    #@timer('CHI_0 hermitian optical limit update')
+    def run(self, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
-        for w, omega in enumerate(wd.omega_w):
+        for w, omega in enumerate(self.wd.omega_w):
             x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
@@ -325,9 +340,8 @@ class HilbertOpticalLimit:
         self.wd = wd
 
     # @timer('CHI_0 optical limit hilbert-update')
-    def run(self, n_mG, deps_m, out_wxx):
+    def run(self, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
-        chi0_wxvG = out_wxx
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
