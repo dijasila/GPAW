@@ -150,7 +150,9 @@ class PointIntegrator(Integrator):
             if intraband:
                 assert eta is None
                 assert x is None
-                self.update_intraband(n_MG, out_wxx)
+                task = Intraband()
+                task.run(n_MG, deps_M, out_wxx)
+                #self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
                 assert eta is None
                 self.update_hermitian(n_MG, deps_M, x, out_wxx)
@@ -161,7 +163,9 @@ class PointIntegrator(Integrator):
                 #self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
                 assert eta is None
-                self.update_hilbert(n_MG, deps_M, x, out_wxx)
+                # XXX self used for eshift and blocks1d
+                task = Hilbert(wd=x, integrator=self)
+                task.run(n_MG, deps_M, out_wxx)
             elif hilbert and wings:
                 assert eta is None
                 task = HilbertOpticalLimit(wd=x)
@@ -232,18 +236,28 @@ class PointIntegrator(Integrator):
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update (new)')
-    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
+
+class Hilbert:
+    def __init__(self, wd, integrator):
+        self.wd = wd
+        self.integrator = integrator
+        self.eshift = integrator.eshift
+        # self.blocks1d = blocks1d
+
+    # @timer('CHI_0 spectral function update (new)')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
+        wd = self.wd
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        # blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
         # Sort frequencies
         argsw_m = np.argsort(w_m)
@@ -275,7 +289,7 @@ class PointIntegrator(Integrator):
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
-            if self.blockcomm.size > 1 and w + 1 < wd.wmax:
+            if blocks1d.blockcomm.size > 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
                 mmm(1.0,
                     np.concatenate((p1_m[:, None] * x_mG,
@@ -288,7 +302,7 @@ class PointIntegrator(Integrator):
                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
                                                blocks1d.N)))
 
-            if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
+            if blocks1d.blockcomm.size <= 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex]
                 l_Gm = (p1_m[:, None] * x_mG).T.copy()
                 r_Gm = x_mG.T.copy()
@@ -296,9 +310,12 @@ class PointIntegrator(Integrator):
                 l_Gm = (p2_m[:, None] * x_mG).T.copy()
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
-    @timer('CHI_0 intraband update')
-    def update_intraband(self, vel_mv, chi0_wvv):
+
+class Intraband:
+    # @timer('CHI_0 intraband update')
+    def run(self, vel_mv, deps_M, chi0_wvv):
         """Add intraband contributions"""
+        # Here we are not using deps_M, which is not ideal
 
         for vel_v in vel_mv:
             x_vv = np.outer(vel_v, vel_v)
