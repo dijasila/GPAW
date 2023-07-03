@@ -92,7 +92,7 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, **kwargs):
+    def integrate(self, *, kind, task=None, **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'hermitian response function':
             dct = dict(hermitian=True,
@@ -115,14 +115,14 @@ class PointIntegrator(Integrator):
             raise ValueError(kind)
 
         dct.update(kwargs)
-
         return self.response_function_integration(**dct)
 
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
                                       hermitian=False,
                                       intraband=False, hilbert=False,
-                                      wings=False, eta=None):
+                                      wings=False, eta=None,
+                                      task=None):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -135,7 +135,9 @@ class PointIntegrator(Integrator):
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
-        if intraband:
+        if task is not None:
+            pass  # TODO eliminate whole if/else chain
+        elif intraband:
             assert eta is None
             assert x is None
             task = Intraband()
