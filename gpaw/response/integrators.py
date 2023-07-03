@@ -507,6 +507,11 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
+        if wings:
+            task = HilbertOpticalLimitTetrahedron(self.blockcomm)
+        else:
+            task = HilbertTetrahedron(blocks1d)
+
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(myterms_t):
@@ -530,10 +535,6 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            if wings:
-                task = HilbertOpticalLimitTetrahedron(self.blockcomm)
-            else:
-                task = HilbertTetrahedron(blocks1d)
             task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
         self.kncomm.sum(out_wxx)
