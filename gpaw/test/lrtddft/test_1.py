@@ -22,7 +22,7 @@ def H2struct():
 @pytest.fixture
 def H2(H2struct):
     H2 = H2struct.copy()
-    H2.calc = GPAW(xc='PBE',
+    H2.calc = GPAW(mode='fd', xc='PBE',
                    poissonsolver={'name': 'fd'},
                    nbands=3, spinpol=False)
     H2.get_potential_energy()
@@ -32,7 +32,7 @@ def H2(H2struct):
 @pytest.fixture
 def H2spin(H2struct):
     H2 = H2struct.copy()
-    H2.calc = GPAW(xc='PBE', nbands=2,
+    H2.calc = GPAW(mode='fd', xc='PBE', nbands=2,
                    poissonsolver={'name': 'fd'},
                    spinpol=True, parallel={'domain': world.size})
     H2.get_potential_energy()

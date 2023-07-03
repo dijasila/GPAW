@@ -52,7 +52,7 @@ Ground state example::
   atoms.center(vacuum=6.0)
 
   # Create GPAW calculator
-  calc = GPAW(nbands=1, h=0.3)
+  calc = GPAW(mode='fd', nbands=1, h=0.3)
   # Attach calculator to atoms
   atoms.calc = calc
 

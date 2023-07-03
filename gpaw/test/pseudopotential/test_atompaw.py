@@ -30,7 +30,7 @@ def test_pseudopotential_atompaw(in_tmp_dir):
         return UPFSetupData(fname)
 
     if world.rank == 0:  # This test is not really parallel
-        kwargs = dict(txt=None)
+        kwargs = dict(mode='fd', txt=None)
         for setup in ['paw', 'hgh', upf(H_hgh, 'H.pz-hgh.UPF')]:
             calc = AtomPAW('H', [[[1]]],
                            rcut=12.0, h=0.05,

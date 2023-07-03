@@ -16,7 +16,8 @@ H2O = Atoms('H2O',
 
 H2O.center(vacuum=3.5)
 
-calc = GPAW(h=0.2,
+calc = GPAW(mode='fd',
+            h=0.2,
             symmetry='off',
             txt='h2o.txt')
 

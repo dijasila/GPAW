@@ -63,7 +63,8 @@ The calculator will try to make sensible choices for all parameters
 that the user does not specify.  Specifying parameters can be done
 like this:
 
->>> calc = GPAW(nbands=1,
+>>> calc = GPAW(mode='fd',
+...             nbands=1,
 ...             xc='PBE',
 ...             gpts=(24, 24, 24))
 
@@ -846,7 +847,7 @@ be used.
 More control can be obtained by using directly the eigensolver objects::
 
   from gpaw.eigensolvers import CG
-  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+  calc = GPAW(..., eigensolver=CG(niter=5, rtol=0.20), ...)
 
 Here, ``niter`` specifies the maximum number of conjugate gradient iterations
 for each band (within a single SCF step), and if the relative change
@@ -878,7 +879,10 @@ The old default Poisson solver uses a multigrid Jacobian method.
 This example corresponds to the old default Poisson solver::
 
   from gpaw import GPAW, PoissonSolver
-  calc = GPAW(poissonsolver=PoissonSolver(name='fd', nn=3, relax='J', eps=2e-10))
+  calc = GPAW(...,
+              poissonsolver=PoissonSolver(
+                  name='fd', nn=3, relax='J', eps=2e-10),
+              ...)
 
 The ``nn`` argument is the stencil, see :ref:`manual_stencils`.
 The ``relax`` argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
@@ -908,7 +912,7 @@ directions.
   from gpaw import GPAW
 
   correction = {'dipolelayer': 'xy'}
-  calc = GPAW(poissonsolver=correction)
+  calc = GPAW(..., poissonsolver=correction, ...)
 
 Without dipole correction, the potential will approach 0 at all
 non-periodic boundaries.  With dipole correction, there will be a
@@ -918,12 +922,14 @@ dipole moment.
 Other parameters in this dictionary are forwarded to the
 Poisson solver::
 
-    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
+    GPAW(...,
+         poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'},
+         ...)
 
 An alternative Poisson solver based on Fourier transforms is available
 for fully periodic calculations::
 
-   GPAW(poissonsolver={'name': 'fft'})
+   GPAW(..., poissonsolver={'name': 'fft'}, ...)
 
 The FFT Poisson solver will reduce the dependence on the grid spacing and
 is in general less picky about the grid.  It may be beneficial for
@@ -943,7 +949,7 @@ Kohn-Sham and Poisson equations.  You can set the range of the stencil
 this::
 
     from gpaw import GPAW, PoissonSolver
-    calc = GPAW(poissonsolver=PoissonSolver(nn=n))
+    calc = GPAW(..., poissonsolver=PoissonSolver(nn=n), ...)
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
 1 and 6.  The default value is ``n=3``.
@@ -988,8 +994,8 @@ External potential
 
 Example::
 
-    from gpaw.external import ConstanElectricField
-    calc = GPAW(..., external=ConstanElectricField(2.0, [1, 0, 0]), ...)
+    from gpaw.external import ConstantElectricField
+    calc = GPAW(..., external=ConstantElectricField(2.0, [1, 0, 0]), ...)
 
 See also: :mod:`gpaw.external`.
 

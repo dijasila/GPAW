@@ -52,7 +52,7 @@ def test_solvation_sss09():
         Evac = -3.83245253419
 
     atoms.calc = SolvationGPAW(
-        xc='PBE', h=h, charge=-1, convergence=convergence,
+        mode='fd', xc='PBE', h=h, charge=-1, convergence=convergence,
         cavity=FG02SmoothStepCavity(
             rho0=rho0, beta=beta,
             density=SSS09Density(atomic_radii=atomic_radii),

@@ -16,7 +16,8 @@ def test_corehole_h2o_dks():
     atoms = molecule('H2O')
     atoms.center(vacuum=2.5)
 
-    params = dict(xc=xc('PBE'),
+    params = dict(mode='fd',
+                  xc=xc('PBE'),
                   poissonsolver=PoissonSolver('fd',
                                               use_charge_center=True))
     atoms.calc = GPAW(**params)

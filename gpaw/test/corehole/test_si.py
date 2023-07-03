@@ -14,7 +14,8 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
     si = Atoms('Si', cell=(a, a, a), pbc=True)
 
     import numpy as np
-    calc = GPAW(nbands=None,
+    calc = GPAW(mode='fd',
+                nbands=None,
                 h=0.25,
                 occupations=FermiDirac(width=0.05),
                 setups='hch1s',

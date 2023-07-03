@@ -32,7 +32,8 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     atoms = bulk('C', 'diamond', a=3.567)
     # We want sufficiently many grid points that the calculator
     # can use wfs.world for the finegd, to test that part of the code.
-    calc = GPAW(h=0.2,
+    calc = GPAW(mode='fd',
+                h=0.2,
                 kpts=(4, 4, 4),
                 xc=xc,
                 nbands=8,

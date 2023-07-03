@@ -29,7 +29,8 @@ def test_lrtddft_3(in_tmp_dir):
     N2.center()
 
     if 1:
-        calc = GPAW(h=0.25,
+        calc = GPAW(mode='fd',
+                    h=0.25,
                     experimental={'niter_fixdensity': 2},
                     nbands=-5,
                     spinpol=True,
