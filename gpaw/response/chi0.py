@@ -371,6 +371,7 @@ class Chi0Calculator:
 
         if optical_limit:
             # Update the head and wings
+            assert chi0.optical_extension is not None
             self._update_chi0_optical_extension(chi0.optical_extension,
                                                 m1, m2, spins)
 
