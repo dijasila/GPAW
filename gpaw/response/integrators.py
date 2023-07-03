@@ -419,29 +419,16 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, *, kind, **kwargs):
-        if kind == 'spectral function':
-            wings = False
-        elif kind == 'spectral function wings':
-            wings = True
-        else:
-            raise ValueError("Expected kind='spectral function'",
-                             "or 'spectral function wings', got: ",
-                             kind)
-
-        return self.spectral_function_integration(wings=wings,
-                                                  **kwargs)
-
     @timer('Spectral function integration')
-    def spectral_function_integration(self, wings=False,
-                                      *, domain, integrand,
-                                      x, out_wxx):
+    def integrate(self, *, kind, domain, integrand, x, out_wxx):
         """Integrate response function.
 
         Assume that the integral has the
         form of a response function. For the linear tetrahedron
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
+
+        task = choose_tetrahedron_integral_kind(kind)
 
         wd = x  # XXX Rename.  But it clashes with some other methods
         # that are **kwargs'ed somewhere, so requires attention.
@@ -507,11 +494,6 @@ class TetrahedronIntegrator(Integrator):
                                             [nk], float)
                     deps_tMk[t, :, K] = deps_M
 
-        if wings:
-            task = HilbertOpticalLimitTetrahedron(self.blockcomm)
-        else:
-            task = HilbertTetrahedron(blocks1d)
-
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, arguments in pb.enumerate(myterms_t):
@@ -535,11 +517,11 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d)
 
         self.kncomm.sum(out_wxx)
 
-        if self.blockcomm.size == 1 and not wings:
+        if self.blockcomm.size == 1 and not task.wings:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -563,10 +545,9 @@ class TetrahedronIntegrator(Integrator):
 
 
 class HilbertTetrahedron:
-    def __init__(self, blocks1d):
-        self.blocks1d = blocks1d
+    wings = False
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
         """Update output array with dissipative part."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
@@ -574,7 +555,7 @@ class HilbertTetrahedron:
                 continue
 
             for iw, weight in enumerate(W_w):
-                if self.blocks1d.blockcomm.size > 1:
+                if blocks1d.blockcomm.size > 1:
                     myn_G = n_G[self.blocks1d.myslice].reshape((-1, 1))
                     # gemm(weight, n_G.reshape((-1, 1)), myn_G,
                     #      1.0, out_wxx[i0 + iw], 'c')
@@ -585,15 +566,14 @@ class HilbertTetrahedron:
 
 
 class HilbertOpticalLimitTetrahedron:
-    def __init__(self, blockcomm):
-        self.blockcomm = blockcomm
+    wings = True
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):
         """Update optical limit output array with dissipative part of the head
         and wings."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
-            assert self.blockcomm.size == 1
+            assert blocks1d.blockcomm.size == 1
             if i0 == i1:
                 continue
 
@@ -601,3 +581,13 @@ class HilbertOpticalLimitTetrahedron:
                 x_vG = np.outer(n_G[:3], n_G.conj())
                 out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
                 out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
+
+
+def choose_tetrahedron_integral_kind(kind):
+    if kind == 'spectral function':
+        return HilbertTetrahedron()
+    if kind == 'spectral function wings':
+        return HilbertOpticalLimitTetrahedron()
+
+    raise ValueError("Expected kind='spectral function'",
+                     f"or 'spectral function wings', got: {kind}")
