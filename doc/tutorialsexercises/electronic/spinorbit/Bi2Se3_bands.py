@@ -4,10 +4,6 @@ from gpaw import GPAW
 
 atoms = read('gs_Bi2Se3.gpw')
 
-G = [0.0, 0.0, 0.0]
-L = [0.5, 0.0, 0.0]
-F = [0.5, 0.5, 0.0]
-Z = [0.5, 0.5, 0.5]
 bandpath = atoms.cell.bandpath('GZFGL', npoints=200)
 with paropen('bandpath.json', 'w') as fd:
     bandpath.write(fd)
