@@ -96,11 +96,11 @@ class InputParameters:
                 warnings.warn('Ignoring "niter_fixdensity".')
             if 'soc' in self.experimental:
                 warnings.warn('Please use new "soc" parameter.',
-                              ParameterDeprecationWarning)
+                              DeprecatedParameterWarning)
                 self.soc = self.experimental.pop('soc')
             if 'magmoms' in self.experimental:
                 warnings.warn('Please use new "magmoms" parameter.',
-                              ParameterDeprecationWarning)
+                              DeprecatedParameterWarning)
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
@@ -115,7 +115,7 @@ class InputParameters:
                     ('Finite-difference mode implicitly chosen; '
                      'it will be an error to not specify a mode '
                      'in the future'),
-                    ParameterDeprecationWarning)
+                    DeprecatedParameterWarning)
             if mode_is_dict:
                 self.mode['name'] = fallback_mode
             else:
@@ -128,7 +128,7 @@ class InputParameters:
                     'Please use '
                     f'GPAW(dtype={self.dtype}, '
                     '...)',
-                    ParameterDeprecationWarning,
+                    DeprecatedParameterWarning,
                     stacklevel=3)
             self.keys.append('dtype')
             self.keys.sort()
@@ -137,7 +137,7 @@ class InputParameters:
             self.parallel['world'] = self.communicator
             warnings.warn(('Please use parallel={''world'': ...} '
                            'instead of communicator=...'),
-                          ParameterDeprecationWarning)
+                          DeprecatedParameterWarning)
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -338,5 +338,5 @@ def xc(value='LDA'):
     return value
 
 
-class ParameterDeprecationWarning(DeprecationWarning):
+class DeprecatedParameterWarning(FutureWarning):
     """Warning class for when a parameter or its value is deprecated."""

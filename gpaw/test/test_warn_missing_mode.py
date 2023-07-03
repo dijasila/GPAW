@@ -3,7 +3,7 @@ from contextlib import nullcontext
 from ase.build import molecule
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
-from gpaw.new.input_parameters import ParameterDeprecationWarning
+from gpaw.new.input_parameters import DeprecatedParameterWarning
 import pytest
 
 
@@ -12,7 +12,7 @@ import pytest
 def test_no_mode_supplied(new: bool) -> None:
     if new:
         GPAW, warning_catcher = (NewGPAW,
-                                 pytest.warns(ParameterDeprecationWarning))
+                                 pytest.warns(DeprecatedParameterWarning))
     else:
         GPAW, warning_catcher = OldGPAW, nullcontext()
     a = 6.0

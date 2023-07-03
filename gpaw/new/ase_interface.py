@@ -17,7 +17,7 @@ from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import (InputParameters,
-                                       ParameterDeprecationWarning)
+                                       DeprecatedParameterWarning)
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import XCFunctional
@@ -35,7 +35,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         # Don't trigger ParameterDeprecationWarnings from partial and/or unused
         # kwargs if filename is given
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', ParameterDeprecationWarning)
+            warnings.simplefilter('ignore', DeprecatedParameterWarning)
             params = InputParameters(kwargs)
     txt = params.txt
     if txt == '?':
