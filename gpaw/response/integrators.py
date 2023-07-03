@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, *args, **kwargs):
+    def integrate(self, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -92,34 +92,34 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, kind='pointwise', *args, **kwargs):
+    def integrate(self, kind='pointwise', **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'pointwise':
-            return self.pointwise_integration(*args, **kwargs)
+            return self.pointwise_integration(**kwargs)
         elif kind == 'hermitian response function':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'hermitian response function wings':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function':
             return self.response_function_integration(hilbert=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function wings':
             return self.response_function_integration(hilbert=True,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function':
             return self.response_function_integration(hilbert=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function wings':
             return self.response_function_integration(hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         else:
             raise ValueError(kind)
 
