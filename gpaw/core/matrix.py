@@ -583,7 +583,7 @@ class MatrixDistribution:
               self.blocksize is None)
         if not ok:
             raise ValueError(f'Can not create slice of distribution: {self}')
-        M = self.shape[0]
+        M = self.full_shape[0]
         b = (M + self.rows - 1) // self.rows
         n1 = self.comm.rank * b
         n2 = min(n1 + b, M)
