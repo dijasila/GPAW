@@ -151,37 +151,27 @@ class PointIntegrator(Integrator):
                 assert eta is None
                 assert x is None
                 task = Intraband()
-                task.run(n_MG, deps_M, out_wxx)
-                #self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
                 assert eta is None
+                # XXX self used for eshift and blocks1d
                 task = Hermitian(wd=x, integrator=self)
-                task.run(n_MG, deps_M, out_wxx)
-                # self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
                 assert eta is None
                 task = HermitianOpticalLimit(wd=x)
-                task.run(n_MG, deps_M, out_wxx)
-                #self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
             elif hilbert and not wings:
                 assert eta is None
                 # XXX self used for eshift and blocks1d
                 task = Hilbert(wd=x, integrator=self)
-                task.run(n_MG, deps_M, out_wxx)
             elif hilbert and wings:
                 assert eta is None
                 task = HilbertOpticalLimit(wd=x)
-                task.run(n_MG, deps_M, out_wxx)
-                #self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
                 task = OpticalLimit(wd=x, eta=eta)
-                task.run(n_MG, deps_M, out_wxx)
-                #self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                #                          eta=eta)
             else:
+                # XXX self used for eshift and blocks1d
                 task = GenericUpdate(wd=x, eta=eta, integrator=self)
-                task.run(n_MG, deps_M, out_wxx)
-                # self.update(n_MG, deps_M, x, out_wxx, eta=eta)
+
+            task.run(n_MG, deps_M, out_wxx)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
