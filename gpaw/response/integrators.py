@@ -92,11 +92,9 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, kind='pointwise', **kwargs):
+    def integrate(self, *, kind, **kwargs):
         self.context.print('Integral kind:', kind)
-        if kind == 'pointwise':
-            return self.pointwise_integration(**kwargs)
-        elif kind == 'hermitian response function':
+        if kind == 'hermitian response function':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
