@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, **kwargs):
+    def integrate(self, kind, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -372,7 +372,7 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, kind, **kwargs):
+    def integrate(self, *, kind, **kwargs):
         if kind == 'spectral function':
             wings = False
         elif kind == 'spectral function wings':
