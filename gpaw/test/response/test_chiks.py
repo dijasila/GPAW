@@ -164,7 +164,10 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     ecut = 50
     # Test vanishing and finite real and imaginary frequencies
     frequencies = np.array([0., 0.05, 0.1, 0.2])
-    complex_frequencies = list(frequencies + 0.j) + list(frequencies + 0.1j)
+
+    # We add a small (1e-6j) imaginary part to avoid risky floating point
+    # operations that may cause NaNs or divide-by-zero.
+    complex_frequencies = list(frequencies + 1e-6j) + list(frequencies + 0.1j)
     zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
     # Part 2: Check toggling of calculation parameters
