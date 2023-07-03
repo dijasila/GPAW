@@ -138,6 +138,31 @@ class PointIntegrator(Integrator):
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
+        if intraband:
+            assert eta is None
+            assert x is None
+            task = Intraband()
+        elif hermitian and not wings:
+            assert eta is None
+            # XXX self used for eshift and blocks1d
+            task = Hermitian(wd=x, integrator=self)
+        elif hermitian and wings:
+            assert eta is None
+            task = HermitianOpticalLimit(wd=x)
+        elif hilbert and not wings:
+            assert eta is None
+            # XXX self used for eshift and blocks1d
+            task = Hilbert(wd=x, integrator=self)
+        elif hilbert and wings:
+            assert eta is None
+            task = HilbertOpticalLimit(wd=x)
+        elif wings:
+            task = OpticalLimit(wd=x, eta=eta)
+        else:
+            # XXX self used for eshift and blocks1d
+            task = GenericUpdate(wd=x, eta=eta, integrator=self)
+
+
         # Sum kpoints
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
@@ -146,30 +171,6 @@ class PointIntegrator(Integrator):
             if n_MG is None:
                 continue
             deps_M = integrand.eigenvalues(*arguments)
-
-            if intraband:
-                assert eta is None
-                assert x is None
-                task = Intraband()
-            elif hermitian and not wings:
-                assert eta is None
-                # XXX self used for eshift and blocks1d
-                task = Hermitian(wd=x, integrator=self)
-            elif hermitian and wings:
-                assert eta is None
-                task = HermitianOpticalLimit(wd=x)
-            elif hilbert and not wings:
-                assert eta is None
-                # XXX self used for eshift and blocks1d
-                task = Hilbert(wd=x, integrator=self)
-            elif hilbert and wings:
-                assert eta is None
-                task = HilbertOpticalLimit(wd=x)
-            elif wings:
-                task = OpticalLimit(wd=x, eta=eta)
-            else:
-                # XXX self used for eshift and blocks1d
-                task = GenericUpdate(wd=x, eta=eta, integrator=self)
 
             task.run(n_MG, deps_M, out_wxx)
 
