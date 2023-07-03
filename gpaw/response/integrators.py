@@ -155,7 +155,9 @@ class PointIntegrator(Integrator):
                 #self.update_intraband(n_MG, out_wxx)
             elif hermitian and not wings:
                 assert eta is None
-                self.update_hermitian(n_MG, deps_M, x, out_wxx)
+                task = Hermitian(wd=x, integrator=self)
+                task.run(n_MG, deps_M, out_wxx)
+                # self.update_hermitian(n_MG, deps_M, x, out_wxx)
             elif hermitian and wings:
                 assert eta is None
                 task = HermitianOpticalLimit(wd=x)
@@ -177,7 +179,9 @@ class PointIntegrator(Integrator):
                 #self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                 #                          eta=eta)
             else:
-                self.update(n_MG, deps_M, x, out_wxx, eta=eta)
+                task = GenericUpdate(wd=x, eta=eta, integrator=self)
+                task.run(n_MG, deps_M, out_wxx)
+                # self.update(n_MG, deps_M, x, out_wxx, eta=eta)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -199,19 +203,26 @@ class PointIntegrator(Integrator):
 
         out_wxx *= prefactor
 
-    @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, eta):
+
+class GenericUpdate:
+    def __init__(self, wd, eta, integrator):
+        self.wd = wd
+        self.eta = eta
+        self.integrator = integrator
+
+    # @timer('CHI_0 update')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
-        deps_m += self.eshift * np.sign(deps_m)
-        deps1_m = deps_m + 1j * eta
-        deps2_m = deps_m - 1j * eta
+        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps1_m = deps_m + 1j * self.eta
+        deps2_m = deps_m - 1j * self.eta
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(self.wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            if self.blockcomm.size > 1:
+            if blocks1d.blockcomm.size > 1:
                 nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
@@ -219,15 +230,21 @@ class PointIntegrator(Integrator):
             mmm(1.0, np.ascontiguousarray(nx_mG.T), 'N', n_mG.conj(), 'N',
                 1.0, chi0_GG)
 
-    @timer('CHI_0 hermetian update')
-    def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
+
+class Hermitian:
+    def __init__(self, wd, integrator):
+        self.wd = wd
+        self.integrator = integrator
+
+    # @timer('CHI_0 hermetian update')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
-        deps_m += self.eshift * np.sign(deps_m)
+        deps_m += self.integrator.eshift * np.sign(deps_m)
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(wd.omega_w):
-            if self.blockcomm.size == 1:
+        for w, omega in enumerate(self.wd.omega_w):
+            if blocks1d.blockcomm.size == 1:
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
