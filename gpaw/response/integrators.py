@@ -162,7 +162,9 @@ class PointIntegrator(Integrator):
                 self.update_hilbert(n_MG, deps_M, x, out_wxx)
             elif hilbert and wings:
                 assert eta is None
-                self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
+                task = HilbertOpticalLimit(wd=x)
+                task.run(n_MG, deps_M, out_wxx=out_wxx)
+                #self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
             elif wings:
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           eta=eta)
@@ -317,16 +319,22 @@ class PointIntegrator(Integrator):
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
-    @timer('CHI_0 optical limit hilbert-update')
-    def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+
+class HilbertOpticalLimit:
+    def __init__(self, wd):
+        self.wd = wd
+
+    # @timer('CHI_0 optical limit hilbert-update')
+    def run(self, n_mG, deps_m, out_wxx):
         """Optical limit update of chi-head and -wings."""
+        chi0_wxvG = out_wxx
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = wd.get_floor_index(o)
-            if w + 1 >= wd.wmax:
+            w = self.wd.get_floor_index(o)
+            if w + 1 >= self.wd.wmax:
                 continue
-            o1, o2 = wd.omega_w[w:w + 2]
+            o1, o2 = self.wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
