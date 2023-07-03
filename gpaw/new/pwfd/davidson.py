@@ -268,7 +268,6 @@ def calculate_residuals(residual_nX: DA,
 def calculate_weights(converge_bands: int | str,
                       ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
-    assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
     nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
     nbands = ibzwfs.nbands
@@ -279,12 +278,14 @@ def calculate_weights(converge_bands: int | str,
             try:
                 # Methfessel-Paxton or cold-smearing distributions can give
                 # negative occupation numbers - so we take the absolute value:
-                weight_n = np.abs(wfs.occ_n)
+                weight_n = np.abs(wfs.myocc_n)
             except ValueError:
                 # No eigenvalues yet:
                 return [None] * nu
             weight_un.append(weight_n)
         return weight_un
+
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
 
     if converge_bands == 'all':
         return [np.ones(nbands)] * nu

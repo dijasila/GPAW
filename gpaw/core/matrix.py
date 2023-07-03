@@ -250,7 +250,7 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def gather(self, root: int = 0) -> Matrix:
+    def gather(self, root: int = 0, broadcast=False) -> Matrix:
         """Gather the Matrix on the root rank.
 
         Returns a new Matrix distributed so that all data is on the root rank
@@ -259,6 +259,10 @@ class Matrix:
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
             self.redist(S)
+            if broadcast:
+                if self.dist.comm.rank > 0:
+                    S = self.new(dist=None)
+                self.dist.comm.broadcast(S.data, 0)
         else:
             S = self
 
@@ -447,17 +451,22 @@ class Matrix:
         if comm2.rank == 0:
             if comm.size == 1:
                 H = self
+                L0 = L
             else:
+                # TODO: Use scalapack
                 H = self.new(dist=(comm,))
                 self.redist(H)
+                L0 = self.new(dist=(comm,))
+                L.redist(L0)
             if comm.rank == 0:
+                print(L0.data, H.data)
                 if self.xp is not np:
-                    return self.dist.eighg(self, L)
+                    return self.dist.eighg(self, L0)
                 tmp_MM = np.empty_like(H.data)
-                L_MM = L.data
+                L_MM = L0.data
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
                 blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
-                # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                # Ht_MM = L_MM @ H.data @ L_MM.conj().T
                 if SCIPY_VERSION >= [1, 9]:
                     driver = 'evx' if M == 1 else 'evd'
                 else:
@@ -469,7 +478,7 @@ class Matrix:
                     driver=driver)
                 assert Ct_Mn.flags.f_contiguous
                 blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
-                # self.data[:] = L_MM.T.conj() @ Ct_Mn
+                # H.data[:] = L_MM.T.conj() @ Ct_Mn
             else:
                 eig_n = np.empty(M)
 

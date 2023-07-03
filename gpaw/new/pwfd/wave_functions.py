@@ -290,7 +290,7 @@ class PWFDWaveFunctions(WaveFunctions):
         """Collect range of bands to master of band and domain
         communicators."""
         # Also collect projections instead of recomputing XXX
-        n2 = n2 or self.nbands + n2
+        n2 = n2 if n2 > 0 else self.nbands + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
         nbands = self.nbands

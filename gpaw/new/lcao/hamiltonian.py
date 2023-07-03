@@ -83,7 +83,6 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                 H_MM.add_hermitian_conjugate(scale=0.5)
             else:
                 H_MM.tril2full()
-
         return H_MM
 
 
