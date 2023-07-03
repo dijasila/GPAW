@@ -149,6 +149,9 @@ class ndarray:
     def __bool__(self):
         return bool(self._data)
 
+    def __repr__(self):
+        return 'cp.' + np.array_repr(self._data)
+
     def __float__(self):
         return self._data.__float__()
 
