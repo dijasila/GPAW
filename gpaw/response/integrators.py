@@ -95,31 +95,28 @@ class PointIntegrator(Integrator):
     def integrate(self, *, kind, **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'hermitian response function':
-            return self.response_function_integration(hermitian=True,
-                                                      hilbert=False,
-                                                      wings=False,
-                                                      **kwargs)
+            dct = dict(hermitian=True,
+                       hilbert=False,
+                       wings=False)
         elif kind == 'hermitian response function wings':
-            return self.response_function_integration(hermitian=True,
-                                                      hilbert=False,
-                                                      wings=True,
-                                                      **kwargs)
+            dct = dict(hermitian=True,
+                       hilbert=False,
+                       wings=True)
         elif kind == 'spectral function':
-            return self.response_function_integration(hilbert=True,
-                                                      **kwargs)
+            dct = dict(hilbert=True)
         elif kind == 'spectral function wings':
-            return self.response_function_integration(hilbert=True,
-                                                      wings=True,
-                                                      **kwargs)
+            dct = dict(hilbert=True, wings=True)
         elif kind == 'response function':
-            return self.response_function_integration(hilbert=False,
-                                                      **kwargs)
+            dct = dict(hilbert=False)
         elif kind == 'response function wings':
-            return self.response_function_integration(hilbert=False,
-                                                      wings=True,
-                                                      **kwargs)
+            dct = dict(hilbert=False,
+                       wings=True)
         else:
             raise ValueError(kind)
+
+        dct.update(kwargs)
+
+        return self.response_function_integration(**dct)
 
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
