@@ -3,6 +3,7 @@ from gpaw import GPAW
 from gpaw.berryphase import get_polarization_phase, parallel_transport
 from gpaw.berryphase import get_berry_phases
 import gpaw.mpi as mpi
+import pytest
 
 
 def test_pol(in_tmp_dir, gpw_files):
@@ -59,5 +60,13 @@ def test_berry_phases(in_tmp_dir, gpw_files):
                [5, 11, 17, 23, 29, 35]]
 
     phasetest = [1.66179, 2.54985, 3.10069, 2.54985, 1.66179, 0.92385]
+    assert np.allclose(ind, indtest)
+    assert np.allclose(phases, phasetest, atol=1e-3)
+
+    # Check so calculation with symmetry gives same results
+    calc = GPAW(gpw_files['mos2_pw_wfs'],
+                communicator=mpi.serial_comm)
+    ind, phases = get_berry_phases(calc)
+
     assert np.allclose(ind, indtest)
     assert np.allclose(phases, phasetest, atol=1e-3)
