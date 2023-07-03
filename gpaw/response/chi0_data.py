@@ -220,6 +220,25 @@ class Chi0OpticalExtensionData:
     def WxvG_shape(self):
         return (self.nw, 2, 3, self.nG)
 
+    def copy_with_reduced_pd(self, qpd):
+        # Create new data object, with the updated qpd
+        descriptors = Chi0Descriptors(self.wd, qpd)
+        new_chi0_optical_extension = self._new(descriptors)
+
+        # Copy the head (present in any plane-wave representation)
+        new_chi0_optical_extension.head_Wvv[:] = self.head_Wvv
+
+        # Map the wings to the reduced plane-wave description
+        G2_G1 = PWMapping(qpd, self.qpd).G2_G1
+        new_chi0_optical_extension.wings_WxvG[:] \
+            = self.wings_WxvG[..., G2_G1]
+
+        return new_chi0_optical_extension
+
+    @classmethod
+    def _new(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
+
 
 class AugmentedBodyData(BodyData):
     """Data object containing the body data along with the optical extension
@@ -246,8 +265,6 @@ class AugmentedBodyData(BodyData):
             return self.optical_extension.WxvG_shape
 
     def copy_with_reduced_pd(self, qpd):
-        """Provide a copy of the object within a reduced plane-wave basis.
-        """
         descriptors = Chi0Descriptors(self.wd, qpd)
         # Create a new AugmentedBodyData object
         new_abd = self._new(descriptors, self.blockdist)
@@ -256,13 +273,8 @@ class AugmentedBodyData(BodyData):
                                                           self.blockdist,
                                                           self.data_WgG)
         if self.optical_limit:
-            new_abd.optical_extension.head_Wvv[:] \
-                = self.optical_extension.head_Wvv
-
-            # Map the wings to the reduced plane-wave description
-            G2_G1 = PWMapping(qpd, self.qpd).G2_G1
-            new_abd.optical_extension.wings_WxvG[:] \
-                = self.optical_extension.wings_WxvG[..., G2_G1]
+            new_abd.optical_extension = \
+                self.optical_extension.copy_with_reduced_pd(qpd)
 
         return new_abd
 
