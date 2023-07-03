@@ -350,7 +350,7 @@ class HermitianOpticalLimit:
     def __init__(self, wd):
         self.wd = wd
 
-    #@timer('CHI_0 hermitian optical limit update')
+    # @timer('CHI_0 hermitian optical limit update')
     def run(self, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
         for w, omega in enumerate(self.wd.omega_w):
@@ -599,4 +599,3 @@ class HilbertOpticalLimitTetrahedron:
                 x_vG = np.outer(n_G[:3], n_G.conj())
                 out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
                 out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
-
