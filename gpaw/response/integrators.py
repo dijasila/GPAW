@@ -530,11 +530,10 @@ class TetrahedronIntegrator(Integrator):
                 W_Mw.append(W_w)
 
             if wings:
-                self.update_hilbert_optical_limit(n_MG, deps_Mk, W_Mw,
-                                                  i0_M, i1_M, out_wxx)
+                task = HilbertOpticalLimitTetrahedron(self.blockcomm)
             else:
-                self.update_hilbert(n_MG, deps_Mk, W_Mw, i0_M, i1_M,
-                                    out_wxx, blocks1d)
+                task = HilbertTetrahedron(blocks1d)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
         self.kncomm.sum(out_wxx)
 
@@ -545,39 +544,6 @@ class TetrahedronIntegrator(Integrator):
             iu = il[::-1]
             for out_xx in out_wxx:
                 out_xx[il] = out_xx[iu].conj()
-
-    def update_hilbert(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M,
-                       out_wxx, blocks1d):
-        """Update output array with dissipative part."""
-        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
-                                            i0_M, i1_M):
-            if i0 == i1:
-                continue
-
-            for iw, weight in enumerate(W_w):
-                if self.blockcomm.size > 1:
-                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                    # gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                    #      1.0, out_wxx[i0 + iw], 'c')
-                    mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, out_wxx[i0 + iw])
-                else:
-                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
-
-    def update_hilbert_optical_limit(self, n_MG, deps_Mk, W_Mw,
-                                     i0_M, i1_M, out_wxvG):
-        """Update optical limit output array with dissipative part of the head
-        and wings."""
-        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
-                                            i0_M, i1_M):
-            assert self.blockcomm.size == 1
-            if i0 == i1:
-                continue
-
-            for iw, weight in enumerate(W_w):
-                x_vG = np.outer(n_G[:3], n_G.conj())
-                out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
-                out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
@@ -592,3 +558,45 @@ class TetrahedronIntegrator(Integrator):
                                      W_w, omega_w, vol_s)
 
         return W_w
+
+
+class HilbertTetrahedron:
+    def __init__(self, blocks1d):
+        self.blocks1d = blocks1d
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
+        """Update output array with dissipative part."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                if self.blocks1d.blockcomm.size > 1:
+                    myn_G = n_G[self.blocks1d.myslice].reshape((-1, 1))
+                    # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                    #      1.0, out_wxx[i0 + iw], 'c')
+                    mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, out_wxx[i0 + iw])
+                else:
+                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
+
+
+class HilbertOpticalLimitTetrahedron:
+    def __init__(self, blockcomm):
+        self.blockcomm = blockcomm
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
+        """Update optical limit output array with dissipative part of the head
+        and wings."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            assert self.blockcomm.size == 1
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                x_vG = np.outer(n_G[:3], n_G.conj())
+                out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
+                out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
+
