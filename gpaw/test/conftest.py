@@ -536,22 +536,33 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def mos2_pw(self):
+    def _mos2(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         from ase.build import mx2
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                     size=(1, 1, 1), vacuum=5)
         atoms.pbc = (1, 1, 1)
         ecut = 250
         nkpts = 6
+        tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(mode=PW(ecut),
                           xc='LDA',
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
-                          txt=self.path / 'mos2_pw.txt')
+                          txt=self.path / f'mos2_pw{tag}.txt',
+                          symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
 
+    def mos2_pw(self):
+        return self._mos2()
+
+    def mos2_pw_nosym(self):
+        return self._mos2(symmetry='off')
+
+    
     def ni_pw_kpts333(self):
         from ase.dft.kpoints import monkhorst_pack
         # from gpaw.mpi import serial_comm
