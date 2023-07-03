@@ -1,14 +1,13 @@
 # web-page: Bi2Se3_bands.png
-import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy as np
+from ase.dft.kpoints import BandPath
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
 
-
 calc = GPAW('Bi2Se3_bands.gpw', txt=None)
-x = np.loadtxt('kpath.dat')
-X = np.loadtxt('highsym.dat')
+bandpath = BandPath.read('bandpath.json')
+x, X, labels = bandpath.get_linear_kpoint_axis()
 
 # No spin-orbit
 
