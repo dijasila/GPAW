@@ -11,7 +11,7 @@ from ase.units import Ha
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data
+from gpaw.response.chi0_data import Chi0Data, Chi0OpticalExtensionData
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
 from gpaw.response.hilbert import HilbertTransform
@@ -370,7 +370,8 @@ class Chi0Calculator:
 
         if optical_limit:
             # Update the head and wings
-            self._update_chi0_optical_extension(chi0, m1, m2, spins)
+            self._update_chi0_optical_extension(chi0.optical_extension,
+                                                m1, m2, spins)
 
         return chi0
 
@@ -419,11 +420,13 @@ class Chi0Calculator:
         chi0.chi0_WgG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
                                                         chi0.nw, 'WgG')
 
-    def _update_chi0_optical_extension(self,
-                                       chi0: Chi0Data,
-                                       m1, m2, spins):
+    def _update_chi0_optical_extension(
+            self,
+            chi0_optical_extension: Chi0OpticalExtensionData,
+            m1, m2, spins):
         """In-place calculation of the optical limit wings."""
-        qpd = chi0.qpd
+        chi0_opt_ext = chi0_optical_extension
+        qpd = chi0_opt_ext.qpd
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
@@ -436,7 +439,7 @@ class Chi0Calculator:
         # index v = (x, y, z)
         # index G = (G0, G1, G2, ...)
         # index P = (x, y, z, G1, G2, ...)
-        WxvP_shape = list(chi0.WxvG_shape)
+        WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
@@ -453,11 +456,11 @@ class Chi0Calculator:
         tmp_chi0_WxvP *= prefactor
 
         # Fill in wings part of the data, but leave out the head part (G0)
-        chi0.chi0_WxvG[..., 1:] += tmp_chi0_WxvP[..., 3:]
+        chi0_opt_ext.wings_WxvG[..., 1:] += tmp_chi0_WxvP[..., 3:]
+        analyzer.symmetrize_wxvG(chi0_opt_ext.wings_WxvG)
         # Fill in the head
-        chi0.chi0_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
-        analyzer.symmetrize_wxvG(chi0.chi0_WxvG)
-        analyzer.symmetrize_wvv(chi0.chi0_Wvv)
+        chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
+        analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
 
     def initialize_integrator(self, block_distributed=True) -> Integrator:
         """The integrator class is a general class for brillouin zone
