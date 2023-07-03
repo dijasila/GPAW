@@ -118,7 +118,7 @@ def gpw_files(request, tmp_path_factory):
 
     * Graphene with 6x6x1 k-points: ``graphene_pw``
 
-    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+    * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
 
@@ -561,7 +561,6 @@ class GPWFiles:
 
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
-
     
     def ni_pw_kpts333(self):
         from ase.dft.kpoints import monkhorst_pack

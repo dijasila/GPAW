@@ -1,9 +1,8 @@
 import numpy as np
 from gpaw import GPAW
 from gpaw.berryphase import get_polarization_phase, parallel_transport
-from gpaw.mpi import world
 import gpaw.mpi as mpi
-import pytest
+
 
 def test_pol(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
@@ -17,6 +16,7 @@ def test_pol(in_tmp_dir, gpw_files):
     phitest = [6.60376287e-01, 3.39625036e-01, 0.0]
     assert np.allclose(phi, phitest, atol=1e-4)
 
+
 def test_parallel_transport(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
                 communicator=mpi.serial_comm)
@@ -28,10 +28,10 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
                                       name='mos2', scale=0)
     phi_km = phi_km / (2 * np.pi) % 1
     phitest = [0.91475, 0.272581]
-    phival = [phi_km[1,12], phi_km[0,0]]
+    phival = [phi_km[1, 12], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
     Stest = [0.99011, 1.0000]
-    Sval =  [S_km[1,12], S_km[0,0]]
+    Sval = [S_km[1, 12], S_km[0, 0]]
     assert np.allclose(Sval, Stest, atol=1e-3)
     
     # with SOC
@@ -42,8 +42,8 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     # Test value of phase for some bands and k:s
     phitest = [0.94688, 0.27522]
     phitest = [0.91423, 0.27521]
-    phival = [phi_km[1,12], phi_km[0,0]]
+    phival = [phi_km[1, 12], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
     Stest = [0.99938, 0.99874]
-    Sval =  [S_km[1,12], S_km[0,0]]
+    Sval = [S_km[1, 12], S_km[0, 0]]
     assert np.allclose(Sval, Stest, atol=1e-3)
