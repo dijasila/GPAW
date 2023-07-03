@@ -374,7 +374,7 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, kind, *args, **kwargs):
+    def integrate(self, kind, **kwargs):
         if kind == 'spectral function':
             wings = False
         elif kind == 'spectral function wings':
@@ -384,8 +384,7 @@ class TetrahedronIntegrator(Integrator):
                              "or 'spectral function wings', got: ",
                              kind)
 
-        return self.spectral_function_integration(*args,
-                                                  wings=wings,
+        return self.spectral_function_integration(wings=wings,
                                                   **kwargs)
 
     @timer('Spectral function integration')
