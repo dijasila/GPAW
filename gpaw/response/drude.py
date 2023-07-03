@@ -75,7 +75,22 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
+
+        assert kind == 'spectral function'
+        print(kind, extraargs)
+
+        from gpaw.response.integrators import HilbertTetrahedron, Intraband
+
+        if self.integrationmode == 'tetrahedron integration':
+            task = HilbertTetrahedron()
+            assert set(extraargs) == {'x'}
+        else:
+            task = Intraband()
+            assert extraargs == {'intraband': True}
+            extraargs = {}
+
         integrator.integrate(kind=kind,  # Kind of integral
+                             task=task,
                              domain=domain,  # Integration domain
                              integrand=integrand,
                              out_wxx=tmp_plasmafreq_wvv,  # Output array

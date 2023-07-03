@@ -115,7 +115,7 @@ class PointIntegrator(Integrator):
             raise ValueError(kind)
 
         dct.update(kwargs)
-        return self.response_function_integration(**dct)
+        return self.response_function_integration(task=task, **dct)
 
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
@@ -419,7 +419,7 @@ class TetrahedronIntegrator(Integrator):
         return self.get_simplex_volume(td, S)
 
     @timer('Spectral function integration')
-    def integrate(self, *, kind, domain, integrand, x, out_wxx):
+    def integrate(self, *, kind, domain, integrand, x, out_wxx, task=None):
         """Integrate response function.
 
         Assume that the integral has the
@@ -427,7 +427,10 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        task = choose_tetrahedron_integral_kind(kind)
+        if task is None:
+            task = choose_tetrahedron_integral_kind(kind)
+        else:
+            assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
         wd = x  # XXX Rename.  But it clashes with some other methods
         # that are **kwargs'ed somewhere, so requires attention.
