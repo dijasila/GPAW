@@ -182,7 +182,7 @@ class Chi0DrudeData:
         return (self.nz,) + self.vv_shape
 
 
-class OpticalExtensionData:
+class Chi0OpticalExtensionData:
     def __init__(self, descriptors):
         assert descriptors.optical_limit
         self.wd = descriptors.wd
@@ -197,12 +197,12 @@ class OpticalExtensionData:
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves):
         """Contruct the necesarry descriptors and initialize the
-        OpticalExtensionData object"""
+        Chi0OpticalExtensionData object"""
 
         descriptors = Chi0Descriptors.from_descriptor_arguments(
             frequencies, plane_waves)
 
-        return OpticalExtensionData(descriptors)
+        return Chi0OpticalExtensionData(descriptors)
         
     @property
     def nw(self):
@@ -229,7 +229,7 @@ class AugmentedBodyData(BodyData):
         super().__init__(descriptors, blockdist)
 
         if self.optical_limit:
-            self.optical_extension = OpticalExtensionData(self.descriptors)
+            self.optical_extension = Chi0OpticalExtensionData(self.descriptors)
 
     @property
     def optical_limit(self):

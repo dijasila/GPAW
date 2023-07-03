@@ -370,7 +370,7 @@ class Chi0Calculator:
 
         if optical_limit:
             # Update the head and wings
-            self._update_chi0_wings(chi0, m1, m2, spins)
+            self._update_chi0_optical_extension(chi0, m1, m2, spins)
 
         return chi0
 
@@ -419,9 +419,9 @@ class Chi0Calculator:
         chi0.chi0_WgG[:] = chi0.blockdist.distribute_as(tmp_chi0_wGG,
                                                         chi0.nw, 'WgG')
 
-    def _update_chi0_wings(self,
-                           chi0: Chi0Data,
-                           m1, m2, spins):
+    def _update_chi0_optical_extension(self,
+                                       chi0: Chi0Data,
+                                       m1, m2, spins):
         """In-place calculation of the optical limit wings."""
         qpd = chi0.qpd
 
