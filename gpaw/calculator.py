@@ -62,7 +62,7 @@ class GPAW(Calculator):
                               'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
-        'mode': 'fd',
+        'mode': None,  # issue #897: start deprecating reliance on default mode
         'xc': 'LDA',
         'occupations': None,
         'poissonsolver': None,
@@ -545,7 +545,8 @@ class GPAW(Calculator):
 
         if 'idiotproof' in kwargs:
             del kwargs['idiotproof']
-            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+            warnings.warn('Ignoring deprecated keyword "idiotproof"',
+                          DeprecatedParameterWarning)
 
         changed_parameters = Calculator.set(self, **kwargs)
 
@@ -554,8 +555,9 @@ class GPAW(Calculator):
                 dct = changed_parameters[key]
                 if isinstance(dct, dict) and None in dct:
                     dct['default'] = dct.pop(None)
-                    warnings.warn('Please use {key}={dct}'
-                                  .format(key=key, dct=dct))
+                    warnings.warn(
+                        'Please use {key}={dct}'.format(key=key, dct=dct),
+                        DeprecatedParameterWarning)
 
         if not changed_parameters:
             return {}
@@ -700,22 +702,30 @@ class GPAW(Calculator):
 
         if par.fixdensity:
             warnings.warn(
-                'The fixdensity keyword has been deprecated. '
-                'Please use the GPAW.fixed_density() method instead.',
-                DeprecationWarning)
+                ('The fixdensity keyword has been deprecated. '
+                 'Please use the GPAW.fixed_density() method instead.'),
+                DeprecatedParameterWarning)
             if self.hamiltonian.xc.type == 'MGGA':
                 raise ValueError('MGGA does not support deprecated '
                                  'fixdensity option.')
 
         mode = par.mode
+        if mode is None:
+            warnings.warn(
+                ('Finite-difference mode implicitly chosen; '
+                 'it will be an error to not specify a mode in the future'),
+                DeprecatedParameterWarning)
+            mode = par.mode = 'fd'
         if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
-            warnings.warn('Use mode={}(..., force_complex_dtype=True) '
-                          'instead of dtype=complex'.format(mode.name.upper()))
+            warnings.warn(
+                ('Use mode={}(..., force_complex_dtype=True) '
+                 'instead of dtype=complex').format(mode.name.upper()),
+                DeprecatedParameterWarning)
             mode.force_complex_dtype = True
             del par['dtype']
             par.mode = mode
@@ -1073,7 +1083,8 @@ class GPAW(Calculator):
                 if reading:
                     self.log(info)
                 else:
-                    warnings.warn(info + ' Please remove it.')
+                    warnings.warn(info + ' Please remove it.',
+                                  DeprecatedParameterWarning)
 
         if self.parameters.external is not None:
             symm = symm.copy()
@@ -2149,3 +2160,7 @@ class GPAW(Calculator):
         # This method can be removed once we finish that process.
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
+
+
+class DeprecatedParameterWarning(FutureWarning):
+    """Warning class for when a parameter or its value is deprecated."""
