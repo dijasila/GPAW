@@ -11,7 +11,8 @@ from ase.units import Ha
 import gpaw
 import gpaw.mpi as mpi
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.chi0_data import Chi0Data, Chi0OpticalExtensionData
+from gpaw.response.chi0_data import (Chi0Data, Chi0BodyData,
+                                     Chi0OpticalExtensionData)
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
 from gpaw.response.hilbert import HilbertTransform
@@ -366,7 +367,7 @@ class Chi0Calculator:
 
         # Integrate chi0 body
         self.context.print('Integrating response function.')
-        self._update_chi0_body(chi0, m1, m2, spins)
+        self._update_chi0_body(chi0.body, m1, m2, spins)
 
         if optical_limit:
             # Update the head and wings
@@ -376,10 +377,10 @@ class Chi0Calculator:
         return chi0
 
     def _update_chi0_body(self,
-                          chi0: Chi0Data,
+                          chi0_body: Chi0BodyData,
                           m1, m2, spins):
         """In-place calculation of the body."""
-        qpd = chi0.qpd
+        qpd = chi0_body.qpd
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
@@ -388,13 +389,13 @@ class Chi0Calculator:
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
 
-        chi0.chi0_WgG[:] /= prefactor
+        chi0_body.data_WgG[:] /= prefactor
         if self.hilbert:
             # Allocate a temporary array for the spectral function
-            out_WgG = chi0.body.zeros()
+            out_WgG = chi0_body.zeros()
         else:
             # Use the preallocated array for direct updates
-            out_WgG = chi0.chi0_WgG
+            out_WgG = chi0_body.data_WgG
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=integrand,
@@ -411,14 +412,13 @@ class Chi0Calculator:
                                       timeordered=self.timeordered)
                 ht(out_WgG)
             # Update the actual chi0 array
-            chi0.chi0_WgG[:] += out_WgG
-        chi0.chi0_WgG[:] *= prefactor
+            chi0_body.data_WgG[:] += out_WgG
+        chi0_body.data_WgG[:] *= prefactor
 
-        tmp_chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
+        tmp_chi0_wGG = chi0_body.copy_array_with_distribution('wGG')
         analyzer.symmetrize_wGG(tmp_chi0_wGG)
-        # The line below is borderline illegal and should be changed! XXX
-        chi0.body.data_WgG[:] = chi0.body.blockdist.distribute_as(
-            tmp_chi0_wGG, chi0.body.nw, 'WgG')
+        chi0_body.data_WgG[:] = chi0_body.blockdist.distribute_as(
+            tmp_chi0_wGG, chi0_body.nw, 'WgG')
 
     def _update_chi0_optical_extension(
             self,
