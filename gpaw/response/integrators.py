@@ -178,7 +178,23 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
 
-class GenericUpdate:
+from abc import ABC, abstractmethod
+
+class IntegralKind(ABC):
+    # Unique string for each kind of integral:
+    kind = '(unset)'
+
+    # Some integrals kinds like to calculate upper or lower half of the output
+    # when nblocks==1.  In that case, this boolean signifies to the
+    # integrator that the output array should be symmetrized.
+    symmetrizable_unless_blocked = False
+
+    @abstractmethod
+    def run(self, wd, n_mG, deps_m, out_wxx):
+        """Add contribution from one point to out_wxx."""
+
+
+class GenericUpdate(IntegralKind):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
@@ -207,7 +223,7 @@ class GenericUpdate:
                 1.0, chi0_GG)
 
 
-class Hermitian:
+class Hermitian(IntegralKind):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
@@ -232,7 +248,7 @@ class Hermitian:
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
 
-class Hilbert:
+class Hilbert(IntegralKind):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
@@ -306,7 +322,7 @@ class Hilbert:
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
 
-class Intraband:
+class Intraband(IntegralKind):
     kind = 'intraband'
     symmetrizable_unless_blocked = False
 
@@ -320,7 +336,7 @@ class Intraband:
             chi0_wvv[0] += x_vv
 
 
-class OpticalLimit:
+class OpticalLimit(IntegralKind):
     kind = 'response function wings'
     symmetrizable_unless_blocked = False
 
@@ -339,7 +355,7 @@ class OpticalLimit:
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HermitianOpticalLimit:
+class HermitianOpticalLimit(IntegralKind):
     kind = 'hermitian response function wings'
     symmetrizable_unless_blocked = False
 
@@ -352,7 +368,7 @@ class HermitianOpticalLimit:
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HilbertOpticalLimit:
+class HilbertOpticalLimit(IntegralKind):
     kind = 'spectral function wings'
     symmetrizable_unless_blocked = False
 
