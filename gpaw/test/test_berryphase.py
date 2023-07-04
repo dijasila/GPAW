@@ -3,6 +3,12 @@ from gpaw import GPAW
 from gpaw.berryphase import get_polarization_phase, parallel_transport
 from gpaw.berryphase import get_berry_phases
 import gpaw.mpi as mpi
+import pytest
+
+
+def mark_xfail(use_sym, request):
+    if use_sym:
+        request.node.add_marker(pytest.mark.xfail)
 
 
 def test_pol(in_tmp_dir, gpw_files):
@@ -28,9 +34,9 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     phitest = [0.91475, 0.272581]
     phival = [phi_km[1, 12], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
-    # Stest = [0.99011, 1.0000]
-    # Sval = [S_km[1, 12], S_km[0, 0]]
-    # assert np.allclose(Sval, Stest, atol=1e-3)
+    # S_km corresponds to expectation value of spin-operator
+    # so it is not well defined without soc, due to degeneracy
+    # Therefore we only test the phases.
     
     # with SOC
     phi_km, S_km = parallel_transport(calc, direction=0,
@@ -41,14 +47,24 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     phitest = [0.91423, 0.27521]
     phival = [phi_km[1, 12], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
-    # Stest = [0.99938, 0.99874]
-    # Sval = [S_km[1, 12], S_km[0, 0]]
-    # assert np.allclose(Sval, Stest, atol=1e-3)
+    Stest = [0.99938, 0.99874]
+    Sval = [S_km[1, 12], S_km[0, 0]]
+    assert np.allclose(Sval, Stest, atol=1e-3)
 
 
-def test_berry_phases(in_tmp_dir, gpw_files):
-    calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
-                communicator=mpi.serial_comm)
+@pytest.mark.parametrize('use_sym', [True, False])
+def test_berry_phases(in_tmp_dir, gpw_files, use_sym, request):
+
+    # Does not work with symmetry
+    mark_xfail(use_sym, request)
+
+    if use_sym:
+        calc = GPAW(gpw_files['mos2_pw_wfs'],
+                    communicator=mpi.serial_comm)
+    else:
+        calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
+                    communicator=mpi.serial_comm)
+
     ind, phases = get_berry_phases(calc)
 
     indtest = [[0, 6, 12, 18, 24, 30],
