@@ -8,6 +8,7 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
+from ase.calculators.calculator import Calculator
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
@@ -522,3 +523,8 @@ class ASECalculator:
         """Create band-structure object for plotting."""
         from ase.spectrum.band_structure import get_band_structure
         return get_band_structure(calc=self)
+
+
+# Comment in issue #864: restore isinstance()/issubclass() behavior when
+# checking against ase.calculators.calculator.Calculator
+Calculator.register(ASECalculator)
