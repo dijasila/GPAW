@@ -29,12 +29,6 @@ class FrequencyDescriptor:
                 f'(from {emin:.3f} to {emax:.3f} eV, {len(self)} points)')
 
     @staticmethod
-    def as_descriptor(frequencies):
-        if isinstance(frequencies, FrequencyDescriptor):
-            return frequencies
-        return FrequencyDescriptor.from_array_or_dict(frequencies)
-
-    @staticmethod
     def from_array_or_dict(input: dict[str, Any] | ArrayLike1D
                            ) -> FrequencyDescriptor:
         """Create frequency-grid descriptor.
