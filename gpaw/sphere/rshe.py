@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.sphere.lebedev import integrate_lebedev
+from gpaw.sphere.integrate import integrate_lebedev
 
 
 class RealSphericalHarmonicsExpansion:

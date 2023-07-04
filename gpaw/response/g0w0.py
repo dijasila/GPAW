@@ -158,7 +158,7 @@ class G0W0Outputs:
         self.sigma_skn = np.zeros(shape)
         self.dsigma_skn = np.zeros(shape)
         invN_i = ecut_e**(-3. / 2)
-        for m in range(np.product(shape)):
+        for m in range(np.prod(shape)):
             s, k, n = np.unravel_index(m, shape)
 
             slope, intercept, r_value, p_value, std_err = \
@@ -873,7 +873,7 @@ class G0W0Calculator:
                     chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
         # Create a blocks1d for the reduced plane-wave description
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
+        blocks1d = Blocks1D(chi0.body.blockdist.blockcomm, rqpd.ngmax)
 
         return rqpd, Wdict, blocks1d, chi0calc.pawcorr
 

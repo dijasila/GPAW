@@ -223,7 +223,7 @@ class GridDescriptor(Domain):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False, xp=np):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -231,9 +231,9 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad)
+        return self._new_array(n, dtype, True, global_array, pad, xp)
 
-    def empty(self, n=(), dtype=float, global_array=False, pad=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False, xp=np):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -241,10 +241,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad)
+        return self._new_array(n, dtype, False, global_array, pad, xp)
 
     def _new_array(self, n=(), dtype=float, zero=True,
-                   global_array=False, pad=False):
+                   global_array=False, pad=False, xp=np):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -256,9 +256,9 @@ class GridDescriptor(Domain):
         shape = n + tuple(shape)
 
         if zero:
-            return np.zeros(shape, dtype)
+            return xp.zeros(shape, dtype)
         else:
-            return np.empty(shape, dtype)
+            return xp.empty(shape, dtype)
 
     def get_axial_communicator(self, axis):
         peer_ranks = []
@@ -327,7 +327,7 @@ class GridDescriptor(Domain):
 
         Reurned descriptor has 2x2x2 fewer grid points."""
 
-        if np.sometrue(self.N_c % 2):
+        if (self.N_c % 2).any():
             raise ValueError('Grid %s not divisible by 2!' % self.N_c)
 
         return self.new_descriptor(self.N_c // 2)

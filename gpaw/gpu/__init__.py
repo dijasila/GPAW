@@ -34,12 +34,15 @@ def synchronize():
 
 
 def setup():
-    # select GPU device (round-robin based on MPI rank)
-    # if not set, all MPI ranks will use the same default device
     if not cupy_is_fake:
+        # select GPU device (round-robin based on MPI rank)
+        # if not set, all MPI ranks will use the same default device
         from gpaw.mpi import rank
         device_id = rank % cupy.cuda.runtime.getDeviceCount()
         cupy.cuda.runtime.setDevice(device_id)
+        # initialise C parameters and memory buffers
+        import _gpaw
+        _gpaw.gpaw_gpu_init()
 
 
 def as_xp(array, xp):
@@ -70,7 +73,9 @@ def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
     from scipy.linalg import eigh
     if not is_hip:
         return cupy.linalg.eigh(a, UPLO=UPLO)
-    eigs, evals = eigh(cupy.asnumpy(a), lower=(UPLO == 'L'))
+    eigs, evals = eigh(cupy.asnumpy(a),
+                       lower=(UPLO == 'L'),
+                       check_finite=False)
     return cupy.asarray(eigs), cupy.asarray(evals)
 
 

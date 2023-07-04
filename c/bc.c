@@ -113,10 +113,15 @@ boundary_conditions* bc_init(const long size1[3],
       // If the two neighboring processors along the
       // i'th axis are the same, then we join the two communications
       // into one:
+#ifndef GPAW_GPU
       bc->rjoin[i] = ((bc->recvproc[i][0] == bc->recvproc[i][1]) &&
           bc->recvproc[i][0] >= 0);
       bc->sjoin[i] = ((bc->sendproc[i][0] == bc->sendproc[i][1]) &&
           bc->sendproc[i][0] >= 0);
+#else
+      bc->rjoin[i] = 0;
+      bc->sjoin[i] = 0;
+#endif
     }
 
   bc->maxsend = 0;
@@ -131,6 +136,9 @@ boundary_conditions* bc_init(const long size1[3],
         bc->maxrecv = n;
     }
 
+#ifdef GPAW_GPU
+  bc_init_gpu(bc);
+#endif
   return bc;
 }
 

@@ -22,7 +22,7 @@ def get_random_g(nk, nb):
 
 @pytest.mark.later  # calc.initialize_positions(atoms) not implemented!
 @pytest.mark.serial
-def test_ramancalculator(gpw_files, tmp_path_factory):
+def test_ramancalculator(gpw_files, in_tmp_dir):
     """Test of ResonantRamanCalculator object"""
     calc = GPAW(gpw_files['bcc_li_lcao_wfs'])
     atoms = calc.atoms

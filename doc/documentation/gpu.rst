@@ -8,9 +8,16 @@ Ground-state calculations on a GPU is an experimental feature at the moment:
 * only PW-mode
 * it has only been implemented in the new GPAW
 * only parallelization over **k**-points
-* no forces
 
 See :git:`gpaw/test/gpu/test_pw.py` for an example.
+
+.. tip::
+
+   >>> import numpy as np
+   >>> from gpaw.gpu import cupy as cp
+   >>> a_cpu = np.zeros(...)
+   >>> a_gpu = cp.asarray(a_cpu)  # from CPU to GPU
+   >>> b_cpu = a_gpu.get()  # from GPU to CPU
 
 
 The gpaw.gpu module

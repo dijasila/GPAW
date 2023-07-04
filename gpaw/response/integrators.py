@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, *args, **kwargs):
+    def integrate(self, kind, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -92,34 +92,32 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, kind='pointwise', *args, **kwargs):
+    def integrate(self, *, kind, **kwargs):
         self.context.print('Integral kind:', kind)
-        if kind == 'pointwise':
-            return self.pointwise_integration(*args, **kwargs)
-        elif kind == 'hermitian response function':
+        if kind == 'hermitian response function':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'hermitian response function wings':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function':
             return self.response_function_integration(hilbert=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function wings':
             return self.response_function_integration(hilbert=True,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function':
             return self.response_function_integration(hilbert=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function wings':
             return self.response_function_integration(hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         else:
             raise ValueError(kind)
 
@@ -374,7 +372,7 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, kind, *args, **kwargs):
+    def integrate(self, *, kind, **kwargs):
         if kind == 'spectral function':
             wings = False
         elif kind == 'spectral function wings':
@@ -384,8 +382,7 @@ class TetrahedronIntegrator(Integrator):
                              "or 'spectral function wings', got: ",
                              kind)
 
-        return self.spectral_function_integration(*args,
-                                                  wings=wings,
+        return self.spectral_function_integration(wings=wings,
                                                   **kwargs)
 
     @timer('Spectral function integration')

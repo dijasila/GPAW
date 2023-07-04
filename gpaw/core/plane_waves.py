@@ -3,9 +3,11 @@ from __future__ import annotations
 from math import pi
 
 import _gpaw
-import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Ha
+
+import gpaw.fftw as fftw
+from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
@@ -156,8 +158,19 @@ class PlaneWaves(Domain):
         """Paste G-vectors with (G+k)^2/2<E_kin into 3-D FFT grid and
         zero-pad."""
         Q_G = self.indices(array_Q.shape)
+        if debug:
+            assert (Q_G[1:] > Q_G[:-1]).all()
+            assert (Q_G >= 0).all()
+            assert (Q_G < array_Q.size).all()
+            assert coef_G.shape == Q_G.shape
+            assert coef_G.flags.c_contiguous
+            assert Q_G.flags.c_contiguous
+            assert array_Q.flags.c_contiguous
+
+        # Python version:
         # array_Q[:] = 0.0
         # array_Q.ravel()[Q_G] = coef_G
+
         _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
 
     def map_indices(self, other: PlaneWaves) -> tuple[Array1D, list[Array1D]]:
@@ -634,7 +647,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
                 G_G0.append(G)
                 G0_G.append(G0)
 
-        out_xG.data[:, G_G0] = self.data[:, G0_G]
+        out_xG.data[..., G_G0] = self.data[..., G0_G]
         return out_xG
 
 

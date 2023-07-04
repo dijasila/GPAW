@@ -388,7 +388,7 @@ class PAWSetupGenerator:
                 return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
 
             def f(alpha):
-                return log(spillage(alpha)) - log(eps)
+                return log(spillage(alpha[0])) - log(eps)
 
             self.alpha = fsolve(f, 7.0)[0]
 
