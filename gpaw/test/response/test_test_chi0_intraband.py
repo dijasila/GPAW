@@ -46,7 +46,8 @@ def test_chi0_intraband(in_tmp_dir):
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
     df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
     df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-    chi0_drude = df1.chi0calc.drude_calc.calculate(df1.wd, 0.1)
+    chi0_drude = df1.chi0calc.chi0_opt_ext_calc.drude_calc.calculate(
+        df1.wd, 0.1)
     wp1 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df2 = DielectricFunction('intraband_spinpaired.gpw',
@@ -59,7 +60,8 @@ def test_chi0_intraband(in_tmp_dir):
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
     df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
-    chi0_drude = df2.chi0calc.drude_calc.calculate(df2.wd, 0.1)
+    chi0_drude = df2.chi0calc.chi0_opt_ext_calc.drude_calc.calculate(
+        df2.wd, 0.1)
     wp2 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df3 = DielectricFunction('intraband_spinpolarized.gpw',
@@ -73,7 +75,8 @@ def test_chi0_intraband(in_tmp_dir):
     df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
     df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
     df3NLFCz, df3LFCz = df3.get_dielectric_function(direction='z')
-    chi0_drude = df3.chi0calc.drude_calc.calculate(df3.wd, 0.1)
+    chi0_drude = df3.chi0calc.chi0_opt_ext_calc.drude_calc.calculate(
+        df3.wd, 0.1)
     wp3 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
     df4 = DielectricFunction('intraband_spinpolarized.gpw',
@@ -87,7 +90,8 @@ def test_chi0_intraband(in_tmp_dir):
     df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
     df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
     df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
-    chi0_drude = df4.chi0calc.drude_calc.calculate(df4.wd, 0.1)
+    chi0_drude = df4.chi0calc.chi0_opt_ext_calc.drude_calc.calculate(
+        df4.wd, 0.1)
     wp4 = chi0_drude.plasmafreq_vv[0, 0]**0.5
     
     # Compare plasmon frequencies and intensities
