@@ -270,8 +270,6 @@ class Chi0Calculator:
         return chi0
 
     def get_pw_descriptor(self, q_c):
-        if isinstance(q_c, SingleQPWDescriptor):
-            return q_c
         return SingleQPWDescriptor.from_q(q_c, self.ecut, self.gs.gd)
 
     def get_blockdist(self):
@@ -308,7 +306,7 @@ class Chi0Calculator:
 
         # Calculate optical extension
         if qpd.optical_limit:
-            chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd, spin=spin)
+            chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd=qpd, spin=spin)
         else:
             chi0_opt_ext = None
         print(q_c, qpd.optical_limit, chi0_opt_ext)
@@ -654,23 +652,23 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             self.drude_calc = None
             self.rate = None
 
-    def calculate(self, qpoint, spin='all'):
+    def calculate(self,
+                  qpd: SingleQPWDescriptor | None = None,
+                  spin='all'):
         """Calculate the chi0 head and wings.
 
         Paramters
         ---------
-        qpd : SingleQPWDescriptor
-            PlaneWaveDescriptor for q=0.
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
 
         To do:
         * info string
-        * make qpd optional
         """
         # Create data object
-        qpd = self.get_pw_descriptor(qpoint)
+        if qpd is None:
+            qpd = self.get_pw_descriptor(q_c=[0., 0., 0.])
         chi0_opt_ext = Chi0OpticalExtensionData(self.wd, qpd)
 
         # Define band and spin transitions
