@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 from ase.units import Ha
 
-from gpaw.response.integrators import Integrand
+from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
@@ -76,8 +76,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
-
-        from gpaw.response.integrators import HilbertTetrahedron, Intraband
 
         if self.integrationmode == 'tetrahedron integration':
             # Calculate intraband transitions at T=0

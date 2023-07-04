@@ -24,14 +24,10 @@ from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
-
-
 from gpaw.response.integrators import (
     HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
-    HilbertOpticalLimitTetrahedron)
-from gpaw.response.integrators import (
+    HilbertOpticalLimitTetrahedron,
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
-
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):
@@ -577,7 +573,10 @@ class Chi0Calculator:
             # In this case chi is hermitian and it is therefore possible to
             # reduce the computational costs by a only computing half of the
             # response function.
-            return HermitianOpticalLimit() if wings else Hermitian(integrator)
+            if wings:
+                return HermitianOpticalLimit()
+            else:
+                return Hermitian(integrator)
 
         if self.hilbert:
             # The spectral function integrator assumes that the form of the
@@ -586,15 +585,24 @@ class Chi0Calculator:
             # x's (frequencies). Thus the integrand is tuple of two functions
             # and takes an additional argument (x).
             if isinstance(integrator, PointIntegrator):
-                return HilbertOpticalLimit() if wings else Hilbert(integrator=integrator)
+                if wings:
+                    return HilbertOpticalLimit()
+                else:
+                    return Hilbert(integrator=integrator)
             else:
                 assert isinstance(integrator, TetrahedronIntegrator)
-                return HilbertOpticalLimitTetrahedron() if wings else HilbertTetrahedron()
+                if wings:
+                    return HilbertOpticalLimitTetrahedron()
+                else:
+                    return HilbertTetrahedron()
 
         # Otherwise, we can make no simplifying assumptions of the
         # form of the response function and we simply perform a brute
         # force calculation of the response function.
-        return OpticalLimit(eta=self.eta) if wings else GenericUpdate(eta=self.eta, integrator=integrator)
+        if wings:
+            return OpticalLimit(eta=self.eta)
+        else:
+            return GenericUpdate(eta=self.eta, integrator=integrator)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):

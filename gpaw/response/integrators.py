@@ -138,8 +138,6 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
 
-from abc import ABC, abstractmethod
-
 class IntegralKind(ABC):
     # Unique string for each kind of integral:
     kind = '(unset)'
