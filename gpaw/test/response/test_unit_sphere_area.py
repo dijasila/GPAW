@@ -3,7 +3,8 @@ from itertools import product
 import pytest
 import numpy as np
 
-from gpaw.response.integrators import TetrahedronIntegrator, Integrand
+from gpaw.response.integrators import (TetrahedronIntegrator, Integrand,
+                                       HilbertTetrahedron)
 from gpaw.response.frequencies import FrequencyGridDescriptor
 
 from gpaw.response import ResponseContext
@@ -28,6 +29,7 @@ def test_tetrahedron_integrator():
     domain = (x_gc,)
     out_wxx = np.zeros((1, 1, 1), complex)
     integrator.integrate(kind='spectral function',
+                         task=HilbertTetrahedron(),
                          domain=domain,
                          integrand=MyIntegrand(),
                          wd=FrequencyGridDescriptor([-1.0]),

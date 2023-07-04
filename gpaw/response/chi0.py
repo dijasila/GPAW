@@ -391,7 +391,6 @@ class Chi0Calculator:
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
 
-        task = None
         if kind == 'hermitian response function':
             task = Hermitian(integrator)
             extraargs = {}
@@ -403,6 +402,8 @@ class Chi0Calculator:
             extraargs = {}
         elif kind == 'response function':
             task = GenericUpdate(eta=self.eta, integrator=integrator)
+        else:
+            raise ValueError(kind)
 
         assert task.kind == kind
 
@@ -458,7 +459,6 @@ class Chi0Calculator:
         kind, extraargs = self.get_integral_kind()
         kind += ' wings'
 
-        task = None
         if kind == 'hermitian response function wings':
             task = HermitianOpticalLimit()
             extraargs = {}
@@ -475,8 +475,7 @@ class Chi0Calculator:
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
 
-        if task is not None:
-            assert kind == task.kind
+        assert kind == task.kind
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)

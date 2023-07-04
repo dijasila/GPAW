@@ -105,12 +105,16 @@ class PointIntegrator(Integrator):
                        hilbert=False,
                        wings=True)
         elif kind == 'spectral function':
+            assert task is not None
             dct = dict(hilbert=True)
         elif kind == 'spectral function wings':
+            assert task is not None
             dct = dict(hilbert=True, wings=True)
         elif kind == 'response function':
+            assert task is not None
             dct = dict(hilbert=False)
         elif kind == 'response function wings':
+            assert task is not None
             dct = dict(hilbert=False,
                        wings=True)
         else:
@@ -124,7 +128,7 @@ class PointIntegrator(Integrator):
                                       hermitian=False,
                                       hilbert=False,
                                       wings=False, eta=None,
-                                      task=None):
+                                      task):
         """Integrate a response function over bands and kpoints.
 
         func: method
@@ -137,26 +141,27 @@ class PointIntegrator(Integrator):
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
-        if task is not None:
+        #if task is not None:
             # Refactoring comments:
             # The "intraband" case is now covered via tasks
             #
             # # TODO eliminate whole if/else chain
-            pass
-        elif hermitian and not wings:
-            assert 0
-        elif hermitian and wings:
-            assert eta is None
-            task = HermitianOpticalLimit()
-        elif hilbert and not wings:
-            assert task is not None
-        elif hilbert and wings:
-            assert task is not None
-        elif wings:
-            task = OpticalLimit(eta=eta)
-        else:
+        #    pass
+        #elif hermitian and not wings:
+        #    assert 0
+        #elif hermitian and wings:
+            # assert eta is None
+            # task = HermitianOpticalLimit()
+        #elif hilbert and not wings:
+        #    assert task is not None
+        #elif hilbert and wings:
+        #    assert task is not None
+        #elif wings:
+        #    assert task is not None
+        #else:
+        #    assert task is not None
             # XXX self used for eshift and blocks1d
-            task = GenericUpdate(eta=eta, integrator=self)
+            # task = GenericUpdate(eta=eta, integrator=self)
 
         # Sum kpoints
         # Calculate integrations weight
@@ -417,7 +422,7 @@ class TetrahedronIntegrator(Integrator):
         return self.get_simplex_volume(td, S)
 
     @timer('Spectral function integration')
-    def integrate(self, *, kind, domain, integrand, wd, out_wxx, task=None):
+    def integrate(self, *, kind, domain, integrand, wd, out_wxx, task):
         """Integrate response function.
 
         Assume that the integral has the
@@ -425,10 +430,7 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        if task is None:
-            task = choose_tetrahedron_integral_kind(kind)
-        else:
-            assert type(task) == type(choose_tetrahedron_integral_kind(kind))
+        assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
