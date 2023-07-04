@@ -411,7 +411,7 @@ class Chi0Calculator:
         chi0_body.data_WgG[:] = chi0_body.blockdist.distribute_as(
             tmp_chi0_wGG, chi0_body.nw, 'WgG')
 
-    def initialize_integrator(self, block_distributed=True) -> Integrator:
+    def initialize_integrator(self) -> Integrator:
         """The integrator class is a general class for brillouin zone
         integration that can integrate user defined functions over user
         defined domains and sum over bands."""
@@ -422,8 +422,7 @@ class Chi0Calculator:
         kwargs = dict(
             cell_cv=self.gs.gd.cell_cv,
             context=self.context)
-        self.update_integrator_kwargs(kwargs,
-                                      block_distributed=block_distributed)
+        self.update_integrator_kwargs(kwargs)
 
         integrator = cls(**kwargs)
 
@@ -467,13 +466,10 @@ class Chi0Calculator:
                     'Please use find_high_symmetry_monkhorst_pack() from '
                     'gpaw.bztools to generate your k-point grid.')
 
-    def update_integrator_kwargs(self, kwargs, block_distributed=True):
-        # Update the energy shift
+    def update_integrator_kwargs(self, kwargs):
+        # For calculations of the chi0 body, we need the following
         kwargs['eshift'] = self.eshift
-
-        # Update nblocks
-        if block_distributed:
-            kwargs['nblocks'] = self.nblocks
+        kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
@@ -707,7 +703,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
-        integrator = self.initialize_integrator(block_distributed=False)
+        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
 
@@ -740,6 +736,10 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         # Fill in the head
         chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
+
+    def update_integrator_kwargs(self, kwargs):
+        """For the chi0 optical extension, the integrator needs an eshift."""
+        kwargs['eshift'] = self.eshift
 
 
 class Chi0(Chi0Calculator):
