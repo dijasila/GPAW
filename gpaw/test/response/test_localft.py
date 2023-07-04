@@ -17,7 +17,7 @@ from gpaw.atom.radialgd import AERadialGridDescriptor
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.localft import (LocalFTCalculator, MicroSetup,
-                                   add_total_density, add_LSDA_Bxc)
+                                   add_total_density, add_LSDA_Wxc)
 from gpaw.response.pair_functions import get_pw_coordinates
 from gpaw.test.response.test_site_kernels import get_pw_descriptor
 
@@ -219,7 +219,7 @@ def test_localft_paw_engine(a):
 def test_Fe_bxc(gpw_files):
     """Test the symmetry relation
 
-    (B^xc_G)^* = B^xc_-G
+    W_xc^z(G)^* = W_xc^z(-G)
 
     for a real life system with d-electrons (bcc-Fe)."""
     # ---------- Inputs ---------- #
@@ -241,12 +241,12 @@ def test_Fe_bxc(gpw_files):
                             ecut=ecut,
                             gammacentered=True)
 
-    Bxc_G = localft_calc(pd0, add_LSDA_Bxc)
+    Wxc_G = localft_calc(pd0, add_LSDA_Wxc)
 
     # Part 3: Check symmetry relation
     G1_G, G2_G = get_inversion_pairs(pd0)
 
-    assert np.allclose(np.conj(Bxc_G[G1_G]), Bxc_G[G2_G])
+    assert np.allclose(np.conj(Wxc_G[G1_G]), Wxc_G[G2_G])
 
 
 # ---------- Test functionality ---------- #

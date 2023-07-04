@@ -39,6 +39,7 @@ def initialize_system():
                 mode='lcao',
                 convergence={'density': 1e-12},
                 communicator=comm,
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

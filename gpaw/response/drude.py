@@ -96,7 +96,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
             / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
 
-    def update_integrator_kwargs(self, *unused, **ignored):
+    def update_integrator_kwargs(self, *unused):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
 
@@ -119,8 +119,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)
 
+        p()
         p('%s' % ctime())
-        p('Called chi0_drude.calculate() with:')
+        p('Calculating drude chi0 with:')
         p('    Number of frequency points: %d' % len(wd))
         p('    Plasma frequency decay rate: %f eV' % rate)
         p()
