@@ -120,12 +120,13 @@ class DistributedArrays(Generic[DomainType]):
     def matrix_elements(self,
                         other,
                         *,
-                        out: Matrix = None,
-                        symmetric: bool = None,
+                        out: Matrix | None = None,
+                        symmetric: bool | str = '_default',
                         function=None,
                         domain_sum=True,
                         cc: bool = False) -> Matrix:
-        if symmetric is None:
+        if isinstance(symmetric, str):
+            assert symmetric == '_default'
             symmetric = self is other
         if function:
             other = function(other)

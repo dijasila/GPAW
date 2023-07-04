@@ -130,8 +130,7 @@ class Davidson(Eigensolver):
         band_comm = psit_nX.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
 
-        M0_nn = M_nn
-        assert band_comm.size == 1
+        M0_nn = M_nn.new(dist=(band_comm, 1, 1))
 
         if domain_comm.rank == 0:
             eig_N[:B] = xp.asarray(wfs.eig_n)
