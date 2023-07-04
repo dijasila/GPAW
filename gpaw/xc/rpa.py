@@ -99,7 +99,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.coulomb = CoulombKernel(truncation, gs)
+        self.coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
@@ -291,7 +291,7 @@ class RPACalculator:
                         m1, m2, gcut):
         chi0 = chi0_s[0]
         chi0calc.update_chi0(chi0,
-                             m1, m2, spins='all')
+                             m1, m2, spins=chi0calc.get_spins())
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
