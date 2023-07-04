@@ -40,7 +40,7 @@ class CoulombKernel:
             truncation=self.truncation, reduced=reduced)
 
 
-def get_coulomb_kernel(qpd, N_c,  q_v=None, truncation=None, *, pbc_c):
+def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
