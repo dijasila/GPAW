@@ -475,12 +475,3 @@ def get_indices(dimens, dtype):
         il1 = np.tril_indices(dimens, -1)
 
     return il1
-
-
-def get_random_um(dim, dtype):
-
-    a = 0.01 * np.random.rand(dim, dim)
-    if dtype is complex:
-        a = a + 1.0j * 0.01 * np.random.rand(dim, dim)
-    a = a - a.T.conj()
-    return expm_ed(a)
