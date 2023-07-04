@@ -18,7 +18,7 @@ class DielectricFunctionCalculator:
         if chi0.optical_limit and wblocks1d.nlocal:
             self.gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
-                kd=coulomb._gs.kd, qpd=self.qpd,
+                kd=coulomb.kd, qpd=self.qpd,
                 chi0_wvv=chi0.chi0_Wvv[wblocks1d.myslice],
                 chi0_wxvG=chi0.chi0_WxvG[wblocks1d.myslice])
         else:
