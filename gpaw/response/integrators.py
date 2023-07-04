@@ -94,6 +94,7 @@ class PointIntegrator(Integrator):
 
     def integrate(self, *, kind, task, wd, **kwargs):
         self.context.print('Integral kind:', kind)
+        assert kind == task.kind or task.kind == 'intraband', (kind, task.kind)
         if kind == 'hermitian response function':
             assert task is not None
             dct = dict(hermitian=True,
@@ -140,28 +141,6 @@ class PointIntegrator(Integrator):
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
-
-        #if task is not None:
-            # Refactoring comments:
-            # The "intraband" case is now covered via tasks
-            #
-            # # TODO eliminate whole if/else chain
-        #    pass
-        #elif hermitian and not wings:
-        #    assert 0
-        #elif hermitian and wings:
-            # assert eta is None
-            # task = HermitianOpticalLimit()
-        #elif hilbert and not wings:
-        #    assert task is not None
-        #elif hilbert and wings:
-        #    assert task is not None
-        #elif wings:
-        #    assert task is not None
-        #else:
-        #    assert task is not None
-            # XXX self used for eshift and blocks1d
-            # task = GenericUpdate(eta=eta, integrator=self)
 
         # Sum kpoints
         # Calculate integrations weight
@@ -430,6 +409,7 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
+        assert kind == task.kind, (kind, task.kind)
         assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
         blocks1d = self._blocks1d(out_wxx.shape[2])
