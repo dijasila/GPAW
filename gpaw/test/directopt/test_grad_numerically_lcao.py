@@ -14,7 +14,6 @@ def test_gradient_numerically_lcao(in_tmp_dir):
     :return:
     """
 
-    # Water molecule:
     atoms = Atoms('H3', positions=[(0, 0, 0),
                                    (0.59, 0, 0),
                                    (1.1, 0, 0)])

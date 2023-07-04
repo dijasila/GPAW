@@ -194,7 +194,7 @@ def loewdin_lcao(C_nM, S_MM):
 
 def gramschmidt_lcao(C_nM, S_MM):
     """
-    Gram-Schmidt orthonormalization using cholesky decomposition
+    Gram-Schmidt orthonormalization using Cholesky decomposition
     for LCAO mode
 
     :param C_nM: LCAO coefficients
