@@ -74,8 +74,8 @@ def test_assertions(in_tmp_dir, gpw_files):
     """
 
     gpw_file = gpw_files['mos2_pw_wfs']
-    with pytest.raises(AssertionError):        
-        phi_c = get_polarization_phase(str(gpw_file))
+    with pytest.raises(AssertionError):
+        get_polarization_phase(str(gpw_file))
 
     calc = GPAW(gpw_file,
                 communicator=mpi.serial_comm)

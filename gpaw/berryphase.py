@@ -80,7 +80,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         # XXX This is unnessecary cumbersome.
         # Will be simplified when we switch to
         # using projection object in all functions
-        P_ani=[]
+        P_ani = []
         for ia in range(len(kpt.P_ani)):
             P_ni = kpt.P_ani[ia][:nocc]
             P_ani.append(P_ni)
