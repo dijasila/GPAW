@@ -150,13 +150,8 @@ class PointIntegrator(Integrator):
             task = HermitianOpticalLimit()
         elif hilbert and not wings:
             assert task is not None
-            assert eta is None
-            # XXX self used for eshift and blocks1d
-            task = Hilbert(integrator=self)
         elif hilbert and wings:
-            # assert task is not None
-            assert eta is None
-            task = HilbertOpticalLimit()
+            assert task is not None
         elif wings:
             task = OpticalLimit(eta=eta)
         else:
@@ -196,6 +191,8 @@ class PointIntegrator(Integrator):
 
 
 class GenericUpdate:
+    kind = 'response function'
+
     def __init__(self, eta, integrator):
         self.eta = eta
         self.integrator = integrator
@@ -246,6 +243,8 @@ class Hermitian:
 
 
 class Hilbert:
+    kind = 'spectral function'
+
     def __init__(self, integrator):
         self.integrator = integrator
         self.eshift = integrator.eshift
@@ -330,6 +329,8 @@ class Intraband:
 
 
 class OpticalLimit:
+    kind = 'response function wings'
+
     def __init__(self, eta):
         self.eta = eta
 
@@ -358,6 +359,8 @@ class HermitianOpticalLimit:
 
 
 class HilbertOpticalLimit:
+    kind = 'spectral function wings'
+
     # @timer('CHI_0 optical limit hilbert-update')
     def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
@@ -540,6 +543,7 @@ class TetrahedronIntegrator(Integrator):
 
 
 class HilbertTetrahedron:
+    kind = 'spectral function'
     wings = False
 
     def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
@@ -561,6 +565,7 @@ class HilbertTetrahedron:
 
 
 class HilbertOpticalLimitTetrahedron:
+    kind = 'spectral function wings'
     wings = True
 
     def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):

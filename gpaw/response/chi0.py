@@ -383,7 +383,7 @@ class Chi0Calculator:
         """In-place calculation of the body."""
 
         from gpaw.response.integrators import (
-            Hermitian, Hilbert, HilbertTetrahedron)
+            Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
 
         qpd = chi0_body.qpd
 
@@ -401,6 +401,10 @@ class Chi0Calculator:
             else:
                 task = HilbertTetrahedron()
             extraargs = {}
+        elif kind == 'response function':
+            task = GenericUpdate(eta=self.eta, integrator=integrator)
+
+        assert task.kind == kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
@@ -443,7 +447,9 @@ class Chi0Calculator:
             m1, m2, spins):
         """In-place calculation of the optical limit wings."""
         from gpaw.response.integrators import (
-            HermitianOpticalLimit, HilbertOpticalLimit)
+            HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
+            HilbertOpticalLimitTetrahedron)
+
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
@@ -457,15 +463,20 @@ class Chi0Calculator:
             task = HermitianOpticalLimit()
             extraargs = {}
         elif kind == 'spectral function wings':
-            task = HilbertOpticalLimit()
-            # extraargs = {}
-            pass
+            if isinstance(integrator, PointIntegrator):
+                task = HilbertOpticalLimit()
+            else:
+                task = HilbertOpticalLimitTetrahedron()
+            extraargs = {}
+        elif kind == 'response function wings':
+            task = OpticalLimit(eta=self.eta)
+            extraargs = {}
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
 
         if task is not None:
-            kind = task.kind
+            assert kind == task.kind
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
