@@ -6,6 +6,7 @@ from ase.units import Ha
 
 from gpaw.pw.descriptor import PWMapping
 
+from gpaw.response import descriptors
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.frequencies import (FrequencyDescriptor,
@@ -29,37 +30,6 @@ class Chi0RelatedData:
         # Basis set size
         self.nG = qpd.ngmax
         self.nw = len(wd)
-
-
-def make_wd(frequencies):
-    # Construct wd
-    if isinstance(frequencies, FrequencyDescriptor):
-        wd = frequencies
-    else:
-        wd = frequencies.from_array_or_dict(frequencies)
-    return wd
-
-
-def make_qpd(plane_waves):
-    # Construct qpd
-    if isinstance(plane_waves, SingleQPWDescriptor):
-        qpd = plane_waves
-    else:
-        assert isinstance(plane_waves, tuple)
-        assert len(plane_waves) == 3
-        qpd = SingleQPWDescriptor.from_q(*plane_waves)
-    return qpd
-
-
-def make_blockdist(parallelization):
-    # Construct blockdist
-    if isinstance(parallelization, PlaneWaveBlockDistributor):
-        blockdist = parallelization
-    else:
-        assert isinstance(parallelization, tuple)
-        assert len(parallelization) == 3
-        blockdist = PlaneWaveBlockDistributor(*parallelization)
-    return blockdist
 
 
 class Chi0BodyData(Chi0RelatedData):
@@ -218,9 +188,9 @@ class Chi0Data(Chi0RelatedData):
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Construct the container with descriptors created on the fly."""
-        wd = make_wd(frequencies)
-        qpd = make_qpd(plane_waves)
-        blockdist = make_blockdist(parallelization)
+        wd = descriptors.as_wd(frequencies)
+        qpd = descriptors.as_qpd(plane_waves)
+        blockdist = descriptors.as_blockdist(parallelization)
 
         # Create data objects
         chi0_body = Chi0BodyData(wd, qpd, blockdist)
