@@ -99,7 +99,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.coulomb = CoulombKernel(truncation, gs)
+        self.coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
