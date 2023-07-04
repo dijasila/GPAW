@@ -101,7 +101,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
                              task=task,
                              domain=domain,  # Integration domain
                              integrand=integrand,
-                             x=wd,
+                             wd=wd,
                              out_wxx=tmp_plasmafreq_wvv)  # Output array
         tmp_plasmafreq_wvv *= prefactor
 

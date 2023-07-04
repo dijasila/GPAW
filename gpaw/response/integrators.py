@@ -92,7 +92,7 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, task=None, x, **kwargs):
+    def integrate(self, *, kind, task=None, wd, **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'hermitian response function':
             dct = dict(hermitian=True,
@@ -115,10 +115,10 @@ class PointIntegrator(Integrator):
             raise ValueError(kind)
 
         dct.update(kwargs)
-        return self.response_function_integration(task=task, x=x, **dct)
+        return self.response_function_integration(task=task, wd=wd, **dct)
 
     def response_function_integration(self, *, domain, integrand,
-                                      x=None, out_wxx,
+                                      wd, out_wxx,
                                       hermitian=False,
                                       hilbert=False,
                                       wings=False, eta=None,
@@ -161,7 +161,6 @@ class PointIntegrator(Integrator):
             # XXX self used for eshift and blocks1d
             task = GenericUpdate(eta=eta, integrator=self)
 
-
         # Sum kpoints
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
@@ -171,7 +170,7 @@ class PointIntegrator(Integrator):
                 continue
             deps_M = integrand.eigenvalues(*arguments)
 
-            task.run(x, n_MG, deps_M, out_wxx)
+            task.run(wd, n_MG, deps_M, out_wxx)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -407,7 +406,7 @@ class TetrahedronIntegrator(Integrator):
         return self.get_simplex_volume(td, S)
 
     @timer('Spectral function integration')
-    def integrate(self, *, kind, domain, integrand, x, out_wxx, task=None):
+    def integrate(self, *, kind, domain, integrand, wd, out_wxx, task=None):
         """Integrate response function.
 
         Assume that the integral has the
@@ -420,7 +419,6 @@ class TetrahedronIntegrator(Integrator):
         else:
             assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
-        wd = x  # XXX Rename.  But it clashes with some other methods
         # that are **kwargs'ed somewhere, so requires attention.
         blocks1d = self._blocks1d(out_wxx.shape[2])
 

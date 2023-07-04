@@ -30,7 +30,7 @@ def test_tetrahedron_integrator():
     integrator.integrate(kind='spectral function',
                          domain=domain,
                          integrand=MyIntegrand(),
-                         x=FrequencyGridDescriptor([-1.0]),
+                         wd=FrequencyGridDescriptor([-1.0]),
                          out_wxx=out_wxx)
 
     assert abs(out_wxx[0, 0, 0] - 4 * np.pi) < 1e-2

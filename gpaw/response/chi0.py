@@ -400,7 +400,7 @@ class Chi0Calculator:
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=integrand,
-                             x=self.wd,  # Frequency Descriptor
+                             wd=self.wd,  # Frequency Descriptor
                              out_wxx=out_WgG,  # Output array
                              **extraargs)
         if self.hilbert:
@@ -446,7 +446,7 @@ class Chi0Calculator:
         integrator.integrate(kind=kind + ' wings',  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=integrand,
-                             x=self.wd,  # Frequency Descriptor
+                             wd=self.wd,  # Frequency Descriptor
                              out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)
         if self.hilbert:
