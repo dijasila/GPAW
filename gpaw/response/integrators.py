@@ -97,27 +97,22 @@ class PointIntegrator(Integrator):
         assert kind == task.kind or task.kind == 'intraband', (kind, task.kind)
         if kind == 'hermitian response function':
             assert task is not None
-            dct = dict(hermitian=True,
-                       hilbert=False,
-                       wings=False)
+            #dct = dict(hilbert=False)
         elif kind == 'hermitian response function wings':
             assert task is not None
-            dct = dict(hermitian=True,
-                       hilbert=False,
-                       wings=True)
+            #dct = dict(hilbert=False)
         elif kind == 'spectral function':
             assert task is not None
-            dct = dict(hilbert=True)
+            #dct = dict(hilbert=True)
         elif kind == 'spectral function wings':
             assert task is not None
-            dct = dict(hilbert=True, wings=True)
+            #dct = dict(hilbert=True)
         elif kind == 'response function':
             assert task is not None
-            dct = dict(hilbert=False)
+            #dct = dict(hilbert=False)
         elif kind == 'response function wings':
             assert task is not None
-            dct = dict(hilbert=False,
-                       wings=True)
+            #dct = dict(hilbert=False)
         else:
             raise ValueError(kind)
 
@@ -126,9 +121,6 @@ class PointIntegrator(Integrator):
 
     def response_function_integration(self, *, domain, integrand,
                                       wd, out_wxx,
-                                      hermitian=False,
-                                      hilbert=False,
-                                      wings=False,
                                       eta=None,
                                       task):
         """Integrate a response function over bands and kpoints.
@@ -160,15 +152,15 @@ class PointIntegrator(Integrator):
         # There could also be similar errors elsewhere... XXX
         self.kncomm.sum(out_wxx)
 
-        symmetrizable = (hermitian or hilbert) and not wings
-        assert symmetrizable == task.symmetrizable_unless_blocked or task.kind == 'intraband', task
-
-        if self.blockcomm.size == 1 and symmetrizable:
+        if self.blockcomm.size == 1 and task.symmetrizable_unless_blocked:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
             iu = il[::-1]
-            if hilbert:
+
+            if isinstance(task, Hilbert):
+                # XXX special hack since one of them wants the other
+                # triangle.
                 for out_xx in out_wxx:
                     out_xx[il] = out_xx[iu].conj()
             else:
@@ -187,6 +179,11 @@ class IntegralKind(ABC):
     # Some integrals kinds like to calculate upper or lower half of the output
     # when nblocks==1.  In that case, this boolean signifies to the
     # integrator that the output array should be symmetrized.
+    #
+    # Actually: We don't gain anything much by doing this boolean
+    # more systematically, since it's just Hermitian and Hilbert that need
+    # it, and then one of the Tetrahedron types which is not compatible
+    # anyway.  We should probably not do this.
     symmetrizable_unless_blocked = False
 
     @abstractmethod
