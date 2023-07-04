@@ -92,7 +92,7 @@ def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
         assert q_v is None
 
     # The non-periodic direction is determined from pbc_c
-    Nn_c = np.where(np.logical_not(pbc_c))[0]
+    Nn_c = np.where(~pbc_c)[0]
     Np_c = np.where(pbc_c)[0]
     assert len(Nn_c) == 1
     assert len(Np_c) == 2
@@ -121,12 +121,12 @@ def get_integrated_kernel(qpd, N_c, truncation=None,
     Nf_c = np.array([N, N, N])
     if reduced:
         # Only integrate periodic directions if truncation is used
-        Nf_c[np.where(np.logical_not(pbc_c))[0]] = 1
+        Nf_c[np.where(~pbc_c)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c
     q_qc += qpd.q_c
     q_qv = np.dot(q_qc, B_cv)
 
-    Nn_c = np.where(np.logical_not(pbc_c))[0]
+    Nn_c = np.where(~pbc_c)[0]
     Np_c = np.where(pbc_c)[0]
     assert len(Nn_c) + len(Np_c) == 3
 
