@@ -773,46 +773,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         # Fill in the head
         chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
-        return
-
-# ----------------------------------------------------------
-        
-        chi0_opt_ext = chi0_optical_extension
-        qpd = chi0_opt_ext.qpd
-
-        integrator = self.initialize_integrator()
-        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        kind, extraargs = self.get_integral_kind()
-
-        integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=True, m1=m1, m2=m2)
-
-        # We integrate the head and wings together, using the combined index P
-        # index v = (x, y, z)
-        # index G = (G0, G1, G2, ...)
-        # index P = (x, y, z, G1, G2, ...)
-        WxvP_shape = list(chi0_opt_ext.WxvG_shape)
-        WxvP_shape[-1] += 2
-        tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(kind=kind + ' wings',  # Kind of integral
-                             domain=domain,  # Integration domain
-                             integrand=integrand,
-                             x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_WxvP,  # Output array
-                             **extraargs)
-        if self.hilbert:
-            with self.context.timer('Hilbert transform'):
-                ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
-                                      timeordered=self.timeordered)
-                ht(tmp_chi0_WxvP)
-        tmp_chi0_WxvP *= prefactor
-
-        # Fill in wings part of the data, but leave out the head part (G0)
-        chi0_opt_ext.wings_WxvG[..., 1:] += tmp_chi0_WxvP[..., 3:]
-        analyzer.symmetrize_wxvG(chi0_opt_ext.wings_WxvG)
-        # Fill in the head
-        chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
-        analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
 
     def update_integrator_kwargs(self, kwargs):
         """For the chi0 optical extension, the integrator needs an eshift."""
