@@ -672,9 +672,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-
-        To do:
-        * info string
         """
         # Create data object
         if qpd is None:
