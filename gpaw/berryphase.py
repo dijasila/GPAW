@@ -298,7 +298,20 @@ def parallel_transport(calc,
                        bands=None,
                        theta=0.0,
                        phi=0.0):
-
+    """
+    Parallel transport.
+    The parallel transport algorithm corresponds to the construction
+    of hybrid Wannier functions localized along the Nloc direction.
+    While these are not constructed explicitly one may obtain the
+    Wannier Charge centers which are given by the eigenvalues of
+    the Berry phase matrix (except for a factor of 2*pi) phi_km.
+    In addition, one may evaluate the expectation value of spin
+    on each of these states along the easy axis (z-axis for
+    nonmagnetic systems), which is given by S_km.
+    
+    Output:
+    phi_km, S_km (see above)
+    """
     if isinstance(calc, str):
         calc = GPAW(calc, txt=None, communicator=serial_comm)
 
