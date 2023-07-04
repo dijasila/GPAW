@@ -107,7 +107,8 @@ def calculate_2D_truncated_coulomb(qpd, pbc_c=None, q_v=None):
     return v_G.astype(complex)
 
 
-def get_integrated_kernel(qpd, N_c, pbc_c=None, truncation=None, N=100, reduced=False):
+def get_integrated_kernel(qpd, N_c, pbc_c=None, truncation=None,
+                          N=100, reduced=False):
     from scipy.special import j1, k0, j0, k1
     assert pbc_c is not None
     B_cv = 2 * np.pi * qpd.gd.icell_cv
