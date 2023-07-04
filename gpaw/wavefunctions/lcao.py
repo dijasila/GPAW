@@ -2,7 +2,6 @@ import numpy as np
 from ase.units import Bohr
 from ase.utils.timing import timer
 from gpaw.directmin.tools import loewdin_lcao, gramschmidt_lcao
-
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
@@ -55,15 +54,20 @@ def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
     # should have reinitialized from LCAO anyway.
     phase_qa = np.exp(2j * np.pi *
                       np.dot(ibzk_qc, (spos_ac - oldspos_ac).T.round()))
-
+    P_kM = []
     for q, C_nM in zip(q_u, C_unM):
         if C_nM is None:
             continue
+        P_M = np.zeros_like(C_nM[0, :])
+        P_kM.append(P_M)
         for a in range(len(spos_ac)):
             M1 = setups.M_a[a] - Mstart
             M2 = M1 + setups[a].nao
             M1 = max(0, M1)
-            C_nM[:, M1:M2] *= phase_qa[q, a]  # (may truncate M2)
+            # FIXME
+            # C_nM[:, M1:M2] *= phase_qa[q, a]  # (may truncate M2)
+            P_M[M1:M2] = phase_qa[q, a]  # (may truncate M2)
+    return P_kM
 
 
 # replace by class to make data structure perhaps a bit less confusing
@@ -102,6 +106,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.T_qMM = None
         self.P_aqMi = None
         self.debug_tci = False
+        self.Ehrenfest_flag = False
+        self.Ehrenfest_force_flag = False
+        self.S_flag = False
 
         if atomic_correction is None:
             atomic_correction = 'sparse' if ksl.using_blacs else 'dense'
@@ -200,10 +207,10 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_qMM = self.T_qMM = self.P_aqMi = None
 
         if self.dtype == complex and oldspos_ac is not None:
-            update_phases([kpt.C_nM for kpt in self.kpt_u],
-                          [kpt.q for kpt in self.kpt_u],
-                          self.kd.ibzk_qc, spos_ac, oldspos_ac,
-                          self.setups, Mstart)
+            self.P_kM = update_phases([kpt.C_nM for kpt in self.kpt_u],
+                                      [kpt.q for kpt in self.kpt_u],
+                                      self.kd.ibzk_qc, spos_ac, oldspos_ac,
+                                      self.setups, Mstart)
 
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
@@ -391,15 +398,22 @@ class LCAOWaveFunctions(WaveFunctions):
         self.timer.start('LCAO forces')
 
         Fref_av = np.zeros_like(F_av)
-        self.forcecalc = LCAOforces(self.ksl, self.dtype, self.gd,
+        self.forcecalc = LCAOForces(self.ksl, self.dtype, self.gd,
                                     self.bd, self.kd, self.kpt_u, self.nspins,
                                     self.basis_functions, self.newtci,
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
-                                    self, self.spos_ac,
-                                    self.timer, Fref_av)
+                                    self.spos_ac, self.timer,
+                                    Fref_av, self.Ehrenfest_force_flag,
+                                    self.S_flag, self.Ehrenfest_flag,
+                                    self.eigensolver, self.get_H_MM)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
+        # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
+        # if self.Ehrenfest_force_flag is True:
+        #    FEhrenfest_av = self.forcecalc.get_Ehrenfest_force_contribution()
+        #    F_av[:, :] += FEhrenfest_av[:, :]
+        
         self.timer.stop('LCAO forces')
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
@@ -465,14 +479,30 @@ class LCAOWaveFunctions(WaveFunctions):
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)
 
+    def _get_overlap_derivatives(self, ignore_upper=False):
+        dThetadR_qvMM, dTdR_qvMM = self.manytci.O_qMM_T_qMM(
+            self.gd.comm, self.ksl.Mstart, self.ksl.Mstop,
+            ignore_upper, derivative=True)
+        return dThetadR_qvMM, dTdR_qvMM
 
-class LCAOforces:
+    def get_H_MM(self, hamiltonian, kpt):
+        H_MM = self.eigensolver.calculate_hamiltonian_matrix(
+            hamiltonian, self, kpt)
+        return H_MM
+
+
+class LCAOForces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
-                 P_aqMi, setups, manytci, hamiltonian, wfs, spos_ac,
-                 timer, Fref_av):
+                 P_aqMi, setups, manytci, hamiltonian, spos_ac,
+                 timer, Fref_av, Ehrenfest_force_flag, S_flag, Ehrenfest_flag,
+                 eigensolver, get_H_MM):
         """ Object which calculates LCAO forces """
-
+        self.eigensolver = eigensolver
+        self.get_H_MM = get_H_MM
+        self.Ehrenfest_flag = Ehrenfest_flag
+        self.Ehrenfest_force_flag = Ehrenfest_force_flag
+        self.S_flag = S_flag
         self.ksl = ksl
         self.nao = ksl.nao
         self.mynao = ksl.mynao
@@ -491,7 +521,6 @@ class LCAOforces:
         self.Mstop = ksl.Mstop
         self.setups = setups
         self.hamiltonian = hamiltonian
-        self.wfs = wfs
         self.timer = timer
         self.Fref_av = Fref_av
         self.my_atom_indices = bfs.my_atom_indices
@@ -511,10 +540,26 @@ class LCAOforces:
             self.gd.comm.sum(self.dThetadR_qvMM)
             self.gd.comm.sum(self.dTdR_qvMM)
             self.timer.stop('TCI derivative')
-            self.rhoT_uMM, self.ET_uMM = self.get_den_mat_and_E()
+
+            self.timer.start('Initial')
+            if ((self.kpt_u[0].rho_MM is None) and
+                (self.Ehrenfest_flag is False)):
+                self.rhoT_uMM, self.ET_uMM = \
+                    self.get_ET_rhoT_from_coefficients()
+            else:
+                self.rhoT_uMM, self.ET_uMM = \
+                    self.get_ET_rhoT_from_density_matrix()
+            self.timer.stop('Initial')
+
+    def get_Ehrenfest_force_contribution(self):
+        # Calculate LCAO PAW Ehrenfest force contribution (eq. 4.81)
+        # TO DO
+        pass
 
     def get_forces_sum_GS(self):
+
         """ This function calculates ground state forces in LCAO mode """
+
         if not self.isblacs:
             F_av = np.zeros_like(self.Fref_av)
             Fkin_av = self.get_kinetic_term()
@@ -523,6 +568,7 @@ class LCAOforces:
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
+
         else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
@@ -552,58 +598,75 @@ class LCAOforces:
     def my_slices(self):
         return self._slices(self.my_atom_indices)
 
-    def get_den_mat_and_E(self):
+    def get_ET_rhoT_from_coefficients(self):
         #
-        #         -----                    -----
-        #          \    -1                  \    *
-        # E      =  )  S     H    rho     =  )  c     eps  f  c
-        #  mu nu   /    mu x  x z    z nu   /    n mu    n  n  n nu
-        #         -----                    -----
-        #          x z                       n
+        #          -----
+        #           \    *
+        # E      =   )  c     eps  f  c
+        #  mu nu    /    n mu    n  n  n nu
+        #          -----
+        #            n
         #
-        # We use the transpose of that matrix.  The first form is used
-        # if rho is given, otherwise the coefficients are used.
-        self.timer.start('Initial')
-        if self.kpt_u[0].rho_MM is None:
-            rhoT_uMM = []
-            ET_uMM = []
-            self.timer.start('Get density matrix')
-            for kpt in self.kpt_u:
-                rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
-                                                                 kpt.C_nM)
-                rhoT_uMM.append(rhoT_MM)
-                ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
-                                                               kpt.eps_n,
-                                                               kpt.C_nM)
-                ET_uMM.append(ET_MM)
-                if hasattr(kpt, 'c_on'):
-                    # XXX does this work with BLACS/non-BLACS/etc.?
-                    assert self.bd.comm.size == 1
-                    d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
-                                    dtype=kpt.C_nM.dtype)
-                    for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                        d_nn += ne * np.outer(c_n.conj(), c_n)
-                    rhoT_MM += self.ksl.get_transposed_density_matrix_delta(
-                        d_nn, kpt.C_nM)
-                    ET_MM += self.ksl.get_transposed_density_matrix_delta(
-                        d_nn * kpt.eps_n, kpt.C_nM)
-            self.timer.stop('Get density matrix')
-        else:
-            rhoT_uMM = []
-            ET_uMM = []
-            for kpt in self.kpt_u:
-                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                    self.hamiltonian, self.wfs, kpt)
-                tri2full(H_MM)
-                S_MM = kpt.S_MM.copy()
-                tri2full(S_MM)
-                ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM,
-                                                      kpt.rho_MM)).T.copy()
-                del S_MM, H_MM
-                rhoT_MM = kpt.rho_MM.T.copy()
-                rhoT_uMM.append(rhoT_MM)
-                ET_uMM.append(ET_MM)
-        self.timer.stop('Initial')
+        # We use the transpose of that matrix. In this case
+        # the coefficients are used to calculate ET_MM
+        rhoT_uMM = []
+        ET_uMM = []
+        self.timer.start('Get density matrix')
+        for kpt in self.kpt_u:
+            rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                             kpt.C_nM)
+            rhoT_uMM.append(rhoT_MM)
+            ET_MM = self.ksl.get_transposed_density_matrix(kpt.f_n *
+                                                           kpt.eps_n,
+                                                           kpt.C_nM)
+            ET_uMM.append(ET_MM)
+            if hasattr(kpt, 'c_on'):
+                # XXX does this work with BLACS/non-BLACS/etc.?
+                assert self.bd.comm.size == 1
+                d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
+                                dtype=kpt.C_nM.dtype)
+                for ne, c_n in zip(kpt.ne_o, kpt.c_on):
+                    d_nn += ne * np.outer(c_n.conj(), c_n)
+                rhoT_MM += self.ksl.get_transposed_density_matrix_delta(
+                    d_nn, kpt.C_nM)
+                ET_MM += self.ksl.get_transposed_density_matrix_delta(
+                    d_nn * kpt.eps_n, kpt.C_nM)
+        self.timer.stop('Get density matrix')
+
+        return rhoT_uMM, ET_uMM
+
+    def get_ET_rhoT_from_density_matrix(self):
+        #
+        #         -----
+        #          \    -1
+        # E      =  )  S     H    rho
+        #  mu nu   /    mu x  x z    z nu
+        #         -----
+        #          x z
+        #
+        # We use the transpose of that matrix. This form is used
+        # if rho is given, or Ehrenfest dynaics is used. In this case
+        # we have to use S^-1 and calculate rho again from time
+        # dependent LCAO coeficients C_nM
+        rhoT_uMM = []
+        ET_uMM = []
+        self.timer.start('CALCULATE E_uMM=S^(-1)*H*rho')
+        for kpt in self.kpt_u:
+            H_MM = self.get_H_MM(self.hamiltonian, kpt)
+            tri2full(H_MM)
+            S_MM = kpt.S_MM.copy()
+            tri2full(S_MM)
+            # S_inv_MM = inv(S_MM)
+            rhoT_MM = self.ksl.get_transposed_density_matrix(kpt.f_n,
+                                                             kpt.C_nM)
+            ET_MM = np.linalg.solve(S_MM.conj(), gemmdot(H_MM.conj(),
+                                                         rhoT_MM)).copy()
+            # ET_MM = (S_inv_MM.conj() @ H_MM.conj() @ rhoT_MM).copy()
+            del S_MM, H_MM
+            rhoT_uMM.append(rhoT_MM)
+            ET_uMM.append(ET_MM)
+        self.timer.stop('CALCULATE E_uMM=S^(-1)*H*rho')
+
         return rhoT_uMM, ET_uMM
 
     def get_kinetic_term(self):
@@ -758,9 +821,9 @@ class LCAOforces:
 
     def get_paw_correction(self):
         # THIS doesn't work in parallel
-        #  <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
+        # <Phi_nu|pt_i>O_ii<dPt_i/dR|Phi_mu>
         self.timer.start('get paw correction')
-        ZE_MM = np.zeros((len(self.kpt_u), len(self.my_atom_indices), 3,
+        ZE_MM = np.zeros((len(self.my_atom_indices), len(self.kpt_u), 3,
                           self.mynao, self.nao), self.dtype)
         for u, kpt in enumerate(self.kpt_u):
             work_MM = np.zeros((self.mynao, self.nao), self.dtype)
@@ -775,7 +838,7 @@ class LCAOforces:
                         'N',
                         dOP_iM, 'N',
                         0.0, work_MM)
-                    ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
+                    ZE_MM[b, u, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
 
