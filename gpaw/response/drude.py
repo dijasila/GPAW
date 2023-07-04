@@ -119,8 +119,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)
 
+        p()
         p('%s' % ctime())
-        p('Called chi0_drude.calculate() with:')
+        p('Calculating drude chi0 with:')
         p('    Number of frequency points: %d' % len(wd))
         p('    Plasma frequency decay rate: %f eV' % rate)
         p()

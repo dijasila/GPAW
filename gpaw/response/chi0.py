@@ -309,7 +309,8 @@ class Chi0Calculator:
             chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd=qpd, spin=spin)
         else:
             chi0_opt_ext = None
-        print(q_c, qpd.optical_limit, chi0_opt_ext)
+
+        self.context.print('\nFinished calculating chi0\n')
 
         return Chi0Data(chi0_body, chi0_opt_ext)
 
@@ -562,10 +563,6 @@ class Chi0Calculator:
 
         q_c = qpd.q_c
         nw = len(self.wd)
-        ecut = self.ecut * Ha
-        nbands = self.nbands
-        ngmax = qpd.ngmax
-        eta = self.eta * Ha
         csize = comm.size
         knsize = self.kncomm.size
         bsize = self.blockcomm.size
@@ -573,24 +570,21 @@ class Chi0Calculator:
 
         p = partial(self.context.print, flush=False)
 
+        p()
         p('%s' % ctime())
-        p('Called response.chi0.calculate with:')
+        p('Calculating chi0 body with:')
         p(self.get_gs_info_string(tab='    '))
         p()
         p('    Linear response parametrization:')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p('    Number of frequency points: %d' % nw)
+        p(self.get_response_info_string(qpd, tab='    '))
+        p('    comm.size: %d' % csize)
+        p('    kncomm.size: %d' % knsize)
+        p('    blockcomm.size: %d' % bsize)
         if bsize > nw:
             p('WARNING! Your nblocks is larger than number of frequency'
               ' points. Errors might occur, if your submodule does'
               ' not know how to handle this.')
-        p('    Planewave cutoff: %f' % ecut)
-        p('    Number of bands: %d' % nbands)
-        p('    Number of planewaves: %d' % ngmax)
-        p('    Broadening (eta): %f' % eta)
-        p('    comm.size: %d' % csize)
-        p('    kncomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
         p()
         p('    Memory estimate of potentially large arrays:')
         p('        chi0_wGG: %f M / cpu' % chisize)
@@ -622,6 +616,22 @@ class Chi0Calculator:
         gs_str += nls + 'Occupied states memory: %f M / cpu' % occsize
 
         return gs_str
+
+    def get_response_info_string(self, qpd, tab=''):
+        nw = len(self.wd)
+        ecut = self.ecut * Ha
+        nbands = self.nbands
+        ngmax = qpd.ngmax
+        eta = self.eta * Ha
+
+        nls = '\n' + tab  # newline string
+        res_str = tab + 'Number of frequency points: %d' % nw
+        res_str += nls + 'Planewave cutoff: %f' % ecut
+        res_str += nls + 'Number of bands: %d' % nbands
+        res_str += nls + 'Number of planewaves: %d' % ngmax
+        res_str += nls + 'Broadening (eta): %f' % eta
+
+        return res_str
 
 
 class Chi0OpticalExtensionCalculator(Chi0Calculator):
@@ -670,6 +680,8 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         if qpd is None:
             qpd = self.get_pw_descriptor(q_c=[0., 0., 0.])
         chi0_opt_ext = Chi0OpticalExtensionData(self.wd, qpd)
+
+        self.print_info(qpd)
 
         # Define band and spin transitions
         m1, m2 = self.get_band_transitions()
@@ -751,6 +763,19 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, kwargs):
         """For the chi0 optical extension, the integrator needs an eshift."""
         kwargs['eshift'] = self.eshift
+
+    def print_info(self, qpd):
+        """Print information about optical extension calculation."""
+        p = partial(self.context.print, flush=False)
+
+        p()
+        p('%s' % ctime())
+        p('Calculating chi0 optical extensions with:')
+        p(self.get_gs_info_string(tab='    '))
+        p()
+        p('    Linear response parametrization:')
+        p(self.get_response_info_string(qpd, tab='    '))
+        self.context.print('')
 
 
 class Chi0(Chi0Calculator):
