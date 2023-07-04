@@ -6,7 +6,6 @@ from ase.units import Ha
 
 from gpaw.pw.descriptor import PWMapping
 
-from gpaw.response import descriptors
 from gpaw.response.pw_parallelization import (Blocks1D,
                                               PlaneWaveBlockDistributor)
 from gpaw.response.frequencies import (FrequencyDescriptor,
@@ -186,12 +185,8 @@ class Chi0Data(Chi0RelatedData):
         self.optical_extension = chi0_opt_ext
 
     @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves, parallelization):
-        """Construct the container with descriptors created on the fly."""
-        wd = FrequencyDescriptor.as_descriptor(frequencies)
-        qpd = descriptors.as_qpd(plane_waves)
-        blockdist = descriptors.as_blockdist(parallelization)
-
+    def from_descriptors(wd, qpd, blockdist):
+        """Construct the container from the basic descriptors."""
         # Create data objects
         chi0_body = Chi0BodyData(wd, qpd, blockdist)
         if qpd.optical_limit:
