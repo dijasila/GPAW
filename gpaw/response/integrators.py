@@ -142,9 +142,7 @@ class PointIntegrator(Integrator):
             # # TODO eliminate whole if/else chain
             pass
         elif hermitian and not wings:
-            assert eta is None
-            # XXX self used for eshift and blocks1d
-            task = Hermitian(integrator=self)
+            assert 0
         elif hermitian and wings:
             assert eta is None
             task = HermitianOpticalLimit()
@@ -419,7 +417,6 @@ class TetrahedronIntegrator(Integrator):
         else:
             assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
-        # that are **kwargs'ed somewhere, so requires attention.
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain

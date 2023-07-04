@@ -386,6 +386,10 @@ class Chi0Calculator:
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
+        task = None
+        if kind == 'hermitian response function':
+            from gpaw.response.integrators import Hermitian
+            task = Hermitian(integrator)
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
@@ -400,6 +404,7 @@ class Chi0Calculator:
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=integrand,
+                             task=task,
                              wd=self.wd,  # Frequency Descriptor
                              out_wxx=out_WgG,  # Output array
                              **extraargs)
