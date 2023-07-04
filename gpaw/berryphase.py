@@ -30,7 +30,8 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
-
+        
+    assert len(calc.symmetry.op_scc) == 1  # does not work with symmetry 
     gap = bandgap(calc)[0]
     assert gap != 0.0
 
