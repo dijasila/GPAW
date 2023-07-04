@@ -40,16 +40,15 @@ class CoulombKernel:
             truncation=self.truncation, reduced=reduced)
 
 
-def get_coulomb_kernel(qpd, N_c, pbc_c=None, truncation=None, q_v=None):
+def get_coulomb_kernel(qpd, N_c,  q_v=None, truncation=None, *, pbc_c):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
-    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-    if q_v is not None:
-        assert qpd.kd.gamma
-        qG_Gv += q_v
-
     if truncation is None:
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+        if q_v is not None:
+            assert qpd.kd.gamma
+            qG_Gv += q_v
         if qpd.kd.gamma and q_v is None:
             v_G = np.zeros(len(qpd.G2_qG[0]))
             v_G[0] = 4 * np.pi
@@ -76,7 +75,7 @@ def get_coulomb_kernel(qpd, N_c, pbc_c=None, truncation=None, q_v=None):
     return v_G.astype(complex)
 
 
-def calculate_2D_truncated_coulomb(qpd, pbc_c=None, q_v=None):
+def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
     """ Simple 2D truncation of Coulomb kernel PRB 73, 205119.
 
         Note: q_v is only added to qG_Gv if qpd.kd.gamma is True.
@@ -89,9 +88,10 @@ def calculate_2D_truncated_coulomb(qpd, pbc_c=None, q_v=None):
             qG_Gv += q_v
         else:  # only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
+    else:
+        assert q_v is None
 
     # The non-periodic direction is determined from pbc_c
-    assert pbc_c is not None
     Nn_c = np.where(np.logical_not(pbc_c))[0]
     Np_c = np.where(pbc_c)[0]
     assert len(Nn_c) == 1
@@ -114,10 +114,9 @@ def calculate_2D_truncated_coulomb(qpd, pbc_c=None, q_v=None):
     return v_G.astype(complex)
 
 
-def get_integrated_kernel(qpd, N_c, pbc_c=None, truncation=None,
-                          N=100, reduced=False):
+def get_integrated_kernel(qpd, N_c, truncation=None,
+                          N=100, reduced=False, *, pbc_c):
     from scipy.special import j1, k0, j0, k1
-    assert pbc_c is not None
     B_cv = 2 * np.pi * qpd.gd.icell_cv
     Nf_c = np.array([N, N, N])
     if reduced:
