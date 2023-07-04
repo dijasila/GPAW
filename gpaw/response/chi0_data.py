@@ -31,37 +31,6 @@ class Chi0RelatedData:
         self.nw = len(wd)
 
 
-def make_wd(frequencies):
-    # Construct wd
-    if isinstance(frequencies, FrequencyDescriptor):
-        wd = frequencies
-    else:
-        wd = frequencies.from_array_or_dict(frequencies)
-    return wd
-
-
-def make_qpd(plane_waves):
-    # Construct qpd
-    if isinstance(plane_waves, SingleQPWDescriptor):
-        qpd = plane_waves
-    else:
-        assert isinstance(plane_waves, tuple)
-        assert len(plane_waves) == 3
-        qpd = SingleQPWDescriptor.from_q(*plane_waves)
-    return qpd
-
-
-def make_blockdist(parallelization):
-    # Construct blockdist
-    if isinstance(parallelization, PlaneWaveBlockDistributor):
-        blockdist = parallelization
-    else:
-        assert isinstance(parallelization, tuple)
-        assert len(parallelization) == 3
-        blockdist = PlaneWaveBlockDistributor(*parallelization)
-    return blockdist
-
-
 class Chi0BodyData(Chi0RelatedData):
     """Data object containing the response body data arrays
     for a single q-point, while holding also the corresponding
@@ -216,12 +185,8 @@ class Chi0Data(Chi0RelatedData):
         self.optical_extension = chi0_opt_ext
 
     @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves, parallelization):
-        """Construct the container with descriptors created on the fly."""
-        wd = make_wd(frequencies)
-        qpd = make_qpd(plane_waves)
-        blockdist = make_blockdist(parallelization)
-
+    def from_descriptors(wd, qpd, blockdist):
+        """Construct the container from the basic descriptors."""
         # Create data objects
         chi0_body = Chi0BodyData(wd, qpd, blockdist)
         if qpd.optical_limit:

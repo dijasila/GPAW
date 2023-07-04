@@ -89,6 +89,7 @@ gs_calc = GPAW(mode='fd',
                gpts=gpts,
                eigensolver='cg',
                nbands=-2,
+               symmetry={'point_group': False},
                poissonsolver=poissonsolver)
 atoms.calc = gs_calc
 

@@ -18,6 +18,7 @@ def test_tddft_fxc_linearize(in_tmp_dir):
     calc = GPAW(mode='fd', nbands=7, h=0.4,
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

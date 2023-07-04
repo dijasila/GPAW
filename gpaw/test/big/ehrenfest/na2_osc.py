@@ -39,7 +39,8 @@ if __name__ == '__main__':
                     nbands=1,
                     basis='dzp',
                     setups={'Na': '1'},
-                    txt=name + '_gs.txt')
+                    txt=name + '_gs.txt',
+                    symmetry={'point_group': False})
         atoms.calc = calc
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')

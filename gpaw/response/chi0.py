@@ -15,12 +15,14 @@ from gpaw.response.chi0_data import (Chi0Data, Chi0BodyData,
                                      Chi0OpticalExtensionData)
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        NonLinearFrequencyDescriptor)
+from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (
     Integrand, Integrator, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
 from gpaw.response.pair import PairDensityCalculator
-from gpaw.response.pw_parallelization import block_partition
+from gpaw.response.pw_parallelization import (block_partition,
+                                              PlaneWaveBlockDistributor)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -268,17 +270,16 @@ class Chi0Calculator:
         return self.gs.pbc
 
     def create_chi0(self, q_c):
-        # Extract descriptor arguments
-        plane_waves = (q_c, self.ecut, self.gs.gd)
-        parallelization = (self.context.comm, self.blockcomm, self.kncomm)
+        # Create descriptors
+        qpd = SingleQPWDescriptor.from_q(q_c, self.ecut, self.gs.gd)
+        blockdist = PlaneWaveBlockDistributor(
+            self.context.comm, self.blockcomm, self.kncomm)
 
         # Construct the Chi0Data object
         # In the future, the frequencies should be specified at run-time
         # by Chi0.calculate(), in which case Chi0Data could also initialize
         # the frequency descriptor XXX
-        chi0 = Chi0Data.from_descriptor_arguments(self.wd,
-                                                  plane_waves,
-                                                  parallelization)
+        chi0 = Chi0Data.from_descriptors(self.wd, qpd, blockdist)
 
         return chi0
 

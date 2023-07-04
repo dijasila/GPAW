@@ -54,6 +54,7 @@ if __name__ == '__main__':
                     nbands=1,
                     basis='dzp',
                     setups={'Na': '1'},
+                    symmetry={'point_group': False},
                     txt=name + '_gs.txt')
         atoms.calc = calc
         atoms.get_potential_energy()
