@@ -704,14 +704,14 @@ class KernelDens(KernelIntegrator):
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
-        try:
-            qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
-        except FloatingPointError as err:
-            msg = (
-                'Kernel is negative yet we want its square root.  '
-                'You probably should not rely on this feature at all.  ',
-                'See discussion https://gitlab.com/gpaw/gpaw/-/issues/723')
-            raise RuntimeError(msg) from err
+        not_negative_g = fx_g >= 0.0
+
+        # For RAPBE, fx can be positive.  We set qc=0 for those cases.
+        # See: paper T. Olsen et al.
+        fx_g[not_negative_g] = -1.0
+        qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
+        qc_g[not_negative_g] = 0.0
+
         flocal_g = qc_g**3 * fx_g / (6 * np.pi**2)  # ren. x-kernel for r=r'
         Vlocal_g = 2 * qc_g / np.pi  # ren. Hartree kernel for r=r'
 
