@@ -328,22 +328,6 @@ class Chi0Calculator:
 
         return spins
 
-    def update_chi0_body(self,
-                         chi0_body: Chi0BodyData,
-                         m1, m2, spins):
-        """
-        Some documentation here! XXX
-        """
-        assert m1 <= m2
-
-        # Reset PAW correction in case momentum has change
-        pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(chi0_body.qpd)
-
-        # Integrate chi0 body
-        self.context.print('Integrating chi0 body.')
-        self._update_chi0_body(chi0_body, m1, m2, spins)
-
     @timer('Calculate CHI_0')
     def update_chi0(self,
                     chi0: Chi0Data,
@@ -365,26 +349,25 @@ class Chi0Calculator:
         -------
         chi0 : Chi0Data
         """
-        assert m1 <= m2
+        self.update_chi0_body(chi0.body, m1, m2, spins)
+        if chi0.optical_limit:
+            assert chi0.optical_extension is not None
+            # Update the head and wings
+            self.chi0_opt_ext_calc.update_chi0_optical_extension(
+                chi0.optical_extension, m1, m2, spins)
+        return chi0
 
-        qpd = chi0.qpd
-        optical_limit = chi0.optical_limit  # Calculating the optical limit?
+    def update_chi0_body(self,
+                         chi0_body: Chi0BodyData,
+                         m1, m2, spins):
+        assert m1 <= m2
 
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(qpd)
+        self.pawcorr = pairden_paw_corr(chi0_body.qpd)
 
-        # Integrate chi0 body
-        self.context.print('Integrating response function.')
-        self._update_chi0_body(chi0.body, m1, m2, spins)
-
-        if optical_limit:
-            # Update the head and wings
-            assert chi0.optical_extension is not None
-            self.chi0_opt_ext_calc._update_chi0_optical_extension(
-                chi0.optical_extension, m1, m2, spins)
-
-        return chi0
+        self.context.print('Integrating chi0 body.')
+        self._update_chi0_body(chi0_body, m1, m2, spins)
 
     def _update_chi0_body(self,
                           chi0_body: Chi0BodyData,
@@ -704,11 +687,17 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
         return chi0_opt_ext
 
-    def update_chi0_optical_extension(self, chi0_optical_extension,
-                                      m1, m2, spins):
+    def update_chi0_optical_extension(
+            self,
+            chi0_optical_extension: Chi0OpticalExtensionData,
+            m1, m2, spins):
+        """
+        Some documentation here! XXX
+        """
         assert m1 <= m2
 
         # Reset PAW correction in case momentum has change
+        # Something is fishy here, since the paw corrections are unique XXX
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(chi0_optical_extension.qpd)
 
@@ -716,10 +705,8 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         self._update_chi0_optical_extension(chi0_optical_extension,
                                             m1, m2, spins)
 
-    def _update_chi0_optical_extension(
-            self,
-            chi0_optical_extension: Chi0OpticalExtensionData,
-            m1, m2, spins):
+    def _update_chi0_optical_extension(self, chi0_optical_extension,
+                                       m1, m2, spins):
         """In-place calculation of the optical limit wings."""
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
