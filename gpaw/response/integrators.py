@@ -128,7 +128,8 @@ class PointIntegrator(Integrator):
                                       wd, out_wxx,
                                       hermitian=False,
                                       hilbert=False,
-                                      wings=False, eta=None,
+                                      wings=False,
+                                      eta=None,
                                       task):
         """Integrate a response function over bands and kpoints.
 
@@ -159,7 +160,10 @@ class PointIntegrator(Integrator):
         # There could also be similar errors elsewhere... XXX
         self.kncomm.sum(out_wxx)
 
-        if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
+        symmetrizable = (hermitian or hilbert) and not wings
+        assert symmetrizable == task.symmetrizable_unless_blocked or task.kind == 'intraband', task
+
+        if self.blockcomm.size == 1 and symmetrizable:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -176,6 +180,7 @@ class PointIntegrator(Integrator):
 
 class GenericUpdate:
     kind = 'response function'
+    symmetrizable_unless_blocked = False
 
     def __init__(self, eta, integrator):
         self.eta = eta
@@ -204,6 +209,7 @@ class GenericUpdate:
 
 class Hermitian:
     kind = 'hermitian response function'
+    symmetrizable_unless_blocked = False
 
     def __init__(self, integrator):
         self.integrator = integrator
@@ -228,6 +234,7 @@ class Hermitian:
 
 class Hilbert:
     kind = 'spectral function'
+    symmetrizable_unless_blocked = True
 
     def __init__(self, integrator):
         self.integrator = integrator
@@ -301,6 +308,7 @@ class Hilbert:
 
 class Intraband:
     kind = 'intraband'
+    symmetrizable_unless_blocked = False
 
     # @timer('CHI_0 intraband update')
     def run(self, wd, vel_mv, deps_M, chi0_wvv):
@@ -314,6 +322,7 @@ class Intraband:
 
 class OpticalLimit:
     kind = 'response function wings'
+    symmetrizable_unless_blocked = False
 
     def __init__(self, eta):
         self.eta = eta
@@ -332,6 +341,7 @@ class OpticalLimit:
 
 class HermitianOpticalLimit:
     kind = 'hermitian response function wings'
+    symmetrizable_unless_blocked = False
 
     # @timer('CHI_0 hermitian optical limit update')
     def run(self, wd, n_mG, deps_m, chi0_wxvG):
@@ -344,6 +354,7 @@ class HermitianOpticalLimit:
 
 class HilbertOpticalLimit:
     kind = 'spectral function wings'
+    symmetrizable_unless_blocked = False
 
     # @timer('CHI_0 optical limit hilbert-update')
     def run(self, wd, n_mG, deps_m, chi0_wxvG):
@@ -501,7 +512,7 @@ class TetrahedronIntegrator(Integrator):
 
         self.kncomm.sum(out_wxx)
 
-        if self.blockcomm.size == 1 and not task.wings:
+        if self.blockcomm.size == 1 and task.symmetrizable_unless_blocked:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -526,7 +537,7 @@ class TetrahedronIntegrator(Integrator):
 
 class HilbertTetrahedron:
     kind = 'spectral function'
-    wings = False
+    symmetrizable_unless_blocked = True
 
     def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
         """Update output array with dissipative part."""
@@ -537,7 +548,7 @@ class HilbertTetrahedron:
 
             for iw, weight in enumerate(W_w):
                 if blocks1d.blockcomm.size > 1:
-                    myn_G = n_G[self.blocks1d.myslice].reshape((-1, 1))
+                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
                     # gemm(weight, n_G.reshape((-1, 1)), myn_G,
                     #      1.0, out_wxx[i0 + iw], 'c')
                     mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
@@ -548,7 +559,7 @@ class HilbertTetrahedron:
 
 class HilbertOpticalLimitTetrahedron:
     kind = 'spectral function wings'
-    wings = True
+    symmetrizable_unless_blocked = False
 
     def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):
         """Update optical limit output array with dissipative part of the head
