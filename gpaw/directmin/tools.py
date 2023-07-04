@@ -218,27 +218,15 @@ def excite(calc, i, a, spin=(0, 0)):
     :return: new occupation numbers
     """
 
-    f_sn = []
-    for s in range(calc.wfs.nspins):
-        f_sn.append(
-            calc.get_occupation_numbers(spin=s))
+    f_sn = [calc.get_occupation_numbers(spin=s)
+            for s in range(calc.wfs.nspins)]
 
-    k = 0
-    for _ in reversed(f_sn[spin[0]]):
-        k += 1
-        if _ > 0:
-            break
+    f_n0 = np.asarray(f_sn[spin[0]])
+    lumo = len(f_n0[f_n0 > 0])
+    homo = lumo - 1
 
-    homo = len(f_sn[spin[0]]) - k
-
-    lumo = 0
-    for _ in f_sn[spin[1]]:
-        if _ == 0:
-            break
-        lumo += 1
-
-    f_sn[spin[0]][homo + i] -= 1
-    f_sn[spin[1]][lumo + a] += 1
+    f_sn[spin[0]][homo + i] -= 1.0
+    f_sn[spin[1]][lumo + a] += 1.0
 
     return f_sn
 

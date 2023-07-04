@@ -844,7 +844,7 @@ class ETDM:
                         self.constraints[k] = update_constraints(
                             self.constraints[k], list(ind))
 
-    def sort_orbitals_mom(self, wfs):
+    def sort_orbitals_mom(self, wfs, update_mom=True):
         """
         Sort orbitals according to the occupation
         numbers so that there are no holes in the
@@ -867,8 +867,9 @@ class ETDM:
                 kpt.f_n = kpt.f_n[ind]
                 kpt.eps_n = kpt.eps_n[ind]
 
-                # OccupationsMOM.numbers needs to be updated after sorting
-                self.update_mom_numbers(wfs, kpt)
+                if update_mom:
+                    # OccupationsMOM.numbers needs to be updated after sorting
+                    self.update_mom_numbers(wfs, kpt)
 
                 if self.constraints:
                     # Identities of the contrained orbitals have changed and
