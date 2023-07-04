@@ -381,15 +381,26 @@ class Chi0Calculator:
                           chi0_body: Chi0BodyData,
                           m1, m2, spins):
         """In-place calculation of the body."""
+
+        from gpaw.response.integrators import (
+            Hermitian, Hilbert, HilbertTetrahedron)
+
         qpd = chi0_body.qpd
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
+
         task = None
         if kind == 'hermitian response function':
-            from gpaw.response.integrators import Hermitian
             task = Hermitian(integrator)
+            extraargs = {}
+        elif kind == 'spectral function':
+            if isinstance(integrator, PointIntegrator):
+                task = Hilbert(integrator=integrator)
+            else:
+                task = HilbertTetrahedron()
+            extraargs = {}
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
@@ -431,15 +442,30 @@ class Chi0Calculator:
             chi0_optical_extension: Chi0OpticalExtensionData,
             m1, m2, spins):
         """In-place calculation of the optical limit wings."""
+        from gpaw.response.integrators import (
+            HermitianOpticalLimit, HilbertOpticalLimit)
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
         integrator = self.initialize_integrator(block_distributed=False)
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         kind, extraargs = self.get_integral_kind()
+        kind += ' wings'
+
+        task = None
+        if kind == 'hermitian response function wings':
+            task = HermitianOpticalLimit()
+            extraargs = {}
+        elif kind == 'spectral function wings':
+            task = HilbertOpticalLimit()
+            # extraargs = {}
+            pass
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
+
+        if task is not None:
+            kind = task.kind
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
@@ -448,9 +474,10 @@ class Chi0Calculator:
         WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(kind=kind + ' wings',  # Kind of integral
+        integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=integrand,
+                             task=task,
                              wd=self.wd,  # Frequency Descriptor
                              out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)

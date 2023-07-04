@@ -92,13 +92,15 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, task=None, wd, **kwargs):
+    def integrate(self, *, kind, task, wd, **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'hermitian response function':
+            assert task is not None
             dct = dict(hermitian=True,
                        hilbert=False,
                        wings=False)
         elif kind == 'hermitian response function wings':
+            assert task is not None
             dct = dict(hermitian=True,
                        hilbert=False,
                        wings=True)
@@ -147,10 +149,12 @@ class PointIntegrator(Integrator):
             assert eta is None
             task = HermitianOpticalLimit()
         elif hilbert and not wings:
+            assert task is not None
             assert eta is None
             # XXX self used for eshift and blocks1d
             task = Hilbert(integrator=self)
         elif hilbert and wings:
+            # assert task is not None
             assert eta is None
             task = HilbertOpticalLimit()
         elif wings:
@@ -218,6 +222,8 @@ class GenericUpdate:
 
 
 class Hermitian:
+    kind = 'hermitian response function'
+
     def __init__(self, integrator):
         self.integrator = integrator
 
@@ -311,6 +317,8 @@ class Hilbert:
 
 
 class Intraband:
+    kind = 'intraband'
+
     # @timer('CHI_0 intraband update')
     def run(self, wd, vel_mv, deps_M, chi0_wvv):
         """Add intraband contributions"""
@@ -338,6 +346,8 @@ class OpticalLimit:
 
 
 class HermitianOpticalLimit:
+    kind = 'hermitian response function wings'
+
     # @timer('CHI_0 hermitian optical limit update')
     def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
