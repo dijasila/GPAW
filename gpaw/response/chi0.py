@@ -712,11 +712,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         spins : list
             List of spin indices to include in the calculation
         """
-        # Reset PAW correction in case momentum has change
-        # Something is fishy here, since the paw corrections are unique XXX
-        pairden_paw_corr = self.gs.pair_density_paw_corrections
-        self.pawcorr = pairden_paw_corr(chi0_optical_extension.qpd)
-
         self.context.print('Integrating chi0 head and wings.')
         self._update_chi0_optical_extension(chi0_optical_extension,
                                             m1, m2, spins)
