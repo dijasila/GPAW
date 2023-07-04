@@ -289,6 +289,16 @@ def get_polarization_phase(calc):
 
     return phase_c
 
+def update_projections(U_mm, proj, bands):
+    """
+    Updates projection object by multiplication with matrix.
+    """
+    for a in proj.map:
+        P2_nsi = proj[a][bands]
+        for s in range(2):
+            P2_ni = U_mm @ P2_nsi[:,s,:]
+            P2_nsi[:,s,:] = P2_ni
+    return proj
 
 def parallel_transport(calc,
                        direction=0,
@@ -438,11 +448,14 @@ def parallel_transport(calc,
             u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
             u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
             u2_nsG = u_nsxyz
-            for a in range(len(calc.atoms)):
-                P2_ni = P2_ani[a][bands]
-                print(U_mm.shape, P2_ni.shape)
-                P2_ni = U_mm @ P2_ni #np.dot(U_mm, P2_ni)
-                P2_ani[a][bands] = P2_ni
+            """
+            for a in P2_ani.map:
+                P2_nsi = P2_ani[a][bands]
+                for s in range(2):
+                    P2_nsi_tmp = U_mm @ P2_nsi[:,s,:] #np.dot(U_mm, P2_ni)
+                    P2_ani[a][bands][:,s,:] = P2_nsi_tmp
+            """
+            P2_ani = update_projections(U_mm, P2_ani, bands)
             U_qmm.append(U_mm)
             u1_nsG = u2_nsG
             P1_ani = P2_ani
@@ -488,11 +501,13 @@ def parallel_transport(calc,
         u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
         u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
         u2_nsG = u_nsxyz
+        P2_ani = update_projections(U_mm, P2_ani, bands)
+        """
         for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
             P2_ni = np.dot(U_mm, P2_ni)
             P2_ani[a][bands] = P2_ni
-
+        """
         # Get overlap between first kpts and its smoothly translated image
         u2_nsG[:] *= np.exp(1.0j * gemmdot(G_v, r_g, beta=0.0))
         for a in range(len(calc.atoms)):
