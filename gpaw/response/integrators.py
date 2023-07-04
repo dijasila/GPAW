@@ -144,22 +144,22 @@ class PointIntegrator(Integrator):
         elif hermitian and not wings:
             assert eta is None
             # XXX self used for eshift and blocks1d
-            task = Hermitian(wd=x, integrator=self)
+            task = Hermitian(integrator=self)
         elif hermitian and wings:
             assert eta is None
-            task = HermitianOpticalLimit(wd=x)
+            task = HermitianOpticalLimit()
         elif hilbert and not wings:
             assert eta is None
             # XXX self used for eshift and blocks1d
-            task = Hilbert(wd=x, integrator=self)
+            task = Hilbert(integrator=self)
         elif hilbert and wings:
             assert eta is None
-            task = HilbertOpticalLimit(wd=x)
+            task = HilbertOpticalLimit()
         elif wings:
-            task = OpticalLimit(wd=x, eta=eta)
+            task = OpticalLimit(eta=eta)
         else:
             # XXX self used for eshift and blocks1d
-            task = GenericUpdate(wd=x, eta=eta, integrator=self)
+            task = GenericUpdate(eta=eta, integrator=self)
 
 
         # Sum kpoints
@@ -171,7 +171,7 @@ class PointIntegrator(Integrator):
                 continue
             deps_M = integrand.eigenvalues(*arguments)
 
-            task.run(n_MG, deps_M, out_wxx)
+            task.run(x, n_MG, deps_M, out_wxx)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -195,13 +195,12 @@ class PointIntegrator(Integrator):
 
 
 class GenericUpdate:
-    def __init__(self, wd, eta, integrator):
-        self.wd = wd
+    def __init__(self, eta, integrator):
         self.eta = eta
         self.integrator = integrator
 
     # @timer('CHI_0 update')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
         deps_m += self.integrator.eshift * np.sign(deps_m)
@@ -210,7 +209,7 @@ class GenericUpdate:
 
         blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(self.wd.omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if blocks1d.blockcomm.size > 1:
                 nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
@@ -222,18 +221,17 @@ class GenericUpdate:
 
 
 class Hermitian:
-    def __init__(self, wd, integrator):
-        self.wd = wd
+    def __init__(self, integrator):
         self.integrator = integrator
 
     # @timer('CHI_0 hermetian update')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
         deps_m += self.integrator.eshift * np.sign(deps_m)
 
         blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             if blocks1d.blockcomm.size == 1:
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
@@ -245,20 +243,17 @@ class Hermitian:
 
 
 class Hilbert:
-    def __init__(self, wd, integrator):
-        self.wd = wd
+    def __init__(self, integrator):
         self.integrator = integrator
         self.eshift = integrator.eshift
-        # self.blocks1d = blocks1d
 
     # @timer('CHI_0 spectral function update (new)')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        wd = self.wd
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
@@ -320,9 +315,9 @@ class Hilbert:
 
 class Intraband:
     # @timer('CHI_0 intraband update')
-    def run(self, vel_mv, deps_M, chi0_wvv):
+    def run(self, wd, vel_mv, deps_M, chi0_wvv):
         """Add intraband contributions"""
-        # Here we are not using deps_M, which is not ideal
+        # Intraband is a little bit special, we use neither wd nor deps_M
 
         for vel_v in vel_mv:
             x_vv = np.outer(vel_v, vel_v)
@@ -330,49 +325,42 @@ class Intraband:
 
 
 class OpticalLimit:
-    def __init__(self, wd, eta):
-        self.wd = wd
+    def __init__(self, eta):
         self.eta = eta
 
     # @timer('CHI_0 optical limit update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi."""
         deps1_m = deps_m + 1j * self.eta
         deps2_m = deps_m - 1j * self.eta
 
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
 class HermitianOpticalLimit:
-    def __init__(self, wd):
-        self.wd = wd
-
     # @timer('CHI_0 hermitian optical limit update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
 class HilbertOpticalLimit:
-    def __init__(self, wd):
-        self.wd = wd
-
     # @timer('CHI_0 optical limit hilbert-update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = self.wd.get_floor_index(o)
-            if w + 1 >= self.wd.wmax:
+            w = wd.get_floor_index(o)
+            if w + 1 >= wd.wmax:
                 continue
-            o1, o2 = self.wd.omega_w[w:w + 2]
+            o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
