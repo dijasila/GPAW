@@ -1,17 +1,7 @@
 """Descriptor short-cuts for the GPAW response code."""
 
-from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-
-
-def as_wd(frequencies):
-    # Construct wd
-    if isinstance(frequencies, FrequencyDescriptor):
-        wd = frequencies
-    else:
-        wd = frequencies.from_array_or_dict(frequencies)
-    return wd
 
 
 def as_qpd(plane_waves):

@@ -188,7 +188,7 @@ class Chi0Data(Chi0RelatedData):
     @staticmethod
     def from_descriptor_arguments(frequencies, plane_waves, parallelization):
         """Construct the container with descriptors created on the fly."""
-        wd = descriptors.as_wd(frequencies)
+        wd = FrequencyDescriptor.as_descriptor(frequencies)
         qpd = descriptors.as_qpd(plane_waves)
         blockdist = descriptors.as_blockdist(parallelization)
 
