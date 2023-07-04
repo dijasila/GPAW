@@ -7,10 +7,17 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 class CoulombKernel:
-    def __init__(self, truncation, gs):
+    def __init__(self, truncation, *, N_c, pbc_c, kd):
         self.truncation = truncation
         assert self.truncation in {None, '0D', '2D'}
-        self._gs = gs
+        self.N_c = N_c
+        self.pbc_c = pbc_c
+        self.kd = kd
+
+    def from_gs(gs, *, truncation):
+        return CoulombKernel(truncation, N_c=gs.kd.N_c,
+                             pbc_c=gs.atoms.get_pbc(),
+                             kd=gs.kd)
 
     def description(self):
         if self.truncation is None:
@@ -24,12 +31,12 @@ class CoulombKernel:
     def V(self, qpd, q_v):
         assert isinstance(qpd, SingleQPWDescriptor)
         return get_coulomb_kernel(
-            qpd, self._gs.kd.N_c, pbc_c=self._gs.atoms.get_pbc(), q_v=q_v,
+            qpd, self.N_c, pbc_c=self.pbc_c, q_v=q_v,
             truncation=self.truncation)
 
     def integrated_kernel(self, qpd, reduced):
         return get_integrated_kernel(
-            qpd=qpd, N_c=self._gs.kd.N_c, pbc_c=self._gs.atoms.get_pbc(),
+            qpd=qpd, N_c=self.N_c, pbc_c=self.pbc_c,
             truncation=self.truncation, reduced=reduced)
 
 
