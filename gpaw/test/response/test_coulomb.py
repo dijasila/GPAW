@@ -49,7 +49,7 @@ class Grid:
             pbc_c = [True, True, False]
         else:
             raise NotImplementedError
-
+        pbc_c = np.array(pbc_c)
         self.pbc_c = pbc_c
         gd = GridDescriptor((N, N, N), [L, L, L], pbc_c=pbc_c)
         self.periodicgd = GridDescriptor((N, N, N), [L, L, L])
