@@ -58,25 +58,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         return chi0_drude
 
-    def _integration_task(self):
-        if self.integrationmode == 'tetrahedron integration':
-            # Calculate intraband transitions at T=0
-            fermi_level = self.gs.fermi_level
-            wd = FrequencyGridDescriptor([-fermi_level])
-            task = HilbertTetrahedron()
-        else:
-            task = Intraband()
-
-            # We want to pass None for frequency descriptor, but
-            # if that goes wrong we'll get TypeError which is unhelpful.
-            # This dummy class will give us error messages that allow finding
-            # this spot in the code.
-            class NotAFrequencyDescriptor:
-                pass
-
-            wd = NotAFrequencyDescriptor()
-        return task, wd
-
     def _calculate(self, chi0_drude: Chi0DrudeData, spins):
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
@@ -96,7 +77,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
 
-        task, wd = self._integration_task()
+        task, wd = self.get_integral_kind()
 
         integrator.integrate(task=task,
                              domain=domain,  # Integration domain
@@ -122,6 +103,25 @@ class Chi0DrudeCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
+
+    def get_integral_kind(self):
+        if self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.gs.fermi_level
+            wd = FrequencyGridDescriptor([-fermi_level])
+            task = HilbertTetrahedron()
+        else:
+            task = Intraband()
+
+            # We want to pass None for frequency descriptor, but
+            # if that goes wrong we'll get TypeError which is unhelpful.
+            # This dummy class will give us error messages that allow finding
+            # this spot in the code.
+            class NotAFrequencyDescriptor:
+                pass
+
+            wd = NotAFrequencyDescriptor()
+        return task, wd
 
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)
