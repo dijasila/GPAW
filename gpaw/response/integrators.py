@@ -120,7 +120,7 @@ class PointIntegrator(Integrator):
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
                                       hermitian=False,
-                                      intraband=False, hilbert=False,
+                                      hilbert=False,
                                       wings=False, eta=None,
                                       task=None):
         """Integrate a response function over bands and kpoints.
@@ -136,11 +136,11 @@ class PointIntegrator(Integrator):
         out_wxx /= prefactor
 
         if task is not None:
-            pass  # TODO eliminate whole if/else chain
-        elif intraband:
-            assert eta is None
-            assert x is None
-            task = Intraband()
+            # Refactoring comments:
+            # The "intraband" case is now covered via tasks
+            #
+            # # TODO eliminate whole if/else chain
+            pass
         elif hermitian and not wings:
             assert eta is None
             # XXX self used for eshift and blocks1d
