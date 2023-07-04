@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, kind, **kwargs):
+    def integrate(self, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -92,11 +92,10 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, task, kind, wd, domain, integrand, out_wxx):
+    def integrate(self, *, task, wd, domain, integrand, out_wxx):
         """Integrate a response function over bands and kpoints."""
 
-        self.context.print('Integral kind:', kind)
-        assert kind == task.kind or task.kind == 'intraband', (kind, task.kind)
+        self.context.print('Integral kind:', task.kind)
 
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
@@ -394,16 +393,13 @@ class TetrahedronIntegrator(Integrator):
         return self.get_simplex_volume(td, S)
 
     @timer('Spectral function integration')
-    def integrate(self, *, kind, domain, integrand, wd, out_wxx, task):
+    def integrate(self, *, domain, integrand, wd, out_wxx, task):
         """Integrate response function.
 
         Assume that the integral has the
         form of a response function. For the linear tetrahedron
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
-
-        assert kind == task.kind, (kind, task.kind)
-        assert type(task) == type(choose_tetrahedron_integral_kind(kind))
 
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
@@ -556,13 +552,3 @@ class HilbertOpticalLimitTetrahedron:
                 x_vG = np.outer(n_G[:3], n_G.conj())
                 out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
                 out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
-
-
-def choose_tetrahedron_integral_kind(kind):
-    if kind == 'spectral function':
-        return HilbertTetrahedron()
-    if kind == 'spectral function wings':
-        return HilbertOpticalLimitTetrahedron()
-
-    raise ValueError("Expected kind='spectral function'",
-                     f"or 'spectral function wings', got: {kind}")

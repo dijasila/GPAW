@@ -407,8 +407,7 @@ class Chi0Calculator:
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0_body.data_WgG
-        integrator.integrate(kind=task.kind,  # Kind of integral
-                             domain=domain,  # Integration domain
+        integrator.integrate(domain=domain,  # Integration domain
                              integrand=integrand,
                              task=task,
                              wd=self.wd,  # Frequency Descriptor
@@ -456,8 +455,7 @@ class Chi0Calculator:
         WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(kind=task.kind,  # Kind of integral
-                             domain=domain,  # Integration domain
+        integrator.integrate(domain=domain,  # Integration domain
                              integrand=integrand,
                              task=task,
                              wd=self.wd,  # Frequency Descriptor

@@ -72,7 +72,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # The plasma frequency integral is special in the way that only
         # the spectral part is needed
-        kind = 'spectral function'
         integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
 
         # Integrate using temporary array
@@ -97,8 +96,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
             wd = NotAFrequencyDescriptor()
 
-        integrator.integrate(kind=kind,  # Kind of integral
-                             task=task,
+        integrator.integrate(task=task,
                              domain=domain,  # Integration domain
                              integrand=integrand,
                              wd=wd,
