@@ -209,7 +209,7 @@ class GenericUpdate:
 
 class Hermitian:
     kind = 'hermitian response function'
-    symmetrizable_unless_blocked = False
+    symmetrizable_unless_blocked = True
 
     def __init__(self, integrator):
         self.integrator = integrator
