@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, PW, restart
 from gpaw.directmin.fdpw.directmin import DirectMin
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.tools import excite_and_sort
+from gpaw.directmin.tools import excite
 from ase import Atoms
 import numpy as np
 
@@ -31,11 +31,7 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     calc.set(eigensolver=DirectMin(exstopt=True,
                                    printinnerloop=True))
-    excite_and_sort(calc.wfs, 0, 0, (0, 0), 'fdpw')
-    f_sn = []
-    for spin in range(calc.get_number_of_spins()):
-        f_n = calc.get_occupation_numbers(spin=spin)
-        f_sn.append(f_n)
+    f_sn = excite(calc, 0, 0, (0, 0), sort=True)
     prepare_mom_calculation(calc, atoms, f_sn)
 
     e = atoms.get_potential_energy()

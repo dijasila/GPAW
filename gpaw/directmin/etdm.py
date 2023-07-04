@@ -872,7 +872,7 @@ class ETDM:
                     self.update_mom_numbers(wfs, kpt)
 
                 if self.constraints:
-                    # Identities of the contrained orbitals have changed and
+                    # Identities of the constrained orbitals have changed and
                     # needs to be updated
                     self.constraints[k] = update_constraints(
                         self.constraints[k], list(ind))

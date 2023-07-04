@@ -4,7 +4,7 @@ from gpaw import GPAW, PW
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.fdpw.directmin import DirectMin
-from gpaw.directmin.tools import excite_and_sort
+from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 
 
@@ -30,11 +30,7 @@ def test_pwsic_h2o(in_tmp_dir):
     H2O.get_potential_energy()
 
     calc.set(eigensolver=DirectMin(exstopt=True))
-    excite_and_sort(calc.wfs, 0, 0, (0, 0), 'fdpw')
-    f_sn = []
-    for spin in range(calc.get_number_of_spins()):
-        f_n = calc.get_occupation_numbers(spin=spin)
-        f_sn.append(f_n)
+    f_sn = excite(calc, 0, 0, (0, 0), sort=True)
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
 
