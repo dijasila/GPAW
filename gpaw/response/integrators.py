@@ -92,43 +92,12 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, task, wd, **kwargs):
+    def integrate(self, *, task, kind, wd, domain, integrand, out_wxx):
+        """Integrate a response function over bands and kpoints."""
+
         self.context.print('Integral kind:', kind)
         assert kind == task.kind or task.kind == 'intraband', (kind, task.kind)
-        if kind == 'hermitian response function':
-            assert task is not None
-            #dct = dict(hilbert=False)
-        elif kind == 'hermitian response function wings':
-            assert task is not None
-            #dct = dict(hilbert=False)
-        elif kind == 'spectral function':
-            assert task is not None
-            #dct = dict(hilbert=True)
-        elif kind == 'spectral function wings':
-            assert task is not None
-            #dct = dict(hilbert=True)
-        elif kind == 'response function':
-            assert task is not None
-            #dct = dict(hilbert=False)
-        elif kind == 'response function wings':
-            assert task is not None
-            #dct = dict(hilbert=False)
-        else:
-            raise ValueError(kind)
 
-        dct.update(kwargs)
-        return self.response_function_integration(task=task, wd=wd, **dct)
-
-    def response_function_integration(self, *, domain, integrand,
-                                      wd, out_wxx,
-                                      eta=None,
-                                      task):
-        """Integrate a response function over bands and kpoints.
-
-        func: method
-        omega_w: ndarray
-        out: np.ndarray
-        """
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
 
