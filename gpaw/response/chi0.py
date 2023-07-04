@@ -317,7 +317,7 @@ class Chi0Calculator:
 
         return chi0
 
-    def get_spins(self, spin):
+    def get_spins(self, spin='all'):
         nspins = self.gs.nspins
         if spin == 'all':
             spins = range(nspins)
@@ -341,23 +341,14 @@ class Chi0Calculator:
             Lower band cutoff for band summation
         m2 : int
             Upper band cutoff for band summation
-        spins : str or list(ints)
-            If 'all' then include all spins.
-            If [0] or [1], only include this specific spin.
+        spins : list
+            List of spin indices to include in the calculation
 
         Returns
         -------
         chi0 : Chi0Data
         """
         assert m1 <= m2
-
-        # Parse spins
-        nspins = self.gs.nspins
-        if spins == 'all':
-            spins = range(nspins)
-        else:
-            for spin in spins:
-                assert spin in range(nspins)
 
         qpd = chi0.qpd
         optical_limit = chi0.optical_limit  # Calculating the optical limit?
@@ -530,6 +521,8 @@ class Chi0Calculator:
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
+        for spin in spins:
+            assert spin in range(self.gs.nspins)
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
