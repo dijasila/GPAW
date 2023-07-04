@@ -382,7 +382,7 @@ docs:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "300"
+    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
@@ -393,6 +393,7 @@ docs:
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
+    - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
     - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
   rules:

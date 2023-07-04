@@ -55,7 +55,8 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms, vacuum=4.0)
 # Initialize GPAW
 gs_calc = GPAW(gpts=gpts,
                nbands=-1,
-               poissonsolver=poissonsolver)
+               poissonsolver=poissonsolver,
+               symmetry={'point_group': False})
 atoms.calc = gs_calc
 
 # Ground state

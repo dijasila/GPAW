@@ -131,13 +131,16 @@ class TDDFT(GPAW):
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
-        self.default_parameters['symmetry'] = {'point_group': False}
         self.default_parameters['experimental']['reuse_wfs_method'] = None
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
+        if len(self.symmetry.op_scc) > 1:
+            raise ValueError('Symmetries are not allowed for TDDFT. '
+                             'Run the ground state calculation with '
+                             'symmetry={"point_group": False}.')
 
         assert isinstance(self.wfs, TimeDependentWaveFunctions)
         assert isinstance(self.wfs.overlap, TimeDependentOverlap)
