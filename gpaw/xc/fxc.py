@@ -707,7 +707,8 @@ class KernelDens(KernelIntegrator):
         not_negative_g = fx_g >= 0.0
 
         # For RAPBE, fx can be positive.  We set qc=0 for those cases.
-        # See: paper T. Olsen et al.
+        # See: Olsen, T., Patrick, C.E., Bates, J.E. et al.
+        # https://doi.org/10.1038/s41524-019-0242-8
         fx_g[not_negative_g] = -1.0
         qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
         qc_g[not_negative_g] = 0.0
