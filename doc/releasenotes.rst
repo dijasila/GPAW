@@ -15,6 +15,9 @@ Git master branch
 
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
+* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
+  now throw an error if the ground state contains point group symmetries
+
 
 Version 23.6.0
 ==============

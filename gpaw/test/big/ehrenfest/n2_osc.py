@@ -38,7 +38,8 @@ if __name__ == '__main__':
                     parallel={'band': 5},
                     basis='dzp',
                     txt=name + '_gs.txt',
-                    eigensolver='rmm-diis')
+                    eigensolver='rmm-diis',
+                    symmetry={'point_group': False})
         atoms.calc = calc
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')
