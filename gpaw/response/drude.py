@@ -69,32 +69,40 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        kind, extraargs = self.get_integral_kind()
 
+        # The plasma frequency integral is special in the way that only
+        # the spectral part is needed
+        kind = 'spectral function'
         integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
 
-        assert kind == 'spectral function'
-        print(kind, extraargs)
-
         from gpaw.response.integrators import HilbertTetrahedron, Intraband
 
         if self.integrationmode == 'tetrahedron integration':
+            # Calculate intraband transitions at T=0
+            fermi_level = self.gs.fermi_level
+            wd = FrequencyGridDescriptor([-fermi_level])
             task = HilbertTetrahedron()
-            assert set(extraargs) == {'x'}
         else:
             task = Intraband()
-            assert extraargs == {'intraband': True}
-            extraargs = {}
+
+            # We want to pass None for frequency descriptor, but
+            # if that goes wrong we'll get TypeError which is unhelpful.
+            # This dummy class will give us error messages that allow finding
+            # this spot in the code.
+            class NotAFrequencyDescriptor:
+                pass
+
+            wd = NotAFrequencyDescriptor()
 
         integrator.integrate(kind=kind,  # Kind of integral
                              task=task,
                              domain=domain,  # Integration domain
                              integrand=integrand,
-                             out_wxx=tmp_plasmafreq_wvv,  # Output array
-                             **extraargs)  # Extra args for int. method
+                             x=wd,
+                             out_wxx=tmp_plasmafreq_wvv)  # Output array
         tmp_plasmafreq_wvv *= prefactor
 
         # Store the plasma frequency itself and print it for anyone to use
@@ -114,22 +122,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, *unused, **ignored):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
-
-    def get_integral_kind(self):
-        """Define what "kind" of integral to make."""
-        extraargs = {}
-        # The plasma frequency integral is special in the way, that only
-        # the spectral part is needed
-        kind = 'spectral function'
-        if self.integrationmode is None:
-            # Calculate intraband transitions at finite fermi smearing
-            extraargs['intraband'] = True  # Calculate intraband
-        elif self.integrationmode == 'tetrahedron integration':
-            # Calculate intraband transitions at T=0
-            fermi_level = self.gs.fermi_level
-            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
-
-        return kind, extraargs
 
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)

@@ -92,7 +92,7 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, task=None, **kwargs):
+    def integrate(self, *, kind, task=None, x, **kwargs):
         self.context.print('Integral kind:', kind)
         if kind == 'hermitian response function':
             dct = dict(hermitian=True,
@@ -115,7 +115,7 @@ class PointIntegrator(Integrator):
             raise ValueError(kind)
 
         dct.update(kwargs)
-        return self.response_function_integration(task=task, **dct)
+        return self.response_function_integration(task=task, x=x, **dct)
 
     def response_function_integration(self, *, domain, integrand,
                                       x=None, out_wxx,
