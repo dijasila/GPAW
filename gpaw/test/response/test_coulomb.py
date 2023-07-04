@@ -139,7 +139,8 @@ def test_coulomb(gridparam, qtrunc):
     # XXX It is silly that get_coulomb_kernel uses k-point numbers
     # per dim to determine non-periodic direction. It should just get
     # non_per_dir=2, etc.
-    v_G = get_coulomb_kernel(qpd, np.array([2, 2, 1]), truncation=truncation, pbc_c=grid.pbc_c)
+    v_G = get_coulomb_kernel(qpd, np.array([2, 2, 1]), truncation=truncation,
+                             pbc_c=grid.pbc_c)
     n_G = qpd.fft(grid.n_R * grid.periodicgd.plane_wave([-q, 0, 0]))
     Ec2 = n_G.conj() @ (v_G * n_G) / N**6 * L**3
     dev = np.abs(grid.Ec / Ec2 - 1)
