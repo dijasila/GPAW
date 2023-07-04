@@ -172,6 +172,11 @@ class Chi0Calculator:
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             *args, intraband=intraband, rate=rate, **kwargs)
 
+        # XXX this is kind of redundant as pair also does it.
+        self.nblocks = self.pair.nblocks
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
+                                                      self.nblocks)
+
     def tmp_init(self, wd, pair,
                  hilbert=True,
                  nbands=None,
@@ -199,12 +204,6 @@ class Chi0Calculator:
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
         self.eshift = eshift / Ha
-
-        self.nblocks = pair.nblocks
-
-        # XXX this is redundant as pair also does it.
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      self.nblocks)
 
         if ecut is None:
             ecut = 50.0
