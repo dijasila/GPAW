@@ -332,7 +332,7 @@ class Chi0Calculator:
     def update_chi0(self,
                     chi0: Chi0Data,
                     m1, m2, spins):
-        """In-place calculation of the response function.
+        """In-place calculation of chi0 (with optical extension).
 
         Parameters
         ----------
@@ -655,13 +655,19 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             self.rate = None
 
     def calculate(self, qpoint, spin='all'):
-        """
-        Some documentation here! XXX
+        """Calculate the chi0 head and wings.
 
-        qpoint can be q_c or qpd.
+        Paramters
+        ---------
+        qpd : SingleQPWDescriptor
+            PlaneWaveDescriptor for q=0.
+        spin : str or int
+            If 'all' then include all spins.
+            If 0 or 1, only include this specific spin.
 
         To do:
         * info string
+        * make qpd optional
         """
         # Create data object
         qpd = self.get_pw_descriptor(qpoint)
@@ -685,8 +691,16 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             self,
             chi0_optical_extension: Chi0OpticalExtensionData,
             m1, m2, spins):
-        """
-        Some documentation here! XXX
+        """In-place calculation of the chi0 head and wings.
+
+        Parameters
+        ----------
+        m1 : int
+            Lower band cutoff for band summation
+        m2 : int
+            Upper band cutoff for band summation
+        spins : list
+            List of spin indices to include in the calculation
         """
         # Reset PAW correction in case momentum has change
         # Something is fishy here, since the paw corrections are unique XXX
@@ -699,7 +713,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
     def _update_chi0_optical_extension(self, chi0_optical_extension,
                                        m1, m2, spins):
-        """In-place calculation of the optical limit wings."""
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
