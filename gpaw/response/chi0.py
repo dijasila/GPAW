@@ -51,6 +51,7 @@ class Chi0Integrand(Integrand):
         # completely and partially unoccupied bands to range(m1, m2)
         self.n1 = 0
         self.n2 = chi0calc.nocc2
+        assert m1 <= m2
         self.m1 = m1
         self.m2 = m2
 
@@ -106,7 +107,6 @@ class Chi0Integrand(Integrand):
         ).reshape(-1, out_ngmax)
 
     def _get_any_matrix_element(self, k_v, s, block, target_method):
-        assert self.m1 <= self.m2
         qpd = self.qpd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
@@ -360,8 +360,6 @@ class Chi0Calculator:
     def update_chi0_body(self,
                          chi0_body: Chi0BodyData,
                          m1, m2, spins):
-        assert m1 <= m2
-
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(chi0_body.qpd)
@@ -694,8 +692,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         """
         Some documentation here! XXX
         """
-        assert m1 <= m2
-
         # Reset PAW correction in case momentum has change
         # Something is fishy here, since the paw corrections are unique XXX
         pairden_paw_corr = self.gs.pair_density_paw_corrections
