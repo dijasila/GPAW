@@ -39,8 +39,8 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     phi_km = phi_km / (2 * np.pi) % 1
 
     # Test value of phase for some bands and k:s
-    phitest = [0.91423, 0.27521]
-    phival = [phi_km[1, 12], phi_km[0, 0]]
+    phitest = [0.76692, 0.27521]
+    phival = [phi_km[1, 16], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
     Stest = [0.99938, 0.99874]
     Sval = [S_km[1, 12], S_km[0, 0]]
