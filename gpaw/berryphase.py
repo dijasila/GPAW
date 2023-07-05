@@ -254,7 +254,7 @@ def parallel_transport(calc,
     cell_cv = calc.wfs.gd.cell_cv
     icell_cv = (2 * np.pi) * np.linalg.inv(cell_cv).T
     r_g = calc.wfs.gd.get_grid_point_coordinates()
-    Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
+    Ng = np.prod(np.shape(r_g)[1:]) * 2
 
     dO_aii = []
     for ia in calc.wfs.kpt_u[0].P_ani.keys():
