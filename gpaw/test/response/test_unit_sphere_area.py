@@ -22,13 +22,13 @@ class MyIntegrand(Integrand):
 def test_tetrahedron_integrator():
     cell_cv = np.eye(3)
     context = ResponseContext()
-    integrator = TetrahedronIntegrator(cell_cv, context)
+    integrator = TetrahedronIntegrator(cell_cv, context, nblocks=1)
     x_g = np.linspace(-1, 1, 30)
     x_gc = np.array([comb for comb in product(*([x_g] * 3))])
 
     domain = (x_gc,)
     out_wxx = np.zeros((1, 1, 1), complex)
-    integrator.integrate(task=HilbertTetrahedron(),
+    integrator.integrate(task=HilbertTetrahedron(integrator=integrator),
                          domain=domain,
                          integrand=MyIntegrand(),
                          wd=FrequencyGridDescriptor([-1.0]),
