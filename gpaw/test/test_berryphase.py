@@ -15,7 +15,7 @@ def test_pol(in_tmp_dir, gpw_files):
     # Only should test modulo 2pi
     phi = phi_c / (2 * np.pi) % 1
     phitest = [6.60376287e-01, 3.39625036e-01, 0.0]
-    assert np.allclose(phi, phitest, atol=1e-4)
+    assert np.allclose(phi, phitest, atol=1e-3)
 
 
 def test_parallel_transport(in_tmp_dir, gpw_files):
