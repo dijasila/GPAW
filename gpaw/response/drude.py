@@ -38,7 +38,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
                                          context=self.context)
-        self.task, self.wd = self.get_integral_task_and_wd()
+        self.task, self.wd = self.construct_integral_task_and_wd()
 
     def calculate(self, wd, rate, spin='all'):
         """Calculate the Drude dielectric response.
@@ -101,7 +101,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
             / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
 
-    def get_integral_task_and_wd(self):
+    def construct_integral_task_and_wd(self):
         if self.integrationmode == 'tetrahedron integration':
             # Calculate intraband transitions at T=0
             fermi_level = self.gs.fermi_level
