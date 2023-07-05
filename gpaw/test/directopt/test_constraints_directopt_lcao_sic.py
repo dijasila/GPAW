@@ -4,6 +4,7 @@ from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
 
+
 @pytest.mark.do
 def test_constraints_directopt_lcao_sic(in_tmp_dir):
     """
