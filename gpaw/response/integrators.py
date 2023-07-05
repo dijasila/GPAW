@@ -395,8 +395,6 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        blocks1d = self._blocks1d(out_wxx.shape[2])
-
         # Input domain
         td = self.tesselate(domain[0])
         args = domain[1:]
@@ -480,7 +478,7 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
         self.kncomm.sum(out_wxx)
 
@@ -511,8 +509,13 @@ class HilbertTetrahedron:
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
+    def __init__(self, integrator):
+        self.blockcomm = integrator.blockcomm
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
         """Update output array with dissipative part."""
+        blocks1d = Blocks1D(self.blockcomm, out_wxx.shape[2])
+        
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
             if i0 == i1:
@@ -533,12 +536,11 @@ class HilbertOpticalLimitTetrahedron:
     kind = 'spectral function wings'
     symmetrizable_unless_blocked = False
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
         """Update optical limit output array with dissipative part of the head
         and wings."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
-            assert blocks1d.blockcomm.size == 1
             if i0 == i1:
                 continue
 

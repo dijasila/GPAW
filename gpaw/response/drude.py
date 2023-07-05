@@ -114,7 +114,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
             # Calculate intraband transitions at T=0
             fermi_level = self.gs.fermi_level
             wd = FrequencyGridDescriptor([-fermi_level])
-            task = HilbertTetrahedron()
+            task = HilbertTetrahedron(integrator=self.integrator)
         else:
             task = Intraband()
 

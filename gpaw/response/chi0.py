@@ -506,7 +506,7 @@ class Chi0Calculator:
                 return Hilbert(integrator=integrator, eshift=self.eshift)
             else:
                 assert isinstance(integrator, TetrahedronIntegrator)
-                return HilbertTetrahedron()
+                return HilbertTetrahedron(integrator=integrator)
 
         # Otherwise, we simply evaluate the response function at the given
         # frequencies with broadening eta
