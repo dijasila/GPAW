@@ -34,6 +34,10 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
+        # Set up integral
+        self.integrator = self.initialize_integrator()
+        self.task, self.wd = self.get_integral_task_and_wd()
+
     def calculate(self, wd, rate, spin='all'):
         """Calculate the Drude dielectric response.
 
@@ -66,8 +70,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # analysis -> see discussion in gpaw.response.jdos
         qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
                                          ecut=1e-3, gd=self.gs.gd)
-
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
 
         # The plasma frequency integral is special in the way that only
@@ -76,14 +78,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
-
-        task, wd = self.get_integral_kind()
-
-        integrator.integrate(task=task,
-                             domain=domain,  # Integration domain
-                             integrand=integrand,
-                             wd=wd,
-                             out_wxx=tmp_plasmafreq_wvv)  # Output array
+        self.integrator.integrate(task=self.task,
+                                  domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  wd=self.wd,
+                                  out_wxx=tmp_plasmafreq_wvv)  # Output array
         tmp_plasmafreq_wvv *= prefactor
 
         # Store the plasma frequency itself and print it for anyone to use
@@ -104,7 +103,7 @@ class Chi0DrudeCalculator(Chi0Calculator):
         """The Drude calculator uses only standard integrator kwargs."""
         pass
 
-    def get_integral_kind(self):
+    def get_integral_task_and_wd(self):
         if self.integrationmode == 'tetrahedron integration':
             # Calculate intraband transitions at T=0
             fermi_level = self.gs.fermi_level
