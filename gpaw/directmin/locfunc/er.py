@@ -22,7 +22,6 @@ class ERlocalization:
     """
     def __init__(self, wfs, dens,
                  sic_coarse_grid=True,
-                 store_potentials=False,
                  poisson_solver='FPS'):
 
         self.name = 'ER_SIC'
@@ -69,13 +68,6 @@ class ERlocalization:
         self.counter = 0  # number of calls of this class
 
         self.n_kps = wfs.kd.nibzkpts
-        self.store_potentials = store_potentials
-        if store_potentials:
-            self.old_pot = {}
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)
-                self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
     def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
 
@@ -175,20 +167,7 @@ class ERlocalization:
 
         self.ghat.add(nt_sg, Q_aL)
 
-        if self.store_potentials:
-            if self.sic_coarse_grid:
-                v_ht_g = self.old_pot[kpoint][i]
-            else:
-                self.interpolator.apply(self.old_pot[kpoint][i],
-                                        v_ht_g)
-
         self.poiss.solve(v_ht_g, nt_sg, zero_initial_phi=False)
-
-        if self.store_potentials:
-            if self.sic_coarse_grid is True:
-                self.old_pot[kpoint][i] = v_ht_g.copy()
-            else:
-                self.restrictor.apply(v_ht_g, self.old_pot[kpoint][i])
 
         if self.sic_coarse_grid is False:
             ec = 0.5 * self.finegd.integrate(nt_sg * v_ht_g)
