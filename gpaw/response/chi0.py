@@ -379,7 +379,7 @@ class Chi0Calculator:
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator, wings=False)
+        task = self.get_integral_kind(integrator)
         assert 'wings' not in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
@@ -509,44 +509,25 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integral_kind(self, integrator, wings):
+    def get_integral_kind(self, integrator):
         """Determine what kind of integral to make."""
-
         if self.eta == 0:
-            # If eta is 0 then we must be working with imaginary frequencies.
-            # In this case chi is hermitian and it is therefore possible to
-            # reduce the computational costs by a only computing half of the
-            # response function.
-            if wings:
-                return HermitianOpticalLimit()
-            else:
-                return Hermitian(integrator)
+            # eta == 0 is used as a synonym for calculating the hermitian part
+            # of the response function at a range of imaginary frequencies
+            return Hermitian(integrator)
 
         if self.hilbert:
-            # The spectral function integrator assumes that the form of the
-            # integrand is a function (a matrix element) multiplied by
-            # a delta function and should return a function of at user defined
-            # x's (frequencies). Thus the integrand is tuple of two functions
-            # and takes an additional argument (x).
+            # The hilbert flag is used to calculate the reponse function via a
+            # hilbert transform of its dissipative (spectral) part.
             if isinstance(integrator, PointIntegrator):
-                if wings:
-                    return HilbertOpticalLimit()
-                else:
-                    return Hilbert(integrator=integrator)
+                return Hilbert(integrator=integrator)
             else:
                 assert isinstance(integrator, TetrahedronIntegrator)
-                if wings:
-                    return HilbertOpticalLimitTetrahedron()
-                else:
-                    return HilbertTetrahedron()
+                return HilbertTetrahedron()
 
-        # Otherwise, we can make no simplifying assumptions of the
-        # form of the response function and we simply perform a brute
-        # force calculation of the response function.
-        if wings:
-            return OpticalLimit(eta=self.eta)
-        else:
-            return GenericUpdate(eta=self.eta, integrator=integrator)
+        # Otherwise, we simply evaluate the response function at the given
+        # frequencies with broadening eta
+        return GenericUpdate(eta=self.eta, integrator=integrator)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):
@@ -742,7 +723,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator, wings=True)
+        task = self.get_integral_kind(integrator)
         assert 'wings' in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
@@ -777,6 +758,23 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, kwargs):
         """For the chi0 optical extension, the integrator needs an eshift."""
         kwargs['eshift'] = self.eshift
+
+    def get_integral_kind(self, integrator):
+        """Determine what kind of integral to make."""
+        if self.eta == 0:
+            # Calculate hermitian part
+            return HermitianOpticalLimit()
+
+        if self.hilbert:
+            # Calculate response function via its spectral part
+            if isinstance(integrator, PointIntegrator):
+                return HilbertOpticalLimit()
+            else:
+                assert isinstance(integrator, TetrahedronIntegrator)
+                return HilbertOpticalLimitTetrahedron()
+
+        # Otherwise, we evaluate the response function literally
+        return OpticalLimit(eta=self.eta)
 
     def print_info(self, qpd):
         """Print information about optical extension calculation."""
