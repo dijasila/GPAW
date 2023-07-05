@@ -17,28 +17,8 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, pair,
-                 disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True,
-                 integrationmode=None):
-        self.pair = pair
-        self.gs = pair.gs
-        self.context = pair.context
-
-        self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        self.integrationmode = integrationmode
-
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
-
-        # Set up integral
-        integrator_cls = self.get_integrator_cls()
-        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
-                                         nblocks=self.nblocks,
-                                         context=self.context)
+    def __init__(self, *args, **kwargs):
+        self.base_ini(*args, **kwargs)
         self.task, self.wd = self.construct_integral_task_and_wd()
 
     @property

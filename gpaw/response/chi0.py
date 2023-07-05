@@ -175,27 +175,16 @@ class Chi0Calculator:
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             *args, intraband=intraband, rate=rate, **kwargs)
 
-        # Set up integral
-        integrator_cls = self.get_integrator_cls()
-        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
-                                         nblocks=self.nblocks,
-                                         context=self.context)
-
     @property
     def nblocks(self):
         return self.pair.nblocks
 
-    def tmp_init(self, wd, pair,
-                 hilbert=True,
-                 nbands=None,
-                 timeordered=False,
+    def base_ini(self, pair,
                  context=None,
-                 ecut=None,
-                 eta=0.2,
-                 disable_point_group=False, disable_time_reversal=False,
+                 disable_point_group=False,
+                 disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 integrationmode=None,
-                 rate=0.0, eshift=0.0):
+                 integrationmode=None):
 
         if context is None:
             context = pair.context
@@ -207,10 +196,25 @@ class Chi0Calculator:
         self.pair = pair
         self.gs = pair.gs
 
+        # Number of completely filled bands and number of non-empty bands.
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
+
+        # Set up integrator
         self.integrationmode = integrationmode
+        self.integrator = self.construct_integrator()
+
+    def tmp_init(self, wd, *args,
+                 hilbert=True,
+                 nbands=None,
+                 timeordered=False,
+                 ecut=None,
+                 eta=0.2,
+                 rate=0.0, eshift=0.0, **kwargs):
+        self.base_ini(*args, **kwargs)
         self.eshift = eshift / Ha
 
         if ecut is None:
@@ -243,18 +247,9 @@ class Chi0Calculator:
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
-        self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
+        self.context.print('Nonperiodic BCs: ', (~self.pbc))
 
-        if integrationmode is not None:
-            self.context.print('Using integration method: ' +
-                               self.integrationmode)
-        else:
-            self.context.print('Using integration method: PointIntegrator')
-
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
         metallic = self.nocc1 != self.nocc2
-
         if metallic:
             assert abs(eshift) < 1e-8,\
                 'A rigid energy shift cannot be applied to the conduction '\
@@ -421,11 +416,21 @@ class Chi0Calculator:
         chi0_body.data_WgG[:] = chi0_body.blockdist.distribute_as(
             tmp_chi0_wGG, chi0_body.nw, 'WgG')
 
+    def construct_integrator(self):
+        """Construct k-point integrator"""
+        cls = self.get_integrator_cls()
+        return cls(
+            cell_cv=self.gs.gd.cell_cv,
+            context=self.context,
+            nblocks=self.nblocks)
+
     def get_integrator_cls(self):
         """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
+            self.context.print('Using integrator: PointIntegrator')
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
+            self.context.print('Using integrator: TetrahedronIntegrator')
             cls = TetrahedronIntegrator  # type: ignore
             if not all([self.disable_point_group,
                         self.disable_time_reversal,
@@ -434,7 +439,6 @@ class Chi0Calculator:
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
-
         return cls
 
     def check_high_symmetry_ibz_kpts(self):
@@ -626,12 +630,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
                  rate=0.0,
                  **kwargs):
         self.tmp_init(*args, **kwargs)
-
-        # Set up integral
-        integrator_cls = self.get_integrator_cls()
-        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
-                                         nblocks=self.nblocks,
-                                         context=self.context)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
