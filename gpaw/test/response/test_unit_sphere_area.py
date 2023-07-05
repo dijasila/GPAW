@@ -28,7 +28,7 @@ def test_tetrahedron_integrator():
 
     domain = (x_gc,)
     out_wxx = np.zeros((1, 1, 1), complex)
-    integrator.integrate(task=HilbertTetrahedron(integrator=integrator),
+    integrator.integrate(task=HilbertTetrahedron(integrator.blockcomm),
                          domain=domain,
                          integrand=MyIntegrand(),
                          wd=FrequencyGridDescriptor([-1.0]),

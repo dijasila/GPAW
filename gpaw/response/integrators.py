@@ -156,9 +156,9 @@ class GenericUpdate(IntegralTask):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
-    def __init__(self, eta, integrator, eshift=0.0):
+    def __init__(self, eta, blockcomm, eshift=0.0):
         self.eta = eta
-        self.blockcomm = integrator.blockcomm
+        self.blockcomm = blockcomm
         self.eshift = eshift
 
     # @timer('CHI_0 update')
@@ -186,8 +186,8 @@ class Hermitian(IntegralTask):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator, eshift=0.0):
-        self.blockcomm = integrator.blockcomm
+    def __init__(self, blockcomm, eshift=0.0):
+        self.blockcomm = blockcomm
         self.eshift = eshift
 
     # @timer('CHI_0 hermetian update')
@@ -212,8 +212,8 @@ class Hilbert(IntegralTask):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator, eshift=0.0):
-        self.blockcomm = integrator.blockcomm
+    def __init__(self, blockcomm, eshift=0.0):
+        self.blockcomm = blockcomm
         self.eshift = eshift
 
     # @timer('CHI_0 spectral function update (new)')
@@ -509,8 +509,8 @@ class HilbertTetrahedron:
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator):
-        self.blockcomm = integrator.blockcomm
+    def __init__(self, blockcomm):
+        self.blockcomm = blockcomm
 
     def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
         """Update output array with dissipative part."""

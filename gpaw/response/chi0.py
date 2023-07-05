@@ -266,7 +266,7 @@ class Chi0Calculator:
         return self.construct_literal_task()
 
     def construct_hermitian_task(self):
-        return Hermitian(self.integrator, eshift=self.eshift)
+        return Hermitian(self.integrator.blockcomm, eshift=self.eshift)
 
     def construct_hilbert_task(self):
         if isinstance(self.integrator, PointIntegrator):
@@ -276,14 +276,14 @@ class Chi0Calculator:
             return self.construct_tetra_hilbert_task()
 
     def construct_point_hilbert_task(self):
-        return Hilbert(integrator=self.integrator, eshift=self.eshift)
+        return Hilbert(self.integrator.blockcomm, eshift=self.eshift)
 
     def construct_tetra_hilbert_task(self):
-        return HilbertTetrahedron(integrator=self.integrator)
+        return HilbertTetrahedron(self.integrator.blockcomm)
 
     def construct_literal_task(self):
         return GenericUpdate(
-            eta=self.eta, integrator=self.integrator, eshift=self.eshift)
+            self.eta, self.integrator.blockcomm, eshift=self.eshift)
 
     @property
     def pbc(self):
