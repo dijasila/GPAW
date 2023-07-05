@@ -35,7 +35,7 @@ def localize_orbitals(
             log('Edmiston-Ruedenberg localization started',
                 flush=True)
             dm = DirectMinLocalize(
-                ERL(wfs, dens, ham), wfs,
+                ERL(wfs, dens), wfs,
                 maxiter=200, g_tol=5.0e-5, randval=0.1)
             dm.run(wfs, dens, seed=seed)
             log('Edmiston-Ruedenberg localization finished',

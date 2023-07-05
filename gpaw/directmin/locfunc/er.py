@@ -20,8 +20,9 @@ class ERlocalization:
     and it is gradients
 
     """
-    def __init__(self, wfs, dens, ham=None,
-                 sic_coarse_grid=True, store_potentials=False,
+    def __init__(self, wfs, dens,
+                 sic_coarse_grid=True,
+                 store_potentials=False,
                  poisson_solver='FPS'):
 
         self.name = 'ER_SIC'
