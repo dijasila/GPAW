@@ -43,8 +43,8 @@ def test_orthonormalizations_lcao(in_tmp_dir):
     for type in ['loewdin', 'gramschmidt']:
         atoms.positions[0] += 0.1
         calc.initialize_positions(atoms)
-        calc.wfs.orthonormalize(type=type)
         for kpt in calc.wfs.kpt_u:
+            calc.wfs.orthonormalize(kpt, type=type)
             overlaps = np.dot(kpt.C_nM.conj(),
                               np.dot(kpt.S_MM, kpt.C_nM.T))
             assert overlaps == pytest.approx(np.identity(3), abs=1e-10)
