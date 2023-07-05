@@ -32,7 +32,7 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, context, nblocks=1, eshift=0.0):
+    def __init__(self, cell_cv, context, *, nblocks, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -44,7 +44,6 @@ class Integrator:
 
         self.context = context
         self.eshift = eshift
-        self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
         self.blockcomm, self.kncomm = block_partition(self.context.comm,

@@ -179,8 +179,12 @@ class Chi0Calculator:
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
                                          eshift=self.eshift,
-                                         nblocks=self.pair.nblocks,
+                                         nblocks=self.nblocks,
                                          context=self.context)
+
+    @property
+    def nblocks(self):
+        return self.pair.nblocks
 
     def tmp_init(self, wd, pair,
                  hilbert=True,
@@ -626,6 +630,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         # Set up integral
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
+                                         nblocks=self.nblocks,
                                          eshift=self.eshift,
                                          context=self.context)
 
@@ -648,6 +653,13 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         else:
             self.drude_calc = None
             self.rate = None
+
+    @property
+    def nblocks(self):
+        # The optical extensions are not distributed in memory
+        # NB: There can be a mismatch with self.pair.nblocks, which seems
+        # dangerous XXX
+        return 1
 
     def calculate(self,
                   qpd: SingleQPWDescriptor | None = None,

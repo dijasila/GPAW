@@ -37,8 +37,16 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # Set up integral
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
+                                         nblocks=self.nblocks,
                                          context=self.context)
         self.task, self.wd = self.construct_integral_task_and_wd()
+
+    @property
+    def nblocks(self):
+        # The plasma frequencies aren't distributed in memory
+        # NB: There can be a mismatch with self.pair.nblocks, which seems
+        # dangerous XXX
+        return 1
 
     def calculate(self, wd, rate, spin='all'):
         """Calculate the Drude dielectric response.
