@@ -128,18 +128,27 @@ class DistributedArrays(Generic[DomainType]):
         if isinstance(symmetric, str):
             assert symmetric == '_default'
             symmetric = self is other
-        if function:
-            other = function(other)
 
-        M1 = self.matrix
-        M2 = other.matrix
-        out = M1.multiply(M2, opb='C', alpha=self.dv,
-                          symmetric=symmetric, out=out)
-        if not cc:
-            out.complex_conjugate()
-        # operate_and_multiply(self, self.layout.dv, out, function, ...)
+        comm = self.comm
 
-        self._matrix_elements_correction(M1, M2, out, symmetric)
+        if comm.size == 1:
+            if function:
+                other = function(other)
+
+            M1 = self.matrix
+            M2 = other.matrix
+            out = M1.multiply(M2, opb='C', alpha=self.dv,
+                              symmetric=symmetric, out=out)
+            if not cc:
+                out.complex_conjugate()
+
+            self._matrix_elements_correction(M1, M2, out, symmetric)
+
+        else:
+            if symmetric:
+                out = parallel_me_sym(self, other, out, function, cc)
+            else:
+                ...
 
         if domain_sum:
             self.domain_comm.sum(out.data)
@@ -174,25 +183,22 @@ class DistributedArrays(Generic[DomainType]):
         raise NotImplementedError
 
 
-def operate_and_multiply(psit1, dv, out, operator, psit2):
-    if psit1.comm:
-        if psit2 is not None:
-            assert psit2.comm is psit1.comm
-        if psit1.comm.size > 1:
-            out.comm = psit1.comm
-            out.state = 'a sum is needed'
-
-    comm = psit1.matrix.dist.comm
-    N = len(psit1)
+def parallel_me_sym(A_NX: DistributedArrays,
+                    B_NX: DistributedArrays,
+                    out_NN: Matrix,
+                    operator,
+                    cc: bool) -> Matrix:
+    comm = A_NX.comm
+    N = A_NX.dims[0]
     n = (N + comm.size - 1) // comm.size
-    mynbands = len(psit1.matrix.array)
+    mynbands = A_NX.mydims[0]
 
-    buf1 = psit1.new(nbands=n, dist=None)
-    buf2 = psit1.new(nbands=n, dist=None)
+    buf1 = A_NX.desc.empty(n)
+    buf2 = A_NX.desc.empty(n)
     half = comm.size // 2
-    psit = psit1.view(0, mynbands)
-    if psit2 is not None:
-        psit2 = psit2.view(0, mynbands)
+    C_NX = A_NX[:]
+    # if B_NX is not A_NX:
+    #     psit2 = psit2.view(0, mynbands)
 
     for r in range(half + 1):
         rrequest = None
@@ -205,19 +211,18 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
             n1 = min(rrank * n, N)
             n2 = min(n1 + n, N)
             if not (skip and comm.rank < half) and n2 > n1:
-                rrequest = comm.receive(buf1.array[:n2 - n1], rrank, 11, False)
-            if not (skip and comm.rank >= half) and len(psit1.array) > 0:
-                srequest = comm.send(psit1.array, srank, 11, False)
+                rrequest = comm.receive(buf1.data[:n2 - n1], rrank, 11, False)
+            if not (skip and comm.rank >= half) and A_NX.data.size > 0:
+                srequest = comm.send(A_NX.data, srank, 11, False)
 
         if r == 0:
             if operator:
-                operator(psit1.array, psit2.array)
+                operator(A_NX, B_NX)
             else:
-                psit2 = psit
+                B_NX = C_NX
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
-                                        serial=True)
+            m12 = C_NX.matrix_elements(B_NX, symmetric=(r == 0), cc=True)
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
