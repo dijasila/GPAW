@@ -6,6 +6,7 @@ import numpy as np
 from ase import Atoms
 
 
+@pytest.mark.do
 def test_directmin_pw(in_tmp_dir):
 
     atoms = Atoms('CCHHHH',

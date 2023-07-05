@@ -8,6 +8,7 @@ from ase import Atoms
 import numpy as np
 
 
+@pytest.mark.do
 def test_mom_directopt_pw(in_tmp_dir):
     # Water molecule:
     d = 0.9575
