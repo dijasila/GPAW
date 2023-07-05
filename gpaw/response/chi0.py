@@ -21,8 +21,7 @@ from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
 from gpaw.response.pair import PairDensityCalculator
-from gpaw.response.pw_parallelization import (block_partition,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -176,16 +175,11 @@ class Chi0Calculator:
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             *args, intraband=intraband, rate=rate, **kwargs)
 
-        # XXX this is kind of redundant as pair also does it.
-        self.nblocks = self.pair.nblocks
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      self.nblocks)
-
         # Set up integral
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
                                          eshift=self.eshift,
-                                         nblocks=self.nblocks,
+                                         nblocks=self.pair.nblocks,
                                          context=self.context)
 
     def tmp_init(self, wd, pair,
@@ -285,7 +279,9 @@ class Chi0Calculator:
 
     def get_blockdist(self):
         return PlaneWaveBlockDistributor(
-            self.context.comm, self.blockcomm, self.kncomm)
+            self.context.comm,
+            self.integrator.blockcomm,
+            self.integrator.kncomm)
 
     def calculate(self, q_c, spin='all'):
         """Calculate response function.
@@ -549,8 +545,8 @@ class Chi0Calculator:
         q_c = qpd.q_c
         nw = len(self.wd)
         csize = comm.size
-        knsize = self.kncomm.size
-        bsize = self.blockcomm.size
+        knsize = self.integrator.kncomm.size
+        bsize = self.integrator.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(self.context.print, flush=False)
