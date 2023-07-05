@@ -222,18 +222,6 @@ def get_polarization_phase(calc):
 
     return phase_c
 
-def update_projections(U_mm, proj, bands):
-    """
-    Updates projection object by multiplication with matrix.
-    """
-    for a in proj.map:
-        P2_nsi = proj[a][bands]
-        for s in range(2):
-            for i in range(P2_nsi.shape[2]):
-                P2_n = U_mm @ P2_nsi[:,s,i]
-                P2_nsi[:,s,i] = P2_n
-        proj[a][bands] = P2_nsi
-    return proj
 
 def parallel_transport(calc,
                        direction=0,
