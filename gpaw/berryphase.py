@@ -1,19 +1,17 @@
 import json
 import warnings
 from os.path import exists, splitext
-
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-
 from gpaw import GPAW
 from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.utilities.blas import gemmdot
-
 from gpaw.ibz2bz import (get_overlap_coefficients,
                          get_phase_shifted_overlap_coefficients)
 from gpaw.ibz2bz import get_overlap as get_overlap_new
+
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
     M_nn = np.dot(u1_nR.conj(), u2_nR.T) * calc.wfs.gd.dv
@@ -51,7 +49,6 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     size = get_monkhorst_pack_size_and_offset(kpts_kc)[0]
     Nk = len(kpts_kc)
     wfs = calc.wfs
-    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
 
     dO_aii = get_overlap_coefficients(wfs)
     
@@ -118,8 +115,6 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
                                    proj_k[k1],
                                    proj_k[k2],
                                    phase_shifted_dO_aii)
-
-
             M_knn.append(M_nn)
         det = np.linalg.det(M_knn)
         phases.append(np.imag(np.log(np.prod(det))))
@@ -129,7 +124,6 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             k1 = indices_k[0]
             k1_c = kpts_kc[k1]
             G_c = [0, 0, 1]
-            #G_v = np.dot(G_c, icell_cv)
             u1_nR = u_knR[k1]
             emiGr_R = np.exp(-2j * np.pi *
                              np.dot(np.indices(N_c).T, G_c / N_c).T)
