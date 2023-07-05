@@ -181,6 +181,9 @@ class Chi0Calculator:
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       self.nblocks)
 
+        # Set up integral
+        self.integrator = self.initialize_integrator()
+
     def tmp_init(self, wd, pair,
                  hilbert=True,
                  nbands=None,
@@ -377,9 +380,8 @@ class Chi0Calculator:
 
         qpd = chi0_body.qpd
 
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator)
+        task = self.get_integral_kind(self.integrator)
         assert 'wings' not in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
@@ -392,11 +394,11 @@ class Chi0Calculator:
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0_body.data_WgG
-        integrator.integrate(domain=domain,  # Integration domain
-                             integrand=integrand,
-                             task=task,
-                             wd=self.wd,  # Frequency Descriptor
-                             out_wxx=out_WgG)  # Output array
+        self.integrator.integrate(domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  task=task,
+                                  wd=self.wd,  # Frequency Descriptor
+                                  out_wxx=out_WgG)  # Output array
 
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -643,6 +645,9 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
                  **kwargs):
         self.tmp_init(*args, **kwargs)
 
+        # Set up integral
+        self.integrator = self.initialize_integrator()
+
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
         # transitions to the head of the chi0 wings. This is handled by a
@@ -721,9 +726,8 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator)
+        task = self.get_integral_kind(self.integrator)
         assert 'wings' in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
@@ -736,11 +740,11 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(domain=domain,  # Integration domain
-                             integrand=integrand,
-                             task=task,
-                             wd=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_WxvP)  # Output array
+        self.integrator.integrate(domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  task=task,
+                                  wd=self.wd,  # Frequency Descriptor
+                                  out_wxx=tmp_chi0_WxvP)  # Output array
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
