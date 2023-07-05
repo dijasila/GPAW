@@ -53,18 +53,12 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     wfs = calc.wfs
     icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
 
-    """
-    dO_aii = []
-    for ia, id in enumerate(wfs.setups.id_a):
-        dO_ii = calc.wfs.setups[ia].dO_ii
-        dO_aii.append(dO_ii)
-    """
     dO_aii = get_overlap_coefficients(wfs)
     
     kd = calc.wfs.kd
 
     u_knR = []
-    P_kani = []
+    proj_k = []
     for k in range(Nk):
         ik = kd.bz2ibz_k[k]
         k_c = kd.bzk_kc[k]
@@ -83,16 +77,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
         u_knR.append(ut_nR)
 
-        # XXX This is unnessecary cumbersome.
-        # Will be simplified when we switch to
-        # using projection object in all functions
-        """
-        P_ani = []
-        for ia in range(len(kpt.P_ani)):
-            P_ni = kpt.P_ani[ia][:nocc]
-            P_ani.append(P_ni)
-        """
-        P_kani.append(calc.wfs.kpt_qs[ik][spin].projections)
+        proj_k.append(calc.wfs.kpt_qs[ik][spin].projections)
 
     indices_kkk = np.arange(Nk).reshape(size)
     tmp = np.concatenate([[i for i in range(3) if i != dir], [dir]])
@@ -130,22 +115,11 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
                                    wfs.gd,
                                    u1_nR,
                                    u2_nR,
-                                   P_kani[k1],
-                                   P_kani[k2],
+                                   proj_k[k1],
+                                   proj_k[k2],
                                    phase_shifted_dO_aii)
 
 
-            """
-            bG_v = np.dot(bG_c, icell_cv)
-            M_nn = get_overlap(calc,
-                               bands,
-                               np.reshape(u1_nR, (nocc, -1)),
-                               np.reshape(u2_nR, (nocc, -1)),
-                               P_kani[k1],
-                               P_kani[k2],
-                               dO_aii,
-                               bG_v)
-            """
             M_knn.append(M_nn)
         det = np.linalg.det(M_knn)
         phases.append(np.imag(np.log(np.prod(det))))
@@ -167,20 +141,10 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
                                    calc.wfs.gd,
                                    u1_nR,
                                    u2_nR,
-                                   P_kani[k1],
-                                   P_kani[k1],
+                                   proj_k[k1],
+                                   proj_k[k1],
                                    phase_shifted_dO_aii)
 
-            """
-            M_nn = get_overlap(calc,
-                               bands,
-                               np.reshape(u1_nR, (nocc, -1)),
-                               np.reshape(u2_nR, (nocc, -1)),
-                               P_kani[k1],
-                               P_kani[k1],
-                               dO_aii,
-                               G_v)
-            """
             phase2d = np.imag(np.log(np.linalg.det(M_nn)))
             phases2d.append(phase2d)
 
@@ -265,8 +229,10 @@ def update_projections(U_mm, proj, bands):
     for a in proj.map:
         P2_nsi = proj[a][bands]
         for s in range(2):
-            P2_ni = U_mm @ P2_nsi[:,s,:]
-            P2_nsi[:,s,:] = P2_ni
+            for i in range(P2_nsi.shape[2]):
+                P2_n = U_mm @ P2_nsi[:,s,i]
+                P2_nsi[:,s,i] = P2_n
+        proj[a][bands] = P2_nsi
     return proj
 
 def parallel_transport(calc,
@@ -303,7 +269,6 @@ def parallel_transport(calc,
     r_g = calc.wfs.gd.get_grid_point_coordinates()
     Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
 
-    """
     dO_aii = []
     for ia in calc.wfs.kpt_u[0].P_ani.keys():
         dO_ii = calc.wfs.setups[ia].dO_ii
@@ -316,9 +281,6 @@ def parallel_transport(calc,
         else:
             dO_aii.append(dO_ii)
 
-    """
-    dO_aii = get_overlap_coefficients(calc.wfs)
-    
     N_c = calc.wfs.kd.N_c
     assert 1 in np.delete(N_c, direction)
     Nkx = N_c[0]
@@ -359,7 +321,6 @@ def parallel_transport(calc,
         b_v = np.dot(b_c, icell_cv)
     else:
         b_v = G_v
-        b_c = G_c
 
     soc_kpts = soc_eigenstates(calc,
                                scale=scale,
@@ -367,8 +328,7 @@ def parallel_transport(calc,
                                phi=phi)
 
     def projections(bz_index):
-        #return soc_kpts[bz_index].P_amj
-        return soc_kpts[bz_index].projections
+        return soc_kpts[bz_index].P_amj
 
     def wavefunctions(bz_index):
         return soc_kpts[bz_index].wavefunctions(
@@ -391,17 +351,7 @@ def parallel_transport(calc,
 
             u2_nsG = wavefunctions(iq2)
             P2_ani = projections(iq2)
-    
-            phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-                dO_aii, calc.spos_ac, -b_c)
-            M_mm = get_overlap_new(bands,
-                                   calc.wfs.gd,
-                                   u1_nsG,
-                                   u2_nsG,
-                                   P1_ani,
-                                   P2_ani,
-                                   phase_shifted_dO_aii)
-            """
+
             M_mm = get_overlap(calc,
                                bands,
                                np.reshape(u1_nsG, (len(u1_nsG), Ng)),
@@ -410,21 +360,16 @@ def parallel_transport(calc,
                                P2_ani,
                                dO_aii,
                                b_v)
-            """
             V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
             U_mm = np.dot(V_mm, W_mm).conj()
             u_nysxz = np.dot(U_mm, np.swapaxes(u2_nsG, 0, 3))
             u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
             u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
             u2_nsG = u_nsxyz
-            """
-            for a in P2_ani.map:
-                P2_nsi = P2_ani[a][bands]
-                for s in range(2):
-                    P2_nsi_tmp = U_mm @ P2_nsi[:,s,:] #np.dot(U_mm, P2_ni)
-                    P2_ani[a][bands][:,s,:] = P2_nsi_tmp
-            """
-            P2_ani = update_projections(U_mm, P2_ani, bands)
+            for a in range(len(calc.atoms)):
+                P2_ni = P2_ani[a][bands]
+                P2_ni = np.dot(U_mm, P2_ni)
+                P2_ani[a][bands] = P2_ni
             U_qmm.append(U_mm)
             u1_nsG = u2_nsG
             P1_ani = P2_ani
@@ -442,19 +387,6 @@ def parallel_transport(calc,
             P2_ni = P2_ani[a][bands]
             # P2_ni *= np.exp(-1.0j * np.dot(G_v, r_av[a]))
             P2_ani[a][bands] = P2_ni
-
-        phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-            dO_aii, calc.spos_ac, -b_c)
-        M_mm = get_overlap_new(bands,
-                               calc.wfs.gd,
-                               u1_nsG,
-                               u2_nsG,
-                               P1_ani,
-                               P2_ani,
-                               phase_shifted_dO_aii)
-
-            
-        """
         M_mm = get_overlap(calc,
                            bands,
                            np.reshape(u1_nsG, (len(u1_nsG), Ng)),
@@ -463,20 +395,17 @@ def parallel_transport(calc,
                            P2_ani,
                            dO_aii,
                            b_v)
-        """
         V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
         U_mm = np.dot(V_mm, W_mm).conj()
         u_nysxz = np.dot(U_mm, np.swapaxes(u2_nsG, 0, 3))
         u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
         u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
         u2_nsG = u_nsxyz
-        P2_ani = update_projections(U_mm, P2_ani, bands)
-        """
         for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
             P2_ni = np.dot(U_mm, P2_ni)
             P2_ani[a][bands] = P2_ni
-        """
+
         # Get overlap between first kpts and its smoothly translated image
         u2_nsG[:] *= np.exp(1.0j * gemmdot(G_v, r_g, beta=0.0))
         for a in range(len(calc.atoms)):
@@ -485,15 +414,6 @@ def parallel_transport(calc,
             P2_ani[a][bands] = P2_ni
         u1_nsG = wavefunctions(iq0)
         P1_ani = projections(iq0)
-
-        M_mm = get_overlap_new(bands,
-                               calc.wfs.gd,
-                               u1_nsG,
-                               u2_nsG,
-                               P1_ani,
-                               P2_ani,
-                               dO_aii)
-        """
         M_mm = get_overlap(calc,
                            bands,
                            np.reshape(u1_nsG, (len(u1_nsG), Ng)),
@@ -502,7 +422,6 @@ def parallel_transport(calc,
                            P2_ani,
                            dO_aii,
                            np.array([0.0, 0.0, 0.0]))
-        """
         l_m, l_mm = np.linalg.eig(M_mm)
         phi_km[k] = np.angle(l_m)
 
