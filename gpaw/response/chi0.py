@@ -18,7 +18,7 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (
-    Integrand, Integrator, PointIntegrator, TetrahedronIntegrator)
+    Integrand, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
 from gpaw.response.pair import PairDensityCalculator
 from gpaw.response.pw_parallelization import (block_partition,
@@ -182,7 +182,11 @@ class Chi0Calculator:
                                                       self.nblocks)
 
         # Set up integral
-        self.integrator = self.initialize_integrator()
+        integrator_cls = self.get_integrator_cls()
+        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
+                                         eshift=self.eshift,
+                                         nblocks=self.nblocks,
+                                         context=self.context)
 
     def tmp_init(self, wd, pair,
                  hilbert=True,
@@ -418,23 +422,6 @@ class Chi0Calculator:
         chi0_body.data_WgG[:] = chi0_body.blockdist.distribute_as(
             tmp_chi0_wGG, chi0_body.nw, 'WgG')
 
-    def initialize_integrator(self) -> Integrator:
-        """The integrator class is a general class for brillouin zone
-        integration that can integrate user defined functions over user
-        defined domains and sum over bands."""
-        integrator: Integrator
-
-        cls = self.get_integrator_cls()
-
-        kwargs = dict(
-            cell_cv=self.gs.gd.cell_cv,
-            context=self.context)
-        self.update_integrator_kwargs(kwargs)
-
-        integrator = cls(**kwargs)
-
-        return integrator
-
     def get_integrator_cls(self):
         """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
@@ -472,11 +459,6 @@ class Chi0Calculator:
                     'vertices of the IBZ. '
                     'Please use find_high_symmetry_monkhorst_pack() from '
                     'gpaw.bztools to generate your k-point grid.')
-
-    def update_integrator_kwargs(self, kwargs):
-        # For calculations of the chi0 body, we need the following
-        kwargs['eshift'] = self.eshift
-        kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
