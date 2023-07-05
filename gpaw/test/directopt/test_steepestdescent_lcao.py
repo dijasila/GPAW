@@ -1,13 +1,11 @@
 import pytest
 
-import numpy as np
-
 from gpaw import GPAW
 from ase import Atoms
 
 
 @ pytest.mark.do
-def test_orthonormalizations_lcao(in_tmp_dir):
+def test_steepestdescent_lcao(in_tmp_dir):
     """
     Test Loewdin and Gram-Schmidt orthonormalization
     of orbitals in LCAO
@@ -23,28 +21,22 @@ def test_orthonormalizations_lcao(in_tmp_dir):
     atoms.center(vacuum=2.0)
     atoms.set_pbc(False)
     calc = GPAW(mode='lcao',
-                basis='sz(dzp)',
                 h=0.3,
                 spinpol=True,
-                convergence={'energy': np.inf,
-                             'eigenstates': np.inf,
-                             'density': np.inf,
-                             'minimum iterations': 1},
+                convergence={'energy': 0.1,
+                             'eigenstates': 1e-4,
+                             'density': 1e-4},
                 eigensolver={'name': 'etdm'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
                 symmetry='off',
-                txt=None
                 )
     atoms.calc = calc
-    atoms.get_potential_energy()
 
-    for type in ['loewdin', 'gramschmidt']:
-        atoms.positions[0] += 0.1
-        calc.initialize_positions(atoms)
-        calc.wfs.orthonormalize(type=type)
-        for kpt in calc.wfs.kpt_u:
-            overlaps = np.dot(kpt.C_nM.conj(),
-                              np.dot(kpt.S_MM, kpt.C_nM.T))
-            assert overlaps == pytest.approx(np.identity(3), abs=1e-10)
+    for sd_algo in ['sd', 'fr-cg']:
+        calc = calc.new(eigensolver={'name': 'etdm',
+                                     'searchdir_algo': sd_algo})
+        atoms.calc = calc
+        e = atoms.get_potential_energy()
+        assert e == pytest.approx(6.021948, abs=1.0e-5)

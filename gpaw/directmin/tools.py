@@ -210,8 +210,8 @@ def gramschmidt_lcao(C_nM, S_MM):
 
 def excite(calc, i, a, spin=(0, 0), sort=False):
     """
-    Promotes an electron from spin[0], homo + i to spin[1], lumo + a.
-    If sort=True, sorts the orbitals according to the occupation numbers,
+    Promote an electron from spin[0], homo + i to spin[1], lumo + a.
+    If sort=True, sort the orbitals according to the occupation numbers,
     such that there are no holes in the distribution of the occupation
     numbers.
 
@@ -256,7 +256,6 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
 
                     kpt.f_n = f_sn[s]
                     kpt.eps_n = kpt.eps_n[ind]
-
     return f_sn
 
 
