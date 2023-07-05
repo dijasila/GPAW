@@ -133,7 +133,7 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
 
-class IntegralKind(ABC):
+class IntegralTask(ABC):
     # Unique string for each kind of integral:
     kind = '(unset)'
 
@@ -152,7 +152,7 @@ class IntegralKind(ABC):
         """Add contribution from one point to out_wxx."""
 
 
-class GenericUpdate(IntegralKind):
+class GenericUpdate(IntegralTask):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
@@ -182,7 +182,7 @@ class GenericUpdate(IntegralKind):
                 1.0, chi0_GG)
 
 
-class Hermitian(IntegralKind):
+class Hermitian(IntegralTask):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
@@ -208,7 +208,7 @@ class Hermitian(IntegralKind):
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
 
-class Hilbert(IntegralKind):
+class Hilbert(IntegralTask):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
@@ -281,7 +281,7 @@ class Hilbert(IntegralKind):
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
 
-class Intraband(IntegralKind):
+class Intraband(IntegralTask):
     kind = 'intraband'
     symmetrizable_unless_blocked = False
 
@@ -295,7 +295,7 @@ class Intraband(IntegralKind):
             chi0_wvv[0] += x_vv
 
 
-class OpticalLimit(IntegralKind):
+class OpticalLimit(IntegralTask):
     kind = 'response function wings'
     symmetrizable_unless_blocked = False
 
@@ -314,7 +314,7 @@ class OpticalLimit(IntegralKind):
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HermitianOpticalLimit(IntegralKind):
+class HermitianOpticalLimit(IntegralTask):
     kind = 'hermitian response function wings'
     symmetrizable_unless_blocked = False
 
@@ -327,7 +327,7 @@ class HermitianOpticalLimit(IntegralKind):
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HilbertOpticalLimit(IntegralKind):
+class HilbertOpticalLimit(IntegralTask):
     kind = 'spectral function wings'
     symmetrizable_unless_blocked = False
 
