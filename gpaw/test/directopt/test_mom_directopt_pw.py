@@ -28,7 +28,18 @@ def test_mom_directopt_pw(in_tmp_dir):
                 )
     atoms.calc = calc
     atoms.get_potential_energy()
+    calc.write('h2o.gpw', mode='all')
 
+    # Triplet excited state calculation
+    calc.set(eigensolver=DirectMin(exstopt=True))
+    f_sn = excite(calc, 0, 1, (0, 1), sort=True)
+    prepare_mom_calculation(calc, atoms, f_sn)
+
+    e = atoms.get_potential_energy()
+    assert e == pytest.approx(1.869659, abs=1.0e-3)
+
+    # Mixed-spin excited state calculation
+    atoms, calc = restart('h2o.gpw', txt='-')
     calc.set(eigensolver=DirectMin(exstopt=True,
                                    printinnerloop=True))
     f_sn = excite(calc, 0, 0, (0, 0), sort=True)

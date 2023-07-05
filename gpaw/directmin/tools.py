@@ -229,22 +229,31 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
     f_sn[spin[1]][lumo + a] += 1.0
 
     if sort:
+        # Need to initialize the wave functions if
+        # restarting from gpw file in fd or pw mode
+        if calc.wfs.kpt_u[0].psit_nG is not None:
+            if not isinstance(calc.wfs.kpt_u[0].psit_nG, np.ndarray):
+                calc.wfs.initialize_wave_functions_from_restart_file()
+
         for s in spin:
             occupied = f_sn[s] > 1.0e-10
             n_occ = len(f_sn[s][occupied])
             if n_occ == 0.0 or np.min(f_sn[s][:n_occ]) != 0:
                 continue
+
             ind_occ = np.argwhere(occupied)
             ind_unocc = np.argwhere(~occupied)
             ind = np.vstack((ind_occ, ind_unocc))
             ind = np.squeeze(ind)
             f_sn[s] = f_sn[s][ind]
+
             for kpt in calc.wfs.kpt_u:
                 if kpt.s == s:
                     if calc.wfs.mode == 'lcao':
                         kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
                     else:
                         kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
+
                     kpt.f_n = f_sn[s]
                     kpt.eps_n = kpt.eps_n[ind]
 
