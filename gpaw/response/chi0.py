@@ -228,32 +228,62 @@ class Chi0Calculator:
             ecut = 50.0
         ecut /= Ha
         self.ecut = ecut
-
-        self.eta = eta / Ha
-
         self.nbands = nbands or self.gs.bd.nbands
 
         self.wd = wd
         self.context.print(self.wd, flush=False)
 
-        if not isinstance(self.wd, NonLinearFrequencyDescriptor):
-            assert not hilbert
-
+        self.eta = eta / Ha
         self.hilbert = hilbert
+        self.task = self.construct_integral_task()
+
         self.timeordered = bool(timeordered)
         if self.timeordered:
             assert self.hilbert  # Timeordered is only needed for G0W0
-
-        if self.eta == 0.0:
-            assert not hilbert
-            assert not timeordered
-            assert not self.wd.omega_w.real.any()
 
         self.pawcorr = None
 
         self.context.print('Nonperiodic BCs: ', (~self.pbc))
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
+
+    def construct_integral_task(self):
+        if self.eta == 0:
+            assert not self.hilbert
+            # eta == 0 is used as a synonym for calculating the hermitian part
+            # of the response function at a range of imaginary frequencies
+            assert not self.wd.omega_w.real.any()
+            return self.construct_hermitian_task()
+
+        if self.hilbert:
+            # The hilbert flag is used to calculate the reponse function via a
+            # hilbert transform of its dissipative (spectral) part.
+            assert isinstance(self.wd, NonLinearFrequencyDescriptor)
+            return self.construct_hilbert_task()
+
+        # Otherwise, we perform a literal evaluation of the response function
+        # at the given frequencies with broadening eta
+        return self.construct_literal_task()
+
+    def construct_hermitian_task(self):
+        return Hermitian(self.integrator, eshift=self.eshift)
+
+    def construct_hilbert_task(self):
+        if isinstance(self.integrator, PointIntegrator):
+            return self.construct_point_hilbert_task()
+        else:
+            assert isinstance(self.integrator, TetrahedronIntegrator)
+            return self.construct_tetra_hilbert_task()
+
+    def construct_point_hilbert_task(self):
+        return Hilbert(integrator=self.integrator, eshift=self.eshift)
+
+    def construct_tetra_hilbert_task(self):
+        return HilbertTetrahedron(integrator=self.integrator)
+
+    def construct_literal_task(self):
+        return GenericUpdate(
+            eta=self.eta, integrator=self.integrator, eshift=self.eshift)
 
     @property
     def pbc(self):
@@ -375,13 +405,9 @@ class Chi0Calculator:
                           chi0_body: Chi0BodyData,
                           m1, m2, spins):
         """In-place calculation of the body."""
-
         qpd = chi0_body.qpd
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind()
-        assert 'wings' not in task.kind
-
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
 
@@ -394,7 +420,7 @@ class Chi0Calculator:
             out_WgG = chi0_body.data_WgG
         self.integrator.integrate(domain=domain,  # Integration domain
                                   integrand=integrand,
-                                  task=task,
+                                  task=self.task,
                                   wd=self.wd,  # Frequency Descriptor
                                   out_wxx=out_WgG)  # Output array
 
@@ -495,27 +521,6 @@ class Chi0Calculator:
             prefactor *= len(bzk_kv) / nbzkpts
 
         return domain, analyzer, prefactor
-
-    def get_integral_kind(self):
-        """Determine what kind of integral to make."""
-        if self.eta == 0:
-            # eta == 0 is used as a synonym for calculating the hermitian part
-            # of the response function at a range of imaginary frequencies
-            return Hermitian(self.integrator, eshift=self.eshift)
-
-        if self.hilbert:
-            # The hilbert flag is used to calculate the reponse function via a
-            # hilbert transform of its dissipative (spectral) part.
-            if isinstance(self.integrator, PointIntegrator):
-                return Hilbert(integrator=self.integrator, eshift=self.eshift)
-            else:
-                assert isinstance(self.integrator, TetrahedronIntegrator)
-                return HilbertTetrahedron(integrator=self.integrator)
-
-        # Otherwise, we simply evaluate the response function at the given
-        # frequencies with broadening eta
-        return GenericUpdate(
-            eta=self.eta, integrator=self.integrator, eshift=self.eshift)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):
@@ -717,9 +722,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         qpd = chi0_opt_ext.qpd
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind()
-        assert 'wings' in task.kind
-
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
 
@@ -732,7 +734,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
         self.integrator.integrate(domain=domain,  # Integration domain
                                   integrand=integrand,
-                                  task=task,
+                                  task=self.task,
                                   wd=self.wd,  # Frequency Descriptor
                                   out_wxx=tmp_chi0_WxvP)  # Output array
         if self.hilbert:
@@ -749,21 +751,16 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
 
-    def get_integral_kind(self):
-        """Determine what kind of integral to make."""
-        if self.eta == 0:
-            # Calculate hermitian part
-            return HermitianOpticalLimit()
+    def construct_hermitian_task(self):
+        return HermitianOpticalLimit()
 
-        if self.hilbert:
-            # Calculate response function via its spectral part
-            if isinstance(self.integrator, PointIntegrator):
-                return HilbertOpticalLimit()
-            else:
-                assert isinstance(self.integrator, TetrahedronIntegrator)
-                return HilbertOpticalLimitTetrahedron()
+    def construct_point_hilbert_task(self):
+        return HilbertOpticalLimit()
 
-        # Otherwise, we evaluate the response function literally
+    def construct_tetra_hilbert_task(self):
+        return HilbertOpticalLimitTetrahedron()
+
+    def construct_literal_task(self):
         return OpticalLimit(eta=self.eta)
 
     def print_info(self, qpd):
