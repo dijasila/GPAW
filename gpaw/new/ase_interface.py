@@ -217,13 +217,10 @@ class ASECalculator:
         return self.calculation.results['forces']
 
     def __del__(self):
-        try:
-            self.log('---')
-            self.timer.write(self.log)
-            mib = maxrss() / 1024**2
-            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        except (NameError, AttributeError):
-            pass
+        self.log('---')
+        self.timer.write(self.log)
+        mib = maxrss() / 1024**2
+        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
                              atoms: Atoms,

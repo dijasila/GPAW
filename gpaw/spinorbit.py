@@ -17,7 +17,7 @@ from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D, Array4D, ArrayND
-from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.ibz2bz import IBZ2BZMaps
 from gpaw.utilities.partition import AtomPartition
 
 if TYPE_CHECKING:
@@ -40,29 +40,10 @@ class WaveFunction:
         self.f_m[:] = nan
         self.bz_index = bz_index
 
-    def transform(self,
-                  kd: KPointDescriptor,
-                  setups: List[Setup],
-                  spos_ac: Array2D,
-                  bz_index: int) -> 'WaveFunction':
+    def transform(self, IBZ2BZMap, K) -> 'WaveFunction':
         """Transforms PAW projections from IBZ to BZ k-point."""
-        a_a, U_aii, time_rev = construct_symmetry_operators(
-            kd, setups, spos_ac, bz_index)
-
-        projections = self.projections.new()
-
-        if projections.atom_partition.comm.rank == 0:
-            a = 0
-            for b, U_ii in zip(a_a, U_aii):
-                P_msi = self.projections[b].dot(U_ii)
-                if time_rev:
-                    P_msi = P_msi.conj()
-                projections[a][:] = P_msi
-                a += 1
-        else:
-            assert len(projections.indices) == 0
-
-        return WaveFunction(self.eig_m.copy(), projections, bz_index)
+        projections = IBZ2BZMap.map_projections(self.projections)
+        return WaveFunction(self.eig_m.copy(), projections, K)
 
     def redistribute_atoms(self,
                            atom_partition: AtomPartition
@@ -354,7 +335,8 @@ class BZWaveFunctions:
 
 def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
                         dVL_avii: Dict[int, Array3D],
-                        kd, spos_ac, setups, atom_partition,
+                        ibz2bzmaps: IBZ2BZMaps,
+                        atom_partition,
                         theta: float = 0.0,
                         phi: float = 0.0) -> Dict[int, WaveFunction]:
 
@@ -379,14 +361,14 @@ def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
 
     bzwfs = {}
     for ibz_index, ibzwf in ibzwfs:
-        for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
-            bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index)
+        for K in np.nonzero(ibz2bzmaps.kd.bz2ibz_k == ibz_index)[0]:
+            bzwf = ibzwf.transform(ibz2bzmaps[K], K)
 
             # Redistribute to match dVL_avii:
             bzwf = bzwf.redistribute_atoms(atom_partition)
 
             bzwf.add_soc(dVL_avii, s_vss, C_ss)
-            bzwfs[bz_index] = bzwf
+            bzwfs[K] = bzwf
 
     return bzwfs
 
@@ -519,8 +501,6 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     kd = calc.wfs.kd
     bd = calc.wfs.bd
     gd = calc.wfs.gd
-    spos_ac = calc.spos_ac
-    setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
 
     if eigenvalues is not None:
@@ -528,10 +508,12 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
 
     ibzwfs = extract_ibz_wave_functions(calc.wfs.kpt_qs,
                                         bd, gd, n1, n2, eigenvalues)
+    ibz2bzmaps = IBZ2BZMaps.from_calculator(calc)
 
     bzwfs = soc_eigenstates_raw(ibzwfs,
                                 dVL_avii,
-                                kd, spos_ac, setups, atom_partition,
+                                ibz2bzmaps,
+                                atom_partition,
                                 theta, phi)
 
     if bd.comm.rank == 0 and gd.comm.rank == 0:

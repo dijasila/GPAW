@@ -170,6 +170,41 @@ def gpw_files(request, tmp_path_factory):
     return GPWFiles(Path(path))
 
 
+class Locked(FileExistsError):
+    pass
+
+
+@contextmanager
+def temporary_lock(path):
+    fd = None
+    try:
+        with path.open('x') as fd:
+            yield
+    except FileExistsError:
+        raise Locked()
+    finally:
+        if fd is not None:
+            path.unlink()
+
+
+@contextmanager
+def world_temporary_lock(path):
+    if world.rank == 0:
+        try:
+            with temporary_lock(path):
+                world.sum_scalar(1)
+                yield
+        except Locked:
+            world.sum_scalar(0)
+            raise
+    else:
+        status = world.sum_scalar(0)
+        if status:
+            yield
+        else:
+            raise Locked
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
@@ -180,16 +215,45 @@ class GPWFiles:
             self.gpw_files[file.name[:-4]] = file
 
     def __getitem__(self, name: str) -> Path:
-        if name not in self.gpw_files:
-            rawname, _, _ = name.partition('_wfs')
-            calc = getattr(self, rawname)()
-            path = self.path / (rawname + '.gpw')
-            calc.write(path)
-            self.gpw_files[rawname] = path
-            path = self.path / (rawname + '_wfs.gpw')
-            calc.write(path, mode='all')
-            self.gpw_files[rawname + '_wfs'] = path
-        return self.gpw_files[name]
+        if name in self.gpw_files:
+            return self.gpw_files[name]
+
+        rawname, _, _ = name.partition('_wfs')
+        nowfs_path = self.path / (rawname + '.gpw')
+        wfs_path = self.path / (rawname + '_wfs.gpw')
+
+        # (Note we need to lock based on rawname.)
+        lockfile = self.path / f'{rawname}.lock'
+
+        for _attempt in range(60):  # ~60s timeout
+            files_exist = 0
+            if world.rank == 0:
+                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+            files_exist = world.sum_scalar(files_exist)
+
+            if files_exist:
+                self.gpw_files[rawname] = nowfs_path
+                self.gpw_files[rawname + '_wfs'] = wfs_path
+
+                return self.gpw_files[name]
+
+            try:
+                with world_temporary_lock(lockfile):
+                    calc = getattr(self, rawname)()
+                    nowfs_work_path = nowfs_path.with_suffix('.tmp')
+                    wfs_work_path = wfs_path.with_suffix('.tmp')
+                    calc.write(nowfs_work_path)
+                    calc.write(wfs_work_path, mode='all')
+                    # By now files should exist *and* be fully written, by us.
+                    # Rename them to the final intended paths:
+                    if world.rank == 0:
+                        nowfs_work_path.rename(nowfs_path)
+                        wfs_work_path.rename(wfs_path)
+            except Locked:
+                import time
+                time.sleep(1)
+
+        raise RuntimeError(f'GPW fixture generation takes too long: {name}')
 
     def bcc_li_pw(self):
         return self.bcc_li({'name': 'pw', 'ecut': 200})
@@ -476,7 +540,7 @@ class GPWFiles:
         from ase.build import mx2
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                     size=(1, 1, 1), vacuum=5)
-        atoms.pbc = (1, 1, 1)
+        atoms.pbc = (1, 1, 0)
         ecut = 250
         nkpts = 6
         atoms.calc = GPAW(mode=PW(ecut),
@@ -571,9 +635,9 @@ class GPWFiles:
         # Define input parameters
         xc = 'LDA'
         kpts = 4
-        pw = 300
+        pw = 200
         occw = 0.01
-        conv = {'density': 1.e-8,
+        conv = {'density': 1.e-4,
                 'bands': band_cutoff + 1}
 
         a = 3.840

@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, *args, **kwargs):
+    def integrate(self, kind, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -92,34 +92,32 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, kind='pointwise', *args, **kwargs):
+    def integrate(self, *, kind, **kwargs):
         self.context.print('Integral kind:', kind)
-        if kind == 'pointwise':
-            return self.pointwise_integration(*args, **kwargs)
-        elif kind == 'hermitian response function':
+        if kind == 'hermitian response function':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'hermitian response function wings':
             return self.response_function_integration(hermitian=True,
                                                       hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function':
             return self.response_function_integration(hilbert=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'spectral function wings':
             return self.response_function_integration(hilbert=True,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function':
             return self.response_function_integration(hilbert=False,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         elif kind == 'response function wings':
             return self.response_function_integration(hilbert=False,
                                                       wings=True,
-                                                      *args, **kwargs)
+                                                      **kwargs)
         else:
             raise ValueError(kind)
 
@@ -152,24 +150,28 @@ class PointIntegrator(Integrator):
             if intraband:
                 assert eta is None
                 assert x is None
-                self.update_intraband(n_MG, out_wxx)
+                task = Intraband()
             elif hermitian and not wings:
                 assert eta is None
-                self.update_hermitian(n_MG, deps_M, x, out_wxx)
+                # XXX self used for eshift and blocks1d
+                task = Hermitian(wd=x, integrator=self)
             elif hermitian and wings:
                 assert eta is None
-                self.update_hermitian_optical_limit(n_MG, deps_M, x, out_wxx)
+                task = HermitianOpticalLimit(wd=x)
             elif hilbert and not wings:
                 assert eta is None
-                self.update_hilbert(n_MG, deps_M, x, out_wxx)
+                # XXX self used for eshift and blocks1d
+                task = Hilbert(wd=x, integrator=self)
             elif hilbert and wings:
                 assert eta is None
-                self.update_hilbert_optical_limit(n_MG, deps_M, x, out_wxx)
+                task = HilbertOpticalLimit(wd=x)
             elif wings:
-                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
-                                          eta=eta)
+                task = OpticalLimit(wd=x, eta=eta)
             else:
-                self.update(n_MG, deps_M, x, out_wxx, eta=eta)
+                # XXX self used for eshift and blocks1d
+                task = GenericUpdate(wd=x, eta=eta, integrator=self)
+
+            task.run(n_MG, deps_M, out_wxx)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -191,19 +193,26 @@ class PointIntegrator(Integrator):
 
         out_wxx *= prefactor
 
-    @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, eta):
+
+class GenericUpdate:
+    def __init__(self, wd, eta, integrator):
+        self.wd = wd
+        self.eta = eta
+        self.integrator = integrator
+
+    # @timer('CHI_0 update')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
-        deps_m += self.eshift * np.sign(deps_m)
-        deps1_m = deps_m + 1j * eta
-        deps2_m = deps_m - 1j * eta
+        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps1_m = deps_m + 1j * self.eta
+        deps2_m = deps_m - 1j * self.eta
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(self.wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            if self.blockcomm.size > 1:
+            if blocks1d.blockcomm.size > 1:
                 nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
@@ -211,15 +220,21 @@ class PointIntegrator(Integrator):
             mmm(1.0, np.ascontiguousarray(nx_mG.T), 'N', n_mG.conj(), 'N',
                 1.0, chi0_GG)
 
-    @timer('CHI_0 hermetian update')
-    def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
+
+class Hermitian:
+    def __init__(self, wd, integrator):
+        self.wd = wd
+        self.integrator = integrator
+
+    # @timer('CHI_0 hermetian update')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
-        deps_m += self.eshift * np.sign(deps_m)
+        deps_m += self.integrator.eshift * np.sign(deps_m)
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(wd.omega_w):
-            if self.blockcomm.size == 1:
+        for w, omega in enumerate(self.wd.omega_w):
+            if blocks1d.blockcomm.size == 1:
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
                 rk(-1.0, nx_mG, 1.0, chi0_wGG[w], 'n')
@@ -228,18 +243,28 @@ class PointIntegrator(Integrator):
                 mynx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
-    @timer('CHI_0 spectral function update (new)')
-    def update_hilbert(self, n_mG, deps_m, wd, chi0_wGG):
+
+class Hilbert:
+    def __init__(self, wd, integrator):
+        self.wd = wd
+        self.integrator = integrator
+        self.eshift = integrator.eshift
+        # self.blocks1d = blocks1d
+
+    # @timer('CHI_0 spectral function update (new)')
+    def run(self, n_mG, deps_m, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
+        wd = self.wd
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
 
-        blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        # blocks1d = self._blocks1d(chi0_wGG.shape[2])
+        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
         # Sort frequencies
         argsw_m = np.argsort(w_m)
@@ -271,7 +296,7 @@ class PointIntegrator(Integrator):
             p1_m = np.array(p * (o2 - sortedo_m[startindex:endindex]))
             p2_m = np.array(p * (sortedo_m[startindex:endindex] - o1))
 
-            if self.blockcomm.size > 1 and w + 1 < wd.wmax:
+            if blocks1d.blockcomm.size > 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex, blocks1d.myslice]
                 mmm(1.0,
                     np.concatenate((p1_m[:, None] * x_mG,
@@ -284,7 +309,7 @@ class PointIntegrator(Integrator):
                     chi0_wGG[w:w + 2].reshape((2 * blocks1d.nlocal,
                                                blocks1d.N)))
 
-            if self.blockcomm.size <= 1 and w + 1 < wd.wmax:
+            if blocks1d.blockcomm.size <= 1 and w + 1 < wd.wmax:
                 x_mG = sortedn_mG[startindex:endindex]
                 l_Gm = (p1_m[:, None] * x_mG).T.copy()
                 r_Gm = x_mG.T.copy()
@@ -292,43 +317,62 @@ class PointIntegrator(Integrator):
                 l_Gm = (p2_m[:, None] * x_mG).T.copy()
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
-    @timer('CHI_0 intraband update')
-    def update_intraband(self, vel_mv, chi0_wvv):
+
+class Intraband:
+    # @timer('CHI_0 intraband update')
+    def run(self, vel_mv, deps_M, chi0_wvv):
         """Add intraband contributions"""
+        # Here we are not using deps_M, which is not ideal
 
         for vel_v in vel_mv:
             x_vv = np.outer(vel_v, vel_v)
             chi0_wvv[0] += x_vv
 
-    @timer('CHI_0 optical limit update')
-    def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta):
-        """Optical limit update of chi."""
-        deps1_m = deps_m + 1j * eta
-        deps2_m = deps_m - 1j * eta
 
-        for w, omega in enumerate(wd.omega_w):
+class OpticalLimit:
+    def __init__(self, wd, eta):
+        self.wd = wd
+        self.eta = eta
+
+    # @timer('CHI_0 optical limit update')
+    def run(self, n_mG, deps_m, chi0_wxvG):
+        """Optical limit update of chi."""
+        deps1_m = deps_m + 1j * self.eta
+        deps2_m = deps_m - 1j * self.eta
+
+        for w, omega in enumerate(self.wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
-    @timer('CHI_0 hermitian optical limit update')
-    def update_hermitian_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+
+class HermitianOpticalLimit:
+    def __init__(self, wd):
+        self.wd = wd
+
+    # @timer('CHI_0 hermitian optical limit update')
+    def run(self, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
-        for w, omega in enumerate(wd.omega_w):
+        for w, omega in enumerate(self.wd.omega_w):
             x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
-    @timer('CHI_0 optical limit hilbert-update')
-    def update_hilbert_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG):
+
+class HilbertOpticalLimit:
+    def __init__(self, wd):
+        self.wd = wd
+
+    # @timer('CHI_0 optical limit hilbert-update')
+    def run(self, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = wd.get_floor_index(o)
-            if w + 1 >= wd.wmax:
+            w = self.wd.get_floor_index(o)
+            if w + 1 >= self.wd.wmax:
                 continue
-            o1, o2 = wd.omega_w[w:w + 2]
+            o1, o2 = self.wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
@@ -374,7 +418,7 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, kind, *args, **kwargs):
+    def integrate(self, *, kind, **kwargs):
         if kind == 'spectral function':
             wings = False
         elif kind == 'spectral function wings':
@@ -384,8 +428,7 @@ class TetrahedronIntegrator(Integrator):
                              "or 'spectral function wings', got: ",
                              kind)
 
-        return self.spectral_function_integration(*args,
-                                                  wings=wings,
+        return self.spectral_function_integration(wings=wings,
                                                   **kwargs)
 
     @timer('Spectral function integration')
@@ -487,11 +530,10 @@ class TetrahedronIntegrator(Integrator):
                 W_Mw.append(W_w)
 
             if wings:
-                self.update_hilbert_optical_limit(n_MG, deps_Mk, W_Mw,
-                                                  i0_M, i1_M, out_wxx)
+                task = HilbertOpticalLimitTetrahedron(self.blockcomm)
             else:
-                self.update_hilbert(n_MG, deps_Mk, W_Mw, i0_M, i1_M,
-                                    out_wxx, blocks1d)
+                task = HilbertTetrahedron(blocks1d)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
         self.kncomm.sum(out_wxx)
 
@@ -502,39 +544,6 @@ class TetrahedronIntegrator(Integrator):
             iu = il[::-1]
             for out_xx in out_wxx:
                 out_xx[il] = out_xx[iu].conj()
-
-    def update_hilbert(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M,
-                       out_wxx, blocks1d):
-        """Update output array with dissipative part."""
-        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
-                                            i0_M, i1_M):
-            if i0 == i1:
-                continue
-
-            for iw, weight in enumerate(W_w):
-                if self.blockcomm.size > 1:
-                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
-                    # gemm(weight, n_G.reshape((-1, 1)), myn_G,
-                    #      1.0, out_wxx[i0 + iw], 'c')
-                    mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
-                        1.0, out_wxx[i0 + iw])
-                else:
-                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
-
-    def update_hilbert_optical_limit(self, n_MG, deps_Mk, W_Mw,
-                                     i0_M, i1_M, out_wxvG):
-        """Update optical limit output array with dissipative part of the head
-        and wings."""
-        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
-                                            i0_M, i1_M):
-            assert self.blockcomm.size == 1
-            if i0 == i1:
-                continue
-
-            for iw, weight in enumerate(W_w):
-                x_vG = np.outer(n_G[:3], n_G.conj())
-                out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
-                out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()
 
     @timer('Get kpoint weight')
     def get_kpoint_weight(self, K, deps_k, pts_k,
@@ -549,3 +558,44 @@ class TetrahedronIntegrator(Integrator):
                                      W_w, omega_w, vol_s)
 
         return W_w
+
+
+class HilbertTetrahedron:
+    def __init__(self, blocks1d):
+        self.blocks1d = blocks1d
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
+        """Update output array with dissipative part."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                if self.blocks1d.blockcomm.size > 1:
+                    myn_G = n_G[self.blocks1d.myslice].reshape((-1, 1))
+                    # gemm(weight, n_G.reshape((-1, 1)), myn_G,
+                    #      1.0, out_wxx[i0 + iw], 'c')
+                    mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
+                        1.0, out_wxx[i0 + iw])
+                else:
+                    czher(weight, n_G.conj(), out_wxx[i0 + iw])
+
+
+class HilbertOpticalLimitTetrahedron:
+    def __init__(self, blockcomm):
+        self.blockcomm = blockcomm
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
+        """Update optical limit output array with dissipative part of the head
+        and wings."""
+        for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
+                                            i0_M, i1_M):
+            assert self.blockcomm.size == 1
+            if i0 == i1:
+                continue
+
+            for iw, weight in enumerate(W_w):
+                x_vG = np.outer(n_G[:3], n_G.conj())
+                out_wxvG[i0 + iw, 0, :, :] += weight * x_vG
+                out_wxvG[i0 + iw, 1, :, :] += weight * x_vG.conj()

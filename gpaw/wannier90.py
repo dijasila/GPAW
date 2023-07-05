@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
-from gpaw.berryphase import get_overlap
+from gpaw.ibz2bz import (get_overlap, get_overlap_coefficients,
+                         get_phase_shifted_overlap_coefficients)
 
 
 class Wannier90:
@@ -322,21 +323,10 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
 
     icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
     r_g = calc.wfs.gd.get_grid_point_coordinates()
-    Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
 
-    dO_aii = []
-    for ia in calc.wfs.kpt_u[0].P_ani.keys():
-        dO_ii = calc.wfs.setups[ia].dO_ii
-        if spinors:
-            # Spinor projections require doubling of the (identical) orbitals
-            dO_jj = np.zeros((2 * len(dO_ii), 2 * len(dO_ii)), complex)
-            dO_jj[::2, ::2] = dO_ii
-            dO_jj[1::2, 1::2] = dO_ii
-            dO_aii.append(dO_jj)
-        else:
-            dO_aii.append(dO_ii)
-
+    spos_ac = calc.spos_ac
     wfs = calc.wfs
+    dO_aii = get_overlap_coefficients(wfs)
 
     def wavefunctions(bz_index):
         if spinors:
@@ -354,12 +344,12 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             u_nG = wavefunctions(ik)
             u_knG.append(u_nG)
 
-    P_kani = []
+    proj_k = []
     for ik in range(Nk):
         if spinors:
-            P_kani.append(soc[ik].P_amj)
+            proj_k.append(soc[ik].projections)
         else:
-            P_kani.append(calc.wfs.kpt_qs[ik][spin].P_ani)
+            proj_k.append(calc.wfs.kpt_qs[ik][spin].projections)
 
     for ik1 in range(Nk):
         if less_memory:
@@ -379,15 +369,15 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
             bG_v = np.dot(G_c, icell_cv)
             u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
             bG_c = kpts_kc[ik2] - kpts_kc[ik1] + G_c
-            bG_v = np.dot(bG_c, icell_cv)  # Overwrite bG_v
-            M_mm = get_overlap(calc,
-                               bands,
-                               np.reshape(u1_nG, (len(u1_nG), Ng)),
-                               np.reshape(u2_nG, (len(u2_nG), Ng)),
-                               P_kani[ik1],
-                               P_kani[ik2],
-                               dO_aii,
-                               bG_v)
+            phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
+                dO_aii, spos_ac, -bG_c)
+            M_mm = get_overlap(bands,
+                               wfs.gd,
+                               u1_nG,
+                               u2_nG,
+                               proj_k[ik1],
+                               proj_k[ik2],
+                               phase_shifted_dO_aii)
             indices = (ik1 + 1, ik2 + 1, G_c[0], G_c[1], G_c[2])
             print('%3d %3d %4d %3d %3d' % indices, file=f)
             for m1 in range(len(M_mm)):

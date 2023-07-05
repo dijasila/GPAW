@@ -263,7 +263,7 @@ class UniformGrid(Domain):
 
     def ecut_max(self):
         dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
-        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()  # or min ??????
 
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):
