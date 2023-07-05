@@ -225,7 +225,6 @@ def get_polarization_phase(calc):
 
 def parallel_transport(calc,
                        direction=0,
-                       spinors=True,
                        name=None,
                        scale=1.0,
                        bands=None,
@@ -260,14 +259,11 @@ def parallel_transport(calc,
     dO_aii = []
     for ia in calc.wfs.kpt_u[0].P_ani.keys():
         dO_ii = calc.wfs.setups[ia].dO_ii
-        if spinors:
-            # Spinor projections require doubling of the (identical) orbitals
-            dO_jj = np.zeros((2 * len(dO_ii), 2 * len(dO_ii)), complex)
-            dO_jj[::2, ::2] = dO_ii
-            dO_jj[1::2, 1::2] = dO_ii
-            dO_aii.append(dO_jj)
-        else:
-            dO_aii.append(dO_ii)
+        # Spinor projections require doubling of the (identical) orbitals
+        dO_jj = np.zeros((2 * len(dO_ii), 2 * len(dO_ii)), complex)
+        dO_jj[::2, ::2] = dO_ii
+        dO_jj[1::2, 1::2] = dO_ii
+        dO_aii.append(dO_jj)
 
     N_c = calc.wfs.kd.N_c
     assert 1 in np.delete(N_c, direction)
@@ -371,10 +367,7 @@ def parallel_transport(calc,
         u2_nsG = wavefunctions(iq0)
         u2_nsG[:] *= np.exp(-1.0j * gemmdot(G_v, r_g, beta=0.0))
         P2_ani = projections(iq0)
-        for a in range(len(calc.atoms)):
-            P2_ni = P2_ani[a][bands]
-            # P2_ni *= np.exp(-1.0j * np.dot(G_v, r_av[a]))
-            P2_ani[a][bands] = P2_ni
+
         M_mm = get_overlap(calc,
                            bands,
                            np.reshape(u1_nsG, (len(u1_nsG), Ng)),
