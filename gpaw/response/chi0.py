@@ -646,7 +646,10 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         self.tmp_init(*args, **kwargs)
 
         # Set up integral
-        self.integrator = self.initialize_integrator()
+        integrator_cls = self.get_integrator_cls()
+        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
+                                         eshift=self.eshift,
+                                         context=self.context)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
@@ -758,10 +761,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         # Fill in the head
         chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
-
-    def update_integrator_kwargs(self, kwargs):
-        """For the chi0 optical extension, the integrator needs an eshift."""
-        kwargs['eshift'] = self.eshift
 
     def get_integral_kind(self, integrator):
         """Determine what kind of integral to make."""
