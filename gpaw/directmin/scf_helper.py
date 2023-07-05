@@ -86,14 +86,6 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
                     wfs.calculate_occupation_numbers(dens.fixed)
             solver.get_energy_and_tangent_gradients(
                 ham, wfs, dens)
-        elif wfs.mode == 'lcao':
-            # Do we need to calculate the occupation numbers here?
-            wfs.calculate_occupation_numbers(dens.fixed)
-            solver.get_canonical_representation(ham, wfs, dens)
-            niter = solver.eg_count
-            log(
-                '\nOccupied states converged after'
-                ' {:d} e/g evaluations'.format(niter))
 
 
 def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
