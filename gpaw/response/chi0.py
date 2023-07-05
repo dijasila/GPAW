@@ -193,6 +193,7 @@ class Chi0Calculator:
                  disable_time_reversal=False,
                  disable_non_symmorphic=True,
                  integrationmode=None):
+        """Set up attributes common to all response function calculators."""
 
         if context is None:
             context = pair.context
@@ -222,6 +223,8 @@ class Chi0Calculator:
                  ecut=None,
                  eta=0.2,
                  **kwargs):
+        """Set up attributes to calculate the chi0 body and optical extensions.
+        """
         self.base_ini(*args, **kwargs)
 
         if ecut is None:
