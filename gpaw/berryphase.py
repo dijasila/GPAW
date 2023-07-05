@@ -69,60 +69,29 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         ik = kd.bz2ibz_k[k]
         k_c = kd.bzk_kc[k]
         ik_c = kd.ibzk_kc[ik]
+        # Since symmetry is off this should always hold
+        assert np.allclose(k_c, ik_c)
         kpt = wfs.kpt_qs[ik][spin]
         psit_nG = kpt.psit_nG
         ut_nR = wfs.gd.empty(nocc, wfs.dtype)
 
         # Check that all states are occupied
         assert np.all(kpt.f_n[:nocc] > 1e-6)
-        sym = kd.sym_k[k]
-        U_cc = kd.symmetry.op_scc[sym]
-        time_reversal = kd.time_reversal_k[k]
-        sign = 1 - 2 * time_reversal
-        phase_c = k_c - sign * np.dot(U_cc, ik_c)
-        phase_c = phase_c.round().astype(int)
-
         N_c = wfs.gd.N_c
 
-        if (U_cc == np.eye(3)).all() or np.allclose(ik_c - k_c, 0.0):
-            for n in range(nocc):
-                ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
-        else:
-            i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-            i = np.ravel_multi_index(i_cr, N_c, 'wrap')
+        for n in range(nocc):
+            ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
+        u_knR.append(ut_nR)
 
-            for n in range(nocc):
-                ut_nR[n, :] = wfs.pd.ifft(psit_nG[n],
-                                          ik).ravel()[i].reshape(N_c)
-
-        if time_reversal:
-            ut_nR = ut_nR.conj()
-
-        if np.any(phase_c):
-            emikr_R = np.exp(-2j * np.pi *
-                             np.dot(np.indices(N_c).T, phase_c / N_c).T)
-            u_knR.append(ut_nR * emikr_R[np.newaxis])
-        else:
-            u_knR.append(ut_nR)
-
-        a_a = []
-        U_aii = []
-        for a, id in enumerate(wfs.setups.id_a):
-            b = kd.symmetry.a_sa[sym, a]
-            S_c = np.dot(calc.spos_ac[a], U_cc) - calc.spos_ac[b]
-            x = np.exp(2j * np.pi * np.dot(k_c, S_c))
-            U_ii = wfs.setups[a].R_sii[sym].T * x
-            a_a.append(b)
-            U_aii.append(U_ii)
-
+        # XXX This is unnessecary cumbersome.
+        # Will be simplified when we switch to
+        # using projection object in all functions
+        """
         P_ani = []
-        for b, U_ii in zip(a_a, U_aii):
-            P_ni = np.dot(kpt.P_ani[b][:nocc], U_ii)
-            if time_reversal:
-                P_ni = P_ni.conj()
+        for ia in range(len(kpt.P_ani)):
+            P_ni = kpt.P_ani[ia][:nocc]
             P_ani.append(P_ni)
-
-        #P_kani.append(P_ani)
+        """
         P_kani.append(calc.wfs.kpt_qs[ik][spin].projections)
 
     indices_kkk = np.arange(Nk).reshape(size)

@@ -6,11 +6,6 @@ import gpaw.mpi as mpi
 import pytest
 
 
-def mark_xfail(use_sym, request):
-    if use_sym:
-        request.node.add_marker(pytest.mark.xfail)
-
-
 def test_pol(in_tmp_dir, gpw_files):
 
     # It is ugly to convert to string. But this is required in
@@ -52,18 +47,10 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     assert np.allclose(Sval, Stest, atol=1e-3)
 
 
-@pytest.mark.parametrize('use_sym', [True, False])
-def test_berry_phases(in_tmp_dir, gpw_files, use_sym, request):
+def test_berry_phases(in_tmp_dir, gpw_files):
 
-    # Does not work with symmetry
-    mark_xfail(use_sym, request)
-
-    if use_sym:
-        calc = GPAW(gpw_files['mos2_pw_wfs'],
-                    communicator=mpi.serial_comm)
-    else:
-        calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
-                    communicator=mpi.serial_comm)
+    calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
+                communicator=mpi.serial_comm)
 
     ind, phases = get_berry_phases(calc)
 
@@ -77,3 +64,26 @@ def test_berry_phases(in_tmp_dir, gpw_files, use_sym, request):
     phasetest = [1.66179, 2.54985, 3.10069, 2.54985, 1.66179, 0.92385]
     assert np.allclose(ind, indtest)
     assert np.allclose(phases, phasetest, atol=1e-3)
+
+
+def test_assertions(in_tmp_dir, gpw_files):
+    """
+    Functions should only work without symmetry
+    Tests so that proper assertion is raised for calculator
+    with symmetry enabled
+    """
+
+    gpw_file = gpw_files['mos2_pw_wfs']
+    with pytest.raises(AssertionError):
+        get_polarization_phase(str(gpw_file))
+
+    calc = GPAW(gpw_file,
+                communicator=mpi.serial_comm)
+
+    with pytest.raises(AssertionError):
+        ind, phases = get_berry_phases(calc)
+
+    with pytest.raises(AssertionError):
+        phi_km, S_km = parallel_transport(calc,
+                                          direction=0,
+                                          name='mos2', scale=0)
