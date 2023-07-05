@@ -35,7 +35,9 @@ class Chi0DrudeCalculator(Chi0Calculator):
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
 
         # Set up integral
-        self.integrator = self.initialize_integrator()
+        integrator_cls = self.get_integrator_cls()
+        self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
+                                         context=self.context)
         self.task, self.wd = self.get_integral_task_and_wd()
 
     def calculate(self, wd, rate, spin='all'):
@@ -98,10 +100,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         assert chi0_drude.zd.upper_half_plane
         chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
             / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
-
-    def update_integrator_kwargs(self, *unused):
-        """The Drude calculator uses only standard integrator kwargs."""
-        pass
 
     def get_integral_task_and_wd(self):
         if self.integrationmode == 'tetrahedron integration':
