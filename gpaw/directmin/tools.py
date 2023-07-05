@@ -210,10 +210,10 @@ def gramschmidt_lcao(C_nM, S_MM):
 
 def excite(calc, i, a, spin=(0, 0), sort=False):
     """
-    remove an electron from spin[0], homo + i
-    and add an electron to spin[1], lumo + a
-    occupation numbers will be taken from
-    calc.get_occupation_numbers() for each spin
+    Promotes an electron from spin[0], homo + i to spin[1], lumo + a.
+    If sort=True, sorts the orbitals according to the occupation numbers,
+    such that there are no holes in the distribution of the occupation
+    numbers.
 
     :return: new occupation numbers
     """
