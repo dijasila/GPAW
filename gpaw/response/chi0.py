@@ -394,18 +394,14 @@ class Chi0Calculator:
     def update_chi0_body(self,
                          chi0_body: Chi0BodyData,
                          m1, m2, spins):
+        """In-place calculation of the body."""
+        qpd = chi0_body.qpd
+
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(chi0_body.qpd)
 
         self.context.print('Integrating chi0 body.')
-        self._update_chi0_body(chi0_body, m1, m2, spins)
-
-    def _update_chi0_body(self,
-                          chi0_body: Chi0BodyData,
-                          m1, m2, spins):
-        """In-place calculation of the body."""
-        qpd = chi0_body.qpd
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
@@ -711,13 +707,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             List of spin indices to include in the calculation
         """
         self.context.print('Integrating chi0 head and wings.')
-        self._update_chi0_optical_extension(chi0_optical_extension,
-                                            m1, m2, spins)
-
-    def _update_chi0_optical_extension(self, chi0_optical_extension,
-                                       m1, m2, spins):
-        """In-place calculation of the optical limit wings."""
-
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
