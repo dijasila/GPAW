@@ -102,8 +102,7 @@ class ERlocalization:
 
         return nt_G, Q_aL, D_ap
 
-    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
-                                     dens=None):
+    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
@@ -221,11 +220,10 @@ class ERlocalization:
         return np.array([-ec]), dH_ap
 
     def get_energy_and_gradients_inner_loop(
-            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
-            exstate=False):
+            self, wfs, kpt, a_mat, evals, evec):
 
         e_sic, l_odd = \
-            self.get_energy_and_hamiltonian_kpt(wfs, dens, kpt)
+            self.get_energy_and_hamiltonian_kpt(wfs, kpt)
         wfs.timer.start('Unitary gradients')
         f = np.ones(l_odd.shape[0])
 
@@ -251,13 +249,13 @@ class ERlocalization:
                 g_mat = g_mat.real
             return 2.0 * g_mat, e_sic, kappa
 
-    def get_energy_and_hamiltonian_kpt(self, wfs, dens, kpt):
+    def get_energy_and_hamiltonian_kpt(self, wfs, kpt):
 
         n_occ = get_n_occ(kpt)
         k = self.n_kps * kpt.s + kpt.q
         grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
 
-        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad, dens)
+        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad)
 
         l_odd = wfs.integrate(kpt.psit_nG[:n_occ],
                               grad[k][:n_occ], True)
