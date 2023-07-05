@@ -42,8 +42,8 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     phitest = [0.76692, 0.27521]
     phival = [phi_km[1, 16], phi_km[0, 0]]
     assert np.allclose(phival, phitest, atol=1e-3)
-    Stest = [0.99938, 0.99874]
-    Sval = [S_km[1, 12], S_km[0, 0]]
+    Stest = [0.99945, 0.99874]
+    Sval = [S_km[1, 16], S_km[0, 0]]
     assert np.allclose(Sval, Stest, atol=1e-3)
 
 
