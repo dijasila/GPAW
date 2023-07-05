@@ -18,6 +18,8 @@ def localize_orbitals(
     if tol is None:
         if io == 'pm':
             tol = 1.0e-6
+        elif io == 'pz':
+            tol = 5.0e-4
         else:
             tol = 1.0e-10
     locnames = io.lower().split('_')
@@ -44,7 +46,7 @@ def localize_orbitals(
                 log('Perdew-Zunger localization started', flush=True)
                 PZC = get_functional_fdpw(func_settings, wfs, dens, ham)
                 dm = DirectMinLocalize(
-                    PZC, wfs, maxiter=200, g_tol=5.0e-4, randval=0.1)
+                    PZC, wfs, maxiter=200, g_tol=tol, randval=0.1)
                 dm.run(wfs, dens, log)
                 log('Perdew-Zunger localization finished', flush=True)
         elif name == 'ks':

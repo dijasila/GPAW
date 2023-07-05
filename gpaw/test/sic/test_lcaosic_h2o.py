@@ -8,8 +8,8 @@ import numpy as np
 
 def test_lcaosic_h2o(in_tmp_dir):
     """
-    test Perdew-Zunger Self-Interaction
-    Correction  in LCAO mode using DirectMin
+    Test Perdew-Zunger Self-Interaction
+    Correction  in LCAO mode using ETDM
     :param in_tmp_dir:
     :return:
     """

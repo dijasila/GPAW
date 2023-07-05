@@ -37,6 +37,7 @@ class DirectMin(Eigensolver):
                  localizationtype=None,
                  localizationseed=None,
                  need_localization=True,
+                 localization_tol=None,
                  maxiter=50,
                  maxiterxst=10,
                  maxstepxst=0.2,
@@ -60,6 +61,7 @@ class DirectMin(Eigensolver):
         self.inner_loop = inner_loop
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
+        self.localization_tol = localization_tol
         self.maxiter = maxiter
         self.maxiterxst = maxiterxst
         self.maxstepxst = maxstepxst
@@ -1229,6 +1231,7 @@ class DirectMin(Eigensolver):
         if not self.need_localization:
             return
         localize_orbitals(wfs, dens, ham, log, self.localizationtype,
+                          tol=self.localization_tol,
                           seed=self.localizationseed,
                           func_settings=self.func_settings)
         self.need_localization = False
