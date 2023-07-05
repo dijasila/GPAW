@@ -168,12 +168,20 @@ class Chi0Integrand(Integrand):
 
 class Chi0Calculator:
     def __init__(self, *args,
+                 eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
+        self.eshift = eshift / Ha
         self.tmp_init(*args, **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             *args, intraband=intraband, rate=rate, **kwargs)
+
+        metallic = self.nocc1 != self.nocc2
+        if metallic:
+            assert abs(self.eshift) < 1e-8,\
+                'A rigid energy shift cannot be applied to the conduction '\
+                'bands if there is no band gap'
 
     @property
     def nblocks(self):
@@ -213,9 +221,8 @@ class Chi0Calculator:
                  timeordered=False,
                  ecut=None,
                  eta=0.2,
-                 rate=0.0, eshift=0.0, **kwargs):
+                 **kwargs):
         self.base_ini(*args, **kwargs)
-        self.eshift = eshift / Ha
 
         if ecut is None:
             ecut = 50.0
@@ -244,16 +251,9 @@ class Chi0Calculator:
 
         self.pawcorr = None
 
+        self.context.print('Nonperiodic BCs: ', (~self.pbc))
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
-
-        self.context.print('Nonperiodic BCs: ', (~self.pbc))
-
-        metallic = self.nocc1 != self.nocc2
-        if metallic:
-            assert abs(eshift) < 1e-8,\
-                'A rigid energy shift cannot be applied to the conduction '\
-                'bands if there is no band gap'
 
     @property
     def pbc(self):
