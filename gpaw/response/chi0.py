@@ -178,7 +178,6 @@ class Chi0Calculator:
         # Set up integral
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
-                                         eshift=self.eshift,
                                          nblocks=self.nblocks,
                                          context=self.context)
 
@@ -498,20 +497,21 @@ class Chi0Calculator:
         if self.eta == 0:
             # eta == 0 is used as a synonym for calculating the hermitian part
             # of the response function at a range of imaginary frequencies
-            return Hermitian(integrator)
+            return Hermitian(integrator, eshift=self.eshift)
 
         if self.hilbert:
             # The hilbert flag is used to calculate the reponse function via a
             # hilbert transform of its dissipative (spectral) part.
             if isinstance(integrator, PointIntegrator):
-                return Hilbert(integrator=integrator)
+                return Hilbert(integrator=integrator, eshift=self.eshift)
             else:
                 assert isinstance(integrator, TetrahedronIntegrator)
                 return HilbertTetrahedron()
 
         # Otherwise, we simply evaluate the response function at the given
         # frequencies with broadening eta
-        return GenericUpdate(eta=self.eta, integrator=integrator)
+        return GenericUpdate(
+            eta=self.eta, integrator=integrator, eshift=self.eshift)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):
@@ -631,7 +631,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         integrator_cls = self.get_integrator_cls()
         self.integrator = integrator_cls(cell_cv=self.gs.gd.cell_cv,
                                          nblocks=self.nblocks,
-                                         eshift=self.eshift,
                                          context=self.context)
 
         # In the optical limit of metals, one must add the Drude dielectric

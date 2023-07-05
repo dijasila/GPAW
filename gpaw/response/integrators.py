@@ -32,7 +32,7 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, context, *, nblocks, eshift=0.0):
+    def __init__(self, cell_cv, context, *, nblocks):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -43,7 +43,6 @@ class Integrator:
         """
 
         self.context = context
-        self.eshift = eshift
         self.vol = abs(np.linalg.det(cell_cv))
 
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
@@ -79,9 +78,6 @@ class Integrator:
 
     def integrate(self, **kwargs):
         raise NotImplementedError
-
-    def _blocks1d(self, nG):
-        return Blocks1D(self.blockcomm, nG)
 
 
 class PointIntegrator(Integrator):
@@ -160,19 +156,20 @@ class GenericUpdate(IntegralKind):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
-    def __init__(self, eta, integrator):
+    def __init__(self, eta, integrator, eshift=0.0):
         self.eta = eta
-        self.integrator = integrator
+        self.blockcomm = integrator.blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
-        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps_m += self.eshift * np.sign(deps_m)
         deps1_m = deps_m + 1j * self.eta
         deps2_m = deps_m - 1j * self.eta
 
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
@@ -189,15 +186,16 @@ class Hermitian(IntegralKind):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator):
-        self.integrator = integrator
+    def __init__(self, integrator, eshift=0.0):
+        self.blockcomm = integrator.blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 hermetian update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
-        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps_m += self.eshift * np.sign(deps_m)
 
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         for w, omega in enumerate(wd.omega_w):
             if blocks1d.blockcomm.size == 1:
@@ -214,9 +212,9 @@ class Hilbert(IntegralKind):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator):
-        self.integrator = integrator
-        self.eshift = integrator.eshift
+    def __init__(self, integrator, eshift=0.0):
+        self.blockcomm = integrator.blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 spectral function update (new)')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -229,8 +227,7 @@ class Hilbert(IntegralKind):
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
 
-        # blocks1d = self._blocks1d(chi0_wGG.shape[2])
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         # Sort frequencies
         argsw_m = np.argsort(w_m)
