@@ -26,6 +26,10 @@ from gpaw.response.pw_parallelization import (block_partition,
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
+from gpaw.response.integrators import (
+    HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
+    HilbertOpticalLimitTetrahedron,
+    Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):
@@ -370,11 +374,13 @@ class Chi0Calculator:
                           chi0_body: Chi0BodyData,
                           m1, m2, spins):
         """In-place calculation of the body."""
+
         qpd = chi0_body.qpd
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        kind, extraargs = self.get_integral_kind()
+        task = self.get_integral_kind(integrator)
+        assert 'wings' not in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
@@ -386,12 +392,12 @@ class Chi0Calculator:
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0_body.data_WgG
-        integrator.integrate(kind=kind,  # Kind of integral
-                             domain=domain,  # Integration domain
+        integrator.integrate(domain=domain,  # Integration domain
                              integrand=integrand,
-                             x=self.wd,  # Frequency Descriptor
-                             out_wxx=out_WgG,  # Output array
-                             **extraargs)
+                             task=task,
+                             wd=self.wd,  # Frequency Descriptor
+                             out_wxx=out_WgG)  # Output array
+
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
             # transform is performed to return the real part of the density
@@ -503,30 +509,25 @@ class Chi0Calculator:
 
         return domain, analyzer, prefactor
 
-    def get_integral_kind(self):
-        """Determine what "kind" of integral to make."""
-        extraargs = {}
+    def get_integral_kind(self, integrator):
+        """Determine what kind of integral to make."""
         if self.eta == 0:
-            # If eta is 0 then we must be working with imaginary frequencies.
-            # In this case chi is hermitian and it is therefore possible to
-            # reduce the computational costs by a only computing half of the
-            # response function.
-            kind = 'hermitian response function'
-        elif self.hilbert:
-            # The spectral function integrator assumes that the form of the
-            # integrand is a function (a matrix element) multiplied by
-            # a delta function and should return a function of at user defined
-            # x's (frequencies). Thus the integrand is tuple of two functions
-            # and takes an additional argument (x).
-            kind = 'spectral function'
-        else:
-            # Otherwise, we can make no simplifying assumptions of the
-            # form of the response function and we simply perform a brute
-            # force calculation of the response function.
-            kind = 'response function'
-            extraargs['eta'] = self.eta
+            # eta == 0 is used as a synonym for calculating the hermitian part
+            # of the response function at a range of imaginary frequencies
+            return Hermitian(integrator)
 
-        return kind, extraargs
+        if self.hilbert:
+            # The hilbert flag is used to calculate the reponse function via a
+            # hilbert transform of its dissipative (spectral) part.
+            if isinstance(integrator, PointIntegrator):
+                return Hilbert(integrator=integrator)
+            else:
+                assert isinstance(integrator, TetrahedronIntegrator)
+                return HilbertTetrahedron()
+
+        # Otherwise, we simply evaluate the response function at the given
+        # frequencies with broadening eta
+        return GenericUpdate(eta=self.eta, integrator=integrator)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):
@@ -715,12 +716,15 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
     def _update_chi0_optical_extension(self, chi0_optical_extension,
                                        m1, m2, spins):
+        """In-place calculation of the optical limit wings."""
+
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        kind, extraargs = self.get_integral_kind()
+        task = self.get_integral_kind(integrator)
+        assert 'wings' in task.kind
 
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
@@ -732,12 +736,11 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(kind=kind + ' wings',  # Kind of integral
-                             domain=domain,  # Integration domain
+        integrator.integrate(domain=domain,  # Integration domain
                              integrand=integrand,
-                             x=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_WxvP,  # Output array
-                             **extraargs)
+                             task=task,
+                             wd=self.wd,  # Frequency Descriptor
+                             out_wxx=tmp_chi0_WxvP)  # Output array
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
@@ -755,6 +758,23 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     def update_integrator_kwargs(self, kwargs):
         """For the chi0 optical extension, the integrator needs an eshift."""
         kwargs['eshift'] = self.eshift
+
+    def get_integral_kind(self, integrator):
+        """Determine what kind of integral to make."""
+        if self.eta == 0:
+            # Calculate hermitian part
+            return HermitianOpticalLimit()
+
+        if self.hilbert:
+            # Calculate response function via its spectral part
+            if isinstance(integrator, PointIntegrator):
+                return HilbertOpticalLimit()
+            else:
+                assert isinstance(integrator, TetrahedronIntegrator)
+                return HilbertOpticalLimitTetrahedron()
+
+        # Otherwise, we evaluate the response function literally
+        return OpticalLimit(eta=self.eta)
 
     def print_info(self, qpd):
         """Print information about optical extension calculation."""

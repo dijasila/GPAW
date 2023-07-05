@@ -78,7 +78,7 @@ class Integrator:
 
         return mydomain
 
-    def integrate(self, kind, **kwargs):
+    def integrate(self, **kwargs):
         raise NotImplementedError
 
     def _blocks1d(self, nG):
@@ -92,46 +92,11 @@ class PointIntegrator(Integrator):
     delta functions appearing in many integrals by some factor
     eta. In this code we use Lorentzians."""
 
-    def integrate(self, *, kind, **kwargs):
-        self.context.print('Integral kind:', kind)
-        if kind == 'hermitian response function':
-            return self.response_function_integration(hermitian=True,
-                                                      hilbert=False,
-                                                      wings=False,
-                                                      **kwargs)
-        elif kind == 'hermitian response function wings':
-            return self.response_function_integration(hermitian=True,
-                                                      hilbert=False,
-                                                      wings=True,
-                                                      **kwargs)
-        elif kind == 'spectral function':
-            return self.response_function_integration(hilbert=True,
-                                                      **kwargs)
-        elif kind == 'spectral function wings':
-            return self.response_function_integration(hilbert=True,
-                                                      wings=True,
-                                                      **kwargs)
-        elif kind == 'response function':
-            return self.response_function_integration(hilbert=False,
-                                                      **kwargs)
-        elif kind == 'response function wings':
-            return self.response_function_integration(hilbert=False,
-                                                      wings=True,
-                                                      **kwargs)
-        else:
-            raise ValueError(kind)
+    def integrate(self, *, task, wd, domain, integrand, out_wxx):
+        """Integrate a response function over bands and kpoints."""
 
-    def response_function_integration(self, *, domain, integrand,
-                                      x=None, out_wxx,
-                                      hermitian=False,
-                                      intraband=False, hilbert=False,
-                                      wings=False, eta=None):
-        """Integrate a response function over bands and kpoints.
+        self.context.print('Integral kind:', task.kind)
 
-        func: method
-        omega_w: ndarray
-        out: np.ndarray
-        """
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
 
@@ -147,31 +112,7 @@ class PointIntegrator(Integrator):
                 continue
             deps_M = integrand.eigenvalues(*arguments)
 
-            if intraband:
-                assert eta is None
-                assert x is None
-                task = Intraband()
-            elif hermitian and not wings:
-                assert eta is None
-                # XXX self used for eshift and blocks1d
-                task = Hermitian(wd=x, integrator=self)
-            elif hermitian and wings:
-                assert eta is None
-                task = HermitianOpticalLimit(wd=x)
-            elif hilbert and not wings:
-                assert eta is None
-                # XXX self used for eshift and blocks1d
-                task = Hilbert(wd=x, integrator=self)
-            elif hilbert and wings:
-                assert eta is None
-                task = HilbertOpticalLimit(wd=x)
-            elif wings:
-                task = OpticalLimit(wd=x, eta=eta)
-            else:
-                # XXX self used for eshift and blocks1d
-                task = GenericUpdate(wd=x, eta=eta, integrator=self)
-
-            task.run(n_MG, deps_M, out_wxx)
+            task.run(wd, n_MG, deps_M, out_wxx)
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -179,12 +120,15 @@ class PointIntegrator(Integrator):
         # There could also be similar errors elsewhere... XXX
         self.kncomm.sum(out_wxx)
 
-        if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
+        if self.blockcomm.size == 1 and task.symmetrizable_unless_blocked:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
             iu = il[::-1]
-            if hilbert:
+
+            if isinstance(task, Hilbert):
+                # XXX special hack since one of them wants the other
+                # triangle.
                 for out_xx in out_wxx:
                     out_xx[il] = out_xx[iu].conj()
             else:
@@ -194,14 +138,35 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
 
-class GenericUpdate:
-    def __init__(self, wd, eta, integrator):
-        self.wd = wd
+class IntegralKind(ABC):
+    # Unique string for each kind of integral:
+    kind = '(unset)'
+
+    # Some integrals kinds like to calculate upper or lower half of the output
+    # when nblocks==1.  In that case, this boolean signifies to the
+    # integrator that the output array should be symmetrized.
+    #
+    # Actually: We don't gain anything much by doing this boolean
+    # more systematically, since it's just Hermitian and Hilbert that need
+    # it, and then one of the Tetrahedron types which is not compatible
+    # anyway.  We should probably not do this.
+    symmetrizable_unless_blocked = False
+
+    @abstractmethod
+    def run(self, wd, n_mG, deps_m, out_wxx):
+        """Add contribution from one point to out_wxx."""
+
+
+class GenericUpdate(IntegralKind):
+    kind = 'response function'
+    symmetrizable_unless_blocked = False
+
+    def __init__(self, eta, integrator):
         self.eta = eta
         self.integrator = integrator
 
     # @timer('CHI_0 update')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
         deps_m += self.integrator.eshift * np.sign(deps_m)
@@ -210,7 +175,7 @@ class GenericUpdate:
 
         blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for omega, chi0_GG in zip(self.wd.omega_w, chi0_wGG):
+        for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             if blocks1d.blockcomm.size > 1:
                 nx_mG = n_mG[:, blocks1d.myslice] * x_m[:, np.newaxis]
@@ -221,19 +186,21 @@ class GenericUpdate:
                 1.0, chi0_GG)
 
 
-class Hermitian:
-    def __init__(self, wd, integrator):
-        self.wd = wd
+class Hermitian(IntegralKind):
+    kind = 'hermitian response function'
+    symmetrizable_unless_blocked = True
+
+    def __init__(self, integrator):
         self.integrator = integrator
 
     # @timer('CHI_0 hermetian update')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
         deps_m += self.integrator.eshift * np.sign(deps_m)
 
         blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
 
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             if blocks1d.blockcomm.size == 1:
                 x_m = np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))**0.5
                 nx_mG = n_mG.conj() * x_m[:, np.newaxis]
@@ -244,21 +211,21 @@ class Hermitian:
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
 
-class Hilbert:
-    def __init__(self, wd, integrator):
-        self.wd = wd
+class Hilbert(IntegralKind):
+    kind = 'spectral function'
+    symmetrizable_unless_blocked = True
+
+    def __init__(self, integrator):
         self.integrator = integrator
         self.eshift = integrator.eshift
-        # self.blocks1d = blocks1d
 
     # @timer('CHI_0 spectral function update (new)')
-    def run(self, n_mG, deps_m, chi0_wGG):
+    def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update spectral function.
 
         Updates spectral function A_wGG and saves it to chi0_wGG for
         later hilbert-transform."""
 
-        wd = self.wd
         deps_m += self.eshift * np.sign(deps_m)
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
@@ -318,61 +285,66 @@ class Hilbert:
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
 
-class Intraband:
+class Intraband(IntegralKind):
+    kind = 'intraband'
+    symmetrizable_unless_blocked = False
+
     # @timer('CHI_0 intraband update')
-    def run(self, vel_mv, deps_M, chi0_wvv):
+    def run(self, wd, vel_mv, deps_M, chi0_wvv):
         """Add intraband contributions"""
-        # Here we are not using deps_M, which is not ideal
+        # Intraband is a little bit special, we use neither wd nor deps_M
 
         for vel_v in vel_mv:
             x_vv = np.outer(vel_v, vel_v)
             chi0_wvv[0] += x_vv
 
 
-class OpticalLimit:
-    def __init__(self, wd, eta):
-        self.wd = wd
+class OpticalLimit(IntegralKind):
+    kind = 'response function wings'
+    symmetrizable_unless_blocked = False
+
+    def __init__(self, eta):
         self.eta = eta
 
     # @timer('CHI_0 optical limit update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi."""
         deps1_m = deps_m + 1j * self.eta
         deps2_m = deps_m - 1j * self.eta
 
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HermitianOpticalLimit:
-    def __init__(self, wd):
-        self.wd = wd
+class HermitianOpticalLimit(IntegralKind):
+    kind = 'hermitian response function wings'
+    symmetrizable_unless_blocked = False
 
     # @timer('CHI_0 hermitian optical limit update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of hermitian chi."""
-        for w, omega in enumerate(self.wd.omega_w):
+        for w, omega in enumerate(wd.omega_w):
             x_m = - np.abs(2 * deps_m / (omega.imag**2 + deps_m**2))
             chi0_wxvG[w, 0] += np.dot(x_m * n_mG[:, :3].T, n_mG.conj())
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HilbertOpticalLimit:
-    def __init__(self, wd):
-        self.wd = wd
+class HilbertOpticalLimit(IntegralKind):
+    kind = 'spectral function wings'
+    symmetrizable_unless_blocked = False
 
     # @timer('CHI_0 optical limit hilbert-update')
-    def run(self, n_mG, deps_m, chi0_wxvG):
+    def run(self, wd, n_mG, deps_m, chi0_wxvG):
         """Optical limit update of chi-head and -wings."""
 
         for deps, n_G in zip(deps_m, n_mG):
             o = abs(deps)
-            w = self.wd.get_floor_index(o)
-            if w + 1 >= self.wd.wmax:
+            w = wd.get_floor_index(o)
+            if w + 1 >= wd.wmax:
                 continue
-            o1, o2 = self.wd.omega_w[w:w + 2]
+            o1, o2 = wd.omega_w[w:w + 2]
             if o > o2:
                 continue
             else:
@@ -418,23 +390,8 @@ class TetrahedronIntegrator(Integrator):
 
         return self.get_simplex_volume(td, S)
 
-    def integrate(self, *, kind, **kwargs):
-        if kind == 'spectral function':
-            wings = False
-        elif kind == 'spectral function wings':
-            wings = True
-        else:
-            raise ValueError("Expected kind='spectral function'",
-                             "or 'spectral function wings', got: ",
-                             kind)
-
-        return self.spectral_function_integration(wings=wings,
-                                                  **kwargs)
-
     @timer('Spectral function integration')
-    def spectral_function_integration(self, wings=False,
-                                      *, domain, integrand,
-                                      x, out_wxx):
+    def integrate(self, *, domain, integrand, wd, out_wxx, task):
         """Integrate response function.
 
         Assume that the integral has the
@@ -442,8 +399,6 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        wd = x  # XXX Rename.  But it clashes with some other methods
-        # that are **kwargs'ed somewhere, so requires attention.
         blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
@@ -529,15 +484,11 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            if wings:
-                task = HilbertOpticalLimitTetrahedron(self.blockcomm)
-            else:
-                task = HilbertTetrahedron(blocks1d)
-            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d)
 
         self.kncomm.sum(out_wxx)
 
-        if self.blockcomm.size == 1 and not wings:
+        if self.blockcomm.size == 1 and task.symmetrizable_unless_blocked:
             # Fill in upper/lower triangle also:
             nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
@@ -561,10 +512,10 @@ class TetrahedronIntegrator(Integrator):
 
 
 class HilbertTetrahedron:
-    def __init__(self, blocks1d):
-        self.blocks1d = blocks1d
+    kind = 'spectral function'
+    symmetrizable_unless_blocked = True
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
         """Update output array with dissipative part."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
@@ -572,8 +523,8 @@ class HilbertTetrahedron:
                 continue
 
             for iw, weight in enumerate(W_w):
-                if self.blocks1d.blockcomm.size > 1:
-                    myn_G = n_G[self.blocks1d.myslice].reshape((-1, 1))
+                if blocks1d.blockcomm.size > 1:
+                    myn_G = n_G[blocks1d.myslice].reshape((-1, 1))
                     # gemm(weight, n_G.reshape((-1, 1)), myn_G,
                     #      1.0, out_wxx[i0 + iw], 'c')
                     mmm(weight, myn_G, 'N', n_G.reshape((-1, 1)), 'C',
@@ -583,15 +534,15 @@ class HilbertTetrahedron:
 
 
 class HilbertOpticalLimitTetrahedron:
-    def __init__(self, blockcomm):
-        self.blockcomm = blockcomm
+    kind = 'spectral function wings'
+    symmetrizable_unless_blocked = False
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):
         """Update optical limit output array with dissipative part of the head
         and wings."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
-            assert self.blockcomm.size == 1
+            assert blocks1d.blockcomm.size == 1
             if i0 == i1:
                 continue
 

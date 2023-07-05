@@ -4,7 +4,7 @@ from functools import partial
 import numpy as np
 from ase.units import Ha
 
-from gpaw.response.integrators import Integrand
+from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
@@ -69,17 +69,21 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        kind, extraargs = self.get_integral_kind()
 
+        # The plasma frequency integral is special in the way that only
+        # the spectral part is needed
         integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
-        integrator.integrate(kind=kind,  # Kind of integral
+
+        task, wd = self.get_integral_kind()
+
+        integrator.integrate(task=task,
                              domain=domain,  # Integration domain
                              integrand=integrand,
-                             out_wxx=tmp_plasmafreq_wvv,  # Output array
-                             **extraargs)  # Extra args for int. method
+                             wd=wd,
+                             out_wxx=tmp_plasmafreq_wvv)  # Output array
         tmp_plasmafreq_wvv *= prefactor
 
         # Store the plasma frequency itself and print it for anyone to use
@@ -101,20 +105,23 @@ class Chi0DrudeCalculator(Chi0Calculator):
         pass
 
     def get_integral_kind(self):
-        """Define what "kind" of integral to make."""
-        extraargs = {}
-        # The plasma frequency integral is special in the way, that only
-        # the spectral part is needed
-        kind = 'spectral function'
-        if self.integrationmode is None:
-            # Calculate intraband transitions at finite fermi smearing
-            extraargs['intraband'] = True  # Calculate intraband
-        elif self.integrationmode == 'tetrahedron integration':
+        if self.integrationmode == 'tetrahedron integration':
             # Calculate intraband transitions at T=0
             fermi_level = self.gs.fermi_level
-            extraargs['x'] = FrequencyGridDescriptor([-fermi_level])
+            wd = FrequencyGridDescriptor([-fermi_level])
+            task = HilbertTetrahedron()
+        else:
+            task = Intraband()
 
-        return kind, extraargs
+            # We want to pass None for frequency descriptor, but
+            # if that goes wrong we'll get TypeError which is unhelpful.
+            # This dummy class will give us error messages that allow finding
+            # this spot in the code.
+            class NotAFrequencyDescriptor:
+                pass
+
+            wd = NotAFrequencyDescriptor()
+        return task, wd
 
     def print_info(self, wd, rate):
         p = partial(self.context.print, flush=False)
