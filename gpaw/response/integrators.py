@@ -32,7 +32,7 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, context, nblocks=1, eshift=0.0):
+    def __init__(self, cell_cv, context, *, nblocks):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
@@ -43,8 +43,6 @@ class Integrator:
         """
 
         self.context = context
-        self.eshift = eshift
-        self.nblocks = nblocks
         self.vol = abs(np.linalg.det(cell_cv))
 
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
@@ -80,9 +78,6 @@ class Integrator:
 
     def integrate(self, **kwargs):
         raise NotImplementedError
-
-    def _blocks1d(self, nG):
-        return Blocks1D(self.blockcomm, nG)
 
 
 class PointIntegrator(Integrator):
@@ -138,7 +133,7 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
 
-class IntegralKind(ABC):
+class IntegralTask(ABC):
     # Unique string for each kind of integral:
     kind = '(unset)'
 
@@ -157,23 +152,24 @@ class IntegralKind(ABC):
         """Add contribution from one point to out_wxx."""
 
 
-class GenericUpdate(IntegralKind):
+class GenericUpdate(IntegralTask):
     kind = 'response function'
     symmetrizable_unless_blocked = False
 
-    def __init__(self, eta, integrator):
+    def __init__(self, eta, blockcomm, eshift=0.0):
         self.eta = eta
-        self.integrator = integrator
+        self.blockcomm = blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
         """Update chi."""
 
-        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps_m += self.eshift * np.sign(deps_m)
         deps1_m = deps_m + 1j * self.eta
         deps2_m = deps_m - 1j * self.eta
 
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         for omega, chi0_GG in zip(wd.omega_w, chi0_wGG):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
@@ -186,19 +182,20 @@ class GenericUpdate(IntegralKind):
                 1.0, chi0_GG)
 
 
-class Hermitian(IntegralKind):
+class Hermitian(IntegralTask):
     kind = 'hermitian response function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator):
-        self.integrator = integrator
+    def __init__(self, blockcomm, eshift=0.0):
+        self.blockcomm = blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 hermetian update')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
         """If eta=0 use hermitian update."""
-        deps_m += self.integrator.eshift * np.sign(deps_m)
+        deps_m += self.eshift * np.sign(deps_m)
 
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         for w, omega in enumerate(wd.omega_w):
             if blocks1d.blockcomm.size == 1:
@@ -211,13 +208,13 @@ class Hermitian(IntegralKind):
                 mmm(-1.0, mynx_mG, 'T', n_mG.conj(), 'N', 1.0, chi0_wGG[w])
 
 
-class Hilbert(IntegralKind):
+class Hilbert(IntegralTask):
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def __init__(self, integrator):
-        self.integrator = integrator
-        self.eshift = integrator.eshift
+    def __init__(self, blockcomm, eshift=0.0):
+        self.blockcomm = blockcomm
+        self.eshift = eshift
 
     # @timer('CHI_0 spectral function update (new)')
     def run(self, wd, n_mG, deps_m, chi0_wGG):
@@ -230,8 +227,7 @@ class Hilbert(IntegralKind):
         o_m = abs(deps_m)
         w_m = wd.get_floor_index(o_m)
 
-        # blocks1d = self._blocks1d(chi0_wGG.shape[2])
-        blocks1d = self.integrator._blocks1d(chi0_wGG.shape[2])
+        blocks1d = Blocks1D(self.blockcomm, chi0_wGG.shape[2])
 
         # Sort frequencies
         argsw_m = np.argsort(w_m)
@@ -285,7 +281,7 @@ class Hilbert(IntegralKind):
                 mmm(1.0, r_Gm, 'N', l_Gm, 'C', 1.0, chi0_wGG[w + 1])
 
 
-class Intraband(IntegralKind):
+class Intraband(IntegralTask):
     kind = 'intraband'
     symmetrizable_unless_blocked = False
 
@@ -299,7 +295,7 @@ class Intraband(IntegralKind):
             chi0_wvv[0] += x_vv
 
 
-class OpticalLimit(IntegralKind):
+class OpticalLimit(IntegralTask):
     kind = 'response function wings'
     symmetrizable_unless_blocked = False
 
@@ -318,7 +314,7 @@ class OpticalLimit(IntegralKind):
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HermitianOpticalLimit(IntegralKind):
+class HermitianOpticalLimit(IntegralTask):
     kind = 'hermitian response function wings'
     symmetrizable_unless_blocked = False
 
@@ -331,7 +327,7 @@ class HermitianOpticalLimit(IntegralKind):
             chi0_wxvG[w, 1] += np.dot(x_m * n_mG[:, :3].T.conj(), n_mG)
 
 
-class HilbertOpticalLimit(IntegralKind):
+class HilbertOpticalLimit(IntegralTask):
     kind = 'spectral function wings'
     symmetrizable_unless_blocked = False
 
@@ -398,8 +394,6 @@ class TetrahedronIntegrator(Integrator):
         form of a response function. For the linear tetrahedron
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
-
-        blocks1d = self._blocks1d(out_wxx.shape[2])
 
         # Input domain
         td = self.tesselate(domain[0])
@@ -484,7 +478,7 @@ class TetrahedronIntegrator(Integrator):
                                              td)
                 W_Mw.append(W_w)
 
-            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d)
+            task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
         self.kncomm.sum(out_wxx)
 
@@ -515,8 +509,13 @@ class HilbertTetrahedron:
     kind = 'spectral function'
     symmetrizable_unless_blocked = True
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx, blocks1d):
+    def __init__(self, blockcomm):
+        self.blockcomm = blockcomm
+
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx):
         """Update output array with dissipative part."""
+        blocks1d = Blocks1D(self.blockcomm, out_wxx.shape[2])
+        
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
             if i0 == i1:
@@ -537,12 +536,11 @@ class HilbertOpticalLimitTetrahedron:
     kind = 'spectral function wings'
     symmetrizable_unless_blocked = False
 
-    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG, blocks1d):
+    def run(self, n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxvG):
         """Update optical limit output array with dissipative part of the head
         and wings."""
         for n_G, deps_k, W_w, i0, i1 in zip(n_MG, deps_Mk, W_Mw,
                                             i0_M, i1_M):
-            assert blocks1d.blockcomm.size == 1
             if i0 == i1:
                 continue
 

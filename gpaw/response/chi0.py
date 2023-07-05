@@ -18,11 +18,10 @@ from gpaw.response.frequencies import (FrequencyDescriptor,
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (
-    Integrand, Integrator, PointIntegrator, TetrahedronIntegrator)
+    Integrand, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
 from gpaw.response.pair import PairDensityCalculator
-from gpaw.response.pw_parallelization import (block_partition,
-                                              PlaneWaveBlockDistributor)
+from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -169,29 +168,32 @@ class Chi0Integrand(Integrand):
 
 class Chi0Calculator:
     def __init__(self, *args,
+                 eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
+        self.eshift = eshift / Ha
         self.tmp_init(*args, **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             *args, intraband=intraband, rate=rate, **kwargs)
 
-        # XXX this is kind of redundant as pair also does it.
-        self.nblocks = self.pair.nblocks
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      self.nblocks)
+        metallic = self.nocc1 != self.nocc2
+        if metallic:
+            assert abs(self.eshift) < 1e-8,\
+                'A rigid energy shift cannot be applied to the conduction '\
+                'bands if there is no band gap'
 
-    def tmp_init(self, wd, pair,
-                 hilbert=True,
-                 nbands=None,
-                 timeordered=False,
+    @property
+    def nblocks(self):
+        return self.pair.nblocks
+
+    def base_ini(self, pair,
                  context=None,
-                 ecut=None,
-                 eta=0.2,
-                 disable_point_group=False, disable_time_reversal=False,
+                 disable_point_group=False,
+                 disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 integrationmode=None,
-                 rate=0.0, eshift=0.0):
+                 integrationmode=None):
+        """Set up attributes common to all response function calculators."""
 
         if context is None:
             context = pair.context
@@ -203,58 +205,88 @@ class Chi0Calculator:
         self.pair = pair
         self.gs = pair.gs
 
+        # Number of completely filled bands and number of non-empty bands.
+        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
+
+        # Set up integrator
         self.integrationmode = integrationmode
-        self.eshift = eshift / Ha
+        self.integrator = self.construct_integrator()
+
+    def tmp_init(self, wd, *args,
+                 hilbert=True,
+                 nbands=None,
+                 timeordered=False,
+                 ecut=None,
+                 eta=0.2,
+                 **kwargs):
+        """Set up attributes to calculate the chi0 body and optical extensions.
+        """
+        self.base_ini(*args, **kwargs)
 
         if ecut is None:
             ecut = 50.0
         ecut /= Ha
         self.ecut = ecut
-
-        self.eta = eta / Ha
-
         self.nbands = nbands or self.gs.bd.nbands
 
         self.wd = wd
         self.context.print(self.wd, flush=False)
 
-        if not isinstance(self.wd, NonLinearFrequencyDescriptor):
-            assert not hilbert
-
+        self.eta = eta / Ha
         self.hilbert = hilbert
+        self.task = self.construct_integral_task()
+
         self.timeordered = bool(timeordered)
         if self.timeordered:
             assert self.hilbert  # Timeordered is only needed for G0W0
 
-        if self.eta == 0.0:
-            assert not hilbert
-            assert not timeordered
-            assert not self.wd.omega_w.real.any()
-
         self.pawcorr = None
 
+        self.context.print('Nonperiodic BCs: ', (~self.pbc))
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
-        self.context.print('Nonperiodic BCs: ', (~self.pbc), flush=False)
+    def construct_integral_task(self):
+        if self.eta == 0:
+            assert not self.hilbert
+            # eta == 0 is used as a synonym for calculating the hermitian part
+            # of the response function at a range of imaginary frequencies
+            assert not self.wd.omega_w.real.any()
+            return self.construct_hermitian_task()
 
-        if integrationmode is not None:
-            self.context.print('Using integration method: ' +
-                               self.integrationmode)
+        if self.hilbert:
+            # The hilbert flag is used to calculate the reponse function via a
+            # hilbert transform of its dissipative (spectral) part.
+            assert isinstance(self.wd, NonLinearFrequencyDescriptor)
+            return self.construct_hilbert_task()
+
+        # Otherwise, we perform a literal evaluation of the response function
+        # at the given frequencies with broadening eta
+        return self.construct_literal_task()
+
+    def construct_hermitian_task(self):
+        return Hermitian(self.integrator.blockcomm, eshift=self.eshift)
+
+    def construct_hilbert_task(self):
+        if isinstance(self.integrator, PointIntegrator):
+            return self.construct_point_hilbert_task()
         else:
-            self.context.print('Using integration method: PointIntegrator')
+            assert isinstance(self.integrator, TetrahedronIntegrator)
+            return self.construct_tetra_hilbert_task()
 
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
-        metallic = self.nocc1 != self.nocc2
+    def construct_point_hilbert_task(self):
+        return Hilbert(self.integrator.blockcomm, eshift=self.eshift)
 
-        if metallic:
-            assert abs(eshift) < 1e-8,\
-                'A rigid energy shift cannot be applied to the conduction '\
-                'bands if there is no band gap'
+    def construct_tetra_hilbert_task(self):
+        return HilbertTetrahedron(self.integrator.blockcomm)
+
+    def construct_literal_task(self):
+        return GenericUpdate(
+            self.eta, self.integrator.blockcomm, eshift=self.eshift)
 
     @property
     def pbc(self):
@@ -278,7 +310,9 @@ class Chi0Calculator:
 
     def get_blockdist(self):
         return PlaneWaveBlockDistributor(
-            self.context.comm, self.blockcomm, self.kncomm)
+            self.context.comm,
+            self.integrator.blockcomm,
+            self.integrator.kncomm)
 
     def calculate(self, q_c, spin='all'):
         """Calculate response function.
@@ -310,6 +344,8 @@ class Chi0Calculator:
 
         # Calculate optical extension
         if qpd.optical_limit:
+            if not abs(self.eshift) < 1e-8:
+                raise NotImplementedError("No wings eshift available")
             chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd=qpd, spin=spin)
         else:
             chi0_opt_ext = None
@@ -354,6 +390,8 @@ class Chi0Calculator:
         """
         self.update_chi0_body(chi0.body, m1, m2, spins)
         if chi0.optical_limit:
+            if not abs(self.eshift) < 1e-8:
+                raise NotImplementedError("No wings eshift available")
             assert chi0.optical_extension is not None
             # Update the head and wings
             self.chi0_opt_ext_calc.update_chi0_optical_extension(
@@ -363,25 +401,16 @@ class Chi0Calculator:
     def update_chi0_body(self,
                          chi0_body: Chi0BodyData,
                          m1, m2, spins):
+        """In-place calculation of the body."""
+        qpd = chi0_body.qpd
+
         # Reset PAW correction in case momentum has change
         pairden_paw_corr = self.gs.pair_density_paw_corrections
         self.pawcorr = pairden_paw_corr(chi0_body.qpd)
 
         self.context.print('Integrating chi0 body.')
-        self._update_chi0_body(chi0_body, m1, m2, spins)
 
-    def _update_chi0_body(self,
-                          chi0_body: Chi0BodyData,
-                          m1, m2, spins):
-        """In-place calculation of the body."""
-
-        qpd = chi0_body.qpd
-
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator)
-        assert 'wings' not in task.kind
-
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
 
@@ -392,11 +421,11 @@ class Chi0Calculator:
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0_body.data_WgG
-        integrator.integrate(domain=domain,  # Integration domain
-                             integrand=integrand,
-                             task=task,
-                             wd=self.wd,  # Frequency Descriptor
-                             out_wxx=out_WgG)  # Output array
+        self.integrator.integrate(domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  task=self.task,
+                                  wd=self.wd,  # Frequency Descriptor
+                                  out_wxx=out_WgG)  # Output array
 
         if self.hilbert:
             # The integrator only returns the spectral function and a Hilbert
@@ -416,28 +445,21 @@ class Chi0Calculator:
         chi0_body.data_WgG[:] = chi0_body.blockdist.distribute_as(
             tmp_chi0_wGG, chi0_body.nw, 'WgG')
 
-    def initialize_integrator(self) -> Integrator:
-        """The integrator class is a general class for brillouin zone
-        integration that can integrate user defined functions over user
-        defined domains and sum over bands."""
-        integrator: Integrator
-
+    def construct_integrator(self):
+        """Construct k-point integrator"""
         cls = self.get_integrator_cls()
-
-        kwargs = dict(
+        return cls(
             cell_cv=self.gs.gd.cell_cv,
-            context=self.context)
-        self.update_integrator_kwargs(kwargs)
-
-        integrator = cls(**kwargs)
-
-        return integrator
+            context=self.context,
+            nblocks=self.nblocks)
 
     def get_integrator_cls(self):
         """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
+            self.context.print('Using integrator: PointIntegrator')
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
+            self.context.print('Using integrator: TetrahedronIntegrator')
             cls = TetrahedronIntegrator  # type: ignore
             if not all([self.disable_point_group,
                         self.disable_time_reversal,
@@ -446,7 +468,6 @@ class Chi0Calculator:
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
                              ' not implemented.')
-
         return cls
 
     def check_high_symmetry_ibz_kpts(self):
@@ -470,11 +491,6 @@ class Chi0Calculator:
                     'vertices of the IBZ. '
                     'Please use find_high_symmetry_monkhorst_pack() from '
                     'gpaw.bztools to generate your k-point grid.')
-
-    def update_integrator_kwargs(self, kwargs):
-        # For calculations of the chi0 body, we need the following
-        kwargs['eshift'] = self.eshift
-        kwargs['nblocks'] = self.nblocks
 
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
@@ -508,26 +524,6 @@ class Chi0Calculator:
             prefactor *= len(bzk_kv) / nbzkpts
 
         return domain, analyzer, prefactor
-
-    def get_integral_kind(self, integrator):
-        """Determine what kind of integral to make."""
-        if self.eta == 0:
-            # eta == 0 is used as a synonym for calculating the hermitian part
-            # of the response function at a range of imaginary frequencies
-            return Hermitian(integrator)
-
-        if self.hilbert:
-            # The hilbert flag is used to calculate the reponse function via a
-            # hilbert transform of its dissipative (spectral) part.
-            if isinstance(integrator, PointIntegrator):
-                return Hilbert(integrator=integrator)
-            else:
-                assert isinstance(integrator, TetrahedronIntegrator)
-                return HilbertTetrahedron()
-
-        # Otherwise, we simply evaluate the response function at the given
-        # frequencies with broadening eta
-        return GenericUpdate(eta=self.eta, integrator=integrator)
 
     @timer('Get kpoints')
     def get_kpoints(self, qpd, integrationmode):
@@ -565,8 +561,8 @@ class Chi0Calculator:
         q_c = qpd.q_c
         nw = len(self.wd)
         csize = comm.size
-        knsize = self.kncomm.size
-        bsize = self.blockcomm.size
+        knsize = self.integrator.kncomm.size
+        bsize = self.integrator.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(self.context.print, flush=False)
@@ -663,6 +659,13 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             self.drude_calc = None
             self.rate = None
 
+    @property
+    def nblocks(self):
+        # The optical extensions are not distributed in memory
+        # NB: There can be a mismatch with self.pair.nblocks, which seems
+        # dangerous XXX
+        return 1
+
     def calculate(self,
                   qpd: SingleQPWDescriptor | None = None,
                   spin='all'):
@@ -711,21 +714,10 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
             List of spin indices to include in the calculation
         """
         self.context.print('Integrating chi0 head and wings.')
-        self._update_chi0_optical_extension(chi0_optical_extension,
-                                            m1, m2, spins)
-
-    def _update_chi0_optical_extension(self, chi0_optical_extension,
-                                       m1, m2, spins):
-        """In-place calculation of the optical limit wings."""
-
         chi0_opt_ext = chi0_optical_extension
         qpd = chi0_opt_ext.qpd
 
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
-        task = self.get_integral_kind(integrator)
-        assert 'wings' in task.kind
-
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=True, m1=m1, m2=m2)
 
@@ -736,11 +728,11 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         WxvP_shape = list(chi0_opt_ext.WxvG_shape)
         WxvP_shape[-1] += 2
         tmp_chi0_WxvP = np.zeros(WxvP_shape, complex)
-        integrator.integrate(domain=domain,  # Integration domain
-                             integrand=integrand,
-                             task=task,
-                             wd=self.wd,  # Frequency Descriptor
-                             out_wxx=tmp_chi0_WxvP)  # Output array
+        self.integrator.integrate(domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  task=self.task,
+                                  wd=self.wd,  # Frequency Descriptor
+                                  out_wxx=tmp_chi0_WxvP)  # Output array
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
@@ -755,25 +747,16 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         chi0_opt_ext.head_Wvv[:] += tmp_chi0_WxvP[:, 0, :3, :3]
         analyzer.symmetrize_wvv(chi0_opt_ext.head_Wvv)
 
-    def update_integrator_kwargs(self, kwargs):
-        """For the chi0 optical extension, the integrator needs an eshift."""
-        kwargs['eshift'] = self.eshift
+    def construct_hermitian_task(self):
+        return HermitianOpticalLimit()
 
-    def get_integral_kind(self, integrator):
-        """Determine what kind of integral to make."""
-        if self.eta == 0:
-            # Calculate hermitian part
-            return HermitianOpticalLimit()
+    def construct_point_hilbert_task(self):
+        return HilbertOpticalLimit()
 
-        if self.hilbert:
-            # Calculate response function via its spectral part
-            if isinstance(integrator, PointIntegrator):
-                return HilbertOpticalLimit()
-            else:
-                assert isinstance(integrator, TetrahedronIntegrator)
-                return HilbertOpticalLimitTetrahedron()
+    def construct_tetra_hilbert_task(self):
+        return HilbertOpticalLimitTetrahedron()
 
-        # Otherwise, we evaluate the response function literally
+    def construct_literal_task(self):
         return OpticalLimit(eta=self.eta)
 
     def print_info(self, qpd):

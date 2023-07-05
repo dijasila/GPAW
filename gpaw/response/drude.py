@@ -17,22 +17,16 @@ class Chi0DrudeCalculator(Chi0Calculator):
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
-    def __init__(self, pair,
-                 disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True,
-                 integrationmode=None):
-        self.pair = pair
-        self.gs = pair.gs
-        self.context = pair.context
+    def __init__(self, *args, **kwargs):
+        self.base_ini(*args, **kwargs)
+        self.task, self.wd = self.construct_integral_task_and_wd()
 
-        self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        self.integrationmode = integrationmode
-
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
+    @property
+    def nblocks(self):
+        # The plasma frequencies aren't distributed in memory
+        # NB: There can be a mismatch with self.pair.nblocks, which seems
+        # dangerous XXX
+        return 1
 
     def calculate(self, wd, rate, spin='all'):
         """Calculate the Drude dielectric response.
@@ -66,8 +60,6 @@ class Chi0DrudeCalculator(Chi0Calculator):
         # analysis -> see discussion in gpaw.response.jdos
         qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
                                          ecut=1e-3, gd=self.gs.gd)
-
-        integrator = self.initialize_integrator()
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
 
         # The plasma frequency integral is special in the way that only
@@ -76,14 +68,11 @@ class Chi0DrudeCalculator(Chi0Calculator):
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
-
-        task, wd = self.get_integral_kind()
-
-        integrator.integrate(task=task,
-                             domain=domain,  # Integration domain
-                             integrand=integrand,
-                             wd=wd,
-                             out_wxx=tmp_plasmafreq_wvv)  # Output array
+        self.integrator.integrate(task=self.task,
+                                  domain=domain,  # Integration domain
+                                  integrand=integrand,
+                                  wd=self.wd,
+                                  out_wxx=tmp_plasmafreq_wvv)  # Output array
         tmp_plasmafreq_wvv *= prefactor
 
         # Store the plasma frequency itself and print it for anyone to use
@@ -100,16 +89,12 @@ class Chi0DrudeCalculator(Chi0Calculator):
         chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
             / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
 
-    def update_integrator_kwargs(self, *unused):
-        """The Drude calculator uses only standard integrator kwargs."""
-        pass
-
-    def get_integral_kind(self):
+    def construct_integral_task_and_wd(self):
         if self.integrationmode == 'tetrahedron integration':
             # Calculate intraband transitions at T=0
             fermi_level = self.gs.fermi_level
             wd = FrequencyGridDescriptor([-fermi_level])
-            task = HilbertTetrahedron()
+            task = HilbertTetrahedron(self.integrator.blockcomm)
         else:
             task = Intraband()
 
