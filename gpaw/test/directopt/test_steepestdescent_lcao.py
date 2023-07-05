@@ -7,8 +7,8 @@ from ase import Atoms
 @ pytest.mark.do
 def test_steepestdescent_lcao(in_tmp_dir):
     """
-    Test Loewdin and Gram-Schmidt orthonormalization
-    of orbitals in LCAO
+    Test steepest descent and conjugate gradients
+    search direction algorithms
     :param in_tmp_dir:
     :return:
     """
