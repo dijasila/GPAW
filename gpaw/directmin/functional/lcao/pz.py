@@ -418,47 +418,6 @@ class PZSICLCAO:
 
         return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
-    def update_eigenval(self, f_n, C_nM, kpt, wfs, setup, H_MM):
-        n_kps = wfs.kd.nibzkpts
-        u = kpt.s * n_kps + kpt.q
-        n_occ = 0
-        for f in f_n:
-            if f > 1.0e-10:
-                n_occ += 1
-
-        b_nM = np.zeros(shape=(n_occ, C_nM.shape[1]), dtype=self.dtype)
-
-        for n in range(n_occ):
-            F_MM = self.get_orbital_potential_matrix(
-                f_n, C_nM, kpt, wfs, setup, n)[0]
-            b_nM[n] = F_MM @ C_nM[n]
-        C_conj_nM = C_nM.conj()[:n_occ]
-        L_occ = C_conj_nM @ b_nM.T
-        L_occ += np.dot(C_conj_nM,
-                        np.dot(H_MM, C_nM[:n_occ].T))
-        L_occ = 0.5 * (L_occ + L_occ.T.conj())
-        del C_conj_nM
-
-        L_unocc = np.dot(C_nM.conj()[n_occ:],
-                         np.dot(H_MM, C_nM[n_occ:].T))
-        L_unocc = 0.5 * (L_unocc + L_unocc.T.conj())
-
-        self.lagr_diag_s[u] = \
-            np.append(np.diagonal(L_occ),
-                      np.diagonal(L_unocc)).real
-
-        # occupied eigenvalues
-        if n_occ > 0:
-            eig_occ, L_occ = np.linalg.eigh(L_occ)
-            kpt.eps_n[:n_occ] = eig_occ
-
-        # unoccupied eigenvalues
-        if L_unocc.shape[0] > 0:
-            eig_unocc, L_unocc = np.linalg.eigh(L_unocc)
-            kpt.eps_n[n_occ:] = eig_unocc
-
-        self.eigv_s[u] = np.copy(kpt.eps_n)
-
     def get_odd_corrections_to_forces(self, wfs, dens):
 
         timer = wfs.timer
