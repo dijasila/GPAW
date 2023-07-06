@@ -299,7 +299,7 @@ def rk(alpha, a, beta, c, trans='c'):
             assert c.shape == (a.shape[1], a.shape[1])
         else:
             assert c.shape == (a.shape[0], a.shape[0])
-        assert c.strides[1] == c.itemsize
+        assert c.strides[1] == c.itemsize or c.size == 0
 
     _gpaw.rk(alpha, a, beta, c, trans)
 
@@ -350,7 +350,7 @@ def r2k(alpha, a, b, beta, c, trans='c'):
             assert c.shape == (a.shape[0], a.shape[0])
         else:
             assert c.shape == (a.shape[1], a.shape[1])
-        assert c.strides[1] == c.itemsize
+        assert c.strides[1] == c.itemsize or c.size == 0
 
     _gpaw.r2k(alpha, a, b, beta, c, trans)
 

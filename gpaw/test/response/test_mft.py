@@ -15,7 +15,7 @@ from gpaw.sphere.integrate import integrate_lebedev
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
-                                   add_magnetization)
+                                   add_spin_polarization)
 from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
                                SumRuleSiteMagnetization,
                                SumRuleSiteMagnetizationCalculator)
@@ -285,7 +285,7 @@ def test_Fe_site_magnetization(gpw_files):
                      for n in range(microsetup.Y_nL.shape[0])])
     for n, Y_L in enumerate(microsetup.Y_nL):
         n_sg = np.dot(Y_L, microsetup.n_sLg)
-        add_magnetization(microsetup.rgd, n_sg, m_ng[n, :])
+        add_spin_polarization(microsetup.rgd, n_sg, m_ng[n, :])
     # Integrate with varrying radii
     m_g = integrate_lebedev(m_ng)
     ae_magmom_r = np.array([

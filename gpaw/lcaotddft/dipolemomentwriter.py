@@ -49,7 +49,7 @@ class DipoleMomentWriter(TDDFTObserver):
         ``'pseudo'``: ``nt_sg``,
         ``'pseudocoarse'``: ``nt_sG``.
     force_new_file
-        If true, new dipole moment file is created (erasing any xisting one)
+        If true, new dipole moment file is created (erasing any existing one)
         even when restarting time propagation.
     interval
         Update interval. Value of 1 corresponds to evaluating and

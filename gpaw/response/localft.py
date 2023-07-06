@@ -583,25 +583,26 @@ def add_total_density(gd, n_sR, n_R):
     n_R += np.sum(n_sR, axis=0)
 
 
-def add_magnetization(gd, n_sR, m_R):
-    m_R += calculate_magnetization(n_sR)
+def add_spin_polarization(gd, n_sR, nz_R):
+    nz_R += calculate_spin_polarization(n_sR)
 
 
-def calculate_magnetization(n_sR):
+def calculate_spin_polarization(n_sR):
     return n_sR[0] - n_sR[1]
 
 
-def add_LSDA_Bxc(gd, n_sR, Bxc_R):
-    Bxc_R += calculate_LSDA_Bxc(gd, n_sR)
+def add_LSDA_Wxc(gd, n_sR, Wxc_R):
+    Wxc_R += calculate_LSDA_Wxc(gd, n_sR)
 
 
-def calculate_LSDA_Bxc(gd, n_sR):
-    """Calculate B^(xc) in the local spin-density approximation for a collinear
-    system and add it to the output array Bxc_R:
+def calculate_LSDA_Wxc(gd, n_sR):
+    """Calculate W_xc^z in the local spin-density approximation.
 
-                δE_xc[n,m]   1
-    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
-                  δm(r)      2
+    For a collinear system:
+
+                δE_xc[n,n^z]   1
+    W_xc^z(r) = ‾‾‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
+                   δn^z(r)     2
     """
     # Allocate an array for the spin-dependent xc potential on the real
     # space grid
@@ -619,10 +620,10 @@ def add_LSDA_spin_splitting(gd, n_sR, dxc_R):
 
     The spin splitting is defined as:
 
-    Δ^(xc)(r) = - 2 B^(xc)(r) m(r).
+    Δ^(xc)(r) = 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
     """
-    dxc_R += - 2. * calculate_LSDA_Bxc(gd, n_sR) \
-        * calculate_magnetization(n_sR)
+    dxc_R += - 2. * calculate_LSDA_Wxc(gd, n_sR) \
+        * calculate_spin_polarization(n_sR)
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
@@ -653,20 +654,24 @@ def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
 
     The transverse LDA kernel is given by:
 
-                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
-    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                    m      ∂m       |n=n(r),m=m(r)              m(r)
+                     2  ∂[ϵ_xc(n,n^z)n] |
+    f_LDA^(+-)(r) = ‾‾‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾  |
+                    n^z      ∂n^z       |n=n(r),n^z=n^z(r)
+
+                    V_LSDA^↑(r) - V_LSDA^↓(r)
+                  = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                              n^z(r)
     """
     assert len(n_sR) == 2  # nspins
-    m_R = n_sR[0] - n_sR[1]
+    nz_R = n_sR[0] - n_sR[1]
 
     if fxc == 'ALDA_x':
         fxc_R += - (6. / np.pi)**(1. / 3.) \
-            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / nz_R
     else:
         assert fxc in ['ALDA_X', 'ALDA']
         v_sR = np.zeros(np.shape(n_sR))
         xc = XC(fxc[1:])
         xc.calculate(gd, n_sR, v_sg=v_sR)
 
-        fxc_R += (v_sR[0] - v_sR[1]) / m_R
+        fxc_R += (v_sR[0] - v_sR[1]) / nz_R
