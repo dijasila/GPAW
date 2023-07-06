@@ -287,11 +287,11 @@ def radial_truncation_function_spline(rcut, drcut, lambd=None):
 
 def default_spherical_drcut(gd):
     """Define default width for the spherical truncation function."""
-    # Find "diameter" of each grid point volume
-    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
-    # Truncate the sphere smoothly over two such diameters
-    drcut = 2 * diam
-    return drcut
+    # Find the side-length corresponding to a cubic grid volume element
+    length = gd.dv**(1. / 3.)
+    # Use the diameter of such a cubic grid volume as the default
+    diam = np.sqrt(3) * length
+    return diam
 
 
 def _uniform_radial_grid(rcut, drcut):
