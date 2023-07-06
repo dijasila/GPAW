@@ -375,8 +375,8 @@ class DirectMin(Eigensolver):
         dot = dot.real
         dot = wfs.world.sum(dot)
         dot = np.sqrt(dot)
-        if dot > self.line_search.maxstep:
-            a_star = self.line_search.maxstep / dot
+        if dot > self.line_search.max_step:
+            a_star = self.line_search.max_step / dot
         else:
             a_star = 1.0
         for kpt in wfs.kpt_u:
