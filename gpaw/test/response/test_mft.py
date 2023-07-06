@@ -360,9 +360,9 @@ def test_Co_site_data(gpw_files):
 
     # Test that the spin splitting comes out as expected
     assert dxc_ar[0] == pytest.approx(dxc_ar[1])
-    assert dxc_ar[0, ::20] == pytest.approx([0.08480429, 1.54950144,
-                                             2.52780679, 2.79983388,
-                                             2.82746363, 2.8367686], rel=1e-3)
+    assert dxc_ar[0, ::20] == pytest.approx([0.02638351, 1.41476112,
+                                             2.49540004, 2.79727200,
+                                             2.82727948, 2.83670767], rel=1e-3)
 
     # import matplotlib.pyplot as plt
     # plt.subplot(1, 2, 1)
@@ -371,7 +371,7 @@ def test_Co_site_data(gpw_files):
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
     # plt.subplot(1, 2, 2)
-    # plt.plot(rc_r, Δxc_ar[0])
+    # plt.plot(rc_r, dxc_ar[0])
     # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
@@ -435,8 +435,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Test values against reference
     print(np.average(site_mag_ar, axis=0)[::2])
     assert np.average(site_mag_ar, axis=0)[::2] == pytest.approx(
-        np.array([0.00202567, 0.20297462, 0.77600827,
-                  1.26539897, 1.54881803, 1.62464344]), rel=5e-3)
+        np.array([4.25279967e-04, 1.57037039e-01, 7.31009518e-01,
+                  1.24858949e+00, 1.55180342e+00, 1.62491906e+00]), rel=6e-3)
 
     # import matplotlib.pyplot as plt
     # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')

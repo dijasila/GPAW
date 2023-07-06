@@ -289,9 +289,8 @@ def default_spherical_drcut(gd):
     """Define default width for the spherical truncation function."""
     # Find the side-length corresponding to a cubic grid volume element
     length = gd.dv**(1. / 3.)
-    # Use the diameter of such a cubic grid volume as the default
-    diam = np.sqrt(3) * length
-    return diam
+    # Use this side-length as the default
+    return length
 
 
 def _uniform_radial_grid(rcut, drcut):

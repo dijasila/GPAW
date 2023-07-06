@@ -238,8 +238,10 @@ class AtomicSiteData:
         self.finegd = gs.finegd
         self.nt_sr = gs.nt_sr
 
-        # Set up the atomic truncation functions which define the sites
-        self.drcut = default_spherical_drcut(self.finegd)
+        # Set up the atomic truncation functions which define the sites based
+        # on the coarse real-space grid
+        self.gd = gs.gd
+        self.drcut = default_spherical_drcut(self.gd)
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
@@ -256,7 +258,7 @@ class AtomicSiteData:
         augmentation sphere.
         """
         atoms = gs.atoms
-        drcut = default_spherical_drcut(gs.finegd)
+        drcut = default_spherical_drcut(gs.gd)
         rmin_A = np.array([drcut / 2] * len(atoms))
 
         # Find neighbours based on covalent radii
