@@ -363,7 +363,7 @@ class DirectMin(Eigensolver):
             k = n_kps * kpt.s + kpt.q
             psi_copy[k] = kpt.psit_nG.copy()
         p_knG = self.search_direction.update_data(
-            psi_copy, grad_knG, wfs, precond=self.prec,
+            wfs, psi_copy, grad_knG, precond=self.prec,
             dimensions=self.dimensions)
         self.project_search_direction(wfs, p_knG)
         wfs.timer.stop('Get Search Direction')
