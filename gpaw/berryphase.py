@@ -1,15 +1,16 @@
 import json
 import warnings
 from os.path import exists, splitext
-
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-
 from gpaw import GPAW
 from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.utilities.blas import gemmdot
+from gpaw.ibz2bz import (get_overlap_coefficients,
+                         get_phase_shifted_overlap_coefficients)
+from gpaw.ibz2bz import get_overlap as get_overlap_new
 
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
@@ -48,17 +49,13 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     size = get_monkhorst_pack_size_and_offset(kpts_kc)[0]
     Nk = len(kpts_kc)
     wfs = calc.wfs
-    icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
 
-    dO_aii = []
-    for ia, id in enumerate(wfs.setups.id_a):
-        dO_ii = calc.wfs.setups[ia].dO_ii
-        dO_aii.append(dO_ii)
-
+    dO_aii = get_overlap_coefficients(wfs)
+    
     kd = calc.wfs.kd
 
     u_knR = []
-    P_kani = []
+    proj_k = []
     for k in range(Nk):
         ik = kd.bz2ibz_k[k]
         k_c = kd.bzk_kc[k]
@@ -77,14 +74,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
         u_knR.append(ut_nR)
 
-        # XXX This is unnessecary cumbersome.
-        # Will be simplified when we switch to
-        # using projection object in all functions
-        P_ani = []
-        for ia in range(len(kpt.P_ani)):
-            P_ni = kpt.P_ani[ia][:nocc]
-            P_ani.append(P_ni)
-        P_kani.append(P_ani)
+        proj_k.append(kpt.projections)
 
     indices_kkk = np.arange(Nk).reshape(size)
     tmp = np.concatenate([[i for i in range(3) if i != dir], [dir]])
@@ -115,15 +105,16 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
                 u2_nR = u2_nR * emiGr_R
 
             bG_c = k2_c - k1_c
-            bG_v = np.dot(bG_c, icell_cv)
-            M_nn = get_overlap(calc,
-                               bands,
-                               np.reshape(u1_nR, (nocc, -1)),
-                               np.reshape(u2_nR, (nocc, -1)),
-                               P_kani[k1],
-                               P_kani[k2],
-                               dO_aii,
-                               bG_v)
+
+            phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
+                dO_aii, calc.spos_ac, -bG_c)
+            M_nn = get_overlap_new(bands,
+                                   wfs.gd,
+                                   u1_nR,
+                                   u2_nR,
+                                   proj_k[k1],
+                                   proj_k[k2],
+                                   phase_shifted_dO_aii)
             M_knn.append(M_nn)
         det = np.linalg.det(M_knn)
         phases.append(np.imag(np.log(np.prod(det))))
@@ -133,20 +124,21 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             k1 = indices_k[0]
             k1_c = kpts_kc[k1]
             G_c = [0, 0, 1]
-            G_v = np.dot(G_c, icell_cv)
             u1_nR = u_knR[k1]
             emiGr_R = np.exp(-2j * np.pi *
                              np.dot(np.indices(N_c).T, G_c / N_c).T)
             u2_nR = u1_nR * emiGr_R
 
-            M_nn = get_overlap(calc,
-                               bands,
-                               np.reshape(u1_nR, (nocc, -1)),
-                               np.reshape(u2_nR, (nocc, -1)),
-                               P_kani[k1],
-                               P_kani[k1],
-                               dO_aii,
-                               G_v)
+            phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
+                dO_aii, calc.spos_ac, -bG_c)
+            M_nn = get_overlap_new(bands,
+                                   calc.wfs.gd,
+                                   u1_nR,
+                                   u2_nR,
+                                   proj_k[k1],
+                                   proj_k[k1],
+                                   phase_shifted_dO_aii)
+
             phase2d = np.imag(np.log(np.linalg.det(M_nn)))
             phases2d.append(phase2d)
 
@@ -227,7 +219,6 @@ def get_polarization_phase(calc):
 
 def parallel_transport(calc,
                        direction=0,
-                       spinors=True,
                        name=None,
                        scale=1.0,
                        bands=None,
@@ -257,19 +248,16 @@ def parallel_transport(calc,
     cell_cv = calc.wfs.gd.cell_cv
     icell_cv = (2 * np.pi) * np.linalg.inv(cell_cv).T
     r_g = calc.wfs.gd.get_grid_point_coordinates()
-    Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
+    Ng = np.prod(np.shape(r_g)[1:]) * 2
 
     dO_aii = []
     for ia in calc.wfs.kpt_u[0].P_ani.keys():
         dO_ii = calc.wfs.setups[ia].dO_ii
-        if spinors:
-            # Spinor projections require doubling of the (identical) orbitals
-            dO_jj = np.zeros((2 * len(dO_ii), 2 * len(dO_ii)), complex)
-            dO_jj[::2, ::2] = dO_ii
-            dO_jj[1::2, 1::2] = dO_ii
-            dO_aii.append(dO_jj)
-        else:
-            dO_aii.append(dO_ii)
+        # Spinor projections require doubling of the (identical) orbitals
+        dO_jj = np.zeros((2 * len(dO_ii), 2 * len(dO_ii)), complex)
+        dO_jj[::2, ::2] = dO_ii
+        dO_jj[1::2, 1::2] = dO_ii
+        dO_aii.append(dO_jj)
 
     N_c = calc.wfs.kd.N_c
     assert 1 in np.delete(N_c, direction)
@@ -373,10 +361,7 @@ def parallel_transport(calc,
         u2_nsG = wavefunctions(iq0)
         u2_nsG[:] *= np.exp(-1.0j * gemmdot(G_v, r_g, beta=0.0))
         P2_ani = projections(iq0)
-        for a in range(len(calc.atoms)):
-            P2_ni = P2_ani[a][bands]
-            # P2_ni *= np.exp(-1.0j * np.dot(G_v, r_av[a]))
-            P2_ani[a][bands] = P2_ni
+
         M_mm = get_overlap(calc,
                            bands,
                            np.reshape(u1_nsG, (len(u1_nsG), Ng)),
