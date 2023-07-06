@@ -74,7 +74,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
         u_knR.append(ut_nR)
 
-        proj_k.append(calc.wfs.kpt_qs[ik][spin].projections)
+        proj_k.append(kpt.projections)
 
     indices_kkk = np.arange(Nk).reshape(size)
     tmp = np.concatenate([[i for i in range(3) if i != dir], [dir]])
