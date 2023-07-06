@@ -53,8 +53,12 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
     tcomm, kcomm = block_partition(context.comm, nblocks)
     serial_extractor = initialize_extractor(
         serial_gs, context, tcomm, kcomm)
+    assert not serial_extractor.calc_parallel
+    assert serial_extractor.gs.world.size == 1
     parallel_extractor = initialize_extractor(
         parallel_gs, context, tcomm, kcomm)
+    assert parallel_extractor.calc_parallel
+    assert parallel_extractor.gs.world.size > 1
     serial_integral = initialize_integral(serial_extractor, context, q_c)
     parallel_integral = initialize_integral(parallel_extractor, context, q_c)
 

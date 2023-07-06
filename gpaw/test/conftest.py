@@ -542,7 +542,7 @@ class GPWFiles:
         from ase.build import mx2
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                     size=(1, 1, 1), vacuum=5)
-        atoms.pbc = (1, 1, 1)
+        atoms.pbc = (1, 1, 0)
         ecut = 250
         nkpts = 6
         tag = '_nosym' if symmetry == 'off' else ''
