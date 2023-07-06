@@ -104,22 +104,14 @@ class InputParameters:
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
-        if isinstance(self.mode, dict):
-            mode_is_dict, mode_name = True, self.mode.get('name')
-        else:
-            mode_is_dict, mode_name = False, self.mode
-        if mode_name is None:
-            fallback_mode = 'fd'
+        if self.mode.get('name') is None:
             if warn:
                 warnings.warn(
                     ('Finite-difference mode implicitly chosen; '
                      'it will be an error to not specify a mode '
                      'in the future'),
                     DeprecatedParameterWarning)
-            if mode_is_dict:
-                self.mode['name'] = fallback_mode
-            else:
-                self.mode = parameter_functions['mode'](fallback_mode)
+            self.mode = dict(self.mode, name='fd')
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
