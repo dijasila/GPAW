@@ -495,15 +495,9 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
     def get_info_string(self, q_c, nbands, nt):
         """Get information about the calculation"""
         s = '\n'
-
         s += 'Calculating the sum rule site magnetization with:\n'
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        if nbands is None:
-            s += '    Bands included: All\n'
-        else:
-            s += '    Number of bands included: %d\n' % nbands
-        s += 'Resulting in:\n'
-        s += '    A total number of band and spin transitions of: %d\n' % nt
+        s += self.get_band_and_transitions_info_string(nbands, nt)
         s += '\n'
 
         s += self.get_basic_info_string()
