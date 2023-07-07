@@ -38,7 +38,7 @@ def test_pz_localization_pw(in_tmp_dir):
                     localization_tol=5e-2,
                     g_tol=5.0e-2,
                     convergelumo=False),
-                mixer={'method': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 symmetry='off',
                 spinpol=True
                 )

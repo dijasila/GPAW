@@ -38,7 +38,7 @@ def test_fdsic_h2o(in_tmp_dir):
                     g_tol=5.0e-3,
                     maxiter=200),
                 convergence={'eigenstates': 1e-4},
-                mixer={'method': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 symmetry='off',
                 spinpol=True
                 )

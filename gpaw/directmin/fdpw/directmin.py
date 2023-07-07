@@ -1292,8 +1292,8 @@ class DirectMin(Eigensolver):
 
     def check_assertions(self, wfs, dens):
 
-        assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer={\'name\': \'dummy\'}'
+        assert dens.mixer.driver.basemixerclass.name == 'no-mixing', \
+            'Please, use: mixer={\'backend\': \'no-mixing\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
         if wfs.occupations.name != 'mom':

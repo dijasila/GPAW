@@ -94,54 +94,71 @@ class Derivatives:
 
         assert what2calc in ['gradient', 'hessian']
 
-        # total dimensionality if matrices are real
-        dim = sum([len(a) for a in self.a_vec_u.values()])
-        steps = [1.0, 1.0j] if etdm.dtype == complex else [1.0]
-        use_energy_or_gradient = {'gradient': 0, 'hessian': 1}
+        if wfs.mode == 'lcao':
+            # total dimensionality if matrices are real
+            dim = sum([len(a) for a in self.a_vec_u.values()])
+            steps = [1.0, 1.0j] if etdm.dtype == complex else [1.0]
+            use_energy_or_gradient = {'gradient': 0, 'hessian': 1}
 
-        matrix_exp = etdm.matrix_exp
-        if what2calc == 'gradient':
-            numerical_der = {u: np.zeros_like(v) for u,
-                                                     v in self.a_vec_u.items()}
+            matrix_exp = etdm.matrix_exp
+            if what2calc == 'gradient':
+                numerical_der = {u: np.zeros_like(v)
+                                 for u, v in self.a_vec_u.items()}
+            else:
+                numerical_der = np.zeros(shape=(len(steps) * dim,
+                                                len(steps) * dim))
+                # have to use exact gradient when Hessian is calculated
+                etdm.matrix_exp = 'egdecomp'
+
+            row = 0
+            f = use_energy_or_gradient[what2calc]
+            for step in steps:
+                for kpt in wfs.kpt_u:
+                    u = etdm.kpointval(kpt)
+                    for i in range(len(self.a_vec_u[u])):
+                        a = self.a_vec_u[u][i]
+
+                        self.a_vec_u[u][i] = a + step * self.eps
+                        fplus = etdm.get_energy_and_gradients(
+                            self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
+
+                        self.a_vec_u[u][i] = a - step * self.eps
+                        fminus = etdm.get_energy_and_gradients(
+                            self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
+
+                        derf = apply_central_finite_difference_approx(
+                            fplus, fminus, self.eps)
+
+                        if what2calc == 'gradient':
+                            numerical_der[u][i] += step * derf
+                        else:
+                            numerical_der[row] = construct_real_hessian(derf)
+
+                        row += 1
+                        self.a_vec_u[u][i] = a
+
+            if what2calc == 'hessian':
+                etdm.matrix_exp = matrix_exp
+
         else:
-            numerical_der = np.zeros(shape=(len(steps) * dim,
-                                            len(steps) * dim))
-            # have to use exact gradient when Hessian is calculated
-            etdm.matrix_exp = 'egdecomp'
-
-        row = 0
-        f = use_energy_or_gradient[what2calc]
-        for step in steps:
+            A_s = {}
             for kpt in wfs.kpt_u:
-                u = etdm.kpointval(kpt)
-                for i in range(len(self.a_vec_u[u])):
-                    a = self.a_vec_u[u][i]
-
-                    self.a_vec_u[u][i] = a + step * self.eps
-                    fplus = etdm.get_energy_and_gradients(
-                        self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
-
-                    self.a_vec_u[u][i] = a - step * self.eps
-                    fminus = etdm.get_energy_and_gradients(
-                        self.a_vec_u, ham, wfs, dens, self.c_ref)[f]
-
-                    derf = apply_central_finite_difference_approx(
-                        fplus, fminus, self.eps)
-
-                    if what2calc == 'gradient':
-                        numerical_der[u][i] += step * derf
-                    else:
-                        numerical_der[row] = construct_real_hessian(derf)
-
-                    row += 1
-                    self.a_vec_u[u][i] = a
-
-        if what2calc == 'hessian':
-            etdm.matrix_exp = matrix_exp
+                k = etdm.n_kps * kpt.s + kpt.q
+                A_s[k] = np.zeros_like(etdm.U_k[k])
+            log = etdm.log
+            if what2calc == 'gradient':
+                numerical_der = self.get_numerical_gradient_fdpw(etdm, wfs,
+                                                                 dens, A_s,
+                                                                 log, self.eps)
+            else:
+                numerical_der = self.get_numerical_hessian_fdpw(etdm, wfs,
+                                                                dens, A_s,
+                                                                log, self.eps)
 
         return numerical_der
 
-    def get_numerical_derivatives_fdpw(self, etdm, A_s, wfs, dens, log, eps=1.0e-5):
+    def get_numerical_gradient_fdpw(self, etdm, wfs, dens, A_s, log,
+                                    eps=1.0e-5):
         dtype = etdm.dtype
         h = [eps, -eps]
         coef = [1.0, -1.0]
@@ -232,10 +249,10 @@ class Derivatives:
 
             Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
 
-        return G, Gr_n
+        return Gr_n
 
-    def get_numerical_hessian(self, etdm, A_s, wfs, dens, log, eps=1.0e-5):
-
+    def get_numerical_hessian_fdpw(self, etdm, wfs, dens, A_s, log,
+                                   eps=1.0e-5):
         h = [eps, -eps]
         coef = [1.0, -1.0]
         log("Estimating Hessian using finite differences..")

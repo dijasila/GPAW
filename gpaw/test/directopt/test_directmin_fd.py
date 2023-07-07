@@ -27,7 +27,7 @@ def test_directmin_fd(in_tmp_dir):
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(convergelumo=True),
-                mixer={'name': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 spinpol=True,
                 symmetry='off',
                 nbands=-5,

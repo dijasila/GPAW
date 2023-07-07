@@ -38,7 +38,7 @@ def test_pwsic_h2o(in_tmp_dir):
                     maxiter=200,
                     printinnerloop=True),
                 convergence={'eigenstates': 1e-4},
-                mixer={'method': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 symmetry='off',
                 spinpol=True
                 )

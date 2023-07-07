@@ -22,7 +22,7 @@ def test_pwsic_h2o(in_tmp_dir):
                 spinpol=True,
                 symmetry='off',
                 eigensolver=DirectMin(convergelumo=True),
-                mixer={'name': 'dummy'},
+                mixer={'backend': 'no-mixing'},
                 occupations={'name': 'fixed-uniform'},
                 convergence={'eigenstates': 1e-4}
                 )
