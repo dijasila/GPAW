@@ -238,6 +238,14 @@ class MicroSetup:
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
 
+    def evaluate_function(self, add_f):
+        """Evaluate a given function f(r) on the angular and radial grids."""
+        f_ng = np.array([self.rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            n_sg = np.dot(Y_L, self.n_sLg)
+            add_f(self.rgd, n_sg, f_ng[n])
+        return f_ng
+
     def evaluate_paw_correction(self, add_f):
         r"""Evaluate Δf_a[n_a,ñ_a](r) for a given function f(r).
 
