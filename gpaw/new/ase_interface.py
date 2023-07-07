@@ -8,7 +8,7 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import Calculator
+from ase.calculators.calculator import BaseCalculator
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
@@ -55,7 +55,7 @@ def write_header(log, world, params):
         log(**{k: v for k, v in params.items()})
 
 
-def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
+def compare_atoms(a1: Atoms, a2: Atoms, tol: float = 0.0) -> set[str]:
     if a1 is a2:
         return set()
 
@@ -65,16 +65,16 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
     if (a1.pbc != a2.pbc).any():
         return {'pbc'}
 
-    if abs(a1.cell - a2.cell).max() > 0.0:
+    if abs(a1.cell - a2.cell).max() > tol:
         return {'cell'}
 
-    if abs(a1.positions - a2.positions).max() > 0.0:
+    if abs(a1.positions - a2.positions).max() > tol:
         return {'positions'}
 
     return set()
 
 
-class ASECalculator:
+class ASECalculator(BaseCalculator):
     """This is the ASE-calculator frontend for doing a GPAW calculation."""
 
     name = 'gpaw'
@@ -536,7 +536,8 @@ class ASECalculator:
     def symmetry(self):
         return self.calculation.state.ibzwfs.ibz.symmetries.symmetry
 
-
-# Comment in issue #864: restore isinstance()/issubclass() behavior when
-# checking against ase.calculators.calculator.Calculator
-Calculator.register(ASECalculator)
+    # Comment in issue #864, merge request !1802:
+    # Restore isinstance()/issubclass() behavior when checking against
+    # `ase.calculators.calculator.BaseCalculator`
+    def check_state(self, atoms: Atoms, tol=1e-15) -> set[str]:
+        return compare_atoms(self.atoms, atoms, tol=tol)
