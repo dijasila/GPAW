@@ -111,7 +111,7 @@ class Derivatives:
 
         if wfs.mode == 'lcao':
             numerical_der = self.get_numerical_derivatives_lcao(
-                etdm, ham, wfs, dens, what2calc='gradient')
+                etdm, ham, wfs, dens, what2calc=what2calc)
         else:
             if what2calc == 'gradient':
                 numerical_der = self.get_numerical_gradient_fdpw(
