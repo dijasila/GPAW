@@ -26,7 +26,7 @@ dry_run = 0
 debug: bool = (TYPE_CHECKING or
                'pytest' in sys.modules or
                bool(sys.flags.debug))
-debug=1
+
 
 @contextlib.contextmanager
 def disable_dry_run():
