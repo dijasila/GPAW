@@ -141,6 +141,137 @@ class Derivatives:
 
         return numerical_der
 
+    def get_numerical_derivatives_fdpw(self, etdm, A_s, wfs, dens, log, eps=1.0e-5):
+        dtype = etdm.dtype
+        h = [eps, -eps]
+        coef = [1.0, -1.0]
+        Gr_n_x = {}
+        Gr_n_y = {}
+        E_0, G = etdm.get_energy_and_gradients(A_s, wfs, dens)
+        log("Estimating gradients using finite differences..")
+        log(flush=True)
+
+        if dtype is complex:
+            for kpt in wfs.kpt_u:
+                k = etdm.n_kps * kpt.s + kpt.q
+                dim = A_s[k].shape[0]
+                iut = np.triu_indices(dim, 1)
+                dim_gr = iut[0].shape[0]
+
+                for z in range(2):
+                    grad_num = np.zeros(shape=dim_gr,
+                                        dtype=etdm.dtype)
+                    igr = 0
+                    for i, j in zip(*iut):
+                        log(igr + 1, 'out of', dim_gr, 'for a', k,
+                            'kpt and', z, 'real/compl comp.')
+                        log(flush=True)
+                        A = A_s[k][i][j]
+                        for l in range(2):
+                            if z == 1:
+                                if i == j:
+                                    A_s[k][i][j] = A + 1.0j * h[l]
+                                else:
+                                    A_s[k][i][j] = A + 1.0j * h[
+                                        l]
+                                    A_s[k][j][i] = -np.conjugate(
+                                        A + 1.0j * h[l])
+                            else:
+                                if i == j:
+                                    A_s[k][i][j] = A + 0.0j * h[l]
+                                else:
+                                    A_s[k][i][j] = A + h[
+                                        l]
+                                    A_s[k][j][i] = -np.conjugate(
+                                        A + h[l])
+                            E =\
+                                etdm.get_energy_and_gradients(
+                                    A_s, wfs, dens)[0]
+                            grad_num[igr] += E * coef[l]
+                        grad_num[igr] *= 1.0 / (2.0 * eps)
+                        if i == j:
+                            A_s[k][i][j] = A
+                        else:
+                            A_s[k][i][j] = A
+                            A_s[k][j][i] = -np.conjugate(A)
+                        igr += 1
+                    if z == 0:
+                        Gr_n_x[k] = grad_num.copy()
+                    else:
+                        Gr_n_y[k] = grad_num.copy()
+                G[k] = G[k][iut]
+
+            Gr_n = {k: (Gr_n_x[k] + 1.0j * Gr_n_y[k]) for k in
+                    Gr_n_x.keys()}
+        else:
+            for kpt in wfs.kpt_u:
+                k = etdm.n_kps * kpt.s + kpt.q
+                dim = A_s[k].shape[0]
+                iut = np.triu_indices(dim, 1)
+                dim_gr = iut[0].shape[0]
+                grad_num = np.zeros(shape=dim_gr, dtype=etdm.dtype)
+
+                igr = 0
+                for i, j in zip(*iut):
+                    # log(k, i, j)
+                    log(igr + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                    log(flush=True)
+                    A = A_s[k][i][j]
+                    for l in range(2):
+                        A_s[k][i][j] = A + h[l]
+                        A_s[k][j][i] = -(A + h[l])
+                        E = etdm.get_energy_and_gradients(A_s, wfs, dens)[0]
+                        grad_num[igr] += E * coef[l]
+                    grad_num[igr] *= 1.0 / (2.0 * eps)
+                    A_s[k][i][j] = A
+                    A_s[k][j][i] = -A
+                    igr += 1
+
+                Gr_n_x[k] = grad_num.copy()
+                G[k] = G[k][iut]
+
+            Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
+
+        return G, Gr_n
+
+    def get_numerical_hessian(self, etdm, A_s, wfs, dens, log, eps=1.0e-5):
+
+        h = [eps, -eps]
+        coef = [1.0, -1.0]
+        log("Estimating Hessian using finite differences..")
+        log(flush=True)
+        num_hes = {}
+
+        for kpt in wfs.kpt_u:
+            k = etdm.n_kps * kpt.s + kpt.q
+            dim = A_s[k].shape[0]
+            iut = np.tril_indices(dim, -1)
+            dim_gr = iut[0].shape[0]
+            hessian = np.zeros(shape=(dim_gr, dim_gr),
+                               dtype=etdm.dtype)
+            ih = 0
+            for i, j in zip(*iut):
+                # log(k, i, j)
+                log(ih + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                log(flush=True)
+                A = A_s[k][i][j]
+                for l in range(2):
+                    A_s[k][i][j] = A + h[l]
+                    A_s[k][j][i] = -(A + h[l])
+                    g = etdm.get_energy_and_gradients(A_s, wfs, dens)[1]
+                    g = g[k][iut]
+                    hessian[ih, :] += g * coef[l]
+
+                hessian[ih, :] *= 1.0 / (2.0 * eps)
+
+                A_s[k][i][j] = A
+                A_s[k][j][i] = -A
+                ih += 1
+
+            num_hes[k] = hessian.copy()
+
+        return num_hes
+
 
 class Davidson(object):
     """
