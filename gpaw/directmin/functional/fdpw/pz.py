@@ -101,7 +101,7 @@ class PZSICFDPW:
             self.old_pot = {}
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)[0]
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
     def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
@@ -133,7 +133,7 @@ class PZSICFDPW:
             ham=None, scalewithocc=True, exstate=False):
 
         k = self.n_kps * kpt.s + kpt.q
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
         self.grad[k] = np.zeros_like(kpt.psit_nG) if exstate \
             else np.zeros_like(kpt.psit_nG[:n_occ])
 
@@ -177,7 +177,7 @@ class PZSICFDPW:
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
         e_total_sic = np.array([])
 
         for i in range(n_occ):
@@ -384,7 +384,7 @@ class PZSICFDPW:
 
     def get_odd_corrections_to_forces(self, F_av, wfs, kpt, exstate=False):
 
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
         n_kps = self.n_kps
 
         dP_amiv = wfs.pt.dict(n_occ, derivative=True)

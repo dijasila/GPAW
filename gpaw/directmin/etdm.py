@@ -18,6 +18,7 @@ from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.directmin.tools import get_n_occ
 from gpaw import BadParallelization
 from copy import deepcopy
 
@@ -366,7 +367,7 @@ class ETDM:
         # store only A_2, that is this representation is sparser
 
         for kpt in kpt_u:
-            n_occ = get_n_occ(kpt)
+            n_occ = get_n_occ(kpt)[0]
             u = self.kpointval(kpt)
             # M - one dimension of the A_BigMatrix
             M = self.n_dim[u]
@@ -854,8 +855,7 @@ class ETDM:
         changedocc = False
         for kpt in wfs.kpt_u:
             k = self.kpointval(kpt)
-            occupied = kpt.f_n > 1.0e-10
-            n_occ = len(kpt.f_n[occupied])
+            n_occ, occupied = get_n_occ(kpt)
             if n_occ == 0.0:
                 continue
             if np.min(kpt.f_n[:n_occ]) == 0:
@@ -939,7 +939,7 @@ class ETDM:
         if self.gd.comm.rank == 0:
             if self.matrix_exp == 'egdecomp-u-invar' and \
                     self.representation == 'u-invar':
-                n_occ = get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)[0]
                 n_v = self.n_dim[k] - n_occ
                 a_mat = a_vec_u[k].reshape(n_occ, n_v)
             else:
@@ -1034,13 +1034,6 @@ class ETDM:
     @error.setter
     def error(self, e):
         self._error = e
-
-
-def get_n_occ(kpt):
-    """
-    Get number of occupied orbitals
-    """
-    return len(kpt.f_n) - np.searchsorted(kpt.f_n[::-1], 1e-10)
 
 
 def random_a(shape, dtype):

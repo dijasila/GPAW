@@ -209,7 +209,7 @@ class DirectMin(Eigensolver):
         # dimensionality, number of state to be converged:
         self.dimensions = {}
         for kpt in wfs.kpt_u:
-            nocc = get_n_occ(kpt)
+            nocc = get_n_occ(kpt)[0]
             if not lumo and nocc == len(kpt.f_n):
                 raise Exception('Please add one more empty band '
                                 'in order to converge LUMO.')
@@ -763,7 +763,7 @@ class DirectMin(Eigensolver):
                             kpt.P_ani[a][:] = \
                                 np.dot(lamb, kpt.P_ani[a][:])
                 elif typediag == 'separate':
-                    n_occ = get_n_occ(kpt)
+                    n_occ = get_n_occ(kpt)[0]
                     dim = self.bd.nbands - n_occ
                     lamb1 = (lamb[:n_occ, :n_occ] +
                              lamb[:n_occ, :n_occ].T.conj()) / 2.0
@@ -819,7 +819,7 @@ class DirectMin(Eigensolver):
                 #  of occupied and unoccupied states
                 # separete diagonaliztion of two subspaces:
                 k = self.n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)[0]
                 dim = self.bd.nbands - n_occ
                 grad_knG[k][n_occ:n_occ + dim] = \
                     self.get_gradients_lumo(ham, wfs, kpt)
@@ -880,7 +880,7 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
         dim = self.bd.nbands - n_occ
         # calculate gradients:
         psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
@@ -951,7 +951,7 @@ class DirectMin(Eigensolver):
             for kpt in wfs.kpt_u:
                 k = n_kps * kpt.s + kpt.q
                 # find lumo
-                n_occ = get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)[0]
                 dim = self.dimensions[k]
                 kpt.psit_nG[n_occ:n_occ + dim] = psit_knG[k].copy()
                 wfs.orthonormalize(kpt)
@@ -963,7 +963,7 @@ class DirectMin(Eigensolver):
         error_t = 0.0
 
         for kpt in wfs.kpt_u:
-            n_occ = get_n_occ(kpt)
+            n_occ = get_n_occ(kpt)[0]
             k = n_kps * kpt.s + kpt.q
             dim = self.dimensions[k]
             # calculate gradients:
@@ -1039,7 +1039,7 @@ class DirectMin(Eigensolver):
         with wfs.timer('Get Search Direction'):
             for kpt in wfs.kpt_u:
                 k = n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)[0]
                 dim = self.dimensions[k]
                 psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
             p_knG = self.search_direction.update_data(
@@ -1062,7 +1062,7 @@ class DirectMin(Eigensolver):
         # calculate new wfs:
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
-            n_occ = get_n_occ(kpt)
+            n_occ = get_n_occ(kpt)[0]
             dim = self.dimensions[k]
             kpt.psit_nG[n_occ:n_occ + dim] = \
                 psi_copy[k] + a_star * p_knG[k]
@@ -1155,7 +1155,7 @@ class DirectMin(Eigensolver):
                 if grad_knG is not None:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
-                        n_occ = get_n_occ(kpt)
+                        n_occ = get_n_occ(kpt)[0]
                         grad_knG[k][:n_occ] += np.tensordot(
                             self.iloop.U_k[k].conj(),
                             self.iloop.odd_pot.grad[k], axes=1)

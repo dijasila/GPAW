@@ -83,7 +83,7 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
                 wfs, kpt, grad_knG, esolv.iloop.U_k, add_grad=True)
     for kpt in wfs.kpt_u:
         k = esolv.n_kps * kpt.s + kpt.q
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
 
         lamb = wfs.integrate(
             kpt.psit_nG[:n_occ], grad_knG[k][:n_occ], True)

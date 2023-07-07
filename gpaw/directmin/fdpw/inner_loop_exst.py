@@ -44,7 +44,7 @@ class InnerLoop:
             if nstates == 'all':
                 self.n_occ[k] = wfs.bd.nbands
             elif nstates == 'occupied':
-                self.n_occ[k] = get_n_occ(kpt)
+                self.n_occ[k] = get_n_occ(kpt)[0]
             else:
                 raise NotImplementedError
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)

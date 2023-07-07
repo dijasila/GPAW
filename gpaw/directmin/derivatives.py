@@ -420,7 +420,7 @@ class Davidson(object):
             self.dim_u[k] = len(hdia)
             self.dimtot += len(hdia)
             appr_hess += list(hdia.copy())
-            self.nocc[k] = get_n_occ(kpt)
+            self.nocc[k] = get_n_occ(kpt)[0]
         return appr_hess
 
     def estimate_spo_and_update_appr_hess(self, wfs, use_prev=False):

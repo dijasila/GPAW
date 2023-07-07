@@ -394,12 +394,10 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
 
 
 def get_n_occ(kpt):
+    occupied = kpt.f_n > 1.0e-10
+    n_occ = len(kpt.f_n[occupied])
 
-    nbands = len(kpt.f_n)
-    n_occ = 0
-    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-        n_occ += 1
-    return n_occ
+    return n_occ, occupied
 
 
 def get_indices(dimens, dtype):

@@ -36,7 +36,7 @@ class InnerLoop:
         self.n_occ = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            self.n_occ[k] = get_n_occ(kpt)
+            self.n_occ[k] = get_n_occ(kpt)[0]
             dim1 = self.n_occ[k]
             dim2 = self.n_occ[k]
             self.U_k[k] = np.eye(dim1, dtype=self.dtype)

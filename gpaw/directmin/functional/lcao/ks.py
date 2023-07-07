@@ -11,6 +11,9 @@ class KSLCAO:
 
     def __init__(self, wfs, dens, ham):
         self.name = 'ks'
+        self.wfs =wfs
+        self.dens = dens
+        self.ham = ham
 
     def todict(self):
         return {'name': self.name}

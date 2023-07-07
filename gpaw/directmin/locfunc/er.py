@@ -98,7 +98,7 @@ class ERlocalization:
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
 
         e_total_sic = np.array([])
 
@@ -230,7 +230,7 @@ class ERlocalization:
 
     def get_energy_and_hamiltonian_kpt(self, wfs, kpt):
 
-        n_occ = get_n_occ(kpt)
+        n_occ = get_n_occ(kpt)[0]
         k = self.n_kps * kpt.s + kpt.q
         grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
 
