@@ -386,6 +386,13 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
 
+    if context.comm.size % 4 == 0:
+        nblocks = 4
+    elif context.comm.size % 2 == 0:
+        nblocks = 2
+    else:
+        nblocks = 1
+
     # Get wave vector to test
     q_c = get_q_c('co_pw_wfs', qrel)
 
@@ -412,7 +419,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
     # ----- Site magnetization by sum rule ----- #
     # Set up calculator and calculate site magnetization by sum rule
-    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(gs, context)
+    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(
+        gs, context, nblocks=nblocks)
     site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
     context.write_timer()
 

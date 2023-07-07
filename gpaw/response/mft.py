@@ -414,11 +414,13 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
     def __init__(self,
                  gs: ResponseGroundStateAdapter,
                  context: ResponseContext | None = None,
+                 nblocks: int = 1,
                  nbands: int | None = None):
         """Construct the sum rule site magnetization calculator."""
         if context is None:
             context = ResponseContext()
         super().__init__(gs, context,
+                         nblocks=nblocks,
                          # Disable use of symmetries for now. The sum rule site
                          # magnetization symmetries can always be derived and
                          # implemented at a later stage.
