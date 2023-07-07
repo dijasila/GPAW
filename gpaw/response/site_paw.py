@@ -1,14 +1,14 @@
 import numpy as np
 
 from gpaw.gaunt import gaunt
-from gpaw.sphere.rshe import calculate_reduced_rshe
+from gpaw.sphere.rshe import (RealSphericalHarmonicsExpansion,
+                              calculate_reduced_rshe)
 from gpaw.sphere.integrate import radial_truncation_function
 
 
 def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
-    """Calculate PAW correction to the site pair density.
-
-    Some documentation here! XXX
+    """
+    To be made redundant! XXX
     """
     # Make a real spherical harmonics expansion of the identity operator
     Y_nL = pawdata.xc_correction.Y_nL
@@ -17,25 +17,31 @@ def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
     identity_ng[:] = 1.
     rshe, _ = calculate_reduced_rshe(identity_ng, Y_nL, lmax=0)
 
-    return calculate_local_site_correction(
+    return calculate_site_matrix_element_correction(
         pawdata, rshe, rcut_p, drcut, lambd_p)
 
 
-def calculate_local_site_correction(pawdata, rshe, rcut_p, drcut, lambd_p):
-    r"""
+def calculate_site_matrix_element_correction(
+        pawdata, rshe: RealSphericalHarmonicsExpansion,
+        rcut_p, drcut, lambd_p):
+    r"""Calculate the PAW correction to a site matrix element.
 
-    Update the documentation here! XXX
+    For the site matrix element
 
-    For each pair of partial waves, the PAW correction to the site pair density
-    is given by:
+    f^ap_nn' = <ψ_n|Θ(r∊Ω_ap)f(r)|ψ_n'>
 
-     ap     __  0,mi,mi' /                  a    a     ̰ a   ̰ a
-    N    = √4π g         | r^2 dr θ(r<rc) [φ(r) φ(r) - φ(r) φ(r)]
-     ii'        0,li,li' /         p        i    i'     i    i'
+    the PAW correction for each pair of partial waves i and i' is given by
+               l
+           __  __
+     ap    \   \   m,mi,mi' /                        a    a     ̰ a   ̰ a
+    F    = /   /  g         | r^2 dr θ(r<rc) f (r) [φ(r) φ(r) - φ(r) φ(r)]
+     ii'   ‾‾  ‾‾  l,li,li' /         p       lm     i    i'     i    i'
+           l  m=-l
 
-    where g refer to the Gaunt coefficients.
+    where g refer to the Gaunt coefficients and f_lm(r) are the real
+    spherical harmonics expansion coefficients of the function f(r).
 
-    Here, we evaluate the correction N_ii'^ap for various smooth truncation
+    Here, we evaluate the correction F_ii'^ap for various smooth truncation
     functions θ_p(r<rc), parametrized by rc, Δrc and λ.
     """
     rgd = pawdata.rgd
@@ -51,7 +57,7 @@ def calculate_local_site_correction(pawdata, rshe, rcut_p, drcut, lambd_p):
     assert len(lambd_p) == Np
     theta_pg = [radial_truncation_function(rgd.r_g, rcut, drcut, lambd)
                 for rcut, lambd in zip(rcut_p, lambd_p)]
-    N_pii = np.zeros((Np, ni, ni), dtype=float)
+    F_pii = np.zeros((Np, ni, ni), dtype=float)
 
     # Loop of radial function indices for partial waves i and i'
     i1_counter = 0
@@ -77,11 +83,11 @@ def calculate_local_site_correction(pawdata, rshe, rcut_p, drcut, lambd_p):
                             continue
                         # Radial integral
                         for p, theta_g in enumerate(theta_pg):
-                            N_pii[p, i1, i2] += \
+                            F_pii[p, i1, i2] += \
                                 gaunt_coeff * rgd.integrate_trapz(
                                 theta_g * f_g * dn_g)
 
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-    return N_pii
+    return F_pii
