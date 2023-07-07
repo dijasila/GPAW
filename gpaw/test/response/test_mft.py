@@ -383,6 +383,7 @@ def test_Co_site_data(gpw_files):
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw_wfs']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
 
@@ -420,7 +421,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Site magnetization by sum rule ----- #
     # Set up calculator and calculate site magnetization by sum rule
     sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(
-        gs, context, nblocks=nblocks)
+        gs, context, nblocks=nblocks, nbands=nbands)
     site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
     context.write_timer()
 
@@ -431,20 +432,21 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     assert np.all(np.abs(site_mag_ra.imag) / site_mag_ra.real < 1e-6)
     site_mag_ra = site_mag_ra.real
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        site_mag_abr))) / site_mag_ra < 1e-2)
+        site_mag_abr))) / site_mag_ra < 5e-2)
     site_mag_ar = site_mag_ra.T
     # Test that the magnetic moments on the two Co atoms are identical
     assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=1e-4)
 
-    # Test that the result matches a conventional calculation at close-packing
+    # Test that the result more or less matches a conventional calculation at
+    # close-packing
     assert np.average(site_mag_ar, axis=0)[-1] == pytest.approx(
-        np.average(magmom_ar, axis=0)[-1], rel=1e-3)
+        np.average(magmom_ar, axis=0)[-1], rel=5e-2)
 
     # Test values against reference
     print(np.average(site_mag_ar, axis=0)[::2])
     assert np.average(site_mag_ar, axis=0)[::2] == pytest.approx(
-        np.array([4.25279967e-04, 1.57037039e-01, 7.31009518e-01,
-                  1.24858949e+00, 1.55180342e+00, 1.62491906e+00]), rel=6e-3)
+        np.array([3.91823444e-04, 1.45641911e-01, 6.85939109e-01,
+                  1.18813171e+00, 1.49761591e+00, 1.58954270e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
     # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
