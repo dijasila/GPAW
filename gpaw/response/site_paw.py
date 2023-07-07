@@ -1,11 +1,30 @@
 import numpy as np
 
 from gpaw.gaunt import gaunt
+from gpaw.sphere.rshe import calculate_reduced_rshe
 from gpaw.sphere.integrate import radial_truncation_function
 
 
 def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
-    r"""Calculate PAW correction to the site pair density.
+    """Calculate PAW correction to the site pair density.
+
+    Some documentation here! XXX
+    """
+    # Make a real spherical harmonics expansion of the identity operator
+    Y_nL = pawdata.xc_correction.Y_nL
+    leb_quad_size = Y_nL.shape[0]
+    identity_ng = pawdata.rgd.empty(leb_quad_size)
+    identity_ng[:] = 1.
+    rshe, _ = calculate_reduced_rshe(identity_ng, Y_nL, lmax=0)
+
+    return calculate_local_site_correction(
+        pawdata, rshe, rcut_p, drcut, lambd_p)
+
+
+def calculate_local_site_correction(pawdata, rshe, rcut_p, drcut, lambd_p):
+    r"""
+
+    Update the documentation here! XXX
 
     For each pair of partial waves, the PAW correction to the site pair density
     is given by:
@@ -45,19 +64,24 @@ def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
             # Generate m-indices for each radial function
             for m1 in range(2 * l1 + 1):
                 for m2 in range(2 * l2 + 1):
-                    gaunt_coeff = G_LLL[0, l1**2 + m1, l2**2 + m2]
-                    if gaunt_coeff == 0:
-                        continue
                     # Set up the i=(l,m) index for each partial wave
                     i1 = i1_counter + m1
                     i2 = i2_counter + m2
 
-                    # Integrate correction
-                    for p, theta_g in enumerate(theta_pg):
-                        N_pii[p, i1, i2] += gaunt_coeff * rgd.integrate_trapz(
-                            theta_g * dn_g)
+                    # Loop through the real spherical harmonics of the local
+                    # function f(r)
+                    for L, f_g in zip(rshe.L_M, rshe.f_gM.T):
+                        # Angular integral
+                        gaunt_coeff = G_LLL[L, l1**2 + m1, l2**2 + m2]
+                        if gaunt_coeff == 0:
+                            continue
+                        # Radial integral
+                        for p, theta_g in enumerate(theta_pg):
+                            N_pii[p, i1, i2] += \
+                                gaunt_coeff * rgd.integrate_trapz(
+                                theta_g * f_g * dn_g)
 
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-    return np.sqrt(4 * np.pi) * N_pii
+    return N_pii
