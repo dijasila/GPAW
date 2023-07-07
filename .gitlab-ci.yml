@@ -382,7 +382,6 @@ docs:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
@@ -403,7 +402,7 @@ docs:
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-serial:
+nightly-mpi-1:
   extends:
     - .nightly
   script:
