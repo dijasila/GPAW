@@ -1,24 +1,8 @@
 import numpy as np
 
 from gpaw.gaunt import gaunt
-from gpaw.sphere.rshe import (RealSphericalHarmonicsExpansion,
-                              calculate_reduced_rshe)
+from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
 from gpaw.sphere.integrate import radial_truncation_function
-
-
-def calculate_site_pair_density_correction(pawdata, rcut_p, drcut, lambd_p):
-    """
-    To be made redundant! XXX
-    """
-    # Make a real spherical harmonics expansion of the identity operator
-    Y_nL = pawdata.xc_correction.Y_nL
-    leb_quad_size = Y_nL.shape[0]
-    identity_ng = pawdata.rgd.empty(leb_quad_size)
-    identity_ng[:] = 1.
-    rshe, _ = calculate_reduced_rshe(identity_ng, Y_nL, lmax=0)
-
-    return calculate_site_matrix_element_correction(
-        pawdata, rshe, rcut_p, drcut, lambd_p)
 
 
 def calculate_site_matrix_element_correction(
@@ -44,13 +28,19 @@ def calculate_site_matrix_element_correction(
     Here, we evaluate the correction F_ii'^ap for various smooth truncation
     functions θ_p(r<rc), parametrized by rc, Δrc and λ.
     """
-    rgd = pawdata.rgd
+    rgd = rshe.rgd
+    assert rgd is pawdata.xc_correction.rgd
     ni = pawdata.ni  # Number of partial waves
     l_j = pawdata.l_j  # l-index for each radial function index j
     G_LLL = gaunt(max(l_j))
     # (Real) radial functions for the partial waves
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
+    # Truncate the radial functions to span only the radial grid coordinates
+    # which need correction
+    assert np.allclose(rgd.r_g - pawdata.rgd.r_g[:rgd.N], 0.)
+    phi_jg = np.array(phi_jg)[:, :rgd.N]
+    phit_jg = np.array(phit_jg)[:, :rgd.N]
 
     # Calculate smooth truncation functions and allocate array
     Np = len(rcut_p)

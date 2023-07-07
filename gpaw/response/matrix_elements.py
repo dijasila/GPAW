@@ -5,11 +5,13 @@ import numpy as np
 from gpaw.utilities.blas import gemmdot
 
 from gpaw.sphere.integrate import spherical_truncation_function_collection
+from gpaw.sphere.rshe import calculate_reduced_rshe
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
-from gpaw.response.site_paw import calculate_site_pair_density_correction
+from gpaw.response.site_paw import calculate_site_matrix_element_correction
+from gpaw.response.localft import extract_micro_setup
 
 
 class MatrixElement(ABC):
@@ -287,7 +289,7 @@ class NewPairDensityCalculator(MatrixElementCalculator):
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
 
-class SitePairDensity(MatrixElement):
+class SiteMatrixElement(MatrixElement):
 
     def __init__(self, tblocks, qpd, atomic_site_data):
         self.nsites = atomic_site_data.nsites
@@ -300,8 +302,8 @@ class SitePairDensity(MatrixElement):
             dtype=complex)
 
 
-class SitePairDensityCalculator(MatrixElementCalculator):
-    r"""Class for calculating site pair densities.
+class SiteMatrixElementCalculator(MatrixElementCalculator):
+    r"""Class for calculating site matrix elements.
 
     The site pair density is defined via smooth truncation functions Θ(r∊Ω_ap)
     for every site a and site partitioning p, interpolating smoothly between
@@ -317,30 +319,60 @@ class SitePairDensityCalculator(MatrixElementCalculator):
     """
 
     def __init__(self, gs, context, atomic_site_data):
-        """Construct the SitePairDensityCalculator."""
+        """Construct the SiteMatrixElementCalculator.
+
+        Some more documentation here! XXX
+        """
         super().__init__(gs, context)
         self.atomic_site_data = atomic_site_data
 
+        self.rshelmax = 0  # do me proper XXX
+        self.rshewmin = None
+
         # PAW correction tensor
-        self._N_apii = None
+        self._F_apii = None
+
+    @abstractmethod
+    def add_f(gd, n_sx, f_x):
+        """Add the local functional f(n(r)) to the f_x output array."""
 
     def get_paw_correction_tensor(self):
-        if self._N_apii is None:
-            self._N_apii = self.calculate_paw_correction_tensor()
-        return self._N_apii
+        if self._F_apii is None:
+            self._F_apii = self.calculate_paw_correction_tensor()
+        return self._F_apii
 
     def calculate_paw_correction_tensor(self):
-        """Calculate the site pair density correction tensor N_ii'^ap."""
-        N_apii = []
+        """Calculate the site matrix element correction tensor F_ii'^ap."""
+        F_apii = []
         adata = self.atomic_site_data
-        for A, rc_p, lambd_p in zip(adata.A_a, adata.rc_ap, adata.lambd_ap):
+        for a, (A, rc_p, lambd_p) in enumerate(zip(
+                adata.A_a, adata.rc_ap, adata.lambd_ap)):
+            # Expand local function in real spherical harmonics
+            micro_setup = extract_micro_setup(self.gs, A)
+            rshe, info_string = self.perform_rshe(micro_setup)
+            self.print_rshe_info(a, A, info_string)
+
+            # Calculate the PAW correction
             pawdata = self.gs.pawdatasets[A]
-            N_apii.append(calculate_site_pair_density_correction(
-                pawdata, rc_p, adata.drcut, lambd_p))
-        return N_apii
+            F_apii.append(calculate_site_matrix_element_correction(
+                pawdata, rshe, rc_p, adata.drcut, lambd_p))
+
+        return F_apii
+
+    def perform_rshe(self, micro_setup):
+        """
+        Some documentation here! XXX
+        """
+        f_ng = micro_setup.evaluate_function(self.add_f)
+        return calculate_reduced_rshe(
+            micro_setup.rgd, f_ng, micro_setup.Y_nL,
+            self.rshelmax, self.rshewmin)
+
+    def print_rshe_info(self, a, A, info_string):
+        pass  # do me XXX
 
     def create_matrix_element(self, tblocks, qpd):
-        return SitePairDensity(tblocks, qpd, self.atomic_site_data)
+        return SiteMatrixElement(tblocks, qpd, self.atomic_site_data)
 
     @timer('Calculate pseudo site pair density')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
@@ -406,3 +438,13 @@ class SitePairDensityCalculator(MatrixElementCalculator):
                 * P2_Amyti[A][:, np.newaxis]
             # Sum over partial wave indices and add correction to the output
             n_mytap[:, a] += np.einsum('tij, pij -> tp', P1ccP2_mytii, N_pii)
+
+
+class SitePairDensityCalculator(SiteMatrixElementCalculator):
+    """Class for calculating site pair densities."""
+
+    # Overwrite __init__ and control the rshe? XXX
+
+    def add_f(self, gd, n_sx, f_x):
+        # Some explanation here! XXX
+        f_x[:] += 1.
