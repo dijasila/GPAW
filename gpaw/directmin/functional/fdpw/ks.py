@@ -12,9 +12,7 @@ class KSFDPW:
     """
     KS-DFT
     """
-    def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
-                 sic_coarse_grid=True, store_potentials=False,
-                 poisson_solver='FPS'):
+    def __init__(self, wfs, dens, ham):
 
         self.name = 'Zero'
         self.n_kps = wfs.kd.nibzkpts
@@ -23,10 +21,11 @@ class KSFDPW:
         self.eks = 0.0
         self.changedocc = 0
         self.restart = 0
+        self.dens = dens
+        self.ham = ham
 
     def get_energy_and_gradients_kpt(
-            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
-            ham=None, scalewithocc=True, exstate=False):
+            self, wfs, kpt, grad_knG=None, U_k=None, add_grad=False, ham=None):
 
         k = self.n_kps * kpt.s + kpt.q
         nbands = wfs.bd.nbands
@@ -69,8 +68,7 @@ class KSFDPW:
         return 0.0
 
     def get_energy_and_gradients_inner_loop(
-            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
-            exstate=True):
+            self, wfs, kpt, a_mat, evals, evec, ham=None, exstate=True):
 
         if not exstate:
             raise RuntimeError('Attempting to optimize unitary-invariant '
@@ -80,8 +78,7 @@ class KSFDPW:
 
         k = self.n_kps * kpt.s + kpt.q
         self.grad[k] = np.zeros_like(kpt.psit_nG[:ndim])
-        e_sic = self.get_energy_and_gradients_kpt(
-            wfs, kpt, dens=dens, ham=ham)
+        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, ham=ham)
         wfs.timer.start('Unitary gradients')
         l_odd = wfs.integrate(kpt.psit_nG[:ndim], self.grad[k][:ndim], True)
         f = np.ones(ndim)

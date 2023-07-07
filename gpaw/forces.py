@@ -80,8 +80,7 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
     if 'SIC' in esolv.func_settings['name']:
         for kpt in wfs.kpt_u:
             esolv.odd.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, esolv.iloop.U_k,
-                add_grad=True)
+                wfs, kpt, grad_knG, esolv.iloop.U_k, add_grad=True)
     for kpt in wfs.kpt_u:
         k = esolv.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)

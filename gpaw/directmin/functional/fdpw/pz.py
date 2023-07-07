@@ -129,7 +129,7 @@ class PZSICFDPW:
         return nt_G, Q_aL, D_ap
 
     def get_energy_and_gradients_kpt(
-            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            self, wfs, kpt, grad_knG=None, U_k=None, add_grad=False,
             ham=None, scalewithocc=True, exstate=False):
 
         k = self.n_kps * kpt.s + kpt.q
@@ -140,7 +140,7 @@ class PZSICFDPW:
         if exstate:
             self.get_gradient_ks_kpt(wfs, kpt, ham=ham)
         esic = self.get_esic_add_sic_gradient_kpt(
-            wfs, kpt, grad_knG, dens, U_k, add_grad, scalewithocc,
+            wfs, kpt, grad_knG, U_k, add_grad, scalewithocc,
             exstate=exstate)
 
         return esic
@@ -172,7 +172,7 @@ class PZSICFDPW:
         return 0.0
 
     def get_esic_add_sic_gradient_kpt(
-            self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
+            self, wfs, kpt, grad_knG=None, U_k=None, add_grad=False,
             scalewithocc=True, exstate=False):
 
         wfs.timer.start('SIC e/g grid calculations')
@@ -345,7 +345,7 @@ class PZSICFDPW:
         return np.array([-ec * self.beta_c, -exc * self.beta_x]), dH_ap
 
     def get_energy_and_gradients_inner_loop(
-            self, wfs, kpt, a_mat, evals, evec, dens=None, ham=None,
+            self, wfs, kpt, a_mat, evals, evec, ham=None,
             exstate=False):
 
         if exstate:
@@ -359,7 +359,7 @@ class PZSICFDPW:
         k = self.n_kps * kpt.s + kpt.q
         self.grad[k] = np.zeros_like(kpt.psit_nG[:ndim])
         e_sic = self.get_energy_and_gradients_kpt(
-            wfs, kpt, dens=dens, ham=ham, exstate=exstate)
+            wfs, kpt, ham=ham, exstate=exstate)
         wfs.timer.start('Unitary gradients')
         l_odd = wfs.integrate(kpt.psit_nG[:ndim], self.grad[k][:ndim], True)
         f = np.ones(ndim)

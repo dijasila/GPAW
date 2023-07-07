@@ -486,7 +486,7 @@ class DirectMin(Eigensolver):
                 else:
                     for kpt in wfs.kpt_u:
                         e_sic += self.odd.get_energy_and_gradients_kpt(
-                            wfs, kpt, grad, dens, self.iloop.U_k, add_grad=True)
+                            wfs, kpt, grad, self.iloop.U_k, add_grad=True)
                     self.e_sic = wfs.kd.comm.sum(e_sic)
                     ham.get_energy(0.0, wfs, kin_en_using_band=False,
                                    e_sic=self.e_sic)
@@ -736,7 +736,7 @@ class DirectMin(Eigensolver):
         if 'SIC' in self.func_settings['name']:
             for kpt in wfs.kpt_u:
                 self.odd.get_energy_and_gradients_kpt(
-                    wfs, kpt, grad_knG, dens, self.iloop.U_k,
+                    wfs, kpt, grad_knG, self.iloop.U_k,
                     add_grad=True, scalewithocc=scalewithocc)
         for kpt in wfs.kpt_u:
             if self.exstopt:

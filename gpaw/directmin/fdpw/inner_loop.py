@@ -79,8 +79,7 @@ class InnerLoop:
             else:
                 g_k[k], e_sic, kappa1 = \
                     self.odd_pot.get_energy_and_gradients_inner_loop(
-                        wfs, kpt, a_k[k], evals, evecs,
-                        dens=dens, exstate=False)
+                        wfs, kpt, a_k[k], evals, evecs, exstate=False)
             wfs.timer.stop('Energy and gradients')
             if kappa1 > self.kappa:
                 self.kappa = kappa1
