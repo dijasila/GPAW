@@ -17,7 +17,8 @@ atoms.center()
 calc = GPAW(mode='lcao', h=0.3, basis='dzp', xc='LDA',
             setups={'Na': '1'},
             convergence={'density': 1e-12},
-            txt='gs_nad.out')
+            txt='gs_nad.out',
+            symmetry={'point_group': False})
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')

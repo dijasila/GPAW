@@ -56,6 +56,9 @@ def write_header(log, world, params):
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
+    if a1 is a2:
+        return set()
+
     if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
         return {'numbers'}
 
@@ -98,7 +101,9 @@ class ASECalculator:
         p = ', '.join(f'{key}: {val}' for key, val in params)
         return f'ASECalculator({p})'
 
-    def calculate_property(self, atoms: Atoms, prop: str) -> Any:
+    def calculate_property(self,
+                           atoms: Atoms | None,
+                           prop: str) -> Any:
         """Calculate (if not already calculated) a property.
 
         The ``prop`` string must be one of
@@ -110,6 +115,9 @@ class ASECalculator:
         * magmoms
         * dipole
         """
+        atoms = atoms or self.atoms
+        assert atoms is not None
+
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
@@ -224,25 +232,25 @@ class ASECalculator:
         self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
-                             atoms: Atoms,
+                             atoms: Atoms | None = None,
                              force_consistent: bool = False) -> float:
         return self.calculate_property(atoms,
                                        'free_energy' if force_consistent else
                                        'energy')
 
-    def get_forces(self, atoms: Atoms) -> Array2D:
+    def get_forces(self, atoms: Atoms | None = None) -> Array2D:
         return self.calculate_property(atoms, 'forces')
 
-    def get_stress(self, atoms: Atoms) -> Array1D:
+    def get_stress(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'stress')
 
-    def get_dipole_moment(self, atoms: Atoms) -> Array1D:
+    def get_dipole_moment(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'dipole')
 
-    def get_magnetic_moment(self, atoms: Atoms) -> float:
+    def get_magnetic_moment(self, atoms: Atoms | None = None) -> float:
         return self.calculate_property(atoms, 'magmom')
 
-    def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
+    def get_magnetic_moments(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
     def write(self, filename, mode=''):
@@ -523,6 +531,10 @@ class ASECalculator:
         """Create band-structure object for plotting."""
         from ase.spectrum.band_structure import get_band_structure
         return get_band_structure(calc=self)
+
+    @property
+    def symmetry(self):
+        return self.calculation.state.ibzwfs.ibz.symmetries.symmetry
 
 
 # Comment in issue #864: restore isinstance()/issubclass() behavior when

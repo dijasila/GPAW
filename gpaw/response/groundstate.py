@@ -14,6 +14,7 @@ class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
