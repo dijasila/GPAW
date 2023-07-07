@@ -19,6 +19,17 @@ Git master branch
   now throw an error if the ground state contains point group symmetries
 
 
+Version 23.6.1
+==============
+
+Jul 5, 2023: :git:`23.6.1 <../23.6.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Avoid deprecation warnings from Numpy-1.25 (:mr:`1770`, :mr:`1771`).
+
+
 Version 23.6.0
 ==============
 

@@ -118,7 +118,7 @@ class BSEBackend:
         self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
         self.nS *= (self.spinors + 1)**2
 
-        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context.print(self.coulomb.description())
 
         self.print_initialization(self.td, self.eshift, self.gw_skn)
@@ -425,7 +425,7 @@ class BSEBackend:
             hilbert=False,
             nbands=self.nbands)
 
-        self.blockcomm = self._chi0calc.blockcomm
+        self.blockcomm = self._chi0calc.integrator.blockcomm
 
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
