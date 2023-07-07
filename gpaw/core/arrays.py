@@ -183,57 +183,61 @@ class DistributedArrays(Generic[DomainType]):
         raise NotImplementedError
 
 
-def parallel_me_sym(A_NX: DistributedArrays,
-                    B_NX: DistributedArrays,
-                    out_NN: Matrix,
+def parallel_me_sym(psit_nX: DistributedArrays,
+                    out_nX: DistributedArrays,
+                    M_nn: Matrix,
                     operator,
                     cc: bool) -> Matrix:
-    comm = A_NX.comm
-    N = A_NX.dims[0]
-    n = (N + comm.size - 1) // comm.size
-    mynbands = A_NX.mydims[0]
+    comm = psit_nX.comm
+    nbands = psit_nX.dims[0]
+    B = (nbands + comm.size - 1) // comm.size
+    mynbands = psit_nX.mydims[0]
 
-    buf1 = A_NX.desc.empty(n)
-    buf2 = A_NX.desc.empty(n)
+    n_r = [min(r * B, nbands) for r in range(comm.size + 1)]
+    mynbands_r = [n_r[r + 1] - n_r[r] for r in range(comm.size)]
+    assert mynbands_r[comm.rank] == mynbands
+
+    buf1_nX = psit_nX.desc.empty(B)
+    buf2_nX = psit_nX.desc.empty(B)
     half = comm.size // 2
-    C_NX = A_NX[:]
-    # if B_NX is not A_NX:
+    C_NX = psit_nX[:]
+    # if out_nX is not psit_nX:
     #     psit2 = psit2.view(0, mynbands)
 
-    for r in range(half + 1):
+    for r1 in range(half + 1):
         rrequest = None
         srequest = None
 
-        if r < half:
-            srank = (comm.rank + r + 1) % comm.size
-            rrank = (comm.rank - r - 1) % comm.size
-            skip = (comm.size % 2 == 0 and r == half - 1)
-            n1 = min(rrank * n, N)
-            n2 = min(n1 + n, N)
-            if not (skip and comm.rank < half) and n2 > n1:
-                rrequest = comm.receive(buf1.data[:n2 - n1], rrank, 11, False)
-            if not (skip and comm.rank >= half) and A_NX.data.size > 0:
-                srequest = comm.send(A_NX.data, srank, 11, False)
+        if r1 < half:
+            srank = (comm.rank + r1 + 1) % comm.size
+            rrank = (comm.rank - r1 - 1) % comm.size
+            skip = (comm.size % 2 == 0 and r1 == half - 1)
+            rmynb = mynbands_r[rrank]
+            if not (skip and comm.rank < half) and rmynb > 0:
+                rrequest = comm.receive(buf1_nX.data[:rmynb], rrank, 11, False)
+            if not (skip and comm.rank >= half) and psit_nX.data.size > 0:
+                srequest = comm.send(psit_nX.data, srank, 11, False)
 
-        if r == 0:
+        if r1 == 0:
             if operator:
-                operator(A_NX, B_NX)
+                operator(psit_nX, out_nX)
             else:
-                B_NX = C_NX
+                out_nX = psit_nX
 
-        if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            m12 = C_NX.matrix_elements(B_NX, symmetric=(r == 0), cc=True)
-            n1 = min(((comm.rank - r) % comm.size) * n, N)
-            n2 = min(n1 + n, N)
-            out.array[:, n1:n2] = m12.array[:, :n2 - n1]
+        if not (comm.size % 2 == 0 and r1 == half and comm.rank < half):
+            m_nn = psit_nX.matrix_elements(out_nX, symmetric=(r1 == 0), cc=True)
+            r2 = (comm.rank - r1) % comm.size
+            n1 = n_r[r2]
+            n2 = n_r[r2 + 1]
+            M_nn.data[:, n1:n2] = m_nn.data
 
         if rrequest:
             comm.wait(rrequest)
         if srequest:
             comm.wait(srequest)
 
-        psit = buf1
-        buf1, buf2 = buf2, buf1
+        psit_nX = buf1_nX
+        buf1_nX, buf2_nX = buf2_nX, buf1_nX
 
     requests = []
     blocks = []
