@@ -476,8 +476,7 @@ class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
         # Calculate the product between the spin-lowering Pauli matrix and the
         # occupational differences
         smatmin = smat('+')
-        s1_myt = kptpair.transitions.s1_t[kptpair.tblocks.myslice]
-        s2_myt = kptpair.transitions.s2_t[kptpair.tblocks.myslice]
+        s1_myt, s2_myt = kptpair.get_local_spin_indices()
         smat_myt = smatmin[s1_myt, s2_myt]
         df_myt = kptpair.ikpt1.f_myt - kptpair.ikpt2.f_myt
         smatdf_myt = smat_myt * df_myt
