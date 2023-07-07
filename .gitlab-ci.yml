@@ -389,7 +389,7 @@ docs:
   needs:
     - build-latest
   tags:
-    - linux
+    - xeon24
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
