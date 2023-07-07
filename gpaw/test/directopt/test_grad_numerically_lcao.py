@@ -71,17 +71,13 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         wfs = calc.wfs
         dens = calc.density
 
-        if eigsolver['matrix_exp'] == 'egdecomp':
-            update_c_ref = False
-        else:
-            update_c_ref = True
+        numder = Derivatives(
+            wfs.eigensolver, wfs, random_amat=True, update_c_ref=True)
 
-        numder = Derivatives(wfs.eigensolver, wfs, random_amat=True,
-                             update_c_ref=update_c_ref)
-
-        g_a = numder.get_analytical_derivatives(wfs.eigensolver, ham, wfs,
-                                                dens)
-        g_n = numder.get_numerical_derivatives(wfs.eigensolver, ham, wfs, dens)
+        g_a = numder.get_analytical_derivatives(
+            wfs.eigensolver, ham, wfs, dens)
+        g_n = numder.get_numerical_derivatives(
+            wfs.eigensolver, ham, wfs, dens)
 
         for x, y in zip(g_a[0], g_n[0]):
             assert x.real == pytest.approx(y.real, abs=1.0e-2)

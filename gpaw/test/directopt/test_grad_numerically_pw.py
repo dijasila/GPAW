@@ -1,8 +1,10 @@
 import pytest
+import numpy as np
 
 from gpaw import GPAW, PW
 from gpaw.directmin.fdpw.directmin import DirectMin
 from gpaw.directmin.derivatives import Derivatives
+from gpaw.mom import prepare_mom_calculation
 from ase import Atoms
 
 
@@ -15,74 +17,46 @@ def test_gradient_numerically_pw(in_tmp_dir):
     :return:
     """
 
-    atoms = Atoms('H3', positions=[(0, 0, 0),
-                                   (0.59, 0, 0),
-                                   (1.1, 0, 0)])
-    atoms.center(vacuum=2.0)
-    atoms.set_pbc(True)
-    calc = GPAW(mode=PW(),
-                basis='sz(dzp)',
-                h=0.3,
-                spinpol=False,
-                convergence={'eigenstates': 10.0,
-                             'density': 10.0,
-                             'energy': 10.0},
-                eigensolver=DirectMin(),
-                occupations={'name': 'fixed-uniform'},
-                mixer={'backend': 'no-mixing'},
-                nbands='nao',
-                symmetry='off',
-                txt=None
-                )
-    atoms.calc = calc
-
-    params = [{'name': 'etdm',
-               'representation': 'full',
-               'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
-               'representation': 'full',
-               'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
-               'representation': 'sparse',
-               'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
-               'representation': 'sparse',
-               'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
-               'representation': 'u-invar',
-               'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
-               'representation': 'u-invar',
-               'matrix_exp': 'egdecomp-u-invar'}
-              ]
-
-    for eigsolver in params:
-        print('IN PROGRESS: ', eigsolver)
-
-        calc = calc.new(eigensolver=eigsolver)
+    for complex in [False, True]:
+        atoms = Atoms('H3', positions=[(0, 0, 0),
+                                       (0.59, 0, 0),
+                                       (1.1, 0, 0)])
+        atoms.center(vacuum=2.0)
+        atoms.set_pbc(True)
+        calc = GPAW(mode=PW(300, force_complex_dtype=complex),
+                    basis='sz(dzp)',
+                    h=0.3,
+                    spinpol=False,
+                    convergence={'energy': np.inf,
+                                 'eigenstates': np.inf,
+                                 'density': np.inf,
+                                 'minimum iterations': 1},
+                    eigensolver=DirectMin(convergelumo=True),
+                    occupations={'name': 'fixed-uniform'},
+                    mixer={'backend': 'no-mixing'},
+                    nbands='nao',
+                    symmetry='off',
+                    )
         atoms.calc = calc
-        if eigsolver['representation'] == 'u-invar':
-            with pytest.warns(UserWarning,
-                              match="Use representation == 'sparse'"):
-                atoms.get_potential_energy()
-        else:
-            atoms.get_potential_energy()
+        atoms.get_potential_energy()
+
+        calc.set(eigensolver=DirectMin(exstopt=True))
+        f_sn = [calc.get_occupation_numbers(spin=s).copy() / 2
+                for s in range(calc.wfs.nspins)]
+        prepare_mom_calculation(calc, atoms, f_sn)
+        atoms.get_potential_energy()
+
         ham = calc.hamiltonian
         wfs = calc.wfs
         dens = calc.density
+        der = Derivatives(wfs.eigensolver.iloop_outer, wfs,
+                          update_c_ref=True, random_amat=True)
 
-        if eigsolver['matrix_exp'] == 'egdecomp':
-            update_c_ref = False
-        else:
-            update_c_ref = True
+        g_a = der.get_analytical_derivatives(
+            wfs.eigensolver.iloop_outer, ham, wfs, dens)
+        g_n = der.get_numerical_derivatives(
+            wfs.eigensolver.iloop_outer, ham, wfs, dens)
 
-        numder = Derivatives(wfs.eigensolver, wfs, random_amat=True,
-                             update_c_ref=update_c_ref)
-
-        g_a = numder.get_analytical_derivatives(wfs.eigensolver, ham, wfs,
-                                                dens)
-        g_n = numder.get_numerical_derivatives(wfs.eigensolver, ham, wfs, dens)
-
-        for x, y in zip(g_a[0], g_n[0]):
-            assert x.real == pytest.approx(y.real, abs=1.0e-2)
-            assert x.imag == pytest.approx(y.imag, abs=1.0e-2)
+        iut = np.triu_indices(der.a[0].shape[0], 1)
+        assert g_n[0].real == pytest.approx(g_a[0][iut].real, abs=1.0e-4)
+        assert g_n[0].imag == pytest.approx(g_a[0][iut].imag, abs=1.0e-4)

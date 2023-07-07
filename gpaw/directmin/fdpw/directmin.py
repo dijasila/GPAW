@@ -33,7 +33,6 @@ class DirectMin(Eigensolver):
                  use_prec=True,
                  functional_settings='ks',
                  need_init_orbs=True,
-                 inner_loop=None,
                  localizationtype=None,
                  localizationseed=None,
                  need_localization=True,
@@ -58,7 +57,6 @@ class DirectMin(Eigensolver):
         self.name = 'directmin'
         self.use_prec = use_prec
         self.func_settings = functional_settings
-        self.inner_loop = inner_loop
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
         self.localization_tol = localization_tol

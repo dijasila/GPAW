@@ -40,7 +40,7 @@ class InnerLoop:
         self.n_occ = {}
         self.useprec = useprec
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.kpointval(kpt)
             if nstates == 'all':
                 self.n_occ[k] = wfs.bd.nbands
             elif nstates == 'occupied':
@@ -78,26 +78,16 @@ class InnerLoop:
         self.e_total = 0.0
         self.esic = 0.0
         self.kappa = 0.0
-        evecs = {}
-        evals = {}
         for k, kpt in enumerate(wfs.kpt_u):
             n_occ = self.n_occ[k]
             if n_occ == 0:
                 g_k[k] = np.zeros_like(a_k[k])
-                continue
-            wfs.timer.start('Unitary matrix')
-            u_mat, evecs[k], evals[k] = expm_ed(a_k[k], evalevec=True)
-            wfs.timer.stop('Unitary matrix')
-            self.Unew_k[k] = u_mat.copy()
-            kpt.psit_nG[:n_occ] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ], axes=1)
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+        evecs, evals = self.rotate_wavefunctions(wfs, a_k)
 
         self.eks = self.update_ks_energy(wfs, dens, ham)
 
         for k, kpt in enumerate(wfs.kpt_u):
-
             wfs.timer.start('Energy and gradients')
             g_k[k], esic, kappa1 = \
                 self.odd_pot.get_energy_and_gradients_inner_loop(
@@ -116,6 +106,24 @@ class InnerLoop:
         self.total_eg_count += 1
 
         return self.e_total, g_k
+
+    def rotate_wavefunctions(self, wfs, a_k):
+        evecs = {}
+        evals = {}
+        for k, kpt in enumerate(wfs.kpt_u):
+            n_occ = self.n_occ[k]
+            if n_occ == 0:
+                continue
+            wfs.timer.start('Unitary matrix')
+            u_mat, evecs[k], evals[k] = expm_ed(a_k[k], evalevec=True)
+            wfs.timer.stop('Unitary matrix')
+            self.Unew_k[k] = u_mat.copy()
+            kpt.psit_nG[:n_occ] = \
+                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ], axes=1)
+            # calc projectors
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+        return evecs, evals
 
     def evaluate_phi_and_der_phi(self, a_k, p_k, alpha,
                                  wfs, dens, ham,
@@ -183,14 +191,14 @@ class InnerLoop:
         # initial things
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.kpointval(kpt)
             n_occ = self.n_occ[k]
             self.psit_knG[k] = np.tensordot(
                 self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.kpointval(kpt)
             d = self.n_occ[k]
             a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
@@ -205,7 +213,7 @@ class InnerLoop:
         if g_max < self.g_tol:
             self.converged = True
             for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
+                k = self.kpointval(kpt)
                 n_occ = self.n_occ[k]
                 kpt.psit_nG[:n_occ] = np.tensordot(
                     self.U_k[k].conj(), self.psit_knG[k], axes=1)
@@ -268,7 +276,7 @@ class InnerLoop:
                 phi_0 = alpha_phi_der_phi[1]
                 der_phi_0 = alpha_phi_der_phi[2]
                 for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
+                    k = self.kpointval(kpt)
                     if self.n_occ[k] == 0:
                         continue
                     wfs.gd.comm.broadcast(g_k[k], 0)
@@ -305,7 +313,7 @@ class InnerLoop:
             log('Total number of e/g calls:' + str(self.eg_count))
 
         for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
+            k = self.kpointval(kpt)
             n_occ = self.n_occ[k]
             kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
                                                self.psit_knG[k],
@@ -314,7 +322,6 @@ class InnerLoop:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
 
-        del self.psit_knG
         if outer_counter is None:
             return self.e_total, self.counter
         else:
@@ -325,7 +332,7 @@ class InnerLoop:
         if use_prec:
             if self.counter % counter == 0 or self.counter == 1:
                 for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
+                    k = self.kpointval(kpt)
                     hess = self.get_hessian(kpt)
                     if self.dtype is float:
                         self.precond[k] = np.zeros_like(hess)
@@ -377,14 +384,12 @@ class InnerLoop:
         if self.momcounter % self.momevery == 0:
             f_sn = {}
             for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nibzkpts
-                u = n_kps * kpt.s + kpt.q
+                u = self.kpointval(kpt)
                 f_sn[u] = kpt.f_n.copy()
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.changedocc = 0
             for kpt in wfs.kpt_u:
-                n_kps = wfs.kd.nibzkpts
-                u = n_kps * kpt.s + kpt.q
+                u = self.kpointval(kpt)
                 self.changedocc = int(
                     not np.allclose(f_sn[u], kpt.f_n.copy()))
             self.changedocc = wfs.kd.comm.max(self.changedocc)
@@ -395,6 +400,9 @@ class InnerLoop:
             if self.changedocc:
                 self.restart = 1
         self.momcounter += 1
+
+    def kpointval(self, kpt):
+        return self.n_kps * kpt.s + kpt.q
 
 
 def log_f(log, niter, kappa, eks, esic, outer_counter=None, g_max=np.inf):
