@@ -24,27 +24,6 @@ class KSFDPW:
         self.changedocc = 0
         self.restart = 0
 
-    def get_energy_and_gradients(
-            self, wfs, grad_knG=None, dens=None, U_k=None, add_grad=False,
-            ham=None, scalewithocc=True, exstate=False):
-
-        wfs.timer.start('Update Kohn-Sham energy')
-        # calc projectors
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-
-        dens.update(wfs)
-        ham.update(dens, wfs, False)
-        wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(0.0, wfs, False)
-
-        for kpt in wfs.kpt_u:
-            self.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, U_k,
-                add_grad=add_grad, ham=ham)
-        self.eks = energy
-        return energy
-
     def get_energy_and_gradients_kpt(
             self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
             ham=None, scalewithocc=True, exstate=False):

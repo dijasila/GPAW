@@ -128,18 +128,6 @@ class PZSICFDPW:
 
         return nt_G, Q_aL, D_ap
 
-    def get_energy_and_gradients(
-            self, wfs, grad_knG=None, dens=None, U_k=None, add_grad=False,
-            ham=None, scalewithocc=True, exstate=False):
-
-        e_sic = 0.0
-        for kpt in wfs.kpt_u:
-            e_sic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, U_k, add_grad, ham, scalewithocc,
-                exstate)
-        self.total_sic = wfs.kd.comm.sum(e_sic)
-        return self.total_sic
-
     def get_energy_and_gradients_kpt(
             self, wfs, kpt, grad_knG=None, dens=None, U_k=None, add_grad=False,
             ham=None, scalewithocc=True, exstate=False):
