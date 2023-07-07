@@ -20,9 +20,6 @@ def sd_outer(method, etdm=None, pd=None):
     if isinstance(method, dict):
         kwargs = method.copy()
         names = kwargs.pop('name').replace('-', '').lower().split('_')
-        concave_step_length = 0.1
-        if 'concave_step_length' in kwargs.keys():
-            concave_step_length = kwargs.pop('concave_step_length')
 
         searchdir = {'sd': SteepestDescent,
                      'frcg': FRcg,
@@ -30,12 +27,6 @@ def sd_outer(method, etdm=None, pd=None):
                      'lbfgsp': LBFGS_P,
                      'lsr1p': LSR1P
                      }[names[0]](**kwargs)
-
-        if len(names) == 2:
-            if names[1] == 'gmf':
-                pd['gmf'] = True
-                searchdir = ModeFollowing(partial_diagonalizer(pd, etdm),
-                                          searchdir, concave_step_length)
 
         return searchdir
     else:
@@ -67,17 +58,3 @@ def ls_outer(method, objective_function, searchdir_algo):
         return ls_algo
     else:
         raise ValueError('Check keyword for line search!')
-
-
-def partial_diagonalizer(method, domom):
-    from gpaw.directmin.derivatives import Davidson
-    if isinstance(method, str):
-        method = xc_string_to_dict(method)
-
-    if isinstance(method, dict):
-        kwargs = method.copy()
-        name = kwargs.pop('name')
-        if name == 'Davidson':
-            return Davidson(domom, **kwargs)
-        else:
-            raise ValueError('Check keyword for partial diagonalizer!')

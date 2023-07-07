@@ -347,7 +347,8 @@ class DirectMin(Eigensolver):
 
     def iterate(self, ham, wfs, dens, log):
 
-        if self.lsa['name'] != 'max-step':
+        if self.lsa['name'] != 'maxstep':
+            # Get rid of this
             self.iteratels(ham, wfs, dens, log)
             return
 
