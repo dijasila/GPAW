@@ -121,11 +121,11 @@ class RRemission(object):
                                                * Hartree,
                                                (self.cavity_loss /
                                                 self.cavity_resonance[0]),
-                                               0,
+                                               self.precomputedG,
                                                0,
                                                self.frequ_resolution_ampl])
             if self.environmentensemble == 0:
-                writer.write(environmentcavity_in=None)
+                writer.write(environmentens_in=None)
             else:
                 if self.ensemble_resonance > 0:
                     loss_out = self.ensemble_loss / self.ensemble_resonance
@@ -273,6 +273,7 @@ class RRemission(object):
             Dt = dyadicD['Dt']
             Gst = dyadicD['Gst']
             if maxtimesteps <= len(Dt[:, 0]):
+                print("You are using the previous Dyadic dyadicD.npz")
                 return Dt[:maxtimesteps, :], Gst
 
         if self.itert > 0:
@@ -358,16 +359,11 @@ class RRemission(object):
                                       special.erf((abs(omegafft) -
                                                    self.cutofffrequency) * 25))
                     print("CAREFUL, you are using a window function for G0w",
-                          "and Xw with a cutoff-energy [Hartree] ",
-                          str(self.cutofffrequency))
+                          "and Xw with a cutoff-energy [eV] ",
+                          str(self.cutofffrequency * Hartree))
 
                 Gw0[:, ii * shiftfac] = (GG_pj(omegafft) * window_Gw0 *
-                                         len(omegafft) *
-                                         self.rr_quantization_plane * Bohr**2)
-                if self.rr_quantization_plane * Bohr**2 != 1.:
-                    print("CAREFUL, you amplify the strength of G by a factor",
-                          "self.rr_quantization_plane=",
-                          self.rr_quantization_plane * Bohr**2)
+                                         len(omegafft))
 
         if self.ensemble_number is not None:
             Gw = np.zeros((len(omegafft), 9), dtype=complex)
@@ -406,7 +402,7 @@ class RRemission(object):
                                   np.abs(dm_z[-1, :]))
                 dmp = np.ones(len(dm_x[:, 0]))
                 if lastsize > 1e-5 and self.precomputedG is not None:
-                    print("Adding additional dmping to smoothen Xw to 1e-5")
+                    print("Adding additional damping to smoothen Xw to 1e-5")
                     decayrate = -np.log(1e-5) / len(dm_x[:, 0])
                     dmp = np.exp(-decayrate * np.arange(len(dm_x[:, 0])))
 
@@ -487,16 +483,18 @@ class RRemission(object):
             else:
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
-                G_freespace = np.zeros((len(omegafft), 9), dtype=complex)
-                Gbg = np.zeros((len(omegafft), 9), dtype=complex)
-                for ii in range(9):
-                    G_freespace[:, ii] = (1j * omegafft * alpha /
-                                          (6 * np.pi) * self.krondelta[ii])
-                Gw0 = Gw0 + G_freespace * len(omegafft)
-                """
-                The factor len(omegafft) is again added to compensate the
-                normalization via the FFT.
-                """
+                bg_correction = False
+                if bg_correction:
+                    G_freespace = np.zeros((len(omegafft), 9), dtype=complex)
+                    Gbg = np.zeros((len(omegafft), 9), dtype=complex)
+                    for ii in range(9):
+                        G_freespace[:, ii] = (1j * omegafft * alpha /
+                                              (6 * np.pi) * self.krondelta[ii])
+                    Gw0 = Gw0 + G_freespace * len(omegafft)
+                    """
+                    The factor len(omegafft) is again added to compensate the
+                    normalization via the FFT.
+                    """
                 for el in range(len(omegafft)):
                     """
                     For each frequency, reshape Gw0 and Xw into matrix and
@@ -517,7 +515,7 @@ class RRemission(object):
                     else:
                         Gw[el, :] = Gw0[el, :]
 
-                if self.cutofffrequency is not None:
+                if bg_correction == True and self.cutofffrequency is not None:
                     for ii in range(3):
                         [Gbg_re, Gout_re] = self.l_fit(omegafft,
                                                        np.real(Gw[:, 4 * ii]),
@@ -542,9 +540,9 @@ class RRemission(object):
                                   "account Gbg_re = ", str(Gbg_re))
                     Gw = Gw - Gbg
                     Gw0 = Gw0 - Gbg
-                else:
+                elif bg_correction == True and self.cutofffrequency is None:
                     Gw = Gw - G_freespace
-                    Gw0 = Gw0 - G_freespace
+                    Gw0 = Gw0 - G_freespace                    
         else:
             Gw = Gw0
         if self.precomputedG is not None:
@@ -552,6 +550,11 @@ class RRemission(object):
             # was missing a sign in g and for test-suit reasons I added this
             Gw = Gw * (-1)
             Gw0 = Gw0 * (-1)
+            if self.rr_quantization_plane * Bohr**2 != 1.:
+                Gw = Gw * self.rr_quantization_plane * Bohr**2
+                print("CAREFUL, you amplify the strength of G by a factor",
+                      "self.rr_quantization_plane=",
+                      self.rr_quantization_plane * Bohr**2)
         for ii in range(9):
             Dt[:, ii] = -np.gradient(np.fft.ifft(Gw[:, ii].flatten()), deltat)
             # For some reason the explicit derivative works best, version
@@ -561,33 +564,36 @@ class RRemission(object):
             # NOTE - I moved the sign back because there seem to be minor
             # numerical deviations otherwise -- check that again later
             # Dt[:,ii] = np.fft.ifft(1j * omegafft * Gw[:,ii].flatten())
-            plt.figure()
-            plt.plot(omegafft * Hartree, np.real(Gw[:, ii]), 'k-',
-                     label='Real Gw-scatter Element: ' + str(ii))
-            plt.plot(omegafft * Hartree, np.imag(Gw[:, ii]), 'r-',
-                     label='Imag Gw-scatter Element: ' + str(ii))
-            plt.plot(omegafft * Hartree, np.real(Gw0[:, ii]), 'k:',
-                     label='Real Gw0 Element: ' + str(ii))
-            plt.plot(omegafft * Hartree, np.imag(Gw0[:, ii]), 'r:',
-                     label='Imag Gw0 Element: ' + str(ii))
-            plt.xlabel("Energy (eV)")
-            plt.ylabel(r"$G^{(1),no static}_i(\omega)$, i=" + str(ii))
-            if self.cutofffrequency is not None:
-                plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
-            plt.legend(loc="upper right")
-            plt.savefig('Gw_' + str(ii) + '.png')
-            plt.close()
-            plt.figure()
-            plt.plot(range(maxtimesteps), np.real(Dt[:maxtimesteps, ii]),
-                     label='Real Dt Element: ' + str(ii))
-            plt.plot(range(maxtimesteps), np.imag(Dt[:maxtimesteps, ii]),
-                     label='Imag Dt Element: ' + str(ii))
-            plt.xlabel("time step")
-            plt.ylabel(r"$D^{(1),no static}_i(t)$, i=" + str(ii))
-            plt.legend(loc="upper right")
-            plt.savefig('Dt_' + str(ii) + '.png')
-            plt.close()
-        np.savez("dyadicD.npz", Dt=Dt, Gst=Gst)
+            if ii==8:
+                plt.figure()
+                plt.plot(omegafft * Hartree, np.real(Gw[:, ii]), 'k-',
+                         label='Real Gw-scatter Element: ' + str(ii))
+                plt.plot(omegafft * Hartree, np.imag(Gw[:, ii]), 'r-',
+                         label='Imag Gw-scatter Element: ' + str(ii))
+                plt.plot(omegafft * Hartree, np.real(Gw0[:, ii]), 'k:',
+                         label='Real Gw0 Element: ' + str(ii))
+                plt.plot(omegafft * Hartree, np.imag(Gw0[:, ii]), 'r:',
+                         label='Imag Gw0 Element: ' + str(ii))
+                plt.xlabel("Energy (eV)")
+                plt.ylabel(r"$G^{(1),no static}_i(\omega)$, i=" + str(ii))
+                if self.cutofffrequency is not None:
+                    plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
+                plt.legend(loc="upper right")
+                plt.savefig('Gw_' + str(ii) + '.png')
+                #plt.close()
+                plt.figure()
+                plt.plot(range(maxtimesteps), np.real(Dt[:maxtimesteps, ii]),
+                         label='Real Dt Element: ' + str(ii))
+                plt.plot(range(maxtimesteps), np.imag(Dt[:maxtimesteps, ii]),
+                         label='Imag Dt Element: ' + str(ii))
+                plt.xlabel("time step")
+                plt.ylabel(r"$D^{(1),no static}_i(t)$, i=" + str(ii))
+                plt.legend(loc="upper right")
+                plt.savefig('Dt_' + str(ii) + '.png')
+                #plt.close()
+
+                #plt.show()
+        np.savez("dyadicD", Dt=Dt, Gst=Gst)
         return [Dt[:maxtimesteps, :], Gst]
 
     def selffield(self, deltat):
