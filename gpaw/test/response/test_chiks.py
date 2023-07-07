@@ -292,8 +292,8 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
                      frequencies=frequencies, eta=eta,
                      ecut=ecut, nbands=nbands,
                      hilbert=False, intraband=False)
-    chi0_data = chi0_calc.calculate(q_c)
-    chi0_wGG = chi0_data.get_distributed_frequencies_array()
+    chi0 = chi0_calc.calculate(q_c)
+    chi0_wGG = chi0.body.get_distributed_frequencies_array()
 
     # Part 3: Check chiks vs. chi0
     assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=atol)

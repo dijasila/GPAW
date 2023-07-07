@@ -14,6 +14,7 @@ class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
@@ -221,6 +222,9 @@ class ResponseGroundStateAdapter:
         # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
         _, ibz_vertices_kc = get_bz(self._calc)
         return ibz_vertices_kc
+
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
 
 
 # Contains all the relevant information

@@ -3,7 +3,8 @@
 GPU
 ===
 
-Ground-state calculations on a GPU is an experimental feature at the moment:
+Ground-state calculations on a GPU is an experimental feature at the moment with
+some limitations:
 
 * only PW-mode
 * it has only been implemented in the new GPAW
