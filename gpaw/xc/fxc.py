@@ -758,10 +758,6 @@ class KernelDens(KernelIntegrator):
             fhxc_qsGr[iq] = np.zeros(
                 (ns, len(self.pd.G2_qG[iq]), len(l_g_range)), dtype=complex)
 
-        inv_error = np.seterr()
-        np.seterr(invalid='ignore')
-        np.seterr(divide='ignore')
-
         t0 = time()
         # Loop over Lattice points
         for i, R_v in enumerate(R_Rv):
@@ -789,14 +785,22 @@ class KernelDens(KernelIntegrator):
 
                 n_av = (n_g + n_g.flatten()[g]) / 2.
                 fx_g = ns * self.get_fxc_g(n_av, index=g)
-                qc_g = (-4 * np.pi * ns / fx_g)**0.5
+                not_negative_g = fx_g >= 0.0
+                fx0_g = fx_g.copy()
+                fx0_g[not_negative_g] = -1.0
+                qc_g = (-4 * np.pi * ns / fx0_g)**0.5
+                qc_g[not_negative_g] = 0.0
                 x = qc_g * rr
                 osc_x = np.sin(x) - x * np.cos(x)
-                f_rr = fx_g * osc_x / (2 * np.pi**2 * rr**3)
-                if nR > 1:  # include only exchange part of the kernel here
-                    V_rr = (sici(x)[0] * 2 / np.pi - 1) / rr
-                else:  # include the full kernel (also hartree part)
-                    V_rr = (sici(x)[0] * 2 / np.pi) / rr
+
+                with np.errstate(invalid='ignore'):
+                    f_rr = fx_g * osc_x / (2 * np.pi**2 * rr**3)
+                    if nR > 1:
+                        # include only exchange part of the kernel here
+                        V_rr = (sici(x)[0] * 2 / np.pi - 1) / rr
+                    else:
+                        # include the full kernel (also hartree part)
+                        V_rr = (sici(x)[0] * 2 / np.pi) / rr
 
                 # Terms with r = r'
                 if (np.abs(R_v) < 0.001).all():
@@ -828,8 +832,6 @@ class KernelDens(KernelIntegrator):
                         fhxc_qsGr[iq][1, :, g - l_g_range[0]] += f_q
 
         self.context.comm.barrier()
-
-        np.seterr(**inv_error)
 
         for iq, q in enumerate(self.ibzq_qc):
             npw = len(self.pd.G2_qG[iq])
