@@ -443,7 +443,7 @@ class LocalPAWFTEngine:
         df_ng, r_g, dv_g = self.get_reduced_radial_grid(df_ng, rgd)
 
         # Expand correction in real spherical harmonics
-        rshe, info_string = self.perform_rshe(df_ng, Y_nL)
+        rshe, info_string = self.perform_rshe(rgd, df_ng, Y_nL)
         self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
@@ -498,10 +498,10 @@ class LocalPAWFTEngine:
         return df_ng, r_g, dv_g
 
     @timer('Expand PAW correction in real spherical harmonics')
-    def perform_rshe(self, df_ng, Y_nL):
+    def perform_rshe(self, rgd, df_ng, Y_nL):
         r"""Expand Δf_a[n_a,ñ_a](r) in real spherical harmonics."""
         return calculate_reduced_rshe(
-            df_ng, Y_nL, self.rshelmax, self.rshewmin)
+            rgd, df_ng, Y_nL, self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
