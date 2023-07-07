@@ -1,10 +1,12 @@
 from math import pi
 from typing import Tuple
-import numpy as np
-from ase.units import Ha
 
+import numpy as np
+
+from ase.data import chemical_symbols
+from ase.units import Ha, kJ
+from gpaw.setup import Setup, create_setup
 from gpaw.typing import Array1D
-from gpaw.setup import Setup
 
 
 def ekin(dataset: Setup) -> Tuple[Array1D, Array1D, float]:
@@ -37,10 +39,31 @@ def dekindecut(G: Array1D, de: Array1D, ecut: float) -> float:
     return dedecut
 
 
-if __name__ == '__main__':
+def table(ecut: float = 800.0) -> None:
+    data = []
+    for symbol in chemical_symbols:
+        try:
+            setup = create_setup(symbol)
+        except FileNotFoundError:
+            continue
+        G, de, e0 = ekin(setup)
+        dedecut = -dekindecut(G, de, ecut / Ha)
+        data.append((dedecut, symbol))
+
+    vol = 10.0
+    for dedecut, symbol in sorted(data):
+        sigma = 2 / 3 * ecut * dedecut / vol
+        sigma_gpa = sigma / kJ * 1e24
+        print(f'{symbol:2} '
+              f'{dedecut:10.6f} '
+              f'{sigma:10.3f} eV/Ang^3 '
+              f'{sigma_gpa:10.3f} GPa')
+
+
+def main():
     import argparse
+
     import matplotlib.pyplot as plt
-    from gpaw.setup import create_setup
 
     parser = argparse.ArgumentParser(
         description='Calculate approximation to the energy variation with '
@@ -71,3 +94,8 @@ if __name__ == '__main__':
         plt.xlim(300, 1000)
         plt.ylim(0, y[ecut > 300][0])
         plt.show()
+
+
+if __name__ == '__main__':
+    main()
+    # table()
