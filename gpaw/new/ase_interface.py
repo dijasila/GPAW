@@ -231,25 +231,25 @@ class ASECalculator:
         self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
-                             atoms: Atoms,
+                             atoms: Atoms | None = None,
                              force_consistent: bool = False) -> float:
         return self.calculate_property(atoms,
                                        'free_energy' if force_consistent else
                                        'energy')
 
-    def get_forces(self, atoms: Atoms) -> Array2D:
+    def get_forces(self, atoms: Atoms | None = None) -> Array2D:
         return self.calculate_property(atoms, 'forces')
 
-    def get_stress(self, atoms: Atoms) -> Array1D:
+    def get_stress(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'stress')
 
-    def get_dipole_moment(self, atoms: Atoms) -> Array1D:
+    def get_dipole_moment(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'dipole')
 
     def get_magnetic_moment(self, atoms: Atoms | None = None) -> float:
         return self.calculate_property(atoms, 'magmom')
 
-    def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
+    def get_magnetic_moments(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
     def write(self, filename, mode=''):
