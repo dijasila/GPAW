@@ -491,4 +491,4 @@ class SitePairSpinSplittingCalculator(SiteMatrixElementCalculator):
     """
 
     def add_f(self, gd, n_sx, f_x):
-        f_x += - 2. * calculate_LSDA_Wxc(gd, n_sx)
+        f_x[:] += - 2. * calculate_LSDA_Wxc(gd, n_sx)
