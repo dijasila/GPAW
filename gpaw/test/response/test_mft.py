@@ -3,6 +3,8 @@ Test with unrealisticly loose parameters to catch if the numerics change.
 """
 
 # General modules
+from abc import abstractmethod
+
 import pytest
 import numpy as np
 
@@ -26,7 +28,8 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
-from gpaw.response.matrix_elements import SitePairDensityCalculator
+from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
+                                           SitePairDensityCalculator)
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
@@ -406,7 +409,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
     # ----- Site magnetization from site pair densities ----- #
     # Set up calculator and calculate the site magnetization
-    simple_site_mag_calc = SimpleSiteMagnetizationCalculator(gs, context)
+    simple_site_mag_calc = SingleParticleSiteMagnetizationCalculator(
+        gs, context)
     ssite_mag_ar = simple_site_mag_calc(atomic_site_data)
 
     # Test that the imaginary part vanishes (we use only diagonal pair
@@ -461,7 +465,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 # ---------- Test functionality ---------- #
 
 
-class SimpleSiteMagnetization(SumRuleSiteMagnetization):
+class SingleParticleSiteQuantity(SumRuleSiteMagnetization):
     @property
     def shape(self):
         nsites = self.atomic_site_data.nsites
@@ -469,27 +473,30 @@ class SimpleSiteMagnetization(SumRuleSiteMagnetization):
         return nsites, npartitions
 
 
-class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
-    r"""Calculate the site magnetization using site pair densities.
+class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
+    r"""Calculator for single-particle site sum rules.
 
-    The site magnetization can be calculate from the diagonals of the site pair
-    densities as follows:
+    For any site matrix element f^a_(nks,n'k's'), one may define a single-
+    particle site sum rule by considering only the diagonal of the matrix
+    element:
                  __  __
              1   \   \
-    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+    f_a^μ = ‾‾‾  /   /  σ^μ_ss f_nks f^a_(nks,nks)
             N_k  ‾‾  ‾‾
                  k   n,s
+
+    where μ∊{0,z}.
     """
 
     def __init__(self, gs, context):
         super().__init__(gs, context,
                          disable_point_group=True,
                          disable_time_reversal=True)
-        self.site_pair_density_calc: SitePairDensityCalculator | None = None
+        self.matrix_element_calc: SiteMatrixElementCalculator | None = None
 
     def __call__(self, atomic_site_data):
-        self.site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+        self.matrix_element_calc = self.create_matrix_element_calculator(
+            atomic_site_data)
 
         # Set up transitions
         # Loop over bands, which are fully or partially occupied
@@ -501,40 +508,69 @@ class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
 
         # Set up data object with q=0
         qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
-        site_mag = SimpleSiteMagnetization(qpd, atomic_site_data)
+        site_quantity = SingleParticleSiteQuantity(qpd, atomic_site_data)
 
         # Perform actual calculation
-        self._integrate(site_mag, transitions)
-        return site_mag.array
+        self._integrate(site_quantity, transitions)
+        return site_quantity.array
 
-    def add_integrand(self, kptpair, weight, site_mag):
-        r"""Add the site magnetization integrand of the outer k-point integral.
+    @abstractmethod
+    def create_matrix_element_calculator(
+            self, atomic_site_data) -> SiteMatrixElementCalculator:
+        """Create the desired site matrix element calculator."""
+
+    def add_integrand(self, kptpair, weight, site_quantity):
+        r"""Add the integrand of the outer k-point integral.
 
         With
                    __
                 1  \
-        n_a^z = ‾  /  (...)_k
+        f_a^μ = ‾  /  (...)_k
                 V  ‾‾
                    k
 
         the integrand has to be multiplied with the cell volume V0:
                      __
                      \
-        (...)_k = V0 /  σ^z_ss f_nks n^a_(nks,nks)
+        (...)_k = V0 /  σ^μ_ss f_nks f^a_(nks,nks)
                      ‾‾
                      n,s
         """
-        # Calculate site pair densties
-        site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
-        assert site_pair_density.tblocks.blockcomm.size == 1
-        n_tap = site_pair_density.get_global_array()
+        # Calculate matrix elements
+        site_matrix_element = self.matrix_element_calc(
+            kptpair, site_quantity.qpd)
+        assert site_matrix_element.tblocks.blockcomm.size == 1
+        f_tap = site_matrix_element.get_global_array()
 
-        # Calculate Pauli matrix factors multiply the occupations
-        sigz = smat('z')
-        sigz_t = sigz[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
+        # Calculate Pauli matrix factors and multiply the occupations
+        sigma = self.get_pauli_matrix()
+        sigma_t = sigma[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
         f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
-        sigzf_t = sigz_t * f_t
+        sigmaf_t = sigma_t * f_t
 
         # Calculate and add integrand
-        site_mag.array[:] += self.gs.volume * weight * np.einsum(
-            't, tap -> ap', sigzf_t, n_tap)
+        site_quantity.array[:] += self.gs.volume * weight * np.einsum(
+            't, tap -> ap', sigmaf_t, f_tap)
+
+    @abstractmethod
+    def get_pauli_matrix(self):
+        """Get the desired Pauli matrix σ^μ_ss."""
+
+
+class SingleParticleSiteMagnetizationCalculator(
+        SingleParticleSiteSumRuleCalculator):
+    r"""Calculator for the single-particle site magnetization sum rule.
+
+    The site magnetization is calculated from the site pair density:
+                 __  __
+             1   \   \
+    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
+    """
+    def get_pauli_matrix(self):
+        return smat('z')
+    
+    def create_matrix_element_calculator(self, atomic_site_data):
+        return SitePairDensityCalculator(self.gs, self.context,
+                                         atomic_site_data)
