@@ -161,7 +161,7 @@ class DirectMin(Eigensolver):
         self._e_entropy = \
             wfs.calculate_occupation_numbers(dens.fixed)
         self.localize_wfs(wfs, dens, ham, log)
-        self.initialize_dm(wfs, dens, ham, log)
+        self.initialize_dm(wfs, dens, ham)
         self.init_mom(wfs, dens, log)
 
     def initialize_super(self, wfs, ham):
@@ -184,8 +184,7 @@ class DirectMin(Eigensolver):
 
         super(DirectMin, self).initialize(wfs)
 
-    def initialize_dm(self, wfs, dens, ham,
-                      log=None, obj_func=None, lumo=False):
+    def initialize_dm(self, wfs, dens, ham, obj_func=None, lumo=False):
 
         """
         initialize search direction algorithm,
@@ -194,7 +193,6 @@ class DirectMin(Eigensolver):
         :param wfs:
         :param dens:
         :param ham:
-        :param log:
         :param obj_func:
         :param lumo:
         :return:
@@ -1015,14 +1013,13 @@ class DirectMin(Eigensolver):
 
         return energy_t, grad
 
-    def iterate_lumo(self, ham, wfs, dens):
+    def iterate_lumo(self, ham, wfs):
 
         """
         1 iteration for convergence of LUMO
 
         :param ham:
         :param wfs:
-        :param dens:
         :return:
         """
 
@@ -1095,7 +1092,7 @@ class DirectMin(Eigensolver):
 
         max_iter = 100
         while self.iters < max_iter:
-            en, er = self.iterate_lumo(ham, wfs, dens)
+            en, er = self.iterate_lumo(ham, wfs)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
