@@ -86,9 +86,10 @@ class Derivatives:
         else:
             # Calculate analytical approximation to hessian
             if wfs.mode == 'lcao':
+                ind_up = etdm.ind_up
                 analytical_der = np.hstack([get_approx_analytical_hessian(
-                    kpt, etdm.dtype, etdm.ind_up[etdm.kpointval(kpt)]).copy()
-                                            for kpt in wfs.kpt_u])
+                    kpt, etdm.dtype,
+                    ind_up[etdm.kpointval(kpt)]).copy() for kpt in wfs.kpt_u])
             else:
                 analytical_der = np.hstack([get_approx_analytical_hessian(
                     kpt, etdm.dtype).copy() for kpt in wfs.kpt_u])
