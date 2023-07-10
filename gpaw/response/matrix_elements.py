@@ -411,9 +411,12 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
             * ut2_mytR
         # Calculate real-space pair densities ñ_kt(r)
         nt_mytR = psit1_mytR.conj() * psit2_mytR
-        # Calculate the local functional f(r)
-        f_R = self.gs.gd.zeros()
-        self.add_f(self.gs.gd, self.gs.nt_sR, f_R)
+        # Evaluate the local functional f(n(r)) on the coarse real-space grid
+        # NB: Here we assume that f(r) is sufficiently smooth to be represented
+        # on a regular grid (unlike the wave functions).
+        n_sR, gd = self.gs.get_all_electron_density(gridrefinement=1)
+        f_R = gd.zeros()
+        self.add_f(gd, n_sR, f_R)
 
         # Set up spherical truncation function collection on the coarse
         # real-space grid with the KPointDescriptor of the q-point.
