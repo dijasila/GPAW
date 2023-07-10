@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -305,29 +306,43 @@ class SiteMatrixElement(MatrixElement):
 class SiteMatrixElementCalculator(MatrixElementCalculator):
     r"""Class for calculating site matrix elements.
 
-    The site pair density is defined via smooth truncation functions Θ(r∊Ω_ap)
-    for every site a and site partitioning p, interpolating smoothly between
-    unity for positions inside the spherical site volume and zero outside it:
+    The site matrix elements are defined as the expectation value of any local
+    functional of the electron density f[n](r) = f(n(r)), evaluated on a given
+    site a for every site partitioning p. The sites are defined in terms of
+    smooth truncation functions Θ(r∊Ω_ap), interpolating smoothly between unity
+    for positions inside the spherical site volume and zero outside it:
 
-    n^ap_kt = n^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)|ψ_n'k+qs'>
+    f^ap_kt = f^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)f(r)|ψ_n'k+qs'>
 
              /
-           = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
+           = | dr Θ(r∊Ω_ap) f(r) ψ_nks^*(r) ψ_n'k+qs'(r)
              /
 
     For details, see [publication in preparation].
     """
 
-    def __init__(self, gs, context, atomic_site_data):
+    def __init__(self, gs, context, atomic_site_data,
+                 rshelmax: int = -1,
+                 rshewmin: float | None = None):
         """Construct the SiteMatrixElementCalculator.
 
-        Some more documentation here! XXX
+        Parameters
+        ----------
+        rshelmax : int
+            The maximum index l (l < 6) to use in the expansion of f(r) into
+            real spherical harmonics for the PAW correction.
+        rshewmin : float or None
+            If None, the PAW correction will be fully expanded up to the chosen
+            lmax. Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            coefficients to use in the expansion. If any (l,m) coefficient
+            contributes with less than a fraction of rshewmin on average, it
+            will not be included.
         """
         super().__init__(gs, context)
         self.atomic_site_data = atomic_site_data
 
-        self.rshelmax = 0  # do me proper XXX
-        self.rshewmin = None
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
 
         # PAW correction tensor
         self._F_apii = None
@@ -360,30 +375,30 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         return F_apii
 
     def perform_rshe(self, micro_setup):
-        """
-        Some documentation here! XXX
-        """
+        """Expand the functional f(n(r)) into real spherical harmonics."""
         f_ng = micro_setup.evaluate_function(self.add_f)
         return calculate_reduced_rshe(
             micro_setup.rgd, f_ng, micro_setup.Y_nL,
             self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, A, info_string):
-        pass  # do me XXX
+        """Print information about the expansion at site a."""
+        info_string = f'RSHE of site {a} (atom {A}):\n' + info_string
+        self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
     def create_matrix_element(self, tblocks, qpd):
         return SiteMatrixElement(tblocks, qpd, self.atomic_site_data)
 
-    @timer('Calculate pseudo site pair density')
+    @timer('Calculate pseudo site matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 site_pair_density):
-        """Add the pseudo site pair density to the output array.
+                                 site_matrix_element):
+        """Add the pseudo site matrix element to the output array.
 
-        The pseudo pair density is evaluated on the coarse real-space grid and
-        integrated together with the smooth truncation function,
+        The pseudo matrix element is evaluated on the coarse real-space grid
+        and integrated together with the smooth truncation function,
 
-                  /              ˷          ˷
-        ñ^ap_kt = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
+        ˷         /                   ˷          ˷
+        f^ap_kt = | dr Θ(r∊Ω_ap) f(r) ψ_nks^*(r) ψ_n'k+qs'(r)
                   /
 
         where the Kohn-Sham orbitals are normalized to the unit cell.
@@ -396,6 +411,9 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
             * ut2_mytR
         # Calculate real-space pair densities ñ_kt(r)
         nt_mytR = psit1_mytR.conj() * psit2_mytR
+        # Calculate the local functional f(r)
+        f_R = self.gs.gd.zeros()
+        self.add_f(self.gs.gd, self.gs.nt_sR, f_R)
 
         # Set up spherical truncation function collection on the coarse
         # real-space grid with the KPointDescriptor of the q-point.
@@ -403,48 +421,61 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         stfc = spherical_truncation_function_collection(
             self.gs.gd, adata.spos_ac,
             adata.rc_ap, adata.drcut, adata.lambd_ap,
-            kd=site_pair_density.qpd.kd, dtype=complex)
+            kd=site_matrix_element.qpd.kd, dtype=complex)
 
-        # Integrate Θ(r∊Ω_ap) ñ_kt(r)
+        # Integrate Θ(r∊Ω_ap) f(r) ñ_kt(r)
         ntlocal = nt_mytR.shape[0]
-        nt_amytp = {a: np.empty((ntlocal, adata.npartitions), dtype=complex)
+        ft_amytp = {a: np.empty((ntlocal, adata.npartitions), dtype=complex)
                     for a in range(adata.nsites)}
-        stfc.integrate(nt_mytR, nt_amytp, q=0)
+        stfc.integrate(nt_mytR * f_R[np.newaxis], ft_amytp, q=0)
 
         # Add integral to output array
-        n_mytap = site_pair_density.array
+        f_mytap = site_matrix_element.array
         for a in range(adata.nsites):
-            n_mytap[:, a] += nt_amytp[a]
+            f_mytap[:, a] += ft_amytp[a]
 
-    @timer('Calculate site pair density PAW correction')
-    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_pair_density):
-        r"""Add the site pair density PAW correction to the output array.
+    @timer('Calculate site matrix element PAW correction')
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_matrix_element):
+        r"""Add the site matrix element PAW correction to the output array.
 
         For every site a, we only need a PAW correction for that site itself,
                    __
                    \   ˷     ˷              ˷     ˷
-        Δn^ap_kt = /  <ψ_nks|p_ai> N_apii' <p_ai'|ψ_n'k+qs'>
+        Δf^ap_kt = /  <ψ_nks|p_ai> F_apii' <p_ai'|ψ_n'k+qs'>
                    ‾‾
                    i,i'
 
-        where N_apii' is the site pair density correction tensor.
+        where F_apii' is the site matrix element correction tensor.
         """
-        n_mytap = site_pair_density.array
-        N_apii = self.get_paw_correction_tensor()
-        for a, (A, N_pii) in enumerate(zip(
-                self.atomic_site_data.A_a, N_apii)):
+        f_mytap = site_matrix_element.array
+        F_apii = self.get_paw_correction_tensor()
+        for a, (A, F_pii) in enumerate(zip(
+                self.atomic_site_data.A_a, F_apii)):
             # Make outer product of the projector overlaps
             P1ccP2_mytii = P1_Amyti[A].conj()[..., np.newaxis] \
                 * P2_Amyti[A][:, np.newaxis]
             # Sum over partial wave indices and add correction to the output
-            n_mytap[:, a] += np.einsum('tij, pij -> tp', P1ccP2_mytii, N_pii)
+            f_mytap[:, a] += np.einsum('tij, pij -> tp', P1ccP2_mytii, F_pii)
 
 
 class SitePairDensityCalculator(SiteMatrixElementCalculator):
-    """Class for calculating site pair densities."""
+    """Class for calculating site pair densities.
 
-    # Overwrite __init__ and control the rshe? XXX
+    The site pair density corresponds to a site matrix element with f(r) = 1:
+
+    n^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)|ψ_n'k+qs'>
+    """
+
+    def __init__(self, gs, context, atomic_site_data):
+        super().__init__(gs, context, atomic_site_data,
+                         # Expanding f(r) = 1 in real spherical harmonics only
+                         # involves l = 0
+                         rshelmax=0)
 
     def add_f(self, gd, n_sx, f_x):
-        # Some explanation here! XXX
         f_x[:] += 1.
+
+    def print_rshe_info(self, *args):
+        # The expansion in spherical harmonics is trivial (l = 0), so there is
+        # no need to print anything
+        pass
