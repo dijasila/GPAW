@@ -1173,9 +1173,7 @@ class DirectMin(Eigensolver):
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         self.etotal, counter = self.iloop_outer.run(
-            0.0, wfs, dens, log, niter,
-            small_random=False,
-            ham=ham)
+            wfs, dens, log, niter, ham=ham)
         self.total_eg_count_iloop_outer += self.iloop_outer.eg_count
         self.e_sic = self.iloop_outer.esic
         for kpt in wfs.kpt_u:

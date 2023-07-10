@@ -179,8 +179,7 @@ class InnerLoop:
 
         return p_k
 
-    def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, ham=None, seed=None):
+    def run(self, wfs, dens, log, outer_counter=0, ham=None):
 
         log = log
         self.run_count += 1
@@ -340,8 +339,7 @@ class InnerLoop:
                             if abs(hess[i]) < 1.0e-4:
                                 self.precond[k][i] = 1.0
                             else:
-                                self.precond[k][i] = \
-                                    1.0 / (hess[i].real)
+                                self.precond[k][i] = 1.0 / hess[i].real
                     else:
                         self.precond[k] = np.zeros_like(hess)
                         for i in range(hess.shape[0]):
@@ -349,8 +347,7 @@ class InnerLoop:
                                 self.precond[k][i] = 1.0 + 1.0j
                             else:
                                 self.precond[k][i] = \
-                                    1.0 / hess[i].real + \
-                                    1.0j / hess[i].imag
+                                    1.0 / hess[i].real + 1.0j / hess[i].imag
                 return self.precond
             else:
                 return self.precond

@@ -26,16 +26,11 @@ class DirectMinLocalize:
             self.iloop.tol = g_tol
         if max_iter is not None:
             self.iloop.max_iter = max_iter
-        # if log is None:
-        #     log = parprint
 
         wfs.timer.start('Inner loop')
 
         if self.obj_f.name == 'Zero':
-            etotal, counter = self.iloop.run(
-                0.0, wfs, dens, log, 0,
-                small_random=False,
-                ham=ham)
+            etotal, counter = self.iloop.run(wfs, dens, log, 0, ham=ham)
         else:
             counter = self.iloop.run(0.0, wfs, dens, log, 0,
                                      randvalue=self.randval, seed=seed)
