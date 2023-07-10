@@ -479,7 +479,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files):
 
     # Test that the results match a conventional calculation
     dxc_ar = atomic_site_data.calculate_spin_splitting()
-    assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-2)
+    assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
 
     # import matplotlib.pyplot as plt
     # rc_r = atomic_site_data.rc_ap[0] * Bohr
