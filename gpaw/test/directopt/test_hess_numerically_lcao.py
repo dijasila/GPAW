@@ -7,7 +7,7 @@ import numpy as np
 
 
 @pytest.mark.do
-def test_directmin_lcao_numerical_hessian(in_tmp_dir):
+def test_hess_numerically_lcao(in_tmp_dir):
     """
     Test complex numerical Hessian
     w.r.t rotation parameters in LCAO

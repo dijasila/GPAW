@@ -115,10 +115,10 @@ class Derivatives:
         else:
             if what2calc == 'gradient':
                 numerical_der = self.get_numerical_gradient_fdpw(
-                    etdm, wfs, dens, ham, self.a, self.eps)
+                    etdm, wfs, dens, ham, self.a)
             else:
                 numerical_der = self.get_numerical_hessian_fdpw(
-                    etdm, wfs, dens, ham, self.a, self.eps)
+                    etdm, wfs, dens, ham, self.a)
 
         return numerical_der
 
@@ -172,10 +172,9 @@ class Derivatives:
 
         return numerical_der
 
-    def get_numerical_gradient_fdpw(
-            self, etdm, wfs, dens, ham, A_s, eps=1.0e-5):
+    def get_numerical_gradient_fdpw(self, etdm, wfs, dens, ham, A_s):
         dtype = etdm.dtype
-        h = [eps, -eps]
+        h = [self.eps, -self.eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
@@ -211,7 +210,7 @@ class Derivatives:
                             E = etdm.get_energy_and_gradients(
                                 A_s, wfs, dens, ham)[0]
                             grad_num[igr] += E * coef[l]
-                        grad_num[igr] *= 1.0 / (2.0 * eps)
+                        grad_num[igr] *= 1.0 / (2.0 * self.eps)
                         if i == j:
                             A_s[k][i][j] = A
                         else:
@@ -242,7 +241,7 @@ class Derivatives:
                         E = etdm.get_energy_and_gradients(
                             A_s, wfs, dens, ham)[0]
                         grad_num[igr] += E * coef[l]
-                    grad_num[igr] *= 1.0 / (2.0 * eps)
+                    grad_num[igr] *= 1.0 / (2.0 * self.eps)
                     A_s[k][i][j] = A
                     A_s[k][j][i] = -A
                     igr += 1
@@ -253,9 +252,8 @@ class Derivatives:
 
         return Gr_n
 
-    def get_numerical_hessian_fdpw(
-            self, etdm, wfs, dens, ham, A_s, eps=1.0e-5):
-        h = [eps, -eps]
+    def get_numerical_hessian_fdpw(self, etdm, wfs, dens, ham, A_s):
+        h = [self.eps, -self.eps]
         coef = [1.0, -1.0]
         num_hes = {}
 
@@ -276,7 +274,7 @@ class Derivatives:
                     g = g[k][iut]
                     hessian[ih, :] += g * coef[l]
 
-                hessian[ih, :] *= 1.0 / (2.0 * eps)
+                hessian[ih, :] *= 1.0 / (2.0 * self.eps)
 
                 A_s[k][i][j] = A
                 A_s[k][j][i] = -A
