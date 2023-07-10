@@ -109,7 +109,7 @@ class InnerLoop:
 
         der_phi = 0.0
         for k in p_k.keys():
-            il1 = get_indices(p_k[k].shape[0], self.dtype)
+            il1 = get_indices(p_k[k].shape[0])
             der_phi += np.dot(g_k[k][il1].conj(), p_k[k][il1]).real
 
         der_phi = wfs.kd.comm.sum(der_phi)
@@ -126,7 +126,7 @@ class InnerLoop:
         g = {}
 
         for k in a_k.keys():
-            il1 = get_indices(a_k[k].shape[0], self.dtype)
+            il1 = get_indices(a_k[k].shape[0])
             a[k] = a_k[k][il1]
             g[k] = g_k[k][il1]
 
@@ -136,7 +136,7 @@ class InnerLoop:
         p_k = {}
         for k in p.keys():
             p_k[k] = np.zeros_like(a_k[k])
-            il1 = get_indices(a_k[k].shape[0], self.dtype)
+            il1 = get_indices(a_k[k].shape[0])
             p_k[k][il1] = p[k]
             # make it skew-hermitian
             ind_l = np.tril_indices(p_k[k].shape[0], -1)

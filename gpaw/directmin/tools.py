@@ -400,11 +400,5 @@ def get_n_occ(kpt):
     return n_occ, occupied
 
 
-def get_indices(dimens, dtype):
-
-    if dtype == complex:
-        il1 = np.tril_indices(dimens)
-    else:
-        il1 = np.tril_indices(dimens, -1)
-
-    return il1
+def get_indices(dimens):
+    return np.tril_indices(dimens, -1)
