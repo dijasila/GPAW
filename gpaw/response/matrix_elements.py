@@ -12,7 +12,7 @@ from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import extract_micro_setup
+from gpaw.response.localft import extract_micro_setup, calculate_LSDA_Wxc
 
 
 class MatrixElement(ABC):
@@ -479,3 +479,16 @@ class SitePairDensityCalculator(SiteMatrixElementCalculator):
         # The expansion in spherical harmonics is trivial (l = 0), so there is
         # no need to print anything
         pass
+
+
+class SitePairSpinSplittingCalculator(SiteMatrixElementCalculator):
+    """Class for calculating site pair spin splittings.
+
+    The site pair spin splitting corresponds to a site matrix element with
+    f(r) = - 2 W_xc^z(r):
+
+    Δ^(xc,ap)_(nks,n'k+qs') = - 2 <ψ_nks|Θ(r∊Ω_ap)W_xc^z(r)|ψ_n'k+qs'>
+    """
+
+    def add_f(self, gd, n_sx, f_x):
+        f_x += - 2. * calculate_LSDA_Wxc(gd, n_sx)
