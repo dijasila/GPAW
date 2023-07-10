@@ -32,7 +32,9 @@ def calculate_site_matrix_element_correction(
     assert rgd is pawdata.xc_correction.rgd
     ni = pawdata.ni  # Number of partial waves
     l_j = pawdata.l_j  # l-index for each radial function index j
-    G_LLL = gaunt(max(l_j))
+    lmax = max(l_j)
+    G_LLL = gaunt(lmax)
+    assert max(rshe.l_M) <= lmax * 2
     # (Real) radial functions for the partial waves
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
@@ -68,7 +70,7 @@ def calculate_site_matrix_element_correction(
                     # function f(r)
                     for L, f_g in zip(rshe.L_M, rshe.f_gM.T):
                         # Angular integral
-                        gaunt_coeff = G_LLL[L, l1**2 + m1, l2**2 + m2]
+                        gaunt_coeff = G_LLL[l1**2 + m1, l2**2 + m2, L]
                         if gaunt_coeff == 0:
                             continue
                         # Radial integral
