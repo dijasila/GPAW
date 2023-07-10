@@ -9,7 +9,7 @@ import pytest
 import numpy as np
 
 # Script modules
-from ase.units import Bohr
+from ase.units import Bohr, Ha
 
 from gpaw import GPAW
 from gpaw.sphere.integrate import integrate_lebedev
@@ -29,7 +29,8 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
-                                           SitePairDensityCalculator)
+                                           SitePairDensityCalculator,
+                                           SitePairSpinSplittingCalculator)
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
@@ -384,11 +385,12 @@ def test_Co_site_data(gpw_files):
 @pytest.mark.response
 @pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
-    # Set up ground state adapter
+    # Set up ground state adapter and atomic site data
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
     nbands = response_band_cutoff['co_pw_wfs']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
+    atomic_site_data = get_co_atomic_site_data(gs)
 
     if context.comm.size % 4 == 0:
         nblocks = 4
@@ -400,14 +402,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Get wave vector to test
     q_c = get_q_c('co_pw_wfs', qrel)
 
-    # Set up atomic sites
-    rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
-    # Make sure that the two sites do not overlap
-    nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
-    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
-    atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
-
-    # ----- Site magnetization from site pair densities ----- #
+    # ----- Single-particle site magnetization ----- #
     # Set up calculator and calculate the site magnetization
     simple_site_mag_calc = SingleParticleSiteMagnetizationCalculator(
         gs, context)
@@ -422,7 +417,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     magmom_ar = atomic_site_data.calculate_magnetic_moments()
     assert ssite_mag_ar == pytest.approx(magmom_ar, rel=5e-3)
 
-    # ----- Site magnetization by sum rule ----- #
+    # ----- Two-particle site magnetization ----- #
     # Set up calculator and calculate site magnetization by sum rule
     sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(
         gs, context, nblocks=nblocks, nbands=nbands)
@@ -453,6 +448,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
                   1.18813171e+00, 1.49761591e+00, 1.58954270e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
+    # rc_r = atomic_site_data.rc_ap[0] * Bohr
     # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
     # plt.plot(rc_r, ssite_mag_ar[0], '-o', mec='k', zorder=1)
     # plt.plot(rc_r, magmom_ar[0], '-o', mec='k', zorder=0)
@@ -462,7 +458,48 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # plt.show()
 
 
+@pytest.mark.response
+def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files):
+    # Set up ground state adapter and atomic site data
+    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    gs = ResponseGroundStateAdapter(calc)
+    context = ResponseContext('Co_sum_rule.txt')
+    atomic_site_data = get_co_atomic_site_data(gs)
+
+    # ----- Single-particle site spin splitting ----- #
+    # Set up calculator and calculate the site magnetization
+    single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
+        gs, context)
+    single_particle_dxc_ar = single_particle_dxc_calc(atomic_site_data)
+
+    # Test that the imaginary part vanishes (we use only diagonal pair
+    # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
+    assert np.allclose(single_particle_dxc_ar.imag, 0.)
+    single_particle_dxc_ar = single_particle_dxc_ar.real * Ha  # Ha -> eV
+
+    # Test that the results match a conventional calculation
+    dxc_ar = atomic_site_data.calculate_spin_splitting()
+    assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-2)
+
+    # import matplotlib.pyplot as plt
+    # rc_r = atomic_site_data.rc_ap[0] * Bohr
+    # plt.plot(rc_r, single_particle_dxc_ar[0], '-o', mec='k', zorder=1)
+    # plt.plot(rc_r, dxc_ar[0], '-o', mec='k', zorder=0)
+    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
+    # plt.show()
+
+
 # ---------- Test functionality ---------- #
+
+
+def get_co_atomic_site_data(gs):
+    # Set up atomic sites
+    rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
+    # Make sure that the two sites do not overlap
+    nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
+    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
+    return AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
 
 class SingleParticleSiteQuantity(SumRuleSiteMagnetization):
@@ -574,3 +611,21 @@ class SingleParticleSiteMagnetizationCalculator(
     def create_matrix_element_calculator(self, atomic_site_data):
         return SitePairDensityCalculator(self.gs, self.context,
                                          atomic_site_data)
+
+
+class SingleParticleSiteSpinSplittingCalculator(
+        SingleParticleSiteSumRuleCalculator):
+    r"""Calculator for the single-particle site spin splitting sum rule.
+                      __  __
+                  1   \   \
+    Δ^(xc)_a^z = ‾‾‾  /   /  σ^z_ss f_nks Δ^(xc,a)_(nks,nks)
+                 N_k  ‾‾  ‾‾
+                      k   n,s
+    """
+    def get_pauli_matrix(self):
+        return smat('z')
+
+    def create_matrix_element_calculator(self, atomic_site_data):
+        return SitePairSpinSplittingCalculator(self.gs, self.context,
+                                               atomic_site_data,
+                                               rshewmin=1e-8)
