@@ -61,6 +61,7 @@ def test_hess_numerically_lcao(in_tmp_dir):
         calc.density,
         what2calc='hessian'
     )
-    # hess_nt = np.asarray([[1.32720630e+00, -1.93947467e-11],
-    #                      [3.95786680e-09, 1.14599176e+00]])
+
+    hess_nt = 0.473265
+    assert hess_n[0] == pytest.approx(hess_nt, abs=1e-4)
     assert hess_a == pytest.approx(hess_n[0], abs=0.2)
