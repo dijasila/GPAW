@@ -628,7 +628,7 @@ def add_LSDA_spin_splitting(gd, n_sR, dxc_R):
 
     The spin splitting is defined as:
 
-    Δ^(xc)(r) = 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
+    Δ^(xc)(r) = - 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
     """
     dxc_R += - 2. * calculate_LSDA_Wxc(gd, n_sR) \
         * calculate_spin_polarization(n_sR)

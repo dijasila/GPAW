@@ -54,7 +54,7 @@ class IsotropicExchangeCalculator:
     J^ab(q) = - ‾‾ W_xc^(z†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) W_xc^z          (2)
                 V0
 
-    We do this since B^(xc)(r) = |W_xc^z(r)| is nonanalytic in points of space
+    We do this since B^(xc)(r) = -|W_xc^z(r)| is nonanalytic in points of space
     where the spin-polarization changes sign, why it is problematic to evaluate
     Eq. (1) numerically within a plane-wave representation.
     If the site partitionings only include spin-polarization of the same sign,
