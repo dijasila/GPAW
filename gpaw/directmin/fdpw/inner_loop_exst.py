@@ -10,6 +10,7 @@ arXiv:2102.06542 [physics.comp-ph]
 from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.sd_etdm import LSR1P
 from gpaw.directmin.ls_etdm import MaxStep
+from gpaw.directmin.derivatives import get_approx_analytical_hessian
 from ase.units import Hartree
 import numpy as np
 import time
@@ -331,7 +332,7 @@ class InnerLoop:
             if self.counter % counter == 0 or self.counter == 1:
                 for kpt in wfs.kpt_u:
                     k = self.kpointval(kpt)
-                    hess = self.get_hessian(kpt)
+                    hess = get_approx_analytical_hessian(kpt, self.dtype)
                     if self.dtype is float:
                         self.precond[k] = np.zeros_like(hess)
                         for i in range(hess.shape[0]):
@@ -352,29 +353,6 @@ class InnerLoop:
                 return self.precond
         else:
             return None
-
-    def get_hessian(self, kpt):
-
-        f_n = kpt.f_n
-        eps_n = kpt.eps_n
-        il1 = get_indices(eps_n.shape[0])
-        il1 = list(il1)
-
-        hess = np.zeros(len(il1[0]), dtype=self.dtype)
-        x = 0
-        for l, m in zip(*il1):
-            df = f_n[l] - f_n[m]
-            hess[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
-            if self.dtype is complex:
-                hess[x] += 1.0j * hess[x]
-                if abs(hess[x]) < 1.0e-10:
-                    hess[x] = 0.0 + 0.0j
-            else:
-                if abs(hess[x]) < 1.0e-10:
-                    hess[x] = 0.0
-            x += 1
-
-        return hess
 
     def apply_mom(self, wfs, dens):
         if self.momcounter % self.momevery == 0:

@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.directmin.etdm import random_a, get_n_occ
+from gpaw.directmin.tools import get_n_occ, get_indices, random_a
 from ase.units import Hartree
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
@@ -85,8 +85,13 @@ class Derivatives:
                     self.a, wfs, dens, ham)[1]
         else:
             # Calculate analytical approximation to hessian
-            analytical_der = np.hstack([etdm.get_hessian(kpt).copy()
-                                        for kpt in wfs.kpt_u])
+            if wfs.mode == 'lcao':
+                analytical_der = np.hstack([get_approx_analytical_hessian(
+                    kpt, etdm.dtype, etdm.ind_up[etdm.kpointval(kpt)]).copy()
+                                            for kpt in wfs.kpt_u])
+            else:
+                analytical_der = np.hstack([get_approx_analytical_hessian(
+                    kpt, etdm.dtype).copy() for kpt in wfs.kpt_u])
             analytical_der = construct_real_hessian(analytical_der)
             analytical_der = np.diag(analytical_der)
 
@@ -559,7 +564,8 @@ class Davidson(object):
         appr_hess = []
         self.dimtot = 0
         for k, kpt in enumerate(wfs.kpt_u):
-            hdia = self.etdm.get_hessian(kpt)
+            hdia = get_approx_analytical_hessian(
+                kpt, self.etdm.dtype, ind_up=self.etdm.ind_up[k])
             self.dim_u[k] = len(hdia)
             self.dimtot += len(hdia)
             appr_hess += list(hdia.copy())
@@ -974,3 +980,30 @@ def apply_central_finite_difference_approx(fplus, fminus, eps):
         raise ValueError()
 
     return derf
+
+
+def get_approx_analytical_hessian(kpt, dtype, ind_up=None):
+    """
+    Calculate the following diagonal approximation to the Hessian:
+    h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
+    """
+
+    f_n = kpt.f_n
+    eps_n = kpt.eps_n
+    if ind_up:
+        il1 = list(ind_up)
+    else:
+        il1 = list(get_indices(eps_n.shape[0]))
+
+    hess = np.zeros(len(il1[0]), dtype=dtype)
+    x = 0
+    for n, m in zip(*il1):
+        df = f_n[n] - f_n[m]
+        hess[x] = -2.0 * (eps_n[n] - eps_n[m]) * df
+        if abs(hess[x]) < 1.0e-10:
+            hess[x] = 0.0
+        if dtype == complex:
+            hess[x] += 1.0j * hess[x]
+        x += 1
+
+    return hess

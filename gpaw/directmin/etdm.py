@@ -13,12 +13,13 @@ https://doi.org/10.1016/j.cpc.2021.108047
 import numpy as np
 import warnings
 from ase.utils import basestring
-from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv
+from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv, random_a
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.derivatives import get_approx_analytical_hessian
 from gpaw import BadParallelization
 from copy import deepcopy
 
@@ -569,7 +570,8 @@ class ETDM:
                     self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
                     self.searchdir_algo.reset()
                     for k, kpt in enumerate(wfs.kpt_u):
-                        self.hess[k] = self.get_hessian(kpt)
+                        self.hess[k] = get_approx_analytical_hessian(
+                            kpt, self.dtype, ind_up=self.ind_up[k])
                         wfs.atomic_correction.calculate_projections(wfs, kpt)
                 self.error = np.inf  # Do not consider this converged!
 
@@ -726,7 +728,8 @@ class ETDM:
             k = self.kpointval(kpt)
             w = kpt.weight / (3.0 - wfs.nspins)
             if self.iters % counter == 0 or self.iters == 1:
-                self.hess[k] = self.get_hessian(kpt)
+                self.hess[k] = get_approx_analytical_hessian(
+                    kpt, self.dtype, ind_up=self.ind_up[k])
                 if make_pd:
                     if self.dtype == float:
                         self.hess[k] = np.abs(self.hess[k])
@@ -745,30 +748,6 @@ class ETDM:
                 precond[k] += 1.j / ((1 - gamma) * hess.imag + correction)
 
         return precond
-
-    def get_hessian(self, kpt):
-        """
-        Calculate the following diagonal approximation to the Hessian:
-        h_{lm, lm} = -2.0 * (eps_n[l] - eps_n[m]) * (f[l] - f[m])
-        """
-
-        f_n = kpt.f_n
-        eps_n = kpt.eps_n
-        u = self.kpointval(kpt)
-        il1 = list(self.ind_up[u])
-
-        hess = np.zeros(len(il1[0]), dtype=self.dtype)
-        x = 0
-        for n, m in zip(*il1):
-            df = f_n[n] - f_n[m]
-            hess[x] = -2.0 * (eps_n[n] - eps_n[m]) * df
-            if abs(hess[x]) < 1.0e-10:
-                hess[x] = 0.0
-            if self.dtype == complex:
-                hess[x] += 1.0j * hess[x]
-            x += 1
-
-        return hess
 
     def get_canonical_representation(self, ham, wfs, dens,
                                      sort_eigenvalues=False):
@@ -1034,16 +1013,6 @@ class ETDM:
     @error.setter
     def error(self, e):
         self._error = e
-
-
-def random_a(shape, dtype):
-
-    a = np.random.random_sample(shape)
-    if dtype == complex:
-        a = a.astype(complex)
-        a += 1.0j * np.random.random_sample(shape)
-
-    return a
 
 
 def vec2skewmat(a_vec, dim, ind_up, dtype):
