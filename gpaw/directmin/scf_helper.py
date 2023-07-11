@@ -3,6 +3,7 @@ import warnings
 from ase.units import Ha
 from gpaw.directmin.tools import sort_orbitals_according_to_occ_kpt
 
+
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     if eigensolver_name == 'etdm':
         if hasattr(wfs.eigensolver, 'e_sic'):
