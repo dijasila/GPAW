@@ -9,7 +9,7 @@ import numpy as np
 
 
 @pytest.mark.do
-def test_hess_numerically_lcao(in_tmp_dir):
+def test_hess_numerically_pw(in_tmp_dir):
     """
     Test complex numerical Hessian
     w.r.t rotation parameters in LCAO
@@ -62,6 +62,6 @@ def test_hess_numerically_lcao(in_tmp_dir):
         what2calc='hessian'
     )
 
-    hess_nt = 0.473265
+    hess_nt = 0.464586
     assert hess_n[0] == pytest.approx(hess_nt, abs=1e-4)
     assert hess_a == pytest.approx(hess_n[0], abs=0.2)

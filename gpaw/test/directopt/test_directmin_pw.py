@@ -22,7 +22,7 @@ def test_directmin_pw(in_tmp_dir):
     atoms.center(vacuum=4.0)
     atoms.set_pbc(False)
 
-    calc = GPAW(mode=PW(300),
+    calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=DirectMin(convergelumo=True),

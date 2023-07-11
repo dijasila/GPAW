@@ -273,7 +273,7 @@ class DirectMin(Eigensolver):
 
         self.initialized = True
 
-    def iteratels(self, ham, wfs, dens, log):
+    def iterate(self, ham, wfs, dens, log):
         """
         One iteration of direct optimization
         for occupied states
@@ -314,7 +314,6 @@ class DirectMin(Eigensolver):
         # as we used preconditiner before
         # here we project search direction on prec. gradients,
         # but should be just grad. But, it seems also works fine
-
         der_phi_2i[0] = 0.0
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
@@ -328,63 +327,14 @@ class DirectMin(Eigensolver):
             self.line_search.step_length_update(
                 psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
                 der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
-                der_phi_old=der_phi_2i[1], alpha_max=3.0, alpha_old=alpha,
-                kpdescr=wfs.kd)
+                der_phi_old=der_phi_2i[1], alpha_max=3.0,
+                alpha_old=alpha, kpdescr=wfs.kd)
         self.alpha = alpha
         self.grad_knG = grad_knG
 
         # and 'shift' phi, der_phi for the next iteration
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
-
-        wfs.timer.stop('Direct Minimisation step')
-        self.iters += 1
-        self.globaliters += 1
-
-    def iterate(self, ham, wfs, dens, log):
-
-        if self.lsa['name'] != 'maxstep':
-            # Get rid of this
-            self.iteratels(ham, wfs, dens, log)
-            return
-
-        n_kps = self.n_kps
-        psi_copy = {}
-        phi_2i = self.phi_2i
-
-        wfs.timer.start('Direct Minimisation step')
-        phi_2i[0], grad_knG = self.get_energy_and_tangent_gradients(
-            ham, wfs, dens, updateproj=False)
-        wfs.timer.start('Get Search Direction')
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            psi_copy[k] = kpt.psit_nG.copy()
-        p_knG = self.search_direction.update_data(
-            wfs, psi_copy, grad_knG, precond=self.prec,
-            dimensions=self.dimensions)
-        self.project_search_direction(wfs, p_knG)
-        wfs.timer.stop('Get Search Direction')
-        dot = 0.0
-        for kpt in wfs.kpt_u:
-            k = wfs.kd.nibzkpts * kpt.s + kpt.q
-            for p in p_knG[k]:
-                dot += wfs.integrate(p, p, False)
-        dot = dot.real
-        dot = wfs.world.sum(dot)
-        dot = np.sqrt(dot)
-        if dot > self.line_search.max_step:
-            a_star = self.line_search.max_step / dot
-        else:
-            a_star = 1.0
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            kpt.psit_nG[:] = psi_copy[k] + a_star * p_knG[k]
-            wfs.orthonormalize(kpt)
-
-        del psi_copy
-        del p_knG
-        del grad_knG
-        self.alpha = a_star
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -413,9 +363,8 @@ class DirectMin(Eigensolver):
 
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(
-            self, psit_k, search_dir, alpha, wfs, ham, dens,
-            phi=None, grad_k=None):
+    def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha, wfs,
+                                 ham, dens, phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
         der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
@@ -899,7 +848,7 @@ class DirectMin(Eigensolver):
         return Hpsi_nG
 
     def evaluate_phi_and_der_phi_lumo(self, psit_k, search_dir,
-                                      alpha, ham, wfs,
+                                      alpha, wfs, ham,
                                       phi=None, grad_k=None):
 
         """
@@ -1013,7 +962,7 @@ class DirectMin(Eigensolver):
 
         return energy_t, grad
 
-    def iterate_lumo(self, ham, wfs):
+    def iterate_lumo(self, ham, wfs, dens):
 
         """
         1 iteration for convergence of LUMO
@@ -1025,11 +974,19 @@ class DirectMin(Eigensolver):
 
         n_kps = self.n_kps
         psi_copy = {}
+        alpha = self.alpha
         phi_2i = self.phi_2i
+        der_phi_2i = self.der_phi_2i
 
         wfs.timer.start('Direct Minimisation step')
         phi_2i[0], grad_knG = \
             self.get_energy_and_tangent_gradients_lumo(ham, wfs)
+        # if self.iters == 0:
+        #     # calculate gradients
+        #     phi_2i[0], grad_knG = \
+        #         self.get_energy_and_tangent_gradients_lumo(ham, wfs)
+        # else:
+        #     grad_knG = self.grad_knG
 
         with wfs.timer('Get Search Direction'):
             for kpt in wfs.kpt_u:
@@ -1054,7 +1011,14 @@ class DirectMin(Eigensolver):
             a_star = maxstep / dot
         else:
             a_star = 1.0
-        # calculate new wfs:
+        # alpha, phi_alpha, der_phi_alpha, grad_knG = \
+        #     self.line_search.step_length_update(
+        #         psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
+        #         der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
+        #         der_phi_old=der_phi_2i[1], alpha_max=3.0,
+        #         alpha_old=alpha, kpdescr=wfs.kd)
+        # self.alpha = alpha
+        # self.grad_knG = grad_knG
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)[0]
@@ -1063,10 +1027,11 @@ class DirectMin(Eigensolver):
                 psi_copy[k] + a_star * p_knG[k]
             wfs.orthonormalize(kpt)
 
-        del psi_copy
-        del p_knG
-        del grad_knG
-        self.alpha = a_star
+        # # and 'shift' phi, der_phi for the next iteration
+        # phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
+        # phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
+
+        # self.alpha = a_star
         self.iters += 1
 
         wfs.timer.stop('Direct Minimisation step')
@@ -1092,7 +1057,7 @@ class DirectMin(Eigensolver):
 
         max_iter = 100
         while self.iters < max_iter:
-            en, er = self.iterate_lumo(ham, wfs)
+            en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
