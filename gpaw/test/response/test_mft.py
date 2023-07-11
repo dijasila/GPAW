@@ -19,8 +19,8 @@ from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_spin_polarization)
 from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
-                               SumRuleSiteMagnetization,
-                               SumRuleSiteMagnetizationCalculator)
+                               StaticSitePairFunction,
+                               TwoParticleSiteMagnetizationCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -419,7 +419,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
     # ----- Two-particle site magnetization ----- #
     # Set up calculator and calculate site magnetization by sum rule
-    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(
+    sum_rule_site_mag_calc = TwoParticleSiteMagnetizationCalculator(
         gs, context, nblocks=nblocks, nbands=nbands)
     site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
     context.write_timer()
@@ -502,7 +502,7 @@ def get_co_atomic_site_data(gs):
     return AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
 
 
-class SingleParticleSiteQuantity(SumRuleSiteMagnetization):
+class SingleParticleSiteQuantity(StaticSitePairFunction):
     @property
     def shape(self):
         nsites = self.atomic_site_data.nsites
