@@ -273,7 +273,7 @@ class DirectMin(Eigensolver):
 
         self.initialized = True
 
-    def iterate(self, ham, wfs, dens, log):
+    def iterate(self, ham, wfs, dens, log, lumo=False):
         """
         One iteration of direct optimization
         for occupied states
@@ -295,15 +295,25 @@ class DirectMin(Eigensolver):
 
         if self.iters == 0:
             # calculate gradients
-            phi_2i[0], grad_knG = \
-                self.get_energy_and_tangent_gradients(ham, wfs, dens)
+            if not lumo:
+                phi_2i[0], grad_knG = \
+                    self.get_energy_and_tangent_gradients(ham, wfs, dens)
+            else:
+                phi_2i[0], grad_knG = \
+                    self.get_energy_and_tangent_gradients_lumo(ham, wfs)
         else:
             grad_knG = self.grad_knG
 
         wfs.timer.start('Get Search Direction')
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
-            psi_copy[k] = kpt.psit_nG.copy()
+            if not lumo:
+                psi_copy[k] = kpt.psit_nG.copy()
+            else:
+                n_occ = get_n_occ(kpt)[0]
+                dim = self.dimensions[k]
+                psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
+
         p_knG = self.search_direction.update_data(
             wfs, psi_copy, grad_knG, precond=self.prec,
             dimensions=self.dimensions)
@@ -336,9 +346,11 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-        wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
-        self.globaliters += 1
+        if not lumo:
+            self.globaliters += 1
+        wfs.timer.stop('Direct Minimisation step')
+        return phi_2i[0], self.error
 
     def update_ks_energy(self, ham, wfs, dens, updateproj=True):
 
@@ -969,6 +981,7 @@ class DirectMin(Eigensolver):
 
         :param ham:
         :param wfs:
+        :param dens:
         :return:
         """
 
@@ -1036,10 +1049,10 @@ class DirectMin(Eigensolver):
 
         max_iter = 100
         while self.iters < max_iter:
-            en, er = self.iterate_lumo(ham, wfs, dens)
+            en, er = self.iterate(ham, wfs, dens, log, lumo=True)
             log_f(self.iters, en, er, log)
-            # it is quite difficult to converge lumo with the same
-            # accuaracy as occupaied states.
+            # it is quite difficult to converge unoccupied orbitals
+            # with the same accuracy as occupied orbitals
             if er < max(max_err, 5.0e-4):
                 log('\nLUMO converged after'
                     ' {:d} iterations'.format(self.iters))
