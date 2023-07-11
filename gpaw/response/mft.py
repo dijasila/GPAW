@@ -24,7 +24,8 @@ from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
-                                           SitePairDensityCalculator)
+                                           SitePairDensityCalculator,
+                                           SitePairSpinSplittingCalculator)
 
 # ASE modules
 from ase.units import Hartree, Bohr
@@ -557,3 +558,26 @@ class TwoParticleSiteMagnetizationCalculator(TwoParticleSiteSumRuleCalculator):
 
     def get_pauli_matrix(self):
         return smat('+')
+
+
+class TwoParticleSiteSpinSplittingCalculator(
+        TwoParticleSiteMagnetizationCalculator):
+    r"""Calculator for the two-particle site spin splitting sum rule.
+
+    The site spin splitting can be calculated from the site pair density and
+    site pair spin splitting via the following sum rule [publication in
+    preparation]:
+                          __  __
+    ˍ                 1   \   \  /
+    Δ^(xc)_ab^z(q) = ‾‾‾  /   /  | (f_nk↑ - f_mk+q↓)
+                     N_k  ‾‾  ‾‾ \                                        \
+                          k   n,m  × Δ^(xc,a)_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑) |
+                                                                          /
+              = δ_(a,b) Δ^(xc)_a^z
+    """
+    def create_matrix_element_calculators(self, atomic_site_data):
+        site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
+            self.gs, self.context, atomic_site_data)
+        site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
+        return site_pair_spin_splitting_calc, site_pair_density_calc

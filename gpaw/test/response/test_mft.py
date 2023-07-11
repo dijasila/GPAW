@@ -20,7 +20,8 @@ from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_spin_polarization)
 from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
                                StaticSitePairFunction,
-                               TwoParticleSiteMagnetizationCalculator)
+                               TwoParticleSiteMagnetizationCalculator,
+                               TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -391,13 +392,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
     atomic_site_data = get_co_atomic_site_data(gs)
-
-    if context.comm.size % 4 == 0:
-        nblocks = 4
-    elif context.comm.size % 2 == 0:
-        nblocks = 2
-    else:
-        nblocks = 1
+    nblocks = generate_nblocks(context)
 
     # Get wave vector to test
     q_c = get_q_c('co_pw_wfs', qrel)
@@ -459,12 +454,18 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
 
 @pytest.mark.response
-def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files):
+@pytest.mark.parametrize('qrel', generate_qrel_q())
+def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter and atomic site data
     calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw_wfs']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
     atomic_site_data = get_co_atomic_site_data(gs)
+    nblocks = generate_nblocks(context)
+
+    # Get wave vector to test
+    q_c = get_q_c('co_pw_wfs', qrel)
 
     # ----- Single-particle site spin splitting ----- #
     # Set up calculator and calculate the site magnetization
@@ -481,12 +482,39 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files):
     dxc_ar = atomic_site_data.calculate_spin_splitting()
     assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
 
+    # ----- Two-particle site spin splitting ----- #
+    # Set up calculator and calculate site spin splitting by sum rule
+    two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
+        gs, context, nblocks=nblocks, nbands=nbands)
+    tp_dxc_abr = two_particle_dxc_calc(q_c, atomic_site_data)
+    context.write_timer()
+
+    # Test that the two-particle spin splitting is a positive-valued diagonal
+    # real array
+    tp_dxc_ra = tp_dxc_abr.diagonal()
+    assert np.all(tp_dxc_ra.real > 0)
+    assert np.all(np.abs(tp_dxc_ra.imag) / tp_dxc_ra.real < 1e-4)
+    tp_dxc_ra = tp_dxc_ra.real
+    assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
+        tp_dxc_abr))) / tp_dxc_ra < 5e-2)
+    tp_dxc_ar = tp_dxc_ra.T * Ha  # Ha -> eV
+    # Test that the spin splitting on the two Co atoms is identical
+    assert tp_dxc_ar[0] == pytest.approx(tp_dxc_ar[1], rel=1e-4)
+
+    # Test values against reference
+    print(np.average(tp_dxc_ar, axis=0)[::2])
+    assert np.average(tp_dxc_ar, axis=0)[::2] == pytest.approx(
+        np.array([3.68344584e-04, 3.13780575e-01, 1.35409600e+00,
+                  2.14237563e+00, 2.52032513e+00, 2.61406726e+00]), rel=5e-2)
+
     # import matplotlib.pyplot as plt
     # rc_r = atomic_site_data.rc_ap[0] * Bohr
+    # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k')
     # plt.plot(rc_r, single_particle_dxc_ar[0], '-o', mec='k', zorder=1)
     # plt.plot(rc_r, dxc_ar[0], '-o', mec='k', zorder=0)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
+    # plt.title(str(q_c))
     # plt.show()
 
 
@@ -500,6 +528,16 @@ def get_co_atomic_site_data(gs):
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
     return AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
+
+
+def generate_nblocks(context):
+    if context.comm.size % 4 == 0:
+        nblocks = 4
+    elif context.comm.size % 2 == 0:
+        nblocks = 2
+    else:
+        nblocks = 1
+    return nblocks
 
 
 class SingleParticleSiteQuantity(StaticSitePairFunction):
@@ -614,7 +652,7 @@ class SingleParticleSiteMagnetizationCalculator(
 
 
 class SingleParticleSiteSpinSplittingCalculator(
-        SingleParticleSiteSumRuleCalculator):
+        SingleParticleSiteMagnetizationCalculator):
     r"""Calculator for the single-particle site spin splitting sum rule.
                       __  __
                   1   \   \
@@ -622,9 +660,6 @@ class SingleParticleSiteSpinSplittingCalculator(
                  N_k  ‾‾  ‾‾
                       k   n,s
     """
-    def get_pauli_matrix(self):
-        return smat('z')
-
     def create_matrix_element_calculator(self, atomic_site_data):
         return SitePairSpinSplittingCalculator(self.gs, self.context,
                                                atomic_site_data,
