@@ -46,7 +46,7 @@ class DirectMin(Eigensolver):
                  momevery=3,
                  printinnerloop=False,
                  blocksize=1,
-                 convergelumo=True,
+                 converge_unocc=True,
                  exstopt=False):
 
         super(DirectMin, self).__init__(keep_htpsit=False,
@@ -67,7 +67,7 @@ class DirectMin(Eigensolver):
         self.g_tol = g_tol
         self.g_tolxst = g_tolxst
         self.printinnerloop = printinnerloop
-        self.convergelumo = convergelumo
+        self.converge_unocc = converge_unocc
         self.momevery = momevery
 
         self.total_eg_count_iloop = 0
@@ -147,7 +147,7 @@ class DirectMin(Eigensolver):
         return {'name': 'directmin',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
-                'convergelumo': self.convergelumo,
+                'converge_unocc': self.converge_unocc,
                 'localizationtype': self.localizationtype,
                 'use_prec': self.use_prec,
                 'functional_settings': self.func_settings,
@@ -184,7 +184,8 @@ class DirectMin(Eigensolver):
 
         super(DirectMin, self).initialize(wfs)
 
-    def initialize_dm(self, wfs, dens, ham, obj_func=None, lumo=False):
+    def initialize_dm(
+            self, wfs, dens, ham, obj_func=None, converge_unocc=False):
 
         """
         initialize search direction algorithm,
@@ -194,7 +195,7 @@ class DirectMin(Eigensolver):
         :param dens:
         :param ham:
         :param obj_func:
-        :param lumo:
+        :param converge_unocc:
         :return:
         """
 
@@ -206,10 +207,10 @@ class DirectMin(Eigensolver):
         self.dimensions = {}
         for kpt in wfs.kpt_u:
             nocc = get_n_occ(kpt)[0]
-            if not lumo and nocc == len(kpt.f_n):
-                raise Exception('Please add one more empty band '
-                                'in order to converge LUMO.')
-            if lumo:
+            if not converge_unocc and nocc == len(kpt.f_n):
+                raise Exception('Please add one more empty band in '
+                                'order to converge the unoccupied orbitals')
+            if converge_unocc:
                 dim = self.bd.nbands - nocc
             elif self.exstopt:
                 dim = self.bd.nbands
@@ -273,10 +274,9 @@ class DirectMin(Eigensolver):
 
         self.initialized = True
 
-    def iterate(self, ham, wfs, dens, log, lumo=False):
+    def iterate(self, ham, wfs, dens, log, converge_unocc=False):
         """
-        One iteration of direct optimization
-        for occupied states
+        One iteration of outer loop direct minimization
 
         :param ham:
         :param wfs:
@@ -295,19 +295,19 @@ class DirectMin(Eigensolver):
 
         if self.iters == 0:
             # calculate gradients
-            if not lumo:
+            if not converge_unocc:
                 phi_2i[0], grad_knG = \
                     self.get_energy_and_tangent_gradients(ham, wfs, dens)
             else:
                 phi_2i[0], grad_knG = \
-                    self.get_energy_and_tangent_gradients_lumo(ham, wfs)
+                    self.get_energy_and_tangent_gradients_unocc(ham, wfs)
         else:
             grad_knG = self.grad_knG
 
         wfs.timer.start('Get Search Direction')
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
-            if not lumo:
+            if not converge_unocc:
                 psi_copy[k] = kpt.psit_nG.copy()
             else:
                 n_occ = get_n_occ(kpt)[0]
@@ -335,10 +335,10 @@ class DirectMin(Eigensolver):
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
             self.line_search.step_length_update(
-                psi_copy, p_knG, wfs, ham, dens, lumo, phi_0=phi_2i[0],
-                der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
-                der_phi_old=der_phi_2i[1], alpha_max=3.0,
-                alpha_old=alpha, kpdescr=wfs.kd)
+                psi_copy, p_knG, wfs, ham, dens, converge_unocc,
+                phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
+                phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
+                alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)
         self.alpha = alpha
         self.grad_knG = grad_knG
 
@@ -347,7 +347,7 @@ class DirectMin(Eigensolver):
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         self.iters += 1
-        if not lumo:
+        if not converge_unocc:
             self.globaliters += 1
         wfs.timer.stop('Direct Minimisation step')
         return phi_2i[0], self.error
@@ -375,8 +375,8 @@ class DirectMin(Eigensolver):
 
         return ham.get_energy(0.0, wfs, False)
 
-    def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha, wfs,
-                                 ham, dens, lumo, phi=None, grad_k=None):
+    def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha, wfs, ham,
+                                 dens, converge_unocc, phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
         der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
@@ -391,18 +391,18 @@ class DirectMin(Eigensolver):
             x_knG = \
                 {k: psit_k[k] +
                     alpha * search_dir[k] for k in psit_k.keys()}
-            if not lumo:
+            if not converge_unocc:
                 phi, grad_k = self.get_energy_and_tangent_gradients(
                     ham, wfs, dens, psit_knG=x_knG)
             else:
-                phi, grad_k = self.get_energy_and_tangent_gradients_lumo(
+                phi, grad_k = self.get_energy_and_tangent_gradients_unocc(
                     ham, wfs, x_knG)
 
         der_phi = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
-                if not lumo and kpt.f_n[i] > 1.0e-10:
+                if not converge_unocc and kpt.f_n[i] > 1.0e-10:
                     der_phi += self.dot(
                         wfs, g, search_dir[k][i], kpt,
                         addpaw=False).item().real
@@ -691,7 +691,7 @@ class DirectMin(Eigensolver):
         :param rewrite_psi:
         :return:
         """
-        self.choose_optimal_orbitals(wfs, ham, dens)
+        self.choose_optimal_orbitals(wfs)
 
         scalewithocc = not self.exstopt
 
@@ -785,7 +785,7 @@ class DirectMin(Eigensolver):
                 n_occ = get_n_occ(kpt)[0]
                 dim = self.bd.nbands - n_occ
                 grad_knG[k][n_occ:n_occ + dim] = \
-                    self.get_gradients_lumo(ham, wfs, kpt)
+                    self.get_gradients_unocc(ham, wfs, kpt)
                 lamb = wfs.integrate(kpt.psit_nG[:n_occ],
                                      grad_knG[k][:n_occ],
                                      True)
@@ -832,10 +832,10 @@ class DirectMin(Eigensolver):
 
         del grad_knG
 
-    def get_gradients_lumo(self, ham, wfs, kpt):
+    def get_gradients_unocc(self, ham, wfs, kpt):
 
         """
-        calculate gradient vectro for unoccupied orbitals
+        calculate gradient vector for unoccupied orbitals
 
         :param ham:
         :param wfs:
@@ -865,7 +865,7 @@ class DirectMin(Eigensolver):
 
         return Hpsi_nG
 
-    def get_energy_and_tangent_gradients_lumo(self, ham, wfs, psit_knG=None):
+    def get_energy_and_tangent_gradients_unocc(self, ham, wfs, psit_knG=None):
         """
         calculate energy and trangent gradients of
         unooccupied orbitals
@@ -875,7 +875,7 @@ class DirectMin(Eigensolver):
         :param psit_knG:
         :return:
         """
-        wfs.timer.start('LUMO gradient')
+        wfs.timer.start('Gradient unoccupied orbitals')
         n_kps = self.n_kps
         if psit_knG is not None:
             for kpt in wfs.kpt_u:
@@ -943,14 +943,14 @@ class DirectMin(Eigensolver):
         energy_t = wfs.kd.comm.sum(energy_t)
         self.error = error_t
 
-        wfs.timer.stop('LUMO gradient')
+        wfs.timer.stop('Gradient unoccupied orbitals')
 
         return energy_t, grad
 
-    def run_lumo(self, ham, wfs, dens, max_err, log):
+    def run_unocc(self, ham, wfs, dens, max_err, log):
 
         """
-        converge unoccupied orbitals
+        Converge unoccupied orbitals
 
         :param ham:
         :param wfs:
@@ -963,20 +963,20 @@ class DirectMin(Eigensolver):
         self.need_init_odd = False
         self.initialize_dm(
             wfs, dens, ham,
-            obj_func=self.evaluate_phi_and_der_phi, lumo=True)
+            obj_func=self.evaluate_phi_and_der_phi, converge_unocc=True)
 
         max_iter = 100
         while self.iters < max_iter:
-            en, er = self.iterate(ham, wfs, dens, log, lumo=True)
+            en, er = self.iterate(ham, wfs, dens, log, converge_unocc=True)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge unoccupied orbitals
             # with the same accuracy as occupied orbitals
             if er < max(max_err, 5.0e-4):
-                log('\nLUMO converged after'
+                log('\nUnoccupied orbitals converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
             if self.iters >= max_iter:
-                log('\nLUMO did not converged after'
+                log('\nUnoccupied orbitals did not converged after'
                     ' {:d} iterations'.format(self.iters))
 
         self.initialized = False
@@ -1108,15 +1108,13 @@ class DirectMin(Eigensolver):
                           func_settings=self.func_settings)
         self.need_localization = False
 
-    def choose_optimal_orbitals(self, wfs, ham, dens):
+    def choose_optimal_orbitals(self, wfs):
         """
         choose optimal orbitals and store them in wfs.kpt_u.
         Optimal orbitals are those which minimize the energy
         functional and might not coincide with canonical orbitals
 
         :param wfs:
-        :param ham:
-        :param dens:
         :return:
         """
         for kpt in wfs.kpt_u:
@@ -1186,7 +1184,7 @@ class DirectMin(Eigensolver):
             if astmnt or bstmnt:
                 update = True
         if update and not wfs.occupations.use_fixed_occupations:
-            self.choose_optimal_orbitals(wfs, ham, dens)
+            self.choose_optimal_orbitals(wfs)
             if not sic_calc:
                 for kpt in wfs.kpt_u:
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)

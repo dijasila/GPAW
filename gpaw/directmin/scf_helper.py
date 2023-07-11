@@ -31,8 +31,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
         solver = wfs.eigensolver
         occ_name = getattr(wfs.occupations, 'name', None)
         if wfs.mode == 'fd' or wfs.mode == 'pw':
-            solver.choose_optimal_orbitals(
-                wfs, ham, dens)
+            solver.choose_optimal_orbitals(wfs)
             niter1 = solver.eg_count
             niter2 = 0
             niter3 = 0
@@ -63,11 +62,11 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
                 log(
                     '\nOccupied states converged after'
                     ' {:d} e/g evaluations'.format(niter1))
-            if solver.convergelumo:
+            if solver.converge_unocc:
                 log('Converge unoccupied states:')
                 max_er = wfs.eigensolver.error
                 max_er *= Ha ** 2 / wfs.nvalence
-                solver.run_lumo(ham, wfs, dens, max_er, log)
+                solver.run_unocc(ham, wfs, dens, max_er, log)
             else:
                 solver.initialized = False
                 log('Unoccupied states are not converged.')

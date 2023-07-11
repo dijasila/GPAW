@@ -25,7 +25,7 @@ def test_directmin_pw(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=DirectMin(convergelumo=True),
+                eigensolver=DirectMin(converge_unocc=True),
                 mixer={'backend': 'no-mixing'},
                 spinpol=True,
                 symmetry='off',

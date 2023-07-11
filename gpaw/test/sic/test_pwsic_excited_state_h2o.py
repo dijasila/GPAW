@@ -21,7 +21,7 @@ def test_pwsic_h2o(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 spinpol=True,
                 symmetry='off',
-                eigensolver=DirectMin(convergelumo=True),
+                eigensolver=DirectMin(converge_unocc=True),
                 mixer={'backend': 'no-mixing'},
                 occupations={'name': 'fixed-uniform'},
                 convergence={'eigenstates': 1e-4}

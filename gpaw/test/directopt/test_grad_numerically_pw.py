@@ -31,7 +31,7 @@ def test_gradient_numerically_pw(in_tmp_dir):
                                  'eigenstates': np.inf,
                                  'density': np.inf,
                                  'minimum iterations': 1},
-                    eigensolver=DirectMin(convergelumo=True),
+                    eigensolver=DirectMin(converge_unocc=True),
                     occupations={'name': 'fixed-uniform'},
                     mixer={'backend': 'no-mixing'},
                     nbands='nao',

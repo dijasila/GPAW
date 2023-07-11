@@ -30,7 +30,7 @@ def test_hess_numerically_pw(in_tmp_dir):
                              'density': np.inf,
                              'minimum iterations': 1},
                 spinpol=False,
-                eigensolver=DirectMin(convergelumo=True),
+                eigensolver=DirectMin(converge_unocc=True),
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands=2,
