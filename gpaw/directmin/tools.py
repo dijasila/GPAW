@@ -229,34 +229,70 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
     f_sn[spin[1]][lumo + a] += 1.0
 
     if sort:
-        # Need to initialize the wave functions if
-        # restarting from gpw file in fd or pw mode
-        if calc.wfs.kpt_u[0].psit_nG is not None:
-            if not isinstance(calc.wfs.kpt_u[0].psit_nG, np.ndarray):
-                calc.wfs.initialize_wave_functions_from_restart_file()
-
         for s in spin:
-            occupied = f_sn[s] > 1.0e-10
-            n_occ = len(f_sn[s][occupied])
-            if n_occ == 0.0 or np.min(f_sn[s][:n_occ]) != 0:
-                continue
-
-            ind_occ = np.argwhere(occupied)
-            ind_unocc = np.argwhere(~occupied)
-            ind = np.vstack((ind_occ, ind_unocc))
-            ind = np.squeeze(ind)
-            f_sn[s] = f_sn[s][ind]
-
             for kpt in calc.wfs.kpt_u:
                 if kpt.s == s:
-                    if calc.wfs.mode == 'lcao':
-                        kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
-                    else:
-                        kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
-
                     kpt.f_n = f_sn[s]
-                    kpt.eps_n = kpt.eps_n[ind]
+                    changedocc = sort_orbitals_according_to_occ_kpt(
+                        calc.wfs, kpt)[0]
+                    if changedocc:
+                        f_sn[s] = kpt.f_n
+
     return f_sn
+
+
+def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
+    """
+    Sort orbitals according to the occupation
+    numbers so that there are no holes in the
+    distribution of occupation numbers
+    :return:
+    """
+    changedocc = False
+    update_proj = True
+    ind = np.array([])
+
+    # Need to initialize the wave functions if
+    # restarting from gpw file in fd or pw mode
+    if kpt.psit_nG is not None:
+        if not isinstance(kpt.psit_nG, np.ndarray):
+            wfs.initialize_wave_functions_from_restart_file()
+            update_proj = False
+
+    n_occ, occupied = get_n_occ(kpt)
+    if n_occ != 0.0 and np.min(kpt.f_n[:n_occ]) == 0:
+        ind_occ = np.argwhere(occupied)
+        ind_unocc = np.argwhere(~occupied)
+        ind = np.vstack((ind_occ, ind_unocc))
+        ind = np.squeeze(ind)
+
+        if wfs.mode == 'lcao':
+            wfs.eigensolver.dm_helper.sort_orbitals(wfs, kpt, ind)
+        else:
+            kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
+            if update_proj:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+        kpt.f_n = kpt.f_n[ind]
+        kpt.eps_n = kpt.eps_n[ind]
+
+        if update_mom:
+            # OccupationsMOM.numbers needs
+            # to be updated after sorting
+            update_mom_numbers(wfs, kpt)
+
+        changedocc = True
+
+    return changedocc, ind
+
+
+def update_mom_numbers(wfs, kpt):
+    if wfs.collinear and wfs.nspins == 1:
+        degeneracy = 2
+    else:
+        degeneracy = 1
+    wfs.occupations.numbers[kpt.s] = \
+        kpt.f_n / (kpt.weightk * degeneracy)
 
 
 def dict_to_array(x):

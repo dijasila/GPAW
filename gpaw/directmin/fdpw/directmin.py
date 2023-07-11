@@ -17,7 +17,7 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
 from gpaw.directmin.functional.fdpw import get_functional
-from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ_kpt
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
 from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
 import time
@@ -1142,20 +1142,6 @@ class DirectMin(Eigensolver):
                     self.iloop_outer is not None:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-    def sort_wavefunctions(self, wfs, kpt):
-        occupied = kpt.f_n > 1.0e-10
-        n_occ = len(kpt.f_n[occupied])
-        if n_occ == 0.0:
-            return
-        if np.min(kpt.f_n[:n_occ]) == 0:
-            ind_occ = np.argwhere(occupied)
-            ind_unocc = np.argwhere(~occupied)
-            ind = np.vstack((ind_occ, ind_unocc))
-            kpt.psit_nG[:] = np.squeeze(kpt.psit_nG[ind])
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            kpt.f_n = np.squeeze(kpt.f_n[ind])
-            kpt.eps_n = np.squeeze(kpt.eps_n[ind])
-
     def check_assertions(self, wfs, dens):
 
         assert dens.mixer.driver.basemixerclass.name == 'no-mixing', \
@@ -1194,7 +1180,7 @@ class DirectMin(Eigensolver):
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
-                self.sort_wavefunctions(wfs, kpt)
+                sort_orbitals_according_to_occ_kpt(wfs, kpt)
             wfs.calculate_occupation_numbers(dens.fixed)
             self.update_ks_energy(ham, wfs, dens, updateproj=True)
             self.iters = 0
@@ -1217,7 +1203,7 @@ class DirectMin(Eigensolver):
             self._e_entropy = \
                 wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
-                self.sort_wavefunctions(wfs, kpt)
+                sort_orbitals_according_to_occ_kpt(wfs, kpt)
             self._e_entropy = \
                 wfs.calculate_occupation_numbers(dens.fixed)
         return

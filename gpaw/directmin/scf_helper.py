@@ -1,6 +1,7 @@
 import warnings
-from ase.units import Ha
 
+from ase.units import Ha
+from gpaw.directmin.tools import sort_orbitals_according_to_occ_kpt
 
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     if eigensolver_name == 'etdm':
@@ -80,7 +81,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
                 wfs.calculate_occupation_numbers(dens.fixed)
             if not sic_calc and occ_name:
                 for kpt in wfs.kpt_u:
-                    solver.sort_wavefunctions(wfs, kpt)
+                    sort_orbitals_according_to_occ_kpt(wfs, kpt)
                 solver._e_entropy = \
                     wfs.calculate_occupation_numbers(dens.fixed)
             solver.get_energy_and_tangent_gradients(

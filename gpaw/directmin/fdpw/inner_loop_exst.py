@@ -7,7 +7,8 @@ in order to calculate and excited state
 arXiv:2102.06542 [physics.comp-ph]
 """
 
-from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed, \
+    sort_orbitals_according_to_occ_kpt
 from gpaw.directmin.sd_etdm import LSR1P
 from gpaw.directmin.ls_etdm import MaxStep
 from gpaw.directmin.derivatives import get_approx_analytical_hessian
@@ -370,7 +371,7 @@ class InnerLoop:
             occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    wfs.eigensolver.sort_wavefunctions(wfs, kpt)
+                    sort_orbitals_according_to_occ_kpt(wfs, kpt)
             if self.changedocc:
                 self.restart = 1
         self.momcounter += 1
