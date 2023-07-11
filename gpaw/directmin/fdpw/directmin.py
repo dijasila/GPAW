@@ -29,7 +29,7 @@ class DirectMin(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
-                 linesearch_algo='maxstep',
+                 linesearch_algo='max-step',
                  use_prec=True,
                  functional_settings='ks',
                  need_init_orbs=True,
@@ -202,7 +202,7 @@ class DirectMin(Eigensolver):
             obj_func = self.evaluate_phi_and_der_phi
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nibzkpts
-        # dimensionality, number of state to be converged:
+        # dimensionality, number of state to be converged
         self.dimensions = {}
         for kpt in wfs.kpt_u:
             nocc = get_n_occ(kpt)[0]
@@ -335,7 +335,7 @@ class DirectMin(Eigensolver):
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
             self.line_search.step_length_update(
-                psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
+                psi_copy, p_knG, wfs, ham, dens, lumo, phi_0=phi_2i[0],
                 der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
                 der_phi_old=der_phi_2i[1], alpha_max=3.0,
                 alpha_old=alpha, kpdescr=wfs.kd)
@@ -376,7 +376,7 @@ class DirectMin(Eigensolver):
         return ham.get_energy(0.0, wfs, False)
 
     def evaluate_phi_and_der_phi(self, psit_k, search_dir, alpha, wfs,
-                                 ham, dens, phi=None, grad_k=None):
+                                 ham, dens, lumo, phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
         der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
@@ -384,23 +384,29 @@ class DirectMin(Eigensolver):
         """
 
         if phi is None or grad_k is None:
-            # cannot broadcast float
             alpha1 = np.array([alpha])
             wfs.world.broadcast(alpha1, 0)
             alpha = alpha1[0]
 
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                kpt.psit_nG[:] = psit_k[k] + alpha * search_dir[k]
-                wfs.orthonormalize(kpt)
-
-            phi, grad_k = self.get_energy_and_tangent_gradients(ham, wfs, dens)
+            x_knG = \
+                {k: psit_k[k] +
+                    alpha * search_dir[k] for k in psit_k.keys()}
+            if not lumo:
+                phi, grad_k = self.get_energy_and_tangent_gradients(
+                    ham, wfs, dens, psit_knG=x_knG)
+            else:
+                phi, grad_k = self.get_energy_and_tangent_gradients_lumo(
+                    ham, wfs, x_knG)
 
         der_phi = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
-                if kpt.f_n[i] > 1.0e-10:
+                if not lumo and kpt.f_n[i] > 1.0e-10:
+                    der_phi += self.dot(
+                        wfs, g, search_dir[k][i], kpt,
+                        addpaw=False).item().real
+                else:
                     der_phi += self.dot(
                         wfs, g, search_dir[k][i], kpt,
                         addpaw=False).item().real
@@ -859,39 +865,6 @@ class DirectMin(Eigensolver):
 
         return Hpsi_nG
 
-    def evaluate_phi_and_der_phi_lumo(self, psit_k, search_dir,
-                                      alpha, wfs, ham,
-                                      phi=None, grad_k=None):
-
-        """
-        phi = E(x_k + alpha_k*p_k)
-        der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
-        :return:  phi, der_phi # floats
-        """
-
-        # TODO: the difference is only that we use
-        #  ..._lumo and skip if kpt.f_n[i] > 1.0e-10:
-
-        if phi is None or grad_k is None:
-            alpha1 = np.array([alpha])
-            wfs.world.broadcast(alpha1, 0)
-            alpha = alpha1[0]
-            x_knG = \
-                {k: psit_k[k] +
-                    alpha * search_dir[k] for k in psit_k.keys()}
-            phi, grad_k = \
-                self.get_energy_and_tangent_gradients_lumo(ham, wfs, x_knG)
-        der_phi = 0.0
-        n_kps = self.n_kps
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            for i, g in enumerate(grad_k[k]):
-                der_phi += self.dot(
-                    wfs, g, search_dir[k][i], kpt, addpaw=False).item().real
-        der_phi = wfs.kd.comm.sum(der_phi)
-
-        return phi, der_phi, grad_k
-
     def get_energy_and_tangent_gradients_lumo(self, ham, wfs, psit_knG=None):
         """
         calculate energy and trangent gradients of
@@ -974,61 +947,6 @@ class DirectMin(Eigensolver):
 
         return energy_t, grad
 
-    def iterate_lumo(self, ham, wfs, dens):
-
-        """
-        1 iteration for convergence of LUMO
-
-        :param ham:
-        :param wfs:
-        :param dens:
-        :return:
-        """
-
-        n_kps = self.n_kps
-        psi_copy = {}
-        alpha = self.alpha
-        phi_2i = self.phi_2i
-        der_phi_2i = self.der_phi_2i
-
-        wfs.timer.start('Direct Minimisation step')
-        if self.iters == 0:
-            # calculate gradients
-            phi_2i[0], grad_knG = \
-                self.get_energy_and_tangent_gradients_lumo(ham, wfs)
-        else:
-            grad_knG = self.grad_knG
-
-        with wfs.timer('Get Search Direction'):
-            for kpt in wfs.kpt_u:
-                k = n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)[0]
-                dim = self.dimensions[k]
-                psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
-            p_knG = self.search_direction.update_data(
-                wfs, psi_copy, grad_knG, precond=self.prec,
-                dimensions=self.dimensions)
-        self.project_search_direction(wfs, p_knG)
-
-        alpha, phi_alpha, der_phi_alpha, grad_knG = \
-            self.line_search.step_length_update(
-                psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
-                der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
-                der_phi_old=der_phi_2i[1], alpha_max=3.0,
-                alpha_old=alpha, kpdescr=wfs.kd)
-        self.alpha = alpha
-        self.grad_knG = grad_knG
-
-        # and 'shift' phi, der_phi for the next iteration
-        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
-        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
-
-        # self.alpha = a_star
-        self.iters += 1
-
-        wfs.timer.stop('Direct Minimisation step')
-        return phi_2i[0], self.error
-
     def run_lumo(self, ham, wfs, dens, max_err, log):
 
         """
@@ -1045,7 +963,7 @@ class DirectMin(Eigensolver):
         self.need_init_odd = False
         self.initialize_dm(
             wfs, dens, ham,
-            obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
+            obj_func=self.evaluate_phi_and_der_phi, lumo=True)
 
         max_iter = 100
         while self.iters < max_iter:
