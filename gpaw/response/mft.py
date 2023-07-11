@@ -581,3 +581,7 @@ class TwoParticleSiteSpinSplittingCalculator(
         site_pair_density_calc = SitePairDensityCalculator(
             self.gs, self.context, atomic_site_data)
         return site_pair_spin_splitting_calc, site_pair_density_calc
+
+    def __call__(self, *args):
+        dxc_abp = super().__call__(*args)
+        return dxc_abp * Hartree  # Ha -> eV

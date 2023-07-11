@@ -476,7 +476,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Test that the imaginary part vanishes (we use only diagonal pair
     # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
     assert np.allclose(single_particle_dxc_ar.imag, 0.)
-    single_particle_dxc_ar = single_particle_dxc_ar.real * Ha  # Ha -> eV
+    single_particle_dxc_ar = single_particle_dxc_ar.real
 
     # Test that the results match a conventional calculation
     dxc_ar = atomic_site_data.calculate_spin_splitting()
@@ -497,7 +497,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     tp_dxc_ra = tp_dxc_ra.real
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
         tp_dxc_abr))) / tp_dxc_ra < 5e-2)
-    tp_dxc_ar = tp_dxc_ra.T * Ha  # Ha -> eV
+    tp_dxc_ar = tp_dxc_ra.T
     # Test that the spin splitting on the two Co atoms is identical
     assert tp_dxc_ar[0] == pytest.approx(tp_dxc_ar[1], rel=1e-4)
 
@@ -664,3 +664,7 @@ class SingleParticleSiteSpinSplittingCalculator(
         return SitePairSpinSplittingCalculator(self.gs, self.context,
                                                atomic_site_data,
                                                rshewmin=1e-8)
+
+    def __call__(self, *args):
+        dxc_ap = super().__call__(*args)
+        return dxc_ap * Ha  # Ha -> eV
