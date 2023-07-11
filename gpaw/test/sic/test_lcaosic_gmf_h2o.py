@@ -74,7 +74,7 @@ def test_lcaosic_gmf_h2o(in_tmp_dir):
                       [1.42287594e+01, -9.81724693e-01, -5.09333905e-04],
                       [-4.92299436e+00, 1.55306540e+01, 2.12438557e-03]])
 
-    numeric = True
+    numeric = False
     if numeric:
         from ase.calculators.test import numeric_force
         f_num = np.array([[numeric_force(H2O, a, i)

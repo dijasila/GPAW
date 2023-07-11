@@ -979,14 +979,12 @@ class DirectMin(Eigensolver):
         der_phi_2i = self.der_phi_2i
 
         wfs.timer.start('Direct Minimisation step')
-        phi_2i[0], grad_knG = \
-            self.get_energy_and_tangent_gradients_lumo(ham, wfs)
-        # if self.iters == 0:
-        #     # calculate gradients
-        #     phi_2i[0], grad_knG = \
-        #         self.get_energy_and_tangent_gradients_lumo(ham, wfs)
-        # else:
-        #     grad_knG = self.grad_knG
+        if self.iters == 0:
+            # calculate gradients
+            phi_2i[0], grad_knG = \
+                self.get_energy_and_tangent_gradients_lumo(ham, wfs)
+        else:
+            grad_knG = self.grad_knG
 
         with wfs.timer('Get Search Direction'):
             for kpt in wfs.kpt_u:
@@ -998,38 +996,19 @@ class DirectMin(Eigensolver):
                 wfs, psi_copy, grad_knG, precond=self.prec,
                 dimensions=self.dimensions)
         self.project_search_direction(wfs, p_knG)
-        dot = 0.0
-        for kpt in wfs.kpt_u:
-            k = wfs.kd.nibzkpts * kpt.s + kpt.q
-            for p in p_knG[k]:
-                dot += wfs.integrate(p, p, False)
-        dot = dot.real
-        dot = wfs.world.sum(dot)
-        dot = np.sqrt(dot)
-        maxstep = 0.2
-        if dot > maxstep:
-            a_star = maxstep / dot
-        else:
-            a_star = 1.0
-        # alpha, phi_alpha, der_phi_alpha, grad_knG = \
-        #     self.line_search.step_length_update(
-        #         psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
-        #         der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
-        #         der_phi_old=der_phi_2i[1], alpha_max=3.0,
-        #         alpha_old=alpha, kpdescr=wfs.kd)
-        # self.alpha = alpha
-        # self.grad_knG = grad_knG
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            n_occ = get_n_occ(kpt)[0]
-            dim = self.dimensions[k]
-            kpt.psit_nG[n_occ:n_occ + dim] = \
-                psi_copy[k] + a_star * p_knG[k]
-            wfs.orthonormalize(kpt)
 
-        # # and 'shift' phi, der_phi for the next iteration
-        # phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
-        # phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
+        alpha, phi_alpha, der_phi_alpha, grad_knG = \
+            self.line_search.step_length_update(
+                psi_copy, p_knG, wfs, ham, dens, phi_0=phi_2i[0],
+                der_phi_0=der_phi_2i[0], phi_old=phi_2i[1],
+                der_phi_old=der_phi_2i[1], alpha_max=3.0,
+                alpha_old=alpha, kpdescr=wfs.kd)
+        self.alpha = alpha
+        self.grad_knG = grad_knG
+
+        # and 'shift' phi, der_phi for the next iteration
+        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
+        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         # self.alpha = a_star
         self.iters += 1

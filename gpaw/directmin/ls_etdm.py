@@ -30,11 +30,13 @@ def get_slength(p, wfs, mode=None):
     if mode is None:
         mode = wfs.mode
     if mode == 'lcao':
-        return np.linalg.norm(p)
+        p_all_kpts = np.hstack([p[k] for k in p])
+        return np.linalg.norm(p_all_kpts)
     else:
         ret = 0.0
-        for val in p:
-            ret += np.real(wfs.integrate(val, val, global_integral=False))
+        for k in p:
+            for val in p[k]:
+                ret += np.real(wfs.integrate(val, val, global_integral=False))
         ret = wfs.world.sum(ret)
         return np.sqrt(ret)
 
@@ -58,14 +60,10 @@ class MaxStep(object):
     def step_length_update(self, x, p, wfs, *args, mode=None, **kwargs):
 
         kd = kwargs['kpdescr']
-        slength = 0.0
 
-        for k in p:
-            temp = get_slength(p[k], wfs, mode)
-            if temp > slength:
-                slength = temp
-
+        slength = get_slength(p, wfs, mode)
         slength = kd.comm.max(slength)
+
         a_star = self.max_step / slength if slength > self.max_step else 1.0
 
         phi_star, der_phi_star, g_star = self.evaluate_phi_and_der_phi(
