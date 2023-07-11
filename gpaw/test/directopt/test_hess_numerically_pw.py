@@ -45,17 +45,17 @@ def test_hess_numerically_pw(in_tmp_dir):
     prepare_mom_calculation(calc, atoms, f_sn)
     atoms.get_potential_energy()
 
-    numder = Derivatives(calc.wfs.eigensolver.iloop_outer, calc.wfs)
+    numder = Derivatives(calc.wfs.eigensolver.outer_iloop, calc.wfs)
 
     hess_n = numder.get_numerical_derivatives(
-        calc.wfs.eigensolver.iloop_outer,
+        calc.wfs.eigensolver.outer_iloop,
         calc.hamiltonian,
         calc.wfs,
         calc.density,
         what2calc='hessian'
     )
     hess_a = numder.get_analytical_derivatives(
-        calc.wfs.eigensolver.iloop_outer,
+        calc.wfs.eigensolver.outer_iloop,
         calc.hamiltonian,
         calc.wfs,
         calc.density,

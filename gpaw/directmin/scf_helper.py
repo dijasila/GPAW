@@ -39,11 +39,11 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
             niter3 = 0
 
             iloop1 = solver.iloop is not None
-            iloop2 = solver.iloop_outer is not None
+            iloop2 = solver.outer_iloop is not None
             if iloop1:
                 niter2 = solver.total_eg_count_iloop
             if iloop2:
-                niter3 = solver.total_eg_count_iloop_outer
+                niter3 = solver.total_eg_count_outer_iloop
 
             if iloop1 and iloop2:
                 log(
@@ -76,8 +76,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
             sic_calc = 'SIC' in solver.func_settings['name']
             if sic_calc:
                 rewrite_psi = False
-            solver.get_canonical_representation(
-                ham, wfs, dens, rewrite_psi)
+            solver.get_canonical_representation(ham, wfs, rewrite_psi)
             solver._e_entropy = \
                 wfs.calculate_occupation_numbers(dens.fixed)
             if not sic_calc and occ_name:
@@ -100,9 +99,9 @@ def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
         if hasattr(solver, 'iloop'):
             if solver.iloop is not None:
                 solver.iloop.total_eg_count = 0
-        if hasattr(solver, 'iloop_outer'):
-            if solver.iloop_outer is not None:
-                solver.iloop_outer.total_eg_count = 0
+        if hasattr(solver, 'outer_iloop'):
+            if solver.outer_iloop is not None:
+                solver.outer_iloop.total_eg_count = 0
 
         wfs.eigensolver.check_assertions(wfs, dens)
         if name == 'etdm':

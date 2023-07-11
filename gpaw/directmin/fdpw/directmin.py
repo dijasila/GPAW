@@ -19,7 +19,7 @@ from gpaw.directmin.fdpw import sd_outer, ls_outer
 from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ_kpt
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
+from gpaw.directmin.fdpw.outer_inner_loop import OuterInnerLoop
 import time
 from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
@@ -71,7 +71,7 @@ class DirectMin(Eigensolver):
         self.momevery = momevery
 
         self.total_eg_count_iloop = 0
-        self.total_eg_count_iloop_outer = 0
+        self.total_eg_count_outer_iloop = 0
 
         if self.sda is None:
             self.sda = 'LBFGS'
@@ -157,7 +157,7 @@ class DirectMin(Eigensolver):
 
     def init_me(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
-        self.initialize_orbitals(wfs, dens, ham, log)
+        self.initialize_orbitals(wfs, ham)
         self._e_entropy = \
             wfs.calculate_occupation_numbers(dens.fixed)
         self.localize_wfs(wfs, dens, ham, log)
@@ -169,6 +169,7 @@ class DirectMin(Eigensolver):
         Initialize super class
 
         :param wfs:
+        :param ham:
         :return:
         """
         if isinstance(ham.xc, HybridXC):
@@ -258,7 +259,7 @@ class DirectMin(Eigensolver):
 
             if self.exstopt:
 
-                self.iloop_outer = ILEXST(
+                self.outer_iloop = OuterInnerLoop(
                     self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
@@ -266,11 +267,11 @@ class DirectMin(Eigensolver):
                 if 'SIC' in self.func_settings['name']:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
-                        self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
+                        self.iloop.U_k[k] = self.outer_iloop.U_k[k].copy()
             else:
-                self.iloop_outer = None
+                self.outer_iloop = None
         self.total_eg_count_iloop = 0
-        self.total_eg_count_iloop_outer = 0
+        self.total_eg_count_outer_iloop = 0
 
         self.initialized = True
 
@@ -675,7 +676,7 @@ class DirectMin(Eigensolver):
 
         return error.real
 
-    def get_canonical_representation(self, ham, wfs, dens, rewrite_psi=True):
+    def get_canonical_representation(self, ham, wfs, rewrite_psi=True):
         """
         choose orbitals which diagonalize the hamiltonain matrix
 
@@ -687,7 +688,6 @@ class DirectMin(Eigensolver):
 
         :param ham:
         :param wfs:
-        :param dens:
         :param rewrite_psi:
         :return:
         """
@@ -995,7 +995,7 @@ class DirectMin(Eigensolver):
         :return:
         """
 
-        if self.iloop is None and self.iloop_outer is None:
+        if self.iloop is None and self.outer_iloop is None:
             return niter, False
 
         wfs.timer.start('Inner loop')
@@ -1021,7 +1021,7 @@ class DirectMin(Eigensolver):
                 seed=self.localizationseed)
             self.total_eg_count_iloop += self.iloop.eg_count
 
-            if self.iloop_outer is None:
+            if self.outer_iloop is None:
                 if grad_knG is not None:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
@@ -1044,14 +1044,14 @@ class DirectMin(Eigensolver):
                 # calc projectors
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-        self.etotal, counter = self.iloop_outer.run(
+        self.etotal, counter = self.outer_iloop.run(
             wfs, dens, log, niter, ham=ham)
-        self.total_eg_count_iloop_outer += self.iloop_outer.eg_count
-        self.e_sic = self.iloop_outer.esic
+        self.total_eg_count_outer_iloop += self.outer_iloop.eg_count
+        self.e_sic = self.outer_iloop.esic
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            grad_knG[k] += np.tensordot(self.iloop_outer.U_k[k].conj(),
-                                        self.iloop_outer.odd_pot.grad[k],
+            grad_knG[k] += np.tensordot(self.outer_iloop.U_k[k].conj(),
+                                        self.outer_iloop.odd_pot.grad[k],
                                         axes=1)
             if self.iloop is not None:
                 U = self.iloop.U_k[k]
@@ -1065,8 +1065,8 @@ class DirectMin(Eigensolver):
                     np.tensordot(U.conj(),
                                  grad_knG[k][:n_occ], axes=1)
                 self.iloop.U_k[k] = \
-                    self.iloop.U_k[k] @ self.iloop_outer.U_k[k]
-                self.iloop_outer.U_k[k] = np.eye(n_occ, dtype=self.dtype)
+                    self.iloop.U_k[k] @ self.outer_iloop.U_k[k]
+                self.outer_iloop.U_k[k] = np.eye(n_occ, dtype=self.dtype)
 
         wfs.timer.stop('Inner loop')
 
@@ -1075,10 +1075,10 @@ class DirectMin(Eigensolver):
 
         return counter, True
 
-    def initialize_orbitals(self, wfs, dens, ham, log):
+    def initialize_orbitals(self, wfs, ham):
         """
-        initial orbitals can be localised using Pipek-Mezey,
-         Foster-Boys or Edmiston-Ruedenberg functions.
+        Initial orbitals can be localised using Pipek-Mezey,
+        Foster-Boys or Edmiston-Ruedenberg functions.
 
         :param wfs:
         :param dens:
@@ -1128,18 +1128,18 @@ class DirectMin(Eigensolver):
                 self.iloop.U_k[k] = np.eye(self.iloop.U_k[k].shape[0])
                 self.iloop.Unew_k[k] = np.eye(
                     self.iloop.Unew_k[k].shape[0])
-            if self.iloop_outer is not None:
-                dim = self.iloop_outer.U_k[k].shape[0]
+            if self.outer_iloop is not None:
+                dim = self.outer_iloop.U_k[k].shape[0]
                 kpt.psit_nG[:dim] = \
                     np.tensordot(
-                        self.iloop_outer.U_k[k].T,
+                        self.outer_iloop.U_k[k].T,
                         kpt.psit_nG[:dim], axes=1)
-                self.iloop_outer.U_k[k] = np.eye(
-                    self.iloop_outer.U_k[k].shape[0])
-                self.iloop_outer.Unew_k[k] = np.eye(
-                    self.iloop_outer.Unew_k[k].shape[0])
+                self.outer_iloop.U_k[k] = np.eye(
+                    self.outer_iloop.U_k[k].shape[0])
+                self.outer_iloop.Unew_k[k] = np.eye(
+                    self.outer_iloop.Unew_k[k].shape[0])
             if self.iloop is not None or \
-                    self.iloop_outer is not None:
+                    self.outer_iloop is not None:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
     def check_assertions(self, wfs, dens):
@@ -1160,13 +1160,13 @@ class DirectMin(Eigensolver):
             return
 
         sic_calc = 'SIC' in self.func_settings['name']
-        iloop = self.iloop_outer is not None
+        iloop = self.outer_iloop is not None
         update = False
 
         if iloop:
-            astmnt = self.iloop_outer.odd_pot.restart
+            astmnt = self.outer_iloop.odd_pot.restart
             bstmnt = (self.iters + 1) % self.momevery == 0 and \
-                not self.iloop_outer.converged
+                not self.outer_iloop.converged
             if astmnt or bstmnt:
                 update = True
         if update and not wfs.occupations.use_fixed_occupations:

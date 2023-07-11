@@ -1,5 +1,5 @@
 from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
+from gpaw.directmin.fdpw.outer_inner_loop import OuterInnerLoop
 import numpy as np
 
 
@@ -11,7 +11,7 @@ class DirectMinLocalize:
         self.randval = randval
 
         if obj_f.name == 'Zero':
-            self.iloop = ILEXST(
+            self.iloop = OuterInnerLoop(
                 obj_f, wfs, 'all', 5.0e-4, maxiter,
                 g_tol=g_tol, useprec=True)
         else:

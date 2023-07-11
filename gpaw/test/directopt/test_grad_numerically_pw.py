@@ -49,13 +49,13 @@ def test_gradient_numerically_pw(in_tmp_dir):
         ham = calc.hamiltonian
         wfs = calc.wfs
         dens = calc.density
-        der = Derivatives(wfs.eigensolver.iloop_outer, wfs,
+        der = Derivatives(wfs.eigensolver.outer_iloop, wfs,
                           update_c_ref=True, random_amat=True)
 
         g_a = der.get_analytical_derivatives(
-            wfs.eigensolver.iloop_outer, ham, wfs, dens)
+            wfs.eigensolver.outer_iloop, ham, wfs, dens)
         g_n = der.get_numerical_derivatives(
-            wfs.eigensolver.iloop_outer, ham, wfs, dens)
+            wfs.eigensolver.outer_iloop, ham, wfs, dens)
 
         iut = np.triu_indices(der.a[0].shape[0], 1)
         assert g_n[0].real == pytest.approx(g_a[0][iut].real, abs=1.0e-4)
