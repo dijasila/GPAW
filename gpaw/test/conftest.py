@@ -1046,3 +1046,12 @@ def needs_ase_master():
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+
+@pytest.fixture
+def rng():
+    """Seeded random number generator.
+
+    Tests should be deterministic and should use this
+    fixture or initialize their own rng."""
+    return np.random.default_rng(42)
