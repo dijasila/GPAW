@@ -417,7 +417,6 @@ nightly-mpi-2:
     - .nightly
 
 
-# Let's disable until we get mpi-2 to work at least
 nightly-mpi-4:
   variables:
     GPAW_MPI_NPROCS: "4"
@@ -425,8 +424,7 @@ nightly-mpi-4:
     - .nightly
 
 
-# Let's disable until we get mpi-4 to work at least
-.nightly-mpi-8:
+nightly-mpi-8:
   variables:
     GPAW_MPI_NPROCS: "8"
   extends:
