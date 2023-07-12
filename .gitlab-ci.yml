@@ -376,6 +376,7 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+    expire_in: 1 week
 
 
 .nightly:
