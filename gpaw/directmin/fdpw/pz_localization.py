@@ -12,7 +12,7 @@ import numpy as np
 import time
 
 
-class InnerLoop:
+class PZLocalization:
 
     def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50,
                  g_tol=5.0e-4):

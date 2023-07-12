@@ -370,7 +370,7 @@ class PZSICFDPW:
 
         if a_mat is None:
             wfs.timer.stop('Unitary gradients')
-            return l_odd.T, e_sic, kappa
+            return 2.0 * l_odd.T.conj(), e_sic, kappa
         else:
             g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
             g_mat = g_mat * d_matrix(evals)

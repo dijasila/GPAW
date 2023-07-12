@@ -18,8 +18,8 @@ from gpaw.utilities import unpack
 from gpaw.directmin.fdpw import sd_outer, ls_outer
 from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ_kpt
-from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from gpaw.directmin.fdpw.outer_inner_loop import OuterInnerLoop
+from gpaw.directmin.fdpw.pz_localization import PZLocalization
+from gpaw.directmin.fdpw.et_inner_loop import ETInnerLoop
 import time
 from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
@@ -251,7 +251,7 @@ class DirectMin(Eigensolver):
             self.e_sic = 0.0
 
             if 'SIC' in self.func_settings['name']:
-                self.iloop = InnerLoop(
+                self.iloop = PZLocalization(
                     self.odd, wfs, self.kappa_tol, self.maxiter,
                     g_tol=self.g_tol)
             else:
@@ -259,7 +259,7 @@ class DirectMin(Eigensolver):
 
             if self.exstopt:
 
-                self.outer_iloop = OuterInnerLoop(
+                self.outer_iloop = ETInnerLoop(
                     self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have

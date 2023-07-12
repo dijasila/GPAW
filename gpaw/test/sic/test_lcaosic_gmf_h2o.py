@@ -51,6 +51,8 @@ def test_lcaosic_gmf_h2o(in_tmp_dir):
     appr_sp_order = dave.estimate_sp_order(calc)
     print(appr_sp_order)
 
+    for kpt in calc.wfs.kpt_u:
+            f_sn[kpt.s] = kpt.f_n
     calc.set(eigensolver=ETDM(
         partial_diagonalizer={
             'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42,

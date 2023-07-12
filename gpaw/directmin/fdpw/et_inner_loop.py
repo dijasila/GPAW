@@ -17,7 +17,7 @@ import numpy as np
 import time
 
 
-class OuterInnerLoop:
+class ETInnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
                  tol=1.0e-3, maxiter=50, maxstepxst=0.2,

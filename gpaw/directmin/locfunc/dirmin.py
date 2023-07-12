@@ -1,5 +1,5 @@
-from gpaw.directmin.fdpw.inner_loop import InnerLoop
-from gpaw.directmin.fdpw.outer_inner_loop import OuterInnerLoop
+from gpaw.directmin.fdpw.pz_localization import PZLocalization
+from gpaw.directmin.fdpw.et_inner_loop import ETInnerLoop
 import numpy as np
 
 
@@ -11,11 +11,11 @@ class DirectMinLocalize:
         self.randval = randval
 
         if obj_f.name == 'Zero':
-            self.iloop = OuterInnerLoop(
+            self.iloop = ETInnerLoop(
                 obj_f, wfs, 'all', 5.0e-4, maxiter,
                 g_tol=g_tol, useprec=True)
         else:
-            self.iloop = InnerLoop(
+            self.iloop = PZLocalization(
                 obj_f, wfs, maxiter=maxiter,
                 g_tol=g_tol)
 

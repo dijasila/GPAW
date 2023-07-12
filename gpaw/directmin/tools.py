@@ -234,7 +234,7 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
                 if kpt.s == s:
                     kpt.f_n = f_sn[s]
                     changedocc = sort_orbitals_according_to_occ_kpt(
-                        calc.wfs, kpt)[0]
+                        calc.wfs, kpt, update_mom=False)[0]
                     if changedocc:
                         f_sn[s] = kpt.f_n
 
@@ -266,12 +266,10 @@ def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
         ind = np.vstack((ind_occ, ind_unocc))
         ind = np.squeeze(ind)
 
-        if wfs.mode == 'lcao':
+        if hasattr(wfs.eigensolver, 'dm_helper'):
             wfs.eigensolver.dm_helper.sort_orbitals(wfs, kpt, ind)
         else:
-            kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
-            if update_proj:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            sort_orbitals_kpt(wfs, kpt, ind, update_proj)
 
         kpt.f_n = kpt.f_n[ind]
         kpt.eps_n = kpt.eps_n[ind]
@@ -293,6 +291,16 @@ def update_mom_numbers(wfs, kpt):
         degeneracy = 1
     wfs.occupations.numbers[kpt.s] = \
         kpt.f_n / (kpt.weightk * degeneracy)
+
+
+def sort_orbitals_kpt(wfs, kpt, ind, update_proj=False):
+    if wfs.mode == 'lcao':
+        kpt.C_nM[np.arange(len(ind)), :] = kpt.C_nM[ind, :]
+        wfs.atomic_correction.calculate_projections(wfs, kpt)
+    else:
+        kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
+        if update_proj:
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
 
 def dict_to_array(x):
