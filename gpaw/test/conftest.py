@@ -574,6 +574,7 @@ class GPWFiles:
                     kpts=kpts,
                     occupations=FermiDirac(0.001),
                     setups={'Ni': '10'},
+                    parallel=dict(domain=1),  # >1 fails on 8 cores
                     # communicator=serial_comm
                     )
 
