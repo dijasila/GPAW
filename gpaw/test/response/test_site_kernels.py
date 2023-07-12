@@ -104,7 +104,7 @@ def test_cylindrical_kernel(rng):
 
     # Cylindrical axes to check
     nc = 7
-    ez_cv = 2. * rng.random(nc, 3) - 1.
+    ez_cv = 2. * rng.random((nc, 3)) - 1.
     ez_cv /= np.linalg.norm(ez_cv, axis=1)[:, np.newaxis]
 
     # Wave vector directions in-plane to check. Generated through the cross
