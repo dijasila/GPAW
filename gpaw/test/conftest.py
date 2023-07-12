@@ -910,19 +910,18 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def h_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
+    def h_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H'), hund=True, nbands=4)
 
-    def h2_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
-                                    nbands=8)
+    def h2_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
+                                     nbands=8)
 
-    def _pw_210_rmmdiis(self, atoms, **kwargs):
+    def _pw_280_fulldiag(self, atoms, **kwargs):
         atoms.set_pbc(True)
         atoms.set_cell((2., 2., 3.))
         atoms.center()
-        calc = GPAW(mode=PW(210, force_complex_dtype=True),
-                    eigensolver='rmm-diis',
+        calc = GPAW(mode=PW(280, force_complex_dtype=True),
                     xc='LDA',
                     basis='dzp',
                     parallel={'domain': 1},
