@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 
 # Water molecule:
 d = 0.9575
@@ -14,7 +14,7 @@ H2O.center(vacuum=5.0)
 calc = GPAW(
     mode="pw",
     occupations={"name": "fixed-uniform"},
-    eigensolver=DirectMin(convergelumo=False),
+    eigensolver=FDPWETDM(convergelumo=False),
     mixer={"name": "dummy"},
     spinpol=True
 )

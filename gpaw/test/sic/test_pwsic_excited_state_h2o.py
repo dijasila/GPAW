@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, PW
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 
@@ -21,7 +21,7 @@ def test_pwsic_h2o(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 spinpol=True,
                 symmetry='off',
-                eigensolver=DirectMin(converge_unocc=True),
+                eigensolver=FDPWETDM(converge_unocc=True),
                 mixer={'backend': 'no-mixing'},
                 occupations={'name': 'fixed-uniform'},
                 convergence={'eigenstates': 1e-4}
@@ -29,12 +29,12 @@ def test_pwsic_h2o(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=DirectMin(exstopt=True))
+    calc.set(eigensolver=FDPWETDM(exstopt=True))
     f_sn = excite(calc, 0, 0, (0, 0), sort=True)
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=DirectMin(
+    calc.set(eigensolver=FDPWETDM(
         exstopt=True,
         functional_settings={'name': 'PZ-SIC',
                              'scaling_factor': (0.5, 0.5)  # SIC/2

@@ -59,7 +59,7 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
     atoms, calc = restart('co.gpw', txt='-')
     e0 = atoms.get_potential_energy()
     for kpt in calc.wfs.kpt_u:
-            f_sn[kpt.s] = kpt.f_n
+        f_sn[kpt.s] = kpt.f_n
     for i in [True, False]:
         prepare_mom_calculation(calc, atoms, f_sn,
                                 use_fixed_occupations=i,

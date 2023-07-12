@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, PW
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 
 
 def test_pz_localization_pw(in_tmp_dir):
@@ -29,7 +29,7 @@ def test_pz_localization_pw(in_tmp_dir):
                              'eigenstates': np.inf,
                              'density': np.inf,
                              'minimum iterations': 0},
-                eigensolver=DirectMin(
+                eigensolver=FDPWETDM(
                     functional_settings={'name': 'PZ-SIC',
                                          'scaling_factor': (0.5, 0.5)  # SIC/2
                                          },

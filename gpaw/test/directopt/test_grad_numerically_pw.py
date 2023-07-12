@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from gpaw import GPAW, PW
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 from gpaw.directmin.derivatives import Derivatives
 from gpaw.mom import prepare_mom_calculation
 from ase import Atoms
@@ -31,7 +31,7 @@ def test_gradient_numerically_pw(in_tmp_dir):
                                  'eigenstates': np.inf,
                                  'density': np.inf,
                                  'minimum iterations': 1},
-                    eigensolver=DirectMin(converge_unocc=True),
+                    eigensolver=FDPWETDM(converge_unocc=True),
                     occupations={'name': 'fixed-uniform'},
                     mixer={'backend': 'no-mixing'},
                     nbands='nao',
@@ -40,7 +40,7 @@ def test_gradient_numerically_pw(in_tmp_dir):
         atoms.calc = calc
         atoms.get_potential_energy()
 
-        calc.set(eigensolver=DirectMin(exstopt=True))
+        calc.set(eigensolver=FDPWETDM(exstopt=True))
         f_sn = [calc.get_occupation_numbers(spin=s).copy() / 2
                 for s in range(calc.wfs.nspins)]
         prepare_mom_calculation(calc, atoms, f_sn)

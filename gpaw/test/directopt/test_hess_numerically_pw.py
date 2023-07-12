@@ -3,7 +3,7 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.directmin.derivatives import Derivatives
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 from gpaw.mom import prepare_mom_calculation
 import numpy as np
 
@@ -30,7 +30,7 @@ def test_hess_numerically_pw(in_tmp_dir):
                              'density': np.inf,
                              'minimum iterations': 1},
                 spinpol=False,
-                eigensolver=DirectMin(converge_unocc=True),
+                eigensolver=FDPWETDM(converge_unocc=True),
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands=2,
@@ -39,7 +39,7 @@ def test_hess_numerically_pw(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    calc.set(eigensolver=DirectMin(exstopt=True))
+    calc.set(eigensolver=FDPWETDM(exstopt=True))
     f_sn = [calc.get_occupation_numbers(spin=s).copy() / 2
             for s in range(calc.wfs.nspins)]
     prepare_mom_calculation(calc, atoms, f_sn)

@@ -15,17 +15,17 @@ from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
-from gpaw.directmin.fdpw import sd_outer, ls_outer
+from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ_kpt
 from gpaw.directmin.fdpw.pz_localization import PZLocalization
-from gpaw.directmin.fdpw.et_inner_loop import ETInnerLoop
+from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
 import time
 from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
-class DirectMin(Eigensolver):
+class FDPWETDM(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
@@ -49,8 +49,8 @@ class DirectMin(Eigensolver):
                  converge_unocc=True,
                  exstopt=False):
 
-        super(DirectMin, self).__init__(keep_htpsit=False,
-                                        blocksize=blocksize)
+        super(FDPWETDM, self).__init__(keep_htpsit=False,
+                                       blocksize=blocksize)
 
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
@@ -183,7 +183,7 @@ class DirectMin(Eigensolver):
             else:
                 self.blocksize = 10
 
-        super(DirectMin, self).initialize(wfs)
+        super(FDPWETDM, self).initialize(wfs)
 
     def initialize_dm(
             self, wfs, dens, ham, obj_func=None, converge_unocc=False):
@@ -225,11 +225,11 @@ class DirectMin(Eigensolver):
         if isinstance(self.sda, (basestring, dict)):
             sda = self.sda
 
-            self.search_direction = sd_outer(sda, wfs, self.dimensions)
+            self.search_direction = search_direction(sda, wfs, self.dimensions)
         else:
             raise Exception('Check Search Direction Parameters')
         if isinstance(self.lsa, (basestring, dict)):
-            self.line_search = ls_outer(
+            self.line_search = line_search_algorithm(
                 self.lsa, obj_func, self.search_direction)
         else:
             raise Exception('Check Search Direction Parameters')
@@ -259,7 +259,7 @@ class DirectMin(Eigensolver):
 
             if self.exstopt:
 
-                self.outer_iloop = ETInnerLoop(
+                self.outer_iloop = ETDMInnerLoop(
                     self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
@@ -1094,7 +1094,7 @@ class DirectMin(Eigensolver):
 
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            super(DirectMin, self).subspace_diagonalize(
+            super(FDPWETDM, self).subspace_diagonalize(
                 ham, wfs, kpt, True)
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
         self.need_init_orbs = False
@@ -1174,7 +1174,7 @@ class DirectMin(Eigensolver):
             if not sic_calc:
                 for kpt in wfs.kpt_u:
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
+                    super(FDPWETDM, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)

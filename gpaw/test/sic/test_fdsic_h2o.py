@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, FD
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 from ase.dft.bandgap import bandgap
 from ase.units import Ha
 
@@ -29,7 +29,7 @@ def test_fdsic_h2o(in_tmp_dir):
     calc = GPAW(mode=FD(force_complex_dtype=True),
                 h=0.25,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=DirectMin(
+                eigensolver=FDPWETDM(
                     functional_settings={'name': 'PZ-SIC',
                                          'scaling_factor': (0.5, 0.5)  # SIC/2
                                          },

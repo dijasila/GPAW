@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import FD, GPAW
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 
 # Water molecule:
 d = 0.9575
@@ -15,7 +15,7 @@ calc = GPAW(
     mode=FD(force_complex_dtype=True),  # use complex orbitals
     xc="PBE",
     occupations={"name": "fixed-uniform"},
-    eigensolver=DirectMin(
+    eigensolver=FDPWETDM(
         g_tol=1.0e-4,
         localizationtype="FB-ER-PZ",
         odd_parameters={"name": "PZ-SIC", "scaling_factor": (0.5, 0.5)},

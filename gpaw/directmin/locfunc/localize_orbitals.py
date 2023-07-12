@@ -1,5 +1,5 @@
-from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
-from gpaw.directmin.locfunc.er import ERlocalization as ERL
+from gpaw.directmin.locfunc.etdm_localization_fdpw import FDPWETDMLocalize
+from gpaw.directmin.fdpw.er_localization import ERLocalization as ERL
 from gpaw.directmin.functional.fdpw import get_functional \
     as get_functional_fdpw
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
@@ -34,7 +34,7 @@ def localize_orbitals(
                 continue
             log('Edmiston-Ruedenberg localization started',
                 flush=True)
-            dm = DirectMinLocalize(
+            dm = FDPWETDMLocalize(
                 ERL(wfs, dens), wfs,
                 maxiter=200, g_tol=5.0e-5, randval=0.1)
             dm.run(wfs, dens, seed=seed)
@@ -45,7 +45,7 @@ def localize_orbitals(
             if wfs.mode != 'lcao':
                 log('Perdew-Zunger localization started', flush=True)
                 PZC = get_functional_fdpw(func_settings, wfs, dens, ham)
-                dm = DirectMinLocalize(
+                dm = FDPWETDMLocalize(
                     PZC, wfs, maxiter=200, g_tol=tol, randval=0.1)
                 dm.run(wfs, dens, log)
                 log('Perdew-Zunger localization finished', flush=True)
@@ -56,7 +56,7 @@ def localize_orbitals(
                 raise NotImplementedError
             else:
                 KS = get_functional_fdpw('ks', wfs, dens, ham)
-            dm = DirectMinLocalize(KS, wfs, maxiter=200, g_tol=tol, randval=0)
+            dm = FDPWETDMLocalize(KS, wfs, maxiter=200, g_tol=tol, randval=0)
             dm.run(wfs, dens, log, ham=ham)
             log('ETDM minimization finished', flush=True)
         else:

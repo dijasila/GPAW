@@ -1,7 +1,6 @@
 import pytest
 
 from gpaw import GPAW, FD
-from gpaw.directmin.fdpw.directmin import DirectMin
 import numpy as np
 from ase import Atoms
 
@@ -26,7 +25,7 @@ def test_directmin_fd(in_tmp_dir):
                 h=0.3,
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=DirectMin(converge_unocc=True),
+                eigensolver='etdm-fdpw',
                 mixer={'backend': 'no-mixing'},
                 spinpol=True,
                 symmetry='off',

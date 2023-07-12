@@ -15,15 +15,15 @@ from gpaw.directmin.functional.lcao import get_functional
 from gpaw.utilities.tools import tri2full
 
 
-class DirectMinLCAO(DirectLCAO):
+class ETDMHelperLCAO(DirectLCAO):
 
     def __init__(self, wfs, dens, ham, nkpts, functional, diagonalizer=None,
                  orthonormalization='gramschmidt',
                  need_init_orbs=True):
 
-        super(DirectMinLCAO, self).__init__(diagonalizer)
-        super(DirectMinLCAO, self).initialize(wfs.gd, wfs.dtype,
-                                              wfs.setups.nao, wfs.ksl)
+        super(ETDMHelperLCAO, self).__init__(diagonalizer)
+        super(ETDMHelperLCAO, self).initialize(wfs.gd, wfs.dtype,
+                                               wfs.setups.nao, wfs.ksl)
         self.orthonormalization = orthonormalization
         self.need_init_orbs = need_init_orbs
         self.nkpts = nkpts
@@ -77,7 +77,7 @@ class DirectMinLCAO(DirectLCAO):
         need_canon_coef = \
             (not wfs.coefficients_read_from_file and self.need_init_orbs)
         if need_canon_coef or orthname == 'diag':
-            super(DirectMinLCAO, self).iterate(ham, wfs)
+            super(ETDMHelperLCAO, self).iterate(ham, wfs)
         else:
             wfs.orthonormalize(type=orthname)
         wfs.coefficients_read_from_file = False

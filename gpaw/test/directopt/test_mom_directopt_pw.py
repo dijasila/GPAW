@@ -1,7 +1,7 @@
 import pytest
 
 from gpaw import GPAW, PW, restart
-from gpaw.directmin.fdpw.directmin import DirectMin
+from gpaw.directmin.etdm_fdpw import FDPWETDM
 from gpaw.mom import prepare_mom_calculation
 from gpaw.directmin.tools import excite
 from ase import Atoms
@@ -22,7 +22,7 @@ def test_mom_directopt_pw(in_tmp_dir):
     calc = GPAW(mode=PW(300),
                 spinpol=True,
                 symmetry='off',
-                eigensolver=DirectMin(converge_unocc=True),
+                eigensolver=FDPWETDM(converge_unocc=True),
                 mixer={'backend': 'no-mixing'},
                 occupations={'name': 'fixed-uniform'},
                 convergence={'eigenstates': 1e-4}
@@ -32,7 +32,7 @@ def test_mom_directopt_pw(in_tmp_dir):
     calc.write('h2o.gpw', mode='all')
 
     # Triplet excited state calculation
-    calc.set(eigensolver=DirectMin(exstopt=True))
+    calc.set(eigensolver=FDPWETDM(exstopt=True))
     f_sn = excite(calc, 0, 1, (0, 1), sort=True)
     prepare_mom_calculation(calc, atoms, f_sn)
 
@@ -41,8 +41,8 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     # Mixed-spin excited state calculation
     atoms, calc = restart('h2o.gpw', txt='-')
-    calc.set(eigensolver=DirectMin(exstopt=True,
-                                   printinnerloop=True))
+    calc.set(eigensolver=FDPWETDM(exstopt=True,
+                                  printinnerloop=True))
     f_sn = excite(calc, 0, 0, (0, 0), sort=True)
     prepare_mom_calculation(calc, atoms, f_sn)
 

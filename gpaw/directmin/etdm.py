@@ -15,7 +15,7 @@ import warnings
 from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv, random_a, \
     update_mom_numbers, sort_orbitals_according_to_occ_kpt
-from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.lcao.etdm_helper_lcao import ETDMHelperLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
 from gpaw.directmin import search_direction, line_search_algorithm
@@ -273,7 +273,7 @@ class ETDM:
 
         if wfs.mode == 'lcao':
 
-            self.dm_helper = DirectMinLCAO(
+            self.dm_helper = ETDMHelperLCAO(
                 wfs, dens, ham, self.nkpts, self.func_settings,
                 diagonalizer=None,
                 orthonormalization=self.orthonormalization,

@@ -1,8 +1,7 @@
 import pytest
+import numpy as np
 
 from gpaw import GPAW, PW
-from gpaw.directmin.fdpw.directmin import DirectMin
-import numpy as np
 from ase import Atoms
 
 
@@ -25,7 +24,7 @@ def test_directmin_pw(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=DirectMin(converge_unocc=True),
+                eigensolver='etdm-fdpw',
                 mixer={'backend': 'no-mixing'},
                 spinpol=True,
                 symmetry='off',
