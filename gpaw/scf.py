@@ -114,7 +114,7 @@ class SCFLoop:
             wfs.eigensolver.check_mom(wfs, dens)
             e_entropy = 0.0
             kin_en_using_band = False
-        elif self.eigensolver_name == 'directmin':
+        elif self.eigensolver_name == 'etdm-fdpw':
             # we need to check each time if initialization is needed
             # as sometimes one need to erase the memory in L-BFGS
             # or mom can require restart if it detects the collapse
@@ -142,7 +142,7 @@ class SCFLoop:
 
         to_update = self.niter > self.niter_fixdensity and not dens.fixed
         if self.eigensolver_name == 'etdm' \
-                or self.eigensolver_name == 'directmin' \
+                or self.eigensolver_name == 'etdm-fdpw' \
                 or not to_update:
             ham.npoisson = 0
         else:

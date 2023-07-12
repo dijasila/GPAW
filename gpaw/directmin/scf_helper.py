@@ -29,7 +29,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
 
         log('\nOccupied states converged after'
             ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
-    elif eigensolver_name == 'directmin':
+    elif eigensolver_name == 'etdm-fdpw':
         solver = wfs.eigensolver
         occ_name = getattr(wfs.occupations, 'name', None)
         if wfs.mode == 'fd' or wfs.mode == 'pw':
@@ -92,7 +92,7 @@ def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
 
     solver = wfs.eigensolver
     name = eigensolver_name
-    if name == 'etdm' or name == 'directmin':
+    if name == 'etdm' or name == 'etdm-fdpw':
         solver.eg_count = 0
         solver.globaliters = 0
 

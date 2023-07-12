@@ -54,7 +54,7 @@ class FDPWETDM(Eigensolver):
 
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
-        self.name = 'directmin'
+        self.name = 'etdm-fdpw'
         self.use_prec = use_prec
         self.func_settings = functional_settings
         self.localizationtype = localizationtype
@@ -144,7 +144,7 @@ class FDPWETDM(Eigensolver):
         Convert to dictionary, needs for saving and loading gpw
         :return:
         """
-        return {'name': 'directmin',
+        return {'name': 'etdm-fdpw',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
                 'converge_unocc': self.converge_unocc,
