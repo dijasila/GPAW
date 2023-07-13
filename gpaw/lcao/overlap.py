@@ -463,7 +463,7 @@ class FourierTransformer:
         self.Q = 2 * Nq
 
     def transform(self, spline):
-        """Fourier-Bessel transform a spline.
+        """Spherical Fourier-Bessel transform a given radial function f(r).
 
         Calculates
                  rc
@@ -476,12 +476,11 @@ class FourierTransformer:
                                                    self.rcmax)
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
-        print(len(self.r_g), len(self.k_q))
         f_q = fbt(l, f_g, self.r_g, self.k_q)
         return f_q
 
     def rescaled_transform(self, spline):
-        """Perform a rescaled Fourier-Bessel transform of a spline.
+        """Perform a rescaled spherical Fourier-Bessel transform.
 
         Calculates
 
@@ -515,7 +514,7 @@ class FourierTransformer:
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
         prefactor = 4 * pi * rescaled_bessel_limit(l) * self.dr
-        return prefactor * np.dot(f_g, self.r_g**(2 * l + 2))
+        return prefactor * np.dot(self.r_g**(2 * l + 2), f_g)
 
     def calculate_overlap_expansion(self, phit1phit2_q, l1, l2):
         """Calculate list of splines for one overlap integral.
