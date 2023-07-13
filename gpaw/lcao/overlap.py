@@ -463,7 +463,7 @@ class FourierTransformer:
         self.Q = 2 * Nq
 
     def transform(self, spline):
-        """Spherical Fourier-Bessel transform a given radial function f(r).
+        """Fourier-Bessel transform a given radial function f(r).
 
         Calculates
                  rc
@@ -480,7 +480,7 @@ class FourierTransformer:
         return f_q
 
     def rescaled_transform(self, spline):
-        """Perform a rescaled spherical Fourier-Bessel transform.
+        """Perform a rescaled Fourier-Bessel transform of f(r).
 
         Calculates
 
@@ -501,7 +501,7 @@ class FourierTransformer:
         return f_q
 
     def calculate_rescaled_average(self, spline):
-        """Calculate the rescaled ransform for k=0.
+        """Calculate the rescaled transform for k=0.
 
         Calculates
 

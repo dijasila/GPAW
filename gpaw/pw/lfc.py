@@ -10,7 +10,7 @@ from gpaw.utilities.blas import mmm
 
 
 def rescaled_fbt(spline, N=2**10):
-    """Rescaled spherical Fourier-Bessel transform."""
+    """Rescaled Fourier-Bessel transform."""
     # Fourier transform the spline, sampling it on a uniform grid
     rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
     assert spline.get_cutoff() <= rcut
