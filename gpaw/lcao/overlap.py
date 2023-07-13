@@ -75,8 +75,8 @@ for n in range(LMAX):
     C.append(c)
 
 
-def fbt(l, f, r, k):
-    """Fast Bessel transform.
+def fbt(l, f_g, r_g, k_q):
+    """Fast Fourier-Bessel transform.
 
     The following integral is calculated using l+1 FFTs::
 
@@ -89,13 +89,13 @@ def fbt(l, f, r, k):
                   0
     """
 
-    dr = r[1]
-    m = len(k)
-    g = np.zeros(m)
+    dr = r_g[1]
+    Nq = len(k_q)
+    g_q = np.zeros(Nq)
     for n in range(l + 1):
-        g += (dr * 2 * m * k**(l - n) *
-              ifft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
-    return g
+        g_q += (dr * 2 * Nq * k_q**(l - n) *
+                ifft(C[l][n] * f_g * r_g**(1 + l - n), 2 * Nq)[:Nq].real)
+    return g_q
 
 
 def rescaled_bessel_limit(l):
