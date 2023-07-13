@@ -93,7 +93,7 @@ def spherical_bessel(l, x_g):
              x^(l+1)  ‾‾
                       n=0
 
-    for non-negative real-valed x.
+    for non-negative real-valued x.
     """
     assert x_g.dtype == float and np.all(x_g >= 0)
     jl_g = np.zeros_like(x_g)
@@ -160,6 +160,7 @@ def ffbt(l, f_g, r_g, k_q):
     k(q) = ‾‾‾‾ q    for q=0,1,...,Q/2-1
            Q Δr
     """
+
     dr = r_g[1]
     Nq = len(k_q)
 
