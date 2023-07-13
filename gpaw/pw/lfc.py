@@ -9,7 +9,8 @@ from gpaw.spline import Spline
 from gpaw.utilities.blas import mmm
 
 
-def ft(spline, N=2**10):
+def rescaled_fbt(spline, N=2**10):
+    """Rescaled spherical Fourier-Bessel transform."""
     # Fourier transform the spline, sampling it on a uniform grid
     rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
     assert spline.get_cutoff() <= rcut
@@ -98,7 +99,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = ft(spline)
+                    f = rescaled_fbt(spline)
                     for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
@@ -370,7 +371,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = ft(spline)
+                    s = rescaled_fbt(spline)
                     G_G = self.pd.G2_qG[q]**0.5
                     f_G = []
                     dfdGoG_G = []
