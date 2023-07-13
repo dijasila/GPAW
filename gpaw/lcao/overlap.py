@@ -114,7 +114,7 @@ def spherical_bessel(l, x_g):
 
 
 def fbt(l, f_g, r_g, k_q):
-    """Fast Fourier-Bessel transform.
+    r"""Fast Fourier-Bessel transform.
 
     The following integral is calculated using l+1 FFTs::
 
@@ -125,6 +125,38 @@ def fbt(l, f_g, r_g, k_q):
                   |       l
                  /
                   0
+
+    Assuming that f(r)=0 ∀ r≥rc for some rc>0, the integral can be rewritten as
+    follows using the coefficient expansion of j_l(x) given above:
+
+           l
+           __        /  rc                        \
+           \   l-n   |  /      l-n+1       ikr    |
+    g(k) = /  k    Re<  | c   r      f(r) e    dr >
+           ‾‾        |  /  ln                     |
+           n=0       \  0                         /
+
+    With a uniform radial grid,
+
+    r(g) = g rc / N    for g=0,1,...,4N-1
+
+    the inner integral is evaluated using an FFT,
+
+    4N-1
+    __
+    \   ⎧    l-n+1      ⎫|        2πiqg/4N
+    /   |c   r     f(r) ||       e         Δr
+    ‾‾  ⎩ ln            ⎭|
+    g=0                   r=r(g)
+
+    where Δr=rc/N is the input grid spacing.
+
+    We evaluate the integral for q=0,1,...,4N-1, but return only the first 2N
+    frequencies, corresponding to the "positive" frequencies:
+
+             π
+    k(q) = ‾‾‾‾‾ q    for q=0,1,...,2N-1
+           2N Δr
     """
 
     dr = r_g[1]
