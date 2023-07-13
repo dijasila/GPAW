@@ -1081,9 +1081,7 @@ class FDPWETDM(Eigensolver):
         Foster-Boys or Edmiston-Ruedenberg functions.
 
         :param wfs:
-        :param dens:
         :param ham:
-        :param log:
         :return:
         """
         if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
