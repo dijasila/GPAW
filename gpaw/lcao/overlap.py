@@ -62,17 +62,55 @@ timer = nulltimer  # XXX global timer object, only for hacking
 
 UL = 'L'
 
-# Generate the coefficients for the Fourier-Bessel transform
-C = []
-a = 0.0 + 0.0j
-LMAX = 7
-for n in range(LMAX):
-    c = np.zeros(n + 1, complex)
-    for s in range(n + 1):
-        a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
-        a *= (-1.0j)**(n + 1)
-        c[s] = a
-    C.append(c)
+
+def generate_bessel_coefficients(lmax):
+    # Generate the coefficients for the Fourier-Bessel transform
+    C = []
+    a = 0.0 + 0.0j
+    for n in range(lmax + 1):
+        c = np.zeros(n + 1, complex)
+        for s in range(n + 1):
+            a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
+            a *= (-1.0j)**(n + 1)
+            c[s] = a
+        C.append(c)
+    return C
+
+
+c_ln = generate_bessel_coefficients(lmax=6)
+
+
+def spherical_bessel(l, x_g):
+    r"""Calculate the spherical Bessel function j_l(x).
+
+    Evaluates the spherical Bessel function via the expansion
+
+                      l
+                      __
+                1     \
+    j_l(x) = ‾‾‾‾‾‾‾  /  Re{ c_ln x^(l-n) e^(ix) }
+             x^(l+1)  ‾‾
+                      n=0
+
+    for non-negative real-valed x.
+    """
+    assert x_g.dtype == float and np.all(x_g >= 0)
+    jl_g = np.zeros_like(x_g)
+
+    # Mask out x = 0
+    x0_g = x_g < 1e-10
+    # j_0(x=0) = 1, j_l(x=0)=0 for l>0
+    if l == 0:
+        jl_g[x0_g] = 1.
+
+    # Evaluate j_l(x) using the coefficients
+    xpos_g = x_g[~x0_g]
+    for n in range(l + 1):
+        jl_g[~x0_g] += (c_ln[l][n] * xpos_g**(l - n)
+                        * np.exp(1.j * xpos_g)).real
+    jl_g[~x0_g] /= xpos_g**(l + 1)
+
+    return jl_g
 
 
 def fbt(l, f_g, r_g, k_q):
@@ -94,7 +132,7 @@ def fbt(l, f_g, r_g, k_q):
     g_q = np.zeros(Nq)
     for n in range(l + 1):
         g_q += (dr * 2 * Nq * k_q**(l - n) *
-                ifft(C[l][n] * f_g * r_g**(1 + l - n), 2 * Nq)[:Nq].real)
+                ifft(c_ln[l][n] * f_g * r_g**(1 + l - n), 2 * Nq)[:Nq].real)
     return g_q
 
 
