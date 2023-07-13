@@ -52,6 +52,7 @@ from ase.data import covalent_radii
 from ase.units import Bohr
 
 import _gpaw
+from gpaw import debug
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
@@ -138,33 +139,51 @@ def fbt(l, f_g, r_g, k_q):
 
     With a uniform radial grid,
 
-    r(g) = g rc / N    for g=0,1,...,4N-1
+    r(g) = g rc / N    for g=0,1,...,Q-1
 
     the inner integral is evaluated using an FFT,
 
-    4N-1
+    Q-1
     __
-    \   ⎧    l-n+1      ⎫|        2πiqg/4N
+    \   ⎧    l-n+1      ⎫|        2πiqg/Q
     /   |c   r     f(r) ||       e         Δr
     ‾‾  ⎩ ln            ⎭|
     g=0                   r=r(g)
 
-    where Δr=rc/N is the input grid spacing.
+    where Δr=rc/N is the input real-space grid spacing and Q≥2N to leave some
+    zero padding of f(r).
 
-    We evaluate the integral for q=0,1,...,4N-1, but return only the first 2N
+    We evaluate the integral for q=0,1,...,Q-1, but return only the first Q/2
     frequencies, corresponding to the "positive" frequencies:
 
-             π
-    k(q) = ‾‾‾‾‾ q    for q=0,1,...,2N-1
-           2N Δr
+            2π
+    k(q) = ‾‾‾‾ q    for q=0,1,...,Q/2-1
+           Q Δr
     """
-
     dr = r_g[1]
     Nq = len(k_q)
+
+    if debug:
+        # We assume a uniform real-space grid from r=0 to r=rc-Δr
+        assert r_g[0] == 0.
+        assert np.allclose(r_g[1:] - r_g[:-1], dr)
+        # We assume a uniform reciprocal-space grid, with a specific grid
+        # spacing in relation to Δr, starting from k=0 and including all the
+        # "positive frequencies"
+        assert k_q[0] == 0.
+        assert Nq >= len(r_g)
+        dk = pi / (Nq * dr)
+        assert np.allclose(k_q[1:] - k_q[:-1], dk)
+
+    # Perform the transform
     g_q = np.zeros(Nq)
     for n in range(l + 1):
-        g_q += (dr * 2 * Nq * k_q**(l - n) *
-                ifft(c_ln[l][n] * f_g * r_g**(1 + l - n), 2 * Nq)[:Nq].real)
+        g_q += (k_q**(l - n) *
+                # Use np.fft.ifft with Q=2Nq k-points (why?)
+                2 * Nq * ifft(
+                    c_ln[l][n] * r_g**(l - n + 1) * f_g, 2 * Nq)
+                # Take the real part of the Q/2 positive frequency points
+                [:Nq].real) * dr
     return g_q
 
 
@@ -431,15 +450,16 @@ class OppositeDirection(PairFilter):
 
 class FourierTransformer:
     def __init__(self, rcmax, ng):
+        """Construct the transformer with fbt-compliant grids."""
         self.ng = ng
         self.rcmax = rcmax
         self.dr = rcmax / self.ng
         self.r_g = np.arange(self.ng) * self.dr
         # Positive frequency grid
         Nq = 2 * self.ng
-        self.dk = pi / self.dr / Nq
+        self.dk = pi / (Nq * self.dr)
         self.k_q = np.arange(Nq) * self.dk
-        # Positive and negative frequency grid
+        # Number of positive and negative frequency grid points
         self.Q = 2 * Nq
 
     def transform(self, spline):
@@ -456,6 +476,7 @@ class FourierTransformer:
                                                    self.rcmax)
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
+        print(len(self.r_g), len(self.k_q))
         f_q = fbt(l, f_g, self.r_g, self.k_q)
         return f_q
 
