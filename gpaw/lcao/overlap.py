@@ -114,7 +114,7 @@ def spherical_bessel(l, x_g):
     return jl_g
 
 
-def fbt(l, f_g, r_g, k_q):
+def ffbt(l, f_g, r_g, k_q):
     r"""Fast Fourier-Bessel transform.
 
     The following integral is calculated using l+1 FFTs::
@@ -450,7 +450,7 @@ class OppositeDirection(PairFilter):
 
 class FourierTransformer:
     def __init__(self, rcmax, ng):
-        """Construct the transformer with fbt-compliant grids."""
+        """Construct the transformer with ffbt-compliant grids."""
         self.ng = ng
         self.rcmax = rcmax
         self.dr = rcmax / self.ng
@@ -476,7 +476,7 @@ class FourierTransformer:
                                                    self.rcmax)
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
-        f_q = fbt(l, f_g, self.r_g, self.k_q)
+        f_q = ffbt(l, f_g, self.r_g, self.k_q)
         return f_q
 
     def rescaled_transform(self, spline):
@@ -538,7 +538,7 @@ class FourierTransformer:
         k1[0] = 1.0
         a_q = phit1phit2_q
         for l in range(lmax % 2, lmax + 1, 2):
-            a_g = (8 * fbt(l, a_q * k1**(-2 - lmax - l), self.k_q, R) /
+            a_g = (8 * ffbt(l, a_q * k1**(-2 - lmax - l), self.k_q, R) /
                    R1**(2 * l + 1))
             if l == 0:
                 a_g[0] = 8 * np.sum(a_q * k1**(-lmax)) * self.dk
