@@ -365,9 +365,12 @@ class FourierTransformer:
         self.rcmax = rcmax
         self.dr = rcmax / self.ng
         self.r_g = np.arange(self.ng) * self.dr
-        self.Q = 4 * self.ng
-        self.dk = 2 * pi / self.Q / self.dr
-        self.k_q = np.arange(self.Q // 2) * self.dk
+        # Positive frequency grid
+        Nq = 2 * self.ng
+        self.dk = pi / self.dr / Nq
+        self.k_q = np.arange(Nq) * self.dk
+        # Positive and negative frequency grid
+        self.Q = 2 * Nq
 
     def transform(self, spline):
         """Fourier-Bessel transform a spline.
