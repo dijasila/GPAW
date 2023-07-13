@@ -98,6 +98,18 @@ def fbt(l, f, r, k):
     return g
 
 
+def rescaled_bessel_limit(l):
+    """Get the x->0 limit of a rescaled spherical bessel function.
+
+    Calculates the closed form solution to the limit
+
+         j_l(x)   2^l l!
+    lim  ‾‾‾‾‾‾ = ‾‾‾‾‾‾‾
+    x->0  x^l     (2l+1)!
+    """
+    return 2**l * fac(l) / fac(2 * l + 1)
+
+
 class BaseOverlapExpansionSet:
     def __init__(self, shape):
         self.shape = shape
@@ -361,11 +373,11 @@ class FourierTransformer:
         """Fourier-Bessel transform a spline.
 
         Calculates
-                       rc
-                       /
-        f(q) = k^(l+1) | r^2 dr j_l(qr) r^l f(r)
-                       /
-                       0
+                 rc
+                 /
+        f(k) = k | r^2 dr (kr)^l j_l(kr) f(r)
+                 /
+                 0
         """
         assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
                                                    self.rcmax)
@@ -373,6 +385,43 @@ class FourierTransformer:
         f_g = spline.map(self.r_g)
         f_q = fbt(l, f_g, self.r_g, self.k_q)
         return f_q
+
+    def rescaled_transform(self, spline):
+        """Perform a rescaled Fourier-Bessel transform of a spline.
+
+        Calculates
+
+                  rc
+        ˷         /         r^l
+        f(k) = 4π | r^2 dr  ‾‾‾ j_l(kr) f(r)
+                  /         k^l
+                  0
+        """
+        # Calculate f(k) and rescale for finite k
+        l = spline.get_angular_momentum_number()
+        f_q = self.transform(spline)
+        f_q[1:] *= 4 * pi / self.k_q[1:]**(2 * l + 1)
+
+        # Calculate k=0 contribution
+        f_q[0] = self.calculate_rescaled_average(spline)
+
+        return f_q
+
+    def calculate_rescaled_average(self, spline):
+        """Calculate the rescaled ransform for k=0.
+
+        Calculates
+
+                    rc
+        ˷           /                     j_l(kr)
+        f(k=0) = 4π | r^2 dr r^(2l)  lim  ‾‾‾‾‾‾‾ f(r)
+                    /               kr->0 (kr)^l
+                    0
+        """
+        l = spline.get_angular_momentum_number()
+        f_g = spline.map(self.r_g)
+        prefactor = 4 * pi * rescaled_bessel_limit(l) * self.dr
+        return prefactor * np.dot(f_g, self.r_g**(2 * l + 2))
 
     def calculate_overlap_expansion(self, phit1phit2_q, l1, l2):
         """Calculate list of splines for one overlap integral.

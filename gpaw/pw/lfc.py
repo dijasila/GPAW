@@ -1,4 +1,3 @@
-from math import factorial as fac
 from math import pi
 
 import _gpaw
@@ -15,22 +14,12 @@ def ft(spline, N=2**10):
     rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
     assert spline.get_cutoff() <= rcut
     transformer = FourierTransformer(rcut, N)
-    f_q = transformer.transform(spline)
-
-    # Renormalize transform at finite k
-    l = spline.get_angular_momentum_number()
-    f_q[1:] *= 4 * pi / transformer.k_q[1:]**(2 * l + 1)
-
-    # Calculate the k=0 component
-    dr, r_g = transformer.dr, transformer.r_g
-    f_g = spline.map(r_g)
-    f_q[0] = 4 * pi * (np.dot(f_g, r_g**(2 + 2 * l)) *
-                       dr * 2**l * fac(l) / fac(2 * l + 1))
+    f_q = transformer.rescaled_transform(spline)
 
     # Return spline representation of the transform
+    l = spline.get_angular_momentum_number()
     kmax = transformer.k_q[-1]
-    kspline = Spline(l, kmax, f_q)
-    return kspline
+    return Spline(l, kmax, f_q)
 
 
 class PWLFC(BaseLFC):
