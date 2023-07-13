@@ -383,30 +383,32 @@ docs:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
   needs:
     - build-latest
   tags:
-    - linux
+    - xeon24
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
     - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
-    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -x -r s --durations 30 --color=yes
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-serial:
+nightly-mpi-1:
   extends:
     - .nightly
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s
+    - pytest -n 4 --instafail -r s --durations 30 --color=yes
 
 
 nightly-mpi-2:
