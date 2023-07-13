@@ -358,6 +358,15 @@ class FourierTransformer:
         self.k_q = np.arange(self.Q // 2) * self.dk
 
     def transform(self, spline):
+        """Fourier-Bessel transform a spline.
+
+        Calculates
+                       rc
+                       /
+        f(q) = k^(l+1) | r^2 dr j_l(qr) r^l f(r)
+                       /
+                       0
+        """
         assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
                                                    self.rcmax)
         l = spline.get_angular_momentum_number()
