@@ -1,6 +1,6 @@
 import pytest
 
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, restart
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.etdm_fdpw import FDPWETDM
@@ -29,19 +29,24 @@ def test_pz_localization_pw(in_tmp_dir):
                              'eigenstates': np.inf,
                              'density': np.inf,
                              'minimum iterations': 0},
-                eigensolver=FDPWETDM(
-                    functional_settings={'name': 'PZ-SIC',
-                                         'scaling_factor': (0.5, 0.5)  # SIC/2
-                                         },
-                    localizationseed=42,
-                    localizationtype='KS_PZ',
-                    localization_tol=5e-2,
-                    g_tol=5.0e-2,
-                    converge_unocc=False),
+                eigensolver=FDPWETDM(converge_unocc=False),
                 mixer={'backend': 'no-mixing'},
                 symmetry='off',
                 spinpol=True
                 )
     H2O.calc = calc
+    H2O.get_potential_energy()
+    calc.write('h2o.gpw', mode='all')
+
+    H2O, calc = restart('h2o.gpw', txt='-')
+
+    calc.set(eigensolver=FDPWETDM(
+             functional_settings={'name': 'PZ-SIC',
+                                  'scaling_factor': (0.5, 0.5)},  # SIC/2
+             localizationseed=42,
+             localizationtype='KS_PZ',
+             localization_tol=5e-2,
+             g_tol=5.0e-2,
+             converge_unocc=False))
     e = H2O.get_potential_energy()
-    assert e == pytest.approx(-10.1, abs=0.1)
+    assert e == pytest.approx(-9.354554, abs=0.1)

@@ -1,6 +1,6 @@
 import pytest
 
-from gpaw import GPAW, PW
+from gpaw import GPAW, PW, restart
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.etdm_fdpw import FDPWETDM
@@ -69,7 +69,7 @@ def test_pwsic(in_tmp_dir):
 
     #
     calc.write('h2o.gpw', mode='all')
-    from gpaw import restart
+
     H2O, calc = restart('h2o.gpw', txt='-')
     H2O.positions += 1.0e-6
     f3 = H2O.get_forces()
