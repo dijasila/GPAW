@@ -3,7 +3,7 @@ from math import pi
 
 import _gpaw
 import numpy as np
-from gpaw.lcao.overlap import fbt
+from gpaw.lcao.overlap import FourierTransformer
 from gpaw.lfc import BaseLFC
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
@@ -11,22 +11,26 @@ from gpaw.utilities.blas import mmm
 
 
 def ft(spline, N=2**10):
+    # Fourier transform the spline, sampling it on a uniform grid
+    rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
+    assert spline.get_cutoff() <= rcut
+    transformer = FourierTransformer(rcut, N)
+    f_q = transformer.transform(spline)
+
+    # Renormalize transform at finite k
     l = spline.get_angular_momentum_number()
-    rc = 50.0
-    assert spline.get_cutoff() <= rc
+    f_q[1:] *= 4 * pi / transformer.k_q[1:]**(2 * l + 1)
 
-    dr = rc / N
-    r_r = np.arange(N) * dr
-    dk = pi / 2 / rc
-    k_q = np.arange(2 * N) * dk
-    f_r = spline.map(r_r) * (4 * pi)
+    # Calculate the k=0 component
+    dr, r_g = transformer.dr, transformer.r_g
+    f_g = spline.map(r_g)
+    f_q[0] = 4 * pi * (np.dot(f_g, r_g**(2 + 2 * l)) *
+                       dr * 2**l * fac(l) / fac(2 * l + 1))
 
-    f_q = fbt(l, f_r, r_r, k_q)
-    f_q[1:] /= k_q[1:]**(2 * l + 1)
-    f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac(l) / fac(2 * l + 1))
-
-    return Spline(l, k_q[-1], f_q)
+    # Return spline representation of the transform
+    kmax = transformer.k_q[-1]
+    kspline = Spline(l, kmax, f_q)
+    return kspline
 
 
 class PWLFC(BaseLFC):
