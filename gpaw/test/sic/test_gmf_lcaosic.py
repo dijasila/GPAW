@@ -9,7 +9,8 @@ from ase import Atoms
 import numpy as np
 
 
-def test_lcaosic_gmf_h2o(in_tmp_dir):
+@pytest.mark.sic
+def test_gmf_lcaosic(in_tmp_dir):
     """
     test Perdew-Zunger Self-Interaction
     Correction  in LCAO mode using DirectMin

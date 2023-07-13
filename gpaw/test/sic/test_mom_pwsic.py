@@ -8,7 +8,8 @@ from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 
 
-def test_pwsic_h2o(in_tmp_dir):
+@pytest.mark.sic
+def test_mom_pwsic(in_tmp_dir):
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * 104.51

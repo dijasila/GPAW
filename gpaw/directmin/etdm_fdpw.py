@@ -1085,6 +1085,9 @@ class FDPWETDM(Eigensolver):
         :return:
         """
         if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+            if wfs.read_from_file_init_wfs_dm:
+                if 'SIC' in self.func_settings['name']:
+                    self.need_localization = False
             return
 
         for kpt in wfs.kpt_u:

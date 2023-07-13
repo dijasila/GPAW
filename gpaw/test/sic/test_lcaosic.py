@@ -6,7 +6,7 @@ from ase import Atoms
 import numpy as np
 
 
-def test_lcaosic_h2o(in_tmp_dir):
+def test_lcaosic(in_tmp_dir):
     """
     Test Perdew-Zunger Self-Interaction
     Correction  in LCAO mode using ETDM

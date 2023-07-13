@@ -990,6 +990,7 @@ def pytest_configure(config):
         'rpa: tests of RPA',
         'rttddft: Real-time TDDFT',
         'serial: run in serial only',
+        'sic: PZ-SIC',
         'slow: slow test',
         'soc: Spin-orbit coupling',
         'stress: Calculation of stress tensor',
