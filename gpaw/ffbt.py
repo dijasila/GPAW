@@ -232,7 +232,7 @@ class FourierBesselTransformer:
         return prefactor * np.dot(self.r_g**(2 * l + 2), f_g)
 
 
-def rescaled_fbt(spline, N=2**10):
+def rescaled_fourier_bessel_transform(spline, N=2**10):
     """Calculate rescaled Fourier-Bessel transform in spline representation."""
     # Fourier transform the spline, sampling it on a uniform grid
     rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
