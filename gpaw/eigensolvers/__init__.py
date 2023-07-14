@@ -6,6 +6,7 @@ from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.directmin.etdm_fdpw import FDPWETDM
+from gpaw.directmin.etdm import ETDM
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):
@@ -18,8 +19,6 @@ def get_eigensolver(eigensolver, mode, convergence=None):
 
     if isinstance(eigensolver, str):
         eigensolver = {'name': eigensolver}
-
-    from gpaw.directmin.etdm import ETDM
 
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()

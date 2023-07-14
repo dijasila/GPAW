@@ -37,7 +37,7 @@ def test_pwsic(in_tmp_dir):
                     localizationtype='FB_ER',
                     g_tol=5.0e-3,
                     maxiter=200,
-                    printinnerloop=True),
+                    printinnerloop=False),
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 symmetry='off',

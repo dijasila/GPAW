@@ -32,7 +32,8 @@ def test_mom_directopt_pw(in_tmp_dir):
     calc.write('h2o.gpw', mode='all')
 
     # Triplet excited state calculation
-    calc.set(eigensolver=FDPWETDM(exstopt=True))
+    calc.set(eigensolver=FDPWETDM(exstopt=True,
+                                  need_init_orbs=False))
     f_sn = excite(calc, 0, 1, (0, 1), sort=True)
     prepare_mom_calculation(calc, atoms, f_sn)
 
@@ -41,6 +42,8 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     # Mixed-spin excited state calculation
     atoms, calc = restart('h2o.gpw', txt='-')
+    # Don't need to set need_init_orbs=False when restarting
+    # from file
     calc.set(eigensolver=FDPWETDM(exstopt=True,
                                   printinnerloop=True))
     f_sn = excite(calc, 0, 0, (0, 0), sort=True)
@@ -55,7 +58,6 @@ def test_mom_directopt_pw(in_tmp_dir):
     f2 = np.array([[-4.070454, -5.464042, -0.000266],
                    [5.571928, -0.100377, 0.000202],
                    [-1.528699, 5.384741, 0.000204]])
-
     assert f2 == pytest.approx(f, abs=3e-2)
 
     numeric = False

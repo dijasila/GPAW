@@ -29,6 +29,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
 
         log('\nOccupied states converged after'
             ' {:d} e/g evaluations'.format(wfs.eigensolver.eg_count))
+
     elif eigensolver_name == 'etdm-fdpw':
         solver = wfs.eigensolver
         occ_name = getattr(wfs.occupations, 'name', None)

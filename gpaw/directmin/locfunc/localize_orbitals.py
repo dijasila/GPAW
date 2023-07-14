@@ -15,28 +15,31 @@ def localize_orbitals(
     if io is None:
         return
 
-    if tol is None:
-        if io == 'pm':
-            tol = 1.0e-6
-        elif io == 'pz':
-            tol = 5.0e-4
-        else:
-            tol = 1.0e-10
     locnames = io.lower().split('_')
+    if tol is not None:
+        tols = {name: tol for name in locnames}
+    else:
+        tols = {'er': 5.0e-5,
+                'pm': 1.0e-10,
+                'fb': 1.0e-10,
+                'pz': 5.0e-4,
+                'ks': 5.0e-4}
 
-    log("Initial Localization: ...", flush=True)
+    log("Initial localization: ...", flush=True)
     wfs.timer.start('Initial Localization')
     for name in locnames:
+        tol = tols[name]
         if name == 'er':
             if wfs.mode == 'lcao':
-                log('Edmiston-Ruedenberg loc. is not supproted in LCAO',
+                log('Edmiston-Ruedenberg localization is not supported '
+                    'in LCAO',
                     flush=True)
                 continue
             log('Edmiston-Ruedenberg localization started',
                 flush=True)
             dm = FDPWETDMLocalize(
                 ERL(wfs, dens), wfs,
-                maxiter=200, g_tol=5.0e-5, randval=0.1)
+                maxiter=200, g_tol=tol, randval=0.1)
             dm.run(wfs, dens, seed=seed)
             log('Edmiston-Ruedenberg localization finished',
                 flush=True)
@@ -60,27 +63,31 @@ def localize_orbitals(
             dm.run(wfs, dens, log, ham=ham)
             log('ETDM minimization finished', flush=True)
         else:
-            for kpt in wfs.kpt_u:
+            for k, kpt in enumerate(wfs.kpt_u):
                 if sum(kpt.f_n) < 1.0e-3:
                     continue
                 if name == 'pm':
-                    log('Pipek-Mezey localization started',
-                        flush=True)
+                    if k == 0:
+                        log('Pipek-Mezey localization started',
+                            flush=True)
                     lf_obj = PipekMezey(
                         wfs=wfs, spin=kpt.s, dtype=wfs.dtype, seed=seed)
                     lf_obj.localize(tolerance=tol)
-                    log('Pipek-Mezey localization finished',
-                        flush=True)
+                    if k == 0:
+                        log('Pipek-Mezey localization finished',
+                            flush=True)
                     U = np.ascontiguousarray(
                         lf_obj.W_k[kpt.q].T)
                 elif name == 'fb':
-                    log('Foster-Boys localization started',
-                        flush=True)
+                    if k == 0:
+                        log('Foster-Boys localization started',
+                            flush=True)
                     lf_obj = WannierLocalization(
                         wfs=wfs, spin=kpt.s, seed=seed)
                     lf_obj.localize(tolerance=tol)
-                    log('Foster-Boys localization finsihed',
-                        flush=True)
+                    if k == 0:
+                        log('Foster-Boys localization finished',
+                            flush=True)
                     U = np.ascontiguousarray(
                         lf_obj.U_kww[kpt.q].T)
                     if wfs.dtype == float:

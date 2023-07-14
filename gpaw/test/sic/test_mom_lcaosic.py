@@ -1,6 +1,6 @@
 import pytest
 
-from gpaw import GPAW, LCAO
+from gpaw import GPAW, LCAO, restart
 from ase import Atoms
 import numpy as np
 from gpaw.directmin.etdm import ETDM
@@ -9,7 +9,7 @@ from gpaw.mom import prepare_mom_calculation
 
 
 @pytest.mark.sic
-def test_mom_pwsic(in_tmp_dir):
+def test_mom_lcaosic(in_tmp_dir):
     # Water molecule:
     d = 0.9575
     t = np.pi / 180 * 104.51
@@ -38,6 +38,11 @@ def test_mom_pwsic(in_tmp_dir):
     f_sn = excite(calc, 0, 0, (0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
+
+    test_restart = False
+    if test_restart:
+        calc.write('h2o.gpw', mode='all')
+        H2O, calc = restart('h2o.gpw', txt='-')
 
     calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
                               linesearch_algo={'name': 'max-step'},

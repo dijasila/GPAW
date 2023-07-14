@@ -38,7 +38,7 @@ class FDPWETDM(Eigensolver):
                  need_localization=True,
                  localization_tol=None,
                  maxiter=50,
-                 maxiterxst=10,
+                 maxiterxst=333,
                  maxstepxst=0.2,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
@@ -72,6 +72,7 @@ class FDPWETDM(Eigensolver):
 
         self.total_eg_count_iloop = 0
         self.total_eg_count_outer_iloop = 0
+        self.initial_random = True
 
         if self.sda is None:
             self.sda = 'LBFGS'
@@ -147,12 +148,24 @@ class FDPWETDM(Eigensolver):
         return {'name': 'etdm-fdpw',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
-                'converge_unocc': self.converge_unocc,
-                'localizationtype': self.localizationtype,
                 'use_prec': self.use_prec,
                 'functional_settings': self.func_settings,
+                'need_init_orbs': self.need_init_orbs,
+                'localizationtype': self.localizationtype,
+                'localizationseed': self.localizationseed,
+                'need_localization': self.need_localization,
+                'localization_tol': self.localization_tol,
                 'maxiter': self.maxiter,
-                'g_tol': self.g_tol
+                'maxiterxst': self.maxiterxst,
+                'maxstepxst': self.maxstepxst,
+                'kappa_tol': self.kappa_tol,
+                'g_tol': self.g_tol,
+                'g_tolxst': self.g_tolxst,
+                'momevery': self.momevery,
+                'printinnerloop': self.printinnerloop,
+                'blocksize': self.blocksize,
+                'converge_unocc': self.converge_unocc,
+                'exstopt': self.exstopt
                 }
 
     def init_me(self, wfs, ham, dens, log):
@@ -976,7 +989,7 @@ class FDPWETDM(Eigensolver):
                     ' {:d} iterations'.format(self.iters))
                 break
             if self.iters >= max_iter:
-                log('\nUnoccupied orbitals did not converged after'
+                log('\nUnoccupied orbitals did not converge after'
                     ' {:d} iterations'.format(self.iters))
 
         self.initialized = False
@@ -1012,12 +1025,12 @@ class FDPWETDM(Eigensolver):
                 etotal = ham.get_energy(
                     0.0, wfs, kin_en_using_band=False, e_sic=self.e_sic)
                 eks = etotal - self.e_sic
-            if wfs.read_from_file_init_wfs_dm:
-                intital_random = False
+            if self.initial_random and self.iters == 1:
+                small_random = True
             else:
-                intital_random = True
+                small_random = False
             self.e_sic, counter = self.iloop.run(
-                eks, wfs, dens, log, niter, small_random=intital_random,
+                eks, wfs, dens, log, niter, small_random=small_random,
                 seed=self.localizationseed)
             self.total_eg_count_iloop += self.iloop.eg_count
 
@@ -1084,18 +1097,28 @@ class FDPWETDM(Eigensolver):
         :param ham:
         :return:
         """
-        if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
-            if wfs.read_from_file_init_wfs_dm:
-                if 'SIC' in self.func_settings['name']:
-                    self.need_localization = False
-            return
+        if self.need_init_orbs and not wfs.read_from_file_init_wfs_dm:
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                super(FDPWETDM, self).subspace_diagonalize(
+                    ham, wfs, kpt, True)
+                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            self.need_init_orbs = False
+        if wfs.read_from_file_init_wfs_dm:
+            self.initial_random = False
 
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            super(FDPWETDM, self).subspace_diagonalize(
-                ham, wfs, kpt, True)
-            wfs.gd.comm.broadcast(kpt.eps_n, 0)
-        self.need_init_orbs = False
+        # if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+        #     if wfs.read_from_file_init_wfs_dm:
+        #         if 'SIC' in self.func_settings['name']:
+        #             self.need_localization = False
+        #     return
+        #
+        # for kpt in wfs.kpt_u:
+        #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+        #     super(FDPWETDM, self).subspace_diagonalize(
+        #         ham, wfs, kpt, True)
+        #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+        # self.need_init_orbs = False
 
     def localize_wfs(self, wfs, dens, ham, log):
         if not self.need_localization:

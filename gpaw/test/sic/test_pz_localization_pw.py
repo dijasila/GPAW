@@ -49,4 +49,4 @@ def test_pz_localization_pw(in_tmp_dir):
              g_tol=5.0e-2,
              converge_unocc=False))
     e = H2O.get_potential_energy()
-    assert e == pytest.approx(-9.354554, abs=0.1)
+    assert e == pytest.approx(-10.118236, abs=0.1)

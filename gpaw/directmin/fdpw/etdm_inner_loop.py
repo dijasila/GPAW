@@ -305,6 +305,10 @@ class ETDMInnerLoop:
                     self.counter < self.n_counter
                 if not g_max > self.g_tol:
                     self.converged = True
+                elif self.counter >= self.n_counter:
+                    from gpaw import KohnShamConvergenceError
+                    raise KohnShamConvergenceError(
+                        'ETDM Inner Loop did not converge')
             else:
                 break
 
@@ -373,7 +377,7 @@ class ETDMInnerLoop:
                 for kpt in wfs.kpt_u:
                     sort_orbitals_according_to_occ_kpt(wfs, kpt)
             if self.changedocc:
-                self.restart = 1
+                self.odd_pot.restart = 1
         self.momcounter += 1
 
     def kpointval(self, kpt):
