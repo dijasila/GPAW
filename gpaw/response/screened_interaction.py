@@ -388,9 +388,7 @@ class MPAHWModel(HWModel):
         dx_GG = 2*self.factor*np.sum(W_nGG * (xp_nGG-xm_nGG)/(2*eps), axis=0) # Why 2 here
         
 
-        return x_GG.conj(), dx_GG.conj()
-        #return x_GG.T.conj(), dx_GG.T.conj()
-#######
+        return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
 
 class PPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
@@ -488,7 +486,7 @@ class MPACalculator(WBaseCalculator):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
-        W_nGG = np.transpose(W_nGG, axes=(0,2,1))
+        W_nGG = np.transpose(W_nGG, axes=(0,2,1))  # Why we need to do the transpose
         omegat_nGG = np.transpose(omegat_nGG, axes=(0,2,1))
 
         W_nGG = chi0.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
