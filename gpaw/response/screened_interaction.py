@@ -463,7 +463,7 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
         
-        einv_WgG = chi0.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
+        einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
 
         nG1 = einv_WgG.shape[1]
         nG2 = einv_WgG.shape[2]
@@ -478,8 +478,8 @@ class MPACalculator(WBaseCalculator):
 
                 #print('fails',PPcond_rate)
 
-        R_nGG = chi0.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
-        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'wGG')
+        R_nGG = chi0.body.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
+        omegat_nGG = chi0.body.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'wGG')
 
         W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
         
@@ -491,8 +491,8 @@ class MPACalculator(WBaseCalculator):
         W_nGG = np.transpose(W_nGG, axes=(0,2,1))  # Why we need to do the transpose
         omegat_nGG = np.transpose(omegat_nGG, axes=(0,2,1))
 
-        W_nGG = chi0.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
-        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'WgG')
+        W_nGG = chi0.body.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
+        omegat_nGG = chi0.body.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'WgG')
 
         self.context.timer.stop('Dyson eq.')
 
