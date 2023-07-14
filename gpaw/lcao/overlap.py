@@ -328,7 +328,7 @@ class FourierTransformer(FourierBesselTransformer):
         """
         lmax = l1 + l2
         splines = []
-        R = np.arange(self.Q // 2) * self.dr
+        R = np.arange(self.Q) * self.dr
         R1 = R.copy()
         R1[0] = 1.0
         k1 = self.k_q.copy()
@@ -343,7 +343,7 @@ class FourierTransformer(FourierBesselTransformer):
                 a_g[0] = a_g[1]  # XXXX
             a_g *= (-1)**((l1 - l2 - l) // 2)
             n = len(a_g) // 256
-            s = Spline(l, 2 * self.rcmax, np.concatenate((a_g[::n], [0.0])))
+            s = Spline(l, 2 * self.rcut, np.concatenate((a_g[::n], [0.0])))
             splines.append(s)
         return OverlapExpansion(l1, l2, splines)
 
@@ -608,10 +608,8 @@ class NewTwoCenterIntegrals:
                           for s in setups]
         self.atoms_close = NeighborPairs(cutoff_close_a, cell_cv, pbc_c, False)
 
-        rcmax = max(cutoff_I + [0.001])
-
-        ng = 2**10
-        transformer = FourierTransformer(rcmax, ng)
+        rcut = max(cutoff_I + [0.001])
+        transformer = FourierTransformer(rcut, N=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         self.calculate_expansions()

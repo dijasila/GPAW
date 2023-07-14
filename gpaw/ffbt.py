@@ -164,18 +164,17 @@ def rescaled_bessel_limit(l):
 
 
 class FourierBesselTransformer:
-    def __init__(self, rcmax, ng):
+    def __init__(self, rcut, N):
         """Construct the transformer with ffbt-compliant grids."""
-        self.ng = ng
-        self.rcmax = rcmax
-        self.dr = rcmax / self.ng
-        self.r_g = np.arange(self.ng) * self.dr
-        # Positive frequency grid
-        Nq = 2 * self.ng
-        self.dk = np.pi / (Nq * self.dr)
-        self.k_q = np.arange(Nq) * self.dk
-        # Number of positive and negative frequency grid points
-        self.Q = 2 * Nq
+        # Set up radial real-space grid with N points
+        self.N = N
+        self.rcut = rcut
+        self.dr = rcut / self.N
+        self.r_g = np.arange(self.N) * self.dr
+        # Set up radial reciprocal-space grid with Q=2N points
+        self.Q = 2 * self.N
+        self.dk = np.pi / (self.Q * self.dr)  # Use only "positive frequencies"
+        self.k_q = np.arange(self.Q) * self.dk
 
     def transform(self, spline):
         """Fourier-Bessel transform a given radial function f(r).
@@ -187,8 +186,8 @@ class FourierBesselTransformer:
                  /
                  0
         """
-        assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
-                                                   self.rcmax)
+        assert spline.get_cutoff() <= self.rcut,\
+            f'Incompatible cutoffs {spline.get_cutoff()} and {self.rcut}'
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
         f_q = ffbt(l, f_g, self.r_g, self.k_q)
