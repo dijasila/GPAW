@@ -1,32 +1,26 @@
-from math import factorial as fac
 from math import pi
 
 import _gpaw
 import numpy as np
-from gpaw.lcao.overlap import fbt
+from gpaw.lcao.overlap import FourierTransformer
 from gpaw.lfc import BaseLFC
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.spline import Spline
 from gpaw.utilities.blas import mmm
 
 
-def ft(spline, N=2**10):
+def rescaled_fbt(spline, N=2**10):
+    """Rescaled Fourier-Bessel transform."""
+    # Fourier transform the spline, sampling it on a uniform grid
+    rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
+    assert spline.get_cutoff() <= rcut
+    transformer = FourierTransformer(rcut, N)
+    f_q = transformer.rescaled_transform(spline)
+
+    # Return spline representation of the transform
     l = spline.get_angular_momentum_number()
-    rc = 50.0
-    assert spline.get_cutoff() <= rc
-
-    dr = rc / N
-    r_r = np.arange(N) * dr
-    dk = pi / 2 / rc
-    k_q = np.arange(2 * N) * dk
-    f_r = spline.map(r_r) * (4 * pi)
-
-    f_q = fbt(l, f_r, r_r, k_q)
-    f_q[1:] /= k_q[1:]**(2 * l + 1)
-    f_q[0] = (np.dot(f_r, r_r**(2 + 2 * l)) *
-              dr * 2**l * fac(l) / fac(2 * l + 1))
-
-    return Spline(l, k_q[-1], f_q)
+    kmax = transformer.k_q[-1]
+    return Spline(l, kmax, f_q)
 
 
 class PWLFC(BaseLFC):
@@ -105,7 +99,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = ft(spline)
+                    f = rescaled_fbt(spline)
                     for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
@@ -377,7 +371,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = ft(spline)
+                    s = rescaled_fbt(spline)
                     G_G = self.pd.G2_qG[q]**0.5
                     f_G = []
                     dfdGoG_G = []

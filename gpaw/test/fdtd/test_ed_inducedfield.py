@@ -68,6 +68,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                    eigensolver='cg',
                    nbands=-1,
                    poissonsolver=poissonsolver,
+                   symmetry={'point_group': False},
                    convergence={'energy': energy_eps,
                                 'density': density_eps})
     atoms.calc = gs_calc

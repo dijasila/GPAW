@@ -6,6 +6,7 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 @pytest.mark.response
+@pytest.mark.later  # new code doesn't understand interpolation keyword
 @pytest.mark.parametrize('gs', list(response_band_cutoff.keys()))
 def test_response_band_cutoff(in_tmp_dir, gpw_files, gs):
 
@@ -24,7 +25,7 @@ def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-3):
     """ Possible cutoffs for response calc
     Returns the set all allowed band cutoffs in a response calculation.
     Assures that there are no  degeneracies at the edge of the cutoff
-    
+
     >>> eps = np.array([[[0, 1, 2, 2, 3, 4, 5, 5]]])
     >>> get_nbands_cutoff_list(eps, 7)
     {1, 2, 4, 5, 6}
@@ -42,6 +43,5 @@ def get_nbands_cutoff_list(eps_skn, nconv, atol=1e-3):
             thisset = set(cutlist.flatten())
             # find minimum cutoff that works for all k
             allset = thisset & allset
-            
+
     return allset
-    

@@ -168,7 +168,7 @@ class G0W0Outputs:
         self.sigma_skn = np.zeros(shape)
         self.dsigma_skn = np.zeros(shape)
         invN_i = ecut_e**(-3. / 2)
-        for m in range(np.product(shape)):
+        for m in range(np.prod(shape)):
             s, k, n = np.unravel_index(m, shape)
 
             slope, intercept, r_value, p_value, std_err = \
@@ -788,7 +788,7 @@ class G0W0Calculator:
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.chi0calc.wd)
 
-        size = self.chi0calc.blockcomm.size
+        size = self.chi0calc.integrator.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
@@ -928,7 +928,7 @@ class G0W0Calculator:
                     chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
         # Create a blocks1d for the reduced plane-wave description
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
+        blocks1d = Blocks1D(chi0.body.blockdist.blockcomm, rqpd.ngmax)
 
         return rqpd, Wdict, blocks1d, chi0calc.pawcorr
 
@@ -1184,7 +1184,7 @@ class G0W0(G0W0Calculator):
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
-        coulomb = CoulombKernel(truncation, gs)
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         # XXX eta needs to be converted to Hartree here,
         # XXX and it is also converted to Hartree at superclass constructor
         # XXX called below. This needs to be cleaned up.

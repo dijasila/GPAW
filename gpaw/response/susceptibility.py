@@ -97,7 +97,8 @@ class ChiFactory:
             # No Hartree term in Dyson equation
             return None
         else:
-            return get_coulomb_kernel(qpd, self.gs.kd.N_c)
+            return get_coulomb_kernel(qpd, self.gs.kd.N_c,
+                                      pbc_c=self.gs.atoms.get_pbc())
 
     def get_xc_kernel(self,
                       fxc: str,

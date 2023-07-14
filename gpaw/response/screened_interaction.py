@@ -187,13 +187,13 @@ class WCalculator(WBaseCalculator):
         W_wGG = self.calculate_W_wGG(chi0, fxc_mode,
                                      only_correlation=only_correlation)
         
-        W_WgG = chi0.blockdist.distribute_as(W_wGG, chi0.nw, 'WgG')
+        W_WgG = chi0.body.blockdist.distribute_as(W_wGG, chi0.body.nw, 'WgG')
         return W_WgG
 
     def calculate_W_wGG(self, chi0, fxc_mode='GW',
                         only_correlation=False):
         """In-place calculation of the screened interaction."""
-        chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
         dfc = DielectricFunctionCalculator(chi0, self.coulomb,
                                            self.xckernel, fxc_mode)
         self.context.timer.start('Dyson eq.')

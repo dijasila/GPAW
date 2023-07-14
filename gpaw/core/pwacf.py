@@ -2,7 +2,6 @@ from __future__ import annotations
 from math import pi
 
 import _gpaw
-import gpaw.gpu.kernels as gpu_kernels
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
@@ -10,7 +9,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
-from gpaw.pw.lfc import ft
+from gpaw.pw.lfc import rescaled_fbt
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from typing import TYPE_CHECKING
@@ -139,7 +138,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = ft(spline)
+                    f = rescaled_fbt(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     self.f_Gs[:, s] = xp.asarray(f.map(G_G))
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -239,13 +238,17 @@ class PWLFC(BaseLFC):
             _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                                self.l_s, self.a_J, self.s_J,
                                cc, f_GI)
-            return f_GI
-        elif cupy_is_fake or getattr(_gpaw, 'gpu_aware_mpi', False):
-            gpu_kernels.pwacf_expand(f_Gs, emiGR_Ga, Y_GL,
-                                     self.l_s, self.a_J, self.s_J,
-                                     cc, f_GI, self.I_J)
-            return f_GI
+        elif cupy_is_fake:
+            _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
+                               self.l_s._data, self.a_J._data, self.s_J._data,
+                               cc, f_GI._data)
+        else:
+            _gpaw.pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
+                                   self.l_s, self.a_J, self.s_J,
+                                   cc, f_GI, self.I_J)
+        return f_GI
 
+        # XXX This is never reachable
         # Equivalent slow Python code:
         f_GI = xp.empty((G2 - G1, self.nI), complex)
         I1 = 0
@@ -427,7 +430,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = ft(spline)
+                    s = rescaled_fbt(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     f_G = []
                     dfdGoG_G = []
