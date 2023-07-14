@@ -101,32 +101,34 @@ def ffbt(l, f_g, r_g, k_q):
            ‾‾      |  /  lm                    |
            m=0     \  0                        /
 
-    With a uniform radial grid,
+    For a given uniform radial real-space grid,
 
-    r(g) = g rc / N    for g=0,1,...,Q-1
+    r(g) = g rc / N    for g=0,1,...,N-1
 
-    the inner integral is evaluated using an FFT,
+    we can evaluate the inner integral for values of k on a uniform radial
+    reciprocal-space grid of length Q≥N,
 
-    Q-1
+            π
+    k(q) = ‾‾‾‾ q    for q=0,1,...,Q-1
+           Q Δr
+
+    by applying the Fast-Fourier-Transform on a 2Q length grid, including also
+    the corresponding "negative frequency" k-points:
+
+    2Q-1
     __
-    \   ⎧     m+1      ⎫|        -2πiqg/Q
-    /   |c   r    f(r) ||       e         Δr
+    \   ⎧     m+1      ⎫|        -2πiqg/2Q
+    /   |c   r    f(r) ||       e          Δr
     ‾‾  ⎩ lm           ⎭|
     g=0                  r=r(g)
 
-    where Δr=rc/N is the input real-space grid spacing and Q≥2N to leave some
-    zero padding of f(r).
-
-    We evaluate the integral for q=0,1,...,Q-1, but return only the first Q/2
-    frequencies, corresponding to the "positive" frequencies:
-
-            2π
-    k(q) = ‾‾‾‾ q    for q=0,1,...,Q/2-1
-           Q Δr
+    The "negative frequency" k-points are there only for the sake of the FFT
+    and only the "positive frequency" k-points, corresponding to the radial
+    reciprocal space grid, are returned.
     """
 
     dr = r_g[1]
-    Nq = len(k_q)
+    Q = len(k_q)
 
     if debug:
         # We assume a uniform real-space grid from r=0 to r=rc-Δr
@@ -136,18 +138,19 @@ def ffbt(l, f_g, r_g, k_q):
         # spacing in relation to Δr, starting from k=0 and including all the
         # "positive frequencies"
         assert k_q[0] == 0.
-        assert Nq >= len(r_g)
-        dk = np.pi / (Nq * dr)
+        assert Q >= len(r_g)
+        dk = np.pi / (Q * dr)
         assert np.allclose(k_q[1:] - k_q[:-1], dk)
 
     # Perform the transform
-    g_q = np.zeros(Nq)
+    g_q = np.zeros(Q)
     for m in range(l + 1):
         g_q += (k_q**m *
-                # FFT with Q=2Nq k-points (why?)
-                np.fft.fft(c_lm[l][m] * r_g**(m + 1) * f_g, 2 * Nq)
-                # Take the real part of the Q/2 positive frequency points
-                [:Nq].real) * dr
+                # Perform FFT with 2Q grid points (numpy automatically pads
+                # the integrand with zeros for g≥N, that is for r≥rc)
+                np.fft.fft(c_lm[l][m] * r_g**(m + 1) * f_g, 2 * Q)
+                # Use the real part of the Q positive frequency points
+                [:Q].real) * dr
     return g_q
 
 
