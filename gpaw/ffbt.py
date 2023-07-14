@@ -1,6 +1,5 @@
 from math import factorial as fac
 import numpy as np
-from numpy.fft import ifft
 
 from gpaw import debug
 from gpaw.spline import Spline
@@ -13,8 +12,8 @@ def generate_bessel_coefficients(lmax):
     for n in range(lmax + 1):
         c = np.zeros(n + 1, complex)
         for s in range(n + 1):
-            a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
-            a *= (-1.0j)**(n + 1)
+            a = (-1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
+            a *= (1.0j)**(n + 1)
             c[s] = a
         C.append(c)
     return C
@@ -31,7 +30,7 @@ def spherical_bessel(l, x_g):
                       l
                       __
                 1     \
-    j_l(x) = ‾‾‾‾‾‾‾  /  Re{ c_ln x^(l-n) e^(ix) }
+    j_l(x) = ‾‾‾‾‾‾‾  /  Re{ c_ln x^(l-n) e^(-ix) }
              x^(l+1)  ‾‾
                       n=0
 
@@ -50,7 +49,7 @@ def spherical_bessel(l, x_g):
     xpos_g = x_g[~x0_g]
     for n in range(l + 1):
         jl_g[~x0_g] += (c_ln[l][n] * xpos_g**(l - n)
-                        * np.exp(1.j * xpos_g)).real
+                        * np.exp(-1.j * xpos_g)).real
     jl_g[~x0_g] /= xpos_g**(l + 1)
 
     return jl_g
@@ -73,11 +72,11 @@ def ffbt(l, f_g, r_g, k_q):
     follows using the coefficient expansion of j_l(x) given above:
 
            l
-           __        /  rc                        \
-           \   l-n   |  /      l-n+1       ikr    |
-    g(k) = /  k    Re<  | c   r      f(r) e    dr >
-           ‾‾        |  /  ln                     |
-           n=0       \  0                         /
+           __        /  rc                         \
+           \   l-n   |  /      l-n+1       -ikr    |
+    g(k) = /  k    Re<  | c   r      f(r) e     dr >
+           ‾‾        |  /  ln                      |
+           n=0       \  0                          /
 
     With a uniform radial grid,
 
@@ -87,7 +86,7 @@ def ffbt(l, f_g, r_g, k_q):
 
     Q-1
     __
-    \   ⎧    l-n+1      ⎫|        2πiqg/Q
+    \   ⎧    l-n+1      ⎫|        -2πiqg/Q
     /   |c   r     f(r) ||       e         Δr
     ‾‾  ⎩ ln            ⎭|
     g=0                   r=r(g)
@@ -122,9 +121,8 @@ def ffbt(l, f_g, r_g, k_q):
     g_q = np.zeros(Nq)
     for n in range(l + 1):
         g_q += (k_q**(l - n) *
-                # Use np.fft.ifft with Q=2Nq k-points (why?)
-                2 * Nq * ifft(
-                    c_ln[l][n] * r_g**(l - n + 1) * f_g, 2 * Nq)
+                # FFT with Q=2Nq k-points (why?)
+                np.fft.fft(c_ln[l][n] * r_g**(l - n + 1) * f_g, 2 * Nq)
                 # Take the real part of the Q/2 positive frequency points
                 [:Nq].real) * dr
     return g_q
