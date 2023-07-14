@@ -704,7 +704,7 @@ class G0W0Calculator:
                     f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_k2_{k2}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
                     for occ in [0,1]:
                         for w in np.linspace(-2, 2, 400):
-                            S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
+                            S_GG, dSdw_GG = Wmodel.get_HW(w, occ)
                             if S_GG is None:
                                 continue
                             print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
@@ -726,13 +726,13 @@ class G0W0Calculator:
  
                     if self.evaluate_sigma is not None:
                         for w, omega in enumerate(self.evaluate_sigma):
-                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, 2 * f - 1, f)
+                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, f)
                             if S_GG is None:
                                 continue
                             #print(myn_G.shape, S_GG.shape, nc_G.shape)
                             sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += myn_G @ S_GG @ nc_G
 
-                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1, f)
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, f)
                     if S_GG is None:
                         continue
 

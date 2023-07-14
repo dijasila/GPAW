@@ -284,7 +284,7 @@ class HWModel:
         Hilbert Transformed W Model.
     """
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, f):
         """
             Get Hilbert transformed W at frequency omega.
 
@@ -301,7 +301,8 @@ class FullFrequencyHWModel(HWModel):
         self.HW_swGG = HW_swGG
         self.factor = factor
 
-    def get_HW(self, omega, fsign, f):
+    def get_HW(self, omega, f):
+        fsign = 2 * f - 1
         # For more information about how fsign, and wsign works, see
         # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
         # eq. 2.2 endind up to eq. 2.11
@@ -342,7 +343,8 @@ class PPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign, f):
+    def get_HW(self, omega, f):
+        sign = 2 * f - 1
         omegat_GG = self.omegat_GG
         W_GG = self.W_GG
 
@@ -362,7 +364,7 @@ class MPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign, f, derivative=True):
+    def get_HW(self, omega, f, derivative=True):
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
         x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
