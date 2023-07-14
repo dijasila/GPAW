@@ -9,7 +9,7 @@ if 1:
     atoms = bulk('Si')
     calc = GPAW(mode=PW(400), 
                 xc='LDA', occupations=dict(width=0),
-                kpts={'size': (2,2,2),'gamma':True},
+                kpts={'size': (4,4,4),'gamma':True},
                 nbands=50, 
                 convergence={'bands':30})
     atoms.calc = calc
@@ -25,8 +25,7 @@ world.barrier()
 
 os.chdir('ff')
 gw = G0W0('../wfs.gpw', 'ff', 
-          bands=(3, 5),
-          kpts=[ (0,0,0) ],
+          bands=(0, 8),
           nbands=30,
           evaluate_sigma=np.linspace(-2, 2, 250),
           nblocks=4,
@@ -43,8 +42,7 @@ os.chdir('mpa')
 
 mpa_dict = {'npoles':8, 'wrange':[1j*Ha,(1.5+1j)*Ha], 'wshift':[0.01*Ha, 0.1*Ha], 'alpha':1 }
 gw = G0W0('../wfs.gpw', 'mpa',
-          bands=(3, 5),
-          kpts=[ (0,0,0) ],
+          bands=(0, 8),
           nbands=30,
           nblocks=4,
           evaluate_sigma=np.linspace(-2, 2, 250),
