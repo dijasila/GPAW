@@ -9,7 +9,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
-from gpaw.pw.lfc import rescaled_fbt
+from gpaw.ffbt import rescaled_fbt
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from typing import TYPE_CHECKING

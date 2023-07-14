@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.pw.lfc import rescaled_fbt
+from gpaw.ffbt import rescaled_fbt
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
 from types import SimpleNamespace

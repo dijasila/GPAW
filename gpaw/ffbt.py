@@ -3,6 +3,7 @@ import numpy as np
 from numpy.fft import ifft
 
 from gpaw import debug
+from gpaw.spline import Spline
 
 
 def generate_bessel_coefficients(lmax):
@@ -208,3 +209,17 @@ class FourierBesselTransformer:
         f_g = spline.map(self.r_g)
         prefactor = 4 * np.pi * rescaled_bessel_limit(l) * self.dr
         return prefactor * np.dot(self.r_g**(2 * l + 2), f_g)
+
+
+def rescaled_fbt(spline, N=2**10):
+    """Calculate rescaled Fourier-Bessel transform in spline representation."""
+    # Fourier transform the spline, sampling it on a uniform grid
+    rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
+    assert spline.get_cutoff() <= rcut
+    transformer = FourierBesselTransformer(rcut, N)
+    f_q = transformer.rescaled_transform(spline)
+
+    # Return spline representation of the transform
+    l = spline.get_angular_momentum_number()
+    kmax = transformer.k_q[-1]
+    return Spline(l, kmax, f_q)
