@@ -22,12 +22,19 @@ def out():
 @pytest.mark.serial
 @pytest.mark.skipif(': 3.' not in out(),
                     reason="requires at least Wannier90 version 3.0")
-def test_wannier90(gpw_files, in_tmp_dir):
+@pytest.mark.parametrize('mode', ['sym', 'nosym'])
+def test_wannier90(gpw_files, mode, in_tmp_dir):
     o_ai = [[], [0, 1, 2, 3]]
     bands = range(4)
-    calc = GPAW(gpw_files['gaas_pw_nosym_wfs'])
-    seed = 'GaAs'
-    assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
+    
+    if mode == 'sym':
+        calc = GPAW(gpw_files['gaas_pw_wfs'])
+        assert calc.wfs.kd.nbzkpts > calc.wfs.kd.nibzkpts
+    else:
+        calc = GPAW(gpw_files['gaas_pw_nosym_wfs'])
+        assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
+
+    seed = f'GaAs_{mode}'
 
     w90.write_input(calc, orbitals_ai=o_ai,
                     bands=bands,
@@ -40,7 +47,7 @@ def test_wannier90(gpw_files, in_tmp_dir):
     w90.write_eigenvalues(calc, seed=seed)
     w90.write_overlaps(calc, seed=seed)
     os.system('wannier90.x ' + seed)
-    with (Path('GaAs.wout')).open() as fd:
+    with (Path(f'{seed}.wout')).open() as fd:
         w = read_wout_all(fd)
     centers = np.sum(np.array(w['centers']), axis=0)
     print('centers:', centers)
