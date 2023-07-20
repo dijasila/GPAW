@@ -105,7 +105,7 @@ class SurfaceInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += f'  Surface_tension: {self.surface_tension} eV/(Angstrom^2)\n'
+        s += f'  Surface_tension: {self.surface_tension} eV/(Angstrom^2)'
         return s
 
 
@@ -137,7 +137,7 @@ class VolumeInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += f'  Pressure: {self.pressure}\n'
+        s += f'  Pressure: {self.pressure}'
         return s
 
 
@@ -176,5 +176,5 @@ class LeakedDensityInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += f'  Voltage: {self.voltage:.4f}\n'
+        s += f'  Voltage: {self.voltage:.4f}'
         return s

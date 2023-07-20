@@ -172,8 +172,7 @@ class Cavity(NeedsGD):
         raise NotImplementedError()
 
     def __str__(self):
-        # s = f'Cavity:\n  {self.__class__.__name__}\n'
-        s = 'Cavity:\n'
+        s = f'Cavity:  {self.__class__.__name__}\n'
         for calc, calcname in ((self.surface_calculator, 'Surface'),
                                (self.volume_calculator, 'Volume')):
             s += f'  {calcname} Calculator: '
@@ -561,7 +560,6 @@ class SmoothStepCavity(Cavity):
 
     def __str__(self):
         s = Cavity.__str__(self)
-        s += f'  {self.__class__.__name__}\n'
         s += indent(str(self.density))
         return s
 
@@ -619,7 +617,7 @@ class Density(NeedsGD):
         raise NotImplementedError()
 
     def __str__(self):
-        return f"Density: {self.__class__}\n"
+        return f"Density: {self.__class__.__name__}\n"
 
     def update_atoms(self, atoms, log):
         """Inexpensive initialization when atoms change."""
@@ -835,9 +833,9 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
 
     def __str__(self):
         s = SmoothStepCavity.__str__(self)
-        s += f'  rhomin: {self.rhomin}\n'
-        s += f'  rhomax: {self.rhomax}\n'
-        s += f'  epsinf: {self.epsinf}\n'
+        s += indent(f'  rhomin: {self.rhomin}\n')
+        s += indent(f'  rhomax: {self.rhomax}\n')
+        s += indent(f'  epsinf: {self.epsinf}')
         return s
 
 
@@ -880,7 +878,7 @@ class FG02SmoothStepCavity(SmoothStepCavity):
     def __str__(self):
         s = SmoothStepCavity.__str__(self)
         s += f'  rho0: {self.rho0}\n'
-        s += f'  beta: {self.beta}\n'
+        s += f'  beta: {self.beta}'
         return s
 
 
@@ -1011,7 +1009,7 @@ class VolumeCalculator(NeedsGD):
         self.delta_V_delta_g_g = self.gd.empty()
 
     def __str__(self):
-        return f"Volume Calculator: {self.__class__}\n"
+        return f"{self.__class__.__name__}\n"
 
     def update(self, cavity):
         """Calculate V and delta_V_delta_g_g"""
@@ -1040,8 +1038,8 @@ class KB51Volume(VolumeCalculator):
 
     def __str__(self):
         s = VolumeCalculator.__str__(self)
-        s += f'  compressibility: {self.compressibility}\n'
-        s += f'  temperature:     {self.temperature}\n'
+        s += indent(f'  compressibility: {self.compressibility}\n')
+        s += indent(f'  temperature:     {self.temperature}\n')
         return s
 
     def allocate(self):

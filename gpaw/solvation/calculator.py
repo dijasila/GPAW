@@ -39,6 +39,7 @@ class SolvationGPAW(GPAW):
                     self.log(instuff)
             else:
                 self.log(stuff)
+        self.log()
 
     def read(self, filename):
         """Read yourself from a file"""
