@@ -12,12 +12,19 @@ BAD_RADIUS_MESSAGE = "All atomic radii have to be finite and >= zero."
 
 def set_log_and_check_radii(obj, atoms, log):
     radii = np.array(obj.atomic_radii(atoms), dtype=float)
-    obj.atomic_radii_output = radii
+    obj.atomic_radii_output = radii.copy()
     obj.symbols = atoms.get_chemical_symbols()
-    log('  Atomic radii for %s:' % (obj.__class__, ))
-    for a, (s, r) in enumerate(
-            zip(obj.symbols, radii)):
-        log('    %3d %-2s %10.5f' % (a, s, r))
+    log_radii, a_index, na = np.unique(radii, return_index=True,
+                                       return_counts=True)
+    log_symbols = [atoms.get_chemical_symbols()[a] for a in a_index]
+    log(f'  Atomic radii for {obj.__class__}:')
+    log(' ' * 4 + 'Type' + ' ' * 4 + 'Radius' + ' ' * 3 + 'No. of atoms')
+    outstring = ''
+    for ia in range(len(log_radii)):
+        for col in [f'{log_symbols[ia]:>3}', f'{log_radii[ia]:.3f}',
+                    f'{na[ia]}\n']:
+            outstring += ' ' * 5 + col
+    log(outstring)
     if not np.isfinite(radii).all() or (radii < 0).any():
         raise ValueError(BAD_RADIUS_MESSAGE)
 
@@ -165,13 +172,15 @@ class Cavity(NeedsGD):
         raise NotImplementedError()
 
     def __str__(self):
-        s = 'Cavity: %s\n' % (self.__class__, )
+        # s = f'Cavity:\n  {self.__class__.__name__}\n'
+        s = 'Cavity:\n'
         for calc, calcname in ((self.surface_calculator, 'Surface'),
                                (self.volume_calculator, 'Volume')):
+            s += f'  {calcname} Calculator: '
             if calc is None:
-                s += '  %s Calculator: None\n' % (calcname, )
+                s += 'None\n'
             else:
-                s += indent(str(calc))
+                s += str(calc)
         return s
 
     def update_atoms(self, atoms, log):
@@ -184,8 +193,8 @@ class Cavity(NeedsGD):
              else 'not calculated (no calculator defined)')
         V = ('{:.5f}'.format(self.V * Bohr ** 3) if self.V is not None
              else 'not calculated (no calculator defined)')
-        log('Solvation cavity surface area: %s' % (A, ))
-        log('Solvation cavity volume: %s' % (V, ))
+        log(f'Solvation cavity surface area: {A}')
+        log(f'Solvation cavity volume: {V}')
 
 
 class EffectivePotentialCavity(Cavity):
@@ -280,8 +289,9 @@ class EffectivePotentialCavity(Cavity):
 
     def __str__(self):
         s = Cavity.__str__(self)
-        s += indent(str(self.effective_potential))
-        s += '  temperature: %s\n' % (self.temperature, )
+        s += f'  {self.__class__.__name__}\n'
+        s += indent(f'{self.effective_potential}')
+        s += indent(f'  temperature: {self.temperature}K')
         return s
 
     def update_atoms(self, atoms, log):
@@ -349,7 +359,7 @@ class Potential(NeedsGD):
         raise NotImplementedError()
 
     def __str__(self):
-        return 'Potential: %s\n' % (self.__class__, )
+        return f'  Potential: {self.__class__.__name__}\n'
 
     def update_atoms(self, atoms, log):
         """Inexpensive initialization when atoms change."""
@@ -458,14 +468,14 @@ class Power12Potential(Potential):
 
     def __str__(self):
         s = Potential.__str__(self)
-        s += '  atomic_radii: %s\n' % (self.atomic_radii, )
-        s += '  u0: %s\n' % (self.u0, )
-        s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
-        s += '  tiny: %s\n' % (self.tiny, )
+        s += f'  u0: {self.u0}eV\n'
+        s += f'  pbc_cutoff: {self.pbc_cutoff}\n'
+        s += f'  tiny: {self.tiny}\n'
         return s
 
     def update_atoms(self, atoms, log):
         set_log_and_check_radii(self, atoms, log)
+        exit()
 
     def write(self, writer):
         writer.write(
@@ -551,6 +561,7 @@ class SmoothStepCavity(Cavity):
 
     def __str__(self):
         s = Cavity.__str__(self)
+        s += f'  {self.__class__.__name__}\n'
         s += indent(str(self.density))
         return s
 
@@ -608,7 +619,7 @@ class Density(NeedsGD):
         raise NotImplementedError()
 
     def __str__(self):
-        return "Density: %s\n" % (self.__class__, )
+        return f"Density: {self.__class__}\n"
 
     def update_atoms(self, atoms, log):
         """Inexpensive initialization when atoms change."""
@@ -754,9 +765,8 @@ class SSS09Density(FDGradientDensity):
 
     def __str__(self):
         s = FDGradientDensity.__str__(self)
-        s += '  atomic_radii: %s\n' % (self.atomic_radii, )
-        s += '  pbc_cutoff: %s\n' % (self.pbc_cutoff, )
-        s += '  tiny: %s\n' % (self.tiny, )
+        s += f'  pbc_cutoff: {self.pbc_cutoff}\n'
+        s += f'  tiny: {self.tiny}\n'
         return s
 
     def update_atoms(self, atoms, log):
@@ -825,9 +835,9 @@ class ADM12SmoothStepCavity(SmoothStepCavity):
 
     def __str__(self):
         s = SmoothStepCavity.__str__(self)
-        s += '  rhomin: %s\n' % (self.rhomin, )
-        s += '  rhomax: %s\n' % (self.rhomax, )
-        s += '  epsinf: %s\n' % (self.epsinf, )
+        s += f'  rhomin: {self.rhomin}\n'
+        s += f'  rhomax: {self.rhomax}\n'
+        s += f'  epsinf: {self.epsinf}\n'
         return s
 
 
@@ -869,8 +879,8 @@ class FG02SmoothStepCavity(SmoothStepCavity):
 
     def __str__(self):
         s = SmoothStepCavity.__str__(self)
-        s += '  rho0: %s\n' % (self.rho0, )
-        s += '  beta: %s\n' % (self.beta, )
+        s += f'  rho0: {self.rho0}\n'
+        s += f'  beta: {self.beta}\n'
         return s
 
 
@@ -902,7 +912,7 @@ class SurfaceCalculator(NeedsGD):
         self.delta_A_delta_g_g = self.gd.empty()
 
     def __str__(self):
-        return 'Surface Calculator: %s\n' % (self.__class__, )
+        return f'Surface Calculator: {self.__class__.__name__}\n'
 
     def update(self, cavity):
         """Calculate A and delta_A_delta_g_g."""
@@ -930,6 +940,9 @@ class GradientSurface(SurfaceCalculator):
         writer.write(
             name='GradientSurface',
             nn=self.nn)
+
+    def __str__(self):
+        return f'GradientSurface with {self.nn} nn\n'
 
     def read(self, reader):
         self.nn = reader.parameters.cavity.nn
@@ -998,7 +1011,7 @@ class VolumeCalculator(NeedsGD):
         self.delta_V_delta_g_g = self.gd.empty()
 
     def __str__(self):
-        return "Volume Calculator: %s\n" % (self.__class__, )
+        return f"Volume Calculator: {self.__class__}\n"
 
     def update(self, cavity):
         """Calculate V and delta_V_delta_g_g"""
@@ -1027,8 +1040,8 @@ class KB51Volume(VolumeCalculator):
 
     def __str__(self):
         s = VolumeCalculator.__str__(self)
-        s += '  compressibility: %s\n' % (self.compressibility, )
-        s += '  temperature:     %s\n' % (self.temperature, )
+        s += f'  compressibility: {self.compressibility}\n'
+        s += f'  temperature:     {self.temperature}\n'
         return s
 
     def allocate(self):

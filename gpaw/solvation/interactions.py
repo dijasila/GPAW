@@ -64,7 +64,7 @@ class Interaction(NeedsGD):
         raise NotImplementedError
 
     def __str__(self):
-        s = "Interaction: %s\n" % (self.__class__, )
+        s = "Interaction: %s\n" % (self.__class__.__name__, )
         s += "  subscript: %s\n" % (self.subscript, )
         return s
 
@@ -105,7 +105,7 @@ class SurfaceInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  surface_tension: %s\n' % (self.surface_tension, )
+        s += f'  Surface_tension: {self.surface_tension} eV/(Angstrom^2)\n'
         return s
 
 
@@ -137,7 +137,7 @@ class VolumeInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  pressure: %s\n' % (self.pressure, )
+        s += f'  Pressure: {self.pressure}\n'
         return s
 
 
@@ -176,5 +176,5 @@ class LeakedDensityInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  voltage: %s\n' % (self.voltage, )
+        s += f'  Voltage: {self.voltage:.4f}\n'
         return s

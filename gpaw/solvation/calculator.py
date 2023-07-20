@@ -32,6 +32,14 @@ class SolvationGPAW(GPAW):
 
         GPAW.__init__(self, restart, **gpaw_kwargs)
 
+        self.log('Implicit solvation parameters:')
+        for stuff in self.stuff_for_hamiltonian:
+            if isinstance(stuff, list):
+                for instuff in stuff:
+                    self.log(instuff)
+            else:
+                self.log(stuff)
+
     def read(self, filename):
         """Read yourself from a file"""
         self.reader = reader = Reader(filename)
