@@ -474,7 +474,6 @@ class Power12Potential(Potential):
 
     def update_atoms(self, atoms, log):
         set_log_and_check_radii(self, atoms, log)
-        exit()
 
     def write(self, writer):
         writer.write(
