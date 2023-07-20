@@ -17,7 +17,7 @@ def set_log_and_check_radii(obj, atoms, log):
     log_radii, a_index, na = np.unique(radii, return_index=True,
                                        return_counts=True)
     log_symbols = [atoms.get_chemical_symbols()[a] for a in a_index]
-    log(f'  Atomic radii for {obj.__class__}:')
+    log(f'  Atomic radii for {obj.__class__.__name__}:')
     log(' ' * 4 + 'Type' + ' ' * 4 + 'Radius' + ' ' * 3 + 'No. of atoms')
     outstring = ''
     for ia in range(len(log_radii)):
