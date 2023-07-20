@@ -467,9 +467,9 @@ class Power12Potential(Potential):
 
     def __str__(self):
         s = Potential.__str__(self)
-        s += f'  u0: {self.u0}eV\n'
-        s += f'  pbc_cutoff: {self.pbc_cutoff}\n'
-        s += f'  tiny: {self.tiny}\n'
+        s += indent(f'  u0: {self.u0}eV\n')
+        s += indent(f'  pbc_cutoff: {self.pbc_cutoff}\n')
+        s += indent(f'  tiny: {self.tiny}\n')
         return s
 
     def update_atoms(self, atoms, log):
@@ -763,8 +763,8 @@ class SSS09Density(FDGradientDensity):
 
     def __str__(self):
         s = FDGradientDensity.__str__(self)
-        s += f'  pbc_cutoff: {self.pbc_cutoff}\n'
-        s += f'  tiny: {self.tiny}\n'
+        s += indent(f'  pbc_cutoff: {self.pbc_cutoff}\n')
+        s += indent(f'  tiny: {self.tiny}\n')
         return s
 
     def update_atoms(self, atoms, log):
@@ -877,8 +877,8 @@ class FG02SmoothStepCavity(SmoothStepCavity):
 
     def __str__(self):
         s = SmoothStepCavity.__str__(self)
-        s += f'  rho0: {self.rho0}\n'
-        s += f'  beta: {self.beta}'
+        s += indent(f'  rho0: {self.rho0}\n')
+        s += indent(f'  beta: {self.beta}')
         return s
 
 
