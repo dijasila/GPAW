@@ -47,6 +47,7 @@ class FDPWETDM(Eigensolver):
                  printinnerloop=False,
                  blocksize=1,
                  converge_unocc=True,
+                 maxiter_unocc=333,
                  exstopt=False):
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
@@ -68,6 +69,7 @@ class FDPWETDM(Eigensolver):
         self.g_tolxst = g_tolxst
         self.printinnerloop = printinnerloop
         self.converge_unocc = converge_unocc
+        self.maxiter_unocc = maxiter_unocc
         self.momevery = momevery
 
         self.total_eg_count_iloop = 0
@@ -165,6 +167,7 @@ class FDPWETDM(Eigensolver):
                 'printinnerloop': self.printinnerloop,
                 'blocksize': self.blocksize,
                 'converge_unocc': self.converge_unocc,
+                'maxiter_unocc': self.maxiter_unocc,
                 'exstopt': self.exstopt
                 }
 
@@ -978,8 +981,8 @@ class FDPWETDM(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi, converge_unocc=True)
 
-        max_iter = 100
-        while self.iters < max_iter:
+        self.maxiter_unocc = 100
+        while self.iters < self.maxiter_unocc:
             en, er = self.iterate(ham, wfs, dens, log, converge_unocc=True)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge unoccupied orbitals
@@ -988,7 +991,7 @@ class FDPWETDM(Eigensolver):
                 log('\nUnoccupied orbitals converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
-            if self.iters >= max_iter:
+            if self.iters >= self.maxiter_unocc:
                 log('\nUnoccupied orbitals did not converge after'
                     ' {:d} iterations'.format(self.iters))
 
