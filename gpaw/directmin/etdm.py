@@ -285,6 +285,7 @@ class ETDM:
             self.randomizeorbitals = False
 
         wfs.calculate_occupation_numbers(dens.fixed)
+
         # MOM
         self.initial_sort_orbitals_mom(wfs)
 
@@ -299,7 +300,7 @@ class ETDM:
         self.localize(wfs, dens, ham, log)
 
         # MOM
-        self.initialize_mom(wfs, dens)
+        self.initialize_mom_reference_orbitals(wfs, dens)
 
         for kpt in wfs.kpt_u:
             f_unique = np.unique(kpt.f_n)
@@ -925,15 +926,13 @@ class ETDM:
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
-    def initialize_mom(self, wfs, dens):
+    def initialize_mom_reference_orbitals(self, wfs, dens):
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name == 'mom':
             # Reinitialize the MOM reference orbitals
             # after orthogonalization/localization
             wfs.occupations.initialize_reference_orbitals()
             wfs.calculate_occupation_numbers(dens.fixed)
-            sort_orbitals_according_to_occ(
-                wfs, self.constraints, update_mom=True)
 
     def initial_sort_orbitals_mom(self, wfs):
         occ_name = getattr(wfs.occupations, "name", None)
