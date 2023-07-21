@@ -305,7 +305,7 @@ class FDPWETDM(Eigensolver):
 
     def initial_sort_orbitals_mom(self, wfs):
         occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
+        if occ_name == 'mom' and self.globaliters == 0:
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
             sort_orbitals_according_to_occ(wfs, update_mom=True)
 
@@ -1180,7 +1180,6 @@ class FDPWETDM(Eigensolver):
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
     def check_mom(self, wfs, ham, dens):
-
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name != 'mom':
             return
@@ -1216,7 +1215,7 @@ class FDPWETDM(Eigensolver):
         # Reinitialize the MOM reference orbitals
         # after orthogonalization/localization
         occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name == 'mom':
+        if occ_name == 'mom' and self.globaliters == 0:
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             wfs.orthonormalize()

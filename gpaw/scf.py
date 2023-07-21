@@ -119,8 +119,7 @@ class SCFLoop:
             # as sometimes one need to erase the memory in L-BFGS
             # or mom can require restart if it detects the collapse
             if not wfs.eigensolver.initialized:
-                wfs.eigensolver.init_me(wfs, ham, dens, log)
-
+                wfs.eigensolver.initialize_dm_helper(wfs, ham, dens, log)
             wfs.eigensolver.iterate(ham, wfs, dens, log)
             wfs.eigensolver.check_mom(wfs, ham, dens)
             e_entropy = 0.0
