@@ -221,10 +221,10 @@ class FDPWETDM(Eigensolver):
         self.dimensions = {}
         for kpt in wfs.kpt_u:
             nocc = get_n_occ(kpt)[0]
-            if not converge_unocc and nocc == len(kpt.f_n):
-                raise Exception('Please add one more empty band in '
-                                'order to converge the unoccupied orbitals')
             if converge_unocc:
+                assert nocc < self.bd.nbands, \
+                    'Please add empty bands in order to converge the' \
+                    ' unoccupied orbitals'
                 dim = self.bd.nbands - nocc
             elif self.exstopt:
                 dim = self.bd.nbands
