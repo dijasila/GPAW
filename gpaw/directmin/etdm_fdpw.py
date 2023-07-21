@@ -17,7 +17,7 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional.fdpw import get_functional
-from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ_kpt
+from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ, sort_orbitals_according_to_occ_kpt
 from gpaw.directmin.fdpw.pz_localization import PZLocalization
 from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
 import time
@@ -1188,8 +1188,7 @@ class FDPWETDM(Eigensolver):
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
             wfs.calculate_occupation_numbers(dens.fixed)
-            for kpt in wfs.kpt_u:
-                sort_orbitals_according_to_occ_kpt(wfs, kpt)
+            sort_orbitals_according_to_occ(wfs, update_mom=True)
             wfs.calculate_occupation_numbers(dens.fixed)
             self.update_ks_energy(ham, wfs, dens, updateproj=True)
             self.iters = 0
@@ -1210,8 +1209,7 @@ class FDPWETDM(Eigensolver):
             log(" MOM reference orbitals initialized.\n", flush=True)
             # fill occ numbers
             wfs.calculate_occupation_numbers(dens.fixed)
-            for kpt in wfs.kpt_u:
-                sort_orbitals_according_to_occ_kpt(wfs, kpt)
+            sort_orbitals_according_to_occ(wfs, update_mom=True)
             wfs.calculate_occupation_numbers(dens.fixed)
         return
 

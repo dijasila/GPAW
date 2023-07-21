@@ -244,6 +244,7 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
 
     return f_sn
 
+
 def sort_orbitals_according_to_occ(
         wfs, constraints=None, update_mom=False):
     """
