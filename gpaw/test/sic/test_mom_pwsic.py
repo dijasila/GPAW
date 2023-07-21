@@ -44,6 +44,7 @@ def test_mom_pwsic(in_tmp_dir):
         localizationseed=42,
         localizationtype='PM',
         g_tol=1.0e-2,
+        printinnerloop=False,
         g_tolxst=1.0e-2),
         convergence={'eigenstates': 1e-3,
                      'density': 1e-3})

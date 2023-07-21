@@ -20,7 +20,7 @@ import time
 class ETDMInnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
-                 tol=1.0e-3, maxiter=50, maxstepxst=0.2,
+                 tol=5.0e-4, maxiter=100, maxstepxst=0.2,
                  g_tol=5.0e-4, useprec=False, momevery=20):
 
         self.odd_pot = odd_pot
@@ -101,7 +101,7 @@ class ETDMInnerLoop:
                 self.kappa = kappa1
             self.esic += esic
 
-        self.apply_mom(wfs, dens)
+        self.check_mom(wfs, dens)
         self.e_total = self.eks + self.esic
 
         self.kappa = wfs.kd.comm.max(self.kappa)
@@ -304,12 +304,8 @@ class ETDMInnerLoop:
                 not_converged = \
                     g_max > self.g_tol and \
                     self.counter < self.n_counter
-                if not g_max > self.g_tol:
+                if g_max <= self.g_tol:
                     self.converged = True
-                elif self.counter >= self.n_counter:
-                    from gpaw import KohnShamConvergenceError
-                    raise KohnShamConvergenceError(
-                        'ETDM Inner Loop did not converge')
             else:
                 break
 
@@ -360,7 +356,7 @@ class ETDMInnerLoop:
         else:
             return None
 
-    def apply_mom(self, wfs, dens):
+    def check_mom(self, wfs, dens):
         if self.momcounter % self.momevery == 0:
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':

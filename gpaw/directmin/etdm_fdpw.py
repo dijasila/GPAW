@@ -38,12 +38,13 @@ class FDPWETDM(Eigensolver):
                  need_localization=True,
                  localization_tol=None,
                  maxiter=50,
-                 maxiterxst=333,
+                 maxiterxst=100,
                  maxstepxst=0.2,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
-                 momevery=3,
+                 restartevery_iloop_notconverged=3,
+                 momevery=20,
                  printinnerloop=False,
                  blocksize=1,
                  converge_unocc=True,
@@ -70,6 +71,7 @@ class FDPWETDM(Eigensolver):
         self.printinnerloop = printinnerloop
         self.converge_unocc = converge_unocc
         self.maxiter_unocc = maxiter_unocc
+        self.restartevery_iloop_notconverged = restartevery_iloop_notconverged
         self.momevery = momevery
 
         self.total_eg_count_iloop = 0
@@ -162,11 +164,13 @@ class FDPWETDM(Eigensolver):
                 'localization_tol': self.localization_tol,
                 'maxiter': self.maxiter,
                 'maxiterxst': self.maxiterxst,
+                'momevery': self.momevery,
                 'maxstepxst': self.maxstepxst,
                 'kappa_tol': self.kappa_tol,
                 'g_tol': self.g_tol,
                 'g_tolxst': self.g_tolxst,
-                'momevery': self.momevery,
+                'restartevery_iloop_notconverged':
+                    self.restartevery_iloop_notconverged,
                 'printinnerloop': self.printinnerloop,
                 'blocksize': self.blocksize,
                 'converge_unocc': self.converge_unocc,
@@ -288,7 +292,8 @@ class FDPWETDM(Eigensolver):
             if self.exstopt:
                 self.outer_iloop = ETDMInnerLoop(
                     self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
-                    self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
+                    self.maxstepxst, g_tol=self.g_tolxst, useprec=True,
+                    momevery=self.momevery)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
                 if 'SIC' in self.func_settings['name']:
@@ -1179,40 +1184,27 @@ class FDPWETDM(Eigensolver):
                 'Please, use occupations={\'name\': \'fixed-uniform\'}'
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
-    def check_mom(self, wfs, ham, dens):
+    def check_restart(self, wfs):
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name != 'mom':
             return
 
         sic_calc = 'SIC' in self.func_settings['name']
-        iloop = self.outer_iloop is not None
-        update = False
-
-        if iloop:
+        if self.outer_iloop is not None:
+            # mom restart ?
             astmnt = self.outer_iloop.restart
-            bstmnt = (self.iters + 1) % self.momevery == 0 and \
-                not self.outer_iloop.converged
+            # iloop not converged?
+            bstmnt = \
+                (self.iters + 1) % self.restartevery_iloop_notconverged == 0 \
+                and not self.outer_iloop.converged
             if astmnt or bstmnt:
-                update = True
-        if update:
-            # TODO: We probably don't need all this below, because dm
-            #  is initialize in scf.py and the orbitals are sorted when
-            #  calling sort_orbitals_according_to_occ in the inner loop
-            self.choose_optimal_orbitals(wfs)
-            if not sic_calc:
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(FDPWETDM, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-            wfs.calculate_occupation_numbers(dens.fixed)
-            sort_orbitals_according_to_occ(wfs, update_mom=True)
-            wfs.calculate_occupation_numbers(dens.fixed)
-            self.update_ks_energy(ham, wfs, dens, updateproj=True)
-            self.iters = 0
-            self.initialized = False
-            self.need_init_odd = True
+                self.choose_optimal_orbitals(wfs)
+                if not sic_calc:
+                    self.need_init_orbs = True
+                    wfs.read_from_file_init_wfs_dm = False
+                self.iters = 0
+                self.initialized = False
+                self.need_init_odd = True
 
     def initialize_mom_reference_orbitals(self, wfs, dens):
         # Reinitialize the MOM reference orbitals

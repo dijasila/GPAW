@@ -45,7 +45,7 @@ def test_mom_directopt_pw(in_tmp_dir):
     # Don't need to set need_init_orbs=False when restarting
     # from file
     calc.set(eigensolver=FDPWETDM(exstopt=True,
-                                  printinnerloop=True))
+                                  printinnerloop=False))
     f_sn = excite(calc, 0, 0, (0, 0))
     prepare_mom_calculation(calc, atoms, f_sn)
 

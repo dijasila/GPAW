@@ -115,13 +115,10 @@ class SCFLoop:
             e_entropy = 0.0
             kin_en_using_band = False
         elif self.eigensolver_name == 'etdm-fdpw':
-            # we need to check each time if initialization is needed
-            # as sometimes one need to erase the memory in L-BFGS
-            # or mom can require restart if it detects the collapse
             if not wfs.eigensolver.initialized:
                 wfs.eigensolver.initialize_dm_helper(wfs, ham, dens, log)
             wfs.eigensolver.iterate(ham, wfs, dens, log)
-            wfs.eigensolver.check_mom(wfs, ham, dens)
+            wfs.eigensolver.check_restart(wfs)
             e_entropy = 0.0
             kin_en_using_band = False
         else:
