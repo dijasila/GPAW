@@ -1110,19 +1110,6 @@ class FDPWETDM(Eigensolver):
         if wfs.read_from_file_init_wfs_dm:
             self.initial_random = False
 
-        # if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
-        #     if wfs.read_from_file_init_wfs_dm:
-        #         if 'SIC' in self.func_settings['name']:
-        #             self.need_localization = False
-        #     return
-        #
-        # for kpt in wfs.kpt_u:
-        #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-        #     super(FDPWETDM, self).subspace_diagonalize(
-        #         ham, wfs, kpt, True)
-        #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
-        # self.need_init_orbs = False
-
     def localize_wfs(self, wfs, dens, ham, log):
         if not self.need_localization:
             return
