@@ -85,6 +85,9 @@ class FDPWETDM(Eigensolver):
         if isinstance(self.func_settings, basestring):
             self.func_settings = xc_string_to_dict(self.func_settings)
 
+        # for mom
+        self.initial_occupation_numbers = None
+
         self.need_init_odd = True
         self.initialized = False
         self.need_init_orbs = need_init_orbs
@@ -175,18 +178,16 @@ class FDPWETDM(Eigensolver):
         self.initialize_super(wfs, ham)
         self.initialize_orbitals(wfs, ham)
 
-        # MOM
         wfs.calculate_occupation_numbers(dens.fixed)
-        occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
-            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
-            sort_orbitals_according_to_occ(wfs, update_mom=True)
+
+        # MOM
+        self.initial_sort_orbitals_mom(wfs)
 
         # localize orbitals?
         self.localize(wfs, dens, ham, log)
 
         # MOM
-        self.initialize_mom(wfs, dens, log)
+        self.initialize_mom_reference_orbitals(wfs, dens)
 
         # initialize search direction, line search and inner loops
         self.initialize_dm(wfs, dens, ham)
@@ -301,6 +302,12 @@ class FDPWETDM(Eigensolver):
         self.total_eg_count_outer_iloop = 0
 
         self.initialized = True
+
+    def initial_sort_orbitals_mom(self, wfs):
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+            sort_orbitals_according_to_occ(wfs, update_mom=True)
 
     def iterate(self, ham, wfs, dens, log, converge_unocc=False):
         """
@@ -1205,23 +1212,16 @@ class FDPWETDM(Eigensolver):
             self.initialized = False
             self.need_init_odd = True
 
-    def initialize_mom(self, wfs, dens, log):
+    def initialize_mom_reference_orbitals(self, wfs, dens):
+        # Reinitialize the MOM reference orbitals
+        # after orthogonalization/localization
         occ_name = getattr(wfs.occupations, 'name', None)
-        if occ_name != 'mom':
-            return
-        # we need to do it in order to initialize mom..
-        # it will take occupied orbitals from previous step
-        if self.globaliters == 0:
+        if occ_name == 'mom':
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             wfs.orthonormalize()
             wfs.occupations.initialize_reference_orbitals()
-            log(" MOM reference orbitals initialized.\n", flush=True)
-            # fill occ numbers
             wfs.calculate_occupation_numbers(dens.fixed)
-            sort_orbitals_according_to_occ(wfs, update_mom=True)
-            wfs.calculate_occupation_numbers(dens.fixed)
-        return
 
 
 def log_f(niter, e_total, eig_error, log):

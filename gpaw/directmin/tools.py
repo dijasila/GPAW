@@ -217,11 +217,6 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
 
     :return: new occupation numbers
     """
-    # Direct optimization in fd/pw works only if the orbitals
-    # are sorted according to the occupation numbers
-    if calc.wfs.mode != 'lcao':
-        sort = True
-
     f_sn = [calc.get_occupation_numbers(spin=s).copy()
             for s in range(calc.wfs.nspins)]
 

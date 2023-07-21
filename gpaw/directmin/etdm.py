@@ -927,10 +927,10 @@ class ETDM:
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
     def initialize_mom_reference_orbitals(self, wfs, dens):
+        # Reinitialize the MOM reference orbitals
+        # after orthogonalization/localization
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name == 'mom':
-            # Reinitialize the MOM reference orbitals
-            # after orthogonalization/localization
             wfs.occupations.initialize_reference_orbitals()
             wfs.calculate_occupation_numbers(dens.fixed)
 

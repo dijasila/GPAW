@@ -74,6 +74,8 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     # Test restart and fixed occupations
     atoms, calc = restart('h2o.gpw', txt='-')
+    for kpt in calc.wfs.kpt_u:
+        f_sn[kpt.s] = kpt.f_n
     prepare_mom_calculation(calc, atoms, f_sn, use_fixed_occupations='True')
     e2 = atoms.get_potential_energy()
     for spin in range(calc.get_number_of_spins()):
