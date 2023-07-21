@@ -171,11 +171,10 @@ class FDPWETDM(Eigensolver):
                 'exstopt': self.exstopt
                 }
 
-    def init_me(self, wfs, ham, dens, log):
+    def initialize_dm_helper(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
         self.initialize_orbitals(wfs, ham)
-        self._e_entropy = \
-            wfs.calculate_occupation_numbers(dens.fixed)
+        wfs.calculate_occupation_numbers(dens.fixed)
         self.localize_wfs(wfs, dens, ham, log)
         self.initialize_dm(wfs, dens, ham)
         self.init_mom(wfs, dens, log)
@@ -274,7 +273,6 @@ class FDPWETDM(Eigensolver):
                 self.iloop = None
 
             if self.exstopt:
-
                 self.outer_iloop = ETDMInnerLoop(
                     self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
                     self.maxstepxst, g_tol=self.g_tolxst, useprec=True)
@@ -286,6 +284,7 @@ class FDPWETDM(Eigensolver):
                         self.iloop.U_k[k] = self.outer_iloop.U_k[k].copy()
             else:
                 self.outer_iloop = None
+
         self.total_eg_count_iloop = 0
         self.total_eg_count_outer_iloop = 0
 
@@ -1093,9 +1092,6 @@ class FDPWETDM(Eigensolver):
 
     def initialize_orbitals(self, wfs, ham):
         """
-        Initial orbitals can be localised using Pipek-Mezey,
-        Foster-Boys or Edmiston-Ruedenberg functions.
-
         :param wfs:
         :param ham:
         :return:
@@ -1211,12 +1207,10 @@ class FDPWETDM(Eigensolver):
             wfs.occupations.initialize_reference_orbitals()
             log(" MOM reference orbitals initialized.\n", flush=True)
             # fill occ numbers
-            self._e_entropy = \
-                wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
                 sort_orbitals_according_to_occ_kpt(wfs, kpt)
-            self._e_entropy = \
-                wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.calculate_occupation_numbers(dens.fixed)
         return
 
 

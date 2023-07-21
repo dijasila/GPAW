@@ -271,16 +271,11 @@ class ETDM:
 
     def initialize_dm_helper(self, wfs, ham, dens, log):
 
-        if wfs.mode == 'lcao':
-            self.dm_helper = ETDMHelperLCAO(
-                wfs, dens, ham, self.nkpts, self.func_settings,
-                diagonalizer=None,
-                orthonormalization=self.orthonormalization,
-                need_init_orbs=self.need_init_orbs
-            )
-        else:
-            raise NotImplementedError('ETDM does not work with FD/PW mode '
-                                      'yet. Use FDPWETDM instead.')
+        self.dm_helper = ETDMHelperLCAO(
+            wfs, dens, ham, self.nkpts, self.func_settings,
+            diagonalizer=None,
+            orthonormalization=self.orthonormalization,
+            need_init_orbs=self.need_init_orbs)
 
         self.need_init_orbs = self.dm_helper.need_init_orbs
 

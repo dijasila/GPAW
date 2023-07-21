@@ -104,10 +104,7 @@ def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
             if solver.outer_iloop is not None:
                 solver.outer_iloop.total_eg_count = 0
 
-        wfs.eigensolver.check_assertions(wfs, dens)
-        if name == 'etdm':
-            if wfs.eigensolver.dm_helper is None:
-                wfs.eigensolver.initialize_dm_helper(wfs, ham, dens, log)
-        else:
-            if not solver.initialized:
-                solver.init_me(wfs, ham, dens, log)
+        solver.check_assertions(wfs, dens)
+        if (hasattr(solver, 'dm_helper') and solver.dm_helper is None) \
+                or not solver.initialized:
+            solver.initialize_dm_helper(wfs, ham, dens, log)
