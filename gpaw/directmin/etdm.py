@@ -14,7 +14,7 @@ import numpy as np
 import warnings
 from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv, random_a, \
-    update_mom_numbers, sort_orbitals_according_to_occ_kpt
+    update_mom_numbers, sort_orbitals_according_to_occ, update_constraints_kpt
 from gpaw.directmin.lcao.etdm_helper_lcao import ETDMHelperLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
@@ -290,7 +290,8 @@ class ETDM:
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
-            self.sort_orbitals_mom(wfs)
+            sort_orbitals_according_to_occ(
+                wfs, self.constraints, update_mom=True)
 
         # initialize matrices
         self.set_variable_matrices(wfs.kpt_u)
@@ -768,7 +769,8 @@ class ETDM:
             if occ_name == 'mom':
                 if not sort_eigenvalues \
                         or self.dm_helper.func.name == 'PZ-SIC':
-                    self.sort_orbitals_mom(wfs)
+                    sort_orbitals_according_to_occ(
+                        wfs, self.constraints, update_mom=True)
                 else:
                     self.sort_orbitals_according_to_en(ham, wfs, use_eps=True)
                     not_update = not wfs.occupations.update_numbers
@@ -822,29 +824,6 @@ class ETDM:
                         # changed and need to be updated
                         self.constraints[k] = update_constraints_kpt(
                             self.constraints[k], list(ind))
-
-    def sort_orbitals_mom(self, wfs, update_mom=True):
-        """
-        Sort orbitals according to the occupation
-        numbers so that there are no holes in the
-        distribution of occupation numbers
-        :return:
-        """
-        restart = False
-        for kpt in wfs.kpt_u:
-            k = self.kpointval(kpt)
-            changedocc, ind = sort_orbitals_according_to_occ_kpt(
-                wfs, kpt, update_mom=update_mom)
-
-            if changedocc:
-                if self.constraints:
-                    # Identities of the constrained orbitals have
-                    # changed and needs to be updated
-                    self.constraints[k] = update_constraints_kpt(
-                        self.constraints[k], list(ind))
-                restart = True
-
-        return restart
 
     def todict(self):
 
@@ -957,13 +936,14 @@ class ETDM:
         # after orthogonalization/localization
         wfs.occupations.initialize_reference_orbitals()
         wfs.calculate_occupation_numbers(dens.fixed)
-        self.sort_orbitals_mom(wfs)
+        sort_orbitals_according_to_occ(wfs, self.constraints, update_mom=True)
 
     def check_mom(self, wfs, dens):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            self.restart = self.sort_orbitals_mom(wfs)
+            self.restart = sort_orbitals_according_to_occ(
+                wfs, self.constraints, update_mom=True)
 
     def randomize_orbitals_kpt(self, wfs, kpt):
         """
@@ -1105,19 +1085,3 @@ def find_all_pairs(ind, n_dim, n_occ, representation):
             for i in range(n_occ):
                 pairs.append([i, ind])
     return pairs
-
-
-def update_constraints_kpt(constraints, ind):
-    """
-    Change the constraint indices to match a new indexation, e.g. due to
-    sorting the orbitals
-
-    :param constraints: The list of constraints for one K-point
-    :param ind: List containing information about the change in indexation
-    """
-
-    new = deepcopy(constraints)
-    for i in range(len(constraints)):
-        for k in range(len(constraints[i])):
-            new[i][k] = ind.index(constraints[i][k])
-    return new

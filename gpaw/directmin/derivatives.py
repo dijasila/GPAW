@@ -1,5 +1,6 @@
 import numpy as np
-from gpaw.directmin.tools import get_n_occ, get_indices, random_a
+from gpaw.directmin.tools import get_n_occ, get_indices, random_a, \
+    sort_orbitals_according_to_occ
 from ase.units import Hartree
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
@@ -466,7 +467,8 @@ class Davidson(object):
     def run(self, wfs, ham, dens, use_prev=False):
         self.initialize(wfs, use_prev)
         if not self.gmf:
-            self.etdm.sort_orbitals_mom(wfs)
+            sort_orbitals_according_to_occ(
+                wfs, self.etdm.constraints, update_mom=True)
         self.n_iter = 0
         self.c_ref = [deepcopy(wfs.kpt_u[x].C_nM)
                       for x in range(len(wfs.kpt_u))]
@@ -924,7 +926,8 @@ class Davidson(object):
         return a_vec_u
 
     def estimate_sp_order(self, calc, method='appr-hess', target_more=1):
-        self.etdm.sort_orbitals_mom(calc.wfs, update_mom=method == 'full-hess')
+        sort_orbitals_according_to_occ(
+            calc.wfs, self.etdm.constraints, update_mom=method == 'full-hess')
         appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
             calc.wfs)
         if calc.wfs.dtype is complex:

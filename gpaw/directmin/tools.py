@@ -244,6 +244,30 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
 
     return f_sn
 
+def sort_orbitals_according_to_occ(
+        wfs, constraints=None, update_mom=False):
+    """
+    Sort orbitals according to the occupation
+    numbers so that there are no holes in the
+    distribution of occupation numbers
+    :return:
+    """
+    restart = False
+    for kpt in wfs.kpt_u:
+        changedocc, ind = sort_orbitals_according_to_occ_kpt(
+            wfs, kpt, update_mom=update_mom)
+
+        if changedocc:
+            if constraints:
+                k = wfs.kd.nibzkpts * kpt.s + kpt.q
+                # Identities of the constrained orbitals have
+                # changed and needs to be updated
+                constraints[k] = update_constraints_kpt(
+                    constraints[k], list(ind))
+            restart = True
+
+    return restart
+
 
 def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
     """
@@ -305,6 +329,22 @@ def sort_orbitals_kpt(wfs, kpt, ind, update_proj=False):
         kpt.psit_nG[np.arange(len(ind))] = kpt.psit_nG[ind]
         if update_proj:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+
+def update_constraints_kpt(constraints, ind):
+    """
+    Change the constraint indices to match a new indexation, e.g. due to
+    sorting the orbitals
+
+    :param constraints: The list of constraints for one K-point
+    :param ind: List containing information about the change in indexation
+    """
+
+    new = deepcopy(constraints)
+    for i in range(len(constraints)):
+        for k in range(len(constraints[i])):
+            new[i][k] = ind.index(constraints[i][k])
+    return new
 
 
 def dict_to_array(x):
@@ -399,7 +439,7 @@ def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
                        specified values.
     """
 
-    etdm.sort_orbitals_mom(wfs)
+    sort_orbitals_according_to_occ(wfs, etdm.constraints, update_mom=True)
 
     new_vec_u = {}
     ind_up = etdm.ind_up
