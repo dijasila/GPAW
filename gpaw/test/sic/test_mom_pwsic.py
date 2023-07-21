@@ -32,7 +32,7 @@ def test_mom_pwsic(in_tmp_dir):
 
     calc.set(eigensolver=FDPWETDM(exstopt=True,
                                   need_init_orbs=False))
-    f_sn = excite(calc, 0, 0, (0, 0), sort=True)
+    f_sn = excite(calc, 0, 0, (0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
 
