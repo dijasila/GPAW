@@ -177,7 +177,7 @@ class FDPWETDM(Eigensolver):
 
         wfs.calculate_occupation_numbers(dens.fixed)
 
-        self.localize_wfs(wfs, dens, ham, log)
+        self.localize(wfs, dens, ham, log)
         self.initialize_dm(wfs, dens, ham)
         self.init_mom(wfs, dens, log)
 
@@ -1108,7 +1108,7 @@ class FDPWETDM(Eigensolver):
         if wfs.read_from_file_init_wfs_dm:
             self.initial_random = False
 
-    def localize_wfs(self, wfs, dens, ham, log):
+    def localize(self, wfs, dens, ham, log):
         if not self.need_localization:
             return
         localize_orbitals(wfs, dens, ham, log, self.localizationtype,

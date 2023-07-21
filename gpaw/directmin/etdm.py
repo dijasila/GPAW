@@ -285,12 +285,14 @@ class ETDM:
                 self.randomize_orbitals_kpt(wfs, kpt)
             self.randomizeorbitals = False
 
-        # initialize matrices
+        # MOM
         wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.initial_occupation_numbers = wfs.occupations.numbers.copy()
-        self.sort_orbitals_mom(wfs)
+            self.sort_orbitals_mom(wfs)
+
+        # initialize matrices
         self.set_variable_matrices(wfs.kpt_u)
         # if no empty state no need to optimize
         for k in self.ind_up:
@@ -298,22 +300,11 @@ class ETDM:
                 self.n_dim[k] = 0
 
         # localize orbitals?
-        if self.need_localization:
-            localizationtype = \
-                self.localizationtype.replace('-', '').lower().split('_')
-            do_oo_subspace = 'pz' in localizationtype
-            localize_orbitals(
-                wfs, dens, ham, log, self.localizationtype,
-                seed=self.localizationseed)
-            if do_oo_subspace:
-                assert self.dm_helper.func.name == 'PZ-SIC', \
-                    'PZ-SIC localization requested, but functional settings ' \
-                    'do not use PZ-SIC.'
-                self.lock_subspace('oo')
-            self.need_localization = False
-            wfs.calculate_occupation_numbers(dens.fixed)
-            if occ_name == 'mom':
-                self.initialize_mom(wfs, dens)
+        self.localize(wfs, dens, ham, log)
+
+        # MOM
+        if occ_name == 'mom':
+            self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
             f_unique = np.unique(kpt.f_n)
@@ -422,6 +413,21 @@ class ETDM:
             self.constraints = [[] for _ in range(len(kpt_u))]
 
         self.iters = 1
+
+    def localize(self, wfs, dens, ham, log):
+        if self.need_localization:
+            localizationtype = \
+                self.localizationtype.replace('-', '').lower().split('_')
+            do_oo_subspace = 'pz' in localizationtype
+            localize_orbitals(
+                wfs, dens, ham, log, self.localizationtype,
+                seed=self.localizationseed)
+            if do_oo_subspace:
+                assert self.dm_helper.func.name == 'PZ-SIC', \
+                    'PZ-SIC localization requested, but functional ' \
+                    'settings do not use PZ-SIC.'
+                self.lock_subspace('oo')
+            self.need_localization = False
 
     def sort_ind_p(self, i1, i2):
         ind = np.argsort(i1)
