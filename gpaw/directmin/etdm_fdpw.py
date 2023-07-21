@@ -17,7 +17,7 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.functional.fdpw import get_functional
-from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ, sort_orbitals_according_to_occ_kpt
+from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ
 from gpaw.directmin.fdpw.pz_localization import PZLocalization
 from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
 import time
@@ -175,11 +175,21 @@ class FDPWETDM(Eigensolver):
         self.initialize_super(wfs, ham)
         self.initialize_orbitals(wfs, ham)
 
+        # MOM
         wfs.calculate_occupation_numbers(dens.fixed)
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+            sort_orbitals_according_to_occ(wfs, update_mom=True)
 
+        # localize orbitals?
         self.localize(wfs, dens, ham, log)
+
+        # MOM
+        self.initialize_mom(wfs, dens, log)
+
+        # initialize search direction, line search and inner loops
         self.initialize_dm(wfs, dens, ham)
-        self.init_mom(wfs, dens, log)
 
     def initialize_super(self, wfs, ham):
         """
@@ -1195,7 +1205,7 @@ class FDPWETDM(Eigensolver):
             self.initialized = False
             self.need_init_odd = True
 
-    def init_mom(self, wfs, dens, log):
+    def initialize_mom(self, wfs, dens, log):
         occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name != 'mom':
             return

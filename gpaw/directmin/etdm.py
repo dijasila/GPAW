@@ -276,7 +276,6 @@ class ETDM:
             diagonalizer=None,
             orthonormalization=self.orthonormalization,
             need_init_orbs=self.need_init_orbs)
-
         self.need_init_orbs = self.dm_helper.need_init_orbs
 
         # randomize orbitals?
@@ -285,13 +284,9 @@ class ETDM:
                 self.randomize_orbitals_kpt(wfs, kpt)
             self.randomizeorbitals = False
 
-        # MOM
         wfs.calculate_occupation_numbers(dens.fixed)
-        occ_name = getattr(wfs.occupations, "name", None)
-        if occ_name == 'mom':
-            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
-            sort_orbitals_according_to_occ(
-                wfs, self.constraints, update_mom=True)
+        # MOM
+        self.initial_sort_orbitals_mom(wfs)
 
         # initialize matrices
         self.set_variable_matrices(wfs.kpt_u)
@@ -304,8 +299,7 @@ class ETDM:
         self.localize(wfs, dens, ham, log)
 
         # MOM
-        if occ_name == 'mom':
-            self.initialize_mom(wfs, dens)
+        self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
             f_unique = np.unique(kpt.f_n)
@@ -764,7 +758,7 @@ class ETDM:
                     wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.calculate_occupation_numbers(dens.fixed)
             occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
                 if not sort_eigenvalues \
@@ -932,16 +926,26 @@ class ETDM:
             assert wfs.occupations.name == 'fixed-uniform', errormsg
 
     def initialize_mom(self, wfs, dens):
-        # Reinitialize the MOM reference orbitals
-        # after orthogonalization/localization
-        wfs.occupations.initialize_reference_orbitals()
-        wfs.calculate_occupation_numbers(dens.fixed)
-        sort_orbitals_according_to_occ(wfs, self.constraints, update_mom=True)
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name == 'mom':
+            # Reinitialize the MOM reference orbitals
+            # after orthogonalization/localization
+            wfs.occupations.initialize_reference_orbitals()
+            wfs.calculate_occupation_numbers(dens.fixed)
+            sort_orbitals_according_to_occ(
+                wfs, self.constraints, update_mom=True)
+
+    def initial_sort_orbitals_mom(self, wfs):
+        occ_name = getattr(wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+            sort_orbitals_according_to_occ(
+                wfs, self.constraints, update_mom=True)
 
     def check_mom(self, wfs, dens):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = sort_orbitals_according_to_occ(
                 wfs, self.constraints, update_mom=True)
 
