@@ -20,7 +20,6 @@ class KSFDPW:
         self.total_sic = 0.0
         self.eks = 0.0
         self.changedocc = 0
-        self.restart = 0
         self.dens = dens
         self.ham = ham
 

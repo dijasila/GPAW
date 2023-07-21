@@ -8,7 +8,7 @@ arXiv:2102.06542 [physics.comp-ph]
 """
 
 from gpaw.directmin.tools import get_n_occ, get_indices, expm_ed, \
-    sort_orbitals_according_to_occ_kpt
+    sort_orbitals_according_to_occ
 from gpaw.directmin.sd_etdm import LSR1P
 from gpaw.directmin.ls_etdm import MaxStep
 from gpaw.directmin.derivatives import get_approx_analytical_hessian
@@ -53,6 +53,7 @@ class ETDMInnerLoop:
             self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
         self.momcounter = 0
         self.momevery = momevery
+        self.restart = False
         self.eks = 0.0
         self.esic = 0.0
         self.kappa = 0.0
@@ -227,7 +228,7 @@ class ETDMInnerLoop:
             else:
                 return self.e_total, outer_counter
 
-        if self.odd_pot.restart:
+        if self.restart:
             del self.psit_knG
             return 0.0, 0
 
@@ -284,7 +285,7 @@ class ETDMInnerLoop:
             phi_old_2 = phi_old
             der_phi_old_2 = der_phi_old
 
-            if self.odd_pot.restart:
+            if self.restart:
                 break
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
@@ -361,23 +362,11 @@ class ETDMInnerLoop:
 
     def apply_mom(self, wfs, dens):
         if self.momcounter % self.momevery == 0:
-            f_sn = {}
-            for kpt in wfs.kpt_u:
-                u = self.kpointval(kpt)
-                f_sn[u] = kpt.f_n.copy()
-            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-            self.changedocc = 0
-            for kpt in wfs.kpt_u:
-                u = self.kpointval(kpt)
-                self.changedocc = int(
-                    not np.allclose(f_sn[u], kpt.f_n.copy()))
-            self.changedocc = wfs.kd.comm.max(self.changedocc)
-            occ_name = getattr(wfs.occupations, 'name', None)
+            occ_name = getattr(wfs.occupations, "name", None)
             if occ_name == 'mom':
-                for kpt in wfs.kpt_u:
-                    sort_orbitals_according_to_occ_kpt(wfs, kpt)
-            if self.changedocc:
-                self.odd_pot.restart = 1
+                wfs.calculate_occupation_numbers(dens.fixed)
+                self.restart = sort_orbitals_according_to_occ(
+                    wfs, update_mom=True)
         self.momcounter += 1
 
     def kpointval(self, kpt):

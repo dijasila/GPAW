@@ -1189,12 +1189,15 @@ class FDPWETDM(Eigensolver):
         update = False
 
         if iloop:
-            astmnt = self.outer_iloop.odd_pot.restart
+            astmnt = self.outer_iloop.restart
             bstmnt = (self.iters + 1) % self.momevery == 0 and \
                 not self.outer_iloop.converged
             if astmnt or bstmnt:
                 update = True
-        if update and not wfs.occupations.use_fixed_occupations:
+        if update:
+            # TODO: We probably don't need all this below, because dm
+            #  is initialize in scf.py and the orbitals are sorted when
+            #  calling sort_orbitals_according_to_occ in the inner loop
             self.choose_optimal_orbitals(wfs)
             if not sic_calc:
                 for kpt in wfs.kpt_u:

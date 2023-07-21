@@ -95,7 +95,6 @@ class PZSICFDPW:
         self.store_potentials = store_potentials
         self.grad = {}
         self.total_sic = 0.0
-        self.restart = False
 
         if store_potentials:
             self.old_pot = {}
