@@ -311,11 +311,9 @@ class ETDM:
                     'do not use PZ-SIC.'
                 self.lock_subspace('oo')
             self.need_localization = False
-
-        # mom
-        wfs.calculate_occupation_numbers(dens.fixed)
-        if occ_name == 'mom':
-            self.initialize_mom(wfs, dens)
+            wfs.calculate_occupation_numbers(dens.fixed)
+            if occ_name == 'mom':
+                self.initialize_mom(wfs, dens)
 
         for kpt in wfs.kpt_u:
             f_unique = np.unique(kpt.f_n)

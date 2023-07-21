@@ -174,7 +174,9 @@ class FDPWETDM(Eigensolver):
     def initialize_dm_helper(self, wfs, ham, dens, log):
         self.initialize_super(wfs, ham)
         self.initialize_orbitals(wfs, ham)
+
         wfs.calculate_occupation_numbers(dens.fixed)
+
         self.localize_wfs(wfs, dens, ham, log)
         self.initialize_dm(wfs, dens, ham)
         self.init_mom(wfs, dens, log)

@@ -64,15 +64,11 @@ class ETDMHelperLCAO(DirectLCAO):
                 wfs.atomic_correction.calculate_projections(wfs, kpt)
 
     def initialize_orbitals(self, wfs, ham):
-
         """
         If it is the first use of the scf then initialize
         coefficient matrix using eigensolver
-        and then localise orbitals
         """
 
-        # if it is the first use of the scf then initialize
-        # coefficient matrix using eigensolver
         orthname = self.orthonormalization
         need_canon_coef = \
             (not wfs.coefficients_read_from_file and self.need_init_orbs)
@@ -85,7 +81,6 @@ class ETDMHelperLCAO(DirectLCAO):
 
     def calc_grad(self, wfs, ham, kpt, evecs, evals, matrix_exp,
                   representation, ind_up, constraints):
-
         """
         Gradient w.r.t. skew-Hermitian matrices
         """
