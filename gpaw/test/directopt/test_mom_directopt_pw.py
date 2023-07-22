@@ -55,10 +55,10 @@ def test_mom_directopt_pw(in_tmp_dir):
         iters = calc.get_number_of_iterations()
         if iters == 3:
             psit_nG_old = calc.wfs.kpt_u[0].psit_nG.copy()
-            calc.wfs.kpt_u[0].psit_nG[3] = np.cos(angle) * psit_nG_old[3] \
-                                           + np.sin(angle) * psit_nG_old[4]
-            calc.wfs.kpt_u[0].psit_nG[4] = np.cos(angle) * psit_nG_old[4] \
-                                           - np.sin(angle) * psit_nG_old[3]
+            calc.wfs.kpt_u[0].psit_nG[3] = \
+                np.cos(angle) * psit_nG_old[3] + np.sin(angle) * psit_nG_old[4]
+            calc.wfs.kpt_u[0].psit_nG[4] = \
+                np.cos(angle) * psit_nG_old[4] - np.sin(angle) * psit_nG_old[3]
             for kpt in calc.wfs.kpt_u:
                 calc.wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
