@@ -44,7 +44,8 @@ class FDPWETDM(Eigensolver):
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
                  restartevery_iloop_notconverged=3,
-                 momevery=20,
+                 restart_canonical=True,
+                 momevery=10,
                  printinnerloop=False,
                  blocksize=1,
                  converge_unocc=True,
@@ -72,6 +73,7 @@ class FDPWETDM(Eigensolver):
         self.converge_unocc = converge_unocc
         self.maxiter_unocc = maxiter_unocc
         self.restartevery_iloop_notconverged = restartevery_iloop_notconverged
+        self.restart_canonical = restart_canonical
         self.momevery = momevery
 
         self.total_eg_count_iloop = 0
@@ -171,6 +173,7 @@ class FDPWETDM(Eigensolver):
                 'g_tolxst': self.g_tolxst,
                 'restartevery_iloop_notconverged':
                     self.restartevery_iloop_notconverged,
+                'restart_canonical': self.restart_canonical,
                 'printinnerloop': self.printinnerloop,
                 'blocksize': self.blocksize,
                 'converge_unocc': self.converge_unocc,
@@ -1199,7 +1202,8 @@ class FDPWETDM(Eigensolver):
                 and not self.outer_iloop.converged
             if astmnt or bstmnt:
                 self.choose_optimal_orbitals(wfs)
-                if not sic_calc:
+                if not sic_calc and self.restart_canonical:
+                    # Will restart using canonical orbitals
                     self.need_init_orbs = True
                     wfs.read_from_file_init_wfs_dm = False
                 self.iters = 0

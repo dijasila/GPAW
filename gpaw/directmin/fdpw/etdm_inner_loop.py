@@ -21,7 +21,7 @@ class ETDMInnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
                  tol=5.0e-4, maxiter=100, maxstepxst=0.2,
-                 g_tol=5.0e-4, useprec=False, momevery=20):
+                 g_tol=5.0e-4, useprec=False, momevery=10):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nibzkpts
@@ -287,6 +287,7 @@ class ETDMInnerLoop:
 
             if self.restart:
                 break
+
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
@@ -313,15 +314,16 @@ class ETDMInnerLoop:
             log('INNER LOOP FINISHED.\n')
             log('Total number of e/g calls:' + str(self.eg_count))
 
-        for kpt in wfs.kpt_u:
-            k = self.kpointval(kpt)
-            n_occ = self.n_occ[k]
-            kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
-                                               self.psit_knG[k],
-                                               axes=1)
-            # calc projectors
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+        if not self.restart:
+            for kpt in wfs.kpt_u:
+                k = self.kpointval(kpt)
+                n_occ = self.n_occ[k]
+                kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
+                                                   self.psit_knG[k],
+                                                   axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
 
         if outer_counter is None:
             return self.e_total, self.counter

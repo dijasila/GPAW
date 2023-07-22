@@ -43,7 +43,7 @@ def test_gradient_numerically_pw(in_tmp_dir):
         calc.set(eigensolver=FDPWETDM(exstopt=True))
         f_sn = [calc.get_occupation_numbers(spin=s).copy() / 2
                 for s in range(calc.wfs.nspins)]
-        prepare_mom_calculation(calc, atoms, f_sn)
+        prepare_mom_calculation(calc, atoms, f_sn, use_fixed_occupations=True)
         atoms.get_potential_energy()
 
         ham = calc.hamiltonian
