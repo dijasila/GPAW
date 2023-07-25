@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, Literal, Callable
 
 import gpaw.fftw as fftw
 import numpy as np
@@ -121,12 +121,11 @@ class DistributedArrays(Generic[DomainType]):
                         other,  # : Self,
                         *,
                         out: Matrix | None = None,
-                        symmetric: bool | str = '_default',
+                        symmetric: bool | Literal['_default'] = '_default',
                         function=None,
                         domain_sum=True,
                         cc: bool = False) -> Matrix:
-        if isinstance(symmetric, str):
-            assert symmetric == '_default'
+        if symmetric == '_default':
             symmetric = self is other
 
         comm = self.comm
@@ -134,14 +133,19 @@ class DistributedArrays(Generic[DomainType]):
         if out is None:
             out = Matrix(self.dims[0], other.dims[0],
                          dist=(comm, -1, 1),
-                         dtype=self.desc.dtype)
+                         dtype=self.desc.dtype,
+                         xp=self.xp)
 
         if comm.size == 1:
+            assert other.comm.size == 1
             if function:
+                assert symmetric
                 other = function(other)
 
             M1 = self.matrix
             M2 = other.matrix
+            if not symmetric:
+                print(M1, M2)
             out = M1.multiply(M2, opb='C', alpha=self.dv,
                               symmetric=symmetric, out=out)
 
@@ -150,9 +154,9 @@ class DistributedArrays(Generic[DomainType]):
 
         else:
             if symmetric:
-                parallel_me_sym(self, other, out, function)
+                _parallel_me_sym(self, out, function)
             else:
-                1 / 0
+                _parallel_me(self, other, out)
 
         if not cc:
             out.complex_conjugate()
@@ -200,10 +204,61 @@ class DistributedArrays(Generic[DomainType]):
         raise NotImplementedError
 
 
-def parallel_me_sym(psit_nX: DistributedArrays,
-                    out_nX: DistributedArrays,
-                    M_nn: Matrix,
-                    operator) -> None:
+def _parallel_me(psit1_nX: DistributedArrays,
+                 psit2_nX: DistributedArrays,
+                 M_nn: Matrix) -> None:
+
+    comm = psit1_nX.comm
+    nbands = psit1_nX.dims[0]
+
+    psit1_nX = psit1_nX[:]
+
+    B = (nbands + comm.size - 1) // comm.size
+
+    n_r = [min(r * B, nbands) for r in range(comm.size + 1)]
+
+    buf1_nX = psit1_nX.desc.empty(B)
+    buf2_nX = psit1_nX.desc.empty(B)
+    psit_nX = psit2_nX
+
+    for shift in range(comm.size):
+        rrequest = None
+        srequest = None
+
+        if shift < comm.size - 1:
+            srank = (comm.rank + shift + 1) % comm.size
+            rrank = (comm.rank - shift - 1) % comm.size
+            n1 = n_r[rrank]
+            n2 = n_r[rrank + 1]
+            mynb = n2 - n1
+            if mynb > 0:
+                rrequest = comm.receive(buf1_nX.data[:mynb], rrank, 11, False)
+            if psit2_nX.data.size > 0:
+                srequest = comm.send(psit2_nX.data, srank, 11, False)
+
+        print(psit1_nX, psit_nX)
+        r2 = (comm.rank - shift) % comm.size
+        n1 = n_r[r2]
+        n2 = n_r[r2 + 1]
+        m_nn = psit1_nX.matrix_elements(psit_nX[:n2 - n1], cc=True)
+
+        M_nn.data[:, n1:n2] = m_nn.data
+
+        if rrequest:
+            comm.wait(rrequest)
+        if srequest:
+            comm.wait(srequest)
+
+        psit_nX = buf1_nX
+        buf1_nX, buf2_nX = buf2_nX, buf1_nX
+
+
+def _parallel_me_sym(psit_nX: DistributedArrays,
+                     M_nn: Matrix,
+                     operator: None | Callable[[DistributedArrays],
+                                               DistributedArrays]
+                     ) -> None:
+    """..."""
     comm = psit_nX.comm
     nbands = psit_nX.dims[0]
     B = (nbands + comm.size - 1) // comm.size
@@ -213,7 +268,6 @@ def parallel_me_sym(psit_nX: DistributedArrays,
     mynbands_r = [n_r[r + 1] - n_r[r] for r in range(comm.size)]
     assert mynbands_r[comm.rank] == mynbands
 
-    psit_nX = psit_nX[:]
     buf1_nX = psit_nX.desc.empty(B)
     buf2_nX = psit_nX.desc.empty(B)
     half = comm.size // 2
@@ -225,7 +279,7 @@ def parallel_me_sym(psit_nX: DistributedArrays,
         if shift < half:
             srank = (comm.rank + shift + 1) % comm.size
             rrank = (comm.rank - shift - 1) % comm.size
-            skip = (comm.size % 2 == 0 and shift == half - 1)
+            skip = comm.size % 2 == 0 and shift == half - 1
             rmynb = mynbands_r[rrank]
             if not (skip and comm.rank < half) and rmynb > 0:
                 rrequest = comm.receive(buf1_nX.data[:rmynb], rrank, 11, False)
@@ -233,10 +287,11 @@ def parallel_me_sym(psit_nX: DistributedArrays,
                 srequest = comm.send(psit_nX.data, srank, 11, False)
 
         if shift == 0:
-            if operator:
-                operator(psit_nX, out_nX)
+            if operator is not None:
+                out_nX = operator(psit_nX)
             else:
                 out_nX = psit_nX
+            out_nX = out_nX[:]  # local view
 
         if not (comm.size % 2 == 0 and shift == half and comm.rank < half):
             r2 = (comm.rank - shift) % comm.size

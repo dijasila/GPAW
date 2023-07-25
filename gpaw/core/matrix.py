@@ -135,7 +135,8 @@ class Matrix:
         return Matrix(*self.shape,
                       dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist,
-                      data=data)
+                      data=data,
+                      xp=self.xp)
 
     def copy(self) -> Matrix:
         """Create a copy."""
