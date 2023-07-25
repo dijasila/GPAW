@@ -2,14 +2,16 @@ from typing import Any, Union, Sequence
 import numpy as np
 
 try:
+    # New in Python-3.11
     from typing import Self
 except ImportError:
-    Self = Any
+    Self = Any  # type: ignore
 
 try:
+    # New in Python-3.8
     from typing import Literal
 except ImportError:
-    class Literal:
+    class Literal:  # type: ignore
         def __getitem__(self, index):
             return Any
 
