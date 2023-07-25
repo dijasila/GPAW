@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar, Self
 
 import gpaw.fftw as fftw
 import numpy as np
@@ -118,7 +118,7 @@ class DistributedArrays(Generic[DomainType]):
         return self._matrix
 
     def matrix_elements(self,
-                        other,
+                        other: Self,
                         *,
                         out: Matrix | None = None,
                         symmetric: bool | str = '_default',
@@ -131,6 +131,11 @@ class DistributedArrays(Generic[DomainType]):
 
         comm = self.comm
 
+        if out is None:
+            out = Matrix(self.dims[0], other.dims[0],
+                         dist=(comm, -1, 1),
+                         dtype=self.desc.dtype)
+
         if comm.size == 1:
             if function:
                 other = function(other)
@@ -139,16 +144,18 @@ class DistributedArrays(Generic[DomainType]):
             M2 = other.matrix
             out = M1.multiply(M2, opb='C', alpha=self.dv,
                               symmetric=symmetric, out=out)
-            if not cc:
-                out.complex_conjugate()
 
+            # Plane-wave expansion of real-valued functions needs a correction:
             self._matrix_elements_correction(M1, M2, out, symmetric)
 
         else:
             if symmetric:
-                out = parallel_me_sym(self, other, out, function, cc)
+                parallel_me_sym(self, other, out, function)
             else:
-                ...
+                1 / 0
+
+        if not cc:
+            out.complex_conjugate()
 
         if domain_sum:
             self.domain_comm.sum(out.data)
@@ -175,6 +182,16 @@ class DistributedArrays(Generic[DomainType]):
     def gather(self, out=None, broadcast=False):
         raise NotImplementedError
 
+    def gathergather(self):
+        a_xX = self.gather()  # gather X
+        if a_xX is not None:
+            m_xX = a_xX.matrix.gather()  # gather x
+            if m_xX.dist.comm.rank == 0:
+                data = m_xX.data
+                if a_xX.data.dtype != data.dtype:
+                    data = data.view(complex)
+                return self.desc.new(comm=None).from_data(data)
+
     def interpolate(self,
                     plan1: fftw.FFTPlans = None,
                     plan2: fftw.FFTPlans = None,
@@ -186,8 +203,7 @@ class DistributedArrays(Generic[DomainType]):
 def parallel_me_sym(psit_nX: DistributedArrays,
                     out_nX: DistributedArrays,
                     M_nn: Matrix,
-                    operator,
-                    cc: bool) -> Matrix:
+                    operator) -> None:
     comm = psit_nX.comm
     nbands = psit_nX.dims[0]
     B = (nbands + comm.size - 1) // comm.size
@@ -197,38 +213,38 @@ def parallel_me_sym(psit_nX: DistributedArrays,
     mynbands_r = [n_r[r + 1] - n_r[r] for r in range(comm.size)]
     assert mynbands_r[comm.rank] == mynbands
 
+    psit_nX = psit_nX[:]
     buf1_nX = psit_nX.desc.empty(B)
     buf2_nX = psit_nX.desc.empty(B)
     half = comm.size // 2
-    C_NX = psit_nX[:]
-    # if out_nX is not psit_nX:
-    #     psit2 = psit2.view(0, mynbands)
 
-    for r1 in range(half + 1):
+    for shift in range(half + 1):
         rrequest = None
         srequest = None
 
-        if r1 < half:
-            srank = (comm.rank + r1 + 1) % comm.size
-            rrank = (comm.rank - r1 - 1) % comm.size
-            skip = (comm.size % 2 == 0 and r1 == half - 1)
+        if shift < half:
+            srank = (comm.rank + shift + 1) % comm.size
+            rrank = (comm.rank - shift - 1) % comm.size
+            skip = (comm.size % 2 == 0 and shift == half - 1)
             rmynb = mynbands_r[rrank]
             if not (skip and comm.rank < half) and rmynb > 0:
                 rrequest = comm.receive(buf1_nX.data[:rmynb], rrank, 11, False)
             if not (skip and comm.rank >= half) and psit_nX.data.size > 0:
                 srequest = comm.send(psit_nX.data, srank, 11, False)
 
-        if r1 == 0:
+        if shift == 0:
             if operator:
                 operator(psit_nX, out_nX)
             else:
                 out_nX = psit_nX
 
-        if not (comm.size % 2 == 0 and r1 == half and comm.rank < half):
-            m_nn = psit_nX.matrix_elements(out_nX, symmetric=(r1 == 0), cc=True)
-            r2 = (comm.rank - r1) % comm.size
+        if not (comm.size % 2 == 0 and shift == half and comm.rank < half):
+            r2 = (comm.rank - shift) % comm.size
             n1 = n_r[r2]
             n2 = n_r[r2 + 1]
+            m_nn = out_nX.matrix_elements(psit_nX[:n2 - n1],
+                                          symmetric=(shift == 0),
+                                          cc=True)
             M_nn.data[:, n1:n2] = m_nn.data
 
         if rrequest:
@@ -245,20 +261,20 @@ def parallel_me_sym(psit_nX: DistributedArrays,
     for row in range(nrows):
         for column in range(comm.size - nrows + row, comm.size):
             if comm.rank == row:
-                n1 = min(column * n, N)
-                n2 = min(n1 + n, N)
+                n1 = n_r[column]
+                n2 = n_r[column + 1]
                 if mynbands > 0 and n2 > n1:
                     requests.append(
-                        comm.send(out.array[:, n1:n2].T.conj().copy(),
+                        comm.send(M_nn.data[:, n1:n2].T.conj().copy(),
                                   column, 12, False))
             elif comm.rank == column:
-                n1 = min(row * n, N)
-                n2 = min(n1 + n, N)
+                n1 = n_r[row]
+                n2 = n_r[row + 1]
                 if mynbands > 0 and n2 > n1:
-                    block = np.empty((mynbands, n2 - n1), out.dtype)
+                    block = np.empty((mynbands, n2 - n1), M_nn.dtype)
                     blocks.append((n1, n2, block))
                     requests.append(comm.receive(block, row, 12, False))
 
     comm.waitall(requests)
     for n1, n2, block in blocks:
-        out.array[:, n1:n2] = block
+        M_nn.data[:, n1:n2] = block
