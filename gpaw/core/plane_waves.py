@@ -133,13 +133,14 @@ class PlaneWaves(Domain):
             *,
             ecut: float = None,
             kpt=None,
+            dtype=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
         """Create new plane-wave expansion description."""
         comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
                           kpt=self.kpt_c if kpt is None else kpt,
-                          dtype=self.dtype,
+                          dtype=dtype or self.dtype,
                           comm=comm or serial_comm)
 
     def indices(self, shape: tuple[int, ...]) -> Array1D:

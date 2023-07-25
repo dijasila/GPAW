@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import TYPE_CHECKING, Generic, TypeVar, Self
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import gpaw.fftw as fftw
 import numpy as np
@@ -118,7 +118,7 @@ class DistributedArrays(Generic[DomainType]):
         return self._matrix
 
     def matrix_elements(self,
-                        other: Self,
+                        other,  # : Self,
                         *,
                         out: Matrix | None = None,
                         symmetric: bool | str = '_default',

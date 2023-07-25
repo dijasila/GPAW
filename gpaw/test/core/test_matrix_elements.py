@@ -15,13 +15,15 @@ def comms():
 
 
 @pytest.mark.parametrize('domain_comm, band_comm', list(comms()))
-def test_me(domain_comm, band_comm):
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('nbands', [1, 7, 21])
+def test_me(domain_comm, band_comm, dtype, nbands):
     a = 2.5
     n = 20
     grid = UniformGrid(cell=[a, a, a], size=(n, n, n))
     desc = PlaneWaves(ecut=50, cell=grid.cell)
-    desc = desc.new(comm=domain_comm)
-    f = desc.empty(8, comm=band_comm)
+    desc = desc.new(comm=domain_comm, dtype=dtype)
+    f = desc.empty(nbands, comm=band_comm)
     f.randomize()
     M = f.matrix_elements(f)
 
