@@ -151,7 +151,6 @@ class Davidson(Eigensolver):
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
             if domain_comm.rank == 0:
-                print(M_nn, M0_nn)
                 M_nn.redist(M0_nn)
                 if band_comm.rank == 0:
                     C_nn[:] = M0_nn.data

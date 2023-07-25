@@ -34,13 +34,12 @@ class OccupationNumberCalculator:
             # from gpaw.mom import OccupationsMOM
             # return OccupationsMOM(..., **kwargs)
 
-        self.band_comm = comms['b']
-        bd = BandDescriptor(nbands)
+        bd = BandDescriptor(1)  # dummy
         self.occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(bd,
                                            comms['k'],
-                                           comms['d']),
+                                           comms['K']),
             fixed_magmom_value=magmom_v[2],
             rcell=rcell,
             monkhorst_pack_size=getattr(ibz.bz, 'size_c', None),
@@ -56,9 +55,6 @@ class OccupationNumberCalculator:
                   weights: list[float],
                   fermi_levels_guess: list[float] = None
                   ) -> tuple[Array2D, list[float], float]:
-        if self.band_comm.rank == 0:
-            occs, fls, e = self.occ.calculate(nelectrons, eigenvalues, weights,
-                                              fermi_levels_guess)
-        else:
-            1 / 0
+        occs, fls, e = self.occ.calculate(nelectrons, eigenvalues, weights,
+                                          fermi_levels_guess)
         return occs, fls, e

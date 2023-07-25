@@ -1,6 +1,7 @@
-from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.mpi import world
 import pytest
+
+from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.mpi import serial_comm, world
 
 
 def comms():
@@ -16,7 +17,7 @@ def comms():
 
 def func(f):
     g = f.copy()
-    g.data *= 2.0
+    g.data *= 2.3
     return g
 
 
@@ -60,6 +61,4 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
 
 
 if __name__ == '__main__':
-    from gpaw.mpi import serial_comm
-    # test_me(world, serial_comm, float, 7, None)
     test_me(serial_comm, world, float, 7, None)

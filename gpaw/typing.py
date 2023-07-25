@@ -2,6 +2,18 @@ from typing import Any, Union, Sequence
 import numpy as np
 
 try:
+    from typing import Self
+except ImportError:
+    Self = Any
+
+try:
+    from typing import Literal
+except ImportError:
+    class Literal:
+        def __getitem__(self, index):
+            return Any
+
+try:
     # Needs numpy-1.20:
     from numpy.typing import ArrayLike, DTypeLike
 except ImportError:

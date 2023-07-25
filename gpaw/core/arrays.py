@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import TYPE_CHECKING, Generic, TypeVar, Literal, Callable
+from typing import TYPE_CHECKING, Generic, TypeVar, Callable
 
 import gpaw.fftw as fftw
 import numpy as np
@@ -9,7 +9,7 @@ from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D
+from gpaw.typing import Array1D, Literal, Self
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
@@ -118,7 +118,7 @@ class DistributedArrays(Generic[DomainType]):
         return self._matrix
 
     def matrix_elements(self,
-                        other,  # : Self,
+                        other: Self,
                         *,
                         out: Matrix | None = None,
                         symmetric: bool | Literal['_default'] = '_default',
@@ -144,8 +144,6 @@ class DistributedArrays(Generic[DomainType]):
 
             M1 = self.matrix
             M2 = other.matrix
-            if not symmetric:
-                print(M1, M2)
             out = M1.multiply(M2, opb='C', alpha=self.dv,
                               symmetric=symmetric, out=out)
 
@@ -236,7 +234,6 @@ def _parallel_me(psit1_nX: DistributedArrays,
             if psit2_nX.data.size > 0:
                 srequest = comm.send(psit2_nX.data, srank, 11, False)
 
-        print(psit1_nX, psit_nX)
         r2 = (comm.rank - shift) % comm.size
         n1 = n_r[r2]
         n2 = n_r[r2 + 1]
