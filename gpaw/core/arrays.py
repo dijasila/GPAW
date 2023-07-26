@@ -237,7 +237,8 @@ def _parallel_me(psit1_nX: DistributedArrays,
         r2 = (comm.rank - shift) % comm.size
         n1 = n_r[r2]
         n2 = n_r[r2 + 1]
-        m_nn = psit1_nX.matrix_elements(psit_nX[:n2 - n1], cc=True)
+        m_nn = psit1_nX.matrix_elements(psit_nX[:n2 - n1],
+                                        cc=True, domain_sum=False)
 
         M_nn.data[:, n1:n2] = m_nn.data
 
@@ -250,23 +251,24 @@ def _parallel_me(psit1_nX: DistributedArrays,
         buf1_nX, buf2_nX = buf2_nX, buf1_nX
 
 
-def _parallel_me_sym(psit_nX: DistributedArrays,
+def _parallel_me_sym(psit1_nX: DistributedArrays,
                      M_nn: Matrix,
                      operator: None | Callable[[DistributedArrays],
                                                DistributedArrays]
                      ) -> None:
     """..."""
-    comm = psit_nX.comm
-    nbands = psit_nX.dims[0]
+    comm = psit1_nX.comm
+    nbands = psit1_nX.dims[0]
     B = (nbands + comm.size - 1) // comm.size
-    mynbands = psit_nX.mydims[0]
+    mynbands = psit1_nX.mydims[0]
 
     n_r = [min(r * B, nbands) for r in range(comm.size + 1)]
     mynbands_r = [n_r[r + 1] - n_r[r] for r in range(comm.size)]
     assert mynbands_r[comm.rank] == mynbands
 
-    buf1_nX = psit_nX.desc.empty(B)
-    buf2_nX = psit_nX.desc.empty(B)
+    psit2_nX = psit1_nX
+    buf1_nX = psit1_nX.desc.empty(B)
+    buf2_nX = psit1_nX.desc.empty(B)
     half = comm.size // 2
 
     for shift in range(half + 1):
@@ -280,23 +282,23 @@ def _parallel_me_sym(psit_nX: DistributedArrays,
             rmynb = mynbands_r[rrank]
             if not (skip and comm.rank < half) and rmynb > 0:
                 rrequest = comm.receive(buf1_nX.data[:rmynb], rrank, 11, False)
-            if not (skip and comm.rank >= half) and psit_nX.data.size > 0:
-                srequest = comm.send(psit_nX.data, srank, 11, False)
+            if not (skip and comm.rank >= half) and psit1_nX.data.size > 0:
+                srequest = comm.send(psit1_nX.data, srank, 11, False)
 
         if shift == 0:
             if operator is not None:
-                out_nX = operator(psit_nX)
+                op_psit1_nX = operator(psit1_nX)
             else:
-                out_nX = psit_nX
-            out_nX = out_nX[:]  # local view
+                op_psit1_nX = psit1_nX
+            op_psit1_nX = op_psit1_nX[:]  # local view
 
         if not (comm.size % 2 == 0 and shift == half and comm.rank < half):
             r2 = (comm.rank - shift) % comm.size
             n1 = n_r[r2]
             n2 = n_r[r2 + 1]
-            m_nn = out_nX.matrix_elements(psit_nX[:n2 - n1],
-                                          symmetric=(shift == 0),
-                                          cc=True)
+            m_nn = op_psit1_nX.matrix_elements(psit2_nX[:n2 - n1],
+                                               symmetric=(shift == 0),
+                                               cc=True, domain_sum=False)
             M_nn.data[:, n1:n2] = m_nn.data
 
         if rrequest:
@@ -304,7 +306,7 @@ def _parallel_me_sym(psit_nX: DistributedArrays,
         if srequest:
             comm.wait(srequest)
 
-        psit_nX = buf1_nX
+        psit2_nX = buf1_nX
         buf1_nX, buf2_nX = buf2_nX, buf1_nX
 
     requests = []

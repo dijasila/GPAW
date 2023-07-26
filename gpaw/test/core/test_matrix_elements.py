@@ -34,6 +34,7 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
     f = desc.empty(nbands, comm=band_comm)
     f.randomize()
     M = f.matrix_elements(f, function=function)
+    print(M, M.data)
 
     f1 = f.gathergather()
     M2 = M.gather()
@@ -41,6 +42,7 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
         M1 = f1.matrix_elements(f1, function=function)
         M1.tril2full()
         M2.tril2full()
+        print(M1.data, M2.data)
         dM = M1.data - M2.data
         assert abs(dM).max() < 1e-11
 
@@ -61,4 +63,5 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
 
 
 if __name__ == '__main__':
-    test_me(serial_comm, world, float, 7, None)
+    d, b = list(comms())[0]
+    test_me(d, b, float, 4, None)

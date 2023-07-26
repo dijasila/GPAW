@@ -381,9 +381,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if out is None:
             if comm.rank == 0 or broadcast:
                 pw = self.desc.new(comm=serial_comm)
-                out = pw.empty(self.dims, xp=self.xp)
+                out = pw.empty(self.dims, comm=self.comm, xp=self.xp)
             else:
-                out = Empty(self.dims)
+                out = Empty(self.mydims)
 
         if comm.rank == 0:
             data = self.xp.empty(self.desc.maxmysize * comm.size, complex)
