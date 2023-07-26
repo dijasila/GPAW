@@ -1,10 +1,11 @@
 import pytest
 
 from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.mpi import serial_comm, world
+from gpaw.mpi import world
 
 
 def comms():
+    """Yield communicator combinations."""
     for s in [1, 2, 4, 8]:
         if s > world.size:
             return
@@ -16,11 +17,13 @@ def comms():
 
 
 def func(f):
+    """Operator for matrix elements."""
     g = f.copy()
     g.data *= 2.3
     return g
 
 
+# TODO: test also UniformGridFunctions
 @pytest.mark.parametrize('domain_comm, band_comm', list(comms()))
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('nbands', [1, 7, 21])
@@ -34,7 +37,7 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
     f = desc.empty(nbands, comm=band_comm)
     f.randomize()
     M = f.matrix_elements(f, function=function)
-    print(M, M.data)
+    print(M)
 
     f1 = f.gathergather()
     M2 = M.gather()
@@ -42,7 +45,6 @@ def test_me(domain_comm, band_comm, dtype, nbands, function):
         M1 = f1.matrix_elements(f1, function=function)
         M1.tril2full()
         M2.tril2full()
-        print(M1.data, M2.data)
         dM = M1.data - M2.data
         assert abs(dM).max() < 1e-11
 
