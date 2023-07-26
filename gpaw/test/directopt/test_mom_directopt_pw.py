@@ -46,6 +46,7 @@ def test_mom_directopt_pw(in_tmp_dir):
     # from file
     calc.set(eigensolver=FDPWETDM(exstopt=True,
                                   momevery=3,
+                                  restart_canonical=False,
                                   printinnerloop=False))
     f_sn = excite(calc, 0, 0, (0, 0))
     prepare_mom_calculation(calc, atoms, f_sn)
@@ -89,6 +90,13 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     # Test restart and fixed occupations
     atoms, calc = restart('h2o.gpw', txt='-')
+    atoms.calc.results.pop('energy')
+    atoms.calc.scf.converged = False
+    e2 = atoms.get_potential_energy()
+    niter = calc.get_number_of_iterations()
+    assert niter == pytest.approx(4, abs=3)
+    assert e == pytest.approx(e2, abs=1.0e-3)
+
     for kpt in calc.wfs.kpt_u:
         f_sn[kpt.s] = kpt.f_n
     prepare_mom_calculation(calc, atoms, f_sn, use_fixed_occupations='True')
