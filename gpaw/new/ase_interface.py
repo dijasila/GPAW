@@ -125,6 +125,7 @@ class ASECalculator:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
+                        assert atoms is not None  # MYPY: why is this needed?
                         atoms.set_initial_magnetic_moments(magmom_a)
 
                 if changes & {'numbers', 'pbc'}:
