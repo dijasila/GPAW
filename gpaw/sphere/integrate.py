@@ -213,17 +213,63 @@ def find_volume_conserving_lambd(rcut, drcut, r_g=None):
     return lambd
 
 
-def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
-    r"""Generate truncation function θ(r<rc) for a sphere centered at spos_c.
+def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
+    r"""Generate periodic images of the spherical truncation function θ.
 
-    The smooth radial truncation function θ(r<rc) is used to generate a
-    smoothly truncated sphere of radius rcut and centered at the scaled
-    position spos_c on the real-space grid described by gd.
+    The smooth radial truncation function θ(r<rc) is used to define a
+    smoothly truncated sphere of radius rcut, centered at the scaled
+    position spos_c. The sphere is periodically repeated on the real-space grid
+    described by gd.
+    """
+    # Generate a spherical truncation function collection with a single
+    # truncation function
+    stfc = spherical_truncation_function_collection(
+        gd, spos_ac=[spos_c],
+        rcut_aj=[[rcut]], drcut=drcut, lambd_aj=[[lambd]])
+
+    # Evaluate the spherical truncation function (with its periodic images) on
+    # the real-space grid
+    theta_R = gd.zeros(dtype=float)
+    stfc.add(theta_R)
+
+    return theta_R
+
+
+def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
+                                             drcut=None, lambd_aj=None):
+    """Generate a collection of spherical truncation functions θ(|r-r_a|<rc_aj)
+
+    Generates a LocalizedFunctionsCollection with radial truncation functions
+    θ(r<rc_aj), centered at the scaled positions spos_ac.
 
     See radial_truncation_function() for the functional form of θ(r<rc).
     """
     if drcut is None:
         drcut = default_spherical_drcut(gd)
+    if lambd_aj is None:
+        # Match the nested list structure of rcut_aj and determine the actual
+        # lambda values later
+        lambd_aj = [[None] * len(rcut_j) for rcut_j in rcut_aj]
+
+    # Generate splines for each atomic site and radial truncation function
+    spline_aj = []
+    for spos_c, rcut_j, lambd_j in zip(spos_ac, rcut_aj, lambd_aj):
+        spline_j = []
+        for rcut, lambd in zip(rcut_j, lambd_j):
+            spline_j.append(radial_truncation_function_spline(
+                rcut, drcut, lambd))
+        spline_aj.append(spline_j)
+
+    # Generate the spherical truncation function collection (stfc)
+    stfc = LocalizedFunctionsCollection(gd, spline_aj, dtype=float)
+    stfc.set_positions(spos_ac)
+
+    return stfc
+
+
+def radial_truncation_function_spline(rcut, drcut, lambd=None):
+    """Generate spline representation of the radial truncation function θ(r<rc)
+    """
     if lambd is None:
         lambd = find_volume_conserving_lambd(rcut, drcut)
 
@@ -235,14 +281,7 @@ def spherical_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
                     # requested spherical harmonic for the function in
                     # question. For l=0, Y = 1/sqrt(4π):
                     f_g=np.sqrt(4 * np.pi) * theta_g)
-
-    # Evaluate truncation function on the real-space grid
-    lfc = LocalizedFunctionsCollection(gd, [[spline]], dtype=float)
-    lfc.set_positions([spos_c])
-    theta_R = gd.zeros(dtype=float)
-    lfc.add(theta_R)
-
-    return theta_R
+    return spline
 
 
 def default_spherical_drcut(gd):

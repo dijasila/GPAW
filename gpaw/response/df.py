@@ -17,7 +17,7 @@ class DielectricFunctionCalculator:
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
 
-        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
@@ -73,7 +73,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.get_distributed_frequencies_array()
+            chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
@@ -115,7 +115,7 @@ class DielectricFunctionCalculator:
         """
         qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
 
-        coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
+        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
         Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
         sqrtV_G = Kbare_G**0.5
 

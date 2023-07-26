@@ -4,15 +4,17 @@ import numpy as np
 # GPAW modules
 from gpaw.sphere.integrate import (integrate_lebedev,
                                    radial_truncation_function,
-                                   spherical_truncation_function,
+                                   spherical_truncation_function_collection,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
-from gpaw.response.localft import (LocalFTCalculator, add_LSDA_Bxc,
-                                   add_magnetization, add_LSDA_spin_splitting,
+from gpaw.response.localft import (LocalFTCalculator,
+                                   add_LSDA_Wxc,
+                                   add_spin_polarization,
+                                   add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
 
@@ -26,12 +28,12 @@ class IsotropicExchangeCalculator:
     r"""Calculator class for the Heisenberg exchange constants
 
     _           2
-    J^ab(q) = - ‾‾ B^(xc†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) B^(xc)
+    J^ab(q) = - ‾‾ B^(xc†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) B^(xc)            (1)
                 V0
 
     calculated for an isotropic system in a plane wave representation using
     the magnetic force theorem within second order perturbation theory, see
-    [arXiv:2204.04169].
+    [J. Phys.: Condens. Matter 35 (2023) 105802].
 
     Entering the formula for the isotropic exchange constant at wave vector q
     between sublattice a and b is the unit cell volume V0, the functional
@@ -39,6 +41,21 @@ class IsotropicExchangeCalculator:
     magnitude of the magnetization B^(xc), the sublattice site kernels K^a(q)
     and K^b(q) as well as the reactive part of the static transverse magnetic
     susceptibility of the Kohn-Sham system χ_KS^('+-)(q).
+
+    NB: To achieve numerical stability of the plane-wave implementation, we
+    use instead the following expression to calculate exchange parameters:
+
+    ˷           2
+    J^ab(q) = - ‾‾ W_xc^(z†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) W_xc^z          (2)
+                V0
+
+    We do this since B^(xc)(r) = |W_xc^z(r)| is nonanalytic in points of space
+    where the spin-polarization changes sign, why it is problematic to evaluate
+    Eq. (1) numerically within a plane-wave representation.
+    If the site partitionings only include spin-polarization of the same sign,
+    Eqs. (1) and (2) should yield identical exchange parameters, but for
+    antiferromagnetically aligned sites, the coupling constants differ by a
+    sign.
 
     The site kernels encode the partitioning of real space into sites of the
     Heisenberg model. This is not a uniquely defined procedure, why the user
@@ -66,10 +83,10 @@ class IsotropicExchangeCalculator:
         assert localft_calc.gs is chiks_calc.gs
         self.localft_calc = localft_calc
 
-        # Bxc field buffer
-        self._Bxc_G = None
+        # W_xc^z buffer
+        self._Wxc_G = None
 
-        # chiksr buffer
+        # χ_KS^('+-) buffer
         self._chiksr = None
 
     def __call__(self, q_c, site_kernels: SiteKernels, txt=None):
@@ -93,7 +110,7 @@ class IsotropicExchangeCalculator:
             and b for all the site partitions p given by the site_kernels.
         """
         # Get ingredients
-        Bxc_G = self.get_Bxc()
+        Wxc_G = self.get_Wxc()
         chiksr = self.get_chiksr(q_c, txt=txt)
         qpd, chiksr_GG = chiksr.qpd, chiksr.array[0]  # array = chiksr_zGG
         V0 = qpd.gd.volume
@@ -106,8 +123,8 @@ class IsotropicExchangeCalculator:
         for J_ab, K_aGG in zip(J_pab, site_kernels.calculate(qpd)):
             for a in range(nsites):
                 for b in range(nsites):
-                    J = np.conj(Bxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
-                        @ K_aGG[b] @ Bxc_G
+                    J = np.conj(Wxc_G) @ np.conj(K_aGG[a]).T @ chiksr_GG \
+                        @ K_aGG[b] @ Wxc_G
                     J_ab[a, b] = - 2. * J / V0
 
         # Transpose to have the partitions index last
@@ -115,21 +132,20 @@ class IsotropicExchangeCalculator:
 
         return J_abp * Hartree  # Convert from Hartree to eV
 
-    def get_Bxc(self):
+    def get_Wxc(self):
         """Get B^(xc)_G from buffer."""
-        if self._Bxc_G is None:  # Calculate if buffer is empty
-            self._Bxc_G = self._calculate_Bxc()
+        if self._Wxc_G is None:  # Calculate if buffer is empty
+            self._Wxc_G = self._calculate_Wxc()
 
-        return self._Bxc_G
+        return self._Wxc_G
 
-    def _calculate_Bxc(self):
-        """Use the PlaneWaveBxc calculator to calculate the plane wave
-        coefficients B^xc_G"""
+    def _calculate_Wxc(self):
+        """Calculate the Fourier transform W_xc^z(G)."""
         # Create a plane wave descriptor encoding the plane wave basis. Input
         # q_c is arbitrary, since we are assuming that chiks.gammacentered == 1
         qpd0 = self.chiks_calc.get_pw_descriptor([0., 0., 0.])
 
-        return self.localft_calc(qpd0, add_LSDA_Bxc)
+        return self.localft_calc(qpd0, add_LSDA_Wxc)
 
     def get_chiksr(self, q_c, txt=None):
         """Get χ_KS^('+-)(q) from buffer."""
@@ -222,6 +238,8 @@ class AtomicSiteData:
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
+        self.stfc = spherical_truncation_function_collection(
+            self.finegd, self.spos_ac, self.rc_ap, self.drcut, self.lambd_ap)
 
     @staticmethod
     def _valid_site_radii_range(gs):
@@ -281,7 +299,7 @@ class AtomicSiteData:
         
     def calculate_magnetic_moments(self):
         """Calculate the magnetic moments at each atomic site."""
-        magmom_ap = self.integrate_local_function(add_magnetization)
+        magmom_ap = self.integrate_local_function(add_spin_polarization)
         return magmom_ap
 
     def calculate_spin_splitting(self):
@@ -317,15 +335,14 @@ class AtomicSiteData:
         # Evaluate the local function on the real-space grid
         ft_r = self.finegd.zeros()
         add_f(self.finegd, self.nt_sr, ft_r)
-        for p, (rc_a, lambd_a) in enumerate(zip(
-                self.rc_ap.T, self.lambd_ap.T)):
-            for a, (spos_c, rcut, lambd) in enumerate(zip(
-                    self.spos_ac, rc_a, lambd_a)):
-                # Evaluate the smooth truncation function
-                theta_r = spherical_truncation_function(
-                    self.finegd, spos_c, rcut, self.drcut, lambd)
-                # Integrate θ(r) f(r) on the real-space grid
-                out_ap[a, p] += self.finegd.integrate(theta_r * ft_r)
+
+        # Integrate θ(|r-r_a|<rc_ap) f(ñ(r))
+        ftdict_ap = {a: np.empty(self.npartitions) for a in range(self.nsites)}
+        self.stfc.integrate(ft_r, ftdict_ap)
+
+        # Add pseudo contribution to the output array
+        for a in range(self.nsites):
+            out_ap[a] += ftdict_ap[a]
 
     def _integrate_paw_correction(self, add_f, out_ap):
         """Calculate the PAW correction to an atomic site integral.
