@@ -182,10 +182,10 @@ class BZWaveFunctions:
     """Container for eigenvalues and PAW projections (all of BZ)."""
     def __init__(self,
                  kd: KPointDescriptor,
-                 wfs: Dict[int, WaveFunction],
+                 wfs: dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 nl_aj: Dict[int, Tuple[int, int]]):
+                 nl_aj: dict[int, list[tuple[int, int]]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
@@ -550,10 +550,10 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
                                parallel_layout=parallel_layout)
     else:
         occcalc = None
-    
+
     nl_aj = {}
     for a, setup in enumerate(setups):
-        nl_aj[a] = (setup.n_j, setup.l_j)
+        nl_aj[a] = list(zip(setup.n_j, setup.l_j))
 
     return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
 

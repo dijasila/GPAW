@@ -42,8 +42,9 @@ def get_orbmag_from_calc(calc):
     for wfs in calc.wfs.kpt_u:
         f_n = wfs.f_n
         for (a, P_nsi), setup in zip(wfs.P_ani.items(), calc.setups):
-            orbmag_av[a] += calculate_orbmag_1k(f_n, P_nsi,
-                                                (setup.n_j, setup.l_j))
+            orbmag_av[a] += calculate_orbmag_1k(f_n,
+                                                P_nsi,
+                                                zip(setup.n_j, setup.l_j))
 
     calc.wfs.kd.comm.sum(orbmag_av)
 
@@ -75,7 +76,7 @@ def calculate_orbmag_1k(f_n, P_nsi, nl_j):
         (Fermi-Dirac occupation multiplied by k-point weight)
     P_nsi : ndarray
         Projector overlaps for each state n, spin s, and partial wave i
-    nl_j : tuple of lists or ndarrays
+    nl_j : sequence of tuples
         Principal quantum number and angular momentum quantum number
         for each radial function j
 
@@ -93,7 +94,7 @@ def calculate_orbmag_1k(f_n, P_nsi, nl_j):
 
     orbmag_v = np.zeros(3)
     Ni = 0
-    for n, l in zip(nl_j[0], nl_j[1]):
+    for n, l in nl_j:
         Nm = 2 * l + 1
         if n < 0:
             Ni += Nm

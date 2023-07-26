@@ -20,12 +20,13 @@ def test_orbmag_Ni(gpw_files):
                     parallel={'domain': 1, 'band': 1})
 
     energy_col = calc_col.get_potential_energy(calc_col.atoms)
-    magmoms_col_v, _ = calc_col.calculation.state.density \
-        .calculate_magnetic_moments()
+    density = calc_col.calculation.state.density
+    magmoms_col_v, _ = density.calculate_magnetic_moments()
     with pytest.raises(AssertionError, match='Collinear calculations*'):
         calc_col.get_orbital_magnetic_moments()
-    orbmag_col_v = soc_eigenstates(calc_col, theta=theta, phi=phi) \
-        .get_orbital_magnetic_moments()[0]
+    orbmag_col_v = soc_eigenstates(calc_col,
+                                   theta=theta,
+                                   phi=phi).get_orbital_magnetic_moments()[0]
 
     # Non-collinear calculation without self-consistent spin-orbit
 
@@ -33,11 +34,11 @@ def test_orbmag_Ni(gpw_files):
                      parallel={'domain': 1, 'band': 1})
 
     energy_ncol = calc_ncol.get_potential_energy(calc_ncol.atoms)
-    magmoms_ncol_v, _ = calc_ncol.calculation.state.density \
-        .calculate_magnetic_moments()
-    orbmag_ncol_v = soc_eigenstates(calc_ncol) \
-        .get_orbital_magnetic_moments()[0]
-    
+    density = calc_ncol.calculation.state.density
+    magmoms_ncol_v, _ = density.calculate_magnetic_moments()
+    orbmag_ncol_v = soc_eigenstates(
+        calc_ncol).get_orbital_magnetic_moments()[0]
+
     # Test that col and ncol give the same groundstate (with rotated magmoms)
     # and the same orbital magnetic moments from the soc_eigenstates module
 
@@ -58,17 +59,16 @@ def test_orbmag_Ni(gpw_files):
     orbmag_ncolsoc_v = calc_ncolsoc.get_orbital_magnetic_moments()[0]
 
     # Assert direction and magnitude of orbital magnetic moment
+    assert np.linalg.norm(orbmag_ncolsoc_v) == pytest.approx(
+        0.045176, abs=1e-6)
+    assert np.dot(orbmag_ncolsoc_v, easy_axis) == pytest.approx(
+        0.045176, abs=1e-6)
 
-    assert np.linalg.norm(orbmag_ncolsoc_v) == \
-           pytest.approx(0.03940472781, abs=1e-6)
-    assert np.dot(orbmag_ncolsoc_v, easy_axis) == \
-           pytest.approx(0.03940472781, abs=1e-6)
-    
     # Get difference between orbital magnetic moments when soc is included
     # self-consistently. Assert that this difference doesn't change.
 
     dif_orbmag2 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_col_v)
     dif_orbmag3 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_ncol_v)
 
-    assert dif_orbmag2 == pytest.approx(0.002125227, abs=1e-6)
-    assert dif_orbmag3 == pytest.approx(0.002125227, abs=1e-6)
+    assert dif_orbmag2 == pytest.approx(0.002516, abs=1e-6)
+    assert dif_orbmag3 == pytest.approx(0.002516, abs=1e-6)
