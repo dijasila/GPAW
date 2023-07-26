@@ -38,7 +38,8 @@ class ETDM:
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
-                 use_prec=True, matrix_exp='pade-approx',
+                 use_prec=True,
+                 matrix_exp='pade-approx',
                  representation='sparse',
                  functional_settings='ks',
                  orthonormalization='gramschmidt',
@@ -821,20 +822,25 @@ class ETDM:
                             self.constraints[k], list(ind))
 
     def todict(self):
-
         ret = {'name': self.name,
                'searchdir_algo': self.searchdir_algo.todict(),
                'linesearch_algo': self.line_search.todict(),
-               'localizationtype': self.localizationtype,
-               'need_localization': self.need_localization,
                'update_ref_orbs_counter': self.update_ref_orbs_counter,
+               'update_ref_orbs_canonical': self.update_ref_orbs_canonical,
                'update_precond_counter': self.update_precond_counter,
                'use_prec': self.use_prec,
                'matrix_exp': self.matrix_exp,
                'representation': self.representation,
                'functional_settings': self.func_settings,
                'orthonormalization': self.orthonormalization,
-               'constraints': self.constraints
+               'randomizeorbitals': self.randomizeorbitals,
+               'checkgraderror': self.checkgraderror,
+               'localizationtype': self.localizationtype,
+               'localizationseed': self.localizationseed,
+               'need_localization': self.need_localization,
+               'need_init_orbs': self.need_init_orbs,
+               'constraints': self.constraints,
+               'subspace_convergence': self.subspace_convergence
                }
         if self.gmf:
             ret['partial_diagonalizer'] = \
