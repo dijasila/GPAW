@@ -738,7 +738,7 @@ class G0W0Calculator:
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.chi0calc.wd)
 
-        size = self.chi0calc.blockcomm.size
+        size = self.chi0calc.integrator.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
@@ -1107,7 +1107,7 @@ class G0W0(G0W0Calculator):
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
-        coulomb = CoulombKernel(truncation, gs)
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         # XXX eta needs to be converted to Hartree here,
         # XXX and it is also converted to Hartree at superclass constructor
         # XXX called below. This needs to be cleaned up.

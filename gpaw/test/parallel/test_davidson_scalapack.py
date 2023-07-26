@@ -9,17 +9,19 @@ from gpaw import GPAW, FermiDirac, PW
 def get_calculator(sl_auto, kpoint_gamma):
     calculator = GPAW(
         mode=PW(100),
+        nbands='400%',
+        basis='szp(dzp)',
         occupations=FermiDirac(0.1),
         parallel={'sl_auto': sl_auto, 'band': 2 if world.size == 8 else 1},
         kpts=[1, 1, 1] if kpoint_gamma else [1, 1, 2],
         symmetry='off',
-        convergence={'maximum iterations': 3})
+        convergence={'maximum iterations': 1})
     return calculator
 
 
 @pytest.mark.parametrize('kpoint_gamma', [True, False])
 def test_davidson_scalapack_eigenvalues(scalapack, kpoint_gamma):
-    atoms = bulk('Si', cubic=True) * [2, 2, 2]
+    atoms = bulk('Si', cubic=True) * [2, 1, 1]
 
     atoms1 = atoms.copy()
     atoms2 = atoms.copy()

@@ -262,7 +262,9 @@ test-minimal:
     - pytest -v -m ci -We -Wi::ImportWarning
 
 
-test-cuda:
+# Cuda runner has been offline for 14 days, let's disable this job for now.
+#   --askhl, 2023-07-13.
+.test-cuda:
   image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
   extends:
     - .test
@@ -376,36 +378,39 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+    expire_in: 1 week
 
 
 .nightly:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
   needs:
     - build-latest
   tags:
-    - linux
+    - xeon24
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
     - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
-    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -x -r s --durations 30 --color=yes
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-serial:
+nightly-mpi-1:
   extends:
     - .nightly
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s
+    - pytest -n 4 --instafail -r s --durations 30 --color=yes
 
 
 nightly-mpi-2:

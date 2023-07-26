@@ -189,7 +189,8 @@ class DFTComponentsBuilder:
                             self.dtype,
                             self.fracpos_ac,
                             self.communicators['w'],
-                            self.communicators['k'])
+                            self.communicators['k'],
+                            self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,

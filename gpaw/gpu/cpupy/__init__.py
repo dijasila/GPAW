@@ -262,3 +262,6 @@ class ndarray:
 
     def trace(self, offset, axis1, axis2):
         return ndarray(self._data.trace(offset, axis1, axis2))
+
+    def fill(self, val):
+        self._data.fill(val)
