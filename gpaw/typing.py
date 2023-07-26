@@ -3,7 +3,7 @@ import numpy as np
 
 try:
     # New in Python-3.11
-    from typing import Self
+    from typing_extension import Self
 except ImportError:
     Self = Any  # type: ignore
 
@@ -11,10 +11,10 @@ try:
     # New in Python-3.8
     from typing import Literal
 except ImportError:
-    class _Literal:  # type: ignore
+    class _Literal:
         def __getitem__(self, index):
             return Any
-    Literal = _Literal()
+    Literal = _Literal()  # type: ignore
 
 try:
     # Needs numpy-1.20:
