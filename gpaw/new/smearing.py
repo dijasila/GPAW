@@ -34,7 +34,7 @@ class OccupationNumberCalculator:
             # from gpaw.mom import OccupationsMOM
             # return OccupationsMOM(..., **kwargs)
 
-        bd = BandDescriptor(1)  # dummy
+        bd = BandDescriptor(nbands)  # dummy
         self.occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(bd,
