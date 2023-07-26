@@ -11,9 +11,10 @@ try:
     # New in Python-3.8
     from typing import Literal
 except ImportError:
-    class Literal:  # type: ignore
+    class _Literal:  # type: ignore
         def __getitem__(self, index):
             return Any
+    Literal = _Literal()
 
 try:
     # Needs numpy-1.20:

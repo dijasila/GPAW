@@ -428,7 +428,8 @@ class Matrix:
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
-        With `H` being self, we solve:::
+        With `H` being self, we solve for the eigenvectors `C` and the
+        eigenvalues `Λ` (a diagonal matrix):::
 
           HC = SCΛ,
 
@@ -460,7 +461,6 @@ class Matrix:
                 L0 = self.new(dist=(comm,))
                 L.redist(L0)
             if comm.rank == 0:
-                print(L0.data, H.data)
                 if self.xp is not np:
                     return self.dist.eighg(self, L0)
                 tmp_MM = np.empty_like(H.data)
