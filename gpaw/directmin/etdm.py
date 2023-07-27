@@ -698,10 +698,7 @@ class ETDM:
             if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, dens)
             else:
-                self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
-                for kpt in wfs.kpt_u:
-                    u = self.kpointval(kpt)
-                    self.a_vec_u[u] = np.zeros_like(self.a_vec_u[u])
+                self.set_ref_orbitals_and_a_vec(wfs)
 
             # Erase memory of search direction algorithm
             self.searchdir_algo.reset()
@@ -754,35 +751,30 @@ class ETDM:
         within equally occupied subspaces.
         """
 
-        with wfs.timer('Get canonical representation'):
+        with ((wfs.timer('Get canonical representation'))):
             for kpt in wfs.kpt_u:
                 self.dm_helper.update_to_canonical_orbitals(
                     wfs, ham, kpt, self.update_ref_orbs_canonical,
                     self.restart)
 
-            wfs.calculate_occupation_numbers(dens.fixed)
-            occ_name = getattr(wfs.occupations, "name", None)
-            if occ_name == 'mom':
-                if not sort_eigenvalues \
-                        or self.dm_helper.func.name == 'PZ-SIC':
-                    sort_orbitals_according_to_occ(
-                        wfs, self.constraints, update_mom=True)
-                else:
-                    sort_orbitals_according_to_energies(
-                        ham, wfs, self.constraints, use_eps=True)
-                    not_update = not wfs.occupations.update_numbers
-                    fixed_occ = wfs.occupations.use_fixed_occupations
-                    if not_update or fixed_occ:
-                        wfs.occupations.numbers = \
-                            self.initial_occupation_numbers
+            if self.update_ref_orbs_canonical or self.restart:
+                wfs.calculate_occupation_numbers(dens.fixed)
+                sort_orbitals_according_to_occ(
+                    wfs, self.constraints, update_mom=True)
 
-            self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
-            for kpt in wfs.kpt_u:
-                u = self.kpointval(kpt)
-                self.a_vec_u[u] = np.zeros_like(self.a_vec_u[u])
+            if sort_eigenvalues:
+                sort_orbitals_according_to_energies(
+                    ham, wfs, self.constraints, use_eps=True)
+
+            self.set_ref_orbitals_and_a_vec(wfs)
+
+    def set_ref_orbitals_and_a_vec(self, wfs):
+        self.dm_helper.set_reference_orbitals(wfs, self.n_dim)
+        for kpt in wfs.kpt_u:
+            u = self.kpointval(kpt)
+            self.a_vec_u[u] = np.zeros_like(self.a_vec_u[u])
 
     def reset(self):
-
         self.dm_helper = None
         self.error = np.inf
         self.initialized = False

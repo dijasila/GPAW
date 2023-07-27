@@ -49,7 +49,7 @@ def test_generalized_davidson_lcao(in_tmp_dir):
     calc.wfs.eigensolver.update_ks_energy(calc.hamiltonian,
                                           calc.wfs, calc.density)
     calc.wfs.eigensolver.get_canonical_representation(
-        calc.hamiltonian, calc.wfs, calc.density, sort_eigenvalues=True)
+        calc.hamiltonian, calc.wfs, calc.density)
     calc.wfs.eigensolver.dm_helper.set_reference_orbitals(
         calc.wfs, {0: calc.wfs.bd.nbands})
 
