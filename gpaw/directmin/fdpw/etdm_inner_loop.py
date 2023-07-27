@@ -333,7 +333,7 @@ class ETDMInnerLoop:
     def update_preconditioning(self, wfs, use_prec):
         counter = 30
         if use_prec:
-            if self.counter % counter == 0 or self.counter == 1:
+            if self.counter % counter == 0:
                 for kpt in wfs.kpt_u:
                     k = self.kpointval(kpt)
                     hess = get_approx_analytical_hessian(kpt, self.dtype)
