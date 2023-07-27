@@ -308,7 +308,7 @@ check-agts:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
     - >
-      [[ `cut -d ' ' -f1 < task_count` -ge 479 ]] || (echo "Too few agts tasks"; exit 1)
+      [[ `cut -d ' ' -f1 < task_count` -ge 502 ]] || (echo "Too few agts tasks"; exit 1)
 
 
 lint:
