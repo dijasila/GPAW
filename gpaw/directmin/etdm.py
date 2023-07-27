@@ -14,7 +14,7 @@ import numpy as np
 import warnings
 from ase.utils import basestring
 from gpaw.directmin.tools import expm_ed, expm_ed_unit_inv, random_a, \
-    update_mom_numbers, sort_orbitals_according_to_occ, update_constraints_kpt
+    sort_orbitals_according_to_occ, sort_orbitals_according_to_energies
 from gpaw.directmin.lcao.etdm_helper_lcao import ETDMHelperLCAO
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from scipy.linalg import expm
@@ -768,7 +768,8 @@ class ETDM:
                     sort_orbitals_according_to_occ(
                         wfs, self.constraints, update_mom=True)
                 else:
-                    self.sort_orbitals_according_to_en(ham, wfs, use_eps=True)
+                    sort_orbitals_according_to_energies(
+                        ham, wfs, self.constraints, use_eps=True)
                     not_update = not wfs.occupations.update_numbers
                     fixed_occ = wfs.occupations.use_fixed_occupations
                     if not_update or fixed_occ:
@@ -786,40 +787,6 @@ class ETDM:
         self.error = np.inf
         self.initialized = False
         self.searchdir_algo.reset()
-
-    def sort_orbitals_according_to_en(self, ham, wfs, use_eps=False):
-        """
-        Sort orbitals according to the eigenvalues or
-        the diagonal elements of the Hamiltonian matrix
-        """
-
-        with wfs.timer('Sort WFS'):
-            for kpt in wfs.kpt_u:
-                k = self.kpointval(kpt)
-                if use_eps:
-                    orbital_energies = kpt.eps_n
-                else:
-                    orbital_energies = self.dm_helper.orbital_energies(
-                        wfs, ham, kpt)
-                ind = np.argsort(orbital_energies)
-                # check if it is necessary to sort
-                x = np.max(abs(ind - np.arange(len(ind))))
-
-                if x > 0:
-                    # now sort wfs according to orbital energies
-                    self.dm_helper.sort_orbitals(wfs, kpt, ind)
-                    kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
-                    kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
-                    occ_name = getattr(wfs.occupations, "name", None)
-                    if occ_name == 'mom':
-                        # OccupationsMOM.numbers needs to be updated
-                        # after sorting
-                        update_mom_numbers(wfs, kpt)
-                    if self.constraints:
-                        # Identity if the constrained orbitals have
-                        # changed and need to be updated
-                        self.constraints[k] = update_constraints_kpt(
-                            self.constraints[k], list(ind))
 
     def todict(self):
         ret = {'name': self.name,

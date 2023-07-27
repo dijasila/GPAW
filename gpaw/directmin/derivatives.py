@@ -1,6 +1,6 @@
 import numpy as np
 from gpaw.directmin.tools import get_n_occ, get_indices, random_a, \
-    sort_orbitals_according_to_occ
+    sort_orbitals_according_to_occ, sort_orbitals_according_to_energies
 from ase.units import Hartree
 from gpaw.mpi import world
 from gpaw.io.logger import GPAWLogger
@@ -493,8 +493,8 @@ class Davidson(object):
         for k, kpt in enumerate(wfs.kpt_u):
             kpt.C_nM = deepcopy(self.c_ref[k])
         if not self.gmf:
-            for kpt in wfs.kpt_u:
-                self.etdm.sort_orbitals_according_to_en(ham, wfs, kpt)
+            sort_orbitals_according_to_energies(
+                ham, wfs, self.etdm.constraints, use_eps=True)
         self.first_run = False
 
     def obtain_grad_at_c_ref(self, wfs, ham, dens):
@@ -940,9 +940,8 @@ class Davidson(object):
             appr_hess, appr_sp_order = self.estimate_spo_and_update_appr_hess(
                 calc.wfs, use_prev=True)
             self.etdm.constraints = deepcopy(constraints_copy)
-        for kpt in calc.wfs.kpt_u:
-            self.etdm.sort_orbitals_according_to_en(
-                calc.hamiltonian, calc.wfs, kpt)
+        sort_orbitals_according_to_energies(
+            calc.hamiltonian, calc.wfs, self.etdm.constraints, use_eps=True)
         return appr_sp_order
 
 

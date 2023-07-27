@@ -308,6 +308,48 @@ def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
     return changedocc, ind
 
 
+def sort_orbitals_according_to_energies(
+        ham, wfs, constraints=None, use_eps=True):
+    """
+    Sort orbitals according to the eigenvalues or
+    the diagonal elements of the Hamiltonian matrix
+    """
+
+    for kpt in wfs.kpt_u:
+        if use_eps:
+            orbital_energies = kpt.eps_n
+        else:
+            if hasattr(wfs.eigensolver, 'dm_helper'):
+                orbital_energies = wfs.eigensolver.dm_helper.orbital_energies(
+                    wfs, ham, kpt)
+            else:
+                raise NotImplementedError
+        ind = np.argsort(orbital_energies)
+        # check if it is necessary to sort
+        x = np.max(abs(ind - np.arange(len(ind))))
+        if x > 0:
+            # now sort wfs according to orbital energies
+            if hasattr(wfs.eigensolver, 'dm_helper'):
+                wfs.eigensolver.dm_helper.sort_orbitals(wfs, kpt, ind)
+            else:
+                sort_orbitals_kpt(wfs, kpt, ind, update_proj=True)
+
+            kpt.f_n[np.arange(len(ind))] = kpt.f_n[ind]
+            kpt.eps_n[np.arange(len(ind))] = orbital_energies[ind]
+
+            occ_name = getattr(wfs.occupations, "name", None)
+            if occ_name == 'mom':
+                # OccupationsMOM.numbers needs to be updated
+                # after sorting
+                update_mom_numbers(wfs, kpt)
+            if constraints:
+                k = wfs.kd.nibzkpts * kpt.s + kpt.q
+                # Identity if the constrained orbitals have
+                # changed and need to be updated
+                constraints[k] = update_constraints_kpt(
+                    constraints[k], list(ind))
+
+
 def update_mom_numbers(wfs, kpt):
     if wfs.collinear and wfs.nspins == 1:
         degeneracy = 2
