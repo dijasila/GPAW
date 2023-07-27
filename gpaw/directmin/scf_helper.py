@@ -1,7 +1,7 @@
 import warnings
 
 from ase.units import Ha
-from gpaw.directmin.tools import sort_orbitals_according_to_occ_kpt
+from gpaw.directmin.tools import sort_orbitals_according_to_energies
 
 
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
@@ -32,7 +32,6 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
 
     elif eigensolver_name == 'etdm-fdpw':
         solver = wfs.eigensolver
-        occ_name = getattr(wfs.occupations, 'name', None)
         solver.choose_optimal_orbitals(wfs)
         niter1 = solver.eg_count
         niter2 = 0
@@ -72,20 +71,26 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
         else:
             solver.initialized = False
             log('Unoccupied states are not converged.')
+
         rewrite_psi = True
         sic_calc = 'SIC' in solver.func_settings['name']
         if sic_calc:
             rewrite_psi = False
+
         solver.get_canonical_representation(ham, wfs, rewrite_psi)
-        solver._e_entropy = \
-            wfs.calculate_occupation_numbers(dens.fixed)
-        if not sic_calc and occ_name:
-            for kpt in wfs.kpt_u:
-                sort_orbitals_according_to_occ_kpt(wfs, kpt)
-            solver._e_entropy = \
-                wfs.calculate_occupation_numbers(dens.fixed)
+        wfs.calculate_occupation_numbers(dens.fixed)
+
         solver.get_energy_and_tangent_gradients(
             ham, wfs, dens)
+
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name == 'mom' and not sic_calc:
+            # Sort orbitals according to eigenvalues
+            sort_orbitals_according_to_energies(ham, wfs, use_eps=True)
+            not_update = not wfs.occupations.update_numbers
+            fixed_occ = wfs.occupations.use_fixed_occupations
+            if not_update or fixed_occ:
+                wfs.occupations.numbers = solver.initial_occupation_numbers
 
 
 def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
