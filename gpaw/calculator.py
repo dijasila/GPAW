@@ -479,6 +479,12 @@ class GPAW(Calculator):
                 self.results['magmom'] = 0.0
                 self.results['magmoms'] = np.zeros(len(self.atoms))
 
+            occ_name = getattr(self.wfs.occupations, "name", None)
+            if occ_name == 'mom' and self.wfs.occupations.update_numbers:
+                if isinstance(self.parameters.occupations, dict):
+                    for s, numbers in enumerate(self.wfs.occupations.numbers):
+                        self.parameters['occupations']['numbers'][s] = numbers
+
             self.summary()
 
             self.call_observers(self.scf.niter, final=True)
