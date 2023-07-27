@@ -1,7 +1,9 @@
 import warnings
+import numpy as np
 
 from ase.units import Ha
-from gpaw.directmin.tools import sort_orbitals_according_to_energies
+from gpaw.directmin.tools import (sort_orbitals_according_to_energies,
+                                  get_n_occ)
 
 
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
@@ -78,12 +80,22 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
             rewrite_psi = False
 
         solver.get_canonical_representation(ham, wfs, rewrite_psi)
-        wfs.calculate_occupation_numbers(dens.fixed)
+
+        occ_name = getattr(wfs.occupations, 'name', None)
+        if occ_name == 'mom':
+            f_sn = wfs.occupations.update_occupations()
+            for kpt in wfs.kpt_u:
+                k = wfs.kd.nibzkpts * kpt.s + kpt.q
+                n_occ, occupied = get_n_occ(kpt)
+                if n_occ != 0.0 and np.min(f_sn[k][:n_occ]) == 0:
+                    warnings.warn('MOM has detected variational collapse '
+                                  'after getting canonical orbitals. Check '
+                                  'that the orbitals are consistent with the '
+                                  'initial guess.')
 
         solver.get_energy_and_tangent_gradients(
             ham, wfs, dens)
 
-        occ_name = getattr(wfs.occupations, 'name', None)
         if occ_name == 'mom' and not sic_calc:
             # Sort orbitals according to eigenvalues
             sort_orbitals_according_to_energies(ham, wfs, use_eps=True)

@@ -44,8 +44,13 @@ def test_mom_directopt_pw(in_tmp_dir):
     atoms, calc = restart('h2o.gpw', txt='-')
     # Don't need to set need_init_orbs=False when restarting
     # from file
+    mom_after_canonical = False  # Test MOM after canonical only
+    if mom_after_canonical:
+        momevery = np.inf
+    else:
+        momevery = 3
     calc.set(eigensolver=FDPWETDM(exstopt=True,
-                                  momevery=3,
+                                  momevery=momevery,
                                   restart_canonical=False,
                                   printinnerloop=False))
     f_sn = excite(calc, 0, 0, (0, 0))
