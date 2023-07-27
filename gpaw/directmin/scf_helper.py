@@ -27,7 +27,6 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
         else:
             e_sic = 0.0
 
-        wfs.calculate_occupation_numbers(dens.fixed)
         with ((wfs.timer('Get canonical representation'))):
             for kpt in wfs.kpt_u:
                 solver.dm_helper.update_to_canonical_orbitals(
