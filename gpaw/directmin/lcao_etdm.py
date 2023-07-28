@@ -210,7 +210,6 @@ class LCAOETDM:
 
         sds = {'sd': 'Steepest Descent',
                'fr-cg': 'Fletcher-Reeves conj. grad. method',
-               'quick-min': 'Molecular-dynamics based algorithm',
                'l-bfgs': 'L-BFGS algorithm',
                'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
                'l-sr1p': 'Limited-memory SR1P algorithm'}

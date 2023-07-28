@@ -54,8 +54,6 @@ class FDPWETDM(Eigensolver):
         super(FDPWETDM, self).__init__(keep_htpsit=False,
                                        blocksize=blocksize)
 
-        self.sda = searchdir_algo
-        self.lsa = linesearch_algo
         self.name = 'etdm-fdpw'
         self.use_prec = use_prec
         self.func_settings = functional
@@ -78,12 +76,14 @@ class FDPWETDM(Eigensolver):
         self.total_eg_count_outer_iloop = 0
         self.initial_random = True
 
-        if self.sda is None:
-            self.sda = 'LBFGS'
-        if isinstance(self.sda, basestring):
-            self.sda = xc_string_to_dict(self.sda)
-        if isinstance(self.lsa, basestring):
-            self.lsa = xc_string_to_dict(self.lsa)
+        if searchdir_algo is None:
+            searchdir_algo = 'LBFGS'
+        self.searchdir_algo = search_direction(searchdir_algo)
+
+        self.line_search = line_search_algorithm(
+            linesearch_algo, self.evaluate_phi_and_der_phi,
+            self.searchdir_algo)
+
         if isinstance(self.func_settings, basestring):
             self.func_settings = xc_string_to_dict(self.func_settings)
 
@@ -103,24 +103,23 @@ class FDPWETDM(Eigensolver):
 
     def __repr__(self):
 
-        sda_name = self.sda['name'].replace('-', '').lower()
-        lsa_name = self.lsa['name'].replace('-', '').lower()
-
+        sda_name = self.searchdir_algo.name
+        lsa_name = self.line_search.name
         if isinstance(self.func_settings, basestring):
             func_name = self.func_settings
         else:
             func_name = self.func_settings['name']
 
         sds = {'sd': 'Steepest Descent',
-               'frcg': 'Fletcher-Reeves conj. grad. method',
-               'lbfgs': 'L-BFGS algorithm',
-               'lbfgsp': 'L-BFGS algorithm with preconditioning',
-               'lsr1p': 'Limited-memory SR1P algorithm'}
+               'fr-cg': 'Fletcher-Reeves conj. grad. method',
+               'l-bfgs': 'L-BFGS algorithm',
+               'l-bfgs-p': 'L-BFGS algorithm with preconditioning',
+               'l-sr1p': 'Limited-memory SR1P algorithm'}
 
-        lss = {'maxstep': 'step size equals one',
-               'swcawc': 'Inexact line search based on cubic interpolation,\n'
-                         '                    strong and approximate Wolfe '
-                         'conditions'}
+        lss = {'max-step': 'step size equals one',
+               'swc-awc': 'Inexact line search based on cubic interpolation,\n'
+                          '                    strong and approximate Wolfe '
+                          'conditions'}
 
         repr_string = 'Direct minimisation using exponential ' \
                       'transformation.\n'
@@ -146,6 +145,8 @@ class FDPWETDM(Eigensolver):
     def reset(self, need_init_odd=True):
         self.initialized = False
         self.need_init_odd = need_init_odd
+        self.searchdir_algo.reset()
+
 
     def todict(self):
         """
@@ -153,8 +154,8 @@ class FDPWETDM(Eigensolver):
         :return:
         """
         return {'name': 'etdm-fdpw',
-                'searchdir_algo': self.sda,
-                'linesearch_algo': self.lsa,
+                'searchdir_algo': self.searchdir_algo.todict(),
+                'linesearch_algo': self.line_search.todict(),
                 'use_prec': self.use_prec,
                 'functional': self.func_settings,
                 'need_init_orbs': self.need_init_orbs,
@@ -218,7 +219,7 @@ class FDPWETDM(Eigensolver):
         super(FDPWETDM, self).initialize(wfs)
 
     def initialize_dm(
-            self, wfs, dens, ham, obj_func=None, converge_unocc=False):
+            self, wfs, dens, ham, converge_unocc=False):
 
         """
         initialize search direction algorithm,
@@ -227,13 +228,10 @@ class FDPWETDM(Eigensolver):
         :param wfs:
         :param dens:
         :param ham:
-        :param obj_func:
         :param converge_unocc:
         :return:
         """
 
-        if obj_func is None:
-            obj_func = self.evaluate_phi_and_der_phi
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nibzkpts
         # dimensionality, number of state to be converged
@@ -252,17 +250,6 @@ class FDPWETDM(Eigensolver):
 
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
-
-        # choose search direction and line search algorithm
-        if isinstance(self.sda, (basestring, dict)):
-            self.search_direction = search_direction(self.sda)
-        else:
-            raise Exception('Check Search Direction Parameters')
-        if isinstance(self.lsa, (basestring, dict)):
-            self.line_search = line_search_algorithm(
-                self.lsa, obj_func, self.search_direction)
-        else:
-            raise Exception('Check Search Direction Parameters')
 
         if self.use_prec:
             self.prec = wfs.make_preconditioner(1)
@@ -352,7 +339,7 @@ class FDPWETDM(Eigensolver):
                 dim = self.dimensions[k]
                 psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
 
-        p_knG = self.search_direction.update_data(
+        p_knG = self.searchdir_algo.update_data(
             wfs, psi_copy, grad_knG, precond=self.prec,
             dimensions=self.dimensions)
         self.project_search_direction(wfs, p_knG)
@@ -998,9 +985,9 @@ class FDPWETDM(Eigensolver):
         """
 
         self.need_init_odd = False
-        self.initialize_dm(
-            wfs, dens, ham,
-            obj_func=self.evaluate_phi_and_der_phi, converge_unocc=True)
+        self.initialize_dm(wfs, dens, ham, converge_unocc=True)
+        # Erase memory of search direction algorithm
+        self.searchdir_algo.reset()
 
         while self.iters < self.maxiter_unocc:
             en, er = self.iterate(ham, wfs, dens, log, converge_unocc=True)
@@ -1203,6 +1190,8 @@ class FDPWETDM(Eigensolver):
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
+                # Erase memory of search direction algorithm
+                self.searchdir_algo.reset()
 
     def initialize_mom_reference_orbitals(self, wfs, dens):
         # Reinitialize the MOM reference orbitals
