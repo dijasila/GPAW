@@ -147,7 +147,6 @@ class FDPWETDM(Eigensolver):
         self.need_init_odd = need_init_odd
         self.searchdir_algo.reset()
 
-
     def todict(self):
         """
         Convert to dictionary, needs for saving and loading gpw
