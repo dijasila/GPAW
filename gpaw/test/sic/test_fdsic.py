@@ -36,7 +36,7 @@ def test_fdsic(in_tmp_dir):
                                          },
                     localizationseed=42,
                     localizationtype='FB_ER',
-                    g_tol=5.0e-3,
+                    grad_tol_pz_localization=5.0e-3,
                     maxiter_pz_localization=200),
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},

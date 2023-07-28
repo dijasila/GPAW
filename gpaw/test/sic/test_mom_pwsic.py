@@ -43,9 +43,9 @@ def test_mom_pwsic(in_tmp_dir):
                              'scaling_factor': (0.5, 0.5)},  # SIC/2
         localizationseed=42,
         localizationtype='PM',
-        g_tol=1.0e-2,
+        grad_tol_pz_localization=1.0e-2,
         printinnerloop=False,
-        g_tolxst=1.0e-2),
+        grad_tol_inner_loop=1.0e-2),
         convergence={'eigenstates': 1e-3,
                      'density': 1e-3})
 

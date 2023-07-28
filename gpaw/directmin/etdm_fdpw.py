@@ -40,8 +40,8 @@ class FDPWETDM(Eigensolver):
                  maxiter_pz_localization=50,
                  maxiter_inner_loop=100,
                  max_step_inner_loop=0.2,
-                 g_tol=5.0e-4,
-                 g_tolxst=5.0e-4,
+                 grad_tol_pz_localization=5.0e-4,
+                 grad_tol_inner_loop=5.0e-4,
                  restartevery_iloop_notconverged=3,
                  restart_canonical=True,
                  momevery=10,
@@ -65,8 +65,8 @@ class FDPWETDM(Eigensolver):
         self.maxiter_pz_localization = maxiter_pz_localization
         self.maxiter_inner_loop = maxiter_inner_loop
         self.max_step_inner_loop = max_step_inner_loop
-        self.g_tol = g_tol
-        self.g_tolxst = g_tolxst
+        self.grad_tol_pz_localization = grad_tol_pz_localization
+        self.grad_tol_inner_loop = grad_tol_inner_loop
         self.printinnerloop = printinnerloop
         self.converge_unocc = converge_unocc
         self.maxiter_unocc = maxiter_unocc
@@ -166,8 +166,8 @@ class FDPWETDM(Eigensolver):
                 'maxiter_inner_loop': self.maxiter_inner_loop,
                 'max_step_inner_loop': self.max_step_inner_loop,
                 'momevery': self.momevery,
-                'g_tol': self.g_tol,
-                'g_tolxst': self.g_tolxst,
+                'grad_tol_pz_localization': self.grad_tol_pz_localization,
+                'grad_tol_inner_loop': self.grad_tol_inner_loop,
                 'restartevery_iloop_notconverged':
                     self.restartevery_iloop_notconverged,
                 'restart_canonical': self.restart_canonical,
@@ -284,14 +284,14 @@ class FDPWETDM(Eigensolver):
             if 'SIC' in self.func_settings['name']:
                 self.iloop = PZLocalization(
                     self.odd, wfs, self.maxiter_pz_localization,
-                    g_tol=self.g_tol)
+                    g_tol=self.grad_tol_pz_localization)
             else:
                 self.iloop = None
 
             if self.exstopt:
                 self.outer_iloop = ETDMInnerLoop(
                     self.odd, wfs, 'all', self.maxiter_inner_loop,
-                    self.max_step_inner_loop, g_tol=self.g_tolxst,
+                    self.max_step_inner_loop, g_tol=self.grad_tol_inner_loop,
                     useprec=True, momevery=self.momevery)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
