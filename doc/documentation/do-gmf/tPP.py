@@ -29,10 +29,11 @@ f = excite(calc, 0, 0, spin=(0, 0))
 # Direct approach using ground state orbitals with changed occupation numbers
 calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-bfgs-p_gmf'},
                               linesearch_algo={'name': 'max-step'},
-                              partial_diagonalizer={'name': 'Davidson',
-                                                    'logfile': 'davidson_tPP.txt',
-                                                    'sp_order': 6,
-                                                    'seed': 42},
+                              partial_diagonalizer={
+                                  'name': 'Davidson',
+                                  'logfile': 'davidson_tPP.txt',
+                                  'sp_order': 6,
+                                  'seed': 42},
                               update_ref_orbs_counter=1000,
                               representation='u-invar',
                               need_init_orbs=False),
