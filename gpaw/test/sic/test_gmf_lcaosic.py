@@ -1,7 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 from gpaw.directmin.tools import excite
 from gpaw.directmin.derivatives import Davidson
 from gpaw.mom import prepare_mom_calculation
@@ -31,7 +31,7 @@ def test_gmf_lcaosic(in_tmp_dir):
                 basis='sz(dzp)',
                 h=0.24,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver='etdm',
+                eigensolver='etdm-lcao',
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -41,9 +41,9 @@ def test_gmf_lcaosic(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                              linesearch_algo={'name': 'max-step'},
-                              need_init_orbs=False))
+    calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
+                                  linesearch_algo={'name': 'max-step'},
+                                  need_init_orbs=False))
     f_sn = excite(calc, 0, 0, spin=(0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
@@ -54,7 +54,7 @@ def test_gmf_lcaosic(in_tmp_dir):
 
     for kpt in calc.wfs.kpt_u:
         f_sn[kpt.s] = kpt.f_n
-    calc.set(eigensolver=ETDM(
+    calc.set(eigensolver=LCAOETDM(
         partial_diagonalizer={
             'name': 'Davidson', 'logfile': 'test.txt', 'seed': 42,
             'm': 20, 'eps': 5e-3, 'remember_sp_order': True,

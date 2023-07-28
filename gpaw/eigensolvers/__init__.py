@@ -6,7 +6,7 @@ from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.directmin.etdm_fdpw import FDPWETDM
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):
@@ -23,12 +23,15 @@ def get_eigensolver(eigensolver, mode, convergence=None):
     if isinstance(eigensolver, dict):
         eigensolver = eigensolver.copy()
         name = eigensolver.pop('name')
+        if name == 'etdm':
+            # Compatibility with old versions
+            name = 'etdm-lcao'
         eigensolver = {'rmm-diis': RMMDIIS,
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
                        'direct': DirectPW,
-                       'etdm': ETDM,
+                       'etdm-lcao': LCAOETDM,
                        'etdm-fdpw': FDPWETDM,
                        }[name](**eigensolver)
 
@@ -36,6 +39,6 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
     assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao') or \
-           isinstance(eigensolver, ETDM) == (mode.name == 'lcao')
+           isinstance(eigensolver, LCAOETDM) == (mode.name == 'lcao')
 
     return eigensolver

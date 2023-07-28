@@ -109,7 +109,7 @@ class SCFLoop:
 
     def iterate_eigensolver(self, wfs, ham, dens, log):
 
-        if self.eigensolver_name == 'etdm':
+        if self.eigensolver_name == 'etdm-lcao':
             wfs.eigensolver.iterate(ham, wfs, dens)
             wfs.eigensolver.check_mom(wfs, dens)
             e_entropy = 0.0
@@ -137,7 +137,7 @@ class SCFLoop:
     def update_ham_and_dens(self, wfs, ham, dens):
 
         to_update = self.niter > self.niter_fixdensity and not dens.fixed
-        if self.eigensolver_name == 'etdm' \
+        if self.eigensolver_name == 'etdm-lcao' \
                 or self.eigensolver_name == 'etdm-fdpw' \
                 or not to_update:
             ham.npoisson = 0

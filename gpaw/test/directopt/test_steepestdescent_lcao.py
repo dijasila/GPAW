@@ -26,7 +26,7 @@ def test_steepestdescent_lcao(in_tmp_dir):
                 convergence={'energy': 0.1,
                              'eigenstates': 1e-4,
                              'density': 1e-4},
-                eigensolver={'name': 'etdm'},
+                eigensolver={'name': 'etdm-lcao'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -35,7 +35,7 @@ def test_steepestdescent_lcao(in_tmp_dir):
     atoms.calc = calc
 
     for sd_algo in ['sd', 'fr-cg']:
-        calc = calc.new(eigensolver={'name': 'etdm',
+        calc = calc.new(eigensolver={'name': 'etdm-lcao',
                                      'searchdir_algo': sd_algo})
         atoms.calc = calc
         e = atoms.get_potential_energy()

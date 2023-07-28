@@ -26,7 +26,7 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir):
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'etdm',
+                eigensolver={'name': 'etdm-lcao',
                              'localizationtype': 'PM_PZ',
                              'localizationseed': 42,
                              'subspace_convergence': 1e-3,
@@ -47,7 +47,7 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir):
     calc.wfs.kpt_u[0].C_nM[homo] = np.cos(a) * c[homo] + np.sin(a) * c[lumo]
     calc.wfs.kpt_u[0].C_nM[lumo] = np.cos(a) * c[lumo] - np.sin(a) * c[homo]
 
-    calc.set(eigensolver={'name': 'etdm',
+    calc.set(eigensolver={'name': 'etdm-lcao',
                           'functional': {'name': 'PZ-SIC',
                                          'scaling_factor': (0.5, 0.5)},
                           'constraints': [[[homo], [lumo]]],

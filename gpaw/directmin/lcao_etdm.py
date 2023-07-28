@@ -25,7 +25,7 @@ from gpaw import BadParallelization
 from copy import deepcopy
 
 
-class ETDM:
+class LCAOETDM:
 
     """
     Exponential Transformation Direct Minimization (ETDM)
@@ -111,7 +111,7 @@ class ETDM:
         self.matrix_exp = matrix_exp
         self.iters = 0
         self.restart = False
-        self.name = 'etdm'
+        self.name = 'etdm-lcao'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
         if localizationtype is None:

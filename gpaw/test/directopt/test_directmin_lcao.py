@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 
 
 @pytest.mark.do
@@ -61,7 +61,7 @@ def test_directmin_lcao(in_tmp_dir):
     assert niter == pytest.approx(3, abs=1)
     assert f2 == pytest.approx(f3, abs=1e-2)
 
-    calc.set(eigensolver=ETDM(
+    calc.set(eigensolver=LCAOETDM(
         representation='u-invar', matrix_exp='egdecomp-u-invar',
         need_init_orbs=False,
         linesearch_algo={'name': 'max-step'}

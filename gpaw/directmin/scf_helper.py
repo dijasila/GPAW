@@ -10,7 +10,7 @@ from gpaw.directmin.tools import (sort_orbitals_according_to_energies,
 
 def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     name = eigensolver_name
-    if name == 'etdm' or name == 'etdm-fdpw':
+    if name == 'etdm-lcao' or name == 'etdm-fdpw':
         occ_name = getattr(wfs.occupations, 'name', None)
         solver = wfs.eigensolver
         if isinstance(solver.func_settings, basestring):
@@ -21,7 +21,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     else:
         return
 
-    if eigensolver_name == 'etdm':
+    if eigensolver_name == 'etdm-lcao':
         if hasattr(solver, 'e_sic'):
             e_sic = solver.e_sic
         else:
@@ -113,7 +113,7 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
 def check_eigensolver_state(eigensolver_name, wfs, ham, dens, log):
     solver = wfs.eigensolver
     name = eigensolver_name
-    if name == 'etdm' or name == 'etdm-fdpw':
+    if name == 'etdm-lcao' or name == 'etdm-fdpw':
         solver.eg_count = 0
         solver.globaliters = 0
 

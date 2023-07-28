@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, LCAO
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 
 # Water molecule:
 d = 0.9575
@@ -15,9 +15,9 @@ calc = GPAW(
     mode=LCAO(force_complex_dtype=True),
     xc="PBE",
     occupations={"name": "fixed-uniform"},
-    eigensolver=ETDM(
+    eigensolver=LCAOETDM(
         localizationtype="FB-ER-PZ",
-        functional_settings={"name": "PZ-SIC", "scaling_factor": (0.5, 0.5)},
+        functional={"name": "PZ-SIC", "scaling_factor": (0.5, 0.5)},
     ),  # Half SIC
     mixer={"backend": "no-mixing"},
     nbands="nao",

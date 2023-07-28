@@ -396,7 +396,7 @@ class Davidson(object):
 
     def check_inputs(self):
         defaults = self.set_defaults()
-        assert self.etdm.name == 'etdm', 'Check etdm.'
+        assert self.etdm.name == 'etdm-lcao', 'Check etdm.'
         if self.logfile is not None:
             assert type(self.logfile) == str, 'Check logfile.'
         if self.fd_mode is None:

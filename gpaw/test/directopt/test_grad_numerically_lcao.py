@@ -27,7 +27,7 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                              'density': 10.0,
                              'energy': 10.0},
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'etdm',
+                eigensolver={'name': 'etdm-lcao',
                              'matrix_exp': 'egdecomp'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -36,22 +36,22 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                 )
     atoms.calc = calc
 
-    params = [{'name': 'etdm',
+    params = [{'name': 'etdm-lcao',
                'representation': 'full',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'full',
                'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'sparse',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'sparse',
                'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'u-invar',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'u-invar',
                'matrix_exp': 'egdecomp-u-invar'}
               ]

@@ -1,7 +1,7 @@
 import pytest
 
 from gpaw import GPAW, LCAO
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 from ase import Atoms
 import numpy as np
 
@@ -26,9 +26,9 @@ def test_lcaosic(in_tmp_dir):
     calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 h=0.22,
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=ETDM(localizationtype='PM_PZ',
-                                 localizationseed=42,
-                                 functional={'name': 'PZ-SIC',
+                eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                     localizationseed=42,
+                                     functional={'name': 'PZ-SIC',
                                              'scaling_factor':
                                                  (0.5, 0.5)}),  # SIC/2
                 convergence={'eigenstates': 1e-4},

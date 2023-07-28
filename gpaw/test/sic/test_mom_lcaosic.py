@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, LCAO, restart
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.lcao_etdm import LCAOETDM
 from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
 
@@ -24,7 +24,7 @@ def test_mom_lcaosic(in_tmp_dir):
                 basis='sz(dzp)',
                 spinpol=True,
                 symmetry='off',
-                eigensolver='etdm',
+                eigensolver='etdm-lcao',
                 mixer={'backend': 'no-mixing'},
                 occupations={'name': 'fixed-uniform'},
                 convergence={'eigenstates': 1e-4}
@@ -32,9 +32,9 @@ def test_mom_lcaosic(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                              linesearch_algo={'name': 'max-step'},
-                              need_init_orbs=False))
+    calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
+                                  linesearch_algo={'name': 'max-step'},
+                                  need_init_orbs=False))
     f_sn = excite(calc, 0, 0, (0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)
     H2O.get_potential_energy()
@@ -44,12 +44,12 @@ def test_mom_lcaosic(in_tmp_dir):
         calc.write('h2o.gpw', mode='all')
         H2O, calc = restart('h2o.gpw', txt='-')
 
-    calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                              linesearch_algo={'name': 'max-step'},
-                              need_init_orbs=False,
-                              localizationtype='PM_PZ',
-                              localizationseed=42,
-                              functional={'name': 'PZ-SIC',
+    calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
+                                  linesearch_algo={'name': 'max-step'},
+                                  need_init_orbs=False,
+                                  localizationtype='PM_PZ',
+                                  localizationseed=42,
+                                  functional={'name': 'PZ-SIC',
                                           'scaling_factor':
                                               (0.5, 0.5)}),  # SIC/2
              convergence={'eigenstates': 1e-2})

@@ -21,7 +21,7 @@ def test_hess_numerically_lcao(in_tmp_dir):
                 h=0.25,
                 basis='dz(dzp)',
                 spinpol=False,
-                eigensolver={'name': 'etdm',
+                eigensolver={'name': 'etdm-lcao',
                              'representation': 'u-invar'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},

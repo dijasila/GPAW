@@ -30,7 +30,7 @@ def test_orthonormalizations_lcao(in_tmp_dir):
                              'eigenstates': np.inf,
                              'density': np.inf,
                              'minimum iterations': 1},
-                eigensolver={'name': 'etdm'},
+                eigensolver={'name': 'etdm-lcao'},
                 occupations={'name': 'fixed-uniform'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',

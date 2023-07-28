@@ -16,7 +16,7 @@ def test_break_instability_lcao(in_tmp_dir):
                 h=0.24,
                 basis='sz(dzp)',
                 spinpol=True,
-                eigensolver='etdm',
+                eigensolver='etdm-lcao',
                 convergence={'density': 1.0e-2,
                              'eigenstates': 1.0e-2},
                 occupations={'name': 'fixed-uniform'},

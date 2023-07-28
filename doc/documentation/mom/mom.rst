@@ -162,11 +162,11 @@ algorithm is a limited-memory symmetric rank-one (L-SR1) method
 [#momgpaw2]_ with unit step. In order to use this algorithm, the
 following ``eigensolver`` has to be specified::
 
-  from gpaw.directmin.etdm import ETDM
+  from gpaw.directmin.lcao_etdm import LCAOETDM
 
-  calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                            linesearch_algo={'name': 'max-step',
-                                             'max_step': 0.20})
+  calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
+                                linesearch_algo={'name': 'max-step',
+                                                 'max_step': 0.20})
 
 The maximum step length avoids taking too large steps at the
 beginning of the wave function optimization. The default maximum step length
@@ -185,9 +185,9 @@ orbital relaxation effect in charge transfer excited states and thereby signific
 simplifies the subsequent saddle point search, preventing variational collapse.
 Constrained optimization can be performed by using the ``constraints`` keyword::
 
-  calc.set(eigensolver=ETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
-                                         [[h21], [h22],..., [p21], [p22],...],
-                                         ...])
+  calc.set(eigensolver=LCAOETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
+                                             [[h21], [h22],..., [p21], [p22],...],
+                                              ...])
 
 Each ``hij`` refers to the index of the ``j``-th hole in the ``i``-th K-point,
 each ``pij`` to the index of the j-th excited electron in the ``i``-th K-point.
