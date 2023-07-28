@@ -51,6 +51,7 @@ class PotentialCalculator:
 
     def calculate_pseudo_potential(self,
                                    density,
+                                   ibzwfs,
                                    vHt_x: DistributedArrays | None
                                    ) -> tuple[dict[str, float],
                                               UniformGridFunctions,
@@ -128,7 +129,7 @@ def calculate_non_local_potential(setups,
 
 
 def calculate_non_local_potential1(setup: Setup,
-                                   xc: XCFunctional,
+                                   xc: Functional,
                                    D_sii: Array3D,
                                    Q_L: Array1D,
                                    soc: bool) -> tuple[Array3D,

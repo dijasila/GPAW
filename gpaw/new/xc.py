@@ -112,7 +112,7 @@ class MGGAFunctional(Functional):
             restrict(dedtaut_r, dedtaut_R)
             self.ekin -= dedtaut_R.integrate(taut_R - self.tauct_R)
 
-        add_gradient_correction(self.grad_v, gradn_svr, sigma_xr,
+        add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr)
 
         return e_r.integrate()
