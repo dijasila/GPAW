@@ -31,6 +31,9 @@ class Functional:
     def get_setup_name(self):
         return self.name
 
+    def move(self, fracpos_ac, atomdist):
+        pass
+
 
 class LDAOrGGAFunctional(Functional):
     def calculate(self,
@@ -66,6 +69,10 @@ class MGGAFunctional(Functional):
         self.tauct_R = None
         self.ekin = np.nan
         self.dedtaut_sR = None
+
+    def move(self, fracpos_ac, atomdist):
+        self.tauct_aX.move(fracpos_ac, atomdist)
+        self.tauct_R = None
 
     def get_setup_name(self):
         return 'PBE'

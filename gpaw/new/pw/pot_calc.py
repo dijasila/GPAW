@@ -190,7 +190,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar0_g = self.vbar_g.gather()
         self.nct_ag.move(fracpos_ac, atomdist)
         self.nct_ag.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
-        self.xc.move(fracpos_ac)
+        self.xc.move(fracpos_ac, atomdist)
         self._reset()
 
     def _reset(self):
