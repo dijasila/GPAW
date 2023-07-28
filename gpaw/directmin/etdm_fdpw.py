@@ -37,9 +37,9 @@ class FDPWETDM(Eigensolver):
                  localizationseed=None,
                  need_localization=True,
                  localization_tol=None,
-                 maxiter=50,
-                 maxiterxst=100,
-                 maxstepxst=0.2,
+                 maxiter_pz_localization=50,
+                 maxiter_inner_loop=100,
+                 max_step_inner_loop=0.2,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
@@ -63,9 +63,9 @@ class FDPWETDM(Eigensolver):
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
         self.localization_tol = localization_tol
-        self.maxiter = maxiter
-        self.maxiterxst = maxiterxst
-        self.maxstepxst = maxstepxst
+        self.maxiter_pz_localization = maxiter_pz_localization
+        self.maxiter_inner_loop = maxiter_inner_loop
+        self.max_step_inner_loop = max_step_inner_loop
         self.kappa_tol = kappa_tol
         self.g_tol = g_tol
         self.g_tolxst = g_tolxst
@@ -164,10 +164,10 @@ class FDPWETDM(Eigensolver):
                 'localizationseed': self.localizationseed,
                 'need_localization': self.need_localization,
                 'localization_tol': self.localization_tol,
-                'maxiter': self.maxiter,
-                'maxiterxst': self.maxiterxst,
+                'maxiter_pz_localization': self.maxiter_pz_localization,
+                'maxiter_inner_loop': self.maxiter_inner_loop,
                 'momevery': self.momevery,
-                'maxstepxst': self.maxstepxst,
+                'max_step_inner_loop': self.max_step_inner_loop,
                 'kappa_tol': self.kappa_tol,
                 'g_tol': self.g_tol,
                 'g_tolxst': self.g_tolxst,
@@ -258,9 +258,8 @@ class FDPWETDM(Eigensolver):
 
         # choose search direction and line search algorithm
         if isinstance(self.sda, (basestring, dict)):
-            sda = self.sda
-
-            self.search_direction = search_direction(sda, wfs, self.dimensions)
+            self.search_direction = search_direction(
+                self.sda, wfs, self.dimensions)
         else:
             raise Exception('Check Search Direction Parameters')
         if isinstance(self.lsa, (basestring, dict)):
@@ -287,15 +286,15 @@ class FDPWETDM(Eigensolver):
 
             if 'SIC' in self.func_settings['name']:
                 self.iloop = PZLocalization(
-                    self.odd, wfs, self.kappa_tol, self.maxiter,
+                    self.odd, wfs, self.kappa_tol, self.maxiter_pz_localization,
                     g_tol=self.g_tol)
             else:
                 self.iloop = None
 
             if self.exstopt:
                 self.outer_iloop = ETDMInnerLoop(
-                    self.odd, wfs, 'all', self.kappa_tol, self.maxiterxst,
-                    self.maxstepxst, g_tol=self.g_tolxst, useprec=True,
+                    self.odd, wfs, 'all', self.kappa_tol, self.maxiter_inner_loop,
+                    self.max_step_inner_loop, g_tol=self.g_tolxst, useprec=True,
                     momevery=self.momevery)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
