@@ -229,6 +229,7 @@ class DFTComponentsBuilder:
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
+        occ_calc = self.create_occupation_number_calculator()
         eigensolver = self.create_eigensolver(hamiltonian)
 
         mixer = MixerWrapper(
@@ -238,7 +239,6 @@ class DFTComponentsBuilder:
             self.grid._gd,
             world=self.communicators['w'])
 
-        occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        {key: value
@@ -255,7 +255,7 @@ class DFTComponentsBuilder:
     def read_wavefunction_values(self,
                                  reader,
                                  ibzwfs: IBZWaveFunctions) -> None:
-        """ Read eigenvalues, occuptions and projections and fermi levels
+        """Read eigenvalues, occuptions and projections and fermi levels.
 
         The values are read using reader and set as the appropriate properties
         of (the already instantiated) wavefunctions contained in ibzwfs

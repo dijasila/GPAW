@@ -98,9 +98,9 @@ class MGGAFunctional(Functional):
         else:
             taut_sR = ibzwfs.calculate_kinetic_energy_density()
 
-        taut_sr = self.grid.empty(len(taut_sR))
+        taut_sr = self.grid.empty(taut_sR.dims[0])
         for taut_R, taut_r in zip(taut_sR, taut_sr):
-            taut_R += self.tauct_R
+            taut_R.data += self.tauct_R.data
             interpolate(taut_R, taut_r)
 
         gd = self.xc.gd
@@ -121,16 +121,10 @@ class MGGAFunctional(Functional):
                                                 dedtaut_sr,
                                                 taut_sR):
             restrict(dedtaut_r, dedtaut_R)
-            self.ekin -= dedtaut_R.integrate(taut_R - self.tauct_R)
+            taut_R.data -= self.tauct_R.data
+            self.ekin -= dedtaut_R.integrate(taut_R)
 
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr)
 
         return e_r.integrate()
-
-    def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
-                                            Htpsit_xG, dH_asp=None):
-        self.wfs.apply_mgga_orbital_dependent_hamiltonian(
-            kpt, psit_xG,
-            Htpsit_xG, dH_asp,
-            self.dedtaut_sG[kpt.s])

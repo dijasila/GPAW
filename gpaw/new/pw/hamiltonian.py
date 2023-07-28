@@ -10,7 +10,8 @@ from gpaw.new.hamiltonian import Hamiltonian
 
 
 class PWHamiltonian(Hamiltonian):
-    def __init__(self, grid, pw, xp):
+    def __init__(self, grid, pw, xc, xp):
+        self.xc = xc
         self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
         self.pw_cache = {}
 
@@ -47,10 +48,16 @@ class PWHamiltonian(Hamiltonian):
                 tmp_R.fft(out=vtpsit_G)
                 psit_G.data *= e_kin_G
                 vtpsit_G.data += psit_G.data
-            else:
-                vtpsit_G = psit_G  # not really used (we should set it to None)
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
+
+        if self.xc.type == 'mgga':
+            self.apply_mgga(psit_nG, out_nG)
+
         return out_nG
+
+    def apply_mgga(self, psit_nG, out_nG):
+        self.xc.dedtaut_sR
+        ...
 
     def create_preconditioner(self,
                               blocksize: int
