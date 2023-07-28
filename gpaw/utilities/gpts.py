@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 from typing import List
 
+from ase import Atoms
 from ase.units import Bohr, Hartree
 
 from gpaw.fftw import get_efficient_fft_size
@@ -146,6 +147,7 @@ def main(argv: List[str] = None) -> None:
         sc.append(int(value))
 
     atoms = read(args.file)
+    assert isinstance(atoms, Atoms)
     atoms_sc = atoms * sc
     cell_cv = atoms_sc.get_cell()
     obtain_gpts_suggestion(cell_cv, args.ecut, args.grid_spacing, True)
@@ -153,4 +155,3 @@ def main(argv: List[str] = None) -> None:
 
 if __name__ == "__main__":
     main()
-
