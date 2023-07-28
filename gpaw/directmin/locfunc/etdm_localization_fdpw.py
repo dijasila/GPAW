@@ -19,13 +19,7 @@ class FDPWETDMLocalize:
                 obj_f, wfs, maxiter=maxiter,
                 g_tol=g_tol)
 
-    def run(self, wfs, dens, log=None, max_iter=None,
-            g_tol=None, rewritepsi=True, ham=None, seed=None):
-
-        if g_tol is not None:
-            self.iloop.tol = g_tol
-        if max_iter is not None:
-            self.iloop.max_iter = max_iter
+    def run(self, wfs, dens, ham=None, rewritepsi=True, log=None, seed=None):
 
         wfs.timer.start('Inner loop')
 

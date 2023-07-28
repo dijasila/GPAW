@@ -45,8 +45,7 @@ def test_pz_localization_pw(in_tmp_dir):
                                   'scaling_factor': (0.5, 0.5)},  # SIC/2
              localizationseed=42,
              localizationtype='KS_PZ',
-             localization_tol=5e-2,
-             g_tol=5.0e-2,
+             localization_tol=5.0e-2,
              converge_unocc=False))
     e = H2O.get_potential_energy()
     assert e == pytest.approx(-10.118236, abs=0.1)

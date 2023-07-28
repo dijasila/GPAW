@@ -14,13 +14,11 @@ import time
 
 class PZLocalization:
 
-    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50,
-                 g_tol=5.0e-4):
+    def __init__(self, odd_pot, wfs, maxiter=50, g_tol=5.0e-4):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nibzkpts
         self.g_tol = g_tol / Hartree
-        self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
         self.method = 'LBFGS'

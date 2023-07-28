@@ -50,7 +50,7 @@ def localize_orbitals(
                 PZC = get_functional_fdpw(func_settings, wfs, dens, ham)
                 dm = FDPWETDMLocalize(
                     PZC, wfs, maxiter=200, g_tol=tol, randval=0.1)
-                dm.run(wfs, dens, log)
+                dm.run(wfs, dens, log=log)
                 log('Perdew-Zunger localization finished', flush=True)
         elif name == 'ks':
             log('ETDM minimization using occupied and virtual orbitals',
@@ -60,7 +60,7 @@ def localize_orbitals(
             else:
                 KS = get_functional_fdpw('ks', wfs, dens, ham)
             dm = FDPWETDMLocalize(KS, wfs, maxiter=200, g_tol=tol, randval=0)
-            dm.run(wfs, dens, log, ham=ham)
+            dm.run(wfs, dens, ham=ham, log=log)
             log('ETDM minimization finished', flush=True)
         else:
             for k, kpt in enumerate(wfs.kpt_u):

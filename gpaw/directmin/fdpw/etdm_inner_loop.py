@@ -19,14 +19,12 @@ import time
 
 class ETDMInnerLoop:
 
-    def __init__(self, odd_pot, wfs, nstates='all',
-                 tol=5.0e-4, maxiter=100, maxstepxst=0.2,
-                 g_tol=5.0e-4, useprec=False, momevery=10):
+    def __init__(self, odd_pot, wfs, nstates='all', maxiter=100,
+                 maxstepxst=0.2, g_tol=5.0e-4, useprec=False, momevery=10):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nibzkpts
         self.g_tol = g_tol / Hartree
-        self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
         self.precond = {}
