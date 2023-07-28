@@ -255,8 +255,7 @@ class FDPWETDM(Eigensolver):
 
         # choose search direction and line search algorithm
         if isinstance(self.sda, (basestring, dict)):
-            self.search_direction = search_direction(
-                self.sda, wfs, self.dimensions)
+            self.search_direction = search_direction(self.sda)
         else:
             raise Exception('Check Search Direction Parameters')
         if isinstance(self.lsa, (basestring, dict)):
