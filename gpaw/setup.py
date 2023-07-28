@@ -1442,7 +1442,8 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, domain, positions, atomdist):
+    def create_pseudo_core_densities(self, domain, positions, atomdist,
+                                     xp=np):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
@@ -1453,7 +1454,7 @@ class Setups(list):
             spline_aj, positions,
             atomdist=atomdist,
             integral=[setup.Nct for setup in self],
-            cut=True)
+            cut=True, xp=xp)
 
     def create_pseudo_core_kinetic_energy_densities(self,
                                                     domain,
@@ -1465,9 +1466,12 @@ class Setups(list):
             atomdist=atomdist,
             cut=True)
 
-    def create_local_potentials(self, domain, positions, atomdist):
+    def create_local_potentials(self, domain, positions, atomdist, xp=np):
         return domain.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
+            [[setup.vbar] for setup in self],
+            positions,
+            atomdist=atomdist,
+            xp=xp)
 
     def create_compensation_charges(self, domain, positions, atomdist,
                                     xp=np):

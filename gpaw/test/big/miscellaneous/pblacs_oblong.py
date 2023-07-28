@@ -14,7 +14,7 @@ gen = np.random.RandomState(42)
 # simulate state-parallelization=2 and
 # domain-decomposition.prod=32
 B = 2
-D = 32
+D = 24
 mb = 32
 grid = BlacsGrid(world, B, D)
 

@@ -53,8 +53,8 @@ class Potential:
         from gpaw.new.calculation import combine_energies
         energies = combine_energies(self, ibzwfs)
         energies['band'] = ibzwfs.energies['band']
-        dH_asp = self.dH_asii.to_lower_triangle().gather()
-        vt_sR = self.vt_sR.gather()
+        dH_asp = self.dH_asii.to_cpu().to_lower_triangle().gather()
+        vt_sR = self.vt_sR.to_xp(np).gather()
         if dH_asp is None:
             return
         writer.write(

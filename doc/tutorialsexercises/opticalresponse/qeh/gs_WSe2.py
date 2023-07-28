@@ -4,7 +4,6 @@ from gpaw import GPAW, PW, FermiDirac
 
 structure = mx2(formula='WSe2', kind='2H', a=3.319, thickness=3.359,
                 size=(1, 1, 1), vacuum=5)
-structure.pbc = (1, 1, 1)
 
 ecut = 600
 

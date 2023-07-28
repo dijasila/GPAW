@@ -33,8 +33,8 @@ molecule = Atoms('H2',
                             [c + d / 2, c, c]),
                  cell=(a, a, a))
 
-calc.set(txt='H2.out')
-calc.set(hund=False)  # No hund rule for molecules
+calc = calc.new(hund=False,  # No hund rule for molecules
+                txt='H2.out')
 
 molecule.calc = calc
 e2 = molecule.get_potential_energy()

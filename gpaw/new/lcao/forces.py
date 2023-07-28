@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions

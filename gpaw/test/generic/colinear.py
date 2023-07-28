@@ -17,9 +17,9 @@ def test_colinear():
              h=0.25,
              xc=xc,
              # occupations=FermiDirac(0.01),
+             nbands=1,
              mixer=Mixer(),
              # noncolinear=[(2,0,0)],
              )  # eigensolver=NonColinearLCAOEigensolver())
-    c.set(nbands=1)
     h.calc = c
     h.get_potential_energy()

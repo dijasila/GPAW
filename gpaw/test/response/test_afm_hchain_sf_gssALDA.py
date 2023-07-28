@@ -16,11 +16,12 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
-from gpaw.response.localft import LocalFTCalculator
-from gpaw.response.fxc_kernels import FXCScaling
-from gpaw.response.df import read_response_function
+from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
+from gpaw.response.dyson import HXCScaling
+from gpaw.response.pair_functions import read_pair_function
 
 
+@pytest.mark.later  # interpolate=3 for PW-mode not implemented!
 @pytest.mark.kspair
 @pytest.mark.response
 def test_response_afm_hchain_gssALDA(in_tmp_dir):
@@ -44,14 +45,16 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
             [1. / 6., 0., 0.],
             [1. / 3., 0., 0.]]
     fxc = 'ALDA'
-    fxc_scaling = FXCScaling('afm')
+    hxc_scaling = HXCScaling('afm')
     rshelmax = -1
     rshewmin = 1e-8
     ecut = 120
     frq_w = np.linspace(-0.6, 0.6, 41)
     eta = 0.24
     zd = ComplexFrequencyDescriptor.from_array(frq_w + 1.j * eta)
-    if world.size > 1:
+    if world.size % 4 == 0:
+        nblocks = 4
+    elif world.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
@@ -62,13 +65,16 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
 
     Hatom = Atoms('H',
                   cell=[a, 0, 0],
-                  pbc=[1, 0, 0])
+                  # Use pbc to allow for real-space density interpolation
+                  pbc=[1, 1, 1])
     Hatom.center(vacuum=vfactor * a, axis=(1, 2))
     Hchain = Hatom.repeat((2, 1, 1))
     Hchain.set_initial_magnetic_moments([mm, -mm])
 
     calc = GPAW(xc=xc,
-                mode=PW(pw),
+                mode=PW(pw,
+                        # Interpolate the density in real space
+                        interpolation=3),
                 kpts=monkhorst_pack((kpts, 1, 1)),
                 nbands=nbands + ebands,
                 convergence=conv,
@@ -85,29 +91,28 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
                                  ecut=ecut,
                                  gammacentered=True,
                                  nblocks=nblocks)
-    localft_calc = LocalFTCalculator.from_rshe_parameters(
+    fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
-    chi_factory = ChiFactory(chiks_calc)
+    chi_factory = ChiFactory(chiks_calc, fxc_calculator)
 
     for q, q_c in enumerate(q_qc):
         filename = 'h-chain_macro_tms_q%d.csv' % q
         txt = 'h-chain_macro_tms_q%d.txt' % q
-        chi = chi_factory('+-', q_c, zd,
-                          fxc=fxc,
-                          localft_calc=localft_calc,
-                          fxc_scaling=fxc_scaling,
-                          txt=txt)
+        _, chi = chi_factory('+-', q_c, zd,
+                             fxc=fxc,
+                             hxc_scaling=hxc_scaling,
+                             txt=txt)
         chi.write_macroscopic_component(filename)
 
     chi_factory.context.write_timer()
     world.barrier()
 
     # Part 3: Identify magnon peak in finite q scattering function
-    w0_w, _, chi0_w = read_response_function('h-chain_macro_tms_q0.csv')
-    w1_w, _, chi1_w = read_response_function('h-chain_macro_tms_q1.csv')
-    w2_w, _, chi2_w = read_response_function('h-chain_macro_tms_q2.csv')
+    w0_w, chi0_w = read_pair_function('h-chain_macro_tms_q0.csv')
+    w1_w, chi1_w = read_pair_function('h-chain_macro_tms_q1.csv')
+    w2_w, chi2_w = read_pair_function('h-chain_macro_tms_q2.csv')
 
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag / np.pi)
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag / np.pi)
@@ -122,7 +127,7 @@ def test_response_afm_hchain_gssALDA(in_tmp_dir):
     test_Ipeak2 = 0.0290
 
     # Test fxc_scaling:
-    fxcs = fxc_scaling.get_scaling()
+    fxcs = hxc_scaling.lambd
     assert abs(fxcs - test_fxcs) < 0.005
 
     # Magnon peak at q=1/3 q_X:

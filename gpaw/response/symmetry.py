@@ -393,6 +393,9 @@ class PWSymmetryAnalyzer:
             # assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 
+    # Set up complex frequency alias
+    symmetrize_zGG = symmetrize_wGG
+
     @timer('symmetrize_wxx')
     def symmetrize_wxx(self, A_wxx, optical_limit=False):
         """Symmetrize an array in xx'."""

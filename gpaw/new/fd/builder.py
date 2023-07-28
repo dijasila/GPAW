@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 from gpaw.core import UniformGrid
-from gpaw.new.builder import create_uniform_grid
-from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
-from gpaw.new.poisson import PoissonSolverWrapper, PoissonSolver
-from gpaw.poisson import PoissonSolver as make_poisson_solver
-from gpaw.fd_operators import Laplace
-from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.fd_operators import Laplace
+from gpaw.new import zip
+from gpaw.new.builder import create_uniform_grid
+from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
+from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
+from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -39,7 +41,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_aR is None:
             self._nct_aR = self.setups.create_pseudo_core_densities(
-                self.grid, self.fracpos_ac, atomdist=self.atomdist)
+                self.grid, self.fracpos_ac, atomdist=self.atomdist, xp=self.xp)
         return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
@@ -55,7 +57,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                               self.setups,
                                               self.xc, poisson_solver,
                                               nct_aR, self.nct_R,
-                                              self.interpolation_stencil_range)
+                                              self.interpolation_stencil_range,
+                                              self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)

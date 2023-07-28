@@ -3,14 +3,14 @@ import numpy as np
 import time
 
 
-def test_GG_shuffle():
+def test_GG_shuffle(rng):
     N = 1000
     G_G = np.arange(N, dtype=np.int32)
-    np.random.shuffle(G_G)
+    rng.shuffle(G_G)
     A_GG = np.zeros((N, N), dtype=np.complex128)
     B_GG = np.zeros((N, N), dtype=np.complex128)
-    A_GG[:] = np.random.rand(N, N)
-    A_GG[:] += 1j * np.random.rand(N, N)
+    A_GG[:] = rng.random((N, N))
+    A_GG[:] += 1j * rng.random((N, N))
 
     start = time.perf_counter()
     GG_shuffle(G_G, 1, A_GG, B_GG)

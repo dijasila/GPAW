@@ -80,10 +80,13 @@ class OldLCAOTDDFT(GPAW):
 
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
-        self.default_parameters = GPAW.default_parameters.copy()
-        self.default_parameters['symmetry'] = {'point_group': False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
+        if len(self.symmetry.op_scc) > 1:
+            raise ValueError('Symmetries are not allowed for LCAOTDDFT. '
+                             'Run the ground state calculation with '
+                             'symmetry={"point_group": False}.')
+
         self.set_positions()
 
     def write(self, filename, mode=''):

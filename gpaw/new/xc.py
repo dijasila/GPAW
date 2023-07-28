@@ -39,7 +39,13 @@ class LDAOrGGAFunctional(Functional):
                   ibzwfs=None,
                   interpolate=None,
                   restrict=None) -> float:
-        return self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
+        if nt_sr.xp is np:
+            vxct_sr.data[:] = 0.0
+            return self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
+        vxct_np_sr = np.zeros(vxct_sr.data.shape)
+        exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(), vxct_np_sr)
+        vxct_sr.data[:] = vxct_sr.xp.asarray(vxct_np_sr)
+        return exc
 
 
 class MGGAFunctional(Functional):
@@ -117,6 +123,3 @@ class MGGAFunctional(Functional):
             kpt, psit_xG,
             Htpsit_xG, dH_asp,
             self.dedtaut_sG[kpt.s])
-
-
-

@@ -1,19 +1,20 @@
 from math import pi
 
 from ase.units import Ha
+
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.new import cached_property
+from gpaw.new import cached_property, zip
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
-from gpaw.typing import Array1D
 from gpaw.new.xc import create_functional
+from gpaw.typing import Array1D
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -71,12 +72,14 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist)
+                self.interpolation_pw, self.fracpos_ac, self.atomdist,
+                xp=self.xp)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_pw, params):
         return make_poisson_solver(fine_pw,
                                    self.fine_grid,
+                                   self.atoms.pbc,
                                    self.params.charge,
                                    **params)
 
@@ -100,7 +103,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian()
+            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
@@ -114,32 +117,31 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         grid = self.grid.new(kpt=kpt_c, dtype=self.dtype)
         pw = self.wf_desc.new(kpt=kpt_c)
-        psit_nG = pw.empty(self.nbands, self.communicators['b'], self.xp)
+        psit_nG = pw.empty(self.nbands, self.communicators['b'])
 
         if self.dtype == complex:
             emikr_R = grid.eikr(-kpt_c)
 
         mynbands, M = C_nM.dist.shape
-
         if self.ncomponents < 4:
             psit_nR = grid.zeros(mynbands)
             basis_set.lcao_to_grid(C_nM.data, psit_nR.data, q)
 
-            for psit_R, psit_G in zip(psit_nR, psit_nG):
+            for psit_R, psit_G in zip(psit_nR, psit_nG, strict=False):
                 if self.dtype == complex:
                     psit_R.data *= emikr_R
                 psit_R.fft(out=psit_G)
         else:
             psit_sR = grid.empty(2)
             C_nsM = C_nM.data.reshape((mynbands, 2, M // 2))
-            for psit_sG, C_sM in zip(psit_nG, C_nsM):
+            for psit_sG, C_sM in zip(psit_nG, C_nsM, strict=False):
                 psit_sR.data[:] = 0.0
                 basis_set.lcao_to_grid(C_sM, psit_sR.data, q)
                 psit_sR.data *= emikr_R
                 for psit_G, psit_R in zip(psit_sG, psit_sR):
                     psit_R.fft(out=psit_G)
 
-        return psit_nG
+        return psit_nG.to_xp(self.xp)
 
     def read_ibz_wave_functions(self, reader):
         ibzwfs = super().read_ibz_wave_functions(reader)
