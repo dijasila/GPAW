@@ -31,9 +31,8 @@ def test_fdsic(in_tmp_dir):
                 h=0.25,
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=FDPWETDM(
-                    functional_settings={'name': 'PZ-SIC',
-                                         'scaling_factor': (0.5, 0.5)  # SIC/2
-                                         },
+                    functional={'name': 'PZ-SIC',
+                                'scaling_factor': (0.5, 0.5)},
                     localizationseed=42,
                     localizationtype='FB_ER',
                     grad_tol_pz_localization=5.0e-3,

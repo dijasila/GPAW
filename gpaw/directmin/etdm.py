@@ -41,7 +41,7 @@ class ETDM:
                  use_prec=True,
                  matrix_exp='pade-approx',
                  representation='sparse',
-                 functional_settings='ks',
+                 functional='ks',
                  orthonormalization='gramschmidt',
                  randomizeorbitals=False,
                  checkgraderror=False,
@@ -149,7 +149,7 @@ class ETDM:
         self.subspace_optimization = False
 
         # these are things we cannot initialize now
-        self.func_settings = functional_settings
+        self.func_settings = functional
         self.dtype = None
         self.nkpts = None
         self.gd = None
@@ -790,7 +790,7 @@ class ETDM:
                'use_prec': self.use_prec,
                'matrix_exp': self.matrix_exp,
                'representation': self.representation,
-               'functional_settings': self.func_settings,
+               'functional': self.func_settings,
                'orthonormalization': self.orthonormalization,
                'randomizeorbitals': self.randomizeorbitals,
                'checkgraderror': self.checkgraderror,

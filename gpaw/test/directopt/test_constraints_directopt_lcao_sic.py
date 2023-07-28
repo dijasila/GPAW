@@ -30,9 +30,8 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir):
                              'localizationtype': 'PM_PZ',
                              'localizationseed': 42,
                              'subspace_convergence': 1e-3,
-                             'functional_settings': {'name': 'PZ-SIC',
-                                                     'scaling_factor':
-                                                         (0.5, 0.5)}},
+                             'functional': {'name': 'PZ-SIC',
+                                            'scaling_factor': (0.5, 0.5)}},
                 convergence={'eigenstates': 1e-4},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -49,9 +48,8 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir):
     calc.wfs.kpt_u[0].C_nM[lumo] = np.cos(a) * c[lumo] - np.sin(a) * c[homo]
 
     calc.set(eigensolver={'name': 'etdm',
-                          'functional_settings': {'name': 'PZ-SIC',
-                                                  'scaling_factor':
-                                                      (0.5, 0.5)},
+                          'functional': {'name': 'PZ-SIC',
+                                         'scaling_factor': (0.5, 0.5)},
                           'constraints': [[[homo], [lumo]]],
                           'need_init_orbs': False})
 

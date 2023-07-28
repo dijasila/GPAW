@@ -62,8 +62,8 @@ def test_gmf_lcaosic(in_tmp_dir):
         linesearch_algo={'name': 'max-step'},
         searchdir_algo={'name': 'LBFGS-P_GMF'},
         localizationtype='PM',
-        functional_settings={'name': 'PZ-SIC',
-                             'scaling_factor': (0.5, 0.5)},
+        functional={'name': 'PZ-SIC',
+                    'scaling_factor': (0.5, 0.5)},
         need_init_orbs=False),
         occupations={'name': 'mom', 'numbers': f_sn,
                      'use_fixed_occupations': True})

@@ -39,8 +39,8 @@ def test_mom_pwsic(in_tmp_dir):
     calc.set(eigensolver=FDPWETDM(
         exstopt=True,
         need_init_orbs=False,
-        functional_settings={'name': 'PZ-SIC',
-                             'scaling_factor': (0.5, 0.5)},  # SIC/2
+        functional={'name': 'PZ-SIC',
+                    'scaling_factor': (0.5, 0.5)},  # SIC/2
         localizationseed=42,
         localizationtype='PM',
         grad_tol_pz_localization=1.0e-2,

@@ -41,8 +41,8 @@ def test_pz_localization_pw(in_tmp_dir):
     H2O, calc = restart('h2o.gpw', txt='-')
 
     calc.set(eigensolver=FDPWETDM(
-             functional_settings={'name': 'PZ-SIC',
-                                  'scaling_factor': (0.5, 0.5)},  # SIC/2
+             functional={'name': 'PZ-SIC',
+                         'scaling_factor': (0.5, 0.5)},
              localizationseed=42,
              localizationtype='KS_PZ',
              localization_tol=5.0e-2,

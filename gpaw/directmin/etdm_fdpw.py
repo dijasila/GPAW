@@ -31,7 +31,7 @@ class FDPWETDM(Eigensolver):
                  searchdir_algo=None,
                  linesearch_algo='max-step',
                  use_prec=True,
-                 functional_settings='ks',
+                 functional='ks',
                  need_init_orbs=True,
                  localizationtype=None,
                  localizationseed=None,
@@ -58,7 +58,7 @@ class FDPWETDM(Eigensolver):
         self.lsa = linesearch_algo
         self.name = 'etdm-fdpw'
         self.use_prec = use_prec
-        self.func_settings = functional_settings
+        self.func_settings = functional
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
         self.localization_tol = localization_tol
@@ -156,7 +156,7 @@ class FDPWETDM(Eigensolver):
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
                 'use_prec': self.use_prec,
-                'functional_settings': self.func_settings,
+                'functional': self.func_settings,
                 'need_init_orbs': self.need_init_orbs,
                 'localizationtype': self.localizationtype,
                 'localizationseed': self.localizationseed,

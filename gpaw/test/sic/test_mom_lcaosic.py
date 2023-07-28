@@ -49,10 +49,9 @@ def test_mom_lcaosic(in_tmp_dir):
                               need_init_orbs=False,
                               localizationtype='PM_PZ',
                               localizationseed=42,
-                              functional_settings={
-                                  'name': 'PZ-SIC',
-                                  'scaling_factor':
-                                      (0.5, 0.5)}),  # SIC/2
+                              functional={'name': 'PZ-SIC',
+                                          'scaling_factor':
+                                              (0.5, 0.5)}),  # SIC/2
              convergence={'eigenstates': 1e-2})
 
     e = H2O.get_potential_energy()
