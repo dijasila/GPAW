@@ -1007,7 +1007,6 @@ class FDPWETDM(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi, converge_unocc=True)
 
-        self.maxiter_unocc = 100
         while self.iters < self.maxiter_unocc:
             en, er = self.iterate(ham, wfs, dens, log, converge_unocc=True)
             log_f(self.iters, en, er, log)
