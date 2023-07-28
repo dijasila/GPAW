@@ -184,8 +184,13 @@ class IBZWaveFunctions:
 
         if self.xp is not np:
             synchronize()
+
+        # This should be done in a more efficient way!!!
+        # Also: where do we want the density?
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
+        self.band_comm.sum(nt_sR.data)
+        self.band_comm.sum(D_asii.data)
 
     def get_all_electron_wave_function(self,
                                        band,

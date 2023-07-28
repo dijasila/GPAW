@@ -159,3 +159,10 @@ def test_find_g():
                                       kpt=np.array([0.1, 0, 0]))
     assert i.T.tolist() == [[0, 0, 0],
                             [-1, 0, 0]]
+
+
+def test_random():
+    pw = PlaneWaves(ecut=20, cell=[1, 1, 1], comm=world)
+    a = pw.empty(2)
+    a.randomize()
+    assert world.rank != 0 or (a.data[:, 0].imag == 0.0).all()
