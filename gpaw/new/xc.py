@@ -1,11 +1,15 @@
+from __future__ import annotations
 import numpy as np
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
+from gpaw.xc import XC
 
 
-def create_functional(xc: OldXCFunctional,
+def create_functional(xc: OldXCFunctional | str | dict,
                       grid, coarse_grid, interpolate_domain,
                       setups, fracpos_ac, atomdist):
+    if isinstance(xc, (str, dict)):
+        xc = XC(xc)
     if xc.type == 'MGGA':
         return MGGAFunctional(xc, grid, coarse_grid,
                               interpolate_domain, setups, fracpos_ac, atomdist)
