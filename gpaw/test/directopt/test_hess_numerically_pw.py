@@ -39,7 +39,7 @@ def test_hess_numerically_pw(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
-    calc.set(eigensolver=FDPWETDM(exstopt=True))
+    calc.set(eigensolver=FDPWETDM(excited_state=True))
     f_sn = [calc.get_occupation_numbers(spin=s).copy() / 2
             for s in range(calc.wfs.nspins)]
     prepare_mom_calculation(calc, atoms, f_sn)

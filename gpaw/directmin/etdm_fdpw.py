@@ -8,6 +8,7 @@ Can be used for excited state calculations as well:
 arXiv:2102.06542 [physics.comp-ph]
 """
 
+import time
 import numpy as np
 from ase.units import Hartree
 from ase.utils import basestring
@@ -20,7 +21,6 @@ from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ
 from gpaw.directmin.fdpw.pz_localization import PZLocalization
 from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
-import time
 from ase.parallel import parprint
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
@@ -32,7 +32,7 @@ class FDPWETDM(Eigensolver):
                  linesearch_algo='max-step',
                  use_prec=True,
                  functional='ks',
-                 need_init_orbs=True,
+                 need_init_orbs=None,
                  localizationtype=None,
                  localizationseed=None,
                  need_localization=True,
@@ -49,16 +49,20 @@ class FDPWETDM(Eigensolver):
                  blocksize=1,
                  converge_unocc=True,
                  maxiter_unocc=333,
-                 exstopt=False):
+                 excited_state=False):
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
                                        blocksize=blocksize)
 
         self.name = 'etdm-fdpw'
+        self.sda = searchdir_algo
+        self.lsa = linesearch_algo
         self.use_prec = use_prec
         self.func_settings = functional
+        self.need_init_orbs = need_init_orbs
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
+        self.need_localization = need_localization
         self.localization_tol = localization_tol
         self.maxiter_pz_localization = maxiter_pz_localization
         self.maxiter_inner_loop = maxiter_inner_loop
@@ -71,35 +75,45 @@ class FDPWETDM(Eigensolver):
         self.restartevery_iloop_notconverged = restartevery_iloop_notconverged
         self.restart_canonical = restart_canonical
         self.momevery = momevery
+        self.excited_state = excited_state
+        self.check_inputs_and_init_search_algo()
 
         self.total_eg_count_iloop = 0
         self.total_eg_count_outer_iloop = 0
         self.initial_random = True
 
-        if searchdir_algo is None:
-            searchdir_algo = 'LBFGS'
-        self.searchdir_algo = search_direction(searchdir_algo)
+        # for mom
+        self.initial_occupation_numbers = None
+
+        self.eg_count = 0
+        self.etotal = 0.0
+        self.globaliters = 0
+        self.need_init_odd = True
+        self.initialized = False
+
+    def check_inputs_and_init_search_algo(self):
+        defaults = self.set_defaults()
+        if self.need_init_orbs is None:
+            self.need_init_orbs = defaults['need_init_orbs']
+        if self.localizationtype is None:
+            self.need_localization = False
+
+        if self.sda is None:
+            self.sda = 'LBFGS'
+        self.searchdir_algo = search_direction(self.sda)
 
         self.line_search = line_search_algorithm(
-            linesearch_algo, self.evaluate_phi_and_der_phi,
+            self.lsa, self.evaluate_phi_and_der_phi,
             self.searchdir_algo)
 
         if isinstance(self.func_settings, basestring):
             self.func_settings = xc_string_to_dict(self.func_settings)
 
-        # for mom
-        self.initial_occupation_numbers = None
-
-        self.need_init_odd = True
-        self.initialized = False
-        self.need_init_orbs = need_init_orbs
-        self.need_localization = need_localization
-        if localizationtype is None:
-            self.need_localization = False
-        self.eg_count = 0
-        self.exstopt = exstopt
-        self.etotal = 0.0
-        self.globaliters = 0
+    def set_defaults(self):
+        if self.excited_state:
+            return {'need_init_orbs': False}
+        else:
+            return {'need_init_orbs': True}
 
     def __repr__(self):
 
@@ -175,7 +189,7 @@ class FDPWETDM(Eigensolver):
                 'blocksize': self.blocksize,
                 'converge_unocc': self.converge_unocc,
                 'maxiter_unocc': self.maxiter_unocc,
-                'exstopt': self.exstopt
+                'excited_state': self.excited_state
                 }
 
     def initialize_dm_helper(self, wfs, ham, dens, log):
@@ -242,7 +256,7 @@ class FDPWETDM(Eigensolver):
                     'Please add empty bands in order to converge the' \
                     ' unoccupied orbitals'
                 dim = self.bd.nbands - nocc
-            elif self.exstopt:
+            elif self.excited_state:
                 dim = self.bd.nbands
             else:
                 dim = nocc
@@ -273,7 +287,7 @@ class FDPWETDM(Eigensolver):
             else:
                 self.iloop = None
 
-            if self.exstopt:
+            if self.excited_state:
                 self.outer_iloop = ETDMInnerLoop(
                     self.odd, wfs, 'all', self.maxiter_inner_loop,
                     self.max_step_inner_loop, g_tol=self.grad_tol_inner_loop,
@@ -461,7 +475,7 @@ class FDPWETDM(Eigensolver):
         elif not wfs.orthonormalized:
             wfs.orthonormalize()
 
-        if not self.exstopt:
+        if not self.excited_state:
             energy = self.update_ks_energy(
                 ham, wfs, dens, updateproj=updateproj)
             grad = self.get_gradients_2(ham, wfs)
@@ -716,7 +730,7 @@ class FDPWETDM(Eigensolver):
         """
         self.choose_optimal_orbitals(wfs)
 
-        scalewithocc = not self.exstopt
+        scalewithocc = not self.excited_state
 
         grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=scalewithocc)
         if 'SIC' in self.func_settings['name']:
@@ -725,7 +739,7 @@ class FDPWETDM(Eigensolver):
                     wfs, kpt, grad_knG, self.iloop.U_k,
                     add_grad=True, scalewithocc=scalewithocc)
         for kpt in wfs.kpt_u:
-            if self.exstopt:
+            if self.excited_state:
                 typediag = 'separate'
                 k = self.n_kps * kpt.s + kpt.q
                 lamb = wfs.integrate(kpt.psit_nG[:], grad_knG[k][:], True)
@@ -1028,7 +1042,7 @@ class FDPWETDM(Eigensolver):
             log = None
 
         if self.iloop is not None:
-            if self.exstopt and self.iters == 0:
+            if self.excited_state and self.iters == 0:
                 eks = self.update_ks_energy(ham, wfs, dens)
             else:
                 etotal = ham.get_energy(

@@ -823,7 +823,8 @@ class LCAOETDM:
                'need_localization': self.need_localization,
                'need_init_orbs': self.need_init_orbs,
                'constraints': self.constraints,
-               'subspace_convergence': self.subspace_convergence
+               'subspace_convergence': self.subspace_convergence,
+               'excited_state': self.excited_state
                }
         if self.gmf:
             ret['partial_diagonalizer'] = \

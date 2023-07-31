@@ -32,8 +32,7 @@ def test_mom_directopt_pw(in_tmp_dir):
     calc.write('h2o.gpw', mode='all')
 
     # Triplet excited state calculation
-    calc.set(eigensolver=FDPWETDM(exstopt=True,
-                                  need_init_orbs=False))
+    calc.set(eigensolver=FDPWETDM(excited_state=True))
     f_sn = excite(calc, 0, 1, (0, 1))
     prepare_mom_calculation(calc, atoms, f_sn)
 
@@ -42,14 +41,12 @@ def test_mom_directopt_pw(in_tmp_dir):
 
     # Mixed-spin excited state calculation
     atoms, calc = restart('h2o.gpw', txt='-')
-    # Don't need to set need_init_orbs=False when restarting
-    # from file
     mom_after_canonical = False  # Test MOM after canonical only
     if mom_after_canonical:
         momevery = np.inf
     else:
         momevery = 3
-    calc.set(eigensolver=FDPWETDM(exstopt=True,
+    calc.set(eigensolver=FDPWETDM(excited_state=True,
                                   momevery=momevery,
                                   restart_canonical=False,
                                   printinnerloop=False))
