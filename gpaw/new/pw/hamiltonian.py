@@ -50,14 +50,9 @@ class PWHamiltonian(Hamiltonian):
                 vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
 
-        if self.xc.type == 'mgga':
-            self.apply_mgga(psit_nG, out_nG)
+        self.xc.apply(spin, psit_nG, out_nG)
 
         return out_nG
-
-    def apply_mgga(self, psit_nG, out_nG):
-        self.xc.dedtaut_sR
-        ...
 
     def create_preconditioner(self,
                               blocksize: int

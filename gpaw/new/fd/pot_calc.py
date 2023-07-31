@@ -56,9 +56,9 @@ class UniformGridPotentialCalculator(PotentialCalculator):
     def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
         vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
-        e_xc = xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                            interpolate=self.interpolate,
-                            restrict=self.restrict)
+        e_xc, _ = xc.calculate(nt_sr, vxct_sr, ibzwfs,
+                               interpolate=self.interpolate,
+                               restrict=self.restrict)
         return e_xc
 
     def _interpolate_density(self, nt_sR):
@@ -76,9 +76,9 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         grid2 = nt_sr.desc
 
         vxct_sr = grid2.zeros(nt_sr.dims)
-        e_xc = self.xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                                 interpolate=self.interpolate,
-                                 restrict=self.restrict)
+        e_xc, e_kinetic = self.xc.calculate(nt_sr, vxct_sr, ibzwfs,
+                                            interpolate=self.interpolate,
+                                            restrict=self.restrict)
         charge_r = grid2.empty()
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
@@ -102,7 +102,6 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
-        e_kinetic = 0.0
         for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, density.nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:

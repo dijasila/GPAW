@@ -19,6 +19,7 @@ def pw_matrix(pw: PlaneWaves,
               dH_aii: AtomArrays,
               dS_aii: list[Array2D],
               vt_R: UniformGridFunctions,
+              dedtaut_R: UniformGridFunctions,
               comm) -> tuple[Matrix, Matrix]:
     """Calculate H and S matrices in plane-wave basis.
 
@@ -64,6 +65,17 @@ def pw_matrix(pw: PlaneWaves,
         x_R.fft(out=x_G)
         H_GG.data[G - G1] = dv * x_G.data
 
+    if dedtaut_R is not None:
+        G_Gv = pw.reciprocal_vectors()
+        for G in range(G1, G2):
+            x_G.data[:] = 0.0
+            for v in range(3):
+                x_G.data[G] = 1j * G_Gv[G, v]
+                x_G.ifft(out=x_R)
+                x_R.data *= dedtaut_R.data
+                x_R.fft(out=x_G)
+                H_GG.data[G - G1] += -0.5j * dv * G_Gv[:, v] * x_G.data
+
     H_GG.add_to_diagonal(dv * pw.ekin_G)
     S_GG.data[:] = 0.0
     S_GG.add_to_diagonal(dv)
@@ -91,7 +103,8 @@ def pw_matrix(pw: PlaneWaves,
 def diagonalize(potential: Potential,
                 ibzwfs: IBZWaveFunctions,
                 occ_calc: OccupationNumberCalculator,
-                nbands: int | None) -> IBZWaveFunctions:
+                nbands: int | None,
+                xc) -> IBZWaveFunctions:
     """Diagonalize hamiltonian in plane-wave basis."""
     vt_sR = potential.vt_sR
     dH_asii = potential.dH_asii
@@ -102,6 +115,11 @@ def diagonalize(potential: Potential,
         array = np.array(nbands)
         ibzwfs.kpt_comm.max(array)
         nbands = int(array)
+
+    if xc.type == 'MGGA':
+        dedtaut_sR = xc.dedtaut_sR
+    else:
+        dedtaut_sR = [None] * ibzwfs.ncomponents
 
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
@@ -115,6 +133,7 @@ def diagonalize(potential: Potential,
                                    dH_asii[:, wfs.spin],
                                    dS_aii,
                                    vt_sR[wfs.spin],
+                                   dedtaut_sR[wfs.spin],
                                    wfs.psit_nX.comm)
             eig_n = H_GG.eigh(S_GG, limit=nbands)
             if eig_n[0] < -1000:

@@ -23,7 +23,6 @@ from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
-from gpaw.xc import XC
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -434,6 +433,9 @@ class ASECalculator:
     def initialized(self):
         return self.calculation is not None
 
+    def get_xc_functional(self):
+        return self.calculation.pot_calc.xc.name
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
         dft = self.calculation
@@ -466,7 +468,8 @@ class ASECalculator:
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,
                              self.calculation.scf_loop.occ_calc,
-                             nbands)
+                             nbands,
+                             self.calculation.pot_calc.xc)
         self.calculation.state = DFTState(ibzwfs,
                                           state.density,
                                           state.potential)

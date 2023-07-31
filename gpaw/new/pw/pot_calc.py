@@ -89,20 +89,21 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def _interpolate_and_calculate_xc(self, xc, nt_sR, ibzwfs):
         nt_sr, pw, nt0_g = self._interpolate_density(nt_sR)
         vxct_sr = nt_sr.desc.empty(nt_sR.dims, xp=self.xp)
-        e_xc = self.xc.calculate(
+        e_xc, e_kinetic = self.xc.calculate(
             nt_sr, vxct_sr, ibzwfs,
             interpolate=self.interpolate,
             restrict=self.restrict)
-        return nt_sr, pw, nt0_g, vxct_sr, e_xc
+        return nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic
 
     def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
-        _, _, _, _, e_xc = self._interpolate_and_calculate_xc(
+        _, _, _, _, e_xc, _ = self._interpolate_and_calculate_xc(
             xc, nt_sR, ibzwfs)
         return e_xc
 
     def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
-        nt_sr, pw, nt0_g, vxct_sr, e_xc = self._interpolate_and_calculate_xc(
-            self.xc, density.nt_sR, ibzwfs)
+        nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic = (
+            self._interpolate_and_calculate_xc(
+                self.xc, density.nt_sR, ibzwfs))
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)
@@ -154,7 +155,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_sR.data[1] = vt_sR.data[0]
         vt_sR.data[density.ndensities:] = 0.0
 
-        e_kinetic = self._restrict(vxct_sr, vt_sR, density)
+        e_kinetic += self._restrict(vxct_sr, vt_sR, density)
 
         e_external = 0.0
 

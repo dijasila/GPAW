@@ -10,6 +10,7 @@ def test_mgga_mgga_restart(in_tmp_dir):
     fname = 'H2_PBE.gpw'
     fwfname = 'H2_wf_PBE.gpw'
     txt = None
+    txt = '-'
 
     s = Cluster([Atom('H'), Atom('H', [0, 0, 1])])
     s.minimal_box(3.)
