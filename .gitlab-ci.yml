@@ -262,9 +262,7 @@ test-minimal:
     - pytest -v -m ci -We -Wi::ImportWarning
 
 
-# Cuda runner has been offline for 14 days, let's disable this job for now.
-#   --askhl, 2023-07-13.
-.test-cuda:
+test-cuda:
   image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
   extends:
     - .test
