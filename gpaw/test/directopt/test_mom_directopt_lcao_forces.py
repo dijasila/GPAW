@@ -37,11 +37,9 @@ def test_mom_directopt_lcao_forces(in_tmp_dir):
 
     f_sn = excite(calc, 0, 0, spin=(0, 0))
 
-    calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
-                                  linesearch_algo={'name': 'max-step'},
+    calc.set(eigensolver=LCAOETDM(excited_state=True,
                                   representation='u-invar',
-                                  matrix_exp='egdecomp-u-invar',
-                                  need_init_orbs=False))
+                                  matrix_exp='egdecomp-u-invar'))
     prepare_mom_calculation(calc, atoms, f_sn)
     F = atoms.get_forces()
 

@@ -35,9 +35,7 @@ def test_mom_directopt_lcao(in_tmp_dir):
     H2O.calc = calc
     H2O.get_potential_energy()
 
-    calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
-                                  linesearch_algo={'name': 'max-step'},
-                                  need_init_orbs=False))
+    calc.set(eigensolver=LCAOETDM(excited_state=True))
     # Ground-state occupation numbers
     f_sn = excite(calc, 0, 0, spin=(0, 0))
     prepare_mom_calculation(calc, H2O, f_sn)

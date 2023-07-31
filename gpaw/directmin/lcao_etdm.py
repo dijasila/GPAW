@@ -32,8 +32,8 @@ class LCAOETDM:
     """
 
     def __init__(self,
-                 searchdir_algo='l-bfgs-p',
-                 linesearch_algo='swc-awc',
+                 searchdir_algo=None,
+                 linesearch_algo=None,
                  partial_diagonalizer='Davidson',
                  update_ref_orbs_counter=20,
                  update_ref_orbs_canonical=False,
@@ -48,9 +48,10 @@ class LCAOETDM:
                  localizationtype=None,
                  localizationseed=None,
                  need_localization=True,
-                 need_init_orbs=True,
+                 need_init_orbs=None,
                  constraints=None,
-                 subspace_convergence=5e-4
+                 subspace_convergence=5e-4,
+                 excited_state=False
                  ):
         """
         This class performs the exponential transformation
@@ -76,7 +77,7 @@ class LCAOETDM:
         (used with u-invar representation)
         :param representation: the way the elements of A are stored. Can be one
         of 'sparse', 'full', 'u-invar'
-        :param functional_settings: KS or PZ-SIC
+        :param functional: KS or PZ-SIC
         :param orthonormalization: orthonormalize the orbitals using
         Gram-Schmidt or Loewdin orthogonalization, or getting the orbitals as
         eigenstates of the Hamiltonian matrix. Can be one of 'gramschmidt',
@@ -101,46 +102,33 @@ class LCAOETDM:
         assert orthonormalization in ['gramschmidt', 'loewdin', 'diag'], \
             'Value Error'
 
+        self.sda = searchdir_algo
+        self.lsa = linesearch_algo
+        self.partial_diagonalizer = partial_diagonalizer
         self.localizationtype = localizationtype
         self.localizationseed = localizationseed
-        self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_ref_orbs_canonical = update_ref_orbs_canonical
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
-        self.iters = 0
-        self.restart = False
-        self.name = 'etdm-lcao'
         self.localizationtype = localizationtype
         self.need_localization = need_localization
-        if localizationtype is None:
-            self.need_localization = False
         self.need_init_orbs = need_init_orbs
         self.randomizeorbitals = randomizeorbitals
         self.representation = representation
         self.orthonormalization = orthonormalization
         self.constraints = constraints
         self.subspace_convergence = subspace_convergence
-        self.subspace_iters = 0
         self.released_subspace = False
-
+        self.excited_state = excited_state
+        self.name = 'etdm-lcao'
+        self.iters = 0
+        self.eg_count = 0
+        self.subspace_iters = 0
+        self.restart = False
         self.gmf = False
-        self.searchdir_algo = search_direction(
-            searchdir_algo, self, partial_diagonalizer)
-        sd_name = self.searchdir_algo.name.split('_')
-        if sd_name[0] == 'l-bfgs-p' and not self.use_prec:
-            raise ValueError('Use l-bfgs-p with use_prec=True')
-        if len(sd_name) == 2:
-            if sd_name[1] == 'gmf':
-                self.searchdir_algo.name = sd_name[0]
-                self.gmf = True
-                self.g_vec_u_original = None
-                self.pd = partial_diagonalizer
-
-        self.line_search = line_search_algorithm(linesearch_algo,
-                                                 self.evaluate_phi_and_der_phi,
-                                                 self.searchdir_algo)
+        self.check_inputs_and_init_search_algo()
 
         self.checkgraderror = checkgraderror
         self._norm_commutator, self._norm_grad = 0., 0.
@@ -183,6 +171,43 @@ class LCAOETDM:
         self.dm_helper = None
 
         self.initialized = False
+
+    def check_inputs_and_init_search_algo(self):
+        defaults = self.set_defaults()
+        if self.sda is None:
+            self.sda = defaults['searchdir_algo']
+        if self.lsa is None:
+            self.lsa = defaults['linesearch_algo']
+        if self.need_init_orbs is None:
+            self.need_init_orbs = defaults['need_init_orbs']
+        if self.localizationtype is None:
+            self.need_localization = False
+
+        self.searchdir_algo = search_direction(
+            self.sda, self, self.partial_diagonalizer)
+        sd_name = self.searchdir_algo.name.split('_')
+        if sd_name[0] == 'l-bfgs-p' and not self.use_prec:
+            raise ValueError('Use l-bfgs-p with use_prec=True')
+        if len(sd_name) == 2:
+            if sd_name[1] == 'gmf':
+                self.searchdir_algo.name = sd_name[0]
+                self.gmf = True
+                self.g_vec_u_original = None
+                self.pd = self.partial_diagonalizer
+
+        self.line_search = line_search_algorithm(self.lsa,
+                                                 self.evaluate_phi_and_der_phi,
+                                                 self.searchdir_algo)
+
+    def set_defaults(self):
+        if self.excited_state:
+            return {'searchdir_algo': 'l-sr1p',
+                    'linesearch_algo': 'max-step',
+                    'need_init_orbs': False}
+        else:
+            return {'searchdir_algo': 'l-bfgs-p',
+                    'linesearch_algo': 'swc-awc',
+                    'need_init_orbs': True}
 
     def __repr__(self):
 
