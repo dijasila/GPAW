@@ -179,7 +179,7 @@ class Chi0Calculator:
 
         metallic = self.nocc1 != self.nocc2
         if metallic:
-            assert abs(self.eshift) < 1e-8,\
+            assert abs(self.eshift) < 1e-8, \
                 'A rigid energy shift cannot be applied to the conduction '\
                 'bands if there is no band gap'
 
