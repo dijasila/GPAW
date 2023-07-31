@@ -100,6 +100,13 @@ class FDOperator:
                                     out_xg.data.ptr,
                                     in_xg.shape, in_xg.dtype, phase_cd)
 
+    def __call__(self, in_xR, out_xR=None):
+        if out_xR is None:
+            out_xR = in_xR.new()
+        self.operator.apply(in_xR.data, out_xR.data,
+                            in_xR.desc.phase_factor_cd)
+        return out_xR
+
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
             self.operator.relax(relax_method, f_g, s_g, n, w)

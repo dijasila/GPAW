@@ -56,6 +56,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.e_stress = np.nan
 
+        self.interpolation_domain = nct_ag.pw
+
     def interpolate(self, a_R, a_r):
         a_R.interpolate(self.fftplan, self.fftplan2, out=a_r)
 
@@ -64,12 +66,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
-
-    def calculate_non_selfconsistent_exc(self, nt_sR, xc):
-        nt_sr, _, _ = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.empty(nt_sr.dims)
-        e_xc = xc.calculate(nt_sr, vxct_sr)
-        return e_xc
 
     def _interpolate_density(self, nt_sR):
         nt_sr = self.fine_grid.empty(nt_sR.dims, xp=self.xp)
@@ -90,14 +86,23 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         return nt_sr, pw, nt0_g
 
-    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
-        nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
-
-        vxct_sr = nt_sr.desc.empty(density.nt_sR.dims, xp=self.xp)
+    def _interpolate_and_calculate_xc(self, xc, nt_sR, ibzwfs):
+        nt_sr, pw, nt0_g = self._interpolate_density(nt_sR)
+        vxct_sr = nt_sr.desc.empty(nt_sR.dims, xp=self.xp)
         e_xc = self.xc.calculate(
             nt_sr, vxct_sr, ibzwfs,
             interpolate=self.interpolate,
             restrict=self.restrict)
+        return nt_sr, pw, nt0_g, vxct_sr, e_xc
+
+    def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
+        _, _, _, _, e_xc = self._interpolate_and_calculate_xc(
+            xc, nt_sR, ibzwfs)
+        return e_xc
+
+    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
+        nt_sr, pw, nt0_g, vxct_sr, e_xc = self._interpolate_and_calculate_xc(
+            self.xc, density.nt_sR, ibzwfs)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)

@@ -3,6 +3,8 @@ import numpy as np
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
 from gpaw.xc import XC
+from gpaw.fd_operators import Gradient
+import _gpaw
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -70,6 +72,7 @@ class MGGAFunctional(Functional):
             interpolation_domain,
             fracpos_ac,
             atomdist)
+        self.ked_calculator = KEDCalculator.from_desc(interpolation_domain)
         self.tauct_R = None
         self.ekin = np.nan
         self.dedtaut_sR = None
@@ -93,11 +96,11 @@ class MGGAFunctional(Functional):
             self.tauct_R = self.coarse_grid.empty()
             self.tauct_aX.to_uniform_grid(out=self.tauct_R, scale=1.0 / nspins)
 
-        if ibzwfs is None:
-            taut_sR = self.coarse_grid.zeros(nspins)
-        else:
-            taut_sR = ibzwfs.calculate_kinetic_energy_density()
+        taut_sR = self.coarse_grid.zeros(nspins)
+        if ibzwfs is not None:
+            self.ked_calculator.calculate_pseudo_valence_ked(ibzwfs, taut_sR)
 
+        # Add core ked and interpolate:
         taut_sr = self.grid.empty(taut_sR.dims[0])
         for taut_R, taut_r in zip(taut_sR, taut_sr):
             taut_R.data += self.tauct_R.data
@@ -128,3 +131,42 @@ class MGGAFunctional(Functional):
                                 dedsigma_xr, vxct_sr)
 
         return e_r.integrate()
+
+
+class KEDCalculator:
+    @classmethod
+    def from_desc(cls, desc):
+        if hasattr(desc, '_gd'):
+            return FDKEDCalculator(desc)
+        1 / 0
+
+    def calculate_pseudo_valence_ked(self, ibzwfs, taut_sR):
+        taut_sR.data[:] = 0.0
+        for wfs in ibzwfs:
+            occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+            self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
+        taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
+                           ibzwfs.ibz.symmetries.translation_sc)
+
+    def add_ked(self):
+        raise NotImplementedError
+
+
+class FDKEDCalculator(KEDCalculator):
+    def __init__(self, grid):
+        self.grid = grid
+        self.grad_v = []
+
+    def add_ked(self, occ_n, psit_nR, taut_R):
+        if len(self.grad_v) == 0:
+            self.grad_v = [
+                Gradient(self.grid._gd, v, n=3, dtype=psit_nR.desc.dtype)
+                for v in range(3)]
+
+        tmp_R = psit_nR.desc.empty()
+        for f, psit_R in zip(occ_n, psit_nR):
+            for grad in self.grad_v:
+                grad(psit_R, tmp_R)
+                # Same as taut_R.data += 0.5 * f * abs(tmp_R.data)**2, but
+                # much faster:
+                _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)

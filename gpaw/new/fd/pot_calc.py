@@ -18,6 +18,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  interpolation_stencil_range=3,
                  xp=np):
         self.fine_grid = fine_grid
+        self.grid = wf_grid
         self.nct_aR = nct_aR
 
         fracpos_ac = nct_aR.fracpos_ac
@@ -39,6 +40,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
         super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+        self.interpolation_domain = nct_aR.grid
 
     def __str__(self):
         txt = super().__str__()
@@ -51,10 +53,12 @@ class UniformGridPotentialCalculator(PotentialCalculator):
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
 
-    def calculate_non_selfconsistent_exc(self, nt_sR, xc):
+    def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
         vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
-        e_xc = xc.calculate(nt_sr, vxct_sr)
+        e_xc = xc.calculate(nt_sr, vxct_sr, ibzwfs,
+                            interpolate=self.interpolate,
+                            restrict=self.restrict)
         return e_xc
 
     def _interpolate_density(self, nt_sR):

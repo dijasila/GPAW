@@ -436,13 +436,18 @@ class ASECalculator:
 
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
-        state = self.calculation.state
-        grid = state.density.nt_sR.desc
-        fine_grid = grid.new(size=grid.size_c * 2)
-        xc = create_functional(xcparams, fine_grid, None, None,
-                               None, None, None)
-        exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
-            state.density.nt_sR, xc)
+        dft = self.calculation
+        pot_calc = dft.pot_calc
+        state = dft.state
+        xc = create_functional(
+            xcparams,
+            pot_calc.fine_grid, pot_calc.grid,
+            pot_calc.interpolation_domain,
+            self.setups,
+            dft.fracpos_ac,
+            state.density.D_asii.layout.atomdist)
+        exct = pot_calc.calculate_non_selfconsistent_exc(
+            xc, dft.state.density.nt_sR, state.ibzwfs)
         dexc = 0.0
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
