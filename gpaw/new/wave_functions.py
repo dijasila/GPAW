@@ -126,10 +126,10 @@ class WaveFunctions:
             for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',
                                    P_nsi.conj(), occ_n, P_nsi)
-                D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
-                D_xii[1] += 2 * D_ssii[0, 1].real
-                D_xii[2] += 2 * D_ssii[0, 1].imag
-                D_xii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
+                D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]
+                D_xii[1] += D_ssii[0, 1] + D_ssii[1, 0]
+                D_xii[2] += -1j*(D_ssii[0, 1] - D_ssii[1, 0])
+                D_xii[3] += D_ssii[0, 0] - D_ssii[1, 1]
 
     def send(self, kpt_comm, rank):
         raise NotImplementedError
