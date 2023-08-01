@@ -68,8 +68,8 @@ def pw_matrix(pw: PlaneWaves,
     if dedtaut_R is not None:
         G_Gv = pw.reciprocal_vectors()
         for G in range(G1, G2):
-            x_G.data[:] = 0.0
             for v in range(3):
+                x_G.data[:] = 0.0
                 x_G.data[G] = 1j * G_Gv[G, v]
                 x_G.ifft(out=x_R)
                 x_R.data *= dedtaut_R.data
