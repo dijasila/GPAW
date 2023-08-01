@@ -534,7 +534,7 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
         occcalc = None
 
     nl_aj = {}
-    for a, setup in enumerate(setups):
+    for a, setup in enumerate(calc.wfs.setups):
         nl_aj[a] = list(zip(setup.n_j, setup.l_j))
 
     return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
