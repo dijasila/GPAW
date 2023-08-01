@@ -67,7 +67,7 @@ class PotentialCalculator:
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
         energies, vt_sR, vHt_x = self.calculate_pseudo_potential(
             density, vHt_x)
-
+        
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc, kpt_comm)
@@ -136,7 +136,7 @@ def calculate_non_local_potential1(setup: Setup,
     ndensities = 2 if ncomponents == 2 else 1
     D_sp = np.array([pack(D_ii.real) for D_ii in D_sii])
 
-    D_p = (D_sp[:ndensities].sum(0)).real
+    D_p = (D_sp[:ndensities].sum(0))
 
     dH_p = (setup.K_p + setup.M_p +
             setup.MB_p + 2.0 * setup.M_pp @ D_p +
@@ -145,14 +145,15 @@ def calculate_non_local_potential1(setup: Setup,
     e_zero = setup.MB + setup.MB_p @ D_p
     e_coulomb = setup.M + D_p @ (setup.M_p + setup.M_pp @ D_p)
 
-    dH_sii = np.zeros_like(D_sii, dtype=float if ncomponents < 4 else complex)
+    dH_sp = np.zeros_like(D_sp, dtype=float if ncomponents < 4 else complex)
     if soc:
-        dH_sii[1:4] = soc_terms(setup, xc.xc, D_sp)
-    dH_sii[:ndensities] = unpack(dH_p)
-    e_xc = xc.calculate_paw_correction(
-        setup, D_sp, np.array([pack2(dH_ii.real) for dH_ii in dH_sii]))
-    e_kinetic -= (D_sii * dH_sii).sum().real
+        dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
+    dH_sp[:ndensities] = dH_p
+    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
     e_external = 0.0
+
+    dH_sii = unpack(dH_sp)
+    e_kinetic -= (D_sii * dH_sii).sum().real
 
     return dH_sii, {'kinetic': e_kinetic,
                     'coulomb': e_coulomb,
