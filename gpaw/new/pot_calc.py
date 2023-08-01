@@ -134,9 +134,9 @@ def calculate_non_local_potential1(setup: Setup,
                                                        dict[str, float]]:
     ncomponents = len(D_sii)
     ndensities = 2 if ncomponents == 2 else 1
-    D_sp = np.array([pack(D_ii) for D_ii in D_sii])
+    D_sp = np.array([pack(D_ii.real) for D_ii in D_sii])
 
-    D_p = D_sp[:ndensities].sum(0)
+    D_p = (D_sp[:ndensities].sum(0)).real
 
     dH_p = (setup.K_p + setup.M_p +
             setup.MB_p + 2.0 * setup.M_pp @ D_p +
@@ -145,15 +145,14 @@ def calculate_non_local_potential1(setup: Setup,
     e_zero = setup.MB + setup.MB_p @ D_p
     e_coulomb = setup.M + D_p @ (setup.M_p + setup.M_pp @ D_p)
 
-    dH_sp = np.zeros_like(D_sp, dtype=float if ncomponents < 4 else complex)
+    dH_sii = np.zeros_like(D_sii, dtype=float if ncomponents < 4 else complex)
     if soc:
-        dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
-    dH_sp[:ndensities] = dH_p
-    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
-    e_kinetic -= (D_sp * dH_sp).sum().real
+        dH_sii[1:4] = soc_terms(setup, xc.xc, D_sp)
+    dH_sii[:ndensities] = unpack(dH_p)
+    e_xc = xc.calculate_paw_correction(
+        setup, D_sp, np.array([pack2(dH_ii.real) for dH_ii in dH_sii]))
+    e_kinetic -= (D_sii * dH_sii).sum().real
     e_external = 0.0
-
-    dH_sii = unpack(dH_sp)
 
     return dH_sii, {'kinetic': e_kinetic,
                     'coulomb': e_coulomb,
