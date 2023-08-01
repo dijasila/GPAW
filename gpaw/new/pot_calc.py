@@ -67,7 +67,7 @@ class PotentialCalculator:
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
         energies, vt_sR, vHt_x = self.calculate_pseudo_potential(
             density, vHt_x)
-        
+
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc, kpt_comm)
@@ -136,7 +136,7 @@ def calculate_non_local_potential1(setup: Setup,
     ndensities = 2 if ncomponents == 2 else 1
     D_sp = np.array([pack(D_ii.real) for D_ii in D_sii])
 
-    D_p = (D_sp[:ndensities].sum(0))
+    D_p = D_sp[:ndensities].sum(0)
 
     dH_p = (setup.K_p + setup.M_p +
             setup.MB_p + 2.0 * setup.M_pp @ D_p +

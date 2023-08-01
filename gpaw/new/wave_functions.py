@@ -128,7 +128,7 @@ class WaveFunctions:
                                    P_nsi.conj(), occ_n, P_nsi)
                 D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]
                 D_xii[1] += D_ssii[0, 1] + D_ssii[1, 0]
-                D_xii[2] += -1j*(D_ssii[0, 1] - D_ssii[1, 0])
+                D_xii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
                 D_xii[3] += D_ssii[0, 0] - D_ssii[1, 1]
 
     def send(self, kpt_comm, rank):
