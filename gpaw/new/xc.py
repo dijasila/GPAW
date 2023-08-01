@@ -152,6 +152,8 @@ class KEDCalculator:
             self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
         taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
                            ibzwfs.ibz.symmetries.translation_sc)
+        ibzwfs.kpt_comm.sum(taut_sR.data)
+        ibzwfs.band_comm.sum(taut_sR.data)
 
     def add_ked(self):
         raise NotImplementedError
@@ -184,6 +186,7 @@ class PWKEDCalculator(KEDCalculator):
                 iGpsit1_G.data[:] = psit1_G.data
                 iGpsit1_G.data *= 1j * Gplusk1_Gv[:, v]
                 iGpsit1_G.ifft(out=dpsit1_R)
+                # taut1_R.data += 0.5 * f * abs(dpsit1_R.data)**2
                 _gpaw.add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
 
         domain_comm.sum(taut1_R.data)
@@ -222,6 +225,5 @@ class FDKEDCalculator(KEDCalculator):
         for f, psit_R in zip(occ_n, psit_nR):
             for grad in self.grad_v:
                 grad(psit_R, tmp_R)
-                # Same as taut_R.data += 0.5 * f * abs(tmp_R.data)**2, but
-                # much faster:
+                # taut_R.data += 0.5 * f * abs(tmp_R.data)**2
                 _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)
