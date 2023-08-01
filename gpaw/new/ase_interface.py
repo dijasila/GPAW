@@ -394,6 +394,11 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.ibz.kpt_kc.copy()
 
+    def get_orbital_magnetic_moments(self):
+        """Return the orbital magnetic moment vector for each atom."""
+        from gpaw.new.orbmag import get_orbmag_from_calc
+        return get_orbmag_from_calc(self)
+
     def calculate(self, atoms, properties=None, system_changes=None):
         if properties is None:
             properties = ['energy']
