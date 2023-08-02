@@ -148,7 +148,7 @@ class FakeDensity:
     def D_asp(self):
         D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                 self.atom_partition)
-        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii])
+        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii.real])
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 
