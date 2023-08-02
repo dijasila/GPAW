@@ -111,7 +111,7 @@ class Density:
             D_sii[:] = 0.0
             rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
             for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
-                                       rotation_sii):
+                                        rotation_sii):
                 D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
@@ -134,7 +134,8 @@ class Density:
                                               ncomponents,
                                               hund,
                                               charge / len(setups))
-                 for a, (setup, magmom_v) in enumerate(zips(setups, magmom_av))}
+                 for a, (setup, magmom_v)
+                 in enumerate(zips(setups, magmom_av))}
 
         nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)

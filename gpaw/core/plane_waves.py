@@ -14,7 +14,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod, zip
+from gpaw.new import prod, zips
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector)
@@ -349,7 +349,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
         if this is not None:
-            for coef_G, out1 in zip(this._arrays(), out.flat()):
+            for coef_G, out1 in zips(this._arrays(), out.flat()):
                 plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
@@ -390,7 +390,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         else:
             data = None
 
-        for input, output in zip(self._arrays(), out._arrays()):
+        for input, output in zips(self._arrays(), out._arrays()):
             mydata = pad(input, self.desc.maxmysize)
             comm.gather(mydata, 0, data)
             if comm.rank == 0:
@@ -573,7 +573,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         if domain_comm.size == 1:
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
-            for weight, a_G in zip(weights, a_nG):
+            for weight, a_G in zips(weights, a_nG):
                 if weight == 0.0:
                     continue
                 a_G.ifft(out=a_R)

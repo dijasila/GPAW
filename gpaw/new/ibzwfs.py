@@ -414,9 +414,9 @@ class IBZWaveFunctions:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
                 for n, (e1, f1, e2, f2) in enumerate(zips(eig_skn[0, k],
-                                                         occ_skn[0, k],
-                                                         eig_skn[1, k],
-                                                         occ_skn[1, k])):
+                                                          occ_skn[0, k],
+                                                          eig_skn[1, k],
+                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
 

@@ -376,7 +376,7 @@ def write_atoms(atoms: Atoms,
     log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
     for a, ((x, y, z), (mx, my, mz)) in enumerate(zips(atoms.positions,
-                                                      magmom_av)):
+                                                       magmom_av)):
         symbol = symbols[a]
         c = ']' if a == len(atoms) - 1 else ','
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'

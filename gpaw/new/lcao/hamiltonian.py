@@ -94,7 +94,7 @@ class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         V_sMM = [
             self.matcalc._calculate_matrix_without_kinetic(wfs, V_xMM, dH_aii)
             for V_xMM, dH_aii in zips(self.matcalc.V_sxMM,
-                                     self.matcalc.dH_saii)]
+                                      self.matcalc.dH_saii)]
 
         V_sMM[0] += wfs.T_MM
 

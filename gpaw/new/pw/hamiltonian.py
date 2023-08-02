@@ -83,8 +83,8 @@ def precondition(psit_nG: PlaneWaveExpansions,
 
     if xp is np:
         for r_G, o_G, ekin in zips(residual_nG.data,
-                                  out.data,
-                                  ekin_n):
+                                   out.data,
+                                   ekin_n):
             _gpaw.pw_precond(G2_G, r_G, ekin, o_G)
         return
 
@@ -104,8 +104,8 @@ def gpu_prec(ekin, G2, residual):
 def spinor_precondition(psit_nsG, residual_nsG, out):
     G2_G = psit_nsG.desc.ekin_G * 2
     for r_sG, o_sG, ekin in zips(residual_nsG.data,
-                                out.data,
-                                psit_nsG.norm2('kinetic').sum(1)):
+                                 out.data,
+                                 psit_nsG.norm2('kinetic').sum(1)):
         for r_G, o_G in zips(r_sG, o_sG):
             _gpaw.pw_precond(G2_G, r_G, ekin, o_G)
 
