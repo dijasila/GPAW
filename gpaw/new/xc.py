@@ -65,23 +65,19 @@ class MGGAFunctional(Functional):
                  xc,
                  grid,
                  coarse_grid,
-                 interpolation_domain,
+                 domain,
                  setups,
                  fracpos_ac,
                  atomdist):
         super().__init__(xc, grid)
+        tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
+            domain, fracpos_ac, atomdist)
+        self.ked_calculator = KEDCalculator.create(tauct_aX)
         self.coarse_grid = coarse_grid
-        self.tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
-            interpolation_domain,
-            fracpos_ac,
-            atomdist)
-        self.ked_calculator = KEDCalculator.from_desc(interpolation_domain)
-        self.tauct_R = None
         self.dedtaut_sR = None
 
     def move(self, fracpos_ac, atomdist):
-        self.tauct_aX.move(fracpos_ac, atomdist)
-        self.tauct_R = None
+        self.ked_calculator.move(fracpos_ac, atomdist)
 
     def get_setup_name(self):
         return 'PBE'
@@ -96,20 +92,10 @@ class MGGAFunctional(Functional):
                   interpolate,
                   restrict) -> tuple[float, float]:
         nspins = nt_sr.dims[0]
-
-        if self.tauct_R is None:
-            self.tauct_R = self.coarse_grid.empty()
-            self.tauct_aX.to_uniform_grid(out=self.tauct_R, scale=1.0 / nspins)
-
-        taut_sR = self.coarse_grid.zeros(nspins)
-        if ibzwfs is not None:
-            self.ked_calculator.calculate_pseudo_valence_ked(ibzwfs, taut_sR)
-
-        # Add core ked and interpolate:
-        taut_sr = self.grid.empty(taut_sR.dims[0])
-        for taut_R, taut_r in zip(taut_sR, taut_sr):
-            taut_R.data += self.tauct_R.data
-            interpolate(taut_R, taut_r)
+        taut_sR = self.coarse_grid.empty(nspins)
+        self.ked_calculator.calculate_pseudo_ked(ibzwfs, taut_sR)
+        taut_sr = self.grid.empty(nspins)
+        interpolate(taut_sR, taut_sr)
 
         gd = self.xc.gd
 
@@ -129,7 +115,7 @@ class MGGAFunctional(Functional):
                                                 dedtaut_sr,
                                                 taut_sR):
             restrict(dedtaut_r, dedtaut_R)
-            taut_R.data -= self.tauct_R.data
+            taut_R.data -= self.ked_calculator.tauct_R.data
             ekin -= dedtaut_R.integrate(taut_R)
 
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
@@ -139,21 +125,39 @@ class MGGAFunctional(Functional):
 
 
 class KEDCalculator:
-    @classmethod
-    def from_desc(cls, desc):
-        if hasattr(desc, '_gd'):
-            return FDKEDCalculator(desc)
-        return PWKEDCalculator()
+    @staticmethod
+    def create(tauct_aX):
+        if hasattr(tauct_aX, 'pw'):
+            return PWKEDCalculator(tauct_aX)
+        return FDKEDCalculator(tauct_aX)
 
-    def calculate_pseudo_valence_ked(self, ibzwfs, taut_sR):
+    def __init__(self, tauct_aX):
+        self.tauct_aX = tauct_aX
+        self.tauct_R = None
+
+    def move(self, fracpos_ac, atomdist):
+        self.tauct_aX.move(fracpos_ac, atomdist)
+        self.tauct_R = None
+
+    def calculate_pseudo_ked(self, ibzwfs, taut_sR):
+        nspins = taut_sR.dims[0]
+        if self.tauct_R is None:
+            self.tauct_R = taut_sR.desc.empty()
+            self.tauct_aX.to_uniform_grid(out=self.tauct_R,
+                                          scale=1.0 / nspins)
+
         taut_sR.data[:] = 0.0
-        for wfs in ibzwfs:
-            occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
-            self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
-        taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
-                           ibzwfs.ibz.symmetries.translation_sc)
-        ibzwfs.kpt_comm.sum(taut_sR.data)
-        ibzwfs.band_comm.sum(taut_sR.data)
+
+        if ibzwfs is not None:
+            for wfs in ibzwfs:
+                occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+                self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
+            taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
+                               ibzwfs.ibz.symmetries.translation_sc)
+            ibzwfs.kpt_comm.sum(taut_sR.data)
+            ibzwfs.band_comm.sum(taut_sR.data)
+
+        taut_sR.data += self.tauct_R.data
 
     def add_ked(self):
         raise NotImplementedError
@@ -211,14 +215,15 @@ class PWKEDCalculator(KEDCalculator):
 
 
 class FDKEDCalculator(KEDCalculator):
-    def __init__(self, grid):
-        self.grid = grid
+    def __init__(self, tauct_aX):
+        super().__init__(tauct_aX)
         self.grad_v = []
 
     def add_ked(self, occ_n, psit_nR, taut_R):
         if len(self.grad_v) == 0:
+            grid = psit_nR.desc
             self.grad_v = [
-                Gradient(self.grid._gd, v, n=3, dtype=psit_nR.desc.dtype)
+                Gradient(grid._gd, v, n=3, dtype=grid.dtype)
                 for v in range(3)]
 
         tmp_R = psit_nR.desc.empty()
