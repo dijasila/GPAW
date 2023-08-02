@@ -28,7 +28,6 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
         raise NotImplementedError('Calculation of stress tensor is not ' +
                                   'implemented for orbital-dependent ' +
                                   'XC functionals such as ' + xc.name)
-    assert xc.type != 'MGGA'
     assert not xc.no_forces
 
     s_vv = get_wfs_stress(state.ibzwfs, state.potential.dH_asii)
@@ -53,7 +52,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
     s_vv += pot_calc.nct_ag.stress_tensor_contribution(vt_g)
 
-    # s_vv += wfs.dedepsilon * np.eye(3)
+    # s_vv += wfs.dedepsilon * np.eye(3) ???
 
     s_vv = as_xp(s_vv, np)
 

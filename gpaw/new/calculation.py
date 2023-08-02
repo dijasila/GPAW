@@ -118,8 +118,8 @@ class DFTCalculation:
 
         pot_calc = builder.create_potential_calculator()
         potential, vHt_x, _ = pot_calc.calculate(density)
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential,
-                                                   log=log)
+        ibzwfs = builder.create_ibz_wave_functions(
+            basis_set, potential, log=log)
         state = DFTState(ibzwfs, density, potential, vHt_x)
 
         write_atoms(atoms, builder.initial_magmom_av, log)
