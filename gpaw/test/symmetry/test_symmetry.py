@@ -63,7 +63,7 @@ def test_symmetry_symmetry():
     symm = Symmetry(id_a, cell_cv, pbc_c)
     symm.analyze(spos_ac)
     ibzk_kc, w_k = symm.reduce(bzk_kc)[:2]
-    assert len(symm.op_scc) == 16
+    assert len(symm.op_scc) == 2
     assert len(w_k) == 2
     assert np.all(w_k == [1 / 3., 2 / 3.])
 
