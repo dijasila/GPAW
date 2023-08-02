@@ -117,7 +117,7 @@ def calculate_non_local_potential(setups,
     density.D_asii.layout.atomdist.comm.sum(energies)
 
     return (dH_asii.to_xp(density.D_asii.layout.xp),
-            {name: e for name, e in zips(names, energies)})
+            dict(zips(names, energies)))
 
 
 def calculate_non_local_potential1(setup: Setup,

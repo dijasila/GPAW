@@ -121,7 +121,6 @@ class Density:
 
     @classmethod
     def from_superposition(cls,
-                           grid,
                            nct_R,
                            atomdist,
                            setups,

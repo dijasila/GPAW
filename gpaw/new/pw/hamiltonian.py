@@ -1,7 +1,8 @@
 from typing import Callable
 
-import _gpaw
 import numpy as np
+
+import _gpaw
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy as cp

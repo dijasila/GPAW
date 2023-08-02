@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import _gpaw
 import numpy as np
+
+import _gpaw
 from gpaw.fd_operators import Gradient
 from gpaw.new import zips
 from gpaw.xc import XC
@@ -161,12 +162,13 @@ class KEDCalculator:
 
         taut_sR.data += self.tauct_R.data
 
-    def add_ked(self, occ_n, psit_nG, taut_R):
+    def add_ked(self, occ_n, psit_nX, taut_R):
         raise NotImplementedError
 
 
 class PWKEDCalculator(KEDCalculator):
-    def add_ked(self, occ_n, psit_nG, taut_R):
+    def add_ked(self, occ_n, psit_nX, taut_R):
+        psit_nG = psit_nX
         pw = psit_nG.desc
         domain_comm = pw.comm
 
@@ -221,7 +223,8 @@ class FDKEDCalculator(KEDCalculator):
         super().__init__(tauct_aX)
         self.grad_v = []
 
-    def add_ked(self, occ_n, psit_nR, taut_R):
+    def add_ked(self, occ_n, psit_nX, taut_R):
+        psit_nR = psit_nX
         if len(self.grad_v) == 0:
             grid = psit_nR.desc
             self.grad_v = [

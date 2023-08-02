@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Generator
 
-import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
+import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
@@ -232,6 +233,7 @@ class IBZWaveFunctions:
                   self.band_comm.rank == 0)
         if master:
             return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
+        return None
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:

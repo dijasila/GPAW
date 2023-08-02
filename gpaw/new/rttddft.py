@@ -36,7 +36,7 @@ class TDAlgorithm:
         raise NotImplementedError()
 
     def get_description(self):
-        return '%s' % self.__class__.__name__
+        return self.__class__.__name__
 
 
 def propagate_wave_functions_numpy(source_C_nM: np.ndarray,

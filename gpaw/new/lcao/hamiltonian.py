@@ -33,8 +33,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                          wfs: LCAOWaveFunctions) -> Matrix:
         if self.include_kinetic:
             return self._calculate_matrix_with_kinetic(wfs)
-        else:
-            return self._calculate_matrix_without_kinetic(wfs)
+        return self._calculate_matrix_without_kinetic(wfs)
 
     def _calculate_potential_matrix(self,
                                     wfs: LCAOWaveFunctions,

@@ -66,9 +66,9 @@ class DFTComponentsBuilder:
         self.params = params
 
         parallel = params.parallel
-        world = parallel['world']
+        comm = parallel['world']
 
-        synchronize_atoms(atoms, world)
+        synchronize_atoms(atoms, comm)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -87,7 +87,7 @@ class DFTComponentsBuilder:
                              params.setups,
                              params.basis,
                              self._xc.get_setup_name(),
-                             world=world)
+                             world=comm)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -105,12 +105,12 @@ class DFTComponentsBuilder:
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
-        self.communicators = create_communicators(world, len(self.ibz),
+        self.communicators = create_communicators(comm, len(self.ibz),
                                                   d, k, b, self.xp)
 
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
-            # setups = stups.filter(filter)
+            # setups = setups.filter(filter)
 
         self.nelectrons = self.setups.nvalence - params.charge
 
@@ -139,6 +139,9 @@ class DFTComponentsBuilder:
         self.fracpos_ac %= 1
 
         self.xc = self.create_xc_functional()
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.atoms}, {self.params})'
 
     def create_uniform_grids(self):
         raise NotImplementedError
@@ -176,14 +179,13 @@ class DFTComponentsBuilder:
             from gpaw.gpu import cupy, cupy_is_fake
             assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
             return cupy
-        else:
-            return np
+        return np
 
     def create_wf_description(self) -> Domain:
         raise NotImplementedError
 
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+    def get_pseudo_core_densities(self):
+        raise NotImplementedError
 
     @cached_property
     def nct_R(self):
@@ -206,8 +208,7 @@ class DFTComponentsBuilder:
                             self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.grid,
-                                          self.nct_R,
+        return Density.from_superposition(self.nct_R,
                                           self.atomdist,
                                           self.setups,
                                           basis_set,
@@ -226,6 +227,12 @@ class DFTComponentsBuilder:
             self.initial_magmom_av.sum(0),
             self.ncomponents,
             np.linalg.inv(self.atoms.cell.complete()).T)
+
+    def create_hamiltonian_operator(self):
+        raise NotImplementedError
+
+    def create_eigensolver(self, hamiltonian):
+        raise NotImplementedError
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
@@ -400,8 +407,7 @@ def calculate_number_of_bands(nbands: int | str | None,
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
         N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
-        if N > nbandsmax:
-            N = nbandsmax
+        N = min(N, nbandsmax)
         if is_lcao and N > nao:
             N = nao
     elif nbands <= 0:

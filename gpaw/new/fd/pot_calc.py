@@ -46,8 +46,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         txt = super().__str__()
         degree = self.interpolation_stencil_range * 2 - 1
         name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
-        txt += ('interpolation: tri-%s ' % name +
-                ' # %d. degree polynomial\n' % degree)
+        txt += (f'interpolation: tri-{name}' +
+                f' # {degree}. degree polynomial\n')
         return txt
 
     def calculate_charges(self, vHt_r):

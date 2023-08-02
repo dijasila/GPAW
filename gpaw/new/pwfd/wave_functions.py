@@ -223,8 +223,8 @@ class PWFDWaveFunctions(WaveFunctions):
                 slcomm = None
             self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
             H.complex_conjugate()
-            # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
-            # the n'th eigenvalue
+            # H.data[n, :] now contains the nth eigenvector and eps_n[n]
+            # the nth eigenvalue
         else:
             self._eig_n = np.empty(psit_nX.dims)
 

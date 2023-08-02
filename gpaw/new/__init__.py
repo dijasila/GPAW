@@ -1,3 +1,4 @@
+"""New ground-state DFT code."""
 from collections import defaultdict
 from contextlib import contextmanager
 from time import time

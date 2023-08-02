@@ -36,7 +36,7 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
     """
     dct = default.copy()
     if value is not None:
-        if not (value.keys() <= default.keys()):
+        if not value.keys() <= default.keys():
             key = (value.keys() - default.keys()).pop()
             raise ValueError(
                 f'Unknown key: {key!r}. Must be one of {", ".join(default)}')
@@ -116,7 +116,7 @@ class InputParameters:
 
         if self.communicator is not None:
             self.parallel['world'] = self.communicator
-            warnings.warn('Please use parallel={''world'': ...} '
+            warnings.warn('Please use parallel={''world'': ...} ' +
                           'instead of communicator=...')
 
     def __repr__(self) -> str:
@@ -196,11 +196,11 @@ def kpts(value=None) -> dict[str, Any]:
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):
-        kpts = np.array(value)
-        if kpts.shape == (3,):
-            value = {'size': kpts}
+        array = np.array(value)
+        if array.shape == (3,):
+            value = {'size': array}
         else:
-            value = {'kpts': kpts}
+            value = {'kpts': array}
     return value
 
 

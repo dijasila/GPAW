@@ -51,7 +51,7 @@ def write_header(log, world, params):
     header(log, world)
     log('---')
     with log.indent('input parameters:'):
-        log(**{k: v for k, v in params.items()})
+        log(**dict(params.items()))
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
@@ -332,7 +332,7 @@ class ASECalculator:
 
     def get_electrostatic_potential(self):
         density = self.calculation.state.density
-        potential, vHt_x, W_aL = self.calculation.pot_calc.calculate(density)
+        _, vHt_x, _ = self.calculation.pot_calc.calculate(density)
         if isinstance(vHt_x, UniformGridFunctions):
             return vHt_x.to_pbc_grid().data * Ha
 

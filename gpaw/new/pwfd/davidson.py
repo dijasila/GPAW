@@ -157,7 +157,7 @@ class Davidson(Eigensolver):
 
         for i in range(self.niter):
             if i == self.niter - 1:  # last iteration
-                # Calulate error before we destroy residuals:
+                # Calculate error before we destroy residuals:
                 if weight_n is None:
                     error = np.inf
                 else:
