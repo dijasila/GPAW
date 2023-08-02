@@ -12,7 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
-from gpaw.new import prod, zip
+from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -116,7 +116,7 @@ class PWFDWaveFunctions(WaveFunctions):
         p1_R, p2_R = tmp_sR.data
         nt_xR = nt_sR.data
 
-        for f, psit_sG in zip(occ_n, psit_nsG):
+        for f, psit_sG in zips(occ_n, psit_nsG):
             psit_sG.ifft(out=tmp_sR)
             p11_R = p1_R.real**2 + p1_R.imag**2
             p22_R = p2_R.real**2 + p2_R.imag**2
@@ -376,7 +376,7 @@ class PWFDWaveFunctions(WaveFunctions):
         position_av = spos_ac @ cell_cv
 
         R_aiiv = []
-        for setup, position_v in zip(self.setups, position_av):
+        for setup, position_v in zips(self.setups, position_av):
             Delta_iiL = setup.Delta_iiL
             R_iiv = Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
             R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5

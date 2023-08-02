@@ -3,7 +3,7 @@ from __future__ import annotations
 from gpaw.core import UniformGrid
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.fd_operators import Laplace
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -122,7 +122,7 @@ class FDHamiltonian(Hamiltonian):
 
     def apply(self, vt_sR, psit_nR, out, spin):
         self.kin(psit_nR, out)
-        for p, o in zip(psit_nR.data, out.data):
+        for p, o in zips(psit_nR.data, out.data):
             o += p * vt_sR.data[spin]
         return out
 

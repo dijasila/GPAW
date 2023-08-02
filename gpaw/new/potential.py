@@ -4,7 +4,7 @@ import numpy as np
 from ase.units import Ha
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.new import zip
+from gpaw.new import zips
 
 
 class Potential:
@@ -27,11 +27,11 @@ class Potential:
         if len(P_ani.dims) == 1:  # collinear wave functions
             xp = P_ani.layout.xp
             if xp is np:
-                for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
                     dH_ii = self.dH_asii[a][spin]
                     np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
             else:
-                for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
                     dH_ii = xp.asarray(self.dH_asii[a][spin])
                     out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
             return  # out_ani.to_xp(to_xp)
@@ -40,7 +40,7 @@ class Potential:
         P_ansi = P_ani
         out_ansi = out_ani
 
-        for (a, P_nsi), out_nsi in zip(P_ansi.items(), out_ansi.values()):
+        for (a, P_nsi), out_nsi in zips(P_ansi.items(), out_ansi.values()):
             v_ii, x_ii, y_ii, z_ii = (dh_ii.T for dh_ii in self.dH_asii[a])
             assert v_ii.dtype == complex
             out_nsi[:, 0] = (P_nsi[:, 0] @ (v_ii + z_ii) +

@@ -3,7 +3,7 @@ from math import pi
 import numpy as np
 
 from gpaw.core import UniformGrid
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.pot_calc import PotentialCalculator
 
 
@@ -66,7 +66,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         if not nt_sR.desc.pbc_c.all():
             Nt1_s = nt_sR.integrate()
             Nt2_s = nt_sr.integrate()
-            for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
+            for Nt1, Nt2, nt_r in zips(Nt1_s, Nt2_s, nt_sr):
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
         return nt_sr, None, None
@@ -102,7 +102,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
-        for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, density.nt_sR)):
+        for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(self.nct_R)

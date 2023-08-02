@@ -10,7 +10,7 @@ from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -162,7 +162,7 @@ class IBZWaveFunctions:
         else:
             assert self.fermi_levels is not None
 
-        for occ_n, wfs in zip(occ_un, self):
+        for occ_n, wfs in zips(occ_un, self):
             wfs._occ_n = occ_n
 
         e_entropy *= degeneracy / Ha
@@ -399,8 +399,8 @@ class IBZWaveFunctions:
                 log(f'  Band      eig [eV]   occ [0-{D}]')
                 eig_n = eig_skn[0, k]
                 n0 = (eig_n < fl[0]).sum() - 0.5
-                for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
-                    # First, last and +-8 bands window around fermi level:
+                for n, (e, f) in enumerate(zips(eig_n, occ_skn[0, k])):
+                    # First, last and +-8 bands window around Fermi level:
                     if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
                         log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
                         skipping = False
@@ -411,7 +411,7 @@ class IBZWaveFunctions:
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k],
+                for n, (e1, f1, e2, f2) in enumerate(zips(eig_skn[0, k],
                                                          occ_skn[0, k],
                                                          eig_skn[1, k],
                                                          occ_skn[1, k])):

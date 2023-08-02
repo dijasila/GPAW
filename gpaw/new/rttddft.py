@@ -284,7 +284,7 @@ class RTTDDFT:
             self.log(f'----  Magnitude: {magnitude:.8f} Hartree/Bohr')
             self.log(f'----  Direction: {dirstr}')
 
-            # Create hamiltonian object for absorption kick
+            # Create Hamiltonian object for absorption kick
             cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
 
             # Propagate kick

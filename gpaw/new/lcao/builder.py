@@ -3,7 +3,7 @@ from functools import partial
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
@@ -112,7 +112,7 @@ def create_lcao_ibzwfs(basis, potential,
 
     for a, P_qMi in P_aqMi.items():
         dO_ii = setups[a].dO_ii
-        for P_Mi, S_MM in zip(P_qMi, S0_qMM):
+        for P_Mi, S_MM in zips(P_qMi, S0_qMM):
             S_MM += P_Mi[M1:M2].conj() @ dO_ii @ P_Mi.T
     domain_comm.sum(S0_qMM)
 

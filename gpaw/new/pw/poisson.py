@@ -101,7 +101,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         pw: PlaneWaves
         grid: UniformGrid
         charge: float
-        strength: flaot
+        strength: float
         alpha: float
         eps: float
 

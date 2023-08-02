@@ -5,7 +5,7 @@ import numpy as np
 from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy as cp
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.hamiltonian import Hamiltonian
 
 
@@ -81,7 +81,7 @@ def precondition(psit_nG: PlaneWaveExpansions,
     ekin_n = psit_nG.norm2('kinetic')
 
     if xp is np:
-        for r_G, o_G, ekin in zip(residual_nG.data,
+        for r_G, o_G, ekin in zips(residual_nG.data,
                                   out.data,
                                   ekin_n):
             _gpaw.pw_precond(G2_G, r_G, ekin, o_G)
@@ -102,10 +102,10 @@ def gpu_prec(ekin, G2, residual):
 
 def spinor_precondition(psit_nsG, residual_nsG, out):
     G2_G = psit_nsG.desc.ekin_G * 2
-    for r_sG, o_sG, ekin in zip(residual_nsG.data,
+    for r_sG, o_sG, ekin in zips(residual_nsG.data,
                                 out.data,
                                 psit_nsG.norm2('kinetic').sum(1)):
-        for r_G, o_G in zip(r_sG, o_sG):
+        for r_G, o_G in zips(r_sG, o_sG):
             _gpaw.pw_precond(G2_G, r_G, ekin, o_G)
 
 
@@ -134,7 +134,7 @@ class SpinorPWHamiltonian(Hamiltonian):
         f_sR = grid.empty(2)
         g_R = grid.empty()
 
-        for p_sG, o_sG in zip(psit_nsG, out_nsG):
+        for p_sG, o_sG in zips(psit_nsG, out_nsG):
             p_sG.ifft(out=f_sR)
             a, b = f_sR.data
             g_R.data = a * (v + z) + b * (x - iy)

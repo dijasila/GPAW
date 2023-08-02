@@ -19,7 +19,7 @@ import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.new.xc import Functional
 from gpaw.setup import Setup
@@ -117,7 +117,7 @@ def calculate_non_local_potential(setups,
     density.D_asii.layout.atomdist.comm.sum(energies)
 
     return (dH_asii.to_xp(density.D_asii.layout.xp),
-            {name: e for name, e in zip(names, energies)})
+            {name: e for name, e in zips(names, energies)})
 
 
 def calculate_non_local_potential1(setup: Setup,

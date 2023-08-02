@@ -4,7 +4,7 @@ from ase.units import Bohr
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.new import cached_property, prod
+from gpaw.new import cached_property, prod, zips
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
@@ -179,7 +179,7 @@ class FakeHamiltonian:
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
         vxct_sR = self.grid.empty(len(vxct_sg))
-        for vxct_r, vxct_R in zip(vxct_sr, vxct_sR):
+        for vxct_r, vxct_R in zips(vxct_sr, vxct_sR):
             self.pot_calc.restrict(vxct_r, vxct_R)
         return vxct_sR.data
 
