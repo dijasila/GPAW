@@ -81,13 +81,12 @@ def with_band_cutoff(*, gpw, band_cutoff):
 
 
 @pytest.fixture(scope='session')
-def gpw_files(request, tmp_path_factory):
+def gpw_files(request):
     """Reuse gpw-files.
 
-    Returns a dict mapping names to paths to gpw-files.  If you
-    want to reuse gpw-files from an earlier pytest session then set the
-    ``$GPW_TEST_FILES`` environment variable and the files will be written
-    to that folder.
+    Returns a dict mapping names to paths to gpw-files.
+    The files are written to the pytest cache and can be cleared using
+    pytest --cache-clear.
 
     Example::
 
@@ -153,24 +152,11 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
-
     Files always include wave functions.
     """
-    path = os.environ.get('GPW_TEST_FILES')
-    if not path:
-        warnings.warn(
-            'Note that you can speed up the tests by reusing gpw-files '
-            'from an earlier pytest session: '
-            'set the $GPW_TEST_FILES environment variable and the '
-            'files will be written to/read from that folder. '
-            'See: https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
-            '#gpaw.test.conftest.gpw_files')
-        if world.rank == 0:
-            path = _mk_tmp(request, tmp_path_factory)
-        else:
-            path = None
-        path = broadcast(path)
-    return GPWFiles(Path(path))
+    cache = request.config.cache
+    gpaw_cachedir = cache.mkdir('gpaw_test_gpwfiles')
+    return GPWFiles(gpaw_cachedir)
 
 
 class Locked(FileExistsError):
@@ -221,7 +207,7 @@ class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
         self.path = path
-        path.mkdir(exist_ok=True)
+
         self.gpw_files = {}
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
@@ -259,7 +245,9 @@ class GPWFiles:
                 import time
                 time.sleep(1)
 
-        raise RuntimeError(f'GPW fixture generation takes too long: {name}')
+        raise RuntimeError(f'GPW fixture generation takes too long: {name}.  '
+                           'Consider using pytest --cache-clear if there are '
+                           'stale lockfiles, else write faster tests.')
 
     @gpwfile
     def bcc_li_pw(self):
@@ -1148,6 +1136,13 @@ def needs_ase_master():
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+    # We want the user to be able to see where gpw files are cached,
+    # but the only way to see the cache location is to make a directory
+    # inside it.  mkdir('') returns the toplevel cache dir without
+    # actually creating a subdirectory:
+    cachedir = config.cache.mkdir('')
+    yield f'Cache directory including gpw files: {cachedir}'
 
 
 @pytest.fixture
