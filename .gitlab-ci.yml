@@ -392,7 +392,6 @@ docs:
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
-    - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
@@ -424,7 +423,6 @@ nightly-mpi-1:
   needs:
     - gpwfiles
   script:
-    - gpaw info
     - pytest --cache-show
     - pytest -n 4 --instafail -r s --durations 30
 
