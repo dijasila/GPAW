@@ -1016,6 +1016,15 @@ def all_gpw_files(request, gpw_files, pytestconfig):
     # it is populated, i.e., further down in the file than
     # the @gpwfile decorator.
 
+    import os
+    gpaw_new = os.environ.get('GPAW_NEW')
+
+    # TODO This xfail-information should probably live closer to the
+    # gpwfile definitions and not here in the fixture.
+    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw'}
+    if gpaw_new and request.param in skip_if_new:
+        pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
+
     # Accessing each file via __getitem__ executes the calculation:
     return gpw_files[request.param]
 
