@@ -1081,6 +1081,7 @@ def pytest_configure(config):
         'dscf: Delta-SCF',
         'elph: Electron-phonon',
         'fast: fast test',
+        'generate_gpw_files: Dummy test to trigger gpw file precalculation',
         'gllb: GLLBSC tests',
         'gpu: GPU test',
         'hybrids: Hybrid functionals',

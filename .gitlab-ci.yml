@@ -411,7 +411,7 @@ gpwfiles:
     - .nightly
   stage: precalculate
   script:
-    - pytest -n 8 test_generate_gpwfiles.py
+    - pytest -n 8 -m generate_gpw_files
   #rules:
   #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #    when: never
