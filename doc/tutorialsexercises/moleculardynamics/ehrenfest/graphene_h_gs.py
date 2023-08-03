@@ -48,7 +48,8 @@ if charge == 0:
                 nbands=110,
                 xc='LDA',
                 txt=name + '_gs.txt',
-                convergence=conv_par)
+                convergence=conv_par,
+                symmetry={'point_group': False})
 
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -63,7 +64,8 @@ if charge == 1:
                 charge=1,
                 txt=name + '_gs.txt',
                 convergence=conv_fast,
-                external=const_pot)
+                external=const_pot,
+                symmetry={'point_group': False})
 
     atoms.calc = calc
     atoms.get_potential_energy()

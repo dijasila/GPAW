@@ -224,61 +224,10 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
 
-        micro_setups = [self.extract_micro_setup(a)
+        micro_setups = [extract_micro_setup(self.gs, a)
                         for a in range(len(self.gs.atoms))]
 
         return R_av, micro_setups
-
-    def extract_micro_setup(self, a):
-        """Extract the all-electron and pseudo spin-densities inside
-        augmentation sphere a as well as the relevant radial and angular grid
-        data.
-
-        Returns
-        -------
-        micro_setup : MicroSetup
-        """
-        pawdata = self.gs.pawdatasets[a]
-        # Radial grid descriptor:
-        rgd = pawdata.xc_correction.rgd
-        # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = pawdata.xc_correction.Y_nL
-
-        D_sp = self.gs.D_asp[a]  # atomic density matrix
-        n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
-
-        return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
-
-    @staticmethod
-    def calculate_atom_centered_densities(pawdata, D_sp):
-        """Calculate the all-electron and pseudo densities inside the
-        augmentation sphere.
-
-        Returns
-        -------
-        n_sLg : nd.array
-            all-electron density
-        nt_sLg : nd.array
-            pseudo density
-        (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
-        """
-        n_qg = pawdata.xc_correction.n_qg
-        nt_qg = pawdata.xc_correction.nt_qg
-        nc_g = pawdata.xc_correction.nc_g
-        nct_g = pawdata.xc_correction.nct_g
-
-        B_pqL = pawdata.xc_correction.B_pqL
-        D_sLq = np.inner(D_sp, B_pqL.T)
-        nspins = len(D_sp)
-
-        n_sLg = np.dot(D_sLq, n_qg)
-        nt_sLg = np.dot(D_sLq, nt_qg)
-
-        # Add core density
-        n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-        nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-        return n_sLg, nt_sLg
 
 
 class MicroSetup:
@@ -288,6 +237,81 @@ class MicroSetup:
         self.Y_nL = Y_nL
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
+
+    def evaluate_paw_correction(self, add_f):
+        r"""Evaluate Δf_a[n_a,ñ_a](r) for a given function f(r).
+
+        Returns
+        -------
+        df_ng : nd.array
+            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
+        """
+        rgd = self.rgd
+        f_g = rgd.zeros()
+        ft_g = rgd.zeros()
+        df_ng = np.array([rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            f_g[:] = 0.
+            n_sg = np.dot(Y_L, self.n_sLg)
+            add_f(rgd, n_sg, f_g)
+
+            ft_g[:] = 0.
+            nt_sg = np.dot(Y_L, self.nt_sLg)
+            add_f(rgd, nt_sg, ft_g)
+
+            df_ng[n, :] = f_g - ft_g
+
+        return df_ng
+
+
+def extract_micro_setup(gs, a):
+    """Extract the all-electron and pseudo spin-densities inside augmentation
+    sphere a, as well as the relevant radial and angular grid data.
+
+    Returns
+    -------
+    micro_setup : MicroSetup
+    """
+    pawdata = gs.pawdatasets[a]
+    # Radial grid descriptor:
+    rgd = pawdata.xc_correction.rgd
+    # Spherical harmonics on the Lebedev quadrature:
+    Y_nL = pawdata.xc_correction.Y_nL
+
+    D_sp = gs.D_asp[a]  # atomic density matrix
+    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata, D_sp)
+
+    return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
+
+
+def calculate_atom_centered_densities(pawdata, D_sp):
+    """Calculate the AE and pseudo densities inside the augmentation sphere.
+
+    Returns
+    -------
+    n_sLg : nd.array
+        all-electron density
+    nt_sLg : nd.array
+        pseudo density
+    (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
+    """
+    n_qg = pawdata.xc_correction.n_qg
+    nt_qg = pawdata.xc_correction.nt_qg
+    nc_g = pawdata.xc_correction.nc_g
+    nct_g = pawdata.xc_correction.nct_g
+
+    B_pqL = pawdata.xc_correction.B_pqL
+    D_sLq = np.inner(D_sp, B_pqL.T)
+    nspins = len(D_sp)
+
+    n_sLg = np.dot(D_sLq, n_qg)
+    nt_sLg = np.dot(D_sLq, nt_qg)
+
+    # Add core density
+    n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+    nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+
+    return n_sLg, nt_sLg
 
 
 class LocalPAWFTEngine:
@@ -439,30 +463,7 @@ class LocalPAWFTEngine:
 
     @timer('Calculate PAW correction inside augmentation spheres')
     def _calculate_df(self, micro_setup):
-        r"""Calculate Δf_a[n_a,ñ_a](r).
-
-        Returns
-        -------
-        df_ng : nd.array
-            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
-        """
-        rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
-
-        f_g = rgd.zeros()
-        ft_g = rgd.zeros()
-        df_ng = np.array([rgd.zeros() for n in range(Y_nL.shape[0])])
-        for n, Y_L in enumerate(Y_nL):
-            f_g[:] = 0.
-            n_sg = np.dot(Y_L, micro_setup.n_sLg)
-            self._add_f(rgd, n_sg, f_g)
-
-            ft_g[:] = 0.
-            nt_sg = np.dot(Y_L, micro_setup.nt_sLg)
-            self._add_f(rgd, nt_sg, ft_g)
-
-            df_ng[n, :] = f_g - ft_g
-
-        return df_ng
+        return micro_setup.evaluate_paw_correction(self._add_f)
 
     @staticmethod
     def get_reduced_radial_grid(df_ng, rgd):
@@ -582,17 +583,26 @@ def add_total_density(gd, n_sR, n_R):
     n_R += np.sum(n_sR, axis=0)
 
 
-def add_magnetization(gd, n_sR, m_R):
-    m_R += n_sR[0] - n_sR[1]
+def add_spin_polarization(gd, n_sR, nz_R):
+    nz_R += calculate_spin_polarization(n_sR)
 
 
-def add_LSDA_Bxc(gd, n_sR, Bxc_R):
-    """Calculate B^(xc) in the local spin-density approximation for a collinear
-    system and add it to the output array Bxc_R:
+def calculate_spin_polarization(n_sR):
+    return n_sR[0] - n_sR[1]
 
-                δE_xc[n,m]   1
-    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
-                  δm(r)      2
+
+def add_LSDA_Wxc(gd, n_sR, Wxc_R):
+    Wxc_R += calculate_LSDA_Wxc(gd, n_sR)
+
+
+def calculate_LSDA_Wxc(gd, n_sR):
+    """Calculate W_xc^z in the local spin-density approximation.
+
+    For a collinear system:
+
+                δE_xc[n,n^z]   1
+    W_xc^z(r) = ‾‾‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
+                   δn^z(r)     2
     """
     # Allocate an array for the spin-dependent xc potential on the real
     # space grid
@@ -602,8 +612,18 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     xc = XC('LDA')
     xc.calculate(gd, n_sR, v_sg=v_sR)
 
-    # Add B^(xc) in real space to the output array
-    Bxc_R += (v_sR[0] - v_sR[1]) / 2
+    return (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LSDA_spin_splitting(gd, n_sR, dxc_R):
+    """Calculate and add the LSDA spin splitting to the output array.
+
+    The spin splitting is defined as:
+
+    Δ^(xc)(r) = 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
+    """
+    dxc_R += - 2. * calculate_LSDA_Wxc(gd, n_sR) \
+        * calculate_spin_polarization(n_sR)
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
@@ -615,9 +635,9 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
     f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
                          ∂n^2       |n=n(r),m=m(r)
     """
-    assert len(n_sR) == 1,\
+    assert len(n_sR) == 1, \
         'The density kernel is untested for spin-polarized systems'
-    
+
     if fxc == 'ALDA_x':
         fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
     else:
@@ -634,20 +654,24 @@ def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
 
     The transverse LDA kernel is given by:
 
-                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
-    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                    m      ∂m       |n=n(r),m=m(r)              m(r)
+                     2  ∂[ϵ_xc(n,n^z)n] |
+    f_LDA^(+-)(r) = ‾‾‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾  |
+                    n^z      ∂n^z       |n=n(r),n^z=n^z(r)
+
+                    V_LSDA^↑(r) - V_LSDA^↓(r)
+                  = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                              n^z(r)
     """
     assert len(n_sR) == 2  # nspins
-    m_R = n_sR[0] - n_sR[1]
+    nz_R = n_sR[0] - n_sR[1]
 
     if fxc == 'ALDA_x':
         fxc_R += - (6. / np.pi)**(1. / 3.) \
-            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / nz_R
     else:
         assert fxc in ['ALDA_X', 'ALDA']
         v_sR = np.zeros(np.shape(n_sR))
         xc = XC(fxc[1:])
         xc.calculate(gd, n_sR, v_sg=v_sR)
 
-        fxc_R += (v_sR[0] - v_sR[1]) / m_R
+        fxc_R += (v_sR[0] - v_sR[1]) / nz_R

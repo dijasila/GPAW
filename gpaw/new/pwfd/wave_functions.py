@@ -251,16 +251,16 @@ class PWFDWaveFunctions(WaveFunctions):
             self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
             return
 
-        F_avni = self.pt_aiX.derivative(self.psit_nX)
-        for a, F_vni in F_avni.items():
-            F_vni = F_vni.conj()
-            F_vni *= myocc_n[:, np.newaxis]
+        F_anvi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_nvi in F_anvi.items():
+            F_nvi = F_nvi.conj()
+            F_nvi *= myocc_n[:, np.newaxis, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
-            F_vni *= myeig_n[:, np.newaxis]
+            F_vii = xp.einsum('nvi, nj, jk -> vik', F_nvi, P_ni, dH_ii)
+            F_nvi *= myeig_n[:, np.newaxis, np.newaxis]
             dO_ii = xp.asarray(self.setups[a].dO_ii)
-            F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
+            F_vii -= xp.einsum('nvi, nj, jk -> vik', F_nvi, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def _non_collinear_force_contribution(self,
@@ -290,7 +290,7 @@ class PWFDWaveFunctions(WaveFunctions):
         """Collect range of bands to master of band and domain
         communicators."""
         # Also collect projections instead of recomputing XXX
-        n2 = n2 or self.nbands + n2
+        n2 = n2 if n2 > 0 else self.nbands + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
         nbands = self.nbands

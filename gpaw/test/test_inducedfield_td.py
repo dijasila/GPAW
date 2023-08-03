@@ -41,6 +41,7 @@ def test_inducedfield_td(in_tmp_dir):
                 h=0.6,
                 setups={'Na': '1'},
                 poissonsolver=poissonsolver,
+                symmetry={'point_group': False},
                 convergence={'density': density_eps})
     atoms.calc = calc
     _ = atoms.get_potential_energy()

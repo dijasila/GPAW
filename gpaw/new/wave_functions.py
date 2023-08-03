@@ -58,6 +58,10 @@ class WaveFunctions:
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
 
+        mynbands = (nbands + band_comm.size - 1) // band_comm.size
+        self.n1 = min(band_comm.rank * mynbands, nbands)
+        self.n2 = min((band_comm.rank + 1) * mynbands, nbands)
+
     def __repr__(self):
         dc = f'{self.domain_comm.rank}/{self.domain_comm.size}'
         bc = f'{self.band_comm.rank}/{self.band_comm.size}'
@@ -97,13 +101,11 @@ class WaveFunctions:
 
     @property
     def myeig_n(self):
-        assert self.band_comm.size == 1
-        return self.eig_n
+        return self.eig_n[self.n1:self.n2]
 
     @property
     def myocc_n(self):
-        assert self.band_comm.size == 1
-        return self.occ_n
+        return self.occ_n[self.n1:self.n2]
 
     @property
     def P_ani(self) -> AtomArrays:

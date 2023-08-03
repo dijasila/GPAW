@@ -16,6 +16,7 @@ from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
 from ase.lattice.compounds import L1_2
 from gpaw import Mixer
+from gpaw.new.ase_interface import GPAW as GPAWNew
 
 
 @contextmanager
@@ -118,7 +119,7 @@ def gpw_files(request, tmp_path_factory):
 
     * Graphene with 6x6x1 k-points: ``graphene_pw``
 
-    * MoS2 with 6x6x1 k-points: ``mos2_pw``
+    * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
 
@@ -170,6 +171,41 @@ def gpw_files(request, tmp_path_factory):
     return GPWFiles(Path(path))
 
 
+class Locked(FileExistsError):
+    pass
+
+
+@contextmanager
+def temporary_lock(path):
+    fd = None
+    try:
+        with path.open('x') as fd:
+            yield
+    except FileExistsError:
+        raise Locked()
+    finally:
+        if fd is not None:
+            path.unlink()
+
+
+@contextmanager
+def world_temporary_lock(path):
+    if world.rank == 0:
+        try:
+            with temporary_lock(path):
+                world.sum_scalar(1)
+                yield
+        except Locked:
+            world.sum_scalar(0)
+            raise
+    else:
+        status = world.sum_scalar(0)
+        if status:
+            yield
+        else:
+            raise Locked
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
@@ -180,16 +216,45 @@ class GPWFiles:
             self.gpw_files[file.name[:-4]] = file
 
     def __getitem__(self, name: str) -> Path:
-        if name not in self.gpw_files:
-            rawname, _, _ = name.partition('_wfs')
-            calc = getattr(self, rawname)()
-            path = self.path / (rawname + '.gpw')
-            calc.write(path)
-            self.gpw_files[rawname] = path
-            path = self.path / (rawname + '_wfs.gpw')
-            calc.write(path, mode='all')
-            self.gpw_files[rawname + '_wfs'] = path
-        return self.gpw_files[name]
+        if name in self.gpw_files:
+            return self.gpw_files[name]
+
+        rawname, _, _ = name.partition('_wfs')
+        nowfs_path = self.path / (rawname + '.gpw')
+        wfs_path = self.path / (rawname + '_wfs.gpw')
+
+        # (Note we need to lock based on rawname.)
+        lockfile = self.path / f'{rawname}.lock'
+
+        for _attempt in range(60):  # ~60s timeout
+            files_exist = 0
+            if world.rank == 0:
+                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+            files_exist = world.sum_scalar(files_exist)
+
+            if files_exist:
+                self.gpw_files[rawname] = nowfs_path
+                self.gpw_files[rawname + '_wfs'] = wfs_path
+
+                return self.gpw_files[name]
+
+            try:
+                with world_temporary_lock(lockfile):
+                    calc = getattr(self, rawname)()
+                    nowfs_work_path = nowfs_path.with_suffix('.tmp')
+                    wfs_work_path = wfs_path.with_suffix('.tmp')
+                    calc.write(nowfs_work_path)
+                    calc.write(wfs_work_path, mode='all')
+                    # By now files should exist *and* be fully written, by us.
+                    # Rename them to the final intended paths:
+                    if world.rank == 0:
+                        nowfs_work_path.rename(nowfs_path)
+                        wfs_work_path.rename(wfs_path)
+            except Locked:
+                import time
+                time.sleep(1)
+
+        raise RuntimeError(f'GPW fixture generation takes too long: {name}')
 
     def bcc_li_pw(self):
         return self.bcc_li({'name': 'pw', 'ecut': 200})
@@ -207,6 +272,38 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    def fcc_Ni_col(self):
+        return self.fcc_Ni('col')
+
+    def fcc_Ni_ncol(self):
+        return self.fcc_Ni('ncol')
+
+    def fcc_Ni_ncolsoc(self):
+        return self.fcc_Ni('ncolsoc')
+
+    def fcc_Ni(self, calc_type):
+        Ni = bulk('Ni', 'fcc', 3.48)
+        Ni.center()
+
+        mm = 0.5
+        easy_axis = 1 / np.sqrt(3) * np.ones(3)
+        Ni.set_initial_magnetic_moments([mm])
+
+        symmetry = {'point_group': True, 'time_reversal': True} if \
+            calc_type == 'col' else 'off'
+        magmoms = None if calc_type == 'col' else [mm * easy_axis]
+        soc = True if calc_type == 'ncolsoc' else False
+
+        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 400}, xc='LDA',
+                          kpts={'size': (4, 4, 4), 'gamma': True},
+                          parallel={'domain': 1, 'band': 1},
+                          symmetry=symmetry,
+                          occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          magmoms=magmoms, soc=soc,
+                          txt=self.path / f'fcc_Ni_{calc_type}.txt')
+        Ni.get_potential_energy()
+        return Ni.calc
 
     def h2_pw(self):
         return self.h2({'name': 'pw', 'ecut': 200})
@@ -472,22 +569,32 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def mos2_pw(self):
+    def _mos2(self, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
         from ase.build import mx2
         atoms = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                     size=(1, 1, 1), vacuum=5)
-        atoms.pbc = (1, 1, 1)
+        atoms.pbc = (1, 1, 0)
         ecut = 250
         nkpts = 6
+        tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(mode=PW(ecut),
                           xc='LDA',
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
-                          txt=self.path / 'mos2_pw.txt')
+                          txt=self.path / f'mos2_pw{tag}.txt',
+                          symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
 
+    def mos2_pw(self):
+        return self._mos2()
+
+    def mos2_pw_nosym(self):
+        return self._mos2(symmetry='off')
+    
     def ni_pw_kpts333(self):
         from ase.dft.kpoints import monkhorst_pack
         # from gpaw.mpi import serial_comm
@@ -500,6 +607,7 @@ class GPWFiles:
                     kpts=kpts,
                     occupations=FermiDirac(0.001),
                     setups={'Ni': '10'},
+                    parallel=dict(domain=1),  # >1 fails on 8 cores
                     # communicator=serial_comm
                     )
 
@@ -571,9 +679,9 @@ class GPWFiles:
         # Define input parameters
         xc = 'LDA'
         kpts = 4
-        pw = 300
+        pw = 200
         occw = 0.01
-        conv = {'density': 1.e-8,
+        conv = {'density': 1.e-4,
                 'bands': band_cutoff + 1}
 
         a = 3.840
@@ -836,19 +944,18 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def h_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
+    def h_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H'), hund=True, nbands=4)
 
-    def h2_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
-                                    nbands=8)
+    def h2_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
+                                     nbands=8)
 
-    def _pw_210_rmmdiis(self, atoms, **kwargs):
+    def _pw_280_fulldiag(self, atoms, **kwargs):
         atoms.set_pbc(True)
         atoms.set_cell((2., 2., 3.))
         atoms.center()
-        calc = GPAW(mode=PW(210, force_complex_dtype=True),
-                    eigensolver='rmm-diis',
+        calc = GPAW(mode=PW(280, force_complex_dtype=True),
                     xc='LDA',
                     basis='dzp',
                     parallel={'domain': 1},
@@ -972,3 +1079,12 @@ def needs_ase_master():
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+
+@pytest.fixture
+def rng():
+    """Seeded random number generator.
+
+    Tests should be deterministic and should use this
+    fixture or initialize their own rng."""
+    return np.random.default_rng(42)

@@ -92,7 +92,7 @@ class UniformGrid(Domain):
         return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
-    def phase_factors_cd(self):
+    def phase_factor_cd(self):
         """Phase factor for block-boundary conditions."""
         delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))
@@ -174,18 +174,18 @@ class UniformGrid(Domain):
                                                 cut=cut,
                                                 xp=xp)
 
-    def transformer(self, other: UniformGrid, stencil_range=3):
+    def transformer(self, other: UniformGrid, stencil_range=3, xp=np):
         """Create transformer from one grid to another.
 
         (for interpolation and restriction).
         """
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, nn=stencil_range).apply
+        apply = Transformer(self._gd, other._gd, nn=stencil_range, xp=xp).apply
 
         def transform(functions, out=None):
             if out is None:
-                out = other.empty(functions.dims, functions.comm)
+                out = other.empty(functions.dims, functions.comm, xp=xp)
             for input, output in zip(functions._arrays(), out._arrays()):
                 apply(input, output)
             return out
@@ -263,7 +263,7 @@ class UniformGrid(Domain):
 
     def ecut_max(self):
         dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
-        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()  # or min ??????
 
 
 class UniformGridFunctions(DistributedArrays[UniformGrid]):

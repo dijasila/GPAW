@@ -13,6 +13,22 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
+
+* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
+  now throw an error if the ground state contains point group symmetries
+
+
+Version 23.6.1
+==============
+
+Jul 5, 2023: :git:`23.6.1 <../23.6.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Avoid deprecation warnings from Numpy-1.25 (:mr:`1770`, :mr:`1771`).
+
 
 Version 23.6.0
 ==============
@@ -774,7 +790,7 @@ May 29, 2018: :git:`1.4.0 <../1.4.0>`
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
 
-* New utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
+* New utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 
 Version 1.3.0

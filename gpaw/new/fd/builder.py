@@ -41,7 +41,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         if self._nct_aR is None:
             self._nct_aR = self.setups.create_pseudo_core_densities(
-                self.grid, self.fracpos_ac, atomdist=self.atomdist)
+                self.grid, self.fracpos_ac, atomdist=self.atomdist, xp=self.xp)
         return self._nct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
@@ -57,7 +57,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                               self.setups,
                                               self.xc, poisson_solver,
                                               nct_aR, self.nct_R,
-                                              self.interpolation_stencil_range)
+                                              self.interpolation_stencil_range,
+                                              self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
@@ -120,7 +121,7 @@ class FDHamiltonian(Hamiltonian):
         self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
 
     def apply(self, vt_sR, psit_nR, out, spin):
-        self.kin.apply(psit_nR.data, out.data, psit_nR.desc.phase_factors_cd)
+        self.kin(psit_nR, out)
         for p, o in zip(psit_nR.data, out.data):
             o += p * vt_sR.data[spin]
         return out
@@ -132,7 +133,7 @@ class FDHamiltonian(Hamiltonian):
         pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize)
 
         def apply(psit, residuals, out):
-            kpt = SimpleNamespace(phase_cd=psit.desc.phase_factors_cd)
+            kpt = SimpleNamespace(phase_cd=psit.desc.phase_factor_cd)
             pc(residuals.data, kpt, out=out.data)
 
         return apply

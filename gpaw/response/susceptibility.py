@@ -97,7 +97,8 @@ class ChiFactory:
             # No Hartree term in Dyson equation
             return None
         else:
-            return get_coulomb_kernel(qpd, self.gs.kd.N_c)
+            return get_coulomb_kernel(qpd, self.gs.kd.N_c,
+                                      pbc_c=self.gs.atoms.get_pbc())
 
     def get_xc_kernel(self,
                       fxc: str,
@@ -367,7 +368,7 @@ class EigendecomposedSpectrum:
         assert self.neigs >= neigs
         # Check that the available eigenvalues are in descending order
         assert all([np.all(np.logical_not(s_e[1:] - s_e[:-1] > 0.))
-                    for s_e in self.s_we]),\
+                    for s_e in self.s_we]), \
             'Eigenvalues needs to be sorted in descending order!'
 
         # Keep only the neigs largest eigenvalues
@@ -384,7 +385,7 @@ class EigendecomposedSpectrum:
 
         The spectral lineshape is calculated as the inner product
 
-        
+
         a^μν_n(q,ω) = <v^μν_n(q)| A^μν(q,ω) |v^μν_n(q)>
 
         where the eigenvectors |v^μν_n> diagonalize the full spectral function
