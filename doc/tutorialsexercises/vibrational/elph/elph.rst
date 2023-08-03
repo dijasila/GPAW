@@ -30,7 +30,7 @@ invokes the calculation of the supercell matrix, which is stored in the `superce
 
 .. note::
 
-    The real space grids used in the finite displacement calculations needs to be the same as the one used in the supercell matrix calculation. If you use planewave mode for the finite displacement calculation you should set the required grid manually, for example by adding ``gpts=(nx, ny, nz)`` where ``nx, ny, nz`` need be substituted with the required number of grid points in each direction. You can use ``python3 -m gpaw.utilities.gpts`` to get help with this.
+    The real space grids used in the finite displacement calculations needs to be the same as the one used in the supercell matrix calculation. If you use planewave mode for the finite displacement calculation you should set the required grid manually, for example by adding ``gpts=(nx, ny, nz)`` where ``nx, ny, nz`` need be substituted with the required number of grid points in each direction. You can use ``python3 -m gpaw.elph.gpts`` to get help with this.
 
 
 After both calculations are finished the final electron-phonon matrix can be constructed. (:git:`~doc/tutorialsexercises/vibrational/elph/gmatrix.py`)
