@@ -367,7 +367,7 @@ def get_grid2_dP_aMix(spos_ac, wfs, q, *args, **kwargs):  # XXXXXX q
 def get_tci_dP_aMix(spos_ac, wfs, q, *args, **kwargs):
     # container for spline expansions of basis function-projector pairs
     # (note to self: remember to conjugate/negate because of that)
-    from gpaw.lcao.overlap import ManySiteDictionaryWrapper,\
+    from gpaw.lcao.overlap import ManySiteDictionaryWrapper, \
         TwoCenterIntegralCalculator, NewTwoCenterIntegrals
 
     if not isinstance(wfs.tci, NewTwoCenterIntegrals):

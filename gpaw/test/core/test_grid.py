@@ -35,7 +35,7 @@ def test_complex_laplace():
     f.multiply_by_eikr()
     lap = Laplace(grid._gd, n=2, dtype=complex)
     g = grid.empty()
-    lap.apply(f.data, g.data, grid.phase_factors_cd)
+    lap(f, g)
     k = 2 * pi / a / 3
     error = g.data.conj() * f.data + k**2
     assert abs(error).max() == pytest.approx(0.0, abs=1e-6)

@@ -71,7 +71,7 @@ class IsotropicExchangeCalculator:
             nblocks=1
         )
         for key, item in assumed_props.items():
-            assert getattr(chiks_calc, key) == item,\
+            assert getattr(chiks_calc, key) == item, \
                 f'Expected chiks.{key} == {item}. '\
                 f'Got: {getattr(chiks_calc, key)}'
 
@@ -221,7 +221,7 @@ class AtomicSiteData:
         self.npartitions = self.rc_ap.shape[1]
         self.shape = (self.nsites, self.npartitions)
 
-        assert self._in_valid_site_radii_range(gs),\
+        assert self._in_valid_site_radii_range(gs), \
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
@@ -296,7 +296,7 @@ class AtomicSiteData:
                         self.rc_ap[a] < rmax_A[A] + 1e-8)):
                 return False
         return True
-        
+
     def calculate_magnetic_moments(self):
         """Calculate the magnetic moments at each atomic site."""
         magmom_ap = self.integrate_local_function(add_spin_polarization)
@@ -327,7 +327,7 @@ class AtomicSiteData:
 
         For local functions of the density, the pseudo contribution is
         evaluated by a numerical integration on the real-space grid:
-        
+
         ̰       /
         f_ap = | dr θ(|r-r_a|<rc_ap) f(ñ(r))
                /

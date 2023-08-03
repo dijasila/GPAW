@@ -68,7 +68,7 @@ class PairFunction(ABC):
 
     and can be written in its Lehmann representation as a function of frequency
     in the upper half complex frequency plane,
-    
+
                __      ˰        ˰
                \    <α|B|α'><α'|A|α>
     χ_BA(z) =  /   ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ (n_α - n_α')
@@ -194,7 +194,7 @@ class LatticePeriodicPairFunction(PairFunction):
     @classmethod
     def _new(cls, *args, **kwargs):
         return cls(*args, **kwargs)
-    
+
     def my_args(self, qpd=None, zd=None, blockdist=None):
         """Return the positional construction arguments of the
         LatticePeriodicPairFunction."""
@@ -335,7 +335,7 @@ class Chi(LatticePeriodicPairFunction):
         """
         assert self.distribution == 'zGG' or \
             (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
-        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'], \
             'Spin-density operators has to be each others hermitian conjugates'
         chiksr = self.new(distribution='zGG')
         chiks_zGG = self.array
@@ -366,7 +366,7 @@ class Chi(LatticePeriodicPairFunction):
         """
         assert self.distribution == 'zGG' or \
             (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
-        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'], \
             'Spin-density operators has to be each others hermitian conjugates'
         chiksd = self.new(distribution='zGG')
         chiks_zGG = self.array
@@ -390,7 +390,7 @@ class Chi(LatticePeriodicPairFunction):
         assert np.allclose(self.q_c, 0.)
         assert self.distribution == 'zGG' or \
             (self.distribution == 'ZgG' and self.blockdist.blockcomm.size == 1)
-        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'],\
+        assert self.spincomponent in ['00', 'uu', 'dd', '+-', '-+'], \
             'Spin-density operators has to be each others hermitian conjugates'
         invmap_GG = get_inverted_pw_mapping(self.qpd, self.qpd)
         for chi_GG in self.array:

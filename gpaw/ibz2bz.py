@@ -118,7 +118,7 @@ class IBZ2BZMap:
         if self.time_reversal:
             utout_R = utout_R.conj()
 
-        assert utout_R is not ut_R,\
+        assert utout_R is not ut_R, \
             "We don't want the output array to point back at the input array"
 
         return utout_R
@@ -177,7 +177,7 @@ class IBZ2BZMap:
             assert len(mapped_projections.indices) == 0
 
         return mapped_projections
-        
+
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections."""

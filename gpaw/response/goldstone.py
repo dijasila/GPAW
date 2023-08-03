@@ -3,7 +3,7 @@ import numpy as np
 
 def get_goldstone_scaling(mode, chiks, Kxc_GG, dyson_solver):
     """Get kernel scaling parameter to fulfill a Goldstone condition."""
-    assert chiks.qpd.kd.gamma,\
+    assert chiks.qpd.kd.gamma, \
         r'The Goldstone condition is strictly bound to the Γ-point'
 
     # Find the frequency to determine the scaling from
@@ -11,7 +11,7 @@ def get_goldstone_scaling(mode, chiks, Kxc_GG, dyson_solver):
     wgs = find_goldstone_frequency(mode, omega_w)
 
     # Only one rank, rgs, has the given frequency
-    assert chiks.distribution == 'zGG',\
+    assert chiks.distribution == 'zGG', \
         'Only block distribution over frequencies is allowed at this point'
     wblocks = chiks.blocks1d
     rgs, mywgs = wblocks.find_global_index(wgs)
@@ -68,7 +68,7 @@ def find_afm_goldstone_frequency(omega_w):
 def find_goldstone_scaling(mode, chiks_GG, Kxc_GG, dyson_solver):
     """Factory function for finding the scaling of the kernel
     according to different Goldstone criteria."""
-    assert mode in ['fm', 'afm'],\
+    assert mode in ['fm', 'afm'], \
         f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}"
 
     if mode == 'fm':
