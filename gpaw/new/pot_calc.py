@@ -141,7 +141,8 @@ def calculate_non_local_potential1(setup: Setup,
 
     dH_sp = np.zeros_like(D_sp, dtype=float if ncomponents < 4 else complex)
     if soc:
-        dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
+        c_vii = soc_terms(setup, xc.xc, D_sp)
+        dH_sp[1:4] = pack2(c_vii)
     dH_sp[:ndensities] = dH_p
     e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
     e_external = 0.0
