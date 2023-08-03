@@ -92,7 +92,7 @@ def test_smooth_truncation_function(rc):
 
 def test_fe_augmentation_sphere(gpw_files):
     # Extract the spherical grid information from the iron fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    calc = GPAW(gpw_files['fe_pw'], txt=None)
     setup = calc.setups[0]
     rgd = setup.rgd
     Y_nL = setup.xc_correction.Y_nL
@@ -131,11 +131,11 @@ def test_fe_augmentation_sphere(gpw_files):
         ft_n = rgd.integrate_trapz(ft_ng)
         vol = integrate_lebedev(ft_n)
         assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
-        
+
 
 def test_fe_periodic_truncation_function(gpw_files):
     # Extract the grid information from the iron fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    calc = GPAW(gpw_files['fe_pw'], txt=None)
     finegd = calc.density.finegd
     spos_ac = calc.spos_ac
 
@@ -174,7 +174,7 @@ def test_fe_periodic_truncation_function(gpw_files):
 
 def test_co_spherical_truncation_function_collection(gpw_files):
     # Extract grid information from the cobalt fixture
-    calc = GPAW(gpw_files['co_pw_wfs'], txt=None)
+    calc = GPAW(gpw_files['co_pw'], txt=None)
     finegd = calc.density.finegd
     spos_ac = calc.spos_ac
     drcut = default_spherical_drcut(finegd)

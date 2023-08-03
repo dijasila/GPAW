@@ -15,7 +15,7 @@ def test_pol(in_tmp_dir, gpw_files):
 
     # It is ugly to convert to string. But this is required in
     # get_polarization_phase. Should be changed in the future...
-    phi_c = get_polarization_phase(str(gpw_files['mos2_pw_nosym_wfs']))
+    phi_c = get_polarization_phase(str(gpw_files['mos2_pw_nosym']))
 
     # Only should test modulo 2pi
     phi = phi_c / (2 * np.pi)
@@ -26,7 +26,7 @@ def test_pol(in_tmp_dir, gpw_files):
 
 def test_berry_phases(in_tmp_dir, gpw_files):
 
-    calc = GPAW(gpw_files['mos2_pw_nosym_wfs'],
+    calc = GPAW(gpw_files['mos2_pw_nosym'],
                 communicator=mpi.serial_comm)
 
     ind, phases = get_berry_phases(calc)
@@ -52,7 +52,7 @@ def test_assertions(in_tmp_dir, gpw_files):
     with symmetry enabled
     """
 
-    gpw_file = gpw_files['mos2_pw_wfs']
+    gpw_file = gpw_files['mos2_pw']
     with pytest.raises(AssertionError):
         get_polarization_phase(str(gpw_file))
 

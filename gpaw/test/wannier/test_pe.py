@@ -20,7 +20,7 @@ def check(atoms, rcut=0.8):
 @pytest.mark.wannier
 @pytest.mark.serial
 def test_pe_w90(gpw_files, in_tmp_dir):
-    calc = GPAW(gpw_files['c2h4_pw_nosym_wfs'])
+    calc = GPAW(gpw_files['c2h4_pw_nosym'])
     o = calculate_overlaps(calc, n2=6, nwannier=6,
                            projections={'C': 's', 'H': 's'})
     try:
@@ -33,7 +33,7 @@ def test_pe_w90(gpw_files, in_tmp_dir):
 @pytest.mark.wannier
 @pytest.mark.serial
 def test_pe_er(gpw_files):
-    calc = GPAW(gpw_files['c6h12_pw_wfs'])
+    calc = GPAW(gpw_files['c6h12_pw'])
     o = calculate_overlaps(calc, n2=3 * 6, nwannier=18)
     w = o.localize_er()
     check(w.centers_as_atoms())
