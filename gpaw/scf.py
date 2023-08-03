@@ -55,9 +55,9 @@ class SCFLoop:
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
-            self.check_convergence(
+            event = self.check_convergence(
                 dens, ham, wfs, log, callback)
-            yield
+            yield event
 
             converged = (self.converged and
                          self.niter >= self.niter_fixdensity)
@@ -91,6 +91,7 @@ class SCFLoop:
 
         callback(self.niter)
         self.log(log, converged_items, entries, context)
+        return context
 
     def not_converged(self, dens, ham, wfs, log):
 
@@ -228,6 +229,9 @@ class SCFEvent:
         with self.wfs.timer('Forces'):
             F_av = calculate_forces(self.wfs, self.dens, self.ham)
         return F_av
+
+    def __repr__(self):
+        return f'<SCFEvent(niter={self.niter}, ...)>'
 
 
 oops = """

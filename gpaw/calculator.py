@@ -439,8 +439,6 @@ class GPAW(Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
-        yield
-
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
 
