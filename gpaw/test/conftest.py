@@ -1,12 +1,10 @@
 import os
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
 import functools
 
 import numpy as np
 import pytest
-from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
