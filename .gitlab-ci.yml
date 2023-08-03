@@ -14,6 +14,7 @@ default:
 
 stages:
   - build
+  - precalculate
   - test
 
 
@@ -404,11 +405,13 @@ docs:
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-temp:
+gpwfiles:
+  image: $IMAGE_PATH/run:latest
   extends:
     - .nightly
+  stage: precalculate
   script:
-    - echo hello
+    - pytest -n 8 test_generate_gpwfiles.py
   #rules:
   #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #    when: never
