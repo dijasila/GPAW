@@ -2,7 +2,6 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from collections.abc import Mapping
 import functools
 
 import numpy as np
@@ -210,6 +209,8 @@ def world_temporary_lock(path):
 
 
 _all_gpw_methodnames = set()
+
+
 def gpwfile(meth):
     """Decorator to identify the methods that produce gpw files."""
     _all_gpw_methodnames.add(meth.__name__)
