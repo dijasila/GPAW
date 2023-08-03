@@ -421,6 +421,7 @@ nightly-mpi-1:
   extends:
     - .nightly
   needs:
+    - build-latest
     - gpwfiles
   script:
     - pytest --cache-show
