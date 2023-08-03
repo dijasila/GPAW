@@ -691,7 +691,6 @@ class GPWFiles:
 
         return atoms.calc
 
-    @gpwfile
     @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
     def _v2br4(self, *, band_cutoff, symmetry=None):
