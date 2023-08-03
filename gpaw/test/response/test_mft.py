@@ -45,8 +45,8 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
     # ---------- Script ---------- #
 
     # Extract the ground state fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['fe_pw_wfs']
+    calc = GPAW(gpw_files['fe_pw'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['fe_pw']
     atoms = calc.atoms
 
     # Set up site kernels with a single site
@@ -140,8 +140,8 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
     # ---------- Script ---------- #
 
     # Extract the ground state fixture
-    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['co_pw_wfs']
+    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw']
     atoms = calc.get_atoms()
 
     # Set up spherical site kernels
@@ -236,7 +236,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
 @pytest.mark.response
 def test_Fe_site_magnetization(gpw_files):
     # Set up ground state adapter
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
+    calc = GPAW(gpw_files['fe_pw'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
 
     # Extract valid site radii range
@@ -301,7 +301,7 @@ def test_Fe_site_magnetization(gpw_files):
 @pytest.mark.response
 def test_Co_site_data(gpw_files):
     # Set up ground state adapter
-    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
+    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
 
     # Extract valid site radii range
