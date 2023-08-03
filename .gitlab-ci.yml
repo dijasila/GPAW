@@ -3,12 +3,12 @@ variables:
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
   OMP_NUM_THREADS: "1"
 
-
 default:
   before_script:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
 
 
@@ -64,8 +64,6 @@ stages:
   stage: test
   before_script:
     - !reference [default, before_script]
-    - export PYTEST_ADDOPTS="--color=yes"
-
 
 .gpu-job:
   rules:
@@ -396,17 +394,15 @@ docs:
     - pip install pytest-instafail pytest-xdist pytest-timeout
     - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
-    - pytest -n $GPAW_MPI_NPROCS test_generate_gpwfiles.py
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -x -r s --durations 30 --color=yes
+      pytest --instafail -x -r s --durations 30
   #rules:
   #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
 gpwfiles:
-  image: $IMAGE_PATH/run:latest
   extends:
     - .nightly
   stage: precalculate
@@ -416,14 +412,21 @@ gpwfiles:
   #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #    when: never
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
 
 
-.nightly-mpi-1:
+nightly-mpi-1:
   extends:
     - .nightly
+  needs:
+    - gpwfiles
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s --durations 30 --color=yes
+    - pytest --cache-show
+    - pytest -n 4 --instafail -r s --durations 30
 
 
 .nightly-mpi-1-new:
@@ -432,7 +435,7 @@ gpwfiles:
   script:
     - gpaw info
     - >
-      GPAW_NEW=1 pytest -n 4 --instafail -r s --durations 30 --color=yes -m
+      GPAW_NEW=1 pytest -n 4 --instafail -r s --durations 30 -m
       "not (later or dscf or gllb or elph or mgga or wannier or legacy or ofdft or mom or do or lrtddft or stress or rttddft or hybrids)"
 
 
