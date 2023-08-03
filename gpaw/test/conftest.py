@@ -245,7 +245,7 @@ class GPWFiles:
 
             if files_exist:
                 self.gpw_files[rawname] = nowfs_path
-                self.gpw_files[rawname + '_wfs'] = wfs_path
+                self.gpw_files[rawname + '_wfs'] = nowfs_path
 
                 return self.gpw_files[name]
 
@@ -254,13 +254,13 @@ class GPWFiles:
                     calc = getattr(self, rawname)()
                     nowfs_work_path = nowfs_path.with_suffix('.tmp')
                     wfs_work_path = wfs_path.with_suffix('.tmp')
-                    calc.write(nowfs_work_path)
-                    calc.write(wfs_work_path, mode='all')
+                    calc.write(nowfs_work_path, mode='all')
+
                     # By now files should exist *and* be fully written, by us.
                     # Rename them to the final intended paths:
                     if world.rank == 0:
                         nowfs_work_path.rename(nowfs_path)
-                        wfs_work_path.rename(wfs_path)
+
             except Locked:
                 import time
                 time.sleep(1)
