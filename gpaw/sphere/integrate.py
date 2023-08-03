@@ -111,7 +111,7 @@ def radial_trapz(f_xg, r_g):
     r1_g = r_g[1:]
     f0_xg = f_xg[..., :-1]
     f1_xg = f_xg[..., 1:]
-    assert np.all(r1_g - r0_g > 0.),\
+    assert np.all(r1_g - r0_g > 0.), \
         'Please give the radial grid in ascending order'
 
     # Linearly interpolate f(r) between r0 and r1 and integrate r^2 f(r)
@@ -295,7 +295,7 @@ def default_spherical_drcut(gd):
 
 def _uniform_radial_grid(rcut, drcut):
     return np.linspace(0., rcut + 2 * drcut, 251)
-    
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
