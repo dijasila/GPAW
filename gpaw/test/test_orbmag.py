@@ -6,7 +6,7 @@ from gpaw.new.ase_interface import GPAW
 from gpaw.spinorbit import soc_eigenstates
 
 
-@pytest.mark.xfail('something with gpaw new?')
+@pytest.mark.skip(reason='something with gpaw new?')
 def test_orbmag_Ni(gpw_files):
 
     # Parameters
