@@ -387,6 +387,9 @@ gpwfiles:
   stage: precalculate
   tags:
     - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
   script:
     - pytest -n 8 -m generate_gpw_files
   artifacts:
