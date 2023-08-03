@@ -378,6 +378,27 @@ docs:
     expire_in: 1 week
 
 
+gpwfiles:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  stage: precalculate
+  tags:
+    - xeon24
+  script:
+    - pytest -n 8 -m generate_gpw_files
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
+  #rules:
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
+  #    when: never
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+
 .nightly:
   image: $IMAGE_PATH/run:latest
   variables:
@@ -387,11 +408,12 @@ docs:
   stage: test
   needs:
     - build-latest
+    - gpwfiles
   tags:
     - xeon24
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist pytest-timeout
+    - pip install pytest-instafail pytest-xdist
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
@@ -401,22 +423,6 @@ docs:
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-gpwfiles:
-  extends:
-    - .nightly
-  stage: precalculate
-  script:
-    - pytest -n 8 -m generate_gpw_files
-  #rules:
-  #  - if: $CI_PIPELINE_SOURCE == "schedule"
-  #    when: never
-  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  artifacts:
-    paths:
-      - .pytest_cache/
-    expire_in: 30 mins
-
-
 nightly-mpi-1:
   extends:
     - .nightly
@@ -424,6 +430,7 @@ nightly-mpi-1:
     - build-latest
     - gpwfiles
   script:
+    - gpaw info
     - pytest --cache-show
     - pytest -n 4 --instafail -r s --durations 30
 
