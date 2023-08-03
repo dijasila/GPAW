@@ -230,34 +230,30 @@ class GPWFiles:
         if name in self.gpw_files:
             return self.gpw_files[name]
 
-        rawname, _, _ = name.partition('_wfs')
-        nowfs_path = self.path / (rawname + '.gpw')
+        gpwpath = self.path / (name + '.gpw')
 
-        # (Note we need to lock based on rawname.)
-        lockfile = self.path / f'{rawname}.lock'
+        lockfile = self.path / f'{name}.lock'
 
         for _attempt in range(60):  # ~60s timeout
             files_exist = 0
             if world.rank == 0:
-                files_exist = int(nowfs_path.exists())
+                files_exist = int(gpwpath.exists())
             files_exist = world.sum_scalar(files_exist)
 
             if files_exist:
-                self.gpw_files[rawname] = nowfs_path
-                self.gpw_files[rawname + '_wfs'] = nowfs_path
-
+                self.gpw_files[name] = gpwpath
                 return self.gpw_files[name]
 
             try:
                 with world_temporary_lock(lockfile):
-                    calc = getattr(self, rawname)()
-                    nowfs_work_path = nowfs_path.with_suffix('.tmp')
-                    calc.write(nowfs_work_path, mode='all')
+                    calc = getattr(self, name)()
+                    work_path = gpwpath.with_suffix('.tmp')
+                    calc.write(work_path, mode='all')
 
                     # By now files should exist *and* be fully written, by us.
                     # Rename them to the final intended paths:
                     if world.rank == 0:
-                        nowfs_work_path.rename(nowfs_path)
+                        work_path.rename(gpwpath)
 
             except Locked:
                 import time
