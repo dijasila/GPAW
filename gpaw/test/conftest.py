@@ -2,6 +2,8 @@ import os
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
+from collections.abc import Mapping
+import functools
 
 import numpy as np
 import pytest
@@ -71,6 +73,7 @@ def with_band_cutoff(*, gpw, band_cutoff):
     response_band_cutoff[gpw] = band_cutoff
 
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, band_cutoff=band_cutoff, **kwargs)
         return wrapper
@@ -206,6 +209,13 @@ def world_temporary_lock(path):
             raise Locked
 
 
+_all_gpw_methodnames = set()
+def gpwfile(meth):
+    """Decorator to identify the methods that produce gpw files."""
+    _all_gpw_methodnames.add(meth.__name__)
+    return meth
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
@@ -256,12 +266,15 @@ class GPWFiles:
 
         raise RuntimeError(f'GPW fixture generation takes too long: {name}')
 
+    @gpwfile
     def bcc_li_pw(self):
         return self.bcc_li({'name': 'pw', 'ecut': 200})
 
+    @gpwfile
     def bcc_li_fd(self):
         return self.bcc_li({'name': 'fd'})
 
+    @gpwfile
     def bcc_li_lcao(self):
         return self.bcc_li({'name': 'lcao'})
 
@@ -273,12 +286,15 @@ class GPWFiles:
         li.get_potential_energy()
         return li.calc
 
+    @gpwfile
     def fcc_Ni_col(self):
         return self.fcc_Ni('col')
 
+    @gpwfile
     def fcc_Ni_ncol(self):
         return self.fcc_Ni('ncol')
 
+    @gpwfile
     def fcc_Ni_ncolsoc(self):
         return self.fcc_Ni('ncolsoc')
 
@@ -305,12 +321,15 @@ class GPWFiles:
         Ni.get_potential_energy()
         return Ni.calc
 
+    @gpwfile
     def h2_pw(self):
         return self.h2({'name': 'pw', 'ecut': 200})
 
+    @gpwfile
     def h2_fd(self):
         return self.h2({'name': 'fd'})
 
+    @gpwfile
     def h2_lcao(self):
         return self.h2({'name': 'lcao'})
 
@@ -322,6 +341,7 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
+    @gpwfile
     def h2_pw_0(self):
         h2 = Atoms('H2',
                    positions=[[-0.37, 0, 0], [0.37, 0, 0]],
@@ -332,6 +352,7 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
+    @gpwfile
     def h2_bcc_afm(self):
         a = 2.75
         atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
@@ -346,6 +367,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
         h.center(vacuum=4.0)
@@ -354,6 +376,7 @@ class GPWFiles:
         h.get_potential_energy()
         return h.calc
 
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
@@ -363,6 +386,7 @@ class GPWFiles:
         a.get_potential_energy()
         return a.calc
 
+    @gpwfile
     def Cu3Au_qna(self):
         ecut = 300
         kpts = (1, 1, 1)
@@ -390,6 +414,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def co_lcao(self):
         d = 1.1
         co = Atoms('CO', positions=[[0, 0, 0], [d, 0, 0]])
@@ -399,6 +424,7 @@ class GPWFiles:
         co.get_potential_energy()
         return co.calc
 
+    @gpwfile
     def c2h4_pw_nosym(self):
         d = 1.54
         h = 1.1
@@ -421,6 +447,7 @@ class GPWFiles:
         pe.get_potential_energy()
         return pe.calc
 
+    @gpwfile
     def c6h12_pw(self):
         pe = read(self['c2h4_pw_nosym'])
         pe = pe.repeat((3, 1, 1))
@@ -428,6 +455,7 @@ class GPWFiles:
         pe.get_potential_energy()
         return pe.calc
 
+    @gpwfile
     def h2o_lcao(self):
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
@@ -474,12 +502,15 @@ class GPWFiles:
         bulk_crystal.get_potential_energy()
         return bulk_calc
 
+    @gpwfile
     def ti2o4_pw(self):
         return self.ti2o4({})
 
+    @gpwfile
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    @gpwfile
     def si_pw(self):
         si = bulk('Si')
         calc = GPAW(mode='pw',
@@ -491,6 +522,7 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
+    @gpwfile
     @with_band_cutoff(gpw='fancy_si_pw_wfs',
                       band_cutoff=8)  # 2 * (3s, 3p)
     def _fancy_si(self, *, band_cutoff, symmetry=None):
@@ -519,12 +551,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def fancy_si_pw(self):
         return self._fancy_si()
 
+    @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
 
+    @gpwfile
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -536,6 +571,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def hbn_pw(self):
         atoms = Graphene(symbol='B',
                          latticeconstant={'a': 2.5, 'c': 1.0},
@@ -553,6 +589,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def graphene_pw(self):
         from ase.lattice.hexagonal import Graphene
         atoms = Graphene(symbol='C',
@@ -589,12 +626,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def mos2_pw(self):
         return self._mos2()
 
+    @gpwfile
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
-    
+
+    @gpwfile
     def ni_pw_kpts333(self):
         from ase.dft.kpoints import monkhorst_pack
         # from gpaw.mpi import serial_comm
@@ -617,6 +657,7 @@ class GPWFiles:
         # calc.write('Ni.gpw', mode='all')
         return calc
 
+    @gpwfile
     def c_pw(self):
         atoms = bulk('C')
         atoms.center()
@@ -630,6 +671,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def nicl2_pw(self):
         from ase.build import mx2
 
@@ -668,6 +710,7 @@ class GPWFiles:
 
         return atoms.calc
 
+    @gpwfile
     @with_band_cutoff(gpw='v2br4_pw_wfs',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
     def _v2br4(self, *, band_cutoff, symmetry=None):
@@ -716,9 +759,11 @@ class GPWFiles:
 
         return atoms.calc
 
+    @gpwfile
     def v2br4_pw(self):
         return self._v2br4()
 
+    @gpwfile
     def v2br4_pw_nosym(self):
         return self._v2br4(symmetry='off')
 
@@ -754,9 +799,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def fe_pw(self):
         return self._fe()
 
+    @gpwfile
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
 
@@ -799,9 +846,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def co_pw(self):
         return self._co()
 
+    @gpwfile
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
@@ -842,9 +891,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def srvo3_pw(self):
         return self._srvo3()
 
+    @gpwfile
     def srvo3_pw_nosym(self):
         return self._srvo3(symmetry='off')
 
@@ -877,12 +928,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def al_pw(self):
         return self._al()
 
+    @gpwfile
     def al_pw_nosym(self):
         return self._al(symmetry='off')
 
+    @gpwfile
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2
@@ -912,9 +966,11 @@ class GPWFiles:
 
         return atoms.calc
 
+    @gpwfile
     def gaas_pw_nosym(self):
         return self._gaas(symmetry='off')
 
+    @gpwfile
     def gaas_pw(self):
         return self._gaas()
 
@@ -944,9 +1000,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def h_pw280_fulldiag(self):
         return self._pw_280_fulldiag(Atoms('H'), hund=True, nbands=4)
 
+    @gpwfile
     def h2_pw280_fulldiag(self):
         return self._pw_280_fulldiag(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
                                      nbands=8)
@@ -965,6 +1023,21 @@ class GPWFiles:
         atoms.get_potential_energy()
         calc.diagonalize_full_hamiltonian(nbands=80)
         return calc
+
+
+@pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))
+def all_gpw_files(request, gpw_files, pytestconfig):
+    """This fixture parametrizes a test over all gpw_files.
+
+    For example pytest test_generate_gpwfiles.py -n 16 is a way to quickly
+    generate all gpw files independently of the rest of the test suite."""
+
+    # Note: Parametrizing over _all_gpw_methodnames must happen *after*
+    # it is populated, i.e., further down in the file than
+    # the @gpwfile decorator.
+
+    # Accessing each file via __getitem__ executes the calculation:
+    return gpw_files[request.param]
 
 
 class GPAWPlugin:
