@@ -92,7 +92,7 @@ def gpw_files(request, tmp_path_factory):
     Example::
 
         def test_something(gpw_files):
-            calc = GPAW(gpw_files['h2_lcao_wfs'])
+            calc = GPAW(gpw_files['h2_lcao'])
             ...
 
     Possible systems are:
@@ -154,7 +154,7 @@ def gpw_files(request, tmp_path_factory):
       and ``gaas_pw_nosym``
 
 
-    Files with wave functions are also available (add ``_wfs`` to the names).
+    Files always include wave functions.
     """
     path = os.environ.get('GPW_TEST_FILES')
     if not path:
@@ -232,7 +232,6 @@ class GPWFiles:
 
         rawname, _, _ = name.partition('_wfs')
         nowfs_path = self.path / (rawname + '.gpw')
-        wfs_path = self.path / (rawname + '_wfs.gpw')
 
         # (Note we need to lock based on rawname.)
         lockfile = self.path / f'{rawname}.lock'
@@ -240,7 +239,7 @@ class GPWFiles:
         for _attempt in range(60):  # ~60s timeout
             files_exist = 0
             if world.rank == 0:
-                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+                files_exist = int(nowfs_path.exists())
             files_exist = world.sum_scalar(files_exist)
 
             if files_exist:
@@ -253,7 +252,6 @@ class GPWFiles:
                 with world_temporary_lock(lockfile):
                     calc = getattr(self, rawname)()
                     nowfs_work_path = nowfs_path.with_suffix('.tmp')
-                    wfs_work_path = wfs_path.with_suffix('.tmp')
                     calc.write(nowfs_work_path, mode='all')
 
                     # By now files should exist *and* be fully written, by us.
@@ -524,7 +522,7 @@ class GPWFiles:
         return si.calc
 
     @gpwfile
-    @with_band_cutoff(gpw='fancy_si_pw_wfs',
+    @with_band_cutoff(gpw='fancy_si_pw',
                       band_cutoff=8)  # 2 * (3s, 3p)
     def _fancy_si(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -712,7 +710,7 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
-    @with_band_cutoff(gpw='v2br4_pw_wfs',
+    @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
     def _v2br4(self, *, band_cutoff, symmetry=None):
         from ase.build import mx2
@@ -768,7 +766,7 @@ class GPWFiles:
     def v2br4_pw_nosym(self):
         return self._v2br4(symmetry='off')
 
-    @with_band_cutoff(gpw='fe_pw_wfs',
+    @with_band_cutoff(gpw='fe_pw',
                       band_cutoff=9)  # 4s, 4p, 3d = 9
     def _fe(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -808,7 +806,7 @@ class GPWFiles:
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
 
-    @with_band_cutoff(gpw='co_pw_wfs',
+    @with_band_cutoff(gpw='co_pw',
                       band_cutoff=14)  # 2 * (4s + 3d)
     def _co(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -855,7 +853,7 @@ class GPWFiles:
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
-    @with_band_cutoff(gpw='srvo3_pw_wfs',
+    @with_band_cutoff(gpw='srvo3_pw',
                       band_cutoff=20)
     def _srvo3(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -900,7 +898,7 @@ class GPWFiles:
     def srvo3_pw_nosym(self):
         return self._srvo3(symmetry='off')
 
-    @with_band_cutoff(gpw='al_pw_wfs',
+    @with_band_cutoff(gpw='al_pw',
                       band_cutoff=10)  # 3s, 3p, 4s, 3d
     def _al(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -975,7 +973,7 @@ class GPWFiles:
     def gaas_pw(self):
         return self._gaas()
 
-    @with_band_cutoff(gpw='gaas_pw_wfs',
+    @with_band_cutoff(gpw='gaas_pw',
                       band_cutoff=8)
     def _gaas(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
