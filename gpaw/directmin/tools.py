@@ -1,5 +1,5 @@
 """
-Tools for direcmin
+Tools for directmin
 """
 
 import numpy as np
@@ -264,3 +264,130 @@ def excite(calc, i, a, spin=(0, 0)):
     f_sn[spin[1]][lumo + a] += 1
 
     return f_sn
+
+
+def dict_to_array(x):
+    """
+    Converts dictionaries with integer keys to one long array by appending.
+
+    :param x: Dictionary
+    :return: Long array, dimensions of original dictionary parts, total
+             dimensions
+    """
+    y = []
+    dim = []
+    dimtot = 0
+    for k in x.keys():
+        assert isinstance(k, int), (
+            'Cannot convert dict to array if keys are not '
+            'integer.')
+        y += list(x[k])
+        dim.append(len(x[k]))
+        dimtot += len(x[k])
+    return np.asarray(y), dim, dimtot
+
+
+def array_to_dict(x, dim):
+    """
+    Converts long array to dictionary with integer keys with values of
+    dimensionality specified in dim.
+
+    :param x: Array
+    :param dim: List with dimensionalities of parts of the dictionary
+    :return: Dictionary
+    """
+    y = {}
+    start = 0
+    stop = 0
+    for i in range(len(dim)):
+        stop += dim[i]
+        y[i] = x[start: stop]
+        start += dim[i]
+    return y
+
+
+def rotate_orbitals(wfs, orbitals, angle, channel):
+    """
+    Applies a single rotation between two orbitals.
+
+    :param wfs:
+    :param orbitals: List of two orbital indices
+    :param angle: Rotation angle (deg.)
+    :param channel: Spin channel of the orbitals
+    """
+
+    a = angle * np.pi / 180.0
+    i = channel
+    c = wfs.kpt_u[i].C_nM.copy()
+    wfs.kpt_u[i].C_nM[orbitals[0]] = \
+        np.cos(a) * c[orbitals[0]] + np.sin(a) * c[orbitals[1]]
+    wfs.kpt_u[i].C_nM[orbitals[1]] = \
+        np.cos(a) * c[orbitals[1]] - np.sin(a) * c[orbitals[0]]
+
+
+def get_a_vec_u(etdm, wfs, indices, angles, channels, occ=None):
+    """
+    Creates an orbital rotation vector based on given indices, angles and
+    corresponding spin channels.
+
+    :param etdm:       ETDM object for a converged or at least initialized
+                       calculation
+    :param indices:    List of indices. Each element must be a list of an
+                       orbital pair corresponding to the orbital rotation.
+                       For occupied-virtual rotations (unitary invariant or
+                       sparse representations), the first index represents the
+                       occupied, the second the virtual orbital.
+                       For occupied-occupied rotations (sparse representation
+                       only), the first index must always be smaller than the
+                       second.
+    :param angles:     List of angles in radians.
+    :param channels:   List of spin channels.
+    :param occ:        Occupation numbers for each k-point. Must be specified
+                       if the orbitals in the ETDM object are not ordered
+                       canonically, as the user orbital indexation is different
+                       from the one in the ETDM object then.
+
+    :return new_vec_u: Orbital rotation coordinate vector containing the
+                       specified values.
+    """
+
+    etdm.sort_orbitals_mom(wfs)
+
+    new_vec_u = {}
+    ind_up = etdm.ind_up
+    a_vec_u = etdm.a_vec_u
+    conversion = []
+    for k in a_vec_u.keys():
+        new_vec_u[k] = np.zeros_like(a_vec_u[k])
+        if occ is not None:
+            f_n = occ[k]
+            occupied = f_n > 1.0e-10
+            n_occ = len(f_n[occupied])
+            if n_occ == 0.0:
+                continue
+            if np.min(f_n[:n_occ]) == 0:
+                ind_occ = np.argwhere(occupied)
+                ind_unocc = np.argwhere(~occupied)
+                ind = np.vstack((ind_occ, ind_unocc))
+                ind = np.squeeze(ind)
+                conversion.append(list(ind))
+            else:
+                conversion.append(None)
+
+    for ind, ang, s in zip(indices, angles, channels):
+        if occ is not None:
+            if conversion[s] is not None:
+                ind[0] = conversion[s].index(ind[0])
+                ind[1] = conversion[s].index(ind[1])
+        m = np.where(ind_up[s][0] == ind[0])[0]
+        n = np.where(ind_up[s][1] == ind[1])[0]
+        res = None
+        for i in m:
+            for j in n:
+                if i == j:
+                    res = i
+        if res is None:
+            raise ValueError('Orbital rotation does not exist.')
+        new_vec_u[s][res] = ang
+
+    return new_vec_u

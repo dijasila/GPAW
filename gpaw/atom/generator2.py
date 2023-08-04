@@ -398,7 +398,7 @@ class PAWSetupGenerator:
                 return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
 
             def f(alpha):
-                return log(spillage(alpha)) - log(eps)
+                return log(spillage(alpha[0])) - log(eps)
 
             self.alpha = fsolve(f, 7.0)[0]
 
@@ -889,19 +889,21 @@ class PAWSetupGenerator:
             txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
 
         # Polarization:
-        gcpol = rgd.round(rcpol)
-        alpha = 1 / (0.25 * rcpol)**2
+        if lpol < 4:
+            gcpol = rgd.round(rcpol)
+            alpha = 1 / (0.25 * rcpol)**2
 
-        # Gaussian that is continuous and has a continuous derivative at rcpol:
-        phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
-        phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
-        phit_g[gcpol:] = 0.0
+            # Gaussian that is continuous and has a continuous
+            # derivative at rcpol:
+            phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
+            phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
+            phit_g[gcpol:] = 0.0
 
-        bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
-        self.basis.append(bf)
-        txt += 'l=%d polarization functions:\n' % lpol
-        txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
-                                                                alpha)
+            bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
+            self.basis.append(bf)
+            txt += f'l={lpol} polarization functions:\n'
+            txt += f'  cutoff: {rcpol:.3f} Bohr '
+            txt += f'(r^{lpol} exp(-{alpha:.3f}*r^2))\n'
 
         self.log(txt)
 

@@ -18,7 +18,7 @@ from gpaw.xc import XC
 from gpaw.new import zip
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
-    
+
 class WrongMagmomForHundsRuleError(ValueError):
     """
     Custom error for catching bad magnetic moments in Hund's rule calculation
@@ -1442,26 +1442,40 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions, atomdist):
+    def create_pseudo_core_densities(self, domain, positions, atomdist,
+                                     xp=np):
         spline_aj = []
         for setup in self:
             if setup.nct is None:
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        return layout.atom_centered_functions(
+        return domain.atom_centered_functions(
             spline_aj, positions,
             atomdist=atomdist,
             integral=[setup.Nct for setup in self],
+            cut=True, xp=xp)
+
+    def create_pseudo_core_kinetic_energy_densities(self,
+                                                    domain,
+                                                    positions,
+                                                    atomdist):
+        return domain.atom_centered_functions(
+            [[setup.tauct] for setup in self],
+            positions,
+            atomdist=atomdist,
             cut=True)
 
-    def create_local_potentials(self, layout, positions, atomdist):
-        return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions, atomdist=atomdist)
+    def create_local_potentials(self, domain, positions, atomdist, xp=np):
+        return domain.atom_centered_functions(
+            [[setup.vbar] for setup in self],
+            positions,
+            atomdist=atomdist,
+            xp=xp)
 
-    def create_compensation_charges(self, layout, positions, atomdist,
+    def create_compensation_charges(self, domain, positions, atomdist,
                                     xp=np):
-        return layout.atom_centered_functions(
+        return domain.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
             atomdist=atomdist,
             integral=sqrt(4 * pi),

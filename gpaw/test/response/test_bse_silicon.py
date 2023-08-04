@@ -77,11 +77,8 @@ def test_response_bse_silicon(in_tmp_dir, scalapack):
         equal(w, w_, 0.01)
         equal(I, I_, 0.1)
 
-        # Read eigenvalues file and test first 3 eigenvalues
+        # Read eigenvalues file and test first 3 weights:
         _, C_w = read_bse_eigenvalues('eig.dat')
-
-        # Disable for now (fails sometimes on a single core also, See #720)
-        if 0:  # world.size == 1:
-            # The BSE module seems to be broken in parallel!
-            # The eigenvalues change drastically as a function of world.size
-            assert C_w[:3] == pytest.approx([22.375, 12.777, 31.515], abs=0.1)
+        assert C_w[0] == pytest.approx(22.37, abs=0.05)
+        # These two have degenerate eigenvalues:
+        assert np.sum(C_w[1:3]) == pytest.approx(44.29, abs=0.05)

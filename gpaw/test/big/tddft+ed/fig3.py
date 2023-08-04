@@ -88,6 +88,7 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms, vacuum=qm_vacuum)
 gs_calc = GPAW(gpts=gpts,
                eigensolver='cg',
                nbands=-2,
+               symmetry={'point_group': False},
                poissonsolver=poissonsolver)
 atoms.calc = gs_calc
 

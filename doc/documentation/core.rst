@@ -94,19 +94,6 @@ and the following will happen:
 .. image:: code.svg
 
 
-Do-it-yourself example
-======================
-
-Let's try to build a DFT calculation without any of the shortcuts
-(:func:`gpaw.new.builder.builder`, :func:`gpaw.new.ase_interface.GPAW`
-or :meth:`gpaw.new.calculation.DFTCalculation.from_parameters`).
-
-So, instead of simple three-line example above where we calculate the energy
-of an :mol:`H2` molecule, we do it the hard way:
-
-.. literalinclude:: diy.py
-
-
 DFT-calculation object
 ======================
 

@@ -8,18 +8,18 @@ from typing import IO, Any, Union
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
-
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
-from gpaw.new.calculation import DFTCalculation, DFTState, units
+from gpaw.new.calculation import (DFTCalculation, DFTState,
+                                  ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
@@ -55,6 +55,9 @@ def write_header(log, world, params):
 
 
 def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
+    if a1 is a2:
+        return set()
+
     if len(a1.numbers) != len(a2.numbers) or (a1.numbers != a2.numbers).any():
         return {'numbers'}
 
@@ -63,11 +66,6 @@ def compare_atoms(a1: Atoms, a2: Atoms) -> set[str]:
 
     if abs(a1.cell - a2.cell).max() > 0.0:
         return {'cell'}
-
-    magnetic1 = a1.get_initial_magnetic_moments().any()
-    magnetic2 = a2.get_initial_magnetic_moments().any()
-    if magnetic1 != magnetic2:
-        return {'magmoms'}
 
     if abs(a1.positions - a2.positions).max() > 0.0:
         return {'positions'}
@@ -102,10 +100,12 @@ class ASECalculator:
         p = ', '.join(f'{key}: {val}' for key, val in params)
         return f'ASECalculator({p})'
 
-    def calculate_property(self, atoms: Atoms, prop: str) -> Any:
+    def calculate_property(self,
+                           atoms: Atoms | None,
+                           prop: str) -> Any:
         """Calculate (if not already calculated) a property.
 
-        Must be one of
+        The ``prop`` string must be one of
 
         * energy
         * forces
@@ -114,17 +114,38 @@ class ASECalculator:
         * magmoms
         * dipole
         """
+        atoms = atoms or self.atoms
+        assert atoms is not None
+
         if self.calculation is not None:
             changes = compare_atoms(self.atoms, atoms)
-            if changes & {'numbers', 'pbc', 'cell', 'magmoms'}:
-                # Start from scratch:
+            if changes & {'numbers', 'pbc', 'cell'}:
                 if 'numbers' not in changes:
                     # Remember magmoms if there are any:
                     magmom_a = self.calculation.results.get('magmoms')
                     if magmom_a is not None and magmom_a.any():
                         atoms = atoms.copy()
+                        assert atoms is not None  # MYPY: why is this needed?
                         atoms.set_initial_magnetic_moments(magmom_a)
-                self.calculation = None
+
+                if changes & {'numbers', 'pbc'}:
+                    # Start from scratch:
+                    self.calculation = None
+                else:
+                    ibzwfs = self.calculation.state.ibzwfs
+                    kpt_parallel_only = (ibzwfs.band_comm.size == 1 and
+                                         ibzwfs.domain_comm.size == 1)
+                    if kpt_parallel_only:
+                        try:
+                            self.create_new_calculation_from_old(atoms)
+                        except ReuseWaveFunctionsError:
+                            self.calculation = None
+                        else:
+                            self.converge()
+                            changes = set()
+                    else:
+                        # Not implemented: just start from scratch
+                        self.calculation = None
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
@@ -144,13 +165,36 @@ class ASECalculator:
             elif prop == 'dipole':
                 self.calculation.dipole()
             else:
-                raise ValueError('Unknown property:', prop)
+                raise KeyError('Unknown property:', prop)
 
         return self.calculation.results[prop] * units[prop]
+
+    def get_property(self,
+                     name: str,
+                     atoms: Atoms | None = None,
+                     allow_calculation: bool = True) -> Any:
+        if not allow_calculation and name not in self.calculation.results:
+            return None
+        if atoms is None:
+            atoms = self.atoms
+        return self.calculate_property(atoms, name)
+
+    @property
+    def results(self):
+        if self.calculation is None:
+            return {}
+        return {name: value * units[name]
+                for name, value in self.calculation.results.items()}
 
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
+                atoms, self.params, self.log)
+        self.atoms = atoms.copy()
+
+    def create_new_calculation_from_old(self, atoms: Atoms) -> None:
+        with self.timer('Morph'):
+            self.calculation = self.calculation.new(
                 atoms, self.params, self.log)
         self.atoms = atoms.copy()
 
@@ -178,38 +222,35 @@ class ASECalculator:
     def _calculate_forces(self) -> Array2D:  # units: Ha/Bohr
         """Helper method for force-convergence criterium."""
         with self.timer('Forces'):
-            self.calculation.forces()
+            self.calculation.forces(silent=True)
         return self.calculation.results['forces']
 
     def __del__(self):
-        try:
-            self.log('---')
-            self.timer.write(self.log)
-            mib = maxrss() / 1024**2
-            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
-        except (NameError, AttributeError):
-            pass
+        self.log('---')
+        self.timer.write(self.log)
+        mib = maxrss() / 1024**2
+        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
 
     def get_potential_energy(self,
-                             atoms: Atoms,
+                             atoms: Atoms | None = None,
                              force_consistent: bool = False) -> float:
         return self.calculate_property(atoms,
                                        'free_energy' if force_consistent else
                                        'energy')
 
-    def get_forces(self, atoms: Atoms) -> Array2D:
+    def get_forces(self, atoms: Atoms | None = None) -> Array2D:
         return self.calculate_property(atoms, 'forces')
 
-    def get_stress(self, atoms: Atoms) -> Array1D:
+    def get_stress(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'stress')
 
-    def get_dipole_moment(self, atoms: Atoms) -> Array1D:
+    def get_dipole_moment(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'dipole')
 
-    def get_magnetic_moment(self, atoms: Atoms) -> float:
+    def get_magnetic_moment(self, atoms: Atoms | None = None) -> float:
         return self.calculate_property(atoms, 'magmom')
 
-    def get_magnetic_moments(self, atoms: Atoms) -> Array1D:
+    def get_magnetic_moments(self, atoms: Atoms | None = None) -> Array1D:
         return self.calculate_property(atoms, 'magmoms')
 
     def write(self, filename, mode=''):
@@ -229,6 +270,14 @@ class ASECalculator:
                   self.calculation, skip_wfs=mode != 'all')
 
     # Old API:
+
+    implemented_properties = ['energy', 'free_energy',
+                              'forces', 'stress',
+                              'dipole', 'magmom', 'magmoms']
+
+    def new(self, **kwargs) -> ASECalculator:
+        kwargs = {**dict(self.params.items()), **kwargs}
+        return GPAW(**kwargs)
 
     def get_pseudo_wave_function(self, band, kpt=0, spin=0,
                                  periodic=False) -> Array3D:
@@ -312,14 +361,24 @@ class ASECalculator:
             skip_core=skip_core)
         return n_sr.to_pbc_grid().data.sum(0)
 
-    def get_eigenvalues(self, kpt=0, spin=0):
+    def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         state = self.calculation.state
-        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+        eig_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
+        if broadcast:
+            if self.world.rank != 0:
+                eig_n = np.empty(state.ibzwfs.nbands)
+            self.world.broadcast(eig_n, 0)
+        return eig_n
 
-    def get_occupation_numbers(self, kpt=0, spin=0):
+    def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
         state = self.calculation.state
         weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
-        return state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
+        occ_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
+        if broadcast:
+            if self.world.rank != 0:
+                occ_n = np.empty(state.ibzwfs.nbands)
+            self.world.broadcast(occ_n, 0)
+        return occ_n
 
     def get_reference_energy(self):
         return self.calculation.setups.Eref * Ha
@@ -335,8 +394,18 @@ class ASECalculator:
         state = self.calculation.state
         return state.ibzwfs.ibz.kpt_kc.copy()
 
-    def calculate(self, atoms):
-        self.get_potential_energy(atoms)
+    def get_orbital_magnetic_moments(self):
+        """Return the orbital magnetic moment vector for each atom."""
+        from gpaw.new.orbmag import get_orbmag_from_calc
+        return get_orbmag_from_calc(self)
+
+    def calculate(self, atoms, properties=None, system_changes=None):
+        if properties is None:
+            properties = ['energy']
+
+        for name in properties:
+            self.calculate_property(atoms, name)
+        # self.get_potential_energy(atoms)
 
     @cached_property
     def wfs(self):
@@ -369,12 +438,23 @@ class ASECalculator:
     def initialized(self):
         return self.calculation is not None
 
+    def get_xc_functional(self):
+        return self.calculation.pot_calc.xc.name
+
     def get_xc_difference(self, xcparams):
         """Calculate non-selfconsistent XC-energy difference."""
-        state = self.calculation.state
-        xc = XCFunctional(xcparams, state.density.ncomponents)
-        exct = self.calculation.pot_calc.calculate_non_selfconsistent_exc(
-            state.density.nt_sR, xc)
+        dft = self.calculation
+        pot_calc = dft.pot_calc
+        state = dft.state
+        xc = create_functional(
+            xcparams,
+            pot_calc.fine_grid, pot_calc.grid,
+            pot_calc.interpolation_domain,
+            self.setups,
+            dft.fracpos_ac,
+            state.density.D_asii.layout.atomdist)
+        exct = pot_calc.calculate_non_selfconsistent_exc(
+            xc, dft.state.density.nt_sR, state.ibzwfs)
         dexc = 0.0
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
@@ -393,7 +473,8 @@ class ASECalculator:
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,
                              self.calculation.scf_loop.occ_calc,
-                             nbands)
+                             nbands,
+                             self.calculation.pot_calc.xc)
         self.calculation.state = DFTState(ibzwfs,
                                           state.density,
                                           state.potential)
@@ -416,7 +497,8 @@ class ASECalculator:
         builder = create_builder(self.atoms, params)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
+                                                   log=log)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
         state = DFTState(ibzwfs, state.density, state.potential)
         scf_loop = builder.create_scf_loop()
@@ -445,7 +527,6 @@ class ASECalculator:
 
     @property
     def parameters(self):
-        print(self.params)
         return self.params
 
     def dos(self,
@@ -462,3 +543,12 @@ class ASECalculator:
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def band_structure(self):
+        """Create band-structure object for plotting."""
+        from ase.spectrum.band_structure import get_band_structure
+        return get_band_structure(calc=self)
+
+    @property
+    def symmetry(self):
+        return self.calculation.state.ibzwfs.ibz.symmetries.symmetry

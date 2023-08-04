@@ -72,6 +72,8 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
+            if key == 'fixdensity':
+                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
@@ -194,10 +196,11 @@ def kpts(value=None) -> dict[str, Any]:
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):
-        if len(value) == 3 and isinstance(value[0], int):
-            value = {'size': value}
+        kpts = np.array(value)
+        if kpts.shape == (3,):
+            value = {'size': kpts}
         else:
-            value = {'points': np.array(value)}
+            value = {'kpts': kpts}
     return value
 
 
@@ -221,6 +224,8 @@ def mixer(value=None):
 def mode(value='fd'):
     if isinstance(value, str):
         return {'name': value}
+    gc = value.pop('gammacentered', False)
+    assert not gc
     return value
 
 

@@ -31,7 +31,10 @@ def test_pw_fe_stress_mgga(in_tmp_dir):
     fe.get_potential_energy()
 
     # Trigger nasty bug (fixed in !486):
-    fe.calc.wfs.pt.blocksize = fe.calc.wfs.pd.maxmyng - 1
+    try:
+        fe.calc.wfs.pt.blocksize = fe.calc.wfs.pd.maxmyng - 1
+    except AttributeError:
+        pass
 
     s_analytical = fe.get_stress()
     # Calculated numerical stress once, store here to speed up test

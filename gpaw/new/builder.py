@@ -9,25 +9,30 @@ import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
+
+import _gpaw
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
-from gpaw.mpi import MPIComm, Parallelization, serial_comm, world
+from gpaw.mpi import (MPIComm, Parallelization, serial_comm, synchronize_atoms,
+                      world)
 from gpaw.new import cached_property, prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.xc import XC
 
 
 def builder(atoms: Atoms,
@@ -63,6 +68,7 @@ class DFTComponentsBuilder:
         parallel = params.parallel
         world = parallel['world']
 
+        synchronize_atoms(atoms, world)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -72,12 +78,15 @@ class DFTComponentsBuilder:
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
-        self.xc = self.create_xc_functional()
+        if isinstance(params.xc, (dict, str)):
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+        else:
+            self._xc = params.xc
 
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
-                             self.xc.setup_name,
+                             self._xc.get_setup_name(),
                              world=world)
 
         if params.hund:
@@ -97,7 +106,7 @@ class DFTComponentsBuilder:
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
         self.communicators = create_communicators(world, len(self.ibz),
-                                                  d, k, b)
+                                                  d, k, b, self.xp)
 
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
@@ -129,11 +138,19 @@ class DFTComponentsBuilder:
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
 
+        self.xc = self.create_xc_functional()
+
     def create_uniform_grids(self):
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc, self.ncomponents)
+        return create_functional(self._xc,
+                                 self.fine_grid,
+                                 self.grid,
+                                 self.grid,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -154,6 +171,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def xp(self) -> ModuleType:
+        """Array module: Numpy or Cupy."""
         if self.params.parallel['gpu']:
             from gpaw.gpu import cupy, cupy_is_fake
             assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
@@ -169,7 +187,7 @@ class DFTComponentsBuilder:
 
     @cached_property
     def nct_R(self):
-        out = self.grid.empty()
+        out = self.grid.empty(xp=self.xp)
         nct_aX = self.get_pseudo_core_densities()
         nct_aX.to_uniform_grid(out=out,
                                scale=1.0 / (self.ncomponents % 3))
@@ -184,7 +202,8 @@ class DFTComponentsBuilder:
                             self.dtype,
                             self.fracpos_ac,
                             self.communicators['w'],
-                            self.communicators['k'])
+                            self.communicators['k'],
+                            self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
         return Density.from_superposition(self.grid,
@@ -210,14 +229,16 @@ class DFTComponentsBuilder:
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
+        occ_calc = self.create_occupation_number_calculator()
         eigensolver = self.create_eigensolver(hamiltonian)
 
         mixer = MixerWrapper(
             get_mixer_from_keywords(self.atoms.pbc.any(),
                                     self.ncomponents, **self.params.mixer),
-            self.ncomponents, self.grid._gd)
+            self.ncomponents,
+            self.grid._gd,
+            world=self.communicators['w'])
 
-        occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        {key: value
@@ -234,7 +255,7 @@ class DFTComponentsBuilder:
     def read_wavefunction_values(self,
                                  reader,
                                  ibzwfs: IBZWaveFunctions) -> None:
-        """ Read eigenvalues, occuptions and projections and fermi levels
+        """Read eigenvalues, occuptions and projections and fermi levels.
 
         The values are read using reader and set as the appropriate properties
         of (the already instantiated) wavefunctions contained in ibzwfs
@@ -260,14 +281,20 @@ class DFTComponentsBuilder:
                                         dims=(self.nbands, 2),
                                         data=P_sknI[wfs.k])
 
-        ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        try:
+            ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
+        except AttributeError:
+            # old gpw-file
+            ibzwfs.fermi_levels = np.array(
+                [reader.occupations.fermilevel / ha])
 
 
 def create_communicators(comm: MPIComm = None,
                          nibzkpts: int = 1,
                          domain: Union[int, tuple[int, int, int]] = None,
                          kpt: int = None,
-                         band: int = None) -> dict[str, MPIComm]:
+                         band: int = None,
+                         xp: ModuleType = np) -> dict[str, MPIComm]:
     parallelization = Parallelization(comm or world, nibzkpts)
     if domain is not None and not isinstance(domain, int):
         domain = prod(domain)
@@ -276,6 +303,15 @@ def create_communicators(comm: MPIComm = None,
                         band=band)
     comms = parallelization.build_communicators()
     comms['w'] = comm
+
+    # We replace size=1 MPI communications with serial_comm so that
+    # serial_comm.sum(<cupy-array>) works: XXX
+    comms = {key: comm if comm.size > 1 else serial_comm
+             for key, comm in comms.items()}
+
+    if xp is not np and not getattr(_gpaw, 'gpu_aware_mpi', False):
+        comms = {key: CuPyMPI(comm) for key, comm in comms.items()}
+
     return comms
 
 
@@ -330,9 +366,9 @@ def normalize_initial_magmoms(
 
 
 def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
-    if 'points' in kpts:
+    if 'kpts' in kpts:
         assert len(kpts) == 1, kpts
-        return BZPoints(kpts['points'])
+        return BZPoints(kpts['kpts'])
     size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
     return MonkhorstPackKPoints(size, offset)
 

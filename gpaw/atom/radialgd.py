@@ -1,15 +1,15 @@
 import numbers
+from abc import ABC, abstractmethod
 from math import factorial as fac
 from math import pi
 from typing import Tuple
 
-from abc import ABC, abstractmethod
 import numpy as np
-from scipy.interpolate import make_interp_spline, splder
-
+from gpaw.sphere.integrate import integrate_radial_grid
 from gpaw.spline import Spline
 from gpaw.typing import Array1D
 from gpaw.utilities import divrl, hartree
+from scipy.interpolate import make_interp_spline, splder
 
 
 def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
@@ -96,6 +96,9 @@ class RadialGridDescriptor(ABC):
         assert n >= -2
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
+
+    def integrate_trapz(self, a_xg, rcut=None):
+        return integrate_radial_grid(a_xg, self.r_g, rcut=rcut)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
         r"""Calculates the radial grid yukawa integral.
@@ -506,12 +509,12 @@ class RadialGridDescriptor(ABC):
             g -= 1
         gcut = g + 1
         return gcut
-   
+
     @abstractmethod
     def r2g(self, r):
         """Inverse continuous map from a real space distance (r)
            to a floating point grid index (g).
-        
+
            Used by methods floor, round, and ceil, which manipulate this
            floating point to an integer accordingly.
         """
