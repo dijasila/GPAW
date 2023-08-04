@@ -52,7 +52,8 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 allow_invert_aperiodic_axes=True):
+                 allow_invert_aperiodic_axes=False,
+                 _legacy_mode=False):
         """Construct symmetry object.
 
         Parameters:
@@ -96,6 +97,7 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
+        self._legacy_mode = _legacy_mode
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.ft_sc = np.zeros((1, 3))
@@ -125,8 +127,19 @@ class Symmetry:
         # Symmetry operations as matrices in 123 basis.
         # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices:
-        combinations = 1 - np.indices([3] * 9)
-        U_scc = combinations.reshape((3, 3, 3**9)).transpose((2, 0, 1))
+        if self._legacy_mode:
+            pbc_c = np.ones(3, bool)
+        else:
+            pbc_c = self.pbc_c
+        dims = [3 if p1 and p2 else 1
+                for p1 in pbc_c
+                for p2 in pbc_c]
+        combinations = 1 - np.indices(dims)
+        U_scc = combinations.reshape((3, 3, -1)).transpose((2, 0, 1))
+        pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
+        U_scc[:, ~pbc_c] = 0
+        U_scc[:, :, ~pbc_c] = 0
+        U_scc[:, np.diag(~pbc_c)] = 1
 
         # The metric of the cell should be conserved after applying
         # the operation:
@@ -137,15 +150,16 @@ class Symmetry:
         mask_s = abs(metric_scc - metric_cc).sum(2).sum(1) <= self.tol
         U_scc = U_scc[mask_s]
 
-        # Operation must not swap axes that don't have same PBC:
-        pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
-        mask_s = ~U_scc[:, pbc_cc].any(axis=1)
-        U_scc = U_scc[mask_s]
-
-        if not self.allow_invert_aperiodic_axes:
-            # Operation must not invert axes that are not periodic:
-            mask_s = (U_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
+        if self._legacy_mode:
+            # Operation must not swap axes that don't have same PBC:
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            mask_s = ~U_scc[:, pbc_cc].any(axis=1)
             U_scc = U_scc[mask_s]
+
+            if not self.allow_invert_aperiodic_axes:
+                # Operation must not invert axes that are not periodic:
+                mask_s = (U_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
+                U_scc = U_scc[mask_s]
 
         self.op_scc = U_scc
         self.ft_sc = np.zeros((len(self.op_scc), 3))

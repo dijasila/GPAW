@@ -1081,6 +1081,9 @@ class GPAW(Calculator):
         if reading and self.reader.version <= 1:
             symm['allow_invert_aperiodic_axes'] = False
 
+        if reading and self.reader.version <= 3:
+            symm['_legacy_mode'] = True
+
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)

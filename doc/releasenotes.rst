@@ -13,10 +13,12 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* ...
+
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 * :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
-  now throw an error if the ground state contains point group symmetries
+  now throw an error if the ground state contains point group symmetries.
 
 
 Version 23.6.1
