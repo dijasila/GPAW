@@ -1,11 +1,9 @@
 from __future__ import annotations
-from pathlib import Path
 import warnings
 
-from typing import Any, IO, Sequence
+from typing import Any, Sequence
 
 import numpy as np
-from gpaw.mpi import world
 from gpaw.typing import DTypeLike
 
 parameter_functions = {}
@@ -47,7 +45,6 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
-    communicator: Any
     convergence: dict[str, Any]
     dtype: DTypeLike | None
     eigensolver: dict[str, Any]
@@ -59,13 +56,11 @@ class InputParameters:
     magmoms: Any
     mode: dict[str, Any]
     nbands: None | int | str
-    parallel: dict[str, Any]
     poissonsolver: dict[str, Any]
     setups: Any
     soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
-    txt: str | Path | IO[str] | None
     xc: dict[str, Any]
 
     def __init__(self, params: dict[str, Any], warn: bool = True):
@@ -125,12 +120,6 @@ class InputParameters:
             self.keys.append('dtype')
             self.keys.sort()
 
-        if self.communicator is not None:
-            self.parallel['world'] = self.communicator
-            warnings.warn(('Please use parallel={''world'': ...} '
-                           'instead of communicator=...'),
-                          DeprecatedParameterWarning)
-
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
                       for key, value in self.items())
@@ -150,11 +139,6 @@ def basis(value=None):
 @input_parameter
 def charge(value=0.0):
     return value
-
-
-@input_parameter
-def communicator(value=None):
-    return None
 
 
 @input_parameter
@@ -255,30 +239,6 @@ def occupations(value=None):
 
 
 @input_parameter
-def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
-    dct = update_dict({'kpt': None,
-                       'domain': None,
-                       'band': None,
-                       'order': 'kdb',
-                       'stridebands': False,
-                       'augment_grids': False,
-                       'sl_auto': False,
-                       'sl_default': None,
-                       'sl_diagonalize': None,
-                       'sl_inverse_cholesky': None,
-                       'sl_lcao': None,
-                       'sl_lrtddft': None,
-                       'use_elpa': False,
-                       'elpasolver': '2stage',
-                       'buffer_size': None,
-                       'world': None,
-                       'gpu': False},
-                      value)
-    dct['world'] = dct['world'] or world
-    return dct
-
-
-@input_parameter
 def poissonsolver(value=None):
     """Poisson solver."""
     return value or {}
@@ -312,13 +272,6 @@ def symmetry(value='undefined'):
         value = {}
     elif value is None or value == 'off':
         value = {'point_group': False, 'time_reversal': False}
-    return value
-
-
-@input_parameter
-def txt(value: str | Path | IO[str] | None = '?'
-        ) -> str | Path | IO[str] | None:
-    """Log file."""
     return value
 
 

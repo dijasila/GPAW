@@ -11,13 +11,14 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.dos import DOSCalculator
+from gpaw.mpi import world
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
-from gpaw.new.input_parameters import (InputParameters,
-                                       DeprecatedParameterWarning)
+from gpaw.new.input_parameters import (DeprecatedParameterWarning,
+                                       InputParameters, update_dict)
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
@@ -27,30 +28,58 @@ from gpaw.utilities.memory import maxrss
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
+         txt: str | Path | IO[str] | None = '?',
+         parallel: dict[str, Any] | None = None,
+         communicator=None,  # deprecated
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
-    if filename is None:
-        params = InputParameters(kwargs)
-    else:
-        # Don't trigger ParameterDeprecationWarnings from partial and/or unused
-        # kwargs if filename is given
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecatedParameterWarning)
-            params = InputParameters(kwargs)
-    txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
-    world = params.parallel['world']
-    log = Logger(txt, world)
+
+    normalize_parallel(parallel, communicator)
+
+    log = Logger(txt, parallel['comm'])
 
     if filename is not None:
-        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
-        atoms, calculation, params, _ = read_gpw(filename, log,
-                                                 params.parallel)
-        return ASECalculator(params, log, calculation, atoms)
+        atoms, calculation, params, _ = read_gpw(filename, log, parallel)
+        return ASECalculator(params, log, parallel, calculation, atoms)
 
+    params = InputParameters(kwargs)
     write_header(log, world, params)
-    return ASECalculator(params, log)
+    return ASECalculator(params, log, parallel)
+
+
+def normalize_parallel(parallel, communicator=None):
+    if communicator is not None:
+        warnings.warn(('Please use parallel={''comm'': ...} ' +
+                       'instead of communicator=...'),
+                      DeprecatedParameterWarning)
+        parallel['comm'] = communicator
+    if 'world' in parallel:
+        warnings.warn(('Please use parallel={''comm'': ...} ' +
+                       'instead of  parallel={''world'': ...}'),
+                      DeprecatedParameterWarning)
+        parallel['comm'] = parallel.pop('world')
+    parallel = update_dict({'kpt': None,
+                            'domain': None,
+                            'band': None,
+                            'order': 'kdb',
+                            'stridebands': False,
+                            'augment_grids': False,
+                            'sl_auto': False,
+                            'sl_default': None,
+                            'sl_diagonalize': None,
+                            'sl_inverse_cholesky': None,
+                            'sl_lcao': None,
+                            'sl_lrtddft': None,
+                            'use_elpa': False,
+                            'elpasolver': '2stage',
+                            'buffer_size': None,
+                            'comm': None,
+                            'gpu': False},
+                           parallel)
+    if parallel['comm'] is None:
+        parallel['comm'] = world
 
 
 def write_header(log, world, params):
@@ -89,12 +118,13 @@ class ASECalculator:
     def __init__(self,
                  params: InputParameters,
                  log: Logger,
+                 parallel: dict[str, Any],
                  calculation=None,
                  atoms=None):
         self.params = params
         self.log = log
+        self.parallel = parallel
         self.calculation = calculation
-
         self.atoms = atoms
         self.timer = Timer()
 
