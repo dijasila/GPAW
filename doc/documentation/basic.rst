@@ -212,19 +212,8 @@ keyword            type       default value  description
 
 .. _manual_mode:
 
-Finite-difference, plane-wave or LCAO mode
-------------------------------------------
-
-Finite-difference:
-    The default mode (``mode='fd'``) is Finite Difference. This means that
-    the wave functions will be expanded on a real space grid.
-
-LCAO:
-    Expand the wave functions in a basis-set constructed
-    from atomic-like orbitals, in short LCAO (linear combination of atomic
-    orbitals).  This is done by setting ``mode='lcao'``.
-
-    See also the page on :ref:`lcao`.
+Plane-wave, LCAO or Finite-difference mode?
+-------------------------------------------
 
 Plane-waves:
     Expand the wave functions in plane-waves.  Use ``mode='pw'`` if you want
@@ -235,8 +224,19 @@ Plane-waves:
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
 
+LCAO:
+    Expand the wave functions in a basis-set constructed
+    from atomic-like orbitals, in short LCAO (linear combination of atomic
+    orbitals).  This is done by setting ``mode='lcao'``.
 
-Comparing FD, LCAO and PW modes
+    See also the page on :ref:`lcao`.
+
+Finite-difference:
+    The default mode (``mode='fd'``) is Finite Difference. This means that
+    the wave functions will be expanded on a real space grid.
+
+
+Comparing PW, LCAO and FD modes
 ```````````````````````````````
 
 Memory consumption:
