@@ -13,6 +13,7 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.mpi import world
+from gpaw.calculator import DeprecatedParameterWarning
 
 
 @pytest.mark.gllb
@@ -64,7 +65,7 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     assert QP_gap == pytest.approx(QP_gap_direct_ref, abs=1e-4)
 
     if deprecated_syntax:
-        with pytest.warns(DeprecationWarning):
+        with pytest.warns(DeprecatedParameterWarning):
             from gpaw import restart
 
             calc.write('gs.gpw')

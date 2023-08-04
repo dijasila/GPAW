@@ -42,7 +42,7 @@ def test_solvation_sfgcm06():
 
     if not SKIP_VAC_CALC:
         atoms.calc = GPAW(
-            mode='pw', xc='PBE', h=h, charge=-1, convergence=convergence)
+            mode='fd', xc='PBE', h=h, charge=-1, convergence=convergence)
         Evac = atoms.get_potential_energy()
         print(Evac)
     else:
@@ -50,7 +50,7 @@ def test_solvation_sfgcm06():
         Evac = -3.83245253419
 
     atoms.calc = SolvationGPAW(
-        mode='pw', xc='PBE', h=h, charge=-1, convergence=convergence,
+        mode='fd', xc='PBE', h=h, charge=-1, convergence=convergence,
         cavity=FG02SmoothStepCavity(
             rho0=rho0, beta=beta,
             density=ElDensity(),
