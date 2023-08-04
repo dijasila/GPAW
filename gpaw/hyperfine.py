@@ -17,18 +17,19 @@ from typing import List
 
 import ase.units as units
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
-from gpaw.calculator import GPAW
+from gpaw import SCIPY_VERSION
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.calculator import GPAW
 from gpaw.gaunt import gaunt
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import unpack2
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.functional import XCFunctional
 
 # Fine-structure constant: (~1/137)
@@ -237,10 +238,13 @@ def integrate(n0_g: Array1D,
 
     head_j = d_j * np.polyval(a_i, r_j)
     head_j[1:] *= r_j[1:]**-beta
-    n0 += simps(head_j, r_j)
+    n0 += simpson(head_j, r_j)
 
     tail_g = n0_g[4:] * delta(r_g[4:], rT)
-    n0 += simps(tail_g, r_g[4:], even='first')
+    if SCIPY_VERSION >= [1, 11]:
+        n0 += simpson(tail_g, r_g[4:])
+    else:
+        n0 += simpson(tail_g, r_g[4:], even='first')
 
     return n0
 
