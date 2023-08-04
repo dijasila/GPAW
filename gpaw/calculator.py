@@ -714,7 +714,8 @@ class GPAW(Calculator):
                 ('Finite-difference mode implicitly chosen; '
                  'it will be an error to not specify a mode in the future'),
                 DeprecatedParameterWarning)
-            mode = par.mode = 'fd'
+            mode = 'fd'
+            par.mode = 'fd'
         if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
