@@ -93,7 +93,7 @@ def test_tddft_fail_with_symmetry(in_tmp_dir):
     # Larger box
     atoms.center(vacuum=6.0)
     # Larger grid spacing, LDA is ok
-    gs_calc = GPAW(nbands=1, h=0.35, xc='LDA', setups={'Na': '1'})
+    gs_calc = GPAW(nbands=1, mode='fd', h=0.35, xc='LDA', setups={'Na': '1'})
     atoms.calc = gs_calc
     atoms.get_potential_energy()
     gs_calc.write('na2_gs.gpw', 'all')

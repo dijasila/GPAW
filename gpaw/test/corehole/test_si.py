@@ -54,7 +54,8 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
 
     # 2p corehole
     s = gen('Si', name='hch2p', corehole=(2, 1, 0.5), gpernode=30)
-    calc = GPAW(nbands=None,
+    calc = GPAW(mode='fd',
+                nbands=None,
                 h=0.25,
                 occupations=FermiDirac(width=0.05),
                 setups={0: s})
