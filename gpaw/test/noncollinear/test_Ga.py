@@ -34,7 +34,7 @@ def test_noncollinear_Ga_2():
     D_sii[0, 0, 0] = 2
     P_sm = np.array([[0.2 + 0.3j, 0.1 + 0.2j, 0.3 + 0.4j],
                      [0.4 - 0.5j, 0.2 + 0.3j, 0.6 - 0.7j]])
-    for U_mm in [1.0, [[0, 0, 1], [0, 1, 0], [-1, 0, 0]]]:
+    for U_mm in [np.eye(3), [[0, 0, 1], [0, 1, 0], [-1, 0, 0]]]:
         P_sm = P_sm @ U_mm
         D_ssmm = np.einsum('si, zj -> szij', P_sm.conj(), P_sm)
         soc = not False
