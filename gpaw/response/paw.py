@@ -16,6 +16,46 @@ class Setuplet:
 
 
 def calculate_pair_density_correction(qG_Gv, *, pawdata):
+    r"""Calculate the atom-centered PAW correction to the pair density.
+                                                      ˍ
+    The atom-centered pair density correction tensor, Q_aii', is defined as the
+    atom-centered Fourier transform
+
+    ˍ             /                                     ˷         ˷
+    Q_aii'(G+q) = | dr e^-i(G+q)r [φ_ai^*(r) φ_ai'(r) - φ_ai^*(r) φ_ai'(r)]
+                  /
+
+    evaluated with the augmentation sphere center at the origin. The full pair
+    density correction tensor is then given by
+                                  ˍ
+    Q_aii'(G+q) = e^(-i[G+q].R_a) Q_aii'(G+q)
+
+    Expanding the plane wave coefficient into real spherical harmonics and
+    spherical Bessel functions, the correction can split into angular and
+    radial contributions
+
+                    l
+                __  __
+                \   \      l  m ˰   m,m_i,m_i'
+    Q_aii'(K) = /   /  (-i)  Y (K) g
+                ‾‾  ‾‾        l     l,l_i,l_i'
+                l  m=-l
+                            rc
+                            /                    a     a      ˷a    ˷a
+                       × 4π | r^2 dr j_l(|K|r) [φ (r) φ (r) - φ (r) φ (r)]
+                            /                    j_i   j_i'    j_i   j_i'
+                            0
+
+    where K = G+q and g denotes the Gaunt coefficients.
+
+    For more information, see [PRB 103, 245110 (2021)]. In particular, it
+    should be noted that the partial waves themselves are defined via real
+    spherical harmonics and radial functions φ_j from the PAW setups:
+
+     a       m_i ˰   a
+    φ (r) = Y   (r) φ (r)
+     i       l_i     j_i
+    """
     rgd = pawdata.rgd
     l_j = pawdata.l_j
     phi_jg = pawdata.data.phi_jg
@@ -124,8 +164,16 @@ class PWPAWCorrectionData:
 
 
 def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
-    """Calculate and bundle paw corrections to the pair densities as a
-    PWPAWCorrectionData object."""
+    r"""Calculate and bundle paw corrections to the pair densities as a
+    PWPAWCorrectionData object.
+
+    The pair density PAW correction tensor is given by:
+
+                  /
+    Q_aii'(G+q) = | dr e^(-i[G+q].r) [φ_ai^*(r-R_a) φ_ai'(r-R_a)
+                  /                     ˷             ˷
+                                      - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
+    """
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
     pos_av = spos_ac @ qpd.gd.cell_cv
 
