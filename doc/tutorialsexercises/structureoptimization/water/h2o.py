@@ -16,7 +16,7 @@ with open(f'results-{h:.2f}.txt', 'w') as resultfile:
             hund = True
         else:
             hund = False
-        calc = GPAW(h=h, hund=hund,
+        calc = GPAW(mode='fd', h=h, hund=hund,
                     txt=f'gpaw-{name}-{h:.2f}.txt')
     
         system.calc = calc

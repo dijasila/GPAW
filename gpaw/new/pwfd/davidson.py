@@ -130,8 +130,7 @@ class Davidson(Eigensolver):
         band_comm = psit_nX.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
 
-        M0_nn = M_nn
-        assert band_comm.size == 1
+        M0_nn = M_nn.new(dist=(band_comm, 1, 1))
 
         if domain_comm.rank == 0:
             eig_N[:B] = xp.asarray(wfs.eig_n)
@@ -268,7 +267,6 @@ def calculate_residuals(residual_nX: DA,
 def calculate_weights(converge_bands: int | str,
                       ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
-    assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
     nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
     nbands = ibzwfs.nbands
@@ -279,12 +277,14 @@ def calculate_weights(converge_bands: int | str,
             try:
                 # Methfessel-Paxton or cold-smearing distributions can give
                 # negative occupation numbers - so we take the absolute value:
-                weight_n = np.abs(wfs.occ_n)
+                weight_n = np.abs(wfs.myocc_n)
             except ValueError:
                 # No eigenvalues yet:
                 return [None] * nu
             weight_un.append(weight_n)
         return weight_un
+
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
 
     if converge_bands == 'all':
         return [np.ones(nbands)] * nu

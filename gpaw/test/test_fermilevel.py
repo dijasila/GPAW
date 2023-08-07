@@ -8,7 +8,8 @@ from gpaw import GPAW, Davidson, FermiDirac
 def test_fermilevel(in_tmp_dir):
     atoms = Atoms('He', pbc=True)
     atoms.center(vacuum=3)
-    params = dict(nbands=1,
+    params = dict(mode='fd',
+                  nbands=1,
                   eigensolver=Davidson(6),
                   occupations=FermiDirac(0.0),
                   txt=None)

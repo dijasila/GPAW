@@ -306,7 +306,7 @@ check-agts:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
     - >
-      [[ `cut -d ' ' -f1 < task_count` -ge 479 ]] || (echo "Too few agts tasks"; exit 1)
+      [[ `cut -d ' ' -f1 < task_count` -ge 501 ]] || (echo "Too few agts tasks"; exit 1)
 
 
 lint:
@@ -376,36 +376,49 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+    expire_in: 1 week
 
 
 .nightly:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "450"
   extends:
     - .test
   stage: test
   needs:
     - build-latest
   tags:
-    - linux
+    - xeon24
   before_script:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist pytest-timeout
     - export GPW_TEST_FILES=$HOME/gpw-test-files
   script:
-    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -x -r s --durations 30 --color=yes
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-serial:
+nightly-mpi-1:
   extends:
     - .nightly
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s
+    - pytest -n 4 --instafail -r s --durations 30 --color=yes
+
+
+nightly-mpi-1-new:
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - >
+      GPAW_NEW=1 pytest -n 4 --instafail -r s --durations 30 --color=yes -m
+      "not (later or dscf or gllb or elph or mgga or wannier or legacy or ofdft or mom or do or lrtddft or stress or rttddft or hybrids)"
 
 
 nightly-mpi-2:

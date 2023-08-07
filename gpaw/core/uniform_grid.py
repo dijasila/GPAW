@@ -92,7 +92,7 @@ class UniformGrid(Domain):
         return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
-    def phase_factors_cd(self):
+    def phase_factor_cd(self):
         """Phase factor for block-boundary conditions."""
         delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))

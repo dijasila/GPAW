@@ -17,7 +17,7 @@ def test_multipoleH2O(in_tmp_dir):
     s.minimal_box(3., h)
 
     gpwname = 'H2O_h' + str(h) + '.gpw'
-    s.calc = GPAW(h=h, charge=0, txt=None)
+    s.calc = GPAW(mode='fd', h=h, charge=0, txt=None)
     s.get_potential_energy()
     s.calc.write(gpwname)
 

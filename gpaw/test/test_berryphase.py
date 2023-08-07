@@ -43,6 +43,8 @@ def test_berry_phases(in_tmp_dir, gpw_files):
     assert np.allclose(phases, phasetest, atol=1e-3)
 
 
+# only master will raise, so this test will hang in parallel
+@pytest.mark.serial
 def test_assertions(in_tmp_dir, gpw_files):
     """
     Functions should only work without symmetry
