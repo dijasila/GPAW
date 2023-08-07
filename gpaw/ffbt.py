@@ -189,7 +189,7 @@ class FourierBesselTransformer:
                  /
                  0
         """
-        assert spline.get_cutoff() <= self.rcut,\
+        assert spline.get_cutoff() <= self.rcut, \
             f'Incompatible cutoffs {spline.get_cutoff()} and {self.rcut}'
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
