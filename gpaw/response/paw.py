@@ -15,7 +15,7 @@ class Setuplet:
         self.rcut_j = rcut_j
 
 
-def two_phi_planewave_integrals(qG_Gv, *, pawdata):
+def calculate_pair_density_correction(qG_Gv, *, pawdata):
     rgd = pawdata.rgd
     l_j = pawdata.l_j
     phi_jg = pawdata.data.phi_jg
@@ -132,7 +132,7 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
     # Collect integrals for all species:
     Q_xGii = {}
     for atom_index, pawdata in enumerate(pawdatasets):
-        Q_Gii = two_phi_planewave_integrals(qG_Gv, pawdata=pawdata)
+        Q_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
         ni = pawdata.ni
         Q_xGii[atom_index] = Q_Gii.reshape(-1, ni, ni)
 
