@@ -16,7 +16,8 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
-from gpaw.new.input_parameters import InputParameters
+from gpaw.new.input_parameters import (InputParameters,
+                                       DeprecatedParameterWarning)
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
@@ -28,7 +29,14 @@ from gpaw.utilities.memory import maxrss
 def GPAW(filename: Union[str, Path, IO[str]] = None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
-    params = InputParameters(kwargs)
+    if filename is None:
+        params = InputParameters(kwargs)
+    else:
+        # Don't trigger ParameterDeprecationWarnings from partial and/or unused
+        # kwargs if filename is given
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecatedParameterWarning)
+            params = InputParameters(kwargs)
     txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
@@ -468,7 +476,8 @@ class ASECalculator:
                                      scalapack=None,
                                      expert: bool = None) -> None:
         if expert is not None:
-            warnings.warn('Ignoring deprecated "expert" argument')
+            warnings.warn('Ignoring deprecated "expert" argument',
+                          DeprecationWarning)
         state = self.calculation.state
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,

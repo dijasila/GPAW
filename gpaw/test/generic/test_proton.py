@@ -18,7 +18,7 @@ def test_generic_proton(in_tmp_dir):
     H = Atoms('H', [(a / 2, a / 2, a / 2)],
               pbc=0,
               cell=(a, a, a))
-    H.calc = GPAW(nbands=1, h=0.2, charge=1, txt='H.txt')
+    H.calc = GPAW(mode='fd', nbands=1, h=0.2, charge=1, txt='H.txt')
     e0 = H.get_potential_energy()
     assert abs(e0 + H.calc.get_reference_energy()) < 0.014
 

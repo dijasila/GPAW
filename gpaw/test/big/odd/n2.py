@@ -4,7 +4,8 @@ from gpaw.odd.sic import SIC
 
 n = molecule('N')
 n.center(vacuum=3)
-calc = GPAW(xc=SIC(nspins=2),
+calc = GPAW(mode='fd',
+            xc=SIC(nspins=2),
             h=0.2,
             convergence=dict(eigenvalues=1e-5, density=1e-3),
             txt='N.txt')
@@ -13,7 +14,8 @@ e1 = n.get_potential_energy()
 
 n2 = molecule('N2')
 n2.center(vacuum=3)
-calc = GPAW(xc=SIC(nspins=1),
+calc = GPAW(mode='fd',
+            xc=SIC(nspins=1),
             h=0.2,
             convergence=dict(eigenvalues=1e-5, density=1e-3),
             txt='N2.txt')

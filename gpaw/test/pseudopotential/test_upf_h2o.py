@@ -51,7 +51,8 @@ def test_psp_upf_h2o():
 
         system = molecule('H2O')
         system.center(vacuum=3.5)
-        calc = GPAW(txt='-',
+        calc = GPAW(mode='fd',
+                    txt='-',
                     nbands=6,
                     setups=upfsetups,
                     # setups='paw',

@@ -9,7 +9,8 @@ a = Atoms('N2',
            (L / 2 - 1.098 / 2, L / 2, L / 2)],
           cell=(L, L, L), pbc=False)
 
-calc = GPAW(h=0.22,
+calc = GPAW(mode='fd',
+            h=0.22,
             xc='PBE',
             convergence={'eigenstates': 1.0e-7},
             txt=name + '_PBE.txt',
