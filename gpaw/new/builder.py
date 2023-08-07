@@ -55,13 +55,14 @@ def builder(atoms: Atoms,
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
     return getattr(mod, f'{name}DFTComponentsBuilder')(
-        atoms, params, comm, **mode)
+        atoms, params, comm=comm, **mode)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
                  params: InputParameters,
+                 *,
                  comm):
 
         self.atoms = atoms.copy()
