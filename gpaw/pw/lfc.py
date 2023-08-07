@@ -4,7 +4,7 @@ import _gpaw
 import numpy as np
 from gpaw.lfc import BaseLFC
 from gpaw.spherical_harmonics import Y, nablarlYL
-from gpaw.ffbt import rescaled_fbt
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.utilities.blas import mmm
 
 
@@ -84,7 +84,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = rescaled_fbt(spline)
+                    f = rescaled_fourier_bessel_transform(spline)
                     for f_Gs, G2_G in zip(self.f_qGs, self.pd.G2_qG):
                         G_G = G2_G**0.5
                         f_Gs[:, s] = f.map(G_G)
@@ -356,7 +356,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = rescaled_fbt(spline)
+                    s = rescaled_fourier_bessel_transform(spline)
                     G_G = self.pd.G2_qG[q]**0.5
                     f_G = []
                     dfdGoG_G = []

@@ -1,39 +1,62 @@
 from math import factorial as fac
 import numpy as np
-from numpy.fft import ifft
 
 from gpaw import debug
 from gpaw.spline import Spline
 
 
 def generate_bessel_coefficients(lmax):
-    # Generate the coefficients for the Fourier-Bessel transform
-    C = []
-    a = 0.0 + 0.0j
-    for n in range(lmax + 1):
-        c = np.zeros(n + 1, complex)
-        for s in range(n + 1):
-            a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
-            a *= (-1.0j)**(n + 1)
-            c[s] = a
-        C.append(c)
-    return C
+    """Generate spherical Bessel function expansion coefficients.
+
+    The coefficients c_lm (see expansion below) can be generated from the
+    recurrence relation [see also master thesis of Marco Vanin (2008)]
+
+                        2l+1
+    j   (x) + j   (x) = ‾‾‾‾ j (x)    for l≥1
+     l-1       l+1       x    l
+
+    which implies that
+
+    c     = (2l+1) c      for l≥1 and m∊{0,1}
+     l+1m           lm
+
+    while
+
+    c     = (2l+1) c   - c          for l≥1 and m≥2
+     l+1m           lm    l-1m-2
+
+    With c_00 = i, c_10 = i and c_11=-1, it can be proven that the expansion
+    has the closed-form solution:
+
+           1+m     (2l-m)!
+    c   = i    ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+     lm        2^(l-m)(l-m)!m!
+    """
+    c_lm = []
+    for l in range(lmax + 1):
+        c_m = []
+        for m in range(l + 1):
+            c_m.append((1.0j)**(1 + m) * fac(2 * l - m)
+                       / (2**(l - m) * fac(l - m) * fac(m)))
+        c_lm.append(c_m)
+    return c_lm
 
 
-c_ln = generate_bessel_coefficients(lmax=6)
+c_lm = generate_bessel_coefficients(lmax=6)
 
 
 def spherical_bessel(l, x_g):
     r"""Calculate the spherical Bessel function j_l(x).
 
-    Evaluates the spherical Bessel function via the expansion
+    Evaluates the spherical Bessel function via the expansion [see master
+    thesis of Marco Vanin (2008)]
 
                       l
                       __
                 1     \
-    j_l(x) = ‾‾‾‾‾‾‾  /  Re{ c_ln x^(l-n) e^(ix) }
+    j_l(x) = ‾‾‾‾‾‾‾  /  Re{ c_lm x^m e^(-ix) }
              x^(l+1)  ‾‾
-                      n=0
+                      m=0
 
     for non-negative real-valued x.
     """
@@ -48,9 +71,8 @@ def spherical_bessel(l, x_g):
 
     # Evaluate j_l(x) using the coefficients
     xpos_g = x_g[~x0_g]
-    for n in range(l + 1):
-        jl_g[~x0_g] += (c_ln[l][n] * xpos_g**(l - n)
-                        * np.exp(1.j * xpos_g)).real
+    for m in range(l + 1):
+        jl_g[~x0_g] += (c_lm[l][m] * xpos_g**m * np.exp(-1.j * xpos_g)).real
     jl_g[~x0_g] /= xpos_g**(l + 1)
 
     return jl_g
@@ -73,38 +95,40 @@ def ffbt(l, f_g, r_g, k_q):
     follows using the coefficient expansion of j_l(x) given above:
 
            l
-           __        /  rc                        \
-           \   l-n   |  /      l-n+1       ikr    |
-    g(k) = /  k    Re<  | c   r      f(r) e    dr >
-           ‾‾        |  /  ln                     |
-           n=0       \  0                         /
+           __      /  rc                       \
+           \   m   |  /      m+1       -ikr    |
+    g(k) = /  k  Re<  | c   r    f(r) e     dr >
+           ‾‾      |  /  lm                    |
+           m=0     \  0                        /
 
-    With a uniform radial grid,
+    For a given uniform radial real-space grid,
 
-    r(g) = g rc / N    for g=0,1,...,Q-1
+    r(g) = g rc / N    for g=0,1,...,N-1
 
-    the inner integral is evaluated using an FFT,
+    we can evaluate the inner integral for values of k on a uniform radial
+    reciprocal-space grid of length Q≥N,
 
-    Q-1
-    __
-    \   ⎧    l-n+1      ⎫|        2πiqg/Q
-    /   |c   r     f(r) ||       e         Δr
-    ‾‾  ⎩ ln            ⎭|
-    g=0                   r=r(g)
-
-    where Δr=rc/N is the input real-space grid spacing and Q≥2N to leave some
-    zero padding of f(r).
-
-    We evaluate the integral for q=0,1,...,Q-1, but return only the first Q/2
-    frequencies, corresponding to the "positive" frequencies:
-
-            2π
-    k(q) = ‾‾‾‾ q    for q=0,1,...,Q/2-1
+            π
+    k(q) = ‾‾‾‾ q    for q=0,1,...,Q-1
            Q Δr
+
+    by applying the Fast-Fourier-Transform on a 2Q length grid, including also
+    the corresponding "negative frequency" k-points:
+
+    2Q-1
+    __
+    \   ⎧     m+1      ⎫|        -2πiqg/2Q
+    /   |c   r    f(r) ||       e          Δr
+    ‾‾  ⎩ lm           ⎭|
+    g=0                  r=r(g)
+
+    The "negative frequency" k-points are there only for the sake of the FFT
+    and only the "positive frequency" k-points, corresponding to the radial
+    reciprocal space grid, are returned.
     """
 
     dr = r_g[1]
-    Nq = len(k_q)
+    Q = len(k_q)
 
     if debug:
         # We assume a uniform real-space grid from r=0 to r=rc-Δr
@@ -114,19 +138,19 @@ def ffbt(l, f_g, r_g, k_q):
         # spacing in relation to Δr, starting from k=0 and including all the
         # "positive frequencies"
         assert k_q[0] == 0.
-        assert Nq >= len(r_g)
-        dk = np.pi / (Nq * dr)
+        assert Q >= len(r_g)
+        dk = np.pi / (Q * dr)
         assert np.allclose(k_q[1:] - k_q[:-1], dk)
 
     # Perform the transform
-    g_q = np.zeros(Nq)
-    for n in range(l + 1):
-        g_q += (k_q**(l - n) *
-                # Use np.fft.ifft with Q=2Nq k-points (why?)
-                2 * Nq * ifft(
-                    c_ln[l][n] * r_g**(l - n + 1) * f_g, 2 * Nq)
-                # Take the real part of the Q/2 positive frequency points
-                [:Nq].real) * dr
+    g_q = np.zeros(Q)
+    for m in range(l + 1):
+        g_q += (k_q**m *
+                # Perform FFT with 2Q grid points (numpy automatically pads
+                # the integrand with zeros for g≥N, that is for r≥rc)
+                np.fft.fft(c_lm[l][m] * r_g**(m + 1) * f_g, 2 * Q)
+                # Use the real part of the Q positive frequency points
+                [:Q].real) * dr
     return g_q
 
 
@@ -143,18 +167,17 @@ def rescaled_bessel_limit(l):
 
 
 class FourierBesselTransformer:
-    def __init__(self, rcmax, ng):
+    def __init__(self, rcut, N):
         """Construct the transformer with ffbt-compliant grids."""
-        self.ng = ng
-        self.rcmax = rcmax
-        self.dr = rcmax / self.ng
-        self.r_g = np.arange(self.ng) * self.dr
-        # Positive frequency grid
-        Nq = 2 * self.ng
-        self.dk = np.pi / (Nq * self.dr)
-        self.k_q = np.arange(Nq) * self.dk
-        # Number of positive and negative frequency grid points
-        self.Q = 2 * Nq
+        # Set up radial real-space grid with N points
+        self.N = N
+        self.rcut = rcut
+        self.dr = rcut / self.N
+        self.r_g = np.arange(self.N) * self.dr
+        # Set up radial reciprocal-space grid with Q=2N points
+        self.Q = 2 * self.N
+        self.dk = np.pi / (self.Q * self.dr)  # Use only "positive frequencies"
+        self.k_q = np.arange(self.Q) * self.dk
 
     def transform(self, spline):
         """Fourier-Bessel transform a given radial function f(r).
@@ -166,8 +189,8 @@ class FourierBesselTransformer:
                  /
                  0
         """
-        assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
-                                                   self.rcmax)
+        assert spline.get_cutoff() <= self.rcut, \
+            f'Incompatible cutoffs {spline.get_cutoff()} and {self.rcut}'
         l = spline.get_angular_momentum_number()
         f_g = spline.map(self.r_g)
         f_q = ffbt(l, f_g, self.r_g, self.k_q)
@@ -211,7 +234,7 @@ class FourierBesselTransformer:
         return prefactor * np.dot(self.r_g**(2 * l + 2), f_g)
 
 
-def rescaled_fbt(spline, N=2**10):
+def rescaled_fourier_bessel_transform(spline, N=2**10):
     """Calculate rescaled Fourier-Bessel transform in spline representation."""
     # Fourier transform the spline, sampling it on a uniform grid
     rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
