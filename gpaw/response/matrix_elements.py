@@ -152,8 +152,8 @@ class MatrixElementCalculator(ABC):
         # Fold out the projectors to the transition index
         P1_amyti = ikpt1.projectors_in_transition_index(P1h)
         P2_amyti = ikpt2.projectors_in_transition_index(P2h)
-        assert P1_amyti.atom_partition.comm.size ==\
-            P2_amyti.atom_partition.comm.size == 1,\
+        assert P1_amyti.atom_partition.comm.size == \
+            P2_amyti.atom_partition.comm.size == 1, \
             'We need access to the projections of all atoms'
 
         self._add_paw_correction(P1_amyti, P2_amyti, matrix_element)
