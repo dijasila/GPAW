@@ -18,9 +18,10 @@ def test_pol(in_tmp_dir, gpw_files):
     phi_c = get_polarization_phase(str(gpw_files['mos2_pw_nosym_wfs']))
 
     # Only should test modulo 2pi
-    phi = phi_c / (2 * np.pi) % 1
+    phi = phi_c / (2 * np.pi)
     phitest = [6.60376287e-01, 3.39625036e-01, 0.0]
-    assert np.allclose(phi, phitest, atol=1e-3)
+    err = phi - phitest
+    assert err == pytest.approx(err.round(), abs=1e-3)
 
 
 def test_berry_phases(in_tmp_dir, gpw_files):
@@ -42,6 +43,8 @@ def test_berry_phases(in_tmp_dir, gpw_files):
     assert np.allclose(phases, phasetest, atol=1e-3)
 
 
+# only master will raise, so this test will hang in parallel
+@pytest.mark.serial
 def test_assertions(in_tmp_dir, gpw_files):
     """
     Functions should only work without symmetry

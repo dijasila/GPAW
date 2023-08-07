@@ -186,7 +186,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
         J_qabp[q] = isoexch_calc0(q_c, sitekernels)
         chiksr_buffer = isoexch_calc0._chiksr
         Juc_qs[q, 0] = isoexch_calc0(q_c, ucsitekernels)[0, 0, 0]
-        assert isoexch_calc0._chiksr is chiksr_buffer,\
+        assert isoexch_calc0._chiksr is chiksr_buffer, \
             'Two subsequent IsotropicExchangeCalculator calls with the same '\
             'q_c, should reuse, not update, the chiks buffer'
 

@@ -128,17 +128,21 @@ class PlaneWaves(Domain):
         """
         return PlaneWaveExpansions(self, dims, comm, xp=xp)
 
+    def from_data(self, data):
+        return PlaneWaveExpansions(self, data.shape[:-1], data=data)
+
     def new(self,
             *,
             ecut: float = None,
             kpt=None,
+            dtype=None,
             comm: MPIComm | str = 'inherit') -> PlaneWaves:
         """Create new plane-wave expansion description."""
         comm = self.comm if comm == 'inherit' else comm
         return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
                           kpt=self.kpt_c if kpt is None else kpt,
-                          dtype=self.dtype,
+                          dtype=dtype or self.dtype,
                           comm=comm or serial_comm)
 
     def indices(self, shape: tuple[int, ...]) -> Array1D:
@@ -274,7 +278,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         for data in self.data:
             yield PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
 
-    def new(self, data=None):
+    def new(self,
+            data=None) -> PlaneWaveExpansions:
         """Create new PlaneWaveExpansions object of same kind.
 
         Parameters
@@ -288,7 +293,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             # Number of plane-waves depends on the k-point.  We therfore
             # allow for data to be bigger than needed:
             data = data.ravel()[:self.data.size].reshape(self.data.shape)
-        return PlaneWaveExpansions(self.desc, self.dims, self.comm, data)
+        return PlaneWaveExpansions(self.desc,
+                                   self.dims,
+                                   self.comm,
+                                   data)
 
     def copy(self):
         """Create a copy (surprise!)."""
@@ -373,9 +381,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         if out is None:
             if comm.rank == 0 or broadcast:
                 pw = self.desc.new(comm=serial_comm)
-                out = pw.empty(self.dims, xp=self.xp)
+                out = pw.empty(self.dims, comm=self.comm, xp=self.xp)
             else:
-                out = Empty(self.dims)
+                out = Empty(self.mydims)
 
         if comm.rank == 0:
             data = self.xp.empty(self.desc.maxmysize * comm.size, complex)
@@ -611,6 +619,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
+        if self.desc.dtype == float and self.desc.comm.rank == 0:
+            a[..., 1] = 0.0
 
     def moment(self):
         pw = self.desc
@@ -630,11 +640,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw.comm.broadcast(m_v, 0)
         return m_v
 
-    def morph(self, pw):
+    def morph(self, pw: PlaneWaves) -> PlaneWaveExpansions:
         pw0 = self.desc
         out_xG = pw.zeros(self.dims,
                           comm=self.comm,
                           xp=self.xp)
+        assert isinstance(out_xG, PlaneWaveExpansions)  # MYPY!!!!
 
         d = {}
         for G, i_c in enumerate(pw.indices_cG.T):
@@ -642,8 +653,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         G_G0 = []
         G0_G = []
         for G0, i_c in enumerate(pw0.indices_cG.T):
-            G = d.get(tuple(i_c))
-            if G is not None:
+            G = d.get(tuple(i_c), -1)
+            if G != -1:
                 G_G0.append(G)
                 G0_G.append(G0)
 

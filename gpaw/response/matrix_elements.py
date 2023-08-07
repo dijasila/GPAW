@@ -286,9 +286,8 @@ class NewPairDensityCalculator(MatrixElementCalculator):
             # Sum over partial wave indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
-
+            
 class SitePairDensity(MatrixElement):
-
     def __init__(self, tblocks, qpd, atomic_site_data):
         self.nsites = atomic_site_data.nsites
         self.npartitions = atomic_site_data.npartitions

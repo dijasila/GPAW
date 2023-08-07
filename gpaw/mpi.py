@@ -217,7 +217,7 @@ class _Communicator:
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
-    
+
     def min_scalar(self, a, root=-1):
         assert isinstance(a, (int, float))
         return self.comm.min_scalar(a, root)
@@ -628,7 +628,7 @@ class SerialCommunicator:
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
-    
+
     def sum_scalar(self, a, root=-1):
         return a
 
@@ -643,7 +643,7 @@ class SerialCommunicator:
 
     def max(self, value, root=-1):
         return value
-    
+
     def max_scalar(self, value, root=-1):
         return value
 

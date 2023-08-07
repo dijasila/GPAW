@@ -57,8 +57,9 @@ def test_watermodel(in_tmp_dir):
     atoms.calc = TIP3PWaterModel(rc=cutoff)
     atoms_ref.calc = TIP3P(rc=cutoff)
 
-    np.random.seed(123)
+    rng = np.random.RandomState(123)
     md = Langevin(atoms, 1 * units.fs, temperature_K=300,
+                  rng=rng,
                   friction=0.01, logfile='C.log')
     traj = Trajectory('C.traj', 'w', atoms)
     md.attach(traj.write, interval=1)
@@ -73,8 +74,9 @@ def test_watermodel(in_tmp_dir):
         Cversion / NSTEPS * 1000))
     traj.close()
 
-    np.random.seed(123)
+    rng = np.random.RandomState(123)
     md_ref = Langevin(atoms_ref, 1 * units.fs, temperature_K=300,
+                      rng=rng,
                       friction=0.01, logfile='ref.log')
     traj_ref = Trajectory('ref.traj', 'w', atoms_ref)
     md_ref.attach(traj_ref.write, interval=1)
