@@ -119,10 +119,11 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     atoms, calculation, params, builder
     """
     parallel = parallel or {}
-    comm = comm or mpi.world
 
     if not isinstance(log, Logger):
-        log = Logger(log, comm)
+        log = Logger(log, comm or mpi.world)
+
+    comm = log.comm
 
     log(f'Reading from {filename}')
 
@@ -218,8 +219,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         builder.setups,
         builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator(),
-        log=log,
-        comm=comm)
+        log=log)
 
     results = {key: value / units[key]
                for key, value in reader.results.asdict().items()}

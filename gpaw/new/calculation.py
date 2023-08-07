@@ -10,7 +10,7 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
-from gpaw.mpi import broadcast_float
+from gpaw.mpi import broadcast_float, world
 from gpaw.new import cached_property, zip
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
@@ -75,14 +75,13 @@ class DFTCalculation:
                  setups: Setups,
                  scf_loop: SCFLoop,
                  pot_calc,
-                 log: Logger,
-                 comm):
+                 log: Logger):
         self.state = state
         self.setups = setups
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
         self.log = log
-        self.comm = comm
+        self.comm = log.comm
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -91,7 +90,7 @@ class DFTCalculation:
     def from_parameters(cls,
                         atoms: Atoms,
                         params: Union[dict, InputParameters],
-                        comm,
+                        comm=None,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -104,10 +103,10 @@ class DFTCalculation:
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or create_builder(atoms, params, comm)
-
         if not isinstance(log, Logger):
-            log = Logger(log, comm)
+            log = Logger(log, comm or world)
+
+        builder = builder or create_builder(atoms, params, log.comm)
 
         basis_set = builder.create_basis_set()
 
@@ -131,7 +130,7 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return cls(state, builder.setups, scf_loop, pot_calc, log, comm)
+        return cls(state, builder.setups, scf_loop, pot_calc, log)
 
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)

@@ -14,11 +14,11 @@ class Logger:
     def __init__(self,
                  filename: str | Path | IO[str] | None = '-',
                  comm: MPIComm = None):
-        comm = comm or world
+        self.comm = comm or world
 
         self.fd: IO[str]
 
-        if comm.rank > 0 or filename is None:
+        if self.comm.rank > 0 or filename is None:
             self.fd = open(os.devnull, 'w', encoding='utf-8')
             self.close_fd = True
         elif filename == '-':

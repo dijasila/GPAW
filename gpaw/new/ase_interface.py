@@ -42,21 +42,20 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         if set(kwargs) > {'parallel'}:
             raise ValueError(...)
         atoms, calculation, params, _ = read_gpw(filename,
-                                                 log=log, parallel=parallel,
-                                                 comm=comm)
+                                                 log=log,
+                                                 parallel=parallel)
         return ASECalculator(params,
-                             log=log, calculation=calculation, atoms=atoms,
-                             comm=comm)
+                             log=log, calculation=calculation, atoms=atoms)
 
     params = InputParameters(kwargs)
-    write_header(log, comm, params)
-    return ASECalculator(params, log=log, comm=comm)
+    write_header(log, params)
+    return ASECalculator(params, log=log)
 
 
-def write_header(log, world, params):
+def write_header(log, params):
     from gpaw.io.logger import write_header as header
     log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
-    header(log, world)
+    header(log, log.comm)
     log('---')
     with log.indent('input parameters:'):
         log(**{k: v for k, v in params.items()})
@@ -90,12 +89,11 @@ class ASECalculator:
                  params: InputParameters,
                  *,
                  log: Logger,
-                 comm,
                  calculation=None,
                  atoms=None):
         self.params = params
         self.log = log
-        self.comm = comm
+        self.comm = log.comm
         self.calculation = calculation
 
         self.atoms = atoms
@@ -518,14 +516,12 @@ class ASECalculator:
             scf_loop,
             SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac,
                             poisson_solver=None),
-            log,
-            self.comm)
+            log)
 
         calculation.converge()
 
         return ASECalculator(params,
                              log=log,
-                             comm=self.comm,
                              calculation=calculation,
                              atoms=self.atoms)
 
