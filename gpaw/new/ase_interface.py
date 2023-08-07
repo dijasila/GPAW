@@ -41,7 +41,9 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if filename is not None:
         if set(kwargs) > {'parallel'}:
             raise ValueError(...)
-        atoms, calculation, params, _ = read_gpw(filename, log, parallel)
+        atoms, calculation, params, _ = read_gpw(filename,
+                                                 log=log, parallel=parallel,
+                                                 comm=comm)
         return ASECalculator(params,
                              log=log, calculation=calculation, atoms=atoms,
                              comm=comm)
