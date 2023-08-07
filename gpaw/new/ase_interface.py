@@ -36,7 +36,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     if txt == '?':
         txt = '-' if filename is None else None
 
-    normalize_parallel(parallel, communicator)
+    parallel = normalize_parallel(parallel, communicator)
 
     log = Logger(txt, parallel['comm'])
 
@@ -50,6 +50,7 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
 
 
 def normalize_parallel(parallel, communicator=None):
+    parallel = parallel or {}
     if communicator is not None:
         warnings.warn(('Please use parallel={''comm'': ...} ' +
                        'instead of communicator=...'),
@@ -80,6 +81,7 @@ def normalize_parallel(parallel, communicator=None):
                            parallel)
     if parallel['comm'] is None:
         parallel['comm'] = world
+    return parallel
 
 
 def write_header(log, world, params):

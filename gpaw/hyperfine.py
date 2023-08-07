@@ -12,6 +12,7 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
+import argparse
 from math import pi
 from typing import List
 
@@ -35,12 +36,12 @@ from gpaw.xc.functional import XCFunctional
 # Fine-structure constant: (~1/137)
 alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
 
-g_factor_e = 2.00231930436256
+G_FACTOR_E = 2.00231930436256
 
 
 def hyperfine_parameters(calc: GPAW,
                          exclude_core=False) -> Array3D:
-    r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
+    r"""Calculate isotropic and anisotropic hyperfine coupling parameters.
 
     One tensor (:math:`A_{ij}`) per atom is returned in eV units.
     In Hartree atomic units, we have the isotropic part
@@ -82,7 +83,7 @@ def hyperfine_parameters(calc: GPAW,
 
         A_avv[a] += A_vv
 
-    A_avv *= pi * alpha**2 * g_factor_e * units._me / units._mp * units.Ha
+    A_avv *= pi * alpha**2 * G_FACTOR_E * units._me / units._mp * units.Ha
 
     return A_avv
 
@@ -272,9 +273,10 @@ def core_contribution(density_sii: Array3D,
     vr_sg += rgd.poisson(n_sg.sum(axis=0))
 
     # Find first bound s-state included in PAW potential:
-    for n0, l in zip(setup.n_j, setup.l_j):
+    for n, l in zip(setup.n_j, setup.l_j):
         if l == 0:
-            assert n0 > 0
+            assert n > 0
+            n0 = n
             break
     else:
         assert False, (setup.n_j, setup.l_j)
@@ -318,7 +320,7 @@ gyromagnetic_ratios = {'H': (1, 42.577478518),
 
 
 def main(argv: List[str] = None) -> None:
-    import argparse
+    """Command-line interface."""
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.hyperfine',
         description='Calculate hyperfine parameters.')

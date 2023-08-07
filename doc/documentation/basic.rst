@@ -138,8 +138,8 @@ given in the following sections.
       -
       - Pulay :ref:`manual_mixer` scheme
     * - ``mode``
-      - ``str``
-      - ``'fd'``
+      - ``str`` or ``dict``
+      -
       - :ref:`manual_mode`
     * - ``nbands``
       - ``int``
@@ -232,8 +232,15 @@ LCAO:
     See also the page on :ref:`lcao`.
 
 Finite-difference:
-    The default mode (``mode='fd'``) is Finite Difference. This means that
-    the wave functions will be expanded on a real space grid.
+    Expand the wave functions on a real space grid, chosen by
+    ``mode='fd'``.
+
+.. warning::
+    In the future, it will become an error to not specify a
+    :ref:`mode <manual_mode>`` parameter for a DFT calculation.
+    For now, users will get a warning when finite-difference mode
+    is implicitly chosen.
+    Please change your scripts to avoid this error/warning.
 
 
 Comparing PW, LCAO and FD modes

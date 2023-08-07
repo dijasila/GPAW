@@ -44,7 +44,11 @@ def test_solvation_sss09():
     atoms.minimal_box(vac, h)
 
     if not SKIP_VAC_CALC:
-        atoms.calc = GPAW(xc='PBE', h=h, charge=-1, convergence=convergence)
+        atoms.calc = GPAW(mode='fd',
+                          xc='PBE',
+                          h=h,
+                          charge=-1,
+                          convergence=convergence)
         Evac = atoms.get_potential_energy()
         print(Evac)
     else:
