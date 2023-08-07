@@ -16,41 +16,39 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
-from gpaw.new.input_parameters import (InputParameters,
-                                       DeprecatedParameterWarning)
+from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
+from gpaw.mpi import world
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
+         txt: str | Path | IO[str] | None = '?',
+         communicator=None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
-    if filename is None:
-        params = InputParameters(kwargs)
-    else:
-        # Don't trigger ParameterDeprecationWarnings from partial and/or unused
-        # kwargs if filename is given
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecatedParameterWarning)
-            params = InputParameters(kwargs)
-    txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
-    world = params.parallel['world']
-    log = Logger(txt, world)
+
+    parallel = kwargs.get('parallel', {})
+    comm = parallel.get('world', communicator or world)
+    log = Logger(txt, comm)
 
     if filename is not None:
-        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
-        atoms, calculation, params, _ = read_gpw(filename, log,
-                                                 params.parallel)
-        return ASECalculator(params, log, calculation, atoms)
+        if set(kwargs) > {'parallel'}:
+            raise ValueError(...)
+        atoms, calculation, params, _ = read_gpw(filename, log, parallel)
+        return ASECalculator(params,
+                             log=log, calculation=calculation, atoms=atoms,
+                             comm=comm)
 
-    write_header(log, world, params)
-    return ASECalculator(params, log)
+    params = InputParameters(kwargs)
+    write_header(log, comm, params)
+    return ASECalculator(params, log=log, comm=comm)
 
 
 def write_header(log, world, params):
@@ -88,11 +86,14 @@ class ASECalculator:
 
     def __init__(self,
                  params: InputParameters,
+                 *,
                  log: Logger,
+                 comm,
                  calculation=None,
                  atoms=None):
         self.params = params
         self.log = log
+        self.comm = comm
         self.calculation = calculation
 
         self.atoms = atoms
@@ -197,7 +198,7 @@ class ASECalculator:
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
-                atoms, self.params, self.log)
+                atoms, self.params, self.comm, self.log)
         self.atoms = atoms.copy()
 
     def create_new_calculation_from_old(self, atoms: Atoms) -> None:
@@ -495,15 +496,11 @@ class ASECalculator:
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
 
-    def fixed_density(self, **kwargs):
+    def fixed_density(self, txt='-', **kwargs):
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
-        txt = params.txt
-        if txt == '?':
-            txt = '-'
-        world = params.parallel['world']
-        log = Logger(txt, world)
-        builder = create_builder(self.atoms, params)
+        log = Logger(txt, self.comm)
+        builder = create_builder(self.atoms, params, self.comm)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
@@ -519,11 +516,16 @@ class ASECalculator:
             scf_loop,
             SimpleNamespace(fracpos_ac=self.calculation.fracpos_ac,
                             poisson_solver=None),
-            log)
+            log,
+            self.comm)
 
         calculation.converge()
 
-        return ASECalculator(params, log, calculation, self.atoms)
+        return ASECalculator(params,
+                             log=log,
+                             comm=self.comm,
+                             calculation=calculation,
+                             atoms=self.atoms)
 
     def initialize(self, atoms):
         self.create_new_calculation(atoms)

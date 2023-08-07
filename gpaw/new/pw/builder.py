@@ -20,9 +20,9 @@ from gpaw.typing import Array1D
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340, qspiral=None):
+    def __init__(self, atoms, params, comm, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm)
 
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))

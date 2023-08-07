@@ -75,12 +75,14 @@ class DFTCalculation:
                  setups: Setups,
                  scf_loop: SCFLoop,
                  pot_calc,
-                 log: Logger):
+                 log: Logger,
+                 comm):
         self.state = state
         self.setups = setups
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
         self.log = log
+        self.comm = comm
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -89,6 +91,7 @@ class DFTCalculation:
     def from_parameters(cls,
                         atoms: Atoms,
                         params: Union[dict, InputParameters],
+                        comm,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -101,10 +104,10 @@ class DFTCalculation:
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or create_builder(atoms, params)
+        builder = builder or create_builder(atoms, params, comm)
 
         if not isinstance(log, Logger):
-            log = Logger(log, params.parallel['world'])
+            log = Logger(log, comm)
 
         basis_set = builder.create_basis_set()
 
@@ -128,11 +131,7 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return cls(state,
-                   builder.setups,
-                   scf_loop,
-                   pot_calc,
-                   log)
+        return cls(state, builder.setups, scf_loop, pot_calc, log, comm)
 
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
@@ -306,7 +305,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
 
-        builder = create_builder(atoms, params)
+        builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
         old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
@@ -347,11 +346,8 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return DFTCalculation(state,
-                              builder.setups,
-                              scf_loop,
-                              pot_calc,
-                              log)
+        return DFTCalculation(
+            state, builder.setups, scf_loop, pot_calc, log, self.comm)
 
 
 def combine_energies(potential: Potential,

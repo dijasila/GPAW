@@ -13,8 +13,8 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    def __init__(self, atoms, params, nn=3, interpolation=3):
-        super().__init__(atoms, params)
+    def __init__(self, atoms, params, comm, nn=3, interpolation=3):
+        super().__init__(atoms, params, comm)
         assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation

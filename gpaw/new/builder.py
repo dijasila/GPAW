@@ -36,7 +36,8 @@ from gpaw.xc import XC
 
 
 def builder(atoms: Atoms,
-            params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+            params: dict[str, Any] | InputParameters,
+            comm) -> DFTComponentsBuilder:
     """Create DFT-components builder.
 
     * pw
@@ -53,22 +54,23 @@ def builder(atoms: Atoms,
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
+    return getattr(mod, f'{name}DFTComponentsBuilder')(
+        atoms, params, comm, **mode)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
-                 params: InputParameters):
+                 params: InputParameters,
+                 comm):
 
         self.atoms = atoms.copy()
         self.mode = params.mode['name']
         self.params = params
 
         parallel = params.parallel
-        world = parallel['world']
 
-        synchronize_atoms(atoms, world)
+        synchronize_atoms(atoms, comm)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -87,7 +89,7 @@ class DFTComponentsBuilder:
                              params.setups,
                              params.basis,
                              self._xc.get_setup_name(),
-                             world=world)
+                             world=comm)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -105,7 +107,7 @@ class DFTComponentsBuilder:
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
-        self.communicators = create_communicators(world, len(self.ibz),
+        self.communicators = create_communicators(comm, len(self.ibz),
                                                   d, k, b, self.xp)
 
         if self.mode == 'fd':

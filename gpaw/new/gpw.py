@@ -30,10 +30,10 @@ def write_gpw(filename: str,
               calculation: DFTCalculation,
               skip_wfs: bool = True) -> None:
 
-    world = params.parallel['world']
+    comm = calculation.comm
 
     writer: ulm.Writer | ulm.DummyWriter
-    if world.rank == 0:
+    if comm.rank == 0:
         writer = ulm.Writer(filename, tag='gpaw')
     else:
         writer = ulm.DummyWriter()
@@ -70,7 +70,7 @@ def write_gpw(filename: str,
                                         state.ibzwfs,
                                         state.density.nt_sR.desc)
 
-    world.barrier()
+    comm.barrier()
 
 
 def write_wave_function_indices(writer, ibzwfs, grid):
@@ -107,6 +107,7 @@ def write_wave_function_indices(writer, ibzwfs, grid):
 
 def read_gpw(filename: Union[str, Path, IO[str]],
              log: Union[Logger, str, Path, IO[str]] = None,
+             comm=None,
              parallel: dict[str, Any] = None,
              dtype: DTypeLike = None):
     """
@@ -117,10 +118,10 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     atoms, calculation, params, builder
     """
     parallel = parallel or {}
-    world = parallel.get('world', mpi.world)
+    comm = comm or mpi.world
 
     if not isinstance(log, Logger):
-        log = Logger(log, world)
+        log = Logger(log, comm)
 
     log(f'Reading from {filename}')
 
@@ -138,9 +139,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     # kwargs['nbands'] = reader.wave_functions.eigenvalues.shape[-1]
 
     params = InputParameters(kwargs, warn=False)
-    builder = create_builder(atoms, params)
+    builder = create_builder(atoms, params, comm)
 
-    if world.rank == 0:
+    if comm.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
         D_sap_array = reader.density.atomic_density_matrices
@@ -153,12 +154,12 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         dH_sap_array = None
         shape = None
 
-    if builder.grid.global_shape() != mpi.broadcast(shape, comm=world):
+    if builder.grid.global_shape() != mpi.broadcast(shape, comm=comm):
         # old gpw-file:
         kwargs.pop('h', None)
         kwargs['gpts'] = nt_sR_array.shape[1:]
         params = InputParameters(kwargs, warn=False)
-        builder = create_builder(atoms, params)
+        builder = create_builder(atoms, params, comm)
 
     if dtype is not None:
         params.mode['dtype'] = dtype
@@ -216,7 +217,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         builder.setups,
         builder.create_scf_loop(),
         pot_calc=builder.create_potential_calculator(),
-        log=log)
+        log=log,
+        comm=comm)
 
     results = {key: value / units[key]
                for key, value in reader.results.asdict().items()}
