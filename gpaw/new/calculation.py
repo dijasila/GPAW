@@ -346,7 +346,7 @@ class DFTCalculation:
         log(pot_calc)
 
         return DFTCalculation(
-            state, builder.setups, scf_loop, pot_calc, log, self.comm)
+            state, builder.setups, scf_loop, pot_calc, log)
 
 
 def combine_energies(potential: Potential,
