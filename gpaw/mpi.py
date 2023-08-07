@@ -221,7 +221,7 @@ class _Communicator:
         assert isinstance(a, (int, float))
         return self.comm.min_scalar(a, root)
 
-    def scatter(self, a, b, root):
+    def scatter(self, a, b, root: int) -> None:
         """Distribute data from one rank to all other processes in a group.
 
         Parameters:
@@ -612,8 +612,9 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert isinstance(c_obj, _gpaw.Communicator)
-        return c_obj
+        if isinstance(c_obj, _gpaw.Communicator):
+            return c_obj
+        return c_obj.get_c_object()
 
 
 MPIComm = _Communicator  # for type hints
