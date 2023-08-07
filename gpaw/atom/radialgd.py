@@ -370,6 +370,7 @@ class RadialGridDescriptor(ABC):
                         l: int = 0,
                         points: int = 3,
                         Gcut: float = 6.0) -> Tuple[Array1D, float]:
+        """Minimize Fourier components above Gcut."""
         b_g, _ = self.pseudize(a_g, gc, l, points)
         c_x = np.empty(points + 1)
         gc0 = gc // 2

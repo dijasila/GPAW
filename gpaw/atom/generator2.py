@@ -480,7 +480,6 @@ class PAWSetupGenerator:
                                   self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
-
         phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P, divergent=True)
 
         dgdr_g = 1 / self.rgd.dr_g
@@ -1414,7 +1413,7 @@ class CLICommand:
             '(integer) or energy (floating point number). ' +
             'Example: 2s,0.5s,2p,0.5p,0.0d.')
         add('-r', '--radius',
-            help='1.2 or 1.2,1.1,1.1')
+            help='1.2 or 1.2,1.1,1.1.  Units: Bohr.')
         add('-0', '--zero-potential',
             metavar='nderivs,radius',
             help='Parameters for zero potential.')
@@ -1443,7 +1442,8 @@ class CLICommand:
         add('--core-hole')
         add('-e', '--electrons', type=int)
         add('-o', '--output')
-        add('--ecut', type=float)
+        add('--ecut', type=float, help='Minimize Fourier components above '
+            'ECUT for pseudo wave functions.')
         add('--ri', type=str,
             help='Calculate also resolution of identity basis.')
         add('--omega', type=float, default=None,
