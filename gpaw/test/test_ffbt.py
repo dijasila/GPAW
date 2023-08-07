@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 from scipy.special import spherical_jn
 
-from gpaw.lcao.overlap import spherical_bessel
+from gpaw.ffbt import spherical_bessel
 
 
 @pytest.mark.parametrize('l', range(7))

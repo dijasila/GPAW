@@ -2,25 +2,10 @@ from math import pi
 
 import _gpaw
 import numpy as np
-from gpaw.lcao.overlap import FourierTransformer
 from gpaw.lfc import BaseLFC
 from gpaw.spherical_harmonics import Y, nablarlYL
-from gpaw.spline import Spline
+from gpaw.ffbt import rescaled_fbt
 from gpaw.utilities.blas import mmm
-
-
-def rescaled_fbt(spline, N=2**10):
-    """Rescaled Fourier-Bessel transform."""
-    # Fourier transform the spline, sampling it on a uniform grid
-    rcut = 50.0  # Why not spline.get_cutoff() * 2 or similar?
-    assert spline.get_cutoff() <= rcut
-    transformer = FourierTransformer(rcut, N)
-    f_q = transformer.rescaled_transform(spline)
-
-    # Return spline representation of the transform
-    l = spline.get_angular_momentum_number()
-    kmax = transformer.k_q[-1]
-    return Spline(l, kmax, f_q)
 
 
 class PWLFC(BaseLFC):
