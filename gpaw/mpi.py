@@ -736,6 +736,9 @@ if gpaw.debug:
         world = serial_comm
     else:
         world = _Communicator(_world)
+else:
+    serial_comm = _serial_comm
+    world = _world
 
 rank = world.rank
 size = world.size
