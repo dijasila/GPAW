@@ -723,21 +723,19 @@ class SerialCommunicator:
         return _world
 
 
-# world: SerialCommunicator | _Communicator | _gpaw.Communicator
-# serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
 _serial_comm = SerialCommunicator()
 
 have_mpi = _world is not None
 
-if not have_mpi or _world.size == 1:
-    _world = _serial_comm  # type: ignore
+if not have_mpi:
+    _world = _serial_comm
 
 if gpaw.debug:
     serial_comm = _Communicator(_serial_comm)
-    world = _Communicator(_world)
-else:
-    serial_comm = _serial_comm  # type: ignore
-    world = _world  # type: ignore
+    if _world.size == 1:
+        world = serial_comm
+    else:
+        world = _Communicator(_world)
 
 rank = world.rank
 size = world.size
