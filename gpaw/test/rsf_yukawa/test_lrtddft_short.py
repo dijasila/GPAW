@@ -27,7 +27,7 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     def get_paw(**kwargs):
         """Return calculator object."""
         c = {'energy': 0.05, 'eigenstates': 0.05, 'density': 0.05}
-        return GPAW(convergence=c, eigensolver=RMMDIIS(),
+        return GPAW(mode='fd', convergence=c, eigensolver=RMMDIIS(),
                     nbands=3,
                     xc='PBE',
                     parallel={'domain': world.size}, h=0.35,

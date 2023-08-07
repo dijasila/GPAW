@@ -23,7 +23,8 @@ def test_pseudopotential_hgh_h2o():
     mol = molecule('H2O')
     mol.rattle(0.2)
     mol.center(vacuum=2.0)
-    calc = GPAW(nbands=6,
+    calc = GPAW(mode='fd',
+                nbands=6,
                 poissonsolver=PoissonSolver('fd'),
                 gpts=(32, 40, 40),
                 setups='hgh',

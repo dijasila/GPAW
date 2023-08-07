@@ -9,7 +9,7 @@ atoms = Atoms('CO',
                          (c + d / 2, c, c)],
               cell=(a, a, a))
 
-calc = GPAW(nbands=5, h=0.2, txt=None)
+calc = GPAW(mode='fd', nbands=5, h=0.2, txt=None)
 atoms.calc = calc
 
 # Start a calculation:
