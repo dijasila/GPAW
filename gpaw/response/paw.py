@@ -69,7 +69,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
-    Qb_Gii = np.zeros((npw, ni, ni), dtype=complex)
+    Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
 
     # Length of k-vectors
     k_G = np.sum(qG_Gv**2, axis=1)**0.5  # Rewrite me XXX
@@ -130,12 +130,14 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                             #        l
                             klY_G = Y(l**2 + m, *qG_Gv.T)
                             # Add contribution to the PAW correction
-                            Qb_Gii[:, i1, i2] += gaunt_coeff * klY_G * f_G
+                            Qbar_Gii[:, i1, i2] += gaunt_coeff * klY_G * f_G
 
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-    return Qb_Gii.reshape(npw, ni * ni)
+
+    # Get rid of this reshape madness... XXX
+    return Qbar_Gii.reshape(npw, ni * ni)
 
 
 class PWPAWCorrectionData:
@@ -215,18 +217,16 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
     pos_av = spos_ac @ qpd.gd.cell_cv
 
-    # Collect integrals for all species:
-    Q_xGii = {}
-    for atom_index, pawdata in enumerate(pawdatasets):
-        Q_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
-        ni = pawdata.ni
-        Q_xGii[atom_index] = Q_Gii.reshape(-1, ni, ni)
-
+    # Calculate pair density PAW correction tensor
     Q_aGii = []
-    for atom_index, pawdata in enumerate(pawdatasets):
-        Q_Gii = Q_xGii[atom_index]
-        x_G = np.exp(-1j * (qG_Gv @ pos_av[atom_index]))
-        Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
+    for pawdata, pos_v in zip(pawdatasets, pos_av):
+        # Calculate atom-centered correction tensor
+        ni = pawdata.ni
+        Qbar_Gii = calculate_pair_density_correction(
+            qG_Gv, pawdata=pawdata).reshape(-1, ni, ni)
+        # Add dependency on the atomic position (phase factor)
+        x_G = np.exp(-1j * (qG_Gv @ pos_v))
+        Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
                                pawdatasets=pawdatasets,
