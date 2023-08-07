@@ -57,47 +57,85 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
      i       l_i     j_i
     """
     rgd = pawdata.rgd
-    l_j = pawdata.l_j
+    ni = pawdata.ni  # Number of partial waves
+    l_j = pawdata.l_j  # l-index for each radial function index j
+    G_LLL = gaunt(max(l_j))
+    # (Real) radial functions for the partial waves
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
-    ni = pawdata.ni
-    
+
+    # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
     
-    # Initialize
+    # Initialize correction tensor
     npw = qG_Gv.shape[0]
-    phi_Gii = np.zeros((npw, ni, ni), dtype=complex)
+    Qb_Gii = np.zeros((npw, ni, ni), dtype=complex)
 
-    G_LLL = gaunt(max(l_j))
-    k_G = np.sum(qG_Gv**2, axis=1)**0.5
+    # Length of k-vectors
+    k_G = np.sum(qG_Gv**2, axis=1)**0.5  # Rewrite me XXX
 
-    i1_start = 0
-
+    # Loop of radial function indices for partial waves i and i'
+    i1_counter = 0
     for j1, l1 in enumerate(l_j):
-        i2_start = 0
+        i2_counter = 0
         for j2, l2 in enumerate(l_j):
-            # Calculate the radial part of the product density
-            rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+            # Calculate the radial partial wave correction
+            #                              ˷      ˷
+            # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+            dn_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+
+            # Some comment about selection rules here! XXX
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
-                spline = rgd.spline(rhot_g[:gcut2], l=l, points=2**10)
-                splineG = rescaled_fourier_bessel_transform(spline, N=2**12)
-                f_G = splineG.map(k_G) * (-1j)**l
+                # To evaluate the radial integral efficiently, we rely on the
+                # Fast Fourier Bessel Transform algorithm, see gpaw.ffbt.
+                # In order to do so, we make a spline representation of the
+                # radial partial wave correction rescaled with a factor of r^-l
+                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**10)
+                # This allows us to calculate a spline representation of the
+                # spherical Fourier-Bessel transform
+                #                 rc
+                #             4π  /
+                # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
+                #             k^l /
+                #                 0
+                kspline = rescaled_fourier_bessel_transform(spline, N=2**12)
+                # Finally, we can map the Fourier-Bessel transform onto the
+                # k-vectors in question
+                dn_G = kspline.map(k_G)
 
+                # Insert assertion concerning real-space interpolation XXX
+                # Insert comment, that points needs to depend on the paw
+                # dataset, if failing XXX
+                # Insert assertion about kmax of spline representation XXX
+                # Insert comment that N and rcut in the rescaled_fbt (the
+                # latter is currently hardcoded) needs to depend on the paw
+                # dataset, if failing XXX
+
+                # Angular part of the integral
+                f_G = (-1j)**l * dn_G
+                # Generate m-indices for each radial function
                 for m1 in range(2 * l1 + 1):
-                    i1 = i1_start + m1
                     for m2 in range(2 * l2 + 1):
-                        i2 = i2_start + m2
+                        # Set up the i=(l,m) index for each partial wave
+                        i1 = i1_counter + m1
+                        i2 = i2_counter + m2
+                        # Extract Gaunt coefficients
                         G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
-                        for m, G in enumerate(G_m):
-                            # If Gaunt coefficient is zero, no need to add
-                            if G == 0:
+                        for m, gaunt_coeff in enumerate(G_m):
+                            if gaunt_coeff == 0:
                                 continue
-                            x_G = Y(l**2 + m, *qG_Gv.T) * f_G
-                            phi_Gii[:, i1, i2] += G * x_G
+                            # Calculate the solid harmonic
+                            #        m ˰
+                            # |K|^l Y (K)
+                            #        l
+                            klY_G = Y(l**2 + m, *qG_Gv.T)
+                            # Add contribution to the PAW correction
+                            Qb_Gii[:, i1, i2] += gaunt_coeff * klY_G * f_G
 
-            i2_start += 2 * l2 + 1
-        i1_start += 2 * l1 + 1
-    return phi_Gii.reshape(npw, ni * ni)
+            # Add to i and i' counters
+            i2_counter += 2 * l2 + 1
+        i1_counter += 2 * l1 + 1
+    return Qb_Gii.reshape(npw, ni * ni)
 
 
 class PWPAWCorrectionData:
