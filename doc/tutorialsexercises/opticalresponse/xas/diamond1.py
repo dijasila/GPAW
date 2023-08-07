@@ -21,7 +21,8 @@ atoms = Atoms('C8', [(0, 0, 0),
 atoms.set_cell((a, a, a), scale_atoms=True)
 atoms *= (3, 3, 3)
 
-calc = GPAW(h=0.2,
+calc = GPAW(mode='fd',
+            h=0.2,
             txt=name + '.txt',
             xc='PBE',
             setups={0: 'hch1s'})

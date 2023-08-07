@@ -8,7 +8,10 @@ def test_xc_revPBE():
     a = 7.5 * Bohr
     n = 16
     atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
-    params = dict(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1},
+    params = dict(mode='fd',
+                  gpts=(n, n, n),
+                  nbands=1,
+                  xc={'name': 'PBE', 'stencil': 1},
                   poissonsolver=PoissonSolver('fd'))
     atoms.calc = GPAW(**params)
     e1 = atoms.get_potential_energy()
