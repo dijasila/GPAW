@@ -161,6 +161,7 @@ def ksd_transform(load_ksd):
     return rho_iwp
 
 
+@pytest.mark.skip(reason='See #933')
 @pytest.mark.rttddft
 def test_ksd_transform(ksd_transform, ksd_transform_reference):
     ref_iwp = ksd_transform_reference
@@ -170,6 +171,7 @@ def test_ksd_transform(ksd_transform, ksd_transform_reference):
     assert err < atol
 
 
+@pytest.mark.skip(reason='See #933')
 @pytest.mark.rttddft
 def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
     ksd, fdm = load_ksd

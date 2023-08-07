@@ -95,13 +95,23 @@ class InputParameters:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
             if 'soc' in self.experimental:
-                warnings.warn('Please use new "soc" parameter.')
+                warnings.warn('Please use new "soc" parameter.',
+                              DeprecatedParameterWarning)
                 self.soc = self.experimental.pop('soc')
             if 'magmoms' in self.experimental:
-                warnings.warn('Please use new "magmoms" parameter.')
+                warnings.warn('Please use new "magmoms" parameter.',
+                              DeprecatedParameterWarning)
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
+        if self.mode.get('name') is None:
+            if warn:
+                warnings.warn(
+                    ('Finite-difference mode implicitly chosen; '
+                     'it will be an error to not specify a mode '
+                     'in the future'),
+                    DeprecatedParameterWarning)
+            self.mode = dict(self.mode, name='fd')
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
@@ -110,14 +120,16 @@ class InputParameters:
                     'Please use '
                     f'GPAW(dtype={self.dtype}, '
                     '...)',
+                    DeprecatedParameterWarning,
                     stacklevel=3)
             self.keys.append('dtype')
             self.keys.sort()
 
         if self.communicator is not None:
             self.parallel['world'] = self.communicator
-            warnings.warn('Please use parallel={''world'': ...} '
-                          'instead of communicator=...')
+            warnings.warn(('Please use parallel={''world'': ...} '
+                           'instead of communicator=...'),
+                          DeprecatedParameterWarning)
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -221,7 +233,9 @@ def mixer(value=None):
 
 
 @input_parameter
-def mode(value='fd'):
+def mode(value=None):
+    if value is None:
+        return {'name': value}
     if isinstance(value, str):
         return {'name': value}
     gc = value.pop('gammacentered', False)
@@ -314,3 +328,7 @@ def xc(value='LDA'):
     if isinstance(value, str):
         return {'name': value}
     return value
+
+
+class DeprecatedParameterWarning(FutureWarning):
+    """Warning class for when a parameter or its value is deprecated."""

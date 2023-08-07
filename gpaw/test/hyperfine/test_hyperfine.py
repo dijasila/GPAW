@@ -7,7 +7,7 @@ import ase.units as units
 
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate, alpha, g_factor_e, core_contribution)
+                            integrate, alpha, G_FACTOR_E, core_contribution)
 from gpaw import GPAW
 from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -120,17 +120,17 @@ def test_gaussian2(things):
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 
 
-g_factor_proton = 5.586
+G_FACTOR_PROTON = 5.586
 
 
 @pytest.mark.serial
 def test_h(gpw_files):
     calc = GPAW(gpw_files['h_pw'])
-    A_vv = hyperfine_parameters(calc)[0] * g_factor_proton
+    A_vv = hyperfine_parameters(calc)[0] * G_FACTOR_PROTON
     print(A_vv)
 
     energy = (2 / 3 * alpha**2 * units.Ha * units._me / units._mp *
-              g_factor_e * g_factor_proton)  # in eV
+              G_FACTOR_E * G_FACTOR_PROTON)  # in eV
     frequency = energy * units._e / units._hplanck  # Hz
     wavelength = units._c / frequency  # meters
     assert wavelength == pytest.approx(0.211, abs=0.001)

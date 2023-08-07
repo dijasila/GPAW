@@ -15,7 +15,7 @@ def H2():
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
 
-    H2.calc = GPAW(h=0.25, nbands=3, spinpol=False, txt=None)
+    H2.calc = GPAW(mode='fd', h=0.25, nbands=3, spinpol=False, txt=None)
     H2.get_potential_energy()
     return H2
 

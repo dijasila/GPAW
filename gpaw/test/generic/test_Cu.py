@@ -15,7 +15,8 @@ def test_generic_Cu(in_tmp_dir):
     Cu = Atoms('Cu', [(c, c, c)], magmoms=[1],
                cell=(a, a, a), pbc=0)
 
-    calc = GPAW(h=0.2,
+    calc = GPAW(mode='fd',
+                h=0.2,
                 setups={'Cu': setup})
     Cu.calc = calc
     e = Cu.get_potential_energy()

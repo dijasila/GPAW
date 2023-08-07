@@ -104,12 +104,12 @@ def test_pw_integrate(xp, grid):
     i1 = g.integrate()
     i2 = f.integrate()
     assert i1 == i2
-    assert type(i1) == g.desc.dtype
+    assert np.dtype(type(i1)) == g.desc.dtype
 
     i1 = g.integrate(g)
     i2 = f.integrate(f)
     assert i1 == i2
-    assert type(i1) == g.desc.dtype
+    assert np.dtype(type(i1)) == g.desc.dtype
 
     g1 = g.desc.empty(1, xp=xp)
     g1.data[:] = g.data
@@ -159,3 +159,10 @@ def test_find_g():
                                       kpt=np.array([0.1, 0, 0]))
     assert i.T.tolist() == [[0, 0, 0],
                             [-1, 0, 0]]
+
+
+def test_random():
+    pw = PlaneWaves(ecut=20, cell=[1, 1, 1], comm=world)
+    a = pw.empty(2)
+    a.randomize()
+    assert world.rank != 0 or (a.data[:, 0].imag == 0.0).all()

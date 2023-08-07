@@ -4,6 +4,7 @@ from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
 from gpaw.xc.noncollinear import NonCollinearLDAKernel
 from gpaw import libraries
+from gpaw.xc.functional import XCFunctional
 
 
 def xc_string_to_dict(string):
@@ -27,7 +28,7 @@ def xc_string_to_dict(string):
     return d
 
 
-def XC(kernel, parameters=None, atoms=None, collinear=True):
+def XC(kernel, parameters=None, atoms=None, collinear=True) -> XCFunctional:
     """Create XCFunctional object.
 
     kernel: XCKernel object, dict or str
@@ -64,7 +65,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             return RI(name, **kwargs)
         elif backend == 'pw' or name in ['HSE03', 'HSE06']:
             from gpaw.hybrids import HybridXC
-            return HybridXC(name, **kwargs)
+            return HybridXC(name, **kwargs)  # type: ignore
         elif backend:
             raise ValueError(
                 'A special backend for the XC functional was given, '
@@ -76,15 +77,13 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             return VDWFunctional(name, **kwargs)
         elif name in ['EXX', 'PBE0', 'B3LYP',
                       'CAMY-BLYP', 'CAMY-B3LYP', 'LCY-BLYP', 'LCY-PBE']:
-            from gpaw.xc.hybrid import HybridXC
-            return HybridXC(name, **kwargs)
+            from gpaw.xc.hybrid import HybridXC as OldHybridXC
+            return OldHybridXC(name, **kwargs)  # type: ignore
         elif name.startswith('LCY-') or name.startswith('CAMY-'):
             parts = name.split('(')
-            from gpaw.xc.hybrid import HybridXC
-            return HybridXC(parts[0], omega=float(parts[1][:-1]))
-        elif name == 'BEE1':
-            from gpaw.xc.bee import BEE1
-            kernel = BEE1(parameters)
+            from gpaw.xc.hybrid import HybridXC as OldHybridXC
+            return OldHybridXC(parts[0],
+                               omega=float(parts[1][:-1]))
         elif name == 'BEE2':
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
@@ -137,8 +136,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
     if kernel.type == 'LDA':
         if not collinear:
             kernel = NonCollinearLDAKernel(kernel)
-        xc = LDA(kernel, **kwargs)
-        return xc
+        return LDA(kernel, **kwargs)
 
     elif kernel.type == 'GGA':
         return GGA(kernel, **kwargs)

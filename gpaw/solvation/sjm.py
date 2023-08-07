@@ -27,6 +27,7 @@ from gpaw.solvation.cavity import Power12Potential, get_pbc_positions
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
+from gpaw.io.logger import indent
 
 
 class SJM(SolvationGPAW):
@@ -816,6 +817,12 @@ class SJMPower12Potential(Power12Potential):
         super().__init__(atomic_radii, u0, pbc_cutoff, tiny)
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
+
+    def __str__(self):
+        s = Power12Potential.__str__(self)
+        s += indent(f'  H2O layer: {self.H2O_layer}\n')
+        s += indent(f'  Only solvate front side: {self.unsolv_backside}\n')
+        return s
 
     def write(self, writer):
         writer.write(

@@ -20,7 +20,11 @@ def test_generic_relax(in_tmp_dir):
                       (c + d / 2, c, c)],
                      cell=(a, a, a),
                      pbc=False)
-    calc = GPAW(h=0.2, nbands=1, xc={'name': 'PBE', 'stencil': 1}, txt=None,
+    calc = GPAW(mode='fd',
+                h=0.2,
+                nbands=1,
+                xc={'name': 'PBE', 'stencil': 1},
+                txt=None,
                 poissonsolver={'name': 'fd'})
     molecule.calc = calc
     e1 = molecule.get_potential_energy()
