@@ -135,9 +135,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
-
-    # Get rid of this reshape madness... XXX
-    return Qbar_Gii.reshape(npw, ni * ni)
+    return Qbar_Gii
 
 
 class PWPAWCorrectionData:
@@ -221,9 +219,7 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
     Q_aGii = []
     for pawdata, pos_v in zip(pawdatasets, pos_av):
         # Calculate atom-centered correction tensor
-        ni = pawdata.ni
-        Qbar_Gii = calculate_pair_density_correction(
-            qG_Gv, pawdata=pawdata).reshape(-1, ni, ni)
+        Qbar_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
         # Add dependency on the atomic position (phase factor)
         x_G = np.exp(-1j * (qG_Gv @ pos_v))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)

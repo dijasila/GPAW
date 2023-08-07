@@ -55,6 +55,4 @@ def test_pair_density_paw_correction():
     d1 = calculate_pair_density_correction(k_G, pawdata=Setuplet(
         rgd=rgd, phi_jg=g, phit_jg=np.zeros_like(g), l_j=l_j, rcut_j=rcut_j))
 
-    d1 = d1.reshape(nkpt, m, m)
-
     assert d0 == pytest.approx(d1, abs=1e-8)
