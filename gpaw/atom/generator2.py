@@ -236,7 +236,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax):
+    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax, ecut):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -254,7 +254,8 @@ class PAWWaves:
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
             phit_ng[n], c0 = pseudizer(phi_g, gc, self.l,
-                                       divergent=self.n_n[n] <= 0)
+                                       divergent=self.n_n[n] <= 0,
+                                       ecut=ecut)
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
@@ -317,6 +318,7 @@ class PAWSetupGenerator:
         self.exxcc_w: dict[float, float] = {}
         self.exxcv_wii: dict[float, Array2D] = {}
         self.omega = omega
+        self.ecut = ecut
 
         self.core_hole: Optional[Tuple[int, int, float]]
         if core_hole:
@@ -367,7 +369,7 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
-        def pseudize(a_g, gc, l=0, points=4, ecut=ecut, divergent=False):
+        def pseudize(a_g, gc, l=0, points=4, ecut=None, divergent=False):
             if ecut is None or divergent:
                 return self.rgd.pseudize(a_g, gc, l, points)
             Gcut = (2 * ecut)**0.5
@@ -555,7 +557,7 @@ class PAWSetupGenerator:
             pseudizer = partial(self.rgd.pseudize_normalized, points=nderiv)
         for waves in self.waves_l:
             waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
-                           2.0 * self.rcmax)
+                           2.0 * self.rcmax, ecut=self.ecut)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
