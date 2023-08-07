@@ -1,11 +1,9 @@
 from __future__ import annotations
-from pathlib import Path
 import warnings
 
-from typing import Any, IO, Sequence
+from typing import Any, Sequence
 
 import numpy as np
-from gpaw.mpi import world
 from gpaw.typing import DTypeLike
 
 parameter_functions = {}

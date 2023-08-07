@@ -17,7 +17,6 @@ from .broadcast_imports import world as _world
 import _gpaw
 
 MASTER = 0
-MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -617,6 +616,9 @@ class _Communicator:
         return c_obj
 
 
+MPIComm = _Communicator  # for type hints
+
+
 # Serial communicator
 class SerialCommunicator:
     size = 1
@@ -720,19 +722,21 @@ class SerialCommunicator:
         return _world
 
 
-world: SerialCommunicator | _Communicator | _gpaw.Communicator
-serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
+# world: SerialCommunicator | _Communicator | _gpaw.Communicator
+# serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
+_serial_comm = SerialCommunicator()
 
 have_mpi = _world is not None
 
 if not have_mpi or _world.size == 1:
-    world = serial_comm
-else:
-    world = _world
+    _world = _serial_comm  # type: ignore
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(_serial_comm)
+    world = _Communicator(_world)
+else:
+    serial_comm = _serial_comm  # type: ignore
+    world = _world  # type: ignore
 
 rank = world.rank
 size = world.size

@@ -17,7 +17,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zip
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
-                         Vector)
+                         Vector, Literal)
 
 
 class PlaneWaves(Domain):
@@ -136,9 +136,10 @@ class PlaneWaves(Domain):
             ecut: float = None,
             kpt=None,
             dtype=None,
-            comm: MPIComm | str = 'inherit') -> PlaneWaves:
+            comm: MPIComm | Literal['inherit'] | None = 'inherit'
+            ) -> PlaneWaves:
         """Create new plane-wave expansion description."""
-        comm = self.comm if comm == 'inherit' else comm
+        comm = self.comm if comm == 'inherit' else comm or serial_comm
         return PlaneWaves(ecut=ecut or self.ecut,
                           cell=self.cell_cv,
                           kpt=self.kpt_c if kpt is None else kpt,

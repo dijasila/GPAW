@@ -13,7 +13,7 @@ from gpaw.yml import obj2yaml as o2y
 class Logger:
     def __init__(self,
                  filename: str | Path | IO[str] | None = '-',
-                 comm: MPIComm = None):
+                 comm: MPIComm | None = None):
         self.comm = comm or world
 
         self.fd: IO[str]
