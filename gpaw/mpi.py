@@ -123,8 +123,7 @@ class _Communicator:
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
-            if self.size > 1:  # avaid summing of cupy arrays
-                self.comm.sum(a, root)
+            self.comm.sum(a, root)
 
     def sum_scalar(self, a, root=-1):
         assert isinstance(a, (int, float, complex))
