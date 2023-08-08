@@ -39,8 +39,10 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
     log = Logger(txt, comm)
 
     if filename is not None:
-        if set(kwargs) > {'parallel'}:
-            raise ValueError(...)
+        if not {'parallel'}.issuperset(kwargs):
+            illegal = set(kwargs) - {'parallel'}
+            raise ValueError('Illegal arguments when reading from a file: '
+                             f'{illegal}')
         atoms, calculation, params, _ = read_gpw(filename,
                                                  log=log,
                                                  parallel=parallel)

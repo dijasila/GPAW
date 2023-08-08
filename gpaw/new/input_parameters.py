@@ -242,7 +242,6 @@ def occupations(value=None):
 @input_parameter
 def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
     if value is not None and 'world' in value:
-        value.pop('world')
         warnings.warn(('Please use communicator=... '
                        'instead of parallel={''world'': ...}'),
                       DeprecatedParameterWarning)
@@ -261,6 +260,7 @@ def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
+                       'world': None,  # deprecated
                        'gpu': False},
                       value)
     return dct
