@@ -123,7 +123,8 @@ class _Communicator:
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
-            self.comm.sum(a, root)
+            if self.size > 1:  # avaid summing of cupy arrays
+                self.comm.sum(a, root)
 
     def sum_scalar(self, a, root=-1):
         assert isinstance(a, (int, float, complex))
@@ -728,7 +729,7 @@ _serial_comm = SerialCommunicator()
 have_mpi = _world is not None
 
 if not have_mpi:
-    _world = _serial_comm
+    _world = _serial_comm  # type: ignore
 
 if gpaw.debug:
     serial_comm = _Communicator(_serial_comm)
@@ -737,8 +738,8 @@ if gpaw.debug:
     else:
         world = _Communicator(_world)
 else:
-    serial_comm = _serial_comm
-    world = _world
+    serial_comm = _serial_comm  # type: ignore
+    world = _world  # type: ignore
 
 rank = world.rank
 size = world.size
