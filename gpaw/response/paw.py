@@ -85,8 +85,9 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
             dn_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
 
-            # Some comment about selection rules here! XXX
-            for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
+            # Sample l according to the Gaunt coefficient selection rules, see
+            # e.g. gpaw.test.test_gaunt
+            for l in range(abs(l1 - l2), l1 + l2 + 1, 2):
                 # To evaluate the radial integral efficiently, we rely on the
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
