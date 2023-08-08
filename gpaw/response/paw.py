@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import spherical_jn
 
 from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt
@@ -87,7 +88,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             # Some comment about selection rules here! XXX
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 # To evaluate the radial integral efficiently, we rely on the
-                # Fast Fourier Bessel Transform algorithm, see gpaw.ffbt.
+                # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
                 # radial partial wave correction rescaled with a factor of r^-l
                 spline = rgd.spline(dn_g[:gcut2], l=l, points=2**10)
@@ -99,17 +100,47 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 #             k^l /
                 #                 0
                 kspline = rescaled_fourier_bessel_transform(spline, N=2**12)
-                # Finally, we can map the Fourier-Bessel transform onto the
-                # k-vectors in question
-                dn_G = kspline.map(k_G)
 
-                # Insert assertion concerning real-space interpolation XXX
-                # Insert comment, that points needs to depend on the paw
-                # dataset, if failing XXX
-                # Insert assertion about kmax of spline representation XXX
-                # Insert comment that N and rcut in the rescaled_fbt (the
-                # latter is currently hardcoded) needs to depend on the paw
-                # dataset, if failing XXX
+                # Now, this implementation relies on a range of hardcoded
+                # values, which are not guaranteed to work for all cases.
+                # In particular, the uniform radial grid used for the FFBT is
+                # defined through the `rcut` and `N` parameters in the
+                # `rescaled_fourier_bessel_transform()` function (the former is
+                # currently hardcoded), and the `points` parameter to
+                # `rgd.spline()` controls an intermediate interpolation step.
+                # To make a generally reliable implementation, one would need
+                # to control these parameters based on the setup, e.g. the
+                # nonlinear radial grid spacing. In doing so, one should be
+                # mindful that the rcut parameter defines the reciprocal grid
+                # spacing of the kspline representation and that N controls
+                # the k-range (which might need to depend on input qG_Gv).
+
+                # For now, we simply check that the requested plane waves are
+                # within the computed k-range of the FFBT and check that the
+                # resulting transforms match a manual calculation at a few
+                # selected k-vectors.
+                kmax = np.max(k_G)
+                assert kmax <= kspline.get_cutoff()
+                # Manual calculation at kmax
+                dnmax = rgd.integrate(spherical_jn(l, kmax * rgd.r_g) * dn_g)
+                # Manual calculation at average k
+                kavg = np.average(k_G)
+                dnavg = rgd.integrate(spherical_jn(l, kavg * rgd.r_g) * dn_g)
+                k_k = [kmax, kavg]
+                dn_k = [dnmax, dnavg]
+                if l == 0:
+                    # Manual calculation at k=0
+                    k_k.append(0.)
+                    dn_k.append(rgd.integrate(dn_g))
+                k_k = np.array(k_k)
+                dn_k = np.array(dn_k)
+                assert np.allclose(k_k**l * kspline.map(k_k), dn_k,
+                                   rtol=1e-3, atol=1e-5), \
+                    f'FFBT mismatch: {k_k**l * kspline.map(k_k)}, {dn_k}'
+
+                # Finally, we can map the Fourier-Bessel transform onto the
+                # the requested k-vectors of the input plane wave basis
+                dn_G = kspline.map(k_G)
 
                 # Angular part of the integral
                 f_G = (-1j)**l * dn_G
