@@ -72,8 +72,8 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
 
-    # Length of k-vectors
-    k_G = np.sum(qG_Gv**2, axis=1)**0.5  # Rewrite me XXX
+    # K-vector norm
+    k_G = np.linalg.norm(qG_Gv, axis=1)
 
     # Loop of radial function indices for partial waves i and i'
     i1_counter = 0
@@ -118,7 +118,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # For now, we simply check that the requested plane waves are
                 # within the computed k-range of the FFBT and check that the
                 # resulting transforms match a manual calculation at a few
-                # selected k-vectors.
+                # selected K-vectors.
                 kmax = np.max(k_G)
                 assert kmax <= kspline.get_cutoff()
                 # Manual calculation at kmax
