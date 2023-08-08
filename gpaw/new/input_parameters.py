@@ -1,11 +1,9 @@
 from __future__ import annotations
-from pathlib import Path
 import warnings
 
-from typing import Any, IO, Sequence
+from typing import Any, Sequence
 
 import numpy as np
-from gpaw.mpi import world
 from gpaw.typing import DTypeLike
 
 parameter_functions = {}
@@ -47,7 +45,6 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
-    communicator: Any
     convergence: dict[str, Any]
     dtype: DTypeLike | None
     eigensolver: dict[str, Any]
@@ -65,7 +62,6 @@ class InputParameters:
     soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
-    txt: str | Path | IO[str] | None
     xc: dict[str, Any]
 
     def __init__(self, params: dict[str, Any], warn: bool = True):
@@ -125,12 +121,6 @@ class InputParameters:
             self.keys.append('dtype')
             self.keys.sort()
 
-        if self.communicator is not None:
-            self.parallel['world'] = self.communicator
-            warnings.warn(('Please use parallel={''world'': ...} '
-                           'instead of communicator=...'),
-                          DeprecatedParameterWarning)
-
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
                       for key, value in self.items())
@@ -150,11 +140,6 @@ def basis(value=None):
 @input_parameter
 def charge(value=0.0):
     return value
-
-
-@input_parameter
-def communicator(value=None):
-    return None
 
 
 @input_parameter
@@ -255,7 +240,11 @@ def occupations(value=None):
 
 
 @input_parameter
-def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
+def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
+    if value is not None and 'world' in value:
+        warnings.warn(('Please use communicator=... '
+                       'instead of parallel={''world'': ...}'),
+                      DeprecatedParameterWarning)
     dct = update_dict({'kpt': None,
                        'domain': None,
                        'band': None,
@@ -271,10 +260,9 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None,
+                       'world': None,  # deprecated
                        'gpu': False},
                       value)
-    dct['world'] = dct['world'] or world
     return dct
 
 
@@ -312,13 +300,6 @@ def symmetry(value='undefined'):
         value = {}
     elif value is None or value == 'off':
         value = {'point_group': False, 'time_reversal': False}
-    return value
-
-
-@input_parameter
-def txt(value: str | Path | IO[str] | None = '?'
-        ) -> str | Path | IO[str] | None:
-    """Log file."""
     return value
 
 
