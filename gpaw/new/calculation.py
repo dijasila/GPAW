@@ -136,7 +136,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = np.ascontiguousarray(atoms.get_scaled_positions())
-        self.scf_loop.world.broadcast(self.fracpos_ac, 0)
+        self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
@@ -189,9 +189,8 @@ class DFTCalculation:
         self.log(f'  total:       {total_free * Ha:14.6f}')
         self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
-        world = self.scf_loop.world
-        total_free = broadcast_float(total_free, world)
-        total_extrapolated = broadcast_float(total_extrapolated, world)
+        total_free = broadcast_float(total_free, self.comm)
+        total_extrapolated = broadcast_float(total_extrapolated, self.comm)
 
         self.results['free_energy'] = total_free
         self.results['energy'] = total_extrapolated
@@ -263,7 +262,7 @@ class DFTCalculation:
                 self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
                          f'  # {setup.symbol:2} {a}')
 
-        self.scf_loop.world.broadcast(F_av, 0)
+        self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
@@ -315,7 +314,7 @@ class DFTCalculation:
 
         density = self.state.density.new(builder.grid)
         density.normalize()
-        self.scf_loop.world.broadcast(density.nt_sR.data, 0)
+        self.comm.broadcast(density.nt_sR.data, 0)
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()

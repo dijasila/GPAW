@@ -374,9 +374,9 @@ class ASECalculator:
         state = self.calculation.state
         eig_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 eig_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(eig_n, 0)
+            self.comm.broadcast(eig_n, 0)
         return eig_n
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
@@ -384,9 +384,9 @@ class ASECalculator:
         weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
         occ_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 occ_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(occ_n, 0)
+            self.comm.broadcast(occ_n, 0)
         return occ_n
 
     def get_reference_energy(self):
@@ -437,7 +437,7 @@ class ASECalculator:
 
     @property
     def world(self):
-        return self.calculation.scf_loop.world
+        return self.comm
 
     @property
     def setups(self):
