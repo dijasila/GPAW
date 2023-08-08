@@ -7,7 +7,7 @@ from gpaw.spherical_harmonics import Y
 from gpaw.gaunt import gaunt
 
 
-def test_contraction_rule(lmax: int = 2):
+def test_contraction_rule(lmax: int = 3):
     """Test that two solid harmonics can be contracted to one."""
     G_LLL = gaunt(lmax)
     L1max, L2max, L3max = G_LLL.shape
