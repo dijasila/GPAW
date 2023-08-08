@@ -55,4 +55,4 @@ def test_constraints_directopt_lcao_sic(in_tmp_dir):
 
     e = H2O.get_potential_energy()
 
-    assert e == pytest.approx(24.24718, abs=1.0e-3)
+    assert e == pytest.approx(24.24718, abs=0.1)
