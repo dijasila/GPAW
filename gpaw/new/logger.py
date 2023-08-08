@@ -56,7 +56,7 @@ class Logger:
             if kwargs:
                 for kw, arg in kwargs.items():
                     assert kw not in ['end', 'sep', 'flush', 'file'], kw
-                    print(f'{i}{kw}: {o2y(arg, i)}',
+                    print(f'{i}{kw}: {o2y(arg, i + "  ")}',
                           file=self.fd)
             else:
                 text = ' '.join(str(arg) for arg in args)
