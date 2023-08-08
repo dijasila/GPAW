@@ -29,7 +29,9 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir, add_cwd_to_setup_paths):
     c = {'energy': 0.05, 'eigenstates': 3, 'density': 3}
     na2 = Cluster(Atoms('Mg', positions=[[0, 0, 0]]))
     na2.minimal_box(2.5, h=h)
-    calc = GPAW(txt='mg_ivo.txt', xc='LCY-PBE:omega=0.38:excitation=singlet',
+    calc = GPAW(mode='fd',
+                txt='mg_ivo.txt',
+                xc='LCY-PBE:omega=0.38:excitation=singlet',
                 eigensolver=RMMDIIS(), h=h, occupations=FermiDirac(width=0.0),
                 spinpol=False, convergence=c)
     na2.calc = calc

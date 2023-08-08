@@ -9,7 +9,7 @@ def test_atoms_too_close():
                          (0.0, 0.0, 3.995)],
                   cell=(4, 4, 4), pbc=True)
 
-    calc = GPAW(txt=None)
+    calc = GPAW(mode='fd', txt=None)
     atoms.calc = calc
 
     with pytest.raises(AtomsTooClose):

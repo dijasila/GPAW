@@ -28,7 +28,7 @@ def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths):
                  Atom('H', (d * cos(t), d * sin(t), 0))],
                 cell=(a, a, a), pbc=False)
     H2O.center()
-    calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
+    calc = GPAW(mode='fd', nbands=10, h=0.2, setups={'O': 'hch1s'},
                 experimental={'niter_fixdensity': 2},
                 poissonsolver=FDPoissonSolver(use_charge_center=True))
     H2O.calc = calc

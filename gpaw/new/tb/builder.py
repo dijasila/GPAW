@@ -124,7 +124,7 @@ class TBPotentialCalculator(PotentialCalculator):
             [9] * len(self.atoms),
             self.nct_R.comm).zeros()
 
-    def calculate_pseudo_potential(self, density, vHt_r):
+    def calculate_pseudo_potential(self, density, ibzwfs, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms
@@ -163,11 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, comm):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
-        self.world = world
+        self.comm = comm
 
     def iterate(self,
                 state,

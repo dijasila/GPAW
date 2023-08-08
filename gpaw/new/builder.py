@@ -5,11 +5,12 @@ import os
 from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
-import _gpaw
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
+
+import _gpaw
 from gpaw.core import UniformGrid
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -27,14 +28,16 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.xc import XC
 
 
 def builder(atoms: Atoms,
-            params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+            params: dict[str, Any] | InputParameters,
+            comm=None) -> DFTComponentsBuilder:
     """Create DFT-components builder.
 
     * pw
@@ -51,22 +54,24 @@ def builder(atoms: Atoms,
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
+    return getattr(mod, f'{name}DFTComponentsBuilder')(
+        atoms, params, comm=comm or world, **mode)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
-                 params: InputParameters):
+                 params: InputParameters,
+                 *,
+                 comm):
 
         self.atoms = atoms.copy()
         self.mode = params.mode['name']
         self.params = params
 
         parallel = params.parallel
-        world = parallel['world']
 
-        synchronize_atoms(atoms, world)
+        synchronize_atoms(atoms, comm)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -76,13 +81,16 @@ class DFTComponentsBuilder:
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
-        self.xc = self.create_xc_functional()
+        if isinstance(params.xc, (dict, str)):
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+        else:
+            self._xc = params.xc
 
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
-                             self.xc.setup_name,
-                             world=world)
+                             self._xc.get_setup_name(),
+                             world=comm)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -100,7 +108,7 @@ class DFTComponentsBuilder:
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
-        self.communicators = create_communicators(world, len(self.ibz),
+        self.communicators = create_communicators(comm, len(self.ibz),
                                                   d, k, b, self.xp)
 
         if self.mode == 'fd':
@@ -133,11 +141,19 @@ class DFTComponentsBuilder:
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
 
+        self.xc = self.create_xc_functional()
+
     def create_uniform_grids(self):
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc, self.ncomponents)
+        return create_functional(self._xc,
+                                 self.fine_grid,
+                                 self.grid,
+                                 self.grid,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -216,6 +232,7 @@ class DFTComponentsBuilder:
 
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
+        occ_calc = self.create_occupation_number_calculator()
         eigensolver = self.create_eigensolver(hamiltonian)
 
         mixer = MixerWrapper(
@@ -225,7 +242,6 @@ class DFTComponentsBuilder:
             self.grid._gd,
             world=self.communicators['w'])
 
-        occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        {key: value
@@ -242,7 +258,7 @@ class DFTComponentsBuilder:
     def read_wavefunction_values(self,
                                  reader,
                                  ibzwfs: IBZWaveFunctions) -> None:
-        """ Read eigenvalues, occuptions and projections and fermi levels
+        """Read eigenvalues, occuptions and projections and fermi levels.
 
         The values are read using reader and set as the appropriate properties
         of (the already instantiated) wavefunctions contained in ibzwfs

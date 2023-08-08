@@ -397,8 +397,9 @@ def dict_to_array(x):
     dim = []
     dimtot = 0
     for k in x.keys():
-        assert type(k) == int, 'Cannot convert dict to array if keys are not '
-        'integer.'
+        assert isinstance(k, int), (
+            'Cannot convert dict to array if keys are not '
+            'integer.')
         y += list(x[k])
         dim.append(len(x[k]))
         dimtot += len(x[k])

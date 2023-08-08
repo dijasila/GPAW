@@ -31,7 +31,7 @@ class FakeWFS:
         self.occupations = calculation.scf_loop.occ_calc.occ
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
-        self.world = calculation.scf_loop.world
+        self.world = calculation.comm
         if ibzwfs.fermi_levels is not None:
             self.fermi_levels = ibzwfs.fermi_levels
             if len(self.fermi_levels) == 1:
@@ -178,7 +178,9 @@ class FakeHamiltonian:
         fine_grid = self.pot_calc.fine_grid
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
-        vxct_sR = self.pot_calc.restrict(vxct_sr)
+        vxct_sR = self.grid.empty(len(vxct_sg))
+        for vxct_r, vxct_R in zip(vxct_sr, vxct_sR):
+            self.pot_calc.restrict(vxct_r, vxct_R)
         return vxct_sR.data
 
     @property

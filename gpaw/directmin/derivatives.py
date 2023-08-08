@@ -398,7 +398,7 @@ class Davidson(object):
         defaults = self.set_defaults()
         assert self.etdm.name == 'etdm-lcao', 'Check etdm.'
         if self.logfile is not None:
-            assert type(self.logfile) == str, 'Check logfile.'
+            assert isinstance(self.logfile, str), 'Check logfile.'
         if self.fd_mode is None:
             self.fd_mode = defaults['fd_mode']
         else:
@@ -406,26 +406,26 @@ class Davidson(object):
         if self.m is None:
             self.m = defaults['m']
         else:
-            assert type(self.m) == int or np.isinf(self.m), 'Check m.'
+            assert isinstance(self.m, int) or np.isinf(self.m), 'Check m.'
         if self.h is None:
             self.h = defaults['h']
         else:
-            assert type(self.h) == float, 'Check h.'
+            assert isinstance(self.h, float), 'Check h.'
         if self.eps is None:
             self.eps = defaults['eps']
         else:
-            assert type(self.eps) == float, 'Check eps.'
+            assert isinstance(self.eps, float), 'Check eps.'
         if self.cap_krylov is None:
             self.cap_krylov = defaults['cap_krylov']
         else:
-            assert type(self.cap_krylov) == bool, 'Check cap_krylov.'
+            assert isinstance(self.cap_krylov, bool), 'Check cap_krylov.'
         if self.remember_sp_order is None:
             self.remember_sp_order = defaults['remember_sp_order']
         else:
-            assert type(self.remember_sp_order) == bool, \
+            assert isinstance(self.remember_sp_order, bool), \
                 'Check remember_sp_order.'
         if self.sp_order is not None:
-            assert type(self.sp_order) == int, 'Check sp_order.'
+            assert isinstance(self.sp_order, int), 'Check sp_order.'
 
     def set_defaults(self):
         if self.gmf:

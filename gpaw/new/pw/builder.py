@@ -1,26 +1,28 @@
 from math import pi
 
 from ase.units import Ha
+
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.new import zip
+from gpaw.new import cached_property, zip
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.new.spinors import SpinorWaveFunctionDescriptor
+from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340, qspiral=None):
+    def __init__(self, atoms, params, *, comm, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm=comm)
 
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))
@@ -53,15 +55,25 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_xc_functional(self):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
-        return super().create_xc_functional()
+        return create_functional(self._xc,
+                                 self.fine_grid,
+                                 self.grid,
+                                 self.interpolation_pw,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist)
+
+    @cached_property
+    def interpolation_pw(self):
+        return PlaneWaves(ecut=2 * self.ecut,
+                          cell=self.grid.cell,
+                          comm=self.grid.comm)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
-            pw = PlaneWaves(ecut=2 * self.ecut,
-                            cell=self.grid.cell,
-                            comm=self.grid.comm)
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                pw, self.fracpos_ac, self.atomdist, xp=self.xp)
+                self.interpolation_pw, self.fracpos_ac, self.atomdist,
+                xp=self.xp)
         return self._nct_ag
 
     def create_poisson_solver(self, fine_pw, params):
@@ -91,7 +103,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
+            return PWHamiltonian(self.grid, self.wf_desc, self.xc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,

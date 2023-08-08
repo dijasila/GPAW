@@ -18,8 +18,10 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
     def __init__(self,
                  atoms,
                  params,
+                 *,
+                 comm,
                  distribution=None):
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm=comm)
         self.distribution = distribution
         self.basis = None
 

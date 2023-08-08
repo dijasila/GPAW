@@ -9,6 +9,7 @@ def test_spin_spinpol():
     hydrogen = Atoms([Atom('H')], cell=(a, a, a), pbc=True)
     hydrogen.center()
     hydrogen.calc = GPAW(
+        mode='fd',
         gpts=(n, n, n),
         nbands=1,
         convergence={'energy': 1e-5},
