@@ -63,15 +63,18 @@ def test_selection_rules(lmax: int = 3):
 def test_permutation_symmetry(lmax: int = 3):
     """Test that the Gaunt coefficients are permutationally invariant"""
     G_LLL = gaunt(lmax)
-    Lmax = G_LLL.shape[0]
-    L2max = G_LLL.shape[1]
-    for L1 in range(Lmax):
-        for L2 in range(Lmax):
-            for L3 in range(Lmax):
+    L1max, L2max, L3max = G_LLL.shape
+    assert L2max == L3max
+
+    for L1 in range(L1max):
+        # Permutations between all indices
+        for L2 in range(L1max):
+            for L3 in range(L1max):
                 for Lp1, Lp2, Lp3 in permutations([L1, L2, L3]):
                     abs(G_LLL[L1, L2, L3] - G_LLL[Lp1, Lp2, Lp3]) < 1e-10
+        # Permutations between L2 and L3
         for L2 in range(L2max):
-            for L3 in range(L2max):
+            for L3 in range(L3max):
                 abs(G_LLL[L1, L2, L3] - G_LLL[L1, L3, L2]) < 1e-10
 
 
