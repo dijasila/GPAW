@@ -23,32 +23,41 @@ from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
+from gpaw.mpi import world
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
+         txt: str | Path | IO[str] | None = '?',
+         communicator=None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
-    params = InputParameters(kwargs)
-    txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
-    world = params.parallel['world']
-    log = Logger(txt, world)
+
+    parallel = kwargs.get('parallel', {})
+    comm = parallel.get('world', communicator or world)
+    log = Logger(txt, comm)
 
     if filename is not None:
-        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
-        atoms, calculation, params, _ = read_gpw(filename, log,
-                                                 params.parallel)
-        return ASECalculator(params, log, calculation, atoms)
+        if not {'parallel'}.issuperset(kwargs):
+            illegal = set(kwargs) - {'parallel'}
+            raise ValueError('Illegal arguments when reading from a file: '
+                             f'{illegal}')
+        atoms, calculation, params, _ = read_gpw(filename,
+                                                 log=log,
+                                                 parallel=parallel)
+        return ASECalculator(params,
+                             log=log, calculation=calculation, atoms=atoms)
 
-    write_header(log, world, params)
-    return ASECalculator(params, log)
+    params = InputParameters(kwargs)
+    write_header(log, params)
+    return ASECalculator(params, log=log)
 
 
-def write_header(log, world, params):
+def write_header(log, params):
     from gpaw.io.logger import write_header as header
     log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
-    header(log, world)
+    header(log, log.comm)
     log('---')
     with log.indent('input parameters:'):
         log(**{k: v for k, v in params.items()})
@@ -80,11 +89,13 @@ class ASECalculator:
 
     def __init__(self,
                  params: InputParameters,
+                 *,
                  log: Logger,
                  calculation=None,
                  atoms=None):
         self.params = params
         self.log = log
+        self.comm = log.comm
         self.calculation = calculation
 
         self.atoms = atoms
@@ -189,7 +200,7 @@ class ASECalculator:
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
-                atoms, self.params, self.log)
+                atoms, self.params, self.comm, self.log)
         self.atoms = atoms.copy()
 
     def create_new_calculation_from_old(self, atoms: Atoms) -> None:
@@ -365,9 +376,9 @@ class ASECalculator:
         state = self.calculation.state
         eig_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 eig_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(eig_n, 0)
+            self.comm.broadcast(eig_n, 0)
         return eig_n
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
@@ -375,9 +386,9 @@ class ASECalculator:
         weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
         occ_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 occ_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(occ_n, 0)
+            self.comm.broadcast(occ_n, 0)
         return occ_n
 
     def get_reference_energy(self):
@@ -428,7 +439,7 @@ class ASECalculator:
 
     @property
     def world(self):
-        return self.calculation.scf_loop.world
+        return self.comm
 
     @property
     def setups(self):
@@ -468,7 +479,8 @@ class ASECalculator:
                                      scalapack=None,
                                      expert: bool = None) -> None:
         if expert is not None:
-            warnings.warn('Ignoring deprecated "expert" argument')
+            warnings.warn('Ignoring deprecated "expert" argument',
+                          DeprecationWarning)
         state = self.calculation.state
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,
@@ -486,15 +498,11 @@ class ASECalculator:
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
 
-    def fixed_density(self, **kwargs):
+    def fixed_density(self, txt='-', **kwargs):
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
-        txt = params.txt
-        if txt == '?':
-            txt = '-'
-        world = params.parallel['world']
-        log = Logger(txt, world)
-        builder = create_builder(self.atoms, params)
+        log = Logger(txt, self.comm)
+        builder = create_builder(self.atoms, params, self.comm)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
@@ -514,7 +522,10 @@ class ASECalculator:
 
         calculation.converge()
 
-        return ASECalculator(params, log, calculation, self.atoms)
+        return ASECalculator(params,
+                             log=log,
+                             calculation=calculation,
+                             atoms=self.atoms)
 
     def initialize(self, atoms):
         self.create_new_calculation(atoms)

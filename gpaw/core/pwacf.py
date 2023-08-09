@@ -9,7 +9,7 @@ from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
-from gpaw.pw.lfc import rescaled_fbt
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from typing import TYPE_CHECKING
@@ -138,7 +138,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = rescaled_fbt(spline)
+                    f = rescaled_fourier_bessel_transform(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     self.f_Gs[:, s] = xp.asarray(f.map(G_G))
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -430,7 +430,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = rescaled_fbt(spline)
+                    s = rescaled_fourier_bessel_transform(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     f_G = []
                     dfdGoG_G = []

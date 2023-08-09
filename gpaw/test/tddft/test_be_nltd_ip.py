@@ -11,7 +11,7 @@ import pytest
 def test_tddft_be_nltd_ip(in_tmp_dir):
     atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
     atoms.center(vacuum=6)
-    calc = GPAW(h=0.35, symmetry={'point_group': False})
+    calc = GPAW(mode='fd', h=0.35, symmetry={'point_group': False})
     atoms.calc = calc
     atoms.get_potential_energy()
 

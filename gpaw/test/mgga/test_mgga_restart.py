@@ -15,6 +15,7 @@ def test_mgga_mgga_restart(in_tmp_dir):
     s = Cluster([Atom('H'), Atom('H', [0, 0, 1])])
     s.minimal_box(3.)
     s.calc = GPAW(xc={'name': 'PBE', 'stencil': 1},
+                  mode='fd',
                   h=.3,
                   convergence={'density': 1e-4, 'eigenstates': 1e-6})
     s.get_potential_energy()
