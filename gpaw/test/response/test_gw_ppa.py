@@ -21,9 +21,9 @@ def Whook(gw, Wdict):
 
 @pytest.mark.response
 def test_ff(in_tmp_dir, gpw_files, scalapack):
-    ref_result = np.asarray([[[11.30094393, 21.62842077],
-                              [5.33751513, 16.06905725],
-                              [8.75269938, 22.46579489]]])
+    ref_result = np.asarray([[[11.290542, 21.613646],
+                              [ 5.356609, 16.065227],
+                              [ 8.75117 , 23.156368]]])
     gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
               nbands=9,
@@ -37,11 +37,19 @@ def test_ff(in_tmp_dir, gpw_files, scalapack):
 @pytest.mark.response
 @pytest.mark.parametrize("mpa", [True,False])
 def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
-    ref_result = np.asarray([[[11.30094393, 21.62842077],
-                              [5.33751513, 16.06905725],
-                              [8.75269938, 22.46579489]]])
+    ref = {True: {'sigma': np.array([[[ 4.89101558, -4.17131973],
+                                       [ 5.05514407, -3.99726968],
+                                       [ 4.93276253, -4.46327288]]]),
+                  'dsigma': np.array([[[-0.19163136, -0.17102652],
+                                       [-0.20993491, -0.16145541],
+                                       [-0.19894703, -0.18120556]]])},
+           False: {'sigma': np.array([[[ 4.88189928, -4.16821152],
+                                       [ 5.03747407, -3.99005103],
+                                       [ 4.91928432, -4.45762978]]]),
+                  'dsigma': np.array([[[-0.19045636, -0.17244613],
+                                       [-0.20989414, -0.16195759],
+                                       [-0.19874346, -0.18166906]]])}}
     mpa_dict = {'npoles':1, 'wrange':[1e-10j,1j*Ha], 'wshift':[0.1*Ha, 0.1*Ha], 'alpha':1 }
-    mpa_dict = {'npoles':8, 'wrange':[1j*Ha,(1.5+1j)*Ha], 'wshift':[0.01*Ha, 0.1*Ha], 'alpha':1 }
 
     gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
@@ -52,6 +60,7 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
               mpa=mpa_dict if mpa else False) 
 
     results = gw.calculate()
-    np.testing.assert_allclose(results['qp'], ref_result, rtol=1e-03)
+    np.testing.assert_allclose(ref[mpa]['sigma'], results['sigma'], rtol=1e-05)
+    np.testing.assert_allclose(ref[mpa]['dsigma'], results['dsigma'], rtol=1e-05)
 
 

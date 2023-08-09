@@ -1892,13 +1892,11 @@ class GPAW(Calculator):
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         """Return eigenvalue array."""
         assert 0 <= kpt < self.wfs.kd.nibzkpts, kpt
-        print('get_eigenvalues', kpt, spin, self.wfs.world.rank)
         eps_n = self.wfs.collect_eigenvalues(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
                 eps_n = np.empty(self.wfs.bd.nbands)
             self.wfs.world.broadcast(eps_n, 0)
-        print('get_eigenvalues returning', eps_n, self.wfs.world.rank)
         return eps_n * Ha
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):

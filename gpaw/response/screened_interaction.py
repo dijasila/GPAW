@@ -382,7 +382,7 @@ class MPAHWModel(HWModel):
         if not derivative:
             return x_GG.conj()
 
-        eps = 0.05
+        eps = 0.1 / 27.21
         xp_nGG = f / (omega+eps + omegat_nGG - 1j * self.eta)
         xp_nGG += (1.0-f) / (omega+eps - omegat_nGG + 1j * self.eta)
         xm_nGG = f / (omega-eps + omegat_nGG - 1j * self.eta)
@@ -497,8 +497,6 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        print('mpa \n W:',W_nGG[:,0,0],'\n om:',omegat_nGG[:,0,0])
 
-        print('mpa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
 
