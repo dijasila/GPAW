@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 
 from gpaw import GPAW, PW
-from gpaw.directmin.etdm_fdpw import FDPWETDM
 from ase import Atoms
 
 
@@ -25,7 +24,7 @@ def test_directmin_pw(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 xc='PBE',
                 occupations={'name': 'fixed-uniform'},
-                eigensolver=FDPWETDM(),
+                eigensolver='etdm-fdpw',
                 mixer={'backend': 'no-mixing'},
                 spinpol=True,
                 symmetry='off',

@@ -606,6 +606,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             # Read to memory:
             for kpt in self.kpt_u:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
