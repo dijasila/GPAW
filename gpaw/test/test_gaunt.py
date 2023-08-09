@@ -22,9 +22,13 @@ def test_contraction_rule(lmax: int = 3):
     z = np.cos(theta)
 
     for L1 in range(L1max):
-        for L2 in range(L1max):
-            # NB: The contraction rule is only valid for L2 in range(L1max),
-            # and *not necessarily* for L2 in range(L2max)
+        # In order to include all finite Gaunt coefficients in the expansion,
+        # l1 + l2 has to be within the range of available L3 coefficients.
+        l1 = int(np.sqrt(L1))
+        l3max = int(np.sqrt(L3max)) - 1
+        l2max = l3max - l1
+        L2max = (l2max + 1)**2
+        for L2 in range(L2max):
             product = Y(L1, x, y, z) * Y(L2, x, y, z)
             expansion = 0.
             for L3 in range(L3max):
