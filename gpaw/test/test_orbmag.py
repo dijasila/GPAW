@@ -2,12 +2,15 @@ import pytest
 
 import numpy as np
 
+from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW
 from gpaw.spinorbit import soc_eigenstates
 
 
+# If we mark as xfail, then it still crashes and calls MPI_Abort()
+@pytest.mark.skipif(world.size > 1,
+                    reason='https://gitlab.com/gpaw/gpaw/-/jobs/4833933621')
 def test_orbmag_Ni(gpw_files):
-
     # Parameters
 
     easy_axis = 1 / np.sqrt(3) * np.ones(3)
