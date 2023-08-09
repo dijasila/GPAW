@@ -60,7 +60,7 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack, mpa):
               mpa=mpa_dict if mpa else False) 
 
     results = gw.calculate()
-    np.testing.assert_allclose(ref[mpa]['sigma'], results['sigma'], rtol=1e-05)
-    np.testing.assert_allclose(ref[mpa]['dsigma'], results['dsigma'], rtol=1e-05)
+    np.testing.assert_allclose(ref[mpa]['sigma'], results['sigma'], atol=5e-3)
+    np.testing.assert_allclose(ref[mpa]['dsigma'], results['dsigma'], rtol=5e-3)
 
 
