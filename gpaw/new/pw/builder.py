@@ -165,7 +165,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             index = (wfs.spin, wfs.k) if self.ncomponents != 4 else (wfs.k,)
             data = reader.wave_functions.proxy('coefficients', *index)
             data.scale = c
-            data.length_of_last_dimension = pw.shape[0]
+            data.length_of_last_dimension = pw.shape[-1]
             orig_shape = data.shape
             data.shape = (self.nbands, ) + pw.shape
 

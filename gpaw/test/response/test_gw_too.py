@@ -7,14 +7,14 @@ import pickle
 
 @pytest.mark.response
 def test_do_GW_too(in_tmp_dir, gpw_files, scalapack, needs_ase_master):
-    gw0 = G0W0(gpw_files['c_pw_wfs'], 'gw0',
+    gw0 = G0W0(gpw_files['c_pw'], 'gw0',
                bands=(3, 5),
                nblocks=1,
                ecut_extrapolation=True,
                ecut=40)
     results0 = gw0.calculate()
 
-    gw = G0W0(gpw_files['c_pw_wfs'], 'gwtoo',
+    gw = G0W0(gpw_files['c_pw'], 'gwtoo',
               bands=(3, 5),
               nblocks=1,
               xc='rALDA',

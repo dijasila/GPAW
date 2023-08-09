@@ -25,7 +25,7 @@ def out():
 def test_wannier90(gpw_files, in_tmp_dir):
     o_ai = [[], [0, 1, 2, 3]]
     bands = range(4)
-    calc = GPAW(gpw_files['gaas_pw_nosym_wfs'])
+    calc = GPAW(gpw_files['gaas_pw_nosym'])
     seed = 'GaAs'
     assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
 
@@ -55,7 +55,7 @@ def test_wannier90(gpw_files, in_tmp_dir):
 @pytest.mark.skipif(': 3.' not in out(),
                     reason="requires at least Wannier90 version 3.0")
 def test_wannier90_soc(gpw_files, in_tmp_dir):
-    calc = GPAW(gpw_files['fe_pw_nosym_wfs'])
+    calc = GPAW(gpw_files['fe_pw_nosym'])
     soc = soc_eigenstates(calc)
     seed = 'Fe'
     assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
