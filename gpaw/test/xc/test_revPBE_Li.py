@@ -10,6 +10,7 @@ def test_xc_revPBE_Li():
     li = Atoms('Li', magmoms=[1.0], cell=(a, a, a), pbc=True)
 
     params = dict(
+        mode='fd',
         gpts=(n, n, n),
         nbands=1,
         xc=dict(name='oldPBE', stencil=1),

@@ -31,14 +31,14 @@ class SCFLoop:
                  occ_calc,
                  eigensolver,
                  mixer,
-                 world,
+                 comm,
                  convergence,
                  maxiter):
         self.hamiltonian = hamiltonian
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
-        self.world = world
+        self.comm = comm
         self.convergence = convergence
         self.maxiter = maxiter
         self.niter = 0
@@ -86,14 +86,14 @@ class SCFLoop:
             ctx = SCFContext(
                 state, self.niter,
                 wfs_error, dens_error,
-                self.world, calculate_forces,
+                self.comm, calculate_forces,
                 pot_calc)
 
             yield ctx
 
             converged, converged_items, entries = check_convergence(cc, ctx)
-            nconverged = self.world.sum(int(converged))
-            assert nconverged in [0, self.world.size], converged_items
+            nconverged = self.comm.sum(int(converged))
+            assert nconverged in [0, self.comm.size], converged_items
 
             if log:
                 with log.comment():
@@ -118,18 +118,18 @@ class SCFContext:
                  niter: int,
                  wfs_error: float,
                  dens_error: float,
-                 world,
+                 comm,
                  calculate_forces: Callable[[], Array2D],
                  pot_calc):
         self.state = state
         self.niter = niter
         energy = np.array([sum(state.potential.energies.values()) +
                            sum(state.ibzwfs.energies.values())])
-        world.broadcast(energy, 0)
+        comm.broadcast(energy, 0)
         self.ham = SimpleNamespace(e_total_extrapolated=energy[0],
                                    get_workfunctions=self._get_workfunctions)
         self.wfs = SimpleNamespace(nvalence=state.ibzwfs.nelectrons,
-                                   world=world,
+                                   world=comm,
                                    eigensolver=SimpleNamespace(
                                        error=wfs_error),
                                    nspins=state.density.ndensities,

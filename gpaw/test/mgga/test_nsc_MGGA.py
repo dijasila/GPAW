@@ -15,7 +15,8 @@ def test_mgga_nsc_MGGA(in_tmp_dir):
     atoms.center(vacuum=3)
 
     def getkwargs():
-        return dict(eigensolver=Davidson(3),
+        return dict(mode='fd',
+                    eigensolver=Davidson(3),
                     mixer=Mixer(0.7, 5, 50.0),
                     parallel=dict(augment_grids=True),
                     gpts=(32, 32, 32), nbands=1, xc=xc('oldPBE'))

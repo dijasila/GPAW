@@ -11,7 +11,8 @@ from gpaw import GPAW
 def test_fixdensity(in_tmp_dir):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
-    slab.calc = GPAW(xc='revTPSS',
+    slab.calc = GPAW(mode='fd',
+                     xc='revTPSS',
                      h=0.15,
                      kpts=(3, 3, 1), txt='li-1.txt',
                      parallel=dict(kpt=1))

@@ -143,8 +143,8 @@ def test_fe_periodic_truncation_function(gpw_files):
     # is correctly recovered
     a = 2.867  # lattice constant in Å
     rcut_max = 2 * a / (3 * Bohr)  # 2a / 3 in Bohr
-    # Get default drcut for the real-space grid
-    drcut = default_spherical_drcut(finegd)
+    # Get default drcut corresponding to the coarse real-space grid
+    drcut = default_spherical_drcut(calc.density.gd)
     for rcut in np.linspace(rcut_max / 6, rcut_max, 13):
         ref = 4 * np.pi * rcut**3. / 3.
 
@@ -155,10 +155,11 @@ def test_fe_periodic_truncation_function(gpw_files):
         vol = finegd.integrate(theta_r)
         assert abs(vol - ref) <= 1e-8 + 1e-2 * ref
 
-    # Make sure that the default works as expected
-    default_vol = finegd.integrate(
+    # Make sure that the difference between coarse and fine grid drcut is not
+    # too large
+    finedrcut_vol = finegd.integrate(
         periodic_truncation_function(finegd, spos_ac[0], rcut))
-    assert abs(vol - default_vol) < 1e-8
+    assert abs(vol - finedrcut_vol) / finedrcut_vol < 1e-3
     # Make sure that we get a different value numerically, if we change drcut
     diff_vol = finegd.integrate(
         periodic_truncation_function(finegd, spos_ac[0], rcut,
@@ -177,7 +178,7 @@ def test_co_spherical_truncation_function_collection(gpw_files):
     calc = GPAW(gpw_files['co_pw'], txt=None)
     finegd = calc.density.finegd
     spos_ac = calc.spos_ac
-    drcut = default_spherical_drcut(finegd)
+    drcut = default_spherical_drcut(calc.density.gd)
 
     # Generate collection of spherical truncation functions with varrying rcut
     a = 2.5071
@@ -185,7 +186,8 @@ def test_co_spherical_truncation_function_collection(gpw_files):
     nn_dist = min(a, np.sqrt(a**2 / 3 + c**2 / 4))
     rcut_j = np.linspace(drcut, 2 * nn_dist / 3, 13)
     rcut_aj = [rcut_j, rcut_j]
-    stfc = spherical_truncation_function_collection(finegd, spos_ac, rcut_aj)
+    stfc = spherical_truncation_function_collection(finegd, spos_ac, rcut_aj,
+                                                    drcut=drcut)
 
     # Integrate collection of spherical truncation functions
     ones_r = finegd.empty()

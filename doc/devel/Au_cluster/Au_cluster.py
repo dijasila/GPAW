@@ -21,12 +21,15 @@ nbands = 3 * 6 * 6 * 16  # 1728
 for ri in r:
     nbands = nbands * ri
 mixer = Mixer(beta=0.1, nmaxold=5, weight=100.0)
-# the next three lines decrease memory usage
+# the next line decrease memory usage
 es = RMMDIIS(keep_htpsit=False)
-calc = GPAW(nbands=nbands,
-            # uncomment next two lines to use lcao/sz
-            # mode='lcao',
-            # basis='sz',
+lcao = False  # toggle this to use lcao/sz
+if lcao:
+    mode_kwargs = dict(mode='lcao', basis='sz')
+else:
+    mode_kwargs = dict(mode='fd')
+calc = GPAW(**mode_kwargs,
+            nbands=nbands,
             gpts=tuple(n),
             maxiter=5,
             width=0.1,

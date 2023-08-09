@@ -50,7 +50,7 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
             d_nnv = wfs.dipole_matrix_elements(center) * Bohr
         else:
             d_nnv = np.empty((n2 - n1, n2 - n1, 3))
-        calc.params.parallel['world'].broadcast(d_nnv, 0)
+        calc.comm.broadcast(d_nnv, 0)
         d_snnv.append(d_nnv)
 
     return d_snnv
@@ -88,7 +88,7 @@ def main(argv: list[str] = None) -> None:
 
         d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
-    if calc.params.parallel['world'].rank > 0:
+    if calc.comm.rank > 0:
         return
 
     print('Number of bands:', nbands)

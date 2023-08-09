@@ -336,7 +336,7 @@ class PWFDWaveFunctions(WaveFunctions):
             rankb, bb = min((rank2, b2), (rank, self.psit_nX.mydims[0]))
             if (ranka, ba) < (rankb, bb):
                 assert ranka == rankb == rank
-                band_comm.send(self.psit_nX.data[ba:bb])
+                band_comm.send(self.psit_nX.data[ba:bb], dest=0)
 
         return None
 

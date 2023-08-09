@@ -4,7 +4,8 @@ from gpaw import GPAW
 from gpaw import dscf
 
 # Ground state calculation
-calc = GPAW(nbands=8,
+calc = GPAW(mode='fd',
+            nbands=8,
             h=0.2,
             xc='PBE',
             spinpol=True,
@@ -28,7 +29,8 @@ p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
          for kpt in calc.wfs.kpt_u]
 
 # Excited state calculation
-calc_es = GPAW(nbands=8,
+calc_es = GPAW(mode='fd',
+               nbands=8,
                h=0.2,
                xc='PBE',
                spinpol=True,
