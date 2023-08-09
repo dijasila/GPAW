@@ -5,6 +5,7 @@ from gpaw.directmin.etdm_fdpw import FDPWETDM
 from ase import Atoms
 import numpy as np
 
+
 @pytest.mark.do
 def test_directmin_fd(in_tmp_dir):
 
