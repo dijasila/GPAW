@@ -16,6 +16,8 @@ class SpinorWaveFunctionDescriptor(Domain):
                         complex)
         self.myshape = (2,) + desc.myshape
         self.itemsize = desc.itemsize
+        self.shape = (2,) + desc.shape
+        self.dv = desc.dv
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.desc}, {self.qspiral_v})'
@@ -30,3 +32,6 @@ class SpinorWaveFunctionDescriptor(Domain):
 
     def global_shape(self) -> tuple[int, ...]:
         return (2,) + self.desc.global_shape()
+
+    def indices(self, size):
+        return self.desc.indices(size)
