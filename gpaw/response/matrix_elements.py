@@ -2,8 +2,6 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from gpaw.utilities.blas import gemmdot
-
 from gpaw.sphere.integrate import spherical_truncation_function_collection
 
 from gpaw.response import timer
@@ -356,11 +354,10 @@ class SitePairDensityCalculator(MatrixElementCalculator):
         where the Kohn-Sham orbitals are normalized to the unit cell.
         """
         # Construct pseudo waves with Bloch phases
-        r_cR = self.gs.ibz2bz.r_cR  # scaled grid coordinates
-        psit1_mytR = np.exp(2j * np.pi * gemmdot(k1_c, r_cR))[np.newaxis]\
-            * ut1_mytR
-        psit2_mytR = np.exp(2j * np.pi * gemmdot(k2_c, r_cR))[np.newaxis]\
-            * ut2_mytR
+        r_Rc = np.transpose(self.gs.ibz2bz.r_cR,  # scaled grid coordinates
+                            (1, 2, 3, 0))
+        psit1_mytR = np.exp(2j * np.pi * r_Rc @ k1_c)[np.newaxis] * ut1_mytR
+        psit2_mytR = np.exp(2j * np.pi * r_Rc @ k2_c)[np.newaxis] * ut2_mytR
         # Calculate real-space pair densities ñ_kt(r)
         nt_mytR = psit1_mytR.conj() * psit2_mytR
 
