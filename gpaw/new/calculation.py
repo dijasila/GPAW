@@ -314,7 +314,13 @@ class DFTCalculation:
 
         density = self.state.density.new(builder.grid)
         density.normalize()
-        self.comm.broadcast(density.nt_sR.data, 0)
+
+        # Make sure all have exactly the same density.
+        # Not quite sure it is needed???
+        # At the moment we skip it on GPU's because it doesn't
+        # work!
+        if density.nt_sR.xp is np:
+            self.comm.broadcast(density.nt_sR.data, 0)
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()
