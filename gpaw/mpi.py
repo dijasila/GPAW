@@ -17,7 +17,6 @@ from .broadcast_imports import world as _world
 import _gpaw
 
 MASTER = 0
-MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -217,12 +216,12 @@ class _Communicator:
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
-    
+
     def min_scalar(self, a, root=-1):
         assert isinstance(a, (int, float))
         return self.comm.min_scalar(a, root)
 
-    def scatter(self, a, b, root):
+    def scatter(self, a, b, root: int) -> None:
         """Distribute data from one rank to all other processes in a group.
 
         Parameters:
@@ -613,8 +612,12 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert isinstance(c_obj, _gpaw.Communicator)
-        return c_obj
+        if isinstance(c_obj, _gpaw.Communicator):
+            return c_obj
+        return c_obj.get_c_object()
+
+
+MPIComm = _Communicator  # for type hints
 
 
 # Serial communicator
@@ -628,7 +631,7 @@ class SerialCommunicator:
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
-    
+
     def sum_scalar(self, a, root=-1):
         return a
 
@@ -643,7 +646,7 @@ class SerialCommunicator:
 
     def max(self, value, root=-1):
         return value
-    
+
     def max_scalar(self, value, root=-1):
         return value
 
@@ -720,19 +723,22 @@ class SerialCommunicator:
         return _world
 
 
-world: SerialCommunicator | _Communicator | _gpaw.Communicator
-serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
+_serial_comm = SerialCommunicator()
 
 have_mpi = _world is not None
 
-if not have_mpi or _world.size == 1:
-    world = serial_comm
-else:
-    world = _world
+if not have_mpi:
+    _world = _serial_comm  # type: ignore
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(_serial_comm)
+    if _world.size == 1:
+        world = serial_comm
+    else:
+        world = _Communicator(_world)
+else:
+    serial_comm = _serial_comm  # type: ignore
+    world = _world  # type: ignore
 
 rank = world.rank
 size = world.size

@@ -13,8 +13,10 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    def __init__(self, atoms, params, nn=3, interpolation=3):
-        super().__init__(atoms, params)
+    def __init__(self, atoms, params, *, comm, nn=3, interpolation=3):
+        super().__init__(atoms,
+                         params,
+                         comm=comm)
         assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation
@@ -121,7 +123,7 @@ class FDHamiltonian(Hamiltonian):
         self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
 
     def apply(self, vt_sR, psit_nR, out, spin):
-        self.kin.apply(psit_nR.data, out.data, psit_nR.desc.phase_factors_cd)
+        self.kin(psit_nR, out)
         for p, o in zip(psit_nR.data, out.data):
             o += p * vt_sR.data[spin]
         return out
@@ -133,7 +135,7 @@ class FDHamiltonian(Hamiltonian):
         pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize)
 
         def apply(psit, residuals, out):
-            kpt = SimpleNamespace(phase_cd=psit.desc.phase_factors_cd)
+            kpt = SimpleNamespace(phase_cd=psit.desc.phase_factor_cd)
             pc(residuals.data, kpt, out=out.data)
 
         return apply

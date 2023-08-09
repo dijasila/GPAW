@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from gpaw.utilities.blas import gemmdot
-
 from gpaw.sphere.integrate import spherical_truncation_function_collection
 from gpaw.sphere.rshe import calculate_reduced_rshe
 
@@ -155,8 +153,8 @@ class MatrixElementCalculator(ABC):
         # Fold out the projectors to the transition index
         P1_amyti = ikpt1.projectors_in_transition_index(P1h)
         P2_amyti = ikpt2.projectors_in_transition_index(P2h)
-        assert P1_amyti.atom_partition.comm.size ==\
-            P2_amyti.atom_partition.comm.size == 1,\
+        assert P1_amyti.atom_partition.comm.size == \
+            P2_amyti.atom_partition.comm.size == 1, \
             'We need access to the projections of all atoms'
 
         self._add_paw_correction(P1_amyti, P2_amyti, matrix_element)
@@ -291,7 +289,6 @@ class NewPairDensityCalculator(MatrixElementCalculator):
 
 
 class SiteMatrixElement(MatrixElement):
-
     def __init__(self, tblocks, qpd, atomic_site_data):
         self.nsites = atomic_site_data.nsites
         self.npartitions = atomic_site_data.npartitions
@@ -404,11 +401,10 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         where the Kohn-Sham orbitals are normalized to the unit cell.
         """
         # Construct pseudo waves with Bloch phases
-        r_cR = self.gs.ibz2bz.r_cR  # scaled grid coordinates
-        psit1_mytR = np.exp(2j * np.pi * gemmdot(k1_c, r_cR))[np.newaxis]\
-            * ut1_mytR
-        psit2_mytR = np.exp(2j * np.pi * gemmdot(k2_c, r_cR))[np.newaxis]\
-            * ut2_mytR
+        r_Rc = np.transpose(self.gs.ibz2bz.r_cR,  # scaled grid coordinates
+                            (1, 2, 3, 0))
+        psit1_mytR = np.exp(2j * np.pi * r_Rc @ k1_c)[np.newaxis] * ut1_mytR
+        psit2_mytR = np.exp(2j * np.pi * r_Rc @ k2_c)[np.newaxis] * ut2_mytR
         # Calculate real-space pair densities ñ_kt(r)
         nt_mytR = psit1_mytR.conj() * psit2_mytR
         # Evaluate the local functional f(n(r)) on the coarse real-space grid

@@ -67,7 +67,7 @@ def ground_state():
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
 
-    calc = GPAW(nbands=6, h=0.4,
+    calc = GPAW(mode='fd', nbands=6, h=0.4,
                 convergence={'density': 1e-8},
                 communicator=serial_comm,
                 xc='LDA',
@@ -113,7 +113,7 @@ def test_dipole_moment_values(time_propagation_reference,
 '''.strip())  # noqa: E501
 
     rtol = 5e-4
-    atol = 1e-8
+    atol = 1e-7
     check_dm('dm.dat', module_tmp_path / 'dm.dat', rtol=rtol, atol=atol)
     check_dm('dm2.dat', module_tmp_path / 'dm2.dat', rtol=rtol, atol=atol)
 

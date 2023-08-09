@@ -40,7 +40,7 @@ def test_solvation_spinpol():
 
     for atoms in atomss:
         atoms.calc = SolvationGPAW(
-            xc='LDA', h=h, charge=-1,
+            mode='fd', xc='LDA', h=h, charge=-1,
             cavity=EffectivePotentialCavity(
                 effective_potential=Power12Potential(atomic_radii, u0),
                 temperature=T,

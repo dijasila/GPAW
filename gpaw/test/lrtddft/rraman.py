@@ -28,7 +28,11 @@ def test_rraman():
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
 
-    calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis',
+    calc = GPAW(mode='fd',
+                xc=xc,
+                nbands=3,
+                spinpol=False,
+                eigensolver='rmm-diis',
                 txt=txt)
     H2.calc = calc
     H2.get_potential_energy()

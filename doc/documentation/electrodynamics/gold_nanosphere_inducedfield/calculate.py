@@ -50,7 +50,8 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms)
 del atoms[:]  # Remove atoms, quantum system is empty
 
 # Initialize GPAW
-gs_calc = GPAW(gpts=gpts,
+gs_calc = GPAW(mode='fd',
+               gpts=gpts,
                nbands=-1,
                poissonsolver=poissonsolver,
                symmetry={'point_group': False})

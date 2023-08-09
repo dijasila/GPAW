@@ -77,7 +77,7 @@ class DysonSolver:
     def __call__(self, chiks: Chi, hxc_kernel: HXCKernel) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
         assert chiks.distribution == 'zGG' and\
-            chiks.blockdist.fully_block_distributed,\
+            chiks.blockdist.fully_block_distributed, \
             "DysonSolver needs chiks' frequencies to be distributed over world"
 
         Khxc_GG = hxc_kernel.get_Khxc_GG()

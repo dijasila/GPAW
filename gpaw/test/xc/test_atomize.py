@@ -18,7 +18,11 @@ def test_xc_atomize(in_tmp_dir):
                  cell=(a, a, a), pbc=False)
 
     # gpaw calculator:
-    calc = GPAW(gpts=(32, 32, 32), nbands=1, xc=xc('PBE'), txt='H.txt',
+    calc = GPAW(mode='fd',
+                gpts=(32, 32, 32),
+                nbands=1,
+                xc=xc('PBE'),
+                txt='H.txt',
                 eigensolver=Davidson(12),
                 mixer=Mixer(0.5, 5),
                 parallel=dict(kpt=1),

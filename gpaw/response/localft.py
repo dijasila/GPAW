@@ -643,9 +643,9 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
     f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
                          ∂n^2       |n=n(r),m=m(r)
     """
-    assert len(n_sR) == 1,\
+    assert len(n_sR) == 1, \
         'The density kernel is untested for spin-polarized systems'
-    
+
     if fxc == 'ALDA_x':
         fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
     else:

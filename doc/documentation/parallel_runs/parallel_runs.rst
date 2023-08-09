@@ -168,7 +168,7 @@ or simply a list of ranks. Thus, you may write::
   ranks = [0, 3, 4]
   comm = mpi.world.new_communicator(ranks)
   if mpi.world.rank in ranks:
-      calc = GPAW(communicator=comm)
+      calc = GPAW(communicator=comm, ...)
       ...
 
 Be sure to specify different output files to each calculator,

@@ -16,6 +16,7 @@ from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
 from ase.lattice.compounds import L1_2
 from gpaw import Mixer
+from gpaw.new.ase_interface import GPAW as GPAWNew
 
 
 @contextmanager
@@ -271,6 +272,38 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    def fcc_Ni_col(self):
+        return self.fcc_Ni('col')
+
+    def fcc_Ni_ncol(self):
+        return self.fcc_Ni('ncol')
+
+    def fcc_Ni_ncolsoc(self):
+        return self.fcc_Ni('ncolsoc')
+
+    def fcc_Ni(self, calc_type):
+        Ni = bulk('Ni', 'fcc', 3.48)
+        Ni.center()
+
+        mm = 0.5
+        easy_axis = 1 / np.sqrt(3) * np.ones(3)
+        Ni.set_initial_magnetic_moments([mm])
+
+        symmetry = {'point_group': True, 'time_reversal': True} if \
+            calc_type == 'col' else 'off'
+        magmoms = None if calc_type == 'col' else [mm * easy_axis]
+        soc = True if calc_type == 'ncolsoc' else False
+
+        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 400}, xc='LDA',
+                          kpts={'size': (4, 4, 4), 'gamma': True},
+                          parallel={'domain': 1, 'band': 1},
+                          symmetry=symmetry,
+                          occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          magmoms=magmoms, soc=soc,
+                          txt=self.path / f'fcc_Ni_{calc_type}.txt')
+        Ni.get_potential_energy()
+        return Ni.calc
 
     def h2_pw(self):
         return self.h2({'name': 'pw', 'ecut': 200})
@@ -574,6 +607,7 @@ class GPWFiles:
                     kpts=kpts,
                     occupations=FermiDirac(0.001),
                     setups={'Ni': '10'},
+                    parallel=dict(domain=1),  # >1 fails on 8 cores
                     # communicator=serial_comm
                     )
 
@@ -910,19 +944,18 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def h_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H'), hund=True, nbands=4)
+    def h_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H'), hund=True, nbands=4)
 
-    def h2_pw210_rmmdiis(self):
-        return self._pw_210_rmmdiis(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
-                                    nbands=8)
+    def h2_pw280_fulldiag(self):
+        return self._pw_280_fulldiag(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
+                                     nbands=8)
 
-    def _pw_210_rmmdiis(self, atoms, **kwargs):
+    def _pw_280_fulldiag(self, atoms, **kwargs):
         atoms.set_pbc(True)
         atoms.set_cell((2., 2., 3.))
         atoms.center()
-        calc = GPAW(mode=PW(210, force_complex_dtype=True),
-                    eigensolver='rmm-diis',
+        calc = GPAW(mode=PW(280, force_complex_dtype=True),
                     xc='LDA',
                     basis='dzp',
                     parallel={'domain': 1},
@@ -1046,3 +1079,12 @@ def needs_ase_master():
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+
+@pytest.fixture
+def rng():
+    """Seeded random number generator.
+
+    Tests should be deterministic and should use this
+    fixture or initialize their own rng."""
+    return np.random.default_rng(42)

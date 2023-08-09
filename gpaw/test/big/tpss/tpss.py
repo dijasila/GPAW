@@ -59,7 +59,8 @@ for formula in systems:
     loa.set_cell(cell)
     loa.center()
     width = 0.0
-    calc = GPAW(h=.18,
+    calc = GPAW(mode='fd',
+                h=.18,
                 nbands=-5,
                 maxiter=333,
                 xc='PBE')
