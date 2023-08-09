@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.response.g0w0 import G0W0
 
 from ase.units import Hartree as Ha
+from gpaw.mpi import world
 
 @pytest.mark.response
 def test_ppa(in_tmp_dir, gpw_files, scalapack):
@@ -16,7 +17,7 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack):
     gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
               nbands=9,
-              nblocks=1,
+              nblocks=world.size,
               ecut=40,
               ppa=False,
               mpa=mpa_dict) 
