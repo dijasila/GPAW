@@ -382,8 +382,8 @@ def test_Co_site_data(gpw_files):
 @pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter
-    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['co_pw_wfs']
+    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
 
@@ -395,7 +395,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
         nblocks = 1
 
     # Get wave vector to test
-    q_c = get_q_c('co_pw_wfs', qrel)
+    q_c = get_q_c('co_pw', qrel)
 
     # Set up atomic sites
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
