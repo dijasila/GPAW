@@ -124,7 +124,7 @@ class TBPotentialCalculator(PotentialCalculator):
             [9] * len(self.atoms),
             self.nct_R.comm).zeros()
 
-    def calculate_pseudo_potential(self, density, vHt_r):
+    def calculate_pseudo_potential(self, density, ibzwfs, vHt_r):
         vt_sR = density.nt_sR
 
         atoms = self.atoms
@@ -163,11 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, comm):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
-        self.world = world
+        self.comm = comm
 
     def iterate(self,
                 state,
@@ -184,8 +184,10 @@ class TBSCFLoop:
 
 
 class DummyBasis:
-    def __init__(self, natoms):
-        self.my_atom_indices = np.arange(natoms)
+    def __init__(self, setups):
+        self.my_atom_indices = np.arange(len(setups))
+        self.Mstart = 0
+        self.Mstop = setups.nao
 
     def add_to_density(self, nt_sR, f_asi):
         pass
@@ -210,7 +212,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         return PSCoreDensities(self.grid, self.fracpos_ac)
 
     def create_basis_set(self):
-        self.basis = DummyBasis(len(self.atoms))
+        self.basis = DummyBasis(self.setups)
         return self.basis
 
     def create_hamiltonian_operator(self):

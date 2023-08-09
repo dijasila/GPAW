@@ -111,7 +111,7 @@ def radial_trapz(f_xg, r_g):
     r1_g = r_g[1:]
     f0_xg = f_xg[..., :-1]
     f1_xg = f_xg[..., 1:]
-    assert np.all(r1_g - r0_g > 0.),\
+    assert np.all(r1_g - r0_g > 0.), \
         'Please give the radial grid in ascending order'
 
     # Linearly interpolate f(r) between r0 and r1 and integrate r^2 f(r)
@@ -236,7 +236,8 @@ def periodic_truncation_function(gd, spos_c, rcut, drcut=None, lambd=None):
 
 
 def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
-                                             drcut=None, lambd_aj=None):
+                                             drcut=None, lambd_aj=None,
+                                             kd=None, dtype=float):
     """Generate a collection of spherical truncation functions θ(|r-r_a|<rc_aj)
 
     Generates a LocalizedFunctionsCollection with radial truncation functions
@@ -261,7 +262,7 @@ def spherical_truncation_function_collection(gd, spos_ac, rcut_aj,
         spline_aj.append(spline_j)
 
     # Generate the spherical truncation function collection (stfc)
-    stfc = LocalizedFunctionsCollection(gd, spline_aj, dtype=float)
+    stfc = LocalizedFunctionsCollection(gd, spline_aj, kd=kd, dtype=dtype)
     stfc.set_positions(spos_ac)
 
     return stfc
@@ -286,16 +287,15 @@ def radial_truncation_function_spline(rcut, drcut, lambd=None):
 
 def default_spherical_drcut(gd):
     """Define default width for the spherical truncation function."""
-    # Find "diameter" of each grid point volume
-    diam = 2. * (3. * gd.dv / (4. * np.pi))**(1. / 3.)
-    # Truncate the sphere smoothly over two such diameters
-    drcut = 2 * diam
-    return drcut
+    # Find the side-length corresponding to a cubic grid volume element
+    length = gd.dv**(1. / 3.)
+    # Use this side-length as the default
+    return length
 
 
 def _uniform_radial_grid(rcut, drcut):
     return np.linspace(0., rcut + 2 * drcut, 251)
-    
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt

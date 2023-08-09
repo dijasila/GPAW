@@ -143,6 +143,9 @@ class ndarray:
     def sum(self, **kwargs):
         return ndarray(self._data.sum(**kwargs))
 
+    def __repr__(self):
+        return 'cp.' + np.array_repr(self._data)
+
     def __len__(self):
         return len(self._data)
 

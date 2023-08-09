@@ -18,7 +18,7 @@ def test_fileio_file_reference(in_tmp_dir):
 
     # Only a short, non-converged calculation
     conv = {'eigenstates': 1.24, 'energy': 2e-1, 'density': 1e-1}
-    calc = GPAW(h=0.30, kpts=(1, 1, 3),
+    calc = GPAW(mode='fd', h=0.30, kpts=(1, 1, 3),
                 setups={'Na': '1'},
                 nbands=3, convergence=conv)
     atoms.calc = calc

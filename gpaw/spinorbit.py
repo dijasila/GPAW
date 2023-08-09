@@ -163,12 +163,14 @@ class BZWaveFunctions:
     """Container for eigenvalues and PAW projections (all of BZ)."""
     def __init__(self,
                  kd: KPointDescriptor,
-                 wfs: Dict[int, WaveFunction],
+                 wfs: dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
-                 nelectrons: float):
+                 nelectrons: float,
+                 nl_aj: dict[int, list[tuple[int, int]]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
+        self.nl_aj = nl_aj
 
         self.nbzkpts = kd.nbzkpts
 
@@ -265,6 +267,11 @@ class BZWaveFunctions:
         """Spin projections for the whole BZ."""
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
+
+    def get_orbital_magnetic_moments(self):
+        """Return the orbital magnetic moment vector for each atom."""
+        from gpaw.new.orbmag import get_orbmag_from_soc_eigs
+        return get_orbmag_from_soc_eigs(self)
 
     def pdos_weights(self,
                      a: int,
@@ -526,7 +533,11 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     else:
         occcalc = None
 
-    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
+    nl_aj = {}
+    for a, setup in enumerate(calc.wfs.setups):
+        nl_aj[a] = list(zip(setup.n_j, setup.l_j))
+
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:

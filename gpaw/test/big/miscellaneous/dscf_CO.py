@@ -3,10 +3,16 @@ from gpaw import GPAW
 import gpaw.dscf as dscf
 
 # Ground state calculation
-calc_mol = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
-                convergence={'energy': 100,
-                             'density': 100,
-                             'bands': -1})
+calc_params = dict(
+    mode='fd',
+    nbands=8,
+    h=0.2,
+    xc='PBE',
+    spinpol=True,
+    convergence={'energy': 100,
+                 'density': 100,
+                 'bands': -1})
+calc_mol = GPAW(**calc_params)
 
 CO = molecule('CO')
 CO.center(vacuum=3)
@@ -22,10 +28,7 @@ p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
          for kpt in calc_mol.wfs.kpt_u]
 
 # Excited state calculations
-calc_1 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
-              convergence={'energy': 100,
-                           'density': 100,
-                           'bands': -1})
+calc_1 = GPAW(**calc_params)
 CO.calc = calc_1
 weights = {0: [0., 0., 0., 1.], 1: [0., 0., 0., -1.]}
 lumo = dscf.MolecularOrbital(calc_1, weights=weights)
@@ -33,10 +36,7 @@ dscf.dscf_calculation(calc_1, [[1.0, lumo, 1]], CO)
 E_es1 = CO.get_potential_energy()
 calc_1.write('dscf_CO_es1.gpw', mode='all')
 
-calc_2 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
-              convergence={'energy': 100,
-                           'density': 100,
-                           'bands': -1})
+calc_2 = GPAW(**calc_params)
 CO.calc = calc_2
 lumo = dscf.AEOrbital(calc_2, wf_u, p_uai)
 dscf.dscf_calculation(calc_2, [[1.0, lumo, 1]], CO)

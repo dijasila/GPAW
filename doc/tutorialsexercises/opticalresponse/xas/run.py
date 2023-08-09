@@ -13,7 +13,8 @@ atoms = Atoms('OH2',
                (d * cos(t), d * sin(t), 0)],
               cell=(a, a, a))
 atoms.center()
-calc = GPAW(nbands=-30,
+calc = GPAW(mode='fd',
+            nbands=-30,
             h=0.2,
             txt='h2o_xas.txt',
             setups={'O': 'hch1s'})

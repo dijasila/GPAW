@@ -7,7 +7,7 @@ from gpaw.wannier import calculate_overlaps
 @pytest.mark.serial
 @pytest.mark.parametrize('mode', ['pw', 'fd', 'lcao'])
 def test_wan_h2(gpw_files, mode, in_tmp_dir):
-    calc = GPAW(gpw_files[f'h2_{mode}_wfs'])
+    calc = GPAW(gpw_files[f'h2_{mode}'])
     overlaps = calculate_overlaps(calc, n1=0, n2=1, nwannier=1,
                                   projections={0: 's'})
     wan = overlaps.localize_er(verbose=True)

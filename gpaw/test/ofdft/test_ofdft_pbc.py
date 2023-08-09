@@ -20,7 +20,8 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
     atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond
     mixer = Mixer(0.1, 5)
 
-    calc = GPAW(h=h,
+    calc = GPAW(mode='fd',
+                h=h,
                 xc=xcname,
                 setups={'C': g},
                 maxiter=120,

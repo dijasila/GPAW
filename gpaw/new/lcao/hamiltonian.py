@@ -43,7 +43,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         _, M = data.shape
         if wfs.dtype == complex:
             data = data.astype(complex)
-        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm,))
+        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm, -1, 1))
         if wfs.dtype == complex:
             phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
@@ -74,7 +74,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
     def _calculate_matrix_with_kinetic(self,
                                        wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self._calculate_matrix_without_kinetic(wfs)
-        H_MM.data += wfs.T_MM
+        H_MM.data += wfs.T_MM.data
 
         wfs.domain_comm.sum(H_MM.data, 0)
 
@@ -83,7 +83,6 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                 H_MM.add_hermitian_conjugate(scale=0.5)
             else:
                 H_MM.tril2full()
-
         return H_MM
 
 

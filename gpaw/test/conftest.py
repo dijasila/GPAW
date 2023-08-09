@@ -1,11 +1,10 @@
 import os
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
+import functools
 
 import numpy as np
 import pytest
-from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
@@ -16,6 +15,7 @@ from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
 from ase.lattice.compounds import L1_2
 from gpaw import Mixer
+from gpaw.new.ase_interface import GPAW as GPAWNew
 
 
 @contextmanager
@@ -70,6 +70,7 @@ def with_band_cutoff(*, gpw, band_cutoff):
     response_band_cutoff[gpw] = band_cutoff
 
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, band_cutoff=band_cutoff, **kwargs)
         return wrapper
@@ -78,18 +79,17 @@ def with_band_cutoff(*, gpw, band_cutoff):
 
 
 @pytest.fixture(scope='session')
-def gpw_files(request, tmp_path_factory):
+def gpw_files(request):
     """Reuse gpw-files.
 
-    Returns a dict mapping names to paths to gpw-files.  If you
-    want to reuse gpw-files from an earlier pytest session then set the
-    ``$GPW_TEST_FILES`` environment variable and the files will be written
-    to that folder.
+    Returns a dict mapping names to paths to gpw-files.
+    The files are written to the pytest cache and can be cleared using
+    pytest --cache-clear.
 
     Example::
 
         def test_something(gpw_files):
-            calc = GPAW(gpw_files['h2_lcao_wfs'])
+            calc = GPAW(gpw_files['h2_lcao'])
             ...
 
     Possible systems are:
@@ -150,24 +150,11 @@ def gpw_files(request, tmp_path_factory):
     * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
 
-
-    Files with wave functions are also available (add ``_wfs`` to the names).
+    Files always include wave functions.
     """
-    path = os.environ.get('GPW_TEST_FILES')
-    if not path:
-        warnings.warn(
-            'Note that you can speed up the tests by reusing gpw-files '
-            'from an earlier pytest session: '
-            'set the $GPW_TEST_FILES environment variable and the '
-            'files will be written to/read from that folder. '
-            'See: https://wiki.fysik.dtu.dk/gpaw/devel/testing.html'
-            '#gpaw.test.conftest.gpw_files')
-        if world.rank == 0:
-            path = _mk_tmp(request, tmp_path_factory)
-        else:
-            path = None
-        path = broadcast(path)
-    return GPWFiles(Path(path))
+    cache = request.config.cache
+    gpaw_cachedir = cache.mkdir('gpaw_test_gpwfiles')
+    return GPWFiles(gpaw_cachedir)
 
 
 class Locked(FileExistsError):
@@ -205,11 +192,20 @@ def world_temporary_lock(path):
             raise Locked
 
 
+_all_gpw_methodnames = set()
+
+
+def gpwfile(meth):
+    """Decorator to identify the methods that produce gpw files."""
+    _all_gpw_methodnames.add(meth.__name__)
+    return meth
+
+
 class GPWFiles:
     """Create gpw-files."""
     def __init__(self, path: Path):
         self.path = path
-        path.mkdir(exist_ok=True)
+
         self.gpw_files = {}
         for file in path.glob('*.gpw'):
             self.gpw_files[file.name[:-4]] = file
@@ -218,49 +214,48 @@ class GPWFiles:
         if name in self.gpw_files:
             return self.gpw_files[name]
 
-        rawname, _, _ = name.partition('_wfs')
-        nowfs_path = self.path / (rawname + '.gpw')
-        wfs_path = self.path / (rawname + '_wfs.gpw')
+        gpwpath = self.path / (name + '.gpw')
 
-        # (Note we need to lock based on rawname.)
-        lockfile = self.path / f'{rawname}.lock'
+        lockfile = self.path / f'{name}.lock'
 
         for _attempt in range(60):  # ~60s timeout
             files_exist = 0
             if world.rank == 0:
-                files_exist = int(nowfs_path.exists() and wfs_path.exists())
+                files_exist = int(gpwpath.exists())
             files_exist = world.sum_scalar(files_exist)
 
             if files_exist:
-                self.gpw_files[rawname] = nowfs_path
-                self.gpw_files[rawname + '_wfs'] = wfs_path
-
+                self.gpw_files[name] = gpwpath
                 return self.gpw_files[name]
 
             try:
                 with world_temporary_lock(lockfile):
-                    calc = getattr(self, rawname)()
-                    nowfs_work_path = nowfs_path.with_suffix('.tmp')
-                    wfs_work_path = wfs_path.with_suffix('.tmp')
-                    calc.write(nowfs_work_path)
-                    calc.write(wfs_work_path, mode='all')
+                    calc = getattr(self, name)()
+                    work_path = gpwpath.with_suffix('.tmp')
+                    calc.write(work_path, mode='all')
+
                     # By now files should exist *and* be fully written, by us.
                     # Rename them to the final intended paths:
                     if world.rank == 0:
-                        nowfs_work_path.rename(nowfs_path)
-                        wfs_work_path.rename(wfs_path)
+                        work_path.rename(gpwpath)
+
             except Locked:
                 import time
                 time.sleep(1)
 
-        raise RuntimeError(f'GPW fixture generation takes too long: {name}')
+        raise RuntimeError(f'GPW fixture generation takes too long: {name}.  '
+                           'Consider using pytest --cache-clear if there are '
+                           'stale lockfiles, else write faster tests.')
 
+    @gpwfile
     def bcc_li_pw(self):
         return self.bcc_li({'name': 'pw', 'ecut': 200})
 
+    @gpwfile
     def bcc_li_fd(self):
         return self.bcc_li({'name': 'fd'})
 
+    @gpwfile
     def bcc_li_lcao(self):
         return self.bcc_li({'name': 'lcao'})
 
@@ -272,12 +267,50 @@ class GPWFiles:
         li.get_potential_energy()
         return li.calc
 
+    @gpwfile
+    def fcc_Ni_col(self):
+        return self.fcc_Ni('col')
+
+    @gpwfile
+    def fcc_Ni_ncol(self):
+        return self.fcc_Ni('ncol')
+
+    @gpwfile
+    def fcc_Ni_ncolsoc(self):
+        return self.fcc_Ni('ncolsoc')
+
+    def fcc_Ni(self, calc_type):
+        Ni = bulk('Ni', 'fcc', 3.48)
+        Ni.center()
+
+        mm = 0.5
+        easy_axis = 1 / np.sqrt(3) * np.ones(3)
+        Ni.set_initial_magnetic_moments([mm])
+
+        symmetry = {'point_group': True, 'time_reversal': True} if \
+            calc_type == 'col' else 'off'
+        magmoms = None if calc_type == 'col' else [mm * easy_axis]
+        soc = True if calc_type == 'ncolsoc' else False
+
+        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 400}, xc='LDA',
+                          kpts={'size': (4, 4, 4), 'gamma': True},
+                          parallel={'domain': 1, 'band': 1},
+                          symmetry=symmetry,
+                          occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          magmoms=magmoms, soc=soc,
+                          txt=self.path / f'fcc_Ni_{calc_type}.txt')
+        Ni.get_potential_energy()
+        return Ni.calc
+
+    @gpwfile
     def h2_pw(self):
         return self.h2({'name': 'pw', 'ecut': 200})
 
+    @gpwfile
     def h2_fd(self):
         return self.h2({'name': 'fd'})
 
+    @gpwfile
     def h2_lcao(self):
         return self.h2({'name': 'lcao'})
 
@@ -289,6 +322,7 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
+    @gpwfile
     def h2_pw_0(self):
         h2 = Atoms('H2',
                    positions=[[-0.37, 0, 0], [0.37, 0, 0]],
@@ -299,6 +333,7 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
+    @gpwfile
     def h2_bcc_afm(self):
         a = 2.75
         atoms = bulk(name='H', crystalstructure='bcc', a=a, cubic=True)
@@ -313,6 +348,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
         h.center(vacuum=4.0)
@@ -321,6 +357,7 @@ class GPWFiles:
         h.get_potential_energy()
         return h.calc
 
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
@@ -330,6 +367,7 @@ class GPWFiles:
         a.get_potential_energy()
         return a.calc
 
+    @gpwfile
     def Cu3Au_qna(self):
         ecut = 300
         kpts = (1, 1, 1)
@@ -357,6 +395,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def co_lcao(self):
         d = 1.1
         co = Atoms('CO', positions=[[0, 0, 0], [d, 0, 0]])
@@ -366,6 +405,7 @@ class GPWFiles:
         co.get_potential_energy()
         return co.calc
 
+    @gpwfile
     def c2h4_pw_nosym(self):
         d = 1.54
         h = 1.1
@@ -388,6 +428,7 @@ class GPWFiles:
         pe.get_potential_energy()
         return pe.calc
 
+    @gpwfile
     def c6h12_pw(self):
         pe = read(self['c2h4_pw_nosym'])
         pe = pe.repeat((3, 1, 1))
@@ -395,6 +436,7 @@ class GPWFiles:
         pe.get_potential_energy()
         return pe.calc
 
+    @gpwfile
     def h2o_lcao(self):
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
@@ -441,12 +483,15 @@ class GPWFiles:
         bulk_crystal.get_potential_energy()
         return bulk_calc
 
+    @gpwfile
     def ti2o4_pw(self):
         return self.ti2o4({})
 
+    @gpwfile
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
 
+    @gpwfile
     def si_pw(self):
         si = bulk('Si')
         calc = GPAW(mode='pw',
@@ -458,7 +503,8 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    @with_band_cutoff(gpw='fancy_si_pw_wfs',
+    @gpwfile
+    @with_band_cutoff(gpw='fancy_si_pw',
                       band_cutoff=8)  # 2 * (3s, 3p)
     def _fancy_si(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -486,12 +532,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def fancy_si_pw(self):
         return self._fancy_si()
 
+    @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
 
+    @gpwfile
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -503,6 +552,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def hbn_pw(self):
         atoms = Graphene(symbol='B',
                          latticeconstant={'a': 2.5, 'c': 1.0},
@@ -520,6 +570,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def graphene_pw(self):
         from ase.lattice.hexagonal import Graphene
         atoms = Graphene(symbol='C',
@@ -556,12 +607,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def mos2_pw(self):
         return self._mos2()
 
+    @gpwfile
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
-    
+
+    @gpwfile
     def ni_pw_kpts333(self):
         from ase.dft.kpoints import monkhorst_pack
         # from gpaw.mpi import serial_comm
@@ -584,6 +638,7 @@ class GPWFiles:
         # calc.write('Ni.gpw', mode='all')
         return calc
 
+    @gpwfile
     def c_pw(self):
         atoms = bulk('C')
         atoms.center()
@@ -597,6 +652,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def nicl2_pw(self):
         from ase.build import mx2
 
@@ -635,7 +691,7 @@ class GPWFiles:
 
         return atoms.calc
 
-    @with_band_cutoff(gpw='v2br4_pw_wfs',
+    @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
     def _v2br4(self, *, band_cutoff, symmetry=None):
         from ase.build import mx2
@@ -683,13 +739,15 @@ class GPWFiles:
 
         return atoms.calc
 
+    @gpwfile
     def v2br4_pw(self):
         return self._v2br4()
 
+    @gpwfile
     def v2br4_pw_nosym(self):
         return self._v2br4(symmetry='off')
 
-    @with_band_cutoff(gpw='fe_pw_wfs',
+    @with_band_cutoff(gpw='fe_pw',
                       band_cutoff=9)  # 4s, 4p, 3d = 9
     def _fe(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -721,13 +779,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def fe_pw(self):
         return self._fe()
 
+    @gpwfile
     def fe_pw_nosym(self):
         return self._fe(symmetry='off')
 
-    @with_band_cutoff(gpw='co_pw_wfs',
+    @with_band_cutoff(gpw='co_pw',
                       band_cutoff=14)  # 2 * (4s + 3d)
     def _co(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -766,13 +826,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def co_pw(self):
         return self._co()
 
+    @gpwfile
     def co_pw_nosym(self):
         return self._co(symmetry='off')
 
-    @with_band_cutoff(gpw='srvo3_pw_wfs',
+    @with_band_cutoff(gpw='srvo3_pw',
                       band_cutoff=20)
     def _srvo3(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -809,13 +871,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def srvo3_pw(self):
         return self._srvo3()
 
+    @gpwfile
     def srvo3_pw_nosym(self):
         return self._srvo3(symmetry='off')
 
-    @with_band_cutoff(gpw='al_pw_wfs',
+    @with_band_cutoff(gpw='al_pw',
                       band_cutoff=10)  # 3s, 3p, 4s, 3d
     def _al(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -844,12 +908,15 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def al_pw(self):
         return self._al()
 
+    @gpwfile
     def al_pw_nosym(self):
         return self._al(symmetry='off')
 
+    @gpwfile
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2
@@ -879,13 +946,15 @@ class GPWFiles:
 
         return atoms.calc
 
+    @gpwfile
     def gaas_pw_nosym(self):
         return self._gaas(symmetry='off')
 
+    @gpwfile
     def gaas_pw(self):
         return self._gaas()
 
-    @with_band_cutoff(gpw='gaas_pw_wfs',
+    @with_band_cutoff(gpw='gaas_pw',
                       band_cutoff=8)
     def _gaas(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
@@ -911,9 +980,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
     def h_pw280_fulldiag(self):
         return self._pw_280_fulldiag(Atoms('H'), hund=True, nbands=4)
 
+    @gpwfile
     def h2_pw280_fulldiag(self):
         return self._pw_280_fulldiag(Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)]),
                                      nbands=8)
@@ -932,6 +1003,30 @@ class GPWFiles:
         atoms.get_potential_energy()
         calc.diagonalize_full_hamiltonian(nbands=80)
         return calc
+
+
+@pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))
+def all_gpw_files(request, gpw_files, pytestconfig):
+    """This fixture parametrizes a test over all gpw_files.
+
+    For example pytest test_generate_gpwfiles.py -n 16 is a way to quickly
+    generate all gpw files independently of the rest of the test suite."""
+
+    # Note: Parametrizing over _all_gpw_methodnames must happen *after*
+    # it is populated, i.e., further down in the file than
+    # the @gpwfile decorator.
+
+    import os
+    gpaw_new = os.environ.get('GPAW_NEW')
+
+    # TODO This xfail-information should probably live closer to the
+    # gpwfile definitions and not here in the fixture.
+    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw'}
+    if gpaw_new and request.param in skip_if_new:
+        pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
+
+    # Accessing each file via __getitem__ executes the calculation:
+    return gpw_files[request.param]
 
 
 class GPAWPlugin:
@@ -974,6 +1069,7 @@ def pytest_configure(config):
         'dscf: Delta-SCF',
         'elph: Electron-phonon',
         'fast: fast test',
+        'generate_gpw_files: Dummy test to trigger gpw file precalculation',
         'gllb: GLLBSC tests',
         'gpu: GPU test',
         'hybrids: Hybrid functionals',
@@ -1046,6 +1142,13 @@ def needs_ase_master():
 def pytest_report_header(config, startdir):
     # Use this to add custom information to the pytest printout.
     yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+    # We want the user to be able to see where gpw files are cached,
+    # but the only way to see the cache location is to make a directory
+    # inside it.  mkdir('') returns the toplevel cache dir without
+    # actually creating a subdirectory:
+    cachedir = config.cache.mkdir('')
+    yield f'Cache directory including gpw files: {cachedir}'
 
 
 @pytest.fixture

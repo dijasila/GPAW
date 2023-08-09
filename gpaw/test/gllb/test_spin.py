@@ -11,7 +11,8 @@ def test_gllb_spin():
     for spin in [False, True]:
         a = 3.56
         atoms = bulk('C', 'diamond', a=a)
-        calc = GPAW(kpts=(3, 3, 3),
+        calc = GPAW(mode='fd',
+                    kpts=(3, 3, 3),
                     xc='GLLBSC',
                     spinpol=spin,
                     nbands=8,
