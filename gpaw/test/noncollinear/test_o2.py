@@ -7,7 +7,6 @@ from gpaw import GPAW
 from gpaw.mpi import size
 
 
-@pytest.mark.later
 def test_noncollinear_o2(in_tmp_dir):
     if size > 2:
         raise SkipTest()
