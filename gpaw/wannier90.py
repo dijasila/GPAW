@@ -6,26 +6,6 @@ from gpaw.ibz2bz import (get_overlap, get_overlap_coefficients,
 from gpaw.spinorbit import soc_eigenstates
 
 
-def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
-    """ Returns projections object in full BZ
-    wfs: calc.wfs object
-    K: BZ k-point index
-    s: spin index
-    ibz2bz: IBZ2BZMaps
-    bcomm: band communicator
-    """
-    ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
-    kpt = wfs.kpt_qs[ik][s]
-    nbands = wfs.bd.nbands
-    # Get projections in ibz
-    proj = kpt.projections.new(nbands=nbands, bcomm=bcomm)
-    proj.array[:] = kpt.projections.array[:nbands]
-
-    # map projections to bz
-    proj_sym = ibz2bz[K].map_projections(proj)
-    return proj_sym
-
-
 class Wannier90:
     def __init__(self, calc, seed=None, bands=None, orbitals_ai=None,
                  spin=0, spinors=False):
@@ -62,6 +42,7 @@ class Wannier90:
         self.spinors = spinors
 
         if spinors:
+            assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
             self.soc = soc_eigenstates(calc)
         else:
             self.soc = None
@@ -443,6 +424,47 @@ class Wannier90:
         f.close()
 
 
+    def write_wavefunctions(self):
+
+        calc = self.calc
+        soc = self.soc
+        spin = self.spin
+        seed = self.seed
+        wfs = calc.wfs
+
+        if soc is None:
+            spinors = False
+        else:
+            spinors = True
+
+        if seed is None:
+            seed = calc.atoms.get_chemical_formula()
+
+        bands = get_bands(seed)
+        Nn = len(bands)
+        Nk = len(calc.get_ibz_k_points())
+
+        for ik in range(Nk):
+            if spinors:
+                # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
+                u_nG = soc[ik].wavefunctions(calc, periodic=True)
+            else:
+                # For non-spinors, G denotes grid: G = (gx, gy, gz)
+                u_nG = np.array([wfs.get_wave_function_array(n, ik, spin)
+                                 for n in bands])
+
+            f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
+            grid_v = np.shape(u_nG)[1:]
+            print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
+            for n in range(Nn):
+                for iz in range(grid_v[2]):
+                    for iy in range(grid_v[1]):
+                        for ix in range(grid_v[0]):
+                            u = u_nG[n, ix, iy, iz]
+                            print(u.real, u.imag, file=f)
+            f.close()
+
+
 def get_bands(seed):
     win_file = open(seed + '.win')
     exclude_bands = None
@@ -464,38 +486,21 @@ def get_bands(seed):
     return bands
 
 
-def write_wavefunctions(calc, soc=None, spin=0, seed=None):
+def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
+    """ Returns projections object in full BZ
+    wfs: calc.wfs object
+    K: BZ k-point index
+    s: spin index
+    ibz2bz: IBZ2BZMaps
+    bcomm: band communicator
+    """
+    ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
+    kpt = wfs.kpt_qs[ik][s]
+    nbands = wfs.bd.nbands
+    # Get projections in ibz
+    proj = kpt.projections.new(nbands=nbands, bcomm=bcomm)
+    proj.array[:] = kpt.projections.array[:nbands]
 
-    wfs = calc.wfs
-
-    if soc is None:
-        spinors = False
-    else:
-        spinors = True
-
-    if seed is None:
-        seed = calc.atoms.get_chemical_formula()
-
-    bands = get_bands(seed)
-    Nn = len(bands)
-    Nk = len(calc.get_ibz_k_points())
-
-    for ik in range(Nk):
-        if spinors:
-            # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-            u_nG = soc[ik].wavefunctions(calc, periodic=True)
-        else:
-            # For non-spinors, G denotes grid: G = (gx, gy, gz)
-            u_nG = np.array([wfs.get_wave_function_array(n, ik, spin)
-                             for n in bands])
-
-        f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
-        grid_v = np.shape(u_nG)[1:]
-        print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
-        for n in range(Nn):
-            for iz in range(grid_v[2]):
-                for iy in range(grid_v[1]):
-                    for ix in range(grid_v[0]):
-                        u = u_nG[n, ix, iy, iz]
-                        print(u.real, u.imag, file=f)
-        f.close()
+    # map projections to bz
+    proj_sym = ibz2bz[K].map_projections(proj)
+    return proj_sym
