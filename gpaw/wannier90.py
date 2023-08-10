@@ -188,6 +188,7 @@ def write_input(calc,
 
     f.close()
 
+
 def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
     ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
     kpt = wfs.kpt_qs[ik][s]
@@ -196,7 +197,7 @@ def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
     proj = kpt.projections.new(nbands=nbands, bcomm=bcomm)
     proj.array[:] = kpt.projections.array[:nbands]
 
-    #map projections to bz
+    # map projections to bz
     proj_sym = ibz2bz[K].map_projections(proj)
     return proj_sym
 
@@ -264,9 +265,12 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
         if spinors:
             P_ani = soc[ik].P_amj
         else:
-            #P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
             ibz2bz = IBZ2BZMaps.from_calculator(calc)
-            P_ani = get_projections_in_bz(calc.wfs, ik, spin, ibz2bz, bcomm=None)
+            P_ani = get_projections_in_bz(calc.wfs,
+                                          ik,
+                                          spin,
+                                          ibz2bz,
+                                          bcomm=None)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -345,6 +349,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
     dO_aii = get_overlap_coefficients(wfs)
 
     ibz2bz = IBZ2BZMaps.from_calculator(calc)
+    
     def wavefunctions(bz_index):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
@@ -353,10 +358,10 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         # For non-spinors, G denotes grid: G = (gx, gy, gz)
         ibz_index = calc.wfs.kd.bz2ibz_k[bz_index]
         ut_nR = np.array([wfs.get_wave_function_array(n, ibz_index, spin,
-                                                     periodic=True)
+                                                      periodic=True)
                          for n in bands])
         ut_nR_sym = np.array([ibz2bz[bz_index].map_pseudo_wave_to_BZ(
-                    ut_nR[n]) for n in bands])
+            ut_nR[n]) for n in bands])
 
         return ut_nR_sym
 
@@ -371,7 +376,10 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         if spinors:
             proj_k.append(soc[ik].projections)
         else:
-            proj_k.append(get_projections_in_bz(calc.wfs, ik, spin, ibz2bz, bcomm=None))
+            proj_k.append(get_projections_in_bz(calc.wfs,
+                                                ik, spin,
+                                                ibz2bz,
+                                                bcomm=None))
 
     for ik1 in range(Nk):
         if less_memory:
