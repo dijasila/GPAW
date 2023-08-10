@@ -13,14 +13,7 @@ def test_contraction_rule(lmax: int = 3):
     L1max, L2max, L3max = G_LLL.shape
     assert L2max == L3max
 
-    # Real-space coordinates to test
-    theta, phi = np.meshgrid(np.linspace(0, np.pi, 11),
-                             np.linspace(0, 2 * np.pi, 21),
-                             indexing='ij')
-    x = np.sin(theta) * np.cos(phi)
-    y = np.sin(theta) * np.sin(phi)
-    z = np.cos(theta)
-
+    x, y, z = unit_sphere_test_coordinates()
     for L1 in range(L1max):
         # In order to include all finite Gaunt coefficients in the expansion,
         # l1 + l2 has to be within the range of available L3 coefficients.
@@ -83,6 +76,27 @@ def test_super_contraction_rule(lmax: int = 2):
     G_LLLL = super_gaunt(lmax)
     L1max, L2max, L3max, L4max = G_LLLL.shape
     assert L1max == L2max
+
+    x, y, z = unit_sphere_test_coordinates()
+    for L1 in range(L1max):
+        for L2 in range(L2max):
+            for L3 in range(L3max):
+                product = Y(L1, x, y, z) * Y(L2, x, y, z) * Y(L3, x, y, z)
+                expansion = 0.
+                for L4 in range(L4max):
+                    expansion += G_LLLL[L1, L2, L3, L4] * Y(L4, x, y, z)
+                assert expansion == pytest.approx(product)
+        
+
+def unit_sphere_test_coordinates():
+    """Unit-sphere coordinates to test"""
+    theta, phi = np.meshgrid(np.linspace(0, np.pi, 11),
+                             np.linspace(0, 2 * np.pi, 21),
+                             indexing='ij')
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+    return x, y, z
 
 
 def lm_indices(L):
