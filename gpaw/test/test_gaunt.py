@@ -43,7 +43,7 @@ def test_selection_rules(lmax: int = 3):
                 l3, m3 = lm_indices(L3)
                 # In order for the Gaunt coefficients to be finite, the
                 # following conditions should be met
-                if abs(G_LLL[L1, L2, L3]) > 1e-8:
+                if abs(G_LLL[L1, L2, L3]) > 1e-10:
                     assert (l1 + l2 + l3) % 2 == 0, \
                         f'l1 + l2 + l3 = {l1+l2+l3} should be an even integer'
                     assert abs(l1 - l2) <= l3 <= l1 + l2, f'{l1, l2, l3}'
@@ -64,7 +64,8 @@ def test_permutation_symmetry(lmax: int = 3):
         for L2 in range(L1max):
             for L3 in range(L1max):
                 for Lp1, Lp2, Lp3 in permutations([L1, L2, L3]):
-                    assert abs(G_LLL[L1, L2, L3] - G_LLL[Lp1, Lp2, Lp3]) < 1e-10
+                    assert abs(G_LLL[L1, L2, L3]
+                               - G_LLL[Lp1, Lp2, Lp3]) < 1e-10
         # Permutations between L2 and L3
         for L2 in range(L2max):
             for L3 in range(L3max):
@@ -90,6 +91,31 @@ def test_super_contraction_rule(lmax: int = 2):
 
 def test_super_selection_rules(lmax: int = 2):
     """Test selection rules for products of Gaunt coefficients."""
+    G_LLLL = super_gaunt(lmax)
+    L1max, L2max, L3max, L4max = G_LLLL.shape
+
+    for L1 in range(L1max):
+        # Convert composit index to (l,m)
+        l1, m1 = lm_indices(L1)
+        for L2 in range(L2max):
+            l2, m2 = lm_indices(L2)
+            for L3 in range(L3max):
+                l3, m3 = lm_indices(L3)
+                for L4 in range(L4max):
+                    l4, m4 = lm_indices(L4)
+                    # In order for the Gaunt coefficients to be finite, the
+                    # following conditions should be met
+                    if abs(G_LLLL[L1, L2, L3, L4]) > 1e-10:
+                        assert (l1 + l2 + l3 + l4) % 2 == 0, \
+                            f'l1 + l2 + l3 + l4 = {l1+l2+l3+l4} ' \
+                            'should be an even integer'
+                        # The allowed l' range governs the allowed l4 range
+                        lp_range = np.arange(abs(l1 - l2), l1 + l2 + 1)
+                        assert np.min(abs(lp_range - l3)) <= l4 <= l1 + l2 + l3
+                        # m' needs to be allowed and repeated
+                        mpset1 = set([-m1 - m2, m1 + m2, -m1 + m2, m1 - m2])
+                        mpset2 = set([-m3 - m4, m3 + m4, -m3 + m4, m3 - m4])
+                        assert len(mpset1 | mpset2) < len(mpset1) + len(mpset2)
 
 
 def test_super_permutation_symmetry(lmax: int = 2):
