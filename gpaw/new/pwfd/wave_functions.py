@@ -12,7 +12,7 @@ from gpaw.core.plane_waves import PlaneWaveExpansions
 from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
-from gpaw.new import prod, zip
+from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -116,7 +116,7 @@ class PWFDWaveFunctions(WaveFunctions):
         p1_R, p2_R = tmp_sR.data
         nt_xR = nt_sR.data
 
-        for f, psit_sG in zip(occ_n, psit_nsG):
+        for f, psit_sG in zips(occ_n, psit_nsG):
             psit_sG.ifft(out=tmp_sR)
             p11_R = p1_R.real**2 + p1_R.imag**2
             p22_R = p2_R.real**2 + p2_R.imag**2
@@ -223,8 +223,8 @@ class PWFDWaveFunctions(WaveFunctions):
                 slcomm = None
             self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
             H.complex_conjugate()
-            # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
-            # the n'th eigenvalue
+            # H.data[n, :] now contains the nth eigenvector and eps_n[n]
+            # the nth eigenvalue
         else:
             self._eig_n = np.empty(psit_nX.dims)
 
@@ -251,16 +251,16 @@ class PWFDWaveFunctions(WaveFunctions):
             self._non_collinear_force_contribution(dH_asii, myocc_n, F_av)
             return
 
-        F_avni = self.pt_aiX.derivative(self.psit_nX)
-        for a, F_vni in F_avni.items():
-            F_vni = F_vni.conj()
-            F_vni *= myocc_n[:, np.newaxis]
+        F_anvi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_nvi in F_anvi.items():
+            F_nvi = F_nvi.conj()
+            F_nvi *= myocc_n[:, np.newaxis, np.newaxis]
             dH_ii = dH_asii[a][self.spin]
             P_ni = self.P_ani[a]
-            F_vii = xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dH_ii)
-            F_vni *= myeig_n[:, np.newaxis]
+            F_vii = xp.einsum('nvi, nj, jk -> vik', F_nvi, P_ni, dH_ii)
+            F_nvi *= myeig_n[:, np.newaxis, np.newaxis]
             dO_ii = xp.asarray(self.setups[a].dO_ii)
-            F_vii -= xp.einsum('vni, nj, jk -> vik', F_vni, P_ni, dO_ii)
+            F_vii -= xp.einsum('nvi, nj, jk -> vik', F_nvi, P_ni, dO_ii)
             F_av[a] += 2 * F_vii.real.trace(0, 1, 2)
 
     def _non_collinear_force_contribution(self,
@@ -290,7 +290,7 @@ class PWFDWaveFunctions(WaveFunctions):
         """Collect range of bands to master of band and domain
         communicators."""
         # Also collect projections instead of recomputing XXX
-        n2 = n2 or self.nbands + n2
+        n2 = n2 if n2 > 0 else self.nbands + n2
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
         nbands = self.nbands
@@ -336,7 +336,7 @@ class PWFDWaveFunctions(WaveFunctions):
             rankb, bb = min((rank2, b2), (rank, self.psit_nX.mydims[0]))
             if (ranka, ba) < (rankb, bb):
                 assert ranka == rankb == rank
-                band_comm.send(self.psit_nX.data[ba:bb])
+                band_comm.send(self.psit_nX.data[ba:bb], dest=0)
 
         return None
 
@@ -376,7 +376,7 @@ class PWFDWaveFunctions(WaveFunctions):
         position_av = spos_ac @ cell_cv
 
         R_aiiv = []
-        for setup, position_v in zip(self.setups, position_av):
+        for setup, position_v in zips(self.setups, position_av):
             Delta_iiL = setup.Delta_iiL
             R_iiv = Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
             R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5

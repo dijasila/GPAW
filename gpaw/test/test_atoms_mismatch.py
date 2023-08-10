@@ -41,7 +41,8 @@ def test_atoms_mismatch(in_tmp_dir):
 
     system = molecule('H2O')
     system.center(3.0)
-    calc = GPAW(h=0.2,
+    calc = GPAW(mode='fd',
+                h=0.2,
                 convergence={'energy': 0.01, 'density': 1.0e-2,
                              'eigenstates': 4.0e-3})
     system.calc = calc

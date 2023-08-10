@@ -15,7 +15,8 @@ def test_aed_with_corehole_li():
     atoms = molecule('Li2')
     atoms.center(vacuum=2.5)
 
-    calc = GPAW(xc='PBE',
+    calc = GPAW(mode='fd',
+                xc='PBE',
                 mixer=Mixer(),
                 setups={0: li_setup},
                 charge=-1,

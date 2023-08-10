@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # General modules
 import numpy as np
 
@@ -8,15 +10,18 @@ from gpaw.sphere.integrate import (integrate_lebedev,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LSDA_Wxc,
                                    add_spin_polarization,
                                    add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
+from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.matrix_elements import SitePairDensityCalculator
 
 # ASE modules
 from ase.units import Hartree, Bohr
@@ -71,7 +76,7 @@ class IsotropicExchangeCalculator:
             nblocks=1
         )
         for key, item in assumed_props.items():
-            assert getattr(chiks_calc, key) == item,\
+            assert getattr(chiks_calc, key) == item, \
                 f'Expected chiks.{key} == {item}. '\
                 f'Got: {getattr(chiks_calc, key)}'
 
@@ -221,7 +226,7 @@ class AtomicSiteData:
         self.npartitions = self.rc_ap.shape[1]
         self.shape = (self.nsites, self.npartitions)
 
-        assert self._in_valid_site_radii_range(gs),\
+        assert self._in_valid_site_radii_range(gs), \
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
@@ -233,8 +238,10 @@ class AtomicSiteData:
         self.finegd = gs.finegd
         self.nt_sr = gs.nt_sr
 
-        # Set up the atomic truncation functions which define the sites
-        self.drcut = default_spherical_drcut(self.finegd)
+        # Set up the atomic truncation functions which define the sites based
+        # on the coarse real-space grid
+        self.gd = gs.gd
+        self.drcut = default_spherical_drcut(self.gd)
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
@@ -251,7 +258,7 @@ class AtomicSiteData:
         augmentation sphere.
         """
         atoms = gs.atoms
-        drcut = default_spherical_drcut(gs.finegd)
+        drcut = default_spherical_drcut(gs.gd)
         rmin_A = np.array([drcut / 2] * len(atoms))
 
         # Find neighbours based on covalent radii
@@ -296,7 +303,7 @@ class AtomicSiteData:
                         self.rc_ap[a] < rmax_A[A] + 1e-8)):
                 return False
         return True
-        
+
     def calculate_magnetic_moments(self):
         """Calculate the magnetic moments at each atomic site."""
         magmom_ap = self.integrate_local_function(add_spin_polarization)
@@ -327,7 +334,7 @@ class AtomicSiteData:
 
         For local functions of the density, the pseudo contribution is
         evaluated by a numerical integration on the real-space grid:
-        
+
         ̰       /
         f_ap = | dr θ(|r-r_a|<rc_ap) f(ñ(r))
                /
@@ -365,3 +372,134 @@ class AtomicSiteData:
                     microsetup.rgd.r_g, rcut, self.drcut, lambd)
                 # Integrate θ(r) Δf(r) on the radial grid
                 out_ap[a, p] += microsetup.rgd.integrate_trapz(df_g * theta_g)
+
+
+class SumRuleSiteMagnetization(PairFunction):
+    """Data object for the sum rule site magnetization."""
+
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 atomic_site_data: AtomicSiteData):
+        self.qpd = qpd
+        self.q_c = qpd.q_c
+
+        self.atomic_site_data = atomic_site_data
+
+        self.array = self.zeros()
+
+    @property
+    def shape(self):
+        nsites = self.atomic_site_data.nsites
+        npartitions = self.atomic_site_data.npartitions
+        return nsites, nsites, npartitions
+        
+    def zeros(self):
+        return np.zeros(self.shape, dtype=complex)
+
+
+class SumRuleSiteMagnetizationCalculator(PairFunctionIntegrator):
+    r"""Site magnetization calculator utilizing a sum rule.
+
+    The site magnetization can be calculated from the site pair densities via
+    the following sum rule [publication in preparation]:
+                     __  __
+                 1   \   \
+    ̄n_ab^z(q) = ‾‾‾  /   /  (f_nk↑ - f_mk+q↓) n^a_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑)
+                N_k  ‾‾  ‾‾
+                     k   n,m
+
+              = δ_(a,b) n_a^z
+    """
+
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext | None = None,
+                 nblocks: int = 1,
+                 nbands: int | None = None):
+        """Construct the sum rule site magnetization calculator."""
+        if context is None:
+            context = ResponseContext()
+        super().__init__(gs, context,
+                         nblocks=nblocks,
+                         # Disable use of symmetries for now. The sum rule site
+                         # magnetization symmetries can always be derived and
+                         # implemented at a later stage.
+                         disable_point_group=True,
+                         disable_time_reversal=True)
+
+        self.nbands = nbands
+        self.site_pair_density_calc: SitePairDensityCalculator | None = None
+
+    def __call__(self, q_c, atomic_site_data: AtomicSiteData):
+        """Calculate the site magnetization for a given wave vector q_c."""
+        # Set up internals and print info string
+        self.site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
+        transitions = self.get_band_and_spin_transitions(
+            '+-', nbands=self.nbands, bandsummation='double')
+        self.context.print(self.get_info_string(
+            q_c, self.nbands, len(transitions)))
+
+        # Set up data object (without a plane-wave representation, which is
+        # irrelevant in this case)
+        qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
+        site_mag = SumRuleSiteMagnetization(qpd, atomic_site_data)
+
+        # Perform actual calculation
+        self.context.print('Calculating sum rule site magnetization')
+        self._integrate(site_mag, transitions)
+
+        return site_mag.array
+
+    def add_integrand(self, kptpair, weight, site_mag):
+        r"""Add the site magnetization integrand of the outer k-point integral.
+
+        With
+                       __
+                    1  \
+        ̄n_ab^z(q) = ‾  /  (...)_k
+                    V  ‾‾
+                       k
+
+        the integrand is given by
+                     __   __
+                     \    \   /
+        (...)_k = V0 /    /   | σ^+_ss' (f_nks - f_n'k+qs')
+                     ‾‾   ‾‾  \                                       \
+                    n,n' s,s'   × n^a_(nks,n'k+qs') n^b_(n'k+qs',nks) |
+                                                                      /
+
+        where V0 is the cell volume and σ^+ is the spin-raising Pauli matrix
+        """
+        # Calculate site pair densties
+        site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
+        # Calculate the product between the spin-lowering Pauli matrix and the
+        # occupational differences
+        smatmin = smat('+')
+        s1_myt, s2_myt = kptpair.get_local_spin_indices()
+        smat_myt = smatmin[s1_myt, s2_myt]
+        df_myt = kptpair.ikpt1.f_myt - kptpair.ikpt2.f_myt
+        smatdf_myt = smat_myt * df_myt
+
+        # Calculate integrand
+        n_mytap = site_pair_density.local_array_view
+        nncc_mytabp = n_mytap[:, :, np.newaxis] * n_mytap.conj()[:, np.newaxis]
+        # Sum over local transitions
+        integrand_abp = np.einsum('t, tabp -> abp', smatdf_myt, nncc_mytabp)
+        # Sum over distributed transitions
+        kptpair.tblocks.blockcomm.sum(integrand_abp)
+
+        # Add integrand to output array
+        site_mag.array[:] += self.gs.volume * weight * integrand_abp
+
+    def get_info_string(self, q_c, nbands, nt):
+        """Get information about the calculation"""
+        s = '\n'
+        s += 'Calculating the sum rule site magnetization with:\n'
+        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
+        s += self.get_band_and_transitions_info_string(nbands, nt)
+        s += '\n'
+
+        s += self.get_basic_info_string()
+
+        return s

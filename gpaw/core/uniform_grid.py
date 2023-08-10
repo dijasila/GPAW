@@ -13,7 +13,7 @@ from gpaw.core.domain import Domain
 from gpaw.gpu import as_xp
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zip
+from gpaw.new import cached_property, zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
 
@@ -61,10 +61,10 @@ class UniformGrid(Domain):
 
         self.start_c = np.array([d_p[p]
                                  for d_p, p
-                                 in zip(self.decomp_cp, self.mypos_c)])
+                                 in zips(self.decomp_cp, self.mypos_c)])
         self.end_c = np.array([d_p[p + 1]
                                for d_p, p
-                               in zip(self.decomp_cp, self.mypos_c)])
+                               in zips(self.decomp_cp, self.mypos_c)])
         self.mysize_c = self.end_c - self.start_c
 
         Domain.__init__(self, cell, pbc, kpt, comm, dtype)
@@ -92,12 +92,12 @@ class UniformGrid(Domain):
         return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
-    def phase_factors_cd(self):
+    def phase_factor_cd(self):
         """Phase factor for block-boundary conditions."""
         delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))
-        for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
-                                          self.parsize_c, disp_cd):
+        for pos, pbc, size, disp_d in zips(self.mypos_c, self.pbc_c,
+                                           self.parsize_c, disp_cd):
             disp_d[:] = -((pos + delta_d) // size)
         return np.exp(2j * np.pi *
                       disp_cd *
@@ -186,7 +186,7 @@ class UniformGrid(Domain):
         def transform(functions, out=None):
             if out is None:
                 out = other.empty(functions.dims, functions.comm, xp=xp)
-            for input, output in zip(functions._arrays(), out._arrays()):
+            for input, output in zips(functions._arrays(), out._arrays()):
                 apply(input, output)
             return out
 
@@ -549,7 +549,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         plan2 = plan2 or out.desc.fft_plans(xp=self.xp)
 
         if self.dims:
-            for input, output in zip(self.flat(), out.flat()):
+            for input, output in zips(self.flat(), out.flat()):
                 input.interpolate(plan1, plan2, grid, output)
             return out
 
@@ -684,7 +684,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
                    out: UniformGridFunctions = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        for f, psit_R in zip(weights, self.data):
+        for f, psit_R in zips(weights, self.data):
             # Same as out.data += f * abs(psit_R)**2, but much faster:
             _gpaw.add_to_density(f, psit_R, out.data)
 
@@ -703,9 +703,9 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
-            for a_R, b_R in zip(a_xR._arrays(), b_xR._arrays()):
+            for a_R, b_R in zips(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
-                for r_cc, t_c in zip(rotation_scc, t_sc):
+                for r_cc, t_c in zips(rotation_scc, t_sc):
                     _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
             if self.xp is not np:
                 b_xR = b_xR.to_xp(self.xp)
@@ -732,7 +732,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if center_v is not None:
             frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
             corner_c = (frac_c % 1 - 0.5) * ug.size_c
-            for index_r, corner, size in zip(index_cr, corner_c, ug.size_c):
+            for index_r, corner, size in zips(index_cr, corner_c, ug.size_c):
                 index_r -= corner
                 index_r %= size
                 index_r += corner
@@ -744,7 +744,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if self.xp is not np:
             rho_cr = [rho_r.get() for rho_r in rho_cr]
 
-        d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
+        d_c = [index_r @ rho_r for index_r, rho_r in zips(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
         self.desc.comm.sum(d_v)
         return d_v

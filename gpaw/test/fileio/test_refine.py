@@ -15,7 +15,8 @@ def test_fileio_refine(in_tmp_dir):
     H.center(vacuum=2.0)
 
     if 1:
-        calc = GPAW(nbands=2,
+        calc = GPAW(mode='fd',
+                    nbands=2,
                     convergence={'eigenstates': 0.001,
                                  'energy': 0.1,
                                  'density': 0.1})

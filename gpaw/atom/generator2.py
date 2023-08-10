@@ -1,21 +1,23 @@
 import sys
-from math import pi, exp, sqrt, log
+from functools import partial
+from math import exp, log, pi, sqrt
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from scipy.optimize import fsolve
-from scipy.linalg import eigh
-from scipy.special import erf
-from ase.units import Hartree
 from ase.data import atomic_numbers, chemical_symbols
-
+from ase.units import Ha
 from gpaw import __version__ as version
+from gpaw.atom.aeatom import (AllElectronAtom, Channel, GaussianBasis, colors,
+                              parse_ld_str)
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
+from gpaw.typing import Array2D
 from gpaw.utilities import pack2
-from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
-                              GaussianBasis)
 from gpaw.xc.ri.ribasis import generate_ri_basis
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from scipy.linalg import eigh
+from scipy.optimize import fsolve
+from scipy.special import erf
 
 
 class DatasetGenerationError(Exception):
@@ -234,7 +236,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv, vtr_g, vr_g, rcmax):
+    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax, ecut):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -251,13 +253,9 @@ class PAWWaves:
 
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
-            if type == 'poly':
-                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
-            elif type == 'nc':
-                phit_ng[n], c0 = rgd.pseudize_normalized(phi_g, gc, self.l,
-                                                         nderiv)
-            else:
-                1 / 0
+            phit_ng[n], c0 = pseudizer(phi_g, gc, self.l,
+                                       divergent=self.n_n[n] <= 0,
+                                       ecut=ecut)
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
@@ -304,7 +302,10 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None, yukawa_gamma=0.0, omega=None):
+                 fd=None,
+                 yukawa_gamma=0.0,
+                 ecut: float = None,
+                 omega=None):
         """fd: stream
             Text output.
 
@@ -314,31 +315,33 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
-        self.exxcc_w = {}
-        self.exxcv_wii = {}
+        self.exxcc_w: dict[float, float] = {}
+        self.exxcv_wii: dict[float, Array2D] = {}
         self.omega = omega
+        self.ecut = ecut
 
+        self.core_hole: Optional[Tuple[int, int, float]]
         if core_hole:
             state, occ = core_hole.split(',')
-            n = int(state[0])
-            l = 'spdf'.find(state[1])
-            occ = float(occ)
-            aea.add(n, l, -occ)
-            self.core_hole = (n, l, occ)
+            n0 = int(state[0])
+            l0 = 'spdf'.find(state[1])
+            occ0 = float(occ)
+            aea.add(n0, l0, -occ0)
+            self.core_hole = (n0, l0, occ0)
         else:
             self.core_hole = None
 
+        self.l0: Optional[int] = None
         if projectors[-1].isupper():
             assert projectors[-2] == ',', projectors
             self.l0 = 'SPDFG'.find(projectors[-1])
             projectors = projectors[:-2]
-        else:
-            self.l0 = None
 
         self.lmax = -1
-        self.states = {}
+        self.states: Dict[int, List[Union[None, int, float]]] = {}
         for s in projectors.split(','):
             l = 'spdf'.find(s[-1])
+            n: Union[None, int, float]
             if len(s) == 1:
                 n = None
             elif '.' in s:
@@ -365,6 +368,15 @@ class PAWSetupGenerator:
         aea.refine()
 
         self.rgd = aea.rgd
+
+        def pseudize(a_g, gc, l=0, points=4, ecut=None, divergent=False):
+            if ecut is None or divergent:
+                return self.rgd.pseudize(a_g, gc, l, points)
+            Gcut = (2 * ecut)**0.5
+            return self.rgd.pseudize_smooth(a_g, gc, l, points,
+                                            Gcut=Gcut)
+
+        self.pseudizer = pseudize
 
         self.vtr_g = None
 
@@ -446,7 +458,7 @@ class PAWSetupGenerator:
     def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.pseudizer(self.aea.vr_sg[0], g0, 1, P)[0]
         if dv0:
             x = self.rgd.r_g[:g0] / r0
             dv_g = dv0 * (1 - 2 * x**2 + x**4)
@@ -468,8 +480,7 @@ class PAWSetupGenerator:
                                   self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
-
-        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P, divergent=True)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
@@ -539,9 +550,13 @@ class PAWSetupGenerator:
         self.Q = -self.aea.Z + self.ncore
 
         self.nt_g = self.rgd.zeros()
+        if type == 'poly':
+            pseudizer = partial(self.pseudizer, points=nderiv)
+        elif type == 'nc':
+            pseudizer = partial(self.rgd.pseudize_normalized, points=nderiv)
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
-                           2.0 * self.rcmax)
+            waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
+                           2.0 * self.rcmax, ecut=self.ecut)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -571,25 +586,25 @@ class PAWSetupGenerator:
 
             rcore *= 1.2
             gcore = self.rgd.round(rcore)
-            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            self.nct_g = self.pseudizer(self.nc_g, gcore)[0]
             nt_g = self.nt_g + self.nct_g
 
             self.log('Constructing smooth pseudo core density for r < %.3f' %
                      rcore)
             self.nt_g = nt_g
 
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
         else:
             rcore *= -1
             gcore = self.rgd.round(rcore)
-            nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
+            nt_g = self.pseudizer(self.aea.n_sg[0], gcore)[0]
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
             self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -617,11 +632,11 @@ class PAWSetupGenerator:
                                    waves.dS_nn.diagonal()):
                 if n == -1:
                     self.log('  %s         %10.6f %10.5f   %19.2f' %
-                             ('spdf'[l], e, e * Hartree, waves.rcut))
+                             ('spdf'[l], e, e * Ha, waves.rcut))
                 else:
                     self.log(
                         ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
-                        (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
+                        (n, 'spdf'[l], f, e, e * Ha, 1 - ds,
                          waves.rcut))
         self.log()
 
@@ -658,12 +673,12 @@ class PAWSetupGenerator:
                         self.log('%2d%s  %2d' % (n, 'spdf'[l], f), end='')
                     else:
                         self.log('       ', end='')
-                    self.log('  %15.3f' % (e0_b[n - 1 - l] * Hartree), end='')
+                    self.log('  %15.3f' % (e0_b[n - 1 - l] * Ha), end='')
                     if n - 1 - l - n0 >= 0:
                         self.log('%15.3f' * 2 %
-                                 (e_b[n - 1 - l - n0] * Hartree,
+                                 (e_b[n - 1 - l - n0] * Ha,
                                   (e_b[n - 1 - l - n0] - e0_b[n - 1 - l]) *
-                                  Hartree))
+                                  Ha))
                     else:
                         self.log()
 
@@ -735,11 +750,11 @@ class PAWSetupGenerator:
 
         import matplotlib.pyplot as plt
 
-        errors = 10.0**np.arange(-4, 0) / Hartree
+        errors = 10.0**np.arange(-4, 0) / Ha
         self.log('\nConvergence of energy:')
         self.log('plane-wave cutoff (wave-length) [ev (Bohr)]\n  ', end='')
         for de in errors:
-            self.log('%14.4f' % (de * Hartree), end='')
+            self.log('%14.4f' % (de * Ha), end='')
         for label, e_k, e0 in [
             ('e-e', eee_k, eee),
             ('c-c', ecc_k, ecc),
@@ -755,8 +770,8 @@ class PAWSetupGenerator:
                 G = k * G_k[1]
                 ecut = 0.5 * G**2
                 h = pi / G
-                self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+                self.log(' %6.1f (%4.2f)' % (ecut * Ha, h), end='')
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Ha, label=label)
         self.log()
         plt.axis(xmax=20)
         plt.xlabel('G')
@@ -839,7 +854,7 @@ class PAWSetupGenerator:
                     txt += '%d%s bound state:\n' % (n, 'spdf'[l])
                     txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
                             (ronset, rc, tn))
-                    txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
+                    txt += '  eigenvalue shift: %.3f eV\n' % (de * Ha)
 
         # Split valence:
         for l, waves in enumerate(self.waves_l):
@@ -867,7 +882,7 @@ class PAWSetupGenerator:
             gc = (norm - n_g > splitnorm * norm).sum()
             rc = rgd.r_g[gc]
 
-            phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
+            phit2_g = self.pseudizer(phit_g, gc, l, 2)[0]  # "split valence"
             bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
             self.basis.append(bf)
 
@@ -882,7 +897,7 @@ class PAWSetupGenerator:
             # Gaussian that is continuous and has a continuous
             # derivative at rcpol:
             phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
-            phit_g -= rgd.pseudize(phit_g, gcpol, lpol, 2)[0]
+            phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
             phit_g[gcpol:] = 0.0
 
             bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
@@ -1316,7 +1331,9 @@ def get_parameters(symbol, args):
                 r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
+                output=args.output,
                 yukawa_gamma=args.gamma,
+                ecut=args.ecut,
                 omega=args.omega)
 
 
@@ -1334,12 +1351,19 @@ def generate(symbol,
              rcore=None,
              core_hole=None,
              *,
+             output=None,
              yukawa_gamma=0.0,
+             ecut=None,
              omega=None):
+    if isinstance(output, str):
+        output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, Z=Z,
                           configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            yukawa_gamma=yukawa_gamma, omega=omega)
+                            fd=output,
+                            yukawa_gamma=yukawa_gamma,
+                            ecut=ecut,
+                            omega=omega)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
@@ -1389,7 +1413,7 @@ class CLICommand:
             '(integer) or energy (floating point number). ' +
             'Example: 2s,0.5s,2p,0.5p,0.0d.')
         add('-r', '--radius',
-            help='1.2 or 1.2,1.1,1.1')
+            help='1.2 or 1.2,1.1,1.1.  Units: Bohr.')
         add('-0', '--zero-potential',
             metavar='nderivs,radius',
             help='Parameters for zero potential.')
@@ -1417,6 +1441,9 @@ class CLICommand:
             '(for vdW-DF functionals).')
         add('--core-hole')
         add('-e', '--electrons', type=int)
+        add('-o', '--output')
+        add('--ecut', type=float, help='Minimize Fourier components above '
+            'ECUT for pseudo wave functions.')
         add('--ri', type=str,
             help='Calculate also resolution of identity basis.')
         add('--omega', type=float, default=None,

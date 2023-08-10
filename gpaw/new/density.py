@@ -8,7 +8,7 @@ from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.gpu import as_xp
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.core.plane_waves import PlaneWaves
 
 
@@ -52,7 +52,7 @@ class Density:
                             cell=old_grid.cell,
                             comm=grid.comm)
         nt_sR = grid.empty(self.ncomponents, xp=self.nt_sR.xp)
-        for nt_R, old_nt_R in zip(nt_sR, self.nt_sR):
+        for nt_R, old_nt_R in zips(nt_sR, self.nt_sR):
             old_nt_R.fft(pw=old_pw).morph(pw).ifft(out=nt_R)
 
         return Density(nt_sR,
@@ -110,8 +110,8 @@ class Density:
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
-            for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
-                                       rotation_sii):
+            for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
+                                        rotation_sii):
                 D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
@@ -121,7 +121,6 @@ class Density:
 
     @classmethod
     def from_superposition(cls,
-                           grid,
                            nct_R,
                            atomdist,
                            setups,
@@ -135,7 +134,8 @@ class Density:
                                               ncomponents,
                                               hund,
                                               charge / len(setups))
-                 for a, (setup, magmom_v) in enumerate(zip(setups, magmom_av))}
+                 for a, (setup, magmom_v)
+                 in enumerate(zips(setups, magmom_av))}
 
         nt_sR = nct_R.desc.zeros(ncomponents)
         basis_set.add_to_density(nt_sR.data, f_asi)

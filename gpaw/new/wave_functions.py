@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
@@ -58,6 +58,10 @@ class WaveFunctions:
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
 
+        mynbands = (nbands + band_comm.size - 1) // band_comm.size
+        self.n1 = min(band_comm.rank * mynbands, nbands)
+        self.n2 = min((band_comm.rank + 1) * mynbands, nbands)
+
     def __repr__(self):
         dc = f'{self.domain_comm.rank}/{self.domain_comm.size}'
         bc = f'{self.band_comm.rank}/{self.band_comm.size}'
@@ -97,13 +101,11 @@ class WaveFunctions:
 
     @property
     def myeig_n(self):
-        assert self.band_comm.size == 1
-        return self.eig_n
+        return self.eig_n[self.n1:self.n2]
 
     @property
     def myocc_n(self):
-        assert self.band_comm.size == 1
-        return self.occ_n
+        return self.occ_n[self.n1:self.n2]
 
     @property
     def P_ani(self) -> AtomArrays:
@@ -117,11 +119,11 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            for D_sii, P_ni in zip(D_asii.values(), P_ani.values()):
+            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
                 D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
                                               P_ni.conj(), occ_n, P_ni).real
         else:
-            for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
+            for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',
                                    P_nsi.conj(), occ_n, P_nsi)
                 D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real

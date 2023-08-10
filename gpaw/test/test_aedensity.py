@@ -13,7 +13,8 @@ def test_aedensity():
                   Atom('Cl', [0, 0, d])],
                  pbc=False, cell=a)
     NaCl.center()
-    calc = GPAW(h=h,
+    calc = GPAW(mode='fd',
+                h=h,
                 xc='LDA',
                 nbands=5,
                 setups={'Na': '1'},

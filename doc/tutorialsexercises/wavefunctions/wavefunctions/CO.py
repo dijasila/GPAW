@@ -6,7 +6,8 @@ CO = molecule('CO')
 CO.set_cell((6., 6., 6.))
 CO.center()
 
-calc = GPAW(h=0.2,
+calc = GPAW(mode='fd',
+            h=0.2,
             nbands=8,
             mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0),
             txt='CO.txt')

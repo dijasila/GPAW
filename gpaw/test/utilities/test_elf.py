@@ -8,6 +8,7 @@ from gpaw.mpi import rank
 from gpaw.test import equal
 
 
+@pytest.mark.legacy
 @pytest.mark.mgga
 def test_utilities_elf(gpw_files):
     # Real wave functions

@@ -10,7 +10,7 @@ from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -98,7 +98,7 @@ class Davidson(Eigensolver):
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
-        for wfs, weight_n in zip(ibzwfs, weight_un):
+        for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
         return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
@@ -130,8 +130,7 @@ class Davidson(Eigensolver):
         band_comm = psit_nX.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
 
-        M0_nn = M_nn
-        assert band_comm.size == 1
+        M0_nn = M_nn.new(dist=(band_comm, 1, 1))
 
         if domain_comm.rank == 0:
             eig_N[:B] = xp.asarray(wfs.eig_n)
@@ -158,7 +157,7 @@ class Davidson(Eigensolver):
 
         for i in range(self.niter):
             if i == self.niter - 1:  # last iteration
-                # Calulate error before we destroy residuals:
+                # Calculate error before we destroy residuals:
                 if weight_n is None:
                     error = np.inf
                 else:
@@ -244,11 +243,11 @@ def calculate_residuals(residual_nX: DA,
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zip(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             r -= p * e
 
     dH(wfs.P_ani, P1_ani)
@@ -268,7 +267,6 @@ def calculate_residuals(residual_nX: DA,
 def calculate_weights(converge_bands: int | str,
                       ibzwfs: IBZWaveFunctions) -> list[Array1D | None]:
     """Calculate convergence weights for all eigenstates."""
-    assert ibzwfs.band_comm.size == 1, 'not implemented!'
     weight_un = []
     nu = len(ibzwfs.wfs_qs) * ibzwfs.nspins
     nbands = ibzwfs.nbands
@@ -279,12 +277,14 @@ def calculate_weights(converge_bands: int | str,
             try:
                 # Methfessel-Paxton or cold-smearing distributions can give
                 # negative occupation numbers - so we take the absolute value:
-                weight_n = np.abs(wfs.occ_n)
+                weight_n = np.abs(wfs.myocc_n)
             except ValueError:
                 # No eigenvalues yet:
                 return [None] * nu
             weight_un.append(weight_n)
         return weight_un
+
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
 
     if converge_bands == 'all':
         return [np.ones(nbands)] * nu
