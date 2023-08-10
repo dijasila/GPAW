@@ -67,7 +67,7 @@ def nablarlYL(L, R):
 
 
 g = [1.0]
-for l in range(9):
+for l in range(11):
     g.append(g[-1] * (l + 0.5))
 
 
