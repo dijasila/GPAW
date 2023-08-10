@@ -10,7 +10,7 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
-from gpaw.mpi import broadcast_float
+from gpaw.mpi import broadcast_float, world
 from gpaw.new import cached_property, zips
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
@@ -81,6 +81,7 @@ class DFTCalculation:
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
         self.log = log
+        self.comm = log.comm
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -89,6 +90,7 @@ class DFTCalculation:
     def from_parameters(cls,
                         atoms: Atoms,
                         params: Union[dict, InputParameters],
+                        comm=None,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -101,10 +103,10 @@ class DFTCalculation:
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or create_builder(atoms, params)
-
         if not isinstance(log, Logger):
-            log = Logger(log, params.parallel['world'])
+            log = Logger(log, comm or world)
+
+        builder = builder or create_builder(atoms, params, log.comm)
 
         basis_set = builder.create_basis_set()
 
@@ -128,17 +130,13 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return cls(state,
-                   builder.setups,
-                   scf_loop,
-                   pot_calc,
-                   log)
+        return cls(state, builder.setups, scf_loop, pot_calc, log)
 
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = np.ascontiguousarray(atoms.get_scaled_positions())
-        self.scf_loop.world.broadcast(self.fracpos_ac, 0)
+        self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
@@ -191,9 +189,8 @@ class DFTCalculation:
         self.log(f'  total:       {total_free * Ha:14.6f}')
         self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
-        world = self.scf_loop.world
-        total_free = broadcast_float(total_free, world)
-        total_extrapolated = broadcast_float(total_extrapolated, world)
+        total_free = broadcast_float(total_free, self.comm)
+        total_extrapolated = broadcast_float(total_extrapolated, self.comm)
 
         self.results['free_energy'] = total_free
         self.results['energy'] = total_extrapolated
@@ -265,7 +262,7 @@ class DFTCalculation:
                 self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
                          f'  # {setup.symbol:2} {a}')
 
-        self.scf_loop.world.broadcast(F_av, 0)
+        self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
@@ -306,7 +303,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
 
-        builder = create_builder(atoms, params)
+        builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
         old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
@@ -317,7 +314,13 @@ class DFTCalculation:
 
         density = self.state.density.new(builder.grid)
         density.normalize()
-        self.scf_loop.world.broadcast(density.nt_sR.data, 0)
+
+        # Make sure all have exactly the same density.
+        # Not quite sure it is needed???
+        # At the moment we skip it on GPU's because it doesn't
+        # work!
+        if density.nt_sR.xp is np:
+            self.comm.broadcast(density.nt_sR.data, 0)
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()
@@ -347,11 +350,8 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return DFTCalculation(state,
-                              builder.setups,
-                              scf_loop,
-                              pot_calc,
-                              log)
+        return DFTCalculation(
+            state, builder.setups, scf_loop, pot_calc, log)
 
 
 def combine_energies(potential: Potential,

@@ -562,14 +562,15 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert self.dtype == float
 
         xshape = a_xG.shape[:-3]
+        dtype = a_xG.dtype
 
         if debug:
+            assert self.dtype == dtype
             assert a_xG.ndim >= 3
             assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.shape[:-1] == xshape
 
-        dtype = a_xG.dtype
         comm = self.gd.comm
 
         if self.xp is np:

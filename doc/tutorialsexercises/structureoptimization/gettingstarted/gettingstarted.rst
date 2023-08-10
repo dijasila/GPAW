@@ -85,7 +85,7 @@ Instead of importing and using EMT, we now use GPAW::
 
   from gpaw import GPAW
   ...
-  calc = GPAW()
+  calc = GPAW(mode='fd')
   ...
 
 Make a copy of your script and adapt it to GPAW, then recalculate the
@@ -120,14 +120,14 @@ spin-down densities are assumed to be equal.  As this is not the case
 for isolated atoms, it will be necessary to instruct GPAW to do
 something different::
 
-  calc = GPAW(hund=True)
+  calc = GPAW(mode='fd', hund=True)
 
 
 .. testcode::
   :hide:
 
   import gpaw
-  gpaw.GPAW(hund=True)
+  gpaw.GPAW(mode='fd', hund=True)
 
 
 .. testoutput::

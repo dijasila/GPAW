@@ -19,7 +19,8 @@ benz.set_tags(tags)
 benz.center(vacuum=4.0)
 cell = benz.get_cell()
 
-calc = GPAW(nbands=-1,
+calc = GPAW(mode='fd',
+            nbands=-1,
             h=h,
             xc=xc,
             occupations=FermiDirac(0.0),
@@ -61,7 +62,8 @@ for i in np.linspace(-6, 6, 20):
     pos = dimer.get_positions()
     d = pos[21, 2] - pos[0, 2]
 
-    calc = GPAW(nbands=-2,
+    calc = GPAW(mode='fd',
+                nbands=-2,
                 h=h,
                 xc=xc,
                 occupations=FermiDirac(0.0),

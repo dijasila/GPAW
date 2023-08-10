@@ -85,7 +85,7 @@ class IBZWaveFunctions:
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
-                self.kpt_comm = CuPyMPI(self.kpt_comm)
+                self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.

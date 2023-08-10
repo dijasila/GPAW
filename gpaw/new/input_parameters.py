@@ -1,11 +1,9 @@
 from __future__ import annotations
-from pathlib import Path
 import warnings
 
-from typing import Any, IO, Sequence
+from typing import Any, Sequence
 
 import numpy as np
-from gpaw.mpi import world
 from gpaw.typing import DTypeLike
 
 parameter_functions = {}
@@ -47,7 +45,6 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
 class InputParameters:
     basis: Any
     charge: float
-    communicator: Any
     convergence: dict[str, Any]
     dtype: DTypeLike | None
     eigensolver: dict[str, Any]
@@ -65,7 +62,6 @@ class InputParameters:
     soc: bool
     spinpol: bool
     symmetry: dict[str, Any]
-    txt: str | Path | IO[str] | None
     xc: dict[str, Any]
 
     def __init__(self, params: dict[str, Any], warn: bool = True):
@@ -95,13 +91,23 @@ class InputParameters:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
             if 'soc' in self.experimental:
-                warnings.warn('Please use new "soc" parameter.')
+                warnings.warn('Please use new "soc" parameter.',
+                              DeprecatedParameterWarning)
                 self.soc = self.experimental.pop('soc')
             if 'magmoms' in self.experimental:
-                warnings.warn('Please use new "magmoms" parameter.')
+                warnings.warn('Please use new "magmoms" parameter.',
+                              DeprecatedParameterWarning)
                 self.magmoms = self.experimental.pop('magmoms')
             assert not self.experimental
 
+        if self.mode.get('name') is None:
+            if warn:
+                warnings.warn(
+                    ('Finite-difference mode implicitly chosen; '
+                     'it will be an error to not specify a mode '
+                     'in the future'),
+                    DeprecatedParameterWarning)
+            self.mode = dict(self.mode, name='fd')
         force_complex_dtype = self.mode.pop('force_complex_dtype', None)
         if force_complex_dtype is not None:
             if warn:
@@ -110,14 +116,10 @@ class InputParameters:
                     'Please use '
                     f'GPAW(dtype={self.dtype}, '
                     '...)',
+                    DeprecatedParameterWarning,
                     stacklevel=3)
             self.keys.append('dtype')
             self.keys.sort()
-
-        if self.communicator is not None:
-            self.parallel['world'] = self.communicator
-            warnings.warn('Please use parallel={''world'': ...} ' +
-                          'instead of communicator=...')
 
     def __repr__(self) -> str:
         p = ', '.join(f'{key}={value!r}'
@@ -138,11 +140,6 @@ def basis(value=None):
 @input_parameter
 def charge(value=0.0):
     return value
-
-
-@input_parameter
-def communicator(value=None):
-    return None
 
 
 @input_parameter
@@ -221,7 +218,9 @@ def mixer(value=None):
 
 
 @input_parameter
-def mode(value='fd'):
+def mode(value=None):
+    if value is None:
+        return {'name': value}
     if isinstance(value, str):
         return {'name': value}
     gc = value.pop('gammacentered', False)
@@ -241,7 +240,11 @@ def occupations(value=None):
 
 
 @input_parameter
-def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
+def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
+    if value is not None and 'world' in value:
+        warnings.warn(('Please use communicator=... '
+                       'instead of parallel={''world'': ...}'),
+                      DeprecatedParameterWarning)
     dct = update_dict({'kpt': None,
                        'domain': None,
                        'band': None,
@@ -257,10 +260,9 @@ def parallel(value: dict[str, Any] = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None,
+                       'world': None,  # deprecated
                        'gpu': False},
                       value)
-    dct['world'] = dct['world'] or world
     return dct
 
 
@@ -302,15 +304,12 @@ def symmetry(value='undefined'):
 
 
 @input_parameter
-def txt(value: str | Path | IO[str] | None = '?'
-        ) -> str | Path | IO[str] | None:
-    """Log file."""
-    return value
-
-
-@input_parameter
 def xc(value='LDA'):
     """Exchange-Correlation functional."""
     if isinstance(value, str):
         return {'name': value}
     return value
+
+
+class DeprecatedParameterWarning(FutureWarning):
+    """Warning class for when a parameter or its value is deprecated."""

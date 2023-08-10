@@ -163,11 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, comm):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
-        self.world = world
+        self.comm = comm
 
     def iterate(self,
                 state,

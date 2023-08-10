@@ -4,7 +4,7 @@ from gpaw.xc.fxc import FXCCorrelation
 
 @pytest.fixture
 def ni_gpw(gpw_files, scalapack):
-    return gpw_files['ni_pw_kpts333_wfs']
+    return gpw_files['ni_pw_kpts333']
 
 
 @pytest.mark.rpa

@@ -31,7 +31,7 @@ class FakeWFS:
         self.occupations = calculation.scf_loop.occ_calc.occ
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
-        self.world = calculation.scf_loop.world
+        self.world = calculation.comm
         if ibzwfs.fermi_levels is not None:
             self.fermi_levels = ibzwfs.fermi_levels
             if len(self.fermi_levels) == 1:

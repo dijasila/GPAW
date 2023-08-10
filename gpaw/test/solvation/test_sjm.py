@@ -41,7 +41,8 @@ def test_sjm():
         'eigenstates': 1e-4}
 
     # Calculator
-    calc = SJM(sj=sj,
+    calc = SJM(mode='fd',
+               sj=sj,
                gpts=(8, 8, 48),
                kpts=(2, 2, 1),
                xc='PBE',

@@ -33,7 +33,8 @@ def test_tpss(in_tmp_dir):
         loa = molecule(formula)
         loa.set_cell(cell)
         loa.center()
-        calc = GPAW(h=0.3,
+        calc = GPAW(mode='fd',
+                    h=0.3,
                     eigensolver=Davidson(8),
                     parallel=dict(kpt=1),
                     mixer=Mixer(0.5, 5),

@@ -30,7 +30,8 @@ slab[-1].x += slab.get_cell()[0, 0] / 2
 qn = QuasiNewton(slab)
 qn.run(fmax=0.05)
 
-slab.calc = GPAW(h=0.3,
+slab.calc = GPAW(mode='fd',
+                 h=0.3,
                  kpts=(2, 2, 1),
                  txt='final.txt')
 qn = QuasiNewton(slab, trajectory='final.traj')

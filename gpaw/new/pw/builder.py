@@ -20,9 +20,9 @@ from gpaw.typing import Array1D
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340, qspiral=None):
+    def __init__(self, atoms, params, *, comm, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm=comm)
 
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))
@@ -165,7 +165,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             index = (wfs.spin, wfs.k) if self.ncomponents != 4 else (wfs.k,)
             data = reader.wave_functions.proxy('coefficients', *index)
             data.scale = c
-            data.length_of_last_dimension = pw.shape[0]
+            data.length_of_last_dimension = pw.shape[-1]
             orig_shape = data.shape
             data.shape = (self.nbands, ) + pw.shape
 

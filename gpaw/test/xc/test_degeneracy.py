@@ -18,7 +18,8 @@ def test_xc_degeneracy():
                   pbc=False)
 
     atoms.positions[:] += a / 2
-    params = dict(h=0.25, nbands=4, convergence={'eigenstates': 7.8e-10})
+    params = dict(
+        mode='fd', h=0.25, nbands=4, convergence={'eigenstates': 7.8e-10})
     atoms.calc = GPAW(**params)
     energy = atoms.get_potential_energy()
 

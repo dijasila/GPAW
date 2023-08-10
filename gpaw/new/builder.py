@@ -36,7 +36,8 @@ from gpaw.xc import XC
 
 
 def builder(atoms: Atoms,
-            params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+            params: dict[str, Any] | InputParameters,
+            comm=None) -> DFTComponentsBuilder:
     """Create DFT-components builder.
 
     * pw
@@ -53,20 +54,22 @@ def builder(atoms: Atoms,
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
+    return getattr(mod, f'{name}DFTComponentsBuilder')(
+        atoms, params, comm=comm or world, **mode)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
-                 params: InputParameters):
+                 params: InputParameters,
+                 *,
+                 comm):
 
         self.atoms = atoms.copy()
         self.mode = params.mode['name']
         self.params = params
 
         parallel = params.parallel
-        comm = parallel['world']
 
         synchronize_atoms(atoms, comm)
         self.check_cell(atoms.cell)

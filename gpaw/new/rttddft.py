@@ -251,8 +251,8 @@ class RTTDDFT:
                       filepath: str,
                       propagator: TDAlgorithm | None = None):
         _, calculation, params, builder = read_gpw(filepath,
-                                                   '-',
-                                                   {'world': world},
+                                                   log='-',
+                                                   comm=world,
                                                    dtype=complex)
 
         state = calculation.state
