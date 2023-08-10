@@ -93,7 +93,8 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
 
             P_ani = []
             for ia in range(na):
-                P_ani.append(calc.wfs.kpt_u[k_ind].P_ani[ia][blist])
+                u = k_ind * ns + spin  # k_ind = q because serial GPAW
+                P_ani.append(calc.wfs.kpt_u[u].P_ani[ia][blist])
 
         # Now compute the momentum part
         grad_nv = calc.wfs.gd.zeros((nb, 3), complex)

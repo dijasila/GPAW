@@ -237,7 +237,7 @@ Finite-difference:
 
 .. warning::
     In the future, it will become an error to not specify a
-    :ref:`mode <manual_mode>`` parameter for a DFT calculation.
+    :ref:`mode <manual_mode>` parameter for a DFT calculation.
     For now, users will get a warning when finite-difference mode
     is implicitly chosen.
     Please change your scripts to avoid this error/warning.

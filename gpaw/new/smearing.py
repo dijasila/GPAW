@@ -29,10 +29,7 @@ class OccupationNumberCalculator:
 
         kwargs = dct.copy()
         name = kwargs.pop('name', '')
-        if name == 'mom':
-            1 / 0
-            # from gpaw.mom import OccupationsMOM
-            # return OccupationsMOM(..., **kwargs)
+        assert name != 'mom'
 
         bd = BandDescriptor(nbands)  # dummy
         self.occ = create_occ_calc(

@@ -10,7 +10,7 @@ from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -98,7 +98,7 @@ class Davidson(Eigensolver):
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
-        for wfs, weight_n in zip(ibzwfs, weight_un):
+        for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
         return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
@@ -157,7 +157,7 @@ class Davidson(Eigensolver):
 
         for i in range(self.niter):
             if i == self.niter - 1:  # last iteration
-                # Calulate error before we destroy residuals:
+                # Calculate error before we destroy residuals:
                 if weight_n is None:
                     error = np.inf
                 else:
@@ -243,11 +243,11 @@ def calculate_residuals(residual_nX: DA,
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zip(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             r -= p * e
 
     dH(wfs.P_ani, P1_ani)

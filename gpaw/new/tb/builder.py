@@ -15,7 +15,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.lfc import BasisFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.lcao.builder import LCAODFTComponentsBuilder, create_lcao_ibzwfs
 from gpaw.new.lcao.hamiltonian import CollinearHamiltonianMatrixCalculator
@@ -163,11 +163,11 @@ class DummyXC:
 
 
 class TBSCFLoop:
-    def __init__(self, hamiltonian, occ_calc, eigensolver, world):
+    def __init__(self, hamiltonian, occ_calc, eigensolver, comm):
         self.hamiltonian = hamiltonian
         self.occ_calc = occ_calc
         self.eigensolver = eigensolver
-        self.world = world
+        self.comm = comm
 
     def iterate(self,
                 state,
@@ -275,7 +275,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         manytci.Pindices = manytci.Mindices
         my_atom_indices = basis.my_atom_indices
 
-        for wfs, V_MM in zip(ibzwfs, manytci.P_qIM(my_atom_indices)):
+        for wfs, V_MM in zips(ibzwfs, manytci.P_qIM(my_atom_indices)):
             V_MM = V_MM.toarray()
             V_MM += V_MM.T.conj().copy()
             M1 = 0
@@ -317,7 +317,7 @@ def pairpot(atoms):
     force_av = np.zeros((len(atoms), 3))
     stress_vv = np.zeros((3, 3))
 
-    for i, j, d, D_v in zip(*neighbor_list('ijdD', atoms, rcutmax)):
+    for i, j, d, D_v in zips(*neighbor_list('ijdD', atoms, rcutmax)):
         d0 = r0[(symbol_a[i], symbol_a[j])]
         e0 = 6.0 / d0
         x = d0 / d

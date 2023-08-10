@@ -347,12 +347,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         s += '    Spin component: %s\n' % spincomponent
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
         s += '    Number of frequency points: %d\n' % nz
-        if self.nbands is None:
-            s += '    Bands included: All\n'
-        else:
-            s += '    Number of bands included: %d\n' % self.nbands
-        s += 'Resulting in:\n'
-        s += '    A total number of band and spin transitions of: %d\n' % nt
+        s += self.get_band_and_transitions_info_string(self.nbands, nt)
         s += '\n'
 
         s += self.get_basic_info_string()
@@ -494,5 +489,7 @@ def smat(spinrot):
         return np.array([[0, 0], [1, 0]])
     elif spinrot == '+':
         return np.array([[0, 1], [0, 0]])
+    elif spinrot == 'z':
+        return np.array([[1, 0], [0, -1]])
     else:
         raise ValueError(spinrot)

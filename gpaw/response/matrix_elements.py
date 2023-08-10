@@ -1,46 +1,204 @@
+from abc import ABC, abstractmethod
+
 import numpy as np
+
+from gpaw.sphere.integrate import spherical_truncation_function_collection
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
+from gpaw.response.site_paw import calculate_site_pair_density_correction
 
 
-class PairDensity:
-    """Data class for transition distributed pair density arrays."""
+class MatrixElement(ABC):
+    """Data class for transitions distributed Kohn-Sham matrix elements."""
 
-    def __init__(self, tblocks, n_mytG):
+    def __init__(self, tblocks, qpd):
         self.tblocks = tblocks
-        self.n_mytG = n_mytG
+        self.qpd = qpd
 
-    @classmethod
-    def from_qpd(cls, tblocks, qpd):
-        n_mytG = qpd.zeros(tblocks.blocksize)
-        return cls(tblocks, n_mytG)
+        self.array = self.zeros()
+        assert self.array.shape[0] == tblocks.blocksize
+
+    @abstractmethod
+    def zeros(self):
+        """Generate matrix element array with zeros."""
 
     @property
     def local_array_view(self):
-        return self.n_mytG[:self.tblocks.nlocal]
+        return self.array[:self.tblocks.nlocal]
 
     def get_global_array(self):
-        """Get the global (all gathered) pair density array n_tG."""
-        n_tG = self.tblocks.all_gather(self.n_mytG)
-
-        return n_tG
+        """Get the global (all gathered) matrix element."""
+        return self.tblocks.all_gather(self.array)
 
 
-class NewPairDensityCalculator:
-    r"""Class for calculating pair densities
+class MatrixElementCalculator(ABC):
+    r"""Abstract base class for matrix element calculators.
 
-    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
+    In the PAW method, Kohn-Sham matrix elements,
+                            ˰
+    A_(nks,n'k's') = <ψ_nks|A|ψ_n'k's'>
 
-                /
-              = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
-                /V0
+    can be evaluated in the space of pseudo waves using the pseudo operator
+            __  __
+    ˷   ˰   \   \   ˷           ˰           ˷    ˰ ˷       ˷
+    A = A + /   /  |p_ai>[<φ_ai|A|φ_ai'> - <φ_ai|A|φ_ai'>]<p_ai'|
+            ‾‾  ‾‾
+            a   i,i'
 
-    for a single k-point pair (k, k + q) in the plane-wave mode."""
+    to which effect,
+                      ˷     ˷ ˷
+    A_(nks,n'k's') = <ψ_nks|A|ψ_n'k's'>
+
+    This is an abstract base class for calculating such matrix elements for a
+    number of band and spin transitions t=(n,s)->(n',s') for a given k-point
+    pair k and k + q:
+
+    A_kt = A_(nks,n'k+qs')
+    """
+
     def __init__(self, gs, context):
         self.gs = gs
         self.context = context
+
+    @timer('Calculate matrix element')
+    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> MatrixElement:
+        r"""Calculate the matrix element for all transitions t.
+
+        The calculation is split into a pseudo contribution and a PAW
+        correction:
+               ˷
+        A_kt = A_kt + ΔA_kt,
+
+        see [PRB 103, 245110 (2021)] for additional details and references.
+        """
+        matrix_element = self.create_matrix_element(kptpair.tblocks, qpd)
+        self.add_pseudo_contribution(kptpair, matrix_element)
+        self.add_paw_correction(kptpair, matrix_element)
+
+        return matrix_element
+
+    @abstractmethod
+    def create_matrix_element(self, tblocks, qpd):
+        """Return a new MatrixElement instance."""
+
+    def add_pseudo_contribution(self, kptpair, matrix_element):
+        """Add the pseudo matrix element to an output array.
+
+        The pseudo matrix element is evaluated on the coarse real-space grid
+        and integrated:
+
+        ˷       ˷     ˰ ˷
+        A_kt = <ψ_nks|A|ψ_n'k+qs'>
+
+               /    ˷          ˰ ˷
+             = | dr ψ_nks^*(r) A ψ_n'k+qs'(r)
+               /
+        """
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
+
+        # Map the k-points from the irreducible part of the BZ to the BZ
+        # k-point K (up to a reciprocal lattice vector)
+        k1_c = self.gs.ibz2bz[kptpair.K1].map_kpoint()
+        k2_c = self.gs.ibz2bz[kptpair.K2].map_kpoint()
+
+        # Fourier transform the periodic part of the pseudo waves to the coarse
+        # real-space grid and map them to the BZ k-point K (up to the same
+        # reciprocal lattice vector as above)
+        ut1_hR = self.get_periodic_pseudo_waves(kptpair.K1, ikpt1)
+        ut2_hR = self.get_periodic_pseudo_waves(kptpair.K2, ikpt2)
+
+        # Fold out the pseudo waves to the transition index
+        ut1_mytR = ut1_hR[ikpt1.h_myt]
+        ut2_mytR = ut2_hR[ikpt2.h_myt]
+
+        self._add_pseudo_contribution(
+            k1_c, k2_c, ut1_mytR, ut2_mytR, matrix_element)
+
+    def add_paw_correction(self, kptpair, matrix_element):
+        r"""Add the matrix element PAW correction to an output array.
+
+        The PAW correction is calculated using the projector overlaps of the
+        pseudo waves:
+                __  __
+                \   \   ˷     ˷              ˷     ˷
+        ΔA_kt = /   /  <ψ_nks|p_ai> ΔA_aii' <p_ai'|ψ_n'k+qs'>
+                ‾‾  ‾‾
+                a   i,i'
+
+        where the PAW correction tensor is calculated on a radial grid inside
+        each augmentation sphere of position R_a, using the atom-centered
+        partial waves φ_ai(r):
+                        ˰           ˷    ˰ ˷
+        ΔA_aii' = <φ_ai|A|φ_ai'> - <φ_ai|A|φ_ai'>
+
+                  /                   ˰
+                = | dr [φ_ai^*(r-R_a) A φ_ai'(r-R_a)
+                  /       ˷             ˰ ˷
+                        - φ_ai^*(r-R_a) A φ_ai'(r-R_a)]
+        """
+        ikpt1 = kptpair.ikpt1
+        ikpt2 = kptpair.ikpt2
+
+        # Map the projections from the irreducible part of the BZ to the BZ
+        # k-point K
+        P1h = self.gs.ibz2bz[kptpair.K1].map_projections(ikpt1.Ph)
+        P2h = self.gs.ibz2bz[kptpair.K2].map_projections(ikpt2.Ph)
+
+        # Fold out the projectors to the transition index
+        P1_amyti = ikpt1.projectors_in_transition_index(P1h)
+        P2_amyti = ikpt2.projectors_in_transition_index(P2h)
+        assert P1_amyti.atom_partition.comm.size == \
+            P2_amyti.atom_partition.comm.size == 1, \
+            'We need access to the projections of all atoms'
+
+        self._add_paw_correction(P1_amyti, P2_amyti, matrix_element)
+
+    @abstractmethod
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 matrix_element):
+        """Add pseudo contribution based on the pseudo waves in real space."""
+
+    @abstractmethod
+    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+        """Add paw correction based on the projector overlaps."""
+
+    def get_periodic_pseudo_waves(self, K, ikpt):
+        """FFT the Kohn-Sham orbitals to real space and map them from the
+        irreducible k-point to the k-point in question."""
+        ut_hR = self.gs.gd.empty(ikpt.nh, self.gs.dtype)
+        for h, psit_G in enumerate(ikpt.psit_hG):
+            ut_hR[h] = self.gs.ibz2bz[K].map_pseudo_wave(
+                self.gs.global_pd.ifft(psit_G, ikpt.ik))
+
+        return ut_hR
+
+
+class PairDensity(MatrixElement):
+
+    def zeros(self):
+        return self.qpd.zeros(self.tblocks.blocksize)
+
+
+class NewPairDensityCalculator(MatrixElementCalculator):
+    r"""Class for calculating pair densities
+
+    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+                /
+              = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
+                /
+
+    for a single k-point pair (k, k + q) in the plane-wave mode.
+
+    As always, the calculation is split in a pseudo contribution and a PAW
+    correction, n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q).
+    """
+
+    def __init__(self, gs, context):
+        super().__init__(gs, context)
 
         # Save PAW correction for all calls with same q_c
         self._pawcorr = None
@@ -60,59 +218,34 @@ class NewPairDensityCalculator:
 
         return self._pawcorr
 
-    @timer('Calculate pair density')
-    def __call__(self, kptpair: KohnShamKPointPair, qpd) -> PairDensity:
-        r"""Calculate the pair density for all transitions t.
-
-        In the PAW method, the all-electron pair density is calculated in
-        two contributions, the pseudo pair density and a PAW correction,
-
-        n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q),
-
-        see [PRB 103, 245110 (2021)] for details.
-        """
-        # Initialize a blank pair density object
-        pair_density = PairDensity.from_qpd(kptpair.tblocks, qpd)
-        n_mytG = pair_density.local_array_view
-
-        self.add_pseudo_pair_density(kptpair, qpd, n_mytG)
-        self.add_paw_correction(kptpair, qpd, n_mytG)
-
-        return pair_density
+    @staticmethod
+    def create_matrix_element(tblocks, qpd):
+        return PairDensity(tblocks, qpd)
 
     @timer('Calculate the pseudo pair density')
-    def add_pseudo_pair_density(self, kptpair, qpd, n_mytG):
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 pair_density):
         r"""Add the pseudo pair density to an output array.
 
         The pseudo pair density is first evaluated on the coarse real-space
-        grid and then FFT'ed to reciprocal space:
+        grid and then FFT'ed to reciprocal space,
 
                     /               ˷          ˷
         ñ_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
                     /V0
                                  ˷          ˷
                   = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
+
+        where the Kohn-Sham orbitals are normalized to the unit cell.
         """
-        ikpt1 = kptpair.ikpt1
-        ikpt2 = kptpair.ikpt2
-
-        # Map the k-points from the irreducible part of the BZ to the BZ
-        # k-point K (up to a reciprocal lattice vector)
-        k1_c = self.gs.ibz2bz[kptpair.K1].map_kpoint()
-        k2_c = self.gs.ibz2bz[kptpair.K2].map_kpoint()
-
-        # Fourier transform the periodic part of the pseudo waves to the coarse
-        # real-space grid and map them to the BZ k-point K (up to the same
-        # reciprocal lattice vector as above)
-        ut1_hR = self.get_periodic_pseudo_waves(kptpair.K1, ikpt1)
-        ut2_hR = self.get_periodic_pseudo_waves(kptpair.K2, ikpt2)
+        qpd = pair_density.qpd
+        n_mytG = pair_density.local_array_view
 
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
         # This phase does not necessarily vanish, since k2_c only is required
         # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
-        ut1cc_mytR = ut1_hR[ikpt1.h_myt].conj()
-        nt_mytR = ut1cc_mytR * ut2_hR[ikpt2.h_myt]
+        nt_mytR = ut1_mytR.conj() * ut2_mytR
 
         # Get the FFT indices corresponding to the Fourier transform
         #                       ˷          ˷
@@ -121,61 +254,151 @@ class NewPairDensityCalculator:
 
         # Add the desired plane-wave components of the FFT'ed pseudo pair
         # density to the output array
-        nlocalt = kptpair.tblocks.nlocal
-        assert len(n_mytG) == len(nt_mytR) == nlocalt
         for n_G, n_R in zip(n_mytG, nt_mytR):
             n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
 
     @timer('Calculate the pair density PAW corrections')
-    def add_paw_correction(self, kptpair, qpd, n_mytG):
+    def _add_paw_correction(self, P1_amyti, P2_amyti, pair_density):
         r"""Add the pair-density PAW correction to the output array.
 
-        The correction is calculated as a sum over augmentation spheres a
-        and projector indices i and j,
+        The correction is calculated from
                      __  __
                      \   \   ˷     ˷     ˷    ˷
-        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_aj|ψ_n'k+qs'> Q_aij(G+q)
+        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_ai'|ψ_n'k+qs'> Q_aii'(G+q)
                      ‾‾  ‾‾
-                     a   i,j
+                     a   i,i'
 
-        where the pair-density PAW correction tensor is calculated from the
-        smooth and all-electron partial waves:
+        where the pair-density PAW correction tensor is given by:
 
-                     /
-        Q_aij(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_aj(r-R_a)
-                     /V0                ˷             ˷
-                                      - φ_ai^*(r-R_a) φ_aj(r-R_a)]
+                      /
+        Q_aii'(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_ai'(r-R_a)
+                      /                  ˷             ˷
+                                       - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
         """
-        ikpt1 = kptpair.ikpt1
-        ikpt2 = kptpair.ikpt2
-
-        # Map the projections from the irreducible part of the BZ to the BZ
-        # k-point K
-        P1h = self.gs.ibz2bz[kptpair.K1].map_projections(ikpt1.Ph)
-        P2h = self.gs.ibz2bz[kptpair.K2].map_projections(ikpt2.Ph)
-
-        # Calculate the actual PAW corrections
-        Q_aGii = self.get_paw_corrections(qpd).Q_aGii
-        P1 = ikpt1.projectors_in_transition_index(P1h)
-        P2 = ikpt2.projectors_in_transition_index(P2h)
-        for a, Q_Gii in enumerate(Q_aGii):  # Loop over augmentation spheres
-            assert P1.atom_partition.comm.size == \
-                P2.atom_partition.comm.size == 1, \
-                'We need access to the projections of all atoms'
-            P1_myti = P1[a]
-            P2_myti = P2[a]
-            # Make outer product of the projectors in the projector index i,j
-            P1ccP2_mytii = P1_myti.conj()[..., np.newaxis] \
-                * P2_myti[:, np.newaxis]
-            # Sum over projector indices and add correction to the output
+        n_mytG = pair_density.local_array_view
+        Q_aGii = self.get_paw_corrections(pair_density.qpd).Q_aGii
+        for a, Q_Gii in enumerate(Q_aGii):
+            # Make outer product of the projector overlaps
+            P1ccP2_mytii = P1_amyti[a].conj()[..., np.newaxis] \
+                * P2_amyti[a][:, np.newaxis]
+            # Sum over partial wave indices and add correction to the output
             n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
 
-    def get_periodic_pseudo_waves(self, K, ikpt):
-        """FFT the Kohn-Sham orbitals to real space and map them from the
-        irreducible k-point to the k-point in question."""
-        ut_hR = self.gs.gd.empty(ikpt.nh, self.gs.dtype)
-        for h, psit_G in enumerate(ikpt.psit_hG):
-            ut_hR[h] = self.gs.ibz2bz[K].map_pseudo_wave(
-                self.gs.global_pd.ifft(psit_G, ikpt.ik))
+            
+class SitePairDensity(MatrixElement):
+    def __init__(self, tblocks, qpd, atomic_site_data):
+        self.nsites = atomic_site_data.nsites
+        self.npartitions = atomic_site_data.npartitions
+        super().__init__(tblocks, qpd)
 
-        return ut_hR
+    def zeros(self):
+        return np.zeros(
+            (self.tblocks.blocksize, self.nsites, self.npartitions),
+            dtype=complex)
+
+
+class SitePairDensityCalculator(MatrixElementCalculator):
+    r"""Class for calculating site pair densities.
+
+    The site pair density is defined via smooth truncation functions Θ(r∊Ω_ap)
+    for every site a and site partitioning p, interpolating smoothly between
+    unity for positions inside the spherical site volume and zero outside it:
+
+    n^ap_kt = n^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)|ψ_n'k+qs'>
+
+             /
+           = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
+             /
+
+    For details, see [publication in preparation].
+    """
+
+    def __init__(self, gs, context, atomic_site_data):
+        """Construct the SitePairDensityCalculator."""
+        super().__init__(gs, context)
+        self.atomic_site_data = atomic_site_data
+
+        # PAW correction tensor
+        self._N_apii = None
+
+    def get_paw_correction_tensor(self):
+        if self._N_apii is None:
+            self._N_apii = self.calculate_paw_correction_tensor()
+        return self._N_apii
+
+    def calculate_paw_correction_tensor(self):
+        """Calculate the site pair density correction tensor N_ii'^ap."""
+        N_apii = []
+        adata = self.atomic_site_data
+        for A, rc_p, lambd_p in zip(adata.A_a, adata.rc_ap, adata.lambd_ap):
+            pawdata = self.gs.pawdatasets[A]
+            N_apii.append(calculate_site_pair_density_correction(
+                pawdata, rc_p, adata.drcut, lambd_p))
+        return N_apii
+
+    def create_matrix_element(self, tblocks, qpd):
+        return SitePairDensity(tblocks, qpd, self.atomic_site_data)
+
+    @timer('Calculate pseudo site pair density')
+    def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
+                                 site_pair_density):
+        """Add the pseudo site pair density to the output array.
+
+        The pseudo pair density is evaluated on the coarse real-space grid and
+        integrated together with the smooth truncation function,
+
+                  /              ˷          ˷
+        ñ^ap_kt = | dr Θ(r∊Ω_ap) ψ_nks^*(r) ψ_n'k+qs'(r)
+                  /
+
+        where the Kohn-Sham orbitals are normalized to the unit cell.
+        """
+        # Construct pseudo waves with Bloch phases
+        r_Rc = np.transpose(self.gs.ibz2bz.r_cR,  # scaled grid coordinates
+                            (1, 2, 3, 0))
+        psit1_mytR = np.exp(2j * np.pi * r_Rc @ k1_c)[np.newaxis] * ut1_mytR
+        psit2_mytR = np.exp(2j * np.pi * r_Rc @ k2_c)[np.newaxis] * ut2_mytR
+        # Calculate real-space pair densities ñ_kt(r)
+        nt_mytR = psit1_mytR.conj() * psit2_mytR
+
+        # Set up spherical truncation function collection on the coarse
+        # real-space grid with the KPointDescriptor of the q-point.
+        adata = self.atomic_site_data
+        stfc = spherical_truncation_function_collection(
+            self.gs.gd, adata.spos_ac,
+            adata.rc_ap, adata.drcut, adata.lambd_ap,
+            kd=site_pair_density.qpd.kd, dtype=complex)
+
+        # Integrate Θ(r∊Ω_ap) ñ_kt(r)
+        ntlocal = nt_mytR.shape[0]
+        nt_amytp = {a: np.empty((ntlocal, adata.npartitions), dtype=complex)
+                    for a in range(adata.nsites)}
+        stfc.integrate(nt_mytR, nt_amytp, q=0)
+
+        # Add integral to output array
+        n_mytap = site_pair_density.array
+        for a in range(adata.nsites):
+            n_mytap[:, a] += nt_amytp[a]
+
+    @timer('Calculate site pair density PAW correction')
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_pair_density):
+        r"""Add the site pair density PAW correction to the output array.
+
+        For every site a, we only need a PAW correction for that site itself,
+                   __
+                   \   ˷     ˷              ˷     ˷
+        Δn^ap_kt = /  <ψ_nks|p_ai> N_apii' <p_ai'|ψ_n'k+qs'>
+                   ‾‾
+                   i,i'
+
+        where N_apii' is the site pair density correction tensor.
+        """
+        n_mytap = site_pair_density.array
+        N_apii = self.get_paw_correction_tensor()
+        for a, (A, N_pii) in enumerate(zip(
+                self.atomic_site_data.A_a, N_apii)):
+            # Make outer product of the projector overlaps
+            P1ccP2_mytii = P1_Amyti[A].conj()[..., np.newaxis] \
+                * P2_Amyti[A][:, np.newaxis]
+            # Sum over partial wave indices and add correction to the output
+            n_mytap[:, a] += np.einsum('tij, pij -> tp', P1ccP2_mytii, N_pii)

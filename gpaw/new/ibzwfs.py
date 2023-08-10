@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import Generator
 
-import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
+
+import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -84,7 +85,7 @@ class IBZWaveFunctions:
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
-                self.kpt_comm = CuPyMPI(self.kpt_comm)
+                self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -162,7 +163,7 @@ class IBZWaveFunctions:
         else:
             assert self.fermi_levels is not None
 
-        for occ_n, wfs in zip(occ_un, self):
+        for occ_n, wfs in zips(occ_un, self):
             wfs._occ_n = occ_n
 
         e_entropy *= degeneracy / Ha
@@ -232,6 +233,7 @@ class IBZWaveFunctions:
                   self.band_comm.rank == 0)
         if master:
             return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
+        return None
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
@@ -399,8 +401,8 @@ class IBZWaveFunctions:
                 log(f'  Band      eig [eV]   occ [0-{D}]')
                 eig_n = eig_skn[0, k]
                 n0 = (eig_n < fl[0]).sum() - 0.5
-                for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
-                    # First, last and +-8 bands window around fermi level:
+                for n, (e, f) in enumerate(zips(eig_n, occ_skn[0, k])):
+                    # First, last and +-8 bands window around Fermi level:
                     if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
                         log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
                         skipping = False
@@ -411,10 +413,10 @@ class IBZWaveFunctions:
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k],
-                                                         occ_skn[0, k],
-                                                         eig_skn[1, k],
-                                                         occ_skn[1, k])):
+                for n, (e1, f1, e2, f2) in enumerate(zips(eig_skn[0, k],
+                                                          occ_skn[0, k],
+                                                          eig_skn[1, k],
+                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
 

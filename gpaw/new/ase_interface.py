@@ -17,50 +17,51 @@ from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
-from gpaw.new.input_parameters import (InputParameters,
-                                       DeprecatedParameterWarning)
+from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
+from gpaw.mpi import world
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
+         txt: str | Path | IO[str] | None = '?',
+         communicator=None,
          **kwargs) -> ASECalculator:
     """Create ASE-compatible GPAW calculator."""
-    if filename is None:
-        params = InputParameters(kwargs)
-    else:
-        # Don't trigger ParameterDeprecationWarnings from partial and/or unused
-        # kwargs if filename is given
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecatedParameterWarning)
-            params = InputParameters(kwargs)
-    txt = params.txt
     if txt == '?':
         txt = '-' if filename is None else None
-    world = params.parallel['world']
-    log = Logger(txt, world)
+
+    parallel = kwargs.get('parallel', {})
+    comm = parallel.get('world', communicator or world)
+    log = Logger(txt, comm)
 
     if filename is not None:
-        assert set(kwargs) <= {'txt', 'parallel', 'communicator'}, kwargs
-        atoms, calculation, params, _ = read_gpw(filename, log,
-                                                 params.parallel)
-        return ASECalculator(params, log, calculation, atoms)
+        if not {'parallel'}.issuperset(kwargs):
+            illegal = set(kwargs) - {'parallel'}
+            raise ValueError('Illegal arguments when reading from a file: '
+                             f'{illegal}')
+        atoms, calculation, params, _ = read_gpw(filename,
+                                                 log=log,
+                                                 parallel=parallel)
+        return ASECalculator(params,
+                             log=log, calculation=calculation, atoms=atoms)
 
-    write_header(log, world, params)
-    return ASECalculator(params, log)
+    params = InputParameters(kwargs)
+    write_header(log, params)
+    return ASECalculator(params, log=log)
 
 
-def write_header(log, world, params):
+def write_header(log, params):
     from gpaw.io.logger import write_header as header
     log(f'#  __  _  _\n# | _ |_)|_||  |\n# |__||  | ||/\\| - {__version__}\n')
-    header(log, world)
+    header(log, log.comm)
     log('---')
     with log.indent('input parameters:'):
-        log(**{k: v for k, v in params.items()})
+        log(**dict(params.items()))
 
 
 def compare_atoms(a1: Atoms, a2: Atoms, tol: float = 0.0) -> set[str]:
@@ -89,11 +90,13 @@ class ASECalculator(BaseCalculator):
 
     def __init__(self,
                  params: InputParameters,
+                 *,
                  log: Logger,
                  calculation=None,
                  atoms=None):
         self.params = params
         self.log = log
+        self.comm = log.comm
         self.calculation = calculation
 
         self.atoms = atoms
@@ -198,7 +201,7 @@ class ASECalculator(BaseCalculator):
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
             self.calculation = DFTCalculation.from_parameters(
-                atoms, self.params, self.log)
+                atoms, self.params, self.comm, self.log)
         self.atoms = atoms.copy()
 
     def create_new_calculation_from_old(self, atoms: Atoms) -> None:
@@ -341,7 +344,7 @@ class ASECalculator(BaseCalculator):
 
     def get_electrostatic_potential(self):
         density = self.calculation.state.density
-        potential, vHt_x, W_aL = self.calculation.pot_calc.calculate(density)
+        _, vHt_x, _ = self.calculation.pot_calc.calculate(density)
         if isinstance(vHt_x, UniformGridFunctions):
             return vHt_x.to_pbc_grid().data * Ha
 
@@ -374,9 +377,9 @@ class ASECalculator(BaseCalculator):
         state = self.calculation.state
         eig_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[0] * Ha
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 eig_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(eig_n, 0)
+            self.comm.broadcast(eig_n, 0)
         return eig_n
 
     def get_occupation_numbers(self, kpt=0, spin=0, broadcast=True):
@@ -384,9 +387,9 @@ class ASECalculator(BaseCalculator):
         weight = state.ibzwfs.ibz.weight_k[kpt] * state.ibzwfs.spin_degeneracy
         occ_n = state.ibzwfs.get_eigs_and_occs(k=kpt, s=spin)[1] * weight
         if broadcast:
-            if self.world.rank != 0:
+            if self.comm.rank != 0:
                 occ_n = np.empty(state.ibzwfs.nbands)
-            self.world.broadcast(occ_n, 0)
+            self.comm.broadcast(occ_n, 0)
         return occ_n
 
     def get_reference_energy(self):
@@ -437,7 +440,7 @@ class ASECalculator(BaseCalculator):
 
     @property
     def world(self):
-        return self.calculation.scf_loop.world
+        return self.comm
 
     @property
     def setups(self):
@@ -496,15 +499,11 @@ class ASECalculator(BaseCalculator):
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
 
-    def fixed_density(self, **kwargs):
+    def fixed_density(self, txt='-', **kwargs):
         kwargs = {**dict(self.params.items()), **kwargs}
         params = InputParameters(kwargs)
-        txt = params.txt
-        if txt == '?':
-            txt = '-'
-        world = params.parallel['world']
-        log = Logger(txt, world)
-        builder = create_builder(self.atoms, params)
+        log = Logger(txt, self.comm)
+        builder = create_builder(self.atoms, params, self.comm)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
@@ -524,7 +523,10 @@ class ASECalculator(BaseCalculator):
 
         calculation.converge()
 
-        return ASECalculator(params, log, calculation, self.atoms)
+        return ASECalculator(params,
+                             log=log,
+                             calculation=calculation,
+                             atoms=self.atoms)
 
     def initialize(self, atoms):
         self.create_new_calculation(atoms)

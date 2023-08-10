@@ -6,7 +6,7 @@ from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.new import cached_property, zip
+from gpaw.new import cached_property, zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
@@ -20,9 +20,9 @@ from gpaw.typing import Array1D
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     interpolation = 'fft'
 
-    def __init__(self, atoms, params, ecut=340, qspiral=None):
+    def __init__(self, atoms, params, *, comm, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm=comm)
 
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))
@@ -127,18 +127,18 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             psit_nR = grid.zeros(mynbands)
             basis_set.lcao_to_grid(C_nM.data, psit_nR.data, q)
 
-            for psit_R, psit_G in zip(psit_nR, psit_nG, strict=False):
+            for psit_R, psit_G in zips(psit_nR, psit_nG, strict=False):
                 if self.dtype == complex:
                     psit_R.data *= emikr_R
                 psit_R.fft(out=psit_G)
         else:
             psit_sR = grid.empty(2)
             C_nsM = C_nM.data.reshape((mynbands, 2, M // 2))
-            for psit_sG, C_sM in zip(psit_nG, C_nsM, strict=False):
+            for psit_sG, C_sM in zips(psit_nG, C_nsM, strict=False):
                 psit_sR.data[:] = 0.0
                 basis_set.lcao_to_grid(C_sM, psit_sR.data, q)
                 psit_sR.data *= emikr_R
-                for psit_G, psit_R in zip(psit_sG, psit_sR):
+                for psit_G, psit_R in zips(psit_sG, psit_sR):
                     psit_R.fft(out=psit_G)
 
         return psit_nG.to_xp(self.xp)
@@ -165,7 +165,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             index = (wfs.spin, wfs.k) if self.ncomponents != 4 else (wfs.k,)
             data = reader.wave_functions.proxy('coefficients', *index)
             data.scale = c
-            data.length_of_last_dimension = pw.shape[0]
+            data.length_of_last_dimension = pw.shape[-1]
             orig_shape = data.shape
             data.shape = (self.nbands, ) + pw.shape
 
@@ -184,7 +184,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                     n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
                     assert wfs.psit_nX.mydims[0] == n2 - n1
                     data = data[n1:n2]  # read from file
-                for psit_G, array in zip(wfs.psit_nX, data):
+                for psit_G, array in zips(wfs.psit_nX, data):
                     psit_G.scatter_from(array)
 
         return ibzwfs

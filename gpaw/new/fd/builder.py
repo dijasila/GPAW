@@ -3,7 +3,7 @@ from __future__ import annotations
 from gpaw.core import UniformGrid
 from gpaw.core.uniform_grid import UniformGridFunctions
 from gpaw.fd_operators import Laplace
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -13,8 +13,10 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    def __init__(self, atoms, params, nn=3, interpolation=3):
-        super().__init__(atoms, params)
+    def __init__(self, atoms, params, *, comm, nn=3, interpolation=3):
+        super().__init__(atoms,
+                         params,
+                         comm=comm)
         assert not self.soc
         self.kin_stencil_range = nn
         self.interpolation_stencil_range = interpolation
@@ -122,7 +124,7 @@ class FDHamiltonian(Hamiltonian):
 
     def apply(self, vt_sR, psit_nR, out, spin):
         self.kin(psit_nR, out)
-        for p, o in zip(psit_nR.data, out.data):
+        for p, o in zips(psit_nR.data, out.data):
             o += p * vt_sR.data[spin]
         return out
 
