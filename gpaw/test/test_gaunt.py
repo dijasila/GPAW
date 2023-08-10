@@ -64,11 +64,11 @@ def test_permutation_symmetry(lmax: int = 3):
         for L2 in range(L1max):
             for L3 in range(L1max):
                 for Lp1, Lp2, Lp3 in permutations([L1, L2, L3]):
-                    abs(G_LLL[L1, L2, L3] - G_LLL[Lp1, Lp2, Lp3]) < 1e-10
+                    assert abs(G_LLL[L1, L2, L3] - G_LLL[Lp1, Lp2, Lp3]) < 1e-10
         # Permutations between L2 and L3
         for L2 in range(L2max):
             for L3 in range(L3max):
-                abs(G_LLL[L1, L2, L3] - G_LLL[L1, L3, L2]) < 1e-10
+                assert abs(G_LLL[L1, L2, L3] - G_LLL[L1, L3, L2]) < 1e-10
 
 
 def test_super_contraction_rule(lmax: int = 2):
@@ -86,6 +86,31 @@ def test_super_contraction_rule(lmax: int = 2):
                 for L4 in range(L4max):
                     expansion += G_LLLL[L1, L2, L3, L4] * Y(L4, x, y, z)
                 assert expansion == pytest.approx(product)
+
+
+def test_super_selection_rules(lmax: int = 2):
+    """Test selection rules for products of Gaunt coefficients."""
+
+
+def test_super_permutation_symmetry(lmax: int = 2):
+    """Test that the super Gaunt coefficients are permutationally invariant"""
+    G_LLLL = super_gaunt(lmax)
+    L1max, L2max, L3max, L4max = G_LLLL.shape
+    assert L1max == L2max
+
+    for L1 in range(L1max):
+        for L2 in range(L1max):
+            # Permutations between all indices
+            for L3 in range(L1max):
+                for L4 in range(L1max):
+                    for Lp1, Lp2, Lp3, Lp4 in permutations([L1, L2, L3, L4]):
+                        assert abs(G_LLLL[L1, L2, L3, L4]
+                                   - G_LLLL[Lp1, Lp2, Lp3, Lp4]) < 1e-10
+            # Permutations between L3 and L4
+            for L3 in range(L3max):
+                for L4 in range(L3max):
+                    assert abs(G_LLLL[L1, L2, L3, L4]
+                               - G_LLLL[L1, L2, L4, L3]) < 1e-10
         
 
 def unit_sphere_test_coordinates():
