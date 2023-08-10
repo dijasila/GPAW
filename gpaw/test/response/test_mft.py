@@ -457,15 +457,15 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 @pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter and atomic site data
-    calc = GPAW(gpw_files['co_pw_wfs'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['co_pw_wfs']
+    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
     atomic_site_data = get_co_atomic_site_data(gs)
     nblocks = generate_nblocks(context)
 
     # Get wave vector to test
-    q_c = get_q_c('co_pw_wfs', qrel)
+    q_c = get_q_c('co_pw', qrel)
 
     # ----- Single-particle site spin splitting ----- #
     # Set up calculator and calculate the site magnetization
