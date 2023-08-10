@@ -277,7 +277,9 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def __iter__(self):
         for data in self.data:
-            yield PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
+            yield PlaneWaveExpansions(self.desc,
+                                      data.shape[:-len(self.desc.shape)],
+                                      data=data)
 
     def new(self,
             data=None) -> PlaneWaveExpansions:
