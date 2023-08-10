@@ -1,7 +1,8 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.ibz2bz import (get_overlap, get_overlap_coefficients,
-                         get_phase_shifted_overlap_coefficients)
+                         get_phase_shifted_overlap_coefficients,
+                         IBZ2BZMaps)
 
 
 class Wannier90:
@@ -187,6 +188,18 @@ def write_input(calc,
 
     f.close()
 
+def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
+    ik = wfs.kd.bz2ibz_k[K]  # IBZ k-point
+    kpt = wfs.kpt_qs[ik][s]
+    nbands = wfs.bd.nbands
+    # Get projections in ibz
+    proj = kpt.projections.new(nbands=nbands, bcomm=bcomm)
+    proj.array[:] = kpt.projections.array[:nbands]
+
+    #map projections to bz
+    proj_sym = ibz2bz[K].map_projections(proj)
+    return proj_sym
+
 
 def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
@@ -251,7 +264,9 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
         if spinors:
             P_ani = soc[ik].P_amj
         else:
-            P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
+            #P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
+            ibz2bz = IBZ2BZMaps.from_calculator(calc)
+            P_ani = get_projections_in_bz(calc.wfs, ik, spin, ibz2bz, bcomm=None)
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -282,7 +297,8 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
 
     for ik in range(len(calc.get_bz_k_points())):
         if soc is None:
-            e_n = calc.get_eigenvalues(kpt=ik, spin=spin)
+            ibzk = calc.wfs.kd.bz2ibz_k[ik]  # IBZ k-point
+            e_n = calc.get_eigenvalues(kpt=ibzk, spin=spin)
         else:
             e_n = soc[ik].eig_m
         for i, n in enumerate(bands):
@@ -328,15 +344,21 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
     wfs = calc.wfs
     dO_aii = get_overlap_coefficients(wfs)
 
+    ibz2bz = IBZ2BZMaps.from_calculator(calc)
     def wavefunctions(bz_index):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
             return soc[bz_index].wavefunctions(
                 calc, periodic=True)[bands]
         # For non-spinors, G denotes grid: G = (gx, gy, gz)
-        return np.array([wfs.get_wave_function_array(n, bz_index, spin,
+        ibz_index = calc.wfs.kd.bz2ibz_k[bz_index]
+        ut_nR = np.array([wfs.get_wave_function_array(n, ibz_index, spin,
                                                      periodic=True)
                          for n in bands])
+        ut_nR_sym = np.array([ibz2bz[bz_index].map_pseudo_wave_to_BZ(
+                    ut_nR[n]) for n in bands])
+
+        return ut_nR_sym
 
     if not less_memory:
         u_knG = []
@@ -349,7 +371,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
         if spinors:
             proj_k.append(soc[ik].projections)
         else:
-            proj_k.append(calc.wfs.kpt_qs[ik][spin].projections)
+            proj_k.append(get_projections_in_bz(calc.wfs, ik, spin, ibz2bz, bcomm=None))
 
     for ik1 in range(Nk):
         if less_memory:
