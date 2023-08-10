@@ -2,7 +2,7 @@ import pytest
 import os
 import numpy as np
 from gpaw import GPAW
-import gpaw.wannier90 as w90
+from gpaw.wannier90 import Wannier90
 from gpaw.wannier.w90 import read_wout_all
 from pathlib import Path
 from gpaw.spinorbit import soc_eigenstates
@@ -36,16 +36,18 @@ def test_wannier90(gpw_files, mode, in_tmp_dir):
 
     seed = f'GaAs_{mode}'
 
-    w90.write_input(calc, orbitals_ai=o_ai,
-                    bands=bands,
-                    seed=seed,
-                    num_iter=1000,
-                    plot=False)
+    wannier = Wannier90(calc,
+                        seed=seed,
+                        bands=bands,
+                        orbitals_ai=o_ai)
+    
+    wannier.write_input(num_iter=1000,
+                        plot=False)
 
     os.system('wannier90.x -pp ' + seed)
-    w90.write_projections(calc, orbitals_ai=o_ai, seed=seed)
-    w90.write_eigenvalues(calc, seed=seed)
-    w90.write_overlaps(calc, seed=seed)
+    wannier.write_projections()
+    wannier.write_eigenvalues()
+    wannier.write_overlaps()
     os.system('wannier90.x ' + seed)
     with (Path(f'{seed}.wout')).open() as fd:
         w = read_wout_all(fd)
@@ -67,18 +69,18 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
     seed = 'Fe'
     assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
 
-    w90.write_input(calc,
-                    bands=range(9),
-                    spinors=True,
-                    num_iter=200,
+    wannier = Wannier90(calc,
+                        seed=seed,
+                        bands=range(9),
+                        spinors=True)
+
+    wannier.write_input(num_iter=200,
                     dis_num_iter=500,
-                    dis_mix_ratio=1.0,
-                    seed=seed)
+                    dis_mix_ratio=1.0)
     os.system('wannier90.x -pp ' + seed)
-    w90.write_projections(calc,
-                          seed=seed, soc=soc)
-    w90.write_eigenvalues(calc, seed=seed, soc=soc)
-    w90.write_overlaps(calc, seed=seed, soc=soc)
+    wannier.write_projections()
+    wannier.write_eigenvalues()
+    wannier.write_overlaps()
 
     os.system('wannier90.x ' + seed)
 
