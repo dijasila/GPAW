@@ -11,7 +11,7 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float, world
-from gpaw.new import cached_property, zip
+from gpaw.new import cached_property, zips
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
@@ -66,7 +66,7 @@ class DFTState:
     def move(self, fracpos_ac, atomdist, delta_nct_R):
         self.ibzwfs.move(fracpos_ac, atomdist)
         self.potential.energies.clear()
-        self.density.move(delta_nct_R)  # , atomdist) XXX
+        self.density.move(delta_nct_R)
 
 
 class DFTCalculation:
@@ -113,7 +113,7 @@ class DFTCalculation:
         density = builder.density_from_superposition(basis_set)
         density.normalize()
 
-        # The SCF-loop has a hamiltonian that has an fft-plan that is
+        # The SCF-loop has a Hamiltonian that has an fft-plan that is
         # cached for later use, so best to create the SCF-loop first
         # FIX this!
         scf_loop = builder.create_scf_loop()
@@ -211,7 +211,7 @@ class DFTCalculation:
             x, y, z = mm_v
             self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
-            for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
+            for a, (setup, m_v) in enumerate(zips(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
@@ -268,7 +268,7 @@ class DFTCalculation:
     def stress(self):
         stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
-        for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
+        for (x, y, z), c in zips(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
@@ -375,8 +375,8 @@ def write_atoms(atoms: Atoms,
 
     log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
-    for a, ((x, y, z), (mx, my, mz)) in enumerate(zip(atoms.positions,
-                                                      magmom_av)):
+    for a, ((x, y, z), (mx, my, mz)) in enumerate(zips(atoms.positions,
+                                                       magmom_av)):
         symbol = symbols[a]
         c = ']' if a == len(atoms) - 1 else ','
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
@@ -384,7 +384,7 @@ def write_atoms(atoms: Atoms,
 
     log('\ncell: [  # Ang')
     log('#     x            y            z')
-    for (x, y, z), c in zip(atoms.cell, ',,]'):
+    for (x, y, z), c in zips(atoms.cell, ',,]'):
         log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
 
     log()

@@ -36,7 +36,7 @@ class TDAlgorithm:
         raise NotImplementedError()
 
     def get_description(self):
-        return '%s' % self.__class__.__name__
+        return self.__class__.__name__
 
 
 def propagate_wave_functions_numpy(source_C_nM: np.ndarray,
@@ -284,7 +284,7 @@ class RTTDDFT:
             self.log(f'----  Magnitude: {magnitude:.8f} Hartree/Bohr')
             self.log(f'----  Direction: {dirstr}')
 
-            # Create hamiltonian object for absorption kick
+            # Create Hamiltonian object for absorption kick
             cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
 
             # Propagate kick

@@ -6,7 +6,7 @@ import numpy as np
 
 @pytest.mark.response
 def test_two_phi_integrals(gpw_files):
-    calc = GPAW(gpw_files['bn_pw_wfs'])
+    calc = GPAW(gpw_files['bn_pw'])
 
     setup = calc.wfs.setups[0]
     k_Gv = np.array([[0.0, 0.0, 0.0]])

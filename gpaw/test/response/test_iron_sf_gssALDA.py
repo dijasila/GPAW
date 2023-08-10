@@ -82,7 +82,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     # ---------- Script ---------- #
 
     context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
                                                   context=context)
 
     chiks_calc = ChiKSCalculator(gs,

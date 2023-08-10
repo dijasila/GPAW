@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import numpy as np
+
+import _gpaw
+from gpaw.fd_operators import Gradient
+from gpaw.new import zips
+from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
-from gpaw.xc import XC
-from gpaw.fd_operators import Gradient
-import _gpaw
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -111,9 +114,9 @@ class MGGAFunctional(Functional):
 
         self.dedtaut_sR = taut_sR.new()
         ekin = 0.0
-        for dedtaut_R, dedtaut_r, taut_R in zip(self.dedtaut_sR,
-                                                dedtaut_sr,
-                                                taut_sR):
+        for dedtaut_R, dedtaut_r, taut_R in zips(self.dedtaut_sR,
+                                                 dedtaut_sr,
+                                                 taut_sR):
             restrict(dedtaut_r, dedtaut_R)
             taut_R.data -= self.ked_calculator.tauct_R.data
             ekin -= dedtaut_R.integrate(taut_R)
@@ -159,12 +162,13 @@ class KEDCalculator:
 
         taut_sR.data += self.tauct_R.data
 
-    def add_ked(self):
+    def add_ked(self, occ_n, psit_nX, taut_R):
         raise NotImplementedError
 
 
 class PWKEDCalculator(KEDCalculator):
-    def add_ked(self, occ_n, psit_nG, taut_R):
+    def add_ked(self, occ_n, psit_nX, taut_R):
+        psit_nG = psit_nX
         pw = psit_nG.desc
         domain_comm = pw.comm
 
@@ -204,7 +208,7 @@ class PWKEDCalculator(KEDCalculator):
         Gplusk1_Gv = pw.reciprocal_vectors()
         tmp_G = pw.empty()
 
-        for psit_G, vt_G in zip(psit_nG, vt_nG):
+        for psit_G, vt_G in zips(psit_nG, vt_nG):
             for v in range(3):
                 tmp_G.data[:] = psit_G.data
                 tmp_G.data *= 1j * Gplusk1_Gv[:, v]
@@ -219,7 +223,8 @@ class FDKEDCalculator(KEDCalculator):
         super().__init__(tauct_aX)
         self.grad_v = []
 
-    def add_ked(self, occ_n, psit_nR, taut_R):
+    def add_ked(self, occ_n, psit_nX, taut_R):
+        psit_nR = psit_nX
         if len(self.grad_v) == 0:
             grid = psit_nR.desc
             self.grad_v = [
@@ -227,7 +232,7 @@ class FDKEDCalculator(KEDCalculator):
                 for v in range(3)]
 
         tmp_R = psit_nR.desc.empty()
-        for f, psit_R in zip(occ_n, psit_nR):
+        for f, psit_R in zips(occ_n, psit_nR):
             for grad in self.grad_v:
                 grad(psit_R, tmp_R)
                 # taut_R.data += 0.5 * f * abs(tmp_R.data)**2
