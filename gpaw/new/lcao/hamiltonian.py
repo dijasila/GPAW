@@ -4,7 +4,7 @@ import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -33,8 +33,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                          wfs: LCAOWaveFunctions) -> Matrix:
         if self.include_kinetic:
             return self._calculate_matrix_with_kinetic(wfs)
-        else:
-            return self._calculate_matrix_without_kinetic(wfs)
+        return self._calculate_matrix_without_kinetic(wfs)
 
     def _calculate_potential_matrix(self,
                                     wfs: LCAOWaveFunctions,
@@ -94,8 +93,8 @@ class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                          wfs: LCAOWaveFunctions) -> Matrix:
         V_sMM = [
             self.matcalc._calculate_matrix_without_kinetic(wfs, V_xMM, dH_aii)
-            for V_xMM, dH_aii in zip(self.matcalc.V_sxMM,
-                                     self.matcalc.dH_saii)]
+            for V_xMM, dH_aii in zips(self.matcalc.V_sxMM,
+                                      self.matcalc.dH_saii)]
 
         V_sMM[0] += wfs.T_MM
 

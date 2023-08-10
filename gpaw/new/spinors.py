@@ -28,8 +28,9 @@ class SpinorWaveFunctionDescriptor(Domain):
         pw.qspiral_v = self.qspiral_v
         return SpinorWaveFunctionDescriptor(pw, self.qspiral_v)
 
-    def empty(self, nbands, band_comm, xp=None):
-        return self.pw.empty((nbands, 2), band_comm)
+    def empty(self, shape, comm, xp=None):
+        assert isinstance(shape, int)
+        return self.pw.empty((shape, 2), comm)
 
     def global_shape(self) -> tuple[int, ...]:
         return (2,) + self.pw.global_shape()

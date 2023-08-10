@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.typing import Array2D, Array3D
@@ -45,7 +45,7 @@ class TCIDerivatives:
             self._derivatives_q = {
                 q: (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
                 for q, (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
-                in enumerate(zip(dThetadR_qvMM, dTdR_qvMM, dPdR_qavMi))}
+                in enumerate(zips(dThetadR_qvMM, dTdR_qvMM, dPdR_qavMi))}
 
         return self._derivatives_q[q]
 

@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.core import PlaneWaves
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
 from gpaw.setup import Setups
@@ -78,7 +78,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             nt0_g = None
 
         ndensities = nt_sR.dims[0] % 3
-        for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):
+        for spin, (nt_R, nt_r) in enumerate(zips(nt_sR, nt_sr)):
             self.interpolate(nt_R, nt_r)
             if spin < ndensities and pw.comm.rank == 0:
                 nt0_g.data += self.xp.asarray(
@@ -172,7 +172,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def _restrict(self, vxct_sr, vt_sR, density=None):
         vtmp_R = vt_sR.desc.empty(xp=self.xp)
         e_kinetic = 0.0
-        for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
+        for spin, (vt_R, vxct_r) in enumerate(zips(vt_sR, vxct_sr)):
             self.restrict(vxct_r, vtmp_R)
             vt_R.data += vtmp_R.data
             if density:
@@ -183,7 +183,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def xxxrestrict(self, vt_sr):
         vt_sR = self.grid.empty(vt_sr.dims, xp=self.xp)
-        for vt_R, vt_r in zip(vt_sR, vt_sr):
+        for vt_R, vt_r in zips(vt_sR, vt_sr):
             vt_r.fft_restrict(
                 self.fftplan2, self.fftplan, out=vt_R)
         return vt_sR

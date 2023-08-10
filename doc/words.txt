@@ -164,3 +164,13 @@ phenylpyrrole
 phonons
 th
 SCF
+quick'n'dirty
+Hund
+BZ
+traceback
+fft
+Nicolson
+TDDFT
+hartree
+ULM
+CBM
