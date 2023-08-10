@@ -1,6 +1,5 @@
 from unittest import SkipTest
 
-import pytest
 from ase import Atoms
 
 from gpaw import GPAW
