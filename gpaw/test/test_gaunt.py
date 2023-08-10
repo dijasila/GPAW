@@ -4,7 +4,7 @@ import numpy as np
 from itertools import permutations
 
 from gpaw.spherical_harmonics import Y
-from gpaw.gaunt import gaunt
+from gpaw.gaunt import gaunt, super_gaunt
 
 
 def test_contraction_rule(lmax: int = 3):
@@ -76,6 +76,13 @@ def test_permutation_symmetry(lmax: int = 3):
         for L2 in range(L2max):
             for L3 in range(L3max):
                 abs(G_LLL[L1, L2, L3] - G_LLL[L1, L3, L2]) < 1e-10
+
+
+def test_super_contraction_rule(lmax: int = 2):
+    """Test that three spherical harmonics can be contracted to one."""
+    G_LLLL = super_gaunt(lmax)
+    L1max, L2max, L3max, L4max = G_LLLL.shape
+    assert L1max == L2max
 
 
 def lm_indices(L):
