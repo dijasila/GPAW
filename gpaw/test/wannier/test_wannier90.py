@@ -5,7 +5,6 @@ from gpaw import GPAW
 from gpaw.wannier90 import Wannier90
 from gpaw.wannier.w90 import read_wout_all
 from pathlib import Path
-from gpaw.spinorbit import soc_eigenstates
 from subprocess import PIPE, run
 
 
@@ -65,7 +64,6 @@ def test_wannier90(gpw_files, mode, in_tmp_dir):
                     reason="requires at least Wannier90 version 3.0")
 def test_wannier90_soc(gpw_files, in_tmp_dir):
     calc = GPAW(gpw_files['fe_pw_nosym'])
-    soc = soc_eigenstates(calc)
     seed = 'Fe'
     assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
 
@@ -75,8 +73,8 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
                         spinors=True)
 
     wannier.write_input(num_iter=200,
-                    dis_num_iter=500,
-                    dis_mix_ratio=1.0)
+                        dis_num_iter=500,
+                        dis_mix_ratio=1.0)
     os.system('wannier90.x -pp ' + seed)
     wannier.write_projections()
     wannier.write_eigenvalues()

@@ -50,7 +50,6 @@ class Wannier90:
         else:
             self.soc = None
 
-
     def write_input(self,
                     mp=None,
                     plot=False,
@@ -170,7 +169,9 @@ class Wannier90:
 
         print('begin unit_cell_cart', file=f)
         for cell_c in calc.atoms.cell:
-            print('%14.10f %14.10f %14.10f' % (cell_c[0], cell_c[1], cell_c[2]),
+            print('%14.10f %14.10f %14.10f' % (cell_c[0],
+                                               cell_c[1],
+                                               cell_c[2]),
                   file=f)
         print('end unit_cell_cart', file=f)
         print(file=f)
@@ -201,7 +202,6 @@ class Wannier90:
         print('end kpoints', file=f)
 
         f.close()
-
 
     def write_projections(self):
         calc = self.calc
@@ -294,7 +294,6 @@ class Wannier90:
 
         f.close()
 
-
     def write_eigenvalues(self):
         calc = self.calc
         seed = self.seed
@@ -316,7 +315,6 @@ class Wannier90:
                 print('%5d %5d %14.6f' % data, file=f)
 
         f.close()
-
 
     def write_overlaps(self, less_memory=False):
         calc = self.calc
@@ -359,25 +357,10 @@ class Wannier90:
         wfs = calc.wfs
         dO_aii = get_overlap_coefficients(wfs)
 
-        def wavefunctions(bz_index):
-            if spinors:
-                # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-                return soc[bz_index].wavefunctions(
-                    calc, periodic=True)[bands]
-            # For non-spinors, G denotes grid: G = (gx, gy, gz)
-            ibz_index = calc.wfs.kd.bz2ibz_k[bz_index]
-            ut_nR = np.array([wfs.get_wave_function_array(n, ibz_index, spin,
-                                                          periodic=True)
-                             for n in bands])
-            ut_nR_sym = np.array([ibz2bz[bz_index].map_pseudo_wave_to_BZ(
-                ut_nR[n]) for n in bands])
-
-            return ut_nR_sym
-
         if not less_memory:
             u_knG = []
             for ik in range(Nk):
-                u_nG = wavefunctions(ik)
+                u_nG = self.wavefunctions(ik, bands)
                 u_knG.append(u_nG)
 
         proj_k = []
@@ -392,7 +375,7 @@ class Wannier90:
 
         for ik1 in range(Nk):
             if less_memory:
-                u1_nG = wavefunctions(ik1)
+                u1_nG = self.wavefunctions(ik1, bands)
             else:
                 u1_nG = u_knG[ik1]
             for ib in range(Nb):
@@ -400,7 +383,7 @@ class Wannier90:
                 line = lines[i0 + ik1 * Nb + ib].split()
                 ik2 = int(line[1]) - 1
                 if less_memory:
-                    u2_nG = wavefunctions(ik2)
+                    u2_nG = self.wavefunctions(ik2, bands)
                 else:
                     u2_nG = u_knG[ik2]
 
@@ -426,14 +409,12 @@ class Wannier90:
 
         f.close()
 
-
     def write_wavefunctions(self):
 
         calc = self.calc
         soc = self.soc
         spin = self.spin
         seed = self.seed
-        wfs = calc.wfs
 
         if soc is None:
             spinors = False
@@ -445,7 +426,7 @@ class Wannier90:
 
         bands = get_bands(seed)
         Nn = len(bands)
-        Nk = len(calc.get_ibz_k_points())
+        Nk = len(calc.get_bz_k_points())
 
         for ik in range(Nk):
             if spinors:
@@ -453,8 +434,7 @@ class Wannier90:
                 u_nG = soc[ik].wavefunctions(calc, periodic=True)
             else:
                 # For non-spinors, G denotes grid: G = (gx, gy, gz)
-                u_nG = np.array([wfs.get_wave_function_array(n, ik, spin)
-                                 for n in bands])
+                u_nG = self.wavefunctions(ik, bands)
 
             f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
             grid_v = np.shape(u_nG)[1:]
@@ -466,6 +446,22 @@ class Wannier90:
                             u = u_nG[n, ix, iy, iz]
                             print(u.real, u.imag, file=f)
             f.close()
+
+    def wavefunctions(self, bz_index, bands):
+        if self.spinors:
+            # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
+            return self.soc[bz_index].wavefunctions(
+                self.calc, periodic=True)[bands]
+        # For non-spinors, G denotes grid: G = (gx, gy, gz)
+        ibz_index = self.calc.wfs.kd.bz2ibz_k[bz_index]
+        ut_nR = np.array([self.calc.wfs.get_wave_function_array(
+            n, ibz_index, self.spin,
+            periodic=True)
+            for n in bands])
+        ut_nR_sym = np.array([self.ibz2bz[bz_index].map_pseudo_wave_to_BZ(
+            ut_nR[n]) for n in bands])
+
+        return ut_nR_sym
 
 
 def get_bands(seed):
