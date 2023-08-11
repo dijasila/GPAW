@@ -1,5 +1,7 @@
 import pytest
 
+from functools import partial
+
 import numpy as np
 
 from ase.units import Ha
@@ -8,6 +10,8 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.paw import (calculate_pair_density_correction,
                                calculate_matrix_element_correction)
+from gpaw.response.site_paw import calculate_site_matrix_element_correction
+from gpaw.response.localft import extract_micro_setup, add_LSDA_trans_fxc
 
 from gpaw.sphere.rshe import calculate_reduced_rshe
 
@@ -40,3 +44,34 @@ def test_paw_correction_consistency(gpw_files):
     Q2_Gii = calculate_matrix_element_correction(qG_Gv, pawdata, rshe)
 
     assert Q2_Gii == pytest.approx(Q1_Gii, rel=1e-3, abs=1e-5)
+
+
+@pytest.mark.response
+@pytest.mark.serial
+def test_site_paw_correction_consistency(gpw_files):
+    """Test consistency of generalized matrix elements."""
+    context = ResponseContext()
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
+                                                  context=context)
+
+    # Calculate and expand the LDA fxc kernel in real spherical harmonics
+    pawdata = gs.pawdatasets[0]
+    micro_setup = extract_micro_setup(gs, 0)
+    add_fxc = partial(add_LSDA_trans_fxc, fxc='ALDA')
+    fxc_ng = micro_setup.evaluate_function(add_fxc)
+    rshe, _ = calculate_reduced_rshe(micro_setup.rgd, fxc_ng,
+                                     micro_setup.Y_nL, wmin=1e-8)
+
+    # Calculate PAW correction with G + q = 0
+    qG_Gv = np.zeros((1, 3))
+    nF_Gii = calculate_matrix_element_correction(qG_Gv, pawdata, rshe)
+
+    # Calculate PAW correction with site cutoff exceeding the augmentation sphere radius
+    augr = gs.get_aug_radii()[0]
+    rcut_p = [augr * 1.5]
+    drcut = augr * 0.25
+    lambd_p = [0.5]
+    nF_pii = calculate_site_matrix_element_correction(pawdata, rshe,
+                                                      rcut_p, drcut, lambd_p)
+
+    assert nF_Gii[0] == pytest.approx(nF_pii[0])
