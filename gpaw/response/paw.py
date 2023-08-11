@@ -264,7 +264,7 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
                         continue
                     # --- Calculate radial part of the correction --- #
                     # Vectorize calculation of spherical Bessel functions
-                    lp_Gg = lp * np.ones(npw, rgd.N, dtype=int)
+                    lp_Gg = lp * np.ones((npw, rgd.N), dtype=int)
                     kr_Gg = k_G[:, np.newaxis] * rgd.r_g[np.newaxis]
                     jl_Gg = spherical_jn(lp_Gg, kr_Gg)  # so slow...
                     # Integrate correction
