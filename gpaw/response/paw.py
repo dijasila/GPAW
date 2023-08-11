@@ -2,8 +2,9 @@ import numpy as np
 from scipy.special import spherical_jn
 
 from gpaw.ffbt import rescaled_fourier_bessel_transform
-from gpaw.gaunt import gaunt
+from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
+from gpaw.sphere import RealSphericalHarmonicsExpansion
 from types import SimpleNamespace
 
 
@@ -168,6 +169,136 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
     return Qbar_Gii
+
+
+def calculate_matrix_element_correction(qG_Gv, pawdata,
+                                        rshe: RealSphericalHarmonicsExpansion):
+    r"""Calculate the atom-centered correction to a generalized matrix element.
+
+    For matrix elements corresponding to the expectation value of a plane wave
+    coefficient e^-i(G+q)r and a known functional of the (spin-)density
+    f[n](r), the PAW correction tensor is given by
+
+    F_aii'(G+q) = <φ_ai| e^-i(G+q)r f[n](r) |φ_ai'>
+                     ˷                         ˷
+                  - <φ_ai| e^-i(G+q)r f[n](r) |φ_ai'>
+                                  ˍ
+                = e^(-i[G+q].R_a) F_aii'(G+q)
+          ˍ
+    where F_aii'(G+q) is the atom-centered PAW correction tensor.
+
+    Expanding the functional f[n](r) in the atom-centered frame in real
+    spherical harmonics (corresponding to the input rshe),
+
+                  l
+              __  __
+         →    \   \   m ˰   m
+    f[n](r) = /   /  Y (r) f (r)
+              ‾‾  ‾‾  l     l
+              l  m=-l
+
+    expansion of the plane-wave coefficient in real spherical harmonics and
+    spherical Bessel functions j_l(Kr) yields the following expression for the
+    atom-centered correction tensor [publication in preparation]:
+
+                         l        l'
+                     __  __   __  __
+    ˍ                \   \    \   \      l'  m'˰   m_i,m_i',m,m'
+    F_aii'(G+q) = 4π /   /    /   /  (-i)   Y (K) G
+                     ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
+                     l  m=-l  l' m'=-l'
+
+                                rc
+                                /  2            a     a      ˷a    ˷a      m
+                              × | r dr j (Kr) [φ (r) φ (r) - φ (r) φ (r)] f (r)
+                                /       l'      j_i   j_i'    j_i   j_i'   l
+                                0
+
+    where G denotes the super Gaunt coefficients, which yields the integral
+    over four spherical harmonics.
+    """
+    rgd = rshe.rgd
+    assert rgd is pawdata.xc_correction.rgd
+    ni = pawdata.ni  # Number of partial waves
+    l_j = pawdata.l_j  # l-index for each radial function index j
+    lmax = max(l_j)
+    assert max(rshe.l_M) <= 2 * lmax
+    G_LLLL = super_gaunt(lmax)
+    # (Real) radial functions for the partial waves
+    phi_jg = pawdata.data.phi_jg
+    phit_jg = pawdata.data.phit_jg
+    # Truncate the radial functions to span only the radial grid coordinates
+    # which need correction
+    assert np.allclose(rgd.r_g, pawdata.rgd.r_g[:rgd.N])
+    phi_jg = np.array(phi_jg)[:, :rgd.N]
+    phit_jg = np.array(phit_jg)[:, :rgd.N]
+
+    # Initialize correction tensor
+    npw = qG_Gv.shape[0]
+    Fbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
+
+    # K-vector norm and direction
+    k_G = np.linalg.norm(qG_Gv, axis=1)
+    Kd_Gv = qG_Gv.copy()
+    Kd_Gv[k_G > 1e-10] /= k_G[k_G > 1e-10, np.newaxis]
+
+    # Loop of radial function indices for partial waves i and i'
+    i1_counter = 0
+    for j1, l1 in enumerate(l_j):
+        i2_counter = 0
+        for j2, l2 in enumerate(l_j):
+            # Calculate the radial partial wave correction
+            #                              ˷      ˷
+            # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+            dn_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+
+            # Loop through the angular components in the real spherical
+            # harmonics expansion of f[n](r)
+            for l, L, f_g in zip(rshe.l_M, rshe.L_M, rshe.f_gM.T):
+                # Apply Gaunt coefficient selection rules to loop through
+                # the l' coefficients of the plane-wave expansion
+                lpmin = np.min(abs(
+                    np.arange(abs(l1 - l2), l1 + l2 + 1) - l))
+                for lp in range(lpmin, l1 + l2 + l):
+                    if not l1 + l2 + l + lp % 2 == 0:
+                        continue
+                    # --- Calculate radial part of the correction --- #
+                    # Vectorize calculation of spherical Bessel functions
+                    lp_Gg = lp * np.ones(npw, rgd.N, dtype=int)
+                    kr_Gg = k_G[:, np.newaxis] * rgd.r_g[np.newaxis]
+                    jl_Gg = spherical_jn(lp_Gg, kr_Gg)  # so slow...
+                    # Integrate correction
+                    dnf_G = rgd.integrate_trapz(
+                        jl_Gg * dn_g[np.newaxis] * f_g[np.newaxis])
+
+                    # --- Calculate angular part of the correction --- #
+                    x_G = 4 * np.pi * (-1j)**lp * dnf_G
+                    # Loop through available m-indices for the partial waves
+                    # and generate the composite L=(l,m) index as well as the
+                    # partial wave index i
+                    for m1 in range(2 * l1 + 1):
+                        L1 = l1**2 + m1
+                        i1 = i1_counter + m1
+                        for m2 in range(2 * l2 + 1):
+                            L2 = l2**2 + m2
+                            i2 = i2_counter + m2
+                            # Loop through m' indices of the plane-wave
+                            # expansion and generate the L' composite index
+                            for mp in range(2 * lp + 1):
+                                Lp = lp**2 + mp
+                                # If the angular integral (super gaunt
+                                # coefficient) is finite,
+                                coeff = G_LLLL[L1, L2, L, Lp]
+                                if abs(coeff) > 1e-10:
+                                    # Calculate spherical harmonic and add
+                                    # contribution to the PAW correction
+                                    Y_G = Y(Lp, *Kd_Gv.T)
+                                    Fbar_Gii[:, i1, i2] += coeff * Y_G * x_G
+
+            # Add to i and i' counters
+            i2_counter += 2 * l2 + 1
+        i1_counter += 2 * l1 + 1
+    return Fbar_Gii
 
 
 class PWPAWCorrectionData:
