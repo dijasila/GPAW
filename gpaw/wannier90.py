@@ -42,6 +42,9 @@ class Wannier90:
         self.spinors = spinors
 
         if spinors:
+            # spinorbit.WaveFunctions.transform currently do not suppport
+            # transformation of wavefunctions, only projections.
+            # XXX: should be updated in the future
             assert calc.wfs.kd.nbzkpts == calc.wfs.kd.nibzkpts
             self.soc = soc_eigenstates(calc)
         else:
