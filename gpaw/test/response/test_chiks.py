@@ -259,7 +259,6 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
     # Part 1: chiks calculation
     wfs, spincomponent = system
-    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
@@ -299,7 +298,7 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     chi0_wGG = chi0.body.get_distributed_frequencies_array()
 
     # Part 3: Check chiks vs. chi0
-    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=atol)
+    assert chiks.array == pytest.approx(chi0_wGG, rel=1e-3, abs=1e-5)
 
 
 # ---------- Test functionality ---------- #
