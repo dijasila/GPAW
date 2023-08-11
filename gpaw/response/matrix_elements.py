@@ -9,6 +9,7 @@ from gpaw.sphere.rshe import calculate_reduced_rshe
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
+from gpaw.response.paw import calculate_matrix_element_correction
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
 from gpaw.response.localft import extract_micro_setup, calculate_LSDA_Wxc
 
@@ -179,33 +180,50 @@ class MatrixElementCalculator(ABC):
         return ut_hR
 
 
-class PairDensity(MatrixElement):
-
+class PlaneWaveMatrixElement(MatrixElement):
     def zeros(self):
         return self.qpd.zeros(self.tblocks.blocksize)
 
 
-class NewPairDensityCalculator(MatrixElementCalculator):
-    r"""Class for calculating pair densities
+class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
+    r"""Abstract base class for calculating plane-wave matrix elements.
 
-    n_kt(G+q) = n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+    Calculates the following plane-wave matrix element for a given local
+    functional of the electron (spin-)density f[n](r) = f(n(r)) and k-point
+    pair (k, k + q):
+
+    f_kt(G+q) = f_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r f(r) |ψ_n'k+qs'>
 
                 /
-              = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
+              = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r) f(r)
                 /
-
-    for a single k-point pair (k, k + q) in the plane-wave mode.
-
-    As always, the calculation is split in a pseudo contribution and a PAW
-    correction, n_kt(G+q) = ñ_kt(G+q) + Δn_kt(G+q).
     """
 
-    def __init__(self, gs, context):
+    def __init__(self, gs, context,
+                 rshelmax: int = -1,
+                 rshewmin: float | None = None):
+        """Construct the PlaneWaveMatrixElementCalculator.
+
+        Parameters
+        ----------
+        rshelmax : int
+            The maximum index l (l < 6) to use in the expansion of f(r) into
+            real spherical harmonics for the PAW correction.
+        rshewmin : float or None
+            If None, the PAW correction will be fully expanded up to the chosen
+            lmax. Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            coefficients to use in the expansion. If any (l,m) coefficient
+            contributes with less than a fraction of rshewmin on average, it
+            will not be included.
+        """
         super().__init__(gs, context)
 
-        # Save PAW correction for all calls with same q_c
-        self._pawcorr = None
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
+
+        # PAW correction tensor for a given q_c
         self._currentq_c = None
+        self._F_aGii = None
 
     def initialize_paw_corrections(self, qpd):
         """Initialize the PAW corrections ahead of the actual calculation."""
@@ -213,17 +231,50 @@ class NewPairDensityCalculator(MatrixElementCalculator):
 
     def get_paw_corrections(self, qpd):
         """Get PAW corrections correcsponding to a specific q-vector."""
-        if self._pawcorr is None \
-           or not np.allclose(qpd.q_c - self._currentq_c, 0.):
+        if self._currentq_c is None \
+           or not np.allclose(qpd.q_c, self._currentq_c):
             with self.context.timer('Initialize PAW corrections'):
-                self._pawcorr = self.gs.pair_density_paw_corrections(qpd)
+                self._F_aGii = self.calculate_paw_correction_tensor(qpd)
                 self._currentq_c = qpd.q_c
+        return self._F_aGii
 
-        return self._pawcorr
+    def calculate_paw_correction_tensor(self, qpd):
+        """Calculate the matrix element correction tensor F_ii'^a(G+q)."""
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+
+        F_aGii = []
+        for a, pawdata in enumerate(self.gs.pawdatasets):
+            # Expand local functional in real spherical harmonics
+            micro_setup = extract_micro_setup(self.gs, a)
+            rshe, info_string = self.perform_rshe(micro_setup)
+            self.print_rshe_info(a, info_string)
+
+            # Calculate atom-centered PAW correction
+            Fbar_Gii = calculate_matrix_element_correction(
+                qG_Gv, pawdata, rshe)
+
+            # Add dependency on the atomic position (phase factor)
+            pos_v = self.gs.spos_ac[a] @ qpd.gd.cell_cv
+            x_G = np.exp(-1j * (qG_Gv @ pos_v))
+            F_aGii.append(x_G[:, np.newaxis, np.newaxis] * Fbar_Gii)
+
+        return F_aGii
 
     @staticmethod
     def create_matrix_element(tblocks, qpd):
-        return PairDensity(tblocks, qpd)
+        return PlaneWaveMatrixElement(tblocks, qpd)
+
+    def perform_rshe(self, micro_setup):  # Eliminate me via micro_setup XXX
+        """Expand the functional f(n(r)) into real spherical harmonics."""
+        f_ng = micro_setup.evaluate_function(self.add_f)
+        return calculate_reduced_rshe(
+            micro_setup.rgd, f_ng, micro_setup.Y_nL,
+            self.rshelmax, self.rshewmin)
+
+    def print_rshe_info(self, a, info_string):
+        """Print information about the functional expansion around atom a."""
+        info_string = f'RSHE of atom {a}:\n' + info_string
+        self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
     @timer('Calculate the pseudo pair density')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
@@ -279,7 +330,7 @@ class NewPairDensityCalculator(MatrixElementCalculator):
                                        - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
         """
         n_mytG = pair_density.local_array_view
-        Q_aGii = self.get_paw_corrections(pair_density.qpd).Q_aGii
+        Q_aGii = self.get_paw_corrections(pair_density.qpd)
         for a, Q_Gii in enumerate(Q_aGii):
             # Make outer product of the projector overlaps
             P1ccP2_mytii = P1_amyti[a].conj()[..., np.newaxis] \
@@ -298,6 +349,26 @@ class SiteMatrixElement(MatrixElement):
         return np.zeros(
             (self.tblocks.blocksize, self.nsites, self.npartitions),
             dtype=complex)
+
+
+class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
+    r"""Class for calculating pair densities
+
+    n_kt(G+q) = n_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r |ψ_n'k+qs'>
+    """
+    def __init__(self, gs, context):
+        super().__init__(gs, context,
+                         # Expanding f(r) = 1 in real spherical harmonics only
+                         # involves l = 0
+                         rshelmax=0)
+
+    def add_f(self, gd, n_sx, f_x):
+        f_x[:] += 1.
+
+    def print_rshe_info(self, *args):
+        # The expansion in spherical harmonics is trivial (l = 0), so there is
+        # no need to print anything
+        pass
 
 
 class SiteMatrixElementCalculator(MatrixElementCalculator):
@@ -359,7 +430,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         adata = self.atomic_site_data
         for a, (A, rc_p, lambd_p) in enumerate(zip(
                 adata.A_a, adata.rc_ap, adata.lambd_ap)):
-            # Expand local function in real spherical harmonics
+            # Expand local functional in real spherical harmonics
             micro_setup = extract_micro_setup(self.gs, A)
             rshe, info_string = self.perform_rshe(micro_setup)
             self.print_rshe_info(a, A, info_string)
