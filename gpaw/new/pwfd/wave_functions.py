@@ -267,10 +267,10 @@ class PWFDWaveFunctions(WaveFunctions):
                                           dH_asii,
                                           myocc_n,
                                           F_av):
-        F_avnsi = self.pt_aiX.derivative(self.psit_nX)
-        for a, F_vnsi in F_avnsi.items():
-            F_vnsi = F_vnsi.conj()
-            F_vnsi *= myocc_n[:, np.newaxis, np.newaxis]
+        F_ansvi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_nsvi in F_ansvi.items():
+            F_nsvi = F_nsvi.conj()
+            F_nsvi *= myocc_n[:, np.newaxis, np.newaxis, np.newaxis]
             dH_sii = dH_asii[a]
             dH_ii = dH_sii[0]
             dH_vii = dH_sii[1:]
@@ -278,10 +278,10 @@ class PWFDWaveFunctions(WaveFunctions):
                 [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                  [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
             P_nsi = self.P_ani[a]
-            F_v = np.einsum('vnsi, stij, ntj -> v', F_vnsi, dH_ssii, P_nsi)
-            F_vnsi *= self.myeig_n[:, np.newaxis, np.newaxis]
+            F_v = np.einsum('nsvi, stij, ntj -> v', F_nsvi, dH_ssii, P_nsi)
+            F_nsvi *= self.myeig_n[:, np.newaxis, np.newaxis, np.newaxis]
             dO_ii = self.setups[a].dO_ii
-            F_v -= np.einsum('vnsi, ij, nsj -> v', F_vnsi, dO_ii, P_nsi)
+            F_v -= np.einsum('nsvi, ij, nsj -> v', F_nsvi, dO_ii, P_nsi)
             F_av[a] += 2 * F_v.real
 
     def collect(self,

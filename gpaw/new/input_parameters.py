@@ -98,7 +98,11 @@ class InputParameters:
                 warnings.warn('Please use new "magmoms" parameter.',
                               DeprecatedParameterWarning)
                 self.magmoms = self.experimental.pop('magmoms')
+                self.keys.append('magmoms')
+                self.keys.sort()
             assert not self.experimental
+            self.keys.remove('experimental')
+            self.__dict__.pop('experimental')
 
         if self.mode.get('name') is None:
             if warn:
