@@ -259,7 +259,7 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
                 # the l' coefficients of the plane-wave expansion
                 lpmin = np.min(abs(
                     np.arange(abs(l1 - l2), l1 + l2 + 1) - l))
-                for lp in range(lpmin, l1 + l2 + l):
+                for lp in range(lpmin, l1 + l2 + l + 1):
                     if not (l1 + l2 + l + lp) % 2 == 0:
                         continue
                     # --- Calculate radial part of the correction --- #
