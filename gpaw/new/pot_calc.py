@@ -68,18 +68,41 @@ class PotentialCalculator:
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
-        energies, vt_sR, dedtau_sR, vHt_x = self.calculate_pseudo_potential(
+        energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
+
+        e_kinetic = 0.0
+        for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
+            e_kinetic -= vt_R.integrate(nt_R)
+            if spin < density.ndensities:
+                e_kinetic += vt_R.integrate(self.nct_R)
+
+        if dedtaut_sr is not None:
+            dedtaut_sR = self.restrict(dedtaut_sr)
+            print(dedtaut_sr)
+            print(dedtaut_sR)
+            print(density)
+            print(density.taut_sR.data.shape)
+            for dedtaut_R, taut_R in zips(dedtaut_sR,
+                                          density.taut_sR):
+                print(e_kinetic, taut_R)
+                e_kinetic -= dedtaut_R.integrate(taut_R)
+                e_kinetic += dedtaut_R.integrate(self.tauct_R)
+        else:
+            dedtaut_sR = None
+
+        energies['kinetic'] = e_kinetic
 
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc)
 
         for key, e in corrections.items():
-            # print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
+            if 0:
+                print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
-        return Potential(vt_sR, dH_asii, dedtau_sR, energies), vHt_x, Q_aL
+        return Potential(vt_sR, dH_asii, dedtaut_sR, energies), vHt_x, Q_aL
 
     def move(self, fracpos_ac, atomdist, ndensities) -> UniformGridFunctions:
         """Move things and return change in pseudo core density."""

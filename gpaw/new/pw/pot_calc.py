@@ -17,16 +17,21 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  setups: Setups,
                  xc,
                  poisson_solver,
-                 nct_ag,
-                 nct_R,
+                 *,
+                 nct_ag, nct_R,
+                 tauct_ag=None, tauct_R=None,
                  soc=False,
                  xp=np):
         fracpos_ac = nct_ag.fracpos_ac
         atomdist = nct_ag.atomdist
         self.xp = xp
-        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
+        super().__init__(xc, poisson_solver, setups,
+                         nct_R=nct_R, tauct_R=tauct_R,
+                         fracpos_ac=fracpos_ac,
+                         soc=soc)
 
         self.nct_ag = nct_ag
+        self.tauct_ag = tauct_ag
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
@@ -58,11 +63,13 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.interpolation_domain = nct_ag.pw
 
-    def interpolate(self, a_R, a_r):
-        a_R.interpolate(self.fftplan, self.fftplan2, out=a_r)
+    def interpolate(self, a_R, a_r=None):
+        return a_R.interpolate(self.fftplan, self.fftplan2,
+                               grid=self.fine_grid, out=a_r)
 
-    def restrict(self, a_r, a_R):
-        a_r.fft_restrict(self.fftplan2, self.fftplan, out=a_R)
+    def restrict(self, a_r, a_R=None):
+        return a_r.fft_restrict(self.fftplan2, self.fftplan,
+                                grid=self.grid, out=a_R)
 
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
@@ -87,13 +94,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return nt_sr, pw, nt0_g
 
     def _interpolate_and_calculate_xc(self, xc, nt_sR, ibzwfs):
-        nt_sr, pw, nt0_g = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.empty(nt_sR.dims, xp=self.xp)
-        e_xc, e_kinetic = self.xc.calculate(
-            nt_sr, vxct_sr, ibzwfs,
-            interpolate=self.interpolate,
-            restrict=self.restrict)
-        return nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic
+        ...
 
     def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
         _, _, _, _, e_xc, _ = self._interpolate_and_calculate_xc(
@@ -101,9 +102,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return e_xc
 
     def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
-        nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic = (
-            self._interpolate_and_calculate_xc(
-                self.xc, density.nt_sR, ibzwfs))
+        nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
+
+        if density.taut_sR is not None:
+            taut_sr = self.interpolate(density.taut_sR)
+        else:
+            taut_sr = None
+
+        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)
@@ -155,7 +161,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_sR.data[1] = vt_sR.data[0]
         vt_sR.data[density.ndensities:] = 0.0
 
-        e_kinetic += self._restrict(vxct_sr, vt_sR, density)
+        vtmp_R = vt_sR.desc.empty(xp=self.xp)
+        for spin, (vt_R, vxct_r) in enumerate(zips(vt_sR, vxct_sr)):
+            self.restrict(vxct_r, vtmp_R)
+            vt_R.data += vtmp_R.data
 
         e_external = 0.0
 
@@ -163,30 +172,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self._reset()
 
-        return {'kinetic': e_kinetic,
-                'coulomb': e_coulomb,
+        return {'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, vt_sR, vHt_h
-
-    def _restrict(self, vxct_sr, vt_sR, density=None):
-        vtmp_R = vt_sR.desc.empty(xp=self.xp)
-        e_kinetic = 0.0
-        for spin, (vt_R, vxct_r) in enumerate(zips(vt_sR, vxct_sr)):
-            self.restrict(vxct_r, vtmp_R)
-            vt_R.data += vtmp_R.data
-            if density:
-                e_kinetic -= vt_R.integrate(density.nt_sR[spin])
-                if spin < density.ndensities:
-                    e_kinetic += vt_R.integrate(self.nct_R)
-        return float(e_kinetic)
-
-    def xxxrestrict(self, vt_sr):
-        vt_sR = self.grid.empty(vt_sr.dims, xp=self.xp)
-        for vt_R, vt_r in zips(vt_sR, vt_sr):
-            vt_r.fft_restrict(
-                self.fftplan2, self.fftplan, out=vt_R)
-        return vt_sR
+                'external': e_external}, vt_sR, dedtaut_sr, vHt_h
 
     def _move(self, fracpos_ac, atomdist, ndensities):
         self.ghat_aLh.move(fracpos_ac, atomdist)

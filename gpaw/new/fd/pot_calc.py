@@ -107,29 +107,16 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.poisson_solver.solve(vHt_r, charge_r)
         e_coulomb = 0.5 * vHt_r.integrate(charge_r)
 
-        e_kinetic = 0.0
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
-        for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
-            e_kinetic -= vt_R.integrate(nt_R)
-            if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(self.nct_R)
-
-        if dedtaut_sr is not None:
-            dedtaut_sR = self.restrict(dedtaut_sr)
-            for dedtaut_R, taut_R in zips(dedtaut_sR,
-                                          density.taut_sR):
-                e_kinetic -= dedtaut_R.integrate(taut_R)
-                e_kinetic += dedtaut_R.integrate(self.tauct_R)
 
         e_external = 0.0
 
-        return {'kinetic': e_kinetic,
-                'coulomb': e_coulomb,
+        return {'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, vt_sR, dedtaut_sR, vHt_r
+                'external': e_external}, vt_sR, dedtaut_sr, vHt_r
 
     def _move(self, fracpos_ac, atomdist, ndensities):
         self.ghat_aLr.move(fracpos_ac, atomdist)

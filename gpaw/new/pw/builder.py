@@ -27,6 +27,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
+        self._tauct_ag = None
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -56,12 +57,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
         return create_functional(self._xc,
-                                 self.fine_grid,
-                                 self.grid,
-                                 self.interpolation_pw,
-                                 self.setups,
-                                 self.fracpos_ac,
-                                 self.atomdist)
+                                 self.fine_grid)
 
     @cached_property
     def interpolation_pw(self):
@@ -75,6 +71,12 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 self.interpolation_pw, self.fracpos_ac, self.atomdist,
                 xp=self.xp)
         return self._nct_ag
+
+    def get_pseudo_core_ked(self):
+        if self._tauct_ag is None:
+            self._tauct_ag = self.setups.create_pseudo_core_ked(
+                self.interpolation_pw, self.fracpos_ac, self.atomdist)
+        return self._tauct_ag
 
     def create_poisson_solver(self, fine_pw, params):
         return make_poisson_solver(fine_pw,
@@ -90,16 +92,24 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         poisson_solver = self.create_poisson_solver(
             fine_pw,
             self.params.poissonsolver or {'strength': 1.0})
-        return PlaneWavePotentialCalculator(self.grid,
-                                            self.fine_grid,
-                                            pw,
-                                            fine_pw,
-                                            self.setups,
-                                            self.xc,
-                                            poisson_solver,
-                                            nct_ag, self.nct_R,
-                                            self.soc,
-                                            self.xp)
+        if self.xc.type == 'MGGA':
+            tauct_ag = self.get_pseudo_core_ked()
+            tauct_R = self.tauct_R
+        else:
+            tauct_ag = None
+            tauct_R = None
+        return PlaneWavePotentialCalculator(
+            self.grid, self.fine_grid,
+            pw, fine_pw,
+            self.setups,
+            self.xc,
+            poisson_solver,
+            nct_ag=nct_ag,
+            nct_R=self.nct_R,
+            tauct_ag=tauct_ag,
+            tauct_R=tauct_R,
+            soc=self.soc,
+            xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:

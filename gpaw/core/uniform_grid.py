@@ -620,7 +620,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty(xp=self.xp)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
@@ -640,6 +640,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         plan1 = plan1 or self.desc.fft_plans()
         plan2 = plan2 or out.desc.fft_plans()
+
+        if self.dims:
+            for input, output in zips(self.flat(), out.flat()):
+                input.fft_restrict(plan1, plan2, grid, output)
+            return out
 
         plan1.tmp_R[:] = self.data
         a_Q = plan2.tmp_Q

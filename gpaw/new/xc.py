@@ -50,25 +50,23 @@ class Functional:
 class LDAOrGGAFunctional(Functional):
     def calculate(self,
                   nt_sr,
-                  vxct_sr,
-                  ibzwfs=None,
-                  interpolate=None,
-                  restrict=None) -> tuple[float, float]:
-        if nt_sr.xp is np:
+                  taut_sr=None) -> tuple[float]:
+        xp = nt_sr.xp
+        vxct_sr = nt_sr.new()
+        if xp is np:
             vxct_sr.data[:] = 0.0
-            return self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data), 0.0
-        vxct_np_sr = np.zeros(vxct_sr.data.shape)
-        exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(), vxct_np_sr)
-        vxct_sr.data[:] = vxct_sr.xp.asarray(vxct_np_sr)
-        return exc, 0.0
+            exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
+        else:
+            vxct_np_sr = np.zeros(nt_sr.data.shape)
+            exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(),
+                                    vxct_np_sr)
+            vxct_sr.data[:] = xp.asarray(vxct_np_sr)
+        return exc, vxct_sr, None
 
 
 class MGGAFunctional(Functional):
     def get_setup_name(self):
         return 'PBE'
-
-    def apply(self, spin, psit_nX, vt_nX):
-        self.ked_calculator._apply(self.dedtaut_sR[spin], psit_nX, vt_nX)
 
     def calculate(self,
                   nt_sr,
@@ -88,6 +86,9 @@ class MGGAFunctional(Functional):
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr.data)
         return e_r.integrate(), vxct_sr, dedtaut_sr
+
+    def apply(self, spin, psit_nX, vt_nX):
+        self.ked_calculator._apply(self.dedtaut_sR[spin], psit_nX, vt_nX)
 
 
 class KEDCalculator:
@@ -136,9 +137,10 @@ class PWKEDCalculator(KEDCalculator):
                 iGpsit1_G.data[:] = psit1_G.data
                 iGpsit1_G.data *= 1j * Gplusk1_Gv[:, v]
                 iGpsit1_G.ifft(out=dpsit1_R)
-                # taut1_R.data += 0.5 * f * abs(dpsit1_R.data)**2
-                _gpaw.add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
-
+                if 1:  # use C-code
+                    _gpaw.add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
+                else:
+                    taut1_R.data += 0.5 * f * abs(dpsit1_R.data)**2
         domain_comm.sum(taut1_R.data)
         tmp_R = taut_R.new()
         tmp_R.scatter_from(taut1_R)
@@ -176,5 +178,7 @@ class FDKEDCalculator(KEDCalculator):
         for f, psit_R in zips(occ_n, psit_nR):
             for grad in self.grad_v:
                 grad(psit_R, tmp_R)
-                # taut_R.data += 0.5 * f * abs(tmp_R.data)**2
-                _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+                if 1:  # use C-code
+                    _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+                else:
+                    taut_R.data += 0.5 * f * abs(tmp_R.data)**2
