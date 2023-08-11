@@ -292,9 +292,6 @@ def parallel_transport(calc,
     N_c = calc.wfs.kd.N_c
     # Algorithm only works for 2D k-point grids
     assert 1 in np.delete(N_c, direction)
-    Nkx = N_c[0]
-    Nky = N_c[1]
-    Nkz = N_c[2]
 
     Nk = np.prod(N_c)
     Nloc = N_c[direction]
