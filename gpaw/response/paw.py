@@ -4,7 +4,7 @@ from scipy.special import spherical_jn
 from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
-from gpaw.sphere import RealSphericalHarmonicsExpansion
+from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
 from types import SimpleNamespace
 
 
