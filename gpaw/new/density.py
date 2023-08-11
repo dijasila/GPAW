@@ -102,6 +102,16 @@ class Density:
         self.nt_sR.data[:self.ndensities] += nct_R.data
         self.symmetrize(ibzwfs.ibz.symmetries)
 
+
+
+        nspins = nt_sr.dims[0]
+        taut_sR = self.coarse_grid.empty(nspins)
+        self.ked_calculator.calculate_pseudo_ked(ibzwfs, taut_sR)
+        taut_sr = self.grid.empty(nspins)
+
+
+
+
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)

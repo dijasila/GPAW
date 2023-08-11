@@ -34,8 +34,10 @@ class PotentialCalculator:
                  xc: Functional,
                  poisson_solver,
                  setups: list[Setup],
-                 nct_R: UniformGridFunctions,
+                 *,
                  fracpos_ac: Array2D,
+                 nct_R: UniformGridFunctions,
+                 tauct_R: UniformGridFunctions | None = None,
                  soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc

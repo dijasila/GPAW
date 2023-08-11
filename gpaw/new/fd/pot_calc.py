@@ -14,12 +14,15 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  setups,
                  xc,
                  poisson_solver,
+                 *,
                  nct_aR, nct_R,
+                 tauct_aR=None, tauct_R=None,
                  interpolation_stencil_range=3,
                  xp=np):
         self.fine_grid = fine_grid
         self.grid = wf_grid
         self.nct_aR = nct_aR
+        self.tauct_aR = tauct_aR
 
         fracpos_ac = nct_aR.fracpos_ac
         atomdist = nct_aR.atomdist
@@ -39,7 +42,9 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
         self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
-        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
+        super().__init__(xc, poisson_solver, setups,
+                         nct_R=nct_R, tauct_R=tauct_R,
+                         fracpos_ac=fracpos_ac)
         self.interpolation_domain = nct_aR.grid
 
     def __str__(self):
@@ -75,10 +80,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         nt_sr, _, _ = self._interpolate_density(density.nt_sR)
         grid2 = nt_sr.desc
 
-        vxct_sr = grid2.zeros(nt_sr.dims)
-        e_xc, e_kinetic = self.xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                                            interpolate=self.interpolate,
-                                            restrict=self.restrict)
+        if density.taut_sR is not None:
+            taut_sr = self.interpolate(density.taut_sR)
+        else:
+            taut_sr = None
+
+        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
+
         charge_r = grid2.empty()
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
@@ -99,6 +107,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.poisson_solver.solve(vHt_r, charge_r)
         e_coulomb = 0.5 * vHt_r.integrate(charge_r)
 
+        e_kinetic = 0.0
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
@@ -107,13 +116,20 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(self.nct_R)
 
+        if dedtaut_sr is not None:
+            dedtaut_sR = self.restrict(dedtaut_r)
+            for dedtaut_R, taut_R in zips(dedtaut_sR,
+                                          density.taut_sR):
+                e_kinetic -= dedtaut_R.integrate(taut_R)
+                e_kinetic += dedtaut_R.integrate(self.tauct_R)
+
         e_external = 0.0
 
         return {'kinetic': e_kinetic,
                 'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, vt_sR, vHt_r
+                'external': e_external}, vt_sR, dedtaut_sR, vHt_r
 
     def _move(self, fracpos_ac, atomdist, ndensities):
         self.ghat_aLr.move(fracpos_ac, atomdist)

@@ -8,6 +8,7 @@ from gpaw.new import zips
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
+from gpaw.core.uniform_grid import UniformGridFunctions
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -90,41 +91,22 @@ class MGGAFunctional(Functional):
 
     def calculate(self,
                   nt_sr,
-                  vxct_sr,
-                  ibzwfs,
-                  interpolate,
-                  restrict) -> tuple[float, float]:
-        nspins = nt_sr.dims[0]
-        taut_sR = self.coarse_grid.empty(nspins)
-        self.ked_calculator.calculate_pseudo_ked(ibzwfs, taut_sR)
-        taut_sr = self.grid.empty(nspins)
-        interpolate(taut_sR, taut_sr)
-
+                  taut_sr) -> tuple[float,
+                                    UniformGridFunctions,
+                                    UniformGridFunctions]:
         gd = self.xc.gd
-
         sigma_xr, dedsigma_xr, gradn_svr = gga_vars(gd, self.xc.grad_v,
                                                     nt_sr.data)
-
         e_r = self.grid.empty()
         dedtaut_sr = taut_sr.new()
+        vxct_sr = taut_sr.new()
         vxct_sr.data[:] = 0.0
         self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
                                  sigma_xr, dedsigma_xr,
                                  taut_sr.data, dedtaut_sr.data)
-
-        self.dedtaut_sR = taut_sR.new()
-        ekin = 0.0
-        for dedtaut_R, dedtaut_r, taut_R in zips(self.dedtaut_sR,
-                                                 dedtaut_sr,
-                                                 taut_sR):
-            restrict(dedtaut_r, dedtaut_R)
-            taut_R.data -= self.ked_calculator.tauct_R.data
-            ekin -= dedtaut_R.integrate(taut_R)
-
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr.data)
-
-        return e_r.integrate(), ekin
+        return e_r.integrate()
 
 
 class KEDCalculator:

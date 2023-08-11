@@ -84,7 +84,8 @@ class SCFLoop:
                 fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                state, self.niter,
+                self.niter, log,
+                state,
                 wfs_error, dens_error,
                 self.comm, calculate_forces,
                 pot_calc)
@@ -114,15 +115,17 @@ class SCFLoop:
 
 class SCFContext:
     def __init__(self,
-                 state: DFTState,
+                 log,
                  niter: int,
+                 state: DFTState,
                  wfs_error: float,
                  dens_error: float,
                  comm,
                  calculate_forces: Callable[[], Array2D],
                  pot_calc):
-        self.state = state
+        self.log = log
         self.niter = niter
+        self.state = state
         energy = np.array([sum(state.potential.energies.values()) +
                            sum(state.ibzwfs.energies.values())])
         comm.broadcast(energy, 0)
