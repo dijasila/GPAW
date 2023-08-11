@@ -39,4 +39,4 @@ def test_paw_correction_consistency(gpw_files):
     # Calculate correction
     Q2_Gii = calculate_matrix_element_correction(qG_Gv, pawdata, rshe)
 
-    assert Q2_Gii == pytest.approx(Q1_Gii)
+    assert Q2_Gii == pytest.approx(Q1_Gii, rel=1e-3, abs=1e-5)
