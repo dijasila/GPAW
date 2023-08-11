@@ -66,7 +66,8 @@ def test_site_paw_correction_consistency(gpw_files):
     qG_Gv = np.zeros((1, 3))
     nF_Gii = calculate_matrix_element_correction(qG_Gv, pawdata, rshe)
 
-    # Calculate PAW correction with site cutoff exceeding the augmentation sphere radius
+    # Calculate PAW correction with site cutoff exceeding the augmentation
+    # sphere radius
     augr = gs.get_aug_radii()[0]
     rcut_p = [augr * 1.5]
     drcut = augr * 0.25
