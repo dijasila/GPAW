@@ -146,21 +146,6 @@ class PWKEDCalculator(KEDCalculator):
         tmp_R.scatter_from(taut1_R)
         taut_R.data += tmp_R.data
 
-    def _apply(self, dedtaut_R, psit_nG, vt_nG):
-        pw = psit_nG.desc
-        dpsit_R = dedtaut_R.desc.new(dtype=pw.dtype).empty()
-        Gplusk1_Gv = pw.reciprocal_vectors()
-        tmp_G = pw.empty()
-
-        for psit_G, vt_G in zips(psit_nG, vt_nG):
-            for v in range(3):
-                tmp_G.data[:] = psit_G.data
-                tmp_G.data *= 1j * Gplusk1_Gv[:, v]
-                tmp_G.ifft(out=dpsit_R)
-                dpsit_R.data *= dedtaut_R.data
-                dpsit_R.fft(out=tmp_G)
-                vt_G.data -= 0.5j * Gplusk1_Gv[:, v] * tmp_G.data
-
 
 class FDKEDCalculator(KEDCalculator):
     def __init__(self):

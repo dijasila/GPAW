@@ -92,7 +92,8 @@ class Davidson(Eigensolver):
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        Ht = partial(hamiltonian.apply,
+                     state.potential.vt_sR, state.potential.dedtaut_sR)
         ibzwfs = state.ibzwfs
         error = 0.0
 

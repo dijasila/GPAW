@@ -16,11 +16,11 @@ class PWHamiltonian(Hamiltonian):
         self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
         self.pw_cache = {}
 
-    def apply(self,
-              vt_sR: UniformGridFunctions,
-              psit_nG: PlaneWaveExpansions,
-              out: PlaneWaveExpansions,
-              spin: int) -> PlaneWaveExpansions:
+    def apply_local_potential(self,
+                              vt_sR: UniformGridFunctions,
+                              psit_nG: PlaneWaveExpansions,
+                              out: PlaneWaveExpansions
+                              ) -> PlaneWaveExpansions:
         out_nG = out
         vt_R = vt_sR[spin].gather(broadcast=True)
         xp = psit_nG.xp
@@ -50,6 +50,28 @@ class PWHamiltonian(Hamiltonian):
                 psit_G.data *= e_kin_G
                 vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
+
+    def apply_mgga(self,
+                   vt_sR: UniformGridFunctions,
+                   dedtaut_sR: UniformGridFunctions | None,
+                   psit_nG: PlaneWaveExpansions,
+                   out: PlaneWaveExpansions,
+                   spin: int) -> PlaneWaveExpansions:
+    def apply_mgga(self, dedtaut_R, psit_nG, vt_nG):
+        pw = psit_nG.desc
+        dpsit_R = dedtaut_R.desc.new(dtype=pw.dtype).empty()
+        Gplusk1_Gv = pw.reciprocal_vectors()
+        tmp_G = pw.empty()
+
+        for psit_G, vt_G in zips(psit_nG, vt_nG):
+            for v in range(3):
+                tmp_G.data[:] = psit_G.data
+                tmp_G.data *= 1j * Gplusk1_Gv[:, v]
+                tmp_G.ifft(out=dpsit_R)
+                dpsit_R.data *= dedtaut_R.data
+                dpsit_R.fft(out=tmp_G)
+                vt_G.data -= 0.5j * Gplusk1_Gv[:, v] * tmp_G.data
+
 
         self.xc.apply(spin, psit_nG, out_nG)
 
