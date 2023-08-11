@@ -151,12 +151,7 @@ class DFTComponentsBuilder:
 
     def create_xc_functional(self):
         return create_functional(self._xc,
-                                 self.fine_grid,
-                                 self.grid,
-                                 self.grid,
-                                 self.setups,
-                                 self.fracpos_ac,
-                                 self.atomdist)
+                                 self.fine_grid)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -198,6 +193,14 @@ class DFTComponentsBuilder:
                                scale=1.0 / (self.ncomponents % 3))
         return out
 
+    @cached_property
+    def tauct_R(self):
+        out = self.grid.empty(xp=self.xp)
+        tauct_aX = self.get_pseudo_core_ked()
+        tauct_aX.to_uniform_grid(out=out,
+                                 scale=1.0 / (self.ncomponents % 3))
+        return out
+
     def create_basis_set(self):
         return create_basis(self.ibz,
                             self.ncomponents % 3,
@@ -211,14 +214,20 @@ class DFTComponentsBuilder:
                             self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.nct_R,
-                                          self.atomdist,
-                                          self.setups,
-                                          basis_set,
-                                          self.initial_magmom_av,
-                                          self.ncomponents,
-                                          self.params.charge,
-                                          self.params.hund)
+        if self.xc.type == 'MGGA':
+            tauct_R = self.tauct_R
+        else:
+            tauct_R = None
+        return Density.from_superposition(
+            nct_R=self.nct_R,
+            tauct_R=tauct_R,
+            atomdist=self.atomdist,
+            setups=self.setups,
+            basis_set=basis_set,
+            magmom_av=self.initial_magmom_av,
+            ncomponents=self.ncomponents,
+            charge=self.params.charge,
+            hund=self.params.hund)
 
     def create_occupation_number_calculator(self):
         return OccupationNumberCalculator(

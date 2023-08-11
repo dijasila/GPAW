@@ -84,7 +84,7 @@ class SCFLoop:
                 fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                self.niter, log,
+                log, self.niter,
                 state,
                 wfs_error, dens_error,
                 self.comm, calculate_forces,
@@ -107,7 +107,8 @@ class SCFLoop:
                 raise TooFewBandsError
 
             if self.update_density_and_potential:
-                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                state.density.update(
+                    pot_calc.nct_R, pot_calc.tauct_R, state.ibzwfs)
                 dens_error = self.mixer.mix(state.density)
                 state.potential, state.vHt_x, _ = pot_calc.calculate(
                     state.density, state.ibzwfs, state.vHt_x)

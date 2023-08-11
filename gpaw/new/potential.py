@@ -11,13 +11,16 @@ class Potential:
     def __init__(self,
                  vt_sR: UniformGridFunctions,
                  dH_asii: AtomArrays,
+                 dedtaut_sR: UniformGridFunctions | None,
                  energies: dict[str, float]):
         self.vt_sR = vt_sR
         self.dH_asii = dH_asii
+        self.dedtaut_sR = dedtaut_sR
         self.energies = energies
 
     def __repr__(self):
-        return f'Potential({self.vt_sR}, {self.dH_asii}, {self.energies})'
+        return (f'Potential({self.vt_sR}, {self.dH_asii}, '
+                f'{self.dedtaut_sR}, {self.energies})')
 
     def __str__(self) -> str:
         return (f'potential:\n'

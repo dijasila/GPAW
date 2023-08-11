@@ -11,7 +11,7 @@ import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zips
+from gpaw.new import zips, cached_property
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -191,6 +191,21 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(D_asii.data)
         self.band_comm.sum(nt_sR.data)
         self.band_comm.sum(D_asii.data)
+
+    @cached_property
+    def ked_calculator(self):
+        from gpaw.new.xc import KEDCalculator
+        return KEDCalculator()
+
+    def add_to_ked(self, taut_sR) -> None:
+        for wfs in self:
+            self.ked_calculator.add_ked(taut_sR, wfs)
+
+        if self.xp is not np:
+            synchronize()
+
+        self.kpt_comm.sum(taut_sR.data)
+        self.band_comm.sum(taut_sR.data)
 
     def get_all_electron_wave_function(self,
                                        band,

@@ -43,6 +43,7 @@ class PotentialCalculator:
         self.xc = xc
         self.setups = setups
         self.nct_R = nct_R
+        self.tauct_R = tauct_R
         self.fracpos_ac = fracpos_ac
         self.soc = soc
 
@@ -67,7 +68,7 @@ class PotentialCalculator:
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
-        energies, vt_sR, vHt_x = self.calculate_pseudo_potential(
+        energies, vt_sR, dedtau_sR, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
 
         Q_aL = self.calculate_charges(vHt_x)
@@ -78,7 +79,7 @@ class PotentialCalculator:
             # print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
-        return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
+        return Potential(vt_sR, dH_asii, dedtau_sR, energies), vHt_x, Q_aL
 
     def move(self, fracpos_ac, atomdist, ndensities) -> UniformGridFunctions:
         """Move things and return change in pseudo core density."""

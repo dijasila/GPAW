@@ -117,7 +117,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 e_kinetic += vt_R.integrate(self.nct_R)
 
         if dedtaut_sr is not None:
-            dedtaut_sR = self.restrict(dedtaut_r)
+            dedtaut_sR = self.restrict(dedtaut_sr)
             for dedtaut_R, taut_R in zips(dedtaut_sR,
                                           density.taut_sR):
                 e_kinetic -= dedtaut_R.integrate(taut_R)

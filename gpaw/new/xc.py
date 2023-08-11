@@ -8,17 +8,16 @@ from gpaw.new import zips
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
-                      grid, coarse_grid, interpolate_domain,
-                      setups, fracpos_ac, atomdist):
+                      grid: UniformGrid):
     if isinstance(xc, (str, dict)):
         xc = XC(xc)
     if xc.type == 'MGGA':
-        return MGGAFunctional(xc, grid, coarse_grid,
-                              interpolate_domain, setups, fracpos_ac, atomdist)
+        return MGGAFunctional(xc, grid)
     return LDAOrGGAFunctional(xc, grid)
 
 
@@ -65,24 +64,6 @@ class LDAOrGGAFunctional(Functional):
 
 
 class MGGAFunctional(Functional):
-    def __init__(self,
-                 xc,
-                 grid,
-                 coarse_grid,
-                 domain,
-                 setups,
-                 fracpos_ac,
-                 atomdist):
-        super().__init__(xc, grid)
-        tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
-            domain, fracpos_ac, atomdist)
-        self.ked_calculator = KEDCalculator.create(tauct_aX)
-        self.coarse_grid = coarse_grid
-        self.dedtaut_sR = None
-
-    def move(self, fracpos_ac, atomdist):
-        self.ked_calculator.move(fracpos_ac, atomdist)
-
     def get_setup_name(self):
         return 'PBE'
 
@@ -106,46 +87,25 @@ class MGGAFunctional(Functional):
                                  taut_sr.data, dedtaut_sr.data)
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr.data)
-        return e_r.integrate()
+        return e_r.integrate(), vxct_sr, dedtaut_sr
 
 
 class KEDCalculator:
-    @staticmethod
-    def create(tauct_aX):
-        if hasattr(tauct_aX, 'pw'):
-            return PWKEDCalculator(tauct_aX)
-        return FDKEDCalculator(tauct_aX)
+    calc = None
 
-    def __init__(self, tauct_aX):
-        self.tauct_aX = tauct_aX
-        self.tauct_R = None
+    def _initialize(self, wfs: PWFDWaveFunctions):
+        if self.calc is None:
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                self.calc = PWKEDCalculator()
+            else:
+                self.calc = FDKEDCalculator()
 
-    def move(self, fracpos_ac, atomdist):
-        self.tauct_aX.move(fracpos_ac, atomdist)
-        self.tauct_R = None
-
-    def calculate_pseudo_ked(self, ibzwfs, taut_sR):
-        nspins = taut_sR.dims[0]
-        if self.tauct_R is None:
-            self.tauct_R = taut_sR.desc.empty()
-            self.tauct_aX.to_uniform_grid(out=self.tauct_R,
-                                          scale=1.0 / nspins)
-
-        taut_sR.data[:] = 0.0
-
-        if ibzwfs is not None:
-            for wfs in ibzwfs:
-                occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
-                self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
-            taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
-                               ibzwfs.ibz.symmetries.translation_sc)
-            ibzwfs.kpt_comm.sum(taut_sR.data)
-            ibzwfs.band_comm.sum(taut_sR.data)
-
-        taut_sR.data += self.tauct_R.data
-
-    def add_ked(self, occ_n, psit_nX, taut_R):
-        raise NotImplementedError
+    def add_ked(self,
+                taut_sR,
+                wfs: PWFDWaveFunctions):
+        self._initialize(wfs)
+        occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+        self.calc.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
 
 
 class PWKEDCalculator(KEDCalculator):
@@ -201,8 +161,7 @@ class PWKEDCalculator(KEDCalculator):
 
 
 class FDKEDCalculator(KEDCalculator):
-    def __init__(self, tauct_aX):
-        super().__init__(tauct_aX)
+    def __init__(self):
         self.grad_v = []
 
     def add_ked(self, occ_n, psit_nX, taut_R):

@@ -22,6 +22,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self.interpolation_stencil_range = interpolation
 
         self._nct_aR = None
+        self._tauct_aR = None
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -46,6 +47,12 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                 self.grid, self.fracpos_ac, atomdist=self.atomdist, xp=self.xp)
         return self._nct_aR
 
+    def get_pseudo_core_ked(self):
+        if self._tauct_aR is None:
+            self._tauct_aR = self.setups.create_pseudo_core_ked(
+                self.grid, self.fracpos_ac, atomdist=self.atomdist)
+        return self._tauct_aR
+
     def create_poisson_solver(self) -> PoissonSolver:
         solver = make_poisson_solver(**self.params.poissonsolver)
         solver.set_grid_descriptor(self.fine_grid._gd)
@@ -54,13 +61,18 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_potential_calculator(self):
         poisson_solver = self.create_poisson_solver()
         nct_aR = self.get_pseudo_core_densities()
-        return UniformGridPotentialCalculator(self.grid,
-                                              self.fine_grid,
-                                              self.setups,
-                                              self.xc, poisson_solver,
-                                              nct_aR, self.nct_R,
-                                              self.interpolation_stencil_range,
-                                              self.xp)
+        if self.xc.type == 'MGGA':
+            tauct_aR = self.get_pseudo_core_ked()
+            tauct_R = self.tauct_R
+        else:
+            tauct_aR = None
+            tauct_R = None
+        return UniformGridPotentialCalculator(
+            self.grid, self.fine_grid, self.setups, self.xc, poisson_solver,
+            nct_aR=nct_aR, nct_R=self.nct_R,
+            tauct_aR=tauct_aR, tauct_R=tauct_R,
+            interpolation_stencil_range=self.interpolation_stencil_range,
+            xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
