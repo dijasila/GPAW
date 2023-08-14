@@ -10,7 +10,8 @@ from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.paw import calculate_matrix_element_correction
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import extract_micro_setup, calculate_LSDA_Wxc
+from gpaw.response.localft import (extract_micro_setup,
+                                   calculate_LSDA_Wxc, add_LSDA_trans_fxc)
 
 
 class MatrixElement(ABC):
@@ -359,6 +360,20 @@ class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
         # The expansion in spherical harmonics is trivial (l = 0), so there is
         # no need to print anything
         pass
+
+
+class TransversePairPotentialCalculator(PlaneWaveMatrixElementCalculator):
+    r"""Calculator for the transverse magnetic pair potential.
+
+    The transverse magnetic pair potential is a plane-wave matrix element
+    where the local functional is the transverse LDA kernel:
+     
+    W^⟂_kt(G+q) = W^⟂_(nks,n'k+qs')(G+q)
+
+                = <ψ_nks| e^-i(G+q)r f_LDA^-+(r) |ψ_n'k+qs'>
+    """
+    def add_f(self, gd, n_sx, f_x):
+        return add_LSDA_trans_fxc(gd, n_sx, f_x, fxc='ALDA')
 
 
 class SiteMatrixElement(MatrixElement):
