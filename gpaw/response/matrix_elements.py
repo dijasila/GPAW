@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from gpaw.sphere.integrate import spherical_truncation_function_collection
-from gpaw.sphere.rshe import calculate_reduced_rshe
 
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
@@ -246,7 +245,8 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         for a, pawdata in enumerate(self.gs.pawdatasets):
             # Expand local functional in real spherical harmonics
             micro_setup = extract_micro_setup(self.gs, a)
-            rshe, info_string = self.perform_rshe(micro_setup)
+            rshe, info_string = micro_setup.expand_function(
+                self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
             self.print_rshe_info(a, info_string)
 
             # Calculate atom-centered PAW correction
@@ -263,13 +263,6 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
     @staticmethod
     def create_matrix_element(tblocks, qpd):
         return PlaneWaveMatrixElement(tblocks, qpd)
-
-    def perform_rshe(self, micro_setup):  # Eliminate me via micro_setup XXX
-        """Expand the functional f(n(r)) into real spherical harmonics."""
-        f_ng = micro_setup.evaluate_function(self.add_f)
-        return calculate_reduced_rshe(
-            micro_setup.rgd, f_ng, micro_setup.Y_nL,
-            self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, info_string):
         """Print information about the functional expansion around atom a."""
@@ -432,7 +425,8 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
                 adata.A_a, adata.rc_ap, adata.lambd_ap)):
             # Expand local functional in real spherical harmonics
             micro_setup = extract_micro_setup(self.gs, A)
-            rshe, info_string = self.perform_rshe(micro_setup)
+            rshe, info_string = micro_setup.expand_function(
+                self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
             self.print_rshe_info(a, A, info_string)
 
             # Calculate the PAW correction
@@ -441,13 +435,6 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
                 pawdata, rshe, rc_p, adata.drcut, lambd_p))
 
         return F_apii
-
-    def perform_rshe(self, micro_setup):
-        """Expand the functional f(n(r)) into real spherical harmonics."""
-        f_ng = micro_setup.evaluate_function(self.add_f)
-        return calculate_reduced_rshe(
-            micro_setup.rgd, f_ng, micro_setup.Y_nL,
-            self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, A, info_string):
         """Print information about the expansion at site a."""
