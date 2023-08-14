@@ -129,32 +129,21 @@ class FDHamiltonian(Hamiltonian):
         # For MGGA:
         self.grad_v = []
 
-    def apply(self,
-              vt_sR: UGArray,
-              dedtaut_sR: UGArray | None,
-              psit_nR: XArray,
-              out: XArray,
-              spin: int) -> XArray:
-        assert isinstance(psit_nR, UGArray)
-        assert isinstance(out, UGArray)
-        self.apply_local_potential(vt_sR[spin], psit_nR, out)
-        if dedtaut_sR is not None:
-            self.apply_mgga(dedtaut_sR[spin], psit_nR, out)
-        return out
-
     def apply_local_potential(self,
                               vt_R: UGArray,
-                              psit_nR: UGArray,
-                              out: UGArray,
+                              psit_nR: XArray,
+                              out: XArray,
                               ) -> None:
+        assert isinstance(psit_nR, UGArray)
+        assert isinstance(out, UGArray)
         self.kin(psit_nR, out)
         for p, o in zips(psit_nR.data, out.data):
             o += p * vt_R.data
 
     def apply_mgga(self,
                    dedtaut_R: UGArray,
-                   psit_nR: UGArray,
-                   vt_nR: UGArray) -> None:
+                   psit_nR: XArray,
+                   vt_nR: XArray) -> None:
         if len(self.grad_v) == 0:
             grid = psit_nR.desc
             self.grad_v = [

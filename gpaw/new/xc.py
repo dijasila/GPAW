@@ -92,9 +92,8 @@ class MGGAFunctional(Functional):
         return e_r.integrate(), vxct_sr, dedtaut_sr
 
 
-def create_ked_adder_function(mode: str
-                              ) -> Callable[[UGArray, PWFDWaveFunctions],
-                                            None]:
+def get_ked_adder_function(mode: str
+                           ) -> Callable[[UGArray, PWFDWaveFunctions], None]:
     if mode == 'pw':
         return pw_add_ked
     if mode == 'pw':
@@ -103,7 +102,7 @@ def create_ked_adder_function(mode: str
 
 
 def pw_add_ked(taut_sR: UGArray,
-               wfs: PWFDWaveFunctions):
+               wfs: PWFDWaveFunctions) -> None:
     occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
     psit_nG = wfs.psit_nX
     taut_R = taut_sR[wfs.spin]
@@ -145,7 +144,7 @@ class FDKEDCalculator:
 
     def __call__(self,
                  taut_sR: UGArray,
-                 wfs: PWFDWaveFunctions):
+                 wfs: PWFDWaveFunctions) -> None:
         occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
         psit_nR = wfs.psit_nX
         taut_R = taut_sR[wfs.spin]

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import Callable
 
 import numpy as np
@@ -16,24 +17,13 @@ class PWHamiltonian(Hamiltonian):
         self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
         self.pw_cache = {}
 
-    def apply(self,
-              vt_sR: UGArray,
-              dedtaut_sR: UGArray | None,
-              psit_nG: XArray,
-              out: XArray,
-              spin: int) -> XArray:
-        assert isinstance(psit_nG, PWArray)
-        assert isinstance(out, PWArray)
-        self.apply_local_potential(vt_sR[spin], psit_nG, out)
-        if dedtaut_sR is not None:
-            self.apply_mgga(dedtaut_sR[spin], psit_nG, out)
-        return out
-
     def apply_local_potential(self,
                               vt_R: UGArray,
-                              psit_nG: PWArray,
-                              out: PWArray
+                              psit_nG: XArray,
+                              out: XArray
                               ) -> None:
+        assert isinstance(psit_nG, PWArray)
+        assert isinstance(out, PWArray)
         out_nG = out
         vt_R = vt_R.gather(broadcast=True)
         xp = psit_nG.xp
@@ -66,8 +56,8 @@ class PWHamiltonian(Hamiltonian):
 
     def apply_mgga(self,
                    dedtaut_R: UGArray,
-                   psit_nG: PWArray,
-                   vt_nG: PWArray) -> None:
+                   psit_nG: XArray,
+                   vt_nG: XArray) -> None:
         pw = psit_nG.desc
         dpsit_R = dedtaut_R.desc.new(dtype=pw.dtype).empty()
         Gplusk1_Gv = pw.reciprocal_vectors()

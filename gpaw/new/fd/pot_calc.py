@@ -39,7 +39,6 @@ class FDPotentialCalculator(PotentialCalculator):
 
         super().__init__(xc, poisson_solver, setups,
                          fracpos_ac=fracpos_ac)
-        # self.interpolation_domain = nct_aR.grid
 
     def __str__(self):
         txt = super().__str__()

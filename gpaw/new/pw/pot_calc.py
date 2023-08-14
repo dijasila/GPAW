@@ -56,8 +56,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.e_stress = np.nan
 
-        # self.interpolation_domain = nct_ag.pw
-
     def interpolate(self, a_R, a_r=None):
         return a_R.interpolate(self.fftplan, self.fftplan2,
                                grid=self.fine_grid, out=a_r)
