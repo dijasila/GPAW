@@ -238,7 +238,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         return self._F_aGii
 
     def calculate_paw_correction_tensor(self, qpd):
-        """Calculate the matrix element correction tensor F_ii'^a(G+q)."""
+        """Calculate the matrix element PAW correction tensor F_aii'(G+q)."""
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
 
         F_aGii = []
@@ -288,7 +288,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         functional f[n](r+R)=f(r) is lattice periodic.
         """
         qpd = matrix_element.qpd
-        n_mytG = matrix_element.local_array_view
+        f_mytG = matrix_element.local_array_view
 
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
@@ -310,35 +310,35 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
 
         # Add the desired plane-wave components of the FFT'ed pseudo matrix
         # element to the output array
-        for n_G, nt_R in zip(n_mytG, nt_mytR):
-            n_G[:] += qpd.fft(nt_R * f_R, 0, Q_G) * gd.dv
+        for f_G, nt_R in zip(f_mytG, nt_mytR):
+            f_G[:] += qpd.fft(nt_R * f_R, 0, Q_G) * gd.dv
 
-    @timer('Calculate the pair density PAW corrections')
-    def _add_paw_correction(self, P1_amyti, P2_amyti, pair_density):
-        r"""Add the pair-density PAW correction to the output array.
+    @timer('Calculate the matrix-element PAW corrections')
+    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+        r"""Add the matrix-element PAW correction to the output array.
 
         The correction is calculated from
                      __  __
                      \   \   ˷     ˷     ˷    ˷
-        Δn_kt(G+q) = /   /  <ψ_nks|p_ai><p_ai'|ψ_n'k+qs'> Q_aii'(G+q)
+        Δf_kt(G+q) = /   /  <ψ_nks|p_ai><p_ai'|ψ_n'k+qs'> F_aii'(G+q)
                      ‾‾  ‾‾
                      a   i,i'
 
-        where the pair-density PAW correction tensor is given by:
+        where the matrix-element PAW correction tensor is given by:
 
                       /
-        Q_aii'(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_ai'(r-R_a)
+        F_aii'(G+q) = | dr e^-i(G+q)r [φ_ai^*(r-R_a) φ_ai'(r-R_a)
                       /                  ˷             ˷
-                                       - φ_ai^*(r-R_a) φ_ai'(r-R_a)]
+                                       - φ_ai^*(r-R_a) φ_ai'(r-R_a)] f[n](r)
         """
-        n_mytG = pair_density.local_array_view
-        Q_aGii = self.get_paw_corrections(pair_density.qpd)
-        for a, Q_Gii in enumerate(Q_aGii):
+        f_mytG = matrix_element.local_array_view
+        F_aGii = self.get_paw_corrections(matrix_element.qpd)
+        for a, F_Gii in enumerate(F_aGii):
             # Make outer product of the projector overlaps
             P1ccP2_mytii = P1_amyti[a].conj()[..., np.newaxis] \
                 * P2_amyti[a][:, np.newaxis]
             # Sum over partial wave indices and add correction to the output
-            n_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, Q_Gii)
+            f_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, F_Gii)
 
 
 class SiteMatrixElement(MatrixElement):
