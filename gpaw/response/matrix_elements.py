@@ -229,7 +229,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         self.get_paw_corrections(qpd)
 
     def get_paw_corrections(self, qpd):
-        """Get PAW corrections correcsponding to a specific q-vector."""
+        """Get PAW corrections corresponding to a specific q-vector."""
         if self._currentq_c is None \
            or not np.allclose(qpd.q_c, self._currentq_c):
             with self.context.timer('Initialize PAW corrections'):
@@ -269,24 +269,26 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         info_string = f'RSHE of atom {a}:\n' + info_string
         self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
-    @timer('Calculate the pseudo pair density')
+    @timer('Calculate pseudo matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 pair_density):
-        r"""Add the pseudo pair density to an output array.
+                                 matrix_element):
+        r"""Add the pseudo matrix element to the output array.
 
-        The pseudo pair density is first evaluated on the coarse real-space
-        grid and then FFT'ed to reciprocal space,
+        The pseudo matrix element is evaluated on the coarse real-space grid,
+        multiplied with the functional f[n](r) and then FFT'ed to reciprocal
+        space,
 
-                    /               ˷          ˷
-        ñ_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r)
+        ˷           /               ˷          ˷
+        f_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r) f(r)
                     /V0
                                  ˷          ˷
-                  = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r)]
+                  = FFT_G[e^-iqr ψ_nks^*(r) ψ_n'k+qs'(r) f(r)]
 
-        where the Kohn-Sham orbitals are normalized to the unit cell.
+        where the Kohn-Sham orbitals are normalized to the unit cell and the
+        functional f[n](r+R)=f(r) is lattice periodic.
         """
-        qpd = pair_density.qpd
-        n_mytG = pair_density.local_array_view
+        qpd = matrix_element.qpd
+        n_mytG = matrix_element.local_array_view
 
         # Calculate the pseudo pair density in real space, up to a phase of
         # e^(-i[k+q-k']r).
@@ -294,15 +296,22 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         nt_mytR = ut1_mytR.conj() * ut2_mytR
 
-        # Get the FFT indices corresponding to the Fourier transform
-        #                       ˷          ˷
+        # Get the FFT indices corresponding to the pair density Fourier
+        # transform             ˷          ˷
         # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
         Q_G = phase_shifted_fft_indices(k1_c, k2_c, qpd)
 
-        # Add the desired plane-wave components of the FFT'ed pseudo pair
-        # density to the output array
-        for n_G, n_R in zip(n_mytG, nt_mytR):
-            n_G[:] += qpd.fft(n_R, 0, Q_G) * qpd.gd.dv
+        # Evaluate the local functional f(n(r)) on the coarse real-space grid
+        # NB: Here we assume that f(r) is sufficiently smooth to be represented
+        # on a regular grid (unlike the wave functions).
+        n_sR, gd = self.gs.get_all_electron_density(gridrefinement=1)
+        f_R = gd.zeros()
+        self.add_f(gd, n_sR, f_R)
+
+        # Add the desired plane-wave components of the FFT'ed pseudo matrix
+        # element to the output array
+        for n_G, nt_R in zip(n_mytG, nt_mytR):
+            n_G[:] += qpd.fft(nt_R * f_R, 0, Q_G) * gd.dv
 
     @timer('Calculate the pair density PAW corrections')
     def _add_paw_correction(self, P1_amyti, P2_amyti, pair_density):
