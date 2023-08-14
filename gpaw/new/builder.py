@@ -185,6 +185,9 @@ class DFTComponentsBuilder:
     def get_pseudo_core_densities(self):
         raise NotImplementedError
 
+    def get_pseudo_core_ked(self):
+        raise NotImplementedError
+
     def create_basis_set(self):
         return create_basis(self.ibz,
                             self.ncomponents % 3,

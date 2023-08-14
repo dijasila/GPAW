@@ -137,5 +137,5 @@ class UniformGridPotentialCalculator(PotentialCalculator):
             nt_r.data *= scale
 
         return (self.ghat_aLr.derivative(state.vHt_x),
-                self.nct_aR.derivative(vt_R),
+                state.density.nct_aX.derivative(vt_R),
                 self.vbar_ar.derivative(nt_r))

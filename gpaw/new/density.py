@@ -147,12 +147,15 @@ class Density:
             old_nt_R.fft(pw=old_pw).morph(pw).ifft(out=nt_R)
 
         return Density(nt_sR,
+                       nt_sR.new(zeroed=True),
                        self.D_asii,
                        self.charge,
                        self.delta_aiiL,
                        self.delta0_a,
                        self.N0_aii,
-                       self.l_aj)
+                       self.l_aj,
+                       self.nct_aX,
+                       self.tauct_aX)
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp

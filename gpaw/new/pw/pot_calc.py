@@ -172,7 +172,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR, dedtaut_sr, vHt_h
 
-    def _move(self, fracpos_ac, atomdist):
+    def move(self, fracpos_ac, atomdist):
         self.ghat_aLh.move(fracpos_ac, atomdist)
         self.vbar_ag.move(fracpos_ac, atomdist)
         self.vbar_g.data[:] = 0.0
@@ -204,9 +204,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
     def force_contributions(self, state):
         vt_g, nt_g = self._force_stress_helper(state)
-
         return (self.ghat_aLh.derivative(state.vHt_x),
-                self.nct_ag.derivative(vt_g),
+                state.density.nct_aX.derivative(vt_g),
                 self.vbar_ag.derivative(nt_g))
 
     def stress(self, state):

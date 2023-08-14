@@ -65,7 +65,8 @@ class AtomCenteredFunctions:
     def move(self, fracpos_ac, atomdist):
         """Move atoms to new positions."""
         self.fracpos_ac = np.array(fracpos_ac)
-        self._lfc.set_positions(fracpos_ac, atomdist)
+        if self._lfc is not None:
+            self._lfc.set_positions(fracpos_ac, atomdist)
 
     def add_to(self, functions, coefs=1.0):
         """Add atom-centered functions multiplied by *coefs* to *functions*."""

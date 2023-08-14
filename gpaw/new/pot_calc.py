@@ -53,10 +53,14 @@ class PotentialCalculator:
                                    vHt_x: DistributedArrays | None
                                    ) -> tuple[dict[str, float],
                                               UniformGridFunctions,
+                                              UniformGridFunctions,
                                               DistributedArrays]:
         raise NotImplementedError
 
     def calculate_charges(self, vHt_x):
+        raise NotImplementedError
+
+    def restrict(self, a_r, a_R=None):
         raise NotImplementedError
 
     def calculate(self,
