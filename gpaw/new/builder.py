@@ -211,7 +211,8 @@ class DFTComponentsBuilder:
             magmom_av=self.initial_magmom_av,
             ncomponents=self.ncomponents,
             charge=self.params.charge,
-            hund=self.params.hund)
+            hund=self.params.hund,
+            mgga=self.xc.type == 'MGGA')
 
     def create_occupation_number_calculator(self):
         return OccupationNumberCalculator(

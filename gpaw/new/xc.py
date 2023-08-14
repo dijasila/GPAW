@@ -49,9 +49,6 @@ class Functional:
     def get_setup_name(self) -> str:
         return self.name
 
-    def apply(self, spin, psit_nX, vt_nX) -> None:
-        pass
-
 
 class LDAOrGGAFunctional(Functional):
     def calculate(self,
@@ -90,16 +87,12 @@ class MGGAFunctional(Functional):
         dedtaut_sr = taut_sr.new()
         vxct_sr = taut_sr.new()
         vxct_sr.data[:] = 0.0
-        print(taut_sr.data[:, 7, 8, 9])
         self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
                                  sigma_xr, dedsigma_xr,
                                  taut_sr.data, dedtaut_sr.data)
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr.data)
         return e_r.integrate(), vxct_sr, dedtaut_sr
-
-    def apply(self, spin, psit_nX, vt_nX):
-        self.ked_calculator._apply(self.dedtaut_sR[spin], psit_nX, vt_nX)
 
 
 class KEDCalculator:

@@ -47,7 +47,8 @@ class Density:
                            magmom_av,
                            ncomponents,
                            charge=0.0,
-                           hund=False):
+                           hund=False,
+                           mgga=False):
         nt_sR = grid.zeros(ncomponents)
         atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
                                               for setup in setups],
@@ -66,9 +67,8 @@ class Density:
 
         xp = nct_aX.xp
         nt_sR = nt_sR.to_xp(xp)
-        taut_sR = nt_sR.new(zeroed=True)
         density = cls.from_data_and_setups(nt_sR,
-                                           taut_sR,
+                                           None,
                                            D_asii.to_xp(xp),
                                            charge,
                                            setups,
@@ -76,11 +76,14 @@ class Density:
                                            tauct_aX)
         ndensities = ncomponents % 3
         density.nt_sR.data[:ndensities] += density.nct_R.data
+        if mgga:
+            density.taut_sR = nt_sR.new()
+            density.taut_sR.data[:] = density.tauct_R.data
         return density
 
     def __init__(self,
                  nt_sR: UniformGridFunctions,
-                 taut_sR: UniformGridFunctions,
+                 taut_sR: UniformGridFunctions | None,
                  D_asii: AtomArrays,
                  charge: float,
                  delta_aiiL: list[Array3D],
