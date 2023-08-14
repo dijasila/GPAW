@@ -140,10 +140,8 @@ class DFTCalculation:
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
-        delta_nct_R = self.pot_calc.move(self.fracpos_ac,
-                                         atomdist,
-                                         self.state.density.ndensities)
-        self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
+        self.pot_calc.move(self.fracpos_ac, atomdist)
+        self.state.move(self.fracpos_ac, atomdist)
 
         mm_av = self.results['non_collinear_magmoms']
         write_atoms(atoms, mm_av, self.log)

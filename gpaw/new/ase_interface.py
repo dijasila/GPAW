@@ -239,8 +239,11 @@ class ASECalculator:
     def __del__(self):
         self.log('---')
         self.timer.write(self.log)
-        mib = maxrss() / 1024**2
-        self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        try:
+            mib = maxrss() / 1024**2
+            self.log(f'\nMax RSS: {mib:.3f}  # MiB')
+        except NameError:
+            pass
 
     def get_potential_energy(self,
                              atoms: Atoms | None = None,
@@ -457,15 +460,12 @@ class ASECalculator:
         dft = self.calculation
         pot_calc = dft.pot_calc
         state = dft.state
-        xc = create_functional(
-            xcparams,
-            pot_calc.fine_grid, pot_calc.grid,
-            pot_calc.interpolation_domain,
-            self.setups,
-            dft.fracpos_ac,
-            state.density.D_asii.layout.atomdist)
+        xc = create_functional(xcparams, pot_calc.fine_grid)
+        if xc.type == 'MGGA':
+            1 / 0
+        density = dft.state.density
         exct = pot_calc.calculate_non_selfconsistent_exc(
-            xc, dft.state.density.nt_sR, state.ibzwfs)
+            xc, density.nt_sR, density.taut_sR)
         dexc = 0.0
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]

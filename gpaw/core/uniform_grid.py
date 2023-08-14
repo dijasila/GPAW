@@ -299,7 +299,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             txt += ', xp=cp'
         return txt + ')'
 
-    def new(self, data=None):
+    def new(self, data=None, zeroed=False):
         """Create new UniforGridFunctions object of same kind.
 
         Parameters
@@ -309,7 +309,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         """
         if data is None:
             data = self.xp.empty_like(self.data)
-        return UniformGridFunctions(self.desc, self.dims, self.comm, data)
+        f_xR = UniformGridFunctions(self.desc, self.dims, self.comm, data)
+        if zeroed:
+            f_xR.data[:] = 0.0
+        return f_xR
 
     def __getitem__(self, index):
         data = self.data[index]

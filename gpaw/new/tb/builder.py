@@ -82,8 +82,10 @@ class DummyFunctions(DistributedArrays[NoGrid]):
                                     grid.dtype)
         self.desc = grid
 
-    def integrate(self):
-        return np.ones(self.dims)
+    def integrate(self, other=None):
+        if other is None:
+            return np.ones(self.dims)
+        return np.zeros(self.dims + other.dims)
 
     def new(self):
         return self
@@ -113,8 +115,9 @@ class TBPotentialCalculator(PotentialCalculator):
                  setups,
                  nct_R,
                  atoms):
-        super().__init__(xc, None, setups, nct_R,
-                         atoms.get_scaled_positions())
+        super().__init__(xc, None, setups,
+                         nct_R=nct_R,
+                         fracpos_ac=atoms.get_scaled_positions())
         self.atoms = atoms.copy()
         self.force_av = None
         self.stress_vv = None
@@ -139,7 +142,7 @@ class TBPotentialCalculator(PotentialCalculator):
                 'coulomb': 0.0,
                 'zero': 0.0,
                 'xc': energy,
-                'external': 0.0}, vt_sR, vHt_r
+                'external': 0.0}, vt_sR, None, vHt_r
 
     def _move(self, fracpos_ac, ndensities):
         self.atoms.set_scaled_positions(fracpos_ac)

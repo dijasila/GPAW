@@ -92,28 +92,20 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         poisson_solver = self.create_poisson_solver(
             fine_pw,
             self.params.poissonsolver or {'strength': 1.0})
-        if self.xc.type == 'MGGA':
-            tauct_ag = self.get_pseudo_core_ked()
-            tauct_R = self.tauct_R
-        else:
-            tauct_ag = None
-            tauct_R = None
         return PlaneWavePotentialCalculator(
             self.grid, self.fine_grid,
             pw, fine_pw,
             self.setups,
             self.xc,
             poisson_solver,
-            nct_ag=nct_ag,
-            nct_R=self.nct_R,
-            tauct_ag=tauct_ag,
-            tauct_R=tauct_R,
+            fracpos_ac=self.fracpos_ac,
+            atomdist=self.atomdist,
             soc=self.soc,
             xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian(self.grid, self.wf_desc, self.xc, self.xp)
+            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,

@@ -18,20 +18,15 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver,
                  *,
-                 nct_ag, nct_R,
-                 tauct_ag=None, tauct_R=None,
+                 fracpos_ac,
+                 atomdist,
                  soc=False,
                  xp=np):
-        fracpos_ac = nct_ag.fracpos_ac
-        atomdist = nct_ag.atomdist
         self.xp = xp
         super().__init__(xc, poisson_solver, setups,
-                         nct_R=nct_R, tauct_R=tauct_R,
                          fracpos_ac=fracpos_ac,
                          soc=soc)
 
-        self.nct_ag = nct_ag
-        self.tauct_ag = tauct_ag
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
@@ -61,7 +56,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         self.e_stress = np.nan
 
-        self.interpolation_domain = nct_ag.pw
+        # self.interpolation_domain = nct_ag.pw
 
     def interpolate(self, a_R, a_r=None):
         return a_R.interpolate(self.fftplan, self.fftplan2,
@@ -177,15 +172,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR, dedtaut_sr, vHt_h
 
-    def _move(self, fracpos_ac, atomdist, ndensities):
+    def _move(self, fracpos_ac, atomdist):
         self.ghat_aLh.move(fracpos_ac, atomdist)
         self.vbar_ag.move(fracpos_ac, atomdist)
         self.vbar_g.data[:] = 0.0
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
-        self.nct_ag.move(fracpos_ac, atomdist)
-        self.nct_ag.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
-        self.xc.move(fracpos_ac, atomdist)
         self._reset()
 
     def _reset(self):

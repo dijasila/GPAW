@@ -107,8 +107,8 @@ class SCFLoop:
                 raise TooFewBandsError
 
             if self.update_density_and_potential:
-                state.density.update(
-                    pot_calc.nct_R, pot_calc.tauct_R, state.ibzwfs)
+                state.density.update(state.ibzwfs,
+                                     ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
                 state.potential, state.vHt_x, _ = pot_calc.calculate(
                     state.density, state.ibzwfs, state.vHt_x)

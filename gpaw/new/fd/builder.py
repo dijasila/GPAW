@@ -10,6 +10,7 @@ from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.poisson import PoissonSolver as make_poisson_solver
+from gpaw.fd_operators import Gradient
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -60,17 +61,9 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_potential_calculator(self):
         poisson_solver = self.create_poisson_solver()
-        nct_aR = self.get_pseudo_core_densities()
-        if self.xc.type == 'MGGA':
-            tauct_aR = self.get_pseudo_core_ked()
-            tauct_R = self.tauct_R
-        else:
-            tauct_aR = None
-            tauct_R = None
         return UniformGridPotentialCalculator(
             self.grid, self.fine_grid, self.setups, self.xc, poisson_solver,
-            nct_aR=nct_aR, nct_R=self.nct_R,
-            tauct_aR=tauct_aR, tauct_R=tauct_R,
+            fracpos_ac=self.fracpos_ac, atomdist=self.atomdist,
             interpolation_stencil_range=self.interpolation_stencil_range,
             xp=self.xp)
 
@@ -134,11 +127,46 @@ class FDHamiltonian(Hamiltonian):
         self._gd = grid._gd
         self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
 
-    def apply(self, vt_sR, psit_nR, out, spin):
+        # For MGGA:
+        self.grad_v = []
+
+    def apply(self,
+              vt_sR: UniformGridFunctions,
+              dedtaut_sR: UniformGridFunctions | None,
+              psit_nR: UniformGridFunctions,
+              out: UniformGridFunctions,
+              spin: int) -> UniformGridFunctions:
+        self.apply_local_potential(vt_sR[spin], psit_nR, out)
+        if dedtaut_sR is not None:
+            self.apply_mgga(dedtaut_sR[spin], psit_nR, out)
+        return out
+
+    def apply_local_potential(self,
+                              vt_R: UniformGridFunctions,
+                              psit_nR: UniformGridFunctions,
+                              out: UniformGridFunctions,
+                              ) -> None:
         self.kin(psit_nR, out)
         for p, o in zips(psit_nR.data, out.data):
-            o += p * vt_sR.data[spin]
-        return out
+            o += p * vt_R.data
+
+    def apply_mgga(self,
+                   dedtaut_R: UniformGridFunctions,
+                   psit_nR: UniformGridFunctions,
+                   vt_nR: UniformGridFunctions) -> None:
+        if len(self.grad_v) == 0:
+            grid = psit_nR.desc
+            self.grad_v = [
+                Gradient(grid._gd, v, n=3, dtype=grid.dtype)
+                for v in range(3)]
+
+        tmp_R = psit_nR.desc.empty()
+        for psit_R, out_R in zips(psit_nR, vt_nR):
+            for grad in self.grad_v:
+                grad(psit_R, tmp_R)
+                grad(dedtaut_R * tmp_R, tmp_R)
+                tmp_R.data *= 0.5
+                out_R.data -= tmp_R.data
 
     def create_preconditioner(self, blocksize):
         from types import SimpleNamespace

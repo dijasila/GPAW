@@ -185,22 +185,6 @@ class DFTComponentsBuilder:
     def get_pseudo_core_densities(self):
         raise NotImplementedError
 
-    @cached_property
-    def nct_R(self):
-        out = self.grid.empty(xp=self.xp)
-        nct_aX = self.get_pseudo_core_densities()
-        nct_aX.to_uniform_grid(out=out,
-                               scale=1.0 / (self.ncomponents % 3))
-        return out
-
-    @cached_property
-    def tauct_R(self):
-        out = self.grid.empty(xp=self.xp)
-        tauct_aX = self.get_pseudo_core_ked()
-        tauct_aX.to_uniform_grid(out=out,
-                                 scale=1.0 / (self.ncomponents % 3))
-        return out
-
     def create_basis_set(self):
         return create_basis(self.ibz,
                             self.ncomponents % 3,
@@ -214,13 +198,10 @@ class DFTComponentsBuilder:
                             self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        if self.xc.type == 'MGGA':
-            tauct_R = self.tauct_R
-        else:
-            tauct_R = None
         return Density.from_superposition(
-            nct_R=self.nct_R,
-            tauct_R=tauct_R,
+            grid=self.grid,
+            nct_aX=self.get_pseudo_core_densities(),
+            tauct_aX=self.get_pseudo_core_ked(),
             atomdist=self.atomdist,
             setups=self.setups,
             basis_set=basis_set,

@@ -36,14 +36,10 @@ class PotentialCalculator:
                  setups: list[Setup],
                  *,
                  fracpos_ac: Array2D,
-                 nct_R: UniformGridFunctions,
-                 tauct_R: UniformGridFunctions | None = None,
                  soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
-        self.nct_R = nct_R
-        self.tauct_R = tauct_R
         self.fracpos_ac = fracpos_ac
         self.soc = soc
 
@@ -75,19 +71,14 @@ class PotentialCalculator:
         for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(self.nct_R)
+                e_kinetic += vt_R.integrate(density.nct_R)
 
         if dedtaut_sr is not None:
             dedtaut_sR = self.restrict(dedtaut_sr)
-            print(dedtaut_sr)
-            print(dedtaut_sR)
-            print(density)
-            print(density.taut_sR.data.shape)
             for dedtaut_R, taut_R in zips(dedtaut_sR,
                                           density.taut_sR):
-                print(e_kinetic, taut_R)
                 e_kinetic -= dedtaut_R.integrate(taut_R)
-                e_kinetic += dedtaut_R.integrate(self.tauct_R)
+                e_kinetic += dedtaut_R.integrate(density.tauct_R)
         else:
             dedtaut_sR = None
 
@@ -103,18 +94,6 @@ class PotentialCalculator:
             energies[key] += e
 
         return Potential(vt_sR, dH_asii, dedtaut_sR, energies), vHt_x, Q_aL
-
-    def move(self, fracpos_ac, atomdist, ndensities) -> UniformGridFunctions:
-        """Move things and return change in pseudo core density."""
-        delta_nct_R = self.nct_R.new()
-        delta_nct_R.data[:] = self.nct_R.data
-        delta_nct_R.data *= -1
-        self._move(fracpos_ac, atomdist, ndensities)
-        delta_nct_R.data += self.nct_R.data
-        return delta_nct_R
-
-    def _move(self, fracpos_ac, atomdist, ndensities) -> None:
-        raise NotImplementedError
 
 
 def calculate_non_local_potential(setups,

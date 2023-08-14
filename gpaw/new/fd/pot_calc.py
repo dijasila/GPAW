@@ -15,17 +15,12 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver,
                  *,
-                 nct_aR, nct_R,
-                 tauct_aR=None, tauct_R=None,
+                 fracpos_ac,
+                 atomdist,
                  interpolation_stencil_range=3,
                  xp=np):
         self.fine_grid = fine_grid
         self.grid = wf_grid
-        self.nct_aR = nct_aR
-        self.tauct_aR = tauct_aR
-
-        fracpos_ac = nct_aR.fracpos_ac
-        atomdist = nct_aR.atomdist
 
         self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac,
                                                       atomdist, xp=xp)
@@ -43,9 +38,8 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
         super().__init__(xc, poisson_solver, setups,
-                         nct_R=nct_R, tauct_R=tauct_R,
                          fracpos_ac=fracpos_ac)
-        self.interpolation_domain = nct_aR.grid
+        # self.interpolation_domain = nct_aR.grid
 
     def __str__(self):
         txt = super().__str__()
@@ -58,12 +52,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
 
-    def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
+    def calculate_non_selfconsistent_exc(self, xc, nt_sR, taut_sR):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
-        e_xc, _ = xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                               interpolate=self.interpolate,
-                               restrict=self.restrict)
+        if taut_sR is not None:
+            taut_sr = self.interpolate(taut_sR)
+        else:
+            taut_sr = None
+        e_xc, _, _ = xc.calculate(nt_sr, taut_sr)
         return e_xc
 
     def _interpolate_density(self, nt_sR):
@@ -118,12 +113,10 @@ class UniformGridPotentialCalculator(PotentialCalculator):
                 'xc': e_xc,
                 'external': e_external}, vt_sR, dedtaut_sr, vHt_r
 
-    def _move(self, fracpos_ac, atomdist, ndensities):
+    def move(self, fracpos_ac, atomdist):
         self.ghat_aLr.move(fracpos_ac, atomdist)
         self.vbar_ar.move(fracpos_ac, atomdist)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
-        self.nct_aR.move(fracpos_ac, atomdist)
-        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def force_contributions(self, state):
         density = state.density

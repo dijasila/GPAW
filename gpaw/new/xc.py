@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 
-import _gpaw
 from gpaw.fd_operators import Gradient
 from gpaw.new import zips
 from gpaw.xc import XC
@@ -10,6 +9,7 @@ from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
 from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.c import add_to_density
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -18,6 +18,7 @@ def create_functional(xc: OldXCFunctional | str | dict,
         xc = XC(xc)
     if xc.type == 'MGGA':
         return MGGAFunctional(xc, grid)
+    assert xc.type in {'LDA', 'GGA'}, xc
     return LDAOrGGAFunctional(xc, grid)
 
 
@@ -41,9 +42,6 @@ class Functional:
         return self.name
 
     def apply(self, spin, psit_nX, vt_nX) -> None:
-        pass
-
-    def move(self, fracpos_ac, atomdist) -> None:
         pass
 
 
@@ -77,6 +75,8 @@ class MGGAFunctional(Functional):
         sigma_xr, dedsigma_xr, gradn_svr = gga_vars(gd, self.xc.grad_v,
                                                     nt_sr.data)
         e_r = self.grid.empty()
+        if taut_sr is None:
+            taut_sr = nt_sr.new(zeroed=True)
         dedtaut_sr = taut_sr.new()
         vxct_sr = taut_sr.new()
         vxct_sr.data[:] = 0.0
@@ -137,10 +137,7 @@ class PWKEDCalculator(KEDCalculator):
                 iGpsit1_G.data[:] = psit1_G.data
                 iGpsit1_G.data *= 1j * Gplusk1_Gv[:, v]
                 iGpsit1_G.ifft(out=dpsit1_R)
-                if 1:  # use C-code
-                    _gpaw.add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
-                else:
-                    taut1_R.data += 0.5 * f * abs(dpsit1_R.data)**2
+                add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
         domain_comm.sum(taut1_R.data)
         tmp_R = taut_R.new()
         tmp_R.scatter_from(taut1_R)
@@ -163,7 +160,4 @@ class FDKEDCalculator(KEDCalculator):
         for f, psit_R in zips(occ_n, psit_nR):
             for grad in self.grad_v:
                 grad(psit_R, tmp_R)
-                if 1:  # use C-code
-                    _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)
-                else:
-                    taut_R.data += 0.5 * f * abs(tmp_R.data)**2
+                add_to_density(0.5 * f, tmp_R.data, taut_R.data)
