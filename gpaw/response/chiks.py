@@ -1,5 +1,9 @@
+from __future__ import annotations
+from typing import Tuple
+
 import numpy as np
 from time import ctime
+from abc import abstractmethod
 
 from ase.units import Hartree
 
@@ -8,39 +12,40 @@ from gpaw.utilities.blas import mmmx
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.matrix_elements import NewPairDensityCalculator
+from gpaw.response.matrix_elements import (PlaneWaveMatrixElementCalculator,
+                                           NewPairDensityCalculator)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 
 
-class ChiKSCalculator(PairFunctionIntegrator):
-    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
-    of collinear systems in absence of spin-orbit coupling,
-    see [PRB 103, 245110 (2021)]:
+class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
+    r"""Abstract calculator for generalized Kohn-Sham susceptibilities.
+
+    For any combination of plane-wave matrix elements f(K) and g(K), one may
+    define a generalized Kohn-Sham susceptibility in the Lehmann representation
+
                               __  __   __
                            1  \   \    \
-    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+    ̄x_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
                            V  ‾‾  ‾‾   ‾‾
                               k   n,n' s,s'
-                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
-                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+                                    f_(nks,n'k+qs')(G+q) g_(n'k+qs',nks)(-G'-q)
+                                  x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                          ħω - (ε_n'k+qs' - ε_nks) + iħη
 
-    where the matrix elements
+    where σ^μ and σ^ν are Pauli matrices and the plane-wave matrix elements are
+    defined in terms of some real local functional of the electron
+    (spin-)density f[n](r):
 
-    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
-
-    are the unit cell normalized plane-wave pair densities of each transition.
+    f_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r f(r) |ψ_n'k+qs'>
     """
-
     def __init__(self, gs: ResponseGroundStateAdapter, context=None,
                  nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
-                 bandsummation='pairwise',
                  **kwargs):
-        """Contruct the ChiKSCalculator
+        """Contruct the GeneralizedSuscetibilityCalculator
 
         Parameters
         ----------
@@ -55,11 +60,6 @@ class ChiKSCalculator(PairFunctionIntegrator):
             Center the grid of plane waves around the Γ-point (or the q-vector)
         nbands : int
             Number of bands to include in the sum over states
-        bandsummation : str
-            Band summation strategy (does not change the result, but can affect
-            the run-time).
-            'pairwise': sum over pairs of bands
-            'double': double sum over band indices.
         kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
@@ -71,9 +71,60 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
         self.gammacentered = gammacentered
         self.nbands = nbands
+
+        mecalc1, mecalc2 = self.create_matrix_element_calculators()
+        self.matrix_element_calc1 = mecalc1
+        self.matrix_element_calc2 = mecalc2
+
+    @abstractmethod
+    def create_matrix_element_calculators(self) -> Tuple[
+            PlaneWaveMatrixElementCalculator,
+            PlaneWaveMatrixElementCalculator]:
+        """Create the desired site matrix element calculators."""
+
+
+class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
+    of collinear systems in absence of spin-orbit coupling,
+    see [PRB 103, 245110 (2021)]:
+                              __  __   __
+                           1  \   \    \
+    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                           V  ‾‾  ‾‾   ‾‾
+                              k   n,n' s,s'
+                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    are the plane-wave pair densities of each transition.
+    """
+
+    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
+                 bandsummation='pairwise',
+                 **kwargs):
+        """Contruct the ChiKSCalculator
+
+        Parameters
+        ----------
+        gs : ResponseGroundStateAdapter
+        context : ResponseContext
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
+        kwargs : see gpaw.response.chiks.GeneralizedSuscetibilityCalculator
+        """
+        super().__init__(gs, context=context, **kwargs)
         self.bandsummation = bandsummation
 
-        self.pair_density_calc = NewPairDensityCalculator(gs, context)
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        return pair_density_calc, pair_density_calc
 
     def calculate(self, spincomponent, q_c, zd) -> Chi:
         r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
@@ -114,7 +165,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
     def _calculate(self, chiks: Chi, transitions: PairTransitions):
         r"""Integrate χ_KS according to the specified transitions."""
         self.context.print('Initializing pair density PAW corrections')
-        self.pair_density_calc.initialize_paw_corrections(chiks.qpd)
+        assert self.matrix_element_calc1 is self.matrix_element_calc2
+        self.matrix_element_calc1.initialize_paw_corrections(chiks.qpd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, transitions)
@@ -216,7 +268,8 @@ class ChiKSCalculator(PairFunctionIntegrator):
         supplied kptpair integral weight.
         """
         # Calculate the pair densities n_kt(G+q)
-        pair_density = self.pair_density_calc(kptpair, chiks.qpd)
+        assert self.matrix_element_calc1 is self.matrix_element_calc2
+        pair_density = self.matrix_element_calc1(kptpair, chiks.qpd)
 
         # Extract the temporal ingredients from the KohnShamKPointPair
         transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
