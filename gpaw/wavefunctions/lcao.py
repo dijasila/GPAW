@@ -298,10 +298,10 @@ class LCAOWaveFunctions(WaveFunctions):
 
         (This may or may not work in band-parallel case!)
         """
-        from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
+        from gpaw.wavefunctions.arrays import UGDescWaveFunctions
         bfs = self.basis_functions
         for kpt in self.kpt_u:
-            kpt.psit = UniformGridWaveFunctions(
+            kpt.psit = UGDescWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q, dist=None,
                 spin=kpt.s, collinear=True)
             kpt.psit_nG[:] = 0.0

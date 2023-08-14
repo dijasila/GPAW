@@ -5,7 +5,7 @@ import _gpaw
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
@@ -14,7 +14,7 @@ from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from gpaw.core.plane_waves import PlaneWaves
+    from gpaw.core.plane_waves import PWDesc
 
 
 class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
@@ -54,8 +54,8 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         return s[:-1] + ', xp=cp)'
 
     def to_uniform_grid(self,
-                        out: UniformGridFunctions,
-                        scale: float = 1.0) -> UniformGridFunctions:
+                        out: UGArray,
+                        scale: float = 1.0) -> UGArray:
         out_G = self.pw.zeros(xp=out.xp)
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
@@ -64,7 +64,7 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
 class PWLFC(BaseLFC):
     def __init__(self,
                  functions,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  blocksize=5000, *, xp):
         """Reciprocal-space plane-wave localized function collection.
 

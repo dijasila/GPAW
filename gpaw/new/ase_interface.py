@@ -9,7 +9,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 from gpaw import __version__
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
@@ -347,7 +347,7 @@ class ASECalculator:
     def get_electrostatic_potential(self):
         density = self.calculation.state.density
         _, vHt_x, _ = self.calculation.pot_calc.calculate(density)
-        if isinstance(vHt_x, UniformGridFunctions):
+        if isinstance(vHt_x, UGArray):
             return vHt_x.to_pbc_grid().data * Ha
 
         return vHt_x.interpolate(

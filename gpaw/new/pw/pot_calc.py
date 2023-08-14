@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.core import PlaneWaves
+from gpaw.core import PWDesc
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
@@ -12,8 +12,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
                  grid,
                  fine_grid,
-                 pw: PlaneWaves,
-                 fine_pw: PlaneWaves,
+                 pw: PWDesc,
+                 fine_pw: PWDesc,
                  setups: Setups,
                  xc,
                  poisson_solver,

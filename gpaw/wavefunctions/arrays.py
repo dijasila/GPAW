@@ -100,7 +100,7 @@ class ArrayWaveFunctions:
         self.in_memory = True
 
 
-class UniformGridWaveFunctions(ArrayWaveFunctions):
+class UGDescWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
         ngpts = gd.n_c.prod()
@@ -132,20 +132,20 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __repr__(self):
         s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]
         shape = self.gd.get_size_of_global_array()
-        s = 'UniformGridWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
+        s = 'UGDescWaveFunctions({}, gpts={}x{}x{})'.format(s, *shape)
         return s
 
     def new(self, buf=None, dist='inherit', nbands=None):
         if dist == 'inherit':
             dist = self.matrix.dist
-        return UniformGridWaveFunctions(nbands or len(self),
+        return UGDescWaveFunctions(nbands or len(self),
                                         self.gd, self.dtype,
                                         buf,
                                         self.kpt, dist,
                                         self.spin)
 
     def view(self, n1, n2):
-        return UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
+        return UGDescWaveFunctions(n2 - n1, self.gd, self.dtype,
                                         self.array[n1:n2],
                                         self.kpt, None,
                                         self.spin)

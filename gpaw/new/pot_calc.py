@@ -18,7 +18,7 @@ from typing import DefaultDict
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.new.xc import Functional
@@ -52,8 +52,8 @@ class PotentialCalculator:
                                    ibzwfs,
                                    vHt_x: DistributedArrays | None
                                    ) -> tuple[dict[str, float],
-                                              UniformGridFunctions,
-                                              UniformGridFunctions,
+                                              UGArray,
+                                              UGArray,
                                               DistributedArrays]:
         raise NotImplementedError
 

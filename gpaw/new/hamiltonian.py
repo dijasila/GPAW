@@ -1,5 +1,5 @@
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.uniform_grid import UniformGridFunctions as UGArray
+from gpaw.core.uniform_grid import UGArray as UGArray
 
 
 class Hamiltonian:

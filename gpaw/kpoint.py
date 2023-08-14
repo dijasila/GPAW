@@ -59,7 +59,7 @@ class KPoint:
         self._projections: Optional[Projections] = None
 
         # Only one of these two will be used:
-        self.psit = None  # UniformGridMatrix/PWExpansionMatrix
+        self.psit = None  # UGDescMatrix/PWExpansionMatrix
         self.C_nM = None  # LCAO coefficients for wave functions
 
         # LCAO stuff:

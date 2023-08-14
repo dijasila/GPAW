@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Ha
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.new import zips
 
 
 class Potential:
     def __init__(self,
-                 vt_sR: UniformGridFunctions,
+                 vt_sR: UGArray,
                  dH_asii: AtomArrays,
-                 dedtaut_sR: UniformGridFunctions | None,
+                 dedtaut_sR: UGArray | None,
                  energies: dict[str, float]):
         self.vt_sR = vt_sR
         self.dH_asii = dH_asii

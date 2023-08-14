@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
-from gpaw.core.plane_waves import PlaneWaveExpansions as PWArray
-from gpaw.core.uniform_grid import UniformGrid as UGType
-from gpaw.core.uniform_grid import UniformGridFunctions as UGArray
+from gpaw.core.plane_waves import PWArray as PWArray
+from gpaw.core.uniform_grid import UGDesc as UGType
+from gpaw.core.uniform_grid import UGArray as UGArray
 from gpaw.fd_operators import Gradient
 from gpaw.new import zips
 from gpaw.new.c import add_to_density

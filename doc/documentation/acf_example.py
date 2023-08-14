@@ -1,14 +1,14 @@
 # creates: acf_example.png
 import numpy as np
 import matplotlib.pyplot as plt
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 
 
 alpha = 4.0
 rcut = 2.0
 l = 0
 gauss = (l, rcut, lambda r: (4 * np.pi)**0.5 * np.exp(-alpha * r**2))
-grid = UniformGrid(cell=[4.0, 2.0, 2.0], size=[40, 20, 20])
+grid = UGDesc(cell=[4.0, 2.0, 2.0], size=[40, 20, 20])
 pos = [[0.25, 0.5, 0.5], [0.75, 0.5, 0.5]]
 acf_aR = grid.atom_centered_functions([[gauss], [gauss]], pos)
 coef_as = acf_aR.empty(dims=(2,))

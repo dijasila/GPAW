@@ -2,15 +2,15 @@ from math import pi
 
 import numpy as np
 
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.new import zips
 from gpaw.new.pot_calc import PotentialCalculator
 
 
-class UniformGridPotentialCalculator(PotentialCalculator):
+class UGDescPotentialCalculator(PotentialCalculator):
     def __init__(self,
-                 wf_grid: UniformGrid,
-                 fine_grid: UniformGrid,
+                 wf_grid: UGDesc,
+                 fine_grid: UGDesc,
                  setups,
                  xc,
                  poisson_solver,

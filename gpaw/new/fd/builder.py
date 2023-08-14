@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from gpaw.core import UniformGrid
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core import UGDesc
+from gpaw.core.uniform_grid import UGArray
 from gpaw.fd_operators import Laplace
 from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
-from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
+from gpaw.new.fd.pot_calc import UGDescPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
@@ -39,7 +39,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         # decomposition=[2 * d for d in grid.decomposition]
         return grid, fine_grid
 
-    def create_wf_description(self) -> UniformGrid:
+    def create_wf_description(self) -> UGDesc:
         return self.grid.new(dtype=self.dtype)
 
     def get_pseudo_core_densities(self):
@@ -61,7 +61,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_potential_calculator(self):
         poisson_solver = self.create_poisson_solver()
-        return UniformGridPotentialCalculator(
+        return UGDescPotentialCalculator(
             self.grid, self.fine_grid, self.setups, self.xc, poisson_solver,
             fracpos_ac=self.fracpos_ac, atomdist=self.atomdist,
             interpolation_stencil_range=self.interpolation_stencil_range,
@@ -101,11 +101,11 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data = reader.wave_functions.proxy(name, *index)
             data.scale = c
             if self.communicators['w'].size == 1:
-                wfs.psit_nX = UniformGridFunctions(grid, self.nbands,
+                wfs.psit_nX = UGArray(grid, self.nbands,
                                                    data=data)
             else:
                 band_comm = self.communicators['b']
-                wfs.psit_nX = UniformGridFunctions(
+                wfs.psit_nX = UGArray(
                     grid, self.nbands,
                     comm=band_comm)
                 if grid.comm.rank == 0:
@@ -131,29 +131,29 @@ class FDHamiltonian(Hamiltonian):
         self.grad_v = []
 
     def apply(self,
-              vt_sR: UniformGridFunctions,
-              dedtaut_sR: UniformGridFunctions | None,
-              psit_nR: UniformGridFunctions,
-              out: UniformGridFunctions,
-              spin: int) -> UniformGridFunctions:
+              vt_sR: UGArray,
+              dedtaut_sR: UGArray | None,
+              psit_nR: UGArray,
+              out: UGArray,
+              spin: int) -> UGArray:
         self.apply_local_potential(vt_sR[spin], psit_nR, out)
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nR, out)
         return out
 
     def apply_local_potential(self,
-                              vt_R: UniformGridFunctions,
-                              psit_nR: UniformGridFunctions,
-                              out: UniformGridFunctions,
+                              vt_R: UGArray,
+                              psit_nR: UGArray,
+                              out: UGArray,
                               ) -> None:
         self.kin(psit_nR, out)
         for p, o in zips(psit_nR.data, out.data):
             o += p * vt_R.data
 
     def apply_mgga(self,
-                   dedtaut_R: UniformGridFunctions,
-                   psit_nR: UniformGridFunctions,
-                   vt_nR: UniformGridFunctions) -> None:
+                   dedtaut_R: UGArray,
+                   psit_nR: UGArray,
+                   vt_nR: UGArray) -> None:
         if len(self.grad_v) == 0:
             grid = psit_nR.desc
             self.grad_v = [

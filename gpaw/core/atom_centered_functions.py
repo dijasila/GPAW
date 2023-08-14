@@ -9,7 +9,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.spline import Spline
 from gpaw.typing import ArrayLike2D, Array1D
 if TYPE_CHECKING:
-    from gpaw.core.uniform_grid import UniformGridFunctions
+    from gpaw.core.uniform_grid import UGArray
 
 
 def to_spline(l: int,
@@ -102,7 +102,7 @@ class AtomCenteredFunctions:
         return self._lfc.stress_tensor_contribution(a.data, c)
 
 
-class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
+class UGDescAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos_ac,
@@ -148,8 +148,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                                         self.grid.dtype)
 
     def to_uniform_grid(self,
-                        out: UniformGridFunctions,
-                        scale: float = 1.0) -> UniformGridFunctions:
+                        out: UGArray,
+                        scale: float = 1.0) -> UGArray:
         out.data[:] = 0.0
         self.add_to(out, scale)
         return out

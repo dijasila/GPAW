@@ -2,8 +2,8 @@ from typing import Callable
 
 import numpy as np
 
-from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.plane_waves import PWArray
+from gpaw.core.uniform_grid import UGArray
 from gpaw.gpu import cupy as cp
 from gpaw.new import zips
 from gpaw.new.hamiltonian import Hamiltonian
@@ -16,20 +16,20 @@ class PWHamiltonian(Hamiltonian):
         self.pw_cache = {}
 
     def apply(self,
-              vt_sR: UniformGridFunctions,
-              dedtaut_sR: UniformGridFunctions | None,
-              psit_nG: PlaneWaveExpansions,
-              out: PlaneWaveExpansions,
-              spin: int) -> PlaneWaveExpansions:
+              vt_sR: UGArray,
+              dedtaut_sR: UGArray | None,
+              psit_nG: PWArray,
+              out: PWArray,
+              spin: int) -> PWArray:
         self.apply_local_potential(vt_sR[spin], psit_nG, out)
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nG, out)
         return out
 
     def apply_local_potential(self,
-                              vt_R: UniformGridFunctions,
-                              psit_nG: PlaneWaveExpansions,
-                              out: PlaneWaveExpansions
+                              vt_R: UGArray,
+                              psit_nG: PWArray,
+                              out: PWArray
                               ) -> None:
         out_nG = out
         vt_R = vt_R.gather(broadcast=True)
@@ -62,9 +62,9 @@ class PWHamiltonian(Hamiltonian):
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
 
     def apply_mgga(self,
-                   dedtaut_R: UniformGridFunctions,
-                   psit_nG: PlaneWaveExpansions,
-                   vt_nG: PlaneWaveExpansions) -> None:
+                   dedtaut_R: UGArray,
+                   psit_nG: PWArray,
+                   vt_nG: PWArray) -> None:
         pw = psit_nG.desc
         dpsit_R = dedtaut_R.desc.new(dtype=pw.dtype).empty()
         Gplusk1_Gv = pw.reciprocal_vectors()
@@ -81,15 +81,15 @@ class PWHamiltonian(Hamiltonian):
 
     def create_preconditioner(self,
                               blocksize: int
-                              ) -> Callable[[PlaneWaveExpansions,
-                                             PlaneWaveExpansions,
-                                             PlaneWaveExpansions], None]:
+                              ) -> Callable[[PWArray,
+                                             PWArray,
+                                             PWArray], None]:
         return precondition
 
 
-def precondition(psit_nG: PlaneWaveExpansions,
-                 residual_nG: PlaneWaveExpansions,
-                 out: PlaneWaveExpansions) -> None:
+def precondition(psit_nG: PWArray,
+                 residual_nG: PWArray,
+                 out: PWArray) -> None:
     """Preconditioner for KS equation.
 
     From:
@@ -136,10 +136,10 @@ def spinor_precondition(psit_nsG, residual_nsG, out):
 
 class SpinorPWHamiltonian(Hamiltonian):
     def apply(self,
-              vt_xR: UniformGridFunctions,
-              dedtaut_xR: UniformGridFunctions | None,
-              psit_nsG: PlaneWaveExpansions,
-              out: PlaneWaveExpansions,
+              vt_xR: UGArray,
+              dedtaut_xR: UGArray | None,
+              psit_nsG: PWArray,
+              out: PWArray,
               spin: int):
         assert dedtaut_xR is None
         out_nsG = out

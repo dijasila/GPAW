@@ -2,10 +2,10 @@ from math import pi
 
 from ase.units import Ha
 
-from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core import PWDesc, UGDesc
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
-from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.core.plane_waves import PWArray
 from gpaw.new import cached_property, zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
@@ -45,7 +45,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return grid, fine_grid
 
     def create_wf_description(self) -> Domain:
-        pw = PlaneWaves(ecut=self.ecut,
+        pw = PWDesc(ecut=self.ecut,
                         cell=self.grid.cell,
                         comm=self.grid.comm,
                         dtype=self.dtype)
@@ -61,7 +61,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     @cached_property
     def interpolation_pw(self):
-        return PlaneWaves(ecut=2 * self.ecut,
+        return PWDesc(ecut=2 * self.ecut,
                           cell=self.grid.cell,
                           comm=self.grid.comm)
 
@@ -172,12 +172,12 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data.shape = (self.nbands, ) + pw.shape
 
             if self.communicators['w'].size == 1:
-                wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
+                wfs.psit_nX = PWArray(pw, self.nbands,
                                                   data=data)
                 data.shape = orig_shape
             else:
                 band_comm = self.communicators['b']
-                wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
+                wfs.psit_nX = PWArray(pw, self.nbands,
                                                   comm=band_comm)
                 if pw.comm.rank == 0:
                     mynbands = (self.nbands +
@@ -192,8 +192,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-def check_g_vector_ordering(grid: UniformGrid,
-                            pw: PlaneWaves,
+def check_g_vector_ordering(grid: UGDesc,
+                            pw: PWDesc,
                             index_G: Array1D) -> None:
     size = tuple(grid.size)
     if pw.dtype == float:

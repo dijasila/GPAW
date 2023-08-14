@@ -64,8 +64,8 @@ CuPy enabled container objects
 
 The following objects:
 
-* :class:`~gpaw.core.uniform_grid.UniformGridFunctions`
-* :class:`~gpaw.core.plane_waves.PlaneWaveExpansions`
+* :class:`~gpaw.core.UGArray`
+* :class:`~gpaw.core.PWArray`
 * :class:`~gpaw.core.atom_arrays.AtomArrays`
 * :class:`~gpaw.core.matrix.Matrix`
 

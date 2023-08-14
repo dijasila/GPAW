@@ -10,7 +10,7 @@ from gpaw.preconditioner import Preconditioner
 from gpaw.projections import Projections
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
-from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
+from gpaw.wavefunctions.arrays import UGDescWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 import _gpaw
@@ -186,7 +186,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
-                kpt2.psit = UniformGridWaveFunctions(
+                kpt2.psit = UGDescWaveFunctions(
                     self.bd.nbands, self.gd, self.dtype,
                     kpt=k, dist=(self.bd.comm, self.bd.comm.size),
                     spin=kpt.s, collinear=True)
@@ -252,7 +252,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
             psit_nG.scale = c
 
-            kpt.psit = UniformGridWaveFunctions(
+            kpt.psit = UGDescWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, psit_nG,
                 kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
                 spin=kpt.s, collinear=True)
@@ -264,7 +264,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
     def initialize_from_lcao_coefficients(self, basis_functions):
         for kpt in self.kpt_u:
-            kpt.psit = UniformGridWaveFunctions(
+            kpt.psit = UGDescWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
                 spin=kpt.s, collinear=True)

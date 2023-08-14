@@ -4,8 +4,8 @@ import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.matrix import Matrix, create_distribution
 from gpaw.core.plane_waves import (PlaneWaveAtomCenteredFunctions,
-                                   PlaneWaveExpansions, PlaneWaves)
-from gpaw.core.uniform_grid import UniformGridFunctions
+                                   PWArray, PWDesc)
+from gpaw.core.uniform_grid import UGArray
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
 from gpaw.new.ibzwfs import IBZWaveFunctions
@@ -14,12 +14,12 @@ from gpaw.new.potential import Potential
 from gpaw.new.smearing import OccupationNumberCalculator
 
 
-def pw_matrix(pw: PlaneWaves,
+def pw_matrix(pw: PWDesc,
               pt_aiG: PlaneWaveAtomCenteredFunctions,
               dH_aii: AtomArrays,
               dS_aii: list[Array2D],
-              vt_R: UniformGridFunctions,
-              dedtaut_R: UniformGridFunctions,
+              vt_R: UGArray,
+              dedtaut_R: UGArray,
               comm) -> tuple[Matrix, Matrix]:
     """Calculate H and S matrices in plane-wave basis.
 
@@ -52,9 +52,9 @@ def pw_matrix(pw: PlaneWaves,
     G1, G2 = dist.my_row_range()
 
     x_G = pw.empty()
-    assert isinstance(x_G, PlaneWaveExpansions)  # Fix this!
+    assert isinstance(x_G, PWArray)  # Fix this!
     x_R = vt_R.desc.new(dtype=complex).zeros()
-    assert isinstance(x_R, UniformGridFunctions)  # Fix this!
+    assert isinstance(x_R, UGArray)  # Fix this!
     dv = pw.dv
 
     for G in range(G1, G2):

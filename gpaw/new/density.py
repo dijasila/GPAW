@@ -6,10 +6,10 @@ from gpaw.typing import Vector, Array3D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.gpu import as_xp
 from gpaw.new import zips
-from gpaw.core.plane_waves import PlaneWaves
+from gpaw.core.plane_waves import PWDesc
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 
 
@@ -82,8 +82,8 @@ class Density:
         return density
 
     def __init__(self,
-                 nt_sR: UniformGridFunctions,
-                 taut_sR: UniformGridFunctions | None,
+                 nt_sR: UGArray,
+                 taut_sR: UGArray | None,
                  D_asii: AtomArrays,
                  charge: float,
                  delta_aiiL: list[Array3D],
@@ -138,11 +138,11 @@ class Density:
         return self._tauct_R
 
     def new(self, grid):
-        pw = PlaneWaves(ecut=0.99 * grid.ecut_max(),
+        pw = PWDesc(ecut=0.99 * grid.ecut_max(),
                         cell=grid.cell,
                         comm=grid.comm)
         old_grid = self.nt_sR.desc
-        old_pw = PlaneWaves(ecut=0.99 * old_grid.ecut_max(),
+        old_pw = PWDesc(ecut=0.99 * old_grid.ecut_max(),
                             cell=old_grid.cell,
                             comm=grid.comm)
         nt_sR = grid.empty(self.ncomponents, xp=self.nt_sR.xp)

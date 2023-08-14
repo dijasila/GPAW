@@ -11,7 +11,7 @@ from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
 import _gpaw
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
@@ -435,7 +435,7 @@ def create_uniform_grid(mode: str,
                         h: float = None,
                         interpolation: str = None,
                         ecut: float = None,
-                        comm: MPIComm = serial_comm) -> UniformGrid:
+                        comm: MPIComm = serial_comm) -> UGDesc:
     """Create grid in a backwards compatible way."""
     cell = cell / Bohr
     if h is not None:
@@ -451,4 +451,4 @@ def create_uniform_grid(mode: str,
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
         size = get_number_of_grid_points(cell, h, modeobj, realspace,
                                          symmetry.symmetry)
-    return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)
+    return UGDesc(cell=cell, pbc=pbc, size=size, comm=comm)
