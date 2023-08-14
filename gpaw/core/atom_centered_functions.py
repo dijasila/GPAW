@@ -102,7 +102,7 @@ class AtomCenteredFunctions:
         return self._lfc.stress_tensor_contribution(a.data, c)
 
 
-class UGDescAtomCenteredFunctions(AtomCenteredFunctions):
+class UGAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos_ac,

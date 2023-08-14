@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.matrix import Matrix, create_distribution
-from gpaw.core.plane_waves import (PlaneWaveAtomCenteredFunctions,
+from gpaw.core.plane_waves import (PWAtomCenteredFunctions,
                                    PWArray, PWDesc)
 from gpaw.core.uniform_grid import UGArray
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -15,7 +15,7 @@ from gpaw.new.smearing import OccupationNumberCalculator
 
 
 def pw_matrix(pw: PWDesc,
-              pt_aiG: PlaneWaveAtomCenteredFunctions,
+              pt_aiG: PWAtomCenteredFunctions,
               dH_aii: AtomArrays,
               dS_aii: list[Array2D],
               vt_R: UGArray,
@@ -127,7 +127,7 @@ def diagonalize(potential: Potential,
         for wfs in wfs_s:
             dS_aii = [setup.dO_ii for setup in wfs.setups]
             assert isinstance(wfs, PWFDWaveFunctions)
-            assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
+            assert isinstance(wfs.pt_aiX, PWAtomCenteredFunctions)
             H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
                                    wfs.pt_aiX,
                                    dH_asii[:, wfs.spin],

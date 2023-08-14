@@ -4,6 +4,7 @@ import numpy as np
 
 from gpaw.core.plane_waves import PWArray
 from gpaw.core.uniform_grid import UGArray
+from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.gpu import cupy as cp
 from gpaw.new import zips
 from gpaw.new.hamiltonian import Hamiltonian
@@ -18,9 +19,11 @@ class PWHamiltonian(Hamiltonian):
     def apply(self,
               vt_sR: UGArray,
               dedtaut_sR: UGArray | None,
-              psit_nG: PWArray,
-              out: PWArray,
-              spin: int) -> PWArray:
+              psit_nG: XArray,
+              out: XArray,
+              spin: int) -> XArray:
+        assert isinstance(psit_nG, PWArray)
+        assert isinstance(out, PWArray)
         self.apply_local_potential(vt_sR[spin], psit_nG, out)
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nG, out)
@@ -138,9 +141,9 @@ class SpinorPWHamiltonian(Hamiltonian):
     def apply(self,
               vt_xR: UGArray,
               dedtaut_xR: UGArray | None,
-              psit_nsG: PWArray,
-              out: PWArray,
-              spin: int):
+              psit_nsG: XArray,
+              out: XArray,
+              spin: int) -> XArray:
         assert dedtaut_xR is None
         out_nsG = out
         pw = psit_nsG.desc

@@ -11,8 +11,8 @@ from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
-from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
-from gpaw.core.uniform_grid import UGDesc, UGArray
+from gpaw.core.pwacf import PWAtomCenteredFunctions
+from gpaw.core import UGDesc, UGArray
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.pw.descriptor import pad
@@ -141,10 +141,10 @@ class PWDesc(Domain):
         """Create new plane-wave expansion description."""
         comm = self.comm if comm == 'inherit' else comm or serial_comm
         return PWDesc(ecut=ecut or self.ecut,
-                          cell=self.cell_cv,
-                          kpt=self.kpt_c if kpt is None else kpt,
-                          dtype=dtype or self.dtype,
-                          comm=comm or serial_comm)
+                      cell=self.cell_cv,
+                      kpt=self.kpt_c if kpt is None else kpt,
+                      dtype=dtype or self.dtype,
+                      comm=comm or serial_comm)
 
     def indices(self, shape: tuple[int, ...]) -> Array1D:
         """Return indices into FFT-grid."""
@@ -227,9 +227,9 @@ class PWDesc(Domain):
                                 xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
         if self.qspiral_v is None:
-            return PlaneWaveAtomCenteredFunctions(functions, positions, self,
-                                                  atomdist=atomdist,
-                                                  xp=xp)
+            return PWAtomCenteredFunctions(functions, positions, self,
+                                           atomdist=atomdist,
+                                           xp=xp)
 
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
@@ -278,8 +278,8 @@ class PWArray(DistributedArrays[PWDesc]):
     def __iter__(self):
         for data in self.data:
             yield PWArray(self.desc,
-                                      data.shape[:-len(self.desc.shape)],
-                                      data=data)
+                          data.shape[:-len(self.desc.shape)],
+                          data=data)
 
     def new(self,
             data=None) -> PWArray:
@@ -297,9 +297,9 @@ class PWArray(DistributedArrays[PWDesc]):
             # allow for data to be bigger than needed:
             data = data.ravel()[:self.data.size].reshape(self.data.shape)
         return PWArray(self.desc,
-                                   self.dims,
-                                   self.comm,
-                                   data)
+                       self.dims,
+                       self.comm,
+                       data)
 
     def copy(self):
         """Create a copy (surprise!)."""

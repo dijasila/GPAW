@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from gpaw.core import UGDesc
+from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.uniform_grid import UGArray
-from gpaw.fd_operators import Laplace
+from gpaw.fd_operators import Gradient, Laplace
 from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
-from gpaw.new.fd.pot_calc import UGDescPotentialCalculator
+from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.poisson import PoissonSolver, PoissonSolverWrapper
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 from gpaw.poisson import PoissonSolver as make_poisson_solver
-from gpaw.fd_operators import Gradient
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -61,7 +61,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_potential_calculator(self):
         poisson_solver = self.create_poisson_solver()
-        return UGDescPotentialCalculator(
+        return FDPotentialCalculator(
             self.grid, self.fine_grid, self.setups, self.xc, poisson_solver,
             fracpos_ac=self.fracpos_ac, atomdist=self.atomdist,
             interpolation_stencil_range=self.interpolation_stencil_range,
@@ -101,8 +101,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data = reader.wave_functions.proxy(name, *index)
             data.scale = c
             if self.communicators['w'].size == 1:
-                wfs.psit_nX = UGArray(grid, self.nbands,
-                                                   data=data)
+                wfs.psit_nX = UGArray(grid, self.nbands, data=data)
             else:
                 band_comm = self.communicators['b']
                 wfs.psit_nX = UGArray(
@@ -133,9 +132,11 @@ class FDHamiltonian(Hamiltonian):
     def apply(self,
               vt_sR: UGArray,
               dedtaut_sR: UGArray | None,
-              psit_nR: UGArray,
-              out: UGArray,
-              spin: int) -> UGArray:
+              psit_nR: XArray,
+              out: XArray,
+              spin: int) -> XArray:
+        assert isinstance(psit_nR, UGArray)
+        assert isinstance(out, UGArray)
         self.apply_local_potential(vt_sR[spin], psit_nR, out)
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nR, out)

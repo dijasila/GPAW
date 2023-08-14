@@ -110,7 +110,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         alpha : float
         charge_g : np.ndarray
             Guassian-shaped charge in reciprocal space
-        potential_g : PWDescExpansions
+        potential_g : PWArray
              Potential in reciprocal space created by charge_g
         """
         super().__init__(pw, charge, strength)

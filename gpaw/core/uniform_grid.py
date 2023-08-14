@@ -8,7 +8,7 @@ import numpy as np
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.atom_centered_functions import UGDescAtomCenteredFunctions
+from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
 from gpaw.gpu import as_xp
 from gpaw.grid_descriptor import GridDescriptor
@@ -116,13 +116,13 @@ class UGDesc(Domain):
                 decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
         return UGDesc(cell=self.cell_cv,
-                           size=self.size_c if size is None else size,
-                           pbc=self.pbc_c if pbc is None else pbc,
-                           kpt=(self.kpt_c if self.kpt_c.any() else None)
-                           if kpt is None else kpt,
-                           comm=comm or serial_comm,
-                           decomp=decomp,
-                           dtype=self.dtype if dtype is None else dtype)
+                      size=self.size_c if size is None else size,
+                      pbc=self.pbc_c if pbc is None else pbc,
+                      kpt=(self.kpt_c if self.kpt_c.any() else None)
+                      if kpt is None else kpt,
+                      comm=comm or serial_comm,
+                      decomp=decomp,
+                      dtype=self.dtype if dtype is None else dtype)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
@@ -165,14 +165,14 @@ class UGDesc(Domain):
                                 integral=None,
                                 cut=False,
                                 xp=None):
-        """Create UGDescAtomCenteredFunctions object."""
-        return UGDescAtomCenteredFunctions(functions,
-                                                positions,
-                                                self,
-                                                atomdist=atomdist,
-                                                integral=integral,
-                                                cut=cut,
-                                                xp=xp)
+        """Create UGAtomCenteredFunctions object."""
+        return UGAtomCenteredFunctions(functions,
+                                       positions,
+                                       self,
+                                       atomdist=atomdist,
+                                       integral=integral,
+                                       cut=cut,
+                                       xp=xp)
 
     def transformer(self, other: UGDesc, stencil_range=3, xp=np):
         """Create transformer from one grid to another.
@@ -226,12 +226,12 @@ class UGDesc(Domain):
     @classmethod
     def _from_gd_and_kpt_and_dtype(cls, gd, kpt, dtype):
         return UGDesc(cell=gd.cell_cv,
-                           size=gd.N_c,
-                           pbc=gd.pbc_c,
-                           comm=gd.comm,
-                           dtype=dtype,
-                           kpt=kpt,
-                           decomp=gd.n_cp)
+                      size=gd.N_c,
+                      pbc=gd.pbc_c,
+                      comm=gd.comm,
+                      dtype=dtype,
+                      kpt=kpt,
+                      decomp=gd.n_cp)
 
     @classmethod
     def from_cell_and_grid_spacing(cls,
@@ -317,8 +317,8 @@ class UGArray(DistributedArrays[UGDesc]):
     def __getitem__(self, index):
         data = self.data[index]
         return UGArray(data=data,
-                                    dims=data.shape[:-3],
-                                    grid=self.desc)
+                       dims=data.shape[:-3],
+                       grid=self.desc)
 
     def __imul__(self,
                  other: float | np.ndarray | UGArray
@@ -765,8 +765,8 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = self.desc
         assert grid.comm.size == 1
         grid = UGDesc(cell=grid.cell_cv * s,
-                           size=grid.size_c,
-                           pbc=grid.pbc_c,
-                           kpt=(grid.kpt_c if grid.kpt_c.any() else None),
-                           dtype=grid.dtype)
+                      size=grid.size_c,
+                      pbc=grid.pbc_c,
+                      kpt=(grid.kpt_c if grid.kpt_c.any() else None),
+                      dtype=grid.dtype)
         return UGArray(grid, self.dims, self.comm, self.data * v)

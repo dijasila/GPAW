@@ -1,5 +1,6 @@
+from __future__ import annotations
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.uniform_grid import UGArray as UGArray
+from gpaw.core import UGArray
 
 
 class Hamiltonian:

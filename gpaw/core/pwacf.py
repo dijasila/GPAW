@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from gpaw.core.plane_waves import PWDesc
 
 
-class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
+class PWAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos,

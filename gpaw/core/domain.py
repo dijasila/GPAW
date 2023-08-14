@@ -143,8 +143,8 @@ class Domain:
             size_c = np.array([get_efficient_fft_size(N, n, factors)
                                for N in size_c])
         return UGDesc(size=size_c,
-                           cell=self.cell_cv,
-                           pbc=self.pbc_c,
-                           kpt=self.kpt_c,
-                           dtype=self.dtype,
-                           comm=self.comm)
+                      cell=self.cell_cv,
+                      pbc=self.pbc_c,
+                      kpt=self.kpt_c,
+                      dtype=self.dtype,
+                      comm=self.comm)

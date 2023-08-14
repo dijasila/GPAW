@@ -90,7 +90,7 @@ class ECNAlgorithm(TDAlgorithm):
                                                wfs.S_MM.data,
                                                V_MM.data, 1 / nkicks)
         # Update density
-        state.density.update(pot_calc.nct_R, state.ibzwfs)
+        state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
         state.potential, state.vHt_x, _ = pot_calc.calculate(
@@ -116,7 +116,7 @@ class ECNAlgorithm(TDAlgorithm):
                                            wfs.S_MM.data,
                                            H_MM.data, time_step)
         # Update density
-        state.density.update(pot_calc.nct_R, state.ibzwfs)
+        state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
         state.potential, state.vHt_x, _ = pot_calc.calculate(

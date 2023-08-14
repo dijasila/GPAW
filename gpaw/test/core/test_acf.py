@@ -15,8 +15,7 @@ n = 20
 @pytest.fixture
 def grid():
     # comm = world.new_communicator([world.rank])
-    return UGDesc(cell=[a, a, a], size=(n, n, n), comm=world,
-                       dtype=complex)
+    return UGDesc(cell=[a, a, a], size=(n, n, n), comm=world, dtype=complex)
 
 
 # Gussian:

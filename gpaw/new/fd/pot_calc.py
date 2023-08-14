@@ -7,7 +7,7 @@ from gpaw.new import zips
 from gpaw.new.pot_calc import PotentialCalculator
 
 
-class UGDescPotentialCalculator(PotentialCalculator):
+class FDPotentialCalculator(PotentialCalculator):
     def __init__(self,
                  wf_grid: UGDesc,
                  fine_grid: UGDesc,
@@ -34,8 +34,8 @@ class UGDescPotentialCalculator(PotentialCalculator):
 
         n = interpolation_stencil_range
         self.interpolation_stencil_range = n
-        self.interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
-        self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
+        self._interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
+        self._restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
         super().__init__(xc, poisson_solver, setups,
                          fracpos_ac=fracpos_ac)
@@ -48,6 +48,12 @@ class UGDescPotentialCalculator(PotentialCalculator):
         txt += (f'interpolation: tri-{name}' +
                 f' # {degree}. degree polynomial\n')
         return txt
+
+    def interpolate(self, a_xR, a_xr=None):
+        return self._interpolate(a_xR, a_xr)
+
+    def restrict(self, a_xr, a_xR=None):
+        return self._restrict(a_xr, a_xR)
 
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)

@@ -27,9 +27,9 @@ def test_redist():
 def test_complex_laplace():
     a = 2.5
     grid = UGDesc(cell=[a, a, a],
-                       size=(24, 8, 8),
-                       kpt=[1 / 3, 0, 0],
-                       comm=world)
+                  size=(24, 8, 8),
+                  kpt=[1 / 3, 0, 0],
+                  comm=world)
     f = grid.empty()
     f.data[:] = 1.0
     f.multiply_by_eikr()

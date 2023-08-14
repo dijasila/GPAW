@@ -6,7 +6,7 @@ from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
 from gpaw.new import zips
 from gpaw.new.calculation import DFTState
-from gpaw.new.fd.pot_calc import UGDescPotentialCalculator
+from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.typing import Array2D, Array3D
@@ -146,7 +146,7 @@ class LCAOHamiltonian(Hamiltonian):
     def create_kick_matrix_calculator(self,
                                       state: DFTState,
                                       ext: ExternalPotential,
-                                      pot_calc: UGDescPotentialCalculator
+                                      pot_calc: FDPotentialCalculator
                                       ) -> HamiltonianMatrixCalculator:
         from gpaw.utilities import unpack
         vext_r = pot_calc.vbar_r.new()

@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
-from gpaw.core.plane_waves import PWArray as PWArray
-from gpaw.core.uniform_grid import UGDesc as UGType
-from gpaw.core.uniform_grid import UGArray as UGArray
+from gpaw.core import UGDesc, UGArray
+from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.fd_operators import Gradient
 from gpaw.new import zips
 from gpaw.new.c import add_to_density
@@ -19,7 +18,7 @@ from gpaw.gpu import cupy as cp
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
-                      grid: UGType):
+                      grid: UGDesc):
     if isinstance(xc, (str, dict)):
         xc = XC(xc)
     if xc.type == 'MGGA':
@@ -31,7 +30,7 @@ def create_functional(xc: OldXCFunctional | str | dict,
 class Functional:
     def __init__(self,
                  xc: OldXCFunctional,
-                 grid: UGType):
+                 grid: UGDesc):
         self.xc = xc
         self.grid = grid
         self.setup_name = self.xc.get_setup_name()
@@ -95,25 +94,21 @@ class MGGAFunctional(Functional):
         return e_r.integrate(), vxct_sr, dedtaut_sr
 
 
-class KEDCalculator:
-    add: None | Callable[[Array1D, PWArray, UGArray], None] = None
-
-    def _initialize(self, wfs: PWFDWaveFunctions):
-        if self.add is None:
-            if hasattr(wfs.psit_nX.desc, 'ecut'):
-                self.add = pw_add_ked
-            else:
-                self.add = FDKEDCalculator()
-
-    def add_ked(self,
-                taut_sR,
-                wfs: PWFDWaveFunctions):
-        self._initialize(wfs)
-        occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
-        self.add(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
+def create_ked_adder_function(mode: str
+                              ) -> Callable[[UGArray, PWFDWaveFunctions],
+                                            None]:
+    if mode == 'pw':
+        return pw_add_ked
+    if mode == 'pw':
+        return FDKEDCalculator()
+    raise ValueError
 
 
-def pw_add_ked(occ_n: Array1D, psit_nG: PWArray, taut_R: UGArray) -> None:
+def pw_add_ked(taut_sR: UGArray,
+               wfs: PWFDWaveFunctions):
+    occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+    psit_nG = wfs.psit_nX
+    taut_R = taut_sR[wfs.spin]
     pw = psit_nG.desc
     domain_comm = pw.comm
 
@@ -150,8 +145,12 @@ class FDKEDCalculator:
     def __init__(self):
         self.grad_v = []
 
-    def __call__(self, occ_n, psit_nX, taut_R):
-        psit_nR = psit_nX
+    def __call__(self,
+                 taut_sR: UGArray,
+                 wfs: PWFDWaveFunctions):
+        occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+        psit_nR = wfs.psit_nX
+        taut_R = taut_sR[wfs.spin]
         if len(self.grad_v) == 0:
             grid = psit_nR.desc
             self.grad_v = [

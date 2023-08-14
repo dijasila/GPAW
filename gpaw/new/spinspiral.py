@@ -1,6 +1,6 @@
 from math import pi
 from gpaw.core.plane_waves import PWDesc
-from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
+from gpaw.core.pwacf import PWAtomCenteredFunctions
 
 
 class SpiralPW:
@@ -26,7 +26,7 @@ class SpiralPWACF:
                  atomdist,
                  qspiral_v):
         self.pt_saiG = [
-            PlaneWaveAtomCenteredFunctions(
+            PWAtomCenteredFunctions(
                 functions,
                 positions,
                 SpiralPW(pw, 0.5 * sign * qspiral_v),

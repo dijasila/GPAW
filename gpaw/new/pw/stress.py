@@ -50,7 +50,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
 
     s_vv -= xp.eye(3) * pot_calc.e_stress
     s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
-    s_vv += state.density.nct_ag.stress_tensor_contribution(vt_g)
+    s_vv += state.density.nct_aX.stress_tensor_contribution(vt_g)
 
     # s_vv += wfs.dedepsilon * np.eye(3) ???
 

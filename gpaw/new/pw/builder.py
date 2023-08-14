@@ -46,9 +46,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_wf_description(self) -> Domain:
         pw = PWDesc(ecut=self.ecut,
-                        cell=self.grid.cell,
-                        comm=self.grid.comm,
-                        dtype=self.dtype)
+                    cell=self.grid.cell,
+                    comm=self.grid.comm,
+                    dtype=self.dtype)
         if self.ncomponents == 4:
             return SpinorWaveFunctionDescriptor(pw, qspiral_v=self.qspiral_v)
         return pw
@@ -62,8 +62,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     @cached_property
     def interpolation_pw(self):
         return PWDesc(ecut=2 * self.ecut,
-                          cell=self.grid.cell,
-                          comm=self.grid.comm)
+                      cell=self.grid.cell,
+                      comm=self.grid.comm)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
@@ -172,13 +172,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data.shape = (self.nbands, ) + pw.shape
 
             if self.communicators['w'].size == 1:
-                wfs.psit_nX = PWArray(pw, self.nbands,
-                                                  data=data)
+                wfs.psit_nX = PWArray(pw, self.nbands, data=data)
                 data.shape = orig_shape
             else:
                 band_comm = self.communicators['b']
-                wfs.psit_nX = PWArray(pw, self.nbands,
-                                                  comm=band_comm)
+                wfs.psit_nX = PWArray(pw, self.nbands, comm=band_comm)
                 if pw.comm.rank == 0:
                     mynbands = (self.nbands +
                                 band_comm.size - 1) // band_comm.size

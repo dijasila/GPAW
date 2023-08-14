@@ -87,6 +87,15 @@ class IBZWaveFunctions:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
 
+    @cached_property
+    def mode(self):
+        wfs = self.wfs_qs[0][0]
+        if isinstance(wfs, PWFDWaveFunctions):
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                return 'pw'
+            return 'fd'
+        return 'lcao'
+
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
 
@@ -194,8 +203,8 @@ class IBZWaveFunctions:
 
     @cached_property
     def ked_calculator(self):
-        from gpaw.new.xc import KEDCalculator
-        return KEDCalculator()
+        from gpaw.new.xc import create_ked_calculator
+        return create_ked_calculator(self.mode)
 
     def add_to_ked(self, taut_sR) -> None:
         for wfs in self:
