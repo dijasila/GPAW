@@ -450,7 +450,7 @@ class IBZWaveFunctions:
             psit_nX = getattr(wfs, 'psit_nX', None)
             if psit_nX is None:
                 return
-            if hasattr(psit_nX.data, 'fd'):
+            if hasattr(psit_nX.data, 'fd'):  # fd=file-descriptor
                 psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:

@@ -460,10 +460,21 @@ class ASECalculator:
         dft = self.calculation
         pot_calc = dft.pot_calc
         state = dft.state
-        xc = create_functional(xcparams, pot_calc.fine_grid)
-        if xc.type == 'MGGA':
-            1 / 0
         density = dft.state.density
+        xc = create_functional(xcparams, pot_calc.fine_grid)
+        if xc.type == 'MGGA' and density.taut_sR is None:
+            state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
+            if isinstance(state.ibzwfs.wfs_qs[0][0].psit_nX, SimpleNamespace):
+                params = InputParameters(dict(self.params.items()))
+                builder = create_builder(self.atoms, params, self.comm)
+                basis_set = builder.create_basis_set()
+                ibzwfs = builder.create_ibz_wave_functions(
+                    basis_set, state.potential, log=dft.log)
+                ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
+                state.ibzwfs = ibzwfs
+                dft.scf_loop.update_density_and_potential = False
+                dft.converge()
+            density.update_ked(state.ibzwfs)
         exct = pot_calc.calculate_non_selfconsistent_exc(
             xc, density.nt_sR, density.taut_sR)
         dexc = 0.0

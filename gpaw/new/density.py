@@ -193,11 +193,21 @@ class Density:
         self.nt_sR.data[:self.ndensities] += self.nct_R.data
 
         if ked:
-            self.taut_sR.data[:] = 0.0
-            ibzwfs.add_to_ked(self.taut_sR)
-            self.taut_sR.data[:self.ndensities] += self.tauct_R.data
+            self.update_ked(ibzwfs, symmetrize=False)
 
         self.symmetrize(ibzwfs.ibz.symmetries)
+
+    def update_ked(self, ibzwfs, symmetrize=True):
+        if self.taut_sR is None:
+            self.taut_sR = self.nt_sR.new(zeroed=True)
+        else:
+            self.taut_sR.data[:] = 0.0
+        ibzwfs.add_to_ked(self.taut_sR)
+        self.taut_sR.data[:self.ndensities] += self.tauct_R.data
+        if symmetrize:
+            symmetries = ibzwfs.ibz.symmetries
+            self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                    symmetries.translation_sc)
 
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
@@ -205,6 +215,7 @@ class Density:
         if self.taut_sR is not None:
             self.taut_sR.symmetrize(symmetries.rotation_scc,
                                     symmetries.translation_sc)
+
         xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
