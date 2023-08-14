@@ -341,18 +341,6 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
             f_mytG[:] += np.einsum('tij, Gij -> tG', P1ccP2_mytii, F_Gii)
 
 
-class SiteMatrixElement(MatrixElement):
-    def __init__(self, tblocks, qpd, atomic_site_data):
-        self.nsites = atomic_site_data.nsites
-        self.npartitions = atomic_site_data.npartitions
-        super().__init__(tblocks, qpd)
-
-    def zeros(self):
-        return np.zeros(
-            (self.tblocks.blocksize, self.nsites, self.npartitions),
-            dtype=complex)
-
-
 class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
     r"""Class for calculating pair densities
 
@@ -372,6 +360,18 @@ class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
         # no need to print anything
         pass
 
+
+class SiteMatrixElement(MatrixElement):
+    def __init__(self, tblocks, qpd, atomic_site_data):
+        self.nsites = atomic_site_data.nsites
+        self.npartitions = atomic_site_data.npartitions
+        super().__init__(tblocks, qpd)
+
+    def zeros(self):
+        return np.zeros(
+            (self.tblocks.blocksize, self.nsites, self.npartitions),
+            dtype=complex)
+    
 
 class SiteMatrixElementCalculator(MatrixElementCalculator):
     r"""Class for calculating site matrix elements.
