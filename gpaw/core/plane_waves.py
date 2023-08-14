@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from math import pi
+from typing import TYPE_CHECKING
 
 import _gpaw
 import numpy as np
@@ -12,12 +13,13 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PWAtomCenteredFunctions
-from gpaw.core import UGDesc, UGArray
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Vector, Literal)
+if TYPE_CHECKING:
+    from gpaw.core import UGDesc, UGArray
 
 
 class PWDesc(Domain):

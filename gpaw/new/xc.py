@@ -4,12 +4,10 @@ from typing import Callable
 
 import numpy as np
 from gpaw.core import UGDesc, UGArray
-from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.fd_operators import Gradient
 from gpaw.new import zips
 from gpaw.new.c import add_to_density
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
-from gpaw.typing import Array1D
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars

@@ -9,7 +9,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 from gpaw import __version__
-from gpaw.core.uniform_grid import UGArray
+from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
