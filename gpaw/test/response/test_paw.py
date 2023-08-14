@@ -54,13 +54,11 @@ def test_site_paw_correction_consistency(gpw_files):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
                                                   context=context)
 
-    # Calculate and expand the LDA fxc kernel in real spherical harmonics
+    # Expand the LDA fxc kernel in real spherical harmonics
     pawdata = gs.pawdatasets[0]
     micro_setup = extract_micro_setup(gs, 0)
     add_fxc = partial(add_LSDA_trans_fxc, fxc='ALDA')
-    fxc_ng = micro_setup.evaluate_function(add_fxc)
-    rshe, _ = calculate_reduced_rshe(micro_setup.rgd, fxc_ng,
-                                     micro_setup.Y_nL, wmin=1e-8)
+    rshe, _ = micro_setup.expand_function(add_fxc, wmin=1e-8)
 
     # Calculate PAW correction with G + q = 0
     qG_Gv = np.zeros((1, 3))
