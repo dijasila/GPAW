@@ -285,16 +285,16 @@ def test_Fe_site_magnetization(gpw_files):
     # Do a manual calculation of the magnetic moment using the
     # all-electron partial waves
     # Calculate all-electron m(r)
-    microsetup = atomic_sites.microsetup_a[0]
-    m_ng = np.array([microsetup.rgd.zeros()
-                     for n in range(microsetup.Y_nL.shape[0])])
-    for n, Y_L in enumerate(microsetup.Y_nL):
-        n_sg = np.dot(Y_L, microsetup.n_sLg)
-        add_spin_polarization(microsetup.rgd, n_sg, m_ng[n, :])
+    micro_setup = atomic_sites.micro_setup_a[0]
+    m_ng = np.array([micro_setup.rgd.zeros()
+                     for n in range(micro_setup.Y_nL.shape[0])])
+    for n, Y_L in enumerate(micro_setup.Y_nL):
+        n_sg = np.dot(Y_L, micro_setup.n_sLg)
+        add_spin_polarization(micro_setup.rgd, n_sg, m_ng[n, :])
     # Integrate with varrying radii
     m_g = integrate_lebedev(m_ng)
     ae_magmom_r = np.array([
-        microsetup.rgd.integrate_trapz(m_g, rcut=rcut / Bohr)
+        micro_setup.rgd.integrate_trapz(m_g, rcut=rcut / Bohr)
         for rcut in rc_r])
     # Test that values match approximately inside the augmentation sphere
     inaug_r = rc_r <= augr * Bohr
