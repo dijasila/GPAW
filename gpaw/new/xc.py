@@ -96,7 +96,7 @@ def get_ked_adder_function(mode: str
                            ) -> Callable[[UGArray, PWFDWaveFunctions], None]:
     if mode == 'pw':
         return pw_add_ked
-    if mode == 'pw':
+    if mode == 'fd':
         return FDKEDCalculator()
     raise ValueError
 

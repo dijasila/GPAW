@@ -359,7 +359,7 @@ typecheck:
 
 
 docs:
-  image: $IMAGE_PATH/docs:oldest
+  image: $IMAGE_PATH/run:latest
   stage: test
   needs:
     - build

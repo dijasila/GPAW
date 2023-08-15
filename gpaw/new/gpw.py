@@ -148,7 +148,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         vt_sR_array = reader.hamiltonian.potential / ha
         if builder.xc.type == 'MGGA':
             taut_sR_array = reader.density.ked * (bohr**3 / ha)
-            dedtaut_sR_array = reader.kamiltonian.mgga_pot * (bohr**3 / ha)
+            dedtaut_sR_array = reader.hamiltonian.mgga_potential * bohr**-3
         D_sap_array = reader.density.atomic_density_matrices
         dH_sap_array = reader.hamiltonian.atomic_hamiltonian_matrices / ha
         shape = nt_sR_array.shape[1:]

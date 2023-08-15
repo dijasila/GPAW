@@ -1,7 +1,7 @@
 from __future__ import annotations
 from math import sqrt, pi
 import numpy as np
-from ase.units import Bohr
+from ase.units import Bohr, Ha
 from gpaw.typing import Vector, Array3D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
@@ -297,12 +297,15 @@ class Density:
     def write(self, writer):
         D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()
         nt_sR = self.nt_sR.to_xp(np).gather()
+        if self.taut_sR is not None:
+            taut_sR = self.taut_sR.to_xp(np).gather()
         if D_asp is None:
-            return
-
+            return  # let master do the writing
         writer.write(
             density=nt_sR.data * Bohr**-3,
             atomic_density_matrices=D_asp.data)
+        if self.taut_sR is not None:
+            writer.write(ked=taut_sR.data * (Ha * Bohr**-3))
 
 
 def atomic_occupation_numbers(setup,

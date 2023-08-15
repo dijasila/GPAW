@@ -154,7 +154,8 @@ class FDHamiltonian(Hamiltonian):
         for psit_R, out_R in zips(psit_nR, vt_nR):
             for grad in self.grad_v:
                 grad(psit_R, tmp_R)
-                grad(dedtaut_R * tmp_R, tmp_R)
+                tmp_R.data *= dedtaut_R.data
+                grad(tmp_R, tmp_R)
                 tmp_R.data *= 0.5
                 out_R.data -= tmp_R.data
 
