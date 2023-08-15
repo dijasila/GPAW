@@ -39,12 +39,11 @@ def test_energy_from_complex_densmat():
     assert energies1['zero'] == pytest.approx(-2.432694074696, abs=err)
     assert energies1['xc'] == pytest.approx(1.5938337327, abs=err)
 
-    # Rotate the state 90 degrees along the z-axis (x -> y, y -> -x, z -> z).
+    # Rotate the state 90 degrees around the z-axis (x -> y, y -> -x, z -> z).
     # Assert that this does not change the energies.
 
     # First rotate the spins
-    P_sm = np.array([P_sm[0, :] * (1 - 1j) / np.sqrt(2),
-                     P_sm[1, :] * (1 + 1j) / np.sqrt(2)])
+    P_sm = [P_sm[0, :] * (1 - 1j), P_sm[1, :] * (1 + 1j)] / np.sqrt(2)
     # Then rotate the density
     P_sm = np.matmul([[0, 0, 1], [0, 1, 0], [-1, 0, 0]], P_sm.T).T
 
