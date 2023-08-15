@@ -113,6 +113,16 @@ class ResponseGroundStateAdapter:
             self._density.interpolate_pseudo_density()
         return self._density.nt_sg
 
+    @lazyproperty
+    def n_sR(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=1)[0]
+
+    @lazyproperty
+    def n_sr(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=2)[0]
+
     @property
     def D_asp(self):
         # Used by fxc_kernels
@@ -129,8 +139,12 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=gridrefinement)
+        if gridrefinement == 1:
+            return self.n_sR, self.gd
+        elif gridrefinement == 2:
+            return self.n_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
 
     # Things used by EXX.  This is getting pretty involved.
     #
