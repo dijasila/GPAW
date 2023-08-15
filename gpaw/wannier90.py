@@ -60,7 +60,9 @@ class Wannier90:
                     dis_num_iter=200,
                     dis_froz_max=0.1,
                     dis_mix_ratio=0.5,
-                    search_shells=None):
+                    search_shells=None,
+                    write_u_matrices=False):
+
 
         calc = self.calc
         seed = self.seed
@@ -126,6 +128,8 @@ class Wannier90:
             print('spinors = True', file=f)
         else:
             print('spinors = False', file=f)
+        if write_u_matrices:
+            print('write_u_matrices = True', file=f)
         print('write_hr = True', file=f)
         if write_xyz:
             print('write_xyz = True', file=f)
