@@ -223,10 +223,7 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         in order to calculate PAW corrections. Most of the information is
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
-
-        micro_setups = [extract_micro_setup(self.gs, a)
-                        for a in range(len(self.gs.atoms))]
-
+        micro_setups = self.gs.micro_setups
         return R_av, micro_setups
 
 
@@ -284,23 +281,15 @@ class MicroSetup:
         return calculate_reduced_rshe(self.rgd, f_ng, self.Y_nL, **kwargs)
 
 
-def extract_micro_setup(gs, a):
-    """Extract the all-electron and pseudo spin-densities inside augmentation
-    sphere a, as well as the relevant radial and angular grid data.
-
-    Returns
-    -------
-    micro_setup : MicroSetup
-    """
-    pawdata = gs.pawdatasets[a]
+def extract_micro_setup(pawdata, D_sp) -> MicroSetup:
+    """Extract the a.e. and pseudo (spin-)densities as a MicroSetup."""
     # Radial grid descriptor:
     rgd = pawdata.xc_correction.rgd
     # Spherical harmonics on the Lebedev quadrature:
     Y_nL = pawdata.xc_correction.Y_nL
-
-    D_sp = gs.D_asp[a]  # atomic density matrix
-    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata, D_sp)
-
+    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata,
+                                                      # atomic density matrix
+                                                      D_sp)
     return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
 
 

@@ -9,7 +9,7 @@ from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import extract_micro_setup, calculate_LSDA_Wxc
+from gpaw.response.localft import calculate_LSDA_Wxc
 
 
 class MatrixElement(ABC):
@@ -413,10 +413,9 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         """Calculate the site matrix element correction tensor F_ii'^ap."""
         F_apii = []
         adata = self.atomic_site_data
-        for a, (A, rc_p, lambd_p) in enumerate(zip(
-                adata.A_a, adata.rc_ap, adata.lambd_ap)):
+        for a, (A, rc_p, lambd_p, micro_setup) in enumerate(zip(
+                adata.A_a, adata.rc_ap, adata.lambd_ap, adata.micro_setup_a)):
             # Expand local functional in real spherical harmonics
-            micro_setup = extract_micro_setup(self.gs, A)
             rshe, info_string = micro_setup.expand_function(
                 self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
             self.print_rshe_info(a, A, info_string)

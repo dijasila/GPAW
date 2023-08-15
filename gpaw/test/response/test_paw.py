@@ -11,7 +11,7 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.paw import (calculate_pair_density_correction,
                                calculate_matrix_element_correction)
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import extract_micro_setup, add_LSDA_trans_fxc
+from gpaw.response.localft import add_LSDA_trans_fxc
 
 from gpaw.sphere.rshe import calculate_reduced_rshe
 
@@ -56,7 +56,7 @@ def test_site_paw_correction_consistency(gpw_files):
 
     # Expand the LDA fxc kernel in real spherical harmonics
     pawdata = gs.pawdatasets[0]
-    micro_setup = extract_micro_setup(gs, 0)
+    micro_setup = gs.micro_setups[0]
     add_fxc = partial(add_LSDA_trans_fxc, fxc='ALDA')
     rshe, _ = micro_setup.expand_function(add_fxc, wmin=1e-8)
 

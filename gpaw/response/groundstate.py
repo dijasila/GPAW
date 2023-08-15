@@ -188,11 +188,9 @@ class ResponseGroundStateAdapter:
 
     def matrix_element_paw_corrections(self, qpd, add_f, **kwargs):
         from gpaw.response.paw import get_matrix_element_paw_corrections
-        from gpaw.response.localft import extract_micro_setup
-        micro_setups = [extract_micro_setup(self, a)
-                        for a in range(len(self.pawdatasets))]
         return get_matrix_element_paw_corrections(
-            qpd, add_f, self.pawdatasets, micro_setups, self.spos_ac, **kwargs)
+            qpd, add_f, self.pawdatasets, self.micro_setups, self.spos_ac,
+            **kwargs)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
@@ -233,6 +231,14 @@ class ResponseGroundStateAdapter:
 
     def get_aug_radii(self):
         return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
+
+    @lazyproperty
+    def micro_setups(self):
+        from gpaw.response.localft import extract_micro_setup
+        micro_setups = []
+        for a, pawdata in enumerate(self.pawdatasets):
+            micro_setups.append(extract_micro_setup(pawdata, self.D_asp[a]))
+        return micro_setups
 
 
 # Contains all the relevant information
