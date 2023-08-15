@@ -398,8 +398,14 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         super().__init__(gs, context)
         self.atomic_site_data = atomic_site_data
 
-        self.rshelmax = rshelmax
-        self.rshewmin = rshewmin
+        # Expand local functional in real spherical harmonics around each site
+        rshe_a = []
+        for a, micro_setup in enumerate(self.atomic_site_data.micro_setup_a):
+            rshe, info_string = micro_setup.expand_function(
+                self.add_f, lmax=rshelmax, wmin=rshewmin)
+            self.print_rshe_info(a, info_string)
+            rshe_a.append(rshe)
+        self.rshe_a = rshe_a
 
         # PAW correction tensor
         self._F_apii = None
@@ -407,6 +413,12 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
     @abstractmethod
     def add_f(gd, n_sx, f_x):
         """Add the local functional f(n(r)) to the f_x output array."""
+
+    def print_rshe_info(self, a, info_string):
+        """Print information about the expansion at site a."""
+        A = self.atomic_site_data.A_a[a]  # Atomic index of site a
+        info_string = f'RSHE of site {a} (atom {A}):\n' + info_string
+        self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
     def get_paw_correction_tensor(self):
         if self._F_apii is None:
@@ -417,24 +429,14 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         """Calculate the site matrix element correction tensor F_ii'^ap."""
         F_apii = []
         adata = self.atomic_site_data
-        for a, (A, rc_p, lambd_p, micro_setup) in enumerate(zip(
-                adata.A_a, adata.rc_ap, adata.lambd_ap, adata.micro_setup_a)):
-            # Expand local functional in real spherical harmonics
-            rshe, info_string = micro_setup.expand_function(
-                self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
-            self.print_rshe_info(a, A, info_string)
-
+        for rshe, A, rc_p, lambd_p in zip(
+                self.rshe_a, adata.A_a, adata.rc_ap, adata.lambd_ap):
             # Calculate the PAW correction
             pawdata = self.gs.pawdatasets[A]
             F_apii.append(calculate_site_matrix_element_correction(
                 pawdata, rshe, rc_p, adata.drcut, lambd_p))
 
         return F_apii
-
-    def print_rshe_info(self, a, A, info_string):
-        """Print information about the expansion at site a."""
-        info_string = f'RSHE of site {a} (atom {A}):\n' + info_string
-        self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
     def create_matrix_element(self, tblocks, qpd):
         return SiteMatrixElement(tblocks, qpd, self.atomic_site_data)
