@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Ha
-
+from gpaw.mpi import world
 
 def ibz2bz_map(qd):
     """ Maps each k in BZ to corresponding k in IBZ. """
@@ -19,7 +19,7 @@ class ModelInteraction:
         self.context = self.wcalc.context
         self.qd = self.wcalc.qd
         
-    def calc_in_Wannier(self, chi0calc, Uwan, bandrange):
+    def calc_in_Wannier(self, chi0calc, Uwan, bandrange, spin = 0):
         """Calculates the screened interaction matrix in Wannier basis.
         XXX NOTE: At the moment it is assumed a single spin channel
         and no SOC!
@@ -43,20 +43,19 @@ class ModelInteraction:
         """
 
         ibz2bz = ibz2bz_map(self.gs.kd)
-        s1 = 0  # XXX assume only single spin for the moment
         pair = chi0calc.pair
         if type(Uwan) == str:  # read w90 transformation matrix from file
             Uwan, nk, nwan = self.read_uwan(Uwan)
             assert nk == self.gs.kd.nbzkpts
             assert bandrange[1] - bandrange[0] == nwan
         
-        def get_k1_k2(s1, iK1, iQ, bandrange):
+        def get_k1_k2(spin, iK1, iQ, bandrange):
             # get kpt1, kpt1+q kpoint pairs used in density matrix
-            kpt1 = pair.get_k_point(s1, iK1, bandrange[0], bandrange[-1])
+            kpt1 = pair.get_k_point(spin, iK1, bandrange[0], bandrange[-1])
             # Find k2 = K1 + Q
             K2_c = self.gs.kd.bzk_kc[kpt1.K] - self.gs.kd.bzk_kc[iQ]
             iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-            kpt2 = pair.get_k_point(s1, iK2, bandrange[0], bandrange[-1])
+            kpt2 = pair.get_k_point(spin, iK2, bandrange[0], bandrange[-1])
             return kpt1, kpt2, iK2
 
         nfreq = len(chi0calc.wd)
@@ -64,7 +63,7 @@ class ModelInteraction:
         total_k = 0
 
         # First calculate W in IBZ in PW basis
-        # and transform to DFT eigen basis
+        # and transform to DFT eigenbasis
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
             print('iq = ', iq)
             # Calculate chi0 and W for IBZ k-point q
@@ -76,11 +75,11 @@ class ModelInteraction:
             pawcorr = chi0calc.pawcorr
             
             # Loop over all equivalent k-points
-            for iQ in ibz2bz[iq]:
+            for iQ in ibz2bz[iq]:                
                 rho_mnG = []
                 iKmQ = []
                 for iK1 in range(self.gs.kd.nbzkpts):
-                    kpt1, kpt2, iK2loc = get_k1_k2(s1, iK1, iQ, bandrange)
+                    kpt1, kpt2, iK2loc = get_k1_k2(spin, iK1, iQ, bandrange)
                     rholoc, iqloc = self.get_density_matrix(kpt1,
                                                             kpt2,
                                                             pawcorr,
@@ -90,8 +89,10 @@ class ModelInteraction:
                     rho_mnG.append(rholoc)
                     iKmQ.append(iK2loc)
                 total_k += 1
+
+                myKrange = self.get_k_range()
                 # Double loop over BZ k-points
-                for iK1 in range(self.gs.kd.nbzkpts):
+                for iK1 in myKrange: #range(self.gs.kd.nbzkpts):
                     for iK3 in range(self.gs.kd.nbzkpts):
                         # W in products of KS eigenstates
                         W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
@@ -107,6 +108,7 @@ class ModelInteraction:
                                                 Uwan[:, :, iKmQ[iK3]],
                                                 W_wijkl)
         # factor from BZ summation and taking from Hartree to eV
+        world.sum(Wwan_wijkl)
         factor = Ha * self.gs.kd.nbzkpts**3
         Wwan_wijkl /= factor
 
@@ -153,3 +155,12 @@ class ModelInteraction:
                     uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
         assert set(iklist) == set(range(nk))  # check that all k:s were found
         return uwan, nk, nw1
+
+    def get_k_range(self, rank=None):
+        if rank is None:
+            rank = world.rank
+        nK = self.gs.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(rank * myKsize,
+                         min((rank + 1) * myKsize, nK))
+        return myKrange
