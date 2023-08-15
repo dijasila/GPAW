@@ -89,33 +89,8 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
             PlaneWaveMatrixElementCalculator]:
         """Create the desired site matrix element calculators."""
 
-
-class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
-    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
-    of collinear systems in absence of spin-orbit coupling,
-    see [PRB 103, 245110 (2021)]:
-                              __  __   __
-                           1  \   \    \
-    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
-                           V  ‾‾  ‾‾   ‾‾
-                              k   n,n' s,s'
-                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
-                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
-
-    where the matrix elements
-
-    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
-
-    are the plane-wave pair densities of each transition.
-    """
-
-    def create_matrix_element_calculators(self):
-        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
-        return pair_density_calc, pair_density_calc
-
     def calculate(self, spincomponent, q_c, zd) -> Chi:
-        r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
+        r"""Calculate ̄x_KS,GG'^μν(q,z), where z = ω + iη
 
         Parameters
         ----------
@@ -125,13 +100,13 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
         q_c : list or np.array
             Wave vector in relative coordinates
         zd : ComplexFrequencyDescriptor
-            Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
+            Complex frequencies z to evaluate ̄x_KS,GG'^μν(q,z) at.
         """
         return self._calculate(*self._set_up_internals(spincomponent, q_c, zd))
 
     def _set_up_internals(self, spincomponent, q_c, zd,
                           distribution='GZg'):
-        r"""Set up internal data objects to calculate χ_KS."""
+        r"""Set up internal data objects."""
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
@@ -151,10 +126,11 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
         return chiks, transitions
 
     def _calculate(self, chiks: Chi, transitions: PairTransitions):
-        r"""Integrate χ_KS according to the specified transitions."""
-        self.context.print('Initializing pair density PAW corrections')
-        assert self.matrix_element_calc1 is self.matrix_element_calc2
+        r"""Integrate ̄x_KS according to the specified transitions."""
+        self.context.print('Initializing the matrix element PAW corrections')
         self.matrix_element_calc1.initialize_paw_corrections(chiks.qpd)
+        if self.matrix_element_calc2 is not self.matrix_element_calc1:
+            self.matrix_element_calc2.initialize_paw_corrections(chiks.qpd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, transitions)
@@ -219,6 +195,31 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
                                               self.intrablockcomm)
         return Chi(spincomponent, qpd, zd,
                    blockdist, distribution=distribution)
+
+
+class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
+    of collinear systems in absence of spin-orbit coupling,
+    see [PRB 103, 245110 (2021)]:
+                              __  __   __
+                           1  \   \    \
+    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                           V  ‾‾  ‾‾   ‾‾
+                              k   n,n' s,s'
+                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    are the plane-wave pair densities of each transition.
+    """
+
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        return pair_density_calc, pair_density_calc
 
     @timer('Add integrand to chiks')
     def add_integrand(self, kptpair, weight, chiks):
