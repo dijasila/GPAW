@@ -186,6 +186,14 @@ class ResponseGroundStateAdapter:
         return get_pair_density_paw_corrections(
             pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac)
 
+    def matrix_element_paw_corrections(self, qpd, add_f, **kwargs):
+        from gpaw.response.paw import get_matrix_element_paw_corrections
+        from gpaw.response.localft import extract_micro_setup
+        micro_setups = [extract_micro_setup(self, a)
+                        for a in range(len(self.pawdatasets))]
+        return get_matrix_element_paw_corrections(
+            qpd, add_f, self.pawdatasets, micro_setups, self.spos_ac, **kwargs)
+
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
         return np.dot(self.spos_ac, self.gd.cell_cv)

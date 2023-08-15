@@ -8,7 +8,6 @@ from gpaw.sphere.integrate import spherical_truncation_function_collection
 from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
-from gpaw.response.paw import calculate_matrix_element_correction
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
 from gpaw.response.localft import extract_micro_setup, calculate_LSDA_Wxc
 
@@ -217,6 +216,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         """
         super().__init__(gs, context)
 
+        # To do: Expand functional here! XXX
         self.rshelmax = rshelmax
         self.rshewmin = rshewmin
 
@@ -233,41 +233,24 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         if self._currentq_c is None \
            or not np.allclose(qpd.q_c, self._currentq_c):
             with self.context.timer('Initialize PAW corrections'):
-                self._F_aGii = self.calculate_paw_correction_tensor(qpd)
+                F_aGii, info_string_a = self.gs.matrix_element_paw_corrections(
+                    qpd, self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
+                self.print_rshe_info(info_string_a)
+                self._F_aGii = F_aGii
                 self._currentq_c = qpd.q_c
         return self._F_aGii
-
-    def calculate_paw_correction_tensor(self, qpd):
-        """Calculate the matrix element PAW correction tensor F_aii'(G+q)."""
-        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-
-        F_aGii = []
-        for a, pawdata in enumerate(self.gs.pawdatasets):
-            # Expand local functional in real spherical harmonics
-            micro_setup = extract_micro_setup(self.gs, a)
-            rshe, info_string = micro_setup.expand_function(
-                self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
-            self.print_rshe_info(a, info_string)
-
-            # Calculate atom-centered PAW correction
-            Fbar_Gii = calculate_matrix_element_correction(
-                qG_Gv, pawdata, rshe)
-
-            # Add dependency on the atomic position (phase factor)
-            pos_v = self.gs.spos_ac[a] @ qpd.gd.cell_cv
-            x_G = np.exp(-1j * (qG_Gv @ pos_v))
-            F_aGii.append(x_G[:, np.newaxis, np.newaxis] * Fbar_Gii)
-
-        return F_aGii
 
     @staticmethod
     def create_matrix_element(tblocks, qpd):
         return PlaneWaveMatrixElement(tblocks, qpd)
 
-    def print_rshe_info(self, a, info_string):
-        """Print information about the functional expansion around atom a."""
-        info_string = f'RSHE of atom {a}:\n' + info_string
-        self.context.print(info_string.replace('\n', '\n    ') + '\n')
+    def print_rshe_info(self, info_string_a):
+        """Print information about the functional expansion."""
+        all_info = ''
+        for a, info_string in enumerate(info_string_a):
+            info_string = f'RSHE of atom {a}:\n' + info_string
+            all_info += info_string.replace('\n', '\n    ') + '\n'
+        self.context.print(all_info)
 
     @timer('Calculate pseudo matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
