@@ -208,7 +208,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     if builder.xc.type == 'MGGA':
         kpt_band_comm.broadcast(taut_sR.data, 0)
         kpt_band_comm.broadcast(dedtaut_sR.data, 0)
-        kpt_band_comm.broadcast(D_asp.data, 0)
+    kpt_band_comm.broadcast(D_asp.data, 0)
     kpt_band_comm.broadcast(dH_asp.data, 0)
 
     density = Density.from_data_and_setups(
