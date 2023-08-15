@@ -34,7 +34,7 @@ can be made with the :func:`~gpaw.new.builder.builder` function, an ASE
 >>> from ase import Atoms
 >>> atoms = Atoms('Li', cell=[2, 2, 2], pbc=True)
 >>> from gpaw.new.builder import builder
->>> params = {'mode': 'pw', 'kpts': (5, 5, 5), 'txt': None}
+>>> params = {'mode': 'pw', 'kpts': (5, 5, 5)}
 >>> b = builder(atoms, params)
 
 .. image:: builder.svg
@@ -73,7 +73,7 @@ created with the :func:`gpaw.new.ase_interface.GPAW` function:
 ...               pbc=True)
 >>> atoms.calc = GPAW(mode='pw', txt='h2.txt')
 >>> atoms.calc
-ASECalculator(mode: {'name': 'pw'}, txt: 'h2.txt')
+ASECalculator(mode: {'name': 'pw'})
 
 The ``atoms.calc`` object manages a
 :class:`gpaw.new.calculation.DFTCalculation` object that does the actual work.
