@@ -310,7 +310,9 @@ class DFTCalculation:
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
             raise ReuseWaveFunctionsError
 
-        density = self.state.density.new(builder.grid)
+        density = self.state.density.new(builder.grid,
+                                         builder.fracpos_ac,
+                                         builder.atomdist)
         density.normalize()
 
         # Make sure all have exactly the same density.

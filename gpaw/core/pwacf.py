@@ -60,6 +60,10 @@ class PWAtomCenteredFunctions(AtomCenteredFunctions):
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
 
+    def change_cell(self, new_pw):
+        self.pw = new_pw
+        self._lfc = None
+
 
 class PWLFC(BaseLFC):
     def __init__(self,

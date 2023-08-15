@@ -108,6 +108,7 @@ def diagonalize(potential: Potential,
     """Diagonalize hamiltonian in plane-wave basis."""
     vt_sR = potential.vt_sR
     dH_asii = potential.dH_asii
+    dedtaut_sR = potential.dedtaut_sR
 
     if nbands is None:
         nbands = min(wfs.array_shape(global_shape=True)[0]
@@ -115,11 +116,6 @@ def diagonalize(potential: Potential,
         array = np.array(nbands)
         ibzwfs.kpt_comm.max(array)
         nbands = int(array)
-
-    if xc.type == 'MGGA':
-        dedtaut_sR = xc.dedtaut_sR
-    else:
-        dedtaut_sR = [None] * ibzwfs.ncomponents
 
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:

@@ -9,6 +9,8 @@ for cls in [UGDesc,
             Matrix]:
     name = ''.join(x for x in cls.__name__ if x.isupper()).lower()
     mod = cls.__module__
+    mod = mod.replace('.plane_waves', '')
+    mod = mod.replace('.uniform_grid', '')
     print(name, mod)
     with open(f'{name}.csv', 'w') as fd:
         for name, meth in cls.__dict__.items():

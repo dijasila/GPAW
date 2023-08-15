@@ -137,28 +137,33 @@ class Density:
                                           scale=1.0 / (self.ncomponents % 3))
         return self._tauct_R
 
-    def new(self, grid):
-        pw = PWDesc(ecut=0.99 * grid.ecut_max(),
-                    cell=grid.cell,
-                    comm=grid.comm)
+    def new(self, new_grid, fracpos_ac, atomdist):
+        self.move(fracpos_ac, atomdist)
+        new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
+                        cell=new_grid.cell,
+                        comm=new_grid.comm)
         old_grid = self.nt_sR.desc
         old_pw = PWDesc(ecut=0.99 * old_grid.ecut_max(),
                         cell=old_grid.cell,
-                        comm=grid.comm)
-        nt_sR = grid.empty(self.ncomponents, xp=self.nt_sR.xp)
-        for nt_R, old_nt_R in zips(nt_sR, self.nt_sR):
-            old_nt_R.fft(pw=old_pw).morph(pw).ifft(out=nt_R)
+                        comm=new_grid.comm)
+        new_nt_sR = new_grid.empty(self.ncomponents, xp=self.nt_sR.xp)
+        for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
+            old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
 
-        return Density(nt_sR,
-                       nt_sR.new(zeroed=True),
-                       self.D_asii,
-                       self.charge,
-                       self.delta_aiiL,
-                       self.delta0_a,
-                       self.N0_aii,
-                       self.l_aj,
-                       self.nct_aX,
-                       self.tauct_aX)
+        self.nct_aX.change_cell(new_pw)
+        self.tauct_aX.change_cell(new_pw)
+
+        return Density(
+            new_nt_sR,
+            None if self.taut_sR is None else new_nt_sR.new(zeroed=True),
+            self.D_asii,
+            self.charge,
+            self.delta_aiiL,
+            self.delta0_a,
+            self.N0_aii,
+            self.l_aj,
+            self.nct_aX,
+            self.tauct_aX)
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp

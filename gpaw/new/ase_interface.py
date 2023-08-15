@@ -11,19 +11,20 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
+from gpaw.mpi import world
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
-from gpaw.new.input_parameters import InputParameters
+from gpaw.new.input_parameters import (DeprecatedParameterWarning,
+                                       InputParameters)
 from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
-from gpaw.mpi import world
 
 
 def GPAW(filename: Union[str, Path, IO[str]] = None,
@@ -35,7 +36,13 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
         txt = '-' if filename is None else None
 
     parallel = kwargs.get('parallel', {})
-    comm = parallel.get('world', communicator or world)
+    comm = parallel.pop('world', None)
+    if comm is None:
+        comm = communicator or world
+    else:
+        warnings.warn(('Please use communicator=... '
+                       'instead of parallel={''world'': ...}'),
+                      DeprecatedParameterWarning)
     log = Logger(txt, comm)
 
     if filename is not None:
