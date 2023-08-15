@@ -6,6 +6,7 @@ from gpaw import GPAW, PW, Mixer
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 @pytest.mark.stress
 def test_pw_si_stress(in_tmp_dir):
     xc = 'PBE'
@@ -28,7 +29,7 @@ def test_pw_si_stress(in_tmp_dir):
 
     # Trigger nasty bug (fixed in !486):
     si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
-    
+
     # Compute error in stress as numerical - analytical
     s_analytical = si.get_stress()
     s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)

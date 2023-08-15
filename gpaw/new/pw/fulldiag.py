@@ -19,7 +19,7 @@ def pw_matrix(pw: PWDesc,
               dH_aii: AtomArrays,
               dS_aii: list[Array2D],
               vt_R: UGArray,
-              dedtaut_R: UGArray,
+              dedtaut_R: UGArray | None,
               comm) -> tuple[Matrix, Matrix]:
     """Calculate H and S matrices in plane-wave basis.
 

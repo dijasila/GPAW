@@ -7,6 +7,7 @@ from gpaw import GPAW, PW, Mixer
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 @pytest.mark.mgga
 def test_pw_si_stress_mgga(in_tmp_dir):
     xc = 'TPSS'

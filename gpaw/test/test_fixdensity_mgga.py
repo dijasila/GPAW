@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from ase import Atoms
 
@@ -8,7 +6,7 @@ from gpaw import GPAW
 
 @pytest.mark.ci
 @pytest.mark.mgga
-def test_fixdensity(in_tmp_dir, new_gpaw):
+def test_fixdensity(in_tmp_dir, gpaw_new):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
     slab.calc = GPAW(mode='fd',
@@ -48,7 +46,7 @@ def test_fixdensity(in_tmp_dir, new_gpaw):
     assert e2 == pytest.approx(e1, abs=3e-5)
     assert e3 == pytest.approx(e1, abs=3e-5)
 
-    if not new_gpaw:
+    if not gpaw_new:
         calc = GPAW('li.gpw',
                     txt='li-4.txt',
                     fixdensity=True,
@@ -64,8 +62,8 @@ def test_fixdensity(in_tmp_dir, new_gpaw):
             assert False
 
     calc = GPAW('li_nowf.gpw')
-    if not new_gpaw:
-        with pytest.raises( ValueError):
+    if not gpaw_new:
+        with pytest.raises(ValueError):
             calc = calc.fixed_density(txt='li-3.txt', nbands=5, kpts=kpts)
     else:
         calc = calc.fixed_density(txt='li-3.txt', nbands=5, kpts=kpts)

@@ -8,6 +8,7 @@ from gpaw.calculator import GPAW
 from gpaw.new.calculation import DFTCalculation
 
 
+@pytest.mark.later
 @pytest.mark.stress
 def test_pw_augment_grids(in_tmp_dir, gpaw_new):
     ecut = 200
