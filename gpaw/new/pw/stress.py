@@ -122,3 +122,51 @@ def get_paw_stress(wfs: PWFDWaveFunctions,
         a_ani[a] = 2 * a_ni.conj()
     s_vv = wfs.pt_aiX.stress_tensor_contribution(wfs.psit_nX, a_ani)
     return s_vv - float(s.real) * xp.eye(3)
+
+
+def mgga_stress(xc, ibzwfs, nt_sR, taut_sR)
+    sigma_xg, dedsigma_xg, gradn_svg = gga_vars(self.gd, self.grad_v, n_sg)
+
+    nspins = len(n_sg)
+    dedtaut_sg = np.empty_like(n_sg)
+    v_sg = self.gd.zeros(nspins)
+    e_g = self.gd.empty()
+    self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                          taut_sg, dedtaut_sg)
+
+    def integrate(a1_g, a2_g=None):
+        return self.gd.integrate(a1_g, a2_g, global_integral=False)
+
+    P = integrate(e_g)
+    for v_g, n_g in zip(v_sg, n_sg):
+        P -= integrate(v_g, n_g)
+    for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
+        P -= 2 * integrate(sigma_g, dedsigma_g)
+    for taut_g, dedtaut_g in zip(taut_sg, dedtaut_sg):
+        P -= integrate(taut_g, dedtaut_g)
+
+    tau_svvG = self.wfs.calculate_kinetic_energy_density_crossterms()
+
+    stress_vv = P * np.eye(3)
+    for v1 in range(3):
+        for v2 in range(3):
+            stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                           gradn_svg[0, v2],
+                                           dedsigma_xg[0]) * 2
+            if nspins == 2:
+                stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                               gradn_svg[1, v2],
+                                               dedsigma_xg[1]) * 2
+                stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
+                                               gradn_svg[1, v2],
+                                               dedsigma_xg[2]) * 2
+    tau_cross_g = self.gd.empty()
+    for s in range(nspins):
+        for v1 in range(3):
+            for v2 in range(3):
+                self.distribute_and_interpolate(
+                    tau_svvG[s, v1, v2], tau_cross_g)
+                stress_vv[v1, v2] -= integrate(tau_cross_g, dedtaut_sg[s])
+
+    self.gd.comm.sum(stress_vv)
+    return stress_vv
