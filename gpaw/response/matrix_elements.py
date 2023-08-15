@@ -216,13 +216,27 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         """
         super().__init__(gs, context)
 
-        # To do: Expand functional here! XXX
-        self.rshelmax = rshelmax
-        self.rshewmin = rshewmin
+        # Expand local functional in real spherical harmonics around each atom
+        rshe_a = []
+        for a, micro_setup in enumerate(self.gs.micro_setups):
+            rshe, info_string = micro_setup.expand_function(
+                self.add_f, lmax=rshelmax, wmin=rshewmin)
+            self.print_rshe_info(a, info_string)
+            rshe_a.append(rshe)
+        self.rshe_a = rshe_a
 
         # PAW correction tensor for a given q_c
         self._currentq_c = None
         self._F_aGii = None
+
+    @abstractmethod
+    def add_f(gd, n_sx, f_x):
+        """Add the local functional f(n(r)) to the f_x output array."""
+
+    def print_rshe_info(self, a, info_string):
+        """Print information about the functional expansion at atom a."""
+        info_string = f'RSHE of atom {a}:\n' + info_string
+        self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
     def initialize_paw_corrections(self, qpd):
         """Initialize the PAW corrections ahead of the actual calculation."""
@@ -233,24 +247,14 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         if self._currentq_c is None \
            or not np.allclose(qpd.q_c, self._currentq_c):
             with self.context.timer('Initialize PAW corrections'):
-                F_aGii, info_string_a = self.gs.matrix_element_paw_corrections(
-                    qpd, self.add_f, lmax=self.rshelmax, wmin=self.rshewmin)
-                self.print_rshe_info(info_string_a)
-                self._F_aGii = F_aGii
+                self._F_aGii = self.gs.matrix_element_paw_corrections(
+                    qpd, self.rshe_a)
                 self._currentq_c = qpd.q_c
         return self._F_aGii
 
     @staticmethod
     def create_matrix_element(tblocks, qpd):
         return PlaneWaveMatrixElement(tblocks, qpd)
-
-    def print_rshe_info(self, info_string_a):
-        """Print information about the functional expansion."""
-        all_info = ''
-        for a, info_string in enumerate(info_string_a):
-            info_string = f'RSHE of atom {a}:\n' + info_string
-            all_info += info_string.replace('\n', '\n    ') + '\n'
-        self.context.print(all_info)
 
     @timer('Calculate pseudo matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
