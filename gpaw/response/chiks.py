@@ -44,6 +44,7 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
                  nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
+                 bandsummation='pairwise',
                  **kwargs):
         """Contruct the GeneralizedSuscetibilityCalculator
 
@@ -60,6 +61,11 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
             Center the grid of plane waves around the Γ-point (or the q-vector)
         nbands : int
             Number of bands to include in the sum over states
+        bandsummation : str
+            Band summation strategy (does not change the result, but can affect
+            the run-time).
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
         kwargs : see gpaw.response.pair_integrator.PairFunctionIntegrator
         """
         if context is None:
@@ -71,6 +77,7 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
         self.ecut = None if ecut is None else ecut / Hartree  # eV to Hartree
         self.gammacentered = gammacentered
         self.nbands = nbands
+        self.bandsummation = bandsummation
 
         mecalc1, mecalc2 = self.create_matrix_element_calculators()
         self.matrix_element_calc1 = mecalc1
@@ -102,25 +109,6 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
 
     are the plane-wave pair densities of each transition.
     """
-
-    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
-                 bandsummation='pairwise',
-                 **kwargs):
-        """Contruct the ChiKSCalculator
-
-        Parameters
-        ----------
-        gs : ResponseGroundStateAdapter
-        context : ResponseContext
-        bandsummation : str
-            Band summation strategy (does not change the result, but can affect
-            the run-time).
-            'pairwise': sum over pairs of bands
-            'double': double sum over band indices.
-        kwargs : see gpaw.response.chiks.GeneralizedSuscetibilityCalculator
-        """
-        super().__init__(gs, context=context, **kwargs)
-        self.bandsummation = bandsummation
 
     def create_matrix_element_calculators(self):
         pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
