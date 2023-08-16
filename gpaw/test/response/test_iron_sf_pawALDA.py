@@ -8,7 +8,9 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.dyson import DysonEnhancer
-from gpaw.response.susceptibility import spectral_decomposition
+from gpaw.response.susceptibility import (spectral_decomposition,
+                                          read_eigenmode_lineshapes)
+from gpaw.response.pair_functions import read_pair_function
 
 from gpaw.test.conftest import response_band_cutoff
 
@@ -20,8 +22,8 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Magnetic response calculation
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    frq_qw = [np.linspace(-0.06, 0.1, 21),
-              np.linspace(0.280, 0.440, 21)]
+    frq_qw = [np.linspace(-0.2, 0.2, 41),
+              np.linspace(0.2, 0.6, 41)]
     ecut = 100
     eta = 0.1
     rshewmin = 1e-8
@@ -68,7 +70,28 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
 
     context.write_timer()
 
+    # plot_magnons()
+    
     # XXX To do XXX
-    # * Plot component and mode
     # * Extract magnon frequency
     # * Test against reference values
+
+
+def extract_data(q):
+    w1_w, chiM_w = read_pair_function(f'iron_chiM_q{q}.csv')
+    w2_w, a_wm = read_eigenmode_lineshapes(f'iron_Amaj_q{q}.csv')
+    assert np.allclose(w1_w, w2_w)
+    return w1_w, chiM_w, a_wm[:, 0]
+
+
+def plot_magnons():
+    import matplotlib.pyplot as plt
+    for q in range(2):
+        w_w, chiM_w, a_w = extract_data(q)
+        plt.subplot(1, 2, 1)
+        plt.plot(w_w, - chiM_w.imag / np.pi, label=f'{q}')
+        plt.subplot(1, 2, 2)
+        plt.plot(w_w, a_w, label=f'{q}')
+        plt.legend(title='q')
+    if world.rank == 0:
+        plt.show()
