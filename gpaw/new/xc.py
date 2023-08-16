@@ -105,12 +105,15 @@ class MGGAFunctional(Functional):
                             interpolate: Callable[[UGArray], UGArray]
                             ) -> Array2D:
         nt_sr = interpolate(state.density.nt_sR)
-        taut_sr = interpolate(state.density.taut_sR)
+        taut_sR = state.density.taut_sR
+        assert taut_sR is not None
+        taut_sr = interpolate(taut_sR)
         stress_vv = _mgga(self.xc, nt_sr.data, taut_sr.data)
 
         taut_swR = _taut(state.ibzwfs, state.density.nt_sR.desc)
-
-        dedtaut_sr = interpolate(state.potential.dedtaut_sR)
+        dedtaut_sR = state.potential.dedtaut_sR
+        assert dedtaut_sR is not None
+        dedtaut_sr = interpolate(dedtaut_sR)
         for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
             w = 0
             for v1 in range(3):
@@ -120,16 +123,16 @@ class MGGAFunctional(Functional):
                     stress_vv[v1, v2] -= s
                     if v2 != v1:
                         stress_vv[v2, v1] -= s
+                    w += 1
 
-        self.gd.comm.sum(stress_vv)
         return stress_vv
 
 
-def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
+def _mgga(xc: OldXCFunctional, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
     # The GGA part of this should be factored out!
     sigma_xr, dedsigma_xr, gradn_svr = gga_vars(xc.gd,
                                                 xc.grad_v,
-                                                nt_sr.data)
+                                                nt_sr)
     nspins = len(nt_sr)
     dedtaut_sr = np.empty_like(nt_sr)
     vt_sr = xc.gd.zeros(nspins)
@@ -161,6 +164,7 @@ def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
                 stress_vv[v1, v2] -= integrate(gradn_svr[1, v1] *
                                                gradn_svr[1, v2],
                                                dedsigma_xr[2]) * 2
+    xc.gd.comm.sum(stress_vv)
     return stress_vv
 
 
@@ -198,8 +202,9 @@ def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
             w = 0
             for v1 in range(3):
                 for v2 in range(v1, 3):
-                    taut1_swR[wfs.spin, w] += (
-                        f * dpsit1_vR[v1].conj() * dpsit1_vR[v2])
+                    taut1_swR[wfs.spin, w].data += (
+                        f * (dpsit1_vR[v1].data.conj() *
+                             dpsit1_vR[v2].data).real)
                     w += 1
 
     ibzwfs.kpt_comm.sum(taut1_swR.data, 0)
@@ -211,7 +216,7 @@ def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
                 symmetries = ibzwfs.ibz.symmetries
                 taut1_swR.symmetrize(symmetries.rotation_scc,
                                      symmetries.translation_sc)
-            taut_swR = grid.empty((6, ibzwfs.nspins))
+            taut_swR = grid.empty((ibzwfs.nspins, 6))
             taut_swR.scatter_from(taut1_swR)
             return taut_swR
     return None

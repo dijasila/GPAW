@@ -204,6 +204,7 @@ class IBZWaveFunctions:
     def add_to_ked(self, taut_sR) -> None:
         for wfs in self:
             occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+            assert isinstance(wfs, PWFDWaveFunctions)
             wfs.psit_nX.add_ked(occ_n, taut_sR[wfs.spin])
 
         if self.xp is not np:

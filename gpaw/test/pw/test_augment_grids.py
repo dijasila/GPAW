@@ -21,10 +21,10 @@ def test_pw_augment_grids(in_tmp_dir, gpaw_new):
             dft = DFTCalculation.from_parameters(
                 atoms,
                 dict(mode=PW(ecut),
-                     txt=f'gpaw.aug{aug}.txt',
                      parallel={'augment_grids': aug},
                      kpts={'size': kpoints},
-                     occupations=FermiDirac(width=0.1)))
+                     occupations=FermiDirac(width=0.1)),
+                log=f'gpaw.aug{aug}.txt')
             dft.converge(steps=4)
             e = dft.energies()
             f = dft.forces()
