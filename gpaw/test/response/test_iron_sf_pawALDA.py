@@ -12,6 +12,7 @@ from gpaw.response.susceptibility import (spectral_decomposition,
                                           read_eigenmode_lineshapes)
 from gpaw.response.pair_functions import read_pair_function
 
+from gpaw.test import findpeak
 from gpaw.test.conftest import response_band_cutoff
 
 
@@ -72,10 +73,21 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
     context.write_timer()
 
     # plot_magnons()
-    
-    # XXX To do XXX
-    # * Extract magnon frequency
-    # * Test against reference values
+
+    refs_q = [
+        # (wpeak, Ipeak, Apeak)
+        (0.001, 0.476, 3.104),
+        (0.165, 0.428, 2.816),
+    ]
+    for q, refs in enumerate(refs_q):
+        w_w, chiM_w, a_w = extract_data(q)
+        wpeak1, Ipeak = findpeak(w_w, -chiM_w.imag / np.pi)
+        wpeak2, Apeak = findpeak(w_w, a_w)
+
+        assert wpeak1 == pytest.approx(wpeak2, abs=0.001)  # ±1 meV
+        assert wpeak1 == pytest.approx(refs[0], abs=0.01)  # ±10 meV
+        assert Ipeak == pytest.approx(refs[1], abs=0.01)  # ±10 a.u.
+        assert Apeak == pytest.approx(refs[2], abs=0.05)  # ±50 a.u.
 
 
 def extract_data(q):
