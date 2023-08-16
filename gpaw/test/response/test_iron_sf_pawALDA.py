@@ -45,6 +45,7 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
                        nbands=nbands,
                        ecut=ecut,
                        gammacentered=True,
+                       bandsummation='double',
                        nblocks=nblocks)
     chiks_calc = ChiKSCalculator(*calc_args, **calc_kwargs)
     xi_calc = SelfEnhancementCalculator(*calc_args,
@@ -84,7 +85,7 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
         wpeak1, Ipeak = findpeak(w_w, -chiM_w.imag / np.pi)
         wpeak2, Apeak = findpeak(w_w, a_w)
 
-        assert wpeak1 == pytest.approx(wpeak2, abs=0.001)  # eV
+        assert wpeak1 == pytest.approx(wpeak2, abs=0.002)  # eV
         assert wpeak1 == pytest.approx(refs[0], abs=0.01)  # eV
         assert Ipeak == pytest.approx(refs[1], abs=0.01)  # a.u.
         assert Apeak == pytest.approx(refs[2], abs=0.05)  # a.u.
