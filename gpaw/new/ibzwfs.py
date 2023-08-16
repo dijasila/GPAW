@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generator, Callable
+from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -18,7 +18,6 @@ from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D
-from gpaw.core import UGArray
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -202,14 +201,10 @@ class IBZWaveFunctions:
         self.band_comm.sum(nt_sR.data)
         self.band_comm.sum(D_asii.data)
 
-    @cached_property
-    def ked_adder(self) -> Callable[[UGArray, PWFDWaveFunctions], None]:
-        from gpaw.new.xc import get_ked_adder_function
-        return get_ked_adder_function(self.mode)
-
     def add_to_ked(self, taut_sR) -> None:
         for wfs in self:
-            self.ked_adder(taut_sR, wfs)
+            occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+            wfs.psit_nX.add_ked(occ_n, taut_sR[wfs.spin])
 
         if self.xp is not np:
             synchronize()

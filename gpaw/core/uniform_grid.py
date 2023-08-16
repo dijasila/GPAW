@@ -16,6 +16,8 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
+from gpaw.new.c import add_to_density
+from gpaw.fd_operators import Gradient
 
 
 class UGDesc(Domain):
@@ -770,3 +772,15 @@ class UGArray(DistributedArrays[UGDesc]):
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                       dtype=grid.dtype)
         return UGArray(grid, self.dims, self.comm, self.data * v)
+
+    def add_ked(self,
+                occ_n: Array1D,
+                taut_R: UGArray) -> None:
+        grad_v = [
+            Gradient(self.desc._gd, v, n=3, dtype=self.desc.dtype)
+            for v in range(3)]
+        tmp_R = self.desc.empty()
+        for f, psit_R in zips(occ_n, self):
+            for grad in grad_v:
+                grad(psit_R, tmp_R)
+                add_to_density(0.5 * f, tmp_R.data, taut_R.data)
