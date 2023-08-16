@@ -505,11 +505,12 @@ class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
             rshelmax=self.rshelmax,
             rshewmin=self.rshewmin)
         return pair_density_calc, pair_potential_calc
-
-    def calculate(self, q_c, zd) -> Chi:
-        # We are explicitly calculating Ξ^++ corresponding to χ^+-
-        spincomponent = '+-'
-        return super().calculate(spincomponent, q_c, zd)
+    
+    def _set_up_internals(self, spincomponent, *args, **kwargs):
+        # For now, we are hardcoded to use the transverse pair potential,
+        # calculating Ξ^++ corresponding to χ^+-
+        assert spincomponent == '+-'
+        return super()._set_up_internals(spincomponent, *args, **kwargs)
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):

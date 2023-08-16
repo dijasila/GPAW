@@ -56,7 +56,7 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
         # Calculate χ_KS^+- and Ξ^++
         zd = ComplexFrequencyDescriptor.from_array(frq_w + 1j * eta)
         chiks = chiks_calc.calculate('+-', q_c, zd)
-        xi = xi_calc.calculate(q_c, zd)
+        xi = xi_calc.calculate('+-', q_c, zd)
 
         # Distribute frequencies and invert dyson equation
         chiks = chiks.copy_with_global_frequency_distribution()
