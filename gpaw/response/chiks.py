@@ -462,7 +462,7 @@ class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
     are the plane-wave pair densities and transverse magnetic pair potentials
     respectively.
     """
-    def __init__(self, *args,
+    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
                  rshelmax: int = -1,
                  rshewmin: float | None = None,
                  **kwargs):
@@ -492,7 +492,7 @@ class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
         # super().__init__(*args, disable_time_reversal=True, **kwargs)
         assert 'disable_point_group' not in kwargs
         assert 'bandsummation' not in kwargs
-        super().__init__(*args,
+        super().__init__(gs, context=context,
                          disable_time_reversal=True,
                          disable_point_group=True,
                          bandsummation='double',
