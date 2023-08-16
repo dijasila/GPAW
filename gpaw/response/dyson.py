@@ -136,6 +136,8 @@ class DysonEnhancer:
         assert xi.distribution == 'zGG' and \
             xi.blockdist.fully_block_distributed
         assert chiks.spincomponent == xi.spincomponent
+        assert np.allclose(chiks.zd.hz_z, xi.zd.hz_z)
+        assert np.allclose(chiks.qpd.q_c, xi.qpd.q_c)
 
         chi = chiks.new()
         chi.array = self.invert_dyson(chiks.array, xi.array)
