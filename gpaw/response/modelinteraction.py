@@ -1,6 +1,9 @@
 import numpy as np
 from ase.units import Ha
 from gpaw.mpi import world
+from gpaw.response.pair import get_gs_and_context
+from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response.screened_interaction import initialize_w_calculator
 
 def ibz2bz_map(qd):
     """ Maps each k in BZ to corresponding k in IBZ. """
@@ -9,6 +12,20 @@ def ibz2bz_map(qd):
         ik = qd.bz2ibz_k[iK]
         out_map[ik].append(iK)
     return out_map
+
+def initialize_w_model(calc, chi0calc, truncation=None, txt='w_model.out',
+                       world=world, timer=None, integrate_gamma=0,
+                       q0_correction=False):
+    gs, wcontext = get_gs_and_context(
+        calc, txt=txt, world=world, timer=timer)
+    coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
+    wcalc = initialize_w_calculator(chi0calc,
+                                    wcontext,
+                                    coulomb=coulomb,
+                                    xc='RPA',
+                                    integrate_gamma=integrate_gamma,
+                                    q0_correction=q0_correction)
+    return ModelInteraction(wcalc)
 
 
 class ModelInteraction:
