@@ -82,10 +82,12 @@ class DummyFunctions(DistributedArrays[NoGrid]):
                                     grid.dtype)
         self.desc = grid
 
-    def integrate(self):
-        return np.ones(self.dims)
+    def integrate(self, other=None):
+        if other is None:
+            return np.ones(self.dims)
+        return np.zeros(self.dims + other.dims)
 
-    def new(self):
+    def new(self, zeroed=False):
         return self
 
     def __getitem__(self, index):
@@ -99,6 +101,8 @@ class DummyFunctions(DistributedArrays[NoGrid]):
 
 
 class PSCoreDensities:
+    xp = np
+
     def __init__(self, grid, fracpos_ac):
         self.layout = AtomArraysLayout([1] * len(fracpos_ac),
                                        grid.comm)
@@ -111,18 +115,18 @@ class TBPotentialCalculator(PotentialCalculator):
     def __init__(self,
                  xc,
                  setups,
-                 nct_R,
-                 atoms):
-        super().__init__(xc, None, setups, nct_R,
-                         atoms.get_scaled_positions())
+                 atoms,
+                 domain_comm):
+        super().__init__(xc, None, setups,
+                         fracpos_ac=atoms.get_scaled_positions())
         self.atoms = atoms.copy()
+        self.domain_comm = domain_comm
         self.force_av = None
         self.stress_vv = None
 
     def calculate_charges(self, vHt_r):
-        return AtomArraysLayout(
-            [9] * len(self.atoms),
-            self.nct_R.comm).zeros()
+        return AtomArraysLayout([9] * len(self.atoms),
+                                self.domain_comm).zeros()
 
     def calculate_pseudo_potential(self, density, ibzwfs, vHt_r):
         vt_sR = density.nt_sR
@@ -139,7 +143,7 @@ class TBPotentialCalculator(PotentialCalculator):
                 'coulomb': 0.0,
                 'zero': 0.0,
                 'xc': energy,
-                'external': 0.0}, vt_sR, vHt_r
+                'external': 0.0}, vt_sR, None, vHt_r
 
     def _move(self, fracpos_ac, ndensities):
         self.atoms.set_scaled_positions(fracpos_ac)
@@ -211,6 +215,9 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
     def get_pseudo_core_densities(self):
         return PSCoreDensities(self.grid, self.fracpos_ac)
 
+    def get_pseudo_core_ked(self):
+        return PSCoreDensities(self.grid, self.fracpos_ac)
+
     def create_basis_set(self):
         self.basis = DummyBasis(self.setups)
         return self.basis
@@ -220,7 +227,8 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
 
     def create_potential_calculator(self):
         xc = DummyXC()
-        return TBPotentialCalculator(xc, self.setups, self.nct_R, self.atoms)
+        return TBPotentialCalculator(xc, self.setups, self.atoms,
+                                     self.communicators['d'])
 
     def create_scf_loop(self):
         occ_calc = self.create_occupation_number_calculator()

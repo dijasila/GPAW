@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 import numpy as np
-from ase.units import Ha
-from gpaw.core.uniform_grid import UniformGridFunctions
+from ase.units import Bohr, Ha
+from gpaw.core.uniform_grid import UGArray
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.new import zips
 
 
 class Potential:
     def __init__(self,
-                 vt_sR: UniformGridFunctions,
+                 vt_sR: UGArray,
                  dH_asii: AtomArrays,
+                 dedtaut_sR: UGArray | None,
                  energies: dict[str, float]):
         self.vt_sR = vt_sR
         self.dH_asii = dH_asii
+        self.dedtaut_sR = dedtaut_sR
         self.energies = energies
 
     def __repr__(self):
-        return f'Potential({self.vt_sR}, {self.dH_asii}, {self.energies})'
+        return (f'Potential({self.vt_sR}, {self.dH_asii}, '
+                f'{self.dedtaut_sR}, {self.energies})')
 
     def __str__(self) -> str:
         return (f'potential:\n'
@@ -55,9 +58,13 @@ class Potential:
         energies['band'] = ibzwfs.energies['band']
         dH_asp = self.dH_asii.to_cpu().to_lower_triangle().gather()
         vt_sR = self.vt_sR.to_xp(np).gather()
+        if self.dedtaut_sR is not None:
+            dedtaut_sR = self.dedtaut_sR.to_xp(np).gather()
         if dH_asp is None:
             return
         writer.write(
             potential=vt_sR.data * Ha,
             atomic_hamiltonian_matrices=dH_asp.data * Ha,
             **{f'e_{name}': val * Ha for name, val in energies.items()})
+        if self.dedtaut_sR is not None:
+            writer.write(mgga_potential=dedtaut_sR.data * Bohr**3)

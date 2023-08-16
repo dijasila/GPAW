@@ -84,7 +84,8 @@ class SCFLoop:
                 fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                state, self.niter,
+                log, self.niter,
+                state,
                 wfs_error, dens_error,
                 self.comm, calculate_forces,
                 pot_calc)
@@ -106,7 +107,8 @@ class SCFLoop:
                 raise TooFewBandsError
 
             if self.update_density_and_potential:
-                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                state.density.update(state.ibzwfs,
+                                     ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
                 state.potential, state.vHt_x, _ = pot_calc.calculate(
                     state.density, state.ibzwfs, state.vHt_x)
@@ -114,15 +116,17 @@ class SCFLoop:
 
 class SCFContext:
     def __init__(self,
-                 state: DFTState,
+                 log,
                  niter: int,
+                 state: DFTState,
                  wfs_error: float,
                  dens_error: float,
                  comm,
                  calculate_forces: Callable[[], Array2D],
                  pot_calc):
-        self.state = state
+        self.log = log
         self.niter = niter
+        self.state = state
         energy = np.array([sum(state.potential.energies.values()) +
                            sum(state.ibzwfs.energies.values())])
         comm.broadcast(energy, 0)

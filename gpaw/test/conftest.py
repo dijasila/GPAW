@@ -1158,3 +1158,9 @@ def rng():
     Tests should be deterministic and should use this
     fixture or initialize their own rng."""
     return np.random.default_rng(42)
+
+
+@pytest.fixture
+def gpaw_new() -> bool:
+    """Are we testing the new code?"""
+    return os.environ.get('GPAW_NEW')

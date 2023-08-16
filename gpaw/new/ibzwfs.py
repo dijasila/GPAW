@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Generator
+from typing import Generator, Callable
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -11,13 +11,14 @@ import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zips
+from gpaw.new import zips, cached_property
 from gpaw.new.brillouin import IBZ
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D
+from gpaw.core import UGArray
 
 
 def create_ibz_wave_functions(ibz: IBZ,
@@ -86,6 +87,15 @@ class IBZWaveFunctions:
         if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
                 self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
+
+    @cached_property
+    def mode(self):
+        wfs = self.wfs_qs[0][0]
+        if isinstance(wfs, PWFDWaveFunctions):
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                return 'pw'
+            return 'fd'
+        return 'lcao'
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -191,6 +201,21 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(D_asii.data)
         self.band_comm.sum(nt_sR.data)
         self.band_comm.sum(D_asii.data)
+
+    @cached_property
+    def ked_adder(self) -> Callable[[UGArray, PWFDWaveFunctions], None]:
+        from gpaw.new.xc import get_ked_adder_function
+        return get_ked_adder_function(self.mode)
+
+    def add_to_ked(self, taut_sR) -> None:
+        for wfs in self:
+            self.ked_adder(taut_sR, wfs)
+
+        if self.xp is not np:
+            synchronize()
+
+        self.kpt_comm.sum(taut_sR.data)
+        self.band_comm.sum(taut_sR.data)
 
     def get_all_electron_wave_function(self,
                                        band,
@@ -435,7 +460,7 @@ class IBZWaveFunctions:
             psit_nX = getattr(wfs, 'psit_nX', None)
             if psit_nX is None:
                 return
-            if hasattr(psit_nX.data, 'fd'):
+            if hasattr(psit_nX.data, 'fd'):  # fd=file-descriptor
                 psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:

@@ -63,10 +63,10 @@ class DFTState:
     def __str__(self):
         return f'{self.ibzwfs}\n{self.density}\n{self.potential}'
 
-    def move(self, fracpos_ac, atomdist, delta_nct_R):
+    def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
         self.potential.energies.clear()
-        self.density.move(delta_nct_R)
+        self.density.move(fracpos_ac, atomdist)
 
 
 class DFTCalculation:
@@ -140,10 +140,8 @@ class DFTCalculation:
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
-        delta_nct_R = self.pot_calc.move(self.fracpos_ac,
-                                         atomdist,
-                                         self.state.density.ndensities)
-        self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
+        self.pot_calc.move(self.fracpos_ac, atomdist)
+        self.state.move(self.fracpos_ac, atomdist)
 
         mm_av = self.results['non_collinear_magmoms']
         write_atoms(atoms, mm_av, self.log)
@@ -312,7 +310,9 @@ class DFTCalculation:
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
             raise ReuseWaveFunctionsError
 
-        density = self.state.density.new(builder.grid)
+        density = self.state.density.new(builder.grid,
+                                         builder.fracpos_ac,
+                                         builder.atomdist)
         density.normalize()
 
         # Make sure all have exactly the same density.

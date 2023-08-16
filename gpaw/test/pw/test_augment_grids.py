@@ -1,4 +1,3 @@
-import os
 
 import numpy as np
 import pytest
@@ -9,15 +8,16 @@ from gpaw.calculator import GPAW
 from gpaw.new.calculation import DFTCalculation
 
 
+@pytest.mark.later
 @pytest.mark.stress
-def test_pw_augment_grids(in_tmp_dir):
+def test_pw_augment_grids(in_tmp_dir, gpaw_new):
     ecut = 200
     kpoints = [1, 1, 4]
     atoms = Atoms('HLi', cell=[6, 6, 3.4], pbc=True,
                   positions=[[3, 3, 0], [3, 3, 1.6]])
 
     def calculate(aug):
-        if os.environ.get('GPAW_NEW'):
+        if gpaw_new:
             dft = DFTCalculation.from_parameters(
                 atoms,
                 dict(mode=PW(ecut),

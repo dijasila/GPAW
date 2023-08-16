@@ -11,7 +11,7 @@ from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
 import _gpaw
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
@@ -151,12 +151,7 @@ class DFTComponentsBuilder:
 
     def create_xc_functional(self):
         return create_functional(self._xc,
-                                 self.fine_grid,
-                                 self.grid,
-                                 self.grid,
-                                 self.setups,
-                                 self.fracpos_ac,
-                                 self.atomdist)
+                                 self.fine_grid)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -190,13 +185,8 @@ class DFTComponentsBuilder:
     def get_pseudo_core_densities(self):
         raise NotImplementedError
 
-    @cached_property
-    def nct_R(self):
-        out = self.grid.empty(xp=self.xp)
-        nct_aX = self.get_pseudo_core_densities()
-        nct_aX.to_uniform_grid(out=out,
-                               scale=1.0 / (self.ncomponents % 3))
-        return out
+    def get_pseudo_core_ked(self):
+        raise NotImplementedError
 
     def create_basis_set(self):
         return create_basis(self.ibz,
@@ -211,14 +201,18 @@ class DFTComponentsBuilder:
                             self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.nct_R,
-                                          self.atomdist,
-                                          self.setups,
-                                          basis_set,
-                                          self.initial_magmom_av,
-                                          self.ncomponents,
-                                          self.params.charge,
-                                          self.params.hund)
+        return Density.from_superposition(
+            grid=self.grid,
+            nct_aX=self.get_pseudo_core_densities(),
+            tauct_aX=self.get_pseudo_core_ked(),
+            atomdist=self.atomdist,
+            setups=self.setups,
+            basis_set=basis_set,
+            magmom_av=self.initial_magmom_av,
+            ncomponents=self.ncomponents,
+            charge=self.params.charge,
+            hund=self.params.hund,
+            mgga=self.xc.type == 'MGGA')
 
     def create_occupation_number_calculator(self):
         return OccupationNumberCalculator(
@@ -441,7 +435,7 @@ def create_uniform_grid(mode: str,
                         h: float = None,
                         interpolation: str = None,
                         ecut: float = None,
-                        comm: MPIComm = serial_comm) -> UniformGrid:
+                        comm: MPIComm = serial_comm) -> UGDesc:
     """Create grid in a backwards compatible way."""
     cell = cell / Bohr
     if h is not None:
@@ -457,4 +451,4 @@ def create_uniform_grid(mode: str,
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
         size = get_number_of_grid_points(cell, h, modeobj, realspace,
                                          symmetry.symmetry)
-    return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)
+    return UGDesc(cell=cell, pbc=pbc, size=size, comm=comm)

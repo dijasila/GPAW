@@ -8,8 +8,8 @@ import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
-from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.core.plane_waves import PWArray
+from gpaw.core.uniform_grid import UGDesc, UGArray
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.gpu import as_xp
 from gpaw.new import prod, zips
@@ -99,7 +99,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self._occ_n = None
 
     def add_to_density(self,
-                       nt_sR: UniformGridFunctions,
+                       nt_sR: UGArray,
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
 
@@ -110,7 +110,7 @@ class PWFDWaveFunctions(WaveFunctions):
             return
 
         psit_nsG = self.psit_nX
-        assert isinstance(psit_nsG, PlaneWaveExpansions)
+        assert isinstance(psit_nsG, PWArray)
 
         tmp_sR = nt_sR.desc.new(dtype=complex).empty(2)
         p1_R, p2_R = tmp_sR.data
@@ -388,10 +388,10 @@ class PWFDWaveFunctions(WaveFunctions):
 
         self.psit_nX.desc.comm.sum(dipole_nnv)
 
-        if isinstance(self.psit_nX, UniformGridFunctions):
+        if isinstance(self.psit_nX, UGArray):
             psit_nR = self.psit_nX
         else:
-            assert isinstance(self.psit_nX, PlaneWaveExpansions)
+            assert isinstance(self.psit_nX, PWArray)
             # Find size of fft grid large enough to store square of wfs.
             pw = self.psit_nX.desc
             s1, s2, s3 = pw.indices_cG.ptp(axis=1)  # type: ignore
@@ -401,7 +401,7 @@ class PWFDWaveFunctions(WaveFunctions):
                       2 * s2 + 2,
                       4 * s3 + 2]
             size_c = [get_efficient_fft_size(N, 2) for N in size_c]
-            grid = UniformGrid(cell=pw.cell_cv, size=size_c)
+            grid = UGDesc(cell=pw.cell_cv, size=size_c)
             psit_nR = self.psit_nX.ifft(grid=grid)
 
         for na, psita_R in enumerate(psit_nR):
@@ -426,7 +426,7 @@ class PWFDWaveFunctions(WaveFunctions):
     def to_uniform_grid_wave_functions(self,
                                        grid,
                                        basis):
-        if isinstance(self.psit_nX, UniformGridFunctions):
+        if isinstance(self.psit_nX, UGArray):
             return self
 
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
