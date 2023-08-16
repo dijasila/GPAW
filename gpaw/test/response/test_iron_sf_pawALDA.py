@@ -8,6 +8,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.dyson import DysonEnhancer
+from gpaw.response.susceptibility import spectral_decomposition
 
 from gpaw.test.conftest import response_band_cutoff
 
@@ -49,7 +50,7 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
                                         **calc_kwargs)
     dyson_enhancer = DysonEnhancer(context)
 
-    for q_c, frq_w in zip(q_qc, frq_qw):
+    for q, (q_c, frq_w) in enumerate(zip(q_qc, frq_qw)):
         # Calculate χ_KS^+- and Ξ^++
         zd = ComplexFrequencyDescriptor.from_array(frq_w + 1j * eta)
         chiks = chiks_calc.calculate('+-', q_c, zd)
@@ -60,11 +61,14 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
 
+        # Write macroscopic component and acoustic magnon mode
+        chi.write_macroscopic_component(f'iron_chiM_q{q}.csv')
+        Amaj, _ = spectral_decomposition(chi)
+        Amaj.write_eigenmode_lineshapes(f'iron_Amaj_q{q}.csv')
+
     context.write_timer()
 
     # XXX To do XXX
-    # * Extract and save macroscopic component
-    # * Extract and save acoustic mode
     # * Plot component and mode
     # * Extract magnon frequency
     # * Test against reference values
