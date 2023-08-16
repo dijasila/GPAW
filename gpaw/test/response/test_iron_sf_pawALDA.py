@@ -7,6 +7,7 @@ from gpaw.mpi import world
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
+from gpaw.response.dyson import DysonEnhancer
 
 from gpaw.test.conftest import response_band_cutoff
 
@@ -43,19 +44,25 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
                        gammacentered=True,
                        nblocks=nblocks)
     chiks_calc = ChiKSCalculator(*calc_args, **calc_kwargs)
-    selfenh_calc = SelfEnhancementCalculator(*calc_args,
-                                             rshewmin=rshewmin,
-                                             **calc_kwargs)
+    xi_calc = SelfEnhancementCalculator(*calc_args,
+                                        rshewmin=rshewmin,
+                                        **calc_kwargs)
+    dyson_enhancer = DysonEnhancer(context)
 
     for q_c, frq_w in zip(q_qc, frq_qw):
+        # Calculate χ_KS^+- and Ξ^++
         zd = ComplexFrequencyDescriptor.from_array(frq_w + 1j * eta)
         chiks = chiks_calc.calculate('+-', q_c, zd)
-        selfenh = selfenh_calc.calculate(q_c, zd)
+        xi = xi_calc.calculate(q_c, zd)
+
+        # Distribute frequencies and invert dyson equation
+        chiks = chiks.copy_with_global_frequency_distribution()
+        xi = xi.copy_with_global_frequency_distribution()
+        chi = dyson_enhancer(chiks, xi)
 
     context.write_timer()
 
     # XXX To do XXX
-    # * Invert Dyson
     # * Extract and save macroscopic component
     # * Extract and save acoustic mode
     # * Plot component and mode
