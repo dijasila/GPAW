@@ -182,8 +182,10 @@ class MGGA(XCFunctional):
                 for v2 in range(3):
                     self.distribute_and_interpolate(
                         tau_svvG[s, v1, v2], tau_cross_g)
+                    print(s, v1, v2, integrate(tau_cross_g, dedtaut_sg[s]))
                     stress_vv[v1, v2] -= integrate(tau_cross_g, dedtaut_sg[s])
 
+        asdg
         self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
         for s in range(self.wfs.nspins):
             self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])

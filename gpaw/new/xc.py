@@ -120,11 +120,12 @@ class MGGAFunctional(Functional):
                 for v2 in range(v1, 3):
                     taut_r = interpolate(taut_wR[w])
                     s = taut_r.integrate(dedtaut_r)
+                    print(w, v1, v2, s)
                     stress_vv[v1, v2] -= s
                     if v2 != v1:
                         stress_vv[v2, v1] -= s
                     w += 1
-
+        sdfg
         return stress_vv
 
 
@@ -169,6 +170,17 @@ def _mgga(xc: OldXCFunctional, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
 
 
 def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
+    """Calculate upper half of symmetric ked tensor.
+
+    Returns ``taut_swR=taut_svvR``.  Mapping from ``w`` to ``vv``::
+
+        0 1 2
+        . 3 4
+        . . 5
+
+    Only cores with ``kpt_comm.rank==0`` and ``band_comm.rank==0``
+    return the uniform grids - other cores return None.
+    """
     # "1" refers to undistributed arrays
     dpsit1_vR = grid.new(comm=None, dtype=ibzwfs.dtype).empty(3)
     taut1_swR = grid.new(comm=None).zeros((ibzwfs.nspins, 6))
