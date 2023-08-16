@@ -49,15 +49,6 @@ class ModelInteraction:
             assert nk == self.gs.kd.nbzkpts
             assert bandrange[1] - bandrange[0] == nwan
         
-        def get_k1_k2(spin, iK1, iQ, bandrange):
-            # get kpt1, kpt1+q kpoint pairs used in density matrix
-            kpt1 = pair.get_k_point(spin, iK1, bandrange[0], bandrange[-1])
-            # Find k2 = K1 + Q
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] - self.gs.kd.bzk_kc[iQ]
-            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-            kpt2 = pair.get_k_point(spin, iK2, bandrange[0], bandrange[-1])
-            return kpt1, kpt2, iK2
-
         nfreq = len(chi0calc.wd)
         Wwan_wijkl = np.zeros([nfreq, nwan, nwan, nwan, nwan], dtype=complex)
         total_k = 0
@@ -65,7 +56,7 @@ class ModelInteraction:
         # First calculate W in IBZ in PW basis
         # and transform to DFT eigenbasis
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
-            print('iq = ', iq)
+            print('iq = ', iq)  # XXX make parprint
             # Calculate chi0 and W for IBZ k-point q
             chi0 = chi0calc.calculate(q_c)
             qpd = chi0.qpd
@@ -75,30 +66,20 @@ class ModelInteraction:
             pawcorr = chi0calc.pawcorr
             
             # Loop over all equivalent k-points
-            for iQ in ibz2bz[iq]:                
-                rho_mnG = []
-                iKmQ = []
-                for iK1 in range(self.gs.kd.nbzkpts):
-                    kpt1, kpt2, iK2loc = get_k1_k2(spin, iK1, iQ, bandrange)
-                    rholoc, iqloc = self.get_density_matrix(kpt1,
-                                                            kpt2,
-                                                            pawcorr,
-                                                            qpd,
-                                                            pair)
-                    assert iqloc == iq
-                    rho_mnG.append(rholoc)
-                    iKmQ.append(iK2loc)
+            for iQ in ibz2bz[iq]:
                 total_k += 1
+                rho_kmnG, iKmQ = self.get_rho_list(spin, iQ, iq, bandrange,
+                                                  pawcorr, qpd, pair)
 
                 myKrange = self.get_k_range()
                 # Double loop over BZ k-points
-                for iK1 in myKrange: #range(self.gs.kd.nbzkpts):
+                for iK1 in myKrange: # range(self.gs.kd.nbzkpts):
                     for iK3 in range(self.gs.kd.nbzkpts):
                         # W in products of KS eigenstates
                         W_wijkl = np.einsum('ijk,lkm,pqm->lipjq',
-                                            rho_mnG[iK1].conj(),
+                                            rho_kmnG[iK1].conj(),
                                             W_wGG,
-                                            rho_mnG[iK3],
+                                            rho_kmnG[iK3],
                                             optimize='optimal')
                         
                         Wwan_wijkl += np.einsum('ia,jb,kc,ld,wabcd->wijkl',
@@ -113,6 +94,31 @@ class ModelInteraction:
         Wwan_wijkl /= factor
 
         return Wwan_wijkl
+
+    def get_rho_list(self, spin, iQ, iq, bandrange, pawcorr, qpd, pair):
+        
+        def get_k1_k2(spin, iK1, iQ, bandrange):
+            # get kpt1, kpt1+q kpoint pairs used in density matrix
+            kpt1 = pair.get_k_point(spin, iK1, bandrange[0], bandrange[-1])
+            # Find k2 = K1 + Q
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] - self.gs.kd.bzk_kc[iQ]
+            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
+            kpt2 = pair.get_k_point(spin, iK2, bandrange[0], bandrange[-1])
+            return kpt1, kpt2, iK2
+
+        rho_kmnG = []
+        iKmQ = []
+        for iK1 in range(self.gs.kd.nbzkpts):
+            kpt1, kpt2, iK2loc = get_k1_k2(spin, iK1, iQ, bandrange)
+            rholoc, iqloc = self.get_density_matrix(kpt1,
+                                                    kpt2,
+                                                    pawcorr,
+                                                    qpd,
+                                                    pair)
+            assert iqloc == iq
+            rho_kmnG.append(rholoc)
+            iKmQ.append(iK2loc)
+        return rho_kmnG, iKmQ
 
     def get_density_matrix(self, kpt1, kpt2, pawcorr, qpd, pair):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
