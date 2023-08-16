@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from math import pi
+from typing import TYPE_CHECKING
 
 import _gpaw
 import numpy as np
@@ -11,16 +12,17 @@ from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
-from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.core.pwacf import PWAtomCenteredFunctions
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod, zip
+from gpaw.new import prod, zips
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
-                         Vector)
+                         Vector, Literal)
+if TYPE_CHECKING:
+    from gpaw.core import UGDesc, UGArray
 
 
-class PlaneWaves(Domain):
+class PWDesc(Domain):
     itemsize = 16
 
     def __init__(self,
@@ -84,7 +86,7 @@ class PlaneWaves(Domain):
         n = self.shape[0]
         r = Domain.__repr__(self).replace(
             'Domain(',
-            f'PlaneWaves(ecut={self.ecut} <coefs={m}/{n}>, ')
+            f'PWDesc(ecut={self.ecut} <coefs={m}/{n}>, ')
         if self.qspiral_v is None:
             return r
         q = self.cell_cv @ self.qspiral_v / (2 * pi)
@@ -116,7 +118,7 @@ class PlaneWaves(Domain):
     def empty(self,
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm,
-              xp=None) -> PlaneWaveExpansions:
+              xp=None) -> PWArray:
         """Create new PlaneWaveExpanions object.
 
         parameters
@@ -126,24 +128,25 @@ class PlaneWaves(Domain):
         comm:
             Distribute dimensions along this communicator.
         """
-        return PlaneWaveExpansions(self, dims, comm, xp=xp)
+        return PWArray(self, dims, comm, xp=xp)
 
     def from_data(self, data):
-        return PlaneWaveExpansions(self, data.shape[:-1], data=data)
+        return PWArray(self, data.shape[:-1], data=data)
 
     def new(self,
             *,
             ecut: float = None,
             kpt=None,
             dtype=None,
-            comm: MPIComm | str = 'inherit') -> PlaneWaves:
+            comm: MPIComm | Literal['inherit'] | None = 'inherit'
+            ) -> PWDesc:
         """Create new plane-wave expansion description."""
-        comm = self.comm if comm == 'inherit' else comm
-        return PlaneWaves(ecut=ecut or self.ecut,
-                          cell=self.cell_cv,
-                          kpt=self.kpt_c if kpt is None else kpt,
-                          dtype=dtype or self.dtype,
-                          comm=comm or serial_comm)
+        comm = self.comm if comm == 'inherit' else comm or serial_comm
+        return PWDesc(ecut=ecut or self.ecut,
+                      cell=self.cell_cv,
+                      kpt=self.kpt_c if kpt is None else kpt,
+                      dtype=dtype or self.dtype,
+                      comm=comm or serial_comm)
 
     def indices(self, shape: tuple[int, ...]) -> Array1D:
         """Return indices into FFT-grid."""
@@ -177,7 +180,7 @@ class PlaneWaves(Domain):
 
         _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
 
-    def map_indices(self, other: PlaneWaves) -> tuple[Array1D, list[Array1D]]:
+    def map_indices(self, other: PWDesc) -> tuple[Array1D, list[Array1D]]:
         """Map from one (distributed) set of plane waves to smaller global set.
 
         Say we have 9 G-vector on two cores::
@@ -226,9 +229,9 @@ class PlaneWaves(Domain):
                                 xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
         if self.qspiral_v is None:
-            return PlaneWaveAtomCenteredFunctions(functions, positions, self,
-                                                  atomdist=atomdist,
-                                                  xp=xp)
+            return PWAtomCenteredFunctions(functions, positions, self,
+                                           atomdist=atomdist,
+                                           xp=xp)
 
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
@@ -236,9 +239,9 @@ class PlaneWaves(Domain):
                            qspiral_v=self.qspiral_v)
 
 
-class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
+class PWArray(DistributedArrays[PWDesc]):
     def __init__(self,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray = None,
@@ -263,24 +266,26 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         self._matrix: Matrix | None
 
     def __repr__(self):
-        txt = f'PlaneWaveExpansions(pw={self.desc}, dims={self.dims}'
+        txt = f'PWArray(pw={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         if self.xp is not np:
             txt += ', xp=cp'
         return txt + ')'
 
-    def __getitem__(self, index: int | slice) -> PlaneWaveExpansions:
+    def __getitem__(self, index: int | slice) -> PWArray:
         data = self.data[index]
-        return PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
+        return PWArray(self.desc, data.shape[:-1], data=data)
 
     def __iter__(self):
         for data in self.data:
-            yield PlaneWaveExpansions(self.desc, data.shape[:-1], data=data)
+            yield PWArray(self.desc,
+                          data.shape[:-len(self.desc.shape)],
+                          data=data)
 
     def new(self,
-            data=None) -> PlaneWaveExpansions:
-        """Create new PlaneWaveExpansions object of same kind.
+            data=None) -> PWArray:
+        """Create new PWArray object of same kind.
 
         Parameters
         ----------
@@ -293,10 +298,10 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             # Number of plane-waves depends on the k-point.  We therfore
             # allow for data to be bigger than needed:
             data = data.ravel()[:self.data.size].reshape(self.data.shape)
-        return PlaneWaveExpansions(self.desc,
-                                   self.dims,
-                                   self.comm,
-                                   data)
+        return PWArray(self.desc,
+                       self.dims,
+                       self.comm,
+                       data)
 
     def copy(self):
         """Create a copy (surprise!)."""
@@ -336,7 +341,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         grid:
             Target grid.
         out:
-            Target UniformGridFunctions object.
+            Target UGArray object.
         """
         comm = self.desc.comm
         xp = self.xp
@@ -349,7 +354,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
         if this is not None:
-            for coef_G, out1 in zip(this._arrays(), out.flat()):
+            for coef_G, out1 in zips(this._arrays(), out.flat()):
                 plan.ifft_sphere(coef_G, self.desc, out1)
         else:
             for out1 in out.flat():
@@ -363,8 +368,8 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
     def interpolate(self,
                     plan1: fftw.FFTPlans = None,
                     plan2: fftw.FFTPlans = None,
-                    grid: UniformGrid = None,
-                    out: UniformGridFunctions = None) -> UniformGridFunctions:
+                    grid: UGDesc = None,
+                    out: UGArray = None) -> UGArray:
         assert plan1 is None
         return self.ifft(plan=plan2, grid=grid, out=out)
 
@@ -390,7 +395,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         else:
             data = None
 
-        for input, output in zip(self._arrays(), out._arrays()):
+        for input, output in zips(self._arrays(), out._arrays()):
             mydata = pad(input, self.desc.maxmysize)
             comm.gather(mydata, 0, data)
             if comm.rank == 0:
@@ -401,7 +406,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         return out if not isinstance(out, Empty) else None
 
-    def gather_all(self, out: PlaneWaveExpansions) -> None:
+    def gather_all(self, out: PWArray) -> None:
         """Gather coefficients from self[r] on rank r.
 
         On rank r, an array of all G-vector coefficients will be returned.
@@ -445,7 +450,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
             comm.scatter(None, buf, 0)
             self.data[:] = buf[:len(self.data)]
 
-    def scatter_from_all(self, a_G: PlaneWaveExpansions) -> None:
+    def scatter_from_all(self, a_G: PWArray) -> None:
         """Scatter all coefficients from rank r to self on other cores."""
         assert len(self.dims) == 1
         pw = self.desc
@@ -467,7 +472,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         comm.alltoallv(a_G.data, ssize_r, soffset_r,
                        self.data, rsize_r, roffset_r)
 
-    def integrate(self, other: PlaneWaveExpansions = None) -> np.ndarray:
+    def integrate(self, other: PWArray = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
         dv = self.dv
         if other is not None:
@@ -555,7 +560,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions) -> None:
+                   out: UGArray) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -573,7 +578,7 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
 
         if domain_comm.size == 1:
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
-            for weight, a_G in zip(weights, a_nG):
+            for weight, a_G in zips(weights, a_nG):
                 if weight == 0.0:
                     continue
                 a_G.ifft(out=a_R)
@@ -640,12 +645,12 @@ class PlaneWaveExpansions(DistributedArrays[PlaneWaves]):
         pw.comm.broadcast(m_v, 0)
         return m_v
 
-    def morph(self, pw: PlaneWaves) -> PlaneWaveExpansions:
+    def morph(self, pw: PWDesc) -> PWArray:
         pw0 = self.desc
         out_xG = pw.zeros(self.dims,
                           comm=self.comm,
                           xp=self.xp)
-        assert isinstance(out_xG, PlaneWaveExpansions)  # MYPY!!!!
+        assert isinstance(out_xG, PWArray)  # MYPY!!!!
 
         d = {}
         for G, i_c in enumerate(pw.indices_cG.T):

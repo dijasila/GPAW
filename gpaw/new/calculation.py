@@ -10,8 +10,8 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
-from gpaw.mpi import broadcast_float
-from gpaw.new import cached_property, zip
+from gpaw.mpi import broadcast_float, world
+from gpaw.new import cached_property, zips
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
@@ -63,10 +63,10 @@ class DFTState:
     def __str__(self):
         return f'{self.ibzwfs}\n{self.density}\n{self.potential}'
 
-    def move(self, fracpos_ac, atomdist, delta_nct_R):
+    def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
         self.potential.energies.clear()
-        self.density.move(delta_nct_R)  # , atomdist) XXX
+        self.density.move(fracpos_ac, atomdist)
 
 
 class DFTCalculation:
@@ -81,6 +81,7 @@ class DFTCalculation:
         self.scf_loop = scf_loop
         self.pot_calc = pot_calc
         self.log = log
+        self.comm = log.comm
 
         self.results: dict[str, Any] = {}
         self.fracpos_ac = self.pot_calc.fracpos_ac
@@ -89,6 +90,7 @@ class DFTCalculation:
     def from_parameters(cls,
                         atoms: Atoms,
                         params: Union[dict, InputParameters],
+                        comm=None,
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
@@ -101,17 +103,17 @@ class DFTCalculation:
         if isinstance(params, dict):
             params = InputParameters(params)
 
-        builder = builder or create_builder(atoms, params)
-
         if not isinstance(log, Logger):
-            log = Logger(log, params.parallel['world'])
+            log = Logger(log, comm or world)
+
+        builder = builder or create_builder(atoms, params, log.comm)
 
         basis_set = builder.create_basis_set()
 
         density = builder.density_from_superposition(basis_set)
         density.normalize()
 
-        # The SCF-loop has a hamiltonian that has an fft-plan that is
+        # The SCF-loop has a Hamiltonian that has an fft-plan that is
         # cached for later use, so best to create the SCF-loop first
         # FIX this!
         scf_loop = builder.create_scf_loop()
@@ -128,24 +130,18 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return cls(state,
-                   builder.setups,
-                   scf_loop,
-                   pot_calc,
-                   log)
+        return cls(state, builder.setups, scf_loop, pot_calc, log)
 
     def move_atoms(self, atoms) -> DFTCalculation:
         check_atoms_too_close(atoms)
 
         self.fracpos_ac = np.ascontiguousarray(atoms.get_scaled_positions())
-        self.scf_loop.world.broadcast(self.fracpos_ac, 0)
+        self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
 
-        delta_nct_R = self.pot_calc.move(self.fracpos_ac,
-                                         atomdist,
-                                         self.state.density.ndensities)
-        self.state.move(self.fracpos_ac, atomdist, delta_nct_R)
+        self.pot_calc.move(self.fracpos_ac, atomdist)
+        self.state.move(self.fracpos_ac, atomdist)
 
         mm_av = self.results['non_collinear_magmoms']
         write_atoms(atoms, mm_av, self.log)
@@ -191,9 +187,8 @@ class DFTCalculation:
         self.log(f'  total:       {total_free * Ha:14.6f}')
         self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
-        world = self.scf_loop.world
-        total_free = broadcast_float(total_free, world)
-        total_extrapolated = broadcast_float(total_extrapolated, world)
+        total_free = broadcast_float(total_free, self.comm)
+        total_extrapolated = broadcast_float(total_extrapolated, self.comm)
 
         self.results['free_energy'] = total_free
         self.results['energy'] = total_extrapolated
@@ -214,7 +209,7 @@ class DFTCalculation:
             x, y, z = mm_v
             self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
-            for a, (setup, m_v) in enumerate(zip(self.setups, mm_av)):
+            for a, (setup, m_v) in enumerate(zips(self.setups, mm_av)):
                 x, y, z = m_v
                 c = ',' if a < len(mm_av) - 1 else ']'
                 self.log(f'  [{x:9.6f}, {y:9.6f}, {z:9.6f}]{c}'
@@ -265,13 +260,13 @@ class DFTCalculation:
                 self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
                          f'  # {setup.symbol:2} {a}')
 
-        self.scf_loop.world.broadcast(F_av, 0)
+        self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
         stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
-        for (x, y, z), c in zip(stress_vv * (Ha / Bohr**3), ',,]'):
+        for (x, y, z), c in zips(stress_vv * (Ha / Bohr**3), ',,]'):
             self.log(f'  [{x:13.6f}, {y:13.6f}, {z:13.6f}]{c}')
         self.results['stress'] = stress_vv.flat[[0, 4, 8, 5, 2, 1]]
 
@@ -306,7 +301,7 @@ class DFTCalculation:
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
 
-        builder = create_builder(atoms, params)
+        builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
         old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
@@ -315,9 +310,17 @@ class DFTCalculation:
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
             raise ReuseWaveFunctionsError
 
-        density = self.state.density.new(builder.grid)
+        density = self.state.density.new(builder.grid,
+                                         builder.fracpos_ac,
+                                         builder.atomdist)
         density.normalize()
-        self.scf_loop.world.broadcast(density.nt_sR.data, 0)
+
+        # Make sure all have exactly the same density.
+        # Not quite sure it is needed???
+        # At the moment we skip it on GPU's because it doesn't
+        # work!
+        if density.nt_sR.xp is np:
+            self.comm.broadcast(density.nt_sR.data, 0)
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()
@@ -347,11 +350,8 @@ class DFTCalculation:
         log(scf_loop)
         log(pot_calc)
 
-        return DFTCalculation(state,
-                              builder.setups,
-                              scf_loop,
-                              pot_calc,
-                              log)
+        return DFTCalculation(
+            state, builder.setups, scf_loop, pot_calc, log)
 
 
 def combine_energies(potential: Potential,
@@ -375,8 +375,8 @@ def write_atoms(atoms: Atoms,
 
     log('\natoms: [  # symbols, positions [Ang] and initial magnetic moments')
     symbols = atoms.get_chemical_symbols()
-    for a, ((x, y, z), (mx, my, mz)) in enumerate(zip(atoms.positions,
-                                                      magmom_av)):
+    for a, ((x, y, z), (mx, my, mz)) in enumerate(zips(atoms.positions,
+                                                       magmom_av)):
         symbol = symbols[a]
         c = ']' if a == len(atoms) - 1 else ','
         log(f'  [{symbol:>3}, [{x:11.6f}, {y:11.6f}, {z:11.6f}],'
@@ -384,7 +384,7 @@ def write_atoms(atoms: Atoms,
 
     log('\ncell: [  # Ang')
     log('#     x            y            z')
-    for (x, y, z), c in zip(atoms.cell, ',,]'):
+    for (x, y, z), c in zips(atoms.cell, ',,]'):
         log(f'  [{x:11.6f}, {y:11.6f}, {z:11.6f}]{c}')
 
     log()

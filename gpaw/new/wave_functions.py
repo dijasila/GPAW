@@ -4,9 +4,9 @@ from types import ModuleType
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
@@ -75,7 +75,7 @@ class WaveFunctions:
         raise NotImplementedError
 
     def add_to_density(self,
-                       nt_sR: UniformGridFunctions,
+                       nt_sR: UGArray,
                        D_asii: AtomArrays) -> None:
         raise NotImplementedError
 
@@ -119,11 +119,11 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            for D_sii, P_ni in zip(D_asii.values(), P_ani.values()):
+            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
                 D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
                                               P_ni.conj(), occ_n, P_ni).real
         else:
-            for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
+            for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',
                                    P_nsi.conj(), occ_n, P_nsi)
                 D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]

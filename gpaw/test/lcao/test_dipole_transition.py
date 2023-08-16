@@ -12,7 +12,7 @@ from gpaw.lrtddft.kssingle import KSSingles
 @pytest.mark.later
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for H20."""
-    calc = GPAW(gpw_files['h2o_lcao_wfs'])
+    calc = GPAW(gpw_files['h2o_lcao'])
     # Initialize calculator if necessary
     if not hasattr(calc.wfs, 'C_nM'):
         calc.initialize_positions(calc.atoms)
@@ -44,7 +44,7 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
     if world.rank == 0:
         from gpaw.new.ase_interface import GPAW as NewGPAW
         from gpaw.mpi import serial_comm
-        refcalc = NewGPAW(gpw_files['h2o_lcao_wfs'],
+        refcalc = NewGPAW(gpw_files['h2o_lcao'],
                           parallel={'world': serial_comm})
         uref = dipole_matrix_elements_from_calc(refcalc, 0, 6)
         uref = uref[0]

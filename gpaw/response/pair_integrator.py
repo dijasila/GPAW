@@ -278,6 +278,17 @@ class PairFunctionIntegrator(ABC):
 
         return s
 
+    @staticmethod
+    def get_band_and_transitions_info_string(nbands, nt):
+        isl = []  # info string list
+        if nbands is None:
+            isl.append('    Bands included: All')
+        else:
+            isl.append(f'    Number of bands included: {nbands}')
+        isl.append('Resulting in:')
+        isl.append(f'    A total number of band and spin transitions of: {nt}')
+        return '\n'.join(isl)
+
 
 class KPointPairIntegral(ABC):
     r"""Baseclass for reciprocal space integrals of the first Brillouin Zone,

@@ -24,12 +24,12 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     atol = 5e-03  # Tolerance when comparing wfs and projections
     atol_eig = 1e-04  # Tolerance when comparing eigenvalues
     atol_deg = 5e-3  # Tolerance for checking degenerate states
-    
+
     # Loading calc with symmetry
-    calc = GPAW(gpw_files[gs + '_wfs'],
+    calc = GPAW(gpw_files[gs],
                 communicator=mpi.serial_comm)
     wfs = calc.wfs
-    nconv = response_band_cutoff[gs + '_wfs']
+    nconv = response_band_cutoff[gs]
 
     # setting basic stuff
     nbands = wfs.bd.nbands if nconv == -1 else nconv
@@ -37,7 +37,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
     # Loading calc without symmetry
-    calc_nosym = GPAW(gpw_files[gs + '_nosym_wfs'],
+    calc_nosym = GPAW(gpw_files[gs + '_nosym'],
                       communicator=mpi.serial_comm)
     wfs_nosym = calc_nosym.wfs
 
@@ -83,7 +83,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
             while n < nbands:
                 dim = find_degenerate_subspace(eps_n, n, nbands, atol_deg)
                 if dim == 1:
-                    
+
                     # First check untransformed quantities for ibz k-points
                     if np.allclose(wfs.kd.bzk_kc[K],
                                    wfs.kd.ibzk_kc[ik]):

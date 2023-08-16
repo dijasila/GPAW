@@ -12,13 +12,13 @@ def create_basis(ibz,
                  setups,
                  dtype,
                  fracpos_ac,
-                 world=serial_comm,
+                 comm=serial_comm,
                  kpt_comm=serial_comm,
                  band_comm=serial_comm):
     kd = KPointDescriptor(ibz.bz.kpt_Kc, nspins)
     kd.set_symmetry(SimpleNamespace(pbc=pbc_c),
                     ibz.symmetries.symmetry,
-                    comm=world)
+                    comm=comm)
     kd.set_communicator(kpt_comm)
 
     basis = BasisFunctions(grid._gd,

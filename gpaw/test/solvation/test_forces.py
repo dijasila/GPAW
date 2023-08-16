@@ -34,6 +34,7 @@ def test_solvation_forces():
 
 
     atoms.calc = SolvationGPAW(
+        mode='fd',
         mixer=Mixer(0.5, 7, 50.0),
         xc='oldPBE', h=h, setups={'Na': '1'},
         cavity=EffectivePotentialCavity(

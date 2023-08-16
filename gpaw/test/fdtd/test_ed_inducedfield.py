@@ -64,7 +64,8 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                                                      vacuum=2.50)
 
     # Initialize GPAW
-    gs_calc = GPAW(gpts=gpts,
+    gs_calc = GPAW(mode='fd',
+                   gpts=gpts,
                    eigensolver='cg',
                    nbands=-1,
                    poissonsolver=poissonsolver,

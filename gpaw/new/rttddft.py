@@ -36,7 +36,7 @@ class TDAlgorithm:
         raise NotImplementedError()
 
     def get_description(self):
-        return '%s' % self.__class__.__name__
+        return self.__class__.__name__
 
 
 def propagate_wave_functions_numpy(source_C_nM: np.ndarray,
@@ -90,7 +90,7 @@ class ECNAlgorithm(TDAlgorithm):
                                                wfs.S_MM.data,
                                                V_MM.data, 1 / nkicks)
         # Update density
-        state.density.update(pot_calc.nct_R, state.ibzwfs)
+        state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
         state.potential, state.vHt_x, _ = pot_calc.calculate(
@@ -116,7 +116,7 @@ class ECNAlgorithm(TDAlgorithm):
                                            wfs.S_MM.data,
                                            H_MM.data, time_step)
         # Update density
-        state.density.update(pot_calc.nct_R, state.ibzwfs)
+        state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
         state.potential, state.vHt_x, _ = pot_calc.calculate(
@@ -251,8 +251,8 @@ class RTTDDFT:
                       filepath: str,
                       propagator: TDAlgorithm | None = None):
         _, calculation, params, builder = read_gpw(filepath,
-                                                   '-',
-                                                   {'world': world},
+                                                   log='-',
+                                                   comm=world,
                                                    dtype=complex)
 
         state = calculation.state
@@ -284,7 +284,7 @@ class RTTDDFT:
             self.log(f'----  Magnitude: {magnitude:.8f} Hartree/Bohr')
             self.log(f'----  Direction: {dirstr}')
 
-            # Create hamiltonian object for absorption kick
+            # Create Hamiltonian object for absorption kick
             cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
 
             # Propagate kick

@@ -18,8 +18,8 @@ from typing import DefaultDict
 import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new import zip
+from gpaw.core.uniform_grid import UGArray
+from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.new.xc import Functional
 from gpaw.setup import Setup
@@ -34,13 +34,12 @@ class PotentialCalculator:
                  xc: Functional,
                  poisson_solver,
                  setups: list[Setup],
-                 nct_R: UniformGridFunctions,
+                 *,
                  fracpos_ac: Array2D,
                  soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
-        self.nct_R = nct_R
         self.fracpos_ac = fracpos_ac
         self.soc = soc
 
@@ -53,11 +52,15 @@ class PotentialCalculator:
                                    ibzwfs,
                                    vHt_x: DistributedArrays | None
                                    ) -> tuple[dict[str, float],
-                                              UniformGridFunctions,
+                                              UGArray,
+                                              UGArray,
                                               DistributedArrays]:
         raise NotImplementedError
 
     def calculate_charges(self, vHt_x):
+        raise NotImplementedError
+
+    def restrict(self, a_r, a_R=None):
         raise NotImplementedError
 
     def calculate(self,
@@ -65,30 +68,36 @@ class PotentialCalculator:
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
                   ) -> tuple[Potential, DistributedArrays, AtomArrays]:
-        energies, vt_sR, vHt_x = self.calculate_pseudo_potential(
+        energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
+
+        e_kinetic = 0.0
+        for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
+            e_kinetic -= vt_R.integrate(nt_R)
+            if spin < density.ndensities:
+                e_kinetic += vt_R.integrate(density.nct_R)
+
+        if dedtaut_sr is not None:
+            dedtaut_sR = self.restrict(dedtaut_sr)
+            for dedtaut_R, taut_R in zips(dedtaut_sR,
+                                          density.taut_sR):
+                e_kinetic -= dedtaut_R.integrate(taut_R)
+                e_kinetic += dedtaut_R.integrate(density.tauct_R)
+        else:
+            dedtaut_sR = None
+
+        energies['kinetic'] = e_kinetic
 
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc)
 
         for key, e in corrections.items():
-            # print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
+            if 0:
+                print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
-        return Potential(vt_sR, dH_asii, energies), vHt_x, Q_aL
-
-    def move(self, fracpos_ac, atomdist, ndensities) -> UniformGridFunctions:
-        """Move things and return change in pseudo core density."""
-        delta_nct_R = self.nct_R.new()
-        delta_nct_R.data[:] = self.nct_R.data
-        delta_nct_R.data *= -1
-        self._move(fracpos_ac, atomdist, ndensities)
-        delta_nct_R.data += self.nct_R.data
-        return delta_nct_R
-
-    def _move(self, fracpos_ac, atomdist, ndensities) -> None:
-        raise NotImplementedError
+        return Potential(vt_sR, dH_asii, dedtaut_sR, energies), vHt_x, Q_aL
 
 
 def calculate_non_local_potential(setups,
@@ -117,7 +126,7 @@ def calculate_non_local_potential(setups,
     density.D_asii.layout.atomdist.comm.sum(energies)
 
     return (dH_asii.to_xp(density.D_asii.layout.xp),
-            {name: e for name, e in zip(names, energies)})
+            dict(zips(names, energies)))
 
 
 def calculate_non_local_potential1(setup: Setup,

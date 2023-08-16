@@ -5,19 +5,19 @@ import _gpaw
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
-from gpaw.pw.lfc import rescaled_fbt
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from gpaw.core.plane_waves import PlaneWaves
+    from gpaw.core.plane_waves import PWDesc
 
 
-class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
+class PWAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos,
@@ -37,8 +37,6 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         if self._atomdist is None:
             self._atomdist = AtomDistribution.from_number_of_atoms(
                 len(self.fracpos_ac), self.pw.comm)
-        else:
-            assert self.pw.comm is self._atomdist.comm
 
         self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
@@ -54,17 +52,21 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         return s[:-1] + ', xp=cp)'
 
     def to_uniform_grid(self,
-                        out: UniformGridFunctions,
-                        scale: float = 1.0) -> UniformGridFunctions:
+                        out: UGArray,
+                        scale: float = 1.0) -> UGArray:
         out_G = self.pw.zeros(xp=out.xp)
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
+
+    def change_cell(self, new_pw):
+        self.pw = new_pw
+        self._lfc = None
 
 
 class PWLFC(BaseLFC):
     def __init__(self,
                  functions,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  blocksize=5000, *, xp):
         """Reciprocal-space plane-wave localized function collection.
 
@@ -138,7 +140,7 @@ class PWLFC(BaseLFC):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
                 if spline not in done:
-                    f = rescaled_fbt(spline)
+                    f = rescaled_fourier_bessel_transform(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     self.f_Gs[:, s] = xp.asarray(f.map(G_G))
                     self.l_s[s] = spline.get_angular_momentum_number()
@@ -430,7 +432,7 @@ class PWLFC(BaseLFC):
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 if spline not in cache:
-                    s = rescaled_fbt(spline)
+                    s = rescaled_fourier_bessel_transform(spline)
                     G_G = (2 * self.pw.ekin_G)**0.5
                     f_G = []
                     dfdGoG_G = []

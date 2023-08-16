@@ -3,17 +3,18 @@ variables:
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
   OMP_NUM_THREADS: "1"
 
-
 default:
   before_script:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
 
 
 stages:
   - build
+  - precalculate
   - test
 
 
@@ -63,8 +64,6 @@ stages:
   stage: test
   before_script:
     - !reference [default, before_script]
-    - export PYTEST_ADDOPTS="--color=yes"
-
 
 .gpu-job:
   rules:
@@ -379,6 +378,30 @@ docs:
     expire_in: 1 week
 
 
+gpwfiles:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  stage: precalculate
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
+  script:
+    - pytest -n 8 -m generate_gpw_files
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #    when: never
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+
 .nightly:
   image: $IMAGE_PATH/run:latest
   variables:
@@ -388,16 +411,16 @@ docs:
   stage: test
   needs:
     - build-latest
+    - gpwfiles
   tags:
     - xeon24
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist pytest-timeout
-    - export GPW_TEST_FILES=$HOME/gpw-test-files
+    - pip install pytest-instafail pytest-xdist
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -x -r s --durations 30 --color=yes
+      pytest --instafail -x -r s --durations 30
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -408,17 +431,21 @@ nightly-mpi-1:
     - .nightly
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s --durations 30 --color=yes
+    - pytest --cache-show
+    - pytest -n 4 --instafail -r s --durations 30
 
 
 nightly-mpi-1-new:
+  variables:
+    GPAW_NEW: "1"
   extends:
     - .nightly
   script:
     - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
     - >
-      GPAW_NEW=1 pytest -n 4 --instafail -r s --durations 30 --color=yes -m
-      "not (later or dscf or gllb or elph or mgga or wannier or legacy or ofdft or mom or do or lrtddft or stress or rttddft or hybrids)"
+      pytest -n 4 --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
 
 
 nightly-mpi-2:

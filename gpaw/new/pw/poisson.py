@@ -2,15 +2,15 @@ from math import pi
 
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.core import PWDesc, UGDesc
+from gpaw.core.plane_waves import PWArray
 from gpaw.new import cached_property
 from gpaw.new.poisson import PoissonSolver
 from scipy.special import erf
 
 
-def make_poisson_solver(pw: PlaneWaves,
-                        grid: UniformGrid,
+def make_poisson_solver(pw: PWDesc,
+                        grid: UGDesc,
                         pbc_c,
                         charge: float,
                         strength: float = 1.0,
@@ -29,7 +29,7 @@ def make_poisson_solver(pw: PlaneWaves,
 
 class PWPoissonSolver(PoissonSolver):
     def __init__(self,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  charge: float = 0.0,
                  strength: float = 1.0):
         self.pw = pw
@@ -51,8 +51,8 @@ class PWPoissonSolver(PoissonSolver):
         return txt
 
     def solve(self,
-              vHt_g: PlaneWaveExpansions,
-              rhot_g: PlaneWaveExpansions) -> float:
+              vHt_g: PWArray,
+              rhot_g: PWArray) -> float:
         """Solve Poisson equeation.
 
         Places result in vHt_g ndarray.
@@ -76,8 +76,8 @@ class PWPoissonSolver(PoissonSolver):
 
 class ChargedPWPoissonSolver(PWPoissonSolver):
     def __init__(self,
-                 pw: PlaneWaves,
-                 grid: UniformGrid,
+                 pw: PWDesc,
+                 grid: UGDesc,
                  charge: float,
                  strength: float = 1.0,
                  alpha: float = None,
@@ -98,10 +98,10 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         Parameters
         ----------
-        pw: PlaneWaves
-        grid: UniformGrid
+        pw: PWDesc
+        grid: UGDesc
         charge: float
-        strength: flaot
+        strength: float
         alpha: float
         eps: float
 
@@ -110,7 +110,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
         alpha : float
         charge_g : np.ndarray
             Guassian-shaped charge in reciprocal space
-        potential_g : PlaneWavesExpansions
+        potential_g : PWArray
              Potential in reciprocal space created by charge_g
         """
         super().__init__(pw, charge, strength)
@@ -176,7 +176,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
-                 grid: UniformGrid,
+                 grid: UGDesc,
                  width: float = 1.0):  # Ångström
         self.ps = ps
         self.grid = grid
@@ -184,8 +184,8 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         (self.axis,) = np.where(~grid.pbc_c)
 
     def solve(self,
-              vHt_g: PlaneWaveExpansions,
-              rhot_g: PlaneWaveExpansions) -> float:
+              vHt_g: PWArray,
+              rhot_g: PWArray) -> float:
         epot = self.ps.solve(vHt_g, rhot_g)
 
         dip_v = -rhot_g.moment()
@@ -197,7 +197,7 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         return epot + 2 * np.pi * dip_v[c]**2 / self.grid.volume
 
     @cached_property
-    def sawtooth_g(self) -> PlaneWaveExpansions:
+    def sawtooth_g(self) -> PWArray:
         grid = self.grid
         if grid.comm.rank == 0:
             c = self.axis

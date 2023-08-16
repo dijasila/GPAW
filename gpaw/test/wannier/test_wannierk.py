@@ -14,7 +14,8 @@ def test_ase_features_wannierk(in_tmp_dir):
 
     k = 4
     if 1:
-        params = dict(kpts=(k, k, k),
+        params = dict(mode='fd',
+                      kpts=(k, k, k),
                       parallel=dict(augment_grids=True),
                       mixer=Mixer(0.8, 7, 50.0))
         si.calc = GPAW(**params,

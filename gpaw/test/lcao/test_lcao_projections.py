@@ -11,7 +11,8 @@ from gpaw.poisson import FDPoissonSolver
 def test_lcao_lcao_projections():
     atoms = molecule('C2H2')
     atoms.center(vacuum=3.0)
-    calc = GPAW(gpts=(32, 32, 48),
+    calc = GPAW(mode='fd',
+                gpts=(32, 32, 48),
                 experimental={'niter_fixdensity': 2},
                 poissonsolver=FDPoissonSolver(),
                 eigensolver='rmm-diis')

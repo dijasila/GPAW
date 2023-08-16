@@ -47,7 +47,7 @@ def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c):
     if truncation is None:
         qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
         if q_v is not None:
-            assert qpd.kd.gamma
+            assert qpd.optical_limit
             qG_Gv += q_v
         if qpd.kd.gamma and q_v is None:
             v_G = np.zeros(len(qpd.G2_qG[0]))

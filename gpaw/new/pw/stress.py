@@ -20,7 +20,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      nt_g) -> Array2D:
     assert state.ibzwfs.domain_comm.size == 1
     assert state.ibzwfs.band_comm.size == 1
-    world = state.ibzwfs.kpt_comm
+    comm = state.ibzwfs.kpt_comm
 
     xc = pot_calc.xc
 
@@ -50,7 +50,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
 
     s_vv -= xp.eye(3) * pot_calc.e_stress
     s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
-    s_vv += pot_calc.nct_ag.stress_tensor_contribution(vt_g)
+    s_vv += state.density.nct_aX.stress_tensor_contribution(vt_g)
 
     # s_vv += wfs.dedepsilon * np.eye(3) ???
 
@@ -72,7 +72,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     # Make sure all agree on the result (redundant calculation on
     # different cores involving BLAS might give slightly different
     # results):
-    world.broadcast(sigma_vv, 0)
+    comm.broadcast(sigma_vv, 0)
     return sigma_vv
 
 
