@@ -208,8 +208,8 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
             The maximum index l (l < 6) to use in the expansion of f(r) into
             real spherical harmonics for the PAW correction.
         rshewmin : float or None
-            If None, the PAW correction will be fully expanded up to the chosen
-            lmax. Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            If None, the f(r) will be fully expanded up to the chosen lmax.
+            Given as a float (0 < rshewmin < 1), rshewmin indicates what
             coefficients to use in the expansion. If any (l,m) coefficient
             contributes with less than a fraction of rshewmin on average, it
             will not be included.
