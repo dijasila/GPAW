@@ -485,17 +485,8 @@ class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
         self.rshewmin = rshewmin
 
         assert 'disable_time_reversal' not in kwargs
-        # Whereas time reversal symmetry is not allowed for the
-        # self-enhancement function, point group symmetry and pair-wise band
-        # summation should in principle work straight out of the box. However,
-        # we should test this before enabling them. XXX
-        # super().__init__(*args, disable_time_reversal=True, **kwargs)
-        assert 'disable_point_group' not in kwargs
-        assert 'bandsummation' not in kwargs
         super().__init__(gs, context=context,
                          disable_time_reversal=True,
-                         disable_point_group=True,
-                         bandsummation='double',
                          **kwargs)
     
     def create_matrix_element_calculators(self):
