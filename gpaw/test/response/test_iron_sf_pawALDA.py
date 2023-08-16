@@ -84,10 +84,10 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
         wpeak1, Ipeak = findpeak(w_w, -chiM_w.imag / np.pi)
         wpeak2, Apeak = findpeak(w_w, a_w)
 
-        assert wpeak1 == pytest.approx(wpeak2, abs=0.001)  # ±1 meV
-        assert wpeak1 == pytest.approx(refs[0], abs=0.01)  # ±10 meV
-        assert Ipeak == pytest.approx(refs[1], abs=0.01)  # ±10 a.u.
-        assert Apeak == pytest.approx(refs[2], abs=0.05)  # ±50 a.u.
+        assert wpeak1 == pytest.approx(wpeak2, abs=0.001)  # eV
+        assert wpeak1 == pytest.approx(refs[0], abs=0.01)  # eV
+        assert Ipeak == pytest.approx(refs[1], abs=0.01)  # a.u.
+        assert Apeak == pytest.approx(refs[2], abs=0.05)  # a.u.
 
 
 def extract_data(q):
