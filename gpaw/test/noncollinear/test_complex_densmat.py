@@ -4,17 +4,18 @@ import pytest
 from gpaw.new.pot_calc import calculate_non_local_potential1
 from gpaw.new.xc import create_functional
 from gpaw.setup import create_setup
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.xc import XC
 
 
+@pytest.mark.soc
 def test_energy_from_complex_densmat():
 
     # Set up objects and matrices
 
     setup = create_setup('Ga')
-    grid = UniformGrid(cell=[1, 1, 1], size=[9, 9, 9])
-    xc = create_functional(XC('LDA', collinear=False), grid, 1, 2, 3, 4, 5)
+    grid = UGDesc(cell=[1, 1, 1], size=[9, 9, 9])
+    xc = create_functional(XC('LDA', collinear=False), grid)
     soc = True
     err = 1.0e-6
     D_sii = np.zeros((4, setup.ni, setup.ni), complex)
@@ -31,8 +32,8 @@ def test_energy_from_complex_densmat():
                           -1j * (D_ssmm[0, 1] - D_ssmm[1, 0]),
                           D_ssmm[0, 0] - D_ssmm[1, 1]]
 
-    _, energies1 = calculate_non_local_potential1(
-        setup, xc, D_sii, np.zeros(1), soc)
+    _, energies1 = calculate_non_local_potential1(setup, xc, D_sii,
+                                                  np.zeros(1), soc)
 
     assert energies1['kinetic'] == pytest.approx(0.04340694003, abs=err)
     assert energies1['coulomb'] == pytest.approx(-5.5575386716, abs=err)
@@ -53,8 +54,8 @@ def test_energy_from_complex_densmat():
                           -1j * (D_ssmm[0, 1] - D_ssmm[1, 0]),
                           D_ssmm[0, 0] - D_ssmm[1, 1]]
 
-    _, energies2 = calculate_non_local_potential1(
-        setup, xc, D_sii, np.zeros(1), soc)
+    _, energies2 = calculate_non_local_potential1(setup, xc, D_sii,
+                                                  np.zeros(1), soc)
 
     assert energies2['kinetic'] == pytest.approx(energies1['kinetic'], abs=err)
     assert energies2['coulomb'] == pytest.approx(energies1['coulomb'], abs=err)
@@ -64,8 +65,8 @@ def test_energy_from_complex_densmat():
     # Assert that only the kinetic energy changes when the density
     # matrix is forced to be real
 
-    _, energies3 = calculate_non_local_potential1(
-        setup, xc, D_sii.real, np.zeros(1), soc)
+    _, energies3 = calculate_non_local_potential1(setup, xc, D_sii.real,
+                                                  np.zeros(1), soc)
 
     assert energies3['kinetic'] == pytest.approx(0.0446930609623, abs=err)
     assert energies3['coulomb'] == pytest.approx(energies1['coulomb'], abs=err)
