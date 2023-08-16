@@ -12,6 +12,8 @@ from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
 from gpaw.xc.mgga import MGGA
+from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new import zips
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -104,27 +106,30 @@ class MGGAFunctional(Functional):
                             ) -> Array2D:
         nt_sr = interpolate(state.density.nt_sR)
         taut_sr = interpolate(state.density.taut_sR)
-
         stress_vv = _mgga(self.xc, nt_sr.data, taut_sr.data)
 
-        tau_svvG = self.wfs.calculate_kinetic_energy_density_crossterms()
-        tau_cross_g = self.gd.empty()
-        for s in range(nspins):
+        taut_swR = _taut(state.ibzwfs, state.density.nt_sR.desc)
+
+        dedtaut_sr = interpolate(state.potential.dedtaut_sR)
+        for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
+            w = 0
             for v1 in range(3):
-                for v2 in range(3):
-                    self.distribute_and_interpolate(
-                        tau_svvG[s, v1, v2], tau_cross_g)
-                    stress_vv[v1, v2] -= integrate(tau_cross_g, dedtaut_sg[s])
+                for v2 in range(v1, 3):
+                    taut_r = interpolate(taut_wR[w])
+                    s = taut_r.integrate(dedtaut_r)
+                    stress_vv[v1, v2] -= s
+                    if v2 != v1:
+                        stress_vv[v2, v1] -= s
 
         self.gd.comm.sum(stress_vv)
         return stress_vv
 
 
 def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
+    # The GGA part of this should be factored out!
     sigma_xr, dedsigma_xr, gradn_svr = gga_vars(xc.gd,
                                                 xc.grad_v,
                                                 nt_sr.data)
-
     nspins = len(nt_sr)
     dedtaut_sr = np.empty_like(nt_sr)
     vt_sr = xc.gd.zeros(nspins)
@@ -157,3 +162,56 @@ def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
                                                gradn_svr[1, v2],
                                                dedsigma_xr[2]) * 2
     return stress_vv
+
+
+def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
+    # "1" refers to undistributed arrays
+    dpsit1_vR = grid.new(comm=None, dtype=ibzwfs.dtype).empty(3)
+    taut1_swR = grid.new(comm=None).zeros((ibzwfs.nspins, 6))
+    domain_comm = grid.comm
+
+    for wfs in ibzwfs:
+        psit_nG = wfs.psit_nX
+        pw = psit_nG.desc
+
+        pw1 = pw.new(comm=None)
+        psit1_G = pw1.empty()
+        iGpsit1_G = pw1.empty()
+        Gplusk1_Gv = pw1.reciprocal_vectors()
+
+        occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
+
+        (N,) = psit_nG.mydims
+        for n1 in range(0, N, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, N)
+            psit_nG[n1:n2].gather_all(psit1_G)
+            n = n1 + domain_comm.rank
+            if n >= N:
+                continue
+            f = occ_n[n]
+            if f == 0.0:
+                continue
+            for Gplusk1_G, dpsit1_R in zips(Gplusk1_Gv.T, dpsit1_vR):
+                iGpsit1_G.data[:] = psit1_G.data
+                iGpsit1_G.data *= 1j * Gplusk1_G
+                iGpsit1_G.ifft(out=dpsit1_R)
+            w = 0
+            for v1 in range(3):
+                for v2 in range(v1, 3):
+                    taut1_swR[wfs.spin, w] += (
+                        f * dpsit1_vR[v1].conj() * dpsit1_vR[v2])
+                    w += 1
+
+    ibzwfs.kpt_comm.sum(taut1_swR.data, 0)
+    if ibzwfs.kpt_comm.rank == 0:
+        ibzwfs.band_comm.sum(taut1_swR.data, 0)
+        if ibzwfs.band_comm.rank == 0:
+            domain_comm.sum(taut1_swR.data, 0)
+            if domain_comm.rank == 0:
+                symmetries = ibzwfs.ibz.symmetries
+                taut1_swR.symmetrize(symmetries.rotation_scc,
+                                     symmetries.translation_sc)
+            taut_swR = grid.empty((6, ibzwfs.nspins))
+            taut_swR.scatter_from(taut1_swR)
+            return taut_swR
+    return None

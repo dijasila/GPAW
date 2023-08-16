@@ -12,7 +12,6 @@ from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float, world
 from gpaw.new import cached_property, zips
-from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
@@ -94,6 +93,7 @@ class DFTCalculation:
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
+        from gpaw.new.builder import builder as create_builder
 
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
@@ -291,6 +291,7 @@ class DFTCalculation:
             params: InputParameters,
             log=None) -> DFTCalculation:
         """Create new DFTCalculation object."""
+        from gpaw.new.builder import builder as create_builder
 
         if params.mode['name'] != 'pw':
             raise ReuseWaveFunctionsError
