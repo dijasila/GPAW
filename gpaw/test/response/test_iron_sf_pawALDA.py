@@ -22,10 +22,9 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Magnetic response calculation
     q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    frq_qw = [np.linspace(-0.2, 0.2, 41),
-              np.linspace(0.2, 0.6, 41)]
+    frq_w = np.linspace(-1.0, 3.0, 161)
     ecut = 100
-    eta = 0.1
+    eta = 0.5
     rshewmin = 1e-8
 
     if world.size > 1:
@@ -52,7 +51,7 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
                                         **calc_kwargs)
     dyson_enhancer = DysonEnhancer(context)
 
-    for q, (q_c, frq_w) in enumerate(zip(q_qc, frq_qw)):
+    for q, q_c in enumerate(q_qc):
         # Calculate χ_KS^+- and Ξ^++
         zd = ComplexFrequencyDescriptor.from_array(frq_w + 1j * eta)
         chiks = chiks_calc.calculate('+-', q_c, zd)
@@ -62,6 +61,8 @@ def test_response_iron_sf_pawALDA(in_tmp_dir, gpw_files, scalapack):
         chiks = chiks.copy_with_global_frequency_distribution()
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
+
+        # plot_inverse_enhancement(xi)
 
         # Write macroscopic component and acoustic magnon mode
         chi.write_macroscopic_component(f'iron_chiM_q{q}.csv')
@@ -82,6 +83,24 @@ def extract_data(q):
     w2_w, a_wm = read_eigenmode_lineshapes(f'iron_Amaj_q{q}.csv')
     assert np.allclose(w1_w, w2_w)
     return w1_w, chiM_w, a_wm[:, 0]
+
+
+def plot_inverse_enhancement(xi):
+    import matplotlib.pyplot as plt
+    from ase.units import Ha
+    invenh_mywM, _ = np.linalg.eig(xi.array)
+    invenh_wM = xi.blocks1d.all_gather(invenh_mywM)
+    omega_w = xi.zd.omega_w * Ha
+
+    for M in range(invenh_wM.shape[1]):
+        plt.subplot(1, 2, 1)
+        plt.scatter(omega_w, invenh_wM[:, M].real)
+        plt.subplot(1, 2, 2)
+        plt.scatter(omega_w, invenh_wM[:, M].imag)
+    plt.subplot(1, 2, 1)
+    plt.axhline(1., c='0.5')
+    if world.rank == 0:
+        plt.show()
 
 
 def plot_magnons():
