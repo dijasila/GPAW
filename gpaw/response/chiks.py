@@ -82,6 +82,10 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
         mecalc1, mecalc2 = self.create_matrix_element_calculators()
         self.matrix_element_calc1 = mecalc1
         self.matrix_element_calc2 = mecalc2
+        if mecalc2 is not mecalc1:
+            assert self.disable_time_reversal, \
+                'Cannot make use of time-reversal symmetry for generalized ' \
+                'susceptibilities with two different matrix elements'
 
     @abstractmethod
     def create_matrix_element_calculators(self) -> Tuple[
@@ -196,6 +200,155 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
         return Chi(spincomponent, qpd, zd,
                    blockdist, distribution=distribution)
 
+    @timer('Add integrand to ̄x_KS')
+    def add_integrand(self, kptpair, weight, chiks):
+        r"""Add generalized susceptibility integrand for a given k-point pair.
+
+        Calculates the relevant matrix elements and adds the susceptibility
+        integrand to the output data structure for all relevant band and spin
+        transitions of the given k-point pair, k -> k + q.
+
+        Depending on the bandsummation parameter, the integrand of the
+        generalized susceptibility is given by:
+
+        bandsummation: double
+
+                   __
+                   \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+        (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ f_kt(G+q) g_kt^*(G'+q)
+                   ‾‾      ħz - (ε_n'k's' - ε_nks)
+                   t
+
+        where f_kt(G+q) = f_nks,n'k's'(G+q) and k'=k+q up to a reciprocal wave
+        vector.
+
+        bandsummation: pairwise
+
+                    __ /
+                    \  | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
+        (...)_k =   /  | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                    ‾‾ |      ħz - (ε_n'k's' - ε_nks)
+                    t  \
+                                                       \
+                    σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
+           - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | f_kt(G+q) g_kt^*(G'+q)
+                         ħz + (ε_n'k's' - ε_nks)       |
+                                                       /
+
+        The integrand is added to the output array chiks_x multiplied with the
+        supplied kptpair integral weight.
+        """
+        # Calculate the matrix elements f_kt(G+q) and g_kt(G+q)
+        matrix_element1 = self.matrix_element_calc1(kptpair, chiks.qpd)
+        if self.matrix_element_calc2 is self.matrix_element_calc1:
+            matrix_element2 = matrix_element1
+        else:
+            matrix_element2 = self.matrix_element_calc2(kptpair, chiks.qpd)
+
+        # Extract the temporal ingredients from the KohnShamKPointPair
+        transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
+        df_t = kptpair.df_t  # (f_n'k's' - f_nks)
+        deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
+
+        # Calculate the temporal part of the integrand
+        if chiks.spincomponent == '00' and self.gs.nspins == 1:
+            weight = 2 * weight
+        x_Zt = get_temporal_part(chiks.spincomponent, chiks.zd.hz_z,
+                                 transitions, df_t, deps_t,
+                                 self.bandsummation)
+
+        self._add_integrand(
+            matrix_element1, matrix_element2, x_Zt, weight, chiks)
+
+    def _add_integrand(self, matrix_element1, matrix_element2, x_Zt,
+                       weight, chiks):
+        r"""Add the generalized susceptibility integrand based on distribution.
+
+        This entail performing a sum of transition t and an outer product
+        in the plane-wave components G and G',
+                    __
+                    \
+        (...)_k =   /  x_t^μν(ħz) f_kt(G+q) g_kt^*(G'+q)
+                    ‾‾
+                    t
+
+        where x_t^μν(ħz) is the temporal part of ̄x_KS,GG'^μν(q,ω+iη).
+        """
+        _add_integrand = self.get_add_integrand_method(chiks.distribution)
+        _add_integrand(matrix_element1, matrix_element2, x_Zt, weight, chiks)
+
+    def get_add_integrand_method(self, distribution):
+        """_add_integrand seletor."""
+        if distribution == 'ZgG':
+            _add_integrand = self._add_integrand_ZgG
+        elif distribution == 'GZg':
+            _add_integrand = self._add_integrand_GZg
+        else:
+            raise ValueError(f'Invalid distribution {distribution}')
+        return _add_integrand
+
+    def _add_integrand_ZgG(self, matrix_element1, matrix_element2, x_Zt,
+                           weight, chiks):
+        """Add integrand in ZgG distribution.
+
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        G = global G' plane wave index
+        """
+        chiks_ZgG = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up gcc and xf'):
+            # Multiply the temporal part with the k-point integration weight
+            x_Zt *= weight
+            
+            # Set up f_kt(G+q) and g_kt^*(G'+q)
+            f_tG = matrix_element1.get_global_array()
+            if matrix_element2 is matrix_element1:
+                g_tG = f_tG
+            else:
+                g_tG = matrix_element2.get_global_array()
+            gcc_tG = g_tG.conj()
+
+            # Set up x_t^μν(ħz) f_kt(G+q)
+            f_gt = np.ascontiguousarray(f_tG[:, myslice].T)
+            xf_Zgt = x_Zt[:, np.newaxis, :] * f_gt[np.newaxis, :, :]
+
+        with self.context.timer('Perform sum over t-transitions of xf * gcc'):
+            for xf_gt, chiks_gG in zip(xf_Zgt, chiks_ZgG):
+                mmmx(1.0, xf_gt, 'N', gcc_tG, 'N', 1.0, chiks_gG)  # slow step
+
+    def _add_integrand_GZg(self, matrix_element1, matrix_element2, x_Zt,
+                           weight, chiks):
+        """Add integrand in GZg distribution.
+
+        G = global G' plane wave index
+        Z = global complex frequency index
+        g = distributed G plane wave index
+        """
+        chiks_GZg = chiks.array
+        myslice = chiks.blocks1d.myslice
+
+        with self.context.timer('Set up gcc and xf'):
+            # Multiply the temporal part with the k-point integration weight
+            x_tZ = np.ascontiguousarray(weight * x_Zt.T)
+
+            # Set up f_kt(G+q) and g_kt^*(G'+q)
+            f_tG = matrix_element1.get_global_array()
+            if matrix_element2 is matrix_element1:
+                g_tG = f_tG
+            else:
+                g_tG = matrix_element2.get_global_array()
+            g_Gt = np.ascontiguousarray(g_tG.T)
+            gcc_Gt = g_Gt.conj()
+
+            # Set up x_t^μν(ħz) f_kt(G+q)
+            f_tg = f_tG[:, myslice]
+            xf_tZg = x_tZ[:, :, np.newaxis] * f_tg[:, np.newaxis, :]
+
+        with self.context.timer('Perform sum over t-transitions of gcc * xf'):
+            mmmx(1.0, gcc_Gt, 'N', xf_tZg, 'N', 1.0, chiks_GZg)  # slow step
+
 
 class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
     r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
@@ -220,131 +373,6 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
     def create_matrix_element_calculators(self):
         pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
         return pair_density_calc, pair_density_calc
-
-    @timer('Add integrand to chiks')
-    def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the NewPairDensityCalculator object to calculate the integrand
-        for all relevant transitions of the given k-point pair, k -> k + q.
-
-        Depending on the bandsummation parameter, the integrand of the
-        collinear four-component Kohn-Sham susceptibility tensor (in the
-        absence of spin-orbit coupling) is calculated as:
-
-        bandsummation: double
-
-                   __
-                   \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-        (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ n_kt(G+q) n_kt^*(G'+q)
-                   ‾‾      ħz - (ε_n'k's' - ε_nks)
-                   t
-
-        where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
-
-        bandsummation: pairwise
-
-                    __ /
-                    \  | σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-        (...)_k =   /  | ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                    ‾‾ |      ħz - (ε_n'k's' - ε_nks)
-                    t  \
-                                                       \
-                    σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
-           - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | n_kt(G+q) n_kt^*(G'+q)
-                         ħz + (ε_n'k's' - ε_nks)       |
-                                                       /
-
-        The integrand is added to the output array chiks_x multiplied with the
-        supplied kptpair integral weight.
-        """
-        # Calculate the pair densities n_kt(G+q)
-        assert self.matrix_element_calc1 is self.matrix_element_calc2
-        pair_density = self.matrix_element_calc1(kptpair, chiks.qpd)
-
-        # Extract the temporal ingredients from the KohnShamKPointPair
-        transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
-        df_t = kptpair.df_t  # (f_n'k's' - f_nks)
-        deps_t = kptpair.deps_t  # (ε_n'k's' - ε_nks)
-
-        # Calculate the temporal part of the integrand
-        if chiks.spincomponent == '00' and self.gs.nspins == 1:
-            weight = 2 * weight
-        x_Zt = get_temporal_part(chiks.spincomponent, chiks.zd.hz_z,
-                                 transitions, df_t, deps_t,
-                                 self.bandsummation)
-
-        self._add_integrand(pair_density, x_Zt, weight, chiks)
-
-    def _add_integrand(self, pair_density, x_Zt, weight, chiks):
-        r"""Add the integrand to chiks.
-
-        This entail performing a sum of transition t and an outer product
-        in the pair density plane wave components G and G',
-                    __
-                    \
-        (...)_k =   /  x_t^μν(ħz) n_kt(G+q) n_kt^*(G'+q)
-                    ‾‾
-                    t
-
-        where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
-        """
-        if chiks.distribution == 'ZgG':
-            self._add_integrand_ZgG(pair_density, x_Zt, weight, chiks)
-        elif chiks.distribution == 'GZg':
-            self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
-        else:
-            raise ValueError(f'Invalid distribution {chiks.distribution}')
-
-    def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
-        """Add integrand in ZgG distribution.
-
-        Z = global complex frequency index
-        g = distributed G plane wave index
-        G = global G' plane wave index
-        """
-        chiks_ZgG = chiks.array
-        myslice = chiks.blocks1d.myslice
-
-        with self.context.timer('Set up ncc and xn'):
-            # Multiply the temporal part with the k-point integration weight
-            x_Zt *= weight
-
-            # Set up n_kt^*(G'+q)
-            n_tG = pair_density.get_global_array()
-            ncc_tG = n_tG.conj()
-
-            # Set up x_t^μν(ħz) n_kt(G+q)
-            n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-            xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
-
-        with self.context.timer('Perform sum over t-transitions of xn * ncc'):
-            for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
-                mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
-
-    def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
-        """Add integrand in GZg distribution.
-
-        G = global G' plane wave index
-        Z = global complex frequency index
-        g = distributed G plane wave index
-        """
-        chiks_GZg = chiks.array
-        myslice = chiks.blocks1d.myslice
-
-        with self.context.timer('Set up ncc and xn'):
-            # Multiply the temporal part with the k-point integration weight
-            x_tZ = np.ascontiguousarray(weight * x_Zt.T)
-
-            # Set up n_kt^*(G'+q)
-            n_tG = pair_density.get_global_array()
-            n_Gt = np.ascontiguousarray(n_tG.T)
-            ncc_Gt = n_Gt.conj()
-
-            # Set up x_t^μν(ħz) n_kt(G+q)
-            n_tg = n_tG[:, myslice]
-            xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
-
-        with self.context.timer('Perform sum over t-transitions of ncc * xn'):
-            mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
