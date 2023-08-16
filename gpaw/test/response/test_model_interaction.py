@@ -44,10 +44,3 @@ def test_w90(in_tmp_dir, gpw_files, symm):
     assert Wwann[0, 3, 3, 3, 3] == pytest.approx(0.8031, abs=0.002)
     assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.4327, abs=0.002)
     assert Wwann[0, 3, 0, 3, 0] == pytest.approx(0.8314, abs=0.002)
-
-    print(Wwann[0,1,1,1,1])
-    print(Wwann[0,2,2,2,2])
-    print(Wwann[0,3,3,3,3])
-    print(Wwann[0,3,3,0,0])
-    print(Wwann[0,3,0,3,0])
-    print(Wwann.shape)
