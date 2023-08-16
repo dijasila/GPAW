@@ -349,31 +349,6 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
         with self.context.timer('Perform sum over t-transitions of gcc * xf'):
             mmmx(1.0, gcc_Gt, 'N', xf_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
-
-class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
-    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
-    of collinear systems in absence of spin-orbit coupling,
-    see [PRB 103, 245110 (2021)]:
-                              __  __   __
-                           1  \   \    \
-    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
-                           V  ‾‾  ‾‾   ‾‾
-                              k   n,n' s,s'
-                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
-                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
-
-    where the matrix elements
-
-    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
-
-    are the plane-wave pair densities of each transition.
-    """
-
-    def create_matrix_element_calculators(self):
-        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
-        return pair_density_calc, pair_density_calc
-
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
         """Symmetrize chiks_zGG."""
@@ -403,7 +378,7 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
         return chiks
 
     def get_info_string(self, qpd, nz, spincomponent, nt):
-        r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
+        r"""Get information about the ̄x_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
         q_c = qpd.q_c
@@ -413,7 +388,8 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
 
         s = '\n'
 
-        s += 'Setting up a Kohn-Sham susceptibility calculation with:\n'
+        s += 'Setting up a generalized Kohn-Sham susceptibility calculation ' \
+            'with:\n'
         s += '    Spin component: %s\n' % spincomponent
         s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
         s += '    Number of frequency points: %d\n' % nz
@@ -423,7 +399,7 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
         s += self.get_basic_info_string()
         s += '\n'
 
-        s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
+        s += 'Plane-wave basis of the generalized Kohn-Sham susceptibility:\n'
         s += '    Planewave cutoff: %f\n' % ecut
         s += '    Number of planewaves: %d\n' % qpd.ngmax
         s += '    Memory estimates:\n'
@@ -433,6 +409,31 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
         s += '%s\n' % ctime()
 
         return s
+
+
+class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
+
+    For collinear systems in absence of spin-orbit coupling,
+    see [PRB 103, 245110 (2021)],
+                              __  __   __
+                           1  \   \    \
+    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                           V  ‾‾  ‾‾   ‾‾
+                              k   n,n' s,s'
+                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    are the plane-wave pair densities of each transition.
+    """
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        return pair_density_calc, pair_density_calc
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):
