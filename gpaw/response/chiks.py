@@ -13,7 +13,8 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.matrix_elements import (PlaneWaveMatrixElementCalculator,
-                                           NewPairDensityCalculator)
+                                           NewPairDensityCalculator,
+                                           TransversePairPotentialCalculator)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
@@ -434,6 +435,81 @@ class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
     def create_matrix_element_calculators(self):
         pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
         return pair_density_calc, pair_density_calc
+
+
+class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the transverse magnetic self-enhancement function.
+
+    For collinear systems in absence of spin-orbit coupling,
+    see [publication in preparation],
+                           __  __   __
+                        1  \   \    \
+    Ξ_GG'^++(q,ω+iη) =  ‾  /   /    /   σ^+_ss' σ^-_s's (f_nks - f_n'k+qs')
+                        V  ‾‾  ‾‾   ‾‾
+                           k   n,n' s,s'
+                                      n_nks,n'k+qs'(G+q) W^⟂_n'k+qs',nks(-G'-q)
+                                    x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                           ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    and
+
+    W^⟂_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r f_LDA^-+(r) |ψ_n'k+qs'>
+
+    are the plane-wave pair densities and transverse magnetic pair potentials
+    respectively.
+    """
+    def __init__(self, *args,
+                 rshelmax: int = -1,
+                 rshewmin: float | None = None,
+                 **kwargs):
+        """Construct the SelfEnhancementCalculator.
+
+        Parameters
+        ----------
+        rshelmax : int
+            The maximum index l (l < 6) to use in the expansion of the
+            xc-kernel f_LDA^-+(r) into real spherical harmonics for the PAW
+            correction.
+        rshewmin : float or None
+            If None, f_LDA^-+(r) will be fully expanded up to the chosen lmax.
+            Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            coefficients to use in the expansion. If any (l,m) coefficient
+            contributes with less than a fraction of rshewmin on average, it
+            will not be included.
+        """
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
+
+        assert 'disable_time_reversal' not in kwargs
+        # Whereas time reversal symmetry is not allowed for the
+        # self-enhancement function, point group symmetry and pair-wise band
+        # summation should in principle work straight out of the box. However,
+        # we should test this before enabling them. XXX
+        # super().__init__(*args, disable_time_reversal=True, **kwargs)
+        assert 'disable_point_group' not in kwargs
+        assert 'bandsummation' not in kwargs
+        super().__init__(*args,
+                         disable_time_reversal=True,
+                         disable_point_group=True,
+                         bandsummation='double',
+                         **kwargs)
+    
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        pair_potential_calc = TransversePairPotentialCalculator(
+            self.gs, self.context,
+            rshelmax=self.rshelmax,
+            rshewmin=self.rshewmin)
+        return pair_density_calc, pair_potential_calc
+
+    def calculate(self, q_c, zd) -> Chi:
+        # We are explicitly calculating Ξ^++ corresponding to χ^+-
+        spincomponent = '+-'
+        return super().calculate(spincomponent, q_c, zd)
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):
