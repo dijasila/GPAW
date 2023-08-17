@@ -57,6 +57,10 @@ def test_wannier90(gpw_files, mode, in_tmp_dir):
     spreads = np.sum(np.array(w['spreads']))
     assert spreads == pytest.approx(9.9733, abs=0.002)
 
+    # also test wavefunctions
+    wannier.write_wavefunctions()
+    check_wavefunctions()
+
 
 @pytest.mark.wannier
 @pytest.mark.serial
@@ -89,3 +93,21 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
     assert np.allclose(centers, centers_correct, atol=0.1)
     spreads = np.sum(np.array(w['spreads']))
     assert spreads == pytest.approx(20.1, abs=0.6)
+
+
+def check_wavefunctions():
+
+    test1 = [[20, 20, 20, 1, 4], [20, 20, 20, 2, 4], [20, 20, 20, 3, 4]]
+    test2 = [0.0656, 0.0634, 0.0437]
+    for i in range(3):
+        with open(f"UNK0000{i+1}.1") as f:
+            l1 = f.readline()
+            l1 = l1.split(' ')
+            l1 = [int(i) for i in l1]
+            assert l1 == test1[i]
+            l2 = f.readline()
+            l2 = l2.split(' ')
+            l2 = [float(i) for i in l2]
+            l2 = l2[0] + 1j * l2[1]
+            l2_abs = abs(l2)
+            assert np.allclose(l2_abs, test2[i], atol=1e-3)
