@@ -128,7 +128,7 @@ class ModelInteraction:
             # get kpt1, kpt1-q kpoint pairs used in density matrix
             kpt1 = pair.get_k_point(spin, iK1, bandrange[0], bandrange[-1])
             # Find k2 = K1 + Q
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] - self.gs.kd.bzk_kc[iQ]
+            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]
             iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
             kpt2 = pair.get_k_point(spin, iK2, bandrange[0], bandrange[-1])
             return kpt1, kpt2, iK2
