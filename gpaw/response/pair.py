@@ -350,8 +350,8 @@ class PairDensityCalculator:
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
         atomdata_a = self.gs.pawdatasets
-        C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
-                 for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
+        #C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
+        #         for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
         blockbands = kpt2.nb - kpt2.na
         n0_mv = np.empty((kpt2.blocksize, 3), dtype=complex)
@@ -364,9 +364,9 @@ class PairDensityCalculator:
         n0_mv[:blockbands] += (1j * nt_m[:blockbands, np.newaxis] *
                                k_v[np.newaxis, :])
 
-        for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
-            # gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
-            mmm(1.0, P_mi, 'N', C_vi, 'C', 1.0, n0_mv[:blockbands])
+        #for C_vi, P_mi in zip(C_avi, kpt2.P_ani):
+        #    # gemm(1.0, C_vi, P_mi, 1.0, n0_mv[:blockbands], 'c')
+        #    mmm(1.0, P_mi, 'N', C_vi, 'C', 1.0, n0_mv[:blockbands])
 
         if block and self.blockcomm.size > 1:
             n0_Mv = np.empty((kpt2.blocksize * self.blockcomm.size, 3),

@@ -291,6 +291,9 @@ class UPFSetupData:
         rgd = EquidistantRadialGridDescriptor(0.02)
         self.rgd = rgd
 
+        self.phi_jg = rgd.zeros(10)
+        self.phit_jg = rgd.zeros(10)
+
         # Whyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy???
         # What abominable part of the code requires the states
         # to be ordered like this?

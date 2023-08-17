@@ -35,6 +35,7 @@ class LDARadialExpansion:
 def calculate_paw_correction(expansion,
                              setup, D_sp, dEdD_sp=None,
                              addcoredensity=True, a=None):
+    return 0.0
     xcc = setup.xc_correction
     if xcc is None:
         return 0.0

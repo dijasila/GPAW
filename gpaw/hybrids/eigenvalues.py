@@ -227,13 +227,15 @@ def _calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
                     e_nn[n1, n2] = e / kd.nbzkpts
             e_n -= e_nn.dot(rskpt2.f_n)
 
-    for a, VV_ii in paw.VV_aii.items():
-        P_ni = proj1all[a]
-        vv_n = np.einsum('ni, ij, nj -> n',
-                         P_ni.conj(), VV_ii, P_ni).real
-        vc_n = np.einsum('ni, ij, nj -> n',
-                         P_ni.conj(), paw.VC_aii[a], P_ni).real
-        E_n -= (2 * vv_n + vc_n)
+
+    if 0:
+        for a, VV_ii in paw.VV_aii.items():
+            P_ni = proj1all[a]
+            vv_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), VV_ii, P_ni).real
+            vc_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), paw.VC_aii[a], P_ni).real
+            E_n -= (2 * vv_n + vc_n)
 
     return E_n
 

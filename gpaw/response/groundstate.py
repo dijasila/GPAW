@@ -30,6 +30,7 @@ class ResponseGroundStateAdapter:
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
+        
         self.pawdatasets = [ResponsePAWDataset(setup) for setup in calc.setups]
 
         self.pbc = self.atoms.pbc
@@ -240,10 +241,10 @@ class ResponsePAWDataset:
         self.nabla_iiv = setup.nabla_iiv
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)
-        self.xc_correction = SimpleNamespace(
+        """self.xc_correction = SimpleNamespace(
             rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
             n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
             nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
             nc_corehole_g=setup.xc_correction.nc_corehole_g,
-            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)"""
         self.hubbard_u = setup.hubbard_u
