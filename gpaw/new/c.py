@@ -31,12 +31,50 @@ def pw_insert(coef_G: Array1D,
     array_Q.ravel()[Q_G] = x * coef_G
 
 
+def pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+                 l_s, a_J, s_J,
+                 cc, f_GI):
+    """
+    f_GI = xp.empty((G2 - G1, self.nI), complex)
+    I1 = 0
+    for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
+        l = self.l_s[s]
+        I2 = I1 + 2 * l + 1
+        f_GI[:, I1:I2] = (f_Gs[:, s] *
+                          emiGR_Ga[:, a] *
+                          Y_GL[:, l**2:(l + 1)**2].T *
+                          (-1.0j)**l).T
+        I1 = I2
+    if cc:
+        f_GI = f_GI.conj()
+    if self.dtype == float:
+        f_GI = f_GI.T.copy().view(float).T.copy()
+
+    return f_GI
+    """
+    raise NotImplementedError
+
+
+def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
+                     l_s, a_J, s_J,
+                     cc, f_GI, I_J):
+    raise NotImplementedError
+
+
+def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
+    raise NotImplementedError
+
+
 if not TYPE_CHECKING:
     try:
-        from _gpaw import add_to_density, pw_precond, pw_insert  # noqa
+        from _gpaw import add_to_density, pw_precond, pw_insert, pwlfc_expand, symmetrize_ft  # noqa
     except ImportError:
         pass
     try:
         from _gpaw import gpu_aware_mpi as GPU_AWARE_MPI
+    except ImportError:
+        pass
+    try:
+        from _gpaw import pwlfc_expand_gpu  # noqa
     except ImportError:
         pass

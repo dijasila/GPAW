@@ -2,7 +2,7 @@ import numpy as np
 from gpaw.core import PWDesc
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zips
+from gpaw.new import zips, spinsum
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
 from gpaw.setup import Setups
@@ -187,31 +187,20 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._dedtaut_g = None
 
     def _force_stress_helper(self, state: DFTState):
+        """Only do the work once - in case both forces and stress is needed"""
         if self._vt_g is not None:
             return self._vt_g, self._nt_g, self._dedtaut_g
 
         density = state.density
         potential = state.potential
-        nt_R = density.nt_sR[0]
-        vt_R = potential.vt_sR[0]
-        grid = nt_R.desc
-        nd = density.ndensities
-        if nd > 1:
-            nt_R = grid.empty(xp=self.xp)
-            nt_R.data[:] = density.nt_sR.data[:nd].sum(axis=0)
-            vt_R = grid.empty(xp=self.xp)
-            vt_R.data[:] = potential.vt_sR.data[:nd].mean(axis=0)
-
+        nt_R = spinsum(density.nt_sR)
+        vt_R = spinsum(potential.vt_sR, mean=True)
         self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
         self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
 
         dedtaut_sR = potential.dedtaut_sR
         if dedtaut_sR is not None:
-            dedtaut_R = dedtaut_sR[0]
-            if nd > 1:
-                dedtaut_R = grid.empty(xp=self.xp)
-                dedtaut_R.data[:] = dedtaut_sR.data[:nd].mean(axis=0)
-
+            dedtaut_R = spinsum(dedtaut_sR, mean=True)
             self._dedtaut_g = dedtaut_R.fft(self.fftplan, pw=self.pw)
         else:
             self._dedtaut_g = None

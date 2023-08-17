@@ -3,7 +3,7 @@ from math import pi
 import numpy as np
 
 from gpaw.core import UGDesc
-from gpaw.new import zips
+from gpaw.new import zips, spinsum
 from gpaw.new.pot_calc import PotentialCalculator
 
 
@@ -126,15 +126,14 @@ class FDPotentialCalculator(PotentialCalculator):
     def force_contributions(self, state):
         density = state.density
         potential = state.potential
-        nt_R = density.nt_sR[0]
-        vt_R = potential.vt_sR[0]
-        if density.ndensities > 1:
-            nt_R = nt_R.desc.empty()
-            nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(axis=0)
-            vt_R = vt_R.desc.empty()
-            vt_R.data[:] = (
-                potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                density.ndensities)
+        nt_R = spinsum(density.nt_sR)
+        vt_R = spinsum(potential.vt_sR, mean=True)
+        dedtaut_sR = potential.dedtaut_sR
+        if dedtaut_sR is not None:
+            dedtaut_R = spinsum(dedtaut_sR, mean=True)
+            Ftauct_av = state.density.tauct_aX.derivative(dedtaut_R)
+        else:
+            Ftauct_av = None
 
         nt_r = self.interpolate(nt_R)
         if not nt_r.desc.pbc_c.all():
@@ -143,4 +142,5 @@ class FDPotentialCalculator(PotentialCalculator):
 
         return (self.ghat_aLr.derivative(state.vHt_x),
                 state.density.nct_aX.derivative(vt_R),
+                Ftauct_av,
                 self.vbar_ar.derivative(nt_r))

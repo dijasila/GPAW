@@ -6,6 +6,7 @@ from ase import Atoms
 from gpaw import PW, FermiDirac
 from gpaw.calculator import GPAW
 from gpaw.new.calculation import DFTCalculation
+from gpaw.mpi import rank
 
 
 @pytest.mark.stress
@@ -25,9 +26,12 @@ def test_pw_augment_grids(in_tmp_dir, gpaw_new):
                      occupations=FermiDirac(width=0.1)),
                 log=f'gpaw.aug{aug}.txt')
             dft.converge(steps=4)
-            e = dft.energies()
-            f = dft.forces()
-            s = dft.stress()
+            dft.energies()
+            dft.forces()
+            dft.stress()
+            e = dft.results['energy']
+            f = dft.results['forces']
+            s = dft.results['stress']
         else:
             atoms.calc = GPAW(mode=PW(ecut),
                               txt=f'gpaw.aug{aug}.txt',
@@ -46,7 +50,7 @@ def test_pw_augment_grids(in_tmp_dir, gpaw_new):
     eerr = abs(e2 - e1)
     ferr = np.abs(f2 - f1).max()
     serr = np.abs(s2 - s1).max()
-    if atoms.calc.wfs.world.rank == 0:
+    if rank == 0:
         print('errs', eerr, ferr, serr)
     assert eerr < 5e-12, f'bad energy: err={eerr}'
     assert ferr < 5e-12, f'bad forces: err={ferr}'
