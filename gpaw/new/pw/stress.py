@@ -9,15 +9,16 @@ from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
-
+from gpaw.core import PWArray
 if TYPE_CHECKING:
     from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 
 
 def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      state: DFTState,
-                     vt_g,
-                     nt_g) -> Array2D:
+                     vt_g: PWArray,
+                     nt_g: PWArray,
+                     dedtaut_g: PWArray | None) -> Array2D:
     assert state.ibzwfs.domain_comm.size == 1
     assert state.ibzwfs.band_comm.size == 1
     comm = state.ibzwfs.kpt_comm
@@ -47,8 +48,13 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     s_vv += pot_calc.ghat_aLh.stress_tensor_contribution(vHt_h, Q_aL)
 
     s_vv -= xp.eye(3) * pot_calc.e_stress
+
     s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
+
     s_vv += state.density.nct_aX.stress_tensor_contribution(vt_g)
+
+    if dedtaut_g is not None:
+        s_vv += state.density.tauct_aX.stress_tensor_contribution(dedtaut_g)
 
     # s_vv += wfs.dedepsilon * np.eye(3) ???
 

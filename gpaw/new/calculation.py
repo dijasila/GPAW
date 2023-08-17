@@ -227,7 +227,7 @@ class DFTCalculation:
         F_av = self.state.ibzwfs.forces(self.state.potential)
 
         pot_calc = self.pot_calc
-        Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(
+        Fcc_avL, Fnct_av, Ftauct_av, Fvbar_av = pot_calc.force_contributions(
             self.state)
 
         # Force from compensation charges:
@@ -239,6 +239,11 @@ class DFTCalculation:
         # Force from smooth core charge:
         for a, dF_v in Fnct_av.items():
             F_av[a] += dF_v[:, 0]
+
+        if Ftauct_av is not None:
+            # Force from smooth core ked:
+            for a, dF_v in Ftauct_av.items():
+                F_av[a] += dF_v[:, 0]
 
         # Force from zero potential:
         for a, dF_v in Fvbar_av.items():

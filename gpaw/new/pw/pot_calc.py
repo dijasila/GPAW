@@ -6,6 +6,7 @@ from gpaw.new import zips
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
 from gpaw.setup import Setups
+from gpaw.new.calculation import DFTState
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
@@ -51,8 +52,10 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
 
+        # For forces and stress:
         self._nt_g = None
         self._vt_g = None
+        self._dedtaut_g = None
 
         self.e_stress = np.nan
 
@@ -181,31 +184,51 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
     def _reset(self):
         self._vt_g = None
         self._nt_g = None
+        self._dedtaut_g = None
 
-    def _force_stress_helper(self, state):
-        if self._vt_g is None:
-            density = state.density
-            potential = state.potential
-            nt_R = density.nt_sR[0]
-            vt_R = potential.vt_sR[0]
-            if density.ndensities > 1:
-                nt_R = nt_R.desc.empty(xp=self.xp)
-                nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(
-                    axis=0)
-                vt_R = vt_R.desc.empty(xp=self.xp)
-                vt_R.data[:] = (
-                    potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                    density.ndensities)
-            self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
-            self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
-        return self._vt_g, self._nt_g
+    def _force_stress_helper(self, state: DFTState):
+        if self._vt_g is not None:
+            return self._vt_g, self._nt_g, self._dedtaut_g
+
+        density = state.density
+        potential = state.potential
+        nt_R = density.nt_sR[0]
+        vt_R = potential.vt_sR[0]
+        grid = nt_R.desc
+        nd = density.ndensities
+        if nd > 1:
+            nt_R = grid.empty(xp=self.xp)
+            nt_R.data[:] = density.nt_sR.data[:nd].sum(axis=0)
+            vt_R = grid.empty(xp=self.xp)
+            vt_R.data[:] = potential.vt_sR.data[:nd].mean(axis=0)
+
+        self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
+        self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+
+        if density.taut_sR is not None:
+            dedtaut_R = potential.dedtaut_sR[0]
+            if nd > 1:
+                dedtaut_R = grid.empty(xp=self.xp)
+                dedtaut_R.data[:] = potential.dedtaut_sR.data[:nd].mean(axis=0)
+
+            self._dedtaut_g = dedtaut_R.fft(self.fftplan, pw=self.pw)
+        else:
+            self._dedtaut_g = None
+
+        return self._vt_g, self._nt_g, self._dedtaut_g
 
     def force_contributions(self, state):
-        vt_g, nt_g = self._force_stress_helper(state)
+        vt_g, nt_g, dedtaut_g = self._force_stress_helper(state)
+        if dedtaut_g is None:
+            Ftauct_av = None
+        else:
+            Ftauct_av = state.density.tauct_aX.derivative(dedtaut_g)
+
         return (self.ghat_aLh.derivative(state.vHt_x),
                 state.density.nct_aX.derivative(vt_g),
+                Ftauct_av,
                 self.vbar_ag.derivative(nt_g))
 
     def stress(self, state):
-        vt_g, nt_g = self._force_stress_helper(state)
-        return calculate_stress(self, state, vt_g, nt_g)
+        vt_g, nt_g, dedtaut_g = self._force_stress_helper(state)
+        return calculate_stress(self, state, vt_g, nt_g, dedtaut_g)

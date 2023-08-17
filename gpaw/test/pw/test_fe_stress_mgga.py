@@ -6,7 +6,6 @@ from ase.parallel import parprint
 from gpaw import GPAW, PW, FermiDirac
 
 
-@pytest.mark.later
 @pytest.mark.mgga
 def test_pw_fe_stress_mgga(in_tmp_dir):
     xc = 'revTPSS'
