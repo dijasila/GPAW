@@ -2,6 +2,10 @@ from typing import TYPE_CHECKING
 
 from gpaw.typing import Array1D, ArrayND
 
+__all__ = ['GPU_AWARE_MPI']
+
+GPU_AWARE_MPI = False
+
 
 def add_to_density(f: float,
                    psit_X: ArrayND,
@@ -30,5 +34,9 @@ def pw_insert(coef_G: Array1D,
 if not TYPE_CHECKING:
     try:
         from _gpaw import add_to_density, pw_precond, pw_insert  # noqa
+    except ImportError:
+        pass
+    try:
+        from _gpaw import gpu_aware_mpi as GPU_AWARE_MPI
     except ImportError:
         pass

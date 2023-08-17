@@ -79,6 +79,10 @@ class WaveFunctions:
                        D_asii: AtomArrays) -> None:
         raise NotImplementedError
 
+    def add_to_ked(self,
+                   taut_sR: UGArray) -> None:
+        raise NotImplementedError
+
     def orthonormalize(self, work_array_nX: ArrayND = None):
         raise NotImplementedError
 

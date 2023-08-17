@@ -205,11 +205,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
         self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
 
-        if density.taut_sR is not None:
-            dedtaut_R = potential.dedtaut_sR[0]
+        dedtaut_sR = potential.dedtaut_sR
+        if dedtaut_sR is not None:
+            dedtaut_R = dedtaut_sR[0]
             if nd > 1:
                 dedtaut_R = grid.empty(xp=self.xp)
-                dedtaut_R.data[:] = potential.dedtaut_sR.data[:nd].mean(axis=0)
+                dedtaut_R.data[:] = dedtaut_sR.data[:nd].mean(axis=0)
 
             self._dedtaut_g = dedtaut_R.fft(self.fftplan, pw=self.pw)
         else:

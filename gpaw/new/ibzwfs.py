@@ -6,13 +6,12 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-
-import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zips, cached_property
+from gpaw.new import cached_property, zips
 from gpaw.new.brillouin import IBZ
+from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -84,7 +83,7 @@ class IBZWaveFunctions:
 
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
-            if not getattr(_gpaw, 'gpu_aware_mpi', False):
+            if not GPU_AWARE_MPI:
                 self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
 
     @cached_property
@@ -203,13 +202,9 @@ class IBZWaveFunctions:
 
     def add_to_ked(self, taut_sR) -> None:
         for wfs in self:
-            occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
-            assert isinstance(wfs, PWFDWaveFunctions)
-            wfs.psit_nX.add_ked(occ_n, taut_sR[wfs.spin])
-
+            wfs.add_to_ked(taut_sR)
         if self.xp is not np:
             synchronize()
-
         self.kpt_comm.sum(taut_sR.data)
         self.band_comm.sum(taut_sR.data)
 
