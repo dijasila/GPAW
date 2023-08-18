@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from ase.build import bulk
+from ase.calculators.test import numeric_force
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW, Mixer
@@ -46,3 +47,8 @@ def test_pw_si_stress_mgga(in_tmp_dir):
     parprint('Numerical stress:\n', s_numerical)
     parprint('Error in stress:\n', s_err)
     assert np.all(abs(s_err) < 1e-4)
+
+    # Check y-component of second atom:
+    f = si.get_forces()[1, 1]
+    fref = numeric_force(si, 1, 1)
+    print(f, fref, f - fref)
