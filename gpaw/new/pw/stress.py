@@ -19,9 +19,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      vt_g: PWArray,
                      nt_g: PWArray,
                      dedtaut_g: PWArray | None) -> Array2D:
-    #assert state.ibzwfs.domain_comm.size == 1
-    #assert state.ibzwfs.band_comm.size == 1
-    comm = state.ibzwfs.kpt_comm
+    comm = state.ibzwfs.comm
 
     xc = pot_calc.xc
 
@@ -91,7 +89,7 @@ def get_wfs_stress(ibzwfs: IBZWaveFunctions,
         sigma_vv += get_paw_stress(wfs, dH_asii, occ_n)
     if xp is not np:
         synchronize()
-    ibzwfs.kpt_comm.sum(sigma_vv)
+    ibzwfs.comm.sum(sigma_vv, 0)
     return sigma_vv
 
 
@@ -125,4 +123,5 @@ def get_paw_stress(wfs: PWFDWaveFunctions,
         s += xp.vdot(P_ni, a_ni)
         a_ani[a] = 2 * a_ni.conj()
     s_vv = wfs.pt_aiX.stress_tensor_contribution(wfs.psit_nX, a_ani)
+    s_vv /= wfs.domain_comm.size
     return s_vv - float(s.real) * xp.eye(3)

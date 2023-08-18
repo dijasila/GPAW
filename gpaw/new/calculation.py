@@ -346,7 +346,8 @@ class DFTCalculation:
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
             create_wfs_func=create_wfs,
-            kpt_comm=old_ibzwfs.kpt_comm)
+            kpt_comm=old_ibzwfs.kpt_comm,
+            comm=self.comm)
 
         state = DFTState(ibzwfs, density, potential, vHt_x)
 

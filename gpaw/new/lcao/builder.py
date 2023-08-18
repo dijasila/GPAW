@@ -164,5 +164,6 @@ def create_lcao_ibzwfs(basis, potential,
                            nelectrons,
                            ncomponents,
                            create_wfs,
-                           kpt_comm)
+                           kpt_comm,
+                           comm=communicators['w'])
     return ibzwfs, tciexpansions

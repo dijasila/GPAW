@@ -23,7 +23,8 @@ def create_ibz_wave_functions(ibz: IBZ,
                               nelectrons: float,
                               ncomponents: int,
                               create_wfs_func,
-                              kpt_comm: MPIComm = serial_comm
+                              kpt_comm: MPIComm = serial_comm,
+                              comm: MPIComm = serial_comm,
                               ) -> IBZWaveFunctions:
     """Collection of wave function objects for k-points in the IBZ."""
     rank_k = ibz.ranks(kpt_comm)
@@ -45,7 +46,8 @@ def create_ibz_wave_functions(ibz: IBZ,
                             nelectrons,
                             ncomponents,
                             wfs_qs,
-                            kpt_comm)
+                            kpt_comm,
+                            comm)
 
 
 class IBZWaveFunctions:
@@ -54,10 +56,12 @@ class IBZWaveFunctions:
                  nelectrons: float,
                  ncomponents: int,
                  wfs_qs: list[list[WaveFunctions]],
-                 kpt_comm: MPIComm = serial_comm):
+                 kpt_comm: MPIComm = serial_comm,
+                 comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.kpt_comm = kpt_comm
+        self.comm = comm
         self.nelectrons = nelectrons
         self.ncomponents = ncomponents
         self.collinear = (ncomponents != 4)
@@ -106,11 +110,6 @@ class IBZWaveFunctions:
             self.kpt_comm.max(shape)
             return tuple(shape)
         return max(wfs.array_shape() for wfs in self)
-
-    def is_master(self):
-        return (self.domain_comm.rank == 0 and
-                self.band_comm.rank == 0 and
-                self.kpt_comm.rank == 0)
 
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
@@ -270,7 +269,7 @@ class IBZWaveFunctions:
 
     def get_all_eigs_and_occs(self):
         nkpts = len(self.ibz)
-        if self.is_master():
+        if self.comm.rank == 0:
             eig_skn = np.empty((self.nspins, nkpts, self.nbands))
             occ_skn = np.empty((self.nspins, nkpts, self.nbands))
         else:
@@ -279,7 +278,7 @@ class IBZWaveFunctions:
         for k in range(nkpts):
             for s in range(self.nspins):
                 eig_n, occ_n = self.get_eigs_and_occs(k, s)
-                if self.is_master():
+                if self.comm.rank == 0:
                     eig_skn[s, k, :] = eig_n
                     occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
@@ -396,7 +395,7 @@ class IBZWaveFunctions:
 
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
 
-        if not self.is_master():
+        if self.comm.rank != 0:
             return
 
         eig_skn *= Ha

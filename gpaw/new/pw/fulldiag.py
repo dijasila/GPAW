@@ -158,7 +158,8 @@ def diagonalize(potential: Potential,
         ibzwfs.nelectrons,
         ibzwfs.ncomponents,
         wfs_qs,
-        ibzwfs.kpt_comm)
+        ibzwfs.kpt_comm,
+        ibzwfs.comm)
 
     new_ibzwfs.calculate_occs(occ_calc)
 

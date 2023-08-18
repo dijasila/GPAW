@@ -20,7 +20,7 @@ def test_pw_si_stress_mgga(in_tmp_dir, gpaw_new):
                    kpts=(k, k, k),
                    convergence={'energy': 1e-8},
                    parallel={'domain': min(2, world.size)},
-                   txt='si.txt')
+                   txt='-')#si.txt')
 
     si.set_cell(np.dot(si.cell,
                        [[1.02, 0, 0.03],
