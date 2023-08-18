@@ -1456,10 +1456,10 @@ class Setups(list):
             integral=[setup.Nct for setup in self],
             cut=True, xp=xp)
 
-    def create_pseudo_core_kinetic_energy_densities(self,
-                                                    domain,
-                                                    positions,
-                                                    atomdist):
+    def create_pseudo_core_ked(self,
+                               domain,
+                               positions,
+                               atomdist):
         return domain.atom_centered_functions(
             [[setup.tauct] for setup in self],
             positions,

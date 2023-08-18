@@ -35,6 +35,7 @@ class AppelbaumHamann(BaseSetup):
         self.f_j = [4]
         self.n_j = [1]
         self.nct = nullspline
+        self.tauct = nullspline
         self.Nct = 0.0
         rc = 4.0
         r2_g = np.linspace(0, rc, 100)**2

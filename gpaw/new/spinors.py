@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import numpy as np
 from gpaw.core.domain import Domain
-from gpaw.core.plane_waves import PlaneWaves
+from gpaw.core.plane_waves import PWDesc
 from gpaw.typing import Vector
 
 
 class SpinorWaveFunctionDescriptor(Domain):
     def __init__(self,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  qspiral_v: Vector | None = None):
         self.pw = pw
         self.qspiral_v = (np.asarray(qspiral_v) if qspiral_v is not None else
