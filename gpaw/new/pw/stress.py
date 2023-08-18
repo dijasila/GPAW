@@ -19,8 +19,8 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      vt_g: PWArray,
                      nt_g: PWArray,
                      dedtaut_g: PWArray | None) -> Array2D:
-    assert state.ibzwfs.domain_comm.size == 1
-    assert state.ibzwfs.band_comm.size == 1
+    #assert state.ibzwfs.domain_comm.size == 1
+    #assert state.ibzwfs.band_comm.size == 1
     comm = state.ibzwfs.kpt_comm
 
     xc = pot_calc.xc
