@@ -12,7 +12,6 @@ from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float, world
 from gpaw.new import cached_property, zips
-from gpaw.new.builder import builder as create_builder
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
@@ -94,6 +93,7 @@ class DFTCalculation:
                         log=None,
                         builder=None) -> DFTCalculation:
         """Create DFTCalculation object from parameters and atoms."""
+        from gpaw.new.builder import builder as create_builder
 
         check_atoms_too_close(atoms)
         check_atoms_too_close_to_boundary(atoms)
@@ -227,7 +227,7 @@ class DFTCalculation:
         F_av = self.state.ibzwfs.forces(self.state.potential)
 
         pot_calc = self.pot_calc
-        Fcc_avL, Fnct_av, Fvbar_av = pot_calc.force_contributions(
+        Fcc_avL, Fnct_av, Ftauct_av, Fvbar_av = pot_calc.force_contributions(
             self.state)
 
         # Force from compensation charges:
@@ -239,6 +239,11 @@ class DFTCalculation:
         # Force from smooth core charge:
         for a, dF_v in Fnct_av.items():
             F_av[a] += dF_v[:, 0]
+
+        if Ftauct_av is not None:
+            # Force from smooth core ked:
+            for a, dF_v in Ftauct_av.items():
+                F_av[a] += dF_v[:, 0]
 
         # Force from zero potential:
         for a, dF_v in Fvbar_av.items():
@@ -291,6 +296,7 @@ class DFTCalculation:
             params: InputParameters,
             log=None) -> DFTCalculation:
         """Create new DFTCalculation object."""
+        from gpaw.new.builder import builder as create_builder
 
         if params.mode['name'] != 'pw':
             raise ReuseWaveFunctionsError

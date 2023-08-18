@@ -126,6 +126,10 @@ class PWFDWaveFunctions(WaveFunctions):
             nt_xR[2] += 2 * f * p12_R.imag
             nt_xR[3] += f * (p11_R - p22_R)
 
+    def add_to_ked(self, taut_sR) -> None:
+        occ_n = self.weight * self.spin_degeneracy * self.myocc_n
+        self.psit_nX.add_ked(occ_n, taut_sR[self.spin])
+
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
 

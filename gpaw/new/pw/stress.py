@@ -9,15 +9,16 @@ from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
-
+from gpaw.core import PWArray
 if TYPE_CHECKING:
     from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 
 
 def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      state: DFTState,
-                     vt_g,
-                     nt_g) -> Array2D:
+                     vt_g: PWArray,
+                     nt_g: PWArray,
+                     dedtaut_g: PWArray | None) -> Array2D:
     assert state.ibzwfs.domain_comm.size == 1
     assert state.ibzwfs.band_comm.size == 1
     comm = state.ibzwfs.kpt_comm
@@ -32,14 +33,12 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
 
     s_vv = get_wfs_stress(state.ibzwfs, state.potential.dH_asii)
 
-    nt_sr = pot_calc._interpolate_density(state.density.nt_sR)[0]
-    xp = nt_sr.xp
-    s_vv += as_xp(
-        pot_calc.xc.xc.stress_tensor_contribution(as_xp(nt_sr.data, np)), xp)
+    s_vv += pot_calc.xc.stress_contribution(state, pot_calc.interpolate)
 
     vHt_h = state.vHt_x
     assert vHt_h is not None
     pw = vHt_h.desc
+    xp = state.density.nt_sR.xp
     G_Gv = xp.asarray(pw.G_plus_k_Gv)
     vHt2_hz = vHt_h.data.view(float).reshape((len(G_Gv), 2))**2
     s_vv += (xp.einsum('Gz, Gv, Gw -> vw', vHt2_hz, G_Gv, G_Gv) *
@@ -49,8 +48,13 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     s_vv += pot_calc.ghat_aLh.stress_tensor_contribution(vHt_h, Q_aL)
 
     s_vv -= xp.eye(3) * pot_calc.e_stress
+
     s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
+
     s_vv += state.density.nct_aX.stress_tensor_contribution(vt_g)
+
+    if dedtaut_g is not None:
+        s_vv += state.density.tauct_aX.stress_tensor_contribution(dedtaut_g)
 
     # s_vv += wfs.dedepsilon * np.eye(3) ???
 

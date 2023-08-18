@@ -180,6 +180,12 @@ class DistributedArrays(Generic[DomainType]):
         """
         raise NotImplementedError
 
+    def add_ked(self,
+                weights: Array1D,
+                out: UGArray) -> None:
+        """Add weighted absolute square of gradient of data to output array."""
+        raise NotImplementedError
+
     def gather(self, out=None, broadcast=False):
         raise NotImplementedError
 

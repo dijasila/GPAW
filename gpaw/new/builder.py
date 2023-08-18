@@ -10,7 +10,6 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
-import _gpaw
 from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -33,6 +32,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 def builder(atoms: Atoms,
@@ -313,7 +313,7 @@ def create_communicators(comm: MPIComm = None,
     comms = {key: comm if comm.size > 1 else serial_comm
              for key, comm in comms.items()}
 
-    if xp is not np and not getattr(_gpaw, 'gpu_aware_mpi', False):
+    if xp is not np and not GPU_AWARE_MPI:
         comms = {key: CuPyMPI(comm) for key, comm in comms.items()}
 
     return comms

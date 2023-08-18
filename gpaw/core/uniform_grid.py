@@ -5,7 +5,6 @@ from typing import Sequence
 
 import numpy as np
 
-import _gpaw
 import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
@@ -16,6 +15,8 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
+from gpaw.new.c import add_to_density, symmetrize_ft
+from gpaw.fd_operators import Gradient
 
 
 class UGDesc(Domain):
@@ -693,8 +694,7 @@ class UGArray(DistributedArrays[UGDesc]):
         """Add weighted absolute square of data to output array."""
         assert out is not None
         for f, psit_R in zips(weights, self.data):
-            # Same as out.data += f * abs(psit_R)**2, but much faster:
-            _gpaw.add_to_density(f, psit_R, out.data)
+            add_to_density(f, psit_R, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""
@@ -714,7 +714,7 @@ class UGArray(DistributedArrays[UGDesc]):
             for a_R, b_R in zips(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
                 for r_cc, t_c in zips(rotation_scc, t_sc):
-                    _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
+                    symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
             if self.xp is not np:
                 b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
@@ -770,3 +770,15 @@ class UGArray(DistributedArrays[UGDesc]):
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
                       dtype=grid.dtype)
         return UGArray(grid, self.dims, self.comm, self.data * v)
+
+    def add_ked(self,
+                occ_n: Array1D,
+                taut_R: UGArray) -> None:
+        grad_v = [
+            Gradient(self.desc._gd, v, n=3, dtype=self.desc.dtype)
+            for v in range(3)]
+        tmp_R = self.desc.empty()
+        for f, psit_R in zips(occ_n, self):
+            for grad in grad_v:
+                grad(psit_R, tmp_R)
+                add_to_density(0.5 * f, tmp_R.data, taut_R.data)

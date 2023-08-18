@@ -3,11 +3,9 @@ from __future__ import annotations
 from math import pi
 from typing import TYPE_CHECKING
 
-import _gpaw
+import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Ha
-
-import gpaw.fftw as fftw
 from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
@@ -15,11 +13,13 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PWAtomCenteredFunctions
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
+from gpaw.new.c import add_to_density, pw_insert
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
-                         Vector, Literal)
+                         Literal, Vector)
+
 if TYPE_CHECKING:
-    from gpaw.core import UGDesc, UGArray
+    from gpaw.core import UGArray, UGDesc
 
 
 class PWDesc(Domain):
@@ -174,11 +174,7 @@ class PWDesc(Domain):
             assert Q_G.flags.c_contiguous
             assert array_Q.flags.c_contiguous
 
-        # Python version:
-        # array_Q[:] = 0.0
-        # array_Q.ravel()[Q_G] = coef_G
-
-        _gpaw.pw_insert(coef_G, Q_G, 1.0, array_Q)
+        pw_insert(coef_G, Q_G, 1.0, array_Q)
 
     def map_indices(self, other: PWDesc) -> tuple[Array1D, list[Array1D]]:
         """Map from one (distributed) set of plane waves to smaller global set.
@@ -583,7 +579,7 @@ class PWArray(DistributedArrays[PWDesc]):
                     continue
                 a_G.ifft(out=a_R)
                 if xp is np:
-                    _gpaw.add_to_density(weight, a_R.data, out.data)
+                    add_to_density(weight, a_R.data, out.data)
                 else:
                     out.data += float(weight) * xp.abs(a_R.data)**2
             return
@@ -605,7 +601,7 @@ class PWArray(DistributedArrays[PWDesc]):
                 continue
             a1_G.ifft(out=a1_R)
             if xp is np:
-                _gpaw.add_to_density(weight, a1_R.data, b1_R.data)
+                add_to_density(weight, a1_R.data, b1_R.data)
             else:
                 b1_R.data += float(weight) * xp.abs(a1_R.data)**2
 
@@ -665,6 +661,41 @@ class PWArray(DistributedArrays[PWDesc]):
 
         out_xG.data[..., G_G0] = self.data[..., G0_G]
         return out_xG
+
+    def add_ked(self,
+                occ_n: Array1D,
+                taut_R: UGArray) -> None:
+        psit_nG = self
+        pw = psit_nG.desc
+        domain_comm = pw.comm
+
+        # Undistributed work arrays:
+        dpsit1_R = taut_R.desc.new(comm=None, dtype=pw.dtype).empty()
+        pw1 = pw.new(comm=None)
+        psit1_G = pw1.empty()
+        iGpsit1_G = pw1.empty()
+        taut1_R = taut_R.desc.new(comm=None).zeros()
+        Gplusk1_Gv = pw1.reciprocal_vectors()
+
+        (N,) = psit_nG.mydims
+        for n1 in range(0, N, domain_comm.size):
+            n2 = min(n1 + domain_comm.size, N)
+            psit_nG[n1:n2].gather_all(psit1_G)
+            n = n1 + domain_comm.rank
+            if n >= N:
+                continue
+            f = occ_n[n]
+            if f == 0.0:
+                continue
+            for v in range(3):
+                iGpsit1_G.data[:] = psit1_G.data
+                iGpsit1_G.data *= 1j * Gplusk1_Gv[:, v]
+                iGpsit1_G.ifft(out=dpsit1_R)
+                add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
+        domain_comm.sum(taut1_R.data)
+        tmp_R = taut_R.new()
+        tmp_R.scatter_from(taut1_R)
+        taut_R.data += tmp_R.data
 
 
 def a2a_stuff(comm, N, ng, myng, maxmyng):
