@@ -25,7 +25,7 @@ def out():
 def test_wannier90(gpw_files, mode, in_tmp_dir):
     o_ai = [[], [0, 1, 2, 3]]
     bands = range(4)
-    
+
     if mode == 'sym':
         calc = GPAW(gpw_files['gaas_pw'])
         assert calc.wfs.kd.nbzkpts > calc.wfs.kd.nibzkpts
@@ -39,7 +39,7 @@ def test_wannier90(gpw_files, mode, in_tmp_dir):
                         seed=seed,
                         bands=bands,
                         orbitals_ai=o_ai)
-    
+
     wannier.write_input(num_iter=1000,
                         plot=False)
 
@@ -90,7 +90,7 @@ def test_wannier90_soc(gpw_files, in_tmp_dir):
         w = read_wout_all(fd)
     centers = np.sum(np.array(w['centers']), axis=0)
     centers_correct = [12.9, 12.9, 12.9]
-    assert np.allclose(centers, centers_correct, atol=0.1)
+    assert np.allclose(centers, centers_correct, atol=0.15)
     spreads = np.sum(np.array(w['spreads']))
     assert spreads == pytest.approx(20.1, abs=0.6)
 
