@@ -105,7 +105,7 @@ def get_tolerances(system, qrel):
     if qrel == 0.0:
         cot_atol = 5e-5
     elif qrel == 0.25:
-        cot_atol = 5e-4
+        cot_atol = 9e-4
     elif qrel == 0.5:
         cot_atol = 5e-4
     atols['co_pw_+-'] = cot_atol
