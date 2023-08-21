@@ -220,7 +220,6 @@ class DFTCalculation:
     def forces(self, silent=False):
         """Calculate atomic forces."""
         xc = self.pot_calc.xc
-        assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):

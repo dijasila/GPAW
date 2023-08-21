@@ -35,7 +35,6 @@ class PWAtomCenteredFunctions(AtomCenteredFunctions):
             return
 
         self._lfc = PWLFC(self.functions, self.pw, xp=self.xp)
-
         if self._atomdist is None:
             self._atomdist = AtomDistribution.from_number_of_atoms(
                 len(self.fracpos_ac), self.pw.comm)
@@ -453,7 +452,7 @@ class PWLFC(BaseLFC):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, Z_LvG)
 
-        self.comm.sum(stress_vv)
+        #self.comm.sum(stress_vv)
 
         return stress_vv
 
