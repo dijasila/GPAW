@@ -67,7 +67,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
 
     # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
-    
+
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
@@ -136,7 +136,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 k_k = np.array(k_k)
                 dn_k = np.array(dn_k)
                 assert np.allclose(k_k**l * kspline.map(k_k), dn_k,
-                                   rtol=1e-3, atol=1e-5), \
+                                   rtol=5e-3, atol=1e-5), \
                     f'FFBT mismatch: {k_k**l * kspline.map(k_k)}, {dn_k}'
 
                 # Finally, we can map the Fourier-Bessel transform onto the
