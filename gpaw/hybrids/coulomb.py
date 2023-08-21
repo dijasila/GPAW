@@ -9,7 +9,7 @@ from ase.dft import monkhorst_pack
 def coulomb_interaction(omega, gd, kd):
     if omega:
         return ShortRangeCoulomb(omega)
-    return PointVolumeIntegration(gd.cell_cv, kd.N_c)
+    #return PointVolumeIntegration(gd.cell_cv, kd.N_c)
     return WSTC(gd.cell_cv, kd.N_c)
 
 
@@ -24,14 +24,20 @@ class PointVolumeIntegration:
         with np.errstate(invalid='ignore'):
             v_G = 4 * pi / G2_G
         G0 = G2_G.argmin()
-        if G2_G[G0] < 1e-11:
-            N = 20
-            print(self.N_c)
-            qf_qc = monkhorst_pack(np.array([20,20,20]))
-            qf_qc = to1bz(qf_qc, pd.gd.cell_cv) / self.N_c
+
+        if 1: 
+            #N = 160 if G2_G[G0] < 1e-11 else 40
+            #qf_qc = monkhorst_pack(np.array([N,N,N]))
+            N3 = 3_000_000
+            qf_qc = np.random.rand(N3, 3)
+            qf_qc = to1bz(qf_qc, pd.gd.cell_cv) / self.N_c 
             B_cv = 2 * np.pi * pd.gd.icell_cv
-            v_G[G0] = 4 * pi * np.sum(1.0 / np.sum(np.dot(qf_qc, B_cv)**2, axis=1)) / 20**3  # * np.abs(np.linalg.det(B_cv)) / 20**3 
-            print(v_G[G0], 'V0')
+            #f = open('points.txt','w')
+            #for B_v in np.dot(qf_qc, B_cv):
+            #    print(B_v[0], B_v[1], B_v[2], file=f)
+            #f.close()
+            #asd
+            v_G[G0] = 4 * pi * np.sum(1.0 / np.sum((np.dot(qf_qc, B_cv) + pd.K_qv[0])**2, axis=1)) / N3  # * np.abs(np.linalg.det(B_cv)) / 20**3 
         print(v_G)
         print('Comparison me / wstc', v_G / self.wstc.get_potential(pd))
         return v_G

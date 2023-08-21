@@ -203,7 +203,7 @@ def _calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
             rskpt2 = sym.apply_symmetry(s, rskpt0, wfs, spos_ac)
             q_c = rskpt2.k_c - kpt1.k_c
             qd = KPointDescriptor([-q_c])
-            pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
+            pd12 = PWDescriptor(4*pd.ecut, gd, pd.dtype, kd=qd)
             ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
             ghat.set_positions(spos_ac)
             v_G = coulomb.get_potential(pd12)
