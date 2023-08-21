@@ -336,12 +336,12 @@ class IBZWaveFunctions:
                     P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
-                        if self.domain_comm.rank == 0:
+                        if P_nI is not None:
                             if rank == 0:
                                 writer.fill(P_nI.data.reshape(proj_shape))
                             else:
                                 self.kpt_comm.send(P_nI.data, 0)
-                elif self.kpt_comm.rank == 0:
+                elif self.comm.rank == 0:
                     data = np.empty(proj_shape, self.dtype)
                     self.kpt_comm.receive(data, rank)
                     writer.fill(data)
@@ -379,10 +379,10 @@ class IBZWaveFunctions:
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)
-                elif self.kpt_comm.rank == 0:
-                    if coef_nX is not None:
-                        self.kpt_comm.receive(coef_nX, rank)
-                        writer.fill(coef_nX * c)
+                elif self.comm.rank == 0:
+                    assert coef_nX is not None
+                    self.kpt_comm.receive(coef_nX, rank)
+                    writer.fill(coef_nX * c)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
