@@ -1,38 +1,116 @@
 from __future__ import annotations
 from math import sqrt, pi
 import numpy as np
-from ase.units import Bohr
-from gpaw.typing import Vector
+from ase.units import Bohr, Ha
+from gpaw.typing import Vector, Array3D
 from gpaw.core.atom_centered_functions import AtomArraysLayout
 from gpaw.utilities import unpack2, unpack
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.gpu import as_xp
 from gpaw.new import zips
-from gpaw.core.plane_waves import PlaneWaves
+from gpaw.core.plane_waves import PWDesc
+from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 
 
 class Density:
+    @classmethod
+    def from_data_and_setups(cls,
+                             nt_sR,
+                             taut_sR,
+                             D_asii,
+                             charge,
+                             setups,
+                             nct_aX,
+                             tauct_aX):
+        xp = nt_sR.xp
+        return cls(nt_sR,
+                   taut_sR,
+                   D_asii,
+                   charge,
+                   [xp.asarray(setup.Delta_iiL) for setup in setups],
+                   [setup.Delta0 for setup in setups],
+                   [unpack(setup.N0_p) for setup in setups],
+                   [setup.l_j for setup in setups],
+                   nct_aX,
+                   tauct_aX)
+
+    @classmethod
+    def from_superposition(cls,
+                           *,
+                           grid,
+                           nct_aX,
+                           tauct_aX,
+                           atomdist,
+                           setups,
+                           basis_set,
+                           magmom_av,
+                           ncomponents,
+                           charge=0.0,
+                           hund=False,
+                           mgga=False):
+        nt_sR = grid.zeros(ncomponents)
+        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
+                                              for setup in setups],
+                                             atomdist=atomdist)
+        D_asii = atom_array_layout.empty(ncomponents)
+        f_asi = {a: atomic_occupation_numbers(setup,
+                                              magmom_v,
+                                              ncomponents,
+                                              hund,
+                                              charge / len(setups))
+                 for a, (setup, magmom_v)
+                 in enumerate(zips(setups, magmom_av))}
+        basis_set.add_to_density(nt_sR.data, f_asi)
+        for a, D_sii in D_asii.items():
+            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
+
+        xp = nct_aX.xp
+        nt_sR = nt_sR.to_xp(xp)
+        density = cls.from_data_and_setups(nt_sR,
+                                           None,
+                                           D_asii.to_xp(xp),
+                                           charge,
+                                           setups,
+                                           nct_aX,
+                                           tauct_aX)
+        ndensities = ncomponents % 3
+        density.nt_sR.data[:ndensities] += density.nct_R.data
+        if mgga:
+            density.taut_sR = nt_sR.new()
+            density.taut_sR.data[:] = density.tauct_R.data
+        return density
+
     def __init__(self,
-                 nt_sR: UniformGridFunctions,
+                 nt_sR: UGArray,
+                 taut_sR: UGArray | None,
                  D_asii: AtomArrays,
                  charge: float,
-                 delta_aiiL: list,
-                 delta0_a,
+                 delta_aiiL: list[Array3D],
+                 delta0_a: list[float],
                  N0_aii,
-                 l_aj):
+                 l_aj: list[list[int]],
+                 nct_aX: AtomCenteredFunctions,
+                 tauct_aX: AtomCenteredFunctions):
         self.nt_sR = nt_sR
+        self.taut_sR = taut_sR
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.N0_aii = N0_aii
         self.l_aj = l_aj
         self.charge = charge
+        self.nct_aX = nct_aX
+        self.tauct_aX = tauct_aX
 
+        self.grid = nt_sR.desc
         self.ncomponents = nt_sR.dims[0]
         self.ndensities = self.ncomponents % 3
         self.collinear = self.ncomponents != 4
         self.natoms = len(delta0_a)
+
+        self._nct_R = None
+        self._tauct_R = None
 
     def __repr__(self):
         return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
@@ -43,25 +121,49 @@ class Density:
                 f'  grid points: {self.nt_sR.desc.size}\n'
                 f'  charge: {self.charge}  # |e|\n')
 
-    def new(self, grid):
-        pw = PlaneWaves(ecut=0.99 * grid.ecut_max(),
-                        cell=grid.cell,
-                        comm=grid.comm)
-        old_grid = self.nt_sR.desc
-        old_pw = PlaneWaves(ecut=0.99 * old_grid.ecut_max(),
-                            cell=old_grid.cell,
-                            comm=grid.comm)
-        nt_sR = grid.empty(self.ncomponents, xp=self.nt_sR.xp)
-        for nt_R, old_nt_R in zips(nt_sR, self.nt_sR):
-            old_nt_R.fft(pw=old_pw).morph(pw).ifft(out=nt_R)
+    @property
+    def nct_R(self):
+        if self._nct_R is None:
+            self._nct_R = self.grid.empty(xp=self.nt_sR.xp)
+            self.nct_aX.to_uniform_grid(out=self._nct_R,
+                                        scale=1.0 / (self.ncomponents % 3))
+        return self._nct_R
 
-        return Density(nt_sR,
-                       self.D_asii,
-                       self.charge,
-                       self.delta_aiiL,
-                       self.delta0_a,
-                       self.N0_aii,
-                       self.l_aj)
+    @property
+    def tauct_R(self):
+        if self._tauct_R is None:
+            self._tauct_R = self.grid.empty(xp=self.nt_sR.xp)
+            self.tauct_aX.to_uniform_grid(out=self._tauct_R,
+                                          scale=1.0 / (self.ncomponents % 3))
+        return self._tauct_R
+
+    def new(self, new_grid, fracpos_ac, atomdist):
+        self.move(fracpos_ac, atomdist)
+        new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
+                        cell=new_grid.cell,
+                        comm=new_grid.comm)
+        old_grid = self.nt_sR.desc
+        old_pw = PWDesc(ecut=0.99 * old_grid.ecut_max(),
+                        cell=old_grid.cell,
+                        comm=new_grid.comm)
+        new_nt_sR = new_grid.empty(self.ncomponents, xp=self.nt_sR.xp)
+        for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
+            old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
+
+        self.nct_aX.change_cell(new_pw)
+        self.tauct_aX.change_cell(new_pw)
+
+        return Density(
+            new_nt_sR,
+            None if self.taut_sR is None else new_nt_sR.new(zeroed=True),
+            self.D_asii,
+            self.charge,
+            self.delta_aiiL,
+            self.delta0_a,
+            self.N0_aii,
+            self.l_aj,
+            self.nct_aX,
+            self.tauct_aX)
 
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
         xp = self.D_asii.layout.xp
@@ -95,16 +197,36 @@ class Density:
             x = -charge / pseudo_charge
             self.nt_sR.data *= x
 
-    def update(self, nct_R, ibzwfs):
+    def update(self, ibzwfs, ked=False):
         self.nt_sR.data[:] = 0.0
         self.D_asii.data[:] = 0.0
         ibzwfs.add_to_density(self.nt_sR, self.D_asii)
-        self.nt_sR.data[:self.ndensities] += nct_R.data
+        self.nt_sR.data[:self.ndensities] += self.nct_R.data
+
+        if ked:
+            self.update_ked(ibzwfs, symmetrize=False)
+
         self.symmetrize(ibzwfs.ibz.symmetries)
+
+    def update_ked(self, ibzwfs, symmetrize=True):
+        if self.taut_sR is None:
+            self.taut_sR = self.nt_sR.new(zeroed=True)
+        else:
+            self.taut_sR.data[:] = 0.0
+        ibzwfs.add_to_ked(self.taut_sR)
+        self.taut_sR.data[:self.ndensities] += self.tauct_R.data
+        if symmetrize:
+            symmetries = ibzwfs.ibz.symmetries
+            self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                    symmetries.translation_sc)
 
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
+        if self.taut_sR is not None:
+            self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                    symmetries.translation_sc)
+
         xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
         for a1, D_sii in self.D_asii.items():
@@ -116,59 +238,13 @@ class Density:
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
 
-    def move(self, delta_nct_R):
-        self.nt_sR.data[:self.ndensities] += delta_nct_R.data
-
-    @classmethod
-    def from_superposition(cls,
-                           nct_R,
-                           atomdist,
-                           setups,
-                           basis_set,
-                           magmom_av,
-                           ncomponents,
-                           charge=0.0,
-                           hund=False):
-        f_asi = {a: atomic_occupation_numbers(setup,
-                                              magmom_v,
-                                              ncomponents,
-                                              hund,
-                                              charge / len(setups))
-                 for a, (setup, magmom_v)
-                 in enumerate(zips(setups, magmom_av))}
-
-        nt_sR = nct_R.desc.zeros(ncomponents)
-        basis_set.add_to_density(nt_sR.data, f_asi)
-        ndensities = ncomponents % 3
-        nt_sR.data[:ndensities] += nct_R.to_xp(np).data
-
-        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
-                                              for setup in setups],
-                                             atomdist=atomdist)
-        D_asii = atom_array_layout.empty(ncomponents)
-        for a, D_sii in D_asii.items():
-            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
-
-        xp = nct_R.xp
-        return cls.from_data_and_setups(nt_sR.to_xp(xp),
-                                        D_asii.to_xp(xp),
-                                        charge,
-                                        setups)
-
-    @classmethod
-    def from_data_and_setups(cls,
-                             nt_sR,
-                             D_asii,
-                             charge,
-                             setups):
-        xp = nt_sR.xp
-        return cls(nt_sR,
-                   D_asii,
-                   charge,
-                   [xp.asarray(setup.Delta_iiL) for setup in setups],
-                   [setup.Delta0 for setup in setups],
-                   [unpack(setup.N0_p) for setup in setups],
-                   [setup.l_j for setup in setups])
+    def move(self, fracpos_ac, atomdist):
+        self.nt_sR.data[:self.ndensities] -= self.nct_R.data
+        self.nct_aX.move(fracpos_ac, atomdist)
+        self.tauct_aX.move(fracpos_ac, atomdist)
+        self._nct_R = None
+        self._tauct_R = None
+        self.nt_sR.data[:self.ndensities] += self.nct_R.data
 
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)
@@ -221,12 +297,15 @@ class Density:
     def write(self, writer):
         D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()
         nt_sR = self.nt_sR.to_xp(np).gather()
+        if self.taut_sR is not None:
+            taut_sR = self.taut_sR.to_xp(np).gather()
         if D_asp is None:
-            return
-
+            return  # let master do the writing
         writer.write(
             density=nt_sR.data * Bohr**-3,
             atomic_density_matrices=D_asp.data)
+        if self.taut_sR is not None:
+            writer.write(ked=taut_sR.data * (Ha * Bohr**-3))
 
 
 def atomic_occupation_numbers(setup,

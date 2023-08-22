@@ -4,7 +4,7 @@ from types import ModuleType
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zips
 from gpaw.new.potential import Potential
@@ -75,8 +75,12 @@ class WaveFunctions:
         raise NotImplementedError
 
     def add_to_density(self,
-                       nt_sR: UniformGridFunctions,
+                       nt_sR: UGArray,
                        D_asii: AtomArrays) -> None:
+        raise NotImplementedError
+
+    def add_to_ked(self,
+                   taut_sR: UGArray) -> None:
         raise NotImplementedError
 
     def orthonormalize(self, work_array_nX: ArrayND = None):

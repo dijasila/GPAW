@@ -6,13 +6,12 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-
-import _gpaw
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zips
+from gpaw.new import cached_property, zips
 from gpaw.new.brillouin import IBZ
+from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -84,8 +83,17 @@ class IBZWaveFunctions:
 
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
-            if not getattr(_gpaw, 'gpu_aware_mpi', False):
+            if not GPU_AWARE_MPI:
                 self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
+
+    @cached_property
+    def mode(self):
+        wfs = self.wfs_qs[0][0]
+        if isinstance(wfs, PWFDWaveFunctions):
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                return 'pw'
+            return 'fd'
+        return 'lcao'
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -191,6 +199,14 @@ class IBZWaveFunctions:
         self.kpt_comm.sum(D_asii.data)
         self.band_comm.sum(nt_sR.data)
         self.band_comm.sum(D_asii.data)
+
+    def add_to_ked(self, taut_sR) -> None:
+        for wfs in self:
+            wfs.add_to_ked(taut_sR)
+        if self.xp is not np:
+            synchronize()
+        self.kpt_comm.sum(taut_sR.data)
+        self.band_comm.sum(taut_sR.data)
 
     def get_all_electron_wave_function(self,
                                        band,
@@ -435,7 +451,7 @@ class IBZWaveFunctions:
             psit_nX = getattr(wfs, 'psit_nX', None)
             if psit_nX is None:
                 return
-            if hasattr(psit_nX.data, 'fd'):
+            if hasattr(psit_nX.data, 'fd'):  # fd=file-descriptor
                 psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:

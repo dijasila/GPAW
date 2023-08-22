@@ -1,23 +1,25 @@
 from __future__ import annotations
-from math import pi
 
-import _gpaw
+from math import pi
+from typing import TYPE_CHECKING
+
 import numpy as np
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gpu import cupy_is_fake
 from gpaw.lfc import BaseLFC
 from gpaw.new import prod
-from gpaw.ffbt import rescaled_fourier_bessel_transform
+from gpaw.new.c import pwlfc_expand, pwlfc_expand_gpu
 from gpaw.spherical_harmonics import Y, nablarlYL
 from gpaw.utilities.blas import mmm
-from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from gpaw.core.plane_waves import PlaneWaves
+    from gpaw.core.plane_waves import PWDesc
 
 
-class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
+class PWAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos,
@@ -37,8 +39,6 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         if self._atomdist is None:
             self._atomdist = AtomDistribution.from_number_of_atoms(
                 len(self.fracpos_ac), self.pw.comm)
-        else:
-            assert self.pw.comm is self._atomdist.comm
 
         self._lfc.set_positions(self.fracpos_ac, self._atomdist)
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
@@ -54,17 +54,21 @@ class PlaneWaveAtomCenteredFunctions(AtomCenteredFunctions):
         return s[:-1] + ', xp=cp)'
 
     def to_uniform_grid(self,
-                        out: UniformGridFunctions,
-                        scale: float = 1.0) -> UniformGridFunctions:
+                        out: UGArray,
+                        scale: float = 1.0) -> UGArray:
         out_G = self.pw.zeros(xp=out.xp)
         self.add_to(out_G, scale)
         return out_G.ifft(out=out)
+
+    def change_cell(self, new_pw):
+        self.pw = new_pw
+        self._lfc = None
 
 
 class PWLFC(BaseLFC):
     def __init__(self,
                  functions,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  blocksize=5000, *, xp):
         """Reciprocal-space plane-wave localized function collection.
 
@@ -235,36 +239,17 @@ class PWLFC(BaseLFC):
 
         if xp is np:
             # Fast C-code:
-            _gpaw.pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
-                               self.l_s, self.a_J, self.s_J,
-                               cc, f_GI)
+            pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
+                         self.l_s, self.a_J, self.s_J,
+                         cc, f_GI)
         elif cupy_is_fake:
-            _gpaw.pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
-                               self.l_s._data, self.a_J._data, self.s_J._data,
-                               cc, f_GI._data)
+            pwlfc_expand(f_Gs._data, emiGR_Ga._data, Y_GL._data,
+                         self.l_s._data, self.a_J._data, self.s_J._data,
+                         cc, f_GI._data)
         else:
-            _gpaw.pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
-                                   self.l_s, self.a_J, self.s_J,
-                                   cc, f_GI, self.I_J)
-        return f_GI
-
-        # XXX This is never reachable
-        # Equivalent slow Python code:
-        f_GI = xp.empty((G2 - G1, self.nI), complex)
-        I1 = 0
-        for J, (a, s) in enumerate(zip(self.a_J, self.s_J)):
-            l = self.l_s[s]
-            I2 = I1 + 2 * l + 1
-            f_GI[:, I1:I2] = (f_Gs[:, s] *
-                              emiGR_Ga[:, a] *
-                              Y_GL[:, l**2:(l + 1)**2].T *
-                              (-1.0j)**l).T
-            I1 = I2
-        if cc:
-            f_GI = f_GI.conj()
-        if self.dtype == float:
-            f_GI = f_GI.T.copy().view(float).T.copy()
-
+            pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
+                             self.l_s, self.a_J, self.s_J,
+                             cc, f_GI, self.I_J)
         return f_GI
 
     def block(self, ensure_same_number_of_blocks=False):
