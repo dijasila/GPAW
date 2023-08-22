@@ -15,20 +15,14 @@ if version_info < (3, 7):
 
 version = '3.10'  # Python version in the venv that we are creating
 
-tkinter = [
-    '/home/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/lib/python3.8',
-    '/home/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/easybuild/python']
-
 module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
 module load matplotlib/3.5.2-{{tchain}}-2022a
-module load pytest-xdist/2.5.0-GCCcore-11.3.0
 module load GPAW-setups/0.9.20000
 module load Wannier90/3.1.0-{{tchain}}-2022a
 module load ELPA/2022.05.001-{{tchain}}-2022a
 module load scikit-learn/1.1.2-{{tchain}}-2022a
-export PYTHONPATH={':'.join(tkinter)}
 """
 
 module_cmds_tc = {
@@ -84,6 +78,46 @@ def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
     for path in gpaw.glob('build/temp.linux-x86_64-*'):
         shutil.rmtree(path)
 
+def fix_installed_scripts(venvdir: Path) -> None:
+    """Fix command line tools so they work in the virtual environment.
+
+    Command line tools (pytest, sphinx-build etc) fail in virtual
+    enviroments created with --system-site-packages, as the scripts
+    are not copied into the virtual environment.  The scripts have
+    the original Python interpreter hardcoded in the hash-bang line.
+
+    This function copies all scripts into the virtual environment,
+    and changes the hash-bang so it works.
+    """
+
+    rootdir = os.getenv('EBROOTPYTHON')
+    bindir = rootdir / Path('bin')
+    print(f'Patching binaries from {bindir} to {venvdir}/bin')
+    sedscript = f's+{rootdir}+{venvdir}+g'
+    #print('sed script:', sedscript)
+    
+    # Loop over potential executables
+    for exe in bindir.iterdir():
+        target = venvdir / 'bin' / exe.name
+        # Skip files that already exist, are part of Python itself,
+        # or are not a regular file or symlink to a file.
+        if (not target.exists()
+                and not exe.name.lower().startswith('python')
+                and exe.is_file()):
+            # Check if it is a script file referring the original
+            # Python executable in the hash-bang
+            with open(exe) as f:
+                firstline = f.readline()
+            if rootdir in firstline:
+                shutil.copy2(exe, target, follow_symlinks=False)
+                # Now patch the file (if not a symlink)
+                if not exe.is_symlink():
+                    assert not target.is_symlink()
+                    subprocess.run(
+                        f"sed -e '{sedscript}' --in-place '{target}'",
+                        shell=True,
+                        check=True
+                    )
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -123,10 +157,16 @@ def main():
 
     run(f'. {activate} && pip install --upgrade pip -q')
 
+    # Fix venv so pytest etc work
+    fix_installed_scripts(venvdir=venv)
+
     packages = ['myqueue',
                 'graphviz',
-                'qeh']
-    run(f'. {activate} && pip install -q ' + ' '.join(packages))
+                'pytest',
+                'pytest-xdist',
+                'qeh',
+                'sphinx_rtd_theme']
+    run(f'. {activate} && pip install -q -U ' + ' '.join(packages))
 
     for name in ['ase', 'gpaw']:
         run(f'git clone -q https://gitlab.com/{name}/{name}.git')
