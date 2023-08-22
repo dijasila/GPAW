@@ -208,8 +208,8 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
 
     # Inner loop etdm
     if print_iloop:
-        iloop_counter = ctx.wfs.eigensolver.eg_count_iloop \
-                        + ctx.wfs.eigensolver.eg_count_outer_iloop
+        iloop_counter = (ctx.wfs.eigensolver.eg_count_iloop +
+                         ctx.wfs.eigensolver.eg_count_outer_iloop)
         line += ('{:12d}'.format(iloop_counter))
 
     log(line.rstrip())
