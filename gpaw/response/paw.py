@@ -201,12 +201,12 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
     spherical Bessel functions j_l(Kr) yields the following expression for the
     atom-centered correction tensor [publication in preparation]:
 
-                         l        l'
-                     __  __   __  __
-    ˍ                \   \    \   \      l'  m'˰   m_i,m_i',m,m'
-    F_aii'(G+q) = 4π /   /    /   /  (-i)   Y (K) G
-                     ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
-                     l  m=-l  l' m'=-l'
+                       l        l'
+                   __  __   __  __
+    ˍ              \   \    \   \      l'  m'˰   m_i,m_i',m,m'
+    F_aii'(K) = 4π /   /    /   /  (-i)   Y (K) G
+                   ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
+                   l  m=-l  l' m'=-l'
 
                                 rc
                                 /  2            a     a      ˷a    ˷a      m
@@ -214,8 +214,8 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
                                 /       l'      j_i   j_i'    j_i   j_i'   l
                                 0
 
-    where G denotes the super Gaunt coefficients, which yields the integral
-    over four spherical harmonics.
+    where K=G+q and G_LLLL denotes the super Gaunt coefficients, which yield
+    the integrals over four spherical harmonics.
     """
     rgd = rshe.rgd
     assert rgd is pawdata.xc_correction.rgd
