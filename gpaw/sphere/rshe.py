@@ -1,12 +1,15 @@
 import numpy as np
 
+from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.sphere.integrate import integrate_lebedev
 
 
 class RealSphericalHarmonicsExpansion:
     """Expansion in real spherical harmonics of a function f(r)."""
 
-    def __init__(self, f_gM, Y_nL, L_M=None):
+    def __init__(self,
+                 rgd: RadialGridDescriptor,
+                 f_gM, Y_nL, L_M=None):
         """Construct the expansion
 
         Parameters
@@ -20,6 +23,7 @@ class RealSphericalHarmonicsExpansion:
         L_M : np.array
             L index for every reduced expansion index M.
         """
+        self.rgd = rgd
         self.f_gM = f_gM
         self.Y_nL = Y_nL
 
@@ -30,7 +34,7 @@ class RealSphericalHarmonicsExpansion:
         self.L_M = L_M
 
     @classmethod
-    def from_spherical_grid(cls, f_ng, Y_nL):
+    def from_spherical_grid(cls, rgd, f_ng, Y_nL):
         r"""Expand the function f(r) in real spherical harmonics.
 
                 / ^    ^     ^
@@ -57,7 +61,7 @@ class RealSphericalHarmonicsExpansion:
         f_gL = integrate_lebedev(
             Y_nL[:, np.newaxis, :nL] * f_ng[..., np.newaxis])
 
-        return cls(f_gL, Y_nL)
+        return cls(rgd, f_gL, Y_nL)
 
     def reduce_expansion(self, L_M):
         """Produce a new expansion with only the spherical hamonic indices L_M.
@@ -70,7 +74,7 @@ class RealSphericalHarmonicsExpansion:
             M_M.append(lookup[0])
 
         return RealSphericalHarmonicsExpansion(
-            self.f_gM[:, M_M], self.Y_nL, L_M=L_M)
+            self.rgd, self.f_gM[:, M_M], self.Y_nL, L_M=L_M)
 
     @property
     def nL(self):
@@ -104,10 +108,10 @@ class RealSphericalHarmonicsExpansion:
         return Y_nM @ self.f_gM.T
 
 
-def calculate_reduced_rshe(f_ng, Y_nL, lmax=-1, wmin=None):
+def calculate_reduced_rshe(rgd, f_ng, Y_nL, lmax=-1, wmin=None):
     """Expand a function f(r) in real spherical harmonics with a reduced number
     of expansion coefficients."""
-    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
+    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(rgd, f_ng, Y_nL)
     L_M, info_string = assess_rshe_reduction(f_ng, rshe, lmax=lmax, wmin=wmin)
     rshe = rshe.reduce_expansion(L_M)
     return rshe, info_string

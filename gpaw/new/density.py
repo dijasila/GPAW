@@ -50,9 +50,9 @@ class Density:
                            hund=False,
                            mgga=False):
         nt_sR = grid.zeros(ncomponents)
-        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
-                                              for setup in setups],
-                                             atomdist=atomdist)
+        atom_array_layout = AtomArraysLayout(
+            [(setup.ni, setup.ni) for setup in setups],
+            atomdist=atomdist, dtype=float if ncomponents < 4 else complex)
         D_asii = atom_array_layout.empty(ncomponents)
         f_asi = {a: atomic_occupation_numbers(setup,
                                               magmom_v,
@@ -174,7 +174,7 @@ class Density:
 
         for a, D_sii in self.D_asii.items():
             Q_L = xp.einsum('sij, ijL -> L',
-                            D_sii[:self.ndensities], self.delta_aiiL[a])
+                            D_sii[:self.ndensities].real, self.delta_aiiL[a])
             Q_L[0] += self.delta0_a[a]
             ccc_aL[a] = Q_L
 
@@ -185,7 +185,7 @@ class Density:
         xp = self.D_asii.layout.xp
         for a, D_sii in self.D_asii.items():
             comp_charge += xp.einsum('sij, ij ->',
-                                     D_sii[:self.ndensities],
+                                     D_sii[:self.ndensities].real,
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
         # comp_charge could be cupy.ndarray:
@@ -282,7 +282,7 @@ class Density:
 
         elif self.ncomponents == 4:
             for a, D_sii in self.D_asii.items():
-                M_vii = D_sii[1:4]
+                M_vii = D_sii[1:4].real
                 magmom_av[a] = np.einsum('vij, ij -> v',
                                          M_vii, self.N0_aii[a])
                 magmom_v += (np.einsum('vij, ij -> v', M_vii,
