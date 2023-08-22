@@ -25,6 +25,7 @@ unset PYTHONPATH
 module load matplotlib/3.3.3-{{tchain}}-2020b
 module load GPAW-setups/0.9.20000
 module load Wannier90/3.1.0-{{tchain}}-2020b
+module load ELPA/2022.05.001-{{tchain}}-2022a
 export PYTHONPATH={':'.join(tkinter)}
 """
 
