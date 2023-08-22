@@ -1,3 +1,4 @@
+"""PW-mode stress tensor calculation."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -19,6 +20,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      vt_g: PWArray,
                      nt_g: PWArray,
                      dedtaut_g: PWArray | None) -> Array2D:
+    """Calculate symmetrized stress tensor."""
     ibzwfs = state.ibzwfs
     density = state.density
     potential = state.potential
@@ -51,7 +53,6 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     if xp is not np:
         synchronize()
     comm.sum(s_vv, 0)
-    # s_vv += wfs.dedepsilon * np.eye(3) ???
 
     s_vv = as_xp(s_vv, np)
 
@@ -113,7 +114,7 @@ def get_paw_stress(wfs: PWFDWaveFunctions,
         Pf_ni = P_ni * occ_n[:, None]
         dH_ii = dH_asii[a][wfs.spin]
         dS_ii = xp.asarray(wfs.setups[a].dO_ii)
-        a_ni = (Pf_ni @ dH_ii - Pf_ni * eig_n1 @ dS_ii)
+        a_ni = Pf_ni @ dH_ii - Pf_ni * eig_n1 @ dS_ii
         s += xp.vdot(P_ni, a_ni)
         a_ani[a] = 2 * a_ni.conj()
     s_vv = wfs.pt_aiX.stress_contribution(wfs.psit_nX, a_ani)
