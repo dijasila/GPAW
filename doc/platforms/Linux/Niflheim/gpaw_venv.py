@@ -13,7 +13,7 @@ from sys import version_info
 if version_info < (3, 7):
     raise ValueError('Please use Python-3.7 or later')
 
-version = '3.8'  # Python version in the venv that we are creating
+version = '3.10'  # Python version in the venv that we are creating
 
 tkinter = [
     '/home/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/lib/python3.8',
@@ -22,20 +22,22 @@ tkinter = [
 module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
-module load matplotlib/3.3.3-{{tchain}}-2020b
+module load matplotlib/3.5.2-{{tchain}}-2022a
+module load pytest-xdist/2.5.0-GCCcore-11.3.0
 module load GPAW-setups/0.9.20000
-module load Wannier90/3.1.0-{{tchain}}-2020b
+module load Wannier90/3.1.0-{{tchain}}-2022a
 module load ELPA/2022.05.001-{{tchain}}-2022a
+module load scikit-learn/1.1.2-{{tchain}}-2022a
 export PYTHONPATH={':'.join(tkinter)}
 """
 
 module_cmds_tc = {
     'foss': """\
-module load libxc/4.3.4-GCC-10.2.0
-module load libvdwxc/0.4.0-foss-2020b
+module load libxc/5.2.3-GCC-11.3.0
+module load libvdwxc/0.4.0-foss-2022a
 """,
     'intel': """\
-module load libxc/4.3.4-iccifort-2020.4.304
+module load libxc/5.2.3-intel-compilers-2022.1.0
 """}
 
 activate_extra = """
@@ -123,9 +125,6 @@ def main():
 
     packages = ['myqueue',
                 'graphviz',
-                'matplotlib',
-                'pytest-xdist',
-                'scikit-learn',
                 'qeh']
     run(f'. {activate} && pip install -q ' + ' '.join(packages))
 
