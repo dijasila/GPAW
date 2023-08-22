@@ -106,7 +106,7 @@ def get_paw_stress(wfs: PWFDWaveFunctions,
                    dH_asii: AtomArrays,
                    occ_n) -> Array2D:
     xp = wfs.xp
-    eig_n1 = xp.asarray(wfs.eig_n[:, None])
+    eig_n1 = xp.asarray(wfs.myeig_n[:, None])
     a_ani = {}
     s = 0.0
     for a, P_ni in wfs.P_ani.items():
