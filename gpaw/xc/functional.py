@@ -108,8 +108,8 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
-    
-    def stress_tensor_contribution(self, n_sg):
+
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
         raise NotImplementedError('Calculation of stress tensor is not ' +
                                   f'implemented for {self.name}')
 

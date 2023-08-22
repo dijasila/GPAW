@@ -99,6 +99,7 @@ class AtomCenteredFunctions:
         return out
 
     def stress_contribution(self, a, c=1.0):
+        self._lazy_init()
         return self._lfc.stress_tensor_contribution(a.data, c)
 
 

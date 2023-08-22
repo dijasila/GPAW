@@ -110,8 +110,8 @@ class SCFLoop:
                 state.density.update(state.ibzwfs,
                                      ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
-                state.potential, state.vHt_x, _ = pot_calc.calculate(
-                    state.density, state.ibzwfs, state.vHt_x)
+                state.potential, _ = pot_calc.calculate(
+                    state.density, state.ibzwfs, state.potential.vHt_x)
 
 
 class SCFContext:

@@ -19,31 +19,34 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      vt_g: PWArray,
                      nt_g: PWArray,
                      dedtaut_g: PWArray | None) -> Array2D:
-    comm = state.ibzwfs.comm
-    xp = state.density.nt_sR.xp
-    dom = state.density.nt_sR.desc
+    ibzwfs = state.ibzwfs
+    density = state.density
+    potential = state.potential
+    comm = ibzwfs.comm
+    xp = density.nt_sR.xp
+    dom = density.nt_sR.desc
 
-    s_vv = get_wfs_stress(state.ibzwfs, state.potential.dH_asii)
+    ibzwfs.make_sure_wfs_are_read_from_gpw_file()
+    s_vv = get_wfs_stress(ibzwfs, potential.dH_asii)
     s_vv += pot_calc.xc.stress_contribution(state, pot_calc.interpolate)
 
     if state.ibzwfs.kpt_comm.rank == 0 and state.ibzwfs.band_comm.rank == 0:
-        vHt_h = state.vHt_x
+        vHt_h = potential.vHt_x
         assert vHt_h is not None
         pw = vHt_h.desc
         G_Gv = xp.asarray(pw.G_plus_k_Gv)
         vHt2_hz = vHt_h.data.view(float).reshape((len(G_Gv), 2))**2
         s_vv += (xp.einsum('Gz, Gv, Gw -> vw', vHt2_hz, G_Gv, G_Gv) *
                  pw.dv / (2 * np.pi))
-        Q_aL = state.density.calculate_compensation_charge_coefficients()
+        Q_aL = density.calculate_compensation_charge_coefficients()
         s_vv += pot_calc.ghat_aLh.stress_contribution(vHt_h, Q_aL)
         if state.ibzwfs.domain_comm.rank == 0:
-            s_vv -= xp.eye(3) * pot_calc.e_stress
-
+            s_vv -= xp.eye(3) * potential.energies['stress']
         s_vv += pot_calc.vbar_ag.stress_contribution(nt_g)
-        s_vv += state.density.nct_aX.stress_contribution(vt_g)
+        s_vv += density.nct_aX.stress_contribution(vt_g)
 
         if dedtaut_g is not None:
-            s_vv += state.density.tauct_aX.stress_contribution(dedtaut_g)
+            s_vv += density.tauct_aX.stress_contribution(dedtaut_g)
 
     if xp is not np:
         synchronize()
@@ -59,7 +62,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     sigma_vv = np.zeros((3, 3))
     cell_cv = dom.cell_cv
     icell_cv = dom.icell
-    rotation_scc = state.ibzwfs.ibz.symmetries.rotation_scc
+    rotation_scc = ibzwfs.ibz.symmetries.rotation_scc
     for U_cc in rotation_scc:
         M_vv = (icell_cv.T @ (U_cc @ cell_cv)).T
         sigma_vv += M_vv.T @ s_vv @ M_vv

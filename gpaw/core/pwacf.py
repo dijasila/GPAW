@@ -452,8 +452,6 @@ class PWLFC(BaseLFC):
                     stress_vv[v1, v2] += self._stress_tensor_contribution(
                         v1, v2, things, G1, G2, G_Gv, aa_xG, c_axi, Z_LvG)
 
-        #self.comm.sum(stress_vv)
-
         return stress_vv
 
     def _stress_tensor_contribution(self, v1, v2, things, G1, G2,

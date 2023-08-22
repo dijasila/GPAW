@@ -65,6 +65,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                       cell=self.grid.cell,
                       comm=self.grid.comm)
 
+    @cached_property
+    def electrostatic_potential_desc(self):
+        return self.interpolation_pw.new(ecut=8 * self.ecut)
+
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             self._nct_ag = self.setups.create_pseudo_core_densities(
@@ -88,7 +92,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_potential_calculator(self):
         nct_ag = self.get_pseudo_core_densities()
         pw = nct_ag.pw
-        fine_pw = pw.new(ecut=8 * self.ecut)
+        fine_pw = self.electrostatic_potential_desc
         poisson_solver = self.create_poisson_solver(
             fine_pw,
             self.params.poissonsolver or {'strength': 1.0})

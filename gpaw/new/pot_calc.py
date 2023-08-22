@@ -67,7 +67,7 @@ class PotentialCalculator:
                   density,
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
-                  ) -> tuple[Potential, DistributedArrays, AtomArrays]:
+                  ) -> tuple[Potential, AtomArrays]:
         energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
 
@@ -97,7 +97,7 @@ class PotentialCalculator:
                 print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
-        return Potential(vt_sR, dH_asii, dedtaut_sR, energies), vHt_x, Q_aL
+        return Potential(vt_sR, dH_asii, dedtaut_sR, energies, vHt_x), Q_aL
 
 
 def calculate_non_local_potential(setups,

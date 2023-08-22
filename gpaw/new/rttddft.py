@@ -93,8 +93,8 @@ class ECNAlgorithm(TDAlgorithm):
         state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
-        state.potential, state.vHt_x, _ = pot_calc.calculate(
-            state.density, state.vHt_x)
+        state.potential, _ = pot_calc.calculate(
+            state.density, state.potential.vHt_x)
 
     def propagate(self,
                   time_step: float,
@@ -119,8 +119,8 @@ class ECNAlgorithm(TDAlgorithm):
         state.density.update(state.ibzwfs)
 
         # Calculate Hamiltonian H(t+dt) = H[n[Phi_n]]
-        state.potential, state.vHt_x, _ = pot_calc.calculate(
-            state.density, state.vHt_x)
+        state.potential, _ = pot_calc.calculate(
+            state.density, state.potential.vHt_x)
 
 
 class RTTDDFTHistory:

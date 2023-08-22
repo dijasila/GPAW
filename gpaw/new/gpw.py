@@ -21,7 +21,7 @@ from gpaw.typing import DTypeLike
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
-                'band']
+                'band', 'stress']
 
 
 def write_gpw(filename: str,
@@ -146,6 +146,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     if comm.rank == 0:
         nt_sR_array = reader.density.density * bohr**3
         vt_sR_array = reader.hamiltonian.potential / ha
+        vHt_x_array = reader.hamiltonian.electrostatic_potential / ha
         if builder.xc.type == 'MGGA':
             taut_sR_array = reader.density.ked * (bohr**3 / ha)
             dedtaut_sR_array = reader.hamiltonian.mgga_potential * bohr**-3
@@ -155,6 +156,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     else:
         nt_sR_array = None
         vt_sR_array = None
+        vHt_x_array = None
         taut_sR = None
         dedtaut_sR = None
         D_sap_array = None
@@ -176,6 +178,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
+    vHt_x = builder.electrostatic_potential_desc.empty()
     if builder.xc.type == 'MGGA':
         taut_sR = builder.grid.empty(builder.ncomponents)
         dedtaut_sR = builder.grid.empty(builder.ncomponents)
@@ -193,6 +196,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
         vt_sR.scatter_from(vt_sR_array)
+        vHt_x.scatter_from(vHt_x_array)
         if builder.xc.type == 'MGGA':
             taut_sR.scatter_from(taut_sR_array)
             dedtaut_sR.scatter_from(dedtaut_sR_array)
@@ -205,6 +209,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     kpt_band_comm.broadcast(nt_sR.data, 0)
     kpt_band_comm.broadcast(vt_sR.data, 0)
+    kpt_band_comm.broadcast(vHt_x.data, 0)
     if builder.xc.type == 'MGGA':
         kpt_band_comm.broadcast(taut_sR.data, 0)
         kpt_band_comm.broadcast(dedtaut_sR.data, 0)
@@ -225,7 +230,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     e_entropy = penergies.pop('entropy')
     penergies['kinetic'] -= e_band
 
-    potential = Potential(vt_sR, dH_asp.to_full(), dedtaut_sR, penergies)
+    potential = Potential(vt_sR, dH_asp.to_full(), dedtaut_sR, penergies,
+                          vHt_x)
 
     ibzwfs = builder.read_ibz_wave_functions(reader)
     ibzwfs.energies = {
@@ -249,9 +255,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     calculation.results = results
 
-    if builder.mode in ['pw', 'fd']:
+    if builder.mode in ['pw', 'fd']:  # fd = finite difference
         data = ibzwfs.wfs_qs[0][0].psit_nX.data
-        if not hasattr(data, 'fd'):
+        if not hasattr(data, 'fd'):  # fd = file descriptor
             reader.close()
     else:
         reader.close()
