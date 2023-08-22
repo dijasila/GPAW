@@ -172,10 +172,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data = reader.wave_functions.proxy('coefficients', *index)
             data.scale = c
             data.length_of_last_dimension = pw.shape[-1]
-            orig_shape = data.shape
-            data.shape = (self.nbands, ) + pw.shape
 
             if self.communicators['w'].size == 1:
+                orig_shape = data.shape
+                data.shape = (self.nbands, ) + pw.shape
                 wfs.psit_nX = PWArray(pw, self.nbands, data=data)
                 data.shape = orig_shape
             else:
