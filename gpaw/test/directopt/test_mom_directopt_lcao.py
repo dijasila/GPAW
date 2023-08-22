@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW, LCAO
 from gpaw.directmin.tools import excite
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 from gpaw.directmin.tools import rotate_orbitals
 
 from ase import Atoms

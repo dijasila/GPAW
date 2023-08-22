@@ -1,7 +1,7 @@
 from gpaw import GPAW, LCAO
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 # Water molecule:
 d = 0.9575
 t = np.pi / 180 * 104.51

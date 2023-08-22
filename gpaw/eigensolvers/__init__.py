@@ -6,7 +6,7 @@ from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.directmin.etdm_fdpw import FDPWETDM
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):

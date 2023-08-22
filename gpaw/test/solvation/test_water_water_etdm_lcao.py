@@ -3,7 +3,7 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.build import molecule
 from ase.units import mol, kcal
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 from gpaw.solvation import SolvationGPAW, get_HW14_water_kwargs
 
 

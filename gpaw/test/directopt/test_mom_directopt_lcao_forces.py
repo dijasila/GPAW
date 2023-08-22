@@ -3,7 +3,7 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW, restart
 from gpaw.mom import prepare_mom_calculation
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 from gpaw.directmin.tools import excite
 
 
