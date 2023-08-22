@@ -78,7 +78,9 @@ class FDPWETDM(Eigensolver):
         self.excited_state = excited_state
         self.check_inputs_and_init_search_algo()
 
+        self.eg_count_iloop = 0
         self.total_eg_count_iloop = 0
+        self.eg_count_outer_iloop = 0
         self.total_eg_count_outer_iloop = 0
         self.initial_random = True
 
@@ -1055,6 +1057,7 @@ class FDPWETDM(Eigensolver):
             self.e_sic, counter = self.iloop.run(
                 eks, wfs, dens, log, niter, small_random=small_random,
                 seed=self.localizationseed)
+            self.eg_count_iloop = self.iloop.eg_count
             self.total_eg_count_iloop += self.iloop.eg_count
 
             if self.outer_iloop is None:
@@ -1082,6 +1085,7 @@ class FDPWETDM(Eigensolver):
 
         self.etotal, counter = self.outer_iloop.run(
             wfs, dens, log, niter, ham=ham)
+        self.eg_count_outer_iloop = self.outer_iloop.eg_count
         self.total_eg_count_outer_iloop += self.outer_iloop.eg_count
         self.e_sic = self.outer_iloop.esic
         for kpt in wfs.kpt_u:

@@ -150,6 +150,13 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
     custom = (set(criteria) -
               {'energy', 'eigenstates', 'density'})
 
+    eigensolver_name = getattr(ctx.wfs.eigensolver, "name", None)
+    print_iloop = False
+    if eigensolver_name == 'etdm-fdpw':
+        if ctx.wfs.eigensolver.iloop is not None or \
+                ctx.wfs.eigensolver.outer_iloop is not None:
+            print_iloop = True
+
     if ctx.niter == 1:
         header1 = ('     {:<4s} {:>8s} {:>12s}  '
                    .format('iter', 'time', 'total'))
@@ -165,6 +172,9 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         if ctx.wfs.nspins == 2:
             header1 += '{:>8s} '.format('magmom')
             header2 += '{:>8s} '.format('')
+        if print_iloop:
+            header1 += '{:>12s} '.format('iter')
+            header2 += '{:>12s} '.format('inner loop')
         log(header1.rstrip())
         log(header2.rstrip())
 
@@ -195,6 +205,12 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
             line += f'  {totmom_v[2]:+.4f}'
         else:
             line += ' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v)
+
+    # Inner loop etdm
+    if print_iloop:
+        iloop_counter = ctx.wfs.eigensolver.eg_count_iloop \
+                        + ctx.wfs.eigensolver.eg_count_outer_iloop
+        line += ('{:12d}'.format(iloop_counter))
 
     log(line.rstrip())
     log.fd.flush()
