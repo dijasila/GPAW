@@ -8,7 +8,6 @@ from scipy.optimize import curve_fit
 import os
 import matplotlib.pyplot as plt
 
-
 class RRemission(object):
     r"""
     Radiation-reaction potential according to Schaefer et al.
@@ -107,6 +106,7 @@ class RRemission(object):
         writer.write(itert=self.itert)
         writer.write(DelDipole=self.dipolexyz * Bohr)
         writer.write(DelDipole_time=self.dipolexyz_time[:self.itert, :] * Bohr)
+        writer.write(Dipole_time=self.dipole_time * Bohr)
         writer.write(dipole_projected=self.dipole_projected[:self.itert]
                      * Bohr)
         writer.write(rr_qplane_in=self.rr_quantization_plane
@@ -143,18 +143,31 @@ class RRemission(object):
         self.dipolexyz = reader.DelDipole / Bohr
         self.dipolexyz_time = reader.DelDipole_time / Bohr
         self.dipole_projected = reader.dipole_projected / Bohr
+        self.dipole_time = reader.Dipole_time / Bohr
 
     def initialize(self, paw):
         self.iterpredcop = 0
         if self.dipolexyz is None:
             self.dipolexyz = [0, 0, 0]
             self.dipolexyz_time = [0, 0, 0]
+            self.dipole_time = np.zeros((1,3))
+            self.dipder3 = np.zeros((1,3))
         self.density = paw.density
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
         self.dipolexyz_previous = self.density.calculate_dipole_moment()
         if self.environment == 1:
             self.dyadic = None
+
+    def savelast(self, PCnew_dip):
+        #self.iterpredcop = 0
+        #print("top: ", PCnew_dip)
+        #"""
+        self.dipolexyz_previous = PCnew_dip
+        self.dipole_time = np.vstack((self.dipole_time,
+                                      self.dipolexyz_previous))
+        self.itert += 1
+        #"""
 
     def vradiationreaction(self, kpt, time):
         if self.environment == 1 and self.dyadic is None:
@@ -163,6 +176,7 @@ class RRemission(object):
             if not hasattr(self, 'dipole_projected'):
                 self.dipole_projected = np.zeros(self.maxtimesteps)
                 self.dipolexyz_time = np.zeros((self.maxtimesteps, 3))
+                self.dipole_time = np.zeros((1,3))
             else:
                 self.dipole_projected = \
                     np.concatenate([self.dipole_projected,
@@ -170,25 +184,59 @@ class RRemission(object):
                 self.dipolexyz_time = \
                     np.concatenate([self.dipolexyz_time,
                                     np.zeros((self.maxtimesteps, 3))])
+
+        # Calculate derivatives
+        #print("dip: ", self.density.calculate_dipole_moment())
+        #print("olddip: ", self.dipolexyz_previous)
+        self.dipolexyz = (self.density.calculate_dipole_moment()
+                          - self.dipolexyz_previous) / self.deltat
+        #self.dipolexyz = (self.density.calculate_dipole_moment()
+        #                  - self.dipole_time[-1]) / self.deltat
+        #print("derivative: ", self.dipolexyz)
+        if self.environment == 0 and self.polarization_cavity == [1, 1, 1]:
+            if len(self.dipole_time[:,0]) > 2:
+                self.dipder3 = ((-self.dipole_time[-3,:]
+                                 + 3*self.dipole_time[-2,:]
+                                 - 3*self.dipole_time[-1,:]
+                                 + self.density.calculate_dipole_moment())
+                                / self.deltat**3)
+            else:
+                self.dipder3 = ((-self.dipole_time[0,:]
+                                 - 3*self.dipole_time[-1,:]
+                                 + self.density.calculate_dipole_moment())
+                                / self.deltat**3)
+                if len(self.dipole_time[:,0]) > 1:
+                    self.dipder3 += 3*self.dipole_time[-2,:] / self.deltat**3
+                else:
+                    self.dipder3 += 3*self.dipole_time[0,:] / self.deltat**3
+
+        """
+        # Safe last dipole moments only in corrector step
         if self.iterpredcop == 0:
             self.iterpredcop += 1
-            self.dipolexyz_previous = self.density.calculate_dipole_moment()
+            #self.dipolexyz_previous = self.density.calculate_dipole_moment()
+            #print("bottom: ", self.density.calculate_dipole_moment())
+            self.dipole_time = np.vstack((self.dipole_time,
+                                          self.dipolexyz_previous))
             self.itert += 1
         else:
             self.iterpredcop = 0
-            self.dipolexyz = (self.density.calculate_dipole_moment()
-                              - self.dipolexyz_previous) / self.deltat
+        """
+
         rr_bg = 0
         if self.environment == 0 and self.polarization_cavity == [1, 1, 1]:
             # 3D emission (factor 2 for correct WW-emission included)
             # currently the rr_quantization_plane is overloaded with
             # the harmonic frequency [input in eV]
             # rr_amplify is an artificial amplification
-            rr_amplify = 1e0
-            rr_argument = ((-4.0 * ((self.rr_quantization_plane * Bohr**2)**2
-                                    / Hartree**2) * alpha**3 / 3.0
-                                 * np.sum(np.square(self.dipolexyz))**0.5)
-                           * rr_amplify)
+            rr_amplify = 1e5
+            if self.rr_quantization_plane > 0:
+                rr_argument_in = (((self.rr_quantization_plane * Bohr**2)**2
+                                   / Hartree**2)
+                                  * np.sum(np.square(self.dipolexyz))**0.5)
+            else:
+                rr_argument_in = np.sum(np.square(self.dipder3))**0.5
+            rr_argument = -4.0 * alpha**3 / 3.0 * rr_argument_in * rr_amplify
             # function uses V/Angstroem and therefore conversion necessary,
             # it also normalizes the direction which we want to counter
             if np.sum(np.square(self.dipolexyz))**0.5 > 0:
@@ -464,6 +512,20 @@ class RRemission(object):
                                         omegafft**2 + (1j * self.ensemble_loss
                                                        * omegafft)))
             if self.precomputedG is None:
+                """
+                    WORKINGHERE -- adding local field correction
+                                   derived by Frieder
+                print("Setting up Gbar0 correction -- only ISO yet")
+                iso_eps = 1 + (Xw[:, 0] + Xw[:, 4] + Xw[:, 8])/3
+                for ii in range(3):
+                    for jj in range(3):
+                        Gbar0[:,ii,jj] = (
+                            self.krondelta[ii,jj] *
+                            1/(3.* V_e * iso_eps * omegafft ** 2)
+                --- missing: define V_e somewhere
+                """
+
+
                 print("Dressing G for simplified cavity")
                 for ii in range(3):
                     for jj in range(3):
@@ -542,7 +604,7 @@ class RRemission(object):
                     Gw0 = Gw0 - Gbg
                 elif bg_correction == True and self.cutofffrequency is None:
                     Gw = Gw - G_freespace
-                    Gw0 = Gw0 - G_freespace                    
+                    Gw0 = Gw0 - G_freespace
         else:
             Gw = Gw0
         if self.precomputedG is not None:

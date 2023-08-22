@@ -9,7 +9,7 @@ from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_tri2full)
-
+from gpaw.lcaotddft.qed import RRemission
 
 def create_propagator(name, **kwargs):
     if name is None:
@@ -68,6 +68,7 @@ class LCAOPropagator(Propagator):
         self.wfs = paw.wfs
         self.density = paw.density
         self.hamiltonian = paw.td_hamiltonian
+        self.PC_conv = 0
 
 
 class ReplayPropagator(LCAOPropagator):
@@ -340,14 +341,15 @@ class SICNPropagator(ECNPropagator):
         for kpt in self.wfs.kpt_u:
             kpt.C2_nM = np.empty_like(kpt.C_nM)
 
-    new_PC=True
+    new_PC=True # I would suggest that we relabel the 'Predictor' and 'Propagator' steps. The 'Propagator' is usually the 'Predictor' and then 'Corrector' steps are added (as now in the new version).
+    # We should check that the new PC loop improves the energy conservation by comparing with smaller timesteps. A simple comparison plot should be fine. Note, that the RRemission potential works now only with the new version.
     if new_PC:
         def propagate(self, time, time_step):
-            PC_crit = 1e-12 # Just some value that resulted in a few PC iterations for testing. It would probably make more sense to chose something more intrinsic, such as the density itself
-            PC_maxit = 1 # if you select 1, you will get the same results as the previous version. You can double check by selecting new_PC=False above.
+            PC_crit = 1e-10 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
             # since the propagate + update call will change the result for H0 at time t,
             # we have to somehow safe the previous H0 in order to estimate the intermediate H0 at t+dt/2
-            prevH0 = [] 
+            prevH0 = []
+            #self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
             get_H_MM = self.hamiltonian.get_hamiltonian_matrix
             # --------------
             # Predictor step
@@ -363,8 +365,9 @@ class SICNPropagator(ECNPropagator):
                 #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
                 self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
                                    time_step)
+            self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
             self.hamiltonian.update()
-            for PC_ii in range(PC_maxit):
+            for PC_ii in range(100):
                 # ---------------
                 # Propagator step
                 # ---------------
@@ -384,11 +387,12 @@ class SICNPropagator(ECNPropagator):
                 PCprev_dip = self.density.calculate_dipole_moment()
                 # 4. Calculate new Hamiltonian (and density)
                 self.hamiltonian.update()
-                if np.sum(np.abs(self.density.calculate_dipole_moment() - PCprev_dip)) < PC_crit:
+                PCnew_dip = self.density.calculate_dipole_moment()
+                if np.sum(np.abs(PCnew_dip - PCprev_dip)) < PC_crit:
+                    print(str(PC_ii+1) +' PC iterations to reach a dipole criterium of '+str(PC_crit)) # It would make sense to add this information to the standard td output (includes already iter and time, so just add used PC iteras)
                     break
             if PC_ii > 5:
                 raise RuntimeError('The SICN PC propagator required '+str(PC_ii) +' iterations which suggests a too large time step. Please consider selecting a shorter time step.')
-                #print('The SICN PC propagator required '+str(PC_ii) +' iterations which suggests a too large time step. Please consider selecting a shorter time step.')
             return time + time_step
     else:
         def propagate(self, time, time_step):
@@ -424,7 +428,7 @@ class SICNPropagator(ECNPropagator):
             # 4. Calculate new Hamiltonian (and density)
             self.hamiltonian.update()
             return time + time_step
-            
+
 
     def save_wfs(self):
         for kpt in self.wfs.kpt_u:
