@@ -489,7 +489,7 @@ class ASECalculator:
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(
                 setup,
-                np.array([pack(D_ii) for D_ii in D_sii]))
+                np.array([pack(D_ii) for D_ii in D_sii.real]))
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
