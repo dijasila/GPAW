@@ -183,8 +183,8 @@ class TBSCFLoop:
         self.eigensolver.iterate(state, self.hamiltonian)
         state.ibzwfs.calculate_occs(self.occ_calc)
         yield
-        state.potential, state.vHt_x, _ = pot_calc.calculate(
-            state.density, state.vHt_x)
+        state.potential, _ = pot_calc.calculate(
+            state.density, state.potential.vHt_x)
 
 
 class DummyBasis:

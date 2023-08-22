@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.core.uniform_grid import UGArray
+
+from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_arrays import AtomArrays
+from gpaw.core.uniform_grid import UGArray
 from gpaw.new import zips
 
 
@@ -12,11 +14,13 @@ class Potential:
                  vt_sR: UGArray,
                  dH_asii: AtomArrays,
                  dedtaut_sR: UGArray | None,
-                 energies: dict[str, float]):
+                 energies: dict[str, float],
+                 vHt_x: XArray | None = None):
         self.vt_sR = vt_sR
         self.dH_asii = dH_asii
         self.dedtaut_sR = dedtaut_sR
         self.energies = energies
+        self.vHt_x = vHt_x  # initial guess for Hartree potential
 
     def __repr__(self):
         return (f'Potential({self.vt_sR}, {self.dH_asii}, '
@@ -56,14 +60,19 @@ class Potential:
         from gpaw.new.calculation import combine_energies
         energies = combine_energies(self, ibzwfs)
         energies['band'] = ibzwfs.energies['band']
+        if 'stress' in self.energies:
+            energies['stress'] = self.energies['stress']
         dH_asp = self.dH_asii.to_cpu().to_lower_triangle().gather()
         vt_sR = self.vt_sR.to_xp(np).gather()
+        assert self.vHt_x is not None
+        vHt_x = self.vHt_x.to_xp(np).gather()
         if self.dedtaut_sR is not None:
             dedtaut_sR = self.dedtaut_sR.to_xp(np).gather()
         if dH_asp is None:
             return
         writer.write(
             potential=vt_sR.data * Ha,
+            electrostatic_potential=vHt_x.data * Ha,
             atomic_hamiltonian_matrices=dH_asp.data * Ha,
             **{f'e_{name}': val * Ha for name, val in energies.items()})
         if self.dedtaut_sR is not None:
