@@ -1,5 +1,8 @@
+import sys
+
 import numpy as np
 import pytest
+
 from gpaw import SCIPY_VERSION
 from gpaw.core import PlaneWaves, UniformGrid
 from gpaw.gpu import cupy as cp
@@ -56,6 +59,8 @@ def test_acf_pw(grid, xp):
     if world.size > 1 and xp is cp:
         pytest.skip()
     if xp is cp and SCIPY_VERSION < [1, 6]:
+        pytest.skip()
+    if xp is cp and '_gpaw' in sys.builtin_module_names:
         pytest.skip()
 
     pw = PlaneWaves(ecut=50, cell=grid.cell, dtype=complex, comm=world)

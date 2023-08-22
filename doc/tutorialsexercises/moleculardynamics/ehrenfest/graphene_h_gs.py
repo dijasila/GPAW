@@ -44,7 +44,8 @@ conv_fast = {'energy': 1.0, 'density': 1.0, 'eigenstates': 1.0}
 conv_par = {'energy': 0.001, 'density': 1e-3, 'eigenstates': 1e-7}
 
 if charge == 0:
-    calc = GPAW(gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
+    calc = GPAW(mode='fd',
+                gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
                 nbands=110,
                 xc='LDA',
                 txt=name + '_gs.txt',
@@ -58,7 +59,8 @@ if charge == 0:
 if charge == 1:
     const_pot = ConstantPotential(1.0)
 
-    calc = GPAW(gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
+    calc = GPAW(mode='fd',
+                gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
                 nbands=110,
                 xc='LDA',
                 charge=1,

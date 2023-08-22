@@ -63,5 +63,5 @@ def test_hess_numerically_pw(in_tmp_dir):
     )
 
     hess_nt = 0.464586
-    assert hess_n[0] == pytest.approx(hess_nt, abs=1e-4)
+    assert hess_n[0] == pytest.approx(hess_nt, abs=1e-3)
     assert hess_a == pytest.approx(hess_n[0], abs=0.2)

@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.pw.lfc import rescaled_fbt
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Y
 from types import SimpleNamespace
@@ -40,7 +40,7 @@ def two_phi_planewave_integrals(qG_Gv, *, pawdata):
             rhot_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
             for l in range((l1 + l2) % 2, l1 + l2 + 1, 2):
                 spline = rgd.spline(rhot_g[:gcut2], l=l, points=2**10)
-                splineG = rescaled_fbt(spline, N=2**12)
+                splineG = rescaled_fourier_bessel_transform(spline, N=2**12)
                 f_G = splineG.map(k_G) * (-1j)**l
 
                 for m1 in range(2 * l1 + 1):

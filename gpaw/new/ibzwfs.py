@@ -84,7 +84,7 @@ class IBZWaveFunctions:
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
             if not getattr(_gpaw, 'gpu_aware_mpi', False):
-                self.kpt_comm = CuPyMPI(self.kpt_comm)
+                self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -177,8 +177,7 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
-        """Compute density from wave functions and add to ``nt_sR``
-        and ``D_asii``."""
+        """Compute density and add to ``nt_sR`` and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
 
@@ -350,12 +349,16 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
-                            # For PW-mode, we may need to zero-padd the
+                            # For PW-mode, we may need to zero-pad the
                             # plane-wave coefficient up to the maximum
                             # for all k-points:
                             n = shape[-1] - coef_nX.shape[-1]
                             if n != 0:
-                                coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
+                                if self.collinear:
+                                    coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
+                                else:
+                                    coef_nX = np.pad(coef_nX,
+                                                     ((0, 0), (0, 0), (0, n)))
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)

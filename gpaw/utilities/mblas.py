@@ -11,7 +11,7 @@ def multi_axpy_cpu(a, x, y):
 
 
 def multi_axpy(a, x, y):
-    assert type(x) == type(y)
+    assert type(x) is type(y)
 
     if isinstance(a, (float, complex)):
         axpy(a, x, y)

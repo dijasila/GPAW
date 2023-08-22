@@ -67,7 +67,7 @@ def ground_state():
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
 
-    calc = GPAW(nbands=6, h=0.4,
+    calc = GPAW(mode='fd', nbands=6, h=0.4,
                 convergence={'density': 1e-8},
                 communicator=serial_comm,
                 xc='LDA',
