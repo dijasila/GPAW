@@ -12,6 +12,7 @@ from gpaw.setup import Setups
 from gpaw.spherical_harmonics import Y
 from gpaw.spline import Spline
 from gpaw.typing import Array1D, Array3D, Vector, Array2D
+from gpaw.new import zips
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTCalculation
@@ -97,9 +98,9 @@ class Densities:
         grid = n_sR.desc
 
         splines = {}
-        for fracpos_c, setup, D_sii in zip(self.fracpos_ac,
-                                           self.setups,
-                                           self.D_asii.values()):
+        for a, D_sii in self.D_asii.items():
+            fracpos_c = self.fracpos_ac[a]
+            setup = self.setups[a]
             if setup not in splines:
                 phi_j, phit_j, nc, nct = setup.get_partial_waves()[:4]
                 if skip_core:
@@ -124,10 +125,11 @@ class Densities:
 
             if not skip_core:
                 # Add missing charge to grid point closest to atom:
-                R_c = tuple(
-                    np.around(grid.size * fracpos_c).astype(int) % grid.size)
-                for n_R, e in zip(n_sR.data, electrons_s):
-                    n_R[R_c] += e / grid.dv
+                R_c = np.around(grid.size * fracpos_c).astype(int) % grid.size
+                R_c -= grid.start_c
+                if (R_c >= 0).all() and (R_c < grid.mysize_c).all():
+                    for n_R, e in zip(n_sR.data, electrons_s):
+                        n_R[tuple(R_c)] += e / grid.dv
 
         return n_sR.scaled(Bohr, Bohr**-3)
 
