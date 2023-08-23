@@ -65,6 +65,7 @@ class RRemission(object):
         self.itert = 0
         self.krondelta = np.array([1, 0, 0, 0, 1, 0, 0, 0, 1])
         self.Ggbamp = 1.
+        self.precomputedG = None
         if environmentcavity_in is None:
             self.environment = 0
         else:
@@ -80,7 +81,6 @@ class RRemission(object):
                                 * self.cavity_resonance[0])
             self.deltat = None
             self.maxtimesteps = None
-            self.precomputedG = None
             self.cutofffrequency = None
             if isinstance(environmentcavity_in[3], type('inappropriate')):
                 self.precomputedG = environmentcavity_in[3]
@@ -146,7 +146,6 @@ class RRemission(object):
         self.dipole_time = reader.Dipole_time / Bohr
 
     def initialize(self, paw):
-        self.iterpredcop = 0
         if self.dipolexyz is None:
             self.dipolexyz = [0, 0, 0]
             self.dipolexyz_time = [0, 0, 0]
@@ -159,15 +158,11 @@ class RRemission(object):
         if self.environment == 1:
             self.dyadic = None
 
-    def savelast(self, PCnew_dip):
-        #self.iterpredcop = 0
-        #print("top: ", PCnew_dip)
-        #"""
-        self.dipolexyz_previous = PCnew_dip
+    def savelast(self, PC_dip):
+        self.itert += 1
+        self.dipolexyz_previous = PC_dip
         self.dipole_time = np.vstack((self.dipole_time,
                                       self.dipolexyz_previous))
-        self.itert += 1
-        #"""
 
     def vradiationreaction(self, kpt, time):
         if self.environment == 1 and self.dyadic is None:
@@ -186,13 +181,8 @@ class RRemission(object):
                                     np.zeros((self.maxtimesteps, 3))])
 
         # Calculate derivatives
-        #print("dip: ", self.density.calculate_dipole_moment())
-        #print("olddip: ", self.dipolexyz_previous)
         self.dipolexyz = (self.density.calculate_dipole_moment()
                           - self.dipolexyz_previous) / self.deltat
-        #self.dipolexyz = (self.density.calculate_dipole_moment()
-        #                  - self.dipole_time[-1]) / self.deltat
-        #print("derivative: ", self.dipolexyz)
         if self.environment == 0 and self.polarization_cavity == [1, 1, 1]:
             if len(self.dipole_time[:,0]) > 2:
                 self.dipder3 = ((-self.dipole_time[-3,:]
@@ -209,19 +199,6 @@ class RRemission(object):
                     self.dipder3 += 3*self.dipole_time[-2,:] / self.deltat**3
                 else:
                     self.dipder3 += 3*self.dipole_time[0,:] / self.deltat**3
-
-        """
-        # Safe last dipole moments only in corrector step
-        if self.iterpredcop == 0:
-            self.iterpredcop += 1
-            #self.dipolexyz_previous = self.density.calculate_dipole_moment()
-            #print("bottom: ", self.density.calculate_dipole_moment())
-            self.dipole_time = np.vstack((self.dipole_time,
-                                          self.dipolexyz_previous))
-            self.itert += 1
-        else:
-            self.iterpredcop = 0
-        """
 
         rr_bg = 0
         if self.environment == 0 and self.polarization_cavity == [1, 1, 1]:
