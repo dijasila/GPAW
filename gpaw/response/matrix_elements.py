@@ -165,11 +165,12 @@ class MatrixElementCalculator(ABC):
 
     @abstractmethod
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 matrix_element):
+                                 matrix_element: MatrixElement):
         """Add pseudo contribution based on the pseudo waves in real space."""
 
     @abstractmethod
-    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+    def _add_paw_correction(self, P1_amyti, P2_amyti,
+                            matrix_element: MatrixElement):
         """Add paw correction based on the projector overlaps."""
 
     def get_periodic_pseudo_waves(self, K, ikpt):
@@ -263,7 +264,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
 
     @timer('Calculate pseudo matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 matrix_element):
+                                 matrix_element: PlaneWaveMatrixElement):
         r"""Add the pseudo matrix element to the output array.
 
         The pseudo matrix element is evaluated on the coarse real-space grid
@@ -312,7 +313,8 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         return nt_mytR * f_R[np.newaxis]
 
     @timer('Calculate the matrix-element PAW corrections')
-    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+    def _add_paw_correction(self, P1_amyti, P2_amyti,
+                            matrix_element: PlaneWaveMatrixElement):
         r"""Add the matrix-element PAW correction to the output array.
 
         The correction is calculated from
@@ -436,7 +438,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         self._F_apii = None
 
     @abstractmethod
-    def add_f(gd, n_sx, f_x):
+    def add_f(self, gd, n_sx, f_x):
         """Add the local functional f(n(r)) to the f_x output array."""
 
     def print_rshe_info(self, a, info_string):
@@ -468,7 +470,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
     @timer('Calculate pseudo site matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 site_matrix_element):
+                                 matrix_element: SiteMatrixElement):
         """Add the pseudo site matrix element to the output array.
 
         The pseudo matrix element is evaluated on the coarse real-space grid
@@ -500,7 +502,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         stfc = spherical_truncation_function_collection(
             self.gs.gd, adata.spos_ac,
             adata.rc_ap, adata.drcut, adata.lambd_ap,
-            kd=site_matrix_element.qpd.kd, dtype=complex)
+            kd=matrix_element.qpd.kd, dtype=complex)
 
         # Integrate Θ(r∊Ω_ap) f(r) ñ_kt(r)
         ntlocal = nt_mytR.shape[0]
@@ -509,12 +511,13 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         stfc.integrate(nt_mytR * f_R[np.newaxis], ft_amytp, q=0)
 
         # Add integral to output array
-        f_mytap = site_matrix_element.array
+        f_mytap = matrix_element.array
         for a in range(adata.nsites):
             f_mytap[:, a] += ft_amytp[a]
 
     @timer('Calculate site matrix element PAW correction')
-    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_matrix_element):
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti,
+                            matrix_element: SiteMatrixElement):
         r"""Add the site matrix element PAW correction to the output array.
 
         For every site a, we only need a PAW correction for that site itself,
@@ -526,7 +529,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
         where F_apii' is the site matrix element correction tensor.
         """
-        f_mytap = site_matrix_element.array
+        f_mytap = matrix_element.array
         F_apii = self.get_paw_correction_tensor()
         for a, (A, F_pii) in enumerate(zip(
                 self.atomic_site_data.A_a, F_apii)):
