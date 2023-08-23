@@ -496,8 +496,8 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = self.desc.new(pbc=True)
         new = grid.empty(self.dims)
         new.data[:] = 0.0
-        i, j, k = self.desc.start_c
-        new.data[..., i:, j:, k:] = self.data
+        *_, i, j, k = self.data.shape
+        new.data[..., -i:, -j:, -k:] = self.data
         return new
 
     def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
@@ -764,12 +764,12 @@ class UGArray(DistributedArrays[UGDesc]):
         Unit cell axes are multiplied by `s` and data by `v`.
         """
         grid = self.desc
-        assert grid.comm.size == 1
         grid = UGDesc(cell=grid.cell_cv * s,
                       size=grid.size_c,
                       pbc=grid.pbc_c,
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
-                      dtype=grid.dtype)
+                      dtype=grid.dtype,
+                      comm=grid.comm)
         return UGArray(grid, self.dims, self.comm, self.data * v)
 
     def add_ked(self,
