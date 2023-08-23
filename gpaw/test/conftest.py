@@ -120,7 +120,7 @@ def gpw_files(request):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
-    * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
 
     * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
       ``v2br4_pw`` and ``v2br4_pw_nosym``
@@ -652,8 +652,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    @gpwfile
-    def nicl2_pw(self):
+    def _nicl2_pw(self, vacuum=3.0):
         from ase.build import mx2
 
         # Define input parameters
@@ -666,7 +665,6 @@ class GPWFiles:
 
         a = 3.502
         thickness = 2.617
-        vacuum = 3.0
         mm = 2.0
 
         # Set up atoms
@@ -685,11 +683,19 @@ class GPWFiles:
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'nicl2_pw.txt')
+            txt=self.path / f'nicl2_pw_vac«{vacuum}».txt')
 
         atoms.get_potential_energy()
 
         return atoms.calc
+
+    @gpwfile
+    def nicl2_pw(self):
+        return self._nicl2_pw(vacuum=3.0)
+
+    @gpwfile
+    def nicl2_pw_evac(self):
+        return self._nicl2_pw(vacuum=10.0)
 
     @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
