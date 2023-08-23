@@ -1,8 +1,8 @@
 from math import pi
 
 from ase.units import Ha
-
 from gpaw.core import PWDesc, UGDesc
+from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PWArray
@@ -28,6 +28,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                           qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
         self._tauct_ag = None
+
+    @cached_property
+    def atomdist(self) -> AtomDistribution:
+        return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac))
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(

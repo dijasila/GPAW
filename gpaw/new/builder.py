@@ -144,6 +144,7 @@ class DFTComponentsBuilder:
         self.xc = self.create_xc_functional()
 
         self.electrostatic_potential_desc: Domain
+        self.atomdist: AtomDistribution
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
@@ -161,12 +162,6 @@ class DFTComponentsBuilder:
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  '
                 f'Your system has {number_of_lattice_vectors}.')
-
-    @cached_property
-    def atomdist(self) -> AtomDistribution:
-        return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
-            self.grid.comm)
 
     @cached_property
     def wf_desc(self) -> Domain:
