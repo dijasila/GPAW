@@ -11,7 +11,7 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
-from gpaw.mpi import world
+from gpaw.mpi import world, synchronize_atoms
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
@@ -132,7 +132,10 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        atoms = atoms or self.atoms
+        if atoms is None:
+            atoms = self.atoms
+        else:
+            synchronize_atoms(atoms, self.comm)
         assert atoms is not None
 
         if self.calculation is not None:

@@ -416,7 +416,7 @@ class AtomArrays:
             i = int((2 * p + 0.25)**0.5)
             shape_a.append((i, i))
         layout = AtomArraysLayout(shape_a,
-                                  self.layout.atomdist.comm,
+                                  self.layout.atomdist,
                                   self.layout.dtype)
         a_axii = layout.empty(self.dims)
         for a_xp, a_xii in zip(self.values(), a_axii.values()):

@@ -22,10 +22,10 @@ from gpaw.fd_operators import Gradient
 class UGDesc(Domain):
     def __init__(self,
                  *,
-                 cell: ArrayLike1D | ArrayLike2D,
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,
+                 kpt: Vector = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  decomp: Sequence[Sequence[int]] = None,
                  dtype=None):
@@ -35,7 +35,8 @@ class UGDesc(Domain):
         ----------
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         size:
             Number of grid points along axes.
         pbc:
@@ -402,7 +403,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
-            # are posted, so use syncronous send here
+            # are posted, so use synchronous send here
             comm.ssend(self.data, 0, 301)
             if broadcast:
                 comm.broadcast(out.data, 0)

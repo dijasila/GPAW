@@ -27,9 +27,9 @@ class PWDesc(Domain):
 
     def __init__(self,
                  *,
-                 ecut: float,
-                 cell: ArrayLike1D | ArrayLike2D,
-                 kpt: Vector = None,
+                 ecut: float,  # hartree
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
+                 kpt: Vector = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """Description of plane-wave basis.
@@ -37,10 +37,11 @@ class PWDesc(Domain):
         parameters
         ----------
         ecut:
-            Cutoff energy for kinetic energy of plane waves.
+            Cutoff energy for kinetic energy of plane waves (units: hartree).
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         comm:
             Communicator for distribution of plane-waves.
         kpt:
