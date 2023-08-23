@@ -98,6 +98,12 @@ class MatrixElementCalculator(ABC):
              = | dr ψ_nks^*(r) A ψ_n'k+qs'(r)
                /
         """
+        self._add_pseudo_contribution(*self.extract_pseudo_waves(kptpair),
+                                      matrix_element=matrix_element)
+
+    def extract_pseudo_waves(self, kptpair):
+        """Extract the pseudo wave functions for each k-point pair transition.
+        """
         ikpt1 = kptpair.ikpt1
         ikpt2 = kptpair.ikpt2
 
@@ -116,8 +122,7 @@ class MatrixElementCalculator(ABC):
         ut1_mytR = ut1_hR[ikpt1.h_myt]
         ut2_mytR = ut2_hR[ikpt2.h_myt]
 
-        self._add_pseudo_contribution(
-            k1_c, k2_c, ut1_mytR, ut2_mytR, matrix_element)
+        return k1_c, k2_c, ut1_mytR, ut2_mytR
 
     def add_paw_correction(self, kptpair, matrix_element):
         r"""Add the matrix element PAW correction to an output array.
