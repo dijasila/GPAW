@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import numbers
+from collections import defaultdict
 from typing import Sequence
 
 import numpy as np
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.typing import Array1D, ArrayLike1D
 from gpaw.core.matrix import Matrix
-from gpaw.new import prod
 from gpaw.gpu import cupy as cp
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import prod
+from gpaw.typing import Array1D, ArrayLike1D
 
 
 class AtomArraysLayout:
@@ -209,7 +210,7 @@ class AtomArrays:
             data = layout.xp.empty(fullshape, dtype)
 
         self.data = data
-        self._matrix: Matrix | None = None
+        self._matrix: Matrix | None = None  # matrix view
 
         self.layout = layout
         self._arrays = {}
@@ -425,3 +426,26 @@ class AtomArrays:
             u = (...,) + np.triu_indices(i, 1)
             a_xii[u] = np.swapaxes(a_xii, -1, -2)[u].conj()
         return a_axii
+
+    def moved(self, atomdist):
+        if (self.layout.atomdist.rank_a == atomdist.rank_a).all():
+            return self
+        assert self.comm.size == 1
+        layout = self.layout.new(atomdist=atomdist)
+        new = layout.empty(self.dims)
+        comm = layout.comm
+        requests = []
+        for a, I1, I2 in self.layout.myindices:
+            r = layout.atomdist.rank_a[a]
+            if r == comm.rank:
+                new[a][:] = self[a]
+            else:
+                requests.append(comm.send(self[a], r, 1, True))
+
+        for a, I1, I2 in layout.myindices:
+            r = self.layout.atomdist.rank_a[a]
+            if r != comm.rank:
+                comm.receive(new[a], r, 1)
+
+        comm.waitall(requests)
+        return new
