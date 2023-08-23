@@ -26,7 +26,7 @@ class NameList:
                     if isinstance(val, np.bool_):
                         s += 'T' if val else 'F'
                     elif isinstance(val, np.str_):
-                        s += f'"{val}"'
+                        s += f'"{val:20s}"'
                     else:
                         s+= str(val) 
                     s += ','
@@ -71,22 +71,27 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
     J = 0
     max_fn_per_l = 0
     lsp2basis_fn = np.zeros((5, 5, nspecies), dtype=int)
-    lsp2n_basis_fnlsp = np.zeros((max(basis_l) + 1, nspecies), dtype=int)
+    lsp2basis_sp = np.zeros((5, 5, nspecies), dtype=int) 
+    lsp2n_basis_fnlsp = np.zeros((5, nspecies), dtype=int)
+    fn_n = []
+    J_S = {}
     for a, sphere in enumerate(calc.wfs.basis_functions.sphere_a):
         cutoffs = []
         S = species[a]
         nbasis = 0
         max_fn_per_l = max(max_fn_per_l, max([len([None for spline in sphere.spline_j if spline.l == lp]) for lp in range(4)]))
         basis_fn_species.append(len(sphere.spline_j))
-        numperl = [0] * 5
+        numperl = np.zeros(5, dtype=int)
         for j, spline in enumerate(sphere.spline_j):
             lsp2basis_fn[numperl[spline.l], spline.l, S] = J + 1
+            lsp2basis_sp[numperl[spline.l], spline.l, S] = nbasis + spline.l + 1 # This points to the m=0 elements of the shell, we add -m...m to it later 
             numperl[spline.l] += 1
             ls.append(spline.l)
             fn_species.append(a + 1)
             cutoffs.append(spline.get_cutoff())
             lst.extend( [j+1] * (2 * spline.l + 1) )
             nbasis += 2 * spline.l + 1
+            fn_n.append(spline.l) # This doesn't actually matter, because it is not used
             for m in range(-spline.l, spline.l + 1):
                 ext_fn.append(J + 1)
                 basis_l.append(spline.l)
@@ -95,7 +100,16 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
             J += 1
         basisfn.append(nbasis)
         cutoffs_S[S] = cutoffs
-        lsp2basis_fn = lsp2basis_fn[:max_fn_per_l, :max(basis_l) + 1]
+        lsp2n_basis_fnlsp[:, S] = np.array(numperl)
+        J_S[S] = J
+    lsp2basis_fn = lsp2basis_fn[:max_fn_per_l, :max(basis_l) + 1]
+    lsp2n_basis_fnlsp = lsp2n_basis_fnlsp[:max(basis_l) + 1]
+    lsp2basis_sp = lsp2basis_sp[:max_fn_per_l, :max(basis_l) + 1]
+    n_ext_fn_species = [J_S[S] for S in range(nspecies)]
+    n_basis_fns = sum(n_ext_fn_species)  
+    n_ext_fns = n_basis_fns
+
+    extfn_n = fn_n
 
     def geometry_nml():
         nml = NameList('EF_GEOMETRY')
@@ -215,18 +229,18 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('LSP2BASIS_FN', lsp2basis_fn) # =1          ,2          ,
         nml.add('LSP2N_BASIS_FNLSP', lsp2n_basis_fnlsp) #= 2*1          ,
         nml.add('BASIS_L', basis_l) # =0          , 3*1          ,
-        nml.add('BASIS_M', basis_m) #=0          ,-1         ,0          ,1          ,
-        nml.add('LSP2BASIS_SP', 0) #=1          ,3          ,
+        nml.add('BASIS_M', basis_m) #=0          ,-1         ,0          ,1          
+        nml.add('LSP2BASIS_SP', lsp2basis_sp) #=1          ,3          ,
         nml.add('BASIS_ATOM', basis_atom)#= 4*1          ,
         nml.add('BASIS_MAPPING', [0] * len(basis_l)) #= 4*0          ,
         nml.add('N_BASIS_FN_SPECIES', basis_fn_species) #=2          ,
         nml.add('ATOM_RADIUS', 0) #=  7.7877089698051112     ,
         nml.add('EXT_ATOM', basis_atom) #= 4*1          ,
-        nml.add('N_EXT_FN_SPECIES', 0) #=2          ,
+        nml.add('N_EXT_FN_SPECIES', n_ext_fn_species) #=2          ,
         nml.add('EXT_FN', ext_fn) #=1          , 3*2          ,
         nml.add('EXT_L', basis_l) #=0          , 3*1          ,
         nml.add('EXT_M', basis_m) # =0          ,-1         ,0          ,1          ,
-        nml.add('EXTFN_N', 0) #=0          ,1          ,
+        nml.add('EXTFN_N', extfn_n) #=0          ,1          ,
         nml.add('EXT_WAVE_SPL', 0) #=  5.0899054203602369E-005,  6.2443600775498648E-007, -1.0587911840678754E-022,  1.6230958255270334E-009,  5.1525113307182883E-005,
 
         return str(nml)
@@ -244,8 +258,9 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('R_GRID', grid)
      
         lst = []
-        radius = 5.0 / Bohr
-        scale_radial= -radius / np.log(1 - (nradial / (1 + nradial))**2)
+        radius = 7.0 / Bohr
+        scale_radial= -radius / np.log(1 - ((nradial-5) / (1 + (nradial)))**2)
+        
         for s in range(len(types)):
             for i in range(1, nradial+1):
                 r_scaled = i / (nradial + 1)
@@ -262,7 +277,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('INCLUDE_MIN_BASIS', [False] * nspecies)
         nml.add('EXT_L_SHELL_MAX', [ext_l_shell_max] * nspecies)
         nml.add('INNERMOST_MAX', [2] * nspecies)
-        nml.add('N_ATOMIC', [0] * nspecies)
+        nml.add('N_ATOMIC', [1] * nspecies)
         nml.add('ATOMS_IN_STRUCTURE', [ len([None for atom in atoms if atom.symbol == symbol]) for symbol in types])
         nml.add('MAX_L_PRODBAS', [20] * nspecies)
         nml.add('N_AUX_GAUSSIAN', [0] * nspecies)
@@ -276,7 +291,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('N_PERIODIC', 3)
         nml.add('N_ATOMS', len(atoms))
         nml.add('N_SPECIES', len(types))
-        nml.add('N_CENTERS', 27)
+        nml.add('N_CENTERS', 729)
         nml.add('N_SPIN', 1)
         nml.add('N_STATES', nstates)
 
@@ -286,8 +301,8 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('N_IRK_POINTS', 1)
         nml.add('N_IRK_POINTS_TASK', 1)
         nml.add('N_BASIS', nbasis)
-        nml.add('N_BASIS_FNS', 2)
-        nml.add('N_CENTERS_BASIS_T', 4)
+        nml.add('N_BASIS_FNS', n_basis_fns)
+        nml.add('N_CENTERS_BASIS_T', 22)
         nml.add('N_BASBAS',0)
         nml.add('N_BASBAS_FNS',0)
         nml.add('N_BASBAS_SUPERCELL', 0)
@@ -317,14 +332,16 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('USE_LOGSBT', True)
         nml.add('USE_DFTPT2_AND_HSE', False)
         nml.add('USE_THREADSAFE_GWINIT', False)
-        nml.add('N_EXT_FNS', 6)
+        nml.add('N_EXT_FNS', n_ext_fns)
         nml.add('MAX_N_BASIS_FNLSP', max_fn_per_l)
         nml.add('MAX_BASIS_L', max(basis_l))
-        nml.add('N_MAX_RADIAL', 34)
+        nml.add('N_MAX_RADIAL', nradial)
         nml.add('N_CELLS_BVK', 1)
         nml.add('N_MAX_IND_FNS', n_max_ind_fns)
-        nml.add('N_CELLS_PAIRS', 27)
-        nml.add('N_CENTERS_ELE_SUMMATION',1)
+        nml.add('N_CELLS_PAIRS', 729)
+        nml.add('N_CENTERS_ELE_SUMMATION',19)
+
+
         return str(nml)
 
     def timing():
@@ -431,6 +448,8 @@ def verify(folder1, folder2):
                                 errors += 1
                                 if len(nml1[key]) < 10:
                                     print('data:', nml1[key], 'refdata:', nml2[key])
+                                else:
+                                    print('data:', nml1[key][:10], 'refdata:', nml2[key][:10])
                 else:
                     if nml1[key] != nml2[key]:
                         print('Data content mismatch', fname, key, 'data:', nml1[key], 'refdata:', nml2[key])
