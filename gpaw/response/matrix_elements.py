@@ -261,9 +261,8 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
                                  matrix_element):
         r"""Add the pseudo matrix element to the output array.
 
-        The pseudo matrix element is evaluated on the coarse real-space grid,
-        multiplied with the functional f[n](r) and then FFT'ed to reciprocal
-        space,
+        The pseudo matrix element is evaluated on the coarse real-space grid
+        and FFT'ed to reciprocal space,
 
         ˷           /               ˷          ˷
         f_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r) f(r)
@@ -275,18 +274,28 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         functional f[n](r+R)=f(r) is lattice periodic.
         """
         qpd = matrix_element.qpd
+        # G: reciprocal space
         f_mytG = matrix_element.local_array_view
-
-        # Calculate the pseudo pair density in real space, up to a phase of
-        # e^(-i[k+q-k']r).
-        # This phase does not necessarily vanish, since k2_c only is required
-        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
-        nt_mytR = ut1_mytR.conj() * ut2_mytR
+        # R: real space
+        ft_mytR = self._evaluate_pseudo_matrix_element(ut1_mytR, ut2_mytR)
 
         # Get the FFT indices corresponding to the pair density Fourier
         # transform             ˷          ˷
         # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
+        # This includes a (k,k')-dependent phase, since k2_c only is required
+        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         Q_G = phase_shifted_fft_indices(k1_c, k2_c, qpd)
+
+        # Add the desired plane-wave components of the FFT'ed pseudo matrix
+        # element to the output array
+        for f_G, ft_R in zip(f_mytG, ft_mytR):
+            f_G[:] += qpd.fft(ft_R, 0, Q_G) * self.gs.gd.dv
+
+    @timer('Evaluate pseudo matrix element')
+    def _evaluate_pseudo_matrix_element(self, ut1_mytR, ut2_mytR):
+        """Evaluate the pseudo matrix element in real-space."""
+        # Evaluate the pseudo pair density      ˷          ˷
+        nt_mytR = ut1_mytR.conj() * ut2_mytR  # u_nks^*(r) u_n'k's'(r)
 
         # Evaluate the local functional f(n(r)) on the coarse real-space grid
         # NB: Here we assume that f(r) is sufficiently smooth to be represented
@@ -295,10 +304,7 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         f_R = gd.zeros()
         self.add_f(gd, n_sR, f_R)
 
-        # Add the desired plane-wave components of the FFT'ed pseudo matrix
-        # element to the output array
-        for f_G, nt_R in zip(f_mytG, nt_mytR):
-            f_G[:] += qpd.fft(nt_R * f_R, 0, Q_G) * gd.dv
+        return nt_mytR * f_R[np.newaxis]
 
     @timer('Calculate the matrix-element PAW corrections')
     def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
