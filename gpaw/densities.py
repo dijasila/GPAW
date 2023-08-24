@@ -128,7 +128,7 @@ class Densities:
                 R_c = np.around(grid.size * fracpos_c).astype(int) % grid.size
                 R_c -= grid.start_c
                 if (R_c >= 0).all() and (R_c < grid.mysize_c).all():
-                    for n_R, e in zip(n_sR.data, electrons_s):
+                    for n_R, e in zips(n_sR.data, electrons_s):
                         n_R[tuple(R_c)] += e / grid.dv
 
         return n_sR.scaled(Bohr, Bohr**-3)
@@ -173,11 +173,11 @@ def add(R_v: Vector,
                 l_j = [phi.l for phi in phi_j]
 
                 i1 = 0
-                for l1, phi1_r, phit1_r in zip(l_j, phi_jr, phit_jr):
+                for l1, phi1_r, phit1_r in zips(l_j, phi_jr, phit_jr):
                     i2 = 0
                     i1b = i1 + 2 * l1 + 1
                     D_smi = D_sii[:, i1:i1b]
-                    for l2, phi2_r, phit2_r in zip(l_j, phi_jr, phit_jr):
+                    for l2, phi2_r, phit2_r in zips(l_j, phi_jr, phit_jr):
                         i2b = i2 + 2 * l2 + 1
                         D_smm = D_smi[:, :, i2:i2b]
                         b_sr = np.einsum(

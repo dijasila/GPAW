@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import numbers
-from collections import defaultdict
-from typing import Sequence
+from typing import Sequence, overload, Literal
 
 import numpy as np
 from gpaw.core.matrix import Matrix
@@ -301,7 +300,17 @@ class AtomArrays:
     def values(self):
         return self._arrays.values()
 
-    def gather(self, broadcast=False, copy=False) -> AtomArrays | None:
+    @overload
+    def gather(self, broadcast: Literal[False], copy: bool = False
+               ) -> AtomArrays | None:
+        ...
+
+    @overload
+    def gather(self, broadcast: Literal[True], copy: bool = False
+               ) -> AtomArrays:
+        ...
+
+    def gather(self, broadcast=False, copy=False):
         """Gather all atoms on master."""
         comm = self.layout.atomdist.comm
         if comm.size == 1:

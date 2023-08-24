@@ -62,7 +62,6 @@ class DFTState:
 
     def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
-        self.potential.energies.clear()
         self.density.move(fracpos_ac, atomdist)
 
 
