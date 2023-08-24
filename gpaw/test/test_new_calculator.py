@@ -41,20 +41,20 @@ def test_new_calculator(in_tmp_dir):
 
 
 def check_file_handles(calc0, calc, txt=None):
-    assert calc.log.world.rank == calc0.log.world.rank
+    assert calc.log.comm.rank == calc0.log.comm.rank
 
-    if calc.log.world.rank == 0:
+    if calc.log.comm.rank == 0:
         # We never want to reuse the output file
-        assert calc.log._fd is not calc0.log._fd
+        assert calc.log.fd is not calc0.log.fd
 
         if txt is None:
             # When no txt is specified, the new calculator should log its
             # output in stdout
-            assert calc.log._fd is sys.stdout
+            assert calc.log.fd is sys.stdout
         else:
             # Check that the new calculator log file handle was updated
             # appropriately
-            assert Path(calc.log._fd.name).name == txt
+            assert Path(calc.log.fd.name).name == txt
 
 
 def check_calc(calc, params, modification, *, world):
