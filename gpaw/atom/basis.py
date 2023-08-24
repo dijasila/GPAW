@@ -175,11 +175,6 @@ class BasisMaker:
         rmax = g.r[-1]
 
         de = e - e_base
-        # print '--------'
-        # print 'Start bisection'
-        # print'e_base =',e_base
-        # print 'e =',e
-        # print '--------'
         while de < de_min or de > de_max:
             if de < de_min:  # Move rc left -> smaller cutoff, higher energy
                 rmax = rc
@@ -191,12 +186,9 @@ class BasisMaker:
                 vconf = g.get_confinement_potential(amplitude, ri_rel * rc, rc)
             psi_g, e = g.solve_confined(j, rc, vconf)
             de = e - e_base
-            # print 'rc = %.03f :: e = %.03f :: de = %.03f' % (rc, e*Hartree,
-            #                                                  de*Hartree)
-            # if rmin - rmax < 1e-
             if g.r2g(rmax) - g.r2g(rmin) <= 1:  # adjacent points
                 break  # cannot meet tolerance due to grid resolution
-        # print 'Done!'
+
         return psi_g, e, de, vconf, rc
 
     def generate(self, zetacount=2, polarizationcount=1,
