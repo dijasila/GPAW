@@ -16,29 +16,6 @@ from gpaw.atom.radialgd import (AERadialGridDescriptor,
                                 EquidistantRadialGridDescriptor)
 
 
-def get_basis_l(f_j, l_j, Nv):
-    N = 0
-    lvalues = []
-    j_l = []
-    Nl_j = len(l_j)
-    while N < Nv:
-        Nl_j -= 1
-        if f_j[Nl_j] > 0:
-            lvalues.append(l_j[Nl_j])
-            N += f_j[Nl_j]
-            j_l.append(Nl_j)
-    assert N == Nv
-
-    if min(lvalues) != 0:  # always include s-orbital !
-        lvalues = lvalues + [0]
-        reversed_l_j = list(l_j)
-        reversed_l_j.reverse()
-        j = len(reversed_l_j) - reversed_l_j.index(0) - 1
-        j_l.append(j)
-
-    return [j_l, lvalues]
-
-
 def get_gaussianlike_basis_function(rgd, l, rchar, gcut):
     rcut = rgd.r_g[gcut]
     gaussian = QuasiGaussian(1.0 / rchar**2, rcut)
