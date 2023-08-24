@@ -496,22 +496,6 @@ class BasisMaker:
 
         return basis
 
-    def grplot(self, bf_j):
-        """Plot basis functions on generator's radial grid."""
-        import matplotlib.pyplot as plt
-        rc = max([bf.rc for bf in bf_j])
-        g = self.generator
-        r = g.r
-        for bf in bf_j:
-            label = bf.type
-            # XXX times g.r or not times g.r ?
-            plt.plot(r, bf.phit_g / r, label=label[:12])
-        axis = plt.axis()
-        newaxis = [0., rc, axis[2], axis[3]]
-        plt.axis(newaxis)
-        plt.legend()
-        plt.show()
-
     def plot(self, basis, figure=None, title=None, filename=None):
         """Plot basis functions using MatPlotLib."""
         # XXX method should no longer belong to a basis maker
