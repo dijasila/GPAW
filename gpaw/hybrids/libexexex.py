@@ -16,12 +16,14 @@ class NameList:
             s += f' {key}='
             if not isinstance(value, np.ndarray):
                 value = np.array(value)
-            print(key, value.shape)
-            if len(value.ravel())> 0 and np.iscomplex(value.ravel()[0]):
+            print(key, value.shape, value.dtype)
+            if value.dtype == np.complex128:
+                print('complex type')
                 for val in value.ravel():
                     s+= f'({val.real},{val.imag})' 
                     s += ','
             else:
+                print('non complex')
                 for val in value.ravel():
                     if isinstance(val, np.bool_):
                         s += 'T' if val else 'F'
@@ -75,9 +77,11 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
     lsp2n_basis_fnlsp = np.zeros((5, nspecies), dtype=int)
     fn_n = []
     J_S = {}
+    basis_S = {}
     for a, sphere in enumerate(calc.wfs.basis_functions.sphere_a):
         cutoffs = []
         S = species[a]
+        basis_S[S] = sphere.spline_j
         nbasis = 0
         max_fn_per_l = max(max_fn_per_l, max([len([None for spline in sphere.spline_j if spline.l == lp]) for lp in range(4)]))
         basis_fn_species.append(len(sphere.spline_j))
@@ -110,6 +114,22 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
     n_ext_fns = n_basis_fns
 
     extfn_n = fn_n
+
+    rradial = []
+    radius = 7.0 / Bohr
+    scale_radial= -radius / np.log(1 - ((nradial-5) / (1 + (nradial)))**2)
+    
+    for s in range(len(types)):
+        for i in range(1, nradial+1):
+            r_scaled = i / (nradial + 1)
+            rradial.append(-np.log(1 - r_scaled**2) * scale_radial)
+    rradial = np.array(rradial)
+
+    ngrid = n_max_grid
+    ngridmin = 4.999999873689376e-05
+    #ngridmin = 1.6666666245631252E-005
+    ngridinc = 1.0123000144958496
+    rgrid = ngridmin * ngridinc**np.arange(ngrid)
 
     def geometry_nml():
         nml = NameList('EF_GEOMETRY')
@@ -203,27 +223,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
             outer_radius.extend(cutoffs_S[S])
         nml.add('OUTER_RADIUS', outer_radius)
         nml.add('SP2N_BASIS_SP', max(basisfn))
-        nml.add('BASIS_WAVE_SPL', 0) #=  4.6603875251019841E-004,  5.711344187392619 <
 
-        """
-        Data content mismatch ef_basis.0000.nml basisfn_l data: 0 refdata: [0, 1]
-        Data content mismatch ef_basis.0000.nml basisfn_species data: 0 refdata: [1, 1]
-        Data content mismatch ef_basis.0000.nml lsp2basis_fn data: 0 refdata: [1, 2]
-        Data content mismatch ef_basis.0000.nml lsp2n_basis_fnlsp data: 0 refdata: [1, 1]
-        Data content mismatch ef_basis.0000.nml basis_l data: 0 refdata: [0, 1, 1, 1]
-        Data content mismatch ef_basis.0000.nml basis_m data: 0 refdata: [0, -1, 0, 1]
-        Data content mismatch ef_basis.0000.nml lsp2basis_sp data: 0 refdata: [1, 3]
-        Data content mismatch ef_basis.0000.nml basis_atom data: 0 refdata: [1, 1, 1, 1]
-        Data content mismatch ef_basis.0000.nml basis_mapping data: 0 refdata: [0, 0, 0, 0]
-        Data content mismatch ef_basis.0000.nml n_basis_fn_species data: 0 refdata: 2
-        Data content mismatch ef_basis.0000.nml atom_radius data: 0 refdata: 7.787708969805111
-        Data content mismatch ef_basis.0000.nml ext_atom data: 0 refdata: [1, 1, 1, 1]
-        Data content mismatch ef_basis.0000.nml n_ext_fn_species data: 0 refdata: 2
-        Data content mismatch ef_basis.0000.nml ext_fn data: 0 refdata: [1, 2, 2, 2]
-        Data content mismatch ef_basis.0000.nml ext_l data: 0 refdata: [0, 1, 1, 1]
-        Data content mismatch ef_basis.0000.nml ext_m data: 0 refdata: [0, -1, 0, 1]
-        Data content mismatch ef_basis.0000.nml extfn_n data: 0 refdata: [0, 1]
-        """
         nml.add('BASISFN_L', ls) #=0          ,1          ,
         nml.add('BASISFN_SPECIES', fn_species) #= 2*1          ,
         nml.add('LSP2BASIS_FN', lsp2basis_fn) # =1          ,2          ,
@@ -234,38 +234,35 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('BASIS_ATOM', basis_atom)#= 4*1          ,
         nml.add('BASIS_MAPPING', [0] * len(basis_l)) #= 4*0          ,
         nml.add('N_BASIS_FN_SPECIES', basis_fn_species) #=2          ,
-        nml.add('ATOM_RADIUS', 0) #=  7.7877089698051112     ,
+        nml.add('ATOM_RADIUS', max(outer_radius)) #=  7.7877089698051112     ,
         nml.add('EXT_ATOM', basis_atom) #= 4*1          ,
         nml.add('N_EXT_FN_SPECIES', n_ext_fn_species) #=2          ,
         nml.add('EXT_FN', ext_fn) #=1          , 3*2          ,
         nml.add('EXT_L', basis_l) #=0          , 3*1          ,
         nml.add('EXT_M', basis_m) # =0          ,-1         ,0          ,1          ,
         nml.add('EXTFN_N', extfn_n) #=0          ,1          ,
-        nml.add('EXT_WAVE_SPL', 0) #=  5.0899054203602369E-005,  6.2443600775498648E-007, -1.0587911840678754E-022,  1.6230958255270334E-009,  5.1525113307182883E-005,
+       
+        arr = []
+        for S in range(len(types)):
+            basis = basis_S[S]
+            for J, spline in enumerate(basis):
+                for r in rgrid:
+                    arr.append(spline.spline(r)*r)
+                    for i in range(3):
+                        arr.append(0.0)
 
+        nml.add('EXT_WAVE_SPL', arr) 
+        nml.add('BASIS_WAVE_SPL', arr)
         return str(nml)
 
     def grid():
         nml = NameList('EF_GRIDS') 
-        ngrid = n_max_grid
-        ngridmin = 4.999999873689376e-05
-        #ngridmin = 1.6666666245631252E-005
-        ngridinc = 1.0123000144958496
-        grid = ngridmin * ngridinc**np.arange(ngrid)
         nml.add('N_GRID', ngrid)
         nml.add('R_GRID_MIN', ngridmin)
         nml.add('R_GRID_INC', ngridinc)
-        nml.add('R_GRID', grid)
+        nml.add('R_GRID', rgrid)
      
-        lst = []
-        radius = 7.0 / Bohr
-        scale_radial= -radius / np.log(1 - ((nradial-5) / (1 + (nradial)))**2)
-        
-        for s in range(len(types)):
-            for i in range(1, nradial+1):
-                r_scaled = i / (nradial + 1)
-                lst.append(-np.log(1 - r_scaled**2) * scale_radial)
-        nml.add('R_RADIAL', lst)          
+        nml.add('R_RADIAL', rradial)          
 
         return str(nml)
 
@@ -361,12 +358,12 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
             nml.add('KS_EIGENVECTOR_COMPLEX', C)
             nml.add('KS_EIGENVECTOR', 0.0000000000000000)
         else:
-            nml.add('KS_EIGENVECTOR_COMPLEX', 0.0)
+            nml.add('KS_EIGENVECTOR_COMPLEX', 0.0j)
             nml.add('KS_EIGENVECTOR', C)
 
         nml.add('OCC_NUMBERS', f)
         nml.add('EIGENVEC', 0)
-        nml.add('EIGENVEC_COMPLEX', 0+0j)
+        nml.add('EIGENVEC_COMPLEX', 0j)
         return str(nml)
 
     def localorb():
@@ -449,7 +446,8 @@ def verify(folder1, folder2):
                                 if len(nml1[key]) < 10:
                                     print('data:', nml1[key], 'refdata:', nml2[key])
                                 else:
-                                    print('data:', nml1[key][:10], 'refdata:', nml2[key][:10])
+                                    print('data:', nml1[key][:10])
+                                    print('refdata:', nml2[key][:10])
                 else:
                     if nml1[key] != nml2[key]:
                         print('Data content mismatch', fname, key, 'data:', nml1[key], 'refdata:', nml2[key])
