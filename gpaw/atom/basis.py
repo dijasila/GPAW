@@ -568,7 +568,3 @@ class QuasiGaussian:
         p = (self.a - self.b * r2)
         y = np.where(condition, g - p, 0.)
         return self.A * y
-
-    def renormalize(self, norm):
-        """Divide function by norm."""
-        self.A /= norm
