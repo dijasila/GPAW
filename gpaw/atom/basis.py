@@ -249,7 +249,6 @@ class BasisMaker:
                  rcharpol_rel=None,
                  vconf_args=(12.0, 0.6), txt='-',
                  include_energy_derivatives=False,
-                 # lvalues=None, # XXX clean up some of these!
                  jvalues=None,
                  l_pol=None):
         """Generate an entire basis set.
