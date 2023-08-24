@@ -151,13 +151,6 @@ class BasisMaker:
         psit_mg = psi_mg * w_g + np.dot(Qt_nm.T, s_ng - u_ng * w_g)
         return psit_mg
 
-    def make_orbital_vector(self, j, rcut, vconf=None):
-        """Returns a smooth basis vector given an all-electron one."""
-        l = self.generator.l_j[j]
-        psi_g, e = self.generator.solve_confined(j, rcut, vconf)
-        psit_g = self.smoothify(psi_g, l)
-        return psit_g
-
     def rcut_by_energy(self, j, esplit=.1, tolerance=.1, rguess=6.,
                        vconf_args=None):
         """Find confinement cutoff corresponding to given orbital energy shift.
