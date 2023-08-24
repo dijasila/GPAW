@@ -49,8 +49,6 @@ def build_parser():
     parser.add_option('--vconf-sharp-confinement', action='store_true',
                       help='use sharp rather than smooth confinement '
                       'potential')
-    parser.add_option('--debug', action='store_true',
-                      help='use gpaw-DEBUG mode')
     parser.add_option('--lpol', type=int, default=None,
                       help='angular momentum quantum number '
                       'of polarization function.  '
