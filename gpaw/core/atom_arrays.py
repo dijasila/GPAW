@@ -433,19 +433,19 @@ class AtomArrays:
         assert self.comm.size == 1
         layout = self.layout.new(atomdist=atomdist)
         new = layout.empty(self.dims)
-        comm = layout.comm
+        comm = atomdist.comm
         requests = []
         for a, I1, I2 in self.layout.myindices:
             r = layout.atomdist.rank_a[a]
             if r == comm.rank:
                 new[a][:] = self[a]
             else:
-                requests.append(comm.send(self[a], r, 1, True))
+                requests.append(comm.send(self[a], r, block=False))
 
         for a, I1, I2 in layout.myindices:
             r = self.layout.atomdist.rank_a[a]
             if r != comm.rank:
-                comm.receive(new[a], r, 1)
+                comm.receive(new[a], r)
 
         comm.waitall(requests)
         return new

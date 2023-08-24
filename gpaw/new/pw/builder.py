@@ -31,7 +31,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     @cached_property
     def atomdist(self) -> AtomDistribution:
-        return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac))
+        return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
+                                                     self.communicators['d'])
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(

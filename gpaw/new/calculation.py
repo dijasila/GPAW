@@ -6,6 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
+from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
@@ -136,8 +137,10 @@ class DFTCalculation:
         self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
-        if 0:
-            atomdist = AtomDistribution.from_pos(self.fracpos_ac)
+        if self.state.ibzwfs.mode != 'pw':
+            grid = self.state.density.nt_sR.desc
+            rank_a = grid.ranks_from_fractional_positions(self.fracpos_ac)
+            atomdist = AtomDistribution(rank_a, atomdist.comm)
 
         self.pot_calc.move(self.fracpos_ac, atomdist)
         self.state.move(self.fracpos_ac, atomdist)
