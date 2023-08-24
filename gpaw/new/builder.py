@@ -265,7 +265,7 @@ class DFTComponentsBuilder:
 
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
-        P_sknI = reader.wave_functions.projections
+        P_sknI = reader.wave_functions.projections#read on master only
         P_sknI = P_sknI.astype(ibzwfs.dtype)
 
         for wfs in ibzwfs:
@@ -282,6 +282,7 @@ class DFTComponentsBuilder:
                 wfs._P_ani = AtomArrays(layout,
                                         dims=(self.nbands, 2),
                                         data=P_sknI[wfs.k])
+            wfs._P_ani.scatter_from(P)
 
         try:
             ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha

@@ -348,7 +348,7 @@ class AtomArrays:
 
         return aa
 
-    def scatter_from(self, data: np.ndarray = None) -> None:
+    def scatter_from(self, data: np.ndarray | None = None) -> None:
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             self.data[:] = data
