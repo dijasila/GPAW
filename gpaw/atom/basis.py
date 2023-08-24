@@ -16,19 +16,6 @@ from gpaw.atom.radialgd import (AERadialGridDescriptor,
                                 EquidistantRadialGridDescriptor)
 
 
-def get_gaussianlike_basis_function(rgd, l, rchar, gcut):
-    rcut = rgd.r_g[gcut]
-    gaussian = QuasiGaussian(1.0 / rchar**2, rcut)
-    r_g = rgd.r_g[:gcut + 1]
-    phit_g = gaussian(r_g) * r_g**l
-    phit_g[-1] = 0.0
-    norm = np.dot(rgd.dr_g[:gcut + 1], (r_g * phit_g)**2)**0.5
-    phit_g /= norm
-    norm2 = np.dot(rgd.dr_g[:gcut + 1], (r_g * phit_g)**2)**0.5
-    assert abs(1.0 - norm2) < 1e-10
-    return phit_g
-
-
 def make_split_valence_basis_function(r_g, psi_g, l, gcut):
     """Get polynomial which joins psi smoothly at rcut.
 
