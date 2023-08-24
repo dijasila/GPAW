@@ -244,7 +244,7 @@ class BasisMaker:
 
     def generate(self, zetacount=2, polarizationcount=1,
                  tailnorm=(0.16, 0.3, 0.6), energysplit=0.1, tolerance=1.0e-3,
-                 referencefile=None, referenceindex=None, rcutpol_rel=1.0,
+                 rcutpol_rel=1.0,
                  rcutmax=20.0,
                  rcharpol_rel=None,
                  vconf_args=(12.0, 0.6), txt='-',
@@ -265,8 +265,6 @@ class BasisMaker:
         ``tailnorm``          List of tail norms for split-valence scheme
         ``energysplit``       Energy increase defining confinement radius (eV)
         ``tolerance``         Tolerance of energy split (eV)
-        ``referencefile``     gpw-file used to generate polarization function
-        ``referenceindex``    Index in reference system of relevant atom
         ``rcutpol_rel``       Polarization rcut relative to largest other rcut
         ``rcutmax``           No cutoff will be greater than this value
         ``vconf_args``        Parameters (alpha, ri/rc) for conf. potential
