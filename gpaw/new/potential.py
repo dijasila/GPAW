@@ -56,6 +56,9 @@ class Potential:
                              P_nsi[:, 0] @ (x_ii + 1j * y_ii))
         return out_ansi
 
+    def move(self, atomdist):
+        self.dH_asii = self.dH_asii.moved(atomdist)
+
     def _write_gpw(self, writer, ibzwfs):
         from gpaw.new.calculation import combine_energies
         energies = combine_energies(self, ibzwfs)

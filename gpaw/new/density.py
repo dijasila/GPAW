@@ -245,6 +245,7 @@ class Density:
         self._nct_R = None
         self._tauct_R = None
         self.nt_sR.data[:self.ndensities] += self.nct_R.data
+        self.D_asii = self.D_asii.moved(atomdist)
 
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)

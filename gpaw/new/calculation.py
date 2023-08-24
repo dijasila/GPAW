@@ -136,6 +136,8 @@ class DFTCalculation:
         self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
+        if 0:
+            atomdist = AtomDistribution.from_pos(self.fracpos_ac)
 
         self.pot_calc.move(self.fracpos_ac, atomdist)
         self.state.move(self.fracpos_ac, atomdist)
