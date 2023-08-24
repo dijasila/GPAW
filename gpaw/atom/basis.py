@@ -496,33 +496,6 @@ class BasisMaker:
 
         return basis
 
-    def plot(self, basis, figure=None, title=None, filename=None):
-        """Plot basis functions using MatPlotLib."""
-        # XXX method should no longer belong to a basis maker
-        import matplotlib.pyplot as plt
-        rc = max([bf.rc for bf in basis.bf_j])
-        r = np.linspace(0., basis.d * (basis.ng - 1), basis.ng)
-        g = self.generator
-        if figure is not None:
-            plt.figure(figure)
-        else:
-            plt.figure()  # not very elegant
-        if title is None:
-            title = g.symbol
-        plt.title(title)
-        for bf in basis.bf_j:
-            label = bf.type
-            # XXX times g.r or not times g.r ?
-            phit_g = np.zeros_like(r)
-            phit_g[:len(bf.phit_g)] = bf.phit_g
-            plt.plot(r, phit_g * r, label=label[:12])
-        axis = plt.axis()
-        newaxis = [0., rc, axis[2], axis[3]]
-        plt.axis(newaxis)
-        plt.legend()
-        if filename is not None:
-            plt.savefig(filename)
-
 
 class QuasiGaussian:
     """Gaussian-like functions for expansion of orbitals.
