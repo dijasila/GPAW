@@ -140,6 +140,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     # kwargs['nbands'] = reader.wave_functions.eigenvalues.shape[-1]
 
+    for old_keyword in ['fixdensity', 'txt']:
+        kwargs.pop(old_keyword, None)
+
     params = InputParameters(kwargs, warn=False)
     builder = create_builder(atoms, params, comm)
 

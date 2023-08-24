@@ -68,8 +68,6 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
-            if key == 'fixdensity':
-                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
