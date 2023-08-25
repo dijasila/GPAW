@@ -176,6 +176,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
+
     if builder.xc.type == 'MGGA':
         taut_sR = builder.grid.empty(builder.ncomponents)
         dedtaut_sR = builder.grid.empty(builder.ncomponents)

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import _gpaw
 import numpy as np

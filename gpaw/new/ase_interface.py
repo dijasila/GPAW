@@ -531,6 +531,8 @@ class ASECalculator:
         builder = create_builder(self.atoms, params, self.comm)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
+        if state.potential.vt_sR.desc.comm.size != builder.communicators['d']:
+            1 / 0
         ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
                                                    log=log)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
