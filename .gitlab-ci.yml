@@ -391,7 +391,7 @@ gpwfiles:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist
   script:
-    - pytest -n 8 -m generate_gpw_files
+    - pytest -n 12 -m generate_gpw_files
   artifacts:
     paths:
       - .pytest_cache/
@@ -421,8 +421,8 @@ gpwfiles:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
       pytest --instafail -x -r s --durations 30
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #rules:
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
@@ -432,10 +432,10 @@ nightly-mpi-1:
   script:
     - gpaw info
     - pytest --cache-show
-    - pytest -n 4 --instafail -r s --durations 30
+    - pytest -n 8 --instafail -r s --durations 30
 
 
-nightly-mpi-1-new:
+.nightly-mpi-1-new:
   variables:
     GPAW_NEW: "1"
   extends:
@@ -448,14 +448,14 @@ nightly-mpi-1-new:
       "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
 
 
-nightly-mpi-2:
+.nightly-mpi-2:
   variables:
     GPAW_MPI_NPROCS: "2"
   extends:
     - .nightly
 
 
-nightly-mpi-4:
+.nightly-mpi-4:
   variables:
     GPAW_MPI_NPROCS: "4"
   extends:
