@@ -25,9 +25,9 @@ class UGDesc(Domain):
                  cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,  # in units of reciprocal cell
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
-                 decomp: Sequence[Sequence[int]] = None,
+                 decomp: Sequence[Sequence[int]] | None = None,
                  dtype=None):
         """Description of 3D uniform grid.
 
@@ -194,7 +194,7 @@ class UGDesc(Domain):
 
         return transform
 
-    def eikr(self, kpt_c: Vector = None) -> Array3D:
+    def eikr(self, kpt_c: Vector | None = None) -> Array3D:
         """Plane wave.
 
         :::
@@ -240,7 +240,7 @@ class UGDesc(Domain):
                                    cell: ArrayLike1D | ArrayLike2D,
                                    grid_spacing: float,
                                    pbc=(True, True, True),
-                                   kpt: Vector = None,
+                                   kpt: Vector | None = None,
                                    comm: MPIComm = serial_comm,
                                    dtype=None) -> UGDesc:
         """Create UGDesc from grid-spacing."""
@@ -273,7 +273,7 @@ class UGArray(DistributedArrays[UGDesc]):
                  grid: UGDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) on a uniform grid.
 
@@ -501,7 +501,7 @@ class UGArray(DistributedArrays[UGDesc]):
         new.data[..., -i:, -j:, -k:] = self.data
         return new
 
-    def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
+    def multiply_by_eikr(self, kpt_c: Vector | None = None) -> None:
         """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
@@ -511,10 +511,10 @@ class UGArray(DistributedArrays[UGDesc]):
             self.data *= self.desc.eikr(kpt_c)
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         """Interpolate to finer grid.
 
         Parameters
@@ -606,10 +606,10 @@ class UGArray(DistributedArrays[UGDesc]):
         return out
 
     def fft_restrict(self,
-                     plan1: fftw.FFTPlans = None,
-                     plan2: fftw.FFTPlans = None,
-                     grid: UGDesc = None,
-                     out: UGArray = None) -> UGArray:
+                     plan1: fftw.FFTPlans | None = None,
+                     plan2: fftw.FFTPlans | None = None,
+                     grid: UGDesc | None = None,
+                     out: UGArray | None = None) -> UGArray:
         """Restrict to coarser grid.
 
         Parameters
@@ -692,7 +692,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UGArray = None) -> None:
+                   out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
         for f, psit_R in zips(weights, self.data):

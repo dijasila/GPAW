@@ -199,14 +199,14 @@ class DistributedArrays(Generic[DomainType]):
                     data = data.view(complex)
                 return self.desc.new(comm=None).from_data(data)
 
-    def scatter_from(self, data: ArrayND = None) -> None:
+    def scatter_from(self, data: ArrayND | None = None) -> None:
         raise NotImplementedError
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         raise NotImplementedError
 
 

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import numbers
-from typing import Sequence, overload, Literal
+from typing import Sequence, overload
 
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
-from gpaw.typing import Array1D, ArrayLike1D
+from gpaw.typing import Array1D, ArrayLike1D, Literal
 
 
 class AtomArraysLayout:
@@ -136,7 +136,7 @@ class AtomDistribution:
                           atom_indices: Sequence[int],
                           comm: MPIComm = serial_comm,
                           *,
-                          natoms: int = None) -> AtomDistribution:
+                          natoms: int | None = None) -> AtomDistribution:
         """Create distribution from atom indices.
 
         >>> AtomDistribution.from_atom_indices([0, 1, 2]).rank_a
@@ -162,7 +162,7 @@ class AtomArrays:
                  layout: AtomArraysLayout,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None):
+                 data: np.ndarray | None = None):
         """AtomArrays object.
 
         parameters

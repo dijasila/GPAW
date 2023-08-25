@@ -28,7 +28,7 @@ class AtomCenteredFunctions:
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
-                 atomdist: AtomDistribution = None,
+                 atomdist: AtomDistribution | None = None,
                  xp=None):
         self.xp = xp or np
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f

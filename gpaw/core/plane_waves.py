@@ -29,7 +29,7 @@ class PWDesc(Domain):
                  *,
                  ecut: float,  # hartree
                  cell: ArrayLike1D | ArrayLike2D,  # bohr
-                 kpt: Vector = None,  # in units of reciprocal cell
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """Description of plane-wave basis.
@@ -136,7 +136,7 @@ class PWDesc(Domain):
 
     def new(self,
             *,
-            ecut: float = None,
+            ecut: float | None = None,
             kpt=None,
             dtype=None,
             comm: MPIComm | Literal['inherit'] | None = 'inherit'
@@ -241,7 +241,7 @@ class PWArray(DistributedArrays[PWDesc]):
                  pw: PWDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) as a plane-wave expansions.
 
@@ -363,10 +363,10 @@ class PWArray(DistributedArrays[PWDesc]):
         return out
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         assert plan1 is None
         return self.ifft(plan=plan2, grid=grid, out=out)
 
@@ -429,7 +429,7 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(self.data, ssize_r, soffset_r,
                        out.data, rsize_r, roffset_r)
 
-    def scatter_from(self, data: Array1D = None) -> None:
+    def scatter_from(self, data: Array1D | None = None) -> None:
         """Scatter data from rank-0 to all ranks."""
         comm = self.desc.comm
         if comm.size == 1:
@@ -469,7 +469,7 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(a_G.data, ssize_r, soffset_r,
                        self.data, rsize_r, roffset_r)
 
-    def integrate(self, other: PWArray = None) -> np.ndarray:
+    def integrate(self, other: PWArray | None = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
         dv = self.dv
         if other is not None:
