@@ -146,7 +146,7 @@ def create_ngto(rgd, l, alpha, rmax, tol):
     psi_g = get_ngto(rgd, l, alpha, rcut)
 
     # Change norm (maybe unnecessary)
-    psi_g = psi_g[:(i + 1)] * 0.5
+    psi_g = psi_g[:(i + 1)]
 
     return psi_g
 
@@ -165,7 +165,7 @@ def add_ngto(basis, l, coeff_j, alpha_j, tol, label):
         psi_g[0:i] += contrib
 
     psi_g = psi_g[0:i_max]
-    rcut = rgd.r_g[i_max]
+    rcut = rgd.r_g[i_max-1]
 
     # Create associated basis function
     bf = BasisFunction(None, l, rcut, psi_g, label)

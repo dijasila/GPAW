@@ -54,8 +54,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             return ah
         elif type == 'ae':
             from gpaw.ae import HydrogenAllElectronSetup
-            assert symbol == 'H'
-            ae = HydrogenAllElectronSetup()
+            ae = HydrogenAllElectronSetup(symbol)
             ae.build(basis)
             return ae
         elif type == 'ghost':

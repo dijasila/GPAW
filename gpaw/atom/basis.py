@@ -510,7 +510,7 @@ class BasisMaker:
 
         # The non-equidistant grids are really only suited for AE WFs
         d = 1.0 / 64
-        equidistant_grid = np.arange(0.0, rcmax + d, d)
+        equidistant_grid = np.arange(0.0, rcmax + d, d) # Add 5 bohrs to cutoff
         ng = len(equidistant_grid)
 
         for bf in bf_j:
@@ -530,7 +530,7 @@ class BasisMaker:
 
             # Quick hack to change to equidistant coordinates
             spline = rgd.spline(bf.phit_g, rgd.r_g[rgd.floor(bf.rc)], bf.l,
-                                points=100)
+                                points=1000)
             bf.phit_g = np.array([spline(r) * r**bf.l
                                   for r in equidistant_grid[:bf.ng]])
             bf.phit_g[-1] = 0.

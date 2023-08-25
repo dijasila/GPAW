@@ -1,7 +1,27 @@
 from ase.units import Bohr  # TODO: Import from CODATA 2022
 import numpy as np
 
-
+def fit_spline(r_g, f):
+    f_g = np.array([f(r) for r in r_g])
+    N = len(r_g)
+    print(N)
+    A = np.zeros((N, N))
+    A.flat[::N+1] = 4
+    A.flat[1::N+1] = 1
+    A.flat[N::N+1] = 1
+    A[0,0] = 2
+    A[-1,-1] = 2
+    rhs = np.zeros((N,))
+    rhs[0] = 3 * (f_g[1] - f_g[0])
+    rhs[1:-1] = 3 * (f_g[2:] - f_g[:-2])
+    rhs[-1] = 3 * (f_g[-1] - f_g[-2])
+    D = np.linalg.solve(A, rhs)
+    data = np.zeros((N, 4))
+    data[:, 0] = f_g
+    data[:, 1] = D
+    data[:-1, 2] = 3 * (f_g[1:] - f_g[:-1]) - 2 * D[:-1] - D[1:]
+    data[:-1, 3] = 2 * (f_g[:-1] - f_g[1:]) + D[:-1] + D[1:]
+    return data
 class NameList:
     def __init__(self, title):
         self.title = title
@@ -246,10 +266,11 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         for S in range(len(types)):
             basis = basis_S[S]
             for J, spline in enumerate(basis):
-                for r in rgrid:
-                    arr.append(spline.spline(r)*r)
-                    for i in range(3):
-                        arr.append(0.0)
+                arr.extend([*fit_spline(rgrid, lambda r: spline.spline(r)*r).ravel()])
+                #for r in rgrid:
+                #    arr.append(spline.spline(r)*r)
+                #    for i in range(3):
+                #        arr.append(0.0)
 
         nml.add('EXT_WAVE_SPL', arr) 
         nml.add('BASIS_WAVE_SPL', arr)
@@ -288,9 +309,11 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('N_PERIODIC', 3)
         nml.add('N_ATOMS', len(atoms))
         nml.add('N_SPECIES', len(types))
-        nml.add('N_CENTERS', 729)
+        nml.add('N_CENTERS', 343) # XXX
         nml.add('N_SPIN', 1)
         nml.add('N_STATES', nstates)
+
+
 
         nml.add('N_K_POINTS', len(calc.wfs.kd.ibzk_kc))
         nml.add('N_K_POINTS_NOSYM', n_kpoints_nosym)
@@ -299,7 +322,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('N_IRK_POINTS_TASK', 1)
         nml.add('N_BASIS', nbasis)
         nml.add('N_BASIS_FNS', n_basis_fns)
-        nml.add('N_CENTERS_BASIS_T', 22)
+        nml.add('N_CENTERS_BASIS_T', 4) # XXX
         nml.add('N_BASBAS',0)
         nml.add('N_BASBAS_FNS',0)
         nml.add('N_BASBAS_SUPERCELL', 0)
@@ -335,8 +358,8 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         nml.add('N_MAX_RADIAL', nradial)
         nml.add('N_CELLS_BVK', 1)
         nml.add('N_MAX_IND_FNS', n_max_ind_fns)
-        nml.add('N_CELLS_PAIRS', 729)
-        nml.add('N_CENTERS_ELE_SUMMATION',19)
+        nml.add('N_CELLS_PAIRS', 343) # XXX
+        nml.add('N_CENTERS_ELE_SUMMATION',1) # XXX
 
 
         return str(nml)
@@ -446,8 +469,11 @@ def verify(folder1, folder2):
                                 if len(nml1[key]) < 10:
                                     print('data:', nml1[key], 'refdata:', nml2[key])
                                 else:
-                                    print('data:', nml1[key][:10])
-                                    print('refdata:', nml2[key][:10])
+                                    for i, (a, b) in enumerate(zip(nml1[key], nml2[key])):
+                                        if np.abs(a-b)>1e-9:
+                                            print(key,i, a,b, a-b)
+                                    #    ', nml1[key][:10])
+                                    #print('refdata:', nml2[key][:10])
                 else:
                     if nml1[key] != nml2[key]:
                         print('Data content mismatch', fname, key, 'data:', nml1[key], 'refdata:', nml2[key])

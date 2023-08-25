@@ -66,6 +66,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True) -> XCFunctional:
         elif backend == 'pw' or name in ['HSE03', 'HSE06']:
             from gpaw.hybrids import HybridXC
             return HybridXC(name, **kwargs)  # type: ignore
+        #elif backend == 'libexexex':
+        #    
         elif backend:
             raise ValueError(
                 'A special backend for the XC functional was given, '
