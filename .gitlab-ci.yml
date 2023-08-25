@@ -214,7 +214,7 @@ test:
 
 
 test-latest:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/run:staging
   extends:
     - .test
   needs:
@@ -309,7 +309,7 @@ check-agts:
 
 
 lint:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/run:staging
   stage: build
   tags:
     - linux
@@ -347,7 +347,7 @@ lint:
 
 
 typecheck:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/run:staging
   stage: build
   tags:
     - linux
@@ -379,7 +379,7 @@ docs:
 
 
 gpwfiles:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/run:staging
   extends:
     - .test
   needs:
@@ -403,7 +403,7 @@ gpwfiles:
 
 
 .nightly:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/run:staging
   variables:
     GPAW_MPI_NPROCS: "1"
   extends:
