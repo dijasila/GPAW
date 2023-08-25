@@ -6,7 +6,6 @@ import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
-from gpaw.core.arrays import DistributedArrays
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
@@ -47,13 +46,11 @@ class DFTState:
     def __init__(self,
                  ibzwfs: IBZWaveFunctions,
                  density: Density,
-                 potential: Potential,
-                 vHt_x: DistributedArrays = None):
+                 potential: Potential):
         """State of a Kohn-Sham calculation."""
         self.ibzwfs = ibzwfs
         self.density = density
         self.potential = potential
-        self.vHt_x = vHt_x  # initial guess for Hartree potential
 
     def __repr__(self):
         return (f'DFTState({self.ibzwfs!r}, '
@@ -119,10 +116,10 @@ class DFTCalculation:
         scf_loop = builder.create_scf_loop()
 
         pot_calc = builder.create_potential_calculator()
-        potential, vHt_x, _ = pot_calc.calculate(density)
+        potential, _ = pot_calc.calculate(density)
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
-        state = DFTState(ibzwfs, density, potential, vHt_x)
+        state = DFTState(ibzwfs, density, potential)
 
         write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
@@ -180,7 +177,7 @@ class DFTCalculation:
 
         self.log('energies:  # eV')
         for name, e in energies.items():
-            if not name.startswith('total'):
+            if not name.startswith('total') and name != 'stress':
                 self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
         total_free = energies['total_free']
         total_extrapolated = energies['total_extrapolated']
@@ -220,7 +217,6 @@ class DFTCalculation:
     def forces(self, silent=False):
         """Calculate atomic forces."""
         xc = self.pot_calc.xc
-        assert not xc.no_forces
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
         # Force from projector functions (and basis set):
@@ -330,7 +326,7 @@ class DFTCalculation:
 
         scf_loop = builder.create_scf_loop()
         pot_calc = builder.create_potential_calculator()
-        potential, vHt_x, _ = pot_calc.calculate(density)
+        potential, _ = pot_calc.calculate(density)
 
         old_ibzwfs = self.state.ibzwfs
 
@@ -346,9 +342,10 @@ class DFTCalculation:
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
             create_wfs_func=create_wfs,
-            kpt_comm=old_ibzwfs.kpt_comm)
+            kpt_comm=old_ibzwfs.kpt_comm,
+            comm=self.comm)
 
-        state = DFTState(ibzwfs, density, potential, vHt_x)
+        state = DFTState(ibzwfs, density, potential)
 
         write_atoms(atoms, builder.initial_magmom_av, log)
         log(state)
@@ -364,6 +361,7 @@ def combine_energies(potential: Potential,
                      ibzwfs: IBZWaveFunctions) -> dict[str, float]:
     """Add up energy contributions."""
     energies = potential.energies.copy()
+    energies.pop('stress', 0.0)
     energies['kinetic'] += ibzwfs.energies['band']
     energies['entropy'] = ibzwfs.energies['entropy']
     energies['total_free'] = sum(energies.values())

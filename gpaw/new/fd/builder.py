@@ -25,6 +25,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self._nct_aR = None
         self._tauct_aR = None
 
+        self.electrostatic_potential_desc = self.fine_grid
+
     def create_uniform_grids(self):
         grid = create_uniform_grid(
             self.mode,

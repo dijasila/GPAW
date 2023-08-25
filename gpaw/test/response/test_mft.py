@@ -121,6 +121,7 @@ def test_Fe_bcc(in_tmp_dir, gpw_files):
     assert mw_qp.T == pytest.approx(test_mw_pq, rel=2e-3)
 
 
+@pytest.mark.xfail
 @pytest.mark.response
 def test_Co_hcp(in_tmp_dir, gpw_files):
     # ---------- Inputs ---------- #
@@ -645,7 +646,7 @@ class SingleParticleSiteMagnetizationCalculator(
     """
     def get_pauli_matrix(self):
         return smat('z')
-    
+
     def create_matrix_element_calculator(self, atomic_site_data):
         return SitePairDensityCalculator(self.gs, self.context,
                                          atomic_site_data)

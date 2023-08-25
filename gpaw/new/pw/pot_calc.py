@@ -57,8 +57,6 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self._vt_g = None
         self._dedtaut_g = None
 
-        self.e_stress = np.nan
-
     def interpolate(self, a_R, a_r=None):
         return a_R.interpolate(self.fftplan, self.fftplan2,
                                grid=self.fine_grid, out=a_r)
@@ -97,7 +95,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             xc, nt_sR, ibzwfs)
         return e_xc
 
-    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
+    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h=None):
         nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
 
         if density.taut_sR is not None:
@@ -164,13 +162,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
 
         e_external = 0.0
 
-        self.e_stress = e_coulomb + e_zero
-
         self._reset()
 
         return {'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
+                'stress': e_coulomb + e_zero,
                 'external': e_external}, vt_sR, dedtaut_sr, vHt_h
 
     def move(self, fracpos_ac, atomdist):
@@ -214,7 +211,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         else:
             Ftauct_av = state.density.tauct_aX.derivative(dedtaut_g)
 
-        return (self.ghat_aLh.derivative(state.vHt_x),
+        return (self.ghat_aLh.derivative(state.potential.vHt_x),
                 state.density.nct_aX.derivative(vt_g),
                 Ftauct_av,
                 self.vbar_ag.derivative(nt_g))

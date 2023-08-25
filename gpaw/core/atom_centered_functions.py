@@ -98,7 +98,8 @@ class AtomCenteredFunctions:
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 
-    def stress_tensor_contribution(self, a, c=1.0):
+    def stress_contribution(self, a, c=1.0):
+        self._lazy_init()
         return self._lfc.stress_tensor_contribution(a.data, c)
 
 
