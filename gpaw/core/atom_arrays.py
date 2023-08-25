@@ -13,7 +13,7 @@ from gpaw.typing import Array1D, ArrayLike1D, Literal
 
 class AtomArraysLayout:
     def __init__(self,
-                 shapes: list[int | tuple[int, ...]],
+                 shapes: Sequence[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
                  dtype=float,
                  xp=None):
