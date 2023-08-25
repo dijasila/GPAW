@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Callable
+
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
-from gpaw.mpi import serial_comm, MPIComm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zips
 from gpaw.spline import Spline
-from gpaw.typing import ArrayLike2D, Array1D
+from gpaw.typing import Array1D, ArrayLike2D
+
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray
 
@@ -139,7 +143,8 @@ class UGAtomCenteredFunctions(AtomCenteredFunctions):
                 ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),
                 comm=self.grid.comm)
         else:
-            for sphere, rank in zip(self._lfc.sphere_a, self._atomdist.rank_a):
+            for sphere, rank in zips(self._lfc.sphere_a,
+                                     self._atomdist.rank_a):
                 assert sphere.rank == rank
             assert self.grid.comm is self._atomdist.comm
 

@@ -30,7 +30,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
 
         def create_wfs(spin: int, q: int, k: int, kpt_c, weight: float):
             psit_nG = SimpleNamespace(
-                comm=domain_comm,
+                comm=band_comm,
                 dims=(self.nbands,),
                 desc=self.wf_desc.new(kpt=kpt_c),
                 data=None,

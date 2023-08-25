@@ -7,7 +7,7 @@ import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import prod
+from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D
 
 
@@ -88,8 +88,8 @@ class AtomArraysLayout:
         comm = self.atomdist.comm
         size_ra: list[dict[int, int]] = [{} for _ in range(comm.size)]
         size_r = np.zeros(comm.size, int)
-        for a, (rank, shape) in enumerate(zip(self.atomdist.rank_a,
-                                              self.shape_a)):
+        for a, (rank, shape) in enumerate(zips(self.atomdist.rank_a,
+                                               self.shape_a)):
             size = prod(shape)
             size_ra[rank][a] = size
             size_r[rank] += size
@@ -362,7 +362,7 @@ class AtomArrays:
         aa = self.new(layout=self.layout.new(atomdist=serial_comm),
                       data=data)
         requests = []
-        for rank, (totsize, size_a) in enumerate(zip(size_r, size_ra)):
+        for rank, (totsize, size_a) in enumerate(zips(size_r, size_ra)):
             if rank != 0:
                 buf = np.empty(self.mydims + (totsize,), self.layout.dtype)
                 b1 = 0
@@ -398,15 +398,15 @@ class AtomArrays:
             shape_a.append((i1 * (i1 + 1) // 2,))
         xp = self.layout.xp
         layout = AtomArraysLayout(shape_a,
-                                  self.layout.atomdist.comm,
+                                  self.layout.atomdist,
                                   dtype=self.layout.dtype,
                                   xp=xp)
         a_axp = layout.empty(self.dims)
-        for a_xii, a_xp in zip(self.values(), a_axp.values()):
+        for a_xii, a_xp in zips(self.values(), a_axp.values()):
             i = a_xii.shape[-1]
             L = xp.tril_indices(i)
-            for a_p, a_ii in zip(a_xp.reshape((-1, i * (i + 1) // 2)),
-                                 a_xii.reshape((-1, i, i))):
+            for a_p, a_ii in zips(a_xp.reshape((-1, i * (i + 1) // 2)),
+                                  a_xii.reshape((-1, i, i))):
                 a_p[:] = a_ii[L]
 
         return a_axp
@@ -429,7 +429,7 @@ class AtomArrays:
                                   self.layout.atomdist,
                                   self.layout.dtype)
         a_axii = layout.empty(self.dims)
-        for a_xp, a_xii in zip(self.values(), a_axii.values()):
+        for a_xp, a_xii in zips(self.values(), a_axii.values()):
             i = a_xii.shape[-1]
             a_xii[(...,) + np.tril_indices(i)] = a_xp
             u = (...,) + np.triu_indices(i, 1)

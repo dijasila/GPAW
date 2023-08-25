@@ -198,7 +198,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
             dedtaut_sR.scatter_from(dedtaut_sR_array)
         D_asp.scatter_from(D_sap_array)
         dH_asp.scatter_from(dH_sap_array)
-
     if reader.version < 4:
         convert_to_new_packing_convention(D_asp, density=True)
         convert_to_new_packing_convention(dH_asp)

@@ -265,8 +265,11 @@ class DFTComponentsBuilder:
 
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
-        P_sknI = reader.wave_functions.projections#read on master only
-        P_sknI = P_sknI.astype(ibzwfs.dtype)
+        if self.communicators['d'].rank == 0:
+            P_sknI = reader.wave_functions.projections
+            P_sknI = P_sknI.astype(ibzwfs.dtype)
+        else:
+            P_sknI = None
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
@@ -274,15 +277,16 @@ class DFTComponentsBuilder:
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
                                       atomdist=self.atomdist,
                                       dtype=self.dtype)
+            data = None
             if self.ncomponents < 4:
-                wfs._P_ani = AtomArrays(layout,
-                                        dims=(self.nbands,),
-                                        data=P_sknI[wfs.spin, wfs.k])
+                wfs._P_ani = AtomArrays(layout, dims=(self.nbands,))
+                if P_sknI is not None:
+                    data = P_sknI[wfs.spin, wfs.k]
             else:
-                wfs._P_ani = AtomArrays(layout,
-                                        dims=(self.nbands, 2),
-                                        data=P_sknI[wfs.k])
-            wfs._P_ani.scatter_from(P)
+                wfs._P_ani = AtomArrays(layout, dims=(self.nbands, 2))
+                if P_sknI is not None:
+                    data = P_sknI[wfs.k]
+            wfs._P_ani.scatter_from(data)
 
         try:
             ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
