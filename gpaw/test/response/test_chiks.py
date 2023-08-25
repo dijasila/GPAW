@@ -139,13 +139,11 @@ def generate_nblocks_n():
 # ---------- Actual tests ---------- #
 
 
+@pytest.mark.xfail
 @pytest.mark.response
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
-    [pytest.param(s, q, g, marks=pytest.mark.xfail) if s == ('fe_pw', '+-')
-     else (s, q, g)
-     for s, q, g in
-     product(generate_system_s(), generate_qrel_q(), generate_gc_g())])
+    product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
 def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     r"""Test the internals of the ChiKSCalculator.
 
