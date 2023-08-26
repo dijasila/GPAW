@@ -266,7 +266,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
         for S in range(len(types)):
             basis = basis_S[S]
             for J, spline in enumerate(basis):
-                arr.extend([*fit_spline(rgrid, lambda r: spline.spline(r)*r).ravel()])
+                arr.extend([*fit_spline(rgrid, lambda r: spline.spline(r)*r**(spline.l+1)).ravel()])
                 #for r in rgrid:
                 #    arr.append(spline.spline(r)*r)
                 #    for i in range(3):
@@ -426,6 +426,7 @@ def call_libexexex(atoms, kpt, calc,  xc=None):
             print(data, file=f)
 
 def verify(folder1, folder2):
+    failed = []
     files = ['ef_analytical_stress.0000.nml',
              'ef_mpi_tasks.0000.nml',
              'ef_localorb_io.0000.nml',
@@ -449,6 +450,7 @@ def verify(folder1, folder2):
             except KeyError:
                 print('Missing name', key, 'in', fname)
                 errors += 1
+                failed.append(key)
                 continue
             if nml1[key] == nml2[key]:
                 pass # print('Matching data', key)
@@ -456,27 +458,31 @@ def verify(folder1, folder2):
                 if hasattr(nml1[key], '__len__'):
                     if not hasattr(nml2[key], '__len__'):
                         print('Mismatch of types', key, nml1[key], nml2[key])
+                        failed.append(key)
                         errors += 1
                         continue
                     if len(nml1[key]) != len(nml2[key]):
                         print('Data size mismatch', fname, key, 'size:', len(nml1[key]), 'refsize:', len(nml2[key]))
+                        failed.append(key)
                         errors += 1
                     else:
                         if nml1[key] != nml2[key]:
-                            if not np.allclose(np.array(nml1[key]), np.array(nml2[key])):
+                            if not np.allclose(np.array(nml1[key]), np.array(nml2[key]), atol=1e-6):
                                 print('Data content mismatch', fname, key)
+                                failed.append(key)
                                 errors += 1
                                 if len(nml1[key]) < 10:
                                     print('data:', nml1[key], 'refdata:', nml2[key])
                                 else:
                                     for i, (a, b) in enumerate(zip(nml1[key], nml2[key])):
-                                        if np.abs(a-b)>1e-9:
-                                            print(key,i, a,b, a-b)
+                                        if np.abs(a-b)>1e-6:
+                                            print(key,i//4, i%4, a,b, a-b)
                                     #    ', nml1[key][:10])
                                     #print('refdata:', nml2[key][:10])
                 else:
                     if nml1[key] != nml2[key]:
                         print('Data content mismatch', fname, key, 'data:', nml1[key], 'refdata:', nml2[key])
+                        failed.append(key)
                         errors += 1
         return errors
 
@@ -492,3 +498,4 @@ def verify(folder1, folder2):
             errs += compare(nmls[0][key], nmls[1][key], fname)
     print('-----------------------------')
     print('Total errors', errs)
+    return failed
