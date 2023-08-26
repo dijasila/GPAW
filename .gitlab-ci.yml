@@ -95,6 +95,13 @@ build-latest:
       undef_macros = []
       # TODO: PySys_SetArgv() etc deprecated in Python 3.11
       extra_compile_args += ['-Wno-deprecated-declarations']
+      elpa = True
+      libraries += ['elpa']
+      # XXXXXXXXXXXXXXXX ?????????????????????????????
+      elpadir = Path('/home/askhl/install/elpa-2022.11.001')
+      include_dirs += ['./usr/include/elpa/elpa/']
+      # library_dirs += [elpadir / 'lib']
+      # extra_link_args += [f'-Wl,-rpath={elpadir / "lib"}']
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
