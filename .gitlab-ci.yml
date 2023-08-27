@@ -84,7 +84,7 @@ build:
 
 
 build-latest:
-  image: $IMAGE_PATH/build:latest
+  image: $IMAGE_PATH/build:staging
   extends: .build
   tags:
     - linux
