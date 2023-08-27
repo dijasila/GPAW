@@ -404,7 +404,6 @@ gpwfiles:
     - xeon24
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist
   script:
     - pytest -n 12 -m generate_gpw_files
   artifacts:
@@ -431,7 +430,6 @@ gpwfiles:
     - xeon24
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
