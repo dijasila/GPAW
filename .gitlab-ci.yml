@@ -237,7 +237,6 @@ test-latest:
   tags:
     - linux
   script:
-    - pip install coverage pytest-cov
     - gpaw info
 
     # Create a .coveragerc file so we can get nicely printed coverage:
