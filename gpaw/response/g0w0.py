@@ -278,10 +278,10 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc):
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-    n_mG = pair.calculate_pair_density(
+    n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
 
@@ -487,7 +487,7 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = \
-            self.chi0calc.pair.distribute_k_points_and_bands(
+            self.chi0calc.kptpair_factory.distribute_k_points_and_bands(
                 b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
@@ -657,10 +657,8 @@ class G0W0Calculator:
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
-            n_mG = get_nmG(kpt1, kpt2,
-                           mypawcorr,
-                           n, qpd, I_G,
-                           self.chi0calc._pair2)
+            n_mG = get_nmG(kpt1, kpt2, mypawcorr,
+                           n, qpd, I_G, self.chi0calc.pair_calc)
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()
@@ -1066,7 +1064,7 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        pair = KPointPairFactory(gs, context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1097,7 +1095,7 @@ class G0W0(G0W0Calculator):
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
-            wd=wd, pair=pair,
+            wd=wd, kptpair_factory=kptpair_factory,
             nbands=nbands,
             ecut=ecut,
             intraband=False,

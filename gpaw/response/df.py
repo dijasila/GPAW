@@ -543,11 +543,12 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = KPointPairFactory(gs=gs, context=context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(
+            gs=gs, context=context, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
             wd=wd,
-            pair=pair,
+            kptpair_factory=kptpair_factory,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
             intraband=intraband,

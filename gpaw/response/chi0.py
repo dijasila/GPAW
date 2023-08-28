@@ -59,7 +59,7 @@ class Chi0Integrand(Integrand):
         self.m2 = m2
 
         self.context = chi0calc.context
-        self.pair = chi0calc.pair
+        self.kptpair_factory = chi0calc.kptpair_factory
         self.gs = chi0calc.gs
 
         self.qpd = qpd
@@ -98,10 +98,10 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
-            target_method = self._chi0calc._pair2.get_optical_pair_density
+            target_method = self._chi0calc.pair_calc.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
         else:
-            target_method = self._chi0calc._pair2.get_pair_density
+            target_method = self._chi0calc.pair_calc.get_pair_density
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
@@ -122,8 +122,10 @@ class Chi0Integrand(Integrand):
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             self._chi0calc.pawcorr = pairden_paw_corr(qpd)
 
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, self.n1, self.n2,
-                                            self.m1, self.m2, block=block)
+        kptpair = self.kptpair_factory.get_kpoint_pair(
+            qpd, s, k_c, self.n1, self.n2,
+            self.m1, self.m2, block=block)
+
         m_m = np.arange(self.m1, self.m2)
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
@@ -153,8 +155,8 @@ class Chi0Integrand(Integrand):
         kd = gs.kd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.pair.find_kpoint(k_c)
-        K2 = self.pair.find_kpoint(k_c + qpd.q_c)
+        K1 = self.kptpair_factory.find_kpoint(k_c)
+        K2 = self.kptpair_factory.find_kpoint(k_c + qpd.q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
@@ -185,13 +187,13 @@ class Chi0Calculator:
 
     @property
     def nblocks(self):
-        return self.pair.nblocks
+        return self.kptpair_factory.nblocks
 
-    @property
-    def _pair2(self):
-        return self.pair.new()
+    #@property
+    #def _pair2(self):
+    #    return self.pair.new()
 
-    def base_ini(self, pair,
+    def base_ini(self, kptpair_factory,
                  context=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
@@ -200,14 +202,14 @@ class Chi0Calculator:
         """Set up attributes common to all response function calculators."""
 
         if context is None:
-            context = pair.context
+            context = kptpair_factory.context
 
         # TODO: More refactoring to avoid non-orthogonal inputs.
-        assert pair.context.comm is context.comm
+        assert kptpair_factory.context.comm is context.comm
         self.context = context
 
-        self.pair = pair
-        self.gs = pair.gs
+        self.kptpair_factory = kptpair_factory
+        self.gs = kptpair_factory.gs
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
@@ -654,7 +656,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
                 rate = self.eta * Ha  # external units
             self.rate = rate
             self.drude_calc = Chi0DrudeCalculator(
-                self.pair,
+                self.kptpair_factory,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
                 disable_non_symmorphic=self.disable_non_symmorphic,
@@ -666,7 +668,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     @property
     def nblocks(self):
         # The optical extensions are not distributed in memory
-        # NB: There can be a mismatch with self.pair.nblocks, which seems
+        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which seems
         # dangerous XXX
         return 1
 
@@ -852,7 +854,7 @@ class Chi0(Chi0Calculator):
 
         Attributes
         ----------
-        pair : gpaw.response.pair.PairDensity instance
+        kptpair_factory : gpaw.response.pair.KPointPairFactory instance
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
@@ -865,9 +867,10 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        pair = KPointPairFactory(gs, context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
 
-        super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
+        super().__init__(wd=wd, kptpair_factory=kptpair_factory,
+                         nbands=nbands, ecut=ecut, **kwargs)
 
 
 def new_frequency_descriptor(gs, context, nbands, frequencies=None, *,

@@ -153,7 +153,7 @@ class BSEBackend:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = KPointPairFactory(
+        self.kptpair_factory = KPointPairFactory(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
                                     comm=serial_comm))
@@ -183,8 +183,8 @@ class BSEBackend:
 
         optical_limit = np.allclose(self.q_c, 0.0)
 
-        get_pair = self.pair.get_kpoint_pair
-        get_pair_density = self.pair.new().get_pair_density
+        get_pair = self.kptpair_factory.get_kpoint_pair
+        get_pair_density = self.pair_calc.get_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -225,7 +225,7 @@ class BSEBackend:
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = self.pair.new().get_optical_pair_density_head(
+                    n_mnv = self.pair_calc.get_optical_pair_density_head(
                         qpd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
@@ -272,9 +272,10 @@ class BSEBackend:
         H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
             for s1 in range(Ns):
-                kptv1 = self.pair.get_k_point(s1, iK1, vi_s[s1], vf_s[s1])
-                kptc1 = self.pair.get_k_point(s1, ikq_k[iK1], ci_s[s1],
-                                              cf_s[s1])
+                kptv1 = self.kptpair_factory.get_k_point(
+                    s1, iK1, vi_s[s1], vf_s[s1])
+                kptc1 = self.kptpair_factory.get_k_point(
+                    s1, ikq_k[iK1], ci_s[s1], cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
                 # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
@@ -290,10 +291,10 @@ class BSEBackend:
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
-                            kptv2 = self.pair.get_k_point(s1, iK2, vi_s[s1],
-                                                          vf_s[s1])
-                            kptc2 = self.pair.get_k_point(s1, ikq, ci_s[s1],
-                                                          cf_s[s1])
+                            kptv2 = self.kptpair_factory.get_k_point(
+                                s1, iK2, vi_s[s1], vf_s[s1])
+                            kptc2 = self.kptpair_factory.get_k_point(
+                                s1, ikq, ci_s[s1], cf_s[s1])
                             rho3_mmG, iq = self.get_density_matrix(kptv1,
                                                                    kptv2)
                             rho4_nnG, iq = self.get_density_matrix(kptc1,
@@ -374,7 +375,7 @@ class BSEBackend:
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
-                                 self.pair.new())
+                                 self.pair_calc)
         return rho_mnG, iq
 
     def get_screened_potential(self):
@@ -413,13 +414,13 @@ class BSEBackend:
         susceptibility."""
 
         wd = FrequencyDescriptor([0.0])
-        pair = KPointPairFactory(
+        kptpair_factory = KPointPairFactory(
             gs=self.gs,
             context=self.context.with_txt('chi0.txt'))
 
         self._chi0calc = Chi0Calculator(
             wd=wd,
-            pair=pair,
+            kptpair_factory=kptpair_factory,
             eta=0.001,
             ecut=self.ecut * Hartree,
             intraband=False,

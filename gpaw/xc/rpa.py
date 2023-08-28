@@ -196,13 +196,13 @@ class RPACalculator:
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        pair = KPointPairFactory(
+        kptpair_factory = KPointPairFactory(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
 
         chi0calc = Chi0Calculator(wd=wd,
-                                  pair=pair,
+                                  kptpair_factory=kptpair_factory,
                                   eta=0.0,
                                   intraband=False,
                                   hilbert=False,
