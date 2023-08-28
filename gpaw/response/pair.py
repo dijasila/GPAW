@@ -227,7 +227,6 @@ class KPointPairFactory:
 
 class ActualPairDensityCalculator:
     def __init__(self, pair):
-        self._pair = pair
         self.context = pair.context
         self.blockcomm = pair.blockcomm
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
