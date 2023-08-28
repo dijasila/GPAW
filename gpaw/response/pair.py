@@ -422,10 +422,10 @@ class ActualPairDensityCalculator:
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
             if not oldchunk:
-                assert all([ind in n_n for ind in inds_n]), \
-                    self.context.print(
-                        '\nYou are cutting over a degenerate band ' +
-                        'using block parallelization.', inds_n, n_n)
+                if not all([ind in n_n for ind in inds_n]):
+                    raise RuntimeError(
+                        'You are cutting over a degenerate band '
+                        'using block parallelization.')
                 degchunks_cn.append((inds_n))
 
         # Calculate matrix elements by diagonalizing each block
