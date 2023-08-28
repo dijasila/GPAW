@@ -668,8 +668,8 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     @property
     def nblocks(self):
         # The optical extensions are not distributed in memory
-        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which seems
-        # dangerous XXX
+        # NB: There can be a mismatch with
+        # self.kptpair_factory.nblocks, which seems dangerous XXX
         return 1
 
     def calculate(self,
