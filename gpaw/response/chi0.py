@@ -782,7 +782,6 @@ class Chi0(Chi0Calculator):
                  *,
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
-                 threshold=1,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
                  nbands=None,
@@ -816,9 +815,6 @@ class Chi0(Chi0Calculator):
             In this case the hilbert transform cannot be used.
         eta : float
             Artificial broadening of spectra.
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion (used in gpaw/response/pair.py).
         intraband : bool
             Switch for including the intraband contribution to the density
             response function.
@@ -865,10 +861,7 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(
-            gs, context,
-            threshold=threshold,
-            nblocks=nblocks)
+        pair = PairDensityCalculator(gs, context, nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 

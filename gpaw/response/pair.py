@@ -75,22 +75,11 @@ class KPointPair:
 
 
 class PairDensityCalculator:
-    def __init__(self, gs, context, *,
-                 threshold=1, nblocks=1):
-        """Density matrix elements
-
-        Parameters
-        ----------
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion.
-        """
+    def __init__(self, gs, context, *, nblocks=1):
         self.gs = gs
         self.context = context
 
         assert self.gs.kd.symmetry.symmorphic
-
-        self.threshold = threshold
 
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
@@ -379,8 +368,9 @@ class PairDensityCalculator:
 
     def calculate_optical_pair_density_head(self, n, m_m, kpt1, kpt2,
                                             block=False):
-        # Relative threshold for perturbation theory
-        threshold = self.threshold
+        # Numerical threshold for the optical limit k dot p perturbation
+        # theory expansion:
+        threshold = 1
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
