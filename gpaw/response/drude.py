@@ -135,10 +135,12 @@ class PlasmaFrequencyIntegrand(Integrand):
         """NB: In dire need of documentation! XXX."""
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self._drude.pair.get_k_point(s, k_c, n1, n2)
+        kptpair_factory = self._drude.kptpair_factory
+        kpt1 = kptpair_factory.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
 
-        vel_nv = self._drude.pair.intraband_pair_density(kpt1, n_n)
+        vel_nv = kptpair_factory.pair_calculator().intraband_pair_density(
+            kpt1, n_n)
 
         if self._drude.integrationmode is None:
             f_n = kpt1.f_n
@@ -165,7 +167,7 @@ class PlasmaFrequencyIntegrand(Integrand):
         gs = self._drude.gs
         kd = gs.kd
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self._drude.pair.find_kpoint(k_c)
+        K1 = self._drude.kptpair_factory.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
         kpt1 = gs.kpt_qs[ik][s]
         assert gs.kd.comm.size == 1
