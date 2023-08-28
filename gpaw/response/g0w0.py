@@ -17,7 +17,7 @@ from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
+from gpaw.response.pair import KPointPairFactory, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -1066,8 +1066,7 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        pair = PairDensityCalculator(gs, context,
-                                     nblocks=nblocks)
+        pair = KPointPairFactory(gs, context, nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 

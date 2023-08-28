@@ -20,7 +20,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
-from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pair import KPointPairFactory
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -865,7 +865,7 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(gs, context, nblocks=nblocks)
+        pair = KPointPairFactory(gs, context, nblocks=nblocks)
 
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 

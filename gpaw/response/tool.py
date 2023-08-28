@@ -6,7 +6,7 @@ from scipy.optimize import leastsq
 from ase.units import Ha
 import gpaw.mpi as mpi
 from gpaw.response.pair_functions import SingleQPWDescriptor
-from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 
 
 def check_degenerate_bands(filename, etol):
@@ -58,7 +58,7 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     gs, context = get_gs_and_context(filename, txt=txt, world=mpi.world,
                                      timer=None)
 
-    pair = PairDensityCalculator(gs=gs, context=context)
+    pair = KPointPairFactory(gs=gs, context=context)
     qpd = SingleQPWDescriptor.from_q(q_c, ecut, gs.gd)
     bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
 

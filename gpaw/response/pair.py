@@ -74,7 +74,7 @@ class KPointPair:
         return df_nm
 
 
-class PairDensityCalculator:
+class KPointPairFactory:
     def __init__(self, gs, context, *, nblocks=1):
         self.gs = gs
         self.context = context

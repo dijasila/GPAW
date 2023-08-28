@@ -16,7 +16,7 @@ from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 
@@ -153,7 +153,7 @@ class BSEBackend:
         if optical:
             v_G[0] = 0.0
 
-        self.pair = PairDensityCalculator(
+        self.pair = KPointPairFactory(
             gs=self.gs,
             context=ResponseContext(txt='pair.txt', timer=None,
                                     comm=serial_comm))
@@ -413,7 +413,7 @@ class BSEBackend:
         susceptibility."""
 
         wd = FrequencyDescriptor([0.0])
-        pair = PairDensityCalculator(
+        pair = KPointPairFactory(
             gs=self.gs,
             context=self.context.with_txt('chi0.txt'))
 

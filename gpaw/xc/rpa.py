@@ -12,7 +12,7 @@ from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 def default_ecut_extrapolation(ecut, extrapolate):
@@ -196,7 +196,7 @@ class RPACalculator:
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        pair = PairDensityCalculator(
+        pair = KPointPairFactory(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
