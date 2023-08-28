@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, threshold=1,
+                 nbands=None, eta=0.2,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -519,9 +519,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Number of bands from calculation.
         eta: float
             Broadening parameter.
-        threshold: float
-            Threshold for matrix elements in optical response perturbation
-            theory.
         intraband: bool
             Include intraband transitions.
         world: comm
@@ -546,8 +543,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(
-            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+        pair = PairDensityCalculator(gs=gs, context=context, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
             wd=wd,
