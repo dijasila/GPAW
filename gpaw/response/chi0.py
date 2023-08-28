@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import warnings
-from functools import partial
 from time import ctime
 from typing import Union
 
@@ -565,29 +564,26 @@ class Chi0Calculator:
         bsize = self.integrator.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating chi0 body with:')
-        p(self.get_gs_info_string(tab='    '))
-        p()
-        p('    Linear response parametrization:')
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p(self.get_response_info_string(qpd, tab='    '))
-        p('    comm.size: %d' % csize)
-        p('    kncomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
+        isl = ['', f'{ctime()}',
+               'Calculating chi0 body with:',
+               self.get_gs_info_string(tab='    '), '',
+               '    Linear response parametrization:',
+               f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+               self.get_response_info_string(qpd, tab='    '),
+               f'    comm.size: {csize}',
+               f'    kncomm.size: {knsize}',
+               f'    blockcomm.size: {bsize}']
         if bsize > nw:
-            p('WARNING! Your nblocks is larger than number of frequency'
-              ' points. Errors might occur, if your submodule does'
-              ' not know how to handle this.')
-        p()
-        p('    Memory estimate of potentially large arrays:')
-        p('        chi0_wGG: %f M / cpu' % chisize)
-        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024**2))
-        self.context.print('')
+            isl.append(
+                'WARNING! Your nblocks is larger than number of frequency'
+                ' points. Errors might occur, if your submodule does'
+                ' not know how to handle this.')
+        isl.extend(['',
+                    '    Memory estimate of potentially large arrays:',
+                    f'        chi0_wGG: {chisize} M / cpu',
+                    '        Memory usage before allocation: '
+                    f'{(maxrss() / 1024**2)} M / cpu'])
+        self.context.print('\n'.join(isl))
 
     def get_gs_info_string(self, tab=''):
         gs = self.gs
@@ -603,16 +599,14 @@ class Chi0Calculator:
         nstat = ns * npocc
         occsize = nstat * ngridpoints * 16. / 1024**2
 
-        nls = '\n' + tab  # newline string
-        gs_str = tab + 'Ground state adapter containing:'
-        gs_str += nls + 'Number of spins: %d' % ns
-        gs_str += nls + 'Number of kpoints: %d' % nk
-        gs_str += nls + 'Number of irredicible kpoints: %d' % nik
-        gs_str += nls + 'Number of completely occupied states: %d' % nocc
-        gs_str += nls + 'Number of partially occupied states: %d' % npocc
-        gs_str += nls + 'Occupied states memory: %f M / cpu' % occsize
+        gs_list = [f'{tab}Ground state adapter containing:',
+                   f'Number of spins: {ns}', f'Number of kpoints: {nk}',
+                   f'Number of irreducible kpoints: {nik}',
+                   f'Number of completely occupied states: {nocc}',
+                   f'Number of partially occupied states: {npocc}',
+                   f'Occupied states memory: {occsize} M / cpu']
 
-        return gs_str
+        return f'\n{tab}'.join(gs_list)
 
     def get_response_info_string(self, qpd, tab=''):
         nw = len(self.wd)
@@ -621,14 +615,13 @@ class Chi0Calculator:
         ngmax = qpd.ngmax
         eta = self.eta * Ha
 
-        nls = '\n' + tab  # newline string
-        res_str = tab + 'Number of frequency points: %d' % nw
-        res_str += nls + 'Planewave cutoff: %f' % ecut
-        res_str += nls + 'Number of bands: %d' % nbands
-        res_str += nls + 'Number of planewaves: %d' % ngmax
-        res_str += nls + 'Broadening (eta): %f' % eta
+        res_list = [f'{tab}Number of frequency points: {nw}',
+                    f'Planewave cutoff: {ecut}',
+                    f'Number of bands: {nbands}',
+                    f'Number of planewaves: {ngmax}',
+                    f'Broadening (eta): {eta}']
 
-        return res_str
+        return f'\n{tab}'.join(res_list)
 
 
 class Chi0OpticalExtensionCalculator(Chi0Calculator):
@@ -761,16 +754,14 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
     def print_info(self, qpd):
         """Print information about optical extension calculation."""
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating chi0 optical extensions with:')
-        p(self.get_gs_info_string(tab='    '))
-        p()
-        p('    Linear response parametrization:')
-        p(self.get_response_info_string(qpd, tab='    '))
-        self.context.print('')
+        isl = ['',
+               f'{ctime()}',
+               'Calculating chi0 optical extensions with:',
+               self.get_gs_info_string(tab='    '),
+               '',
+               '    Linear response parametrization:',
+               self.get_response_info_string(qpd, tab='    ')]
+        self.context.print('\n'.join(isl))
 
 
 class Chi0(Chi0Calculator):
