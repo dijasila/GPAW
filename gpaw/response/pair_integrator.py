@@ -262,8 +262,8 @@ class PairFunctionIntegrator(ABC):
         bsize = self.blockcomm.size
 
         isl = ['',
-               'The pair function integration is based on a ground '
-                     'state with:',
+               'The pair function integration is based on a ground state '
+               'with:',
                f'    Number of spins: {nspins}',
                f'    Number of bands: {nbands}',
                f'    Number of completely occupied bands: {nocc1}',
