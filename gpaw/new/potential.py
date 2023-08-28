@@ -59,6 +59,8 @@ class Potential:
     def move(self, atomdist):
         self.dH_asii = self.dH_asii.moved(atomdist)
 
+    def redistributed(self, comms1, comms2):
+
     def _write_gpw(self, writer, ibzwfs):
         from gpaw.new.calculation import combine_energies
         energies = combine_energies(self, ibzwfs)

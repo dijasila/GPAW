@@ -784,3 +784,14 @@ class UGArray(DistributedArrays[UGDesc]):
             for grad in grad_v:
                 grad(psit_R, tmp_R)
                 add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+
+    def redist(self, other, comms1, comms2):
+        if all(comm.rank == 0 for comm in comms1):
+            a = self.gather()
+        else:
+            a = None
+        if all(comm.rank == 0 for comm in comms2):
+            other.scatter_from(a)
+        for i, comm in enumerate(comms2):
+            if all(comm.rank == 0 for comm in comms2[i + 1:]):
+                comm.broadcast(other.data, 0)
