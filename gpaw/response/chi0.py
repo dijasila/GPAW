@@ -98,10 +98,10 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
-            target_method = self.pair.get_optical_pair_density
+            target_method = self._chi0calc._pair2.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
         else:
-            target_method = self.pair.get_pair_density
+            target_method = self._chi0calc._pair2.get_pair_density
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
@@ -186,6 +186,10 @@ class Chi0Calculator:
     @property
     def nblocks(self):
         return self.pair.nblocks
+
+    @property
+    def _pair2(self):
+        return self.pair.new()
 
     def base_ini(self, pair,
                  context=None,

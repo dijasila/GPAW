@@ -94,7 +94,7 @@ def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     kptpair = pair.get_kpoint_pair(qpd, s, k_c, n_n[0], n_n[-1] + 1,
                                    m_m[0], m_m[-1] + 1)
 
-    pairden_paw_corr = pair.gs.pair_density_paw_corrections
+    pairden_paw_corr = pair.new().gs.pair_density_paw_corrections
     pawcorr = pairden_paw_corr(qpd)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
@@ -102,13 +102,13 @@ def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     eps_m = kptpair.kpt2.eps_n
 
     if optical_limit:
-        n_nmP = pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
-                                              pawcorr=pawcorr)
+        n_nmP = pair.new().get_optical_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
         return n_nmP, df_nm, eps_n, eps_m
     else:
-        n_nmG = pair.get_pair_density(qpd, kptpair, n_n, m_m,
-                                      pawcorr=pawcorr)
+        n_nmG = pair.new().get_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
         return n_nmG, df_nm, eps_n, eps_m
 

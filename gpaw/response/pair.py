@@ -84,7 +84,6 @@ class PairDensityCalculator:
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
-        self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         self.context.print('Number of blocks:', nblocks)
@@ -221,6 +220,19 @@ class PairDensityCalculator:
             Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
+
+    def new(self):
+        return ActualPairDensityCalculator(self)
+
+
+class ActualPairDensityCalculator:
+    def __init__(self, pair):
+        self._pair = pair
+        self.context = pair.context
+        self.blockcomm = pair.blockcomm
+        self.threshold = pair.threshold  # TODO: pair does not need this
+        self.ut_sKnvR = None  # gradient of wave functions for optical limit
+        self.gs = pair.gs
 
     def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):

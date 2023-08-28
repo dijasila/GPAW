@@ -138,7 +138,7 @@ class PlasmaFrequencyIntegrand(Integrand):
         kpt1 = self._drude.pair.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
 
-        vel_nv = self._drude.pair.intraband_pair_density(kpt1, n_n)
+        vel_nv = self._drude.pair.new().intraband_pair_density(kpt1, n_n)
 
         if self._drude.integrationmode is None:
             f_n = kpt1.f_n

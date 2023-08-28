@@ -660,7 +660,7 @@ class G0W0Calculator:
             n_mG = get_nmG(kpt1, kpt2,
                            mypawcorr,
                            n, qpd, I_G,
-                           self.chi0calc.pair)
+                           self.chi0calc._pair2)
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()

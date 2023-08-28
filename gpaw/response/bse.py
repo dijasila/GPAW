@@ -184,7 +184,7 @@ class BSEBackend:
         optical_limit = np.allclose(self.q_c, 0.0)
 
         get_pair = self.pair.get_kpoint_pair
-        get_pair_density = self.pair.get_pair_density
+        get_pair_density = self.pair.new().get_pair_density
         if self.spinors:
             # Get all pair densities to allow for SOC mixing
             # Use twice as many no-SOC states as BSE bands to allow mixing
@@ -225,8 +225,8 @@ class BSEBackend:
                 rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
                                            pawcorr=pawcorr)
                 if optical_limit:
-                    n_mnv = self.pair.get_optical_pair_density_head(qpd0, pair,
-                                                                    m_m, n_n)
+                    n_mnv = self.pair.new().get_optical_pair_density_head(
+                        qpd0, pair, m_m, n_n)
                     rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
                 if self.spinors:
                     v0_kmn = v_kmn[:, :, ::2]
@@ -361,7 +361,7 @@ class BSEBackend:
 
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
-    
+
     def get_density_matrix(self, kpt1, kpt2):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -373,7 +373,8 @@ class BSEBackend:
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
-            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, self.pair)
+            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
+                                 self.pair.new())
         return rho_mnG, iq
 
     def get_screened_potential(self):
