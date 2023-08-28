@@ -470,7 +470,7 @@ class UGArray(DistributedArrays[UGDesc]):
         self.desc.comm.sum(result)
         return result
 
-    def integrate(self, other=None):
+    def integrate(self, other=None, skip_sum=False):
         """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
@@ -483,7 +483,8 @@ class UGArray(DistributedArrays[UGDesc]):
             # Make sure we have an array and not a scalar!
             result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
 
-        self.desc.comm.sum(result)
+        if not skip_sum:
+            self.desc.comm.sum(result)
         if result.ndim == 0:
             result = result.item()  # convert to scalar
         return result * self.desc.dv

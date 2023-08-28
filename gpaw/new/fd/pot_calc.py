@@ -140,7 +140,7 @@ class FDPotentialCalculator(PotentialCalculator):
             scale = nt_R.integrate() / nt_r.integrate()
             nt_r.data *= scale
 
-        return (self.ghat_aLr.derivative(state.vHt_x),
+        return (self.ghat_aLr.derivative(state.potential.vHt_x),
                 state.density.nct_aX.derivative(vt_R),
                 Ftauct_av,
                 self.vbar_ar.derivative(nt_r))

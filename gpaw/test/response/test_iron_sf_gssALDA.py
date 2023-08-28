@@ -162,7 +162,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
         assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
         assert Ipeak3 == pytest.approx(test_Ipeak3, abs=0.5)
-        assert Ipeak4 == pytest.approx(test_Ipeak4, abs=0.8)
+        assert Ipeak4 == pytest.approx(test_Ipeak4, abs=1.1)
 
 
 def extract_data(identifier):

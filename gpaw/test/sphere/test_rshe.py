@@ -6,6 +6,7 @@ import itertools
 
 import numpy as np
 
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.sphere.lebedev import Y_nL
 from gpaw.sphere.rshe import (RealSphericalHarmonicsExpansion,
                               calculate_reduced_rshe)
@@ -33,15 +34,17 @@ def test_rshe(Lcomb):
     for L in Lcomb:
         f_n += Y_nL[:, L]
     # Build the radial dependence as a Lorentzian
-    f_g = 0.25 / (np.pi * (0.25**2 + np.linspace(0., 2., 10)**2.))
+    rgd = EquidistantRadialGridDescriptor(h=0.2,  # grid spacing
+                                          N=11)
+    f_g = 0.25 / (np.pi * (0.25**2 + rgd.r_g**2.))
     f_ng = f_n[:, np.newaxis] * f_g[np.newaxis]
 
     # Test the real spherical harmonics expansion without basis reduction
-    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(f_ng, Y_nL)
+    rshe = RealSphericalHarmonicsExpansion.from_spherical_grid(rgd, f_ng, Y_nL)
     assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)
 
     # Test the ability to reduce the expansion via minimum weights
-    rshe, _ = calculate_reduced_rshe(f_ng, Y_nL, wmin=1e-8)
+    rshe, _ = calculate_reduced_rshe(rgd, f_ng, Y_nL, wmin=1e-8)
     assert len(rshe.L_M) == len(Lcomb)
     assert all([L in rshe.L_M for L in Lcomb])
     assert all([int(np.sqrt(L)) in rshe.l_M for L in Lcomb])
@@ -51,6 +54,6 @@ def test_rshe(Lcomb):
     Lmax = max(Lcomb)
     lmax = int(np.ceil(np.sqrt((Lmax + 1)) - 1))
     if lmax < 4:
-        rshe, _ = calculate_reduced_rshe(f_ng, Y_nL, lmax=lmax)
+        rshe, _ = calculate_reduced_rshe(rgd, f_ng, Y_nL, lmax=lmax)
         assert len(rshe.L_M) == (lmax + 1)**2
         assert rshe.evaluate_on_quadrature() == pytest.approx(f_ng)

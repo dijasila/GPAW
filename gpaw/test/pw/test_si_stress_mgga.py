@@ -1,41 +1,18 @@
 import numpy as np
 import pytest
-from ase.build import bulk
 from ase.calculators.test import numeric_force
 from ase.parallel import parprint
 
-from gpaw import GPAW, PW, Mixer, FermiDirac
-from gpaw.mpi import world
+from gpaw import GPAW
 
 
 @pytest.mark.mgga
-def test_pw_si_stress_mgga(in_tmp_dir, gpaw_new):
-    xc = 'TPSS'
-    si = bulk('Si')
-    k = 3
-    si.calc = GPAW(mode=PW(250),
-                   mixer=Mixer(0.7, 5, 50.0),
-                   xc=xc,
-                   occupations=FermiDirac(0.01),
-                   kpts=(k, k, k),
-                   convergence={'energy': 1e-8},
-                   parallel={'domain': min(2, world.size)},
-                   txt='si.txt')
-
-    si.set_cell(np.dot(si.cell,
-                       [[1.02, 0, 0.03],
-                        [0, 0.99, -0.02],
-                        [0.2, -0.01, 1.03]]),
-                scale_atoms=True)
-
-    si.get_potential_energy()
+def test_pw_si_stress_mgga(gpw_files, gpaw_new):
+    si = GPAW(gpw_files['si_pw_distorted']).get_atoms()
 
     # Trigger nasty bug (fixed in !486):
     if not gpaw_new:
         si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
-    else:
-        for wfs in si.calc.calculation.state.ibzwfs:
-            wfs._pt_aiX.blocksize = wfs._pt_aiX.pw.maxmysize
 
     s_analytical = si.get_stress()
     # Calculated numerical stress once, store here to speed up test
