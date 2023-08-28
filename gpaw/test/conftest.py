@@ -144,6 +144,8 @@ def gpw_files(request):
     * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
       and ``al_pw_nosym``
 
+    * Bulk Al, LDA, 4x4x4 k-points, 4 converged bands: ``bse_al``
+
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
 
@@ -919,6 +921,20 @@ class GPWFiles:
     @gpwfile
     def al_pw_nosym(self):
         return self._al(symmetry='off')
+
+    @gpwfile
+    def bse_al(self):
+        a = 4.043
+        atoms = bulk('Al', 'fcc', a=a)
+        calc = GPAW(mode='pw',
+                    kpts={'size': (4, 4, 4), 'gamma': True},
+                    xc='LDA',
+                    nbands=4,
+                    convergence={'bands': 'all'})
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def ag_plusU_pw(self):
