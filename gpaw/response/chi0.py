@@ -189,9 +189,9 @@ class Chi0Calculator:
     def nblocks(self):
         return self.kptpair_factory.nblocks
 
-    #@property
-    #def _pair2(self):
-    #    return self.pair.new()
+    @property
+    def pair_calc(self):
+        return self.kptpair_factory.pair_calculator()
 
     def base_ini(self, kptpair_factory,
                  context=None,

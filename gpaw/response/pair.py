@@ -221,7 +221,7 @@ class KPointPairFactory:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def new(self):
+    def pair_calculator(self):
         return ActualPairDensityCalculator(self)
 
 

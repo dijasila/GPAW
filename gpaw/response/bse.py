@@ -127,6 +127,10 @@ class BSEBackend:
         self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
 
+    @property
+    def pair_calc(self):
+        return self.kptpair_factory.pair_calculator()
+
     def calculate(self, optical=True):
 
         if self.spinors:
