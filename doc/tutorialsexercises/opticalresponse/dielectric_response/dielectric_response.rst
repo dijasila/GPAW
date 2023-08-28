@@ -20,7 +20,8 @@ vector. The off-diagonal element of
 `\epsilon_{\mathbf{G} \mathbf{G}^{\prime}}` determines the local field
 effect.
 
-The macroscopic dielectric function is defined by (with local field correction)
+The macroscopic dielectric function (with local field correction) is defined
+by
 
 .. math:: \epsilon_{M}(\mathbf{q},\omega) =
               \frac{1}{\epsilon^{-1}_{00}(\mathbf{q},\omega)}
