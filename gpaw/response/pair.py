@@ -222,6 +222,9 @@ class KPointPairFactory:
         return KPointPair(kpt1, kpt2, Q_G)
 
     def pair_calculator(self):
+        # We have decoupled the actual pair density calculator
+        # from the kpoint factory, but it's still handy to
+        # keep this shortcut -- for now.
         return ActualPairDensityCalculator(self)
 
 
