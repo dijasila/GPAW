@@ -230,7 +230,6 @@ class ActualPairDensityCalculator:
         self._pair = pair
         self.context = pair.context
         self.blockcomm = pair.blockcomm
-        self.threshold = pair.threshold  # TODO: pair does not need this
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
         self.gs = pair.gs
 
