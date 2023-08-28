@@ -1,8 +1,6 @@
 import pytest
 from gpaw.mpi import world
 import numpy as np
-from ase.build import bulk
-from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 from gpaw.response.bse import BSE, read_spectrum
 from gpaw.test import findpeak, equal
