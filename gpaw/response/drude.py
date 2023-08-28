@@ -1,5 +1,4 @@
 from time import ctime
-from functools import partial
 
 import numpy as np
 from ase.units import Ha
@@ -109,16 +108,14 @@ class Chi0DrudeCalculator(Chi0Calculator):
         return task, wd
 
     def print_info(self, wd, rate):
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating drude chi0 with:')
-        p('    Number of frequency points: %d' % len(wd))
-        p('    Plasma frequency decay rate: %f eV' % rate)
-        p()
-        p(self.get_gs_info_string(tab='    '))
-        self.context.print('')
+        isl = ['',
+               f'{ctime()}',
+               'Calculating drude chi0 with:',
+               f'    Number of frequency points:{len(wd)}',
+               f'    Plasma frequency decay rate: {rate} eV',
+               '',
+               self.get_gs_info_string(tab='    ')]
+        self.context.print('\n'.join(isl))
 
 
 class PlasmaFrequencyIntegrand(Integrand):
