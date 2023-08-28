@@ -83,10 +83,10 @@ The parameters can be specified using keyword arguments::
 
     df = DielectricFunction(
         ...,
-        frequencies={'type': 'nonlinear', #
+        frequencies={'type': 'nonlinear', # frequency grid specification
                      'domega0: 0.05,      # eV. Default = 0.1 eV
                      'omega2': 5.0,       # eV. Default = 10.0 eV
-                     'omegamax': 15.0)    # eV.  Default is the maximum
+                     'omegamax': 15.0})   # eV. Default is the maximum
                                           # difference between energy
                                           # eigenvalues
 
