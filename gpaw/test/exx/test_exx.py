@@ -33,7 +33,8 @@ def test_exx_exx(in_tmp_dir):
         # g.run(exx=True, **parameters['Be'])
 
         # switch to new xc functional
-        calc = GPAW(xc=xc,
+        calc = GPAW(mode='fd',
+                    xc=xc,
                     h=0.21,
                     eigensolver='rmm-diis',
                     nbands=3,

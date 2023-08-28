@@ -5,7 +5,7 @@ from gpaw.utilities.dipole import dipole_matrix_elements_from_calc
 
 def test_dipole_me(gpw_files):
     """Check dipole matrix-elements for H2 molecule."""
-    calc = GPAW(gpw_files['h2_pw_wfs'])
+    calc = GPAW(gpw_files['h2_pw'])
 
     # Method 1: evaluate all-electron wave functions on fine grid:
     psi0, psi1 = (
@@ -23,7 +23,7 @@ def test_dipole_me(gpw_files):
         assert abs(d2_nnv[0, 1] - d1_v).max() < 1e-3
 
     # Method 3: same as above but with translated molecule:
-    calc = GPAW(gpw_files['h2_pw_0_wfs'])
+    calc = GPAW(gpw_files['h2_pw_0'])
     d3_nnv = dipole_matrix_elements_from_calc(calc, n1=0, n2=2,
                                               center=[0, 0, 0])[0]
 

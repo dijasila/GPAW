@@ -52,7 +52,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                                self.nelectrons,
                                self.ncomponents,
                                create_wfs,
-                               self.communicators['k'])
+                               self.communicators['k'],
+                               self.communicators['w'])
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
@@ -68,11 +69,13 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         # sl_default = self.params.parallel['sl_default']
         # sl_lcao = self.params.parallel['sl_lcao'] or sl_default
 
+        lcaonbands = min(self.nbands,
+                         basis.Mmax * (2 if self.ncomponents == 4 else 1))
         lcao_ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
-            self.nbands, self.ncomponents, self.atomdist, self.nelectrons)
+            lcaonbands, self.ncomponents, self.atomdist, self.nelectrons)
 
         state = DFTState(lcao_ibzwfs, None, potential)
         hamiltonian = LCAOHamiltonian(basis)
@@ -86,7 +89,6 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             psit_nX = self.convert_wave_functions_from_uniform_grid(
                 lcaowfs.C_nM, basis, kpt_c, q)
             eig_n = lcaowfs._eig_n
-
             nao = lcaowfs.C_nM.shape[1]
             if nao < self.nbands:
                 psit_nX[nao:].randomize()
@@ -106,7 +108,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             return wfs
 
         return create_ibzwfs(self.ibz, self.nelectrons, self.ncomponents,
-                             create_wfs, self.communicators['k'])
+                             create_wfs, self.communicators['k'],
+                             self.communicators['w'])
 
     def create_random_ibz_wave_functions(self, log):
         log('Initializing wave functions with random numbers')
@@ -136,4 +139,5 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             return wfs
 
         return create_ibzwfs(self.ibz, self.nelectrons, self.ncomponents,
-                             create_wfs, self.communicators['k'])
+                             create_wfs, self.communicators['k'],
+                             self.communicators['w'])

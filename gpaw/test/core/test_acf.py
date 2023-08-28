@@ -1,7 +1,10 @@
+import sys
+
 import numpy as np
 import pytest
+
 from gpaw import SCIPY_VERSION
-from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core import PWDesc, UGDesc
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import world
 
@@ -12,8 +15,7 @@ n = 20
 @pytest.fixture
 def grid():
     # comm = world.new_communicator([world.rank])
-    return UniformGrid(cell=[a, a, a], size=(n, n, n), comm=world,
-                       dtype=complex)
+    return UGDesc(cell=[a, a, a], size=(n, n, n), comm=world, dtype=complex)
 
 
 # Gussian:
@@ -57,8 +59,10 @@ def test_acf_pw(grid, xp):
         pytest.skip()
     if xp is cp and SCIPY_VERSION < [1, 6]:
         pytest.skip()
+    if xp is cp and '_gpaw' in sys.builtin_module_names:
+        pytest.skip()
 
-    pw = PlaneWaves(ecut=50, cell=grid.cell, dtype=complex, comm=world)
+    pw = PWDesc(ecut=50, cell=grid.cell, dtype=complex, comm=world)
 
     basis = pw.atom_centered_functions(
         [[s]],

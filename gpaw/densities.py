@@ -7,7 +7,7 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.setup import Setups
 from gpaw.spherical_harmonics import Y
 from gpaw.spline import Spline
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 class Densities:
     def __init__(self,
-                 nt_sR: UniformGridFunctions,
+                 nt_sR: UGArray,
                  D_asii: AtomArrays,
                  fracpos_ac: Array2D,
                  setups: Setups):
@@ -40,7 +40,7 @@ class Densities:
                          grid_spacing: float = None,  # Ang
                          grid_refinement: int = None,
                          add_compensation_charges: bool = True
-                         ) -> UniformGridFunctions:
+                         ) -> UGArray:
         nt_sR = self._pseudo_densities(grid_spacing, grid_refinement)
 
         ncomponents = nt_sR.dims[0]
@@ -71,7 +71,7 @@ class Densities:
     def _pseudo_densities(self,
                           grid_spacing: float = None,  # Ang
                           grid_refinement: int = None,
-                          ) -> UniformGridFunctions:
+                          ) -> UGArray:
         nt_sR = self.nt_sR.to_pbc_grid()
         grid = nt_sR.desc
         if grid_spacing is not None:
@@ -90,7 +90,7 @@ class Densities:
                                grid_spacing: float = None,  # Ang
                                grid_refinement: int = None,
                                skip_core: bool = False,
-                               ) -> UniformGridFunctions:
+                               ) -> UGArray:
         n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
         ncomponents = n_sR.dims[0]
         nspins = ncomponents % 3
@@ -133,7 +133,7 @@ class Densities:
 
 
 def add(R_v: Vector,
-        a_sR: UniformGridFunctions,
+        a_sR: UGArray,
         phi_j: list[Spline],
         phit_j: list[Spline],
         nc: Spline,

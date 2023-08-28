@@ -13,10 +13,26 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+* In the future, it will become an error to not specify a
+  :ref:`mode <manual_mode>` parameter for a DFT calculation.
+  For now, users will get a warning when finite-difference mode is
+  implicitly chosen.  Please change your scripts to avid this error/warning.
+
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 * :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
   now throw an error if the ground state contains point group symmetries
+
+
+Version 23.6.1
+==============
+
+Jul 5, 2023: :git:`23.6.1 <../23.6.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Avoid deprecation warnings from Numpy-1.25 (:mr:`1770`, :mr:`1771`).
 
 
 Version 23.6.0

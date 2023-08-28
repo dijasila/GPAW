@@ -3,7 +3,8 @@
 GPU
 ===
 
-Ground-state calculations on a GPU is an experimental feature at the moment:
+Ground-state calculations on a GPU is an experimental feature at the moment with
+some limitations:
 
 * only PW-mode
 * it has only been implemented in the new GPAW
@@ -63,8 +64,8 @@ CuPy enabled container objects
 
 The following objects:
 
-* :class:`~gpaw.core.uniform_grid.UniformGridFunctions`
-* :class:`~gpaw.core.plane_waves.PlaneWaveExpansions`
+* :class:`~gpaw.core.UGArray`
+* :class:`~gpaw.core.PWArray`
 * :class:`~gpaw.core.atom_arrays.AtomArrays`
 * :class:`~gpaw.core.matrix.Matrix`
 

@@ -1,21 +1,16 @@
-# creates: ug.csv, ugf.csv, pw.csv, pwe.csv, m.csv
-from gpaw.core import UniformGrid, PlaneWaves
-from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.core.uniform_grid import UniformGridFunctions
+# creates: ugd.csv, uga.csv, pwd.csv, pwa.csv, m.csv
+from gpaw.core import PWArray, PWDesc, UGArray, UGDesc
 from gpaw.core.matrix import Matrix
 
-
-for cls in [UniformGrid,
-            PlaneWaves,
-            UniformGridFunctions,
-            PlaneWaveExpansions,
+for cls in [UGDesc,
+            PWDesc,
+            UGArray,
+            PWArray,
             Matrix]:
     name = ''.join(x for x in cls.__name__ if x.isupper()).lower()
     mod = cls.__module__
-    if name == 'ug':
-        mod = mod.replace('.uniform_grid', '')
-    elif name == 'pw':
-        mod = mod.replace('.plane_waves', '')
+    mod = mod.replace('.plane_waves', '')
+    mod = mod.replace('.uniform_grid', '')
     print(name, mod)
     with open(f'{name}.csv', 'w') as fd:
         for name, meth in cls.__dict__.items():

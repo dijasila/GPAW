@@ -5,12 +5,12 @@ import os
 from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
-import _gpaw
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
-from gpaw.core import UniformGrid
+
+from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
@@ -27,14 +27,17 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.scf import SCFLoop
 from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
-from gpaw.new.xc import XCFunctional
+from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
+from gpaw.xc import XC
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 def builder(atoms: Atoms,
-            params: dict[str, Any] | InputParameters) -> DFTComponentsBuilder:
+            params: dict[str, Any] | InputParameters,
+            comm=None) -> DFTComponentsBuilder:
     """Create DFT-components builder.
 
     * pw
@@ -51,22 +54,24 @@ def builder(atoms: Atoms,
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
-    return getattr(mod, f'{name}DFTComponentsBuilder')(atoms, params, **mode)
+    return getattr(mod, f'{name}DFTComponentsBuilder')(
+        atoms, params, comm=comm or world, **mode)
 
 
 class DFTComponentsBuilder:
     def __init__(self,
                  atoms: Atoms,
-                 params: InputParameters):
+                 params: InputParameters,
+                 *,
+                 comm):
 
         self.atoms = atoms.copy()
         self.mode = params.mode['name']
         self.params = params
 
         parallel = params.parallel
-        world = parallel['world']
 
-        synchronize_atoms(atoms, world)
+        synchronize_atoms(atoms, comm)
         self.check_cell(atoms.cell)
 
         self.initial_magmom_av, self.ncomponents = normalize_initial_magmoms(
@@ -76,13 +81,16 @@ class DFTComponentsBuilder:
         self.nspins = self.ncomponents % 3
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
-        self.xc = self.create_xc_functional()
+        if isinstance(params.xc, (dict, str)):
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4))
+        else:
+            self._xc = params.xc
 
         self.setups = Setups(atoms.numbers,
                              params.setups,
                              params.basis,
-                             self.xc.setup_name,
-                             world=world)
+                             self._xc.get_setup_name(),
+                             world=comm)
 
         if params.hund:
             c = params.charge / len(atoms)
@@ -100,12 +108,12 @@ class DFTComponentsBuilder:
         d = parallel.get('domain', None)
         k = parallel.get('kpt', None)
         b = parallel.get('band', None)
-        self.communicators = create_communicators(world, len(self.ibz),
+        self.communicators = create_communicators(comm, len(self.ibz),
                                                   d, k, b, self.xp)
 
         if self.mode == 'fd':
             pass  # filter = create_fourier_filter(grid)
-            # setups = stups.filter(filter)
+            # setups = setups.filter(filter)
 
         self.nelectrons = self.setups.nvalence - params.charge
 
@@ -133,11 +141,19 @@ class DFTComponentsBuilder:
         self.fracpos_ac %= 1
         self.fracpos_ac %= 1
 
+        self.xc = self.create_xc_functional()
+
+        self.electrostatic_potential_desc: Domain
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+
     def create_uniform_grids(self):
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return XCFunctional(self.params.xc, self.ncomponents)
+        return create_functional(self._xc,
+                                 self.fine_grid)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -163,22 +179,16 @@ class DFTComponentsBuilder:
             from gpaw.gpu import cupy, cupy_is_fake
             assert not cupy_is_fake or os.environ.get('GPAW_CPUPY')
             return cupy
-        else:
-            return np
+        return np
 
     def create_wf_description(self) -> Domain:
         raise NotImplementedError
 
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+    def get_pseudo_core_densities(self):
+        raise NotImplementedError
 
-    @cached_property
-    def nct_R(self):
-        out = self.grid.empty(xp=self.xp)
-        nct_aX = self.get_pseudo_core_densities()
-        nct_aX.to_uniform_grid(out=out,
-                               scale=1.0 / (self.ncomponents % 3))
-        return out
+    def get_pseudo_core_ked(self):
+        raise NotImplementedError
 
     def create_basis_set(self):
         return create_basis(self.ibz,
@@ -189,18 +199,22 @@ class DFTComponentsBuilder:
                             self.dtype,
                             self.fracpos_ac,
                             self.communicators['w'],
-                            self.communicators['k'])
+                            self.communicators['k'],
+                            self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.grid,
-                                          self.nct_R,
-                                          self.atomdist,
-                                          self.setups,
-                                          basis_set,
-                                          self.initial_magmom_av,
-                                          self.ncomponents,
-                                          self.params.charge,
-                                          self.params.hund)
+        return Density.from_superposition(
+            grid=self.grid,
+            nct_aX=self.get_pseudo_core_densities(),
+            tauct_aX=self.get_pseudo_core_ked(),
+            atomdist=self.atomdist,
+            setups=self.setups,
+            basis_set=basis_set,
+            magmom_av=self.initial_magmom_av,
+            ncomponents=self.ncomponents,
+            charge=self.params.charge,
+            hund=self.params.hund,
+            mgga=self.xc.type == 'MGGA')
 
     def create_occupation_number_calculator(self):
         return OccupationNumberCalculator(
@@ -213,8 +227,15 @@ class DFTComponentsBuilder:
             self.ncomponents,
             np.linalg.inv(self.atoms.cell.complete()).T)
 
+    def create_hamiltonian_operator(self):
+        raise NotImplementedError
+
+    def create_eigensolver(self, hamiltonian):
+        raise NotImplementedError
+
     def create_scf_loop(self):
         hamiltonian = self.create_hamiltonian_operator()
+        occ_calc = self.create_occupation_number_calculator()
         eigensolver = self.create_eigensolver(hamiltonian)
 
         mixer = MixerWrapper(
@@ -224,7 +245,6 @@ class DFTComponentsBuilder:
             self.grid._gd,
             world=self.communicators['w'])
 
-        occ_calc = self.create_occupation_number_calculator()
         return SCFLoop(hamiltonian, occ_calc,
                        eigensolver, mixer, self.communicators['w'],
                        {key: value
@@ -241,7 +261,7 @@ class DFTComponentsBuilder:
     def read_wavefunction_values(self,
                                  reader,
                                  ibzwfs: IBZWaveFunctions) -> None:
-        """ Read eigenvalues, occuptions and projections and fermi levels
+        """Read eigenvalues, occuptions and projections and fermi levels.
 
         The values are read using reader and set as the appropriate properties
         of (the already instantiated) wavefunctions contained in ibzwfs
@@ -295,7 +315,7 @@ def create_communicators(comm: MPIComm = None,
     comms = {key: comm if comm.size > 1 else serial_comm
              for key, comm in comms.items()}
 
-    if xp is not np and not getattr(_gpaw, 'gpu_aware_mpi', False):
+    if xp is not np and not GPU_AWARE_MPI:
         comms = {key: CuPyMPI(comm) for key, comm in comms.items()}
 
     return comms
@@ -386,8 +406,7 @@ def calculate_number_of_bands(nbands: int | str | None,
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
         N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
-        if N > nbandsmax:
-            N = nbandsmax
+        N = min(N, nbandsmax)
         if is_lcao and N > nao:
             N = nao
     elif nbands <= 0:
@@ -418,7 +437,7 @@ def create_uniform_grid(mode: str,
                         h: float = None,
                         interpolation: str = None,
                         ecut: float = None,
-                        comm: MPIComm = serial_comm) -> UniformGrid:
+                        comm: MPIComm = serial_comm) -> UGDesc:
     """Create grid in a backwards compatible way."""
     cell = cell / Bohr
     if h is not None:
@@ -434,4 +453,4 @@ def create_uniform_grid(mode: str,
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
         size = get_number_of_grid_points(cell, h, modeobj, realspace,
                                          symmetry.symmetry)
-    return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)
+    return UGDesc(cell=cell, pbc=pbc, size=size, comm=comm)

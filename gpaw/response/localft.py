@@ -238,6 +238,14 @@ class MicroSetup:
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
 
+    def evaluate_function(self, add_f):
+        """Evaluate a given function f(r) on the angular and radial grids."""
+        f_ng = np.array([self.rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            n_sg = Y_L @ self.n_sLg
+            add_f(self.rgd, n_sg, f_ng[n])
+        return f_ng
+
     def evaluate_paw_correction(self, add_f):
         r"""Evaluate Δf_a[n_a,ñ_a](r) for a given function f(r).
 
@@ -252,11 +260,11 @@ class MicroSetup:
         df_ng = np.array([rgd.zeros() for n in range(self.Y_nL.shape[0])])
         for n, Y_L in enumerate(self.Y_nL):
             f_g[:] = 0.
-            n_sg = np.dot(Y_L, self.n_sLg)
+            n_sg = Y_L @ self.n_sLg
             add_f(rgd, n_sg, f_g)
 
             ft_g[:] = 0.
-            nt_sg = np.dot(Y_L, self.nt_sLg)
+            nt_sg = Y_L @ self.nt_sLg
             add_f(rgd, nt_sg, ft_g)
 
             df_ng[n, :] = f_g - ft_g
@@ -304,8 +312,8 @@ def calculate_atom_centered_densities(pawdata, D_sp):
     D_sLq = np.inner(D_sp, B_pqL.T)
     nspins = len(D_sp)
 
-    n_sLg = np.dot(D_sLq, n_qg)
-    nt_sLg = np.dot(D_sLq, nt_qg)
+    n_sLg = D_sLq @ n_qg
+    nt_sLg = D_sLq @ nt_qg
 
     # Add core density
     n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
@@ -435,7 +443,7 @@ class LocalPAWFTEngine:
         df_ng, r_g, dv_g = self.get_reduced_radial_grid(df_ng, rgd)
 
         # Expand correction in real spherical harmonics
-        rshe, info_string = self.perform_rshe(df_ng, Y_nL)
+        rshe, info_string = self.perform_rshe(rgd, df_ng, Y_nL)
         self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
@@ -490,10 +498,10 @@ class LocalPAWFTEngine:
         return df_ng, r_g, dv_g
 
     @timer('Expand PAW correction in real spherical harmonics')
-    def perform_rshe(self, df_ng, Y_nL):
+    def perform_rshe(self, rgd, df_ng, Y_nL):
         r"""Expand Δf_a[n_a,ñ_a](r) in real spherical harmonics."""
         return calculate_reduced_rshe(
-            df_ng, Y_nL, self.rshelmax, self.rshewmin)
+            rgd, df_ng, Y_nL, self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
@@ -620,7 +628,7 @@ def add_LSDA_spin_splitting(gd, n_sR, dxc_R):
 
     The spin splitting is defined as:
 
-    Δ^(xc)(r) = 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
+    Δ^(xc)(r) = - 2 B^(xc)(r) m(r) = - 2 W_xc^z n^z(r).
     """
     dxc_R += - 2. * calculate_LSDA_Wxc(gd, n_sR) \
         * calculate_spin_polarization(n_sR)
@@ -635,9 +643,9 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
     f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
                          ∂n^2       |n=n(r),m=m(r)
     """
-    assert len(n_sR) == 1,\
+    assert len(n_sR) == 1, \
         'The density kernel is untested for spin-polarized systems'
-    
+
     if fxc == 'ALDA_x':
         fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
     else:

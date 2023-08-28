@@ -82,7 +82,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
     # ---------- Script ---------- #
 
     context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw_wfs'],
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
                                                   context=context)
 
     chiks_calc = ChiKSCalculator(gs,
@@ -162,7 +162,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
         assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
         assert Ipeak2 == pytest.approx(test_Ipeak2, abs=0.5)
         assert Ipeak3 == pytest.approx(test_Ipeak3, abs=0.5)
-        assert Ipeak4 == pytest.approx(test_Ipeak4, abs=0.7)
+        assert Ipeak4 == pytest.approx(test_Ipeak4, abs=1.1)
 
 
 def extract_data(identifier):

@@ -6,7 +6,8 @@ from gpaw.mixer import MixerDif
 for name in ['H2', 'N2', 'O2', 'NO']:
     mol = molecule(name)
     mol.center(vacuum=5.0)
-    calc = GPAW(xc='PBE',
+    calc = GPAW(mode='fd',
+                xc='PBE',
                 h=0.2,
                 eigensolver=Davidson(3),
                 txt=name + '.txt',
