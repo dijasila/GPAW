@@ -42,7 +42,7 @@ class BSEBackend:
         self.spinors = spinors
         self.scale = scale
 
-        assert mode in ['RPA', 'TDHF', 'BSE']   
+        assert mode in ['RPA', 'TDHF', 'BSE']
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -130,11 +130,12 @@ class BSEBackend:
         be given explicitly as lists/arrays of shape (2,nbands) where the first
         index is for spin.
 
-        If the calculation is not spin-polarized, either an integer (number of desired bands)
-        or lists of band indices must be provided.
+        If the calculation is not spin-polarized, either an integer (number of
+        desired bands) or lists of band indices must be provided.
 
-        band_type is an optional parameter that is only when a desired number of bands
-        is given (rather than a list) to help figure out the correct band indices.
+        band_type is an optional parameter that is only when a desired number
+        of bands is given (rather than a list) to help figure out the correct
+        band indices.
         """
         if hasattr(bands, '__iter__'):
             if self.spins == 2:
@@ -150,9 +151,10 @@ class BSEBackend:
         # if we get here, bands is not iterable
         # check that the specified input is valid
 
-        assert self.spins != 2, 'For a spin-polarized calculation, \
-            bands must be specified as lists of shape (2,n)'
-        n_fully_occupied_bands, n_partially_occupied_bands = self.gs.count_occupied_bands()
+        assert self.spins != 2, 'For a spin-polarized calculation, '\
+            'bands must be specified as lists of shape (2,n)'
+        n_fully_occupied_bands, n_partially_occupied_bands = \
+            self.gs.count_occupied_bands()
 
         assert n_fully_occupied_bands == n_partially_occupied_bands,\
             'Warning: system is metallic! Please specify band indices manually'
@@ -160,9 +162,11 @@ class BSEBackend:
         assert int(bands) == bands, 'Number of bands must be an integer!'
 
         if band_type == 'valence':
-            bands_sn = range(n_fully_occupied_bands - bands, n_fully_occupied_bands)
+            bands_sn = range(n_fully_occupied_bands - bands,
+                             n_fully_occupied_bands)
         elif band_type == 'conduction':
-            bands_sn = range(n_fully_occupied_bands, n_fully_occupied_bands + bands)
+            bands_sn = range(n_fully_occupied_bands,
+                             n_fully_occupied_bands + bands)
         else:
             assert False, 'Invalid band type'
 
