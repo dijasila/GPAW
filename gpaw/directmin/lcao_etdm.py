@@ -429,10 +429,10 @@ class LCAOETDM:
             for k in self.ind_all_up:
                 if not self.ind_all_up[k][0].size \
                         or not self.ind_all_up[k][1].size:
-                    self.n_dim_all[k] = 0 # Skip full space optimization
+                    self.n_dim_all[k] = 0  # Skip full space optimization
                 if not self.ind_oo_up[k][0].size \
                         or not self.ind_oo_up[k][1].size:
-                    self.n_dim_oo[k] = 0 # Skip PZ localization if requested
+                    self.n_dim_oo[k] = 0  # Skip PZ localization if requested
 
         self.ind_up = deepcopy(self.ind_all_up)
         self.a_vec_u = deepcopy(self.a_vec_all_u)
