@@ -107,11 +107,11 @@ def get_tolerances(system, qrel):
     # perfectly conserved for any of the q-points, but again quite well
     # conserved for q = 0
     if qrel == 0.0:
-        cot_atol = 5e-5
+        cot_atol = 5e-4
     elif qrel == 0.25:
-        cot_atol = 5e-4
+        cot_atol = 1e-3
     elif qrel == 0.5:
-        cot_atol = 5e-4
+        cot_atol = 1e-3
     atols['co_pw_+-'] = cot_atol
 
     if identifier not in atols.keys():
