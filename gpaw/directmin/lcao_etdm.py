@@ -373,6 +373,7 @@ class LCAOETDM:
         for kpt in kpt_u:
             n_occ = get_n_occ(kpt)[0]
             u = self.kpointval(kpt)
+            self.n_dim[u] = deepcopy(self.n_dim_all[u])
             self.n_dim_oo[u] = n_occ
             # M - one dimension of the A_BigMatrix
             M = self.n_dim_all[u]
@@ -433,7 +434,6 @@ class LCAOETDM:
                         or not self.ind_oo_up[k][1].size:
                     self.n_dim_oo[k] = 0 # Skip PZ localization if requested
 
-        self.n_dim = deepcopy(self.n_dim_all)
         self.ind_up = deepcopy(self.ind_all_up)
         self.a_vec_u = deepcopy(self.a_vec_all_u)
         self.g_vec_u = deepcopy(self.g_vec_all_u)
