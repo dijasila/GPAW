@@ -120,8 +120,8 @@ def test_shg_spinpol(in_tmp_dir):
         # Assert difference between spinpol and nospinpol is very small.
         # The response spectra is of the order 1e-4,
         # so we check the difference till 1e-7.
-        assert np.all(np.abs(real_shg[1] - real_shg2[1]) < 1e-7)
-        assert np.all(np.abs(imag_shg[1] - imag_shg2[1]) < 1e-7)
+        assert np.all(np.abs(real_shg - real_shg2) < 1e-7)
+        assert np.all(np.abs(imag_shg - imag_shg2) < 1e-7)
 
         # Check spinpol vs nospinpol for xxz
         shg = np.load('shg_xxz_nospinpol.npy')
@@ -136,5 +136,5 @@ def test_shg_spinpol(in_tmp_dir):
         imag_shg2 = np.imag(shg2[1]) * mult * 1e18
         
         # Assert difference between spinpol and nospinpol is zero very small.
-        assert np.all(np.abs(real_shg[1] - real_shg2[1]) < 1e-7)
-        assert np.all(np.abs(imag_shg[1] - imag_shg2[1]) < 1e-7)
+        assert np.all(np.abs(real_shg - real_shg2) < 1e-7)
+        assert np.all(np.abs(imag_shg - imag_shg2) < 1e-7)
