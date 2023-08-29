@@ -23,10 +23,17 @@ read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
 Creating the venv
 =================
 
-Download the :download:`gpaw_venv.py` script and run it like this::
+Download the :download:`gpaw_venv.py` script (use ``wget <url>``)
+and run it like this::
 
     $ python3 gpaw_venv.py <venv-name>
     ...
+
+.. tip::
+
+    You will need Python 3.8 or later.  You can install that with::
+
+        $ module load Python/3.8.6-GCCcore-10.2.0
 
 Type ``python3 gpaw_venv.py --help`` for help.  After a few minutes, you will
 have a ``<venv-name>`` folder with a GPAW installation inside.

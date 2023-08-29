@@ -73,6 +73,9 @@ class _Communicator:
         self.rank = comm.rank
         self.parent = parent  # XXX check C-object against comm.parent?
 
+    def __repr__(self):
+        return f'MPIComm(size={self.size}, rank={self.rank})'
+
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
         Must be called with identical arguments by all relevant processes.
@@ -627,6 +630,9 @@ class SerialCommunicator:
 
     def __init__(self, parent=None):
         self.parent = parent
+
+    def __repr__(self):
+        return 'SerialCommunicator()'
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):

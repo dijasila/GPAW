@@ -1,48 +1,37 @@
 import numpy as np
 import pytest
-from ase.build import bulk
+from ase.calculators.test import numeric_force
 from ase.parallel import parprint
 
-from gpaw import GPAW, PW, Mixer
-from gpaw.mpi import world
+from gpaw import GPAW
 
 
 @pytest.mark.mgga
-def test_pw_si_stress_mgga(in_tmp_dir):
-    xc = 'TPSS'
-    si = bulk('Si')
-    k = 3
-    si.calc = GPAW(mode=PW(250),
-                   mixer=Mixer(0.7, 5, 50.0),
-                   xc=xc,
-                   kpts=(k, k, k),
-                   convergence={'energy': 1e-8},
-                   parallel={'domain': min(2, world.size)},
-                   txt='si.txt')
-
-    si.set_cell(np.dot(si.cell,
-                       [[1.02, 0, 0.03],
-                        [0, 0.99, -0.02],
-                        [0.2, -0.01, 1.03]]),
-                scale_atoms=True)
-
-    si.get_potential_energy()
+def test_pw_si_stress_mgga(gpw_files, gpaw_new):
+    si = GPAW(gpw_files['si_pw_distorted']).get_atoms()
 
     # Trigger nasty bug (fixed in !486):
-    try:
+    if not gpaw_new:
         si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
-    except AttributeError:
-        pass
 
     s_analytical = si.get_stress()
     # Calculated numerical stress once, store here to speed up test
-    # [-0.00853353 -0.04100137 -0.03821226 -0.02084923 0.1331957 0.00945546]
-    s_numerical = np.array([-0.00853353, -0.04100137, -0.03821226,
-                            -0.02084923, 0.1331957, 0.00945546])
-    # s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
+    s_numerical = np.array([-0.01140242, -0.04084746, -0.0401058,
+                            -0.02119629, 0.13584242, 0.00911572])
+    if 0:
+        s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
+
     s_err = s_numerical - s_analytical
 
     parprint('Analytical stress:\n', s_analytical)
     parprint('Numerical stress:\n', s_numerical)
     parprint('Error in stress:\n', s_err)
-    assert np.all(abs(s_err) < 1e-4)
+    assert np.all(abs(s_err) < 1e-5)
+
+    # Check y-component of second atom:
+    f = si.get_forces()[1, 1]
+    fref = -2.066952082010687
+    if 0:
+        fref = numeric_force(si, 1, 1)
+    print(f, fref, f - fref)
+    assert abs(f - fref) < 0.0005

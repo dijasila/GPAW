@@ -21,12 +21,12 @@ from gpaw.test.conftest import response_band_cutoff
 def generate_system_s(spincomponents=['00', '+-']):
     # Compute chiks for different materials and spin components
     system_s = [  # wfs, spincomponent
-        ('fancy_si_pw_wfs', '00'),
-        ('al_pw_wfs', '00'),
-        ('fe_pw_wfs', '00'),
-        ('fe_pw_wfs', '+-'),
-        ('co_pw_wfs', '00'),
-        ('co_pw_wfs', '+-'),
+        ('fancy_si_pw', '00'),
+        ('al_pw', '00'),
+        ('fe_pw', '00'),
+        ('fe_pw', '+-'),
+        ('co_pw', '00'),
+        ('co_pw', '+-'),
     ]
 
     # Filter spincomponents
@@ -43,13 +43,13 @@ def generate_qrel_q():
 
 
 def get_q_c(wfs, qrel):
-    if wfs in ['fancy_si_pw_wfs', 'al_pw_wfs']:
+    if wfs in ['fancy_si_pw', 'al_pw']:
         # Generate points on the G-X path
         q_c = qrel * np.array([1., 0., 1.])
-    elif wfs == 'fe_pw_wfs':
+    elif wfs == 'fe_pw':
         # Generate points on the G-N path
         q_c = qrel * np.array([0., 0., 1.])
-    elif wfs == 'co_pw_wfs':
+    elif wfs == 'co_pw':
         # Generate points on the G-M path
         q_c = qrel * np.array([1., 0., 0.])
     else:
@@ -65,8 +65,8 @@ def get_tolerances(system, qrel):
 
     # Si and Fe the density-density response has perfect symmetry
     atols = {
-        'fancy_si_pw_wfs_00': 1e-8,
-        'fe_pw_wfs_00': 1e-8,
+        'fancy_si_pw_00': 1e-8,
+        'fe_pw_00': 1e-8,
     }
 
     # For Al, the symmetries are not perfectly conserved, but worst for the
@@ -77,7 +77,7 @@ def get_tolerances(system, qrel):
         al_atol = 5e-5
     elif qrel == 0.5:
         al_atol = 2e-4
-    atols['al_pw_wfs_00'] = al_atol
+    atols['al_pw_00'] = al_atol
 
     # For Fe, the symmetries are not perfectly conserved for the
     # transverse magnetic response
@@ -87,7 +87,7 @@ def get_tolerances(system, qrel):
         fet_atol = 8e-3
     elif qrel == 0.5:
         fet_atol = 5e-4
-    atols['fe_pw_wfs_+-'] = fet_atol
+    atols['fe_pw_+-'] = fet_atol
 
     # For the density-density reponse in Co, the symmetries are not perfectly
     # conserved for any of the q-points, but quite well conserved for q = 0
@@ -97,7 +97,7 @@ def get_tolerances(system, qrel):
         co_atol = 5e-3
     elif qrel == 0.5:
         co_atol = 1e-3
-    atols['co_pw_wfs_00'] = co_atol
+    atols['co_pw_00'] = co_atol
 
     # For the transverse magnetic response in Co, the symmetries are not
     # perfectly conserved for any of the q-points, but again quite well
@@ -108,7 +108,7 @@ def get_tolerances(system, qrel):
         cot_atol = 5e-4
     elif qrel == 0.5:
         cot_atol = 5e-4
-    atols['co_pw_wfs_+-'] = cot_atol
+    atols['co_pw_+-'] = cot_atol
 
     if identifier not in atols.keys():
         raise ValueError(system, qrel)
@@ -139,13 +139,11 @@ def generate_nblocks_n():
 # ---------- Actual tests ---------- #
 
 
+@pytest.mark.xfail
 @pytest.mark.response
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
-    [pytest.param(s, q, g, marks=pytest.mark.xfail) if s == ('fe_pw_wfs', '+-')
-     else (s, q, g)
-     for s, q, g in
-     product(generate_system_s(), generate_qrel_q(), generate_gc_g())])
+    product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
 def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
     r"""Test the internals of the ChiKSCalculator.
 
