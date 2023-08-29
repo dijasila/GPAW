@@ -39,27 +39,33 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
         if calc.parameters['mode'] == 'lcao':
             calc.initialize_positions(calc.atoms)
 
-    # Useful variables
-    bzk_kc = calc.get_ibz_k_points()
+    # Specify desired range and number of bands in calculation
     nbt = calc.get_number_of_bands()
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nbt
     nf = nbt + nf if (nf < 0) else nf
     blist = list(range(ni, nf))
+    nb = len(blist)
+
+    # Spin input
     ns = calc.wfs.nspins
     assert spin < ns, 'Wrong spin input'
-    nb = len(blist)
-    nk = np.shape(bzk_kc)[0]
+
+    # Real and reciprocal space parameters
+    na = len(calc.atoms)
     cell_cv = calc.wfs.gd.cell_cv
     icell_cv = (2 * np.pi) * np.linalg.inv(cell_cv).T
-    na = len(calc.atoms)
+    ibzk_kc = calc.get_ibz_k_points()
+    nk = np.shape(ibzk_kc)[0]
+
+    # Parallelisation and memory estimate
     rank = world.rank
     size = world.size
+    nkcore = int(np.ceil(nk / size)) # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
     parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
 
-    # Compute the matrix elements
-    nkcore = int(np.ceil(nk / size))
+    # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
 
     # if calc.parameters['mode'] == 'lcao':
@@ -71,20 +77,20 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
 
     # Initial call to print 0% progress
     ik = 0
-    if world.rank == 0:
+    if rank == 0:
         pb = ProgressBar()
 
-    # Loop over k points
+    # Calculate matrix elements in loop over k-points
     for ik in range(nkcore):
         k_ind = rank + size * ik
         if k_ind >= nk:
             break
-        k_c = bzk_kc[k_ind]
+        k_c = ibzk_kc[k_ind]
         k_v = np.dot(k_c, icell_cv)
 
         # Get the wavefunctions
         with timer('Get wavefunctions and projections'):
-            un_R = np.array(
+            u_nR = np.array(
                 [calc.wfs.get_wave_function_array(
                     ib, k_ind, spin,
                     realspace=True,
@@ -102,15 +108,15 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
             # Get the derivative
             for iv in range(3):
                 for ib in range(nb):
-                    nabla_v[iv](un_R[ib], grad_nv[ib, iv], phases)
+                    nabla_v[iv](u_nR[ib], grad_nv[ib, iv], phases)
 
             # Compute the integral
             p_vnn = np.transpose(
-                calc.wfs.gd.integrate(un_R, grad_nv), (2, 0, 1))
+                calc.wfs.gd.integrate(u_nR, grad_nv), (2, 0, 1))
 
             # Add the overlap part
             M_nn = np.array([calc.wfs.gd.integrate(
-                un_R[ib], un_R) for ib in range(nb)])
+                u_nR[ib], u_nR) for ib in range(nb)])
             for iv in range(3):
                 p_vnn[iv] += 1j * k_v[iv] * M_nn
 
@@ -130,11 +136,11 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
         p_kvnn[ik] = -1j * p_vnn
 
         # Print the progress
-        if world.rank == 0:
+        if rank == 0:
             pb.update(ik / nkcore)
         ik += 1
 
-    if world.rank == 0:
+    if rank == 0:
         pb.finish()
 
     # Gather all data to the master
