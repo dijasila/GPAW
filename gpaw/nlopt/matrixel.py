@@ -40,10 +40,10 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
             calc.initialize_positions(calc.atoms)
 
     # Specify desired range and number of bands in calculation
-    nbt = calc.get_number_of_bands()
+    nb_full = calc.get_number_of_bands()
     ni = int(ni) if ni is not None else 0
-    nf = int(nf) if nf is not None else nbt
-    nf = nbt + nf if (nf < 0) else nf
+    nf = int(nf) if nf is not None else nb_full
+    nf = nb_full + nf if (nf < 0) else nf
     blist = list(range(ni, nf))
     nb = len(blist)
 
@@ -61,7 +61,7 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
     # Parallelisation and memory estimate
     rank = world.rank
     size = world.size
-    nkcore = int(np.ceil(nk / size)) # Number of k-points pr. core
+    nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
     parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
 
@@ -203,9 +203,9 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             assert not calc.symmetry.point_group, \
                 'Point group symmtery should be off.'
 
-            nbt = calc.get_number_of_bands()
+            nb_full = calc.get_number_of_bands()
             if nf <= 0:
-                nf += nbt
+                nf += nb_full
             ns = calc.wfs.nspins
             if spin == 'all':
                 spins = list(range(ns))
@@ -223,7 +223,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             nk = len(w_sk[0])
             E_skn = np.array([calc.band_structure().todict()['energies'][s1]
                               for s1 in spins])
-            f_skn = np.zeros((len(spins), nk, nbt), dtype=float)
+            f_skn = np.zeros((len(spins), nk, nb_full), dtype=float)
             for sind, s1 in enumerate(spins):
                 for ik in range(nk):
                     f_skn[sind, ik] = calc.get_occupation_numbers(
