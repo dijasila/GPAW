@@ -506,9 +506,8 @@ class LocalPAWFTEngine:
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
         info_string = f'    RSHE of atom {a}\n' + info_string
-        info_string = info_string.replace('\n', '\n      ')
-        info_string += '\n'
-        self.context.print(info_string)
+        self.context.print(
+            info_string.replace('\n', '\n      ') + '\n')
 
     @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):
