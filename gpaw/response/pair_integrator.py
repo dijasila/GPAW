@@ -261,22 +261,33 @@ class PairFunctionIntegrator(ABC):
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
-        s = ''
+        isl = ['',
+               'The pair function integration is based on a ground state '
+               'with:',
+               f'    Number of spins: {nspins}',
+               f'    Number of bands: {nbands}',
+               f'    Number of completely occupied bands: {nocc1}',
+               f'    Number of partially occupied bands: {nocc2}',
+               f'    Number of kpoints: {nk}',
+               f'    Number of irreducible kpoints: {nik}',
+               '',
+               'The pair function integration is performed in parallel with:',
+               f'    comm.size: {csize}',
+               f'    intrablockcomm.size: {knsize}',
+               f'    blockcomm.size: {bsize}']
 
-        s += 'The pair function integration is based on a ground state with:\n'
-        s += '    Number of spins: %d\n' % nspins
-        s += '    Number of bands: %d\n' % nbands
-        s += '    Number of completely occupied bands: %d\n' % nocc1
-        s += '    Number of partially occupied bands: %d\n' % nocc2
-        s += '    Number of kpoints: %d\n' % nk
-        s += '    Number of irredicible kpoints: %d\n' % nik
-        s += '\n'
-        s += 'The pair function integration is performed in parallel with:\n'
-        s += '    comm.size: %d\n' % csize
-        s += '    intrablockcomm.size: %d\n' % knsize
-        s += '    blockcomm.size: %d\n' % bsize
+        return '\n'.join(isl)
 
-        return s
+    @staticmethod
+    def get_band_and_transitions_info_string(nbands, nt):
+        isl = []  # info string list
+        if nbands is None:
+            isl.append('    Bands included: All')
+        else:
+            isl.append(f'    Number of bands included: {nbands}')
+        isl.append('Resulting in:')
+        isl.append(f'    A total number of band and spin transitions of: {nt}')
+        return '\n'.join(isl)
 
 
 class KPointPairIntegral(ABC):

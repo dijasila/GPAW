@@ -1,12 +1,12 @@
 from gpaw.densities import add
 from gpaw.spline import Spline
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 import numpy as np
 
 
 def test_ae_density():
     n = 10
-    n_sR = UniformGrid(cell=[1, 1, 1], size=[n, n, n], pbc=True).zeros(1)
+    n_sR = UGDesc(cell=[1, 1, 1], size=[n, n, n], pbc=True).zeros(1)
     D_sii = np.zeros((1, 4, 4))
     D_sii[0, 0, 0] = 1.0
     D_sii[0, 1, 1] = 1.0

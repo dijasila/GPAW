@@ -341,33 +341,25 @@ class ChiKSCalculator(PairFunctionIntegrator):
         Asize = nz * qpd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
         cmem = maxrss() / 1024**2
 
-        s = '\n'
+        isl = ['',
+               'Setting up a Kohn-Sham susceptibility calculation with:',
+               f'    Spin component: {spincomponent}',
+               f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+               f'    Number of frequency points: {nz}',
+               self.get_band_and_transitions_info_string(self.nbands, nt),
+               '',
+               self.get_basic_info_string(),
+               '',
+               'Plane-wave basis of the Kohn-Sham susceptibility:',
+               f'    Planewave cutoff: {ecut}',
+               f'    Number of planewaves: {qpd.ngmax}',
+               '    Memory estimates:',
+               f'        A_zGG: {Asize} M / cpu',
+               f'        Memory usage before allocation: {cmem} M / cpu',
+               '',
+               f'{ctime()}']
 
-        s += 'Setting up a Kohn-Sham susceptibility calculation with:\n'
-        s += '    Spin component: %s\n' % spincomponent
-        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        s += '    Number of frequency points: %d\n' % nz
-        if self.nbands is None:
-            s += '    Bands included: All\n'
-        else:
-            s += '    Number of bands included: %d\n' % self.nbands
-        s += 'Resulting in:\n'
-        s += '    A total number of band and spin transitions of: %d\n' % nt
-        s += '\n'
-
-        s += self.get_basic_info_string()
-        s += '\n'
-
-        s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
-        s += '    Planewave cutoff: %f\n' % ecut
-        s += '    Number of planewaves: %d\n' % qpd.ngmax
-        s += '    Memory estimates:\n'
-        s += '        A_zGG: %f M / cpu\n' % Asize
-        s += '        Memory usage before allocation: %f M / cpu\n' % cmem
-        s += '\n'
-        s += '%s\n' % ctime()
-
-        return s
+        return '\n'.join(isl)
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):
@@ -494,5 +486,7 @@ def smat(spinrot):
         return np.array([[0, 0], [1, 0]])
     elif spinrot == '+':
         return np.array([[0, 1], [0, 0]])
+    elif spinrot == 'z':
+        return np.array([[1, 0], [0, -1]])
     else:
         raise ValueError(spinrot)

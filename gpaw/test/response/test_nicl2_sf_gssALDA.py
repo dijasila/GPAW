@@ -38,7 +38,7 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
 
     # Magnetic response calculation
     context = ResponseContext()
-    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['nicl2_pw_wfs'],
+    gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['nicl2_pw'],
                                                   context=context)
     chiks_calc = ChiKSCalculator(gs, context=context,
                                  ecut=ecut,
