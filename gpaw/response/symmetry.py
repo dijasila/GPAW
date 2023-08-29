@@ -1,5 +1,3 @@
-import functools
-
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
@@ -123,9 +121,7 @@ class PWSymmetryAnalyzer:
     def print_symmetries(self):
         """Handsome print function for symmetry operations."""
 
-        p = functools.partial(self.context.print, flush=False)
-
-        p()
+        isl = ['']
         nx = 6 if self.disable_non_symmorphic else 3
         ns = len(self.s_s)
         y = 0
@@ -138,9 +134,10 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
-                p()
-            self.context.print()  # flush output
+                    isl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})',
+                               end='')
+                isl.append('')
+            self.context.print('\n'.join(isl))  # flush output
 
     @timer('Analyze')
     def analyze_kpoints(self):
