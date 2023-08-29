@@ -80,8 +80,7 @@ class PairFunctionIntegrator(ABC):
 
     def __init__(self, gs, context, nblocks=1,
                  disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True):
+                 disable_time_reversal=False):
         """Construct the PairFunctionIntegrator
 
         Parameters
@@ -95,8 +94,6 @@ class PairFunctionIntegrator(ABC):
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
         """
         self.gs = gs
         self.context = context
@@ -119,9 +116,7 @@ class PairFunctionIntegrator(ABC):
         # Symmetry flags
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        if (disable_time_reversal and disable_point_group
-            and disable_non_symmorphic):
+        if disable_time_reversal and disable_point_group:
             self.disable_symmetries = True
         else:
             self.disable_symmetries = False
@@ -223,8 +218,7 @@ class PairFunctionIntegrator(ABC):
         return PWSymmetryAnalyzer(
             self.gs.kd, qpd, self.context,
             disable_point_group=self.disable_point_group,
-            disable_time_reversal=self.disable_time_reversal,
-            disable_non_symmorphic=self.disable_non_symmorphic)
+            disable_time_reversal=self.disable_time_reversal)
 
     def get_band_and_spin_transitions(self, spincomponent, nbands=None,
                                       bandsummation='pairwise'):

@@ -196,7 +196,6 @@ class Chi0Calculator:
                  context=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
-                 disable_non_symmorphic=True,
                  integrationmode=None):
         """Set up attributes common to all response function calculators."""
 
@@ -215,7 +214,6 @@ class Chi0Calculator:
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
 
         # Set up integrator
         self.integrationmode = integrationmode
@@ -467,8 +465,7 @@ class Chi0Calculator:
             self.context.print('Using integrator: TetrahedronIntegrator')
             cls = TetrahedronIntegrator  # type: ignore
             if not all([self.disable_point_group,
-                        self.disable_time_reversal,
-                        self.disable_non_symmorphic]):
+                        self.disable_time_reversal]):
                 self.check_high_symmetry_ibz_kpts()
         else:
             raise ValueError(f'Integration mode "{self.integrationmode}"'
@@ -536,8 +533,7 @@ class Chi0Calculator:
         analyzer = PWSymmetryAnalyzer(
             self.gs.kd, qpd, self.context,
             disable_point_group=self.disable_point_group,
-            disable_time_reversal=self.disable_time_reversal,
-            disable_non_symmorphic=self.disable_non_symmorphic)
+            disable_time_reversal=self.disable_time_reversal)
 
         if integrationmode is None:
             K_gK = analyzer.group_kpoints()
@@ -652,7 +648,6 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
                 self.kptpair_factory,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
-                disable_non_symmorphic=self.disable_non_symmorphic,
                 integrationmode=self.integrationmode)
         else:
             self.drude_calc = None
@@ -827,8 +822,6 @@ class Chi0(Chi0Calculator):
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
         integrationmode : str
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
