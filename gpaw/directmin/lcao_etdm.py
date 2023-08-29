@@ -159,6 +159,8 @@ class LCAOETDM:
         self.ind_ov_up = {}
         self.ind_all_up = {}
         self.n_dim = {}
+        self.n_dim_oo = {}
+        self.n_dim_all = {}
         self.alpha = 1.0  # step length
         self.phi_2i = [None, None]  # energy at last two iterations
         self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
@@ -287,7 +289,7 @@ class LCAOETDM:
             u = self.kpointval(kpt)
             # dimensionality of the problem.
             # this implementation rotates among all bands
-            self.n_dim[u] = self.nbands
+            self.n_dim_all[u] = self.nbands
 
         self.initialized = True
 
@@ -375,8 +377,9 @@ class LCAOETDM:
         for kpt in kpt_u:
             n_occ = get_n_occ(kpt)[0]
             u = self.kpointval(kpt)
+            self.n_dim_oo[u] = n_occ
             # M - one dimension of the A_BigMatrix
-            M = self.n_dim[u]
+            M = self.n_dim_all[u]
             i1_oo, i2_oo = [], []
             for i in range(n_occ):
                 for j in range(i + 1, n_occ):
@@ -423,6 +426,7 @@ class LCAOETDM:
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
 
+        self.n_dim = deepcopy(self.n_dim_all)
         self.ind_up = deepcopy(self.ind_all_up)
         self.a_vec_u = deepcopy(self.a_vec_all_u)
         self.g_vec_u = deepcopy(self.g_vec_all_u)
@@ -479,10 +483,12 @@ class LCAOETDM:
         self.subspace_optimization = True
         self.subspace_iters = 1
         if subspace == 'oo':
+            self.n_dim = deepcopy(self.n_dim_oo)
             self.ind_up = deepcopy(self.ind_oo_up)
             self.a_vec_u = deepcopy(self.a_vec_oo_u)
             self.g_vec_u = deepcopy(self.g_vec_oo_u)
         elif subspace == 'ov':
+            self.n_dim = deepcopy(self.n_dim_all)
             self.ind_up = deepcopy(self.ind_ov_up)
             self.a_vec_u = deepcopy(self.a_vec_ov_u)
             self.g_vec_u = deepcopy(self.g_vec_ov_u)
@@ -493,9 +499,10 @@ class LCAOETDM:
     def release_subspace(self):
         self.subspace_optimization = False
         self.released_subspace = True
-        self.ind_up = self.ind_all_up
-        self.a_vec_u = self.a_vec_all_u
-        self.g_vec_u = self.g_vec_all_u
+        self.n_dim = deepcopy(self.n_dim_all)
+        self.ind_up = deepcopy(self.ind_all_up)
+        self.a_vec_u = deepcopy(self.a_vec_all_u)
+        self.g_vec_u = deepcopy(self.g_vec_all_u)
         self.alpha = 1.0
         self.phi_2i = [None, None]
         self.der_phi_2i = [None, None]
