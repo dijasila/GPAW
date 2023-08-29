@@ -9,10 +9,10 @@ from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D, Literal, Self
+from gpaw.typing import Array1D, Literal, Self, ArrayND
 
 if TYPE_CHECKING:
-    from gpaw.core.uniform_grid import UniformGridFunctions, UniformGrid
+    from gpaw.core.uniform_grid import UGArray, UGDesc
 
 from gpaw.new import prod
 
@@ -173,11 +173,17 @@ class DistributedArrays(Generic[DomainType]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions) -> None:
+                   out: UGArray) -> None:
         """Add weighted absolute square of data to output array.
 
         See also :xkcd:`849`.
         """
+        raise NotImplementedError
+
+    def add_ked(self,
+                weights: Array1D,
+                out: UGArray) -> None:
+        """Add weighted absolute square of gradient of data to output array."""
         raise NotImplementedError
 
     def gather(self, out=None, broadcast=False):
@@ -193,11 +199,14 @@ class DistributedArrays(Generic[DomainType]):
                     data = data.view(complex)
                 return self.desc.new(comm=None).from_data(data)
 
+    def scatter_from(self, data: ArrayND = None) -> None:
+        raise NotImplementedError
+
     def interpolate(self,
                     plan1: fftw.FFTPlans = None,
                     plan2: fftw.FFTPlans = None,
-                    grid: UniformGrid = None,
-                    out: UniformGridFunctions = None) -> UniformGridFunctions:
+                    grid: UGDesc = None,
+                    out: UGArray = None) -> UGArray:
         raise NotImplementedError
 
 
