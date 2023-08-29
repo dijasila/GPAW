@@ -74,7 +74,7 @@ class KPointPair:
         return df_nm
 
 
-class PairDensityCalculator:
+class KPointPairFactory:
     def __init__(self, gs, context, *, nblocks=1):
         self.gs = gs
         self.context = context
@@ -84,7 +84,6 @@ class PairDensityCalculator:
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
-        self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         self.context.print('Number of blocks:', nblocks)
@@ -221,6 +220,20 @@ class PairDensityCalculator:
             Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
+
+    def pair_calculator(self):
+        # We have decoupled the actual pair density calculator
+        # from the kpoint factory, but it's still handy to
+        # keep this shortcut -- for now.
+        return ActualPairDensityCalculator(self)
+
+
+class ActualPairDensityCalculator:
+    def __init__(self, pair):
+        self.context = pair.context
+        self.blockcomm = pair.blockcomm
+        self.ut_sKnvR = None  # gradient of wave functions for optical limit
+        self.gs = pair.gs
 
     def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):
@@ -411,10 +424,10 @@ class PairDensityCalculator:
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
             if not oldchunk:
-                assert all([ind in n_n for ind in inds_n]), \
-                    self.context.print(
-                        '\nYou are cutting over a degenerate band ' +
-                        'using block parallelization.', inds_n, n_n)
+                if not all([ind in n_n for ind in inds_n]):
+                    raise RuntimeError(
+                        'You are cutting over a degenerate band '
+                        'using block parallelization.')
                 degchunks_cn.append((inds_n))
 
         # Calculate matrix elements by diagonalizing each block

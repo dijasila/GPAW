@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import warnings
-from functools import partial
 from time import ctime
 from typing import Union
 
@@ -20,7 +19,7 @@ from gpaw.response.hilbert import HilbertTransform
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator)
 from gpaw.response import timer
-from gpaw.response.pair import PairDensityCalculator
+from gpaw.response.pair import KPointPairFactory
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 from gpaw.typing import Array1D
@@ -59,7 +58,7 @@ class Chi0Integrand(Integrand):
         self.m2 = m2
 
         self.context = chi0calc.context
-        self.pair = chi0calc.pair
+        self.kptpair_factory = chi0calc.kptpair_factory
         self.gs = chi0calc.gs
 
         self.qpd = qpd
@@ -98,10 +97,10 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
-            target_method = self.pair.get_optical_pair_density
+            target_method = self._chi0calc.pair_calc.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
         else:
-            target_method = self.pair.get_pair_density
+            target_method = self._chi0calc.pair_calc.get_pair_density
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
@@ -122,8 +121,10 @@ class Chi0Integrand(Integrand):
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             self._chi0calc.pawcorr = pairden_paw_corr(qpd)
 
-        kptpair = self.pair.get_kpoint_pair(qpd, s, k_c, self.n1, self.n2,
-                                            self.m1, self.m2, block=block)
+        kptpair = self.kptpair_factory.get_kpoint_pair(
+            qpd, s, k_c, self.n1, self.n2,
+            self.m1, self.m2, block=block)
+
         m_m = np.arange(self.m1, self.m2)
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
@@ -153,8 +154,8 @@ class Chi0Integrand(Integrand):
         kd = gs.kd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.pair.find_kpoint(k_c)
-        K2 = self.pair.find_kpoint(k_c + qpd.q_c)
+        K1 = self.kptpair_factory.find_kpoint(k_c)
+        K2 = self.kptpair_factory.find_kpoint(k_c + qpd.q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
@@ -185,9 +186,13 @@ class Chi0Calculator:
 
     @property
     def nblocks(self):
-        return self.pair.nblocks
+        return self.kptpair_factory.nblocks
 
-    def base_ini(self, pair,
+    @property
+    def pair_calc(self):
+        return self.kptpair_factory.pair_calculator()
+
+    def base_ini(self, kptpair_factory,
                  context=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
@@ -195,14 +200,14 @@ class Chi0Calculator:
         """Set up attributes common to all response function calculators."""
 
         if context is None:
-            context = pair.context
+            context = kptpair_factory.context
 
         # TODO: More refactoring to avoid non-orthogonal inputs.
-        assert pair.context.comm is context.comm
+        assert kptpair_factory.context.comm is context.comm
         self.context = context
 
-        self.pair = pair
-        self.gs = pair.gs
+        self.kptpair_factory = kptpair_factory
+        self.gs = kptpair_factory.gs
 
         # Number of completely filled bands and number of non-empty bands.
         self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
@@ -561,29 +566,26 @@ class Chi0Calculator:
         bsize = self.integrator.blockcomm.size
         chisize = nw * qpd.ngmax**2 * 16. / 1024**2 / bsize
 
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating chi0 body with:')
-        p(self.get_gs_info_string(tab='    '))
-        p()
-        p('    Linear response parametrization:')
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p(self.get_response_info_string(qpd, tab='    '))
-        p('    comm.size: %d' % csize)
-        p('    kncomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
+        isl = ['', f'{ctime()}',
+               'Calculating chi0 body with:',
+               self.get_gs_info_string(tab='    '), '',
+               '    Linear response parametrization:',
+               f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+               self.get_response_info_string(qpd, tab='    '),
+               f'    comm.size: {csize}',
+               f'    kncomm.size: {knsize}',
+               f'    blockcomm.size: {bsize}']
         if bsize > nw:
-            p('WARNING! Your nblocks is larger than number of frequency'
-              ' points. Errors might occur, if your submodule does'
-              ' not know how to handle this.')
-        p()
-        p('    Memory estimate of potentially large arrays:')
-        p('        chi0_wGG: %f M / cpu' % chisize)
-        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024**2))
-        self.context.print('')
+            isl.append(
+                'WARNING! Your nblocks is larger than number of frequency'
+                ' points. Errors might occur, if your submodule does'
+                ' not know how to handle this.')
+        isl.extend(['',
+                    '    Memory estimate of potentially large arrays:',
+                    f'        chi0_wGG: {chisize} M / cpu',
+                    '        Memory usage before allocation: '
+                    f'{(maxrss() / 1024**2)} M / cpu'])
+        self.context.print('\n'.join(isl))
 
     def get_gs_info_string(self, tab=''):
         gs = self.gs
@@ -599,16 +601,14 @@ class Chi0Calculator:
         nstat = ns * npocc
         occsize = nstat * ngridpoints * 16. / 1024**2
 
-        nls = '\n' + tab  # newline string
-        gs_str = tab + 'Ground state adapter containing:'
-        gs_str += nls + 'Number of spins: %d' % ns
-        gs_str += nls + 'Number of kpoints: %d' % nk
-        gs_str += nls + 'Number of irredicible kpoints: %d' % nik
-        gs_str += nls + 'Number of completely occupied states: %d' % nocc
-        gs_str += nls + 'Number of partially occupied states: %d' % npocc
-        gs_str += nls + 'Occupied states memory: %f M / cpu' % occsize
+        gs_list = [f'{tab}Ground state adapter containing:',
+                   f'Number of spins: {ns}', f'Number of kpoints: {nk}',
+                   f'Number of irreducible kpoints: {nik}',
+                   f'Number of completely occupied states: {nocc}',
+                   f'Number of partially occupied states: {npocc}',
+                   f'Occupied states memory: {occsize} M / cpu']
 
-        return gs_str
+        return f'\n{tab}'.join(gs_list)
 
     def get_response_info_string(self, qpd, tab=''):
         nw = len(self.wd)
@@ -617,14 +617,13 @@ class Chi0Calculator:
         ngmax = qpd.ngmax
         eta = self.eta * Ha
 
-        nls = '\n' + tab  # newline string
-        res_str = tab + 'Number of frequency points: %d' % nw
-        res_str += nls + 'Planewave cutoff: %f' % ecut
-        res_str += nls + 'Number of bands: %d' % nbands
-        res_str += nls + 'Number of planewaves: %d' % ngmax
-        res_str += nls + 'Broadening (eta): %f' % eta
+        res_list = [f'{tab}Number of frequency points: {nw}',
+                    f'Planewave cutoff: {ecut}',
+                    f'Number of bands: {nbands}',
+                    f'Number of planewaves: {ngmax}',
+                    f'Broadening (eta): {eta}']
 
-        return res_str
+        return f'\n{tab}'.join(res_list)
 
 
 class Chi0OpticalExtensionCalculator(Chi0Calculator):
@@ -646,7 +645,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
                 rate = self.eta * Ha  # external units
             self.rate = rate
             self.drude_calc = Chi0DrudeCalculator(
-                self.pair,
+                self.kptpair_factory,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
                 integrationmode=self.integrationmode)
@@ -657,8 +656,8 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
     @property
     def nblocks(self):
         # The optical extensions are not distributed in memory
-        # NB: There can be a mismatch with self.pair.nblocks, which seems
-        # dangerous XXX
+        # NB: There can be a mismatch with
+        # self.kptpair_factory.nblocks, which seems dangerous XXX
         return 1
 
     def calculate(self,
@@ -756,16 +755,14 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
 
     def print_info(self, qpd):
         """Print information about optical extension calculation."""
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating chi0 optical extensions with:')
-        p(self.get_gs_info_string(tab='    '))
-        p()
-        p('    Linear response parametrization:')
-        p(self.get_response_info_string(qpd, tab='    '))
-        self.context.print('')
+        isl = ['',
+               f'{ctime()}',
+               'Calculating chi0 optical extensions with:',
+               self.get_gs_info_string(tab='    '),
+               '',
+               '    Linear response parametrization:',
+               self.get_response_info_string(qpd, tab='    ')]
+        self.context.print('\n'.join(isl))
 
 
 class Chi0(Chi0Calculator):
@@ -841,7 +838,7 @@ class Chi0(Chi0Calculator):
 
         Attributes
         ----------
-        pair : gpaw.response.pair.PairDensity instance
+        kptpair_factory : gpaw.response.pair.KPointPairFactory instance
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
@@ -854,9 +851,10 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(gs, context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
 
-        super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
+        super().__init__(wd=wd, kptpair_factory=kptpair_factory,
+                         nbands=nbands, ecut=ecut, **kwargs)
 
 
 def new_frequency_descriptor(gs, context, nbands, frequencies=None, *,
