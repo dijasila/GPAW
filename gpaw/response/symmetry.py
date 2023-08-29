@@ -123,8 +123,7 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    isl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})',
-                               end='')
+                    isl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})')
                 isl.append('')
             self.context.print('\n'.join(isl))  # flush output
 
