@@ -8,6 +8,7 @@ from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
 from gpaw.response.MPAinterpolation import mpa_RE_solver
 
+
 class QPointDescriptor(KPointDescriptor):
 
     @staticmethod
@@ -25,7 +26,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False,mpa=False, E0=Ha, eta=None,
+                            ppa=False, mpa=False, E0=Ha, eta=None,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -54,8 +55,8 @@ def initialize_w_calculator(chi0calc, context, *,
     elif mpa:
         wcalc = MPACalculator(gs, context, qd=qd,
                               coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma, eta=eta, mpa=mpa,
-                              q0_correction=q0_correction)
+                              integrate_gamma=integrate_gamma, eta=eta,
+                              mpa=mpa, q0_correction=q0_correction)
     else:
         if eta is not None:
             hilbert_transform = GWHilbertTransforms(chi0calc.wd.omega_w, eta)
@@ -355,6 +356,7 @@ class PPAHWModel(HWModel):
                                        x3_GG**2 + x4_GG**2)
         return x_GG.T.conj(), dx_GG.T.conj()
 
+
 class MPAHWModel(HWModel):
     def __init__(self, W_nGG, omegat_nGG, eta, factor):
         self.W_nGG = W_nGG
@@ -366,29 +368,31 @@ class MPAHWModel(HWModel):
         omegat_nGG = self.omegat_nGG
         W_nGG = self.W_nGG
         x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
-        x2_nGG = (1.0-f) / (omega - omegat_nGG + 1j * self.eta)
+        x2_nGG = (1.0 - f) / (omega - omegat_nGG + 1j * self.eta)
 
-        #x1_nGG = 1 / (omega + omegat_nGG - 1j * self.eta)
-        #x2_nGG = 1 / (omega - omegat_nGG + 1j * self.eta)
-        #x3_nGG = 1 / (omega + omegat_nGG - 1j * self.eta * sign)
-        #x4_nGG = 1 / (omega - omegat_nGG - 1j * self.eta * sign)
-        #x_nGG = self.factor * W_nGG * (sign * (x1_nGG - x2_nGG) + x3_nGG + x4_nGG)
-        #dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
+        # x1_nGG = 1 / (omega + omegat_nGG - 1j * self.eta)
+        # x2_nGG = 1 / (omega - omegat_nGG + 1j * self.eta)
+        # x3_nGG = 1 / (omega + omegat_nGG - 1j * self.eta * sign)
+        # x4_nGG = 1 / (omega - omegat_nGG - 1j * self.eta * sign)
+        # x_nGG = self.factor * W_nGG * (sign * (x1_nGG -x2_nGG)+x3_nGG+x4_nGG)
+        # dx_nGG = -self.factor * W_nGG * (sign * (x1_nGG**2 - x2_nGG**2) +
         #                               x3_nGG**2 + x4_nGG**2)
-        x_GG = (2*self.factor)*np.sum(W_nGG * (x1_nGG+x2_nGG),axis=0) # Why 2 here
+        x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
+                                          axis=0)  # Why 2 here
 
         if not derivative:
             return x_GG.conj()
 
         eps = 0.05
-        xp_nGG = f / (omega+eps + omegat_nGG - 1j * self.eta)
-        xp_nGG += (1.0-f) / (omega+eps - omegat_nGG + 1j * self.eta)
-        xm_nGG = f / (omega-eps + omegat_nGG - 1j * self.eta)
-        xm_nGG += (1.0-f) / (omega-eps - omegat_nGG + 1j * self.eta)
-        dx_GG = 2*self.factor*np.sum(W_nGG * (xp_nGG-xm_nGG)/(2*eps), axis=0) # Why 2 here
-        
+        xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
+        xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
+        xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
+        xm_nGG += (1.0 - f) / (omega - eps - omegat_nGG + 1j * self.eta)
+        dx_GG = 2 * self.factor * np.sum(W_nGG * (xp_nGG - xm_nGG) / (2 * eps),
+                                         axis=0)  # Why 2 here
 
         return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
+
 
 class PPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
@@ -429,9 +433,10 @@ class PPACalculator(WBaseCalculator):
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
 
-        print('ppa \n W:',W_GG[0,0],'\n om:',omegat_GG[0,0])
+        print('ppa \n W:', W_GG[0, 0], '\n om:', omegat_GG[0, 0])
         print('ppa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
+
 
 class MPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
@@ -448,9 +453,9 @@ class MPACalculator(WBaseCalculator):
                      fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
         """
-        #assert len(chi0.wd.omega_w) == 2
+        # assert len(chi0.wd.omega_w) == 2
         # E0 directly related to frequency mesh for chi0
-        E0 = chi0.wd.omega_w[1].imag
+        # E0 = chi0.wd.omega_w[1].imag  # DALV: we are not using this line
 
         dfc = DielectricFunctionCalculator(chi0,
                                            self.coulomb,
@@ -465,38 +470,41 @@ class MPACalculator(WBaseCalculator):
 
         nG1 = einv_WgG.shape[1]
         nG2 = einv_WgG.shape[2]
-        R_nGG = np.zeros((self.mpa['npoles'],nG1,nG2),dtype=complex)
-        omegat_nGG = np.ones((self.mpa['npoles'],nG1,nG2),dtype=complex)
+        R_nGG = np.zeros((self.mpa['npoles'], nG1, nG2), dtype=complex)
+        omegat_nGG = np.ones((self.mpa['npoles'], nG1, nG2), dtype=complex)
         for i in range(nG1):
             for j in range(nG2):
-                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
-                omegat_n -= (0.1j/27.21)   # XXX
-                omegat_nGG[:,i,j] = omegat_n
-                R_nGG[:,i,j] = R_n
+                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(
+                    self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
+                omegat_n -= (0.1j / 27.21)   # XXX
+                omegat_nGG[:, i, j] = omegat_n
+                R_nGG[:, i, j] = R_n
 
-                #print('fails',PPcond_rate)
+                # print('fails',PPcond_rate)
 
         R_nGG = chi0.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
-        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'wGG')
+        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG,
+                                                  self.mpa['npoles'], 'wGG')
 
-        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
+        W_nGG = pi * R_nGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
+            * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
         
         if chi0.optical_limit or self.integrate_gamma != 0:
-            for W_GG,R_GG in zip(W_nGG,R_nGG):
+            for W_GG, R_GG in zip(W_nGG, R_nGG):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
-        W_nGG = np.transpose(W_nGG, axes=(0,2,1))  # Why we need to do the transpose
-        omegat_nGG = np.transpose(omegat_nGG, axes=(0,2,1))
+        W_nGG = np.transpose(W_nGG, axes=(0, 2, 1))  # Why the transpose
+        omegat_nGG = np.transpose(omegat_nGG, axes=(0, 2, 1))
 
         W_nGG = chi0.blockdist.distribute_as(W_nGG, self.mpa['npoles'], 'WgG')
-        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG, self.mpa['npoles'], 'WgG')
+        omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG,
+                                                  self.mpa['npoles'], 'WgG')
 
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        print('mpa \n W:',W_nGG[:,0,0],'\n om:',omegat_nGG[:,0,0])
+        print('mpa \n W:', W_nGG[:, 0, 0], '\n om:', omegat_nGG[:, 0, 0])
 
         print('mpa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
-

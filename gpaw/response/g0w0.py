@@ -108,7 +108,8 @@ class Sigma:
     @classmethod
     def fromdict(cls, dct):
         instance = cls(dct['iq'], dct['q_c'], dct['fxc'],
-                       dct['sigma_eskn'].shape, dct['sigma_eskwn'].shape, **dct['inputs'])
+                       dct['sigma_eskn'].shape, dct['sigma_eskwn'].shape,
+                       **dct['inputs'])
         instance.sigma_eskn[:] = dct['sigma_eskn']
         instance.dsigma_eskn[:] = dct['dsigma_eskn']
         instance.sigma_eskwn[:] = dct['sigma_eskwn']
@@ -125,8 +126,8 @@ class Sigma:
 
 
 class G0W0Outputs:
-    def __init__(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn, sigma_eskwn, 
-                 eps_skn, vxc_skn, exx_skn, f_skn):
+    def __init__(self, context, shape, ecut_e, sigma_eskn, dsigma_eskn,
+                 sigma_eskwn, eps_skn, vxc_skn, exx_skn, f_skn):
         self.extrapolate(context, shape, ecut_e, sigma_eskn, dsigma_eskn)
         self.Z_skn = 1 / (1 - self.dsigma_skn)
 
@@ -495,7 +496,8 @@ class G0W0Calculator:
 
         b1, b2 = self.bands
         self.shape = (self.wcalc.gs.nspins, len(self.kpts), b2 - b1)
-        self.wshape = (self.wcalc.gs.nspins, len(self.kpts), len(self.evaluate_sigma), b2 - b1)
+        self.wshape = (self.wcalc.gs.nspins, len(self.kpts),
+                       len(self.evaluate_sigma), b2 - b1)
 
         self.nbands = nbands
 
@@ -702,13 +704,14 @@ class G0W0Calculator:
                 Wmodel = Wdict[fxc_mode]
                 if 0:
                     f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_k2_{k2}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
-                    for occ in [0,1]:
+                    for occ in [0, 1]:
                         for w in np.linspace(-2, 2, 400):
-                            S_GG, dSdw_GG = Wmodel.get_HW(w, 2*occ-1, occ)
+                            S_GG, dSdw_GG = Wmodel.get_HW(w, 2 * occ - 1, occ)
                             if S_GG is None:
                                 continue
-                            print(occ, w, S_GG[0,0].real, S_GG[0,0].imag, S_GG[0,1].real, S_GG[0,1].imag,
-                                          S_GG[2,3].real, S_GG[2,3].imag,file=f)
+                            print(occ, w, S_GG[0, 0].real, S_GG[0, 0].imag,
+                                  S_GG[0, 1].real, S_GG[0, 1].imag,
+                                  S_GG[2, 3].real, S_GG[2, 3].imag, file=f)
                         print(file=f)
                         print(file=f)
                         print(file=f)
@@ -726,17 +729,18 @@ class G0W0Calculator:
  
                     if self.evaluate_sigma is not None:
                         for w, omega in enumerate(self.evaluate_sigma):
-                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, 2 * f - 1, f)
+                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega,
+                                                    2 * f - 1, f)
                             if S_GG is None:
                                 continue
-                            #print(myn_G.shape, S_GG.shape, nc_G.shape)
-                            sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += myn_G @ S_GG @ nc_G
+                            # print(myn_G.shape, S_GG.shape, nc_G.shape)
+                            sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += \
+                                myn_G @ S_GG @ nc_G
 
                     S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1, f)
                     if S_GG is None:
                         continue
-
-                    
+             
                     # ie: ecut index for extrapolation
                     # kpt1.s: spin index of *
                     # k: k-point index of *
@@ -873,8 +877,8 @@ class G0W0Calculator:
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
-                    #k2 = self.wcalc.gs.kd.bz2ibz_k[kpt2.K]
-                    #j = self.kpts.index(k2)
+                    # k2 = self.wcalc.gs.kd.bz2ibz_k[kpt2.K]
+                    # j = self.kpts.index(k2)
                     j = None
                     self.calculate_q(ie, i, j, kpt1, kpt2, qpdi, Wdict,
                                      symop=symop,
@@ -1118,7 +1122,6 @@ class G0W0(G0W0Calculator):
         if fxc_modes:
             assert fxc_mode is None
 
-
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         # (calc can not actually be a calculator at all.)
@@ -1158,7 +1161,9 @@ class G0W0(G0W0Calculator):
         elif mpa:
             assert not ppa
 
-            frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'], mpa['wshift'], ps='2l', alpha=mpa['alpha'])
+            frequencies = mpa_frequency_sampling(mpa['npoles'], mpa['wrange'],
+                                                 mpa['wshift'], ps='2l',
+                                                 alpha=mpa['alpha'])
 
             parameters = {'eta': 0.000001,
                           'hilbert': False,
