@@ -348,7 +348,10 @@ class AtomArrays:
 
         return aa
 
-    def scatter_from(self, data: np.ndarray | None = None) -> None:
+    def scatter_from(self,
+                     data: np.ndarray | AtomArrays | None = None) -> None:
+        if isinstance(data, AtomArrays):
+            data = data.data
         comm = self.layout.atomdist.comm
         if comm.size == 1:
             self.data[:] = data
@@ -464,7 +467,7 @@ class AtomArrays:
                comm1: MPIComm,
                comm2: MPIComm) -> AtomArrays:
         layout = self.layout.new(atomdist=atomdist)
-        result = layout.empty()
+        result = layout.empty(dims=self.dims)
         if comm1.rank == 0:
             a = self.gather()
         else:

@@ -65,26 +65,26 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                  self.fine_grid)
 
     @cached_property
-    def interpolation_pw(self):
+    def interpolation_desc(self):
         return PWDesc(ecut=2 * self.ecut,
                       cell=self.grid.cell,
                       comm=self.grid.comm)
 
     @cached_property
     def electrostatic_potential_desc(self):
-        return self.interpolation_pw.new(ecut=8 * self.ecut)
+        return self.interpolation_desc.new(ecut=8 * self.ecut)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist,
+                self.interpolation_desc, self.fracpos_ac, self.atomdist,
                 xp=self.xp)
         return self._nct_ag
 
     def get_pseudo_core_ked(self):
         if self._tauct_ag is None:
             self._tauct_ag = self.setups.create_pseudo_core_ked(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist)
+                self.interpolation_desc, self.fracpos_ac, self.atomdist)
         return self._tauct_ag
 
     def create_poisson_solver(self, fine_pw, params):

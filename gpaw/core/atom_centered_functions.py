@@ -125,6 +125,16 @@ class UGAtomCenteredFunctions(AtomCenteredFunctions):
         self.integral = integral
         self.cut = cut
 
+    def new(self, grid, atomdist):
+        return UGAtomCenteredFunctions(
+            self.functions,
+            self.fracpos_ac,
+            grid,
+            atomdist=atomdist,
+            integral=self.integral,
+            cut=self.cut,
+            xp=self.xp)
+
     def _lazy_init(self):
         if self._lfc is not None:
             return

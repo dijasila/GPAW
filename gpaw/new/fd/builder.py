@@ -27,6 +27,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self._tauct_aR = None
 
         self.electrostatic_potential_desc = self.fine_grid
+        self.interpolation_desc = self.fine_grid
 
     @cached_property
     def atomdist(self) -> AtomDistribution:

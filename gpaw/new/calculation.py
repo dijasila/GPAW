@@ -342,11 +342,12 @@ class DFTCalculation:
                 builder.atomdist)
 
         ibzwfs = create_ibz_wave_functions(
-            builder.ibz,
+            ibz=builder.ibz,
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
             create_wfs_func=create_wfs,
             kpt_comm=old_ibzwfs.kpt_comm,
+            kpt_band_comm=old_ibzwfs.kpt_band_comm,
             comm=self.comm)
 
         state = DFTState(ibzwfs, density, potential)

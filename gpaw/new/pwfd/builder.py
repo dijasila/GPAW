@@ -49,7 +49,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             return wfs
 
         ibzwfs = create_ibzwfs(ibz=self.ibz,
-                               nelecrtrons=self.nelectrons,
+                               nelectrons=self.nelectrons,
                                ncomponents=self.ncomponents,
                                create_wfs_func=create_wfs,
                                kpt_comm=self.communicators['k'],

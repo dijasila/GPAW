@@ -533,13 +533,17 @@ class ASECalculator:
         state = self.calculation.state
         comm1 = state.ibzwfs.kpt_band_comm
         comm2 = builder.communicators['D']
-        potential = state.potential.redist(builder.grid, builder.atomdist,
-                                           comm1, comm2)
+        potential = state.potential.redist(
+            builder.grid,
+            builder.electrostatic_potential_desc,
+            builder.atomdist,
+            comm1, comm2)
         nct_aX = builder.get_pseudo_core_densities()
         tauct_aX = builder.get_pseudo_core_ked()
-        density = state.density.redist(builder.grid, builder.atomdist,
-                                       comm1, comm2,
-                                       nct_aX, tauct_aX)
+        density = state.density.redist(builder.grid,
+                                       builder.interpolation_desc,
+                                       builder.atomdist,
+                                       comm1, comm2)
         ibzwfs = builder.create_ibz_wave_functions(basis_set, potential,
                                                    log=log)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels

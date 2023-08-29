@@ -252,10 +252,10 @@ class Density:
 
     def redist(self,
                grid: UGDesc,
+               xdesc,
                atomdist: AtomDistribution,
                comm1: MPIComm,
-               comm2: MPIComm,
-               nct_aX, tauct_aX) -> Density:
+               comm2: MPIComm) -> Density:
         return Density(
             self.nt_sR.redist(grid, comm1, comm2),
             None
@@ -267,8 +267,8 @@ class Density:
             self.delta0_a,
             self.N0_aii,
             self.l_aj,
-            nct_aX,
-            tauct_aX)
+            nct_aX=self.nct_aX.new(xdesc, atomdist),
+            tauct_aX=self.tauct_aX.new(xdesc, atomdist))
 
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)

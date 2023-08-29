@@ -202,6 +202,19 @@ class DistributedArrays(Generic[DomainType]):
     def scatter_from(self, data: ArrayND | None = None) -> None:
         raise NotImplementedError
 
+    def redist(self,
+               domain,
+               comm1: MPIComm, comm2: MPIComm) -> DistributedArrays:
+        result = domain.empty(self.dims)
+        if comm1.rank == 0:
+            a = self.gather()
+        else:
+            a = None
+        if comm2.rank == 0:
+            result.scatter_from(a)
+        comm2.broadcast(result.data, 0)
+        return result
+
     def interpolate(self,
                     plan1: fftw.FFTPlans | None = None,
                     plan2: fftw.FFTPlans | None = None,

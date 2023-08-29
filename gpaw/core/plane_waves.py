@@ -429,8 +429,10 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(self.data, ssize_r, soffset_r,
                        out.data, rsize_r, roffset_r)
 
-    def scatter_from(self, data: Array1D | None = None) -> None:
+    def scatter_from(self, data: Array1D | PWArray | None = None) -> None:
         """Scatter data from rank-0 to all ranks."""
+        if isinstance(data, PWArray):
+            data = data.data
         comm = self.desc.comm
         if comm.size == 1:
             assert data is not None

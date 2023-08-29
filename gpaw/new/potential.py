@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Bohr, Ha
+
 from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.domain import Domain as XDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
@@ -62,14 +64,18 @@ class Potential:
 
     def redist(self,
                grid: UGDesc,
+               desc: XDesc,
                atomdist: AtomDistribution,
                comm1: MPIComm,
                comm2: MPIComm) -> Potential:
         return Potential(
             self.vt_sR.redist(grid, comm1, comm2),
             self.dH_asii.redist(atomdist, comm1, comm2),
-            self.dedtaut_sR.redist(grid, comm1, comm2),
-            self.energies.copy())
+            None if self.dedtaut_sR is None else self.dedtaut_sR.redist(
+                grid, comm1, comm2),
+            self.energies.copy(),
+            None if self.vHt_x is None else self.vHt_x.redist(
+                desc, comm1, comm2))
 
     def _write_gpw(self, writer, ibzwfs):
         from gpaw.new.calculation import combine_energies
