@@ -64,7 +64,8 @@ class RealSphericalHarmonicsExpansion:
         return cls(rgd, f_gL, Y_nL)
 
     def reduce_expansion(self, L_M):
-        """Produce a new expansion with only the spherical hamonic indices L_M.
+        """
+        Produce a new expansion with only the spherical harmonic indices L_M.
         """
         # Translate requested indices L_M to the internal index M
         M_M = []
@@ -155,24 +156,25 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
 
 def get_reduction_info_string(L_M, fw_gL, rshew_L):
     """Construct info string about the reduced expansion."""
-    info_string = '{0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                        'max weight',
-                                                        'avg weight',
-                                                        'included')
+    isl = []
+    isl.append('{0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
+                                                     'max weight',
+                                                     'avg weight',
+                                                     'included'))
     for L, (fw_g, rshew) in enumerate(zip(fw_gL.T, rshew_L)):
         included = L in L_M
-        info_string += '\n' + get_rshe_coefficient_info_string(
-            L, included, rshew, fw_g)
+        isl.append('\n' + get_rshe_coefficient_info_string(
+            L, included, rshew, fw_g))
 
     avg_cov = np.average(np.sum(fw_gL[:, L_M], axis=1))
-    info_string += f'\nIn total: {avg_cov} of the surface norm square is '\
-        'covered on average'
+    isl.append(f'\nIn total: {avg_cov} of the surface norm square is '
+               'covered on average')
 
     tot_avg_cov = np.average(np.sum(fw_gL, axis=1))
-    info_string += f'\nIn total: {tot_avg_cov} of the surface norm '\
-        'square could be covered on average'
+    isl.append(f'\nIn total: {tot_avg_cov} of the surface norm '
+               'square could be covered on average')
 
-    return info_string
+    return ''.join(isl)
 
 
 def get_rshe_coefficient_info_string(L, included, rshew, fw_g):
