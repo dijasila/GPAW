@@ -843,7 +843,7 @@ class BSEBackend:
         isl = ['----------------------------------------------------------',
                f'{self.mode} Hamiltonian',
                '----------------------------------------------------------',
-               'Started at:  {ctime()}', '',
+               f'Started at:  {ctime()}', '',
                'Atoms                          : '
                f'{self.gs.atoms.get_chemical_formula(mode="hill")}',
                f'Ground state XC functional     : {self.gs.xcname}',
