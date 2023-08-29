@@ -318,10 +318,6 @@ class LCAOETDM:
 
         # initialize matrices
         self.set_variable_matrices(wfs.kpt_u)
-        # if no empty state no need to optimize
-        for k in self.ind_up:
-            if not self.ind_up[k][0].size or not self.ind_up[k][1].size:
-                self.n_dim[k] = 0
 
         # localize orbitals?
         self.localize(wfs, dens, ham, log)
@@ -425,6 +421,17 @@ class LCAOETDM:
                 self.constraints[u] = convert_constraints(
                     self.constraints[u], self.n_dim[u],
                     len(kpt.f_n[kpt.f_n > 1e-10]), self.representation)
+
+            # If there are no degrees of freedom no need to optimize.
+            # Indicated by setting n_dim to 0, as n_dim can never be 0
+            # otherwise.
+            for k in self.ind_all_up:
+                if not self.ind_all_up[k][0].size \
+                        or not self.ind_all_up[k][1].size:
+                    self.n_dim_all[k] = 0 # Skip full space optimization
+                if not self.ind_oo_up[k][0].size \
+                        or not self.ind_oo_up[k][1].size:
+                    self.n_dim_oo[k] = 0 # Skip PZ localization if requested
 
         self.n_dim = deepcopy(self.n_dim_all)
         self.ind_up = deepcopy(self.ind_all_up)
