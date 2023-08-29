@@ -34,6 +34,7 @@ def test_response_bse_parse_bands(in_tmp_dir, gpw_files):
                    nbands=4,
                    ecut=10,
                    )
+        bse2  # does nothing; this is just here to avoid a linting error
 
     with pytest.raises(AssertionError,
                        match=re.escape('For a spin-polarized calculation, '
@@ -46,3 +47,4 @@ def test_response_bse_parse_bands(in_tmp_dir, gpw_files):
                    nbands=4,
                    ecut=10,
                    )
+        bse3  # does nothing; this is just here to avoid a linting error
