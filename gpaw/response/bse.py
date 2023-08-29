@@ -23,12 +23,11 @@ from gpaw.response.chi0 import Chi0Calculator
 
 class BSEBackend:
     def __init__(self, *, gs, context,
+                 valence_bands, conduction_bands,
                  spinors=False,
                  ecut=10.,
                  scale=1.0,
                  nbands=None,
-                 valence_bands=None,
-                 conduction_bands=None,
                  eshift=None,
                  gw_skn=None,
                  truncation=None,
@@ -43,7 +42,7 @@ class BSEBackend:
         self.spinors = spinors
         self.scale = scale
 
-        assert mode in ['RPA', 'TDHF', 'BSE']
+        assert mode in ['RPA', 'TDHF', 'BSE']   
 
         self.ecut = ecut / Hartree
         self.nbands = nbands
@@ -77,20 +76,12 @@ class BSEBackend:
                                    'version does not work for spin-polarized' +
                                    ' calculations. Performing scalar ' +
                                    'calculation')
-            assert len(valence_bands[0]) == len(valence_bands[1])
-            assert len(conduction_bands[0]) == len(conduction_bands[1])
-        if valence_bands is None:
-            nv = self.gs.nvalence
-            valence_bands = [[nv // 2 - 1]]
-            if self.spins == 2:
-                valence_bands *= 2
-        if conduction_bands is None:
-            conduction_bands = [[valence_bands[-1] + 1]]
-            if self.spins == 2:
-                conduction_bands *= 2
 
-        self.val_sn = np.atleast_2d(valence_bands)
-        self.con_sn = np.atleast_2d(conduction_bands)
+        val_sn = self.parse_bands(valence_bands, band_type='valence')
+        con_sn = self.parse_bands(conduction_bands, band_type='conduction')
+
+        self.val_sn = val_sn
+        self.con_sn = con_sn
 
         self.td = True
         for n in self.val_sn[0]:
@@ -130,6 +121,53 @@ class BSEBackend:
     @property
     def pair_calc(self):
         return self.kptpair_factory.pair_calculator()
+
+    def parse_bands(self, bands, band_type='valence'):
+        """Helper function that checks whether bands are correctly specified,
+         and brings them to the format used later in the code.
+
+        If the calculation is spin-polarized, band indices must
+        be given explicitly as lists/arrays of shape (2,nbands) where the first
+        index is for spin.
+
+        If the calculation is not spin-polarized, either an integer (number of desired bands)
+        or lists of band indices must be provided.
+
+        band_type is an optional parameter that is only when a desired number of bands
+        is given (rather than a list) to help figure out the correct band indices.
+        """
+        if hasattr(bands, '__iter__'):
+            if self.spins == 2:
+                assert len(bands) == 2\
+                    and len(bands[0]) == len(bands[1]),\
+                    'For a spin-polarized calculation, the same number \
+                    of bands must be specified for each spin! \
+                    valence and conduction bands must be lists of shape (2,n)'
+
+            bands_sn = np.atleast_2d(bands)
+            return bands_sn
+
+        # if we get here, bands is not iterable
+        # check that the specified input is valid
+
+        assert self.spins != 2, 'For a spin-polarized calculation, \
+            bands must be specified as lists of shape (2,n)'
+        n_fully_occupied_bands, n_partially_occupied_bands = self.gs.count_occupied_bands()
+
+        assert n_fully_occupied_bands == n_partially_occupied_bands,\
+            'Warning: system is metallic! Please specify band indices manually'
+
+        assert int(bands) == bands, 'Number of bands must be an integer!'
+
+        if band_type == 'valence':
+            bands_sn = range(n_fully_occupied_bands - bands, n_fully_occupied_bands)
+        elif band_type == 'conduction':
+            bands_sn = range(n_fully_occupied_bands, n_fully_occupied_bands + bands)
+        else:
+            assert False, 'Invalid band type'
+
+        bands_sn = np.atleast_2d(bands_sn)
+        return bands_sn
 
     def calculate(self, optical=True):
 
