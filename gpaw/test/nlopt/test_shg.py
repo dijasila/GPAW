@@ -52,14 +52,14 @@ def test_shg_spinpol(in_tmp_dir):
     atoms.center(vacuum=4, axis=2)
 
     #Do a GS for nospinpol and save it
-    calc = GPAW(mode=PW(400),
+    calc = GPAW(mode=PW(250),
                 symmetry={'point_group': False, 'time_reversal': True,
                           'symmorphic': False},
                 spinpol=False,
                 xc = 'LDA',
                 kpts={'size': (4,4,1), 'gamma': True},
-                nbands = 20, 
-                convergence = {'density': 1.0e-8, 'bands': -5}, txt = 'gs.txt')
+                nbands = 15, 
+                convergence = {'density': 1.0e-8, 'bands': -3}, txt = 'gs.txt')
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('gs.gpw', 'all')
@@ -68,18 +68,18 @@ def test_shg_spinpol(in_tmp_dir):
     make_nlodata()
 
     # Do a SHG for yyy and xxz 
-    get_shg(freqs=np.linspace(1, 5, 50), out_name='shg_nospinpol.npy')
-    get_shg(freqs=np.linspace(1, 5, 50), pol='xxz' ,out_name='shg_xxz_nospinpol.npy')
+    get_shg(freqs=np.linspace(1, 5, 50), pol='yyy', out_name='shg_yyy_nospinpol.npy')
+    get_shg(freqs=np.linspace(1, 5, 50), pol='xxz', out_name='shg_xxz_nospinpol.npy')
 
     #Repeat steps for spinpol and save it
-    calc = GPAW(mode=PW(400),
+    calc = GPAW(mode=PW(250),
                 symmetry={'point_group': False, 'time_reversal': True,
                           'symmorphic': False},
                 spinpol=True,
                 xc = 'LDA',
                 kpts={'size': (4,4,1), 'gamma': True},
-                nbands = 20, 
-                convergence = {'density': 1.0e-8, 'bands': -5}, txt = None)
+                nbands = 15, 
+                convergence = {'density': 1.0e-8, 'bands': -3}, txt = None)
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('gs.gpw', 'all')
@@ -88,7 +88,7 @@ def test_shg_spinpol(in_tmp_dir):
     make_nlodata()
 
     # Do a SHG
-    get_shg(freqs=np.linspace(1, 5, 50), out_name='shg_spinpol.npy')
+    get_shg(freqs=np.linspace(1, 5, 50), pol='yyy', out_name='shg_yyy_spinpol.npy')
     get_shg(freqs=np.linspace(1, 5, 50), pol='xxz' ,out_name='shg_xxz_spinpol.npy')
 
     atoms = read('gs.txt')
@@ -98,16 +98,16 @@ def test_shg_spinpol(in_tmp_dir):
 
         # Check spinpol vs nospinpol for yyy
     if world.rank == 0:
-        shg = np.load('shg_nospinpol.npy')
-        shg2 = np.load('shg_spinpol.npy')
+        shg = np.load('shg_yyy_nospinpol.npy')
+        shg2 = np.load('shg_yyy_spinpol.npy')
         # Check for nan's
         assert not np.isnan(shg).any()
         assert not np.isnan(shg2).any()
         # Check the two SHG.
-        real_shg = np.real(mult * shg[1] * 1e18)
-        imag_shg = np.imag(mult * shg[1] * 1e18)
-        real_shg2 = np.real(mult * shg2[1] * 1e18)
-        imag_shg2 = np.imag(mult * shg2[1] * 1e18)
+        real_shg = np.real(shg[1]) * mult * 1e18
+        imag_shg = np.imag(shg[1])  * mult * 1e18
+        real_shg2 = np.real(shg2[1])  * mult * 1e18
+        imag_shg2 = np.imag(shg2[1])  * mult * 1e18
         
         # Assert difference between spinpol and nospinpol is very small.
         # The response spectra is of the order 1e-4, so we check the difference till 1e-7.
@@ -121,10 +121,10 @@ def test_shg_spinpol(in_tmp_dir):
         assert not np.isnan(shg).any()
         assert not np.isnan(shg2).any()
         # Check the two SHG.
-        real_shg = np.real(mult * shg[1] * 1e18)
-        imag_shg = np.imag(mult * shg[1] * 1e18)
-        real_shg2 = np.real(mult * shg2[1] * 1e18)
-        imag_shg2 = np.imag(mult * shg2[1] * 1e18)
+        real_shg = np.real(shg[1]) * mult * 1e18
+        imag_shg = np.imag(shg[1])  * mult * 1e18
+        real_shg2 = np.real(shg2[1])  * mult * 1e18
+        imag_shg2 = np.imag(shg2[1])  * mult * 1e18
         
         # Assert difference between spinpol and nospinpol is zero very small.
         assert np.all(np.abs(real_shg[1] - real_shg2[1]) < 1e-7)
