@@ -48,12 +48,13 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
 
             return wfs
 
-        ibzwfs = create_ibzwfs(self.ibz,
-                               self.nelectrons,
-                               self.ncomponents,
-                               create_wfs,
-                               self.communicators['k'],
-                               self.communicators['w'])
+        ibzwfs = create_ibzwfs(ibz=self.ibz,
+                               nelecrtrons=self.nelectrons,
+                               ncomponents=self.ncomponents,
+                               create_wfs_func=create_wfs,
+                               kpt_comm=self.communicators['k'],
+                               kpt_band_comm=self.communicators['D'],
+                               comm=self.communicators['w'])
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
@@ -107,9 +108,13 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             wfs._eig_n = eig_n
             return wfs
 
-        return create_ibzwfs(self.ibz, self.nelectrons, self.ncomponents,
-                             create_wfs, self.communicators['k'],
-                             self.communicators['w'])
+        return create_ibzwfs(ibz=self.ibz,
+                             nelectrons=self.nelectrons,
+                             ncomponents=self.ncomponents,
+                             create_wfs_func=create_wfs,
+                             kpt_comm=self.communicators['k'],
+                             kpt_band_comm=self.communicators['D'],
+                             comm=self.communicators['w'])
 
     def create_random_ibz_wave_functions(self, log):
         log('Initializing wave functions with random numbers')

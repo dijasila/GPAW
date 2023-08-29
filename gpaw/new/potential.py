@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Bohr, Ha
-
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UGArray
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.uniform_grid import UGArray, UGDesc
+from gpaw.mpi import MPIComm
 from gpaw.new import zips
 
 
@@ -56,10 +56,20 @@ class Potential:
                              P_nsi[:, 0] @ (x_ii + 1j * y_ii))
         return out_ansi
 
-    def move(self, atomdist):
+    def move(self, atomdist: AtomDistribution) -> None:
+        """Move atoms inplace."""
         self.dH_asii = self.dH_asii.moved(atomdist)
 
-    def redistributed(self, comms1, comms2):
+    def redist(self,
+               grid: UGDesc,
+               atomdist: AtomDistribution,
+               comm1: MPIComm,
+               comm2: MPIComm) -> Potential:
+        return Potential(
+            self.vt_sR.redist(grid, comm1, comm2),
+            self.dH_asii.redist(atomdist, comm1, comm2),
+            self.dedtaut_sR.redist(grid, comm1, comm2),
+            self.energies.copy())
 
     def _write_gpw(self, writer, ibzwfs):
         from gpaw.new.calculation import combine_energies

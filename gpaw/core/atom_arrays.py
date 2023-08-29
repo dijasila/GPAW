@@ -458,3 +458,18 @@ class AtomArrays:
 
         comm.waitall(requests)
         return new
+
+    def redist(self,
+               atomdist: AtomDistribution,
+               comm1: MPIComm,
+               comm2: MPIComm) -> AtomArrays:
+        layout = self.layout.new(atomdist=atomdist)
+        result = layout.empty()
+        if comm1.rank == 0:
+            a = self.gather()
+        else:
+            a = None
+        if comm2.rank == 0:
+            result.scatter_from(a)
+        comm2.broadcast(result.data, 0)
+        return result
