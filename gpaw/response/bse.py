@@ -140,7 +140,7 @@ class BSEBackend:
         if hasattr(bands, '__iter__'):
             if self.spins == 2:
                 assert len(bands) == 2\
-                    and len(bands[0]) == len(bands[1]),\
+                    and len(bands[0]) == len(bands[1]), \
                     'For a spin-polarized calculation, the same number \
                     of bands must be specified for each spin! \
                     valence and conduction bands must be lists of shape (2,n)'
@@ -156,7 +156,7 @@ class BSEBackend:
         n_fully_occupied_bands, n_partially_occupied_bands = \
             self.gs.count_occupied_bands()
 
-        assert n_fully_occupied_bands == n_partially_occupied_bands,\
+        assert n_fully_occupied_bands == n_partially_occupied_bands, \
             'Warning: system is metallic! Please specify band indices manually'
 
         assert int(bands) == bands, 'Number of bands must be an integer!'
