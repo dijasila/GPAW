@@ -455,7 +455,10 @@ class BSEBackend:
             chi0 = self._chi0calc.calculate(q_c)
             W_wGG = self._wcalc.calculate_W_wGG(chi0)
             W_GG = W_wGG[0]
-            self.pawcorr_q.append(self._chi0calc.pawcorr)
+            # This is such a terrible way to access the paw
+            # corrections. Attributes should not be groped like
+            # this... Change in the future! XXX
+            self.pawcorr_q.append(self._chi0calc.chi0_body_calc.pawcorr)
             self.qpd_q.append(chi0.qpd)
             self.W_qGG.append(W_GG)
 

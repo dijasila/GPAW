@@ -847,7 +847,7 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0calc.print_info(chi0.qpd)
+        chi0calc.chi0_body_calc.print_info(chi0.qpd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
 
         Wdict = {}
@@ -857,7 +857,7 @@ class G0W0Calculator:
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
             Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
                                                       fxc_mode=fxc_mode)
-            if (chi0calc.pawcorr is not None and
+            if (chi0calc.chi0_body_calc.pawcorr is not None and
                 rqpd.ecut < chi0.qpd.ecut):
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
@@ -866,14 +866,14 @@ class G0W0Calculator:
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
-                # Chi0Calculator! Change in the future! XXX
-                chi0calc.pawcorr = \
-                    chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
+                # Chi0BodyCalculator! Change in the future! XXX
+                chi0calc.chi0_body_calc.pawcorr = \
+                    chi0calc.chi0_body_calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
         # Create a blocks1d for the reduced plane-wave description
         blocks1d = Blocks1D(chi0.body.blockdist.blockcomm, rqpd.ngmax)
 
-        return rqpd, Wdict, blocks1d, chi0calc.pawcorr
+        return rqpd, Wdict, blocks1d, chi0calc.chi0_body_calc.pawcorr
 
     @timer('calcualte_vxc_and_exx')
     def calculate_vxc_and_exx(self):
