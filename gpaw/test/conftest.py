@@ -633,7 +633,7 @@ class GPWFiles:
                       cell=[4.63138807675, 3.306178252090, 17.10979291],
                       pbc=[True, True, False])
         atoms.center(vacuum=1.5, axis=2)
-        tag = '_spinpol' if spinpol == True else ''
+        tag = '_spinpol' if spinpol else ''
         nkpts = 2
         atoms.calc = GPAW(mode=PW(250),
                           xc='LDA', spinpol=spinpol,
