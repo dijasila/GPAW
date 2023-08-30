@@ -16,6 +16,7 @@ def pawdata():
             yield setup
 
 
+@pytest.mark.response
 @pytest.mark.serial
 @pytest.mark.parametrize('pawdata', pawdata())
 def test_paw_corrections(pawdata):
