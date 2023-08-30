@@ -8,7 +8,6 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 
-@pytest.mark.later
 def test_Hubbard_U(in_tmp_dir):
     """Setup up bulk NiO in an antiferromagnetic configuration."""
     # Lattice constant:
