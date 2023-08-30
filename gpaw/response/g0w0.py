@@ -1,4 +1,3 @@
-import functools
 import pickle
 import warnings
 from math import pi
@@ -502,31 +501,31 @@ class G0W0Calculator:
             self.context.print('Using full frequency integration')
 
     def print_parameters(self, kpts, b1, b2):
-        p = functools.partial(self.context.print, flush=False)
-        p()
-        p('Quasi particle states:')
+        isl = ['',
+               'Quasi particle states:']
         if kpts is None:
-            p('All k-points in IBZ')
+            isl.append('All k-points in IBZ')
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            p('k-points (IBZ indices): [' + kptstxt + ']')
-        p('Band range: ({0:d}, {1:d})'.format(b1, b2))
-        p()
-        p('Computational parameters:')
+            isl.append(f'k-points (IBZ indices): [{kptstxt}]')
+        isl.extend([f'Band range: ({b1:d}, {b2:d})',
+                    '',
+                    'Computational parameters:'])
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
+            isl.append(f'Plane wave cut-off: {self.chi0calc.ecut * Ha:g} eV')
         else:
             assert len(self.ecut_e) > 1
-            p('Extrapolating to infinite plane wave cut-off using points at:')
+            isl.append('Extrapolating to infinite plane wave cut-off using '
+                       'points at:')
             for ec in self.ecut_e:
-                p('  %.3f eV' % (ec * Ha))
-        p('Number of bands: {0:d}'.format(self.nbands))
-        p('Coulomb cutoff:', self.wcalc.coulomb.truncation)
-        p('Broadening: {0:g} eV'.format(self.eta * Ha))
-        p()
-        p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
-        p('Kernel:', self.wcalc.xckernel.xc)
-        self.context.print('')
+                isl.append(f'  {ec * Ha:.3f} eV')
+        isl.extend([f'Number of bands: {self.nbands:d}',
+                    f'Coulomb cutoff: {self.wcalc.coulomb.truncation}',
+                    f'Broadening: {self.eta * Ha:g} eV',
+                    '',
+                    f'fxc modes: {", ".join(sorted(self.fxc_modes))}',
+                    f'Kernel: {self.wcalc.xckernel.xc}'])
+        self.context.print('\n'.join(isl))
 
     def get_eps_and_occs(self):
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
