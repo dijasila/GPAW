@@ -538,8 +538,6 @@ class ASECalculator:
             builder.electrostatic_potential_desc,
             builder.atomdist,
             comm1, comm2)
-        nct_aX = builder.get_pseudo_core_densities()
-        tauct_aX = builder.get_pseudo_core_ked()
         density = state.density.redist(builder.grid,
                                        builder.interpolation_desc,
                                        builder.atomdist,

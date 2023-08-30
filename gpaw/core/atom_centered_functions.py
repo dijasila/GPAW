@@ -47,6 +47,9 @@ class AtomCenteredFunctions:
         return (f'{self.__class__.__name__}'
                 f'(functions={funcs}, atomdist={self.atomdist})')
 
+    def new(self, desc, atomdist):
+        raise NotImplementedError
+
     @property
     def layout(self):
         self._lazy_init()

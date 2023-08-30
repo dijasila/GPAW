@@ -301,7 +301,7 @@ class AtomArrays:
         return self._arrays.values()
 
     @overload
-    def gather(self, broadcast: Literal[False], copy: bool = False
+    def gather(self, broadcast: Literal[False] = False, copy: bool = False
                ) -> AtomArrays | None:
         ...
 

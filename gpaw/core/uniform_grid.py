@@ -784,3 +784,10 @@ class UGArray(DistributedArrays[UGDesc]):
             for grad in grad_v:
                 grad(psit_R, tmp_R)
                 add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+
+    def redist(self,
+               domain: UGDesc,
+               comm1: MPIComm, comm2: MPIComm) -> UGArray:
+        a = super().redist(domain, comm1, comm2)
+        assert isinstance(a, UGArray)
+        return a
