@@ -110,8 +110,8 @@ class SCFLoop:
                 state.density.update(state.ibzwfs,
                                      ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
-                state.potential, state.vHt_x, _ = pot_calc.calculate(
-                    state.density, state.ibzwfs, state.vHt_x)
+                state.potential, _ = pot_calc.calculate(
+                    state.density, state.ibzwfs, state.potential.vHt_x)
 
 
 class SCFContext:
@@ -127,7 +127,9 @@ class SCFContext:
         self.log = log
         self.niter = niter
         self.state = state
-        energy = np.array([sum(state.potential.energies.values()) +
+        energy = np.array([sum(e
+                               for name, e in state.potential.energies.items()
+                               if name != 'stress') +
                            sum(state.ibzwfs.energies.values())])
         comm.broadcast(energy, 0)
         self.ham = SimpleNamespace(e_total_extrapolated=energy[0],

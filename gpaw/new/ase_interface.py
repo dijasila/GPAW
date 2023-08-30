@@ -353,7 +353,8 @@ class ASECalculator:
 
     def get_electrostatic_potential(self):
         density = self.calculation.state.density
-        _, vHt_x, _ = self.calculation.pot_calc.calculate(density)
+        potential, _ = self.calculation.pot_calc.calculate(density)
+        vHt_x = potential.vHt_x
         if isinstance(vHt_x, UGArray):
             return vHt_x.to_pbc_grid().data * Ha
 
@@ -489,7 +490,7 @@ class ASECalculator:
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(
                 setup,
-                np.array([pack(D_ii) for D_ii in D_sii]))
+                np.array([pack(D_ii) for D_ii in D_sii.real]))
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,

@@ -1,10 +1,9 @@
+import numpy as np
 import pytest
-
 from functools import partial
 
-import numpy as np
-
 from ase.units import Ha
+from ase.data import chemical_symbols
 
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -13,7 +12,27 @@ from gpaw.response.paw import (calculate_pair_density_correction,
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
 from gpaw.response.localft import extract_micro_setup, add_LSDA_trans_fxc
 
+from gpaw.setup import create_setup
 from gpaw.sphere.rshe import calculate_reduced_rshe
+
+
+def pawdata():
+    for symbol in chemical_symbols:
+        try:
+            setup = create_setup(symbol)
+        except FileNotFoundError:
+            pass
+        else:
+            yield setup
+
+
+@pytest.mark.response
+@pytest.mark.serial
+@pytest.mark.parametrize('pawdata', pawdata())
+def test_paw_corrections(pawdata):
+    G_Gv = np.zeros((5, 3))
+    G_Gv[:, 0] = np.linspace(0, 20, 5)
+    calculate_pair_density_correction(G_Gv, pawdata=pawdata)
 
 
 @pytest.mark.response

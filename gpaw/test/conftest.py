@@ -144,11 +144,19 @@ def gpw_files(request):
     * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
       and ``al_pw_nosym``
 
+    * Bulk Al, LDA, 4x4x4 k-points, 4 converged bands: ``bse_al``
+
     * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
       2eV U on d-band: ``ag_pw``
 
     * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
       and ``gaas_pw_nosym``
+
+    * Bulk P4, LDA, 4x4 k-points, 40 bands converged: ``p4_pw``
+
+    * Distorted bulk Fe, revTPSS: ``fe_pw_distorted``
+
+    * Distorted bulk Si, TPSS: ``si_pw_distorted``
 
     Files always include wave functions.
     """
@@ -608,6 +616,28 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
+    @with_band_cutoff(gpw='p4_pw_wfs',
+                      band_cutoff=40)
+    def p4_pw(self, band_cutoff):
+        atoms = Atoms('P4', positions=[[0.03948480, -0.00027057, 7.49990646],
+                                       [0.86217564, -0.00026338, 9.60988536],
+                                       [2.35547782, 1.65277230, 9.60988532],
+                                       [3.17816857, 1.65277948, 7.49990643]],
+                      cell=[4.63138807675, 3.306178252090, 17.10979291],
+                      pbc=[True, True, False])
+        atoms.center(vacuum=1.5, axis=2)
+        nkpts = 2
+        atoms.calc = GPAW(mode=PW(250),
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations={'width': 0},
+                          nbands=band_cutoff + 10,
+                          convergence={'bands': band_cutoff},
+                          txt=self.path / 'p4_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
     def mos2_pw(self):
         return self._mos2()
 
@@ -917,6 +947,20 @@ class GPWFiles:
         return self._al(symmetry='off')
 
     @gpwfile
+    def bse_al(self):
+        a = 4.043
+        atoms = bulk('Al', 'fcc', a=a)
+        calc = GPAW(mode='pw',
+                    kpts={'size': (4, 4, 4), 'gamma': True},
+                    xc='LDA',
+                    nbands=4,
+                    convergence={'bands': 'all'})
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
     def ag_plusU_pw(self):
         xc = 'LDA'
         kpts = 2
@@ -1003,6 +1047,50 @@ class GPWFiles:
         atoms.get_potential_energy()
         calc.diagonalize_full_hamiltonian(nbands=80)
         return calc
+
+    @gpwfile
+    def fe_pw_distorted(self):
+        xc = 'revTPSS'
+        m = [2.9]
+        fe = bulk('Fe')
+        fe.set_initial_magnetic_moments(m)
+        k = 3
+        fe.calc = GPAW(mode=PW(800),
+                       h=0.15,
+                       occupations=FermiDirac(width=0.03),
+                       xc=xc,
+                       kpts=(k, k, k),
+                       convergence={'energy': 1e-8},
+                       parallel={'domain': 1, 'augment_grids': True},
+                       txt=self.path / 'fe_pw_distorted.txt')
+        fe.set_cell(np.dot(fe.cell,
+                           [[1.02, 0, 0.03],
+                            [0, 0.99, -0.02],
+                            [0.2, -0.01, 1.03]]),
+                    scale_atoms=True)
+        fe.get_potential_energy()
+        return fe.calc
+
+    @gpwfile
+    def si_pw_distorted(self):
+        xc = 'TPSS'
+        si = bulk('Si')
+        k = 3
+        si.calc = GPAW(mode=PW(250),
+                       mixer=Mixer(0.7, 5, 50.0),
+                       xc=xc,
+                       occupations=FermiDirac(0.01),
+                       kpts=(k, k, k),
+                       convergence={'energy': 1e-8},
+                       parallel={'domain': min(2, world.size)},
+                       txt=self.path / 'si_pw_distorted.txt')
+        si.set_cell(np.dot(si.cell,
+                           [[1.02, 0, 0.03],
+                            [0, 0.99, -0.02],
+                            [0.2, -0.01, 1.03]]),
+                    scale_atoms=True)
+        si.get_potential_energy()
+        return si.calc
 
 
 @pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))

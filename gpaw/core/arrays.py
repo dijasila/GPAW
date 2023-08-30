@@ -9,7 +9,7 @@ from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D, Literal, Self
+from gpaw.typing import Array1D, Literal, Self, ArrayND
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
@@ -198,6 +198,9 @@ class DistributedArrays(Generic[DomainType]):
                 if a_xX.data.dtype != data.dtype:
                     data = data.view(complex)
                 return self.desc.new(comm=None).from_data(data)
+
+    def scatter_from(self, data: ArrayND = None) -> None:
+        raise NotImplementedError
 
     def interpolate(self,
                     plan1: fftw.FFTPlans = None,
