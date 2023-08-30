@@ -1,5 +1,5 @@
+import pytest
 from ase import Atom
-
 from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
 from gpaw.test import equal
@@ -32,3 +32,4 @@ def test_Hubbard_U_Zn():
     equal(E[0], E[1], energy_tolerance)
     print("E_U=", E_U)
     equal(E_U[0], E_U[1], energy_tolerance)
+    assert E_U[0] - E[0] == pytest.approx(-0.167, abs=0.002)
