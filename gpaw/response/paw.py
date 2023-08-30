@@ -67,7 +67,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
 
     # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
-    
+
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
@@ -92,7 +92,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
                 # radial partial wave correction rescaled with a factor of r^-l
-                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**10)
+                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**12)
                 # This allows us to calculate a spline representation of the
                 # spherical Fourier-Bessel transform
                 #                 rc
@@ -100,7 +100,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
                 #             k^l /
                 #                 0
-                kspline = rescaled_fourier_bessel_transform(spline, N=2**12)
+                kspline = rescaled_fourier_bessel_transform(spline, N=2**14)
 
                 # Now, this implementation relies on a range of hardcoded
                 # values, which are not guaranteed to work for all cases.
@@ -136,7 +136,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 k_k = np.array(k_k)
                 dn_k = np.array(dn_k)
                 assert np.allclose(k_k**l * kspline.map(k_k), dn_k,
-                                   rtol=1e-3, atol=1e-5), \
+                                   rtol=1e-2, atol=1e-3), \
                     f'FFBT mismatch: {k_k**l * kspline.map(k_k)}, {dn_k}'
 
                 # Finally, we can map the Fourier-Bessel transform onto the

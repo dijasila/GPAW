@@ -1,4 +1,3 @@
-import functools
 import pickle
 import warnings
 from math import pi
@@ -17,7 +16,7 @@ from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
+from gpaw.response.pair import KPointPairFactory, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -278,10 +277,10 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc):
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-    n_mG = pair.calculate_pair_density(
+    n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
 
@@ -487,7 +486,7 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = \
-            self.chi0calc.pair.distribute_k_points_and_bands(
+            self.chi0calc.kptpair_factory.distribute_k_points_and_bands(
                 b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
@@ -502,31 +501,31 @@ class G0W0Calculator:
             self.context.print('Using full frequency integration')
 
     def print_parameters(self, kpts, b1, b2):
-        p = functools.partial(self.context.print, flush=False)
-        p()
-        p('Quasi particle states:')
+        isl = ['',
+               'Quasi particle states:']
         if kpts is None:
-            p('All k-points in IBZ')
+            isl.append('All k-points in IBZ')
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            p('k-points (IBZ indices): [' + kptstxt + ']')
-        p('Band range: ({0:d}, {1:d})'.format(b1, b2))
-        p()
-        p('Computational parameters:')
+            isl.append(f'k-points (IBZ indices): [{kptstxt}]')
+        isl.extend([f'Band range: ({b1:d}, {b2:d})',
+                    '',
+                    'Computational parameters:'])
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
+            isl.append(f'Plane wave cut-off: {self.chi0calc.ecut * Ha:g} eV')
         else:
             assert len(self.ecut_e) > 1
-            p('Extrapolating to infinite plane wave cut-off using points at:')
+            isl.append('Extrapolating to infinite plane wave cut-off using '
+                       'points at:')
             for ec in self.ecut_e:
-                p('  %.3f eV' % (ec * Ha))
-        p('Number of bands: {0:d}'.format(self.nbands))
-        p('Coulomb cutoff:', self.wcalc.coulomb.truncation)
-        p('Broadening: {0:g} eV'.format(self.eta * Ha))
-        p()
-        p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
-        p('Kernel:', self.wcalc.xckernel.xc)
-        self.context.print('')
+                isl.append(f'  {ec * Ha:.3f} eV')
+        isl.extend([f'Number of bands: {self.nbands:d}',
+                    f'Coulomb cutoff: {self.wcalc.coulomb.truncation}',
+                    f'Broadening: {self.eta * Ha:g} eV',
+                    '',
+                    f'fxc modes: {", ".join(sorted(self.fxc_modes))}',
+                    f'Kernel: {self.wcalc.xckernel.xc}'])
+        self.context.print('\n'.join(isl))
 
     def get_eps_and_occs(self):
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
@@ -657,10 +656,8 @@ class G0W0Calculator:
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
-            n_mG = get_nmG(kpt1, kpt2,
-                           mypawcorr,
-                           n, qpd, I_G,
-                           self.chi0calc.pair)
+            n_mG = get_nmG(kpt1, kpt2, mypawcorr,
+                           n, qpd, I_G, self.chi0calc.pair_calc)
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()
@@ -1066,8 +1063,7 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        pair = PairDensityCalculator(gs, context,
-                                     nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1098,7 +1094,7 @@ class G0W0(G0W0Calculator):
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
-            wd=wd, pair=pair,
+            wd=wd, kptpair_factory=kptpair_factory,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
