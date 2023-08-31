@@ -136,11 +136,12 @@ class BSEBackend:
         """
         if hasattr(bands, '__iter__'):
             if self.spins == 2:
-                assert len(bands) == 2\
-                    and len(bands[0]) == len(bands[1]), \
-                    'For a spin-polarized calculation, the same number \
-                    of bands must be specified for each spin! \
-                    valence and conduction bands must be lists of shape (2,n)'
+                if len(bands) != 2 or (len(bands[0]) != len(bands[1])):
+                    raise ValueError('For a spin-polarized calculation, '
+                                     'the same number of bands must be '
+                                     'specified for each spin! valence and '
+                                     'conduction bands must be lists of shape '
+                                     '(2,n)')
 
             bands_sn = np.atleast_2d(bands)
             return bands_sn
@@ -148,15 +149,18 @@ class BSEBackend:
         # if we get here, bands is not iterable
         # check that the specified input is valid
 
-        assert self.spins != 2, 'For a spin-polarized calculation, '\
-            'bands must be specified as lists of shape (2,n)'
+        if self.spins == 2:
+            raise NotImplementedError('For a spin-polarized calculation, '
+                                      'bands must be specified as lists '
+                                      'of shape (2,n)')
+
         n_fully_occupied_bands, n_partially_occupied_bands = \
             self.gs.count_occupied_bands()
 
-        assert n_fully_occupied_bands == n_partially_occupied_bands, \
-            'Warning: system is metallic! Please specify band indices manually'
-
-        assert int(bands) == bands, 'Number of bands must be an integer!'
+        if n_fully_occupied_bands != n_partially_occupied_bands:
+            raise NotImplementedError('Automatic band generation is currently '
+                                      'not implemented for metallic systems. '
+                                      'Please specify band indices manually.')
 
         if band_type == 'valence':
             bands_sn = range(n_fully_occupied_bands - bands,

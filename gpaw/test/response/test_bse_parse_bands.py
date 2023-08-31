@@ -25,9 +25,8 @@ def test_response_bse_parse_bands(in_tmp_dir, gpw_files):
     assert np.array_equal(correct_valence_sn, bse.val_sn)
     assert np.array_equal(correct_conduction_sn, bse.con_sn)
 
-    with pytest.raises(AssertionError,
-                       match='Warning: system is metallic! '
-                       'Please specify band indices manually'):
+    with pytest.raises(NotImplementedError,
+                       match='Automatic band generation is currently*'):
         bse2 = BSE(gpw_files['bse_al'],
                    valence_bands=range(4),
                    conduction_bands=5,
@@ -36,7 +35,7 @@ def test_response_bse_parse_bands(in_tmp_dir, gpw_files):
                    )
         bse2  # does nothing; this is just here to avoid a linting error
 
-    with pytest.raises(AssertionError,
+    with pytest.raises(NotImplementedError,
                        match=re.escape('For a spin-polarized calculation, '
                                        'bands must be specified as lists '
                                        'of shape (2,n)')):
