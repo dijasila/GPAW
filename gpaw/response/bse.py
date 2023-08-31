@@ -76,11 +76,9 @@ class BSEBackend:
                                    ' calculations. Performing scalar ' +
                                    'calculation')
 
-        val_sn = self.parse_bands(valence_bands, band_type='valence')
-        con_sn = self.parse_bands(conduction_bands, band_type='conduction')
-
-        self.val_sn = val_sn
-        self.con_sn = con_sn
+        self.val_sn = self.parse_bands(valence_bands, band_type='valence')
+        self.con_sn = self.parse_bands(conduction_bands,
+                                       band_type='conduction')
 
         self.td = True
         for n in self.val_sn[0]:
@@ -167,7 +165,7 @@ class BSEBackend:
             bands_sn = range(n_fully_occupied_bands,
                              n_fully_occupied_bands + bands)
         else:
-            assert False, 'Invalid band type'
+            raise ValueError(f'Invalid band type: {band_type}')
 
         bands_sn = np.atleast_2d(bands_sn)
         return bands_sn
