@@ -640,7 +640,7 @@ class GPWFiles:
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations={'width': 0},
                           nbands=band_cutoff + 10,
-                          convergence={'bands': band_cutoff},
+                          convergence={'bands': band_cutoff + 1},
                           txt=self.path / f'p4_pw{tag}.txt')
         atoms.get_potential_energy()
         return atoms.calc
