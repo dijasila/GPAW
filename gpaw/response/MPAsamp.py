@@ -36,7 +36,7 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
     # complex(SP) :: ws
     # real(SP), parameter :: log2=0.693147180560_SP
   
-    if(npol == 1):
+    if npol == 1:
         w_grid = np.array(w0, dtype=complex)  # (/w1+epsilon(1._SP), w2/)
     else:
         """match ps:
@@ -45,11 +45,11 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
             case '2l':
             case _:
                 action-default"""
-        if(ps == '1l'):
-            if(alpha == 0):
+        if ps == '1l':
+            if alpha == 0:
                 w_grid = np.linspace(w0[0], w0[1], 2 * npol)
-        elif(ps == '2l'):
-            if(alpha == 0):
+        elif ps == '2l':
+            if alpha == 0:
                 w_grid = np.concatenate((np.linspace(complex(np.real(w0[0]),
                                          d[1]), complex(np.real(w0[1]), d[1]),
                                         npol), np.linspace(w0[0], w0[1],
@@ -66,7 +66,7 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
                 lp = int(np.log(npol - 1) / np.log(2))
                 r = int((npol - 1) % (2**lp))
                 # print(r)
-                if(r > 0):
+                if r > 0:
                     for i in range(1, 2 * r):
                         w_grid[npol + i] = w0[0] + ws * (i / 2.**(lp + 1)
                                                          )**alpha
@@ -82,7 +82,8 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
                         w_grid[npol + i] = w0[0] + ws * ((i - 1 - r) / 2.**(lp)
                                                          )**alpha
                         w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
-
+        else:
+            raise ValueError("Only '1l' or '2l' values are allowed")
     return w_grid
   
   
