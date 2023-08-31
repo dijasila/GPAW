@@ -723,9 +723,10 @@ class UGArray(DistributedArrays[UGDesc]):
 
         self.data *= 1.0 / len(rotation_scc)
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
         rng = np.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)

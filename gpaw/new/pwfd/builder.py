@@ -89,11 +89,15 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             # Convert to PW-coefs in PW-mode:
             psit_nX = self.convert_wave_functions_from_uniform_grid(
                 lcaowfs.C_nM, basis, kpt_c, q)
-            eig_n = lcaowfs._eig_n
-            nao = lcaowfs.C_nM.shape[1]
-            if nao < self.nbands:
-                psit_nX[nao:].randomize()
-                eig_n[nao:] = np.inf
+
+            mylcaonbands, nao = lcaowfs.C_nM.dist.shape
+            mynbands = len(psit_nX.data)
+            eig_n = np.empty(self.nbands)
+            eig_n[:mylcaonbands] = lcaowfs._eig_n[lcaowfs.n1:lcaowfs.n2]
+            if mylcaonbands < mynbands:
+                psit_nX[mylcaonbands:].randomize(
+                    seed=self.communicators['w'].rank)
+                eig_n[mylcaonbands:] = np.inf
 
             wfs = PWFDWaveFunctions(
                 psit_nX=psit_nX,

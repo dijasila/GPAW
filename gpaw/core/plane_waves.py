@@ -616,9 +616,10 @@ class PWArray(DistributedArrays[PWDesc]):
     def to_pbc_grid(self):
         return self
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
         rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
