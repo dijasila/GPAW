@@ -425,8 +425,6 @@ class PPACalculator(WBaseCalculator):
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
 
-        print('ppa \n W:', W_GG[0, 0], '\n om:', omegat_GG[0, 0])
-        print('ppa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return PPAHWModel(W_GG, omegat_GG, self.eta, factor)
 
 
@@ -472,8 +470,6 @@ class MPACalculator(WBaseCalculator):
                 omegat_nGG[:, i, j] = omegat_n
                 R_nGG[:, i, j] = R_n
 
-                # print('fails',PPcond_rate)
-
         R_nGG = chi0.blockdist.distribute_as(R_nGG, self.mpa['npoles'], 'wGG')
         omegat_nGG = chi0.blockdist.distribute_as(omegat_nGG,
                                                   self.mpa['npoles'], 'wGG')
@@ -496,7 +492,4 @@ class MPACalculator(WBaseCalculator):
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-        print('mpa \n W:', W_nGG[:, 0, 0], '\n om:', omegat_nGG[:, 0, 0])
-
-        print('mpa in \n, omega:', chi0.wd.omega_w, 'einv:', einv_wGG[:, 0, 0])
         return MPAHWModel(W_nGG, omegat_nGG, self.eta, factor)
