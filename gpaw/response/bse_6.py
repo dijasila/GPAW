@@ -523,7 +523,7 @@ class BSEBackend:
         return
 
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True):
+                       readfile=None, optical=False):
         """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
@@ -621,7 +621,8 @@ class BSEBackend:
                                       self.w_T * Hartree, C_T)
         np.save('w_T_original.npy',self.w_T*Hartree)
         np.save('C_T_original.npy', C_T)
-        return vchi_w
+        return vchi_w #, self.get_bse_matrix(q_c=q_c, direction=direction, readfile=readfile, optical=optical)
+
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 q_c=[0.0, 0.0, 0.0], direction=0,

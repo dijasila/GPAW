@@ -264,7 +264,8 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
 
-        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        rhoG0_S1 = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        self.rhoG0_S = np.reshape(rhoex_KsmnG, (len(rhoG0_S1),-1))
 
         if hasattr(self, 'H_sS'):
             return
@@ -555,12 +556,14 @@ class BSEBackend:
                             readfile=readfile, optical=optical)
 
         w_T = self.w_T
-        rhoG0_S = self.rhoG0_S
+        #rhoG0_S = self.rhoG0_S
+        rho_GS = self.rhoG0_S
         df_S = self.df_S
+        nG = rho_GS.shape[-1]
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
-        vchi_w = np.zeros(len(w_w), dtype=complex)
+        vchi_w = np.zeros((len(w_w),nG, nG), dtype=complex)
 
         if not self.td:
             C_T = np.zeros(self.nS - len(self.excludef_S), complex)
@@ -572,29 +575,36 @@ class BSEBackend:
                 C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
             world.broadcast(C_T, 0)
         else:
-            A_t = np.dot(rhoG0_S, self.v_St)
-            B_t = np.dot(rhoG0_S * df_S, self.v_St)
+            A_Gt = rho_GS.T @ self.v_St
+            B_Gt = (rho_GS.T * df_S[np.newaxis]) @ self.v_St
             if world.size == 1:
-                C_T = B_t.conj() * A_t
+                C_TGG = B_Gt.T.conj()[..., np.newaxis] * A_Gt.T[:, np.newaxis]
             else:
                 Nv = self.nv * (self.spinors + 1)
                 Nc = self.nc * (self.spinors + 1)
                 Ns = self.spins
                 nS = self.nS
                 ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+                assert self.kd.nbzkpts % world.size == 0
                 grid = BlacsGrid(world, world.size, 1)
-                desc = grid.new_descriptor(nS, 1, ns, 1)
-                C_t = desc.empty(dtype=complex)
-                C_t[:, 0] = B_t.conj() * A_t
-                C_T = desc.collect_on_master(C_t)[:, 0]
-                if world.rank != 0:
-                    C_T = np.empty(nS, dtype=complex)
-                world.broadcast(C_T, 0)
+
+                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                C_tGG = desc.empty(dtype=complex)
+                np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
+                C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
+                #C_TGG = np.transpose(C_GGT, (2,0,1))
+                if grid.comm.rank != 0:
+                    return
+
 
         eta /= Hartree
-        for iw, w in enumerate(w_w / Hartree):
-            tmp_T = 1. / (w - w_T + 1j * eta)
-            vchi_w[iw] += np.dot(tmp_T, C_T)
+        
+        
+        tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta)     
+        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG)
+
+
+
         vchi_w *= 4 * np.pi / self.gs.volume
 
         if not np.allclose(self.q_c, 0.0):
@@ -606,7 +616,7 @@ class BSEBackend:
         """Check f-sum rule."""
         nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
-        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        wchi_w = (w_w[1:] * vchi_w[:,0,0][1:] + w_w[:-1] * vchi_w[:,0,0][:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         self.context.print('', flush=False)
         self.context.print('Checking f-sum rule:', flush=False)
@@ -618,10 +628,9 @@ class BSEBackend:
             filename = write_eig
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
-                                      self.w_T * Hartree, C_T)
-        np.save('w_T_original.npy',self.w_T*Hartree)
-        np.save('C_T_original.npy', C_T)
-        return vchi_w
+                                      self.w_T * Hartree, C_TGG)
+
+        return np.swapaxes(vchi_w, -1, -2), w_w, w_T, C_TGG, self.gs.volume
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 q_c=[0.0, 0.0, 0.0], direction=0,

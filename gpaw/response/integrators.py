@@ -160,6 +160,7 @@ class PointIntegrator(Integrator):
                                           eta=eta)
             else:
                 self.update(n_MG, deps_M, x, out_wxx, eta=eta)
+             
 
         # Sum over
         # Can this really be valid, if the original input out_wxx is nonzero?
@@ -184,8 +185,10 @@ class PointIntegrator(Integrator):
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG, eta=None):
         """Update chi."""
-
+       
         deps_m += self.eshift * np.sign(deps_m)
+        
+             
         deps1_m = deps_m + 1j * eta
         deps2_m = deps_m - 1j * eta
 
@@ -200,6 +203,8 @@ class PointIntegrator(Integrator):
 
             mmm(1.0, np.ascontiguousarray(nx_mG.T), 'N', n_mG.conj(), 'N',
                 1.0, chi0_GG)
+
+      
 
     @timer('CHI_0 hermetian update')
     def update_hermitian(self, n_mG, deps_m, wd, chi0_wGG):
@@ -293,8 +298,25 @@ class PointIntegrator(Integrator):
     @timer('CHI_0 optical limit update')
     def update_optical_limit(self, n_mG, deps_m, wd, chi0_wxvG, eta=None):
         """Optical limit update of chi."""
+        deps_m += self.eshift * np.sign(deps_m)
+
         deps1_m = deps_m + 1j * eta
         deps2_m = deps_m - 1j * eta
+     #   with open("depsm_rpa.npy", "w") as f:
+     #       print(deps_m, file=f)
+
+    #    with open("nmG_rpa.npy", "w") as f:
+    #        print(n_mG, file=f)
+
+   #     with open("eta_rpa.npy", "w") as f:
+   #         print(np.array([eta]), file=f)
+
+  #      with open("omega_rpa.npy", "w") as f:
+  #          print(wd.omega_w, file=f)
+
+        np.save('nmG_rpa_save.npy', n_mG)
+        np.save('depsm_rpa_save.npy', deps_m)
+        np.save('omega_save.npy', wd.omega_w)
 
         for w, omega in enumerate(wd.omega_w):
             x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))

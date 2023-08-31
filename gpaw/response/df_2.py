@@ -91,7 +91,7 @@ class DielectricFunctionCalculator:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                rshelmax=-1, rshewmin=None, get_vG=False):
+                rshelmax=-1, rshewmin=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
@@ -165,10 +165,8 @@ class DielectricFunctionCalculator:
             chi_wGG = np.array(chi_wGG)
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
-        if get_vG==False:
-            return qpd, chi0_wGG, np.array(chi_wGG)
-        else:
-            return qpd, chi0_wGG, np.array(chi_wGG), sqrtV_G
+
+        return qpd, chi0_wGG,chi_wGG # np.array(chi_wGG)
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
@@ -413,15 +411,15 @@ class DielectricFunctionCalculator:
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
-        if not self.coulomb.truncation:
-            """Standard expression for the polarizability"""
-            df0_w, df_w = self.get_dielectric_function(xc=xc,
-                                                       q_c=q_c,
-                                                       filename=None,
-                                                       direction=direction)
-            alpha_w = V * (df_w - 1.0) / (4 * pi)
-            alpha0_w = V * (df0_w - 1.0) / (4 * pi)
-        else:
+       # if not self.coulomb.truncation:
+       #     """Standard expression for the polarizability"""
+       #     df0_w, df_w = self.get_dielectric_function(xc=xc,
+       #                                                q_c=q_c,
+       #                                                filename=None,
+       #                                                direction=direction)
+       #     alpha_w = V * (df_w - 1.0) / (4 * pi)
+       #     alpha0_w = V * (df0_w - 1.0) / (4 * pi)
+       # else:
             # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
             # not make sense to apply it here. Instead one should define the
             # polarizability by
@@ -434,16 +432,16 @@ class DielectricFunctionCalculator:
             # the standard one. In a 2D system \chi should be calculated with a
             # truncated Coulomb potential and eps_M = 1.0
 
-            self.context.print('Using truncated Coulomb interaction')
+        self.context.print('Using truncated Coulomb interaction')
 
-            qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
+        qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
                                                   q_c=q_c,
                                                   direction=direction)
-            alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
-            alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
+        alpha_w = -V * (chi_wGG) / (4 * pi)
+        alpha0_w = -V * (chi0_wGG) / (4 * pi)
 
-            alpha_w = self.collect(alpha_w)
-            alpha0_w = self.collect(alpha0_w)
+        alpha_w = self.collect(alpha_w)
+        alpha0_w = self.collect(alpha0_w)
 
         # Convert to external units
         hypervol = Bohr**(sum(~pbc_c))

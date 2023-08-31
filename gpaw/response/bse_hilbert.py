@@ -590,11 +590,13 @@ class BSEBackend:
                 if world.rank != 0:
                     C_T = np.empty(nS, dtype=complex)
                 world.broadcast(C_T, 0)
-
+                                                
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
+            n_tmp_Tw = - 1. / (w  + w_T + 1j * eta)
+            n_C_T  = C_T.conj()
             tmp_T = 1. / (w - w_T + 1j * eta)
-            vchi_w[iw] += np.dot(tmp_T, C_T)
+            vchi_w[iw] += np.dot(tmp_T, C_T) + np.dot(n_tmp_Tw, n_C_T)
         vchi_w *= 4 * np.pi / self.gs.volume
 
         if not np.allclose(self.q_c, 0.0):

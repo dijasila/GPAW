@@ -282,6 +282,8 @@ class Chi0Calculator:
         else:
             # Use the preallocated array for direct updates
             out_WgG = chi0.chi0_WgG
+
+        
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(get_matrix_element,
@@ -340,6 +342,7 @@ class Chi0Calculator:
                              x=self.wd,  # Frequency Descriptor
                              out_wxx=tmp_chi0_WxvP,  # Output array
                              **extraargs)
+
         if self.hilbert:
             with self.context.timer('Hilbert transform'):
                 ht = HilbertTransform(np.array(self.wd.omega_w), self.eta,
@@ -367,7 +370,7 @@ class Chi0Calculator:
             context=self.context)
         self.update_integrator_kwargs(kwargs,
                                       block_distributed=block_distributed)
-
+        
         integrator = cls(**kwargs)
 
         return integrator
@@ -623,6 +626,7 @@ class Chi0Calculator:
         kpt2 = gs.kpt_qs[ik2][s]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
+      
 
         if filter:
             fermi_level = self.gs.fermi_level
