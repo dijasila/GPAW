@@ -107,7 +107,8 @@ def test_stark_shift():
     # Test 1
 
     if test1:
-        c = GPAW(h=h,
+        c = GPAW(mode='fd',
+                 h=h,
                  nbands=nbands + 10,
                  spinpol=True,
                  hund=True,
@@ -149,6 +150,7 @@ def test_stark_shift():
     ###
 
     c = GPAW(
+        mode='fd',
         h=h,
         nbands=2,
         spinpol=True,

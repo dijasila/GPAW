@@ -15,9 +15,10 @@ def test_tddft_fxc_linearize(in_tmp_dir):
     atoms.center(vacuum=4.0)
 
     # Ground-state calculation
-    calc = GPAW(nbands=7, h=0.4,
+    calc = GPAW(mode='fd', nbands=7, h=0.4,
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

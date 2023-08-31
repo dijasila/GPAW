@@ -40,6 +40,8 @@ calculate the matrix elements. The results are saved in a file cache in a
 basis of LCAO orbitals and supercell indices.
 
 
+If you use the planewave mode for the displacement calculation, please see the note in :ref:`elph`.
+
 Phonons
 =======
 

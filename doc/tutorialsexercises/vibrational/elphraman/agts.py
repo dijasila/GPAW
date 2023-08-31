@@ -14,15 +14,12 @@ def workflow():
         ph = run(script='phonons.py', cores=1)
     with scf:
         # Step 3b: Extract dipole moments
-        dip = run(script='dipolemoment.py', cores=1)
+        run(script='dipolemoment.py', cores=1)
     with disp, sc, scf, ph:
-        run(script='gmatrix.py', cores=1)
-    with disp, sc, scf, dip, ph:
-        ra = run(script='raman.py', cores=1)
-        with ra:
-            plt = run(script='plot_spectrum.py', cores=1)
-            with plt:
-                run(function=check)
+        with run(script='gmatrix.py', cores=1):
+            with run(script='raman.py', cores=1):
+                with run(script='plot_spectrum.py', cores=1):
+                    run(function=check)
 
 
 def check():

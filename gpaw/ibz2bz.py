@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 import numpy as np
 from gpaw.utilities.blas import gemmdot
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.projections import Projections
 
 
 class IBZ2BZMaps(Sequence):
@@ -116,7 +118,7 @@ class IBZ2BZMap:
         if self.time_reversal:
             utout_R = utout_R.conj()
 
-        assert utout_R is not ut_R,\
+        assert utout_R is not ut_R, \
             "We don't want the output array to point back at the input array"
 
         return utout_R
@@ -160,19 +162,22 @@ class IBZ2BZMap:
         the projections at atom b for k-point ik.
         """
         mapped_projections = projections.new()
-        for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
-            # Map projections
-            Pin_ni = projections[b]
-            Pout_ni = Pin_ni @ U_ii
-            if self.time_reversal:
-                Pout_ni = np.conj(Pout_ni)
+        if mapped_projections.atom_partition.comm.rank == 0:
+            for a, (b, U_ii) in enumerate(zip(self.b_a, self.U_aii)):
+                # Map projections
+                Pin_ni = projections[b]
+                Pout_ni = Pin_ni @ U_ii
+                if self.time_reversal:
+                    Pout_ni = np.conj(Pout_ni)
 
-            # Store output projections
-            I1, I2 = mapped_projections.map[a]
-            mapped_projections.array[..., I1:I2] = Pout_ni
+                # Store output projections
+                I1, I2 = mapped_projections.map[a]
+                mapped_projections.array[..., I1:I2] = Pout_ni
+        else:
+            assert len(mapped_projections.indices) == 0
 
         return mapped_projections
-        
+
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections."""
@@ -194,3 +199,70 @@ class IBZ2BZMap:
             U_aii.append(U_ii)
 
         return U_aii
+
+
+def get_overlap(bands,
+                gd: GridDescriptor,
+                ut1_nR, ut2_nR,
+                proj1: Projections,
+                proj2: Projections,
+                dO_aii):
+    """Computes the overlap between all-electron wave functions.
+
+    Similar to gpaw.berryphase.get_overlap but adapted to work with projector
+    objects rather than arrays.
+    Eventually berryphase.get_overlap should be replaced by this function. XXX
+
+    Parameters
+    ----------
+    bands:  list of integers
+        Band indices to calculate overlap for
+    dO_aii: dict
+        Overlap coefficients for the partial waves in the PAW setups.
+        Can be extracted via get_overlap_coefficients().
+    """
+    return _get_overlap(bands, gd.dv, ut1_nR, ut2_nR, proj1, proj2, dO_aii)
+
+
+def _get_overlap(bands, dv, ut1_nR, ut2_nR, proj1, proj2, dO_aii):
+    nbands = len(bands)
+    ut1_nR = np.reshape(ut1_nR[bands], (nbands, -1))
+    ut2_nR = np.reshape(ut2_nR[bands], (nbands, -1))
+    M_nn = (ut1_nR.conj() @ ut2_nR.T) * dv
+
+    for a in proj1.map:
+        dO_ii = dO_aii[a]
+        if proj1.collinear:
+            P1_ni = proj1[a][bands]
+            P2_ni = proj2[a][bands]
+            M_nn += P1_ni.conj() @ (dO_ii) @ (P2_ni.T)
+        else:
+            # We have an additional spinor index s to sum over
+            P1_nsi = proj1[a][bands]
+            P2_nsi = proj2[a][bands]
+            assert P1_nsi.shape[1] == 2
+            for s in range(2):
+                M_nn += P1_nsi[:, s].conj() @ (dO_ii) @ (P2_nsi[:, s].T)
+
+    return M_nn
+
+
+def get_overlap_coefficients(wfs):
+    dO_aii = {}
+    for a in wfs.kpt_u[0].projections.map:
+        dO_aii[a] = wfs.setups[a].dO_ii
+    return dO_aii
+
+
+def get_phase_shifted_overlap_coefficients(dO_aii, spos_ac, K_c):
+    """Apply phase shift to overlap coefficients.
+
+    Applies a Bloch phase factor e^(iK.R_a) to the overlap coefficients dO_aii
+    at each (scaled) atomic position spos_ac (R_a) for the input (scaled) wave
+    vector K_c.
+    """
+    new_dO_aii = {}
+    for a, dO_ii in dO_aii.items():
+        phase_factor = np.exp(2j * np.pi * K_c @ spos_ac[a])
+        new_dO_aii[a] = phase_factor * dO_ii
+    return new_dO_aii

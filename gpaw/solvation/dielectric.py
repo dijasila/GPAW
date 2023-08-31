@@ -70,8 +70,9 @@ class Dielectric(NeedsGD):
         raise NotImplementedError
 
     def __str__(self):
-        s = 'Dielectric: %s\n' % (self.__class__, )
-        s += '  epsilon_inf: %s\n' % (self._epsinf, )
+        s = 'Dielectric:\n'
+        s += f'  Type: {self.__class__.__name__}\n'
+        s += f'  Solvent dielectric constant: {self._epsinf}'
         return s
 
     def write(self, writer):
@@ -84,6 +85,7 @@ class LinearDielectric(Dielectric):
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
+#    name='LinearDielectric'
     def allocate(self):
         Dielectric.allocate(self)
         self.del_eps_del_g_g = self._epsinf - 1.  # frees array
@@ -102,7 +104,7 @@ class CMDielectric(Dielectric):
 
     Untested, use at own risk!
     """
-
+#    name='Clausius-Mossotti like dielectric'
     def update_eps_only(self):
         ei = self._epsinf
         t = 1. - self.cavity.g_g

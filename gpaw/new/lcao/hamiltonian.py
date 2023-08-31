@@ -4,9 +4,9 @@ import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.external import ExternalPotential
 from gpaw.lfc import BasisFunctions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
-from gpaw.new.fd.pot_calc import UniformGridPotentialCalculator
+from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.typing import Array2D, Array3D
@@ -33,8 +33,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                          wfs: LCAOWaveFunctions) -> Matrix:
         if self.include_kinetic:
             return self._calculate_matrix_with_kinetic(wfs)
-        else:
-            return self._calculate_matrix_without_kinetic(wfs)
+        return self._calculate_matrix_without_kinetic(wfs)
 
     def _calculate_potential_matrix(self,
                                     wfs: LCAOWaveFunctions,
@@ -43,7 +42,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
         _, M = data.shape
         if wfs.dtype == complex:
             data = data.astype(complex)
-        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm,))
+        V_MM = Matrix(M, M, data=data, dist=(wfs.band_comm, -1, 1))
         if wfs.dtype == complex:
             phase_x = np.exp(-2j * np.pi *
                              self.basis.sdisp_xc[1:] @ wfs.kpt_c)
@@ -74,7 +73,7 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
     def _calculate_matrix_with_kinetic(self,
                                        wfs: LCAOWaveFunctions) -> Matrix:
         H_MM = self._calculate_matrix_without_kinetic(wfs)
-        H_MM.data += wfs.T_MM
+        H_MM.data += wfs.T_MM.data
 
         wfs.domain_comm.sum(H_MM.data, 0)
 
@@ -83,7 +82,6 @@ class CollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                 H_MM.add_hermitian_conjugate(scale=0.5)
             else:
                 H_MM.tril2full()
-
         return H_MM
 
 
@@ -95,8 +93,8 @@ class NonCollinearHamiltonianMatrixCalculator(HamiltonianMatrixCalculator):
                          wfs: LCAOWaveFunctions) -> Matrix:
         V_sMM = [
             self.matcalc._calculate_matrix_without_kinetic(wfs, V_xMM, dH_aii)
-            for V_xMM, dH_aii in zip(self.matcalc.V_sxMM,
-                                     self.matcalc.dH_saii)]
+            for V_xMM, dH_aii in zips(self.matcalc.V_sxMM,
+                                      self.matcalc.dH_saii)]
 
         V_sMM[0] += wfs.T_MM
 
@@ -148,7 +146,7 @@ class LCAOHamiltonian(Hamiltonian):
     def create_kick_matrix_calculator(self,
                                       state: DFTState,
                                       ext: ExternalPotential,
-                                      pot_calc: UniformGridPotentialCalculator
+                                      pot_calc: FDPotentialCalculator
                                       ) -> HamiltonianMatrixCalculator:
         from gpaw.utilities import unpack
         vext_r = pot_calc.vbar_r.new()

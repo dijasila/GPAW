@@ -11,7 +11,7 @@ def test_generic_asym_box(in_tmp_dir):
     s = Cluster(Atoms('He'))
     s.minimal_box(3, h=h)
 
-    c = GPAW(charge=1, txt='He_plus.txt',
+    c = GPAW(mode='fd', charge=1, txt='He_plus.txt',
              poissonsolver=PoissonSolver(use_charge_center=True),
              convergence={     # run fast
                  'energy': 0.001,

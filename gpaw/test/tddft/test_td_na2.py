@@ -20,7 +20,8 @@ def test_tddft_td_na2(in_tmp_dir):
     # Larger box
     atoms.center(vacuum=6.0)
     # Larger grid spacing, LDA is ok
-    gs_calc = GPAW(nbands=1, h=0.35, xc='LDA', setups={'Na': '1'})
+    gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA', setups={'Na': '1'},
+                   symmetry={'point_group': False})
     atoms.calc = gs_calc
     atoms.get_potential_energy()
     gs_calc.write('na2_gs.gpw', 'all')
@@ -76,3 +77,28 @@ def test_tddft_td_na2(in_tmp_dir):
     td_pmlabs.set_absorbing_boundary(pml_abc)
     DipoleMomentWriter(td_pmlabs, 'na2_dmz6.dat')
     td_pmlabs.propagate(time_step, iters)
+
+
+@pytest.mark.later
+def test_tddft_fail_with_symmetry(in_tmp_dir):
+    """Sodium dimer, Na2."""
+    d = 1.5
+    atoms = Atoms(symbols='Na2',
+                  positions=[(0, 0, d),
+                             (0, 0, -d)],
+                  pbc=False)
+
+    # Calculate ground state for TDDFT
+
+    # Larger box
+    atoms.center(vacuum=6.0)
+    # Larger grid spacing, LDA is ok
+    gs_calc = GPAW(nbands=1, mode='fd', h=0.35, xc='LDA', setups={'Na': '1'})
+    atoms.calc = gs_calc
+    atoms.get_potential_energy()
+    gs_calc.write('na2_gs.gpw', 'all')
+
+    # Time-propagation calculation
+    # should not be allowed with symmetries
+    with pytest.raises(ValueError):
+        TDDFT('na2_gs.gpw')

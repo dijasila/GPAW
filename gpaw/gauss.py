@@ -38,7 +38,7 @@ def I1(R, ap1, b, alpha, beta, m=0):
             return I1(-R, b, ap1, beta, alpha, m)
         else:
             f = 2 * np.sqrt(np.pi**5 / (alpha + beta)) / (alpha * beta)
-            if np.sometrue(R):
+            if R.any():
                 T = alpha * beta / (alpha + beta) * np.dot(R, R)
                 f1 = f * erf(T**0.5) * (np.pi / T)**0.5
                 if m == 0:

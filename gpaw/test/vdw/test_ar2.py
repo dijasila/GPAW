@@ -17,7 +17,7 @@ def test_vdw_ar2(in_tmp_dir):
         L = 3.0 + 2 * 4.0
         dimer = Atoms('Ar2', [(0, 0, 0), (x, x, x)], cell=(L, L, L))
         dimer.center()
-        calc = GPAW(h=0.2, xc=dict(name='revPBE', stencil=1),
+        calc = GPAW(mode='fd', h=0.2, xc=dict(name='revPBE', stencil=1),
                     mixer=Mixer(0.8, 7, 50.0),
                     eigensolver=Davidson(5))
         dimer.calc = calc

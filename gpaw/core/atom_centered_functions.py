@@ -9,7 +9,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.spline import Spline
 from gpaw.typing import ArrayLike2D, Array1D
 if TYPE_CHECKING:
-    from gpaw.core.uniform_grid import UniformGridFunctions
+    from gpaw.core.uniform_grid import UGArray
 
 
 def to_spline(l: int,
@@ -65,7 +65,8 @@ class AtomCenteredFunctions:
     def move(self, fracpos_ac, atomdist):
         """Move atoms to new positions."""
         self.fracpos_ac = np.array(fracpos_ac)
-        self._lfc.set_positions(fracpos_ac, atomdist)
+        if self._lfc is not None:
+            self._lfc.set_positions(fracpos_ac, atomdist)
 
     def add_to(self, functions, coefs=1.0):
         """Add atom-centered functions multiplied by *coefs* to *functions*."""
@@ -91,17 +92,18 @@ class AtomCenteredFunctions:
         """
         self._lazy_init()
         if out is None:
-            out = self.layout.empty((3,) + functions.dims, functions.comm)
-        coef_axiv = {a: self.xp.moveaxis(array_vxi, 0, -1)
-                     for a, array_vxi in out._arrays.items()}
+            out = self.layout.empty(functions.dims + (3,), functions.comm)
+        coef_axiv = {a: self.xp.moveaxis(array_xvi, -2, -1)
+                     for a, array_xvi in out._arrays.items()}
         self._lfc.derivative(functions.data, coef_axiv, q=0)
         return out
 
-    def stress_tensor_contribution(self, a, c=1.0):
+    def stress_contribution(self, a, c=1.0):
+        self._lazy_init()
         return self._lfc.stress_tensor_contribution(a.data, c)
 
 
-class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
+class UGAtomCenteredFunctions(AtomCenteredFunctions):
     def __init__(self,
                  functions,
                  fracpos_ac,
@@ -128,7 +130,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                         dtype=self.grid.dtype,
                         integral=self.integral,
                         forces=True,
-                        cut=self.cut)
+                        cut=self.cut,
+                        xp=self.xp)
         self._lfc.set_positions(self.fracpos_ac)
 
         if self._atomdist is None:
@@ -146,8 +149,8 @@ class UniformGridAtomCenteredFunctions(AtomCenteredFunctions):
                                         self.grid.dtype)
 
     def to_uniform_grid(self,
-                        out: UniformGridFunctions,
-                        scale: float = 1.0) -> UniformGridFunctions:
+                        out: UGArray,
+                        scale: float = 1.0) -> UGArray:
         out.data[:] = 0.0
         self.add_to(out, scale)
         return out

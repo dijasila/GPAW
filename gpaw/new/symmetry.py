@@ -2,7 +2,7 @@ import warnings
 
 import numpy as np
 from gpaw.mpi import MPIComm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
@@ -13,9 +13,9 @@ def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     if magmoms is None:
         pass
     elif magmoms.ndim == 1:
-        ids = [id + (m,) for id, m in zip(ids, magmoms)]
+        ids = [id + (m,) for id, m in zips(ids, magmoms)]
     else:
-        ids = [id + tuple(m) for id, m in zip(ids, magmoms)]
+        ids = [id + tuple(m) for id, m in zips(ids, magmoms)]
     symmetry = OldSymmetry(ids,
                            atoms.cell.complete(),
                            atoms.pbc,
@@ -67,7 +67,7 @@ class Symmetries:
             nt = self.translation_sc.any(1).sum()
             lines.append(f'  number of symmetries with translation: {nt}')
             lines.append('  rotations and translations: [')
-            for rot_cc, t_c in zip(self.rotation_scc, self.translation_sc):
+            for rot_cc, t_c in zips(self.rotation_scc, self.translation_sc):
                 a, b, c = t_c
                 lines.append(f'    [{mat(rot_cc)}, '
                              f'[{a:6.3f}, {b:6.3f}, {c:6.3f}]],')

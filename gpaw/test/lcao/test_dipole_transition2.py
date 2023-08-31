@@ -11,7 +11,7 @@ from gpaw.lrtddft.kssingle import KSSingles
 @pytest.mark.later
 def test_dipole_transition(gpw_files, tmp_path_factory):
     """Check dipole matrix-elements for Li."""
-    calc = GPAW(gpw_files['bcc_li_lcao_wfs'], parallel=dict(sl_auto=True))
+    calc = GPAW(gpw_files['bcc_li_lcao'], parallel=dict(sl_auto=True))
     # Initialize calculator if necessary
     if not hasattr(calc.wfs, 'C_nM'):
         calc.wfs.set_positions
@@ -36,7 +36,7 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
     assert abs(-0.0781 + 0.0282j) == pytest.approx(abs(dip_kvnm[1, 2, 0, 3]),
                                                    abs=1e-4)
 
-    calc = GPAW(gpw_files['bcc_li_fd_wfs'])
+    calc = GPAW(gpw_files['bcc_li_fd'])
     # compare to lrtddft implementation
     kss = KSSingles()
     atoms = calc.atoms

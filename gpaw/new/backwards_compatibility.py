@@ -4,7 +4,7 @@ from ase.units import Bohr
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.new import cached_property, prod
+from gpaw.new import cached_property, prod, zips
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
@@ -31,7 +31,7 @@ class FakeWFS:
         self.occupations = calculation.scf_loop.occ_calc.occ
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
-        self.world = calculation.scf_loop.world
+        self.world = calculation.comm
         if ibzwfs.fermi_levels is not None:
             self.fermi_levels = ibzwfs.fermi_levels
             if len(self.fermi_levels) == 1:
@@ -148,7 +148,7 @@ class FakeDensity:
     def D_asp(self):
         D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                 self.atom_partition)
-        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii])
+        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii.real])
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 
@@ -172,13 +172,14 @@ class FakeHamiltonian:
         self.grid = calculation.state.potential.vt_sR.desc
         self.e_total_free = calculation.results.get('free_energy')
         self.e_xc = calculation.state.potential.energies['xc']
-        # self.poisson = calculation.pot_calc.poisson_solver.solver
 
     def restrict_and_collect(self, vxct_sg):
         fine_grid = self.pot_calc.fine_grid
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
-        vxct_sR = self.pot_calc.restrict(vxct_sr)
+        vxct_sR = self.grid.empty(len(vxct_sg))
+        for vxct_r, vxct_R in zips(vxct_sr, vxct_sR):
+            self.pot_calc.restrict(vxct_r, vxct_R)
         return vxct_sR.data
 
     @property

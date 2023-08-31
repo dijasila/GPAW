@@ -19,6 +19,7 @@ def test_lcaotddft_fxc_rpa(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 poissonsolver=PoissonSolver('fd', eps=1e-16),
                 convergence={'density': 1e-8},
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

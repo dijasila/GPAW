@@ -12,13 +12,13 @@ class DielectricFunctionCalculator:
         self.optical_limit = chi0.optical_limit
         self.chi0 = chi0
         self.xckernel = xckernel
-        wblocks1d = Blocks1D(chi0.blockdist.blockcomm, len(chi0.wd))
+        wblocks1d = Blocks1D(chi0.body.blockdist.blockcomm, len(chi0.wd))
         self.wblocks1d = wblocks1d
         # Generate fine grid in vicinity of gamma
         if chi0.optical_limit and wblocks1d.nlocal:
             self.gamma_int = GammaIntegrator(
                 truncation=self.coulomb.truncation,
-                kd=coulomb._gs.kd, qpd=self.qpd,
+                kd=coulomb.kd, qpd=self.qpd,
                 chi0_wvv=chi0.chi0_Wvv[wblocks1d.myslice],
                 chi0_wxvG=chi0.chi0_WxvG[wblocks1d.myslice])
         else:
@@ -43,7 +43,7 @@ class DielectricFunctionCalculator:
         """
         Calculates inverse dielectric matrix for all frequencies.
         """
-        chi0_wGG = self.chi0.copy_array_with_distribution('wGG')
+        chi0_wGG = self.chi0.body.copy_array_with_distribution('wGG')
         epsinv_wGG = []
         for iw, chi0_GG in enumerate(chi0_wGG):
             epsinv_GG = self.get_epsinv_GG(chi0_GG, iw)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Generator
 
-import _gpaw
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
@@ -10,8 +9,9 @@ from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import cached_property, zips
 from gpaw.new.brillouin import IBZ
+from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -23,7 +23,8 @@ def create_ibz_wave_functions(ibz: IBZ,
                               nelectrons: float,
                               ncomponents: int,
                               create_wfs_func,
-                              kpt_comm: MPIComm = serial_comm
+                              kpt_comm: MPIComm = serial_comm,
+                              comm: MPIComm = serial_comm,
                               ) -> IBZWaveFunctions:
     """Collection of wave function objects for k-points in the IBZ."""
     rank_k = ibz.ranks(kpt_comm)
@@ -45,7 +46,8 @@ def create_ibz_wave_functions(ibz: IBZ,
                             nelectrons,
                             ncomponents,
                             wfs_qs,
-                            kpt_comm)
+                            kpt_comm,
+                            comm)
 
 
 class IBZWaveFunctions:
@@ -54,10 +56,12 @@ class IBZWaveFunctions:
                  nelectrons: float,
                  ncomponents: int,
                  wfs_qs: list[list[WaveFunctions]],
-                 kpt_comm: MPIComm = serial_comm):
+                 kpt_comm: MPIComm = serial_comm,
+                 comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.kpt_comm = kpt_comm
+        self.comm = comm
         self.nelectrons = nelectrons
         self.ncomponents = ncomponents
         self.collinear = (ncomponents != 4)
@@ -83,8 +87,17 @@ class IBZWaveFunctions:
 
         self.xp = self.wfs_qs[0][0].xp
         if self.xp is not np:
-            if not getattr(_gpaw, 'gpu_aware_mpi', False):
-                self.kpt_comm = CuPyMPI(self.kpt_comm)
+            if not GPU_AWARE_MPI:
+                self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
+
+    @cached_property
+    def mode(self):
+        wfs = self.wfs_qs[0][0]
+        if isinstance(wfs, PWFDWaveFunctions):
+            if hasattr(wfs.psit_nX.desc, 'ecut'):
+                return 'pw'
+            return 'fd'
+        return 'lcao'
 
     def get_max_shape(self, global_shape: bool = False) -> tuple[int, ...]:
         """Find the largest wave function array shape.
@@ -97,11 +110,6 @@ class IBZWaveFunctions:
             self.kpt_comm.max(shape)
             return tuple(shape)
         return max(wfs.array_shape() for wfs in self)
-
-    def is_master(self):
-        return (self.domain_comm.rank == 0 and
-                self.band_comm.rank == 0 and
-                self.kpt_comm.rank == 0)
 
     def __str__(self):
         shape = self.get_max_shape(global_shape=True)
@@ -162,7 +170,7 @@ class IBZWaveFunctions:
         else:
             assert self.fermi_levels is not None
 
-        for occ_n, wfs in zip(occ_un, self):
+        for occ_n, wfs in zips(occ_un, self):
             wfs._occ_n = occ_n
 
         e_entropy *= degeneracy / Ha
@@ -177,13 +185,27 @@ class IBZWaveFunctions:
             'extrapolation': e_entropy * occ_calc.extrapolate_factor}
 
     def add_to_density(self, nt_sR, D_asii) -> None:
-        """Compute density from wave functions and add to ``nt_sR``
-        and ``D_asii``."""
+        """Compute density and add to ``nt_sR`` and ``D_asii``."""
         for wfs in self:
             wfs.add_to_density(nt_sR, D_asii)
-        synchronize()
+
+        if self.xp is not np:
+            synchronize()
+
+        # This should be done in a more efficient way!!!
+        # Also: where do we want the density?
         self.kpt_comm.sum(nt_sR.data)
         self.kpt_comm.sum(D_asii.data)
+        self.band_comm.sum(nt_sR.data)
+        self.band_comm.sum(D_asii.data)
+
+    def add_to_ked(self, taut_sR) -> None:
+        for wfs in self:
+            wfs.add_to_ked(taut_sR)
+        if self.xp is not np:
+            synchronize()
+        self.kpt_comm.sum(taut_sR.data)
+        self.band_comm.sum(taut_sR.data)
 
     def get_all_electron_wave_function(self,
                                        band,
@@ -226,6 +248,7 @@ class IBZWaveFunctions:
                   self.band_comm.rank == 0)
         if master:
             return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
+        return None
 
     def get_eigs_and_occs(self, k=0, s=0):
         if self.domain_comm.rank == 0 and self.band_comm.rank == 0:
@@ -246,7 +269,7 @@ class IBZWaveFunctions:
 
     def get_all_eigs_and_occs(self):
         nkpts = len(self.ibz)
-        if self.is_master():
+        if self.comm.rank == 0:
             eig_skn = np.empty((self.nspins, nkpts, self.nbands))
             occ_skn = np.empty((self.nspins, nkpts, self.nbands))
         else:
@@ -255,7 +278,7 @@ class IBZWaveFunctions:
         for k in range(nkpts):
             for s in range(self.nspins):
                 eig_n, occ_n = self.get_eigs_and_occs(k, s)
-                if self.is_master():
+                if self.comm.rank == 0:
                     eig_skn[s, k, :] = eig_n
                     occ_skn[s, k, :] = occ_n
         return eig_skn, occ_skn
@@ -264,7 +287,8 @@ class IBZWaveFunctions:
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
-        synchronize()
+        if self.xp is not np:
+            synchronize()
         self.kpt_comm.sum(F_av)
         return F_av
 
@@ -312,12 +336,12 @@ class IBZWaveFunctions:
                     P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
-                        if self.domain_comm.rank == 0:
+                        if P_nI is not None:
                             if rank == 0:
                                 writer.fill(P_nI.data.reshape(proj_shape))
                             else:
                                 self.kpt_comm.send(P_nI.data, 0)
-                elif self.kpt_comm.rank == 0:
+                elif self.comm.rank == 0:
                     data = np.empty(proj_shape, self.dtype)
                     self.kpt_comm.receive(data, rank)
                     writer.fill(data)
@@ -342,19 +366,23 @@ class IBZWaveFunctions:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
                                                  shape, dtype=coef_nX.dtype)
-                            # For PW-mode, we may need to zero-padd the
+                            # For PW-mode, we may need to zero-pad the
                             # plane-wave coefficient up to the maximum
                             # for all k-points:
                             n = shape[-1] - coef_nX.shape[-1]
                             if n != 0:
-                                coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
+                                if self.collinear:
+                                    coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
+                                else:
+                                    coef_nX = np.pad(coef_nX,
+                                                     ((0, 0), (0, 0), (0, n)))
                             writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)
-                elif self.kpt_comm.rank == 0:
-                    if coef_nX is not None:
-                        self.kpt_comm.receive(coef_nX, rank)
-                        writer.fill(coef_nX * c)
+                elif self.comm.rank == 0:
+                    assert coef_nX is not None
+                    self.kpt_comm.receive(coef_nX, rank)
+                    writer.fill(coef_nX * c)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
@@ -367,7 +395,7 @@ class IBZWaveFunctions:
 
         eig_skn, occ_skn = self.get_all_eigs_and_occs()
 
-        if not self.is_master():
+        if self.comm.rank != 0:
             return
 
         eig_skn *= Ha
@@ -388,8 +416,8 @@ class IBZWaveFunctions:
                 log(f'  Band      eig [eV]   occ [0-{D}]')
                 eig_n = eig_skn[0, k]
                 n0 = (eig_n < fl[0]).sum() - 0.5
-                for n, (e, f) in enumerate(zip(eig_n, occ_skn[0, k])):
-                    # First, last and +-8 bands window around fermi level:
+                for n, (e, f) in enumerate(zips(eig_n, occ_skn[0, k])):
+                    # First, last and +-8 bands window around Fermi level:
                     if n == 0 or abs(n - n0) < 8 or n == nbands - 1:
                         log(f'  {n:4} {e:13.3f}   {D * f:9.3f}')
                         skipping = False
@@ -400,10 +428,10 @@ class IBZWaveFunctions:
             else:
                 log('  Band      eig [eV]   occ [0-1]'
                     '      eig [eV]   occ [0-1]')
-                for n, (e1, f1, e2, f2) in enumerate(zip(eig_skn[0, k],
-                                                         occ_skn[0, k],
-                                                         eig_skn[1, k],
-                                                         occ_skn[1, k])):
+                for n, (e1, f1, e2, f2) in enumerate(zips(eig_skn[0, k],
+                                                          occ_skn[0, k],
+                                                          eig_skn[1, k],
+                                                          occ_skn[1, k])):
                     log(f'  {n:4} {e1:13.3f}   {f1:9.3f}'
                         f'    {e2:10.3f}   {f2:9.3f}')
 
@@ -422,7 +450,7 @@ class IBZWaveFunctions:
             psit_nX = getattr(wfs, 'psit_nX', None)
             if psit_nX is None:
                 return
-            if hasattr(psit_nX.data, 'fd'):
+            if hasattr(psit_nX.data, 'fd'):  # fd=file-descriptor
                 psit_nX.data = psit_nX.data[:]  # read
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:

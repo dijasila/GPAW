@@ -11,7 +11,7 @@ def test_utilities_eed(in_tmp_dir):
     # write first if needed
     s = Cluster([Atom('H'), Atom('H', [0, 0, 1])], pbc=[1, 1, 0])
     s.minimal_box(3.)
-    c = GPAW(xc='PBE', h=.3, kpts=(4, 4, 1),
+    c = GPAW(mode='fd', xc='PBE', h=.3, kpts=(4, 4, 1),
              convergence={'density': 1e-3, 'eigenstates': 1e-3})
     c.calculate(s)
     c.write(fwfname, 'all')
