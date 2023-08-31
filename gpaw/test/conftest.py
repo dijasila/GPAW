@@ -616,9 +616,16 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
-    @with_band_cutoff(gpw='p4_pw_wfs',
+    def mos2_pw(self):
+        return self._mos2()
+
+    @gpwfile
+    def mos2_pw_nosym(self):
+        return self._mos2(symmetry='off')
+
+    @with_band_cutoff(gpw='p4_pw',
                       band_cutoff=40)
-    def p4_pw(self, band_cutoff):
+    def _p4(self, band_cutoff, spinpol=False):
         atoms = Atoms('P4', positions=[[0.03948480, -0.00027057, 7.49990646],
                                        [0.86217564, -0.00026338, 9.60988536],
                                        [2.35547782, 1.65277230, 9.60988532],
@@ -626,24 +633,25 @@ class GPWFiles:
                       cell=[4.63138807675, 3.306178252090, 17.10979291],
                       pbc=[True, True, False])
         atoms.center(vacuum=1.5, axis=2)
+        tag = '_spinpol' if spinpol else ''
         nkpts = 2
         atoms.calc = GPAW(mode=PW(250),
-                          xc='LDA',
+                          xc='LDA', spinpol=spinpol,
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations={'width': 0},
                           nbands=band_cutoff + 10,
-                          convergence={'bands': band_cutoff},
-                          txt=self.path / 'p4_pw.txt')
+                          convergence={'bands': band_cutoff + 1},
+                          txt=self.path / f'p4_pw{tag}.txt')
         atoms.get_potential_energy()
         return atoms.calc
 
     @gpwfile
-    def mos2_pw(self):
-        return self._mos2()
+    def p4_pw(self):
+        return self._p4()
 
     @gpwfile
-    def mos2_pw_nosym(self):
-        return self._mos2(symmetry='off')
+    def p4_pw_spinpol(self):
+        return self._p4(spinpol=True)
 
     @gpwfile
     def ni_pw_kpts333(self):
