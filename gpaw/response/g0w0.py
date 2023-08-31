@@ -668,7 +668,7 @@ class G0W0Calculator:
         self.context.comm.barrier()
         return paths
 
-    def calculate_q(self, ie, k, k2, kpt1, kpt2, qpd, Wdict,
+    def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
         for a given set of k-points, kpt1 and kpt2."""
@@ -699,20 +699,6 @@ class G0W0Calculator:
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
                 Wmodel = Wdict[fxc_mode]
-                if 0:
-                    f = open(f'/home/kuisma/gpaw/gpaw/test/response/k_{k}_k2_{k2}_Wmodel_ppa{self.ppa}_mpa{True if self.mpa else False}.txt', 'w')
-                    for occ in [0, 1]:
-                        for w in np.linspace(-2, 2, 400):
-                            S_GG, dSdw_GG = Wmodel.get_HW(w, 2 * occ - 1, occ)
-                            if S_GG is None:
-                                continue
-                            print(occ, w, S_GG[0, 0].real, S_GG[0, 0].imag,
-                                  S_GG[0, 1].real, S_GG[0, 1].imag,
-                                  S_GG[2, 3].real, S_GG[2, 3].imag, file=f)
-                        print(file=f)
-                        print(file=f)
-                        print(file=f)
-                    f.close()
 
                 # m is band index of all (both unoccupied and occupied) wave
                 # functions in G
@@ -726,15 +712,14 @@ class G0W0Calculator:
  
                     if self.evaluate_sigma is not None:
                         for w, omega in enumerate(self.evaluate_sigma):
-                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega,
-                                                    2 * f - 1, f)
+                            S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, f)
                             if S_GG is None:
                                 continue
                             # print(myn_G.shape, S_GG.shape, nc_G.shape)
                             sigma.sigma_eskwn[ie, kpt1.s, k, w, nn] += \
                                 myn_G @ S_GG @ nc_G
 
-                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1, f)
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, f)
                     if S_GG is None:
                         continue
              
@@ -874,10 +859,7 @@ class G0W0Calculator:
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
-                    # k2 = self.wcalc.gs.kd.bz2ibz_k[kpt2.K]
-                    # j = self.kpts.index(k2)
-                    j = None
-                    self.calculate_q(ie, i, j, kpt1, kpt2, qpdi, Wdict,
+                    self.calculate_q(ie, i, kpt1, kpt2, qpdi, Wdict,
                                      symop=symop,
                                      sigmas=sigmas,
                                      blocks1d=blocks1d,
