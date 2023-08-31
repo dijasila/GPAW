@@ -47,7 +47,7 @@ def gaunt(lmax: int = 2) -> Array3D:
 
 
 def nabla(lmax: int = 2) -> Array3D:
-    """Create the array of derivative intergrals.
+    """Create the array of derivative integrals.
 
     :::
 

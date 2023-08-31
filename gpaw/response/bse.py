@@ -1,4 +1,3 @@
-import functools
 from time import time, ctime
 from datetime import timedelta
 
@@ -883,61 +882,65 @@ class BSEBackend:
         return myKrange, myKsize, mySsize
 
     def print_initialization(self, td, eshift, gw_skn):
-        p = functools.partial(self.context.print, flush=False)
-        p('----------------------------------------------------------')
-        p('%s Hamiltonian' % self.mode)
-        p('----------------------------------------------------------')
-        p('Started at:  ', ctime())
-        p()
-        p('Atoms                          :',
-          self.gs.atoms.get_chemical_formula(mode='hill'))
-        p('Ground state XC functional     :', self.gs.xcname)
-        p('Valence electrons              :', self.gs.nvalence)
-        p('Spinor calculations            :', self.spinors)
-        p('Number of bands                :', self.gs.bd.nbands)
-        p('Number of spins                :', self.gs.nspins)
-        p('Number of k-points             :', self.kd.nbzkpts)
-        p('Number of irreducible k-points :', self.kd.nibzkpts)
-        p('Number of q-points             :', self.qd.nbzkpts)
-        p('Number of irreducible q-points :', self.qd.nibzkpts)
-        p()
+        isl = ['----------------------------------------------------------',
+               f'{self.mode} Hamiltonian',
+               '----------------------------------------------------------',
+               f'Started at:  {ctime()}', '',
+               'Atoms                          : '
+               f'{self.gs.atoms.get_chemical_formula(mode="hill")}',
+               f'Ground state XC functional     : {self.gs.xcname}',
+               f'Valence electrons              : {self.gs.nvalence}',
+               f'Spinor calculations            : {self.spinors}',
+               f'Number of bands                : {self.gs.bd.nbands}',
+               f'Number of spins                : {self.gs.nspins}',
+               f'Number of k-points             : {self.kd.nbzkpts}',
+               f'Number of irreducible k-points : {self.kd.nibzkpts}',
+               f'Number of q-points             : {self.qd.nbzkpts}',
+               f'Number of irreducible q-points : {self.qd.nibzkpts}', '']
+
         for q in self.qd.ibzk_kc:
-            p('    q: [%1.4f %1.4f %1.4f]' % (q[0], q[1], q[2]))
-        p()
+            isl.append(f'    q: [{q[0]:1.4f} {q[1]:1.4f} {q[2]:1.4f}]')
+        isl.append('')
         if gw_skn is not None:
-            p('User specified BSE bands')
-        p('Response PW cutoff             :', self.ecut * Hartree, 'eV')
-        p('Screening bands included       :', self.nbands)
+            isl.append('User specified BSE bands')
+        isl.extend([f'Response PW cutoff             : {self.ecut * Hartree} '
+                    f'eV',
+                    f'Screening bands included       : {self.nbands}'])
         if len(self.val_sn) == 1:
-            p('Valence bands                  :', self.val_sn[0])
-            p('Conduction bands               :', self.con_sn[0])
+            isl.extend([f'Valence bands                  : {self.val_sn[0]}',
+                        f'Conduction bands               : {self.con_sn[0]}'])
         else:
-            p('Valence bands                  :', self.val_sn[0],
-              self.val_sn[1])
-            p('Conduction bands               :', self.con_sn[0],
-              self.con_sn[1])
+            isl.extend([f'Valence bands                  : {self.val_sn[0]}'
+                        f' {self.val_sn[1]}',
+                        f'Conduction bands               : {self.con_sn[0]}'
+                        f' {self.con_sn[1]}'])
         if eshift is not None:
-            p('Scissors operator              :', eshift * Hartree, 'eV')
-        p('Tamm-Dancoff approximation     :', td)
-        p('Number of pair orbitals        :', self.nS)
-        p()
-        p('Truncation of Coulomb kernel   :', self.coulomb.truncation)
+            isl.append(f'Scissors operator              : {eshift * Hartree}'
+                       f'eV')
+        isl.extend([
+            f'Tamm-Dancoff approximation     : {td}',
+            f'Number of pair orbitals        : {self.nS}',
+            '',
+            f'Truncation of Coulomb kernel   : {self.coulomb.truncation}'])
         if self.integrate_gamma == 0:
-            p('Coulomb integration scheme     :', 'Analytical - gamma only')
+            isl.append(
+                'Coulomb integration scheme     : Analytical - gamma only')
         elif self.integrate_gamma == 1:
-            p('Coulomb integration scheme     :', 'Numerical - all q-points')
+            isl.append(
+                'Coulomb integration scheme     : Numerical - all q-points')
         else:
             pass
-        p()
-        p('----------------------------------------------------------')
-        p('----------------------------------------------------------')
-        p()
-        p('Parallelization - Total number of CPUs   : % s' % world.size)
-        p('  Screened potential')
-        p('    K-point/band decomposition           : % s' % world.size)
-        p('  Hamiltonian')
-        p('    Pair orbital decomposition           : % s' % world.size)
-        self.context.print('')
+        isl.extend([
+            '',
+            '----------------------------------------------------------',
+            '----------------------------------------------------------',
+            '',
+            f'Parallelization - Total number of CPUs   : {world.size}',
+            '  Screened potential',
+            f'    K-point/band decomposition           : {world.size}',
+            '  Hamiltonian',
+            f'    Pair orbital decomposition           : {world.size}'])
+        self.context.print('\n'.join(isl))
 
 
 class BSE(BSEBackend):
