@@ -2,7 +2,7 @@ import time
 import numpy as np
 import warnings
 from gpaw import GPAW, FermiDirac
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 
 
 def read_data(output):

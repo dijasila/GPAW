@@ -1,6 +1,6 @@
 from ase.io import read
 from gpaw import GPAW, LCAO
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 from gpaw.directmin.tools import excite
 
 calc = GPAW(xc='PBE',

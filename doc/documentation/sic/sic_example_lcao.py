@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, LCAO
-from gpaw.directmin.lcao_etdm import LCAOETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 
 # Water molecule:
 d = 0.9575
