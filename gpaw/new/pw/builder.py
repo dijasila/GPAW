@@ -1,8 +1,8 @@
 from math import pi
 
 from ase.units import Ha
-
 from gpaw.core import PWDesc, UGDesc
+from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PWArray
@@ -28,6 +28,16 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                           qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
         self._tauct_ag = None
+
+    @cached_property
+    def atomdist(self) -> AtomDistribution:
+        # We should just distribute the atom evenly, but that is not compatible
+        # with LCAO initialization!
+        # return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
+        #                                              self.communicators['d'])
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -60,26 +70,26 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                                  self.fine_grid)
 
     @cached_property
-    def interpolation_pw(self):
+    def interpolation_desc(self):
         return PWDesc(ecut=2 * self.ecut,
                       cell=self.grid.cell,
                       comm=self.grid.comm)
 
     @cached_property
     def electrostatic_potential_desc(self):
-        return self.interpolation_pw.new(ecut=8 * self.ecut)
+        return self.interpolation_desc.new(ecut=8 * self.ecut)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist,
+                self.interpolation_desc, self.fracpos_ac, self.atomdist,
                 xp=self.xp)
         return self._nct_ag
 
     def get_pseudo_core_ked(self):
         if self._tauct_ag is None:
             self._tauct_ag = self.setups.create_pseudo_core_ked(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist)
+                self.interpolation_desc, self.fracpos_ac, self.atomdist)
         return self._tauct_ag
 
     def create_poisson_solver(self, fine_pw, params):
