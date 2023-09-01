@@ -27,9 +27,9 @@ class PWDesc(Domain):
 
     def __init__(self,
                  *,
-                 ecut: float,
-                 cell: ArrayLike1D | ArrayLike2D,
-                 kpt: Vector = None,
+                 ecut: float,  # hartree
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """Description of plane-wave basis.
@@ -37,10 +37,11 @@ class PWDesc(Domain):
         parameters
         ----------
         ecut:
-            Cutoff energy for kinetic energy of plane waves.
+            Cutoff energy for kinetic energy of plane waves (units: hartree).
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         comm:
             Communicator for distribution of plane-waves.
         kpt:
@@ -135,7 +136,7 @@ class PWDesc(Domain):
 
     def new(self,
             *,
-            ecut: float = None,
+            ecut: float | None = None,
             kpt=None,
             dtype=None,
             comm: MPIComm | Literal['inherit'] | None = 'inherit'
@@ -240,7 +241,7 @@ class PWArray(DistributedArrays[PWDesc]):
                  pw: PWDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) as a plane-wave expansions.
 
@@ -362,10 +363,10 @@ class PWArray(DistributedArrays[PWDesc]):
         return out
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         assert plan1 is None
         return self.ifft(plan=plan2, grid=grid, out=out)
 
@@ -428,8 +429,10 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(self.data, ssize_r, soffset_r,
                        out.data, rsize_r, roffset_r)
 
-    def scatter_from(self, data: Array1D = None) -> None:
+    def scatter_from(self, data: Array1D | PWArray | None = None) -> None:
         """Scatter data from rank-0 to all ranks."""
+        if isinstance(data, PWArray):
+            data = data.data
         comm = self.desc.comm
         if comm.size == 1:
             assert data is not None
@@ -468,7 +471,7 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(a_G.data, ssize_r, soffset_r,
                        self.data, rsize_r, roffset_r)
 
-    def integrate(self, other: PWArray = None) -> np.ndarray:
+    def integrate(self, other: PWArray | None = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
         dv = self.dv
         if other is not None:
@@ -613,9 +616,10 @@ class PWArray(DistributedArrays[PWDesc]):
     def to_pbc_grid(self):
         return self
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
         rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
