@@ -83,5 +83,5 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
                                                          )**alpha
                         w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
         else:
-            raise ValueError("Only '1l' or '2l' values are allowed")
+            raise ValueError("Only '1l' or '2l' values are implemented")
     return w_grid

@@ -436,9 +436,25 @@ class G0W0Calculator:
         ppa: bool
             Use Godby-Needs plasmon-pole approximation for screened interaction
             and self-energy
-        mpa: bool
+        mpa: dictionary
             Use multipole approximation for screened interaction
-            and self-energy
+            and self-energy [PRB 104, 115157 (2021)]
+            This method uses a sampling along two lines in the complex
+            frequency plane.
+
+            MPA parameters
+            ----------
+            npoles: number of poles (positive integer generally lower than 15)
+            wrange: real and imaginary intervals defining the range of energy
+                    along each axis of the upper line of the sampling
+                    (array of two complex numbers)
+            wshift: shifts along the imaginary axis of the lower sampling line
+                    close to the real axis (array of two positive real numbers,
+                    the first one for the origin of coordinates, while the
+                    second is common to all the other point with a finite real
+                    component)
+            alpha: exponent of the power distribution of points along the real
+                   frequency axis [PRB 107, 155130 (2023)]
         """
         self.chi0calc = chi0calc
         self.wcalc = wcalc
@@ -522,10 +538,18 @@ class G0W0Calculator:
                                % self.chi0calc.wd.omega_w[1].imag)
         elif self.mpa:
             self.context.print('Using multipole approximation:')
-            self.context.print('  Fitting energies: i*E0, E0 = %.3f Hartee'
+            self.context.print('  Number of poles: %i'
+                               % len(self.chi0calc.wd.omega_w) / 2)
+            self.context.print('  Energy range: Re(E[-1]) = %.3f Hartee'
+                               % self.chi0calc.wd.omega_w[-1].real)
+            self.context.print('  Imaginary range: Im(E[-1]) = %.3f Hartee'
+                               % self.chi0calc.wd.omega_w[-1].imag)
+            self.context.print('  Imaginary shift: Im(E[1]) = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[1].imag)
+            self.context.print('  Origin shift: Im(E[0]) = %.3f Hartee'
+                               % self.chi0calc.wd.omega_w[0].imag)
         else:
-            self.context.print('Using full frequency integration')
+            self.context.print('Using full-frequency real axis integration')
 
     def print_parameters(self, kpts, b1, b2):
         isl = ['',

@@ -334,12 +334,3 @@ def mpa_RE_solver(npols, w, x):
     # for later: MP_err = err_func_X(np, R, E, w, x)
 
     return R, E, MPred, PPcond_rate  # , MP_err
-
-
-# ------------- tests -------------
-# c = complex(4.0,0.1)
-
-# print(mpa_cond1(0, c),np.emath.sqrt(c))
-# E = [complex(1,0.1), complex(1.0001,-0.11),
-#                      complex(2,0.2), complex(18,1)]
-# print(pole_is_out(3, 3, 0.1, E),E)
