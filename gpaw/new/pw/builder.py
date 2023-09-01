@@ -31,8 +31,13 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     @cached_property
     def atomdist(self) -> AtomDistribution:
-        return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
-                                                     self.communicators['d'])
+        # We should just distribute the atom evenly, but that is not compatible
+        # with LCAO initialization!
+        # return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
+        #                                              self.communicators['d'])
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(

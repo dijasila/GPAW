@@ -136,10 +136,9 @@ class DFTCalculation:
         self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
-        if self.state.ibzwfs.mode != 'pw':
-            grid = self.state.density.nt_sR.desc
-            rank_a = grid.ranks_from_fractional_positions(self.fracpos_ac)
-            atomdist = AtomDistribution(rank_a, atomdist.comm)
+        grid = self.state.density.nt_sR.desc
+        rank_a = grid.ranks_from_fractional_positions(self.fracpos_ac)
+        atomdist = AtomDistribution(rank_a, atomdist.comm)
 
         self.pot_calc.move(self.fracpos_ac, atomdist)
         self.state.move(self.fracpos_ac, atomdist)
