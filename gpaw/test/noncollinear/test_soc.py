@@ -4,8 +4,6 @@ See:
 
   https://journals.aps.org/prb/abstract/10.1103/PhysRevB.98.155433
 """
-import os
-
 import numpy as np
 import pytest
 from ase.build import mx2
@@ -30,12 +28,12 @@ params = dict(mode={'name': 'pw', 'ecut': 350},
 
 @pytest.mark.soc
 @pytest.mark.skipif(size > 1, reason='Does not work in parallel')
-def test_soc_self_consistent():
+def test_soc_self_consistent(gpaw_new):
     """Self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
 
-    if os.environ.get('GPAW_NEW'):
+    if gpaw_new:
         kwargs = {**params,
                   'symmetry': 'off',
                   'magmoms': np.zeros((3, 3)),

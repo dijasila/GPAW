@@ -15,7 +15,7 @@ from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
 
 
@@ -160,8 +160,8 @@ class BaseSetup:
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
         partial_waves_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
-                           strict=False):
+        for n, phit in zips(self.n_j, self.pseudo_partial_waves_j,
+                            strict=False):
             if n > 0:
                 partial_waves_j.append(phit)
         return partial_waves_j
@@ -199,7 +199,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
+        for j, (f, d, e) in enumerate(zips(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
@@ -356,7 +356,7 @@ class BaseSetup:
         tauct = self.rgd.spline(tauct_g, rcut2, points=1000)
         phi_j = []
         phit_j = []
-        for j, (phi_g, phit_g) in enumerate(zip(data.phi_jg, data.phit_jg)):
+        for j, (phi_g, phit_g) in enumerate(zips(data.phi_jg, data.phit_jg)):
             l = l_j[j]
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
@@ -448,7 +448,7 @@ class BaseSetup:
 
     def get_default_nbands(self):
         assert len(self.l_orb_J) == len(self.n_j), (self.l_orb_J, self.n_j)
-        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_J, self.n_j)
+        return sum([2 * l + 1 for (l, n) in zips(self.l_orb_J, self.n_j)
                     if n > 0])
 
     def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
@@ -819,7 +819,7 @@ class Setup(BaseSetup):
             filter(rgd, rc, vbar_g)
 
             pt_jg = [pt_g.copy() for pt_g in pt_jg]
-            for l, pt_g in zip(l_j, pt_jg):
+            for l, pt_g in zips(l_j, pt_jg):
                 filter(rgd, rc, pt_g, l)
 
             for l in range(max(l_j) + 1):
@@ -844,7 +844,7 @@ class Setup(BaseSetup):
         i = 0
         j = 0
         jlL_i = []
-        for l, n in zip(l_j, n_j):
+        for l, n in zips(l_j, n_j):
             for m in range(2 * l + 1):
                 jlL_i.append((j, l, l**2 + m))
                 i += 1
@@ -1351,7 +1351,7 @@ class Setups(list):
         natoms = {}
         Mcumulative = 0
         self.M_a = []
-        self.id_a = list(zip(Z_a, type_a, basis_a))
+        self.id_a = list(zips(Z_a, type_a, basis_a))
         for id in self.id_a:
             setup = self.setups.get(id)
             if setup is None:
@@ -1456,10 +1456,10 @@ class Setups(list):
             integral=[setup.Nct for setup in self],
             cut=True, xp=xp)
 
-    def create_pseudo_core_kinetic_energy_densities(self,
-                                                    domain,
-                                                    positions,
-                                                    atomdist):
+    def create_pseudo_core_ked(self,
+                               domain,
+                               positions,
+                               atomdist):
         return domain.atom_centered_functions(
             [[setup.tauct] for setup in self],
             positions,
@@ -1489,12 +1489,12 @@ class Setups(list):
         else:
             subscripts = 'ni, ij -> nj'
         if xp is np:
-            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
                 dS_ii = self[a].dO_ii
                 xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
         else:
             # GRR. Cupy einsum doesn't have an out argument.
-            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
+            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
                 dS_ii = xp.asarray(self[a].dO_ii)
                 out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
 
@@ -1507,9 +1507,9 @@ class Setups(list):
                 rcut = max(setup.rcut_j) * 1.1
                 gcut = setup.rgd.ceil(rcut)
                 dphi_j = []
-                for l, phi_g, phit_g in zip(setup.l_j,
-                                            setup.data.phi_jg,
-                                            setup.data.phit_jg):
+                for l, phi_g, phit_g in zips(setup.l_j,
+                                             setup.data.phi_jg,
+                                             setup.data.phit_jg):
                     dphi_g = (phi_g - phit_g)[:gcut]
                     dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
                                                    points=200))

@@ -15,7 +15,7 @@ from gpaw.response.chi0 import Chi0
 @pytest.mark.slow
 def test_response_symmetry(gpw_files):
     data_s = []
-    for name in ['ti2o4_pw_nosym_wfs', 'ti2o4_pw_wfs']:
+    for name in ['ti2o4_pw_nosym', 'ti2o4_pw']:
         X = Chi0(gpw_files[name])
         chi_t = X.calculate([1. / 4, 0, 0])
         data_s.append((chi_t.chi0_WgG, chi_t.chi0_WxvG, chi_t.chi0_Wvv))

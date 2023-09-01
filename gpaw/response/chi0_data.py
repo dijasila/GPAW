@@ -185,11 +185,11 @@ class Chi0Data(Chi0RelatedData):
         self.optical_extension = chi0_opt_ext
 
     @staticmethod
-    def from_descriptors(wd, qpd, blockdist):
-        """Construct the container from the basic descriptors."""
-        # Create data objects
-        chi0_body = Chi0BodyData(wd, qpd, blockdist)
+    def from_chi0_body_data(chi0_body):
+        """Construct the container from a chi0 body data instance."""
+        qpd = chi0_body.qpd
         if qpd.optical_limit:
+            wd = chi0_body.wd
             chi0_optical_extension = Chi0OpticalExtensionData(wd, qpd)
         else:
             chi0_optical_extension = None

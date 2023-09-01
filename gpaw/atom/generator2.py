@@ -553,7 +553,8 @@ class PAWSetupGenerator:
         if type == 'poly':
             pseudizer = partial(self.pseudizer, points=nderiv)
         elif type == 'nc':
-            pseudizer = partial(self.rgd.pseudize_normalized, points=nderiv)
+            def pseudizer(a_g, gc, l=0, ecut=None, divergent=False):
+                return self.rgd.pseudize_normalized(a_g, gc, l, points=nderiv)
         for waves in self.waves_l:
             waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
                            2.0 * self.rcmax, ecut=self.ecut)

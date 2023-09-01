@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import _gpaw
 import numpy as np
@@ -12,7 +12,7 @@ import gpaw.utilities.blas as blas
 from gpaw import debug, SCIPY_VERSION
 from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -58,8 +58,8 @@ class Matrix:
                  M: int,
                  N: int,
                  dtype=None,
-                 data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple] = None,
+                 data: ArrayLike2D | None = None,
+                 dist: MatrixDistribution | tuple | None = None,
                  xp=None):
         """Matrix object.
 
@@ -114,6 +114,7 @@ class Matrix:
             assert self.shape == dist.full_shape
         self.dist = dist
 
+        self.data: Array2D
         if data is None:
             self.data = self.xp.empty(dist.shape, self.dtype)
         else:
@@ -329,7 +330,7 @@ class Matrix:
              *,
              cc=False,
              scalapack=(None, 1, 1, None),
-             limit: int = None) -> Array1D:
+             limit: int | None = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -375,9 +376,8 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = (
-                            cupy_eigh(  # type: ignore[assignment]
-                                H.data, UPLO='L'))
+                        assert isinstance(H.data, cp.ndarray)
+                        eps, H.data.T[:] = cupy_eigh(H.data, UPLO='L')
                         return eps
                     eps[:], H.data.T[:] = sla.eigh(
                         H.data,
@@ -740,10 +740,10 @@ def redist(dist1, M1, dist2, M2, context):
 
 def create_distribution(M: int,
                         N: int,
-                        comm: MPIComm = None,
+                        comm: MPIComm | None = None,
                         r: int = 1,
                         c: int = 1,
-                        b: int = None,
+                        b: int | None = None,
                         xp=None) -> MatrixDistribution:
     if xp is cp:
         return CuPyDistribution(M, N)

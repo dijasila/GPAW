@@ -203,7 +203,7 @@ class GGA(XCFunctional):
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
 
-    def stress_tensor_contribution(self, n_sg):
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
         nspins = len(n_sg)
         dedsigma_xg = self.gd.empty(nspins * 2 - 1)
@@ -233,7 +233,8 @@ class GGA(XCFunctional):
                     stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
-        self.gd.comm.sum(stress_vv)
+        if not skip_sum:
+            self.gd.comm.sum(stress_vv)
         return stress_vv
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
