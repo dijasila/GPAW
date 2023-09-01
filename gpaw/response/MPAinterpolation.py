@@ -30,8 +30,9 @@ import numpy as np
 from scipy.linalg import eigvals  # , eig
 # from scipy.linalg.lapack import zgeev
 
-threshold = 0.00001
-epsilon = 0.00000001  # SP
+null_pole_thr = 1e-5
+pole_resolution = 1e-5
+epsilon = 1e-8  # SP
 
 # ####### 1 pole: ########################
 
@@ -42,22 +43,20 @@ def mpa_cond1(z, E):  # , PPcond_rate
     # real(SP),    intent(out)    :: PPcond_rate
 
     PPcond_rate = 0
-    threshold = 0.00001
-    epsilon = 0.00000001  # SP
 
-    if(abs(E) < threshold):  # need to check also NAN(abs(E))
+    if abs(E) < null_pole_thr:  # need to check also NAN(abs(E))
         E = complex(abs(z[0]), -epsilon)
         PPcond_rate = 1
-    elif(np.real(E) > 0.):
+    elif np.real(E) > 0.:
         E = np.emath.sqrt(E)
     else:
         E = np.emath.sqrt(-np.conj(E))  # note: PPA uses E = 1._SP
         PPcond_rate = 1
 
     # DALV: since MPA uses complex poles we need to guarantee the time ordering
-    if(np.real(E) < 0.):
+    if np.real(E) < 0.:
         E = -E
-    if(np.imag(E) > -epsilon):
+    if np.imag(E) > -epsilon:
         E = complex(np.real(E), -epsilon)
 
     return E, PPcond_rate
@@ -90,15 +89,15 @@ def pole_is_out(i, wmax, thr, E):  # we need to modify E inside the function
 
     is_out = False
 
-    if(np.real(E[i]) > wmax):
+    if np.real(E[i]) > wmax:
         is_out = True
 
     j = 0
-    while(j < i and not is_out):
-        if(abs(np.real(E[i]) - np.real(E[j])) < thr):
+    while j < i and not is_out:
+        if abs(np.real(E[i]) - np.real(E[j])) < thr:
             is_out = True
-            if(abs(np.real(E[j])) > max(abs(np.imag(E[j])),
-               abs(np.imag(E[i])))):
+            if abs(np.real(E[j])) > max(abs(np.imag(E[j])),
+               abs(np.imag(E[i]))):
                 E[j] = np.mean([np.real(E[j]), np.real(E[i])]) - 1j * \
                     max(abs(np.imag(E[j])), abs(np.imag(E[i])))
             else:
@@ -120,8 +119,6 @@ def mpa_cond(npols, z, E):
     # complex(SP) :: Eaux(np)
     # real(SP)    :: wmax, thr=0.00001_SP
 
-    thr = 0.00001
-
     PPcond = np.full(npols, False)
     npr = npols
     wr = np.real(np.emath.sqrt(z))
@@ -129,12 +126,12 @@ def mpa_cond(npols, z, E):
     Eaux = np.emath.sqrt(E)
 
     i = 0
-    while(i < npr):
+    while i < npr:
         Eaux[i] = max(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i]))) - 1j * \
             min(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i])))
-        is_out = pole_is_out(i, wmax, thr, Eaux)
+        is_out = pole_is_out(i, wmax, pole_resolution, Eaux)
 
-        if(is_out):
+        if is_out:
             Eaux[i] = np.emath.sqrt(E[npr - 1])
             Eaux[i] = max(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i]))) - 1j \
                 * min(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i])))
@@ -144,7 +141,7 @@ def mpa_cond(npols, z, E):
             i = i + 1
 
     E[:npr] = Eaux[:npr]
-    if(npr < npols):
+    if npr < npols:
         E[npr:npols] = complex(1, -epsilon)
         PPcond[npr:npols] = True
 
@@ -314,7 +311,7 @@ def mpa_RE_solver(npols, w, x):
     # logical  :: PPcond(np)
     # real(SP) :: cond_num(2) #DALV: only LA solver
 
-    if(npols == 1):  # DALV: we could particularize the solution for 2-3 poles
+    if npols == 1:  # DALV: we could particularize the solution for 2-3 poles
         E, PPcond_rate = mpa_E_1p_solver(w, x)
         R = mpa_R_1p_fit(1, 1, w, x, E)
         # DALV: if PPcond_rate=0, R = x[1]*(z[1]**2-E**2)/(2*E)

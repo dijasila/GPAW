@@ -2,10 +2,11 @@ import pytest
 import numpy as np
 from gpaw.response.g0w0 import G0W0
 from ase.units import Hartree as Ha
+from gpaw.response.MPAinterpolation import mpa_cond1, pole_is_out
 
 
 @pytest.mark.response
-def test_ppa(in_tmp_dir, gpw_files, scalapack):
+def test_mpa(in_tmp_dir, gpw_files, scalapack):
     ref_result = np.asarray([[[11.30094393, 21.62842077],
                               [5.33751513, 16.06905725],
                               [8.75269938, 22.46579489]]])
@@ -22,3 +23,13 @@ def test_ppa(in_tmp_dir, gpw_files, scalapack):
 
     results = gw.calculate()
     np.testing.assert_allclose(results['qp'], ref_result, rtol=1e-03)
+
+
+def test_mpa_conditions():
+    c = mpa_cond1(0, complex(4.0, 0.1))[0]
+    assert c == complex(2.0001562194924314, -1e-8)
+    E = [complex(1, -0.11), complex(1.05, 0.1), complex(2, 0.2),
+         complex(5, 1)]
+    bools = [False, True, False, True]
+    for i in range(len(E)):
+        assert pole_is_out(i, 3., 0.1, E) == bools[i]
