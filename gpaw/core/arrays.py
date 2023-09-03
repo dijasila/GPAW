@@ -72,6 +72,15 @@ class DistributedArrays(Generic[DomainType]):
             self.xp = cp
         self._matrix: Matrix | None = None
 
+    def x__getstate__(self):
+        state = self.__dict__.copy()
+        state.pop('xp')
+        return state
+
+    def x__setstate__(self, state):
+        self.__dict__.update(state)
+        self.xp = np
+
     def new(self, data=None) -> DistributedArrays:
         raise NotImplementedError
 

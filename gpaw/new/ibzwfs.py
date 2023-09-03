@@ -8,7 +8,7 @@ from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize
 from gpaw.gpu.mpi import CuPyMPI
-from gpaw.mpi import MPIComm, serial_comm
+from gpaw.mpi import MPIComm, serial_comm, send, receive
 from gpaw.new import cached_property, zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
@@ -246,13 +246,10 @@ class IBZWaveFunctions:
             if rank == 0:
                 return wfs2
             if wfs2 is not None:
-                wfs2.send(self.kpt_comm, 0)
+                send(wfs2, 0, self.kpt_comm)
             return
-        master = (self.kpt_comm.rank == 0 and
-                  self.domain_comm.rank == 0 and
-                  self.band_comm.rank == 0)
-        if master:
-            return self.wfs_qs[0][0].receive(self.kpt_comm, rank)
+        if self.comm.rank == 0:
+            return receive(rank, self.kpt_comm)
         return None
 
     def get_eigs_and_occs(self, k=0, s=0):

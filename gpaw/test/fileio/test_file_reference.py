@@ -1,12 +1,17 @@
 """Test the reading of wave functions as file references."""
 from math import sqrt
+
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
-from gpaw.mpi import world, rank
+from gpaw.mpi import rank, world
 
 
-def test_fileio_file_reference(in_tmp_dir):
+def test_fileio_file_reference(in_tmp_dir, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pass#pytest.skip()
     d = 3.0
     atoms = Atoms('Na3',
                   positions=[(0, 0, 0),
