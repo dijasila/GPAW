@@ -22,12 +22,12 @@ from gpaw.fd_operators import Gradient
 class UGDesc(Domain):
     def __init__(self,
                  *,
-                 cell: ArrayLike1D | ArrayLike2D,
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
-                 decomp: Sequence[Sequence[int]] = None,
+                 decomp: Sequence[Sequence[int]] | None = None,
                  dtype=None):
         """Description of 3D uniform grid.
 
@@ -35,7 +35,8 @@ class UGDesc(Domain):
         ----------
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         size:
             Number of grid points along axes.
         pbc:
@@ -193,7 +194,7 @@ class UGDesc(Domain):
 
         return transform
 
-    def eikr(self, kpt_c: Vector = None) -> Array3D:
+    def eikr(self, kpt_c: Vector | None = None) -> Array3D:
         """Plane wave.
 
         :::
@@ -239,7 +240,7 @@ class UGDesc(Domain):
                                    cell: ArrayLike1D | ArrayLike2D,
                                    grid_spacing: float,
                                    pbc=(True, True, True),
-                                   kpt: Vector = None,
+                                   kpt: Vector | None = None,
                                    comm: MPIComm = serial_comm,
                                    dtype=None) -> UGDesc:
         """Create UGDesc from grid-spacing."""
@@ -272,7 +273,7 @@ class UGArray(DistributedArrays[UGDesc]):
                  grid: UGDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) on a uniform grid.
 
@@ -402,7 +403,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
-            # are posted, so use syncronous send here
+            # are posted, so use synchronous send here
             comm.ssend(self.data, 0, 301)
             if broadcast:
                 comm.broadcast(out.data, 0)
@@ -496,11 +497,11 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = self.desc.new(pbc=True)
         new = grid.empty(self.dims)
         new.data[:] = 0.0
-        i, j, k = self.desc.start_c
-        new.data[..., i:, j:, k:] = self.data
+        *_, i, j, k = self.data.shape
+        new.data[..., -i:, -j:, -k:] = self.data
         return new
 
-    def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
+    def multiply_by_eikr(self, kpt_c: Vector | None = None) -> None:
         """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
@@ -510,10 +511,10 @@ class UGArray(DistributedArrays[UGDesc]):
             self.data *= self.desc.eikr(kpt_c)
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         """Interpolate to finer grid.
 
         Parameters
@@ -605,10 +606,10 @@ class UGArray(DistributedArrays[UGDesc]):
         return out
 
     def fft_restrict(self,
-                     plan1: fftw.FFTPlans = None,
-                     plan2: fftw.FFTPlans = None,
-                     grid: UGDesc = None,
-                     out: UGArray = None) -> UGArray:
+                     plan1: fftw.FFTPlans | None = None,
+                     plan2: fftw.FFTPlans | None = None,
+                     grid: UGDesc | None = None,
+                     out: UGArray | None = None) -> UGArray:
         """Restrict to coarser grid.
 
         Parameters
@@ -691,7 +692,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UGArray = None) -> None:
+                   out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
         for f, psit_R in zips(weights, self.data):
@@ -722,9 +723,10 @@ class UGArray(DistributedArrays[UGDesc]):
 
         self.data *= 1.0 / len(rotation_scc)
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
         rng = np.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
@@ -764,12 +766,12 @@ class UGArray(DistributedArrays[UGDesc]):
         Unit cell axes are multiplied by `s` and data by `v`.
         """
         grid = self.desc
-        assert grid.comm.size == 1
         grid = UGDesc(cell=grid.cell_cv * s,
                       size=grid.size_c,
                       pbc=grid.pbc_c,
                       kpt=(grid.kpt_c if grid.kpt_c.any() else None),
-                      dtype=grid.dtype)
+                      dtype=grid.dtype,
+                      comm=grid.comm)
         return UGArray(grid, self.dims, self.comm, self.data * v)
 
     def add_ked(self,
@@ -783,3 +785,10 @@ class UGArray(DistributedArrays[UGDesc]):
             for grad in grad_v:
                 grad(psit_R, tmp_R)
                 add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+
+    def redist(self,
+               domain: UGDesc,
+               comm1: MPIComm, comm2: MPIComm) -> UGArray:
+        a = super().redist(domain, comm1, comm2)
+        assert isinstance(a, UGArray)
+        return a

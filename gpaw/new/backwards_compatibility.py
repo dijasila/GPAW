@@ -93,9 +93,17 @@ class KPT:
         self.ngpts = ngpts
         self.wfs = wfs
         self.pd = pd
+
+        I1 = 0
+        nproj_a = []
+        for a, shape in enumerate(wfs.P_ani.layout.shape_a):
+            I2 = I1 + prod(shape)
+            nproj_a.append(I2 - I1)
+            I1 = I2
+
         self.projections = Projections(
             wfs.nbands,
-            [I2 - I1 for (a, I1, I2) in wfs.P_ani.layout.myindices],
+            nproj_a,
             atom_partition,
             wfs.P_ani.comm,
             wfs.ncomponents < 4,

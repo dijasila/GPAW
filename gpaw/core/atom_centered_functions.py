@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Callable
+
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
-from gpaw.mpi import serial_comm, MPIComm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zips
 from gpaw.spline import Spline
-from gpaw.typing import ArrayLike2D, Array1D
+from gpaw.typing import Array1D, ArrayLike2D
+
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray
 
@@ -24,7 +28,7 @@ class AtomCenteredFunctions:
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
-                 atomdist: AtomDistribution = None,
+                 atomdist: AtomDistribution | None = None,
                  xp=None):
         self.xp = xp or np
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
@@ -42,6 +46,9 @@ class AtomCenteredFunctions:
             funcs.append(...)
         return (f'{self.__class__.__name__}'
                 f'(functions={funcs}, atomdist={self.atomdist})')
+
+    def new(self, desc, atomdist):
+        raise NotImplementedError
 
     @property
     def layout(self):
@@ -121,6 +128,16 @@ class UGAtomCenteredFunctions(AtomCenteredFunctions):
         self.integral = integral
         self.cut = cut
 
+    def new(self, grid, atomdist):
+        return UGAtomCenteredFunctions(
+            self.functions,
+            self.fracpos_ac,
+            grid,
+            atomdist=atomdist,
+            integral=self.integral,
+            cut=self.cut,
+            xp=self.xp)
+
     def _lazy_init(self):
         if self._lfc is not None:
             return
@@ -139,7 +156,8 @@ class UGAtomCenteredFunctions(AtomCenteredFunctions):
                 ranks=np.array([sphere.rank for sphere in self._lfc.sphere_a]),
                 comm=self.grid.comm)
         else:
-            for sphere, rank in zip(self._lfc.sphere_a, self._atomdist.rank_a):
+            for sphere, rank in zips(self._lfc.sphere_a,
+                                     self._atomdist.rank_a):
                 assert sphere.rank == rank
             assert self.grid.comm is self._atomdist.comm
 

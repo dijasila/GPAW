@@ -30,6 +30,14 @@ class PWAtomCenteredFunctions(AtomCenteredFunctions):
         self.pw = pw
         self.xp = xp or np
 
+    def new(self, pw, atomdist):
+        return PWAtomCenteredFunctions(
+            self.functions,
+            self.fracpos_ac,
+            pw,
+            atomdist=atomdist,
+            xp=self.xp)
+
     def _lazy_init(self):
         if self._lfc is not None:
             return

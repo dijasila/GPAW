@@ -130,6 +130,9 @@ def gpw_files(request):
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
+    * Bulk SiC, LDA, 4x4x4 k-points, 8(+1) converged bands: ``sic_pw``
+      and ``sic_pw_spinpol``
+
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
@@ -548,6 +551,45 @@ class GPWFiles:
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
 
+    @with_band_cutoff(gpw='sic_pw',
+                      band_cutoff=8)  # (3s, 3p) + (2s, 2p)
+    def _sic_pw(self, *, band_cutoff, spinpol=False):
+        """Simple semi-conductor with broken inversion symmetry."""
+        # Use the diamond crystal structure as blue print
+        diamond = bulk('C', 'diamond')
+        si = bulk('Si', 'diamond')
+        # Break inversion symmetry by substituting one Si for C
+        atoms = si.copy()
+        atoms.set_chemical_symbols(['C', 'Si'])
+        # Scale the cell to the diamond/Si average
+        cell_cv = (diamond.get_cell() + si.get_cell()) / 2.
+        atoms.set_cell(cell_cv)
+
+        # Set up calculator
+        tag = '_spinpol' if spinpol else ''
+        atoms.calc = GPAW(
+            mode=PW(300),
+            xc='LDA',
+            kpts={'size': (4, 4, 4)},
+            nbands=band_cutoff + 6,
+            occupations=FermiDirac(0.001),
+            convergence={'bands': band_cutoff + 1,
+                         'density': 1.e-8},
+            spinpol=spinpol,
+            txt=self.path / f'sic_pw{tag}.txt'
+        )
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
+    def sic_pw_spinpol(self):
+        return self._sic_pw(spinpol=True)
+
     @gpwfile
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
@@ -616,9 +658,16 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
-    @with_band_cutoff(gpw='p4_pw_wfs',
+    def mos2_pw(self):
+        return self._mos2()
+
+    @gpwfile
+    def mos2_pw_nosym(self):
+        return self._mos2(symmetry='off')
+
+    @with_band_cutoff(gpw='p4_pw',
                       band_cutoff=40)
-    def p4_pw(self, band_cutoff):
+    def _p4(self, band_cutoff, spinpol=False):
         atoms = Atoms('P4', positions=[[0.03948480, -0.00027057, 7.49990646],
                                        [0.86217564, -0.00026338, 9.60988536],
                                        [2.35547782, 1.65277230, 9.60988532],
@@ -626,24 +675,25 @@ class GPWFiles:
                       cell=[4.63138807675, 3.306178252090, 17.10979291],
                       pbc=[True, True, False])
         atoms.center(vacuum=1.5, axis=2)
+        tag = '_spinpol' if spinpol else ''
         nkpts = 2
         atoms.calc = GPAW(mode=PW(250),
-                          xc='LDA',
+                          xc='LDA', spinpol=spinpol,
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations={'width': 0},
                           nbands=band_cutoff + 10,
-                          convergence={'bands': band_cutoff},
-                          txt=self.path / 'p4_pw.txt')
+                          convergence={'bands': band_cutoff + 1},
+                          txt=self.path / f'p4_pw{tag}.txt')
         atoms.get_potential_energy()
         return atoms.calc
 
     @gpwfile
-    def mos2_pw(self):
-        return self._mos2()
+    def p4_pw(self):
+        return self._p4()
 
     @gpwfile
-    def mos2_pw_nosym(self):
-        return self._mos2(symmetry='off')
+    def p4_pw_spinpol(self):
+        return self._p4(spinpol=True)
 
     @gpwfile
     def ni_pw_kpts333(self):

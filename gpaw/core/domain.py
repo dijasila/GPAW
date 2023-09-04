@@ -37,9 +37,9 @@ class Domain:
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,
+                 kpt: Vector | None = None,
                  comm: MPIComm = serial_comm,
-                 dtype: DTypeLike = None):
+                 dtype: DTypeLike | None = None):
         """"""
         if isinstance(pbc, int):
             pbc = (pbc,) * 3

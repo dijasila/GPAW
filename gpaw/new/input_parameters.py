@@ -88,6 +88,8 @@ class InputParameters:
         if self.experimental is not None:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
+            if self.experimental.pop('reuse_wfs_method', None) is not None:
+                warnings.warn('Ignoring "reuse_wfs_method".')
             if 'soc' in self.experimental:
                 warnings.warn('Please use new "soc" parameter.',
                               DeprecatedParameterWarning)
