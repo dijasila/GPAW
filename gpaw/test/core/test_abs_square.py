@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 import pytest
 
-from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core import PWDesc, UGDesc
 from gpaw.gpu import cupy as cp
 
 
@@ -13,9 +13,9 @@ def abs_square(a: float,  # lattice constant
                xp,
                slow=False) -> float:
     """Calculate density from wave functions."""
-    grid = UniformGrid(cell=[a, a, a], size=[N, N, N])
+    grid = UGDesc(cell=[a, a, a], size=[N, N, N])
     ecut = 0.5 * (np.pi * N / a)
-    pw = PlaneWaves(ecut=ecut, cell=grid.cell, dtype=complex)
+    pw = PWDesc(ecut=ecut, cell=grid.cell, dtype=complex)
     psit_nG = pw.zeros(B, xp=xp)
     psit_nG.data[:, 0] = 1.0
     weight_n = np.linspace(1, 0, B)
