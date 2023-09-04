@@ -25,8 +25,10 @@ class PWHamiltonian(Hamiltonian):
         assert isinstance(psit_nG, PWArray)
         assert isinstance(out, PWArray)
         out_nG = out
-        vt_R = vt_R.gather(broadcast=True)
         xp = psit_nG.xp
+        if xp is not np and vt_R.desc.comm.size == 1:
+            return apply_local_potential_gpu(vt_R, psit_nG, out_nG)
+        vt_R = vt_R.gather(broadcast=True)
         grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
         tmp_R = grid.empty(xp=xp)
         pw = psit_nG.desc
@@ -166,3 +168,61 @@ class SpinorPWHamiltonian(Hamiltonian):
 
     def create_preconditioner(self, blocksize):
         return spinor_precondition
+
+
+def apply_local_potential_gpu(vt_R, psit_nG, out_nG):
+    grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
+    tmp_R = grid.empty(xp=xp)
+    pw = psit_nG.desc
+    if pw.comm.size == 1:
+        pw_local = pw
+    else:
+        key = tuple(pw.kpt_c)
+        pw_local = self.pw_cache.get(key)
+        if pw_local is None:
+            pw_local = pw.new(comm=None)
+            self.pw_cache[key] = pw_local
+    psit_G = pw_local.empty(xp=xp)
+    e_kin_G = xp.asarray(psit_G.desc.ekin_G)
+    domain_comm = psit_nG.desc.comm
+    mynbands = psit_nG.mydims[0]
+    vtpsit_G = pw_local.empty(xp=xp)
+    for n1 in range(0, mynbands, domain_comm.size):
+        n2 = min(n1 + domain_comm.size, mynbands)
+        psit_nG[n1:n2].gather_all(psit_G)
+        if domain_comm.rank < n2 - n1:
+            psit_G.ifft(out=tmp_R)
+            tmp_R.data *= vt_R.data
+            tmp_R.fft(out=vtpsit_G)
+            psit_G.data *= e_kin_G
+            vtpsit_G.data += psit_G.data
+        out_nG[n1:n2].scatter_from_all(vtpsit_G)
+
+    from gpaw.gpu import cupyx
+    pw = psit_nG.desc
+    plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
+    Q_G = plan.indices(pw)
+    weight_n = cp.asarray(weight_n)
+    N = len(weight_n)
+    shape = tuple(nt_R.desc.size_c)
+    B = 10
+    psit_bR = None
+    for b1 in range(0, N, B):
+        b2 = min(b1 + B, N)
+        nb = b2 - b1
+        if psit_bR is None:
+            psit_bR = cp.empty((nb,) + shape, complex)
+        elif nb < B:
+            psit_bR = psit_bR[:nb]
+        psit_bR[:] = 0.0
+        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data[b1:b2]
+        psit_bR[:] = cupyx.scipy.fft.ifftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        psit_bRz = psit_bR.view(float).reshape((nb, -1, 2))
+        nt_R.data += cp.einsum('b, bRz, bRz -> R',
+                               weight_n[b1:b2],
+                               psit_bRz,
+                               psit_bRz).reshape(shape)
