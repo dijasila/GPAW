@@ -571,6 +571,8 @@ class GPWFiles:
             mode=PW(300),
             xc='LDA',
             kpts={'size': (4, 4, 4)},
+            symmetry={'point_group': False,
+                      'time_reversal': True},
             nbands=band_cutoff + 6,
             occupations=FermiDirac(0.001),
             convergence={'bands': band_cutoff + 1,
