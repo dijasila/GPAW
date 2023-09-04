@@ -43,7 +43,6 @@ def test_shg(in_tmp_dir):
 
 
 def test_shg_spinpol(gpw_files, in_tmp_dir):
-
     freqs = np.linspace(2, 4, 101)
     shg_xyz = []
     for spinpol in [False, True]:
@@ -73,15 +72,14 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
     # Absolute error
     shg_xyz_diff = shg_xyz[False] - shg_xyz[True]
-    assert np.all(np.abs(np.real(shg_xyz_diff)) < 1e-3)
-    assert np.all(np.abs(np.imag(shg_xyz_diff)) < 1e-3)
+    assert (np.abs(shg_xyz_diff.real) < 1e-3).all()
+    assert (np.abs(shg_xyz_diff.imag) < 1e-3).all()
 
     # Relative error
     shg_xyz_avg = (shg_xyz[0] + shg_xyz[1]) / 2
     shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
     shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
-    assert np.all(np.abs(shg_xyz_rerr_real) < 1e-2), \
+    assert (np.abs(shg_xyz_rerr_real) < 1e-2).all(), \
         np.max(np.abs(shg_xyz_rerr_real))
-    assert np.all(np.abs(shg_xyz_rerr_imag) < 1e-2), \
+    assert (np.abs(shg_xyz_rerr_imag) < 1e-2).all(), \
         np.max(np.abs(shg_xyz_rerr_imag))
-       
