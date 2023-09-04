@@ -249,12 +249,15 @@ class UGDesc(Domain):
 
     def fft_plans(self,
                   flags: int = fftw.MEASURE,
-                  xp=np) -> fftw.FFTPlans:
+                  xp=np,
+                  dtype=None) -> fftw.FFTPlans:
         """Create FFTW-plans."""
+        if dtype is None:
+            dtype = self.dtype
         if self.comm.rank == 0:
-            return fftw.create_plans(self.size_c, self.dtype, flags, xp)
+            return fftw.create_plans(self.size_c, dtype, flags, xp)
         else:
-            return fftw.create_plans([0, 0, 0], self.dtype)
+            return fftw.create_plans([0, 0, 0], dtype)
 
     def ranks_from_fractional_positions(self,
                                         fracpos_ac: Array2D) -> Array1D:

@@ -560,7 +560,8 @@ class PWArray(DistributedArrays[PWDesc]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UGArray) -> None:
+                   out: UGArray,
+                   _slow: bool = False) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -577,10 +578,8 @@ class PWArray(DistributedArrays[PWDesc]):
         a_nG = self
 
         if domain_comm.size == 1:
-            if xp is cp and pw.dtype == complex:
+            if not _slow and xp is cp and pw.dtype == complex:
                 return abs_square_gpu(a_nG, weights, out)
-
-            print(a_nG.data._data[:, :3])
 
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
             for weight, a_G in zips(weights, a_nG):
@@ -805,7 +804,7 @@ def find_reciprocal_vectors(ecut: float,
 def abs_square_gpu(psit_nG, weight_n, nt_R):
     from gpaw.gpu import cupyx
     pw = psit_nG.desc
-    plan = nt_R.desc.fft_plans(xp=cp)
+    plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
     Q_G = plan.indices(pw)
     weight_n = cp.asarray(weight_n)
     N = len(weight_n)
@@ -820,8 +819,7 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
         elif nb < B:
             psit_bR = psit_bR[:nb]
         psit_bR[:] = 0.0
-        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data
-        print('AA', psit_bR._data[:, :2, 0, 1])
+        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data[b1:b2]
         psit_bR[:] = cupyx.scipy.fft.ifftn(
             psit_bR,
             shape,
@@ -832,4 +830,3 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
                                weight_n[b1:b2],
                                psit_bRz,
                                psit_bRz).reshape(shape)
-        print(nt_R.data[:2, 0, 1]._data)
