@@ -825,8 +825,5 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
             shape,
             norm='forward',
             overwrite_x=True)
-        psit_bRz = psit_bR.view(float).reshape((nb, -1, 2))
-        nt_R.data += cp.einsum('b, bRz, bRz -> R',
-                               weight_n[b1:b2],
-                               psit_bRz,
-                               psit_bRz).reshape(shape)
+        for psit_R, w in zips(psit_bR.data, weight_n[b1:b2]):
+            nt_R.data += w * (psit_R.real**2 + psit_R.imag**2)
