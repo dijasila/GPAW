@@ -20,8 +20,7 @@ class PWHamiltonian(Hamiltonian):
     def apply_local_potential(self,
                               vt_R: UGArray,
                               psit_nG: XArray,
-                              out: XArray
-                              ) -> None:
+                              out: XArray) -> None:
         assert isinstance(psit_nG, PWArray)
         assert isinstance(out, PWArray)
         out_nG = out
