@@ -56,7 +56,7 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
                 out_name=f'shg_xyz{tag}.npy',
                 mml_name=f'mml{tag}.npz')
 
-        # Load the calculated SHG spectra (in units of pm/V)
+        # Load the calculated SHG spectra (in units of nm/V)
         shg_xyz.append(np.load(f'shg_xyz{tag}.npy')[1] * 1e9)
 
     assert not np.isnan(shg_xyz[False]).any()
@@ -76,10 +76,10 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
     assert (np.abs(shg_xyz_diff.imag) < 1e-3).all()
 
     # Relative error
-    shg_xyz_avg = (shg_xyz[0] + shg_xyz[1]) / 2
-    shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
-    shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
-    assert (np.abs(shg_xyz_rerr_real) < 1e-2).all(), \
-        np.max(np.abs(shg_xyz_rerr_real))
-    assert (np.abs(shg_xyz_rerr_imag) < 1e-2).all(), \
-        np.max(np.abs(shg_xyz_rerr_imag))
+    shg_xyz_avg = (shg_xyz[False] + shg_xyz[True]) / 2
+    shg_xyz_rerr_real = np.abs(shg_xyz_diff.real / shg_xyz_avg.real)
+    shg_xyz_rerr_imag = np.abs(shg_xyz_diff.imag / shg_xyz_avg.imag)
+    assert (shg_xyz_rerr_real < 1e-2).all(), \
+        np.max(shg_xyz_rerr_real)
+    assert (shg_xyz_rerr_imag < 1e-2).all(), \
+        np.max(shg_xyz_rerr_imag)
