@@ -14,20 +14,22 @@ from gpaw.response.pair_transitions import PairTransitions
 
 
 class PairFunctionIntegrator(ABC):
-    r"""Baseclass for computing pair functions in the Kohn-Sham system of
-    collinear periodic crystals in absence of spin-orbit coupling.
+    r"""Baseclass for computing pair functions in the Kohn-Sham system.
 
-    A pair function is understood as any function, which can be constructed as
-    a sum over transitions between Kohn-Sham eigenstates at k and k + q,
+    The implementation is currently restricted collinear periodic crystals in
+    absence of spin-orbit coupling.
+
+    In the Kohn-Sham system, pair functions (see the PairFunciton class for
+    further descriptions) can be constructed straight-forwardly as a sum over
+    transitions between Kohn-Sham eigenstates at k and k + q,
                   __  __  __                            __
                1  \   \   \                          1  \
     pf(q,z) =  ‾  /   /   /   pf_nks,n'k+qs'(q,z) =  ‾  /  pf_T(q,z)
                V  ‾‾  ‾‾  ‾‾                         V  ‾‾
                   k  n,n' s,s'                          T
 
-    where z is decodes any additional variables (usually this will be some sort
-    of complex frequency). In the notation used here, V is the crystal volume
-    and T is a composit index encoding all relevant transitions:
+    where V is the crystal volume and T is a composite index encoding all
+    relevant transitions:
 
     T: (n, k, s) -> (n', k + q, s')
 
@@ -78,8 +80,7 @@ class PairFunctionIntegrator(ABC):
 
     def __init__(self, gs, context, nblocks=1,
                  disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True):
+                 disable_time_reversal=False):
         """Construct the PairFunctionIntegrator
 
         Parameters
@@ -93,8 +94,6 @@ class PairFunctionIntegrator(ABC):
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
         """
         self.gs = gs
         self.context = context
@@ -117,9 +116,7 @@ class PairFunctionIntegrator(ABC):
         # Symmetry flags
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        if (disable_time_reversal and disable_point_group
-            and disable_non_symmorphic):
+        if disable_time_reversal and disable_point_group:
             self.disable_symmetries = True
         else:
             self.disable_symmetries = False
@@ -221,10 +218,9 @@ class PairFunctionIntegrator(ABC):
         return PWSymmetryAnalyzer(
             self.gs.kd, qpd, self.context,
             disable_point_group=self.disable_point_group,
-            disable_time_reversal=self.disable_time_reversal,
-            disable_non_symmorphic=self.disable_non_symmorphic)
+            disable_time_reversal=self.disable_time_reversal)
 
-    def get_band_and_spin_transitions(self, spin_rotation, nbands=None,
+    def get_band_and_spin_transitions(self, spincomponent, nbands=None,
                                       bandsummation='pairwise'):
         """Get band and spin transitions (n, s) -> (n', s') to integrate."""
         nspins = self.gs.nspins
@@ -236,7 +232,7 @@ class PairFunctionIntegrator(ABC):
         assert nbands <= gsnbands
 
         transitions = PairTransitions.from_transitions_domain_arguments(
-            spin_rotation, nbands, nocc1, nocc2, nspins, bandsummation)
+            spincomponent, nbands, nocc1, nocc2, nspins, bandsummation)
 
         return transitions
 
@@ -259,22 +255,33 @@ class PairFunctionIntegrator(ABC):
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
-        s = ''
+        isl = ['',
+               'The pair function integration is based on a ground state '
+               'with:',
+               f'    Number of spins: {nspins}',
+               f'    Number of bands: {nbands}',
+               f'    Number of completely occupied bands: {nocc1}',
+               f'    Number of partially occupied bands: {nocc2}',
+               f'    Number of kpoints: {nk}',
+               f'    Number of irreducible kpoints: {nik}',
+               '',
+               'The pair function integration is performed in parallel with:',
+               f'    comm.size: {csize}',
+               f'    intrablockcomm.size: {knsize}',
+               f'    blockcomm.size: {bsize}']
 
-        s += 'The pair function integration is based on a ground state with:\n'
-        s += '    Number of spins: %d\n' % nspins
-        s += '    Number of bands: %d\n' % nbands
-        s += '    Number of completely occupied bands: %d\n' % nocc1
-        s += '    Number of partially occupied bands: %d\n' % nocc2
-        s += '    Number of kpoints: %d\n' % nk
-        s += '    Number of irredicible kpoints: %d\n' % nik
-        s += '\n'
-        s += 'The pair function integration is performed in parallel with:\n'
-        s += '    comm.size: %d\n' % csize
-        s += '    intrablockcomm.size: %d\n' % knsize
-        s += '    blockcomm.size: %d\n' % bsize
+        return '\n'.join(isl)
 
-        return s
+    @staticmethod
+    def get_band_and_transitions_info_string(nbands, nt):
+        isl = []  # info string list
+        if nbands is None:
+            isl.append('    Bands included: All')
+        else:
+            isl.append(f'    Number of bands included: {nbands}')
+        isl.append('Resulting in:')
+        isl.append(f'    A total number of band and spin transitions of: {nt}')
+        return '\n'.join(isl)
 
 
 class KPointPairIntegral(ABC):

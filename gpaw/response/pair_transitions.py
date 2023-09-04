@@ -50,7 +50,7 @@ class PairTransitions:
         return intraband_t
 
     @classmethod
-    def from_transitions_domain_arguments(cls, spin_rotation,
+    def from_transitions_domain_arguments(cls, spincomponent,
                                           nbands, nocc1, nocc2, nspins,
                                           bandsummation) -> PairTransitions:
         """Generate the band and spin transitions integration domain.
@@ -65,10 +65,9 @@ class PairTransitions:
 
         Parameters
         ----------
-        spin_rotation : str
-            Spin rotation from k to k + q.
-            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-' and '+'.
-            All rotations are included for spin_rotation=None ('0' + '+' + '-')
+        spincomponent : str
+            Spin component (μν) of the pair function.
+            Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
         nbands : int
             Maximum band index to include.
         nocc1 : int
@@ -86,7 +85,7 @@ class PairTransitions:
                                                  nocc1=nocc1,
                                                  nocc2=nocc2)
         s1_S, s2_S = get_spin_transitions_domain(bandsummation,
-                                                 spin_rotation, nspins)
+                                                 spincomponent, nspins)
 
         n1_t, n2_t, s1_t, s2_t = transitions_in_composite_index(n1_M, n2_M,
                                                                 s1_S, s2_S)
@@ -169,15 +168,16 @@ def remove_null_transitions(n1_M, n2_M, nocc1=None, nocc2=None):
     return np.array(n1_newM), np.array(n2_newM)
 
 
-def get_spin_transitions_domain(bandsummation, spinrot, nspins):
+def get_spin_transitions_domain(bandsummation, spincomponent, nspins):
     """Get structure of the sum over spins
 
     Parameters
     ----------
     bandsummation : str
         Band summation method
-    spinrot : str
-        spin rotation
+    spincomponent : str
+        Spin component (μν) of the pair function.
+        Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
     nspins : int
         number of spin channels in ground state calculation
 
@@ -190,7 +190,7 @@ def get_spin_transitions_domain(bandsummation, spinrot, nspins):
     """
     _get_spin_transitions_domain =\
         create_get_spin_transitions_domain(bandsummation)
-    return _get_spin_transitions_domain(spinrot, nspins)
+    return _get_spin_transitions_domain(spincomponent, nspins)
 
 
 def create_get_spin_transitions_domain(bandsummation):
@@ -202,47 +202,44 @@ def create_get_spin_transitions_domain(bandsummation):
     raise ValueError(bandsummation)
 
 
-def get_double_spin_transitions_domain(spinrot, nspins):
+def get_double_spin_transitions_domain(spincomponent, nspins):
     """Usual spin rotations forward in time"""
     if nspins == 1:
-        if spinrot is None or spinrot == '0':
+        if spincomponent == '00':
             s1_S = [0]
             s2_S = [0]
         else:
-            raise ValueError(spinrot, nspins)
+            raise ValueError(spincomponent, nspins)
     else:
-        if spinrot is None:
-            s1_S = [0, 0, 1, 1]
-            s2_S = [0, 1, 0, 1]
-        elif spinrot == '0':
+        if spincomponent == '00':
             s1_S = [0, 1]
             s2_S = [0, 1]
-        elif spinrot == 'u':
+        elif spincomponent == 'uu':
             s1_S = [0]
             s2_S = [0]
-        elif spinrot == 'd':
+        elif spincomponent == 'dd':
             s1_S = [1]
             s2_S = [1]
-        elif spinrot == '-':
+        elif spincomponent == '+-':
             s1_S = [0]  # spin up
             s2_S = [1]  # spin down
-        elif spinrot == '+':
+        elif spincomponent == '-+':
             s1_S = [1]  # spin down
             s2_S = [0]  # spin up
         else:
-            raise ValueError(spinrot)
+            raise ValueError(spincomponent)
 
     return np.array(s1_S), np.array(s2_S)
 
 
-def get_pairwise_spin_transitions_domain(spinrot, nspins):
+def get_pairwise_spin_transitions_domain(spincomponent, nspins):
     """In a sum over pairs, transitions including a spin rotation may have to
     include terms, propagating backwards in time."""
-    if spinrot in ['+', '-']:
+    if spincomponent in ['+-', '-+']:
         assert nspins == 2
         return np.array([0, 1]), np.array([1, 0])
     else:
-        return get_double_spin_transitions_domain(spinrot, nspins)
+        return get_double_spin_transitions_domain(spincomponent, nspins)
 
 
 def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):

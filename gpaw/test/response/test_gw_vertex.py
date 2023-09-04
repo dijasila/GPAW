@@ -8,8 +8,9 @@ from gpaw.response.g0w0 import G0W0
     ('GWP', 4.667170),
     ('GWS', 4.988230),
     ('GWG', 4.894904)])
-def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap, scalapack):
-    gw = G0W0(gpw_files['bn_pw_wfs'],
+def test_fxc_mode(in_tmp_dir, gpw_files, fxc_mode, ref_gap, scalapack,
+                  needs_ase_master):
+    gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,

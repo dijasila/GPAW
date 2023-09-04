@@ -7,10 +7,17 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 
 
 class CoulombKernel:
-    def __init__(self, truncation, gs):
+    def __init__(self, truncation, *, N_c, pbc_c, kd):
         self.truncation = truncation
-        assert self.truncation in {None, '2D'}
-        self._gs = gs
+        assert self.truncation in {None, '0D', '2D'}
+        self.N_c = N_c
+        self.pbc_c = pbc_c
+        self.kd = kd
+
+    def from_gs(gs, *, truncation):
+        return CoulombKernel(truncation, N_c=gs.kd.N_c,
+                             pbc_c=gs.atoms.get_pbc(),
+                             kd=gs.kd)
 
     def description(self):
         if self.truncation is None:
@@ -24,25 +31,24 @@ class CoulombKernel:
     def V(self, qpd, q_v):
         assert isinstance(qpd, SingleQPWDescriptor)
         return get_coulomb_kernel(
-            qpd, self._gs.kd.N_c, q_v=q_v,
+            qpd, self.N_c, pbc_c=self.pbc_c, q_v=q_v,
             truncation=self.truncation)
 
     def integrated_kernel(self, qpd, reduced):
         return get_integrated_kernel(
-            qpd=qpd, N_c=self._gs.kd.N_c,
+            qpd=qpd, N_c=self.N_c, pbc_c=self.pbc_c,
             truncation=self.truncation, reduced=reduced)
 
 
-def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None):
+def get_coulomb_kernel(qpd, N_c, q_v=None, truncation=None, *, pbc_c):
     """Factory function that calls the specified flavour
     of the Coulomb interaction"""
 
-    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-    if q_v is not None:
-        assert qpd.kd.gamma
-        qG_Gv += q_v
-
     if truncation is None:
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+        if q_v is not None:
+            assert qpd.optical_limit
+            qG_Gv += q_v
         if qpd.kd.gamma and q_v is None:
             v_G = np.zeros(len(qpd.G2_qG[0]))
             v_G[0] = 4 * np.pi
@@ -51,11 +57,16 @@ def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None):
             v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
 
     elif truncation == '2D':
-        v_G = calculate_2D_truncated_coulomb(qpd, q_v=q_v, N_c=N_c)
+        v_G = calculate_2D_truncated_coulomb(qpd, pbc_c=pbc_c, q_v=q_v)
         if qpd.kd.gamma and q_v is None:
             v_G[0] = 0.0
 
-    elif truncation in {'1D', '0D'}:
+    elif truncation == '0D':
+        from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb
+        wstc = WignerSeitzTruncatedCoulomb(qpd.gd.cell_cv, np.ones(3, int))
+        v_G = wstc.get_potential(qpd)
+
+    elif truncation in {'1D'}:
         raise feature_removed()
 
     else:
@@ -64,25 +75,27 @@ def get_coulomb_kernel(qpd, N_c, truncation=None, q_v=None):
     return v_G.astype(complex)
 
 
-def calculate_2D_truncated_coulomb(qpd, q_v=None, N_c=None):
+def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
     """ Simple 2D truncation of Coulomb kernel PRB 73, 205119.
-    The non-periodic direction is determined from k-point grid.
+
+        Note: q_v is only added to qG_Gv if qpd.kd.gamma is True.
+
     """
 
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-    if qpd.kd.gamma:
+    if qpd.optical_limit:
         if q_v is not None:
             qG_Gv += q_v
         else:  # only to avoid warning. Later set to zero in factory function
             qG_Gv[0] = [1., 1., 1.]
+    else:
+        assert q_v is None
 
-    # The non-periodic direction is determined from k-point grid
-    Nn_c = np.where(N_c == 1)[0]
-    Np_c = np.where(N_c != 1)[0]
-    if len(Nn_c) != 1:
-        # The k-point grid does not fit with boundary conditions
-        Nn_c = [2]  # choose reduced cell vectors 0, 1
-        Np_c = [0, 1]  # choose reduced cell vector 2
+    # The non-periodic direction is determined from pbc_c
+    Nn_c = np.where(~pbc_c)[0]
+    Np_c = np.where(pbc_c)[0]
+    assert len(Nn_c) == 1
+    assert len(Np_c) == 2
     # Truncation length is half of cell vector in non-periodic direction
     R = qpd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 
@@ -101,28 +114,28 @@ def calculate_2D_truncated_coulomb(qpd, q_v=None, N_c=None):
     return v_G.astype(complex)
 
 
-def get_integrated_kernel(qpd, N_c, truncation=None, N=100, reduced=False):
+def get_integrated_kernel(qpd, N_c, truncation=None,
+                          N=100, reduced=False, *, pbc_c):
     from scipy.special import j1, k0, j0, k1
-
     B_cv = 2 * np.pi * qpd.gd.icell_cv
     Nf_c = np.array([N, N, N])
     if reduced:
         # Only integrate periodic directions if truncation is used
-        Nf_c[np.where(N_c == 1)[0]] = 1
+        Nf_c[np.where(~pbc_c)[0]] = 1
     q_qc = monkhorst_pack(Nf_c) / N_c
     q_qc += qpd.q_c
     q_qv = np.dot(q_qc, B_cv)
 
+    Nn_c = np.where(~pbc_c)[0]
+    Np_c = np.where(pbc_c)[0]
+    assert len(Nn_c) + len(Np_c) == 3
+
     if truncation is None:
         V_q = 4 * np.pi / np.sum(q_qv**2, axis=1)
+        assert len(Np_c) == 3
     elif truncation == '2D':
-        # The non-periodic direction is determined from k-point grid
-        Nn_c = np.where(N_c == 1)[0]
-        Np_c = np.where(N_c != 1)[0]
-        if len(Nn_c) != 1:
-            # The k-point grid does not fit with boundary conditions
-            Nn_c = [2]  # choose reduced cell vectors 0, 1
-            Np_c = [0, 1]  # choose reduced cell vector 2
+        assert len(Np_c) == 2
+
         # Truncation length is half of cell vector in non-periodic direction
         R = qpd.gd.cell_cv[Nn_c[0], Nn_c[0]] / 2.
 
@@ -133,14 +146,7 @@ def get_integrated_kernel(qpd, N_c, truncation=None, N=100, reduced=False):
         a_q = qn_q / qp_q * np.sin(qn_q * R) - np.cos(qn_q * R)
         V_q *= 1. + np.exp(-qp_q * R) * a_q
     elif truncation == '1D':
-        # The non-periodic direction is determined from k-point grid
-        Nn_c = np.where(N_c == 1)[0]
-        Np_c = np.where(N_c != 1)[0]
-
-        if len(Nn_c) != 2:
-            # The k-point grid does not fit with boundary conditions
-            Nn_c = [0, 1]    # Choose reduced cell vectors 0, 1
-            Np_c = [2]       # Choose reduced cell vector 2
+        assert len(Np_c) == 1
         # The radius is determined from area of non-periodic part of cell
         Acell_cv = qpd.gd.cell_cv[Nn_c, :][:, Nn_c]
         R = abs(np.linalg.det(Acell_cv) / np.pi)**0.5
@@ -151,6 +157,7 @@ def get_integrated_kernel(qpd, N_c, truncation=None, N=100, reduced=False):
         V_q *= (1.0 + qnR_q * j1(qnR_q) * k0(qpR_q)
                 - qpR_q * j0(qnR_q) * k1(qpR_q))
     elif truncation == '0D':
+        assert len(Np_c) == 0
         R = (3 * qpd.gd.volume / (4 * np.pi))**(1. / 3.)
         q2_q = (q_qv**2).sum(axis=1)
         V_q = 4 * np.pi / q2_q

@@ -7,31 +7,8 @@ import numpy as np
 
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
-from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LDA_dens_fxc, add_LSDA_trans_fxc)
-
-
-class FXCScaling:
-    """Helper for scaling fxc kernels."""
-
-    def __init__(self, mode, lambd=None):
-        self.mode = mode
-        self.lambd = lambd
-
-    @property
-    def has_scaling(self):
-        return self.lambd is not None
-
-    def get_scaling(self):
-        return self.lambd
-
-    def calculate_scaling(self, chiks, Kxc_GG):
-        if chiks.spincomponent in ['+-', '-+']:
-            self.lambd = get_goldstone_scaling(self.mode, chiks, Kxc_GG)
-        else:
-            raise ValueError('No scaling method implemented for '
-                             f'spincomponent={chiks.spincomponent}')
 
 
 class FXCKernel:
@@ -63,7 +40,7 @@ class FXCKernel:
 
     def __init__(self, fxc_dG, dG_K, GG_shape, volume):
         """Construct the fxc kernel."""
-        assert np.prod(GG_shape) == len(dG_K),\
+        assert np.prod(GG_shape) == len(dG_K), \
             "The K index should be a flattened (G,G') composite index'"
 
         self._fxc_dG = fxc_dG
@@ -113,6 +90,11 @@ class AdiabaticFXCCalculator:
         self.gs = localft_calc.gs
         self.context = localft_calc.context
 
+    @staticmethod
+    def from_rshe_parameters(*args, **kwargs):
+        return AdiabaticFXCCalculator(
+            LocalFTCalculator.from_rshe_parameters(*args, **kwargs))
+
     @timer('Calculate XC kernel')
     def __call__(self, fxc, spincomponent, qpd):
         """Calculate fxc(G-G'), which defines the kernel matrix Kxc_GG'.
@@ -126,7 +108,7 @@ class AdiabaticFXCCalculator:
         large_qpd = qpd.copy_with(ecut=large_ecut,
                                   gammacentered=True,
                                   gd=self.gs.finegd)
-        
+
         # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
         add_fxc = create_add_fxc(fxc, spincomponent)
         fxc_Q = self.localft_calc(large_qpd, add_fxc)
@@ -200,12 +182,12 @@ class AdiabaticFXCCalculator:
 
         # Check that all the identified Q indices produce identical reciprocal
         # lattice vectors
-        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.),\
+        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.), \
             'Could not find a perfect matching reciprocal wave vector in '\
             'large_qpd for all dG_dGv'
 
         # Collect the global Q_dG map
-        Q_dG = dGblocks.collect(Q_mydG)
+        Q_dG = dGblocks.all_gather(Q_mydG)
 
         return Q_dG
 

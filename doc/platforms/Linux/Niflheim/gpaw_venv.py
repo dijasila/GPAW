@@ -15,14 +15,17 @@ if version_info < (3, 7):
 
 version = '3.8'  # Python version in the venv that we are creating
 
-module_cmds_all = """\
+tkinter = [
+    '/home/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/lib/python3.8',
+    '/home/modules/software/Tkinter/3.8.6-GCCcore-10.2.0/easybuild/python']
+
+module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
+module load matplotlib/3.3.3-{{tchain}}-2020b
 module load GPAW-setups/0.9.20000
-module load matplotlib/3.3.3-{tchain}-2020b
-module load scikit-learn/0.23.2-{tchain}-2020b
-module load pytest-xdist/2.1.0-GCCcore-10.2.0
-module load Wannier90/3.1.0-{tchain}-2020b
+module load Wannier90/3.1.0-{{tchain}}-2020b
+export PYTHONPATH={':'.join(tkinter)}
 """
 
 module_cmds_tc = {
@@ -119,6 +122,9 @@ def main():
 
     packages = ['myqueue',
                 'graphviz',
+                'matplotlib',
+                'pytest-xdist',
+                'scikit-learn',
                 'qeh']
     run(f'. {activate} && pip install -q ' + ' '.join(packages))
 

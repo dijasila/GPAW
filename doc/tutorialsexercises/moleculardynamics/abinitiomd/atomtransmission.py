@@ -21,7 +21,8 @@ d = a / 3**0.5
 atoms.positions[-1] = atoms.positions[22] + (0, d, 5)
 atoms.pbc = (True, True, True)
 
-calc = GPAW(gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
+calc = GPAW(mode='fd',
+            gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
             nbands=110,
             xc='LDA',
             txt=f'{name}_gs.txt')

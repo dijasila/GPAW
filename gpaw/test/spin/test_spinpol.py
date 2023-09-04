@@ -1,6 +1,6 @@
+import pytest
 from ase import Atom, Atoms
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
 
 def test_spin_spinpol():
@@ -8,16 +8,21 @@ def test_spin_spinpol():
     n = 16
     hydrogen = Atoms([Atom('H')], cell=(a, a, a), pbc=True)
     hydrogen.center()
-    calc = GPAW(gpts=(n, n, n), nbands=1, convergence={'energy': 1e-5},
-                occupations=FermiDirac(0.0))
-    hydrogen.calc = calc
+    hydrogen.calc = GPAW(
+        mode='fd',
+        gpts=(n, n, n),
+        nbands=1,
+        convergence={'energy': 1e-5},
+        occupations=FermiDirac(0.0))
     e1 = hydrogen.get_potential_energy()
-    hydrogen.set_initial_magnetic_moments([1.0])
+
+    hydrogen.calc = hydrogen.calc.new(hund=True)
     e2 = hydrogen.get_potential_energy()
+
     de = e1 - e2
     print(de)
-    equal(de, 0.7871, 1.e-4)
+    assert de == pytest.approx(0.7871, abs=1.e-4)
 
     energy_tolerance = 0.0006
-    equal(e1, -0.499854, energy_tolerance)
-    equal(e2, -1.287, energy_tolerance)
+    assert e1 == pytest.approx(-0.499854, abs=energy_tolerance)
+    assert e2 == pytest.approx(-1.287, abs=energy_tolerance)

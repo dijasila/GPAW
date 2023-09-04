@@ -8,8 +8,9 @@ from gpaw import PW
 # CO
 
 CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)])
-CO.center(vacuum=2.5)
+CO.center(vacuum=2.7)
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            symmetry='off',
             parallel={'domain': 1},
             xc='PBE',
             txt='CO.ralda_01_CO_pbe.txt',
@@ -29,6 +30,7 @@ C = Atoms('C')
 C.set_cell(CO.cell)
 C.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            symmetry='off',
             parallel={'domain': 1},
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
@@ -55,6 +57,7 @@ O = Atoms('O')
 O.set_cell(CO.cell)
 O.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            symmetry='off',
             parallel={'domain': 1},
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),

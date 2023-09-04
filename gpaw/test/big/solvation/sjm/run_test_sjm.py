@@ -53,7 +53,8 @@ sj = {'target_potential': 4.5,
       'jelliumregion': {'top': 14.},
       'tol': 0.005}
 
-calc = SJM(sj=sj,
+calc = SJM(mode='fd',
+           sj=sj,
            gpts=(48, 32, 88),
            kpts=(2, 2, 1),
            xc='PBE',

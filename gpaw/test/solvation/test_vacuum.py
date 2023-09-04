@@ -37,7 +37,7 @@ def test_solvation_vacuum():
     }
 
     if not SKIP_REF_CALC:
-        atoms.calc = GPAW(xc='LDA', h=h, convergence=convergence)
+        atoms.calc = GPAW(mode='fd', xc='LDA', h=h, convergence=convergence)
         Eref = atoms.get_potential_energy()
         print(Eref)
         Fref = atoms.get_forces()
@@ -52,7 +52,7 @@ def test_solvation_vacuum():
              [1.35947527e-13, -1.58227909e+00, 6.06605145e-02]])
 
     atoms.calc = SolvationGPAW(
-        xc='LDA', h=h, convergence=convergence,
+        mode='fd', xc='LDA', h=h, convergence=convergence,
         cavity=EffectivePotentialCavity(
             effective_potential=Power12Potential(atomic_radii=atomic_radii,
                                                  u0=u0),

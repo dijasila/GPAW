@@ -1,4 +1,3 @@
-import functools
 import pickle
 import warnings
 from math import pi
@@ -17,8 +16,7 @@ from gpaw.utilities.progressbar import ProgressBar
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chi0 import Chi0Calculator
-from gpaw.response.hilbert import GWHilbertTransforms
-from gpaw.response.pair import PairDensityCalculator, phase_shifted_fft_indices
+from gpaw.response.pair import KPointPairFactory, phase_shifted_fft_indices
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -159,7 +157,7 @@ class G0W0Outputs:
         self.sigma_skn = np.zeros(shape)
         self.dsigma_skn = np.zeros(shape)
         invN_i = ecut_e**(-3. / 2)
-        for m in range(np.product(shape)):
+        for m in range(np.prod(shape)):
             s, k, n = np.unravel_index(m, shape)
 
             slope, intercept, r_value, p_value, std_err = \
@@ -279,10 +277,10 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc):
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-    n_mG = pair.calculate_pair_density(
+    n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
 
@@ -488,13 +486,10 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = \
-            self.chi0calc.pair.distribute_k_points_and_bands(
+            self.chi0calc.kptpair_factory.distribute_k_points_and_bands(
                 b1, b2, self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
-        self.hilbert_transform = None  # initialized when we create Chi0
-
-        self.sigma_calculator = self._build_sigma_calculator()
 
         self.exx_vxc_calculator = exx_vxc_calculator
 
@@ -505,41 +500,32 @@ class G0W0Calculator:
         else:
             self.context.print('Using full frequency integration')
 
-    def _build_sigma_calculator(self):
-        import gpaw.response.sigma as sigma
-        factor = 1.0 / (self.wcalc.qd.nbzkpts * 2 * pi * self.wcalc.gs.volume)
-
-        if self.ppa:
-            return sigma.PPASigmaCalculator(eta=self.eta, factor=factor)
-
-        return sigma.SigmaCalculator(wd=self.chi0calc.wd, factor=factor)
-
     def print_parameters(self, kpts, b1, b2):
-        p = functools.partial(self.context.print, flush=False)
-        p()
-        p('Quasi particle states:')
+        isl = ['',
+               'Quasi particle states:']
         if kpts is None:
-            p('All k-points in IBZ')
+            isl.append('All k-points in IBZ')
         else:
             kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
-            p('k-points (IBZ indices): [' + kptstxt + ']')
-        p('Band range: ({0:d}, {1:d})'.format(b1, b2))
-        p()
-        p('Computational parameters:')
+            isl.append(f'k-points (IBZ indices): [{kptstxt}]')
+        isl.extend([f'Band range: ({b1:d}, {b2:d})',
+                    '',
+                    'Computational parameters:'])
         if len(self.ecut_e) == 1:
-            p('Plane wave cut-off: {0:g} eV'.format(self.chi0calc.ecut * Ha))
+            isl.append(f'Plane wave cut-off: {self.chi0calc.ecut * Ha:g} eV')
         else:
             assert len(self.ecut_e) > 1
-            p('Extrapolating to infinite plane wave cut-off using points at:')
+            isl.append('Extrapolating to infinite plane wave cut-off using '
+                       'points at:')
             for ec in self.ecut_e:
-                p('  %.3f eV' % (ec * Ha))
-        p('Number of bands: {0:d}'.format(self.nbands))
-        p('Coulomb cutoff:', self.wcalc.coulomb.truncation)
-        p('Broadening: {0:g} eV'.format(self.eta * Ha))
-        p()
-        p('fxc modes:', ', '.join(sorted(self.fxc_modes)))
-        p('Kernel:', self.wcalc.xckernel.xc)
-        self.context.print('')
+                isl.append(f'  {ec * Ha:.3f} eV')
+        isl.extend([f'Number of bands: {self.nbands:d}',
+                    f'Coulomb cutoff: {self.wcalc.coulomb.truncation}',
+                    f'Broadening: {self.eta * Ha:g} eV',
+                    '',
+                    f'fxc modes: {", ".join(sorted(self.fxc_modes))}',
+                    f'Kernel: {self.wcalc.xckernel.xc}'])
+        self.context.print('\n'.join(isl))
 
     def get_eps_and_occs(self):
         eps_skn = np.empty(self.shape)  # KS-eigenvalues
@@ -670,10 +656,8 @@ class G0W0Calculator:
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
-            n_mG = get_nmG(kpt1, kpt2,
-                           mypawcorr,
-                           n, qpd, I_G,
-                           self.chi0calc.pair)
+            n_mG = get_nmG(kpt1, kpt2, mypawcorr,
+                           n, qpd, I_G, self.chi0calc.pair_calc)
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()
@@ -686,11 +670,29 @@ class G0W0Calculator:
             assert set(Wdict) == set(sigmas)
             for fxc_mode in self.fxc_modes:
                 sigma = sigmas[fxc_mode]
-                W = Wdict[fxc_mode]
-                sigma_contrib, dsigma_contrib = self.calculate_sigma(
-                    n_mG, deps_m, f_m, W, blocks1d)
-                sigma.sigma_eskn[ie, kpt1.s, k, nn] += sigma_contrib
-                sigma.dsigma_eskn[ie, kpt1.s, k, nn] += dsigma_contrib
+                Wmodel = Wdict[fxc_mode]
+                # m is band index of all (both unoccupied and occupied) wave
+                # functions in G
+                for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
+                    # 2 * f - 1 will be used to select the branch of Hilbert
+                    # transform, see get_HW of screened_interaction.py
+                    # at FullFrequencyHWModel class.
+                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
+                    if S_GG is None:
+                        continue
+
+                    nc_G = n_G.conj()
+                    
+                    # ie: ecut index for extrapolation
+                    # kpt1.s: spin index of *
+                    # k: k-point index of *
+                    # nn: band index of *
+                    # * wave function, where the sigma expectation value is
+                    # evaluated
+                    slot = ie, kpt1.s, k, nn
+                    myn_G = n_G[blocks1d.myslice]
+                    sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
+                    sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
 
     def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
         # Can we delete this check? XXX
@@ -713,14 +715,6 @@ class G0W0Calculator:
         pawcorr_wcalc1 = pairden_paw_corr(qpd)
         assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
-    @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, blocks1d):
-        """Calculates a contribution to the self-energy and its derivative for
-        a given (k, k-q)-pair from its corresponding pair-density and
-        energy."""
-        return self.sigma_calculator.calculate_sigma(
-            n_mG, deps_m, f_m, C_swGG, blocks1d=blocks1d)
-
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
@@ -733,8 +727,6 @@ class G0W0Calculator:
         self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-        self.hilbert_transform = GWHilbertTransforms(
-            self.chi0calc.wd.omega_w, self.eta)
         self.context.print(self.chi0calc.wd)
 
         # Find maximum size of chi-0 matrices:
@@ -743,7 +735,7 @@ class G0W0Calculator:
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.chi0calc.wd)
 
-        size = self.chi0calc.blockcomm.size
+        size = self.chi0calc.integrator.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
@@ -854,7 +846,7 @@ class G0W0Calculator:
                     iq):
         """Calculates the screened potential for a specified q-point."""
 
-        chi0calc.print_info(chi0.qpd)
+        chi0calc.chi0_body_calc.print_info(chi0.qpd)
         chi0calc.update_chi0(chi0, m1, m2, range(self.wcalc.gs.nspins))
 
         Wdict = {}
@@ -862,33 +854,25 @@ class G0W0Calculator:
         for fxc_mode in self.fxc_modes:
             rqpd = chi0.qpd.copy_with(ecut=ecut)  # reduced qpd
             rchi0 = chi0.copy_with_reduced_pd(rqpd)
-            if self.ppa:
-                Wdict[fxc_mode] = self.wcalc.calculate_ppa(rchi0,
-                                                           fxc_mode=fxc_mode)
-            else:
-                W_wGG = self.wcalc.calculate_W_WgG(rchi0,
-                                                   fxc_mode=fxc_mode,
-                                                   only_correlation=True)
-
-                if (chi0calc.pawcorr is not None and
-                    rqpd.ecut < chi0.qpd.ecut):
-                    pw_map = PWMapping(rqpd, chi0.qpd)
-                    # This is extremely bad behaviour! G0W0Calculator
-                    # should not change properties on the
-                    # Chi0Calculator! Change in the future! XXX
-                    chi0calc.pawcorr = \
-                        chi0calc.pawcorr.reduce_ecut(pw_map.G2_G1)
-
-                # HT used to calculate convulution between time-ordered G and W
-                with self.context.timer('Hilbert'):
-                    W_xwGG = self.hilbert_transform(W_wGG)
-
-                Wdict[fxc_mode] = W_xwGG
+            Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
+                                                      fxc_mode=fxc_mode)
+            if (chi0calc.chi0_body_calc.pawcorr is not None and
+                rqpd.ecut < chi0.qpd.ecut):
+                assert not self.ppa, """In previous master, PPA with ecut
+                extrapolation was not working. Now it would work, but
+                disabling it here still for sake of it is not tested."""
+                
+                pw_map = PWMapping(rqpd, chi0.qpd)
+                # This is extremely bad behaviour! G0W0Calculator
+                # should not change properties on the
+                # Chi0BodyCalculator! Change in the future! XXX
+                chi0calc.chi0_body_calc.pawcorr = \
+                    chi0calc.chi0_body_calc.pawcorr.reduce_ecut(pw_map.G2_G1)
 
         # Create a blocks1d for the reduced plane-wave description
-        blocks1d = Blocks1D(chi0.blockdist.blockcomm, rqpd.ngmax)
+        blocks1d = Blocks1D(chi0.body.blockdist.blockcomm, rqpd.ngmax)
 
-        return rqpd, Wdict, blocks1d, chi0calc.pawcorr
+        return rqpd, Wdict, blocks1d, chi0calc.chi0_body_calc.pawcorr
 
     @timer('calcualte_vxc_and_exx')
     def calculate_vxc_and_exx(self):
@@ -1079,8 +1063,7 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        pair = PairDensityCalculator(gs, context,
-                                     nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
 
         kpts = list(select_kpts(kpts, gs.kd))
 
@@ -1111,7 +1094,7 @@ class G0W0(G0W0Calculator):
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
-            wd=wd, pair=pair,
+            wd=wd, kptpair_factory=kptpair_factory,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
@@ -1120,11 +1103,14 @@ class G0W0(G0W0Calculator):
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
 
-        coulomb = CoulombKernel(truncation, gs)
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
+        # XXX eta needs to be converted to Hartree here,
+        # XXX and it is also converted to Hartree at superclass constructor
+        # XXX called below. This needs to be cleaned up.
         wcalc = initialize_w_calculator(chi0calc, wcontext,
                                         ppa=ppa,
                                         xc=xc,
-                                        E0=E0, coulomb=coulomb,
+                                        E0=E0, eta=eta / Ha, coulomb=coulomb,
                                         integrate_gamma=integrate_gamma,
                                         q0_correction=q0_correction)
 

@@ -24,7 +24,8 @@ def test_si_nonortho():
                         pbc=True)
 
     # calculation with full symmetry
-    calc = GPAW(nbands=-10,
+    calc = GPAW(mode='fd',
+                nbands=-10,
                 h=0.25,
                 kpts=(2, 2, 2),
                 occupations=FermiDirac(width=0.05),
@@ -35,7 +36,8 @@ def test_si_nonortho():
     calc.write('si_nonortho_xas_sym.gpw')
 
     # calculation without any symmetry
-    calc = GPAW(nbands=-10,
+    calc = GPAW(mode='fd',
+                nbands=-10,
                 h=0.25,
                 kpts=(2, 2, 2),
                 occupations=FermiDirac(width=0.05),

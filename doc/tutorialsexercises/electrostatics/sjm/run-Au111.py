@@ -33,6 +33,7 @@ interactions = [SurfaceInteraction(surface_tension=gamma)]
 # The calculator
 calc = SJM(
     # General GPAW parameters.
+    mode='fd',
     txt='Au111.txt',
     gpts=(16, 16, 136),
     kpts=(9, 9, 1),

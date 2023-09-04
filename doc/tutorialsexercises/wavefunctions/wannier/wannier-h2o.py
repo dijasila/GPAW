@@ -3,7 +3,7 @@ from ase.visualize import view
 from gpaw import GPAW
 from gpaw.wannier import calculate_overlaps
 
-calc = GPAW(nbands=4)
+calc = GPAW(mode='fd', nbands=4)
 
 atoms = molecule('H2O')
 atoms.center(vacuum=3.)

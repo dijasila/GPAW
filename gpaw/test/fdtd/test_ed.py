@@ -55,11 +55,13 @@ def test_fdtd_ed(in_tmp_dir):
                                                      vacuum=2.50)
 
     # Initialize GPAW
-    gs_calc = GPAW(gpts=gpts,
+    gs_calc = GPAW(mode='fd',
+                   gpts=gpts,
                    experimental={'niter_fixdensity': 2},
                    eigensolver='cg',
                    nbands=-1,
                    poissonsolver=poissonsolver,
+                   symmetry={'point_group': False},
                    convergence={'energy': energy_eps})
     atoms.calc = gs_calc
 

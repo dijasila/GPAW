@@ -7,13 +7,14 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
-from gpaw.response.ibz2bz import IBZ2BZMaps
+from gpaw.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
@@ -213,6 +214,17 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
+
+    def get_ibz_vertices(self):
+        # For the tetrahedron method in Chi0
+        from gpaw.bztools import get_bz
+        # NB: We are ignoring the pbc_c keyword to get_bz() in order to mimic
+        # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
+        _, ibz_vertices_kc = get_bz(self._calc)
+        return ibz_vertices_kc
+
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
 
 
 # Contains all the relevant information

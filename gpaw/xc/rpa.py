@@ -1,3 +1,4 @@
+from __future__ import annotations
 import functools
 import os
 from time import ctime
@@ -11,7 +12,7 @@ from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 def default_ecut_extrapolation(ecut, extrapolate):
@@ -98,7 +99,7 @@ class RPACalculator:
 
         self.nblocks = nblocks
 
-        self.coulomb = CoulombKernel(truncation, gs)
+        self.coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         self.skip_gamma = skip_gamma
 
         # We should actually have a kpoint descriptor for the qpoints.
@@ -195,19 +196,19 @@ class RPACalculator:
 
         wd = FrequencyDescriptor(1j * self.omega_w)
 
-        pair = PairDensityCalculator(
+        kptpair_factory = KPointPairFactory(
             self.gs,
             context=self.context.with_txt('chi0.txt'),
             nblocks=self.nblocks)
 
         chi0calc = Chi0Calculator(wd=wd,
-                                  pair=pair,
+                                  kptpair_factory=kptpair_factory,
                                   eta=0.0,
                                   intraband=False,
                                   hilbert=False,
                                   ecut=ecutmax * Hartree)
 
-        self.blockcomm = chi0calc.blockcomm
+        self.blockcomm = chi0calc.integrator.blockcomm
 
         energy_qi = []
         nq = len(energy_qi)
@@ -252,7 +253,7 @@ class RPACalculator:
                 energy_i.append(energy)
                 m1 = m2
 
-                a = 1 / chi0calc.kncomm.size
+                a = 1 / chi0calc.integrator.kncomm.size
                 if ecut < ecutmax and a != 1.0:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
@@ -290,11 +291,11 @@ class RPACalculator:
                         m1, m2, gcut):
         chi0 = chi0_s[0]
         chi0calc.update_chi0(chi0,
-                             m1, m2, spins='all')
+                             m1, m2, spins=chi0calc.get_spins())
 
         self.context.print('E_c(q) = ', end='', flush=False)
 
-        chi0_wGG = chi0.copy_array_with_distribution('wGG')
+        chi0_wGG = chi0.body.copy_array_with_distribution('wGG')
 
         kd = self.gs.kd
         if not chi0.qpd.kd.gamma:
@@ -384,7 +385,10 @@ class RPACorrelation(RPACalculator):
                  nlambda=None,
                  nfrequencies=16, frequency_max=800.0, frequency_scale=2.0,
                  frequencies=None, weights=None,
-                 world=mpi.world, txt='-', **kwargs):
+                 world=mpi.world,
+                 txt='-',
+                 truncation: str | None = None,
+                 **kwargs):
         """Creates the RPACorrelation object
 
         calc: str or calculator object
@@ -416,7 +420,8 @@ class RPACorrelation(RPACalculator):
             frequency grid. Must be specified and have the same length as
             frequencies if frequencies is not None
         truncation: str or None
-            Coulomb truncation scheme. Can be None or '2D'.
+            Coulomb truncation scheme. Can be None, '0D' or '2D'.  If None
+            and the system is a molecule then '0D' will be used.
         world: communicator
         nblocks: int
             Number of parallelization blocks. Frequency parallelization
@@ -438,8 +443,12 @@ class RPACorrelation(RPACalculator):
             assert weights is not None
             user_spec = True
 
+        if truncation is None and not gs.pbc.any():
+            truncation = '0D'
+
         super().__init__(gs=gs, context=context,
                          frequencies=frequencies, weights=weights,
+                         truncation=truncation,
                          **kwargs)
 
         self.print_initialization(xc, frequency_scale, nlambda, user_spec)

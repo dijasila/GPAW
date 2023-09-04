@@ -140,6 +140,8 @@ class BroadcastImporter:
             return spec
 
     def broadcast(self):
+        if world.size == 1:
+            return
         if world.rank == 0:
             # print('bcast {} modules'.format(len(self.module_cache)))
             marshal_broadcast(self.module_cache)

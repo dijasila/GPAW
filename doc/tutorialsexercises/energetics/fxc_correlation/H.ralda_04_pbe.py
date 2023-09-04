@@ -14,10 +14,10 @@ calc = GPAW(mode=PW(400, force_complex_dtype=True),
             xc='PBE')
 
 H.calc = calc
-E_lda = H.get_potential_energy()
-E_c_lda = -calc.get_xc_difference('GGA_X_PBE')
+E_pbe = H.get_potential_energy()
+E_c_pbe = -calc.get_xc_difference('GGA_X_PBE')
 
-resultfile.write(f'PBE correlation: {E_c_lda} eV')
+resultfile.write(f'PBE correlation: {E_c_pbe} eV')
 resultfile.write('\n')
 
 calc.diagonalize_full_hamiltonian()

@@ -36,6 +36,11 @@ example, if you have 79 occupied states and you want to use 8 processes
 in parallelization over states, add one unoccupied state to get 80 states
 in total.
 
+Point group symmetries are disabled in TDDFT, since the symmetry is
+broken by the time-dependent potential. Therefore, they have to be disabled
+in the ground state calculation as well. In GPAW versions starting from
+22.8.1b1, the TDDFT calculation will refuse to start if the ground state
+has been converged with point group symmetries enabled.
 
 Ground state example::
 
@@ -52,7 +57,7 @@ Ground state example::
   atoms.center(vacuum=6.0)
 
   # Create GPAW calculator
-  calc = GPAW(nbands=1, h=0.3)
+  calc = GPAW(mode='fd', nbands=1, h=0.3, symmetry={'point_group': False})
   # Attach calculator to atoms
   atoms.calc = calc
 

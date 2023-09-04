@@ -223,13 +223,14 @@ class LocalizedFunctionsCollection(BaseLFC):
 
     """
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None):
+                 integral=None, forces=None, xp=np):
         self.gd = gd
         self.kd = kd
         self.sphere_a = [Sphere(spline_j) for spline_j in spline_aj]
         self.cut = cut
         self.dtype = dtype
         self.Mmax = None
+        self.xp = xp
 
         if kd is None:
             self.ibzk_qc = np.zeros((1, 3))
@@ -341,7 +342,7 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.W_B = self.W_B[indices]
 
         self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW)
+                             self.gd.dv, self.phase_qW, self.xp is not np)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -403,9 +404,16 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if isinstance(c_axi, float):
             assert q == -1 and a_xG.ndim == 3
-            c_xM = np.empty(self.Mmax)
+            c_xM = self.xp.empty(self.Mmax)
             c_xM.fill(c_axi)
-            self.lfc.add(c_xM, a_xG, q)
+            if self.xp is not np:
+                if self.Mmax > 0:
+                    self.lfc.add_gpu(c_xM.data.ptr,
+                                     c_xM.shape,
+                                     a_xG.data.ptr,
+                                     a_xG.shape, q)
+            else:
+                self.lfc.add(c_xM, a_xG, q)
             return
 
         dtype = a_xG.dtype
@@ -439,18 +447,27 @@ class LocalizedFunctionsCollection(BaseLFC):
         for request in requests:
             comm.wait(request)
 
-        c_xM = np.empty(xshape + (self.Mmax,), dtype)
-        M1 = 0
-        for a in self.atom_indices:
-            c_xi = c_axi.get(a)
-            sphere = self.sphere_a[a]
-            M2 = M1 + sphere.Mmax
-            if c_xi is None:
-                c_xi = b_axi[a]
-            c_xM[..., M1:M2] = c_xi
-            M1 = M2
+        if self.xp is np:
+            c_xM = np.empty(xshape + (self.Mmax,), dtype)
+            M1 = 0
+            for a in self.atom_indices:
+                c_xi = c_axi.get(a)
+                sphere = self.sphere_a[a]
+                M2 = M1 + sphere.Mmax
+                if c_xi is None:
+                    c_xi = b_axi[a]
+                c_xM[..., M1:M2] = c_xi
+                M1 = M2
+            self.lfc.add(c_xM, a_xG, q)
+            return
 
-        self.lfc.add(c_xM, a_xG, q)
+        assert comm.size == 1
+        if self.Mmax > 0:
+            c_xM = c_axi.data
+            self.lfc.add_gpu(c_xM.data.ptr,
+                             c_xM.shape,
+                             a_xG.data.ptr,
+                             a_xG.shape, q)
 
     def add_derivative(self, a, v, a_xG, c_axi=1.0, q=-1):
         """Add derivative of localized functions on atom to extended arrays.
@@ -545,19 +562,31 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert self.dtype == float
 
         xshape = a_xG.shape[:-3]
+        dtype = a_xG.dtype
 
         if debug:
+            assert self.dtype == dtype
             assert a_xG.ndim >= 3
             assert sorted(c_axi.keys()) == self.my_atom_indices
             for c_xi in c_axi.values():
                 assert c_xi.shape[:-1] == xshape
 
-        dtype = a_xG.dtype
-
-        c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-        self.lfc.integrate(a_xG, c_xM, q)
-
         comm = self.gd.comm
+
+        if self.xp is np:
+            c_xM = np.zeros(xshape + (self.Mmax,), dtype)
+            self.lfc.integrate(a_xG, c_xM, q)
+        else:
+            assert comm.size == 1
+            if self.Mmax > 0:
+                c_xM_gpu = c_axi.data
+                self.lfc.integrate_gpu(a_xG.data.ptr,
+                                       a_xG.shape,
+                                       c_xM_gpu.data.ptr,
+                                       c_xM_gpu.shape, q)
+                c_xM_gpu *= self.gd.dv
+            return
+
         rank = comm.rank
         srequests = []
         rrequests = []
@@ -917,11 +946,11 @@ class LocalizedFunctionsCollection(BaseLFC):
 
 class BasisFunctions(LocalizedFunctionsCollection):
     def __init__(self, gd, spline_aj, kd=None, cut=False, dtype=float,
-                 integral=None, forces=None):
+                 integral=None, forces=None, xp=np):
         LocalizedFunctionsCollection.__init__(self, gd, spline_aj,
                                               kd, cut,
                                               dtype, integral,
-                                              forces)
+                                              forces, xp=xp)
         self.use_global_indices = True
 
         self.Mstart = None

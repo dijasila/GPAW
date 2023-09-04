@@ -1,11 +1,9 @@
-import os
-
 import numpy as np
 import pytest
 from ase import Atoms
 from gpaw import PW, FermiDirac
 from gpaw.new.ase_interface import GPAW as NewGPAW
-from gpaw import GPAW as AnyGPAW
+from gpaw import GPAW as AnyGPAW, SCIPY_VERSION
 from gpaw.mpi import world
 
 # Domain and k-point parallelization:
@@ -19,10 +17,15 @@ for d in [1, 2, 4, 8]:
 
 @pytest.mark.stress
 @pytest.mark.parametrize('d, k', dk)
-@pytest.mark.parametrize('gpu', [False,
-                                 pytest.param(True, marks=pytest.mark.gpu)])
-def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
-    if (gpu or os.environ.get('GPAW_NEW')) and d * k < world.size:
+@pytest.mark.parametrize(
+    'gpu', [False,
+            pytest.param(
+                True,
+                marks=[pytest.mark.gpu,
+                       pytest.mark.skipif(SCIPY_VERSION < [1, 6],
+                                          reason='Too old scipy')])])
+def test_pw_par_strategies(in_tmp_dir, d, k, gpu, gpaw_new):
+    if (gpu or gpaw_new) and d * k < world.size:
         pytest.skip()
     ecut = 200
     kpoints = [1, 1, 4]
@@ -51,7 +54,7 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
     assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
                                         [0, 0, 8.00667631e-01]]))
 
-    if not gpu and not os.environ.get('GPAW_NEW'):
+    if not gpu and not gpaw_new:
         s = atoms.get_stress()
         assert s == pytest.approx(
             [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])

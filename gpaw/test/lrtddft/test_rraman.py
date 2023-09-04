@@ -12,7 +12,7 @@ def test_lrtddft(in_tmp_dir):
     h = 0.25
     H2 = Cluster(molecule('H2'))
     H2.minimal_box(3., h=h)
-    H2.calc = GPAW(h=h, occupations=FermiDirac(width=0.2),
+    H2.calc = GPAW(mode='fd', h=h, occupations=FermiDirac(width=0.2),
                    symmetry='off')
 
     rr = ResonantRamanCalculator(
