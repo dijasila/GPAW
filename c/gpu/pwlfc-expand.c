@@ -62,3 +62,44 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     gpuDeviceSynchronize(); // Is needed?
     Py_RETURN_NONE;
 }
+
+void _pw_insert(int nG,
+                int nQ,
+                double complex* c_G,
+
+                npy_int32* Q_G,
+                double scale,
+                double complex* tmp_Q)
+// Does the same as these two lines of Python:
+//
+//     tmp_Q[:] = 0.0
+//     tmp_Q.ravel()[Q_G] = c_G * scale
+{
+    int Q1 = 0;
+    for (int G = 0; G < nG; G++) {
+        int Q2 = Q_G[G];
+        for (; Q1 < Q2; Q1++)
+            tmp_Q[Q1] = 0.0;
+        tmp_Q[Q1++] = c_G[G] * scale;
+        }
+    for (; Q1 < nQ; Q1++)
+        tmp_Q[Q1] = 0.0;
+}
+
+
+PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
+{
+    PyObject *c_G_obj, *Q_G_obj, *tmp_Q_obj;
+    double scale;
+    if (!PyArg_ParseTuple(args, "OOdO",
+                          &c_G_obj, &Q_G_obj, &scale, &tmp_Q_obj))
+        return NULL;
+    double complex *c_G = Array_DATA(c_G_obj);
+    npy_int32 *Q_G = Array_DATA(Q_G_obj);
+    double complex *tmp_Q = Array_DATA(tmp_Q_obj);
+    int nG = Array_SIZE(c_G_obj);
+    int nQ = Array_SIZE(tmp_Q_obj);
+    _pw_insert_gpu(nG, nQ, c_G, Q_G, scale, tmp_Q);
+    Py_RETURN_NONE;
+}
+

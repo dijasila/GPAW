@@ -1,6 +1,33 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
 
+__global__ void _pw_insert(int nG,
+                           int nQ,
+                           double complex* c_G,
+                           npy_int32* Q_G,
+                           double scale,
+                           double complex* tmp_Q)
+// Does the same as these two lines of Python:
+//
+//     tmp_Q[:] = 0.0
+//     tmp_Q.ravel()[Q_G] = c_G * scale
+{
+    int Qstart = threadIdx.x + blockIdx.x * blockDim.x;
+    int Qend = 
+    int J = threadIdx.y + blockIdx.y * blockDim.y;
+    int Q1 = 0;
+    for (int G = 0; G < nG; G++) {
+        int Q2 = Q_G[G];
+        for (; Q1 < Q2; Q1++)
+            tmp_Q[Q1] = 0.0;
+        tmp_Q[Q1++] = c_G[G] * scale;
+        }
+    for (; Q1 < nQ; Q1++)
+        tmp_Q[Q1] = 0.0;
+}
+
+
+
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
                                        gpuDoubleComplex *emiGR_Ga,
                                        double *Y_GL,
