@@ -26,12 +26,12 @@ class PWHamiltonian(Hamiltonian):
         assert isinstance(out, PWArray)
         out_nG = out
         xp = psit_nG.xp
-        if xp is not np and vt_R.desc.comm.size == 1:
+        pw = psit_nG.desc
+        if xp is not np and pw.comm.size == 1 and pw.dtype == complex:
             return apply_local_potential_gpu(vt_R, psit_nG, out_nG)
         vt_R = vt_R.gather(broadcast=True)
         grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
         tmp_R = grid.empty(xp=xp)
-        pw = psit_nG.desc
         if pw.comm.size == 1:
             pw_local = pw
         else:
@@ -194,7 +194,7 @@ def apply_local_potential_gpu(vt_R, psit_nG, out_nG):
             shape,
             norm='forward',
             overwrite_x=True)
-        psit_bR.data *= vt_R.data
+        psit_bR *= vt_R.data
         psit_bR[:] = cupyx.scipy.fft.fftn(
             psit_bR,
             shape,
