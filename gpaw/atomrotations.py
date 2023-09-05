@@ -1,10 +1,12 @@
 import numpy as np
 
+from gpaw.rotation import rotation
+from gpaw.utilities import pack, unpack2
 
-class AtomRotations:
+
+class SingleAtomRotations:
     def __init__(self, R_sii):
         self.R_sii = R_sii
-        self.ni = R_sii.shape[1]
 
     @classmethod
     def from_R_slmm(cls, ni, l_j, R_slmm):
@@ -19,7 +21,42 @@ class AtomRotations:
         return cls(R_sii)
 
     def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
+        ni = self.R_sii.shape[1]
+        D_ii = np.zeros((ni, ni))
         for s, R_ii in enumerate(self.R_sii):
             D_ii += R_ii @ D_aii[map_sa[s][a]] @ R_ii.T
         return D_ii / len(map_sa)
+
+
+class AtomRotations:
+    def __init__(self, setups, id_a, symmetry):
+        R_slmm = []
+        for op_cc in symmetry.op_scc:
+            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
+                           np.dot(op_cc, symmetry.cell_cv))
+            R_slmm.append([rotation(l, op_vv) for l in range(4)])
+
+        rotations = {}
+        for key, setup in setups.items():
+            rot = setup.calculate_rotations(R_slmm)
+            rotations[key] = rot
+
+        self._rotations = rotations
+        self._id_a = id_a
+
+    def get_by_a(self, a):
+        return self._rotations[self._id_a[a]]
+
+    def symmetrize_atomic_density_matrices(self, D_asp, a_sa):
+        if not D_asp:
+            return
+
+        index0 = next(iter(D_asp))
+        nspins = D_asp[index0].shape[0]
+
+        for s in range(nspins):
+            D_aii = [unpack2(D_asp[a][s])
+                     for a in range(len(D_asp))]
+            for a, D_ii in enumerate(D_aii):
+                symmetrized = self.get_by_a(a).symmetrize(a, D_aii, a_sa)
+                D_asp[a][s] = pack(symmetrized)

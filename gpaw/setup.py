@@ -10,7 +10,6 @@ from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
-from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
@@ -315,12 +314,14 @@ class BaseSetup:
         return D_sp
 
     def symmetrize(self, a, D_aii, map_sa):
-        from gpaw.atomrotations import AtomRotations
-        return AtomRotations(self.R_sii).symmetrize(a, D_aii, map_sa)
+        from gpaw.atomrotations import SingleAtomRotations
+        return SingleAtomRotations(self.R_sii).symmetrize(a, D_aii, map_sa)
 
     def calculate_rotations(self, R_slmm):
-        from gpaw.atomrotations import AtomRotations
-        self.R_sii = AtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm).R_sii
+        from gpaw.atomrotations import SingleAtomRotations
+        rotations = SingleAtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm)
+        self.R_sii = rotations.R_sii
+        return rotations
 
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
@@ -1402,14 +1403,9 @@ class Setups(list):
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
-        R_slmm = []
-        for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
-            R_slmm.append([rotation(l, op_vv) for l in range(4)])
-
-        for setup in self.setups.values():
-            setup.calculate_rotations(R_slmm)
+        from gpaw.atomrotations import AtomRotations
+        self.atomrotations = AtomRotations(
+            self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
