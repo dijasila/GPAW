@@ -130,6 +130,9 @@ def gpw_files(request):
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
+    * Bulk Si, LDA, 4x4x4 k-points: ``si_fd``
+      and ``si_fd_nosym``
+
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
@@ -211,6 +214,7 @@ def gpwfile(meth):
 
 class GPWFiles:
     """Create gpw-files."""
+
     def __init__(self, path: Path):
         self.path = path
 
@@ -274,6 +278,34 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    @gpwfile
+    def be_atom_fd(self):
+        atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
+        atoms.center(vacuum=6)
+        calc = GPAW(mode='fd', h=0.35, symmetry={'point_group': False})
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def si_fd_ibz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k), txt='Si-ibz.txt')
+        si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_fd_bz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k,),
+                       symmetry={'point_group': False,
+                                 'time_reversal': False},
+                       txt='Si-bz.txt')
+        si.get_potential_energy()
+        return si.calc
 
     @gpwfile
     def fcc_Ni_col(self):
@@ -547,6 +579,35 @@ class GPWFiles:
     @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
+
+    @gpwfile
+    def sih4_xc_gllbsc(self):
+        from ase.build import molecule
+        atoms = molecule('SiH4')
+        atoms.center(vacuum=4.0)
+
+        # Ground-state calculation
+        calc = GPAW(mode='fd', nbands=7, h=0.4,
+                    convergence={'density': 1e-8},
+                    xc='GLLBSC',
+                    symmetry={'point_group': False},
+                    txt='gs.out')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def nacl_fd(self):
+        d = 4.0
+        atoms = Atoms('NaCl', [(0, 0, 0), (0, 0, d)])
+        atoms.center(vacuum=4.5)
+
+        gs_calc = GPAW(
+            mode='fd', nbands=4, eigensolver='cg', gpts=(32, 32, 44), xc='LDA',
+            symmetry={'point_group': False}, setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def bn_pw(self):
@@ -1185,7 +1246,7 @@ def pytest_configure(config):
         'slow: slow test',
         'soc: Spin-orbit coupling',
         'stress: Calculation of stress tensor',
-        'wannier: Wannier functions']:
+            'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 
