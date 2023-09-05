@@ -7,8 +7,7 @@ from ase.build import molecule
 from gpaw import GPAW
 
 
-@pytest.mark.skip(reason='TODO')
-def test_restart():
+def test_restart(in_tmp_dir):
     system = molecule('H2')
     system.center(vacuum=2.5)
 
