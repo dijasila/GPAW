@@ -6,7 +6,7 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-from gpaw.gpu import synchronize
+from gpaw.gpu import synchronize, as_xp
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
@@ -367,6 +367,7 @@ class IBZWaveFunctions:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
                     coef_nX = wfs.gather_wave_function_coefficients()
                     if coef_nX is not None:
+                        coef_nX = as_xp(coef_nX, np)
                         if rank == 0:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',
