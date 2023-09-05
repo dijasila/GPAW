@@ -8,7 +8,6 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
-import _gpaw
 import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
