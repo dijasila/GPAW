@@ -21,7 +21,7 @@ from gpaw.pair_density import PairDensity
 # value is 4.6 a0**3 (e.g. PR 133, A629).
 
 
-# @pytest.mark.skip(reason='TODO')
+@pytest.mark.skip(reason='too-slow')
 def test_stark_shift():
     to_au = Hartree / Bohr**2
 

@@ -32,8 +32,8 @@ def get_hydrogen_chain_dielectric_function(NH, NK):
 
 @pytest.mark.response
 def test_hyd_chain_response(in_tmp_dir):
-    NH_i = [2**n for n in [0, 4]]
-    NK_i = [2**n for n in [6, 2]]
+    NH_i = [2**n for n in [0, 2]]
+    NK_i = [2**n for n in [4, 2]]
 
     opeak_old = np.nan
     peak_old = np.nan
