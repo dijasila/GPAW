@@ -33,13 +33,16 @@ __global__ void add_to_density_16(int nb,
 {
     //int b = threadIdx.x + blockIdx.x * blockDim.x;
     int R = threadIdx.x + blockIdx.x * blockDim.x;
-    double rho = 0.0;
-    for (int b=0; b< nb; b++)
+    if (R < nR)
     {
-        int idx = b * nR + R;
-        rho += f_n[b] * (psit_nR[idx].x * psit_nR[idx].x + psit_nR[idx].y * psit_nR[idx].y);
+        double rho = 0.0;
+        for (int b=0; b< nb; b++)
+        {
+            int idx = b * nR + R;
+            rho += f_n[b] * (psit_nR[idx].x * psit_nR[idx].x + psit_nR[idx].y * psit_nR[idx].y);
+        }
+        rho_R[R] += rho;
     }
-    rho_R[R] = rho;
 }
 
 
