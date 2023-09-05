@@ -19,11 +19,13 @@ from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D
 
 
-def create_ibz_wave_functions(ibz: IBZ,
+def create_ibz_wave_functions(*,
+                              ibz: IBZ,
                               nelectrons: float,
                               ncomponents: int,
                               create_wfs_func,
                               kpt_comm: MPIComm = serial_comm,
+                              kpt_band_comm: MPIComm = serial_comm,
                               comm: MPIComm = serial_comm,
                               ) -> IBZWaveFunctions:
     """Collection of wave function objects for k-points in the IBZ."""
@@ -47,6 +49,7 @@ def create_ibz_wave_functions(ibz: IBZ,
                             ncomponents,
                             wfs_qs,
                             kpt_comm,
+                            kpt_band_comm,
                             comm)
 
 
@@ -57,10 +60,12 @@ class IBZWaveFunctions:
                  ncomponents: int,
                  wfs_qs: list[list[WaveFunctions]],
                  kpt_comm: MPIComm = serial_comm,
+                 kpt_band_comm: MPIComm = serial_comm,
                  comm: MPIComm = serial_comm):
         """Collection of wave function objects for k-points in the IBZ."""
         self.ibz = ibz
         self.kpt_comm = kpt_comm
+        self.kpt_band_comm = kpt_band_comm
         self.comm = comm
         self.nelectrons = nelectrons
         self.ncomponents = ncomponents

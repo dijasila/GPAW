@@ -1,15 +1,18 @@
+import pytest
 from ase import Atoms
+
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.new.ase_interface import GPAW as NewGPAW
 
 
-def test_refactored_code(in_tmp_dir):
-    new('n')
+@pytest.mark.parametrize('random', [False, True])
+def test_refactored_code(in_tmp_dir, random):
+    new('n', random)
 
 
-def new(x):
+def new(x: str, random: bool) -> None:
     params = {'mode': {'name': 'fd'},
-              'random': not True,
+              'random': random,
               'kpts': (4, 1, 1),
               'spinpol': not True,
               'convergence': {'maximum iterations': 200}}
@@ -42,4 +45,4 @@ def new(x):
 if __name__ == '__main__':
     import sys
     for x in sys.argv[1:]:
-        new(x)
+        new(x, False)

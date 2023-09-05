@@ -50,8 +50,7 @@ class ElectrostaticPotential:
                    calculation.setups)
 
     def atomic_potentials(self) -> Array1D:
-        W_aL = self.W_aL.gather()
-        assert W_aL is not None
+        W_aL = self.W_aL.gather(broadcast=True)
         return W_aL.data[::9] * (Ha / (4 * pi)**0.5)
 
     def atomic_corrections(self):
