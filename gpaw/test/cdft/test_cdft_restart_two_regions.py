@@ -42,14 +42,14 @@ def test_cdft_restart(in_tmp_dir):
                   minimizer_options={'gtol': 0.1})
     sys.calc = cdft_b
     sys.get_potential_energy()
-    sys.calc.calc.write('H2.gpw', mode='all')
+    sys.calc.calc.write('He2.gpw', mode='all')
 
     # Restart
 
-    atoms, calc = restart('H2.gpw')
+    atoms, calc = restart('He2.gpw')
 
     coupling = CouplingParameters(calc_a=calc, calc_b=calc,
-                                  wfs_a='H2.gpw', wfs_b='H2.gpw',
+                                  wfs_a='He2.gpw', wfs_b='He2.gpw',
                                   Va=[27, 0], Vb=[27, 0],
                                   charge_regions_A=[[1], [0]],
                                   charge_regions_B=[[1], [0]])
