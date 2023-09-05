@@ -504,7 +504,8 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    @gpwfile
+    # Missing setup; try reenabling and fix
+    # @gpwfile
     def h2o_xas(self):
         from math import cos, pi, sin
         a = 5.0
@@ -563,7 +564,8 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
-    @gpwfile
+    # Missing setup; try reenabling and fix
+    # @gpwfile
     def si_corehole_pw(self):
         a = 2.6
         si = Atoms('Si', cell=(a, a, a), pbc=True)
@@ -578,11 +580,13 @@ class GPWFiles:
         _ = si.get_potential_energy()
         return si.calc
 
-    @gpwfile
+    # Missing setup; try reenabling and fix
+    # @gpwfile
     def si_corehole_sym_pw(self):
         return self.si_corehole_sym(sym={})
 
-    @gpwfile
+    # Missing setup; try reenabling and fix
+    # @gpwfile
     def si_corehole_nosym_pw(self):
         return self.si_corehole_sym(sym='off')
 
