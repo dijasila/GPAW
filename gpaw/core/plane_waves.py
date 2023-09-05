@@ -801,6 +801,7 @@ def find_reciprocal_vectors(ecut: float,
 
     return G_plus_k, ekin, indices.T
 
+
 def abs_square_gpu(psit_nG, weight_n, nt_R):
     from gpaw.gpu import cupyx
     pw = psit_nG.desc
@@ -819,7 +820,10 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
         elif nb < B:
             psit_bR = psit_bR[:nb]
         psit_bR[:] = 0.0
-        _gpaw.pw_insert_gpu(psit_nG.data[b1:b2], Q_G, 1.0, psit_bR.reshape((nb, -1)))
+        _gpaw.pw_insert_gpu(psit_nG.data[b1:b2],
+                            Q_G,
+                            1.0,
+                            psit_bR.reshape((nb, -1)))
         psit_bR[:] = cupyx.scipy.fft.ifftn(
             psit_bR,
             shape,

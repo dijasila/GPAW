@@ -25,7 +25,7 @@ def abs_square(a: float,  # lattice constant
     psit_nG.abs_square(weight_n, nt_R, _slow=slow)
     t = time() - t
 
-    #assert nt_R.integrate() == pytest.approx(a**3 * weight_n.sum())
+    assert nt_R.integrate() == pytest.approx(a**3 * weight_n.sum())
 
     return t
 
