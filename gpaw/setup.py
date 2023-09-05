@@ -313,10 +313,6 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
-    def calculate_rotations(self, R_slmm):
-        from gpaw.atomrotations import SingleAtomRotations
-        return SingleAtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm)
-
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
 

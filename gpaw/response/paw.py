@@ -194,7 +194,6 @@ class PWPAWCorrectionData:
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            # U_ii = self.pawdatasets[a].R_sii[sym]
             U_ii = self.atomrotations.get_by_a(a).R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',

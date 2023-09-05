@@ -9,7 +9,7 @@ class SingleAtomRotations:
         self.R_sii = R_sii
 
     @classmethod
-    def from_R_slmm(cls, ni, l_j, R_slmm):
+    def new(cls, ni, l_j, R_slmm):
         nsym = len(R_slmm)
         R_sii = np.zeros((nsym, ni, ni))
         i1 = 0
@@ -38,8 +38,8 @@ class AtomRotations:
 
         rotations = {}
         for key, setup in setups.items():
-            rot = setup.calculate_rotations(R_slmm)
-            rotations[key] = rot
+            rotations[key] = SingleAtomRotations.new(setup.ni, setup.l_j,
+                                                     R_slmm)
 
         self._rotations = rotations
         self._id_a = id_a
@@ -54,8 +54,7 @@ class AtomRotations:
         if not D_asp:
             return
 
-        index0 = next(iter(D_asp))
-        nspins = D_asp[index0].shape[0]
+        nspins = next(iter(D_asp.values())).shape[0]
 
         for s in range(nspins):
             D_aii = [unpack2(D_asp[a][s])
