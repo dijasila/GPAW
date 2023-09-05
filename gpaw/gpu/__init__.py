@@ -86,3 +86,24 @@ def T():
     synchronize()
     t2 = time()
     print(f'{(t2 - t1) * 1e9:_.3f} ns')
+
+
+def block_diag(blocks, xp):
+    if xp is np:
+        from scipy.sparse import block_diag
+        return block_diag(blocks)
+    if cupy_is_fake:
+        return Sparse(blocks)
+    from cupyx.scipy.sparse import bmat, coo_array
+    N = len(blocks)
+    mat = []
+    for n, block in enumerate(blocks):
+        row = [None] * N
+        row[n] = coo_array(block)
+        mat.append(row)
+    return bmat(mat)
+
+
+class Sparse:
+    def __init__(self, blocks):
+        ...
