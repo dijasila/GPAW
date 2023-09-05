@@ -1431,7 +1431,7 @@ def pytest_configure(config):
         'slow: slow test',
         'soc: Spin-orbit coupling',
         'stress: Calculation of stress tensor',
-            'wannier: Wannier functions']:
+        'wannier: Wannier functions']:
         config.addinivalue_line('markers', line)
 
 
