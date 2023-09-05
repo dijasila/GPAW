@@ -6,7 +6,7 @@ import gpaw.mpi as mpi
 import pytest
 
 
-ref_phi_km = np.array(
+ref_phi_mos2_km = np.array(
     [[2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
      [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
      [2.99682618e-02, 2.26119678e+00, 4.30480687e+00, 5.78042986e+00],
@@ -15,7 +15,7 @@ ref_phi_km = np.array(
      [3.75847658e-03, 2.67197983e+00, 4.36511629e+00, 5.60446187e+00]])
     
 
-def test_parallel_transport(in_tmp_dir, gpw_files):
+def test_parallel_transport_mos2(in_tmp_dir, gpw_files):
     # Calculate the berry phases and spin projections
     gpw = gpw_files['mos2_pw_nosym']
     parallel_transport(str(gpw), name='mos2', scale=1)
@@ -25,7 +25,19 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
 
     # Test against reference values
     print(phi_km[:, ::7])
-    assert phi_km[:, ::7] == pytest.approx(ref_phi_km, abs=0.05)
+    assert phi_km[:, ::7] == pytest.approx(ref_phi_mos2_km, abs=0.05)
+
+
+def test_parallel_transport_i2sb2(in_tmp_dir, gpw_files):
+    # Calculate the berry phases and spin projections
+    calc = GPAW(gpw_files['i2sb2_pw_nosym'],
+                txt=None, communicator=mpi.serial_comm)
+    nelec = int(calc.get_number_of_electrons())
+    parallel_transport(calc, name='i2sb2', scale=1,
+                       # We use only the top two valence bands since
+                       # these are isolated from the rest
+                       bands=range(nelec - 2, nelec)
+                       )
 
 
 def load_renormalized_data(name):
