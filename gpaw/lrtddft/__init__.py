@@ -423,13 +423,6 @@ def d2Excdnsdnt(dup, ddn):
     return res
 
 
-def d2Excdn2(den):
-    """Second derivative of Exc unpolarised"""
-    res = np.zeros(den.shape)
-    _gpaw.d2Excdn2(den, res)
-    return res
-
-
 class LrTDDFTExcitation(Excitation):
 
     def __init__(self, Om=None, i=None,
