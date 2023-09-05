@@ -67,6 +67,15 @@ def test_parallel_transport_i2sb2(in_tmp_dir, gpw_files):
                                               1, -1,  # k=2
                                               1, -1]),   # k=3
                                     abs=0.01)
+    # Test also the berry phases for the same bands
+    phivalues = phi_qm[phi_qm > 3.0]
+    print(phivalues)
+    # We test that the values don't change too much. This will
+    # also guarantee that the results agree qualitatively with
+    # the c2db plot
+    assert phivalues == pytest.approx(
+        [3.115, 5.309, 3.970, 4.455,
+         3.970, 4.455, 3.115, 5.309],abs=0.05)
 
 
 def load_renormalized_data(name):
