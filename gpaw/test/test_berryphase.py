@@ -5,10 +5,45 @@ from gpaw.berryphase import get_berry_phases
 import gpaw.mpi as mpi
 import pytest
 
-"""
-Tests the get_polarization and get_berryphase functions in gpaw.berryphase.
-XXX The parallel_transport function still need to be tested, see #921, #843
-"""
+
+# Values from an earlier test
+ref_phi_km = np.array(
+    [[2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
+     [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
+     [2.99682618e-02, 2.26119678e+00, 4.30480687e+00, 5.78042986e+00],
+     [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
+     [2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
+     [3.75847658e-03, 2.67197983e+00, 4.36511629e+00, 5.60446187e+00]])
+    
+
+def test_parallel_transport(in_tmp_dir, gpw_files):
+    # Calculate the berry phases and spin projections
+    gpw = gpw_files['mos2_pw_nosym']
+    parallel_transport(str(gpw), name='mos2', scale=1)
+
+    # Load phase-ordered data
+    phi_km, S_km = load_renormalized_data('mos2')
+
+    # Test that the berry phases do not change (assuming that they
+    # were correct to begin with)
+    print(phi_km[:, ::7])  # we slice the bands to make output readable
+    assert phi_km[:, ::7] == pytest.approx(ref_phi_km, abs=0.05)
+
+
+def load_renormalized_data(name):
+    data = np.load(f'phases_{name}.npz')
+    phi_km = data['phi_km']
+    S_km = data['S_km']
+
+    # Phases are only well-defined modulo 2pi
+    phi_km %= 2 * np.pi
+
+    # Sort bands by the berry phase
+    indices = np.argsort(phi_km, axis=1)
+    phi_km = np.take_along_axis(phi_km, indices, axis=1)
+    S_km = np.take_along_axis(S_km, indices, axis=1)
+
+    return phi_km, S_km
 
 
 def test_pol(in_tmp_dir, gpw_files):
