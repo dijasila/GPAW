@@ -109,8 +109,6 @@ def gpw_files(request):
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
-    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
-
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
@@ -531,52 +529,6 @@ class GPWFiles:
         _ = H2O.get_potential_energy()
         return calc
 
-    def ti2o4(self, symmetry):
-        pwcutoff = 400.0
-        k = 4
-        a = 4.59
-        c = 2.96
-        u = 0.305
-
-        rutile_cell = [[a, 0, 0],
-                       [0, a, 0],
-                       [0, 0, c]]
-
-        TiO2_basis = np.array([[0.0, 0.0, 0.0],
-                               [0.5, 0.5, 0.5],
-                               [u, u, 0.0],
-                               [-u, -u, 0.0],
-                               [0.5 + u, 0.5 - u, 0.5],
-                               [0.5 - u, 0.5 + u, 0.5]])
-
-        bulk_crystal = Atoms(symbols='Ti2O4',
-                             scaled_positions=TiO2_basis,
-                             cell=rutile_cell,
-                             pbc=(1, 1, 1))
-
-        tag = '_nosym' if symmetry == 'off' else ''
-        bulk_calc = GPAW(mode=PW(pwcutoff),
-                         nbands=42,
-                         eigensolver=Davidson(1),
-                         kpts={'size': (k, k, k), 'gamma': True},
-                         xc='PBE',
-                         occupations=FermiDirac(0.00001),
-                         parallel={'band': 1},
-                         symmetry=symmetry,
-                         txt=self.path / f'ti2o4_pw{tag}.txt')
-
-        bulk_crystal.calc = bulk_calc
-        bulk_crystal.get_potential_energy()
-        return bulk_calc
-
-    @gpwfile
-    def ti2o4_pw(self):
-        return self.ti2o4({})
-
-    @gpwfile
-    def ti2o4_pw_nosym(self):
-        return self.ti2o4('off')
-
     @gpwfile
     def si_fd_ibz(self):
         si = bulk('Si', 'diamond', a=5.43)
@@ -672,7 +624,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=band_cutoff + 12,  # + 2 * (4s, 3d),
+            nbands=band_cutoff + 12,  # + 2 * (3s, 3p),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
