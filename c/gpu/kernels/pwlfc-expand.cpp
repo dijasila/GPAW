@@ -1,31 +1,119 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
+#include "numpy/arrayobject.h"
+#include "assert.h"
 
-__global__ void _pw_insert(int nG,
-                           int nQ,
-                           double complex* c_G,
-                           npy_int32* Q_G,
-                           double scale,
-                           double complex* tmp_Q)
-// Does the same as these two lines of Python:
-//
-//     tmp_Q[:] = 0.0
-//     tmp_Q.ravel()[Q_G] = c_G * scale
+__global__ void pw_insert_many_16(int nb,
+                                  int nG,
+                                  int nQ,
+                                  gpuDoubleComplex* c_nG,
+                                  npy_int32* Q_G,
+                                  double scale,
+                                  gpuDoubleComplex* tmp_nQ)
 {
-    int Qstart = threadIdx.x + blockIdx.x * blockDim.x;
-    int Qend = 
-    int J = threadIdx.y + blockIdx.y * blockDim.y;
-    int Q1 = 0;
-    for (int G = 0; G < nG; G++) {
-        int Q2 = Q_G[G];
-        for (; Q1 < Q2; Q1++)
-            tmp_Q[Q1] = 0.0;
-        tmp_Q[Q1++] = c_G[G] * scale;
-        }
-    for (; Q1 < nQ; Q1++)
-        tmp_Q[Q1] = 0.0;
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    int b = threadIdx.y + blockIdx.y * blockDim.y;
+    __shared__ npy_int32 locQ_G[16];
+    if (threadIdx.y == 0)
+        locQ_G[threadIdx.x] = Q_G[G];
+    __syncthreads();
+    
+    if ((G < nG) && (b < nb))
+    {
+        npy_int32 Q = locQ_G[threadIdx.x];
+        tmp_nQ[Q + b * nQ] = gpuCmulD(c_nG[G + b * nG], scale);
+    }
 }
 
+__global__ void pw_insert_16(int nG,
+                             int nQ,
+                             gpuDoubleComplex* c_G,
+                             npy_int32* Q_G,
+                             double scale,
+                             gpuDoubleComplex* tmp_Q)
+{
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    if (G < nG)
+        tmp_Q[Q_G[G]] = gpuCmulD(c_G[G], scale);
+}
+
+/*
+__global__ void _pw_insert_8(int nG,
+                             int nQ,
+                             double* c_G,
+                             npy_int32* Q_G,
+                             double scale,
+                             double* tmp_Q)
+{
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    if (G < nG)
+        tmp_Q[Q_G[G]] = c_G[G] * scale;
+}
+
+__global__ void _pw_insert_8_many(int nb,
+                                  int nG,
+                                  int nQ,
+                                  double* c_G,
+                                  npy_int32* Q_G,
+                                  double scale,
+                                  double* tmp_Q)
+{
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    int b = threadIdx.y + blockIdx.y * blockDim.y;
+    __shared__ double locQ_G[16];
+    if (threadIdx.y == 0)
+        locQ_G[threadIdx.x] = c_G[G];
+    __syncthreads();
+    
+    if ((G < nG) && (b < nb))
+    {
+        npy_int32 Q = locQ_G[threadIdx.x];
+        tmp_Q[Q + b * nQ] = c_G[G + b * nG] * scale;
+    }
+}
+*/
+
+extern "C"
+void pw_insert_gpu_launch_kernel(int itemsize,
+                             int nb,
+                             int nG,
+                             int nQ,
+                             double* c_nG,
+                             npy_int32* Q_G,
+                             double scale,
+                             double* tmp_nQ)
+{
+    if (itemsize == 16)
+    {
+        if (nb == 1)
+        {
+           gpuLaunchKernel(pw_insert_16,
+                           dim3((nG+15)/16, (nb+15)/16),
+                           dim3(16, 16),
+                           0, 0,
+                           nG, nQ,
+                           (gpuDoubleComplex*) c_nG, Q_G,
+                           scale,
+                           (gpuDoubleComplex*) tmp_nQ);
+        }
+        else
+        {
+           gpuLaunchKernel(pw_insert_many_16,
+                           dim3((nG+15)/16, (nb+15)/16),
+                           dim3(16, 16),
+                           0, 0,
+                           nb, nG, nQ,
+                           (gpuDoubleComplex*) c_nG,
+                           Q_G,
+                           scale,
+                           (gpuDoubleComplex*) tmp_nQ);
+        }
+    }
+    else
+    {
+        assert(0);
+    }
+}
 
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,

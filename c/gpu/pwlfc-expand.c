@@ -25,6 +25,15 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     int nsplines,
                                     bool cc);
 
+void pw_insert_gpu_launch_kernel(int itemsize,
+                             int nb,
+                             int nG,
+                             int nQ,
+                             double* c_nG,
+                             npy_int32* Q_G,
+                             double scale,
+                             double* tmp_nQ);
+
 PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
 {
     PyObject *f_Gs_obj;
@@ -63,43 +72,37 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     Py_RETURN_NONE;
 }
 
-void _pw_insert(int nG,
-                int nQ,
-                double complex* c_G,
-
-                npy_int32* Q_G,
-                double scale,
-                double complex* tmp_Q)
-// Does the same as these two lines of Python:
-//
-//     tmp_Q[:] = 0.0
-//     tmp_Q.ravel()[Q_G] = c_G * scale
-{
-    int Q1 = 0;
-    for (int G = 0; G < nG; G++) {
-        int Q2 = Q_G[G];
-        for (; Q1 < Q2; Q1++)
-            tmp_Q[Q1] = 0.0;
-        tmp_Q[Q1++] = c_G[G] * scale;
-        }
-    for (; Q1 < nQ; Q1++)
-        tmp_Q[Q1] = 0.0;
-}
-
 
 PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
 {
-    PyObject *c_G_obj, *Q_G_obj, *tmp_Q_obj;
+    PyObject *c_nG_obj, *Q_G_obj, *tmp_nQ_obj;
     double scale;
     if (!PyArg_ParseTuple(args, "OOdO",
-                          &c_G_obj, &Q_G_obj, &scale, &tmp_Q_obj))
+                          &c_nG_obj, &Q_G_obj, &scale, &tmp_nQ_obj))
         return NULL;
-    double complex *c_G = Array_DATA(c_G_obj);
+    double complex *c_nG = Array_DATA(c_nG_obj);
     npy_int32 *Q_G = Array_DATA(Q_G_obj);
-    double complex *tmp_Q = Array_DATA(tmp_Q_obj);
-    int nG = Array_SIZE(c_G_obj);
-    int nQ = Array_SIZE(tmp_Q_obj);
-    _pw_insert_gpu(nG, nQ, c_G, Q_G, scale, tmp_Q);
+    double complex *tmp_nQ = Array_DATA(tmp_nQ_obj);
+    int nG = 0;
+    int nQ = 0;
+    int nb = 0;
+    assert(Array_NDIM(c_nG_obj) == Array_NDIM(tmp_nQ_obj));
+    assert(Array_ITEMSIZE(c_nG_obj) == 16);
+    assert(Array_ITEMSIZE(tmp_nQ_obj) == 16);
+    if (Array_NDIM(c_nG_obj) == 1)
+    {
+        nG = Array_DIM(c_nG_obj, 0);
+        nb = 1;
+        nQ = Array_DIM(tmp_nQ_obj, 1);
+    }
+    else
+    {
+        nG = Array_DIM(c_nG_obj, 1);
+        nb = Array_DIM(c_nG_obj, 0);
+        nQ = Array_DIM(tmp_nQ_obj, 0);
+    }
+
+    pw_insert_gpu_launch_kernel(16, nb, nG, nQ, c_nG, Q_G, scale, tmp_nQ);
     Py_RETURN_NONE;
 }
 
