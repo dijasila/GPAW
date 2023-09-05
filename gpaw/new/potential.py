@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 from ase.units import Bohr, Ha
-
 from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.domain import Domain as XDesc
@@ -36,14 +35,14 @@ class Potential:
         if len(P_ani.dims) == 1:  # collinear wave functions
             xp = P_ani.layout.xp
             if xp is np:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
+                from scipy.sparse import block_diag
             else:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = xp.asarray(self.dH_asii[a][spin])
-                    out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
-            return  # out_ani.to_xp(to_xp)
+                from gpaw.gpu import cupyx
+                block_diag = cupyx.linalg.sparse.block_diag
+            dH_II = block_diag([dH_sii[spin]
+                                for dH_sii in self.dH_asii.values()])
+            out_ani.data[:] = P_ani.data @ dH_II
+            return
 
         # Non-collinear wave functions:
         P_ansi = P_ani
