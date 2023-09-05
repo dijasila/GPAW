@@ -24,9 +24,9 @@ def test_parallel_transport_mos2(in_tmp_dir, gpw_files):
     # Load phase-ordered data
     phi_km, S_km = load_renormalized_data('mos2')
 
-    # Test against that the berry phases do not change (assuming that
-    # they were correct to begin with)
-    print(phi_km[:, ::7])
+    # Test that the berry phases do not change (assuming that they
+    # were correct to begin with)
+    print(phi_km[:, ::7])  # we slice the bands to make output readable
     assert phi_km[:, ::7] == pytest.approx(ref_phi_mos2_km, abs=0.05)
 
 
