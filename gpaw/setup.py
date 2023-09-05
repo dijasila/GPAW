@@ -1391,9 +1391,10 @@ class Setups(list):
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
+        # XXX It is ugly that we set self.atomrotations from here;
+        # it would be better to return it to the caller.
         from gpaw.atomrotations import AtomRotations
-        self.atomrotations = AtomRotations(
-            self.setups, self.id_a, symmetry)
+        self.atomrotations = AtomRotations(self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)

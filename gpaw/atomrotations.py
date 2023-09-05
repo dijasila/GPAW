@@ -32,8 +32,7 @@ class AtomRotations:
     def __init__(self, setups, id_a, symmetry):
         R_slmm = []
         for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
+            op_vv = np.linalg.inv(symmetry.cell_cv) @ op_cc @ symmetry.cell_cv
             R_slmm.append([rotation(l, op_vv) for l in range(4)])
 
         rotations = {}
@@ -57,8 +56,6 @@ class AtomRotations:
         nspins = next(iter(D_asp.values())).shape[0]
 
         for s in range(nspins):
-            D_aii = [unpack2(D_asp[a][s])
-                     for a in range(len(D_asp))]
+            D_aii = [unpack2(D_asp[a][s]) for a in range(len(D_asp))]
             for a, D_ii in enumerate(D_aii):
-                symmetrized = self.get_by_a(a).symmetrize(a, D_aii, a_sa)
-                D_asp[a][s] = pack(symmetrized)
+                D_asp[a][s] = pack(self.get_by_a(a).symmetrize(a, D_aii, a_sa))
