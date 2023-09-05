@@ -1465,9 +1465,9 @@ class Setups(list):
         else:
             subscripts = 'ni, ij -> nj'
         if xp is np:
-            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                dS_ii = self[a].dO_ii
-                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
+            from scipy.sparse import block_diag
+            dS_II = block_diag([self[a].dO_ii for a in P_ani])
+            out_ani.data[:] = P_ani.data @ dS_II
         else:
             # GRR. Cupy einsum doesn't have an out argument.
             for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
