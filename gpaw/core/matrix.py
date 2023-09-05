@@ -118,7 +118,7 @@ class Matrix:
         if data is None:
             self.data = self.xp.empty(dist.shape, self.dtype)
         else:
-            assert data.shape == dist.shape, (data.shape, dist.shape)
+            assert data.shape == dist.shape, (data.shape, dist.shape, dist)
             self.data = data
 
     def __repr__(self):
@@ -305,11 +305,13 @@ class Matrix:
         array([[ 1.        , -0.        ],
                [-0.10050378,  1.00503782]])
         """
+        print('SSSSSSSSSS', self.dist, self.data)
         S = self.gather()
         if self.dist.comm.rank == 0:
             if isinstance(S.data, np.ndarray):
                 if debug:
                     S.data[np.triu_indices(S.shape[0], 1)] = 42.0
+                print(S.data)
                 L_nn = sla.cholesky(S.data,
                                     lower=True,
                                     overwrite_a=True,
@@ -318,7 +320,8 @@ class Matrix:
                                     overwrite_a=True,
                                     check_finite=debug)
             else:
-                self.tril2full()
+                S.tril2full()
+                print(S.data);
                 L_nn = cp.linalg.cholesky(S.data)
                 S.data[:] = cp.linalg.inv(L_nn)
 
@@ -527,6 +530,7 @@ class Matrix:
 
         dist = self.dist
 
+        print(dist)
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
                 lower = self.xp.tri(M, k=-1, dtype=bool)
@@ -746,7 +750,15 @@ def create_distribution(M: int,
                         b: int | None = None,
                         xp=None) -> MatrixDistribution:
     if xp is cp:
-        return CuPyDistribution(M, N)
+        print('CuPyD', M, N, comm, r, c, b)
+        assert b is None
+        if r == 1 and c == 1:
+            pass  # comm = None
+        comm = comm or serial_comm
+        return CuPyDistribution(M, N, comm,
+                                r if r != -1 else comm.size,
+                                c if c != -1 else comm.size,
+                                b)
 
     if comm is None or comm.size == 1:
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
@@ -759,25 +771,37 @@ def create_distribution(M: int,
 
 
 class CuPyDistribution(MatrixDistribution):
-    comm = serial_comm
-    rows = 1
-    columns = 1
-    blocksize = None
-
-    def __init__(self, M, N):
-        self.shape = (M, N)
+    def __init__(self, M, N, comm, r, c, b):
+        self.comm = comm
+        self.rows = r
+        self.columns = c
+        self.blocksize = b
         self.full_shape = (M, N)
+        # assert r == comm.size, (M, N, comm, r, c, b)
+        assert c == 1
+        self.shape = ((M + r - 1) // r, N)
 
     def __str__(self):
         return 'CuPyDistribution({}x{})'.format(*self.shape)
 
     def global_index(self, n):
+        1 / 0
         return n
 
     def new(self, M, N):
+        1 / 0
         return CuPyDistribution(M, N)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
+        if self.comm.size > 1:
+            a = a.gather()
+            b = b.gather()
+            c0 = c
+            c = c.gather()
+            if self.comm.rank > 0:
+                c.redist(c0)
+                return
+
         if symmetric:
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
@@ -806,6 +830,8 @@ class CuPyDistribution(MatrixDistribution):
                            opb.replace('C', 'H'),
                            a.data, b.data, c.data,
                            alpha, beta)
+        if self.comm.size > 1:
+            c.redist(c0)
 
     def eighg(self, H, L):
         """
@@ -814,6 +840,7 @@ class CuPyDistribution(MatrixDistribution):
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
         """
+        assert self.comm.size == 1
         tmp = H.new()
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
