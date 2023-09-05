@@ -72,7 +72,6 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
 @pytest.mark.later
 def test_si_nonortho(in_tmp_dir, add_cwd_to_setup_paths):
     # Generate setup for oxygen with half a core-hole:
-    #gen('Si', name='hch1s', corehole=(1, 0, 0.5))
     gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
     
     a = 5.43095
