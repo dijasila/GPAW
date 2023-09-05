@@ -77,7 +77,7 @@ def test_parallel_transport_i2sb2(in_tmp_dir, gpw_files):
     # the c2db plot
     assert phivalues == pytest.approx(
         [3.115, 5.309, 3.970, 4.455,
-         3.970, 4.455, 3.115, 5.309],abs=0.05)
+         3.970, 4.455, 3.115, 5.309], abs=0.05)
 
 
 def load_renormalized_data(name):
