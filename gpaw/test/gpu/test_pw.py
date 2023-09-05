@@ -33,7 +33,7 @@ def test_gpu_pw(dtype, gpu):
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 @pytest.mark.parametrize('gpu', [False, True])
-@pytest.mark.parametrize('par', ['domain', 'kpt'])
+@pytest.mark.parametrize('par', ['domain', 'kpt', 'band'])
 def test_gpu_pw_k(gpu, par):
     atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
     dft = DFTCalculation.from_parameters(
@@ -47,7 +47,7 @@ def test_gpu_pw_k(gpu, par):
     dft.converge()
     dft.energies()
     dft.forces()
-    if par == 'kpt':
+    if 1:#par == 'kpt':
         dft.stress()
     energy = dft.results['energy'] * Ha
     assert energy == pytest.approx(-19.579937, abs=1e-6)

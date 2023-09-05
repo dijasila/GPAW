@@ -366,7 +366,7 @@ class Matrix:
             assert self.dist.comm.size == slcomm.size
             H = self
 
-        eps = np.empty(H.shape[0])
+        eps = self.xp.empty(H.shape[0])
 
         if rows * columns == 1:
             if self.dist.comm.rank == 0:
@@ -387,6 +387,7 @@ class Matrix:
                             driver='evx' if H.data.size == 1 else 'evd')
                 else:
                     if self.xp is cp:
+                        assert self.dist.comm.size == 1
                         S.invcholesky()
                         self.tril2full()
                         eigs = self.eighg(S)
@@ -784,8 +785,10 @@ class CuPyDistribution(MatrixDistribution):
         return n
 
     def new(self, M, N):
-        1 / 0
-        return CuPyDistribution(M, N)
+        return CuPyDistribution(M, N,
+                                self.comm,
+                                self.rows, self.columns,
+                                self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
         if self.comm.size > 1:

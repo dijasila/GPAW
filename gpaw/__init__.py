@@ -26,7 +26,6 @@ dry_run = 0
 debug: bool = (TYPE_CHECKING or
                'pytest' in sys.modules or
                bool(sys.flags.debug))
-debug = True
 
 
 @contextlib.contextmanager

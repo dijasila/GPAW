@@ -25,8 +25,8 @@ for d in [1, 2, 4, 8]:
                        pytest.mark.skipif(SCIPY_VERSION < [1, 6],
                                           reason='Too old scipy')])])
 def test_pw_par_strategies(in_tmp_dir, d, k, gpu, gpaw_new):
-    if (gpu or gpaw_new) and d * k < world.size:
-        pytest.skip()
+    #if (gpu or gpaw_new) and d * k < world.size:
+    #    pytest.skip()
     ecut = 200
     kpoints = [1, 1, 4]
     atoms = Atoms('HLi',
@@ -54,11 +54,11 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu, gpaw_new):
     assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
                                         [0, 0, 8.00667631e-01]]))
 
-    if not gpu and not gpaw_new:
+    if 1:#not gpu and not gpaw_new:
         s = atoms.get_stress()
         assert s == pytest.approx(
             [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
 
-    if not gpu:
+    if 1:#not gpu:
         atoms.calc.write('hli.gpw', mode='all')
         GPAW('hli.gpw', txt=None)
