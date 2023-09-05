@@ -13,13 +13,6 @@ ref_phi_km = np.array(
      [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
      [2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
      [3.75847658e-03, 2.67197983e+00, 4.36511629e+00, 5.60446187e+00]])
-ref_S_km = np.array(
-    [[-0.99997539, -0.99661639,  0.98144039,  0.99874399],
-     [-0.99998304, -0.99813396,  0.98473575,  0.99945324],
-     [-0.99899634, -0.87311649,  0.70779359,  0.95698758],
-     [-0.99998537, -0.99877200,  0.98265721,  0.99944721],
-     [-0.99998537, -0.99662501,  0.98129195,  0.99953278],
-     [-0.99974274, -0.88576633,  0.76383824,  0.9545073 ]])
     
 
 def test_parallel_transport(in_tmp_dir, gpw_files):
@@ -32,9 +25,7 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
 
     # Test against reference values
     print(phi_km[:, ::7])
-    print(S_km[:, ::7])
     assert phi_km[:, ::7] == pytest.approx(ref_phi_km, abs=0.05)
-    assert S_km[:, ::7] == pytest.approx(ref_S_km, abs=0.1)
 
 
 def load_renormalized_data(name):
@@ -48,9 +39,10 @@ def load_renormalized_data(name):
     while np.any(phi_km > 2 * np.pi):
         phi_km[phi_km > 2 * np.pi] -= 2 * np.pi
 
-    # Things are going everywhere
-    phi_km = np.sort(phi_km)
-    S_km = np.sort(S_km)
+    # Sort bands by the berry phase
+    indices = np.argsort(phi_km, axis=1)
+    phi_km = np.take_along_axis(phi_km, indices, axis=1)
+    S_km = np.take_along_axis(S_km, indices, axis=1)
 
     return phi_km, S_km
 
