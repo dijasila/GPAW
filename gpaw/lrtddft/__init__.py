@@ -413,16 +413,6 @@ class LrTDDFT(ExcitationList):
             pass
 
 
-def d2Excdnsdnt(dup, ddn):
-    """Second derivative of Exc polarised"""
-    res = [[0, 0], [0, 0]]
-    for ispin in range(2):
-        for jspin in range(2):
-            res[ispin][jspin] = np.zeros(dup.shape)
-            _gpaw.d2Excdnsdnt(dup, ddn, ispin, jspin, res[ispin][jspin])
-    return res
-
-
 class LrTDDFTExcitation(Excitation):
 
     def __init__(self, Om=None, i=None,
