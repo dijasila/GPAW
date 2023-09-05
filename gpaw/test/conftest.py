@@ -628,22 +628,16 @@ class GPWFiles:
         return self.si_corehole_sym(sym='on')
 
     @gpwfile
-    def si_corehole_sym_pw(self):
-        return self.si_corehole_sym(sym='on')
-
-    @gpwfile
     def si_corehole_nosym_pw(self):
         return self.si_corehole_sym(sym='off')
 
     def si_corehole_sym(self, sym):
         a = 5.43095
-        
         si_nonortho = Atoms(
             [Atom("Si", (0, 0, 0)), Atom("Si", (a / 4, a / 4, a / 4))],
             cell=[(a / 2, a / 2, 0), (a / 2, 0, a / 2), (0, a / 2, a / 2)],
             pbc=True,
         )
-        
         # calculation with full symmetry
         calc = GPAW(
             mode="fd",
@@ -654,7 +648,6 @@ class GPWFiles:
             setups={0: "hch1s"},
             symmetry=sym
         )
-        
         si_nonortho.calc = calc
         _ = si_nonortho.get_potential_energy()
         return calc
