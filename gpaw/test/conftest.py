@@ -117,6 +117,9 @@ def gpw_files(request):
 
     * Graphene with 6x6x1 k-points: ``graphene_pw``
 
+    * I2Sb2 (Z2 topological insulator) with 6x6x1 k-points and no
+      symmetries: ``i2sb2_pw_nosym``
+
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
@@ -790,6 +793,27 @@ class GPWFiles:
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           nbands=len(atoms) * 6,
                           txt=self.path / 'graphene_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def i2sb2_pw_nosym(self):
+        # Structure from c2db
+        atoms = Atoms('I2Sb2',
+                      positions=[[0.02437357, 0.05048655, 6.11612164],
+                                 [0.02524896, 3.07135573, 11.64646853],
+                                 [0.02717742, 0.01556495, 8.89278807],
+                                 [0.02841809, 3.10675382, 8.86983839]],
+                      cell=[[5.055642258802973, -9.89475498615942e-15, 0.0],
+                            [-2.5278211265136266, 4.731999711338355, 0.0],
+                            [3.38028806436979e-15, 0.0, 18.85580293064]],
+                      pbc=(1, 1, 0))
+        atoms.calc = GPAW(mode=PW(250),
+                          xc='PBE',
+                          kpts={'size': (6, 6, 1), 'gamma': True},
+                          txt=self.path / 'i2sb2_pw_nosym.txt',
+                          symmetry='off')
+
         atoms.get_potential_energy()
         return atoms.calc
 
