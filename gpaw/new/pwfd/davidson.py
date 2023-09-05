@@ -242,11 +242,10 @@ def calculate_residuals(residual_nX: DA,
                         wfs: PWFDWaveFunctions,
                         P1_ani: AA,
                         P2_ani: AA) -> None:
-
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)

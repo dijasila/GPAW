@@ -377,14 +377,14 @@ class Matrix:
                 if S is None:
                     if self.xp is not np:
                         assert isinstance(H.data, cp.ndarray)
-                        eps, H.data.T[:] = cupy_eigh(H.data, UPLO='L')
-                        return eps
-                    eps[:], H.data.T[:] = sla.eigh(
-                        H.data,
-                        lower=True,
-                        overwrite_a=True,
-                        check_finite=debug,
-                        driver='evx' if H.data.size == 1 else 'evd')
+                        eps[:], H.data.T[:] = cupy_eigh(H.data, UPLO='L')
+                    else:
+                        eps[:], H.data.T[:] = sla.eigh(
+                            H.data,
+                            lower=True,
+                            overwrite_a=True,
+                            check_finite=debug,
+                            driver='evx' if H.data.size == 1 else 'evd')
                 else:
                     if self.xp is cp:
                         S.invcholesky()

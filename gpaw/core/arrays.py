@@ -236,8 +236,9 @@ def _parallel_me(psit1_nX: DistributedArrays,
 
     n_r = [min(r * B, nbands) for r in range(comm.size + 1)]
 
-    buf1_nX = psit1_nX.desc.empty(B)
-    buf2_nX = psit1_nX.desc.empty(B)
+    xp = psit1_nX.xp
+    buf1_nX = psit1_nX.desc.empty(B, xp=xp)
+    buf2_nX = psit1_nX.desc.empty(B, xp=xp)
     psit_nX = psit2_nX
 
     for shift in range(comm.size):
