@@ -10,7 +10,6 @@ from gpaw.test.conftest import response_band_cutoff
 
 
 @pytest.mark.response
-@pytest.mark.slow
 def test_symmetry_si2(gpw_files):
     band_cutoff = response_band_cutoff['fancy_si_pw']
     data_s = []
