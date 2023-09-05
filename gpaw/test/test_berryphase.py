@@ -34,10 +34,7 @@ def load_renormalized_data(name):
     S_km = data['S_km']
 
     # Phases are only well-defined modulo 2pi
-    while np.any(phi_km < 0.):
-        phi_km[phi_km < 0.] += 2 * np.pi
-    while np.any(phi_km > 2 * np.pi):
-        phi_km[phi_km > 2 * np.pi] -= 2 * np.pi
+    phi_km %= 2 * np.pi
 
     # Sort bands by the berry phase
     indices = np.argsort(phi_km, axis=1)
