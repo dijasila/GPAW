@@ -315,21 +315,12 @@ class BaseSetup:
         return D_sp
 
     def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
-        for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
-        return D_ii / len(map_sa)
+        from gpaw.atomrotations import AtomRotations
+        return AtomRotations(self.R_sii).symmetrize(a, D_aii, map_sa)
 
     def calculate_rotations(self, R_slmm):
-        nsym = len(R_slmm)
-        self.R_sii = np.zeros((nsym, self.ni, self.ni))
-        i1 = 0
-        for l in self.l_j:
-            i2 = i1 + 2 * l + 1
-            for s, R_lmm in enumerate(R_slmm):
-                self.R_sii[s, i1:i2, i1:i2] = R_lmm[l]
-            i1 = i2
+        from gpaw.atomrotations import AtomRotations
+        self.R_sii = AtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm).R_sii
 
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
