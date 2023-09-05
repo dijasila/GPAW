@@ -130,6 +130,9 @@ def gpw_files(request):
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
+    * Bulk SiC, LDA, 4x4x4 k-points, 8(+1) converged bands: ``sic_pw``
+      and ``sic_pw_spinpol``
+
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
@@ -547,6 +550,47 @@ class GPWFiles:
     @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
+
+    @with_band_cutoff(gpw='sic_pw',
+                      band_cutoff=8)  # (3s, 3p) + (2s, 2p)
+    def _sic_pw(self, *, band_cutoff, spinpol=False):
+        """Simple semi-conductor with broken inversion symmetry."""
+        # Use the diamond crystal structure as blue print
+        diamond = bulk('C', 'diamond')
+        si = bulk('Si', 'diamond')
+        # Break inversion symmetry by substituting one Si for C
+        atoms = si.copy()
+        atoms.symbols = 'CSi'
+        # Scale the cell to the diamond/Si average
+        cell_cv = (diamond.get_cell() + si.get_cell()) / 2.
+        atoms.set_cell(cell_cv)
+
+        # Set up calculator
+        tag = '_spinpol' if spinpol else ''
+        atoms.calc = GPAW(
+            mode=PW(300),
+            xc='LDA',
+            kpts={'size': (4, 4, 4)},
+            symmetry={'point_group': False,
+                      'time_reversal': True},
+            nbands=band_cutoff + 6,
+            occupations=FermiDirac(0.001),
+            convergence={'bands': band_cutoff + 1,
+                         'density': 1.e-8},
+            spinpol=spinpol,
+            txt=self.path / f'sic_pw{tag}.txt'
+        )
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
+    def sic_pw_spinpol(self):
+        return self._sic_pw(spinpol=True)
 
     @gpwfile
     def bn_pw(self):
