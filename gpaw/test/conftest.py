@@ -577,7 +577,7 @@ class GPWFiles:
 
     @gpwfile
     def si_corehole_sym_pw(self):
-        return self.si_corehole_sym(sym='on')
+        return self.si_corehole_sym(sym={})
 
     @gpwfile
     def si_corehole_nosym_pw(self):

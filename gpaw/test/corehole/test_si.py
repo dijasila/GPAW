@@ -1,13 +1,14 @@
 import pytest
+import numpy as np
 
 from gpaw import GPAW
 from gpaw.test import gen
 from gpaw.xas import XAS, RecursionMethod
+import gpaw.mpi as mpi
 
 
 @pytest.mark.later
 def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
-    import numpy as np
     # Generate setup for oxygen with half a core-hole:
     gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
 
@@ -15,7 +16,6 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
     calc = GPAW(gpw_files['si_corehole_pw'])
     si = calc.atoms
 
-    import gpaw.mpi as mpi
     if mpi.size == 1:
         xas = XAS(calc)
         x, y = xas.get_spectra()
@@ -51,3 +51,24 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
 
     calc.attach(stopcalc, 1)
     _ = si.get_potential_energy()
+
+
+@pytest.mark.later
+def test_si_nonortho(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
+    # Generate setup for oxygen with half a core-hole:
+    gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
+
+    # restart from file
+    # code moved to fixtures: si_corehole_sym,
+    # si_corehole_nosym_pw, si_corehole_sym_pw
+    calc1 = GPAW(gpw_files['si_corehole_sym_pw'])
+    calc2 = GPAW(gpw_files['si_corehole_nosym_pw'])
+    if mpi.size == 1:
+        xas1 = XAS(calc1)
+        x, y1 = xas1.get_spectra()
+        xas2 = XAS(calc2)
+        x2, y2 = xas2.get_spectra(E_in=x)
+
+        assert (np.sum(abs(y1 - y2)[0, :500]**2) < 5e-9)
+        assert (np.sum(abs(y1 - y2)[1, :500]**2) < 5e-9)
+        assert (np.sum(abs(y1 - y2)[2, :500]**2) < 5e-9)
