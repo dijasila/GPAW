@@ -398,6 +398,43 @@ class GPWFiles:
         return h.calc
 
     @gpwfile
+    def h_chain(self):
+        from gpaw.new.ase_interface import GPAW
+        a = 2.5
+        k = 4
+        """Compare 2*H AFM cell with 1*H q=1/2 spin-spiral cell."""
+        h = Atoms('H',
+                  magmoms=[1],
+                  cell=[a, 0, 0],
+                  pbc=[1, 0, 0])
+        h.center(vacuum=2.0, axis=(1, 2))
+        h.calc = GPAW(mode={'name': 'pw',
+                            'ecut': 400,
+                            'qspiral': [0.5, 0, 0]},
+                      magmoms=[[1, 0, 0]],
+                      symmetry='off',
+                      kpts=(2 * k, 1, 1))
+        h.get_potential_energy()
+        return h.calc
+
+    @gpwfile
+    def h2_chain(self):
+        a = 2.5
+        k = 4
+        h2 = Atoms('H2',
+                   [(0, 0, 0), (a, 0, 0)],
+                   magmoms=[1, -1],
+                   cell=[2 * a, 0, 0],
+                   pbc=[1, 0, 0])
+        h2.center(vacuum=2.0, axis=(1, 2))
+        h2.calc = GPAW(mode={'name': 'pw',
+                             'ecut': 400},
+                       kpts=(k, 1, 1))
+        h2.get_potential_energy()
+        return h2.calc
+
+
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
@@ -579,6 +616,41 @@ class GPWFiles:
     @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
+
+    @gpwfile
+    def na2_fd(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'},
+                       symmetry={'point_group': False})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def na2_fd_with_sym(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def sih4_xc_gllbsc(self):
