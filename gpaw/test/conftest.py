@@ -560,7 +560,7 @@ class GPWFiles:
         si = bulk('Si', 'diamond')
         # Break inversion symmetry by substituting one Si for C
         atoms = si.copy()
-        atoms.set_chemical_symbols(['C', 'Si'])
+        atoms.symbols = 'CSi'
         # Scale the cell to the diamond/Si average
         cell_cv = (diamond.get_cell() + si.get_cell()) / 2.
         atoms.set_cell(cell_cv)
