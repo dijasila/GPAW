@@ -44,7 +44,7 @@ def test_shg(in_tmp_dir):
 
 def test_shg_spinpol(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 4, 101)
-    shg_xyz = []
+    shg_xyz = {}
     for spinpol in [False, True]:
         tag = '_spinpol' if spinpol else ''
 
@@ -57,29 +57,26 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
                 mml_name=f'mml{tag}.npz')
 
         # Load the calculated SHG spectra (in units of nm/V)
-        shg_xyz.append(np.load(f'shg_xyz{tag}.npy')[1] * 1e9)
-
-    assert not np.isnan(shg_xyz[False]).any()
-    assert not np.isnan(shg_xyz[True]).any()
+        shg_xyz[str(spinpol)] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
 
     # import matplotlib.pyplot as plt
-    # plt.plot(freqs, shg_xyz[0])
-    # plt.plot(freqs, shg_xyz[1])
+    # plt.plot(freqs, shg_xyz['False'])
+    # plt.plot(freqs, shg_xyz['True'])
     # plt.show()
 
     # Assert that the difference between spectra from spinpaired and
     # spinpolarised calculations is small
 
     # Absolute error
-    shg_xyz_diff = shg_xyz[False] - shg_xyz[True]
-    assert (np.abs(shg_xyz_diff.real) < 1e-3).all()
-    assert (np.abs(shg_xyz_diff.imag) < 1e-3).all()
+    shg_xyz_diff = shg_xyz['False'] - shg_xyz['True']
+    assert shg_xyz_diff.real == pytest.approx(0, abs=1e-3)
+    assert shg_xyz_diff.imag == pytest.approx(0, abs=1e-3)
 
     # Relative error
-    shg_xyz_avg = (shg_xyz[False] + shg_xyz[True]) / 2
-    shg_xyz_rerr_real = np.abs(shg_xyz_diff.real / shg_xyz_avg.real)
-    shg_xyz_rerr_imag = np.abs(shg_xyz_diff.imag / shg_xyz_avg.imag)
-    assert (shg_xyz_rerr_real < 1e-2).all(), \
-        np.max(shg_xyz_rerr_real)
-    assert (shg_xyz_rerr_imag < 1e-2).all(), \
-        np.max(shg_xyz_rerr_imag)
+    shg_xyz_avg = (shg_xyz['False'] + shg_xyz['True']) / 2
+    shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
+    shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
+    assert shg_xyz_rerr_real == pytest.approx(0, abs=1e-2), \
+        np.max(np.abs(shg_xyz_rerr_real))
+    assert shg_xyz_rerr_imag == pytest.approx(0, abs=1e-2), \
+        np.max(np.abs(shg_xyz_rerr_imag))
