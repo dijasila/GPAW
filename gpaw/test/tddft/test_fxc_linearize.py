@@ -1,8 +1,6 @@
 import pytest
 import numpy as np
-from ase.build import molecule
 
-from gpaw import GPAW
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.mpi import world
 from gpaw.test import equal
@@ -10,7 +8,7 @@ from gpaw.test import equal
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_tddft_fxc_linearize(in_tmp_dir,gpw_files):
+def test_tddft_fxc_linearize(in_tmp_dir, gpw_files):
 
     fxc = 'LDA'
     # Time-propagation calculation with linearize_to_fxc()

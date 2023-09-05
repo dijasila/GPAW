@@ -1,6 +1,5 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.tddft.abc import LinearAbsorbingBoundary
 from gpaw.tddft.laser import CWField

@@ -1,5 +1,3 @@
-from ase import Atoms
-from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 from gpaw.test import equal
