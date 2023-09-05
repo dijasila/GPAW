@@ -5,11 +5,12 @@ import functools
 
 import numpy as np
 import pytest
-from ase import Atoms
+from ase import Atoms, Atom
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
+from gpaw.poisson import FDPoissonSolver
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
@@ -128,6 +129,9 @@ def gpw_files(request):
     * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
       and ``fancy_si_pw_nosym``
 
+    * Bulk SiC, LDA, 4x4x4 k-points, 8(+1) converged bands: ``sic_pw``
+      and ``sic_pw_spinpol``
+
     * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
       and ``fe_pw_nosym``
 
@@ -209,6 +213,7 @@ def gpwfile(meth):
 
 class GPWFiles:
     """Create gpw-files."""
+
     def __init__(self, path: Path):
         self.path = path
 
@@ -272,6 +277,15 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    @gpwfile
+    def be_atom_fd(self):
+        atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
+        atoms.center(vacuum=6)
+        calc = GPAW(mode='fd', h=0.35, symmetry={'point_group': False})
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def fcc_Ni_col(self):
@@ -364,6 +378,42 @@ class GPWFiles:
         return h.calc
 
     @gpwfile
+    def h_chain(self):
+        from gpaw.new.ase_interface import GPAW
+        a = 2.5
+        k = 4
+        """Compare 2*H AFM cell with 1*H q=1/2 spin-spiral cell."""
+        h = Atoms('H',
+                  magmoms=[1],
+                  cell=[a, 0, 0],
+                  pbc=[1, 0, 0])
+        h.center(vacuum=2.0, axis=(1, 2))
+        h.calc = GPAW(mode={'name': 'pw',
+                            'ecut': 400,
+                            'qspiral': [0.5, 0, 0]},
+                      magmoms=[[1, 0, 0]],
+                      symmetry='off',
+                      kpts=(2 * k, 1, 1))
+        h.get_potential_energy()
+        return h.calc
+
+    @gpwfile
+    def h2_chain(self):
+        a = 2.5
+        k = 4
+        h2 = Atoms('H2',
+                   [(0, 0, 0), (a, 0, 0)],
+                   magmoms=[1, -1],
+                   cell=[2 * a, 0, 0],
+                   pbc=[1, 0, 0])
+        h2.center(vacuum=2.0, axis=(1, 2))
+        h2.calc = GPAW(mode={'name': 'pw',
+                             'ecut': 400},
+                       kpts=(k, 1, 1))
+        h2.get_potential_energy()
+        return h2.calc
+
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
@@ -452,6 +502,53 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
+    def h2o_xas(self):
+        from math import cos, pi, sin
+        a = 5.0
+        d = 0.9575
+        t = pi / 180 * 104.51
+        H2O = Atoms(
+            [
+                Atom("O", (0, 0, 0)),
+                Atom("H", (d, 0, 0)),
+                Atom("H", (d * cos(t), d * sin(t), 0)),
+            ],
+            cell=(a, a, a),
+            pbc=False,
+        )
+        H2O.center()
+        calc = GPAW(
+            mode="fd",
+            nbands=10,
+            h=0.2,
+            setups={"O": "hch1s"},
+            experimental={"niter_fixdensity": 2},
+            poissonsolver=FDPoissonSolver(use_charge_center=True),
+        )
+        H2O.calc = calc
+        _ = H2O.get_potential_energy()
+        return calc
+
+    @gpwfile
+    def si_fd_ibz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k), txt='Si-ibz.txt')
+        si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_fd_bz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k,),
+                       symmetry={'point_group': False,
+                                 'time_reversal': False},
+                       txt='Si-bz.txt')
+        si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
     def si_pw(self):
         si = bulk('Si')
         calc = GPAW(mode='pw',
@@ -462,6 +559,50 @@ class GPWFiles:
         si.calc = calc
         si.get_potential_energy()
         return si.calc
+
+    @gpwfile
+    def si_corehole_pw(self):
+        a = 2.6
+        si = Atoms('Si', cell=(a, a, a), pbc=True)
+
+        calc = GPAW(mode='fd',
+                    nbands=None,
+                    h=0.25,
+                    occupations=FermiDirac(width=0.05),
+                    setups='hch1s',
+                    convergence={'maximum iterations': 1})
+        si.calc = calc
+        _ = si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_corehole_sym_pw(self):
+        return self.si_corehole_sym(sym='on')
+
+    @gpwfile
+    def si_corehole_nosym_pw(self):
+        return self.si_corehole_sym(sym='off')
+
+    def si_corehole_sym(self, sym):
+        a = 5.43095
+        si_nonortho = Atoms(
+            [Atom("Si", (0, 0, 0)), Atom("Si", (a / 4, a / 4, a / 4))],
+            cell=[(a / 2, a / 2, 0), (a / 2, 0, a / 2), (0, a / 2, a / 2)],
+            pbc=True,
+        )
+        # calculation with full symmetry
+        calc = GPAW(
+            mode="fd",
+            nbands=-10,
+            h=0.25,
+            kpts=(2, 2, 2),
+            occupations=FermiDirac(width=0.05),
+            setups={0: "hch1s"},
+            symmetry=sym
+        )
+        si_nonortho.calc = calc
+        _ = si_nonortho.get_potential_energy()
+        return calc
 
     @gpwfile
     @with_band_cutoff(gpw='fancy_si_pw',
@@ -499,6 +640,111 @@ class GPWFiles:
     @gpwfile
     def fancy_si_pw_nosym(self):
         return self._fancy_si(symmetry='off')
+
+    @with_band_cutoff(gpw='sic_pw',
+                      band_cutoff=8)  # (3s, 3p) + (2s, 2p)
+    def _sic_pw(self, *, band_cutoff, spinpol=False):
+        """Simple semi-conductor with broken inversion symmetry."""
+        # Use the diamond crystal structure as blue print
+        diamond = bulk('C', 'diamond')
+        si = bulk('Si', 'diamond')
+        # Break inversion symmetry by substituting one Si for C
+        atoms = si.copy()
+        atoms.symbols = 'CSi'
+        # Scale the cell to the diamond/Si average
+        cell_cv = (diamond.get_cell() + si.get_cell()) / 2.
+        atoms.set_cell(cell_cv)
+
+        # Set up calculator
+        tag = '_spinpol' if spinpol else ''
+        atoms.calc = GPAW(
+            mode=PW(300),
+            xc='LDA',
+            kpts={'size': (4, 4, 4)},
+            symmetry={'point_group': False,
+                      'time_reversal': True},
+            nbands=band_cutoff + 6,
+            occupations=FermiDirac(0.001),
+            convergence={'bands': band_cutoff + 1,
+                         'density': 1.e-8},
+            spinpol=spinpol,
+            txt=self.path / f'sic_pw{tag}.txt'
+        )
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
+    def sic_pw_spinpol(self):
+        return self._sic_pw(spinpol=True)
+
+    @gpwfile
+    def na2_fd(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'},
+                       symmetry={'point_group': False})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def na2_fd_with_sym(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def sih4_xc_gllbsc(self):
+        from ase.build import molecule
+        atoms = molecule('SiH4')
+        atoms.center(vacuum=4.0)
+
+        # Ground-state calculation
+        calc = GPAW(mode='fd', nbands=7, h=0.4,
+                    convergence={'density': 1e-8},
+                    xc='GLLBSC',
+                    symmetry={'point_group': False},
+                    txt='gs.out')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def nacl_fd(self):
+        d = 4.0
+        atoms = Atoms('NaCl', [(0, 0, 0), (0, 0, d)])
+        atoms.center(vacuum=4.5)
+
+        gs_calc = GPAW(
+            mode='fd', nbands=4, eigensolver='cg', gpts=(32, 32, 44), xc='LDA',
+            symmetry={'point_group': False}, setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def bn_pw(self):

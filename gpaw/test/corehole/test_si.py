@@ -1,31 +1,19 @@
 import pytest
-from ase import Atoms
 
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW
 from gpaw.test import gen
 from gpaw.xas import XAS, RecursionMethod
 
 
 @pytest.mark.later
-def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
+def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
+    import numpy as np
     # Generate setup for oxygen with half a core-hole:
     gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
-    a = 2.6
-    si = Atoms('Si', cell=(a, a, a), pbc=True)
-
-    import numpy as np
-    calc = GPAW(mode='fd',
-                nbands=None,
-                h=0.25,
-                occupations=FermiDirac(width=0.05),
-                setups='hch1s',
-                convergence={'maximum iterations': 1})
-    si.calc = calc
-    _ = si.get_potential_energy()
-    calc.write('si.gpw')
 
     # restart from file
-    calc = GPAW('si.gpw')
+    calc = GPAW(gpw_files['si_corehole_pw'])
+    si = calc.atoms
 
     import gpaw.mpi as mpi
     if mpi.size == 1:
@@ -54,10 +42,7 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths):
 
     # 2p corehole
     s = gen('Si', name='hch2p', corehole=(2, 1, 0.5), gpernode=30)
-    calc = GPAW(mode='fd',
-                nbands=None,
-                h=0.25,
-                occupations=FermiDirac(width=0.05),
+    calc = GPAW(gpw_files['si_corehole_pw'],
                 setups={0: s})
     si.calc = calc
 
