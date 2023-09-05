@@ -63,12 +63,14 @@ class CuPyMPI:
         self.comm.broadcast(b, root)
         a[:] = cp.asarray(b)
 
-    def receive(self, a, rank, tag=0):
+    def receive(self, a, rank, tag=0, block=True):
         if isinstance(a, np.ndarray):
-            return self.comm.receive(a, rank, tag)
+            return self.comm.receive(a, rank, tag, block)
         b = np.empty(a.shape, a.dtype)
-        self.comm.receive(b, rank, tag)
+        req = self.comm.receive(b, rank, tag, block)
         a[:] = cp.asarray(b)
+        if not block:
+            return CuPyRequest(req, b)
 
     def ssend(self, a, rank, tag):
         if isinstance(a, np.ndarray):
@@ -94,6 +96,9 @@ class CuPyMPI:
 
     def wait(self, request):
         self.comm.wait(request.request)
+
+    def waitall(self, requests):
+        self.comm.waitall([request.request for request in requests])
 
     def get_c_object(self):
         return self.comm.get_c_object()

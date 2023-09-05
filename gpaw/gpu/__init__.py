@@ -30,7 +30,7 @@ __all__ = ['cupy', 'cupyx', 'as_xp', 'synchronize']
 
 def synchronize():
     if not cupy_is_fake:
-        cupy.cuda.runtime.deviceSynchronize()
+        cupy.cuda.get_current_stream().synchronize()
 
 
 def setup():
