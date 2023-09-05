@@ -44,6 +44,9 @@ class AtomRotations:
         self._rotations = rotations
         self._id_a = id_a
 
+    def get_R_asii(self):
+        return [self.get_by_a(a).R_sii for a in range(len(self._id_a))]
+
     def get_by_a(self, a):
         return self._rotations[self._id_a[a]]
 

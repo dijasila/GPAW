@@ -313,15 +313,9 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
-    def symmetrize(self, a, D_aii, map_sa):
-        from gpaw.atomrotations import SingleAtomRotations
-        return SingleAtomRotations(self.R_sii).symmetrize(a, D_aii, map_sa)
-
     def calculate_rotations(self, R_slmm):
         from gpaw.atomrotations import SingleAtomRotations
-        rotations = SingleAtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm)
-        self.R_sii = rotations.R_sii
-        return rotations
+        return SingleAtomRotations.from_R_slmm(self.ni, self.l_j, R_slmm)
 
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
@@ -556,8 +550,6 @@ class LeanSetup(BaseSetup):
         # This needs cleaning.
         self.hubbard_u = hubbard_u
 
-        # R_sii can be changed dynamically (which is ugly)
-        self.R_sii = None  # rotations, initialized when doing sym. reductions
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
