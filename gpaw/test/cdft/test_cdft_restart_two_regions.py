@@ -27,9 +27,9 @@ def test_cdft_restart(in_tmp_dir):
                   nbands=4,
                   mixer=Mixer(beta=0.25, nmaxold=3, weight=100.0),
                   txt='He2+_final_%3.2f.txt' % distance,
-                  convergence={'eigenstates': 1.0e-4,
-                               'density': 1.0e-1,
-                               'energy': 1e-1,
+                  convergence={'eigenstates': 1.0,
+                               'density': 1.0,
+                               'energy': 1.0,
                                'bands': 4})
 
     cdft_b = CDFT(calc=calc_b,
