@@ -6,6 +6,7 @@ import gpaw.mpi as mpi
 import pytest
 
 
+# Values from an earlier test
 ref_phi_km = np.array(
     [[2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
      [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
@@ -23,7 +24,8 @@ def test_parallel_transport(in_tmp_dir, gpw_files):
     # Load phase-ordered data
     phi_km, S_km = load_renormalized_data('mos2')
 
-    # Test against reference values
+    # Test against that the berry phases do not change (assuming that
+    # they were correct to begin with)
     print(phi_km[:, ::7])
     assert phi_km[:, ::7] == pytest.approx(ref_phi_km, abs=0.05)
 
