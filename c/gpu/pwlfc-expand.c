@@ -34,6 +34,12 @@ void pw_insert_gpu_launch_kernel(int itemsize,
                              double scale,
                              double* tmp_nQ);
 
+void add_to_density_gpu_launch_kernel(int nb,
+                                      int nR,
+                                      double* f_n,
+                                      double complex* psit_nR,
+                                      double* rho_R);
+
 PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
 {
     PyObject *f_Gs_obj;
@@ -72,7 +78,6 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     Py_RETURN_NONE;
 }
 
-
 PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
 {
     PyObject *c_nG_obj, *Q_G_obj, *tmp_nQ_obj;
@@ -103,6 +108,25 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
     }
 
     pw_insert_gpu_launch_kernel(16, nb, nG, nQ, c_nG, Q_G, scale, tmp_nQ);
+    Py_RETURN_NONE;
+}
+
+
+
+PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
+{
+    PyObject *f_n_obj, *psit_nR_obj, *rho_R_obj;
+    if (!PyArg_ParseTuple(args, "OOO",
+                          &f_n_obj, &psit_nR_obj, &rho_R_obj))
+        return NULL;
+    double *f_n = Array_DATA(f_n_obj);
+    double complex *psit_nR = Array_DATA(psit_nR_obj);
+    double* rho_R = Array_DATA(rho_R_obj);
+    int nb = Array_SIZE(f_n_obj);
+    int nR = Array_SIZE(psit_nR_obj) / nb;
+    assert(Array_ITEMSIZE(psit_nR_obj) == 16);
+    //assert(Array_ITEMSIZE(rho_nR_obj) == 8);
+    add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R);
     Py_RETURN_NONE;
 }
 
