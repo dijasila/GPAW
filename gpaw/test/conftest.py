@@ -5,11 +5,12 @@ import functools
 
 import numpy as np
 import pytest
-from ase import Atoms
+from ase import Atoms, Atom
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
+from gpaw.poisson import FDPoissonSolver
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
@@ -453,6 +454,34 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
+    def h2o_xas(self):
+        from math import cos, pi, sin
+        a = 5.0
+        d = 0.9575
+        t = pi / 180 * 104.51
+        H2O = Atoms(
+            [
+                Atom("O", (0, 0, 0)),
+                Atom("H", (d, 0, 0)),
+                Atom("H", (d * cos(t), d * sin(t), 0)),
+            ],
+            cell=(a, a, a),
+            pbc=False,
+        )
+        H2O.center()
+        calc = GPAW(
+            mode="fd",
+            nbands=10,
+            h=0.2,
+            setups={"O": "hch1s"},
+            experimental={"niter_fixdensity": 2},
+            poissonsolver=FDPoissonSolver(use_charge_center=True),
+        )
+        H2O.calc = calc
+        _ = H2O.get_potential_energy()
+        return calc
+
     def ti2o4(self, symmetry):
         pwcutoff = 400.0
         k = 4
@@ -510,6 +539,57 @@ class GPWFiles:
         si.calc = calc
         si.get_potential_energy()
         return si.calc
+
+    @gpwfile
+    def si_corehole_pw(self):
+        a = 2.6
+        si = Atoms('Si', cell=(a, a, a), pbc=True)
+
+        calc = GPAW(mode='fd',
+                    nbands=None,
+                    h=0.25,
+                    occupations=FermiDirac(width=0.05),
+                    setups='hch1s',
+                    convergence={'maximum iterations': 1})
+        si.calc = calc
+        _ = si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_corehole_sym_pw(self):
+        return self.si_corehole_sym(sym='on')
+
+    @gpwfile
+    def si_corehole_sym_pw(self):
+        return self.si_corehole_sym(sym='on')
+
+    @gpwfile
+    def si_corehole_nosym_pw(self):
+        return self.si_corehole_sym(sym='off')
+
+    def si_corehole_sym(self, sym):
+        a = 5.43095
+        
+        si_nonortho = Atoms(
+            [Atom("Si", (0, 0, 0)), Atom("Si", (a / 4, a / 4, a / 4))],
+            cell=[(a / 2, a / 2, 0), (a / 2, 0, a / 2), (0, a / 2, a / 2)],
+            pbc=True,
+        )
+        
+        # calculation with full symmetry
+        calc = GPAW(
+            mode="fd",
+            nbands=-10,
+            h=0.25,
+            kpts=(2, 2, 2),
+            occupations=FermiDirac(width=0.05),
+            setups={0: "hch1s"},
+            symmetry=sym
+        )
+        
+        si_nonortho.calc = calc
+        _ = si_nonortho.get_potential_energy()
+        return calc
 
     @gpwfile
     @with_band_cutoff(gpw='fancy_si_pw',
