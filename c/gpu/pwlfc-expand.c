@@ -107,7 +107,11 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
         nQ = Array_DIM(tmp_nQ_obj, 1);
     }
 
-    pw_insert_gpu_launch_kernel(16, nb, nG, nQ, c_nG, Q_G, scale, tmp_nQ);
+    pw_insert_gpu_launch_kernel(16, nb, nG, nQ,
+                                (double*)c_nG,
+                                Q_G,
+                                scale,
+                                (double*)tmp_nQ);
     Py_RETURN_NONE;
 }
 
