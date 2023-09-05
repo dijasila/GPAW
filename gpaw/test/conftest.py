@@ -531,7 +531,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=band_cutoff + 12,  # + 2 * (4s, 3d),
+            nbands=band_cutoff + 12,  # + 2 * (3s, 3p),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
