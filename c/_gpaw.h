@@ -185,6 +185,7 @@ PyObject* axpbz_gpu(PyObject *self, PyObject *args);
 PyObject* fill_gpu(PyObject *self, PyObject *args);
 PyObject* pwlfc_expand_gpu(PyObject *self, PyObject *args);
 PyObject* pw_insert_gpu(PyObject *self, PyObject *args);
+PyObject* add_to_density_gpu(PyObject* self, PyObject* args);
 #endif
 
 static PyMethodDef functions[] = {
@@ -341,6 +342,7 @@ static PyMethodDef functions[] = {
     {"fill_gpu", fill_gpu, METH_VARARGS, 0},
     {"pwlfc_expand_gpu", pwlfc_expand_gpu, METH_VARARGS, 0},
     {"pw_insert_gpu", pw_insert_gpu, METH_VARARGS, 0},
+    {"add_to_density_gpu", add_to_density_gpu, METH_VARARGS, 0},
 #endif // GPAW_GPU
     {0, 0, 0, 0}
 };

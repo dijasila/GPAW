@@ -80,8 +80,8 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "OOdO",
                           &c_nG_obj, &Q_G_obj, &scale, &tmp_nQ_obj))
         return NULL;
-    double complex *c_nG = Array_DATA(c_nG_obj);
     npy_int32 *Q_G = Array_DATA(Q_G_obj);
+    double complex *c_nG = Array_DATA(c_nG_obj);
     double complex *tmp_nQ = Array_DATA(tmp_nQ_obj);
     int nG = 0;
     int nQ = 0;
@@ -93,13 +93,13 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
     {
         nG = Array_DIM(c_nG_obj, 0);
         nb = 1;
-        nQ = Array_DIM(tmp_nQ_obj, 1);
+        nQ = Array_DIM(tmp_nQ_obj, 0);
     }
     else
     {
         nG = Array_DIM(c_nG_obj, 1);
         nb = Array_DIM(c_nG_obj, 0);
-        nQ = Array_DIM(tmp_nQ_obj, 0);
+        nQ = Array_DIM(tmp_nQ_obj, 1);
     }
 
     pw_insert_gpu_launch_kernel(16, nb, nG, nQ, c_nG, Q_G, scale, tmp_nQ);
