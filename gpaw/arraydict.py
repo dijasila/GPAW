@@ -172,7 +172,7 @@ class ArrayDict(MutableMapping):
                                       text)
 
     def __delitem__(self, a):
-        # Actually this is wrong; we effectively delete items
+        # Actually this is not quite right; we effectively delete items
         # when we redistribute the arraydict.  But this is another
         # code path so let's resolve this later if necessary.
         raise TypeError('Deleting arraydict elements not supported since '
