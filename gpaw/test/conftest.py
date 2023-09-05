@@ -290,25 +290,6 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
-    def si_fd_ibz(self):
-        si = bulk('Si', 'diamond', a=5.43)
-        k = 4
-        si.calc = GPAW(mode='fd', kpts=(k, k, k), txt='Si-ibz.txt')
-        si.get_potential_energy()
-        return si.calc
-
-    @gpwfile
-    def si_fd_bz(self):
-        si = bulk('Si', 'diamond', a=5.43)
-        k = 4
-        si.calc = GPAW(mode='fd', kpts=(k, k, k,),
-                       symmetry={'point_group': False,
-                                 'time_reversal': False},
-                       txt='Si-bz.txt')
-        si.get_potential_energy()
-        return si.calc
-
-    @gpwfile
     def fcc_Ni_col(self):
         return self.fcc_Ni('col')
 
@@ -559,6 +540,25 @@ class GPWFiles:
     @gpwfile
     def ti2o4_pw_nosym(self):
         return self.ti2o4('off')
+
+    @gpwfile
+    def si_fd_ibz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k), txt='Si-ibz.txt')
+        si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_fd_bz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k,),
+                       symmetry={'point_group': False,
+                                 'time_reversal': False},
+                       txt='Si-bz.txt')
+        si.get_potential_energy()
+        return si.calc
 
     @gpwfile
     def si_pw(self):
