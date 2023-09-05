@@ -433,7 +433,6 @@ class GPWFiles:
         h2.get_potential_energy()
         return h2.calc
 
-
     @gpwfile
     def o2_pw(self):
         d = 1.1
