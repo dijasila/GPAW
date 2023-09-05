@@ -14,7 +14,7 @@ from gpaw.pair_density import PairDensity
 # Three ways to compute the polarizability of hydrogen:
 # 1. Perturbation theory
 # 2. Constant electric field
-# 3. Middle of an electric dipole
+# 3. Middle of an electric dipole -- not tested here
 
 # Note: The analytical value for the polarizability
 # is 4.5 a0**3 (e.g. PRA 33, 3671), while the experimental
@@ -23,11 +23,7 @@ from gpaw.pair_density import PairDensity
 
 # @pytest.mark.skip(reason='TODO')
 def test_stark_shift():
-    # from gpaw.external import PointChargesPotential as PointCharges
-    from gpaw.external import PointChargePotential as PointCharges
-
     to_au = Hartree / Bohr**2
-    to_eVA = Hartree / Bohr
 
     def dipole_op(c, state1, state2, k=0, s=0):
         # Taken from KSSingle, maybe make this accessible in
@@ -97,14 +93,12 @@ def test_stark_shift():
 
     test1 = True
     test2 = True
-    test3 = True
 
     a0 = 6.0
     a = Atoms('H', positions=[[a0 / 2, a0 / 2, a0 / 2]], cell=[a0, a0, a0])
 
     alpha1 = None
     alpha2 = None
-    alpha3 = None
 
     # Test 1
 
