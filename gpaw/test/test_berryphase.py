@@ -33,11 +33,37 @@ def test_parallel_transport_i2sb2(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['i2sb2_pw_nosym'],
                 txt=None, communicator=mpi.serial_comm)
     nelec = int(calc.get_number_of_electrons())
-    parallel_transport(calc, name='i2sb2', scale=1,
-                       # We use only the top two valence bands since
-                       # these are isolated from the rest
-                       bands=range(nelec - 2, nelec)
-                       )
+    parallel_transport(calc, name='i2sb2', scale=1)
+
+    # Load phase-ordered data
+    phi_km, S_km = load_renormalized_data('i2sb2')
+
+    # For the spin test below to make sense, please compare this
+    # plot to the berry phase plot at the c2db website
+    # import matplotlib.pyplot as plt
+    # plt.scatter(np.tile(np.arange(len(phi_km)), len(phi_km.T)),
+    #             phi_km.T.reshape(-1),
+    #             cmap=plt.get_cmap('viridis'),
+    #             c=S_km.T.reshape(-1),
+    #             s=25,
+    #             marker='o')
+    # plt.ylim((0, 2 * np.pi))
+    # plt.show()
+
+    # print(phi_km)
+
+    # We test the spin for bands we are in control of, that is,
+    # avoid high-symmetry points and look only at the winding
+    # bands above a phase of pi, see c2db berry phase plot
+    bands = [0, 1, 3, 4]
+    phi_qm = phi_km[bands]
+    S_qm = S_km[bands]
+    Svalues = S_qm[(phi_qm > np.pi) & (phi_qm < 5.)]
+    assert Svalues == pytest.approx(np.array([-1, 1,  # k=0
+                                              -1, 1,  # k=1
+                                              1, -1,  # k=2
+                                              1, -1]),   # k=3
+                                    abs=0.01)
 
 
 def load_renormalized_data(name):
