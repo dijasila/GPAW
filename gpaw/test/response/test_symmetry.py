@@ -25,11 +25,11 @@ def test_symmetry_ti2o4(gpw_files):
         assert data.chi0_WxvG is None
         assert data.chi0_Wvv is None
 
-    msg = 'Difference in Chi when turning off symmetries!'
+    # msg = 'Difference in Chi when turning off symmetries!'
 
     datadiff_WgG = np.abs(data_s[0] - data_s[1])
     assert datadiff_WgG == pytest.approx(0, abs=1e-3), \
-        datadiff_WgG.max()
+        datadiff_WgG.max()  # msg
 
 
 @pytest.mark.xfail
@@ -47,8 +47,8 @@ def test_symmetry_si2(gpw_files):
         assert data.chi0_WxvG is None
         assert data.chi0_Wvv is None
 
-    msg = 'Difference in Chi when turning off symmetries!'
+    # msg = 'Difference in Chi when turning off symmetries!'
 
     datadiff_WgG = np.abs(data_s[0] - data_s[1])
     assert datadiff_WgG == pytest.approx(0, abs=1e-3), \
-        datadiff_WgG.max()
+        datadiff_WgG.max()  # msg
