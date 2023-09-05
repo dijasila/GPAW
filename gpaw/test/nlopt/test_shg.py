@@ -45,8 +45,8 @@ def test_shg(in_tmp_dir):
 def test_shg_spinpol(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
-    for spinpol in [False, True]:
-        tag = '_spinpol' if spinpol else ''
+    for spinpol in ['spinpaired', 'spinpol']:
+        tag = '_spinpol' if spinpol == 'spinpol' else ''
 
         # Get nlodata from pre-calculated SiC fixtures
         make_nlodata(gpw_files[f'sic_pw{tag}'], out_name=f'mml{tag}.npz')
@@ -60,20 +60,20 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
         shg_xyz[str(spinpol)] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
 
     # import matplotlib.pyplot as plt
-    # plt.plot(freqs, shg_xyz['False'])
-    # plt.plot(freqs, shg_xyz['True'])
+    # plt.plot(freqs, shg_xyz['spinpaired'])
+    # plt.plot(freqs, shg_xyz['spinpol'])
     # plt.show()
 
     # Assert that the difference between spectra from spinpaired and
     # spinpolarised calculations is small
 
     # Absolute error
-    shg_xyz_diff = shg_xyz['False'] - shg_xyz['True']
+    shg_xyz_diff = shg_xyz['spinpaired'] - shg_xyz['spinpol']
     assert shg_xyz_diff.real == pytest.approx(0, abs=1e-3)
     assert shg_xyz_diff.imag == pytest.approx(0, abs=1e-3)
 
     # Relative error
-    shg_xyz_avg = (shg_xyz['False'] + shg_xyz['True']) / 2
+    shg_xyz_avg = (shg_xyz['spinpaired'] + shg_xyz['spinpol']) / 2
     shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
     shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
     assert shg_xyz_rerr_real == pytest.approx(0, abs=1e-2), \
