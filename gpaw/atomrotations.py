@@ -21,6 +21,5 @@ class AtomRotations:
     def symmetrize(self, a, D_aii, map_sa):
         D_ii = np.zeros((self.ni, self.ni))
         for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
+            D_ii += R_ii @ D_aii[map_sa[s][a]] @ R_ii.T
         return D_ii / len(map_sa)
