@@ -9,6 +9,7 @@ from gpaw.core.domain import Domain as XDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
+import _gpaw
 
 
 class Potential:
@@ -40,10 +41,12 @@ class Potential:
                     dH_ii = self.dH_asii[a][spin]
                     np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
             else:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = xp.asarray(self.dH_asii[a][spin])
-                    out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
-            return  # out_ani.to_xp(to_xp)
+                ni_a = xp.array(
+                    [I2 - I2 for a, I1, I2 in self.dH_asii.layout.myindices],
+                    dtype=np.int32)
+                _gpaw.dH_aii_times_P_ani_gpu(self.dH_asii.data[spin], ni_a,
+                                             P_ani.data, out_ani.data)
+            return
 
         # Non-collinear wave functions:
         P_ansi = P_ani
