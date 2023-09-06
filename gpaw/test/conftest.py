@@ -514,6 +514,13 @@ class GPWFiles:
     @gpwfile
     def h2o_xas(self):
         from math import cos, pi, sin
+
+        setupname = 'h2o_xas_hch1s'
+        setup = self.generator2_setup(
+            'O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
+            core_hole='1s,0.5',
+            name=setupname)
+
         a = 5.0
         d = 0.9575
         t = pi / 180 * 104.51
@@ -531,7 +538,7 @@ class GPWFiles:
             mode="fd",
             nbands=10,
             h=0.2,
-            setups={"O": "hch1s"},
+            setups={"O": "h2o_xas_hch1s"},
             experimental={"niter_fixdensity": 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True),
         )
@@ -577,9 +584,7 @@ class GPWFiles:
         # We could improve the mechanism by programmatic naming/subfolders.
         return self.path / 'setups'
 
-    def generate_setup(self, *args, **kwargs):
-        from gpaw.test import gen
-        setup = gen(*args, **kwargs, write_xml=False)
+    def save_setup(self, setup):
         self.testing_setup_path.mkdir(parents=True, exist_ok=True)
         setup_file = self.testing_setup_path / setup.stdfilename
         if world.rank == 0:
@@ -587,10 +592,24 @@ class GPWFiles:
         world.barrier()
         return setup
 
+    def generate_setup(self, *args, **kwargs):
+        from gpaw.test import gen
+        setup = gen(*args, **kwargs, write_xml=False)
+        self.save_setup(setup)
+        return setup
+
+    def generator2_setup(self, *args, name, **kwargs):
+        from gpaw.atom.generator2 import generate
+        gen = generate(*args, **kwargs)
+        setup = gen.make_paw_setup(name)
+        self.save_setup(setup)
+        return setup
+
     @gpwfile
     def si_corehole_pw(self):
         # Generate setup for oxygen with half a core-hole:
-        setup = self.generate_setup('Si', name='hch1s',
+        setupname = 'si_corehole_pw_hch1s'
+        setup = self.generate_setup('Si', name=setupname,
                                     corehole=(1, 0, 0.5), gpernode=30)
 
         a = 2.6
@@ -600,7 +619,7 @@ class GPWFiles:
                     nbands=None,
                     h=0.25,
                     occupations=FermiDirac(width=0.05),
-                    setups='hch1s',
+                    setups='si_corehole_pw_hch1s',
                     convergence={'maximum iterations': 1})
         si.calc = calc
         _ = si.get_potential_energy()
@@ -608,13 +627,21 @@ class GPWFiles:
 
     @gpwfile
     def si_corehole_sym_pw(self):
-        return self.si_corehole_sym(sym={})
+        setupname = 'si_corehole_sym_pw_hch1s'
+        setup = self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                                    gpernode=30)
+        return self.si_corehole_sym(sym={}, setupname=setupname)
 
     @gpwfile
     def si_corehole_nosym_pw(self):
-        return self.si_corehole_sym(sym='off')
+        setupname = 'si_corehole_sym_pw_hch1s'
+        # XXX same setup as above, but we have it twice since caching
+        # works per gpw file and not per setup
+        setup = self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                                    gpernode=30)
+        return self.si_corehole_sym(sym='off', setupname=setupname)
 
-    def si_corehole_sym(self, sym):
+    def si_corehole_sym(self, sym, setupname):
         a = 5.43095
         si_nonortho = Atoms(
             [Atom("Si", (0, 0, 0)), Atom("Si", (a / 4, a / 4, a / 4))],
@@ -628,7 +655,7 @@ class GPWFiles:
             h=0.25,
             kpts=(2, 2, 2),
             occupations=FermiDirac(width=0.05),
-            setups={0: "hch1s"},
+            setups={0: setupname},
             symmetry=sym
         )
         si_nonortho.calc = calc
