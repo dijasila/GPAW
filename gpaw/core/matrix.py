@@ -775,7 +775,9 @@ class CuPyDistribution(MatrixDistribution):
         self.full_shape = (M, N)
         # assert r == comm.size, (M, N, comm, r, c, b)
         assert c == 1
-        self.shape = ((M + r - 1) // r, N)
+        br = (M + r - 1) // r
+        m = min((comm.rank + 1) * br, M) - min(comm.rank * br, M)
+        self.shape = (m, N)
 
     def __str__(self):
         return 'CuPyDistribution({}x{})'.format(*self.shape)

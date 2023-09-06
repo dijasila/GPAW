@@ -45,7 +45,7 @@ def setup():
         _gpaw.gpaw_gpu_init()
 
 
-def as_np(array) -> np.ndarray:
+def as_np(array: np.ndarray | cupy.ndarray) -> np.ndarray:
     """Transfer array to CPU (if not already there).
 
     Parameters
