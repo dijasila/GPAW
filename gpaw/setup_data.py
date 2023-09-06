@@ -234,8 +234,11 @@ class SetupData:
 
         return xc_correction
 
-    def write_xml(self) -> None:
-        with open(self.stdfilename, 'w') as fd:
+    def write_xml(self, path=None) -> None:
+        if path is None:
+            path = self.stdfilename
+
+        with open(path, 'w') as fd:
             self._write_xml(fd)
 
     def _write_xml(self, xml: IO[str]) -> None:
