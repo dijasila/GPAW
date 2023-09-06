@@ -516,7 +516,7 @@ class GPWFiles:
         from math import cos, pi, sin
 
         setupname = 'h2o_xas_hch1s'
-        setup = self.generator2_setup(
+        self.generator2_setup(
             'O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
             core_hole='1s,0.5',
             name=setupname)
@@ -609,8 +609,8 @@ class GPWFiles:
     def si_corehole_pw(self):
         # Generate setup for oxygen with half a core-hole:
         setupname = 'si_corehole_pw_hch1s'
-        setup = self.generate_setup('Si', name=setupname,
-                                    corehole=(1, 0, 0.5), gpernode=30)
+        self.generate_setup('Si', name=setupname,
+                            corehole=(1, 0, 0.5), gpernode=30)
 
         a = 2.6
         si = Atoms('Si', cell=(a, a, a), pbc=True)
@@ -628,8 +628,8 @@ class GPWFiles:
     @gpwfile
     def si_corehole_sym_pw(self):
         setupname = 'si_corehole_sym_pw_hch1s'
-        setup = self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
-                                    gpernode=30)
+        self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                            gpernode=30)
         return self.si_corehole_sym(sym={}, setupname=setupname)
 
     @gpwfile
@@ -637,8 +637,8 @@ class GPWFiles:
         setupname = 'si_corehole_sym_pw_hch1s'
         # XXX same setup as above, but we have it twice since caching
         # works per gpw file and not per setup
-        setup = self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
-                                    gpernode=30)
+        self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                            gpernode=30)
         return self.si_corehole_sym(sym='off', setupname=setupname)
 
     def si_corehole_sym(self, sym, setupname):

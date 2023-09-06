@@ -3,7 +3,6 @@ import pytest
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.atom.generator2 import generate
 from gpaw.test import equal
 from gpaw.xas import XAS
 
