@@ -298,6 +298,54 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
     }
 }
 
+// outP_ani[a] = \sum_A H_aii[a] P_ani[a]
+__global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI, 
+                                      npy_int32* ni_a, double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev)
+{
+    int n1 = threadIdx.x + blockIdx.x * blockDim.x;
+    int I = 0;
+    if (n1 < nN) {
+        gpuDoubleComplex* P_ni = P_ani_dev + n1 * nI;
+        gpuDoubleComplex* outP_ni = outP_ani_dev + n1 * nI;
+        for (int a=0; a< nA; a++)
+        {
+            for (int i=0; i< ni; i++)
+            {
+                double* dH_i = dH_aii_dev + I + i * ni;
+                gpuDoubleComplex result = make_gpuDoubleComplex(0.0, 0.0);
+                for (int i2=0; i2 < ni; i2++)
+                {
+                   result += gpuCmulD(P_ni ,dH_i[i2])
+                }
+                P_ni++;
+                *outP_ni = result;
+                outP_ni++;
+            }
+            I += ni * ni;
+        }
+    }
+}
+
+
+
+extern "C"
+void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
+                                      int nI, npy_int32* ni_a, 
+                                      double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev)
+{
+    gpuLaunchKernel(dH_aii_times_P_ani_16,
+                    dim3((nn+255)/256),
+                    dim3(256),
+                    0, 0,
+                    nA, nn, nI, ni_a, dH_aii_dev,
+                    P_ani_dev, outP_ani_dev);
+}
+
+
 
 extern "C"
 void pwlfc_expand_gpu_launch_kernel(int itemsize,

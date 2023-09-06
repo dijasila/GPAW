@@ -42,6 +42,27 @@ void add_to_density_gpu_launch_kernel(int nb,
 
 void multiple_low_rank_rect_sqr_rect_updates_launch_kernel(int nN, int nA, int* ni_a, gpuDoubleComplex** P_ani, double** H_aii, gpuDoubleComplex* H_nn);
 
+PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* dH_aii;
+    PyObject* ni_a;
+    PyObject* P_ani;
+    PyObject* outP_ani;
+    if (!PyArg_ParseTuple(args, "OOOO",
+                          &dH_aii, ni_a, P_ani, outP_aniH_nn_obj, &P_ani_obj, &H_aii_obj))
+        return;
+
+    int nA = Array_DIM(ni_a, 0);
+    int nn = Array_DIM(P_ani, 0);
+    int nI = Array_DIM(P_ani, 1);
+    double* dH_aii_dev = Array_DATA(dH_aii);
+    gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani);
+    gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani);
+    npy_int32* ni_a = Array_DATA(ni_a);
+
+    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
+}
+
 PyObject* multple_low_rank_rect_sqr_rect_updates_gpu(PyObject* self, PyObject* args)
 {
     // H_nn, P_ani, H_aii
