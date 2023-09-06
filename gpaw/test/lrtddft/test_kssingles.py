@@ -101,7 +101,7 @@ def test_mul(ch4_kss):
 
 
 @pytest.mark.lrtddft
-def test_add_sub(in_tmp_dir, ch4_kss):
+def test_add_sub(in_tmp_dir):
     """Test adding and subtracting"""
     fname = 'kss_with_magn.dat'
     if world.rank == 0:
