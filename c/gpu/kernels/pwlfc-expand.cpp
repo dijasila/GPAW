@@ -154,6 +154,65 @@ void pw_insert_gpu_launch_kernel(int itemsize,
 }
 
 
+// Calculates
+// H_nn' += \sum_a \sum_I P_ani[a] \sum_i' H_aii'[a] P*_an'i'[a]
+__global__ void multiple_low_rank_rect_sqr_rect_updates(int nN, int nA, int* ni_a, gpuDoubleComplex** P_ani, double** H_aii, gpuDoubleComplex* H_nn)
+{
+    int n1 = threadIdx.x + blockIdx.x * blockDim.x;
+    int n2 = threadIdx.y + blockIdx.y * blockDim.y;
+    if ((n1 < nN) && (n2 < nN)) {
+    for (int a=0; a< nA; a++)
+    {
+        int ni = ni_a[a];
+        gpuDoubleComplex* P_ni = P_ani[a];
+        double* H_ii = H_aii[a];
+
+        gpuDoubleComplex result = make_gpuDoubleComplex(0, 0);
+        for (int i2=0; i2 < ni; i2++)
+        {
+            gpuDoubleComplex tmp = P_ni[ni * n2 + i2]; tmp.y = -tmp.y;
+            gpuDoubleComplex tmp2 = P_ni[ni * n1 + i2]; tmp2.y = -tmp2.y;
+            gpuDoubleComplex sum = make_gpuDoubleComplex(0, 0);
+            gpuDoubleComplex sum2 = make_gpuDoubleComplex(0, 0);
+            for (int i=0; i< ni; i++)
+            {
+                gpuDoubleComplex item1 = gpuCmulD(P_ni[ni * n1 + i], H_ii[i + i2 * ni]);
+                //item = make_gpuDoubleComplex(1.0, 0);
+                sum.x += item1.x;
+                sum.y += item1.y;
+                gpuDoubleComplex item2 = gpuCmulD(P_ni[ni * n2 + i], H_ii[i2 + i * ni]);
+                //item = make_gpuDoubleComplex(1.0, 0);
+                sum2.x += item2.x;
+                sum2.y += item2.y;
+            }
+            gpuDoubleComplex item3;
+            item3 = gpuCmul(tmp, sum);
+            result.x += item3.x;
+            result.y += item3.y;
+            gpuDoubleComplex item4 = gpuCmul(tmp2, sum2);
+            result.x += item4.x;
+            result.y += item4.y;
+        }
+        H_nn[n1 + nN * n2].x += result.x * 0.5;
+        H_nn[n1 + nN * n2].y += result.y * 0.5;
+        //H_nn[n1 + nN * n2].x = n1;
+        //_nn[n1 + nN * n2].y = n2;
+    }
+    }
+}
+
+extern "C"
+void multiple_low_rank_rect_sqr_rect_updates_launch_kernel(int nN, int nA, int* ni_a, gpuDoubleComplex** P_ani, double** H_aii, gpuDoubleComplex* H_nn)
+{
+        gpuDeviceSynchronize();
+        gpuLaunchKernel(multiple_low_rank_rect_sqr_rect_updates,
+                        dim3((nN+15)/16, (nN+15)/16),
+                        dim3(16, 16),
+                        0, 0,
+                        nN, nA, ni_a, P_ani, H_aii, H_nn);
+
+}
+
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
                                        gpuDoubleComplex *emiGR_Ga,
                                        double *Y_GL,
@@ -238,6 +297,7 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
         }
     }
 }
+
 
 extern "C"
 void pwlfc_expand_gpu_launch_kernel(int itemsize,
