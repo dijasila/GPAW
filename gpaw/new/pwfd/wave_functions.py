@@ -440,7 +440,7 @@ class PWFDWaveFunctions(WaveFunctions):
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(
-                    psit_nX.data.dtype).reshape((-1,) + psit_nX.desc.shape)
+                    psit_nX.data.dtype).reshape((-1,) + psit_nX.data.shape[1:])
         return None
 
     def to_uniform_grid_wave_functions(self,

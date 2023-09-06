@@ -96,10 +96,10 @@ class Davidson(Eigensolver):
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR, state.potential.dedtaut_sR)
         ibzwfs = state.ibzwfs
-        error = 0.0
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
+        error = 0.0
         for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
