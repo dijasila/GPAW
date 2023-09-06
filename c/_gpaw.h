@@ -187,6 +187,7 @@ PyObject* pwlfc_expand_gpu(PyObject *self, PyObject *args);
 PyObject* pw_insert_gpu(PyObject *self, PyObject *args);
 PyObject* add_to_density_gpu(PyObject* self, PyObject* args);
 PyObject* multple_low_rank_rect_sqr_rect_updates_gpu(PyObject* self, PyObject* args);
+PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args);
 #endif
 
 static PyMethodDef functions[] = {
@@ -345,6 +346,7 @@ static PyMethodDef functions[] = {
     {"pw_insert_gpu", pw_insert_gpu, METH_VARARGS, 0},
     {"add_to_density_gpu", add_to_density_gpu, METH_VARARGS, 0},
     {"multple_low_rank_rect_sqr_rect_updates_gpu", multple_low_rank_rect_sqr_rect_updates_gpu, METH_VARARGS, 0},
+    {"dH_aii_times_P_ani_gpu", dH_aii_times_P_ani_gpu, METH_VARARGS, 0},
 #endif // GPAW_GPU
     {0, 0, 0, 0}
 };
