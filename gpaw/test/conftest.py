@@ -167,7 +167,14 @@ def gpw_files(request):
     """
     cache = request.config.cache
     gpaw_cachedir = cache.mkdir('gpaw_test_gpwfiles')
-    return GPWFiles(gpaw_cachedir)
+
+    gpwfiles = GPWFiles(gpaw_cachedir)
+
+    try:
+        setup_paths.append(gpwfiles.testing_setup_path)
+        yield gpwfiles
+    finally:
+        setup_paths.remove(gpwfiles.testing_setup_path)
 
 
 class Locked(FileExistsError):
@@ -563,8 +570,29 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
+    @property
+    def testing_setup_path(self):
+        # Some calculations in gpwfile fixture like to use funny setups.
+        # This is not so robust since the setups will be all jumbled.
+        # We could improve the mechanism by programmatic naming/subfolders.
+        return self.path / 'setups'
+
+    def generate_setup(self, *args, **kwargs):
+        from gpaw.test import gen
+        setup = gen(*args, **kwargs, write_xml=False)
+        self.testing_setup_path.mkdir(parents=True, exist_ok=True)
+        setup_file = self.testing_setup_path / setup.stdfilename
+        if world.rank == 0:
+            setup.write_xml(setup_file)
+        world.barrier()
+        return setup
+
     @gpwfile
     def si_corehole_pw(self):
+        # Generate setup for oxygen with half a core-hole:
+        setup = self.generate_setup('Si', name='hch1s',
+                                    corehole=(1, 0, 0.5), gpernode=30)
+
         a = 2.6
         si = Atoms('Si', cell=(a, a, a), pbc=True)
 
