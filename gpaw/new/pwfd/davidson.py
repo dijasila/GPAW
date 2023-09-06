@@ -8,7 +8,7 @@ from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as DA
 from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
 from gpaw.new.calculation import DFTState
@@ -164,7 +164,7 @@ class Davidson(Eigensolver):
                 if weight_n is None:
                     error = np.inf
                 else:
-                    error = weight_n @ as_xp(residual_nX.norm2(), np)
+                    error = weight_n @ as_np(residual_nX.norm2())
                     if wfs.ncomponents == 4:
                         error = error.sum()
 
@@ -201,7 +201,7 @@ class Davidson(Eigensolver):
                 H_NN.data[:B, :B] = xp.diag(eig_N[:B])
                 S_NN.data[:B, :B] = xp.eye(B)
                 eig_N[:] = H_NN.eigh(S_NN)
-                wfs._eig_n = as_xp(eig_N[:B], np)
+                wfs._eig_n = as_np(eig_N[:B])
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)

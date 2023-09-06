@@ -11,7 +11,7 @@ from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PWArray
 from gpaw.core.uniform_grid import UGDesc, UGArray
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
@@ -241,7 +241,7 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
+            self._eig_n = as_np(H.eigh(scalapack=(slcomm, r, c, b)))
             H.complex_conjugate()
             # H.data[n, :] now contains the nth eigenvector and eps_n[n]
             # the nth eigenvalue
