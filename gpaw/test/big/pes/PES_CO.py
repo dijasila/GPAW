@@ -15,21 +15,26 @@ atoms.center(vacuum=8)
 h = 0.15
 N_c = np.round(atoms.get_cell().diagonal() / h / 16) * 16
 
-m_calc = GPAW(gpts=N_c, nbands=6, mixer=MixerDif(0.1, 5, weight=100.0),
-              # convergence={'bands':10},
-              parallel={'domain': mpi.size},
-              xc='PBE', txt='CO-m.txt', spinpol=True)
+calc_params = dict(
+    mode='fd',
+    gpts=N_c,
+    mixer=MixerDif(0.1, 5, weight=100.0),
+    parallel={'domain': mpi.size},
+    xc='PBE',
+    spinpol=True)
+
+m_calc = GPAW(**calc_params, nbands=6, txt='CO-m.txt')
 
 m = atoms.copy()
 m.set_initial_magnetic_moments([-1, 1])
 m.calc = m_calc
 m.get_potential_energy()
 
-d_calc = GPAW(gpts=N_c, nbands=16, mixer=MixerDif(0.1, 5, weight=100.0),
+d_calc = GPAW(**calc_params,
+              nbands=16,
               convergence={'bands': 10},
-              parallel={'domain': mpi.size},
               charge=1,
-              xc='PBE', txt='CO-d.txt', spinpol=True)
+              txt='CO-d.txt')
 
 d = atoms.copy()
 d.set_initial_magnetic_moments([-1, 1])

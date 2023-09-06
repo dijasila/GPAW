@@ -5,8 +5,9 @@ import numpy as np
 import gpaw.gpu.cpupy.cublas as cublas
 import gpaw.gpu.cpupy.fft as fft
 import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.random as random
 
-__all__ = ['linalg', 'cublas', 'fft']
+__all__ = ['linalg', 'cublas', 'fft', 'random']
 
 
 def empty(*args, **kwargs):
@@ -142,6 +143,9 @@ class ndarray:
     def sum(self, **kwargs):
         return ndarray(self._data.sum(**kwargs))
 
+    def __repr__(self):
+        return 'cp.' + np.array_repr(self._data)
+
     def __len__(self):
         return len(self._data)
 
@@ -235,7 +239,10 @@ class ndarray:
         return self
 
     def __isub__(self, other):
-        self._data -= other._data
+        if isinstance(other, float):
+            self._data -= other
+        else:
+            self._data -= other._data
         return self
 
     def __matmul__(self, other):
@@ -258,3 +265,6 @@ class ndarray:
 
     def trace(self, offset, axis1, axis2):
         return ndarray(self._data.trace(offset, axis1, axis2))
+
+    def fill(self, val):
+        self._data.fill(val)

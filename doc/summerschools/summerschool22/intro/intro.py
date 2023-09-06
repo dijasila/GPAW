@@ -211,7 +211,7 @@ b = np.dot(a, a.T)
 print(b)
 # in a more READABLE way one can use @ to dot matrices together
 c = a @ a.T
-print('is c equal to b:', np.alltrue(c == b))
+print('is c equal to b:', (c == b).all())
 
 # %%
 # Elementwise multiplication

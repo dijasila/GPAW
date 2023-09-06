@@ -27,6 +27,7 @@ from gpaw.solvation.cavity import Power12Potential, get_pbc_positions
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
+from gpaw.io.logger import indent
 
 
 class SJM(SolvationGPAW):
@@ -467,7 +468,7 @@ class SJM(SolvationGPAW):
                 self.log('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
                          .format(len(previous_electrons[-4:]), slope))
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * slope)
                 self.log(f'or apparent capacitance of {capacitance:.4f} '
                          'muF/cm^2')
@@ -489,7 +490,7 @@ class SJM(SolvationGPAW):
 
             # Guess slope if we don't have enough information yet.
             if p.slope is None:
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 p.slope = -1.6022e3 / (area * 10.)
                 self.log('No slope provided, guessing a slope of '
                          f'{p.slope:.4f} corresponding\nto an apparent '
@@ -816,6 +817,12 @@ class SJMPower12Potential(Power12Potential):
         super().__init__(atomic_radii, u0, pbc_cutoff, tiny)
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
+
+    def __str__(self):
+        s = Power12Potential.__str__(self)
+        s += indent(f'  H2O layer: {self.H2O_layer}\n')
+        s += indent(f'  Only solvate front side: {self.unsolv_backside}\n')
+        return s
 
     def write(self, writer):
         writer.write(

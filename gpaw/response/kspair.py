@@ -83,6 +83,12 @@ class KohnShamKPointPair:
         return self.get_all(self.ikpt2.f_myt) \
             - self.get_all(self.ikpt1.f_myt)
 
+    def get_local_spin_indices(self):
+        s1_t, s2_t = self.transitions.get_spin_indices()
+        s1_myt = s1_t[self.tblocks.myslice]
+        s2_myt = s2_t[self.tblocks.myslice]
+        return s1_myt, s2_myt
+
 
 class KohnShamKPointPairExtractor:
     """Functionality to extract KohnShamKPointPairs from a

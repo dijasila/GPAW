@@ -10,7 +10,9 @@ def test_mgga_mgga_sc():
     n.center(vacuum=2.5)
 
     def getkwargs():
-        return dict(eigensolver=Davidson(4), mixer=MixerSum(0.5, 5, 10.0))
+        return dict(mode='fd',
+                    eigensolver=Davidson(4),
+                    mixer=MixerSum(0.5, 5, 10.0))
 
     n.calc = GPAW(xc='TPSS', **getkwargs())
     e1 = n.get_potential_energy()
