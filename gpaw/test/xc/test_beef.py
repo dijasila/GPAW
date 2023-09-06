@@ -8,6 +8,7 @@ from gpaw.mpi import world
 import _gpaw
 
 
+@pytest.mark.later
 @pytest.mark.mgga
 @pytest.mark.libxc
 @pytest.mark.slow

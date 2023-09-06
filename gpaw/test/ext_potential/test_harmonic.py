@@ -25,7 +25,8 @@ def test_ext_potential_harmonic(in_tmp_dir):
     a = 4.0
     x = Atoms(cell=(a, a, a))  # no atoms
 
-    calc = GPAW(charge=-8,
+    calc = GPAW(mode='fd',
+                charge=-8,
                 nbands=4,
                 h=0.2,
                 xc={'name': 'null'},

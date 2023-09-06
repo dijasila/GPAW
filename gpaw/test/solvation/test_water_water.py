@@ -10,6 +10,7 @@ from gpaw.solvation import SolvationGPAW, get_HW14_water_kwargs
 @pytest.fixture
 def parameters():
     params = {
+        'mode': 'fd',
         'xc': 'PBE',
         'h': 0.24,
         'convergence': {

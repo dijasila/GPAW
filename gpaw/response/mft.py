@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 # General modules
+from abc import abstractmethod
+
 import numpy as np
 
 # GPAW modules
@@ -8,15 +12,20 @@ from gpaw.sphere.integrate import (integrate_lebedev,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
-from gpaw.response import ResponseGroundStateAdapter
+from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LSDA_Wxc,
                                    add_spin_polarization,
                                    add_LSDA_spin_splitting,
                                    extract_micro_setup)
 from gpaw.response.site_kernels import SiteKernels
+from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
+from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
+                                           SitePairDensityCalculator,
+                                           SitePairSpinSplittingCalculator)
 
 # ASE modules
 from ase.units import Hartree, Bohr
@@ -49,7 +58,7 @@ class IsotropicExchangeCalculator:
     J^ab(q) = - ‾‾ W_xc^(z†) K^(a†)(q) χ_KS^('+-)(q) K^b(q) W_xc^z          (2)
                 V0
 
-    We do this since B^(xc)(r) = |W_xc^z(r)| is nonanalytic in points of space
+    We do this since B^(xc)(r) = -|W_xc^z(r)| is nonanalytic in points of space
     where the spin-polarization changes sign, why it is problematic to evaluate
     Eq. (1) numerically within a plane-wave representation.
     If the site partitionings only include spin-polarization of the same sign,
@@ -71,7 +80,7 @@ class IsotropicExchangeCalculator:
             nblocks=1
         )
         for key, item in assumed_props.items():
-            assert getattr(chiks_calc, key) == item,\
+            assert getattr(chiks_calc, key) == item, \
                 f'Expected chiks.{key} == {item}. '\
                 f'Got: {getattr(chiks_calc, key)}'
 
@@ -221,7 +230,7 @@ class AtomicSiteData:
         self.npartitions = self.rc_ap.shape[1]
         self.shape = (self.nsites, self.npartitions)
 
-        assert self._in_valid_site_radii_range(gs),\
+        assert self._in_valid_site_radii_range(gs), \
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
@@ -233,8 +242,10 @@ class AtomicSiteData:
         self.finegd = gs.finegd
         self.nt_sr = gs.nt_sr
 
-        # Set up the atomic truncation functions which define the sites
-        self.drcut = default_spherical_drcut(self.finegd)
+        # Set up the atomic truncation functions which define the sites based
+        # on the coarse real-space grid
+        self.gd = gs.gd
+        self.drcut = default_spherical_drcut(self.gd)
         self.lambd_ap = np.array(
             [[find_volume_conserving_lambd(rcut, self.drcut)
               for rcut in rc_p] for rc_p in self.rc_ap])
@@ -251,7 +262,7 @@ class AtomicSiteData:
         augmentation sphere.
         """
         atoms = gs.atoms
-        drcut = default_spherical_drcut(gs.finegd)
+        drcut = default_spherical_drcut(gs.gd)
         rmin_A = np.array([drcut / 2] * len(atoms))
 
         # Find neighbours based on covalent radii
@@ -296,7 +307,7 @@ class AtomicSiteData:
                         self.rc_ap[a] < rmax_A[A] + 1e-8)):
                 return False
         return True
-        
+
     def calculate_magnetic_moments(self):
         """Calculate the magnetic moments at each atomic site."""
         magmom_ap = self.integrate_local_function(add_spin_polarization)
@@ -327,7 +338,7 @@ class AtomicSiteData:
 
         For local functions of the density, the pseudo contribution is
         evaluated by a numerical integration on the real-space grid:
-        
+
         ̰       /
         f_ap = | dr θ(|r-r_a|<rc_ap) f(ñ(r))
                /
@@ -365,3 +376,210 @@ class AtomicSiteData:
                     microsetup.rgd.r_g, rcut, self.drcut, lambd)
                 # Integrate θ(r) Δf(r) on the radial grid
                 out_ap[a, p] += microsetup.rgd.integrate_trapz(df_g * theta_g)
+
+
+class StaticSitePairFunction(PairFunction):
+    """Data object for static site pair functions."""
+
+    def __init__(self,
+                 qpd: SingleQPWDescriptor,
+                 atomic_site_data: AtomicSiteData):
+        self.qpd = qpd
+        self.q_c = qpd.q_c
+
+        self.atomic_site_data = atomic_site_data
+
+        self.array = self.zeros()
+
+    @property
+    def shape(self):
+        nsites = self.atomic_site_data.nsites
+        npartitions = self.atomic_site_data.npartitions
+        return nsites, nsites, npartitions
+        
+    def zeros(self):
+        return np.zeros(self.shape, dtype=complex)
+
+
+class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
+    r"""Calculator for two-particle site sum rules.
+
+    For any set of site matrix elements f^a and g^b, one may define a two-
+    particle site sum rule based on the lattice Fourier transformed quantity:
+                     __  __   __
+                 1   \   \    \   /
+    ̄x_ab^z(q) = ‾‾‾  /   /    /   | σ^j_ss' (f_nks - f_n'k+qs')
+                N_k  ‾‾  ‾‾   ‾‾  \                                       \
+                     k  n,n' s,s'   × f^a_(nks,n'k+qs') g^b_(n'k+qs',nks) |
+                                                                          /
+    where σ^j is a Pauli matrix with j∊{0,+,-,z}.
+    """
+
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext | None = None,
+                 nblocks: int = 1,
+                 nbands: int | None = None):
+        """Construct the two-particle site sum rule calculator."""
+        if context is None:
+            context = ResponseContext()
+        super().__init__(gs, context,
+                         nblocks=nblocks,
+                         # Disable use of symmetries for now. The sum rule site
+                         # magnetization symmetries can always be derived and
+                         # implemented at a later stage.
+                         disable_point_group=True,
+                         disable_time_reversal=True)
+
+        self.nbands = nbands
+        self.matrix_element_calc1: SiteMatrixElementCalculator | None = None
+        self.matrix_element_calc2: SiteMatrixElementCalculator | None = None
+
+    def __call__(self, q_c, atomic_site_data: AtomicSiteData):
+        """Calculate the site sum rule for a given wave vector q_c."""
+        # Set up calculators for the f^a and g^b matrix elements
+        mecalc1, mecalc2 = self.create_matrix_element_calculators(
+            atomic_site_data)
+        self.matrix_element_calc1 = mecalc1
+        self.matrix_element_calc2 = mecalc2
+
+        spincomponent = self.get_spincomponent()
+        transitions = self.get_band_and_spin_transitions(
+            spincomponent, nbands=self.nbands, bandsummation='double')
+        self.context.print(self.get_info_string(
+            q_c, self.nbands, len(transitions)))
+
+        # Set up data object (without a plane-wave representation, which is
+        # irrelevant in this case)
+        qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
+        site_pair_function = StaticSitePairFunction(qpd, atomic_site_data)
+
+        # Perform actual calculation
+        self._integrate(site_pair_function, transitions)
+
+        return site_pair_function.array
+
+    @abstractmethod
+    def create_matrix_element_calculators(self, atomic_site_data):
+        """Create the desired site matrix element calculators."""
+
+    @abstractmethod
+    def get_spincomponent(self):
+        """Define how to rotate the spins via the spin component (μν)."""
+
+    def add_integrand(self, kptpair, weight, site_pair_function):
+        r"""Add the site sum rule integrand of the outer k-point integral.
+
+        With
+                       __
+                    1  \
+        ̄x_ab^z(q) = ‾  /  (...)_k
+                    V  ‾‾
+                       k
+
+        the integrand is given by
+                     __   __
+                     \    \   /
+        (...)_k = V0 /    /   | σ^j_ss' (f_nks - f_n'k+qs')
+                     ‾‾   ‾‾  \                                       \
+                    n,n' s,s'   × f^a_(nks,n'k+qs') g^b_(n'k+qs',nks) |
+                                                                      /
+
+        where V0 is the cell volume.
+        """
+        # Calculate site matrix elements
+        qpd = site_pair_function.qpd
+        matrix_element1 = self.matrix_element_calc1(kptpair, qpd)
+        if self.matrix_element_calc2 is self.matrix_element_calc1:
+            matrix_element2 = matrix_element1
+        else:
+            matrix_element2 = self.matrix_element_calc2(kptpair, qpd)
+
+        # Calculate the product between the Pauli matrix and the occupational
+        # differences
+        sigma = self.get_pauli_matrix()
+        s1_myt, s2_myt = kptpair.get_local_spin_indices()
+        sigma_myt = sigma[s1_myt, s2_myt]
+        df_myt = kptpair.ikpt1.f_myt - kptpair.ikpt2.f_myt
+        sigmadf_myt = sigma_myt * df_myt
+
+        # Calculate integrand
+        f_mytap = matrix_element1.local_array_view
+        g_mytap = matrix_element2.local_array_view
+        fgcc_mytabp = f_mytap[:, :, np.newaxis] * g_mytap.conj()[:, np.newaxis]
+        # Sum over local transitions
+        integrand_abp = np.einsum('t, tabp -> abp', sigmadf_myt, fgcc_mytabp)
+        # Sum over distributed transitions
+        kptpair.tblocks.blockcomm.sum(integrand_abp)
+
+        # Add integrand to output array
+        site_pair_function.array[:] += self.gs.volume * weight * integrand_abp
+
+    @abstractmethod
+    def get_pauli_matrix(self):
+        """Get the desired Pauli matrix σ^j_ss'."""
+
+    def get_info_string(self, q_c, nbands, nt):
+        """Get information about the calculation"""
+        info_list = ['',
+                     'Calculating two-particle site sum rule with:'
+                     f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+                     self.get_band_and_transitions_info_string(nbands, nt),
+                     '',
+                     self.get_basic_info_string()]
+        return '\n'.join(info_list)
+
+
+class TwoParticleSiteMagnetizationCalculator(TwoParticleSiteSumRuleCalculator):
+    r"""Calculator for the two-particle site magnetization sum rule.
+
+    The site magnetization can be calculated from the site pair densities via
+    the following sum rule [publication in preparation]:
+                     __  __
+                 1   \   \
+    ̄n_ab^z(q) = ‾‾‾  /   /  (f_nk↑ - f_mk+q↓) n^a_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑)
+                N_k  ‾‾  ‾‾
+                     k   n,m
+
+              = δ_(a,b) n_a^z
+
+    This is directly related to the sum rule of the χ^(+-) spin component of
+    the four-component susceptibility tensor.
+    """
+    def create_matrix_element_calculators(self, atomic_site_data):
+        site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
+        return site_pair_density_calc, site_pair_density_calc
+
+    def get_spincomponent(self):
+        return '+-'
+
+    def get_pauli_matrix(self):
+        return smat('+')
+
+
+class TwoParticleSiteSpinSplittingCalculator(
+        TwoParticleSiteMagnetizationCalculator):
+    r"""Calculator for the two-particle site spin splitting sum rule.
+
+    The site spin splitting can be calculated from the site pair density and
+    site pair spin splitting via the following sum rule [publication in
+    preparation]:
+                          __  __
+    ˍ                 1   \   \  /
+    Δ^(xc)_ab^z(q) = ‾‾‾  /   /  | (f_nk↑ - f_mk+q↓)
+                     N_k  ‾‾  ‾‾ \                                        \
+                          k   n,m  × Δ^(xc,a)_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑) |
+                                                                          /
+              = δ_(a,b) Δ^(xc)_a^z
+    """
+    def create_matrix_element_calculators(self, atomic_site_data):
+        site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
+            self.gs, self.context, atomic_site_data)
+        site_pair_density_calc = SitePairDensityCalculator(
+            self.gs, self.context, atomic_site_data)
+        return site_pair_spin_splitting_calc, site_pair_density_calc
+
+    def __call__(self, *args):
+        dxc_abp = super().__call__(*args)
+        return dxc_abp * Hartree  # Ha -> eV

@@ -197,11 +197,11 @@ class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
-        from gpaw.core.plane_waves import PlaneWaves
+        from gpaw.core import PWDesc
         from gpaw.gpu import cupy as cp
         self.dtype = dtype
         super().__init__(size_c, dtype, empty=cp.empty)
-        self.Q_G_cache: dict[PlaneWaves, Array1D] = {}
+        self.Q_G_cache: dict[PWDesc, Array1D] = {}
 
     def fft(self):
         from gpaw.gpu import cupyx

@@ -23,7 +23,8 @@ for i in range(3):
 
     if rank in ranks:
 
-        calc = GPAW(h=0.3,
+        calc = GPAW(mode='fd',
+                    h=0.3,
                     kpts=(2, 2, 1),
                     txt=f'neb{j}.txt',
                     communicator=ranks)

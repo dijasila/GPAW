@@ -73,10 +73,11 @@ def memory_bandwidth(code='gpaw', runs=7):
     parameters = {}
 
     if code == 'gpaw':
-        from gpaw import Calculator
+        from gpaw import GPAW as Calculator
         from gpaw.mpi import rank
         parameters['convergence'] = {'eigenstates': 1e-5}
         parameters['h'] = h
+        parameters['mode'] = 'fd'
     elif code == 'dacapo':
         from ase.calculators.dacapo import Dacapo as Calculator
         parameters['planewavecutoff'] = gridspacing2cutoff(h)

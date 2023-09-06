@@ -33,7 +33,7 @@ class IBZ2BZMaps(Sequence):
 
     @classmethod
     def from_calculator(cls, calc):
-        R_asii = [setup.R_sii for setup in calc.setups]
+        R_asii = calc.setups.atomrotations.get_R_asii()
         return cls(calc.wfs.kd, calc.spos_ac, R_asii, calc.wfs.gd.N_c)
 
     def __len__(self):
@@ -118,7 +118,7 @@ class IBZ2BZMap:
         if self.time_reversal:
             utout_R = utout_R.conj()
 
-        assert utout_R is not ut_R,\
+        assert utout_R is not ut_R, \
             "We don't want the output array to point back at the input array"
 
         return utout_R
@@ -177,7 +177,7 @@ class IBZ2BZMap:
             assert len(mapped_projections.indices) == 0
 
         return mapped_projections
-        
+
     @property
     def U_aii(self):
         """Phase corrected rotation matrices for the PAW projections."""

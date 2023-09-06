@@ -14,7 +14,8 @@ def test_sic_scfsic_h2(in_tmp_dir):
     atom.center()
     molecule.center()
 
-    calc = GPAW(xc='LDA-PZ-SIC',
+    calc = GPAW(mode='fd',
+                xc='LDA-PZ-SIC',
                 eigensolver='rmm-diis',
                 txt='h2.sic.txt',
                 setups='hgh')

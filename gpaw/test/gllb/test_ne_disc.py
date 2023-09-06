@@ -27,7 +27,11 @@ def test_gllb_ne_disc(in_tmp_dir, add_cwd_to_setup_paths):
         Ne = Atoms([Atom(atom, (0, 0, 0))],
                    cell=(a, a, a), pbc=False)
         Ne.center()
-        calc = GPAW(eigensolver=Davidson(4), nbands=10, h=0.18, xc=xcname,
+        calc = GPAW(mode='fd',
+                    eigensolver=Davidson(4),
+                    nbands=10,
+                    h=0.18,
+                    xc=xcname,
                     basis='dzp',
                     mixer=Mixer(0.6))
         Ne.calc = calc

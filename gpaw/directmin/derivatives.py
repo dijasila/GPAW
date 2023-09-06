@@ -24,8 +24,8 @@ class Derivatives:
 
         # initialize vectors of elements matrix A
         if a_vec_u is None:
-            self.a_vec_u = {u: np.zeros_like(v) for u,
-                                                    v in etdm.a_vec_u.items()}
+            self.a_vec_u = {u: np.zeros_like(v)
+                            for u, v in etdm.a_vec_u.items()}
 
         if random_amat:
             for kpt in wfs.kpt_u:
@@ -46,8 +46,8 @@ class Derivatives:
                                       self.c_ref)
             etdm.dm_helper.set_reference_orbitals(wfs, etdm.n_dim)
             self.c_ref = etdm.dm_helper.reference_orbitals
-            self.a_vec_u = {u: np.zeros_like(v) for u,
-                                                    v in etdm.a_vec_u.items()}
+            self.a_vec_u = {u: np.zeros_like(v)
+                            for u, v in etdm.a_vec_u.items()}
 
     def get_analytical_derivatives(self, etdm, ham, wfs, dens,
                                    what2calc='gradient'):
@@ -104,8 +104,8 @@ class Derivatives:
 
         matrix_exp = etdm.matrix_exp
         if what2calc == 'gradient':
-            numerical_der = {u: np.zeros_like(v) for u,
-                                                     v in self.a_vec_u.items()}
+            numerical_der = {u: np.zeros_like(v)
+                             for u, v in self.a_vec_u.items()}
         else:
             numerical_der = np.zeros(shape=(len(steps) * dim,
                                             len(steps) * dim))
@@ -252,7 +252,7 @@ class Davidson(object):
         defaults = self.set_defaults()
         assert self.etdm.name == 'etdm', 'Check etdm.'
         if self.logfile is not None:
-            assert type(self.logfile) == str, 'Check logfile.'
+            assert isinstance(self.logfile, str), 'Check logfile.'
         if self.fd_mode is None:
             self.fd_mode = defaults['fd_mode']
         else:
@@ -260,26 +260,26 @@ class Davidson(object):
         if self.m is None:
             self.m = defaults['m']
         else:
-            assert type(self.m) == int or np.isinf(self.m), 'Check m.'
+            assert isinstance(self.m, int) or np.isinf(self.m), 'Check m.'
         if self.h is None:
             self.h = defaults['h']
         else:
-            assert type(self.h) == float, 'Check h.'
+            assert isinstance(self.h, float), 'Check h.'
         if self.eps is None:
             self.eps = defaults['eps']
         else:
-            assert type(self.eps) == float, 'Check eps.'
+            assert isinstance(self.eps, float), 'Check eps.'
         if self.cap_krylov is None:
             self.cap_krylov = defaults['cap_krylov']
         else:
-            assert type(self.cap_krylov) == bool, 'Check cap_krylov.'
+            assert isinstance(self.cap_krylov, bool), 'Check cap_krylov.'
         if self.remember_sp_order is None:
             self.remember_sp_order = defaults['remember_sp_order']
         else:
-            assert type(self.remember_sp_order) == bool, \
+            assert isinstance(self.remember_sp_order, bool), \
                 'Check remember_sp_order.'
         if self.sp_order is not None:
-            assert type(self.sp_order) == int, 'Check sp_order.'
+            assert isinstance(self.sp_order, int), 'Check sp_order.'
 
     def set_defaults(self):
         if self.gmf:
