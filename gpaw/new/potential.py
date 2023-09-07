@@ -35,7 +35,7 @@ class Potential:
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
-            P_ani.multiply(self.dH_asii[spin], out_ani)
+            P_ani.multiply(self.dH_asii[:, spin], out_ani)
             return
 
         # Non-collinear wave functions:

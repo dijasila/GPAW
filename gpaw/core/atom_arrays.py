@@ -478,7 +478,7 @@ class AtomArrays:
         return result
 
     def multiply(self, other, out):
-        if self.xp is np:
+        if self.layout.xp is np:
             for P_ni, dX_ii, out_ni in zips(self.values(),
                                             other.values(),
                                             out.values()):
