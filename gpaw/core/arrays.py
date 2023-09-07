@@ -199,14 +199,27 @@ class DistributedArrays(Generic[DomainType]):
                     data = data.view(complex)
                 return self.desc.new(comm=None).from_data(data)
 
-    def scatter_from(self, data: ArrayND = None) -> None:
+    def scatter_from(self, data: ArrayND | None = None) -> None:
         raise NotImplementedError
 
+    def redist(self,
+               domain,
+               comm1: MPIComm, comm2: MPIComm) -> DistributedArrays:
+        result = domain.empty(self.dims)
+        if comm1.rank == 0:
+            a = self.gather()
+        else:
+            a = None
+        if comm2.rank == 0:
+            result.scatter_from(a)
+        comm2.broadcast(result.data, 0)
+        return result
+
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         raise NotImplementedError
 
 

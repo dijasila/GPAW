@@ -72,6 +72,14 @@ class PWFDWaveFunctions(WaveFunctions):
 
     @property
     def pt_aiX(self) -> AtomCenteredFunctions:
+        """PAW projector functions.
+
+        :::
+
+            ~a _
+            p (r)
+             i
+        """
         if self._pt_aiX is None:
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
@@ -81,7 +89,15 @@ class PWFDWaveFunctions(WaveFunctions):
         return self._pt_aiX
 
     @property
-    def P_ani(self):
+    def P_ani(self) -> AtomArrays:
+        """PAW projections.
+
+        :::
+
+             ~a  ~
+            <p | ψ >
+              i   n
+        """
         if self._P_ani is None:
             self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm)

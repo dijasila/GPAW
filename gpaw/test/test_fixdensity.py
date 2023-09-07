@@ -30,7 +30,7 @@ def test_fixdensity(in_tmp_dir, gpaw_new):
     f2 = calc.get_fermi_level()
 
     # Start from gpw-file:
-    calc = GPAW('li.gpw', txt=None)
+    calc = GPAW('li.gpw')
     calc = calc.fixed_density(
         txt='li-3.txt',
         nbands=5,

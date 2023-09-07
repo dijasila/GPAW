@@ -54,10 +54,11 @@ class Davidson(Eigensolver):
         assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
         B = ibzwfs.nbands
+        b = max(wfs.n2 - wfs.n1 for wfs in ibzwfs)
         domain_comm = wfs.psit_nX.desc.comm
         band_comm = wfs.band_comm
         shape = ibzwfs.get_max_shape()
-        shape = (2, B) + shape
+        shape = (2, b) + shape
         dtype = wfs.psit_nX.data.dtype
         self.work_arrays = xp.empty(shape, dtype)
 
@@ -102,7 +103,7 @@ class Davidson(Eigensolver):
         for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS, weight_n):
         H_NN = self.H_NN
@@ -112,11 +113,12 @@ class Davidson(Eigensolver):
         xp = M_nn.xp
 
         psit_nX = wfs.psit_nX
-        psit2_nX = psit_nX.new(data=self.work_arrays[0])
-        psit3_nX = psit_nX.new(data=self.work_arrays[1])
-
         B = psit_nX.dims[0]  # number of bands
         eig_N = xp.empty(2 * B)
+        b = psit_nX.mydims[0]
+
+        psit2_nX = psit_nX.new(data=self.work_arrays[0, :b])
+        psit3_nX = psit_nX.new(data=self.work_arrays[1, :b])
 
         wfs.subspace_diagonalize(Ht, dH,
                                  work_array=psit2_nX.data,
@@ -285,22 +287,23 @@ def calculate_weights(converge_bands: int | str,
             weight_un.append(weight_n)
         return weight_un
 
-    assert ibzwfs.band_comm.size == 1, 'not implemented!'
-
     if converge_bands == 'all':
-        return [np.ones(nbands)] * nu
+        converge_bands = nbands
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
         n = converge_bands
-
+        if n < 0:
+            n += nbands
+            assert n >= 0
         for wfs in ibzwfs:
-            weight_n = np.zeros(nbands)
-            if n < 0:
-                n += nbands
-            weight_n[:n] = 1.0
+            weight_n = np.zeros(wfs.n2 - wfs.n1)
+            m = max(wfs.n1, min(n, wfs.n2)) - wfs.n1
+            weight_n[:m] = 1.0
             weight_un.append(weight_n)
         return weight_un
+
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
 
     # Converge states with energy up to CBM + delta:
     assert converge_bands.startswith('CBM+')
