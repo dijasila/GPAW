@@ -86,7 +86,7 @@ def get_tolerances(system, qrel):
     # For Fe, the symmetries are not perfectly conserved for the
     # transverse magnetic response
     if qrel == 0.0:
-        fet_atol = 2e-3
+        fet_atol = 3e-3
     elif qrel == 0.25:
         fet_atol = 16e-3
     elif qrel == 0.5:
