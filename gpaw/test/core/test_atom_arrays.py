@@ -54,7 +54,7 @@ def test_dh():
     dH_asii = AtomArraysLayout([(n, n) for n in ni_a]).empty(1)
     dH_asii.data[:] = 2.0
     P_ani = AtomArraysLayout(ni_a, dtype=complex).empty(20)
-    dH_asii.data[:] = 1.0 + 2.0j
+    P_ani.data[:] = 1.0 + 2.0j
     out_ani = P_ani.new()
     _gpaw.dH_aii_times_P_ani_gpu(
         dH_asii.data[0], ni_a, P_ani.data, out_ani.data)
