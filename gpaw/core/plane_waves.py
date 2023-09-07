@@ -18,6 +18,7 @@ from gpaw.new.c import add_to_density, pw_insert
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Literal, Vector)
+import _gpaw
 
 if TYPE_CHECKING:
     from gpaw.core import UGArray, UGDesc
@@ -805,11 +806,11 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
     from gpaw.gpu import cupyx
     pw = psit_nG.desc
     plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
-    Q_G = plan.indices(pw)
+    Q_G = cp.asarray(plan.indices(pw))
     weight_n = cp.asarray(weight_n)
     N = len(weight_n)
     shape = tuple(nt_R.desc.size_c)
-    B = 10
+    B = 32
     psit_bR = None
     for b1 in range(0, N, B):
         b2 = min(b1 + B, N)
@@ -819,11 +820,13 @@ def abs_square_gpu(psit_nG, weight_n, nt_R):
         elif nb < B:
             psit_bR = psit_bR[:nb]
         psit_bR[:] = 0.0
-        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data[b1:b2]
+        _gpaw.pw_insert_gpu(psit_nG.data[b1:b2],
+                            Q_G,
+                            1.0,
+                            psit_bR.reshape((nb, -1)))
         psit_bR[:] = cupyx.scipy.fft.ifftn(
             psit_bR,
             shape,
             norm='forward',
             overwrite_x=True)
-        for psit_R, w in zip(psit_bR, weight_n[b1:b2]):
-            nt_R.data += w * (psit_R.real**2 + psit_R.imag**2)
+        _gpaw.add_to_density_gpu(weight_n[b1:b2], psit_bR, nt_R.data)
