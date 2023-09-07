@@ -476,3 +476,13 @@ class AtomArrays:
             result.scatter_from(a)
         comm2.broadcast(result.data, 0)
         return result
+
+    def multiply(self, other, out):
+        if self.xp is np:
+            for P_ni, dX_ii, out_ni in zips(self.values(),
+                                            other.values(),
+                                            out.values()):
+                out_ni[:] = P_ni @ dX_ii
+            return
+        _gpaw.dH_aii_times_P_ani_gpu(other.data, ni_a,
+                                     self.data, out.data)

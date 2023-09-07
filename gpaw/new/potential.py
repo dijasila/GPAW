@@ -35,17 +35,7 @@ class Potential:
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
-            xp = P_ani.layout.xp
-            if xp is np:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
-            else:
-                ni_a = xp.array(
-                    [I2 - I2 for a, I1, I2 in self.dH_asii.layout.myindices],
-                    dtype=np.int32)
-                _gpaw.dH_aii_times_P_ani_gpu(self.dH_asii.data[spin], ni_a,
-                                             P_ani.data, out_ani.data)
+            P_ani.multiply(self.dH_asii[spin], out_ani)
             return
 
         # Non-collinear wave functions:

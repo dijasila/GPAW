@@ -17,6 +17,7 @@ from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 from gpaw.new import zips
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 class WrongMagmomForHundsRuleError(ValueError):
@@ -1481,22 +1482,15 @@ class Setups(list):
             integral=sqrt(4 * pi),
             xp=xp)
 
-    def overlap_correction(self, P_ani, out_ani):
-        xp = P_ani.layout.xp
-
-        if len(P_ani.dims) == 2:  # (band, spinor)
-            subscripts = 'nsi, ij -> nsj'
-        else:
-            subscripts = 'ni, ij -> nj'
-        if xp is np:
-            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                dS_ii = self[a].dO_ii
-                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        else:
-            # GRR. Cupy einsum doesn't have an out argument.
-            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                dS_ii = xp.asarray(self[a].dO_ii)
-                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
+    def get_overlap_corrections(self, atomdist):
+        if atomdist is getattr(self, '_atomdist', None):
+            return self.dS_aii
+        self._atomdist = atomdist
+        self.dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
+                                       atomdist=atomdist).empty()
+        for a, dS_ii in self.dS_aii.items():
+            dS_ii[:] = self[a].dO_ii
+        return self.dS_aii
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
