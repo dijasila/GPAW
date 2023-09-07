@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from gpaw.typing import Array1D, ArrayND
+from gpaw.gpu import cupy as cp
 
 __all__ = ['GPU_AWARE_MPI']
 
@@ -31,6 +32,14 @@ def pw_insert(coef_G: Array1D,
     array_Q.ravel()[Q_G] = x * coef_G
 
 
+def pw_insert_gpu(psit_nG,
+                  Q_G,
+                  scale,
+                  psit_bQ):
+    assert scale == 1.0
+    psit_bQ[:, Q_G] = psit_nG
+
+
 def pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
                  l_s, a_J, s_J,
                  cc, f_GI):
@@ -59,6 +68,11 @@ def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
                      l_s, a_J, s_J,
                      cc, f_GI, I_J):
     raise NotImplementedError
+
+
+def add_to_density_gpu(weight_n, psit_nR, nt_R):
+    for weight, psit_R in zip(weight_n, psit_nR):
+        nt_R += float(weight) * cp.abs(psit_R)**2
 
 
 def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
