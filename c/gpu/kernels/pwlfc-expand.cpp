@@ -305,25 +305,27 @@ __global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI,
                                       gpuDoubleComplex* outP_ani_dev)
 {
     int n1 = threadIdx.x + blockIdx.x * blockDim.x;
-    int I = 0;
-    if (n1 < nN) {
+    if (n1 < nn) {
         gpuDoubleComplex* P_ni = P_ani_dev + n1 * nI;
         gpuDoubleComplex* outP_ni = outP_ani_dev + n1 * nI;
+        double* dH_ii = dH_aii_dev;
         for (int a=0; a< nA; a++)
         {
+            int ni = ni_a[a];
             for (int i=0; i< ni; i++)
             {
-                double* dH_i = dH_aii_dev + I + i * ni;
                 gpuDoubleComplex result = make_gpuDoubleComplex(0.0, 0.0);
                 for (int i2=0; i2 < ni; i2++)
                 {
-                   result += gpuCmulD(P_ni ,dH_i[i2])
+                   gpuDoubleComplex item = gpuCmulD(P_ni[i2], dH_ii[i * ni + i2]);
+                   result.x += item.x;
+                   result.y += item.y;
                 }
-                P_ni++;
-                *outP_ni = result;
-                outP_ni++;
+                outP_ni[i] = result;
             }
-            I += ni * ni;
+            P_ni += ni;
+            outP_ni += ni;
+            dH_ii += ni * ni;
         }
     }
 }

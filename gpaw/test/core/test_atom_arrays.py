@@ -58,3 +58,4 @@ def test_dh():
     out_ani = P_ani.new()
     _gpaw.dH_aii_times_P_ani_gpu(
         dH_asii.data[0], ni_a, P_ani.data, out_ani.data)
+    print(out_ani.data)

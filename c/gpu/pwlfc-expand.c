@@ -7,6 +7,7 @@
 
 #include "gpu.h"
 #include "gpu-complex.h"
+#include <stdio.h>
 
 void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     double* f_Gs,
@@ -44,21 +45,29 @@ void multiple_low_rank_rect_sqr_rect_updates_launch_kernel(int nN, int nA, int* 
 
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 {
-    PyObject* dH_aii;
-    PyObject* ni_a;
-    PyObject* P_ani;
-    PyObject* outP_ani;
+    PyObject* dH_aii_obj;
+    PyObject* ni_a_obj;
+    PyObject* P_ani_obj;
+    PyObject* outP_ani_obj;
     if (!PyArg_ParseTuple(args, "OOOO",
-                          &dH_aii, ni_a, P_ani, outP_aniH_nn_obj, &P_ani_obj, &H_aii_obj))
-        return;
+                          &dH_aii_obj, &ni_a_obj, &P_ani_obj, &outP_ani_obj))
+        return NULL;
 
-    int nA = Array_DIM(ni_a, 0);
-    int nn = Array_DIM(P_ani, 0);
-    int nI = Array_DIM(P_ani, 1);
-    double* dH_aii_dev = Array_DATA(dH_aii);
-    gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani);
-    gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani);
-    npy_int32* ni_a = Array_DATA(ni_a);
+    printf("ni_a"); print_array_info(ni_a_obj);
+    printf("dH_aii"); print_array_info(dH_aii_obj);
+    printf("P_ani"); print_array_info(P_ani_obj);
+    printf("outP_ani"); print_array_info(outP_ani_obj);
+    
+    int nA = Array_DIM(ni_a_obj, 0);
+    int nn = Array_DIM(P_ani_obj, 0);
+    int nI = Array_DIM(P_ani_obj, 1);
+    fflush(stdout);
+    fprintf("nA = %d nn = %d nI = %d\n", nA, nn, nI);
+    
+    double* dH_aii_dev = Array_DATA(dH_aii_obj);
+    gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
+    gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani_obj);
+    npy_int32* ni_a = Array_DATA(ni_a_obj);
 
     dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
 }
