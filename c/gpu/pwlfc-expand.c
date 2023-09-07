@@ -41,7 +41,6 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       double complex* psit_nR,
                                       double* rho_R);
 
-void multiple_low_rank_rect_sqr_rect_updates_launch_kernel(int nN, int nA, int* ni_a, gpuDoubleComplex** P_ani, double** H_aii, gpuDoubleComplex* H_nn);
 
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 {
@@ -65,7 +64,7 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 
     assert(Array_ITEMSIZE(P_ani_obj) == 16);
     assert(Array_ITEMSIZE(outP_ani_obj) == 16);
-    assert(Array_ITEMSIZE(dH_aii_dev) == 8);
+    assert(Array_ITEMSIZE(dH_aii_obj) == 8);
     assert(Array_ITEMSIZE(ni_a_obj) == 4);
 
     //printf("ni_a"); print_array_info(ni_a_obj);
@@ -80,64 +79,6 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     //fflush(stdout);
 
     dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
-}
-
-PyObject* multple_low_rank_rect_sqr_rect_updates_gpu(PyObject* self, PyObject* args)
-{
-    // H_nn, P_ani, H_aii
-    PyObject *H_nn_obj;
-    PyObject *P_ani_obj, *H_aii_obj;
-    if (!PyArg_ParseTuple(args, "OOO",
-                          &H_nn_obj, &P_ani_obj, &H_aii_obj))
-        return NULL;
-    // Total size of H_nn matrix
-    int nN = Array_DIM(H_nn_obj, 0);
-    printf("%d nN\n", nN);
-    // Number of atoms
-    int nA = Py_SIZE(P_ani_obj);
-    // Check that number of atoms is the same for H_aii array as well
-    assert(nA == Py_SIZE(H_aii_obj));
-
-    // Allocate atom pointer arrays
-    int* ni_a_host;
-    int* ni_a_dev;
-    hipMalloc((void**) &ni_a_dev, sizeof(int) * nA);
-    ni_a_host = (int*) malloc(sizeof(int) * nA);
-
-    gpuDoubleComplex** P_ani_host;
-    gpuDoubleComplex** P_ani_dev;
-    hipMalloc((void**) &P_ani_dev, sizeof(gpuDoubleComplex*) * nA);
-    P_ani_host = (gpuDoubleComplex**) malloc(sizeof(gpuDoubleComplex*) * nA);
-
-    double** H_aii_host;
-    double** H_aii_dev;
-    hipMalloc((void**) &H_aii_dev, sizeof(double*) * nA);
-    H_aii_host = (double**) malloc(sizeof(gpuDoubleComplex*) * nA);
-
-    for (int a=0; a<nA; a++)
-    {
-       PyObject* H_ii = PyList_GetItem(H_aii_obj, a);
-       PyObject* P_ni = PyList_GetItem(P_ani_obj, a);
-       ni_a_host[a] = Array_DIM(H_ii, 0);
-       P_ani_host[a] = Array_DATA(P_ni);
-       H_aii_host[a] = Array_DATA(H_ii);
-    }
-
-    hipMemcpy(ni_a_dev, ni_a_host, sizeof(int) * nA, hipMemcpyHostToDevice);
-    hipMemcpy(P_ani_dev, P_ani_host, sizeof(gpuDoubleComplex*) * nA, hipMemcpyHostToDevice);
-    hipMemcpy(H_aii_dev, H_aii_host, sizeof(double*) * nA, hipMemcpyHostToDevice);
-
-    gpuDoubleComplex* H_nn_dev = Array_DATA(H_nn_obj);
-
-    multiple_low_rank_rect_sqr_rect_updates_launch_kernel(nN, nA, ni_a_dev, P_ani_dev, H_aii_dev, H_nn_dev);
-    gpuDeviceSynchronize(); // Is needed?
-    hipFree(H_aii_dev);
-    hipFree(P_ani_dev);
-    hipFree(ni_a_dev);
-    free(H_aii_host);
-    free(P_ani_host);
-    free(ni_a_host);
-    Py_RETURN_NONE;
 }
 
 
