@@ -53,6 +53,7 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
                           &dH_aii_obj, &ni_a_obj, &P_ani_obj, &outP_ani_obj))
         return NULL;
 
+
     double* dH_aii_dev = Array_DATA(dH_aii_obj);
     if (!dH_aii_dev) return;
     gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
@@ -62,17 +63,21 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     npy_int32* ni_a = Array_DATA(ni_a_obj);
     if (!ni_a) return;
 
-    printf("ni_a"); print_array_info(ni_a_obj);
-    printf("dH_aii"); print_array_info(dH_aii_obj);
-    printf("P_ani"); print_array_info(P_ani_obj);
-    printf("outP_ani"); print_array_info(outP_ani_obj);
+    assert(Array_ITEMSIZE(P_ani_obj) == 16);
+    assert(Array_ITEMSIZE(outP_ani_obj) == 16);
+    assert(Array_ITEMSIZE(dH_aii_dev) == 8);
+    assert(Array_ITEMSIZE(ni_a_obj) == 4);
+
+    //printf("ni_a"); print_array_info(ni_a_obj);
+    //printf("dH_aii"); print_array_info(dH_aii_obj);
+    //printf("P_ani"); print_array_info(P_ani_obj);
+    //printf("outP_ani"); print_array_info(outP_ani_obj);
     
     int nA = Array_DIM(ni_a_obj, 0);
     int nn = Array_DIM(P_ani_obj, 0);
     int nI = Array_DIM(P_ani_obj, 1);
-    printf("nA = %d nn = %d nI = %d\n", nA, nn, nI);
-    fflush(stdout);
-    
+    //printf("nA = %d nn = %d nI = %d\n", nA, nn, nI);
+    //fflush(stdout);
 
     dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
 }

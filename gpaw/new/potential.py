@@ -42,12 +42,20 @@ class Potential:
                     np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
             else:
                 ni_a = xp.array(
-                    [I2 - I1 for a, I1, I2 in self.dH_asii.layout.myindices],
+                    [I2 - I1 for a, I1, I2 in P_ani.layout.myindices],
 		    dtype=np.int32)
                 assert self.dH_asii.data[spin].flags.c_contiguous
                 assert ni_a.flags.c_contiguous
                 assert P_ani.data.flags.c_contiguous
                 assert out_ani.data.flags.c_contiguous
+                print(type(self.dH_asii.data[spin]))
+                print(type(P_ani.data))
+                print(type(out_ani.data))
+                #for a, P_ni in out_ani.items():
+                #    out_ani[a][:] = a
+                #self.dH_asii.data[spin][:] = 0.0
+                ni_a = xp.asarray(ni_a, dtype=xp.int32)
+                xp.cuda.runtime.deviceSynchronize()
                 _gpaw.dH_aii_times_P_ani_gpu(self.dH_asii.data[spin], ni_a,
                                              P_ani.data, out_ani.data)
 

@@ -66,24 +66,24 @@ def primes():
         count += 1
 
 def test_dh(xp):
-    ni_a = [2, 3, 4] #np.arange(2, 5, dtype=xp.int32)
+    ni_a = [2, 3, 4, 17] #np.arange(2, 5, dtype=xp.int32)
     dH_asii = AtomArraysLayout([(n, n) for n in ni_a], xp=xp).empty()
     primeiter = primes()
-    dH_asii.data[:] = xp.arange(1, 2**2+3**2+4**2+1)
-    P_ani = AtomArraysLayout(ni_a, dtype=complex, xp=xp).empty(2)
+    dH_asii.data[:] = xp.arange(1, 2**2+3**2+4**2+17**2+1)
+    P_ani = AtomArraysLayout(ni_a, dtype=complex, xp=xp).empty(300)
     P_ani.data[:] = 0.0
-    for n in range(2):
+    for n in range(300):
         I = 0
         for a, ni in enumerate(ni_a):
             for i in range(ni):
-                if a == 1 and n == 1:
-                    P_ani.data[n, I] = i + 1
+                P_ani.data[n, I] = i + 1 + 14.4j*i + a + n * 2.2
                 I += 1
 
     out_ani = P_ani.new()
     out_ani[0][:] = 100
     out_ani[1][:] = 200
     out_ani[2][:] = 300
+    out_ani[2][:] = 400
     _gpaw.dH_aii_times_P_ani_gpu(
         dH_asii.data, xp.asarray(ni_a, dtype=xp.int32), P_ani.data, out_ani.data)
     out2_ani = out_ani.new()
@@ -92,5 +92,5 @@ def test_dh(xp):
     print(out_ani.data, 'gpu')
     print(out2_ani.data, 'ref')
     print(out2_ani.data - out_ani.data, 'diff')
-
+    assert xp.allclose(out2_ani.data, out_ani.data)
 test_dh(cp)
