@@ -50,11 +50,13 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
         # Get nlodata from pre-calculated SiC fixtures
         make_nlodata(gpw_files[f'sic_pw{tag}'], out_name=f'mml{tag}.npz')
+        world.barrier()
 
         # Calculate 'xyz' tensor element of SHG spectra
         get_shg(freqs=freqs, eta=0.025, pol='xyz',
                 out_name=f'shg_xyz{tag}.npy',
                 mml_name=f'mml{tag}.npz')
+        world.barrier()
 
         # Load the calculated SHG spectra (in units of nm/V)
         shg_xyz[str(spinpol)] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
