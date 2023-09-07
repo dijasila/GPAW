@@ -109,7 +109,6 @@ PyObject* multple_low_rank_rect_sqr_rect_updates_gpu(PyObject* self, PyObject* a
     hipMemcpy(H_aii_dev, H_aii_host, sizeof(double*) * nA, hipMemcpyHostToDevice);
 
     gpuDoubleComplex* H_nn_dev = Array_DATA(H_nn_obj);
-    gpuDeviceSynchronize(); // Is needed?
 
     multiple_low_rank_rect_sqr_rect_updates_launch_kernel(nN, nA, ni_a_dev, P_ani_dev, H_aii_dev, H_nn_dev);
     gpuDeviceSynchronize(); // Is needed?
