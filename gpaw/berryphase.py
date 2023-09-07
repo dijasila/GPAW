@@ -41,8 +41,12 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         print(M, calc.get_magnetic_moment())
     nvalence = calc.wfs.setups.nvalence
     nocc_s = [int((nvalence + M) / 2), int((nvalence - M) / 2)]
-    assert np.allclose(np.sum(nocc_s), nvalence)
     nocc = nocc_s[spin]
+    if not calc.wfs.collinear:
+        nocc = nvalence
+    else:
+        assert np.allclose(np.sum(nocc_s), nvalence)
+
 
     bands = list(range(nocc))
     kpts_kc = calc.get_bz_k_points()
@@ -63,17 +67,23 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         # Since symmetry is off this should always hold
         assert np.allclose(k_c, ik_c)
         kpt = wfs.kpt_qs[ik][spin]
-        psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(nocc, wfs.dtype)
 
         # Check that all states are occupied
         assert np.all(kpt.f_n[:nocc] > 1e-6)
         N_c = wfs.gd.N_c
 
+        ut_nR = []
+        psit_nG = kpt.psit_nG
         for n in range(nocc):
-            ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
-        u_knR.append(ut_nR)
+            if wfs.collinear:
+                ut_nR.append(wfs.pd.ifft(psit_nG[n], ik))
+            else:
+                ut0_R = wfs.pd.ifft(psit_nG[n][0], ik)
+                ut1_R = wfs.pd.ifft(psit_nG[n][1], ik)
+                # Here R includes a spinor index
+                ut_nR.append([ut0_R, ut1_R])
 
+        u_knR.append(ut_nR)
         proj_k.append(kpt.projections)
 
     indices_kkk = np.arange(Nk).reshape(size)
@@ -94,8 +104,8 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             else:
                 k2 = indices_k[0]
                 G_c[dir] = 1
-            u1_nR = u_knR[k1]
-            u2_nR = u_knR[k2]
+            u1_nR = np.array(u_knR[k1])
+            u2_nR = np.array(u_knR[k2])
             k1_c = kpts_kc[k1]
             k2_c = kpts_kc[k2] + G_c
 
@@ -160,7 +170,9 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             msg = 'Warning wrong phase: phase={}, 2dphase={}'
             print(msg.format(phase, phase2d))
 
-    return indices_kk, phases
+    phases = np.array(phases) * (1 + wfs.collinear) / wfs.nspins
+
+    return indices_kk, phases.tolist()
 
 
 def get_polarization_phase(calc):
@@ -207,7 +219,6 @@ def get_polarization_phase(calc):
         for spin in range(nspins):
             phases = data[str(c)][str(spin)]
             phase_c[c] += np.sum(phases) / len(phases)
-    phase_c = phase_c * 2 / nspins
 
     print(phase_c)
     Z_a = data['Z_a']
