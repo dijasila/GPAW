@@ -305,15 +305,17 @@ __global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI,
                                       gpuDoubleComplex* outP_ani_dev)
 {
     int n1 = threadIdx.x + blockIdx.x * blockDim.x;
+    printf("Hello from the kernel nA = %d\n", nA);
     if (n1 < nn) {
         double* dH_ii = dH_aii_dev;
         int I = 0;        
         for (int a=0; a< nA; a++)
         {
+            printf("%d / %d\n", a, nA);
             int ni = ni_a[a];
             for (int i=0; i< ni; i++)
             {
-                gpuDoubleComplex* outP_ni = outP_ani_dev + n1 * nI + I + i;
+                gpuDoubleComplex* outP_ni = outP_ani_dev + n1 * nI + I;
 
                 gpuDoubleComplex result = make_gpuDoubleComplex(0.0, 0.0);
                 for (int i2=0; i2 < ni; i2++)
