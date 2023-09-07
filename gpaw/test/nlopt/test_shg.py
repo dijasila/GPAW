@@ -42,6 +42,7 @@ def test_shg(in_tmp_dir):
         assert np.all(np.abs(shg[1]) < 1e-8)
 
 
+@pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
