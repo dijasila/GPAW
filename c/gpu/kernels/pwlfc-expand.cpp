@@ -17,7 +17,7 @@ __global__ void pw_insert_many_16(int nb,
     if (threadIdx.y == 0)
         locQ_G[threadIdx.x] = Q_G[G];
     __syncthreads();
-    
+
     if ((G < nG) && (b < nb))
     {
         npy_int32 Q = locQ_G[threadIdx.x];
@@ -58,42 +58,6 @@ __global__ void pw_insert_16(int nG,
         tmp_Q[Q_G[G]] = gpuCmulD(c_G[G], scale);
 }
 
-/*
-__global__ void _pw_insert_8(int nG,
-                             int nQ,
-                             double* c_G,
-                             npy_int32* Q_G,
-                             double scale,
-                             double* tmp_Q)
-{
-    int G = threadIdx.x + blockIdx.x * blockDim.x;
-    if (G < nG)
-        tmp_Q[Q_G[G]] = c_G[G] * scale;
-}
-
-__global__ void _pw_insert_8_many(int nb,
-                                  int nG,
-                                  int nQ,
-                                  double* c_G,
-                                  npy_int32* Q_G,
-                                  double scale,
-                                  double* tmp_Q)
-{
-    int G = threadIdx.x + blockIdx.x * blockDim.x;
-    int b = threadIdx.y + blockIdx.y * blockDim.y;
-    __shared__ double locQ_G[16];
-    if (threadIdx.y == 0)
-        locQ_G[threadIdx.x] = c_G[G];
-    __syncthreads();
-    
-    if ((G < nG) && (b < nb))
-    {
-        npy_int32 Q = locQ_G[threadIdx.x];
-        tmp_Q[Q + b * nQ] = c_G[G + b * nG] * scale;
-    }
-}
-*/
-
 extern "C"
 void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
@@ -112,7 +76,7 @@ void add_to_density_gpu_launch_kernel(int nb,
 }
 
 extern "C"
-void pw_insert_gpu_launch_kernel(int itemsize,
+void pw_insert_gpu_launch_kernel(
                              int nb,
                              int nG,
                              int nQ,
@@ -121,35 +85,28 @@ void pw_insert_gpu_launch_kernel(int itemsize,
                              double scale,
                              double* tmp_nQ)
 {
-    if (itemsize == 16)
+    if (nb == 1)
     {
-        if (nb == 1)
-        {
-           gpuLaunchKernel(pw_insert_16,
-                           dim3((nG+15)/16, (nb+15)/16),
-                           dim3(16, 16),
-                           0, 0,
-                           nG, nQ,
-                           (gpuDoubleComplex*) c_nG, Q_G,
-                           scale,
-                           (gpuDoubleComplex*) tmp_nQ);
-        }
-        else
-        {
-           gpuLaunchKernel(pw_insert_many_16,
-                           dim3((nG+15)/16, (nb+15)/16),
-                           dim3(16, 16),
-                           0, 0,
-                           nb, nG, nQ,
-                           (gpuDoubleComplex*) c_nG,
-                           Q_G,
-                           scale,
-                           (gpuDoubleComplex*) tmp_nQ);
-        }
+       gpuLaunchKernel(pw_insert_16,
+                       dim3((nG+15)/16, (nb+15)/16),
+                       dim3(16, 16),
+                       0, 0,
+                       nG, nQ,
+                       (gpuDoubleComplex*) c_nG, Q_G,
+                       scale,
+                       (gpuDoubleComplex*) tmp_nQ);
     }
     else
     {
-        assert(0);
+       gpuLaunchKernel(pw_insert_many_16,
+                       dim3((nG+15)/16, (nb+15)/16),
+                       dim3(16, 16),
+                       0, 0,
+                       nb, nG, nQ,
+                       (gpuDoubleComplex*) c_nG,
+                       Q_G,
+                       scale,
+                       (gpuDoubleComplex*) tmp_nQ);
     }
 }
 
