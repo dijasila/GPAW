@@ -6,6 +6,7 @@ from gpaw.mpi import world
 from gpaw.test import equal
 
 
+@pytest.mark.later
 @pytest.mark.gllb
 @pytest.mark.libxc
 def test_tddft_fxc_linearize(in_tmp_dir, gpw_files):

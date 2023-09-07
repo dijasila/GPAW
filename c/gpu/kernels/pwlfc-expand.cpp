@@ -1,5 +1,115 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
+#include "numpy/arrayobject.h"
+#include "assert.h"
+
+__global__ void pw_insert_many_16(int nb,
+                                  int nG,
+                                  int nQ,
+                                  gpuDoubleComplex* c_nG,
+                                  npy_int32* Q_G,
+                                  double scale,
+                                  gpuDoubleComplex* tmp_nQ)
+{
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    int b = threadIdx.y + blockIdx.y * blockDim.y;
+    __shared__ npy_int32 locQ_G[16];
+    if (threadIdx.y == 0)
+        locQ_G[threadIdx.x] = Q_G[G];
+    __syncthreads();
+
+    if ((G < nG) && (b < nb))
+    {
+        npy_int32 Q = locQ_G[threadIdx.x];
+        tmp_nQ[Q + b * nQ] = gpuCmulD(c_nG[G + b * nG], scale);
+    }
+}
+
+__global__ void add_to_density_16(int nb,
+                                  int nR,
+                                  double* f_n,
+                                  gpuDoubleComplex* psit_nR,
+                                  double* rho_R)
+{
+    //int b = threadIdx.x + blockIdx.x * blockDim.x;
+    int R = threadIdx.x + blockIdx.x * blockDim.x;
+    if (R < nR)
+    {
+        double rho = 0.0;
+        for (int b=0; b< nb; b++)
+        {
+            int idx = b * nR + R;
+            rho += f_n[b] * (psit_nR[idx].x * psit_nR[idx].x + psit_nR[idx].y * psit_nR[idx].y);
+        }
+        rho_R[R] += rho;
+    }
+}
+
+
+__global__ void pw_insert_16(int nG,
+                             int nQ,
+                             gpuDoubleComplex* c_G,
+                             npy_int32* Q_G,
+                             double scale,
+                             gpuDoubleComplex* tmp_Q)
+{
+    int G = threadIdx.x + blockIdx.x * blockDim.x;
+    if (G < nG)
+        tmp_Q[Q_G[G]] = gpuCmulD(c_G[G], scale);
+}
+
+extern "C"
+void add_to_density_gpu_launch_kernel(int nb,
+                                      int nR,
+                                      double* f_n,
+                                      gpuDoubleComplex* psit_nR,
+                                      double* rho_R)
+{
+    gpuLaunchKernel(add_to_density_16,
+                    dim3((nR+255)/256),
+                    dim3(256),
+                    0, 0,
+                    nb, nR,
+                    f_n,
+                    psit_nR,
+                    rho_R);
+}
+
+extern "C"
+void pw_insert_gpu_launch_kernel(
+                             int nb,
+                             int nG,
+                             int nQ,
+                             double* c_nG,
+                             npy_int32* Q_G,
+                             double scale,
+                             double* tmp_nQ)
+{
+    if (nb == 1)
+    {
+       gpuLaunchKernel(pw_insert_16,
+                       dim3((nG+15)/16, (nb+15)/16),
+                       dim3(16, 16),
+                       0, 0,
+                       nG, nQ,
+                       (gpuDoubleComplex*) c_nG, Q_G,
+                       scale,
+                       (gpuDoubleComplex*) tmp_nQ);
+    }
+    else
+    {
+       gpuLaunchKernel(pw_insert_many_16,
+                       dim3((nG+15)/16, (nb+15)/16),
+                       dim3(16, 16),
+                       0, 0,
+                       nb, nG, nQ,
+                       (gpuDoubleComplex*) c_nG,
+                       Q_G,
+                       scale,
+                       (gpuDoubleComplex*) tmp_nQ);
+    }
+}
+
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
                                        gpuDoubleComplex *emiGR_Ga,
