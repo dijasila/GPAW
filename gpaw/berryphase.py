@@ -47,7 +47,6 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     else:
         assert np.allclose(np.sum(nocc_s), nvalence)
 
-
     bands = list(range(nocc))
     kpts_kc = calc.get_bz_k_points()
     size = get_monkhorst_pack_size_and_offset(kpts_kc)[0]
