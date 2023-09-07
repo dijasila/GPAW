@@ -10,8 +10,8 @@ from gpaw.new.c import GPU_AWARE_MPI
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('pbc', [True, False])
-def test_fd_laplace(gpu, pbc):
-    if gpu and world > 1 and not GPU_AWARE_MPI:
+def test_fd_laplace(pbc):
+    if world > 1 and not GPU_AWARE_MPI:
         pytest.skip('Does not work at the moment. Maybe MPI is not GPU-aware?')
     if world.size > 4:
         # Grid is so small that domain decomposition cannot exceed 4 domains
