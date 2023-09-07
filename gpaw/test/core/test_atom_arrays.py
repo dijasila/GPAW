@@ -1,4 +1,5 @@
 import numpy as np
+import cupy as cp
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.mpi import world
 import _gpaw
@@ -48,14 +49,47 @@ def test_gather():
     for a, D_sii in D2_asii.items():
         assert D_sii[0, 0, 0] == a + 1
 
+def primes():
+    count = 3
+    
+    while True:
+        isprime = True
+        
+        for x in range(2, int(math.sqrt(count) + 1)):
+            if count % x == 0: 
+                isprime = False
+                break
+        
+        if isprime:
+            yield count
+        
+        count += 1
 
-def test_dh():
-    ni_a = np.arange(2, 5, dtype=np.int32)
-    dH_asii = AtomArraysLayout([(n, n) for n in ni_a]).empty(1)
-    dH_asii.data[:] = 2.0
-    P_ani = AtomArraysLayout(ni_a, dtype=complex).empty(20)
-    P_ani.data[:] = 1.0 + 2.0j
+def test_dh(xp):
+    ni_a = [2, 3, 4] #np.arange(2, 5, dtype=xp.int32)
+    dH_asii = AtomArraysLayout([(n, n) for n in ni_a], xp=xp).empty()
+    primeiter = primes()
+    dH_asii.data[:] = xp.arange(1, 2**2+3**2+4**2+1)
+    P_ani = AtomArraysLayout(ni_a, dtype=complex, xp=xp).empty(2)
+    P_ani.data[:] = 0.0
+    for n in range(2):
+        I = 0
+        for a, ni in enumerate(ni_a):
+            for i in range(ni):
+                if a == 1 and n == 1:
+                    P_ani.data[n, I] = i + 1
+                I += 1
+
     out_ani = P_ani.new()
+    out_ani[0][:] = 100
+    out_ani[1][:] = 200
+    out_ani[2][:] = 300
     _gpaw.dH_aii_times_P_ani_gpu(
-        dH_asii.data[0], ni_a, P_ani.data, out_ani.data)
+        dH_asii.data, xp.asarray(ni_a), P_ani.data, out_ani.data)
     print(out_ani.data)
+    out2_ani = out_ani.new()
+    for a, dH_ii in dH_asii.items():
+        out2_ani[a][:] = P_ani[a] @ dH_ii
+    print(out2_ani.data)
+
+test_dh(cp)

@@ -50,6 +50,14 @@ class Potential:
                 assert out_ani.data.flags.c_contiguous
                 _gpaw.dH_aii_times_P_ani_gpu(self.dH_asii.data[spin], ni_a,
                                              P_ani.data, out_ani.data)
+
+                out2_ani = out_ani.new()
+                for (a, P_ni), out_ni in zips(P_ani.items(), out2_ani.values()):
+                    dH_ii = self.dH_asii[a][spin]
+                    out2_ani[a][:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
+                print('out_ani', out_ani.data)
+                print('out2_ani', out2_ani.data)
+                assert xp.allclose(out_ani.data, out2_ani.data)
             return
 
         # Non-collinear wave functions:
