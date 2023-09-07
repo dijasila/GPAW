@@ -319,7 +319,7 @@ __global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI,
                 gpuDoubleComplex* P_ni = P_ani_dev + n1 * nI + Istart;
                 for (int i2=0; i2 < ni; i2++)
                 {
-                   printf("%d %d %d %d %g\n", n1, a, i, i2, dH_ii[i2 * ni + i]);
+                   //printf("%d %d %d %d %g\n", n1, a, i, i2, dH_ii[i2 * ni + i]);
                    gpuDoubleComplex item = gpuCmulD(*P_ni, dH_ii[i2 * ni + i]);
                    result.x += item.x;
                    result.y += item.y;

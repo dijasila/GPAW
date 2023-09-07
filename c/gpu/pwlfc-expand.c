@@ -63,10 +63,10 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     npy_int32* ni_a = Array_DATA(ni_a_obj);
     if (!ni_a) return;
 
-    //assert(Array_ITEMSIZE(P_ani_obj) == 16);
-    //assert(Array_ITEMSIZE(outP_ani_obj) == 16);
-    //assert(Array_ITEMSIZE(dH_aii_dev) == 8);
-    //assert(Array_ITEMSIZE(ni_a_obj) == 4);
+    assert(Array_ITEMSIZE(P_ani_obj) == 16);
+    assert(Array_ITEMSIZE(outP_ani_obj) == 16);
+    assert(Array_ITEMSIZE(dH_aii_obj) == 8);
+    assert(Array_ITEMSIZE(ni_a_obj) == 4);
 
     //printf("ni_a"); print_array_info(ni_a_obj);
     //printf("dH_aii"); print_array_info(dH_aii_obj);
