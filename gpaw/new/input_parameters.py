@@ -34,7 +34,7 @@ def update_dict(default: dict, value: dict | None) -> dict[str, Any]:
     """
     dct = default.copy()
     if value is not None:
-        if not (value.keys() <= default.keys()):
+        if not value.keys() <= default.keys():
             key = (value.keys() - default.keys()).pop()
             raise ValueError(
                 f'Unknown key: {key!r}. Must be one of {", ".join(default)}')
@@ -68,8 +68,6 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
-            if key == 'fixdensity':
-                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
@@ -90,6 +88,8 @@ class InputParameters:
         if self.experimental is not None:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
+            if self.experimental.pop('reuse_wfs_method', None) is not None:
+                warnings.warn('Ignoring "reuse_wfs_method".')
             if 'soc' in self.experimental:
                 warnings.warn('Please use new "soc" parameter.',
                               DeprecatedParameterWarning)
@@ -98,7 +98,11 @@ class InputParameters:
                 warnings.warn('Please use new "magmoms" parameter.',
                               DeprecatedParameterWarning)
                 self.magmoms = self.experimental.pop('magmoms')
+                self.keys.append('magmoms')
+                self.keys.sort()
             assert not self.experimental
+            self.keys.remove('experimental')
+            self.__dict__.pop('experimental')
 
         if self.mode.get('name') is None:
             if warn:
@@ -193,11 +197,11 @@ def kpts(value=None) -> dict[str, Any]:
     if value is None:
         value = {'size': (1, 1, 1)}
     elif not isinstance(value, dict):
-        kpts = np.array(value)
-        if kpts.shape == (3,):
-            value = {'size': kpts}
+        array = np.array(value)
+        if array.shape == (3,):
+            value = {'size': array}
         else:
-            value = {'kpts': kpts}
+            value = {'kpts': array}
     return value
 
 
@@ -241,10 +245,6 @@ def occupations(value=None):
 
 @input_parameter
 def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
-    if value is not None and 'world' in value:
-        warnings.warn(('Please use communicator=... '
-                       'instead of parallel={''world'': ...}'),
-                      DeprecatedParameterWarning)
     dct = update_dict({'kpt': None,
                        'domain': None,
                        'band': None,
@@ -260,7 +260,6 @@ def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None,  # deprecated
                        'gpu': False},
                       value)
     return dct

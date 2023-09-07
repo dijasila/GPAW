@@ -10,7 +10,7 @@ from gpaw.core.atom_centered_functions import AtomArrays as AA
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -54,10 +54,11 @@ class Davidson(Eigensolver):
         assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
         B = ibzwfs.nbands
+        b = max(wfs.n2 - wfs.n1 for wfs in ibzwfs)
         domain_comm = wfs.psit_nX.desc.comm
         band_comm = wfs.band_comm
         shape = ibzwfs.get_max_shape()
-        shape = (2, B) + shape
+        shape = (2, b) + shape
         dtype = wfs.psit_nX.data.dtype
         self.work_arrays = xp.empty(shape, dtype)
 
@@ -92,16 +93,17 @@ class Davidson(Eigensolver):
 
         dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply, state.potential.vt_sR)
+        Ht = partial(hamiltonian.apply,
+                     state.potential.vt_sR, state.potential.dedtaut_sR)
         ibzwfs = state.ibzwfs
         error = 0.0
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
-        for wfs, weight_n in zip(ibzwfs, weight_un):
+        for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS, weight_n):
         H_NN = self.H_NN
@@ -111,11 +113,12 @@ class Davidson(Eigensolver):
         xp = M_nn.xp
 
         psit_nX = wfs.psit_nX
-        psit2_nX = psit_nX.new(data=self.work_arrays[0])
-        psit3_nX = psit_nX.new(data=self.work_arrays[1])
-
         B = psit_nX.dims[0]  # number of bands
         eig_N = xp.empty(2 * B)
+        b = psit_nX.mydims[0]
+
+        psit2_nX = psit_nX.new(data=self.work_arrays[0, :b])
+        psit3_nX = psit_nX.new(data=self.work_arrays[1, :b])
 
         wfs.subspace_diagonalize(Ht, dH,
                                  work_array=psit2_nX.data,
@@ -157,7 +160,7 @@ class Davidson(Eigensolver):
 
         for i in range(self.niter):
             if i == self.niter - 1:  # last iteration
-                # Calulate error before we destroy residuals:
+                # Calculate error before we destroy residuals:
                 if weight_n is None:
                     error = np.inf
                 else:
@@ -243,11 +246,11 @@ def calculate_residuals(residual_nX: DA,
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zip(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zip(residual_nX.data, eig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             r -= p * e
 
     dH(wfs.P_ani, P1_ani)
@@ -284,22 +287,23 @@ def calculate_weights(converge_bands: int | str,
             weight_un.append(weight_n)
         return weight_un
 
-    assert ibzwfs.band_comm.size == 1, 'not implemented!'
-
     if converge_bands == 'all':
-        return [np.ones(nbands)] * nu
+        converge_bands = nbands
 
     if isinstance(converge_bands, int):
         # Converge fixed number of bands:
         n = converge_bands
-
+        if n < 0:
+            n += nbands
+            assert n >= 0
         for wfs in ibzwfs:
-            weight_n = np.zeros(nbands)
-            if n < 0:
-                n += nbands
-            weight_n[:n] = 1.0
+            weight_n = np.zeros(wfs.n2 - wfs.n1)
+            m = max(wfs.n1, min(n, wfs.n2)) - wfs.n1
+            weight_n[:m] = 1.0
             weight_un.append(weight_n)
         return weight_un
+
+    assert ibzwfs.band_comm.size == 1, 'not implemented!'
 
     # Converge states with energy up to CBM + delta:
     assert converge_bands.startswith('CBM+')

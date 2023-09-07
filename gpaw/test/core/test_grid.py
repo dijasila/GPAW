@@ -2,7 +2,7 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw.core import UniformGrid, PlaneWaves
+from gpaw.core import UGDesc, PWDesc
 from gpaw.fd_operators import Laplace
 from gpaw.mpi import world
 
@@ -11,7 +11,7 @@ from gpaw.mpi import world
 def test_redist():
     a = 2.5
     n = 2
-    grid1 = UniformGrid(cell=[a, a, a], size=(n, n, n), comm=world)
+    grid1 = UGDesc(cell=[a, a, a], size=(n, n, n), comm=world)
     f1 = grid1.empty()
     f1.data[:] = world.rank + 1
     f2 = f1.gather()
@@ -26,10 +26,10 @@ def test_redist():
 
 def test_complex_laplace():
     a = 2.5
-    grid = UniformGrid(cell=[a, a, a],
-                       size=(24, 8, 8),
-                       kpt=[1 / 3, 0, 0],
-                       comm=world)
+    grid = UGDesc(cell=[a, a, a],
+                  size=(24, 8, 8),
+                  kpt=[1 / 3, 0, 0],
+                  comm=world)
     f = grid.empty()
     f.data[:] = 1.0
     f.multiply_by_eikr()
@@ -44,7 +44,7 @@ def test_complex_laplace():
 def test_moment():
     L = 5
     n = 20
-    grid = UniformGrid(cell=[L, L, L], size=(n, n, n), comm=world)
+    grid = UGDesc(cell=[L, L, L], size=(n, n, n), comm=world)
     f = grid.zeros()
 
     # P-type Gaussian:
@@ -76,7 +76,7 @@ def test_moment():
     assert abs(f.integrate()) < 1e-14
     assert f.moment() == pytest.approx([0, moment, 0])
 
-    pw = PlaneWaves(cell=grid.cell, ecut=700, comm=world)
+    pw = PWDesc(cell=grid.cell, ecut=700, comm=world)
     f2 = f.fft(pw=pw)
 
     assert abs(f2.integrate()) < 1e-14
