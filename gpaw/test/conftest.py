@@ -1394,7 +1394,8 @@ def all_gpw_files(request, gpw_files, pytestconfig):
 
     # TODO This xfail-information should probably live closer to the
     # gpwfile definitions and not here in the fixture.
-    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw'}
+    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw',
+                   'sih4_xc_gllbsc'}
     if gpaw_new and request.param in skip_if_new:
         pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
 
