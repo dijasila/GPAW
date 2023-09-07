@@ -39,8 +39,8 @@ def asarray(a):
     return ndarray(np.array(a))
 
 
-def array(a):
-    return ndarray(np.array(a))
+def array(a, dtype=None):
+    return ndarray(np.array(a, dtype))
 
 
 def multiply(a, b, c):

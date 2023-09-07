@@ -35,31 +35,7 @@ class Potential:
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
-            xp = P_ani.layout.xp
-            if xp is np:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
-            else:
-                ni_a = xp.array(
-                    [I2 - I1 for a, I1, I2 in P_ani.layout.myindices],
-		    dtype=np.int32)
-                assert self.dH_asii.data[spin].flags.c_contiguous
-                assert ni_a.flags.c_contiguous
-                assert P_ani.data.flags.c_contiguous
-                assert out_ani.data.flags.c_contiguous
-                ni_a = xp.asarray(ni_a, dtype=xp.int32)
-                xp.cuda.runtime.deviceSynchronize()
-                _gpaw.dH_aii_times_P_ani_gpu(self.dH_asii.data[spin], ni_a,
-                                             P_ani.data, out_ani.data)
-
-                """out2_ani = out_ani.new()
-                for (a, P_ni), out_ni in zips(P_ani.items(), out2_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    out2_ani[a][:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
-                print('out_ani', out_ani.data)
-                print('out2_ani', out2_ani.data)
-                assert xp.allclose(out_ani.data, out2_ani.data)"""
+            P_ani.multiply(self.dH_asii[:, spin], out_ani)
             return
 
         # Non-collinear wave functions:

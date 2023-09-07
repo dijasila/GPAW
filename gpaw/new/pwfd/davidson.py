@@ -91,7 +91,8 @@ class Davidson(Eigensolver):
 
         assert self.M_nn is not None
 
-        dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
+        wfs = state.ibzwfs.wfs_qs[0][0]
+        dS_aii = wfs.setups.get_overlap_corrections(wfs.P_ani.layout.atomdist)
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR, state.potential.dedtaut_sR)
@@ -101,11 +102,11 @@ class Davidson(Eigensolver):
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
         for wfs, weight_n in zips(ibzwfs, weight_un):
-            e = self.iterate1(wfs, Ht, dH, dS, weight_n)
+            e = self.iterate1(wfs, Ht, dH, dS_aii, weight_n)
             error += wfs.weight * e
         return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
 
-    def iterate1(self, wfs, Ht, dH, dS, weight_n):
+    def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
         S_NN = self.S_NN
         M_nn = self.M_nn
@@ -149,7 +150,7 @@ class Davidson(Eigensolver):
         Ht = partial(Ht, out=residual_nX, spin=wfs.spin)
         dH = partial(dH, spin=wfs.spin)
 
-        calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
+        calculate_residuals(residual_nX, dH, dS_aii, wfs, P2_ani, P3_ani)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
@@ -187,7 +188,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            dS(P2_ani, out_ani=P3_ani)
+            P2_ani.multiply(dS_aii, out=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
@@ -231,14 +232,15 @@ class Davidson(Eigensolver):
 
             if i < self.niter - 1:
                 Ht(psit_nX)
-                calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
+                calculate_residuals(
+                    residual_nX, dH, dS_aii, wfs, P2_ani, P3_ani)
 
         return error
 
 
 def calculate_residuals(residual_nX: DA,
                         dH: AAFunc,
-                        dS: AAFunc,
+                        dS_aii: AAFunc,
                         wfs: PWFDWaveFunctions,
                         P1_ani: AA,
                         P2_ani: AA) -> None:
@@ -262,7 +264,7 @@ def calculate_residuals(residual_nX: DA,
         np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
     else:
         P2_ani.data[:] = xp.einsum(subscripts, wfs.P_ani.data, eig_n)
-    dS(P2_ani, P2_ani)
+    P2_ani.multiply(dS_aii, out=P2_ani)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residual_nX, P1_ani)
 

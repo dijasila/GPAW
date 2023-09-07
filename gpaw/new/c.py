@@ -61,6 +61,11 @@ def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
     raise NotImplementedError
 
 
+def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
+                           P_nI, out_nI):
+    1 / 0
+
+
 def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
     raise NotImplementedError
 
