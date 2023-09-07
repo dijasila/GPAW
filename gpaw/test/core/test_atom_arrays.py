@@ -85,11 +85,12 @@ def test_dh(xp):
     out_ani[1][:] = 200
     out_ani[2][:] = 300
     _gpaw.dH_aii_times_P_ani_gpu(
-        dH_asii.data, xp.asarray(ni_a), P_ani.data, out_ani.data)
-    print(out_ani.data)
+        dH_asii.data, xp.asarray(ni_a, dtype=xp.int32), P_ani.data, out_ani.data)
     out2_ani = out_ani.new()
     for a, dH_ii in dH_asii.items():
         out2_ani[a][:] = P_ani[a] @ dH_ii
-    print(out2_ani.data)
+    print(out_ani.data, 'gpu')
+    print(out2_ani.data, 'ref')
+    print(out2_ani.data - out_ani.data, 'diff')
 
 test_dh(cp)
