@@ -100,5 +100,3 @@ def test_minimal_box_mixed_pbc():
     atoms.minimal_box(box,h='periodic')
     
     assert atoms.cell[0,0] == pytest.approx(7)
-    
-test_minimal_box_mixed_pbc()
