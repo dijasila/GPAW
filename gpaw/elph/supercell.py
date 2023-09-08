@@ -262,7 +262,7 @@ class Supercell:
                     g_sNMNM = g_sMM.reshape((nspins, N, nao_cell, N, nao_cell))
                     g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                     handle.save(g_sNNMM)
-                if i == 0 and v == 0:
+                if xinput == 0:
                     with supercell_cache.lock("info") as handle:
                         if handle is not None:
                             info = {
