@@ -153,8 +153,11 @@ class Density:
         for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
             old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
 
-        self.nct_aX.change_cell(new_pw)
-        self.tauct_aX.change_cell(new_pw)
+        pw = PWDesc(ecut=self.nct_aX._lfc.pw.ecut,
+                    cell=new_grid.cell,
+                    comm=new_grid.comm)
+        self.nct_aX.change_cell(pw)
+        self.tauct_aX.change_cell(pw)
 
         return Density(
             new_nt_sR,
