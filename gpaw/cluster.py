@@ -69,8 +69,8 @@ class Cluster(Atoms):
             extr[0][c] -= b[c]
             extr[1][c] += b[c] - extr[0][c]  # shifted already
 
-        pbc = self.get_pbc()
-        old_cell = self.get_cell()
+        pbc = self.pbc
+        old_cell = self.cell
         if True in pbc:
             for ip, p in enumerate(pbc):
                 if p:
