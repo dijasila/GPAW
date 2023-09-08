@@ -86,7 +86,7 @@ class Cluster(Atoms):
                 h1 = 0
                 for ip, p in enumerate(pbc):
                     if p:
-                        h1 += extr[1][ip]/12
+                        h1 += extr[1][ip] / 12
                 h = [h1 / 2, h1 / 2, h1 / 2]
                 
             for c in range(3):
