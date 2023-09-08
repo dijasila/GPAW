@@ -727,7 +727,7 @@ PAW datasets or pseudopotentials
 --------------------------------
 
 The ``setups`` keyword is used to specify the name(s) of the setup files
-used in the calulation.
+used in the calculation.
 
 For a given element ``E``, setup name ``NAME``, and xc-functional
 'XC', GPAW looks for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
