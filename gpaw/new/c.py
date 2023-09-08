@@ -97,6 +97,7 @@ if not TYPE_CHECKING:
         pass
     try:
         from _gpaw import (  # noqa
-            pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu)
+            pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
+            dH_aii_times_P_ani_gpu)
     except ImportError:
         pass

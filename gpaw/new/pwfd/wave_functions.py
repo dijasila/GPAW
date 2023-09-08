@@ -181,7 +181,8 @@ class PWFDWaveFunctions(WaveFunctions):
         P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
-        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist)
+        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist,
+                                                     self.xp)
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)

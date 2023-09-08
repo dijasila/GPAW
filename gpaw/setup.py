@@ -1458,14 +1458,15 @@ class Setups(list):
             integral=sqrt(4 * pi),
             xp=xp)
 
-    def get_overlap_corrections(self, atomdist):
+    def get_overlap_corrections(self, atomdist, xp):
         if atomdist is getattr(self, '_atomdist', None):
             return self.dS_aii
         self._atomdist = atomdist
-        self.dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
-                                       atomdist=atomdist).empty()
-        for a, dS_ii in self.dS_aii.items():
+        dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
+                                  atomdist=atomdist).empty()
+        for a, dS_ii in dS_aii.items():
             dS_ii[:] = self[a].dO_ii
+        self.dS_aii = dS_aii.to_xp(xp)
         return self.dS_aii
 
     def partial_wave_corrections(self) -> list[list[Spline]]:

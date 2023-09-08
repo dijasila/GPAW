@@ -92,7 +92,8 @@ class Davidson(Eigensolver):
         assert self.M_nn is not None
 
         wfs = state.ibzwfs.wfs_qs[0][0]
-        dS_aii = wfs.setups.get_overlap_corrections(wfs.P_ani.layout.atomdist)
+        dS_aii = wfs.setups.get_overlap_corrections(wfs.P_ani.layout.atomdist,
+                                                    wfs.xp)
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR, state.potential.dedtaut_sR)
