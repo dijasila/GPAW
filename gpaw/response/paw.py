@@ -171,7 +171,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
 
 
 class PWPAWCorrectionData:
-    def __init__(self, Q_aGii, qpd, pawdatasets, pos_av):
+    def __init__(self, Q_aGii, qpd, pawdatasets, pos_av, atomrotations):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
@@ -182,17 +182,19 @@ class PWPAWCorrectionData:
         self.qpd = qpd
         self.pawdatasets = pawdatasets
         self.pos_av = pos_av
+        self.atomrotations = atomrotations
 
     def _new(self, Q_aGii):
         return PWPAWCorrectionData(Q_aGii, qpd=self.qpd,
                                    pawdatasets=self.pawdatasets,
-                                   pos_av=self.pos_av)
+                                   pos_av=self.pos_av,
+                                   atomrotations=self.atomrotations)
 
     def remap(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.pawdatasets[a].R_sii[sym]
+            U_ii = self.atomrotations.get_by_a(a).R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
                               U_ii,
@@ -233,7 +235,7 @@ class PWPAWCorrectionData:
         return True
 
 
-def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
+def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     r"""Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object.
 
@@ -258,4 +260,5 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
                                pawdatasets=pawdatasets,
-                               pos_av=pos_av)
+                               pos_av=pos_av,
+                               atomrotations=atomrotations)

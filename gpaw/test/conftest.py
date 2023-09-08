@@ -5,11 +5,12 @@ import functools
 
 import numpy as np
 import pytest
-from ase import Atoms
+from ase import Atoms, Atom
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
 from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
+from gpaw.poisson import FDPoissonSolver
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.utilities import devnull
@@ -108,8 +109,6 @@ def gpw_files(request):
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
-    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
-
     * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
       ``bn_pw``.
 
@@ -117,6 +116,9 @@ def gpw_files(request):
       ``hbn_pw``.
 
     * Graphene with 6x6x1 k-points: ``graphene_pw``
+
+    * I2Sb2 (Z2 topological insulator) with 6x6x1 k-points and no
+      symmetries: ``i2sb2_pw_nosym``
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
@@ -165,7 +167,14 @@ def gpw_files(request):
     """
     cache = request.config.cache
     gpaw_cachedir = cache.mkdir('gpaw_test_gpwfiles')
-    return GPWFiles(gpaw_cachedir)
+
+    gpwfiles = GPWFiles(gpaw_cachedir)
+
+    try:
+        setup_paths.append(gpwfiles.testing_setup_path)
+        yield gpwfiles
+    finally:
+        setup_paths.remove(gpwfiles.testing_setup_path)
 
 
 class Locked(FileExistsError):
@@ -214,6 +223,7 @@ def gpwfile(meth):
 
 class GPWFiles:
     """Create gpw-files."""
+
     def __init__(self, path: Path):
         self.path = path
 
@@ -277,6 +287,15 @@ class GPWFiles:
                        txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
+
+    @gpwfile
+    def be_atom_fd(self):
+        atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
+        atoms.center(vacuum=6)
+        calc = GPAW(mode='fd', h=0.35, symmetry={'point_group': False})
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
 
     @gpwfile
     def fcc_Ni_col(self):
@@ -369,6 +388,42 @@ class GPWFiles:
         return h.calc
 
     @gpwfile
+    def h_chain(self):
+        from gpaw.new.ase_interface import GPAW
+        a = 2.5
+        k = 4
+        """Compare 2*H AFM cell with 1*H q=1/2 spin-spiral cell."""
+        h = Atoms('H',
+                  magmoms=[1],
+                  cell=[a, 0, 0],
+                  pbc=[1, 0, 0])
+        h.center(vacuum=2.0, axis=(1, 2))
+        h.calc = GPAW(mode={'name': 'pw',
+                            'ecut': 400,
+                            'qspiral': [0.5, 0, 0]},
+                      magmoms=[[1, 0, 0]],
+                      symmetry='off',
+                      kpts=(2 * k, 1, 1))
+        h.get_potential_energy()
+        return h.calc
+
+    @gpwfile
+    def h2_chain(self):
+        a = 2.5
+        k = 4
+        h2 = Atoms('H2',
+                   [(0, 0, 0), (a, 0, 0)],
+                   magmoms=[1, -1],
+                   cell=[2 * a, 0, 0],
+                   pbc=[1, 0, 0])
+        h2.center(vacuum=2.0, axis=(1, 2))
+        h2.calc = GPAW(mode={'name': 'pw',
+                             'ecut': 400},
+                       kpts=(k, 1, 1))
+        h2.get_potential_energy()
+        return h2.calc
+
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
@@ -456,51 +511,59 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def ti2o4(self, symmetry):
-        pwcutoff = 400.0
+    @gpwfile
+    def h2o_xas(self):
+        from math import cos, pi, sin
+
+        setupname = 'h2o_xas_hch1s'
+        self.generator2_setup(
+            'O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
+            core_hole='1s,0.5',
+            name=setupname)
+
+        a = 5.0
+        d = 0.9575
+        t = pi / 180 * 104.51
+        H2O = Atoms(
+            [
+                Atom("O", (0, 0, 0)),
+                Atom("H", (d, 0, 0)),
+                Atom("H", (d * cos(t), d * sin(t), 0)),
+            ],
+            cell=(a, a, a),
+            pbc=False,
+        )
+        H2O.center()
+        calc = GPAW(
+            mode="fd",
+            nbands=10,
+            h=0.2,
+            setups={"O": "h2o_xas_hch1s"},
+            experimental={"niter_fixdensity": 2},
+            poissonsolver=FDPoissonSolver(use_charge_center=True),
+        )
+        H2O.calc = calc
+        _ = H2O.get_potential_energy()
+        return calc
+
+    @gpwfile
+    def si_fd_ibz(self):
+        si = bulk('Si', 'diamond', a=5.43)
         k = 4
-        a = 4.59
-        c = 2.96
-        u = 0.305
-
-        rutile_cell = [[a, 0, 0],
-                       [0, a, 0],
-                       [0, 0, c]]
-
-        TiO2_basis = np.array([[0.0, 0.0, 0.0],
-                               [0.5, 0.5, 0.5],
-                               [u, u, 0.0],
-                               [-u, -u, 0.0],
-                               [0.5 + u, 0.5 - u, 0.5],
-                               [0.5 - u, 0.5 + u, 0.5]])
-
-        bulk_crystal = Atoms(symbols='Ti2O4',
-                             scaled_positions=TiO2_basis,
-                             cell=rutile_cell,
-                             pbc=(1, 1, 1))
-
-        tag = '_nosym' if symmetry == 'off' else ''
-        bulk_calc = GPAW(mode=PW(pwcutoff),
-                         nbands=42,
-                         eigensolver=Davidson(1),
-                         kpts={'size': (k, k, k), 'gamma': True},
-                         xc='PBE',
-                         occupations=FermiDirac(0.00001),
-                         parallel={'band': 1},
-                         symmetry=symmetry,
-                         txt=self.path / f'ti2o4_pw{tag}.txt')
-
-        bulk_crystal.calc = bulk_calc
-        bulk_crystal.get_potential_energy()
-        return bulk_calc
+        si.calc = GPAW(mode='fd', kpts=(k, k, k), txt='Si-ibz.txt')
+        si.get_potential_energy()
+        return si.calc
 
     @gpwfile
-    def ti2o4_pw(self):
-        return self.ti2o4({})
-
-    @gpwfile
-    def ti2o4_pw_nosym(self):
-        return self.ti2o4('off')
+    def si_fd_bz(self):
+        si = bulk('Si', 'diamond', a=5.43)
+        k = 4
+        si.calc = GPAW(mode='fd', kpts=(k, k, k,),
+                       symmetry={'point_group': False,
+                                 'time_reversal': False},
+                       txt='Si-bz.txt')
+        si.get_potential_energy()
+        return si.calc
 
     @gpwfile
     def si_pw(self):
@@ -513,6 +576,91 @@ class GPWFiles:
         si.calc = calc
         si.get_potential_energy()
         return si.calc
+
+    @property
+    def testing_setup_path(self):
+        # Some calculations in gpwfile fixture like to use funny setups.
+        # This is not so robust since the setups will be all jumbled.
+        # We could improve the mechanism by programmatic naming/subfolders.
+        return self.path / 'setups'
+
+    def save_setup(self, setup):
+        self.testing_setup_path.mkdir(parents=True, exist_ok=True)
+        setup_file = self.testing_setup_path / setup.stdfilename
+        if world.rank == 0:
+            setup.write_xml(setup_file)
+        world.barrier()
+        return setup
+
+    def generate_setup(self, *args, **kwargs):
+        from gpaw.test import gen
+        setup = gen(*args, **kwargs, write_xml=False)
+        self.save_setup(setup)
+        return setup
+
+    def generator2_setup(self, *args, name, **kwargs):
+        from gpaw.atom.generator2 import generate
+        gen = generate(*args, **kwargs)
+        setup = gen.make_paw_setup(name)
+        self.save_setup(setup)
+        return setup
+
+    @gpwfile
+    def si_corehole_pw(self):
+        # Generate setup for oxygen with half a core-hole:
+        setupname = 'si_corehole_pw_hch1s'
+        self.generate_setup('Si', name=setupname,
+                            corehole=(1, 0, 0.5), gpernode=30)
+
+        a = 2.6
+        si = Atoms('Si', cell=(a, a, a), pbc=True)
+
+        calc = GPAW(mode='fd',
+                    nbands=None,
+                    h=0.25,
+                    occupations=FermiDirac(width=0.05),
+                    setups='si_corehole_pw_hch1s',
+                    convergence={'maximum iterations': 1})
+        si.calc = calc
+        _ = si.get_potential_energy()
+        return si.calc
+
+    @gpwfile
+    def si_corehole_sym_pw(self):
+        setupname = 'si_corehole_sym_pw_hch1s'
+        self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                            gpernode=30)
+        return self.si_corehole_sym(sym={}, setupname=setupname)
+
+    @gpwfile
+    def si_corehole_nosym_pw(self):
+        setupname = 'si_corehole_sym_pw_hch1s'
+        # XXX same setup as above, but we have it twice since caching
+        # works per gpw file and not per setup
+        self.generate_setup('Si', name=setupname, corehole=(1, 0, 0.5),
+                            gpernode=30)
+        return self.si_corehole_sym(sym='off', setupname=setupname)
+
+    def si_corehole_sym(self, sym, setupname):
+        a = 5.43095
+        si_nonortho = Atoms(
+            [Atom("Si", (0, 0, 0)), Atom("Si", (a / 4, a / 4, a / 4))],
+            cell=[(a / 2, a / 2, 0), (a / 2, 0, a / 2), (0, a / 2, a / 2)],
+            pbc=True,
+        )
+        # calculation with full symmetry
+        calc = GPAW(
+            mode="fd",
+            nbands=-10,
+            h=0.25,
+            kpts=(2, 2, 2),
+            occupations=FermiDirac(width=0.05),
+            setups={0: setupname},
+            symmetry=sym
+        )
+        si_nonortho.calc = calc
+        _ = si_nonortho.get_potential_energy()
+        return calc
 
     @gpwfile
     @with_band_cutoff(gpw='fancy_si_pw',
@@ -534,7 +682,7 @@ class GPWFiles:
             xc=xc,
             mode=PW(pw),
             kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-            nbands=band_cutoff + 12,  # + 2 * (4s, 3d),
+            nbands=band_cutoff + 12,  # + 2 * (3s, 3p),
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'fancy_si_pw{tag}.txt',
@@ -593,6 +741,70 @@ class GPWFiles:
         return self._sic_pw(spinpol=True)
 
     @gpwfile
+    def na2_fd(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'},
+                       symmetry={'point_group': False})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def na2_fd_with_sym(self):
+        """Sodium dimer, Na2."""
+        d = 1.5
+        atoms = Atoms(symbols='Na2',
+                      positions=[(0, 0, d),
+                                 (0, 0, -d)],
+                      pbc=False)
+
+        atoms.center(vacuum=6.0)
+        # Larger grid spacing, LDA is ok
+        gs_calc = GPAW(mode='fd', nbands=1, h=0.35, xc='LDA',
+                       setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def sih4_xc_gllbsc(self):
+        from ase.build import molecule
+        atoms = molecule('SiH4')
+        atoms.center(vacuum=4.0)
+
+        # Ground-state calculation
+        calc = GPAW(mode='fd', nbands=7, h=0.4,
+                    convergence={'density': 1e-8},
+                    xc='GLLBSC',
+                    symmetry={'point_group': False},
+                    txt='gs.out')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def nacl_fd(self):
+        d = 4.0
+        atoms = Atoms('NaCl', [(0, 0, 0), (0, 0, d)])
+        atoms.center(vacuum=4.5)
+
+        gs_calc = GPAW(
+            mode='fd', nbands=4, eigensolver='cg', gpts=(32, 32, 44), xc='LDA',
+            symmetry={'point_group': False}, setups={'Na': '1'})
+        atoms.calc = gs_calc
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
     def bn_pw(self):
         atoms = bulk('BN', 'zincblende', a=3.615)
         atoms.calc = GPAW(mode=PW(400),
@@ -636,6 +848,27 @@ class GPWFiles:
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           nbands=len(atoms) * 6,
                           txt=self.path / 'graphene_pw.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def i2sb2_pw_nosym(self):
+        # Structure from c2db
+        atoms = Atoms('I2Sb2',
+                      positions=[[0.02437357, 0.05048655, 6.11612164],
+                                 [0.02524896, 3.07135573, 11.64646853],
+                                 [0.02717742, 0.01556495, 8.89278807],
+                                 [0.02841809, 3.10675382, 8.86983839]],
+                      cell=[[5.055642258802973, -9.89475498615942e-15, 0.0],
+                            [-2.5278211265136266, 4.731999711338355, 0.0],
+                            [3.38028806436979e-15, 0.0, 18.85580293064]],
+                      pbc=(1, 1, 0))
+        atoms.calc = GPAW(mode=PW(250),
+                          xc='PBE',
+                          kpts={'size': (6, 6, 1), 'gamma': True},
+                          txt=self.path / 'i2sb2_pw_nosym.txt',
+                          symmetry='off')
+
         atoms.get_potential_energy()
         return atoms.calc
 
@@ -1161,7 +1394,8 @@ def all_gpw_files(request, gpw_files, pytestconfig):
 
     # TODO This xfail-information should probably live closer to the
     # gpwfile definitions and not here in the fixture.
-    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw'}
+    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw',
+                   'sih4_xc_gllbsc'}
     if gpaw_new and request.param in skip_if_new:
         pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
 

@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from gpaw.typing import Array1D, ArrayND
+from gpaw.gpu import cupy as cp
 
 __all__ = ['GPU_AWARE_MPI']
 
@@ -29,6 +30,14 @@ def pw_insert(coef_G: Array1D,
               array_Q: Array1D) -> None:
     array_Q[:] = 0.0
     array_Q.ravel()[Q_G] = x * coef_G
+
+
+def pw_insert_gpu(psit_nG,
+                  Q_G,
+                  scale,
+                  psit_bQ):
+    assert scale == 1.0
+    psit_bQ[:, Q_G] = psit_nG
 
 
 def pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
@@ -66,13 +75,20 @@ def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
     1 / 0
 
 
+def add_to_density_gpu(weight_n, psit_nR, nt_R):
+    for weight, psit_R in zip(weight_n, psit_nR):
+        nt_R += float(weight) * cp.abs(psit_R)**2
+
+
 def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
     raise NotImplementedError
 
 
 if not TYPE_CHECKING:
     try:
-        from _gpaw import add_to_density, pw_precond, pw_insert, pwlfc_expand, symmetrize_ft  # noqa
+        from _gpaw import (  # noqa
+            add_to_density, pw_precond, pw_insert,
+            pwlfc_expand, symmetrize_ft)
     except ImportError:
         pass
     try:
@@ -80,6 +96,7 @@ if not TYPE_CHECKING:
     except ImportError:
         pass
     try:
-        from _gpaw import pwlfc_expand_gpu  # noqa
+        from _gpaw import (  # noqa
+            pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu)
     except ImportError:
         pass

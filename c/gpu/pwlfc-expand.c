@@ -26,7 +26,7 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     int nsplines,
                                     bool cc);
 
-void pw_insert_gpu_launch_kernel(int itemsize,
+void pw_insert_gpu_launch_kernel(
                              int nb,
                              int nG,
                              int nQ,
@@ -149,7 +149,11 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
         nQ = Array_DIM(tmp_nQ_obj, 1);
     }
 
-    pw_insert_gpu_launch_kernel(16, nb, nG, nQ, c_nG, Q_G, scale, tmp_nQ);
+    pw_insert_gpu_launch_kernel(nb, nG, nQ,
+                                (double*)c_nG,
+                                Q_G,
+                                scale,
+                                (double*)tmp_nQ);
     Py_RETURN_NONE;
 }
 
@@ -167,8 +171,7 @@ PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
     int nb = Array_SIZE(f_n_obj);
     int nR = Array_SIZE(psit_nR_obj) / nb;
     assert(Array_ITEMSIZE(psit_nR_obj) == 16);
-    //assert(Array_ITEMSIZE(rho_nR_obj) == 8);
+    assert(Array_ITEMSIZE(rho_R_obj) == 8);
     add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R);
     Py_RETURN_NONE;
 }
-
