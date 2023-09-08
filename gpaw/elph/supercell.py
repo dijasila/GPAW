@@ -325,7 +325,7 @@ class Supercell:
             indices = np.arange(natom)
 
         x = 0
-        for i, a in enumerate(indices):
+        for a in indices:
             for v in "xyz":
                 name = "%d%s" % (a, v)
                 # Potential and atomic density matrix for atomic displacement

@@ -208,11 +208,12 @@ class ElectronPhononMatrix:
                                                        self.R_cN))
 
         # Do each cartesian component separately
-        for a in self.indices:
+        for i, a in enumerate(self.indices):
             for v in range(3):
-                x = 3 * a + v
+                xinput = 3 * a + v
+                xoutput = 3 * i + v
                 if not precalc:
-                    g_NNMM = self._yield_g_NNMM(x, s)
+                    g_NNMM = self._yield_g_NNMM(xinput, s)
                     assert nao == g_NNMM.shape[-1]
                     # some of these things take a long time. make it fast
                     with self.timer("g_MM"):
@@ -225,13 +226,13 @@ class ElectronPhononMatrix:
                         #                   g_MM, C1_nM)
                 else:
                     with self.timer("g_Mn"):
-                        g_Mn = np.einsum("mon,m->on", g_xNMn[x], phase_m)
+                        g_Mn = np.einsum("mon,m->on", g_xNMn[xoutput], phase_m)
                     with self.timer("g_nn"):
                         g_nn = np.dot(C2_nM.conj(), g_Mn)
                 with self.timer("g_lnn"):
                     # g_lnn += np.einsum('i,kl->ikl', u_lx[:, x], g_nn,
                     #                   optimize=OPTIMIZE)
-                    g_lnn += np.multiply.outer(u_lx[:, x], g_nn)
+                    g_lnn += np.multiply.outer(u_lx[:, xoutput], g_nn)
 
         # Multiply prefactor sqrt(hbar / 2 * M * omega) in units of Bohr
         if prefactor:
