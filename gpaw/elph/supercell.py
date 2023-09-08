@@ -46,6 +46,37 @@ class Supercell:
         self.atoms = atoms
         self.supercell_name = supercell_name
         self.supercell = supercell
+        self.indices = np.arange(len(atoms))
+
+    def set_atoms(self, atoms):
+        """Set the atoms to consider.
+
+        Parameters:
+
+        atoms: list
+            Can be either a list of strings, ints or ...
+        """
+
+        # Note: copied from ase/phonons avoid duplication.
+        # this is just for testing
+
+        assert isinstance(atoms, list)
+        assert len(atoms) <= len(self.atoms)
+
+        if isinstance(atoms[0], str):
+            assert np.all([isinstance(atom, str) for atom in atoms])
+            sym_a = self.atoms.get_chemical_symbols()
+            # List for atomic indices
+            indices = []
+            for type in atoms:
+                indices.extend([a for a, atom in enumerate(sym_a)
+                                if atom == type])
+        else:
+            assert np.all([isinstance(atom, int) for atom in atoms])
+            indices = atoms
+
+        self.indices = indices
+
 
     def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs,
                                    dH_asp) -> ArrayND:
@@ -57,6 +88,7 @@ class Supercell:
         nspins = wfs.nspins
         indices = np.arange(len(self.atoms))
 
+        # TODO: not sure if indices need to be considered here
         # Array for different k-point components
         g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao), dtype)
 
@@ -193,7 +225,7 @@ class Supercell:
         # Calculate < i k | grad H | j k >, i.e. matrix elements in LCAO basis
 
         # Do each cartesian component separately
-        for i, a in enumerate(np.arange(len(self.atoms))):
+        for i, a in enumerate(self.indices):
             for v in range(3):
                 # Corresponding array index
                 x = 3 * i + v
@@ -254,6 +286,7 @@ class Supercell:
             provides the required info as arguments.
 
         """
+        # TODO: restrict or not?
         assert len(args) in (1, 2)
         if len(args) == 1:
             calc = args[0]
@@ -290,7 +323,7 @@ class Supercell:
         dH1_xasp = []
 
         x = 0
-        for a in range(natom):
+        for i, a in enumerate(self.indices):
             for v in "xyz":
                 name = "%d%s" % (a, v)
                 # Potential and atomic density matrix for atomic displacement
@@ -303,6 +336,7 @@ class Supercell:
                 V1t_sG = (Vtp_sG - Vtm_sG) / (2 * delta / units.Bohr)
                 V1t_xsG.append(V1t_sG)
 
+                # TODO: do we need to restrict to indices indices?
                 dH1_asp = {}
                 for atom in dHm_asp.keys():
                     dH1_asp[atom] = (dHp_asp[atom] - dHm_asp[atom]) / (
@@ -322,6 +356,7 @@ class Supercell:
         name: str
             User specified name of the cache.
         """
+        # TODO: load by indices?
         supercell_cache = MultiFileJSONCache(name)
         if "sc_version" not in supercell_cache["info"]:
             print("Cache created with old version. Use electronphonon.py")
