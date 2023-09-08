@@ -9,7 +9,6 @@ from gpaw.core.domain import Domain as XDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
-import _gpaw
 
 
 class Potential:

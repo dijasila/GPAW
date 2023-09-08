@@ -9,7 +9,6 @@ from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
-import _gpaw
 from gpaw.new.c import dH_aii_times_P_ani_gpu
 
 
@@ -491,4 +490,4 @@ class AtomArrays:
             [I2 - I1 for a, I1, I2 in other.layout.myindices],
             dtype=np.int32)
         dH_aii_times_P_ani_gpu(other.data, ni_a,
-                                     self.data, out.data)
+                               self.data, out.data)
