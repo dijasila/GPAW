@@ -27,7 +27,7 @@ def test_pathological_numpy_zdotc_graphite():
                     (0, 0, 2 * c)],
                    scale_atoms=True)
 
-    calc = GPAW(gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
+    calc = GPAW(mode='fd', gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
 
     atoms.calc = calc
 

@@ -13,7 +13,8 @@ def test_ext_potential_constant_e_field(in_tmp_dir):
     """A proton in an electric field."""
     h = Atoms('H')
     h.center(vacuum=2.5)
-    h.calc = GPAW(external=ConstantElectricField(1.0),  # 1 V / Ang
+    h.calc = GPAW(mode='fd',
+                  external=ConstantElectricField(1.0),  # 1 V / Ang
                   charge=1,
                   txt='h.txt')
     e = h.get_potential_energy()
@@ -35,7 +36,7 @@ def test_ext_potential_constant_e_field(in_tmp_dir):
 def test_polarizability(in_tmp_dir):
     H2 = Atoms('H2', positions=[(0, 0, 0), (0.7, 0, 0)])
     H2.center(vacuum=2.5)
-    H2.calc = GPAW(symmetry={'point_group': False})
+    H2.calc = GPAW(mode='fd', symmetry={'point_group': False})
 
     strength = 0.1  # V/Ang
     alpha_cc = static_polarizability(H2, strength)

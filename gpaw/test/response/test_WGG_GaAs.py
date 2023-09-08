@@ -54,7 +54,7 @@ def test_Wsymm(in_tmp_dir, scalapack):
             txt, world=world,
             timer=None)
         truncation = None
-        coulomb = CoulombKernel(truncation=truncation, gs=gs)
+        coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         wcalc = initialize_w_calculator(chi0calc,
                                         wcontext,
                                         coulomb=coulomb,

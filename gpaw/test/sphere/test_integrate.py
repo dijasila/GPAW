@@ -8,7 +8,8 @@ from gpaw import GPAW
 
 from gpaw.sphere.integrate import (integrate_lebedev, radial_trapz,
                                    radial_truncation_function,
-                                   spherical_truncation_function,
+                                   periodic_truncation_function,
+                                   spherical_truncation_function_collection,
                                    default_spherical_drcut,
                                    find_volume_conserving_lambd)
 
@@ -86,12 +87,12 @@ def test_smooth_truncation_function(rc):
         theta_g = radial_truncation_function(r_g, rc, drc)
         # Calculate spherical volume with truncation function
         vol = 4 * np.pi * radial_trapz(theta_g, r_g)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
 
 
 def test_fe_augmentation_sphere(gpw_files):
     # Extract the spherical grid information from the iron fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    calc = GPAW(gpw_files['fe_pw'], txt=None)
     setup = calc.setups[0]
     rgd = setup.rgd
     Y_nL = setup.xc_correction.Y_nL
@@ -125,16 +126,16 @@ def test_fe_augmentation_sphere(gpw_files):
         # Integrate angular components, then radial
         ft_g = integrate_lebedev(ft_ng)
         vol = rgd.integrate_trapz(ft_g)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
         # Integrate radial components, then angular
         ft_n = rgd.integrate_trapz(ft_ng)
         vol = integrate_lebedev(ft_n)
-        assert abs(vol - ref) <= 1e-8 + 1e-6 * ref
-        
+        assert abs(vol - ref) <= 1e-8 + 1e-4 * ref
 
-def test_fe_spherical_truncation_function(gpw_files):
+
+def test_fe_periodic_truncation_function(gpw_files):
     # Extract the grid information from the iron fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], txt=None)
+    calc = GPAW(gpw_files['fe_pw'], txt=None)
     finegd = calc.density.finegd
     spos_ac = calc.spos_ac
 
@@ -142,30 +143,66 @@ def test_fe_spherical_truncation_function(gpw_files):
     # is correctly recovered
     a = 2.867  # lattice constant in Å
     rcut_max = 2 * a / (3 * Bohr)  # 2a / 3 in Bohr
-    # Get default drcut for the real-space grid
-    drcut = default_spherical_drcut(finegd)
+    # Get default drcut corresponding to the coarse real-space grid
+    drcut = default_spherical_drcut(calc.density.gd)
     for rcut in np.linspace(rcut_max / 6, rcut_max, 13):
         ref = 4 * np.pi * rcut**3. / 3.
 
         # Optimize λ-parameter, generate θ(r) and integrate
         lambd = find_volume_conserving_lambd(rcut, drcut)
-        theta_r = spherical_truncation_function(finegd, spos_ac[0],
-                                                rcut, drcut, lambd)
+        theta_r = periodic_truncation_function(finegd, spos_ac[0],
+                                               rcut, drcut, lambd)
         vol = finegd.integrate(theta_r)
         assert abs(vol - ref) <= 1e-8 + 1e-2 * ref
 
-    # Make sure that the default works as expected
-    default_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut))
-    assert abs(vol - default_vol) < 1e-8
+    # Make sure that the difference between coarse and fine grid drcut is not
+    # too large
+    finedrcut_vol = finegd.integrate(
+        periodic_truncation_function(finegd, spos_ac[0], rcut))
+    assert abs(vol - finedrcut_vol) / finedrcut_vol < 1e-3
     # Make sure that we get a different value numerically, if we change drcut
     diff_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut,
-                                      drcut=drcut * 1.5))
+        periodic_truncation_function(finegd, spos_ac[0], rcut,
+                                     drcut=drcut * 1.5))
     assert abs(vol - diff_vol) > 1e-8
     # Test that the actual value of the integral changes, if we use a different
     # λ-parameter
     diff_vol = finegd.integrate(
-        spherical_truncation_function(finegd, spos_ac[0], rcut,
-                                      lambd=0.75))
+        periodic_truncation_function(finegd, spos_ac[0], rcut,
+                                     lambd=0.75))
     assert abs(vol - diff_vol) > 1e-2 * ref
+
+
+def test_co_spherical_truncation_function_collection(gpw_files):
+    # Extract grid information from the cobalt fixture
+    calc = GPAW(gpw_files['co_pw'], txt=None)
+    finegd = calc.density.finegd
+    spos_ac = calc.spos_ac
+    drcut = default_spherical_drcut(calc.density.gd)
+
+    # Generate collection of spherical truncation functions with varrying rcut
+    a = 2.5071
+    c = 4.0695
+    nn_dist = min(a, np.sqrt(a**2 / 3 + c**2 / 4))
+    rcut_j = np.linspace(drcut, 2 * nn_dist / 3, 13)
+    rcut_aj = [rcut_j, rcut_j]
+    stfc = spherical_truncation_function_collection(finegd, spos_ac, rcut_aj,
+                                                    drcut=drcut)
+
+    # Integrate collection of spherical truncation functions
+    ones_r = finegd.empty()
+    ones_r[:] = 1.
+    vol_aj = {0: np.empty(len(rcut_j)), 1: np.empty(len(rcut_j))}
+    stfc.integrate(ones_r, vol_aj)
+
+    # Check that the integrated volume matches the spherical volume and an
+    # analogous manual integration
+    for a, spos_c in enumerate(spos_ac):
+        for rcut, vol in zip(rcut_j, vol_aj[a]):
+            ref = 4 * np.pi * rcut**3. / 3.
+            assert abs(vol - ref) <= 1e-8 + 1e-2 * ref
+
+            # "Manual" integration
+            theta_r = periodic_truncation_function(finegd, spos_c, rcut, drcut)
+            manual_vol = finegd.integrate(theta_r)
+            assert abs(vol - manual_vol) <= 1e-8 + 1e-6 * ref

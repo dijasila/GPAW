@@ -22,6 +22,9 @@ def create_test_systems():
     systems = {}
     for name, func in _functions.items():
         atoms, params = func()
+        # Issue #897: add mode='fd' by default
+        if params.get('mode') is None:
+            params = dict(params, mode='fd')
         systems[name] = (atoms, params)
     return systems
 

@@ -72,8 +72,8 @@ Radial cutoffs and eigenvalues:
 
 {table1}
 
-The figure shows convergence of the absolute energy (red line)
-and atomization energy (green line) of a {symbol} dimer relative
+The figure shows convergence of the absolute energy (blue line)
+and atomization energy (orange line) of a {symbol} dimer relative
 to completely converged numbers (plane-wave calculation at 1500 eV).
 Also shown are finite-difference and LCAO (dzp) calculations at gridspacings
 0.143 Å, 0.167 Å and 0.200 Å.

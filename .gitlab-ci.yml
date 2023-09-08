@@ -3,17 +3,18 @@ variables:
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
   OMP_NUM_THREADS: "1"
 
-
 default:
   before_script:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
 
 
 stages:
   - build
+  - precalculate
   - test
 
 
@@ -63,8 +64,6 @@ stages:
   stage: test
   before_script:
     - !reference [default, before_script]
-    - export PYTEST_ADDOPTS="--color=yes"
-
 
 .gpu-job:
   rules:
@@ -126,6 +125,33 @@ build-cuda:
     - pip install --user --log build.log --editable .
 
 
+build-hip-cuda:
+  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'hip-cuda'
+      gpu_compiler = 'hipcc'
+      gpu_compile_args = ['-O3',
+                          '-g',
+                          '-gencode', 'arch=compute_60,code=sm_60']
+      libraries += ['cudart', 'hipblas']
+
+      # Suppress warnings from hip-cuda headers
+      extra_compile_args += ['-Wno-deprecated-declarations',
+                             '-Wno-implicit-int',
+                             ]
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+
+
 build-minimal:
   image: $IMAGE_PATH/build:oldest
   extends: .build
@@ -153,7 +179,7 @@ prepare-libxc:
   before_script:
     - export PREFIX=`realpath $PREFIX`
   script:
-    - git clone -b 6.2.1 https://gitlab.com/libxc/libxc.git
+    - git clone -b 6.2.2 https://gitlab.com/libxc/libxc.git
     - cd libxc
     - autoreconf -i
     - >
@@ -249,6 +275,19 @@ test-latest:
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
 
+test-latest-new:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - GPAW_NEW=1 pytest -v -m "ci and not later"
+
+
 test-minimal:
   image: $IMAGE_PATH/run:oldest
   extends:
@@ -280,6 +319,21 @@ test-cuda:
     - gpaw-python -m pytest -v -m gpu
 
 
+test-hip-cuda:
+  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-hip-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
+
+
 test-libxc:
   image: $IMAGE_PATH/run:oldest
   extends:
@@ -306,7 +360,7 @@ check-agts:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
     - >
-      [[ `cut -d ' ' -f1 < task_count` -ge 479 ]] || (echo "Too few agts tasks"; exit 1)
+      [[ `cut -d ' ' -f1 < task_count` -ge 501 ]] || (echo "Too few agts tasks"; exit 1)
 
 
 lint:
@@ -376,35 +430,77 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+    expire_in: 1 week
+
+
+gpwfiles:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  stage: precalculate
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
+  script:
+    - pytest -n 8 -m generate_gpw_files
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #    when: never
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
 .nightly:
   image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
-    PYTEST_TIMEOUT: "300"
   extends:
     - .test
   stage: test
   needs:
     - build-latest
+    - gpwfiles
   tags:
-    - linux
+    - xeon24
   before_script:
     - !reference [default, before_script]
-    - pip install pytest-instafail pytest-xdist pytest-timeout
+    - pip install pytest-instafail pytest-xdist
   script:
-    - gpaw -P $GPAW_MPI_NPROCS python -m pytest --instafail -x -r s
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
-nightly-serial:
+nightly-mpi-1:
   extends:
     - .nightly
   script:
     - gpaw info
-    - pytest -n 4 --instafail -r s
+    - pytest --cache-show
+    - pytest -n 4 --instafail -r s --durations 30
+
+
+nightly-mpi-1-new:
+  variables:
+    GPAW_NEW: "1"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      pytest -n 4 --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
 
 
 nightly-mpi-2:
