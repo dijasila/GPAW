@@ -59,7 +59,7 @@ class Cluster(Atoms):
             return None
 
         extr = self.extreme_positions()
-
+        
         # add borders
         if isinstance(border, list):
             b = border
@@ -69,10 +69,27 @@ class Cluster(Atoms):
             extr[0][c] -= b[c]
             extr[1][c] += b[c] - extr[0][c]  # shifted already
 
+
+        pbc = self.get_pbc()
+        old_cell = self.get_cell()
+        if True in pbc:
+            for ip, p in enumerate(pbc):
+                if p:
+                    extr[1][ip] = old_cell[ip][ip]
+                    extr[0][ip] = 0
+                    
         # check for multiple of 4
         if h is not None:
+                
             if not hasattr(h, '__len__'):
                 h = np.array([h, h, h])
+            if h == 'periodic':
+                h1 = 0
+                for ip, p in enumerate(pbc):
+                    if p:
+                        h1 += extr[1][ip]/12
+                h = [h1/2,h1/2,h1/2]
+                
             for c in range(3):
                 # apply the same as in paw.py
                 L = extr[1][c]  # shifted already
@@ -82,12 +99,15 @@ class Cluster(Atoms):
                 # move accordingly
                 extr[1][c] += dL  # shifted already
                 extr[0][c] -= dL / 2.
-
+                
+        
+                    
         # move lower corner to (0, 0, 0)
         shift = tuple(-1. * np.array(extr[0]))
         self.translate(shift)
+        
         self.set_cell(tuple(extr[1]))
-
+        #print(self.cell)
         return shift
 
     def read(self, filename, format=None):
