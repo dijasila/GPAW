@@ -97,8 +97,8 @@ def test_minimal_box_mixed_pbc():
     assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
     
     atoms.cell[1, 1] = 3
-    atoms.minimal_box(box,h = 'periodic')
+    atoms.minimal_box(box, h='periodic')
     
-    assert atoms.cell[0,0] == pytest.approx(7)
+    assert atoms.cell[0, 0] == pytest.approx(7)
     
 test_minimal_box_mixed_pbc()
