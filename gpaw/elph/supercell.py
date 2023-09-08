@@ -77,7 +77,6 @@ class Supercell:
 
         self.indices = indices
 
-
     def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs,
                                    dH_asp) -> ArrayND:
         kpt_u = wfs.kpt_u
@@ -88,7 +87,6 @@ class Supercell:
         nspins = wfs.nspins
         indices = np.arange(len(self.atoms))
 
-        # TODO: not sure if indices need to be considered here
         # Array for different k-point components
         g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao), dtype)
 
@@ -193,7 +191,7 @@ class Supercell:
         assert bd.comm.size == 1
 
         # Calculate finite-difference gradients (in Hartree / Bohr)
-        V1t_xsG, dH1_xasp = self.calculate_gradient(fd_name)
+        V1t_xsG, dH1_xasp = self.calculate_gradient(fd_name, self.indices)
 
         # Equilibrium atomic Hamiltonian matrix (projector coefficients)
         fd_cache = MultiFileJSONCache(fd_name)
@@ -228,10 +226,11 @@ class Supercell:
         for i, a in enumerate(self.indices):
             for v in range(3):
                 # Corresponding array index
-                x = 3 * i + v
+                xoutput = 3 * a + v
+                xinput = 3 * i + v
 
                 # If exist already, don't recompute
-                with supercell_cache.lock(str(x)) as handle:
+                with supercell_cache.lock(str(xoutput)) as handle:
                     if handle is None:
                         continue
 
@@ -239,7 +238,7 @@ class Supercell:
                              (["x", "y", "z"][v], a))
 
                     g_sqMM = self._calculate_supercell_entry(
-                        a, v, V1t_xsG[x], dH1_xasp[x], wfs, dH_asp
+                        a, v, V1t_xsG[xinput], dH1_xasp[xinput], wfs, dH_asp
                     )
 
                     # Extract R_c=(0, 0, 0) block by Fourier transforming
@@ -263,7 +262,7 @@ class Supercell:
                     g_sNMNM = g_sMM.reshape((nspins, N, nao_cell, N, nao_cell))
                     g_sNNMM = g_sNMNM.swapaxes(2, 3).copy()
                     handle.save(g_sNNMM)
-                if x == 0:
+                if i == 0 and v == 0:
                     with supercell_cache.lock("info") as handle:
                         if handle is not None:
                             info = {
@@ -286,7 +285,6 @@ class Supercell:
             provides the required info as arguments.
 
         """
-        # TODO: restrict or not?
         assert len(args) in (1, 2)
         if len(args) == 1:
             calc = args[0]
@@ -300,7 +298,8 @@ class Supercell:
         return {"M_a": M_a, "nao_a": nao_a}
 
     @classmethod
-    def calculate_gradient(cls, fd_name: str) -> Tuple[ArrayND, list]:
+    def calculate_gradient(cls, fd_name: str,
+                           indices=None) -> Tuple[ArrayND, list]:
         """Calculate gradient of effective potential and projector coefs.
 
         This function loads the generated json files and calculates
@@ -322,8 +321,11 @@ class Supercell:
         V1t_xsG = []
         dH1_xasp = []
 
+        if indices is None:
+            indices = np.arange(natom)
+
         x = 0
-        for i, a in enumerate(self.indices):
+        for i, a in enumerate(indices):
             for v in "xyz":
                 name = "%d%s" % (a, v)
                 # Potential and atomic density matrix for atomic displacement
@@ -336,7 +338,6 @@ class Supercell:
                 V1t_sG = (Vtp_sG - Vtm_sG) / (2 * delta / units.Bohr)
                 V1t_xsG.append(V1t_sG)
 
-                # TODO: do we need to restrict to indices indices?
                 dH1_asp = {}
                 for atom in dHm_asp.keys():
                     dH1_asp[atom] = (dHp_asp[atom] - dHm_asp[atom]) / (
