@@ -8,7 +8,7 @@ from gpaw.external import static_polarizability
 
 atoms = Cluster(molecule('H2O'))
 atoms.minimal_box(3)
-atoms.calc = GPAW(txt=None)
+atoms.calc = GPAW(mode='fd', txt=None)
 
 alpha_cc = static_polarizability(atoms)
 print('Polarizability tensor (units Angstrom^3):')

@@ -327,7 +327,7 @@ class GridDescriptor(Domain):
 
         Reurned descriptor has 2x2x2 fewer grid points."""
 
-        if np.sometrue(self.N_c % 2):
+        if (self.N_c % 2).any():
             raise ValueError('Grid %s not divisible by 2!' % self.N_c)
 
         return self.new_descriptor(self.N_c // 2)

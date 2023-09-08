@@ -21,7 +21,7 @@ slab = Atoms('Al10H2',
               (a / 2 + b / 2, 0, z)],
              cell=(2 * a, d, 5 * d),
              pbc=(1, 1, 1))
-calc = GPAW(h=0.25, nbands=28, kpts=(2, 6, 1),
+calc = GPAW(mode='fd', h=0.25, nbands=28, kpts=(2, 6, 1),
             convergence={'eigenstates': 1e-5})
 slab.calc = calc
 e = slab.get_potential_energy()

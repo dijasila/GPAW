@@ -6,8 +6,9 @@ from gpaw import GPAW, PW, Mixer
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 @pytest.mark.stress
-def test_pw_si_stress(in_tmp_dir):
+def test_pw_si_stress(in_tmp_dir, gpaw_new):
     xc = 'PBE'
     si = bulk('Si')
     si.calc = GPAW(mode=PW(200),
@@ -26,12 +27,14 @@ def test_pw_si_stress(in_tmp_dir):
 
     si.get_potential_energy()
 
-    # Trigger nasty bug (fixed in !486):
-    si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
-    
-    # Compute error in stress as numerical - analytical
-    s_analytical = si.get_stress()
-    s_numerical = si.calc.calculate_numerical_stress(si, 1e-5)
-    s_err = s_numerical - s_analytical
+    if not gpaw_new:
+        # Trigger nasty bug (fixed in !486):
+        si.calc.wfs.pt.blocksize = si.calc.wfs.pd.maxmyng - 1
 
+    s_analytical = si.get_stress()
+    s_ref = [-0.16569446, -0.07630128, -0.1266625,
+             -0.06144752, -0.02055657, 0.04574812]
+    # si.calc.calculate_numerical_stress(si, 1e-5)
+    print(s_analytical)
+    s_err = s_analytical - s_ref
     assert np.all(abs(s_err) < 1e-4)

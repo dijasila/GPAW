@@ -33,6 +33,7 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     exkwargs = {'restrict': {'eps': 0.0, 'jend': 3}}
 
     calc = GPAW(
+        mode='fd',
         xc=xc, nbands=7,
         convergence={'bands': 3},
         spinpol=False,

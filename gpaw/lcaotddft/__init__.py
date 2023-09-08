@@ -1,17 +1,18 @@
+from __future__ import annotations
+
 import os
+from typing import Optional
 
 import numpy as np
-from typing import Optional
-from gpaw.typing import Any, Vector
-
 from ase.units import Bohr, Hartree
 
 from gpaw.calculator import GPAW
-from gpaw.external import ExternalPotential, ConstantElectricField
+from gpaw.external import ConstantElectricField, ExternalPotential
 from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
 from gpaw.tddft.units import attosec_to_autime
+from gpaw.typing import Any, Vector
 
 
 def LCAOTDDFT(filename: str, **kwargs) -> Any:
@@ -57,13 +58,13 @@ class OldLCAOTDDFT(GPAW):
         Text output
     """
     def __init__(self, filename: str, *,
-                 propagator: dict = None,
-                 td_potential: dict = None,
-                 rremission: object = None,
-                 fxc: str = None,
-                 scale: float = None,
-                 parallel: dict = None,
-                 communicator: object = None,
+                 propagator: dict | None = None,
+                 td_potential: dict | None = None,
+                 rremission=None,
+                 fxc: str | None = None,
+                 scale: float | None = None,
+                 parallel: dict | None = None,
+                 communicator=None,
                  txt: str = '-'):
         """"""
         assert filename is not None
@@ -80,10 +81,13 @@ class OldLCAOTDDFT(GPAW):
 
         self.propagator_set = propagator is not None
         self.propagator = create_propagator(propagator)
-        self.default_parameters = GPAW.default_parameters.copy()
-        self.default_parameters['symmetry'] = {'point_group': False}
         GPAW.__init__(self, filename, parallel=parallel,
                       communicator=communicator, txt=txt)
+        if len(self.symmetry.op_scc) > 1:
+            raise ValueError('Symmetries are not allowed for LCAOTDDFT. '
+                             'Run the ground state calculation with '
+                             'symmetry={"point_group": False}.')
+
         self.set_positions()
 
     def write(self, filename, mode=''):

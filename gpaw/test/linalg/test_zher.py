@@ -5,10 +5,10 @@ from time import time
 
 
 @pytest.mark.ci
-def test_linalg_zher():
+def test_linalg_zher(rng):
     alpha = 0.5
-    x = np.random.rand(3) + 1j * np.random.rand(3)
-    a = np.random.rand(9).reshape(3, 3) + np.random.rand(9).reshape(3, 3) * 1j
+    x = rng.random(3) + 1j * rng.random(3)
+    a = rng.random(9).reshape(3, 3) + rng.random(9).reshape(3, 3) * 1j
 
     # make a hermitian
     for i in range(3):

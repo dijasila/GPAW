@@ -7,13 +7,14 @@ from ase.units import Ha, Bohr
 from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
-from gpaw.response.ibz2bz import IBZ2BZMaps
+from gpaw.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
@@ -183,7 +184,8 @@ class ResponseGroundStateAdapter:
     def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac)
+            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac,
+            atomrotations=self.atomrotations)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
@@ -222,6 +224,13 @@ class ResponseGroundStateAdapter:
         _, ibz_vertices_kc = get_bz(self._calc)
         return ibz_vertices_kc
 
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
+
+    @property
+    def atomrotations(self):
+        return self._wfs.setups.atomrotations
+
 
 # Contains all the relevant information
 # from Setups class for response calculators
@@ -232,7 +241,6 @@ class ResponsePAWDataset:
         self.rcut_j = setup.rcut_j
         self.l_j = setup.l_j
         self.lq = setup.lq
-        self.R_sii = setup.R_sii
         self.nabla_iiv = setup.nabla_iiv
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)

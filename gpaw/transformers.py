@@ -53,7 +53,7 @@ class _Transformer:
                 raise ValueError('Cannot construct interpolator.  Grid %s '
                                  'may be too small' % points)
 
-        assert np.alltrue(pad_cd.ravel() >= 0)
+        assert (pad_cd.ravel() >= 0).all()
         self.ngpin = tuple(gdin.n_c)
         self.ngpout = tuple(gdout.n_c)
         assert dtype in [float, complex]

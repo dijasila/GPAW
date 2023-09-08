@@ -40,7 +40,7 @@ class FXCKernel:
 
     def __init__(self, fxc_dG, dG_K, GG_shape, volume):
         """Construct the fxc kernel."""
-        assert np.prod(GG_shape) == len(dG_K),\
+        assert np.prod(GG_shape) == len(dG_K), \
             "The K index should be a flattened (G,G') composite index'"
 
         self._fxc_dG = fxc_dG
@@ -108,7 +108,7 @@ class AdiabaticFXCCalculator:
         large_qpd = qpd.copy_with(ecut=large_ecut,
                                   gammacentered=True,
                                   gd=self.gs.finegd)
-        
+
         # Calculate fxc(Q) on the large plane-wave grid (Q = large grid index)
         add_fxc = create_add_fxc(fxc, spincomponent)
         fxc_Q = self.localft_calc(large_qpd, add_fxc)
@@ -182,7 +182,7 @@ class AdiabaticFXCCalculator:
 
         # Check that all the identified Q indices produce identical reciprocal
         # lattice vectors
-        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.),\
+        assert np.allclose(np.diagonal(diff_QmydG[Q_mydG]), 0.), \
             'Could not find a perfect matching reciprocal wave vector in '\
             'large_qpd for all dG_dGv'
 
