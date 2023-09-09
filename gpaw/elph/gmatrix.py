@@ -63,7 +63,7 @@ class ElectronPhononMatrix:
             Greatly reduces memory requirement for large systems,
             but introduces huge filesystem overhead
         indices: list
-            List of atoms (indices or type) to use. Default: Use all.
+            List of atoms (indices) to use. Default: Use all.
         """
         self.timer = Timer()
 
@@ -74,7 +74,7 @@ class ElectronPhononMatrix:
         if indices is None:
             self.indices = np.arange(len(atoms))
         else:
-            self.set_atoms(indices)
+            self.indices = indices
 
         if load_sc_as_needed:
             self._yield_g_NNMM = self._yield_g_NNMM_as_needed
@@ -112,35 +112,6 @@ class ElectronPhononMatrix:
         if self.phonon.D_N is None:
             self.phonon.read(symmetrize=10)
         self.timer.stop("Read phonons")
-
-    def set_atoms(self, atoms):
-        """Set the atoms to consider.
-
-        Parameters:
-
-        atoms: list
-            Can be either a list of strings, ints or ...
-        """
-
-        # Note: copied from ase/phonons avoid duplication.
-        # this is just for testing
-
-        assert isinstance(atoms, list)
-        assert len(atoms) <= len(self.atoms)
-
-        if isinstance(atoms[0], str):
-            assert np.all([isinstance(atom, str) for atom in atoms])
-            sym_a = self.atoms.get_chemical_symbols()
-            # List for atomic indices
-            indices = []
-            for type in atoms:
-                indices.extend([a for a, atom in enumerate(sym_a)
-                                if atom == type])
-        else:
-            assert np.all([isinstance(atom, int) for atom in atoms])
-            indices = atoms
-
-        self.indices = indices
 
     def _yield_g_NNMM_as_needed(self, x, s):
         return self.supercell_cache[str(x)][s]

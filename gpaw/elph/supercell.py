@@ -29,7 +29,7 @@ class Supercell:
     """Class for supercell-related stuff."""
 
     def __init__(self, atoms: Atoms, supercell_name: str = "supercell",
-                 supercell: tuple = (1, 1, 1)) -> None:
+                 supercell: tuple = (1, 1, 1), indices=None) -> None:
         """Initialize supercell class.
 
         Parameters
@@ -46,36 +46,11 @@ class Supercell:
         self.atoms = atoms
         self.supercell_name = supercell_name
         self.supercell = supercell
-        self.indices = np.arange(len(atoms))
-
-    def set_atoms(self, atoms):
-        """Set the atoms to consider.
-
-        Parameters:
-
-        atoms: list
-            Can be either a list of strings, ints or ...
-        """
-
-        # Note: copied from ase/phonons avoid duplication.
-        # this is just for testing
-
-        assert isinstance(atoms, list)
-        assert len(atoms) <= len(self.atoms)
-
-        if isinstance(atoms[0], str):
-            assert np.all([isinstance(atom, str) for atom in atoms])
-            sym_a = self.atoms.get_chemical_symbols()
-            # List for atomic indices
-            indices = []
-            for type in atoms:
-                indices.extend([a for a, atom in enumerate(sym_a)
-                                if atom == type])
+        if indices is None:
+            self.indices = np.arange(len(atoms))
         else:
-            assert np.all([isinstance(atom, int) for atom in atoms])
-            indices = atoms
+            self.indices = indices
 
-        self.indices = indices
 
     def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs,
                                    dH_asp) -> ArrayND:
@@ -105,7 +80,7 @@ class Supercell:
 
         # 2) Gradient of non-local part (projectors)
         P_aqMi = wfs.P_aqMi
-        # 2a) dH^a part has contributions from all other atoms
+        # 2a) dH^a part has contributions from all atoms
         for kpt in kpt_u:
             # Matrix elements
             gp_MM = np.zeros((nao, nao), dtype)
