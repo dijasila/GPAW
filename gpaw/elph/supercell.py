@@ -51,7 +51,6 @@ class Supercell:
         else:
             self.indices = indices
 
-
     def _calculate_supercell_entry(self, a, v, V1t_sG, dH1_asp, wfs,
                                    dH_asp) -> ArrayND:
         kpt_u = wfs.kpt_u
@@ -60,7 +59,6 @@ class Supercell:
         bfs = wfs.basis_functions
         dtype = wfs.dtype
         nspins = wfs.nspins
-        indices = np.arange(len(self.atoms))
 
         # Array for different k-point components
         g_sqMM = np.zeros((nspins, len(kpt_u) // nspins, nao, nao), dtype)
@@ -95,7 +93,7 @@ class Supercell:
 
         # 2b) dP^a part has only contributions from the same atoms
         # For the contribution from the derivative of the projectors
-        dPdR_aqvMi = wfs.manytci.P_aqMi(indices, derivative=True)
+        dPdR_aqvMi = wfs.manytci.P_aqMi(bfs.my_atom_indices, derivative=True)
         dH_ii = unpack2(dH_asp[a][kpt.s])
         for kpt in kpt_u:
             gp_MM = np.zeros((nao, nao), dtype)
