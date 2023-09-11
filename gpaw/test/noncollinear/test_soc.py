@@ -20,6 +20,10 @@ def check(E, hsplit, lsplit):
     assert abs(h2 - h1 - hsplit) < 0.01
     assert abs(l2 - l1 - lsplit) < 0.002
 
+def check_pol(phi_c):
+    pol_c = (phi_c / (2 * np.pi)) % 1
+    assert abs(pol_c[0] - 2 / 3) < 0.01
+    assert abs(pol_c[1] - 1 / 3) < 0.01
 
 params = dict(mode={'name': 'pw', 'ecut': 350},
               kpts={'size': (3, 3, 1),
@@ -50,6 +54,12 @@ def test_soc_self_consistent(gpaw_new):
     eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
 
+    import os
+    from gpaw.berryphase import get_polarization_phase
+    a.calc.write('mos2.gpw', mode='all')
+    phi_c = get_polarization_phase('mos2.gpw')
+    check_pol(phi_c)
+    os.system('rm mos2.gpw mos2-berryphases.json')
 
 @pytest.mark.soc
 @pytest.mark.skipif(size > 2, reason='Does not work with more than 2 cores')
