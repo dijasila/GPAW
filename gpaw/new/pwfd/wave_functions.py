@@ -186,7 +186,7 @@ class PWFDWaveFunctions(WaveFunctions):
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
-        P_ani.multiply(dS_aii, out=P2_ani)
+        P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
