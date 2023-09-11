@@ -316,6 +316,7 @@ class DFTCalculation:
             raise ReuseWaveFunctionsError
 
         density = self.state.density.new(builder.grid,
+                                         builder.interpolation_desc,
                                          builder.fracpos_ac,
                                          builder.atomdist)
         density.normalize()
