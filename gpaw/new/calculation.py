@@ -315,6 +315,8 @@ class DFTCalculation:
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
             raise ReuseWaveFunctionsError
 
+        log('# Interpolating wave functions to new cell')
+
         density = self.state.density.new(builder.grid,
                                          builder.interpolation_desc,
                                          builder.fracpos_ac,
