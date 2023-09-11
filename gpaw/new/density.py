@@ -140,7 +140,7 @@ class Density:
                                           scale=1.0 / (self.ncomponents % 3))
         return self._tauct_R
 
-    def new(self, new_grid, fracpos_ac, atomdist):
+    def new(self, new_grid, pw, fracpos_ac, atomdist):
         self.move(fracpos_ac, atomdist)
         new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
                         cell=new_grid.cell,
@@ -153,8 +153,8 @@ class Density:
         for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
             old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
 
-        self.nct_aX.change_cell(new_pw)
-        self.tauct_aX.change_cell(new_pw)
+        self.nct_aX.change_cell(pw)
+        self.tauct_aX.change_cell(pw)
 
         return Density(
             new_nt_sR,
