@@ -169,9 +169,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             msg = 'Warning wrong phase: phase={}, 2dphase={}'
             print(msg.format(phase, phase2d))
 
-    phases = np.array(phases) * (1 + wfs.collinear) / wfs.nspins
-
-    return indices_kk, phases.tolist()
+    return indices_kk, phases
 
 
 def get_polarization_phase(calc):
@@ -202,6 +200,8 @@ def get_polarization_phase(calc):
             Z_a.append(setup.Nv)
         data['Z_a'] = Z_a
         data['spos_ac'] = calc.spos_ac.tolist()
+        if not calc.wfs.collinear:
+            data['non-collinear'] = True
 
         with open(berryname, 'w') as fd:
             json.dump(data, fd, indent=True)
@@ -219,7 +219,10 @@ def get_polarization_phase(calc):
             phases = data[str(c)][str(spin)]
             phase_c[c] += np.sum(phases) / len(phases)
 
-    print(phase_c)
+    # We should not multiply by two below if non-collinear
+    nc = 'non-collinear' in data.keys()
+    phase_c = phase_c * (2 - nc) / nspins
+
     Z_a = data['Z_a']
     spos_ac = data['spos_ac']
     phase_c += 2 * np.pi * np.dot(Z_a, spos_ac)
