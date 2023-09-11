@@ -424,7 +424,7 @@ class EigendecomposedSpectrum:
                               for e in range(nmodes - 1)]).T
             dsmin_w = np.min(ds_we, axis=1)
             dsmin_w = wblocks.all_gather(dsmin_w)
-            wm = np.argmax(dsmin_w)
+            wm = np.nanargmax(dsmin_w)
 
         return wm
 
