@@ -487,7 +487,7 @@ class AtomArrays:
                 out_ni[:] = P_ni @ dX_ii
             return
         ni_a = xp.array(
-            [I2 - I1 for a, I1, I2 in other.layout.myindices],
+            [I2 - I1 for a, I1, I2 in self.layout.myindices],
             dtype=np.int32)
         dH_aii_times_P_ani_gpu(other.data, ni_a,
                                self.data, out.data)
