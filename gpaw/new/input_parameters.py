@@ -68,8 +68,6 @@ class InputParameters:
         self.keys = sorted(params)
 
         for key in params:
-            if key == 'fixdensity':
-                continue  # ignore old parameter
             if key not in parameter_functions:
                 raise ValueError(
                     f'Unknown parameter {key!r}.  Must be one of: ' +
@@ -90,6 +88,8 @@ class InputParameters:
         if self.experimental is not None:
             if self.experimental.pop('niter_fixdensity', None) is not None:
                 warnings.warn('Ignoring "niter_fixdensity".')
+            if self.experimental.pop('reuse_wfs_method', None) is not None:
+                warnings.warn('Ignoring "reuse_wfs_method".')
             if 'soc' in self.experimental:
                 warnings.warn('Please use new "soc" parameter.',
                               DeprecatedParameterWarning)
@@ -245,10 +245,6 @@ def occupations(value=None):
 
 @input_parameter
 def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
-    if value is not None and 'world' in value:
-        warnings.warn(('Please use communicator=... '
-                       'instead of parallel={''world'': ...}'),
-                      DeprecatedParameterWarning)
     dct = update_dict({'kpt': None,
                        'domain': None,
                        'band': None,
@@ -264,7 +260,6 @@ def parallel(value: dict[str, Any] | None = None) -> dict[str, Any]:
                        'use_elpa': False,
                        'elpasolver': '2stage',
                        'buffer_size': None,
-                       'world': None,  # deprecated
                        'gpu': False},
                       value)
     return dct

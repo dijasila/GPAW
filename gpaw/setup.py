@@ -10,7 +10,6 @@ from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
-from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
@@ -314,23 +313,6 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
-    def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
-        for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
-        return D_ii / len(map_sa)
-
-    def calculate_rotations(self, R_slmm):
-        nsym = len(R_slmm)
-        self.R_sii = np.zeros((nsym, self.ni, self.ni))
-        i1 = 0
-        for l in self.l_j:
-            i2 = i1 + 2 * l + 1
-            for s, R_lmm in enumerate(R_slmm):
-                self.R_sii[s, i1:i2, i1:i2] = R_lmm[l]
-            i1 = i2
-
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
 
@@ -564,8 +546,6 @@ class LeanSetup(BaseSetup):
         # This needs cleaning.
         self.hubbard_u = hubbard_u
 
-        # R_sii can be changed dynamically (which is ugly)
-        self.R_sii = None  # rotations, initialized when doing sym. reductions
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -1411,14 +1391,10 @@ class Setups(list):
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
-        R_slmm = []
-        for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
-            R_slmm.append([rotation(l, op_vv) for l in range(4)])
-
-        for setup in self.setups.values():
-            setup.calculate_rotations(R_slmm)
+        # XXX It is ugly that we set self.atomrotations from here;
+        # it would be better to return it to the caller.
+        from gpaw.atomrotations import AtomRotations
+        self.atomrotations = AtomRotations(self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
@@ -1456,10 +1432,10 @@ class Setups(list):
             integral=[setup.Nct for setup in self],
             cut=True, xp=xp)
 
-    def create_pseudo_core_kinetic_energy_densities(self,
-                                                    domain,
-                                                    positions,
-                                                    atomdist):
+    def create_pseudo_core_ked(self,
+                               domain,
+                               positions,
+                               atomdist):
         return domain.atom_centered_functions(
             [[setup.tauct] for setup in self],
             positions,
