@@ -793,11 +793,12 @@ class KernelDens(KernelIntegrator):
                 x = qc_g * rr
                 osc_x = np.sin(x) - x * np.cos(x)
 
-                with np.errstate(invalid='ignore'):
+                with np.errstate(invalid='ignore', divide='ignore'):
                     f_rr = fx_g * osc_x / (2 * np.pi**2 * rr**3)
                     if nR > 1:
                         # include only exchange part of the kernel here
                         V_rr = (sici(x)[0] * 2 / np.pi - 1) / rr
+                        assert np.logical_or(rr == 0, rr > 1e-5).all()
                     else:
                         # include the full kernel (also hartree part)
                         V_rr = (sici(x)[0] * 2 / np.pi) / rr

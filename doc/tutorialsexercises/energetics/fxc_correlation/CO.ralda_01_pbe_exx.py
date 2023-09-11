@@ -8,7 +8,7 @@ from gpaw import PW
 # CO
 
 CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)], pbc=True)
-CO.center(vacuum=3.7)
+CO.center(vacuum=2.7)
 calc = GPAW(mode=PW(600, force_complex_dtype=True, interpolation=3),
             symmetry='off',
             parallel={'domain': 1},
