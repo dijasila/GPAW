@@ -42,6 +42,12 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       double* rho_R);
 
 
+void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
+                                      int nI, npy_int32* ni_a, 
+                                      double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev);
+
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 {
     PyObject* dH_aii_obj;
@@ -54,13 +60,13 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 
 
     double* dH_aii_dev = Array_DATA(dH_aii_obj);
-    if (!dH_aii_dev) return;
+    if (!dH_aii_dev) return NULL;
     gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
-    if (!P_ani_dev) return;
+    if (!P_ani_dev) return NULL;
     gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani_obj);
-    if (!outP_ani_dev) return;
+    if (!outP_ani_dev) return NULL;
     npy_int32* ni_a = Array_DATA(ni_a_obj);
-    if (!ni_a) return;
+    if (!ni_a) return NULL;
 
     assert(Array_ITEMSIZE(P_ani_obj) == 16);
     assert(Array_ITEMSIZE(outP_ani_obj) == 16);
@@ -79,6 +85,7 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     //fflush(stdout);
 
     dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
+    Py_RETURN_NONE;
 }
 
 

@@ -189,7 +189,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            P2_ani.multiply(dS_aii, out=P3_ani)
+            P2_ani.block_diag_multiply(dS_aii, out_ani=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
@@ -265,7 +265,7 @@ def calculate_residuals(residual_nX: DA,
         np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
     else:
         P2_ani.data[:] = xp.einsum(subscripts, wfs.P_ani.data, eig_n)
-    P2_ani.multiply(dS_aii, out=P2_ani)
+    P2_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residual_nX, P1_ani)
 
