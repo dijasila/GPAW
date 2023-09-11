@@ -5,8 +5,8 @@ from typing import Callable
 
 import numpy as np
 from ase.units import Ha
-from gpaw.core.arrays import DistributedArrays as DA
-from gpaw.core.atom_centered_functions import AtomArrays as AA
+from gpaw.core.arrays import DistributedArrays as XArray
+from gpaw.core.atom_centered_functions import AtomArrays
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_xp
 from gpaw.mpi import broadcast_float
@@ -19,8 +19,6 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-
-AAFunc = Callable[[AA, AA], AA]
 
 
 class Davidson(Eigensolver):
@@ -239,12 +237,12 @@ class Davidson(Eigensolver):
         return error
 
 
-def calculate_residuals(residual_nX: DA,
-                        dH: AAFunc,
-                        dS_aii: AAFunc,
+def calculate_residuals(residual_nX: XArray,
+                        dH: Callable[[AtomArrays, AtomArrays], AtomArrays],
+                        dS_aii: AtomArrays,
                         wfs: PWFDWaveFunctions,
-                        P1_ani: AA,
-                        P2_ani: AA) -> None:
+                        P1_ani: AtomArrays,
+                        P2_ani: AtomArrays) -> None:
 
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
