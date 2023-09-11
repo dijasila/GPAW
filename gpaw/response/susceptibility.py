@@ -416,7 +416,7 @@ class EigendecomposedSpectrum:
         if nmodes == 1:
             # Find frequency where the eigenvalue is maximal
             s_w = wblocks.all_gather(self.s_we[:, 0])
-            wm = np.argmax(s_w)
+            wm = np.nanargmax(s_w)
         else:
             # Find frequency with maximum minimal difference between size of
             # eigenvalues
