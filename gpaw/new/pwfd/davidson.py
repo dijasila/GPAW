@@ -257,15 +257,16 @@ def calculate_residuals(residual_nX: DA,
             r -= p * e
 
     dH(wfs.P_ani, P1_ani)
+    wfs.P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
+
     if wfs.ncomponents < 4:
         subscripts = 'nI, n -> nI'
     else:
         subscripts = 'nsI, n -> nsI'
     if xp is np:
-        np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
+        np.einsum(subscripts, P2_ani.data, eig_n, out=P2_ani.data)
     else:
-        P2_ani.data[:] = xp.einsum(subscripts, wfs.P_ani.data, eig_n)
-    P2_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
+        P2_ani.data[:] = xp.einsum(subscripts, P2_ani.data, eig_n)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residual_nX, P1_ani)
 

@@ -504,6 +504,7 @@ class AtomArrays:
                                             out_ani.values()):
                 out_ni[:] = P_ni @ dX_ii
             return
+
         ni_a = xp.array(
             [I2 - I1 for a, I1, I2 in self.layout.myindices],
             dtype=np.int32)
