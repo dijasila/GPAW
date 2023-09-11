@@ -69,7 +69,10 @@ class Cluster(Atoms):
             extr[0][c] -= b[c]
             extr[1][c] += b[c] - extr[0][c]  # shifted already
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> esther
         pbc = self.pbc
         old_cell = self.cell
         if True in pbc:
@@ -88,7 +91,11 @@ class Cluster(Atoms):
                 for ip, p in enumerate(pbc):
                     if p:
                         h1 += extr[1][ip] / 12
+<<<<<<< HEAD
                 h = [h1/2,h1/2,h1/2]
+=======
+                h = [h1 / 2, h1 / 2, h1 / 2]
+>>>>>>> esther
                 
             for c in range(3):
                 # apply the same as in paw.py
@@ -99,15 +106,13 @@ class Cluster(Atoms):
                 # move accordingly
                 extr[1][c] += dL  # shifted already
                 extr[0][c] -= dL / 2.
-                
-        
-                    
+    
         # move lower corner to (0, 0, 0)
         shift = tuple(-1. * np.array(extr[0]))
         self.translate(shift)
         
         self.set_cell(tuple(extr[1]))
-        #print(self.cell)
+        
         return shift
 
     def read(self, filename, format=None):
