@@ -9,6 +9,7 @@ from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
+from gpaw.new.c import dH_aii_times_P_ani_gpu
 
 
 class AtomArraysLayout:
@@ -476,3 +477,39 @@ class AtomArrays:
             result.scatter_from(a)
         comm2.broadcast(result.data, 0)
         return result
+
+    def block_diag_multiply(self,
+                            block_diag_matrix_axii: AtomArrays,
+                            out_ani: AtomArrays,
+                            index: int | None = None) -> None:
+        """Multiply by block diagonal matrix.
+
+        with A, B and C refering to ``self``, ``block_diag_matrix_axii`` and
+        ``out_ani``:::
+
+            --  a   a      a
+            >  A   B   -> C
+            --  ni  ij     nj
+            i
+
+        If index is not None, ``block_diag_matrix_axii`` must have an extra
+        dimension: :math:`B_{ij}^{ax}` and x=index is used.
+        """
+        xp = self.layout.xp
+        if xp is np:
+            if index is not None:
+                block_diag_matrix_axii = block_diag_matrix_axii[:, index]
+            for P_ni, dX_ii, out_ni in zips(self.values(),
+                                            block_diag_matrix_axii.values(),
+                                            out_ani.values()):
+                out_ni[:] = P_ni @ dX_ii
+            return
+
+        ni_a = xp.array(
+            [I2 - I1 for a, I1, I2 in self.layout.myindices],
+            dtype=np.int32)
+        data = block_diag_matrix_axii.data
+        if index is not None:
+            data = data[index]
+        dH_aii_times_P_ani_gpu(data, ni_a,
+                               self.data, out_ani.data)
