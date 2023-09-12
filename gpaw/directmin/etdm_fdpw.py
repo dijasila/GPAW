@@ -822,12 +822,12 @@ class FDPWETDM(Eigensolver):
                 # TODO: if homo-lumo is around zero then
                 #  it is not good to do diagonalization
                 #  of occupied and unoccupied states
-                # separete diagonaliztion of two subspaces:
+                # separate diagonalization of two subspaces:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ = get_n_occ(kpt)[0]
                 dim = self.bd.nbands - n_occ
                 grad_knG[k][n_occ:n_occ + dim] = \
-                    self.get_gradients_unocc(ham, wfs, kpt)
+                    self.get_gradients_unocc_kpt(ham, wfs, kpt)
                 lamb = wfs.integrate(kpt.psit_nG[:n_occ],
                                      grad_knG[k][:n_occ],
                                      True)
@@ -874,8 +874,7 @@ class FDPWETDM(Eigensolver):
 
         del grad_knG
 
-    def get_gradients_unocc(self, ham, wfs, kpt):
-
+    def get_gradients_unocc_kpt(self, ham, wfs, kpt):
         """
         calculate gradient vector for unoccupied orbitals
 
@@ -884,11 +883,18 @@ class FDPWETDM(Eigensolver):
         :param kpt:
         :return:
         """
+        orbital_dependent = ham.xc.orbital_dependent
 
         n_occ = get_n_occ(kpt)[0]
-        dim = self.bd.nbands - n_occ
+        if not orbital_dependent:
+            dim = self.bd.nbands - n_occ
+            n0 = n_occ
+        else:
+            dim = self.bd.nbands
+            n0 = 0
+
         # calculate gradients:
-        psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
+        psi = kpt.psit_nG[n0:n0 + dim].copy()
         P1_ai = wfs.pt.dict(shape=dim)
         wfs.pt.integrate(psi, P1_ai, kpt.q)
         Hpsi_nG = wfs.empty(dim, q=kpt.q)
@@ -904,6 +910,9 @@ class FDPWETDM(Eigensolver):
                               calculate_change=False)
         # add projectors to the H|psi_i>
         wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
+
+        if orbital_dependent:
+            Hpsi_nG = Hpsi_nG[n_occ:n_occ + dim]
 
         return Hpsi_nG
 
@@ -938,23 +947,7 @@ class FDPWETDM(Eigensolver):
             n_occ = get_n_occ(kpt)[0]
             k = n_kps * kpt.s + kpt.q
             dim = self.dimensions[k]
-            # calculate gradients:
-            psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
-            P1_ani = wfs.pt.dict(shape=dim)
-            wfs.pt.integrate(psi, P1_ani, kpt.q)
-            Hpsi_nG = wfs.empty(dim, q=kpt.q)
-            wfs.apply_pseudo_hamiltonian(kpt, ham, psi, Hpsi_nG)
-            c_axi = {}
-            for a, P_xi in P1_ani.items():
-                dH_ii = unpack(ham.dH_asp[a][kpt.s])
-                c_xi = np.dot(P_xi, dH_ii)
-                c_axi[a] = c_xi
-            # not sure about this:
-            ham.xc.add_correction(kpt, psi, Hpsi_nG,
-                                  P1_ani, c_axi, n_x=None,
-                                  calculate_change=False)
-            # add projectors to the H|psi_i>
-            wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
+            Hpsi_nG = self.get_gradients_unocc_kpt(ham, wfs, kpt)
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
