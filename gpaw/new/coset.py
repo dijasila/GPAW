@@ -1,7 +1,7 @@
 import numpy as np
 
 class SymmetrizationPlan:
-    def __init__(self, rotation_lsmm, a_sa, setups, layout):
+    def __init__(self, rotation_lsmm, a_sa, l_aj, layout):
         ns = a_sa.shape[0]
         na = a_sa.shape[1]
         nl = len(rotation_lsmm)
@@ -28,18 +28,18 @@ class SymmetrizationPlan:
                 S_lZZ[l] = S_ZZ
             S_alZZ[a] = S_lZZ
 
-            setup = setups[coset[0]]
+            l_j = l_aj[coset[0]]
+            Itot = sum([2 * l2 + 1 for l2 in l_j])
 
             work = []
-            for j, l in enumerate(setup.l_j):
+            for j, l in enumerate(l_j):
                 indices = []
                 D_Z = np.zeros((nA * nP[l],))
                 Z = 0
                 for loca1, a1 in enumerate(coset):
                     a1_, start, end = layout.myindices[a1]
                     assert a1_ == a1
-                    Itot = sum([2 * l2 + 1 for l2 in setup.l_j])
-                    Istart = sum([2 * l2 + 1 for l2 in setup.l_j[:j]])
+                    Istart = sum([2 * l2 + 1 for l2 in l_j[:j]])
                     Iend = Istart + 2 * l + 1
                     for X in range(Istart, Iend):
                         for Y in range(Istart, Iend):
@@ -49,11 +49,10 @@ class SymmetrizationPlan:
         self.work = work
         self.S_alZZ = S_alZZ
 
-    def apply(self, data):
+    def apply(self, source, target):
         for a, l, indices in self.work:
-            for spin in range(len(data)):
-                print(a, l, indices)
-                data[spin, indices] = self.S_alZZ[a][l] @ data[spin, indices]
+            for spin in range(len(source)):
+                target[spin, indices] = self.S_alZZ[a][l] @ source[spin, indices]
 
 
 if __name__ == "__main__":

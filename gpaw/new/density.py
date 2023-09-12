@@ -115,6 +115,8 @@ class Density:
         self._nct_R = None
         self._tauct_R = None
 
+        self.symplan = None
+
     def __repr__(self):
         return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
 
@@ -232,6 +234,8 @@ class Density:
 
         xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
+        from time import time
+        start = time()
         for a1, D_sii in self.D_asii.items():
             D_sii[:] = 0.0
             rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
@@ -240,6 +244,22 @@ class Density:
                 D_sii += xp.einsum('ij, sjk, lk -> sil',
                                    rotation_ii, D_asii[a2], rotation_ii)
         self.D_asii.data *= 1.0 / len(symmetries)
+        stop = time()
+        reference = self.D_asii.data.copy()
+        print('Old way', stop-start)
+        old = stop-start
+        if self.symplan is None:
+            from gpaw.new.coset import SymmetrizationPlan
+            start = time()
+            self.symplan = SymmetrizationPlan(symmetries.rotation_lsmm, symmetries.a_sa, self.l_aj, self.D_asii.layout)
+            stop = time()
+            print('New plan took', stop-start)
+        start = time()
+        self.symplan.apply(D_asii.data, self.D_asii.data)
+        stop = time()
+        print('New apply took', stop-start)
+        print('Speedup', old/(stop-start)) 
+        assert np.allclose(self.D_asii.data, reference)
 
     def move(self, fracpos_ac, atomdist):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
