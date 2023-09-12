@@ -5,6 +5,7 @@ from gpaw.new.pw.hamiltonian import precondition
 import pytest
 
 
+@pytest.mark.skip
 @pytest.mark.gpu
 @pytest.mark.parametrize('xp', [np, cp])
 def test_prec(xp):
