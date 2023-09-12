@@ -27,7 +27,7 @@ from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
-from gpaw.mpi import MPIComm
+from gpaw.mpi import MPIComm, serial_comm
 
 
 class PotentialCalculator:
@@ -68,6 +68,7 @@ class PotentialCalculator:
                   density,
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
+                  kpt_band_comm: MPIComm | None = None
                   ) -> tuple[Potential, AtomArrays]:
         energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
@@ -89,10 +90,14 @@ class PotentialCalculator:
 
         energies['kinetic'] = e_kinetic
 
+        if kpt_band_comm is None:
+            if ibzwfs is None:
+                kpt_band_comm = serial_comm
+            else:
+                kpt_band_comm = ibzwfs.kpt_band_comm
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
-            self.setups, density, self.xc, Q_aL, self.soc,
-            ibzwfs.kpt_band_comm)
+            self.setups, density, self.xc, Q_aL, self.soc, kpt_band_comm)
 
         for key, e in corrections.items():
             if 0:
