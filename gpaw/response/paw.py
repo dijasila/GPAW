@@ -419,4 +419,3 @@ def get_matrix_element_paw_corrections(qpd, pawdata_a, rshe_a, spos_ac):
         F_aGii.append(x_G[:, np.newaxis, np.newaxis] * Fbar_Gii)
 
     return F_aGii
-
