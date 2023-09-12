@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.mpi import world
-from gpaw.new.c import dH_aii_times_P_ani_gpu
 from gpaw.test.core.test_matrix_elements import comms
 from gpaw.gpu import cupy as cp
 
