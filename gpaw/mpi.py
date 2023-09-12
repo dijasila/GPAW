@@ -296,12 +296,12 @@ class _Communicator:
             displacement (relative to recvbuf at which to place the incoming
             data from process i
         """
-        assert sbuffer.flags.contiguous
-        assert scounts.flags.contiguous
-        assert sdispls.flags.contiguous
-        assert rbuffer.flags.contiguous
-        assert rcounts.flags.contiguous
-        assert rdispls.flags.contiguous
+        assert sbuffer.flags.c_contiguous
+        assert scounts.flags.c_contiguous
+        assert sdispls.flags.c_contiguous
+        assert rbuffer.flags.c_contiguous
+        assert rcounts.flags.c_contiguous
+        assert rdispls.flags.c_contiguous
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
@@ -399,10 +399,10 @@ class _Communicator:
               comm.send(mydata, 0, tag=123)
 
         """
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         assert 0 <= root < self.size
         if root == self.rank:
-            assert b.flags.contiguous and b.dtype == a.dtype
+            assert b.flags.c_contiguous and b.dtype == a.dtype
             assert (b.shape[0] == self.size and a.shape == b.shape[1:] or
                     a.size * self.size == b.size)
             self.comm.gather(a, root, b)
