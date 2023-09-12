@@ -9,7 +9,7 @@ from gpaw.new.c import GPU_AWARE_MPI
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('pbc', [True, False])
-def test_fd_transformers(gpu, pbc):
+def test_fd_transformers(pbc):
     if world.size > 1 and not GPU_AWARE_MPI:
         pytest.skip('Does not work at the moment. Maybe MPI is not GPU-aware?')
     if world.size > 4:
