@@ -52,6 +52,7 @@ def test_gather():
         assert D_sii[0, 0, 0] == a + 1
 
 
+@pytest.mark.gpu
 @pytest.mark.parametrize('domain_comm, band_comm', list(comms()))
 @pytest.mark.parametrize('xp', [np, cp])
 def test_P_ani_dH_aii(domain_comm, band_comm, xp):

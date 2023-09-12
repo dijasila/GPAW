@@ -10,7 +10,7 @@ from gpaw.mpi import size
 @pytest.mark.gpu
 @pytest.mark.serial
 @pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
-@pytest.mark.parametrize('dtype', [complex])
+@pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('gpu', [False, True])
 def test_gpu_pw(dtype, gpu):
     atoms = Atoms('H2')
