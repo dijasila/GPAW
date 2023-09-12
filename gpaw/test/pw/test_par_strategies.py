@@ -41,22 +41,26 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu, gpaw_new):
         GPAW = NewGPAW
     else:
         GPAW = AnyGPAW
+    print(GPAW, parallel)
     atoms.calc = GPAW(mode=PW(ecut),
-                      txt='hli.txt',
+                      #txt='hli.txt',
                       parallel=parallel,
                       kpts={'size': kpoints},
                       convergence={'maximum iterations': 4},
                       occupations=FermiDirac(width=0.1))
 
     e = atoms.get_potential_energy()
+    print(e)
     assert e == pytest.approx(-5.218064604018109, abs=1e-11)
 
     f = atoms.get_forces()
+    print(f)
     assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
                                         [0, 0, 8.00667631e-01]]))
 
     if not gpu and not gpaw_new:
         s = atoms.get_stress()
+        print(s)
         assert s == pytest.approx(
             [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
 

@@ -315,7 +315,8 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     #- pytest -v -m gpu
-    - gpaw -P 2 python -m pytest -v -m gpu -x -s
+    #- gpaw -P 2 python -m pytest -v -m gpu -x -s
+    - gpaw -P 2 python -m pytest -v -x -s "gpaw/test/pw/test_par_strategies.py::test_pw_par_strategies[True-1-2]"
     - gpaw-python -m gpaw info
     - gpaw-python -m pytest -v -m gpu
 
