@@ -59,6 +59,11 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
         return NULL;
 
 
+    if (Array_DIM(ni_a_obj, 0) == 0)
+    {
+        Py_RETURN_NONE;
+    }
+
     double* dH_aii_dev = Array_DATA(dH_aii_obj);
     if (!dH_aii_dev) return NULL;
     gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
