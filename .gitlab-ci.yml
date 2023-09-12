@@ -288,7 +288,7 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     #- pytest -v -m gpu
-    - gpaw -P 2 python -m pytest -v -m gpu -x
+    - gpaw -P 2 python -m pytest -v -m gpu -x -s
     - gpaw-python -m gpaw info
     - gpaw-python -m pytest -v -m gpu
 

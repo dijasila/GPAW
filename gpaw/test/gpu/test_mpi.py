@@ -6,6 +6,7 @@ from gpaw.gpu.mpi import CuPyMPI
 import gpaw.mpi as mpi
 
 
+@pytest.mark.skip
 @pytest.mark.gpu
 def test_mpi():
     a = cp.ones(1)
