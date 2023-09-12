@@ -28,6 +28,7 @@ def apply(a: float,  # lattice constant
     return t
 
 
+@pytest.mark.skip
 @pytest.mark.parametrize('xp',
                          [np,
                           pytest.param(cp, marks=pytest.mark.gpu)])

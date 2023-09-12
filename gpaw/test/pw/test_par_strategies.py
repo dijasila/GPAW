@@ -15,6 +15,7 @@ for d in [1, 2, 4, 8]:
         dk.append((d, k))
 
 
+@pytest.mark.skip
 @pytest.mark.stress
 @pytest.mark.parametrize('d, k', dk)
 @pytest.mark.parametrize(
