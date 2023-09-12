@@ -50,11 +50,11 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
         if dedtaut_g is not None:
             s_vv += density.tauct_aX.stress_contribution(dedtaut_g)
 
+    s_vv = as_np(s_vv)
+
     if xp is not np:
         synchronize()
     comm.sum(s_vv, 0)
-
-    s_vv = as_np(s_vv)
 
     vol = dom.volume
     s_vv = 0.5 / vol * (s_vv + s_vv.T)

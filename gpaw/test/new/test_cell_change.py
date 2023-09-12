@@ -1,7 +1,7 @@
 import pytest
 from ase import Atoms
 from gpaw.new.ase_interface import GPAW
-from gpaw.mpi import size
+from gpaw.mpi import size, broadcast_string
 from io import StringIO
 
 
@@ -34,5 +34,5 @@ def test_new_cell(gpu):
     assert f1 == pytest.approx(0, abs=1e-15)
     assert s1 == pytest.approx([-0.3837174, -0.3837174, -0.43328543,
                                 0.0, 0.0, 0.0])
-    out = output.getvalue()
+    out = broadcast_string(output.getvalue() or None)
     assert '# Interpolating wave fun' in out
