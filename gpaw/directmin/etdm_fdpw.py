@@ -801,6 +801,9 @@ class FDPWETDM(Eigensolver):
                         for a in kpt.P_ani.keys():
                             kpt.P_ani[a][:n_occ] = np.dot(
                                 lamb1.conj(), kpt.P_ani[a][:n_occ])
+                            kpt.P_ani[a][n_occ:n_occ + dim] = \
+                                np.dot(lumo.conj(),
+                                       kpt.P_ani[a][n_occ:n_occ + dim])
                 elif typediag == 'full':
                     lamb = (lamb + lamb.T.conj()) / 2.0
                     evals, lamb = np.linalg.eigh(lamb)
