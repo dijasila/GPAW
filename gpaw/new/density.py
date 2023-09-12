@@ -251,7 +251,7 @@ class Density:
         if self.symplan is None:
             from gpaw.new.coset import SymmetrizationPlan
             start = time()
-            self.symplan = SymmetrizationPlan(symmetries.rotation_lsmm,
+            self.symplan = SymmetrizationPlan(xp, symmetries.rotation_lsmm,
                                               symmetries.a_sa, self.l_aj,
                                               self.D_asii.layout)
             stop = time()

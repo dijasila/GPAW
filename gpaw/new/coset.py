@@ -2,7 +2,7 @@ import numpy as np
 
 
 class SymmetrizationPlan:
-    def __init__(self, rotation_lsmm, a_sa, l_aj, layout):
+    def __init__(self, xp, rotation_lsmm, a_sa, l_aj, layout):
         ns = a_sa.shape[0]
         na = a_sa.shape[1]
         nl = len(rotation_lsmm)
@@ -29,7 +29,7 @@ class SymmetrizationPlan:
                         Z4 = Z3 + nP[l]
                         S_PP = S_lsPP[l][s]
                         S_ZZ[Z1:Z2, Z3:Z4] += S_PP
-                S_lZZ[l] = S_ZZ
+                S_lZZ[l] = xp.asarray(S_ZZ)
             S_alZZ[a] = S_lZZ
 
             l_j = l_aj[coset[0]]
@@ -46,7 +46,7 @@ class SymmetrizationPlan:
                     for X in range(Istart, Iend):
                         for Y in range(Istart, Iend):
                             indices.append(start + X * Itot + Y)
-                work.append((a, l, np.array(indices)))
+                work.append((a, l, xp.array(indices)))
 
         self.work = work
         self.S_alZZ = S_alZZ
