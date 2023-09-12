@@ -72,7 +72,15 @@ def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
 
 def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
                            P_nI, out_nI):
-    1 / 0
+    I1 = 0
+    J1 = 0
+    for ni in ni_a._data:
+        I2 = I1 + ni
+        J2 = J1 + ni**2
+        dH_ii = dH_aii[J1:J2].reshape((ni, ni))
+        out_nI[:, I1:I2] = P_nI[:, I1:I2] @ dH_ii
+        I1 = I2
+        J1 = J2
 
 
 def add_to_density_gpu(weight_n, psit_nR, nt_R):

@@ -1,7 +1,10 @@
 import numpy as np
+import pytest
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.mpi import world
-import _gpaw
+from gpaw.new.c import dH_aii_times_P_ani_gpu
+from gpaw.test.core.test_matrix_elements import comms
+from gpaw.gpu import cupy as cp
 
 
 def test_aa_to_full():
@@ -49,35 +52,21 @@ def test_gather():
         assert D_sii[0, 0, 0] == a + 1
 
 
-def gpu_test_dh():
-    import cupy as xp
-    ni_a = [2, 3, 4, 17]  # np.arange(2, 5, dtype=xp.int32)
-    dH_asii = AtomArraysLayout([(n, n) for n in ni_a], xp=xp).empty()
-    # primeiter = primes()
-    dH_asii.data[:] = xp.arange(1, 2**2 + 3**2 + 4**2 + 17**2 + 1)
-    P_ani = AtomArraysLayout(ni_a, dtype=complex, xp=xp).empty(300)
-    P_ani.data[:] = 0.0
-    for n in range(300):
-        I = 0
-        for a, ni in enumerate(ni_a):
-            for i in range(ni):
-                P_ani.data[n, I] = i + 1 + 14.4j * i + a + n * 2.2
-                I += 1
-
+@pytest.mark.parametrize('domain_comm, band_comm', list(comms()))
+@pytest.mark.parametrize('xp', [np, cp])
+def test_P_ani_dH_aii(domain_comm, band_comm, xp):
+    ni_a = [2, 3, 4, 17]
+    dH_asii = AtomArraysLayout([(n, n) for n in ni_a],
+                               atomdist=domain_comm,
+                               xp=xp).empty(1)
+    dH_asii.data[:] = 1.0
+    P_ani = AtomArraysLayout(ni_a,
+                             dtype=complex,
+                             atomdist=domain_comm,
+                             xp=xp).empty(
+        10, comm=band_comm)
+    P_ani.data[:] = 1.0j
     out_ani = P_ani.new()
-    out_ani[0][:] = 100
-    out_ani[1][:] = 200
-    out_ani[2][:] = 300
-    out_ani[2][:] = 400
-    _gpaw.dH_aii_times_P_ani_gpu(
-        dH_asii.data,
-        xp.asarray(ni_a, dtype=xp.int32),
-        P_ani.data,
-        out_ani.data)
-    out2_ani = out_ani.new()
-    for a, dH_ii in dH_asii.items():
-        out2_ani[a][:] = P_ani[a] @ dH_ii
-    print(out_ani.data, 'gpu')
-    print(out2_ani.data, 'ref')
-    print(out2_ani.data - out_ani.data, 'diff')
-    assert xp.allclose(out2_ani.data, out_ani.data)
+    P_ani.block_diag_multiply(dH_asii, out_ani, index=0)
+    for a, out_ni in out_ani.items():
+        assert (out_ni == ni_a[a] * 1.0j).all()

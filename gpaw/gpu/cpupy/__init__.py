@@ -185,7 +185,7 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
-        if isinstance(other, (float, int)):
+        if isinstance(other, (float, complex, int)):
             return self._data == other
         return ndarray(self._data == other._data)
 
