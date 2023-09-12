@@ -508,6 +508,8 @@ class AtomArrays:
         ni_a = xp.array(
             [I2 - I1 for a, I1, I2 in self.layout.myindices],
             dtype=np.int32)
+        if len(ni_a) == 0:
+            return
         data = block_diag_matrix_axii.data
         if index is not None:
             data = data[index]
