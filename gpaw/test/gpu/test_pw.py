@@ -29,7 +29,6 @@ def test_gpu_pw(dtype, gpu):
     assert energy == pytest.approx(-16.032945, abs=1e-6)
 
 
-@pytest.mark.skip
 @pytest.mark.gpu
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])

@@ -7,7 +7,6 @@ from gpaw.utilities.blas import (gpu_axpy, gpu_dotc, gpu_dotu, gpu_gemm,
                                  mmm, r2k, rk)
 
 
-@pytest.mark.skip
 @pytest.mark.gpu
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_blas(gpu, dtype):
