@@ -320,6 +320,8 @@ class PWLFC(BaseLFC):
         c_xI = xp.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         nx = prod(c_xI.shape[:-1])
+        if nx == 0:
+            return
         b_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
