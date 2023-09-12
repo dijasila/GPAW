@@ -246,19 +246,21 @@ class Density:
         self.D_asii.data *= 1.0 / len(symmetries)
         stop = time()
         reference = self.D_asii.data.copy()
-        print('Old way', stop-start)
-        old = stop-start
+        print('Old way', stop - start)
+        old = stop - start
         if self.symplan is None:
             from gpaw.new.coset import SymmetrizationPlan
             start = time()
-            self.symplan = SymmetrizationPlan(symmetries.rotation_lsmm, symmetries.a_sa, self.l_aj, self.D_asii.layout)
+            self.symplan = SymmetrizationPlan(symmetries.rotation_lsmm,
+                                              symmetries.a_sa, self.l_aj,
+                                              self.D_asii.layout)
             stop = time()
-            print('New plan took', stop-start)
+            print('New plan took', stop - start)
         start = time()
         self.symplan.apply(D_asii.data, self.D_asii.data)
         stop = time()
-        print('New apply took', stop-start)
-        print('Speedup', old/(stop-start)) 
+        print('New apply took', stop - start)
+        print('Speedup', old / (stop - start))
         assert np.allclose(self.D_asii.data, reference)
 
     def move(self, fracpos_ac, atomdist):

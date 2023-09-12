@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class SymmetrizationPlan:
     def __init__(self, rotation_lsmm, a_sa, l_aj, layout):
         ns = a_sa.shape[0]
@@ -7,13 +8,16 @@ class SymmetrizationPlan:
         nl = len(rotation_lsmm)
         cosets = {frozenset(a_sa[:, a]) for a in range(na)}
         nP = [(2 * l + 1)**2 for l in range(nl)]
-        S_lsPP = {l: np.einsum('sab,scd->sacbd', rotation_lsmm[l], rotation_lsmm[l]).reshape((ns, nP[l], nP[l])) / ns for l in range(nl)}
+        S_lsPP = {l: np.einsum('sab,scd->sacbd',
+                               rotation_lsmm[l],
+                               rotation_lsmm[l]).reshape((ns, nP[l], nP[l]))
+                  / ns for l in range(nl)}
         # P = (i, j)  in contrast to p = svec((i,j))
         S_alZZ = {}
         for coset in map(list, cosets):
             nA = len(coset)
-            a = coset[0] # Representative atom for coset
-            S_lZZ = {} # Z = (a, P)
+            a = coset[0]  # Representative atom for coset
+            S_lZZ = {}  # Z = (a, P)
             for l in range(4):
                 S_ZZ = np.zeros((nA * nP[l],) * 2)
                 for loca1, a1 in enumerate(coset):
@@ -34,8 +38,6 @@ class SymmetrizationPlan:
             work = []
             for j, l in enumerate(l_j):
                 indices = []
-                D_Z = np.zeros((nA * nP[l],))
-                Z = 0
                 for loca1, a1 in enumerate(coset):
                     a1_, start, end = layout.myindices[a1]
                     assert a1_ == a1
@@ -50,6 +52,6 @@ class SymmetrizationPlan:
         self.S_alZZ = S_alZZ
 
     def apply(self, source, target):
-        for a, l, indices in self.work:
+        for a, l, ind in self.work:
             for spin in range(len(source)):
-                target[spin, indices] = self.S_alZZ[a][l] @ source[spin, indices]
+                target[spin, ind] = self.S_alZZ[a][l] @ source[spin, ind]
