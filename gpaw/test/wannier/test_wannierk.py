@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.serial
 @pytest.mark.wannier
 def test_ase_features_wannierk(in_tmp_dir, gpw_files):
     'Test ase.dft.wannier module with k-points.'

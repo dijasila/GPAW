@@ -34,16 +34,8 @@ class Potential:
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
-            xp = P_ani.layout.xp
-            if xp is np:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
-            else:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = xp.asarray(self.dH_asii[a][spin])
-                    out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
-            return  # out_ani.to_xp(to_xp)
+            P_ani.block_diag_multiply(self.dH_asii, out_ani, spin)
+            return
 
         # Non-collinear wave functions:
         P_ansi = P_ani

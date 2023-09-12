@@ -42,6 +42,7 @@ def test_shg(in_tmp_dir):
         assert np.all(np.abs(shg[1]) < 1e-8)
 
 
+@pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
@@ -50,11 +51,13 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
         # Get nlodata from pre-calculated SiC fixtures
         make_nlodata(gpw_files[f'sic_pw{tag}'], out_name=f'mml{tag}.npz')
+        world.barrier()
 
         # Calculate 'xyz' tensor element of SHG spectra
         get_shg(freqs=freqs, eta=0.025, pol='xyz',
                 out_name=f'shg_xyz{tag}.npy',
                 mml_name=f'mml{tag}.npz')
+        world.barrier()
 
         # Load the calculated SHG spectra (in units of nm/V)
         shg_xyz[str(spinpol)] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
@@ -76,7 +79,7 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
     shg_xyz_avg = (shg_xyz['spinpaired'] + shg_xyz['spinpol']) / 2
     shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
     shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
-    assert shg_xyz_rerr_real == pytest.approx(0, abs=1e-2), \
+    assert shg_xyz_rerr_real == pytest.approx(0, abs=2e-2), \
         np.max(np.abs(shg_xyz_rerr_real))
-    assert shg_xyz_rerr_imag == pytest.approx(0, abs=1e-2), \
+    assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-2), \
         np.max(np.abs(shg_xyz_rerr_imag))

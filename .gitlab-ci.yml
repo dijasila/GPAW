@@ -126,6 +126,33 @@ build-cuda:
     - pip install --user --log build.log --editable .
 
 
+build-hip-cuda:
+  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'hip-cuda'
+      gpu_compiler = 'hipcc'
+      gpu_compile_args = ['-O3',
+                          '-g',
+                          '-gencode', 'arch=compute_60,code=sm_60']
+      libraries += ['cudart', 'hipblas']
+
+      # Suppress warnings from hip-cuda headers
+      extra_compile_args += ['-Wno-deprecated-declarations',
+                             '-Wno-implicit-int',
+                             ]
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+
+
 build-minimal:
   image: $IMAGE_PATH/build:oldest
   extends: .build
@@ -293,6 +320,21 @@ test-cuda:
     - gpaw-python -m pytest -v -m gpu
 
 
+test-hip-cuda:
+  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-hip-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
+
+
 test-libxc:
   image: $IMAGE_PATH/run:oldest
   extends:
@@ -434,7 +476,7 @@ gpwfiles:
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -x -r s --durations 30
+      pytest --instafail -r s --durations 30
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
