@@ -288,17 +288,7 @@ test-cuda:
     - nvidia-smi
     - gpaw info
     #- pytest -v -m gpu
-    - gpaw -P 2 python -m pytest -vx gpaw/test/core/test_abs_square.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/core/test_acf.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/core/test_pw.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_blas.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_cpupy.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_fd_laplace.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_fd_transformers.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_lfc.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_matrix.py
-    - gpaw -P 2 python -m pytest -vx gpaw/test/gpu/test_mpi.py
-    #- gpaw -P 2 python -m pytest -v -m gpu -x
+    - gpaw -P 2 python -m pytest -v -m gpu -x
     - gpaw-python -m gpaw info
     - gpaw-python -m pytest -v -m gpu
 
