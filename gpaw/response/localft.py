@@ -239,7 +239,7 @@ class MicroSetup:
         """Evaluate a given function f(r) on the angular and radial grids."""
         f_ng = np.array([self.rgd.zeros() for n in range(self.Y_nL.shape[0])])
         for n, Y_L in enumerate(self.Y_nL):
-            n_sg = np.dot(Y_L, self.n_sLg)
+            n_sg = Y_L @ self.n_sLg
             add_f(self.rgd, n_sg, f_ng[n])
         return f_ng
 
@@ -257,11 +257,11 @@ class MicroSetup:
         df_ng = np.array([rgd.zeros() for n in range(self.Y_nL.shape[0])])
         for n, Y_L in enumerate(self.Y_nL):
             f_g[:] = 0.
-            n_sg = np.dot(Y_L, self.n_sLg)
+            n_sg = Y_L @ self.n_sLg
             add_f(rgd, n_sg, f_g)
 
             ft_g[:] = 0.
-            nt_sg = np.dot(Y_L, self.nt_sLg)
+            nt_sg = Y_L @ self.nt_sLg
             add_f(rgd, nt_sg, ft_g)
 
             df_ng[n, :] = f_g - ft_g
@@ -313,8 +313,8 @@ def calculate_atom_centered_densities(pawdata, D_sp):
     D_sLq = np.inner(D_sp, B_pqL.T)
     nspins = len(D_sp)
 
-    n_sLg = np.dot(D_sLq, n_qg)
-    nt_sLg = np.dot(D_sLq, nt_qg)
+    n_sLg = D_sLq @ n_qg
+    nt_sLg = D_sLq @ nt_qg
 
     # Add core density
     n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
@@ -468,9 +468,8 @@ class LocalPAWFTEngine:
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
         info_string = f'    RSHE of atom {a}\n' + info_string
-        info_string = info_string.replace('\n', '\n      ')
-        info_string += '\n'
-        self.context.print(info_string)
+        self.context.print(
+            info_string.replace('\n', '\n      ') + '\n')
 
     @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):

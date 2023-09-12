@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from ase import Atoms
 
@@ -9,7 +7,7 @@ from gpaw.new.input_parameters import DeprecatedParameterWarning as NewDPW
 
 
 @pytest.mark.ci
-def test_fixdensity(in_tmp_dir):
+def test_fixdensity(in_tmp_dir, gpaw_new):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
     slab.calc = GPAW(mode='fd', kpts=(3, 3, 1), txt='li-1.txt',
@@ -32,7 +30,7 @@ def test_fixdensity(in_tmp_dir):
     f2 = calc.get_fermi_level()
 
     # Start from gpw-file:
-    calc = GPAW('li.gpw', txt=None)
+    calc = GPAW('li.gpw')
     calc = calc.fixed_density(
         txt='li-3.txt',
         nbands=5,
@@ -45,7 +43,7 @@ def test_fixdensity(in_tmp_dir):
     assert e2 == pytest.approx(e1, abs=3e-5)
     assert e3 == pytest.approx(e1, abs=3e-5)
 
-    if os.environ.get('GPAW_NEW'):
+    if gpaw_new:
         return
 
     calc = GPAW('li.gpw',
