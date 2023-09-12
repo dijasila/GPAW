@@ -813,12 +813,14 @@ class CuPyDistribution(MatrixDistribution):
                 else:
                     if beta == 1.0 and a.shape[1] == 0:
                         return
-                    cp.cublas.gemm('N', 'H',
-                                   a.data, b.data, c.data,
-                                   0.5 * alpha, beta)
-                    cp.cublas.gemm('N', 'H',
-                                   b.data, a.data, c.data,
-                                   0.5 * alpha, 1.0)
+                    if c.data.size > 0:
+                        assert beta in [0.0, 1.0]
+                        cp.cublas.gemm('N', 'H',
+                                       a.data, b.data, c.data,
+                                       0.5 * alpha, beta)
+                        cp.cublas.gemm('N', 'H',
+                                       b.data, a.data, c.data,
+                                       0.5 * alpha, 1.0)
             else:
                 assert opa == 'C' and opb == 'N'
                 assert a is not b
@@ -826,10 +828,11 @@ class CuPyDistribution(MatrixDistribution):
                 blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
 
         else:
-            cp.cublas.gemm(opa.replace('C', 'H'),
-                           opb.replace('C', 'H'),
-                           a.data, b.data, c.data,
-                           alpha, beta)
+            if c.data.size > 0:
+                cp.cublas.gemm(opa.replace('C', 'H'),
+                               opb.replace('C', 'H'),
+                               a.data, b.data, c.data,
+                               alpha, beta)
         if self.comm.size > 1:
             c.redist(c0)
 
