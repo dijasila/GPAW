@@ -10,13 +10,13 @@ from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
-from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
 from gpaw.new import zips
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 class WrongMagmomForHundsRuleError(ValueError):
@@ -314,23 +314,6 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
-    def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
-        for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
-        return D_ii / len(map_sa)
-
-    def calculate_rotations(self, R_slmm):
-        nsym = len(R_slmm)
-        self.R_sii = np.zeros((nsym, self.ni, self.ni))
-        i1 = 0
-        for l in self.l_j:
-            i2 = i1 + 2 * l + 1
-            for s, R_lmm in enumerate(R_slmm):
-                self.R_sii[s, i1:i2, i1:i2] = R_lmm[l]
-            i1 = i2
-
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
 
@@ -564,8 +547,6 @@ class LeanSetup(BaseSetup):
         # This needs cleaning.
         self.hubbard_u = hubbard_u
 
-        # R_sii can be changed dynamically (which is ugly)
-        self.R_sii = None  # rotations, initialized when doing sym. reductions
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -1411,14 +1392,10 @@ class Setups(list):
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
-        R_slmm = []
-        for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
-            R_slmm.append([rotation(l, op_vv) for l in range(4)])
-
-        for setup in self.setups.values():
-            setup.calculate_rotations(R_slmm)
+        # XXX It is ugly that we set self.atomrotations from here;
+        # it would be better to return it to the caller.
+        from gpaw.atomrotations import AtomRotations
+        self.atomrotations = AtomRotations(self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
@@ -1481,22 +1458,16 @@ class Setups(list):
             integral=sqrt(4 * pi),
             xp=xp)
 
-    def overlap_correction(self, P_ani, out_ani):
-        xp = P_ani.layout.xp
-
-        if len(P_ani.dims) == 2:  # (band, spinor)
-            subscripts = 'nsi, ij -> nsj'
-        else:
-            subscripts = 'ni, ij -> nj'
-        if xp is np:
-            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                dS_ii = self[a].dO_ii
-                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        else:
-            # GRR. Cupy einsum doesn't have an out argument.
-            for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                dS_ii = xp.asarray(self[a].dO_ii)
-                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
+    def get_overlap_corrections(self, atomdist, xp):
+        if atomdist is getattr(self, '_atomdist', None):
+            return self.dS_aii
+        self._atomdist = atomdist
+        dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
+                                  atomdist=atomdist).empty()
+        for a, dS_ii in dS_aii.items():
+            dS_ii[:] = self[a].dO_ii
+        self.dS_aii = dS_aii.to_xp(xp)
+        return self.dS_aii
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}

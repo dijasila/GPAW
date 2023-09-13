@@ -4,8 +4,10 @@ import numpy as np
 from ase.units import Bohr, Ha
 
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UGArray
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.domain import Domain as XDesc
+from gpaw.core.uniform_grid import UGArray, UGDesc
+from gpaw.mpi import MPIComm
 from gpaw.new import zips
 
 
@@ -32,16 +34,8 @@ class Potential:
 
     def dH(self, P_ani, out_ani, spin):
         if len(P_ani.dims) == 1:  # collinear wave functions
-            xp = P_ani.layout.xp
-            if xp is np:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = self.dH_asii[a][spin]
-                    np.einsum('ni, ij -> nj', P_ni, dH_ii, out=out_ni)
-            else:
-                for (a, P_ni), out_ni in zips(P_ani.items(), out_ani.values()):
-                    dH_ii = xp.asarray(self.dH_asii[a][spin])
-                    out_ni[:] = xp.einsum('ni, ij -> nj', P_ni, dH_ii)
-            return  # out_ani.to_xp(to_xp)
+            P_ani.block_diag_multiply(self.dH_asii, out_ani, spin)
+            return
 
         # Non-collinear wave functions:
         P_ansi = P_ani
@@ -55,6 +49,25 @@ class Potential:
             out_nsi[:, 1] = (P_nsi[:, 1] @ (v_ii - z_ii) +
                              P_nsi[:, 0] @ (x_ii + 1j * y_ii))
         return out_ansi
+
+    def move(self, atomdist: AtomDistribution) -> None:
+        """Move atoms inplace."""
+        self.dH_asii = self.dH_asii.moved(atomdist)
+
+    def redist(self,
+               grid: UGDesc,
+               desc: XDesc,
+               atomdist: AtomDistribution,
+               comm1: MPIComm,
+               comm2: MPIComm) -> Potential:
+        return Potential(
+            self.vt_sR.redist(grid, comm1, comm2),
+            self.dH_asii.redist(atomdist, comm1, comm2),
+            None if self.dedtaut_sR is None else self.dedtaut_sR.redist(
+                grid, comm1, comm2),
+            self.energies.copy(),
+            None if self.vHt_x is None else self.vHt_x.redist(
+                desc, comm1, comm2))
 
     def _write_gpw(self, writer, ibzwfs):
         from gpaw.new.calculation import combine_energies

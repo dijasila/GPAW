@@ -22,12 +22,11 @@ from gpaw.response.chi0 import Chi0Calculator
 
 class BSEBackend:
     def __init__(self, *, gs, context,
+                 valence_bands, conduction_bands,
                  spinors=False,
                  ecut=10.,
                  scale=1.0,
                  nbands=None,
-                 valence_bands=None,
-                 conduction_bands=None,
                  eshift=None,
                  gw_skn=None,
                  truncation=None,
@@ -76,20 +75,10 @@ class BSEBackend:
                                    'version does not work for spin-polarized' +
                                    ' calculations. Performing scalar ' +
                                    'calculation')
-            assert len(valence_bands[0]) == len(valence_bands[1])
-            assert len(conduction_bands[0]) == len(conduction_bands[1])
-        if valence_bands is None:
-            nv = self.gs.nvalence
-            valence_bands = [[nv // 2 - 1]]
-            if self.spins == 2:
-                valence_bands *= 2
-        if conduction_bands is None:
-            conduction_bands = [[valence_bands[-1] + 1]]
-            if self.spins == 2:
-                conduction_bands *= 2
 
-        self.val_sn = np.atleast_2d(valence_bands)
-        self.con_sn = np.atleast_2d(conduction_bands)
+        self.val_sn = self.parse_bands(valence_bands, band_type='valence')
+        self.con_sn = self.parse_bands(conduction_bands,
+                                       band_type='conduction')
 
         self.td = True
         for n in self.val_sn[0]:
@@ -129,6 +118,61 @@ class BSEBackend:
     @property
     def pair_calc(self):
         return self.kptpair_factory.pair_calculator()
+
+    def parse_bands(self, bands, band_type='valence'):
+        """Helper function that checks whether bands are correctly specified,
+         and brings them to the format used later in the code.
+
+        If the calculation is spin-polarized, band indices must
+        be given explicitly as lists/arrays of shape (2,nbands) where the first
+        index is for spin.
+
+        If the calculation is not spin-polarized, either an integer (number of
+        desired bands) or lists of band indices must be provided.
+
+        band_type is an optional parameter that is only when a desired number
+        of bands is given (rather than a list) to help figure out the correct
+        band indices.
+        """
+        if hasattr(bands, '__iter__'):
+            if self.spins == 2:
+                if len(bands) != 2 or (len(bands[0]) != len(bands[1])):
+                    raise ValueError('For a spin-polarized calculation, '
+                                     'the same number of bands must be '
+                                     'specified for each spin! valence and '
+                                     'conduction bands must be lists of shape '
+                                     '(2,n)')
+
+            bands_sn = np.atleast_2d(bands)
+            return bands_sn
+
+        # if we get here, bands is not iterable
+        # check that the specified input is valid
+
+        if self.spins == 2:
+            raise NotImplementedError('For a spin-polarized calculation, '
+                                      'bands must be specified as lists '
+                                      'of shape (2,n)')
+
+        n_fully_occupied_bands, n_partially_occupied_bands = \
+            self.gs.count_occupied_bands()
+
+        if n_fully_occupied_bands != n_partially_occupied_bands:
+            raise NotImplementedError('Automatic band generation is currently '
+                                      'not implemented for metallic systems. '
+                                      'Please specify band indices manually.')
+
+        if band_type == 'valence':
+            bands_sn = range(n_fully_occupied_bands - bands,
+                             n_fully_occupied_bands)
+        elif band_type == 'conduction':
+            bands_sn = range(n_fully_occupied_bands,
+                             n_fully_occupied_bands + bands)
+        else:
+            raise ValueError(f'Invalid band type: {band_type}')
+
+        bands_sn = np.atleast_2d(bands_sn)
+        return bands_sn
 
     def calculate(self, optical=True):
 
@@ -396,7 +440,8 @@ class BSEBackend:
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
                         pawdatasets=self.gs.pawdatasets,
-                        pos_av=self.gs.get_pos_av())
+                        pos_av=self.gs.get_pos_av(),
+                        atomrotations=self.gs.atomrotations)
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']
                 self.context.print('Reading screened potential from % s' %
@@ -454,7 +499,10 @@ class BSEBackend:
             chi0 = self._chi0calc.calculate(q_c)
             W_wGG = self._wcalc.calculate_W_wGG(chi0)
             W_GG = W_wGG[0]
-            self.pawcorr_q.append(self._chi0calc.pawcorr)
+            # This is such a terrible way to access the paw
+            # corrections. Attributes should not be groped like
+            # this... Change in the future! XXX
+            self.pawcorr_q.append(self._chi0calc.chi0_body_calc.pawcorr)
             self.qpd_q.append(chi0.qpd)
             self.W_qGG.append(W_GG)
 

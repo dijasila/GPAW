@@ -72,6 +72,14 @@ class PWFDWaveFunctions(WaveFunctions):
 
     @property
     def pt_aiX(self) -> AtomCenteredFunctions:
+        """PAW projector functions.
+
+        :::
+
+            ~a _
+            p (r)
+             i
+        """
         if self._pt_aiX is None:
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
@@ -81,7 +89,15 @@ class PWFDWaveFunctions(WaveFunctions):
         return self._pt_aiX
 
     @property
-    def P_ani(self):
+    def P_ani(self) -> AtomArrays:
+        """PAW projections.
+
+        :::
+
+             ~a  ~
+            <p | ψ >
+              i   n
+        """
         if self._P_ani is None:
             self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm)
@@ -165,11 +181,12 @@ class PWFDWaveFunctions(WaveFunctions):
         P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
-        dS = self.setups.overlap_correction
+        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist,
+                                                     self.xp)
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
-        dS(P_ani, out_ani=P2_ani)
+        P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 

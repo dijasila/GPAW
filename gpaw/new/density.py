@@ -1,16 +1,19 @@
 from __future__ import annotations
-from math import sqrt, pi
+
+from math import pi, sqrt
+
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.typing import Vector, Array3D
-from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2, unpack
-from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UGArray
-from gpaw.gpu import as_xp
-from gpaw.new import zips
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.atom_centered_functions import (AtomArraysLayout,
+                                               AtomCenteredFunctions)
 from gpaw.core.plane_waves import PWDesc
-from gpaw.core.atom_centered_functions import AtomCenteredFunctions
+from gpaw.core.uniform_grid import UGArray, UGDesc
+from gpaw.gpu import as_xp
+from gpaw.mpi import MPIComm
+from gpaw.new import zips
+from gpaw.typing import Array3D, Vector
+from gpaw.utilities import unpack, unpack2
 
 
 class Density:
@@ -137,7 +140,7 @@ class Density:
                                           scale=1.0 / (self.ncomponents % 3))
         return self._tauct_R
 
-    def new(self, new_grid, fracpos_ac, atomdist):
+    def new(self, new_grid, pw, fracpos_ac, atomdist):
         self.move(fracpos_ac, atomdist)
         new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
                         cell=new_grid.cell,
@@ -150,8 +153,8 @@ class Density:
         for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
             old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
 
-        self.nct_aX.change_cell(new_pw)
-        self.tauct_aX.change_cell(new_pw)
+        self.nct_aX.change_cell(pw)
+        self.tauct_aX.change_cell(pw)
 
         return Density(
             new_nt_sR,
@@ -245,6 +248,27 @@ class Density:
         self._nct_R = None
         self._tauct_R = None
         self.nt_sR.data[:self.ndensities] += self.nct_R.data
+        self.D_asii = self.D_asii.moved(atomdist)
+
+    def redist(self,
+               grid: UGDesc,
+               xdesc,
+               atomdist: AtomDistribution,
+               comm1: MPIComm,
+               comm2: MPIComm) -> Density:
+        return Density(
+            self.nt_sR.redist(grid, comm1, comm2),
+            None
+            if self.taut_sR is None else
+            self.taut_sR.redist(grid, comm1, comm2),
+            self.D_asii.redist(atomdist, comm1, comm2),
+            self.charge,
+            self.delta_aiiL,
+            self.delta0_a,
+            self.N0_aii,
+            self.l_aj,
+            nct_aX=self.nct_aX.new(xdesc, atomdist),
+            tauct_aX=self.tauct_aX.new(xdesc, atomdist))
 
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)

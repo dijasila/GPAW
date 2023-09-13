@@ -6,6 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.geometry import cell_to_cellpar
 from ase.units import Bohr, Ha
+from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_xp
@@ -61,7 +62,6 @@ class DFTState:
 
     def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
-        self.potential.energies.clear()
         self.density.move(fracpos_ac, atomdist)
 
 
@@ -136,6 +136,9 @@ class DFTCalculation:
         self.comm.broadcast(self.fracpos_ac, 0)
 
         atomdist = self.state.density.D_asii.layout.atomdist
+        grid = self.state.density.nt_sR.desc
+        rank_a = grid.ranks_from_fractional_positions(self.fracpos_ac)
+        atomdist = AtomDistribution(rank_a, atomdist.comm)
 
         self.pot_calc.move(self.fracpos_ac, atomdist)
         self.state.move(self.fracpos_ac, atomdist)
@@ -312,7 +315,10 @@ class DFTCalculation:
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
             raise ReuseWaveFunctionsError
 
+        log('# Interpolating wave functions to new cell')
+
         density = self.state.density.new(builder.grid,
+                                         builder.interpolation_desc,
                                          builder.fracpos_ac,
                                          builder.atomdist)
         density.normalize()
@@ -338,11 +344,12 @@ class DFTCalculation:
                 builder.atomdist)
 
         ibzwfs = create_ibz_wave_functions(
-            builder.ibz,
+            ibz=builder.ibz,
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,
             create_wfs_func=create_wfs,
             kpt_comm=old_ibzwfs.kpt_comm,
+            kpt_band_comm=old_ibzwfs.kpt_band_comm,
             comm=self.comm)
 
         state = DFTState(ibzwfs, density, potential)
