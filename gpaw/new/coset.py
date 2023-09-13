@@ -2,56 +2,44 @@ import numpy as np
 
 
 class SymmetrizationPlan:
-    def __init__(self, xp, rotation_lsmm, a_sa, l_aj, layout):
+    def __init__(self, xp, rotations, a_sa, l_aj, layout):
         ns = a_sa.shape[0]
         na = a_sa.shape[1]
-        nl = len(rotation_lsmm)
         cosets = {frozenset(a_sa[:, a]) for a in range(na)}
-        nP = [(2 * l + 1)**2 for l in range(nl)]
-        S_lsPP = {l: np.einsum('sab,scd->sacbd',
-                               rotation_lsmm[l],
-                               rotation_lsmm[l]).reshape((ns, nP[l], nP[l]))
-                  / ns for l in range(nl)}
-        # P = (i, j)  in contrast to p = svec((i,j))
-        S_alZZ = {}
+        S_aZZ = {}
+        work = []
         for coset in map(list, cosets):
             nA = len(coset)
             a = coset[0]  # Representative atom for coset
-            S_lZZ = {}  # Z = (a, P)
-            for l in range(4):
-                S_ZZ = np.zeros((nA * nP[l],) * 2)
-                for loca1, a1 in enumerate(coset):
-                    Z1 = loca1 * nP[l]
-                    Z2 = Z1 + nP[l]
-                    for s, a2 in enumerate(a_sa[:, a1]):
-                        loca2 = coset.index(a2)
-                        Z3 = loca2 * nP[l]
-                        Z4 = Z3 + nP[l]
-                        S_PP = S_lsPP[l][s]
-                        S_ZZ[Z1:Z2, Z3:Z4] += S_PP
-                S_lZZ[l] = xp.asarray(S_ZZ)
-            S_alZZ[a] = S_lZZ
-
-            l_j = l_aj[coset[0]]
-            Itot = sum([2 * l2 + 1 for l2 in l_j])
-
-            work = []
-            for j, l in enumerate(l_j):
-                indices = []
-                for loca1, a1 in enumerate(coset):
-                    a1_, start, end = layout.myindices[a1]
-                    assert a1_ == a1
-                    Istart = sum([2 * l2 + 1 for l2 in l_j[:j]])
-                    Iend = Istart + 2 * l + 1
-                    for X in range(Istart, Iend):
-                        for Y in range(Istart, Iend):
-                            indices.append(start + X * Itot + Y)
-                work.append((a, l, xp.array(indices)))
+            R_sii = xp.asarray(rotations(l_aj[a], xp))
+            i2 = R_sii.shape[1]**2
+            R_sPP = xp.einsum('sab,scd->sacbd', R_sii, R_sii).reshape((ns, i2, i2)) / ns
+            S_ZZ = xp.zeros((nA * i2,) * 2)
+            for loca1, a1 in enumerate(coset):
+                Z1 = loca1 * i2
+                Z2 = Z1 + i2
+                for s, a2 in enumerate(a_sa[:, a1]):
+                    loca2 = coset.index(a2)
+                    Z3 = loca2 * i2
+                    Z4 = Z3 + i2
+                    S_ZZ[Z1:Z2, Z3:Z4] += R_sPP[s]
+            S_aZZ[a] = S_ZZ
+            indices = []
+            for loca1, a1 in enumerate(coset):
+                a1_, start, end = layout.myindices[a1]
+                assert a1_ == a1
+                for X in range(i2):
+                    indices.append(start + X)
+            work.append((a, xp.array(indices)))
 
         self.work = work
-        self.S_alZZ = S_alZZ
+        self.S_aZZ = S_aZZ
+        self.xp = xp
 
     def apply(self, source, target):
-        for a, l, ind in self.work:
+        total = 0
+        for a, ind in self.work:
             for spin in range(len(source)):
-                target[spin, ind] = self.S_alZZ[a][l] @ source[spin, ind]
+                total += len(ind)
+                target[spin, ind] = self.S_aZZ[a] @ source[spin, ind]
+        assert total == source.shape[1]

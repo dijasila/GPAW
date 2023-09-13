@@ -246,12 +246,13 @@ class Density:
         self.D_asii.data *= 1.0 / len(symmetries)
         stop = time()
         reference = self.D_asii.data.copy()
+        self.D_asii.data[:] = 0.0
         print('Old way', stop - start)
         old = stop - start
         if self.symplan is None:
             from gpaw.new.coset import SymmetrizationPlan
             start = time()
-            self.symplan = SymmetrizationPlan(xp, symmetries.rotation_lsmm,
+            self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
                                               symmetries.a_sa, self.l_aj,
                                               self.D_asii.layout)
             stop = time()
@@ -261,7 +262,15 @@ class Density:
         stop = time()
         print('New apply took', stop - start)
         print('Speedup', old / (stop - start))
-        assert np.allclose(self.D_asii.data, reference)
+        xp.cuda.runtime.deviceSynchronize()
+        if not xp.allclose(self.D_asii.data, reference):
+            for i in range(np.prod(self.D_asii.data.size)):
+                a, b = self.D_asii.data.ravel()[i], reference.ravel()[i]
+                if xp.abs(a-b)>1e-6:
+                    print(i,a,b)
+                else:
+                    print('same',i,a,b)
+        assert xp.allclose(self.D_asii.data, reference)
 
     def move(self, fracpos_ac, atomdist):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
