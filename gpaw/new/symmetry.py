@@ -57,7 +57,7 @@ class SymmetrizationPlan:
                     S_ZZ[Z1:Z2, Z3:Z4] += R_sPP[s]
             # Utilize sparse matrices if sizes get out of hand
             # Limit is hard coded to 100MB per orbit
-            if S_ZZ.nbytes > 100*1024**2:
+            if S_ZZ.nbytes > 100 * 1024**2:
                 S_ZZ = sparse.csr_matrix(S_ZZ)
             S_aZZ[a] = S_ZZ
             indices = []

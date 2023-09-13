@@ -250,18 +250,23 @@ class Density:
         self.D_asii.data[:] = 0.0
         print('Old way', stop - start)
         old = stop - start
-        if self.symplan is None:
+        if self.D_asii.comm.rank == 0:
+            if self.symplan is None:
+                start = time()
+                self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
+                                                  symmetries.a_sa, self.l_aj,
+                                                  D_asii.layout)
+                stop = time()
+                print('New plan took', stop - start)
+
             start = time()
-            self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
-                                              symmetries.a_sa, self.l_aj,
-                                              self.D_asii.layout)
+            self.symplan.apply(D_asii.data, D_asii.data)
             stop = time()
-            print('New plan took', stop - start)
-        start = time()
-        self.symplan.apply(D_asii.data, self.D_asii.data)
-        stop = time()
-        print('New apply took', stop - start)
-        print('Speedup', old / (stop - start))
+            print('New apply took', stop - start)
+            print('Speedup', old / (stop - start))
+
+        self.D_asii.scatter_from(D_asii)
+
         if not xp.allclose(self.D_asii.data, reference):
             for i in range(np.prod(self.D_asii.data.size)):
                 a, b = self.D_asii.data.ravel()[i], reference.ravel()[i]

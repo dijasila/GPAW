@@ -354,6 +354,7 @@ class AtomArrays:
         if isinstance(data, AtomArrays):
             data = data.data
         comm = self.layout.atomdist.comm
+        xp = self.layout.xp
         if comm.size == 1:
             self.data[:] = data
             return
@@ -368,7 +369,7 @@ class AtomArrays:
         requests = []
         for rank, (totsize, size_a) in enumerate(zips(size_r, size_ra)):
             if rank != 0:
-                buf = np.empty(self.mydims + (totsize,), self.layout.dtype)
+                buf = xp.empty(self.mydims + (totsize,), self.layout.dtype)
                 b1 = 0
                 for a, size in size_a.items():
                     b2 = b1 + size
