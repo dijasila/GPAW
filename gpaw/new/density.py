@@ -14,6 +14,7 @@ from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack, unpack2
+from gpaw.new.symmetry import SymmetrizationPlan
 
 
 class Density:
@@ -234,43 +235,39 @@ class Density:
 
         xp = self.nt_sR.xp
         D_asii = self.D_asii.gather(broadcast=True, copy=True)
-        # from time import time
-        # start = time()
-        # for a1, D_sii in self.D_asii.items():
-        #     D_sii[:] = 0.0
-        #     rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
-        #     for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
-        #                                 rotation_sii):
-        #         D_sii += xp.einsum('ij, sjk, lk -> sil',
-        #                            rotation_ii, D_asii[a2], rotation_ii)
-        # self.D_asii.data *= 1.0 / len(symmetries)
-        # stop = time()
-        # reference = self.D_asii.data.copy()
-        # self.D_asii.data[:] = 0.0
-        # print('Old way', stop - start)
-        # old = stop - start
+        from time import time
+        start = time()
+        for a1, D_sii in self.D_asii.items():
+            D_sii[:] = 0.0
+            rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
+            for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
+                                        rotation_sii):
+                D_sii += xp.einsum('ij, sjk, lk -> sil',
+                                   rotation_ii, D_asii[a2], rotation_ii)
+        self.D_asii.data *= 1.0 / len(symmetries)
+        stop = time()
+        reference = self.D_asii.data.copy()
+        self.D_asii.data[:] = 0.0
+        print('Old way', stop - start)
+        old = stop - start
         if self.symplan is None:
-            from gpaw.new.coset import SymmetrizationPlan
-            # start = time()
+            start = time()
             self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
                                               symmetries.a_sa, self.l_aj,
                                               self.D_asii.layout)
-            # stop = time()
-            # print('New plan took', stop - start)
-        # start = time()
+            stop = time()
+            print('New plan took', stop - start)
+        start = time()
         self.symplan.apply(D_asii.data, self.D_asii.data)
-        # stop = time()
-        # print('New apply took', stop - start)
-        # print('Speedup', old / (stop - start))
-        # xp.cuda.runtime.deviceSynchronize()
-        # if not xp.allclose(self.D_asii.data, reference):
-        #     for i in range(np.prod(self.D_asii.data.size)):
-        #         a, b = self.D_asii.data.ravel()[i], reference.ravel()[i]
-        #         if xp.abs(a-b)>1e-6:
-        #             print(i,a,b)
-        #         else:
-        #             print('same',i,a,b)
-        # assert xp.allclose(self.D_asii.data, reference)
+        stop = time()
+        print('New apply took', stop - start)
+        print('Speedup', old / (stop - start))
+        if not xp.allclose(self.D_asii.data, reference):
+            for i in range(np.prod(self.D_asii.data.size)):
+                a, b = self.D_asii.data.ravel()[i], reference.ravel()[i]
+                if xp.abs(a - b) > 1e-6:
+                    print(i, a, b)
+        assert xp.allclose(self.D_asii.data, reference)
 
     def move(self, fracpos_ac, atomdist):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
