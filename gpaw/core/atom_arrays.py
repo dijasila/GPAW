@@ -10,6 +10,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
 from gpaw.new.c import dH_aii_times_P_ani_gpu
+from gpaw.gpu import synchronize
 
 
 class AtomArraysLayout:
@@ -375,6 +376,8 @@ class AtomArrays:
                     b2 = b1 + size
                     buf[..., b1:b2] = aa[a].reshape(self.mydims + (size,))
                     b1 = b2
+                if xp is not np:
+                    synchronize()
                 request = comm.send(buf, rank, 42, False)
                 # Remember to store a reference to the
                 # send buffer (buf) so that is isn't
