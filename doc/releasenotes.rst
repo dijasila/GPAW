@@ -35,12 +35,11 @@ Sep 13, 2023: :git:`23.9.0 <../23.9.0>`
 * We are now using Pytest-cache for our :func:`gpaw.test.conftest.gpw_files`
   fixture.
 
-* New :meth:`~gpaw.new.ase_interface.get_orbital_magnetic_moments`
+* New
+  :meth:`~gpaw.new.ase_interface.ASECalculator.get_orbital_magnetic_moments`
   method: calculates the orbital magnetic moment vector for each atom.
 
-* mix
-
-* response
+* New experimental density mixer: ``MixerFull``.
 
 
 Version 23.6.1
