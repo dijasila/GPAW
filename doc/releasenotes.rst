@@ -25,7 +25,7 @@ Sep 13, 2023: :git:`23.9.0 <../23.9.0>`
 * In the future, it will become an error to not specify a
   :ref:`mode <manual_mode>` parameter for a DFT calculation.
   For now, users will get a warning when finite-difference mode is
-  implicitly chosen.  Please change your scripts to avid this error/warning.
+  implicitly chosen.  Please change your scripts to avoid this error/warning.
 
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
