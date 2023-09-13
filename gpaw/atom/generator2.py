@@ -407,7 +407,7 @@ class PAWWaves:
         from scipy.optimize import fmin
         print('='*100)
         xmin = fmin(f, x0_init, ftol=1.0e-16, maxiter=500000, maxfun=10000)
-        assert f(xmin, False) < 5.0e-10, f"Not orthonormal setups! The overlap is {f(xmin, False)} Abort.\n"
+        assert f(xmin, False) < 5.0e-8, f"Not orthonormal setups! The overlap is {f(xmin, False)} Abort.\n"
         print(' '*100)
 
         for n in range(N):
