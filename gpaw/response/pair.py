@@ -10,7 +10,7 @@ from gpaw.utilities.blas import mmm
 
 class KPoint:
     def __init__(self, s, K, n1, n2, blocksize, na, nb,
-                 ut_nR, eps_n, f_n, P_ani, shift_c):
+                 ut_nR, eps_n, f_n, P_ani, k_c):
         self.s = s    # spin index
         self.K = K    # BZ k-point index
         self.n1 = n1  # first band
@@ -22,8 +22,7 @@ class KPoint:
         self.eps_n = eps_n      # eigenvalues
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
-        self.shift_c = shift_c  # long story - see the
-        # PairDensity.construct_symmetry_operators() method
+        self.k_c = k_c  # k-point coordinates
 
 
 class PairDistribution:
@@ -75,28 +74,16 @@ class KPointPair:
         return df_nm
 
 
-class PairDensityCalculator:
-    def __init__(self, gs, context, *,
-                 threshold=1, nblocks=1):
-        """Density matrix elements
-
-        Parameters
-        ----------
-        threshold : float
-            Numerical threshold for the optical limit k dot p perturbation
-            theory expansion.
-        """
+class KPointPairFactory:
+    def __init__(self, gs, context, *, nblocks=1):
         self.gs = gs
         self.context = context
 
         assert self.gs.kd.symmetry.symmorphic
 
-        self.threshold = threshold
-
-        self.blockcomm, self.kncomm = block_partition(self.context.world,
+        self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
         self.nblocks = nblocks
-        self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
         self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         self.context.print('Number of blocks:', nblocks)
@@ -166,12 +153,9 @@ class PairDensityCalculator:
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
             K = self.kptfinder.find(k_c)
-            shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         else:
             # Fall back to index
             K = k_c
-            shift0_c = np.array([0, 0, 0])
-            k_c = None
 
         if block:
             nblocks = self.blockcomm.size
@@ -184,10 +168,6 @@ class PairDensityCalculator:
         na = min(n1 + rank * blocksize, n2)
         nb = min(na + blocksize, n2)
 
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K, k_c=k_c)
-
-        shift_c += -shift0_c
         ik = kd.bz2ibz_k[K]
         assert kd.comm.size == 1
         kpt = gs.kpt_qs[ik][s]
@@ -197,22 +177,26 @@ class PairDensityCalculator:
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
 
+        k_c = self.gs.ibz2bz[K].map_kpoint()
+
         with self.context.timer('load wfs'):
             psit_nG = kpt.psit_nG
             ut_nR = gs.gd.empty(nb - na, gs.dtype)
             for n in range(na, nb):
-                ut_nR[n - na] = T(gs.pd.ifft(psit_nG[n], ik))
+                ut_nR[n - na] = self.gs.ibz2bz[K].map_pseudo_wave(
+                    gs.pd.ifft(psit_nG[n], ik))
 
         with self.context.timer('Load projections'):
-            P_ani = []
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
+            if nb - na > 0:
+                proj = kpt.projections.new(nbands=nb - na, bcomm=None)
+                proj.array[:] = kpt.projections.array[na:nb]
+                proj = self.gs.ibz2bz[K].map_projections(proj)
+                P_ani = [P_ni for _, P_ni in proj.items()]
+            else:
+                P_ani = []
 
         return KPoint(s, K, n1, n2, blocksize, na, nb,
-                      ut_nR, eps_n, f_n, P_ani, shift_c)
+                      ut_nR, eps_n, f_n, P_ani, k_c)
 
     @timer('Get kpoint pair')
     def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
@@ -233,10 +217,23 @@ class PairDensityCalculator:
             kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
-            Q_G = fft_indices(self.gs.kd, kpt1.K, kpt2.K, q_c, qpd,
-                              kpt1.shift_c - kpt2.shift_c)
+            Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
+
+    def pair_calculator(self):
+        # We have decoupled the actual pair density calculator
+        # from the kpoint factory, but it's still handy to
+        # keep this shortcut -- for now.
+        return ActualPairDensityCalculator(self)
+
+
+class ActualPairDensityCalculator:
+    def __init__(self, pair):
+        self.context = pair.context
+        self.blockcomm = pair.blockcomm
+        self.ut_sKnvR = None  # gradient of wave functions for optical limit
+        self.gs = pair.gs
 
     def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):
@@ -350,13 +347,11 @@ class PairDensityCalculator:
         if self.ut_sKnvR is None or kpt1.K not in self.ut_sKnvR[kpt1.s]:
             self.ut_sKnvR = self.calculate_derivatives(kpt1)
 
-        kd = self.gs.kd
         gd = self.gs.gd
-        k_c = kd.bzk_kc[kpt1.K] + kpt1.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
+        k_v = 2 * np.pi * np.dot(kpt1.k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
-        atomdata_a = self.gs.setups
+        atomdata_a = self.gs.pawdatasets
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
@@ -386,8 +381,9 @@ class PairDensityCalculator:
 
     def calculate_optical_pair_density_head(self, n, m_m, kpt1, kpt2,
                                             block=False):
-        # Relative threshold for perturbation theory
-        threshold = self.threshold
+        # Numerical threshold for the optical limit k dot p perturbation
+        # theory expansion:
+        threshold = 1
 
         eps1 = kpt1.eps_n[n - kpt1.n1]
         deps_m = (eps1 - kpt2.eps_n)[m_m - kpt2.n1]
@@ -415,11 +411,9 @@ class PairDensityCalculator:
         assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
-        kd = self.gs.kd
         gd = self.gs.gd
-        k_c = kd.bzk_kc[kpt.K] + kpt.shift_c
-        k_v = 2 * np.pi * np.dot(k_c, np.linalg.inv(gd.cell_cv).T)
-        atomdata_a = self.gs.setups
+        k_v = 2 * np.pi * np.dot(kpt.k_c, np.linalg.inv(gd.cell_cv).T)
+        atomdata_a = self.gs.pawdatasets
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -430,10 +424,10 @@ class PairDensityCalculator:
             # Has this chunk already been computed?
             oldchunk = any([n in chunk for chunk in degchunks_cn])
             if not oldchunk:
-                assert all([ind in n_n for ind in inds_n]), \
-                    self.context.print(
-                        '\nYou are cutting over a degenerate band ' +
-                        'using block parallelization.', inds_n, n_n)
+                if not all([ind in n_n for ind in inds_n]):
+                    raise RuntimeError(
+                        'You are cutting over a degenerate band '
+                        'using block parallelization.')
                 degchunks_cn.append((inds_n))
 
         # Calculate matrix elements by diagonalizing each block
@@ -453,7 +447,8 @@ class PairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
+                         for atomdata, P_ni in zip(atomdata_a,
+                                                   kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
                 nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)
@@ -471,11 +466,6 @@ class PairDensityCalculator:
 
         return vel_nv[n_n - na]
 
-    def construct_symmetry_operators(self, K, k_c=None):
-        from gpaw.response.symmetry_ops import construct_symmetry_operators
-        return construct_symmetry_operators(
-            self.gs, K, k_c, apply_strange_shift=False)
-
     def calculate_derivatives(self, kpt):
         ut_sKnvR = [{}, {}]
         ut_nvR = self.make_derivative(kpt.s, kpt.K, kpt.n1, kpt.n2)
@@ -486,8 +476,7 @@ class PairDensityCalculator:
     @timer('Derivatives')
     def make_derivative(self, s, K, n1, n2):
         gs = self.gs
-        U_cc, T, a_a, U_aii, shift_c, time_reversal = \
-            self.construct_symmetry_operators(K)
+        U_cc = gs.ibz2bz[K].U_cc
         A_cv = gs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = gs.kd.bz2ibz_k[K]
@@ -498,23 +487,48 @@ class PairDensityCalculator:
         ut_nvR = gs.gd.zeros((n2 - n1, 3), complex)
         for n in range(n1, n2):
             for v in range(3):
-                ut_R = T(gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
+                ut_R = gs.ibz2bz[K].map_pseudo_wave(
+                    gs.pd.ifft(iG_Gv[:, v] * psit_nG[n], ik))
                 for v2 in range(3):
                     ut_nvR[n - n1, v2] += ut_R * M_vv[v, v2]
 
         return ut_nvR
 
 
-def fft_indices(kd, K1, K2, q_c, qpd, shift0_c):
-    """Get indices for G-vectors inside cutoff sphere."""
-    N_G = qpd.Q_qG[0]
-    shift_c = (shift0_c +
-               (q_c - kd.bzk_kc[K2] + kd.bzk_kc[K1]).round().astype(int))
-    if shift_c.any():
-        n_cG = np.unravel_index(N_G, qpd.gd.N_c)
-        n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
-        N_G = np.ravel_multi_index(n_cG, qpd.gd.N_c, 'wrap')
-    return N_G
+def phase_shifted_fft_indices(k1_c, k2_c, qpd, coordinate_transformation=None):
+    """Get phase shifted FFT indices for G-vectors inside the cutoff sphere.
+
+    The output 1D FFT indices Q_G can be used to extract the plane-wave
+    components G of the phase shifted Fourier transform
+
+    n_kk'(G+q) = FFT_G[e^(-i[k+q-k']r) n_kk'(r)]
+
+    where n_kk'(r) is some lattice periodic function and the wave vector
+    difference k + q - k' is commensurate with the reciprocal lattice.
+    """
+    N_c = qpd.gd.N_c
+    Q_G = qpd.Q_qG[0]
+    q_c = qpd.q_c
+    if coordinate_transformation:
+        q_c = coordinate_transformation(q_c)
+
+    shift_c = k1_c + q_c - k2_c
+    assert np.allclose(shift_c.round(), shift_c)
+    shift_c = shift_c.round().astype(int)
+
+    if shift_c.any() or coordinate_transformation:
+        # Get the 3D FFT grid indices (relative reciprocal space coordinates)
+        # of the G-vectors inside the cutoff sphere
+        i_cG = np.unravel_index(Q_G, N_c)
+        if coordinate_transformation:
+            i_cG = coordinate_transformation(i_cG)
+        # Shift the 3D FFT grid indices to account for the Bloch-phase shift
+        # e^(-i[k+q-k']r)
+        i_cG += shift_c[:, np.newaxis]
+        # Transform back the FFT grid to 1D FFT indices
+        Q_G = np.ravel_multi_index(i_cG, N_c, 'wrap')
+
+    return Q_G
 
 
 def get_gs_and_context(calc, txt, world, timer):
@@ -523,7 +537,7 @@ def get_gs_and_context(calc, txt, world, timer):
     from gpaw.calculator import GPAW as OldGPAW
     from gpaw.new.ase_interface import ASECalculator as NewGPAW
 
-    context = ResponseContext(txt=txt, timer=timer, world=world)
+    context = ResponseContext(txt=txt, timer=timer, comm=world)
 
     if isinstance(calc, (OldGPAW, NewGPAW)):
         assert calc.wfs.world.size == 1

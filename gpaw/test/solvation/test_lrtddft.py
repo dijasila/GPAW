@@ -15,7 +15,7 @@ def test_solvation_lrtddft():
     atoms.minimal_box(vac, h)
 
     calc = solv.SolvationGPAW(
-        xc='PBE', h=0.2,  # non-solvent DFT parameters
+        mode='fd', xc='PBE', h=0.2,  # non-solvent DFT parameters
         nbands=3,
         convergence={'energy': 0.1, 'eigenstates': 0.01, 'density': 0.1},
         # convenient way to use HW14 water parameters:

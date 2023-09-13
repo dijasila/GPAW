@@ -22,7 +22,7 @@ Let's try to converge the lattice constant with respect to number of
 plane-waves:
 
 .. literalinclude:: al.py
-    :end-before: al.calc.set
+    :end-before: al.calc.new
 
 .. image:: Al_conv_ecut.png
 

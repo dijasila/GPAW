@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import _gpaw
 import numpy as np
@@ -12,7 +12,7 @@ import gpaw.utilities.blas as blas
 from gpaw import debug, SCIPY_VERSION
 from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -58,8 +58,8 @@ class Matrix:
                  M: int,
                  N: int,
                  dtype=None,
-                 data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple] = None,
+                 data: ArrayLike2D | None = None,
+                 dist: MatrixDistribution | tuple | None = None,
                  xp=None):
         """Matrix object.
 
@@ -114,10 +114,12 @@ class Matrix:
             assert self.shape == dist.full_shape
         self.dist = dist
 
+        self.data: Array2D
         if data is None:
             self.data = self.xp.empty(dist.shape, self.dtype)
         else:
-            self.data = data.reshape(dist.shape)
+            assert data.shape == dist.shape, (data.shape, dist.shape)
+            self.data = data
 
     def __repr__(self):
         dist = str(self.dist).split('(')[1]
@@ -134,7 +136,8 @@ class Matrix:
         return Matrix(*self.shape,
                       dtype=self.dtype,
                       dist=self.dist if dist == 'inherit' else dist,
-                      data=data)
+                      data=data,
+                      xp=self.xp)
 
     def copy(self) -> Matrix:
         """Create a copy."""
@@ -249,7 +252,7 @@ class Matrix:
                 ctx = d2.desc[1]
             redist(d1, self.data, d2, other.data, ctx)
 
-    def gather(self, root: int = 0) -> Matrix:
+    def gather(self, root: int = 0, broadcast=False) -> Matrix:
         """Gather the Matrix on the root rank.
 
         Returns a new Matrix distributed so that all data is on the root rank
@@ -258,6 +261,10 @@ class Matrix:
         if self.dist.comm.size > 1:
             S = self.new(dist=(self.dist.comm, 1, 1))
             self.redist(S)
+            if broadcast:
+                if self.dist.comm.rank > 0:
+                    S = self.new(dist=None)
+                self.dist.comm.broadcast(S.data, 0)
         else:
             S = self
 
@@ -323,7 +330,7 @@ class Matrix:
              *,
              cc=False,
              scalapack=(None, 1, 1, None),
-             limit: int = None) -> Array1D:
+             limit: int | None = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -369,6 +376,7 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
+                        assert isinstance(H.data, cp.ndarray)
                         eps, H.data.T[:] = cupy_eigh(H.data, UPLO='L')
                         return eps
                     eps[:], H.data.T[:] = sla.eigh(
@@ -420,7 +428,8 @@ class Matrix:
     def eighg(self, L: Matrix, comm2: MPIComm = serial_comm) -> Array1D:
         """Solve generalized eigenvalue problem.
 
-        With `H` being self, we solve:::
+        With `H` being self, we solve for the eigenvectors `C` and the
+        eigenvalues `Λ` (a diagonal matrix):::
 
           HC = SCΛ,
 
@@ -444,17 +453,21 @@ class Matrix:
         if comm2.rank == 0:
             if comm.size == 1:
                 H = self
+                L0 = L
             else:
+                # TODO: Use scalapack
                 H = self.new(dist=(comm,))
                 self.redist(H)
+                L0 = self.new(dist=(comm,))
+                L.redist(L0)
             if comm.rank == 0:
                 if self.xp is not np:
-                    return self.dist.eighg(self, L)
+                    return self.dist.eighg(self, L0)
                 tmp_MM = np.empty_like(H.data)
-                L_MM = L.data
+                L_MM = L0.data
                 blas.mmm(1.0, L_MM, 'N', H.data, 'N', 0.0, tmp_MM)
                 blas.r2k(0.5, tmp_MM, L_MM, 0.0, H.data)
-                # Ht_MM = L_MM @ self.data @ L_MM.conj().T
+                # Ht_MM = L_MM @ H.data @ L_MM.conj().T
                 if SCIPY_VERSION >= [1, 9]:
                     driver = 'evx' if M == 1 else 'evd'
                 else:
@@ -466,7 +479,7 @@ class Matrix:
                     driver=driver)
                 assert Ct_Mn.flags.f_contiguous
                 blas.mmm(1.0, L_MM, 'C', Ct_Mn.T, 'T', 0.0, H.data)
-                # self.data[:] = L_MM.T.conj() @ Ct_Mn
+                # H.data[:] = L_MM.T.conj() @ Ct_Mn
             else:
                 eig_n = np.empty(M)
 
@@ -516,8 +529,8 @@ class Matrix:
 
         if dist.comm.size == 1 or dist.rows == 1 and dist.columns == 1:
             if dist.comm.rank == 0:
-                u = self.xp.triu_indices(M, 1)
-                self.data[u] = self.data.T[u].conj()
+                lower = self.xp.tri(M, k=-1, dtype=bool)
+                self.data.T[lower] = self.data[lower].conj()
             return
 
         desc = dist.desc
@@ -580,7 +593,7 @@ class MatrixDistribution:
               self.blocksize is None)
         if not ok:
             raise ValueError(f'Can not create slice of distribution: {self}')
-        M = self.shape[0]
+        M = self.full_shape[0]
         b = (M + self.rows - 1) // self.rows
         n1 = self.comm.rank * b
         n2 = min(n1 + b, M)
@@ -727,10 +740,10 @@ def redist(dist1, M1, dist2, M2, context):
 
 def create_distribution(M: int,
                         N: int,
-                        comm: MPIComm = None,
+                        comm: MPIComm | None = None,
                         r: int = 1,
                         c: int = 1,
-                        b: int = None,
+                        b: int | None = None,
                         xp=None) -> MatrixDistribution:
     if xp is cp:
         return CuPyDistribution(M, N)

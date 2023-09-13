@@ -236,7 +236,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax):
+    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax, ecut):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -254,7 +254,8 @@ class PAWWaves:
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
             phit_ng[n], c0 = pseudizer(phi_g, gc, self.l,
-                                       divergent=self.n_n[n] <= 0)
+                                       divergent=self.n_n[n] <= 0,
+                                       ecut=ecut)
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
@@ -463,6 +464,7 @@ class PAWSetupGenerator:
         self.exxcc_w: dict[float, float] = {}
         self.exxcv_wii: dict[float, Array2D] = {}
         self.omega = omega
+        self.ecut = ecut
 
         self.core_hole: Optional[Tuple[int, int, float]]
         if core_hole:
@@ -513,7 +515,7 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
-        def pseudize(a_g, gc, l=0, points=4, ecut=ecut, divergent=False):
+        def pseudize(a_g, gc, l=0, points=4, ecut=None, divergent=False):
             if ecut is None or divergent:
                 return self.rgd.pseudize(a_g, gc, l, points)
             Gcut = (2 * ecut)**0.5
@@ -544,7 +546,7 @@ class PAWSetupGenerator:
                 return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
 
             def f(alpha):
-                return log(spillage(alpha)) - log(eps)
+                return log(spillage(alpha[0])) - log(eps)
 
             self.alpha = fsolve(f, 7.0)[0]
 
@@ -624,7 +626,6 @@ class PAWSetupGenerator:
                                   self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
-
         phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P, divergent=True)
 
         dgdr_g = 1 / self.rgd.dr_g
@@ -698,15 +699,17 @@ class PAWSetupGenerator:
         if type == 'poly':
             pseudizer = partial(self.pseudizer, points=nderiv)
         elif type == 'nc':
-            pseudizer = partial(self.rgd.pseudize_normalized, points=nderiv)
+            def pseudizer(a_g, gc, l=0, ecut=None, divergent=False):
+                return self.rgd.pseudize_normalized(a_g, gc, l, points=nderiv)
         else:
             pseudizer = None
         for waves in self.waves_l:
             if type == 'orthonormal':
+                assert isinstance(nderiv, tuple)
                 waves.pseudize_orthonormal(nderiv, self.vtr_g, 2.0 * self.rcmax)
             else:
                 waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
-                               2.0 * self.rcmax)
+                               2.0 * self.rcmax, ecut=self.ecut)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -1040,19 +1043,21 @@ class PAWSetupGenerator:
             txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
 
         # Polarization:
-        gcpol = rgd.round(rcpol)
-        alpha = 1 / (0.25 * rcpol)**2
+        if lpol < 4:
+            gcpol = rgd.round(rcpol)
+            alpha = 1 / (0.25 * rcpol)**2
 
-        # Gaussian that is continuous and has a continuous derivative at rcpol:
-        phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
-        phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
-        phit_g[gcpol:] = 0.0
+            # Gaussian that is continuous and has a continuous
+            # derivative at rcpol:
+            phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
+            phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
+            phit_g[gcpol:] = 0.0
 
-        bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
-        self.basis.append(bf)
-        txt += 'l=%d polarization functions:\n' % lpol
-        txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
-                                                                alpha)
+            bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
+            self.basis.append(bf)
+            txt += f'l={lpol} polarization functions:\n'
+            txt += f'  cutoff: {rcpol:.3f} Bohr '
+            txt += f'(r^{lpol} exp(-{alpha:.3f}*r^2))\n'
 
         self.log(txt)
 
@@ -1561,7 +1566,7 @@ class CLICommand:
             '(integer) or energy (floating point number). ' +
             'Example: 2s,0.5s,2p,0.5p,0.0d.')
         add('-r', '--radius',
-            help='1.2 or 1.2,1.1,1.1')
+            help='1.2 or 1.2,1.1,1.1.  Units: Bohr.')
         add('-0', '--zero-potential',
             metavar='nderivs,radius',
             help='Parameters for zero potential.')
@@ -1590,7 +1595,8 @@ class CLICommand:
         add('--core-hole')
         add('-e', '--electrons', type=int)
         add('-o', '--output')
-        add('--ecut', type=float)
+        add('--ecut', type=float, help='Minimize Fourier components above '
+            'ECUT for pseudo wave functions.')
         add('--ri', type=str,
             help='Calculate also resolution of identity basis.')
         add('--omega', type=float, default=None,

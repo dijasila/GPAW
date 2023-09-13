@@ -44,11 +44,13 @@ conv_fast = {'energy': 1.0, 'density': 1.0, 'eigenstates': 1.0}
 conv_par = {'energy': 0.001, 'density': 1e-3, 'eigenstates': 1e-7}
 
 if charge == 0:
-    calc = GPAW(gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
+    calc = GPAW(mode='fd',
+                gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
                 nbands=110,
                 xc='LDA',
                 txt=name + '_gs.txt',
-                convergence=conv_par)
+                convergence=conv_par,
+                symmetry={'point_group': False})
 
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -57,13 +59,15 @@ if charge == 0:
 if charge == 1:
     const_pot = ConstantPotential(1.0)
 
-    calc = GPAW(gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
+    calc = GPAW(mode='fd',
+                gpts=h2gpts(0.2, gra.get_cell(), idiv=8),
                 nbands=110,
                 xc='LDA',
                 charge=1,
                 txt=name + '_gs.txt',
                 convergence=conv_fast,
-                external=const_pot)
+                external=const_pot,
+                symmetry={'point_group': False})
 
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -90,10 +94,11 @@ if charge == 1:
                 if dist < rcut:
                     vext.vext_g[i, j, k] += A * np.exp(-dist**2)
 
-    calc.set(convergence=conv_par, eigensolver=RMMDIIS(5), external=vext)
+    atoms.calc = calc.new(convergence=conv_par, eigensolver=RMMDIIS(5),
+                          external=vext, txt=name + '_vext_gs.txt')
 
     atoms.get_potential_energy()
-    calc.write(name + '.gpw', mode='all')
+    atoms.calc.write(name + '.gpw', mode='all')
 
 else:
     parprint('Charge should be 0 or 1!')

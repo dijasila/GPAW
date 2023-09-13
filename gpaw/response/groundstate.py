@@ -1,16 +1,20 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
 from ase.units import Ha, Bohr
+from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
+from gpaw.ibz2bz import IBZ2BZMaps
 
 
 class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
@@ -23,42 +27,36 @@ class ResponseGroundStateAdapter:
 
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
-        self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
+        self.pawdatasets = [ResponsePAWDataset(setup) for setup in calc.setups]
+
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+
+        self.ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
         self._wfs = wfs
         self._density = calc.density
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context=None):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
 
-        if context is None:
-            def timer(*unused):
-                def __enter__(self):
-                    pass
+        context.print('Reading ground state calculation:\n  %s' % gpw)
 
-                def __exit__(self):
-                    pass
-        else:
-            timer = context.timer
-            context.print('Reading ground state calculation:\n  %s' % gpw)
-
-        with timer('Read ground state'):
+        with context.timer('Read ground state'):
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -66,6 +64,23 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @lazyproperty
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        from gpaw.pw.descriptor import PWDescriptor
+
+        assert self.gd.comm.size == 1
+        kd = self.kd.copy()  # global KPointDescriptor without a comm
+        return PWDescriptor(self.pd.ecut, self.gd,
+                            dtype=self.pd.dtype,
+                            kd=kd, fftwflags=self.pd.fftwflags,
+                            gammacentered=self.pd.gammacentered)
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -169,13 +184,20 @@ class ResponseGroundStateAdapter:
     def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            setups=self.setups, qpd=qpd, spos_ac=self.spos_ac)
+            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac,
+            atomrotations=self.atomrotations)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
         return np.dot(self.spos_ac, self.gd.cell_cv)
 
-    def count_occupied_bands(self, ftol):
+    def count_occupied_bands(self, ftol=1e-6):
+        """Count the number of filled and non-empty bands.
+
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        """
         nocc1 = 9999999
         nocc2 = 0
         for kpt in self.kpt_u:
@@ -193,3 +215,39 @@ class ResponseGroundStateAdapter:
         ibzq_qc = kd.get_ibz_q_points(bzq_qc, U_scc)[0]
 
         return ibzq_qc
+
+    def get_ibz_vertices(self):
+        # For the tetrahedron method in Chi0
+        from gpaw.bztools import get_bz
+        # NB: We are ignoring the pbc_c keyword to get_bz() in order to mimic
+        # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
+        _, ibz_vertices_kc = get_bz(self._calc)
+        return ibz_vertices_kc
+
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
+
+    @property
+    def atomrotations(self):
+        return self._wfs.setups.atomrotations
+
+
+# Contains all the relevant information
+# from Setups class for response calculators
+class ResponsePAWDataset:
+    def __init__(self, setup):
+        self.ni = setup.ni
+        self.rgd = setup.rgd
+        self.rcut_j = setup.rcut_j
+        self.l_j = setup.l_j
+        self.lq = setup.lq
+        self.nabla_iiv = setup.nabla_iiv
+        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
+                                    phit_jg=setup.data.phit_jg)
+        self.xc_correction = SimpleNamespace(
+            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+            nc_corehole_g=setup.xc_correction.nc_corehole_g,
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
+        self.hubbard_u = setup.hubbard_u

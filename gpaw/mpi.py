@@ -17,7 +17,6 @@ from .broadcast_imports import world as _world
 import _gpaw
 
 MASTER = 0
-MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -74,6 +73,9 @@ class _Communicator:
         self.rank = comm.rank
         self.parent = parent  # XXX check C-object against comm.parent?
 
+    def __repr__(self):
+        return f'MPIComm(size={self.size}, rank={self.rank})'
+
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
         Must be called with identical arguments by all relevant processes.
@@ -119,11 +121,16 @@ class _Communicator:
         if isinstance(a, (int, float, complex)):
             return self.comm.sum(a, root)
         else:
+            # assert a.ndim != 0
             tc = a.dtype
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.sum(a, root)
+
+    def sum_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float, complex))
+        return self.comm.sum_scalar(a, root)
 
     def product(self, a, root=-1):
         """Do multiplication by MPI reduce operations of numerical data.
@@ -181,6 +188,10 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.max(a, root)
 
+    def max_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.max_scalar(a, root)
+
     def min(self, a, root=-1):
         """Find minimal value by an MPI reduce operation of numerical data.
 
@@ -209,7 +220,11 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
 
-    def scatter(self, a, b, root):
+    def min_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.min_scalar(a, root)
+
+    def scatter(self, a, b, root: int) -> None:
         """Distribute data from one rank to all other processes in a group.
 
         Parameters:
@@ -281,12 +296,12 @@ class _Communicator:
             displacement (relative to recvbuf at which to place the incoming
             data from process i
         """
-        assert sbuffer.flags.contiguous
-        assert scounts.flags.contiguous
-        assert sdispls.flags.contiguous
-        assert rbuffer.flags.contiguous
-        assert rcounts.flags.contiguous
-        assert rdispls.flags.contiguous
+        assert sbuffer.flags.c_contiguous
+        assert scounts.flags.c_contiguous
+        assert sdispls.flags.c_contiguous
+        assert rbuffer.flags.c_contiguous
+        assert rcounts.flags.c_contiguous
+        assert rdispls.flags.c_contiguous
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
@@ -384,10 +399,10 @@ class _Communicator:
               comm.send(mydata, 0, tag=123)
 
         """
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         assert 0 <= root < self.size
         if root == self.rank:
-            assert b.flags.contiguous and b.dtype == a.dtype
+            assert b.flags.c_contiguous and b.dtype == a.dtype
             assert (b.shape[0] == self.size and a.shape == b.shape[1:] or
                     a.size * self.size == b.size)
             self.comm.gather(a, root, b)
@@ -600,8 +615,12 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert isinstance(c_obj, _gpaw.Communicator)
-        return c_obj
+        if isinstance(c_obj, _gpaw.Communicator):
+            return c_obj
+        return c_obj.get_c_object()
+
+
+MPIComm = _Communicator  # for type hints
 
 
 # Serial communicator
@@ -612,9 +631,15 @@ class SerialCommunicator:
     def __init__(self, parent=None):
         self.parent = parent
 
+    def __repr__(self):
+        return 'SerialCommunicator()'
+
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
             return array
+
+    def sum_scalar(self, a, root=-1):
+        return a
 
     def scatter(self, s, r, root):
         r[:] = s
@@ -622,7 +647,13 @@ class SerialCommunicator:
     def min(self, value, root=-1):
         return value
 
+    def min_scalar(self, value, root=-1):
+        return value
+
     def max(self, value, root=-1):
+        return value
+
+    def max_scalar(self, value, root=-1):
         return value
 
     def broadcast(self, buf, root):
@@ -698,19 +729,22 @@ class SerialCommunicator:
         return _world
 
 
-world: SerialCommunicator | _Communicator | _gpaw.Communicator
-serial_comm: SerialCommunicator | _Communicator = SerialCommunicator()
+_serial_comm = SerialCommunicator()
 
 have_mpi = _world is not None
 
-if not have_mpi or _world.size == 1:
-    world = serial_comm
-else:
-    world = _world
+if not have_mpi:
+    _world = _serial_comm  # type: ignore
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(_serial_comm)
+    if _world.size == 1:
+        world = serial_comm
+    else:
+        world = _Communicator(_world)
+else:
+    serial_comm = _serial_comm  # type: ignore
+    world = _world  # type: ignore
 
 rank = world.rank
 size = world.size

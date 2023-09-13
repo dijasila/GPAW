@@ -9,7 +9,7 @@ import gpaw.mpi as mpi
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 class DielectricFunctionCalculator:
@@ -17,10 +17,10 @@ class DielectricFunctionCalculator:
         from gpaw.response.pw_parallelization import Blocks1D
         self.chi0calc = chi0calc
 
-        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context = chi0calc.context
         self.wd = chi0calc.wd
-        self.blocks1d = Blocks1D(self.context.world, len(self.wd))
+        self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
 
@@ -73,7 +73,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.get_distributed_frequencies_array()
+            chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
@@ -83,7 +83,7 @@ class DielectricFunctionCalculator:
                        for thing in more_things])
 
     def collect(self, a_w):
-        return self.blocks1d.collect(a_w)
+        return self.blocks1d.all_gather(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
@@ -115,7 +115,7 @@ class DielectricFunctionCalculator:
         """
         qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
 
-        coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
+        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
         Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
         sqrtV_G = Kbare_G**0.5
 
@@ -380,7 +380,7 @@ class DielectricFunctionCalculator:
         eels_LFC_w = self.collect(eels_LFC_w)
 
         # Write to file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     eels_NLFC_w, eels_LFC_w)
@@ -449,7 +449,7 @@ class DielectricFunctionCalculator:
         alpha_w *= hypervol
 
         # Write results file
-        if filename is not None and self.context.world.rank == 0:
+        if filename is not None and self.context.comm.rank == 0:
             omega_w = self.wd.omega_w
             write_response_function(filename, omega_w * Hartree,
                                     alpha0_w, alpha_w)
@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, ftol=1e-6, threshold=1,
+                 nbands=None, eta=0.2,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -504,27 +504,21 @@ class DielectricFunction(DielectricFunctionCalculator):
         """Creates a DielectricFunction object.
 
         calc: str
-            The groundstate calculation file that the linear response
+            The ground-state calculation file that the linear response
             calculation is based on.
         frequencies:
             Input parameters for frequency_grid.
-            Can be array of frequencies to evaluate the response function at
-            or dictionary of paramaters for build-in nonlinear grid
+            Can be an array of frequencies to evaluate the response function at
+            or dictionary of parameters for build-in nonlinear grid
             (see :ref:`frequency grid`).
         ecut: float
             Plane-wave cut-off.
         hilbert: bool
             Use hilbert transform.
         nbands: int
-            Number of bands from calc.
+            Number of bands from calculation.
         eta: float
             Broadening parameter.
-        ftol: float
-            Threshold for including close to equally occupied orbitals,
-            f_ik - f_jk > ftol.
-        threshold: float
-            Threshold for matrix elements in optical response perturbation
-            theory.
         intraband: bool
             Include intraband transitions.
         world: comm
@@ -536,7 +530,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Output file.
         truncation: str or None
             None for no truncation.
-            'wigner-seitz' for Wigner Seitz truncated Coulomb.
             '2D' for standard analytical truncation scheme.
             Non-periodic directions are determined from k-point grid
         eshift: float
@@ -550,15 +543,14 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(
-            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(
+            gs=gs, context=context, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
             wd=wd,
-            pair=pair,
+            kptpair_factory=kptpair_factory,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
-            ftol=ftol,
             intraband=intraband,
             disable_point_group=disable_point_group,
             disable_time_reversal=disable_time_reversal,

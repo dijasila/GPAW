@@ -39,16 +39,16 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
 
-        setup = gs.setups[a]
-        if setup.hubbard_u is not None:
-            _, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+        pawdata = gs.pawdatasets[a]
+        if pawdata.hubbard_u is not None:
+            _, dHU_sp = pawdata.hubbard_u.calculate(pawdata, D_sp)
             dvxc_sp += dHU_sp
-        xc.calculate_paw_correction(setup, D_sp, dvxc_sp, a=a,
+        xc.calculate_paw_correction(pawdata, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
 
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
-            dvxc_asii[a] = [setup.dO_ii]
+            dvxc_asii[a] = [pawdata.dO_ii]
 
     vxc_un = np.empty((gs.kd.mynk * gs.nspins, gs.bd.mynbands))
     for u, vxc_n in enumerate(vxc_un):

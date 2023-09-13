@@ -2,7 +2,6 @@ import pickle
 import numpy as np
 from math import pi
 import ase.units
-from ase.parallel import world
 import os
 
 Hartree = ase.units.Hartree
@@ -143,7 +142,7 @@ class BuildingBlock:
         if self.load_chi_file():
             if self.complete:
                 self.context.print('Building block loaded from file')
-        world.barrier()
+        self.context.comm.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
@@ -175,8 +174,8 @@ class BuildingBlock:
             self.context.print('calculated chi!')
 
             nw = len(self.wd)
-            world = self.context.world
-            w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
+            comm = self.context.comm
+            w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
@@ -186,7 +185,7 @@ class BuildingBlock:
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
-            if self.context.world.rank == 0:
+            if self.context.comm.rank == 0:
                 assert w1 == 0  # drhoM and drhoD in static limit
                 self.update_building_block(chiM_w[np.newaxis, :],
                                            chiD_w[np.newaxis, :],
@@ -194,7 +193,7 @@ class BuildingBlock:
 
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             for n in range(Nq):
                 if np.allclose(self.q_cs[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
@@ -229,10 +228,10 @@ class BuildingBlock:
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
 
-        if self.context.world.rank == 0:
+        if self.context.comm.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
-        world.barrier()
+        self.context.comm.barrier()
 
     def load_chi_file(self):
         try:
@@ -336,19 +335,19 @@ class BuildingBlock:
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
-        world = self.context.world
+        comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
         nw = len(self.wd)
-        A_w = np.empty(world.size * mynw, a_w.dtype)
-        world.all_gather(b_w, A_w)
+        A_w = np.empty(comm.size * mynw, a_w.dtype)
+        comm.all_gather(b_w, A_w)
         return A_w[:nw]
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.context.world
-            if world.rank == 0:
+            comm = self.context.comm
+            if comm.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()
                     os.remove(filename)
@@ -421,6 +420,7 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
     chiD_qw = np.zeros([nq, nw], dtype=complex)
     drhoM_qz = np.zeros([nq, len(z)], dtype=complex)  # induced density
     drhoD_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
+
     for iq in range(nq):
         if iq != 0:
             omega_w, qpd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
@@ -435,11 +435,15 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
         for iG in range(npw):  # List of G with Gx,Gy = 0
             if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
                 Glist.append(iG)
-
-        chiM_qw[iq] = L * chi_wGG[:, 0, 0]
-        drhoM_qz[iq] += chi_wGG[0, 0, 0]
         q_abs = np.linalg.norm(q)
         q_list_abs.append(q_abs)
+
+        # If node lacks frequency points due to block parallelization then
+        # return empty arrays
+        if nw == 0:
+            continue
+        chiM_qw[iq] = L * chi_wGG[:, 0, 0]
+        drhoM_qz[iq] += chi_wGG[0, 0, 0]
         for iG in Glist[1:]:
             G_z = G_Gv[iG, 2]
             qGr_R = np.inner(G_z, z.T).T
@@ -456,10 +460,11 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
                 drhoD_qz[iq, :] += 1. / L * np.exp(1j * qGr_R) * \
                     chi_wGG[0, iG, iG1] * factor1
     # Normalize induced densities with chi
-    drhoM_qz /= np.repeat(chiM_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                          axis=1)
-    drhoD_qz /= np.repeat(chiD_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                          axis=1)
+    if nw != 0:
+        drhoM_qz /= np.repeat(chiM_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
+                              axis=1)
+        drhoD_qz /= np.repeat(chiD_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
+                              axis=1)
 
     """ Returns q array, frequency array, chi2D monopole and dipole, induced
     densities and z array (all in Bohr)

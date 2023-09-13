@@ -3,13 +3,14 @@ from functools import partial
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
+from gpaw.new import zips
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
+from gpaw.new.lcao.forces import TCIDerivatives
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.hybrids import HybridLCAOEigensolver, HybridXCFunctional
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
-from gpaw.new.lcao.forces import TCIDerivatives
 from gpaw.utilities.timing import NullTimer
 
 
@@ -17,8 +18,10 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
     def __init__(self,
                  atoms,
                  params,
+                 *,
+                 comm,
                  distribution=None):
-        super().__init__(atoms, params)
+        super().__init__(atoms, params, comm=comm)
         self.distribution = distribution
         self.basis = None
 
@@ -57,13 +60,19 @@ class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
         else:
             coefficients = None
 
-        ibzwfs = self.create_ibz_wave_functions(basis, potential, coefficients)
+        ibzwfs = self.create_ibz_wave_functions(basis, potential,
+                                                coefficients=coefficients)
 
         # Set eigenvalues, occupations, etc..
         self.read_wavefunction_values(reader, ibzwfs)
         return ibzwfs
 
-    def create_ibz_wave_functions(self, basis, potential, coefficients=None):
+    def create_ibz_wave_functions(self,
+                                  basis,
+                                  potential,
+                                  *,
+                                  log=None,
+                                  coefficients=None):
         ibzwfs, _ = create_lcao_ibzwfs(
             basis, potential,
             self.ibz, self.communicators, self.setups,
@@ -78,6 +87,7 @@ def create_lcao_ibzwfs(basis, potential,
                        fracpos_ac, grid, dtype,
                        nbands, ncomponents, atomdist, nelectrons,
                        coefficients=None):
+    kpt_band_comm = communicators['D']
     kpt_comm = communicators['k']
     band_comm = communicators['b']
     domain_comm = communicators['d']
@@ -87,33 +97,42 @@ def create_lcao_ibzwfs(basis, potential,
     kpt_qc = ibz.kpt_kc[here_k]
 
     tciexpansions = TCIExpansions.new_from_setups(setups)
-    # basis.set_matrix_distribution(self.ksl.Mstart, self.ksl.Mstop)
     manytci = tciexpansions.get_manytci_calculator(
         setups, grid._gd, fracpos_ac,
         kpt_qc, dtype, NullTimer())
 
     my_atom_indices = basis.my_atom_indices
-    S_qMM, T_qMM = manytci.O_qMM_T_qMM(domain_comm,
-                                       0, setups.nao,
-                                       False)
+    M1 = basis.Mstart
+    M2 = basis.Mstop
+    S0_qMM, T0_qMM = manytci.O_qMM_T_qMM(domain_comm, M1, M2, True)
     if dtype == complex:
-        np.negative(S_qMM.imag, S_qMM.imag)
-        np.negative(T_qMM.imag, T_qMM.imag)
+        np.negative(S0_qMM.imag, S0_qMM.imag)
+        np.negative(T0_qMM.imag, T0_qMM.imag)
 
     P_aqMi = manytci.P_aqMi(my_atom_indices)
     P_qaMi = [{a: P_aqMi[a][q] for a in my_atom_indices}
-              for q in range(len(S_qMM))]
+              for q in range(len(S0_qMM))]
 
     for a, P_qMi in P_aqMi.items():
         dO_ii = setups[a].dO_ii
-        for P_Mi, S_MM in zip(P_qMi, S_qMM):
-            S_MM += P_Mi.conj() @ dO_ii @ P_Mi.T
-    domain_comm.sum(S_qMM)
+        for P_Mi, S_MM in zips(P_qMi, S0_qMM):
+            S_MM += P_Mi[M1:M2].conj() @ dO_ii @ P_Mi.T
+    domain_comm.sum(S0_qMM)
 
     # self.atomic_correction= self.atomic_correction_cls.new_from_wfs(self)
     # self.atomic_correction.add_overlap_correction(newS_qMM)
 
     nao = setups.nao
+
+    S_qMM = [Matrix(nao, nao, data=S_MM,
+                    dist=(band_comm, band_comm.size, 1)) for S_MM in S0_qMM]
+    T_qMM = [Matrix(nao, nao, data=T_MM,
+                    dist=(band_comm, band_comm.size, 1)) for T_MM in T0_qMM]
+
+    for S_MM in S_qMM:
+        S_MM.tril2full()
+    for T_MM in T_qMM:
+        T_MM.tril2full()
 
     tci_derivatives = TCIDerivatives(manytci, atomdist, nao)
 
@@ -129,8 +148,7 @@ def create_lcao_ibzwfs(basis, potential,
             tci_derivatives=tci_derivatives,
             basis=basis,
             C_nM=C_nM,
-            S_MM=Matrix(nao, nao, data=S_qMM[q],
-                        dist=(band_comm, band_comm.size, 1)),
+            S_MM=S_qMM[q],
             T_MM=T_qMM[q],
             P_aMi=P_qaMi[q],
             kpt_c=kpt_c,
@@ -143,9 +161,11 @@ def create_lcao_ibzwfs(basis, potential,
             weight=weight,
             ncomponents=ncomponents)
 
-    ibzwfs = create_ibzwfs(ibz,
-                           nelectrons,
-                           ncomponents,
-                           create_wfs,
-                           kpt_comm)
+    ibzwfs = create_ibzwfs(ibz=ibz,
+                           nelectrons=nelectrons,
+                           ncomponents=ncomponents,
+                           create_wfs_func=create_wfs,
+                           kpt_comm=kpt_comm,
+                           kpt_band_comm=kpt_band_comm,
+                           comm=communicators['w'])
     return ibzwfs, tciexpansions

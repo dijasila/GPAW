@@ -59,18 +59,19 @@ for formula in systems:
     loa.set_cell(cell)
     loa.center()
     width = 0.0
-    calc = GPAW(h=.18,
+    calc = GPAW(mode='fd',
+                h=.18,
                 nbands=-5,
                 maxiter=333,
-                xc='PBE',
-                txt=formula + '.txt')
+                xc='PBE')
     if len(loa) == 1:
-        calc.set(hund=True)
-        # calc.set(fixmom=True)
-        calc.set(mixer=MixerDif())
-        calc.set(eigensolver='cg')
+        calc = calc.new(hund=True,
+                        # fixmom=True,
+                        mixer=MixerDif(),
+                        eigensolver='cg',
+                        txt=formula + '.txt')
     else:
-        calc.set(mixer=Mixer())
+        calc = calc.new(mixer=Mixer(), txt=formula + '.txt')
         pos = loa.get_positions()
         pos[1, :] = pos[0, :] + [exp_bonds_dE[i][1], 0.0, 0.0]
         loa.set_positions(pos)
