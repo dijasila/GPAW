@@ -1,6 +1,3 @@
-import numpy as np
-
-
 class SymmetrizationPlan:
     def __init__(self, xp, rotations, a_sa, l_aj, layout):
         ns = a_sa.shape[0]
@@ -13,7 +10,8 @@ class SymmetrizationPlan:
             a = coset[0]  # Representative atom for coset
             R_sii = xp.asarray(rotations(l_aj[a], xp))
             i2 = R_sii.shape[1]**2
-            R_sPP = xp.einsum('sab,scd->sacbd', R_sii, R_sii).reshape((ns, i2, i2)) / ns
+            R_sPP = xp.einsum('sab,scd->sacbd', R_sii, R_sii)
+            R_sPP = R_sPP.reshape((ns, i2, i2)) / ns
             S_ZZ = xp.zeros((nA * i2,) * 2)
             for loca1, a1 in enumerate(coset):
                 Z1 = loca1 * i2
