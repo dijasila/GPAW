@@ -7,9 +7,15 @@ from gpaw.new.brillouin import IBZ, BZPoints
 from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
 
-
 class SymmetrizationPlan:
     def __init__(self, xp, rotations, a_sa, l_aj, layout):
+        if xp is np:
+            import scipy
+            sparse = scipy.sparse
+        else:
+            from gpaw.gpu import cupyx
+            sparse = cupyx.scipy.sparse
+        
         ns = a_sa.shape[0]  # Number of symmetries
         na = a_sa.shape[1]  # Number of atoms
 
@@ -25,18 +31,23 @@ class SymmetrizationPlan:
         for coset in map(list, cosets):
             nA = len(coset)  # Number of atoms in this orbit
             a = coset[0]  # Representative atom for coset
-            R_sii = xp.asarray(rotations(l_aj[a], xp))
+            R_sii = xp.asarray(rotations(l_aj[a], xp)) / ns**0.5
             i2 = R_sii.shape[1]**2
+            for R_ii in R_sii:
+                print(type(R_ii), R_ii)
+            print(xp)
+            R_sii = [sparse.csc_matrix(R_ii) for R_ii in R_sii]
             # The atomic density matrices transform as
             # ρ'_ii = R_sii ρ_ii R^T_sii
             # Which equals to vec(ρ'_ii) = (R^s_ii ⊗  R^s_ii) vec(ρ_ii)
             # Here we to the Kronecker product for each of the
             # symmetry transformations.
-            R_sPP = xp.einsum('sab,scd->sacbd', R_sii, R_sii)
-            R_sPP = R_sPP.reshape((ns, i2, i2)) / ns
-            S_ZZ = xp.zeros((nA * i2,) * 2)
-            print(xp.count_non_zeros(R_sPP) / R_sPP.size * 100,
-                  '% of non zeros R_sPP')
+            R_sPP = [sparse.kron(R_ii, R_ii) for R_ii in R_sii]
+            #R_sPP = xp.einsum('sab,scd->sacbd', R_sii, R_sii)
+            #R_sPP = R_sPP.reshape((ns, i2, i2)) / ns
+            S_ZZ = sparse.csc_matrix(xp.zeros((nA * i2,) * 2))
+            #print(xp.count_nonzero(R_sPP) / R_sPP.size * 100,
+            #      '% of non zeros R_sPP')
 
             # For each orbit, the symetrization operation is represented by
             # a full matrix operating on a subset of indices to the full array.
@@ -48,8 +59,8 @@ class SymmetrizationPlan:
                     Z3 = loca2 * i2
                     Z4 = Z3 + i2
                     S_ZZ[Z1:Z2, Z3:Z4] += R_sPP[s]
-            print(xp.count_non_zeros(S_ZZ) / S_ZZ.size * 100,
-                  '% of non zeros S_ZZ')
+            #print(xp.count_nonzero(S_ZZ) / S_ZZ.size * 100,
+            #      '% of non zeros S_ZZ')
             S_aZZ[a] = S_ZZ
             indices = []
             for loca1, a1 in enumerate(coset):
