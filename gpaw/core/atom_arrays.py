@@ -10,7 +10,6 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
 from gpaw.new.c import dH_aii_times_P_ani_gpu
-from gpaw.gpu import synchronize
 
 
 class AtomArraysLayout:
