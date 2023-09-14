@@ -969,6 +969,19 @@ class GPAW(Calculator):
         n = par.convergence.get('bands', 'occupied')
         if isinstance(n, int) and n < 0:
             n += self.wfs.bd.nbands
+
+        solver_name = self.wfs.eigensolver.name
+        if solver_name == 'etdm-fdpw':
+            if not self.wfs.eigensolver.converge_unocc:
+                if n == 'all' or (isinstance(n, int)
+                                  and n > self.wfs.nvalence / 2):
+                    warnings.warn(
+                        'Please, use eigensolver=FDPWETDM(..., '
+                        'converge_unocc=True) to converge unoccupied bands')
+                    n = 'occupied'
+            else:
+                n = 'all'
+
         self.log('Bands to converge:', n)
 
         self.log(flush=True)
