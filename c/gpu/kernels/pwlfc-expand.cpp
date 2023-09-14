@@ -58,6 +58,11 @@ __global__ void pw_insert_16(int nG,
         tmp_Q[Q_G[G]] = gpuCmulD(c_G[G], scale);
 }
 
+extern "C" void gpawDeviceSynchronize()
+{
+    gpuDeviceSynchronize();
+}
+
 extern "C"
 void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
