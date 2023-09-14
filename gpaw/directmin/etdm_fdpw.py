@@ -740,126 +740,53 @@ class FDPWETDM(Eigensolver):
                 self.odd.get_energy_and_gradients_kpt(
                     wfs, kpt, grad_knG, self.iloop.U_k,
                     add_grad=True, scalewithocc=scalewithocc)
-        for kpt in wfs.kpt_u:
-            if self.excited_state:
-                typediag = 'separate'
-                k = self.n_kps * kpt.s + kpt.q
-                lamb = wfs.integrate(kpt.psit_nG[:], grad_knG[k][:], True)
-                if typediag == 'upptr':
-                    iu1 = np.triu_indices(lamb.shape[0], 1)
-                    il1 = np.tril_indices(lamb.shape[0], -1)
-                    lamb[il1] = lamb[iu1]
-                    if 'SIC' in self.func_settings['name']:
-                        self.odd.lagr_diag_s[k] = np.append(
-                            np.diagonal(lamb).real)
-                    evals, lamb = np.linalg.eigh(lamb)
-                    wfs.gd.comm.broadcast(evals, 0)
-                    wfs.gd.comm.broadcast(lamb, 0)
-                    kpt.eps_n[:] = evals.copy()
-                    if rewrite_psi:
-                        lamb = lamb.conj().T
-                        kpt.psit_nG[:] = \
-                            np.tensordot(lamb, kpt.psit_nG[:],
-                                         axes=1)
-                        for a in kpt.P_ani.keys():
-                            kpt.P_ani[a][:] = \
-                                np.dot(lamb, kpt.P_ani[a][:])
-                elif typediag == 'separate':
-                    n_occ = get_n_occ(kpt)[0]
-                    dim = self.bd.nbands - n_occ
-                    lamb1 = (lamb[:n_occ, :n_occ] +
-                             lamb[:n_occ, :n_occ].T.conj()) / 2.0
-                    lumo = (lamb[n_occ:, n_occ:] +
-                            lamb[n_occ:, n_occ:].T.conj()) / 2.0
-                    if 'SIC' in self.func_settings['name']:
-                        self.odd.lagr_diag_s[k] = np.append(
-                            np.diagonal(lamb1).real,
-                            np.diagonal(lumo).real)
-                    if n_occ != 0:
-                        evals, lamb1 = np.linalg.eigh(lamb1)
-                        wfs.gd.comm.broadcast(evals, 0)
-                        wfs.gd.comm.broadcast(lamb1, 0)
-                        lamb1 = lamb1.T
-                        kpt.eps_n[:n_occ] = evals[:n_occ]
-                    evals_lumo, lumo = np.linalg.eigh(lumo)
-                    wfs.gd.comm.broadcast(evals_lumo, 0)
-                    wfs.gd.comm.broadcast(lumo, 0)
-                    kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-                    kpt.eps_n[n_occ + dim:] *= 0.0
-                    kpt.eps_n[n_occ + dim:] += \
-                        np.absolute(
-                            5.0 * kpt.eps_n[n_occ + dim - 1])
-                    if rewrite_psi:
-                        kpt.psit_nG[:n_occ] = \
-                            np.tensordot(lamb1.conj(),
-                                         kpt.psit_nG[:n_occ],
-                                         axes=1)
 
-                        kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
-                            lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim],
-                            axes=1)
-                        for a in kpt.P_ani.keys():
-                            kpt.P_ani[a][:n_occ] = np.dot(
-                                lamb1.conj(), kpt.P_ani[a][:n_occ])
-                            kpt.P_ani[a][n_occ:n_occ + dim] = \
-                                np.dot(lumo.conj(),
-                                       kpt.P_ani[a][n_occ:n_occ + dim])
-                elif typediag == 'full':
-                    lamb = (lamb + lamb.T.conj()) / 2.0
-                    evals, lamb = np.linalg.eigh(lamb)
-                    wfs.gd.comm.broadcast(evals, 0)
-                    wfs.gd.comm.broadcast(lamb, 0)
-                    kpt.eps_n[:] = evals.copy()
-                    if rewrite_psi:
-                        lamb = lamb.conj().T
-                        kpt.psit_nG[:] = \
-                            np.tensordot(lamb, kpt.psit_nG[:], axes=1)
-                        for a in kpt.P_ani.keys():
-                            kpt.P_ani[a][:] = np.dot(lamb, kpt.P_ani[a][:])
-                else:
-                    raise KeyError
+        for kpt in wfs.kpt_u:
+            # Separate diagonalization for occupied
+            # and unoccupied subspaces
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = get_n_occ(kpt)[0]
+            dim = self.bd.nbands - n_occ
+            if scalewithocc:
+                scale = kpt.f_n[:n_occ]
             else:
-                # TODO: if homo-lumo is around zero then
-                #  it is not good to do diagonalization
-                #  of occupied and unoccupied states
-                # separate diagonalization of two subspaces:
-                k = self.n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)[0]
-                dim = self.bd.nbands - n_occ
+                scale = 1.0
+
+            if scalewithocc:
                 grad_knG[k][n_occ:n_occ + dim] = \
                     self.get_gradients_unocc_kpt(ham, wfs, kpt)
-                lamb = wfs.integrate(kpt.psit_nG[:n_occ],
-                                     grad_knG[k][:n_occ],
-                                     True)
-                lamb = (lamb + lamb.T.conj()) / 2.0
-                lumo = wfs.integrate(kpt.psit_nG[n_occ:n_occ + dim],
-                                     grad_knG[k][n_occ:n_occ + dim],
-                                     True)
-                lumo = (lumo + lumo.T.conj()) / 2.0
+            lamb = wfs.integrate(kpt.psit_nG[:], grad_knG[k][:], True)
+            lamb1 = (lamb[:n_occ, :n_occ] +
+                     lamb[:n_occ, :n_occ].T.conj()) / 2.0
+            lumo = (lamb[n_occ:, n_occ:] +
+                    lamb[n_occ:, n_occ:].T.conj()) / 2.0
 
-                lo_nn = np.diagonal(lamb).real / kpt.f_n[:n_occ]
-                lu_nn = np.diagonal(lumo).real / 1.0
-                if n_occ != 0:
-                    evals, lamb = np.linalg.eigh(lamb)
-                    wfs.gd.comm.broadcast(evals, 0)
-                    wfs.gd.comm.broadcast(lamb, 0)
-                    lamb = lamb.T
-                    kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
+            # Diagonal elements Lagrangian matrix
+            lo_nn = np.diagonal(lamb1).real / scale
+            lu_nn = np.diagonal(lumo).real / 1.0
 
-                evals_lumo, lumo = np.linalg.eigh(lumo)
-                wfs.gd.comm.broadcast(evals_lumo, 0)
-                wfs.gd.comm.broadcast(lumo, 0)
-                lumo = lumo.T
+            # Diagonalize occupied subspace
+            if n_occ != 0:
+                evals, lamb1 = np.linalg.eigh(lamb1)
+                wfs.gd.comm.broadcast(evals, 0)
+                wfs.gd.comm.broadcast(lamb1, 0)
+                lamb1 = lamb1.T
+                kpt.eps_n[:n_occ] = evals[:n_occ] / scale
 
-                kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-                kpt.eps_n[n_occ + dim:] *= 0.0
-                kpt.eps_n[n_occ + dim:] += \
-                    np.absolute(5.0 * kpt.eps_n[n_occ + dim - 1])
-                if rewrite_psi:
-                    kpt.psit_nG[:n_occ] = \
-                        np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ], axes=1)
-                    kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
-                        lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim], axes=1)
+            # Diagonalize unoccupied subspace
+            evals_lumo, lumo = np.linalg.eigh(lumo)
+            wfs.gd.comm.broadcast(evals_lumo, 0)
+            wfs.gd.comm.broadcast(lumo, 0)
+            lumo = lumo.T
+            kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
+
+            if rewrite_psi:
+                kpt.psit_nG[:n_occ] = np.tensordot(
+                    lamb1.conj(), kpt.psit_nG[:n_occ], axes=1)
+                kpt.psit_nG[n_occ:n_occ + dim] = np.tensordot(
+                    lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim], axes=1)
+
+            if scalewithocc:
                 orb_en = [lo_nn, lu_nn]
                 for i in [0, 1]:
                     ind = np.argsort(orb_en[i])
@@ -868,9 +795,11 @@ class FDPWETDM(Eigensolver):
                         # we need to sort wfs
                         kpt.psit_nG[n_occ * i + np.arange(len(ind)), :] = \
                             kpt.psit_nG[n_occ * i + ind, :]
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                if 'SIC' in self.func_settings['name']:
-                    self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
+
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+            if 'SIC' in self.func_settings['name']:
+                self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
 
         del grad_knG
 
