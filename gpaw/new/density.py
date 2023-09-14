@@ -234,45 +234,29 @@ class Density:
                                     symmetries.translation_sc)
 
         xp = self.nt_sR.xp
-        D_asii = self.D_asii.gather(broadcast=True, copy=True)
-        from time import time
-        start = time()
-        for a1, D_sii in self.D_asii.items():
-            D_sii[:] = 0.0
-            rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
-            for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
-                                        rotation_sii):
-                D_sii += xp.einsum('ij, sjk, lk -> sil',
-                                   rotation_ii, D_asii[a2], rotation_ii)
-        self.D_asii.data *= 1.0 / len(symmetries)
-        stop = time()
-        reference = self.D_asii.data.copy()
-        self.D_asii.data[:] = 0.0
-        print('Old way', stop - start)
-        old = stop - start
-        if self.D_asii.comm.rank == 0:
-            if self.symplan is None:
-                start = time()
-                self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
-                                                  symmetries.a_sa, self.l_aj,
-                                                  D_asii.layout)
-                stop = time()
-                print('New plan took', stop - start)
+        if xp is np:
+            D_asii = self.D_asii.gather(broadcast=True, copy=True)
+            for a1, D_sii in self.D_asii.items():
+                D_sii[:] = 0.0
+                rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
+                for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
+                                            rotation_sii):
+                    D_sii += xp.einsum('ij, sjk, lk -> sil',
+                                       rotation_ii, D_asii[a2], rotation_ii)
+            self.D_asii.data *= 1.0 / len(symmetries)
+        else:
+            # GPU version does all the work in rank 0 for now
+            D_asii = self.D_asii.gather(copy=True)
+            if self.D_asii.layout.atomdist.comm.rank == 0:
+                if self.symplan is None:
+                    self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
+                                                      symmetries.a_sa,
+                                                      self.l_aj,
+                                                      D_asii.layout)
 
-            start = time()
-            self.symplan.apply(D_asii.data, D_asii.data)
-            stop = time()
-            print('New apply took', stop - start)
-            print('Speedup', old / (stop - start))
+                self.symplan.apply(D_asii.data, D_asii.data)
 
-        self.D_asii.scatter_from(D_asii)
-
-        if not xp.allclose(self.D_asii.data, reference):
-            for i in range(np.prod(self.D_asii.data.size)):
-                a, b = self.D_asii.data.ravel()[i], reference.ravel()[i]
-                if xp.abs(a - b) > 1e-6:
-                    print(i, a, b)
-        assert xp.allclose(self.D_asii.data, reference)
+            self.D_asii.scatter_from(D_asii)
 
     def move(self, fracpos_ac, atomdist):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
