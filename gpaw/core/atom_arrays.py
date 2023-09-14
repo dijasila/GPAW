@@ -375,8 +375,6 @@ class AtomArrays:
                     b2 = b1 + size
                     buf[..., b1:b2] = aa[a].reshape(self.mydims + (size,))
                     b1 = b2
-                if xp is not np:
-                    synchronize()
                 request = comm.send(buf, rank, 42, False)
                 # Remember to store a reference to the
                 # send buffer (buf) so that is isn't
