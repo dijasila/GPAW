@@ -970,7 +970,7 @@ class GPAW(Calculator):
         if isinstance(n, int) and n < 0:
             n += self.wfs.bd.nbands
 
-        solver_name = self.wfs.eigensolver.name
+        solver_name = getattr(self.wfs.eigensolver, "name", None)
         if solver_name == 'etdm-fdpw':
             if not self.wfs.eigensolver.converge_unocc:
                 if n == 'all' or (isinstance(n, int)
