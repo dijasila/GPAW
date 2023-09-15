@@ -246,10 +246,10 @@ class IBZWaveFunctions:
             if rank == 0:
                 return wfs2
             if wfs2 is not None:
-                wfs2.send(0)
+                wfs2.send(0, self.kpt_comm)
             return
         if self.comm.rank == 0:
-            return self.wfs_qs[0][0].receive(rank)
+            return self.wfs_qs[0][0].receive(rank, self.kpt_comm)
         return None
 
     def get_eigs_and_occs(self, k=0, s=0):
