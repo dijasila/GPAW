@@ -1432,7 +1432,7 @@ def pytest_configure(config):
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()
-        except AttributeError:
+        except (AssertionError, AttributeError):
             pass
         else:
             tw._file = devnull
