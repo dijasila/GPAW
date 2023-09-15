@@ -58,13 +58,10 @@ def calculate_paw_correction(expansion,
 
     e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
     et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
-    print('e', e)
-    print('et', et)
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
                             xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
 
-    print('exc0', -xcc.e_xc0)
     if addcoredensity:
         return e - et - xcc.e_xc0
     else:
@@ -94,7 +91,8 @@ class LDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
-
+        #import cupy as xp
+        #D_sp = xp.asarray(D_sp)
         if dEdD_sp is not None:
             _dEdD_sp = dEdD_sp.copy()
         else:
@@ -149,20 +147,19 @@ class LDA(XCFunctional):
 
             Lmax = n_sLg.shape[1]
             Esphere = 0.0
-            for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-                w = weight_n[n]
 
-                nspins = len(n_sLg)
-                n_sg = np.dot(Y_L, n_sLg)
-                e_g = rgd.empty()
-                dedn_sg = rgd.zeros(nspins)
-                self.kernel.calculate(e_g, n_sg, dedn_sg)
-                dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-                Esphere += w * rgd.integrate(e_g)
+            n_sng = np.einsum('nL,sLg->sng', Y_nL[:, :Lmax], n_sLg)
+            nspins = len(n_sLg)
+            n_sx = n_sng.reshape((nspins, -1))
+            e_x = np.zeros_like(n_sx[0])
+            dedn_sx = np.zeros_like(n_sx)
+            dvw_ng = np.outer(weight_n, rgd.dv_g)
+            self.kernel.calculate(e_x, n_sx, dedn_sx)
+            dedn_sng = dedn_sx.reshape((nspins, len(Y_nL), -1))
+            dEdD_sqL = np.einsum('ng,sng,qg,nL->sqL', dvw_ng, dedn_sng, n_qg, Y_nL[:, :Lmax], optimize=True)
+
+            Exc += sign * np.dot(dvw_ng.ravel(), e_x) 
             dEdD_SsqL.append(dEdD_sqL)
-            print(sign * Esphere)
-            Exc += sign * Esphere
 
         if _dEdD_sp is not None:
             _dEdD_sp += np.inner((dEdD_SsqL[0] - dEdD_SsqL[1]).reshape((nspins, -1)),
@@ -173,11 +170,11 @@ class LDA(XCFunctional):
        
         stop = time()
         print('New xc corrections took', stop-start)
-        print('Old', E)
-        print('New', Exc)
+        #print('Old', E)
+        #print('New', Exc)
         if dEdD_sp is not None:
-            print('Old', dEdD_sp)
-            print('New', _dEdD_sp)
+            #print('Old', dEdD_sp)
+            #print('New', _dEdD_sp)
             assert np.allclose(_dEdD_sp, dEdD_sp)
         assert np.abs(E - Exc) < 1e-8
 
