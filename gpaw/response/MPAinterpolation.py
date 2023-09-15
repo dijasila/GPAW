@@ -43,7 +43,6 @@ def mpa_cond1(z, E):  # , PPcond_rate
     # real(SP),    intent(out)    :: PPcond_rate
 
     PPcond_rate = 0
-
     if abs(E) < null_pole_thr:  # need to check also NAN(abs(E))
         E = complex(abs(z[0]), -epsilon)
         PPcond_rate = 1
@@ -73,7 +72,6 @@ def mpa_E_1p_solver(z, x):
 
     E = (x[0] * z[0]**2 - x[1] * z[1]**2) / (x[0] - x[1])
     E, PPcond_rate = mpa_cond1(z, E)
-
     return E, PPcond_rate
 
 
@@ -159,6 +157,7 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
         A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
+    print('A', A, 'b', b)
 
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
@@ -298,6 +297,75 @@ def mpa_E_solver_Pade(npols, z, x):
 
     return E, npr, PPcond
 
+class Solver:
+    def __init__(self, omega_w):
+        assert len(omega_w) % 2 == 0
+        self.omega_w = omega_w
+
+    def solve(self, X_wG):
+        raise NotImplementedError
+
+class SinglePoleSolver(Solver):
+    def __init__(self, omega_w):
+        Solver.__init__(self, omega_w)
+        self.threshold = 1e-5
+        self.epsilon = 1e-8
+
+    def solve(self, X_wG):
+        assert len(X_wG) == 2
+        omega_w = self.omega_w
+        E_G = (X_wG[0,:] * omega_w[0]**2 - X_wG[1, :] * omega_w[1]**2) / (X_wG[0,:] - X_wG[1,:])
+        def branch_sqrt_inplace(E_G):
+            E_G.real = np.abs(E_G.real)
+            E_G[:] = np.emath.sqrt(E_G)
+
+        branch_sqrt_inplace(E_G)
+        absE_G = np.abs(E_G)
+        mask = absE_G < self.threshold
+        E_G[mask] = np.abs(omega_w[0]) - 1j * self.epsilon 
+        E_G *= np.sign(E_G)
+        mask = E_G.imag > self.epsilon
+        E_G[mask] = E_G[mask].real - 1j * epsilon
+
+
+        """def mpa_R_1p_fit(npols, npr, w, x, E):
+    # Transforming the problem into a 2* larger least square with real numbers:
+    A = np.zeros((4, 2), dtype='complex64')
+    b = np.zeros((4), dtype='complex64')
+    for k in range(2):
+        b[2 * k] = np.real(x[k])
+        b[2 * k + 1] = np.imag(x[k])
+        A[2 * k][0] = 2. * np.real(E / (w[k]**2 - E**2))
+        A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
+        A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
+        A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
+    print('A', A, 'b', b)
+    Rri = np.linalg.lstsq(A, b, rcond=None)[0]
+
+    R = Rri[0] + 1j * Rri[1]
+
+    return R"""
+
+        return E_G
+
+"""
+class MultipoleSolver(Solver):
+    def __init__(self, omega_w):
+        self.npoles = npoles
+        self.omega_w = omega_w
+    
+    def solve(self, X_G):
+"""
+
+def RESolver(omega_w):
+    assert len(omega_w) % 2 == 0
+    npoles = len(omega_w) / 2
+    assert npoles > 0
+    if npoles == 1:
+        return SinglePoleSolver(omega_w)
+    else:
+        raise NotImplementedError
+
 
 def mpa_RE_solver(npols, w, x):
     # integer,      intent(in)   :: np
@@ -334,3 +402,21 @@ def mpa_RE_solver(npols, w, x):
     # for later: MP_err = err_func_X(np, R, E, w, x)
 
     return R, E, MPred, PPcond_rate  # , MP_err
+
+for i in range(1):
+    NG = 1000
+    X_wG = 2*(np.random.rand(2, NG) - 0.5) + 1j * (np.random.rand(2, NG) - 0.5)*2
+    omega_w = np.array([0, 1j])
+    from time import time
+    start = time()
+    E_G = RESolver(omega_w).solve(X_wG)
+    stop = time()
+    print('Vectorized', stop-start)
+    start = time()
+    for i in range(NG):
+        R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wG[:, i])
+        #assert np.allclose(E, E_G[i])
+        #print('old', E, 'new', E_G[i])
+    stop = time()
+    print('Not vectorized', stop-start)
+
