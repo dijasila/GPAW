@@ -1,16 +1,20 @@
+from __future__ import annotations
 import json
 import warnings
 from os.path import exists, splitext
+from pathlib import Path
+
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+
 from gpaw import GPAW
+from gpaw.ibz2bz import get_overlap as get_overlap_new
+from gpaw.ibz2bz import (get_overlap_coefficients,
+                         get_phase_shifted_overlap_coefficients)
 from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.utilities.blas import gemmdot
-from gpaw.ibz2bz import (get_overlap_coefficients,
-                         get_phase_shifted_overlap_coefficients)
-from gpaw.ibz2bz import get_overlap as get_overlap_new
 
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
@@ -31,7 +35,7 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
-        
+
     assert len(calc.symmetry.op_scc) == 1  # does not work with symmetry
     gap = bandgap(calc)[0]
     assert gap != 0.0
@@ -54,7 +58,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     wfs = calc.wfs
 
     dO_aii = get_overlap_coefficients(wfs)
-    
+
     kd = calc.wfs.kd
 
     u_knR = []
@@ -172,15 +176,23 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     return indices_kk, phases
 
 
-def get_polarization_phase(calc):
-    assert isinstance(calc, str)
-    name = splitext(calc)[0]
-    berryname = '{}-berryphases.json'.format(name)
+def get_polarization_phase(calc,
+                           name: str | None = None) -> np.ndarray:
+    if isinstance(calc, (str, Path)):
+        if name is None:
+            name = splitext(calc)[0]
+            berryname = f'{name}-berryphases.json'
+        else:
+            berryname = name
+    else:
+        assert calc.world.size == 1
+        berryname = name or 'berryphases.json'
 
     phase_c = np.zeros((3,), float)
     if not exists(berryname) and world.rank == 0:
         # Calculate and save berry phases
-        calc = GPAW(calc, communicator=serial_comm, txt=None)
+        if isinstance(calc, (str, Path)):
+            calc = GPAW(calc, communicator=serial_comm)
         assert len(calc.symmetry.op_scc) == 1
         nspins = calc.wfs.nspins
         data = {}
@@ -247,7 +259,7 @@ def parallel_transport(calc,
     In addition, one may evaluate the expectation value of spin
     on each of these states along the easy axis (z-axis for
     nonmagnetic systems), which is given by S_km.
-    
+
     Output:
     phi_km, S_km (see above)
     """
