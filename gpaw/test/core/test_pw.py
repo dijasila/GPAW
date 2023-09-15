@@ -6,6 +6,7 @@ from gpaw import SCIPY_VERSION
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from gpaw.gpu import cupy as cp
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import world
 
 
@@ -91,7 +92,8 @@ def test_pw_integrate(xp, grid):
     g = grid
     if xp is cp:
         g = g.to_xp(cp)
-    pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype, ecut=ecut, comm=world)
+    pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype,
+                ecut=ecut, comm=world if xp is np else CuPyMPI(world))
     f = g.fft(pw=pw)
 
     gg = g.new()
