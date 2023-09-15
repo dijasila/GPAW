@@ -3,6 +3,7 @@ import json
 import warnings
 from os.path import exists, splitext
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -195,7 +196,7 @@ def get_polarization_phase(calc,
             calc = GPAW(calc, communicator=serial_comm)
         assert len(calc.symmetry.op_scc) == 1
         nspins = calc.wfs.nspins
-        data = {}
+        data: dict[int | str, Any] = {}
         for c in [0, 1, 2]:
             data[c] = {}
             for spin in range(nspins):
