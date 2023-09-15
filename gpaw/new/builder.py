@@ -143,6 +143,7 @@ class DFTComponentsBuilder:
 
         self.xc = self.create_xc_functional()
 
+        self.interpolation_desc: Domain
         self.electrostatic_potential_desc: Domain
         self.atomdist: AtomDistribution
 
