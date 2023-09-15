@@ -6,7 +6,7 @@ import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.io.ulm import Writer
 from ase.units import Bohr, Ha
-from gpaw.gpu import synchronize
+from gpaw.gpu import synchronize, as_np
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm, send, receive
 from gpaw.new import cached_property, zips
@@ -338,7 +338,7 @@ class IBZWaveFunctions:
                     P_ani = wfs.P_ani.to_cpu().gather()  # gather atoms
                     if P_ani is not None:
                         P_nI = P_ani.matrix.gather()  # gather bands
-                        if P_nI is not None:
+                        if P_nI.dist.comm.rank == 0:
                             if rank == 0:
                                 writer.fill(P_nI.data.reshape(proj_shape))
                             else:
@@ -364,6 +364,7 @@ class IBZWaveFunctions:
                     wfs = self.wfs_qs[self.q_k[k]][spin]
                     coef_nX = wfs.gather_wave_function_coefficients()
                     if coef_nX is not None:
+                        coef_nX = as_np(coef_nX)
                         if rank == 0:
                             if spin == 0 and k == 0:
                                 writer.add_array('coefficients',

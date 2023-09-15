@@ -10,6 +10,7 @@ from ase.build import mx2
 from gpaw import GPAW
 from gpaw.mpi import size
 from gpaw.spinorbit import soc_eigenstates
+from gpaw.berryphase import get_polarization_phase
 
 
 def check(E, hsplit, lsplit):
@@ -19,6 +20,12 @@ def check(E, hsplit, lsplit):
     print(l2 - l1)
     assert abs(h2 - h1 - hsplit) < 0.01
     assert abs(l2 - l1 - lsplit) < 0.002
+
+
+def check_pol(phi_c):
+    pol_c = (phi_c / (2 * np.pi)) % 1
+    assert abs(pol_c[0] - 2 / 3) < 0.01
+    assert abs(pol_c[1] - 1 / 3) < 0.01
 
 
 params = dict(mode={'name': 'pw', 'ecut': 350},
@@ -49,6 +56,9 @@ def test_soc_self_consistent(gpaw_new):
     a.get_potential_energy()
     eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
+
+    phi_c = get_polarization_phase(a.calc)
+    check_pol(phi_c)
 
 
 @pytest.mark.soc

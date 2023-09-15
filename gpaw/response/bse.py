@@ -440,7 +440,8 @@ class BSEBackend:
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
                         pawdatasets=self.gs.pawdatasets,
-                        pos_av=self.gs.get_pos_av())
+                        pos_av=self.gs.get_pos_av(),
+                        atomrotations=self.gs.atomrotations)
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]
                 self.W_qGG = data['W']
                 self.context.print('Reading screened potential from % s' %

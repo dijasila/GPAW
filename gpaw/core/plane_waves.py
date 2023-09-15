@@ -3,17 +3,20 @@ from __future__ import annotations
 from math import pi
 from typing import TYPE_CHECKING
 
-import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Ha
+
+import gpaw.fftw as fftw
 from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PWAtomCenteredFunctions
+from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
-from gpaw.new.c import add_to_density, pw_insert
+from gpaw.new.c import (add_to_density, add_to_density_gpu, pw_insert,
+                        pw_insert_gpu)
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Literal, Vector)
@@ -542,11 +545,11 @@ class PWArray(DistributedArrays[PWDesc]):
         if kind == 'normal':
             result_x = self.xp.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
-
-            a_xG = a_xG.reshape((len(a_xG), -1, 2))
-            result_x = self.xp.einsum('xGi, xGi, G -> x',
-                                      a_xG,
-                                      a_xG,
+            x, G2 = a_xG.shape
+            a_xGz = a_xG.reshape((x, G2 // 2, 2))
+            result_x = self.xp.einsum('xGz, xGz, G -> x',
+                                      a_xGz,
+                                      a_xGz,
                                       self.xp.asarray(self.desc.ekin_G))
         else:
             1 / 0
@@ -559,7 +562,8 @@ class PWArray(DistributedArrays[PWDesc]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UGArray) -> None:
+                   out: UGArray,
+                   _slow: bool = False) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -576,6 +580,9 @@ class PWArray(DistributedArrays[PWDesc]):
         a_nG = self
 
         if domain_comm.size == 1:
+            if not _slow and xp is cp and pw.dtype == complex:
+                return abs_square_gpu(a_nG, weights, out)
+
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
             for weight, a_G in zips(weights, a_nG):
                 if weight == 0.0:
@@ -794,3 +801,33 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
+
+
+def abs_square_gpu(psit_nG, weight_n, nt_R):
+    from gpaw.gpu import cupyx
+    pw = psit_nG.desc
+    plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
+    Q_G = cp.asarray(plan.indices(pw))
+    weight_n = cp.asarray(weight_n)
+    N = len(weight_n)
+    shape = tuple(nt_R.desc.size_c)
+    B = 32
+    psit_bR = None
+    for b1 in range(0, N, B):
+        b2 = min(b1 + B, N)
+        nb = b2 - b1
+        if psit_bR is None:
+            psit_bR = cp.empty((nb,) + shape, complex)
+        elif nb < B:
+            psit_bR = psit_bR[:nb]
+        psit_bR[:] = 0.0
+        pw_insert_gpu(psit_nG.data[b1:b2],
+                      Q_G,
+                      1.0,
+                      psit_bR.reshape((nb, -1)))
+        psit_bR[:] = cupyx.scipy.fft.ifftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        add_to_density_gpu(weight_n[b1:b2], psit_bR, nt_R.data)

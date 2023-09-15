@@ -245,8 +245,9 @@ def _parallel_me(psit1_nX: DistributedArrays,
 
     n_r = [min(r * B, nbands) for r in range(comm.size + 1)]
 
-    buf1_nX = psit1_nX.desc.empty(B)
-    buf2_nX = psit1_nX.desc.empty(B)
+    xp = psit1_nX.xp
+    buf1_nX = psit1_nX.desc.empty(B, xp=xp)
+    buf2_nX = psit1_nX.desc.empty(B, xp=xp)
     psit_nX = psit2_nX
 
     for shift in range(comm.size):
@@ -296,9 +297,10 @@ def _parallel_me_sym(psit1_nX: DistributedArrays,
     mynbands_r = [n_r[r + 1] - n_r[r] for r in range(comm.size)]
     assert mynbands_r[comm.rank] == mynbands
 
+    xp = psit1_nX.xp
     psit2_nX = psit1_nX
-    buf1_nX = psit1_nX.desc.empty(B)
-    buf2_nX = psit1_nX.desc.empty(B)
+    buf1_nX = psit1_nX.desc.empty(B, xp=xp)
+    buf2_nX = psit1_nX.desc.empty(B, xp=xp)
     half = comm.size // 2
 
     for shift in range(half + 1):
