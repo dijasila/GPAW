@@ -14,6 +14,18 @@ Git master branch
   SciPy 1.6.0
 
 
+Version 23.9.1
+==============
+
+Sep 15, 2023: :git:`23.9.1 <../23.9.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Include new GPU ``.c``, ``.h`` and ``.cpp`` files in :git:`MANIFEST.in`
+  (:issue:`975`).
+
+
 Version 23.9.0
 ==============
 
