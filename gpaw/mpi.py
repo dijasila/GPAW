@@ -267,8 +267,8 @@ class _Communicator:
         if self.rank == root:
             assert a.dtype == b.dtype
             assert a.size == self.size * b.size
-            assert a.flags.contiguous
-        assert b.flags.contiguous
+            assert a.flags.c_contiguous
+        assert b.flags.c_contiguous
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
 

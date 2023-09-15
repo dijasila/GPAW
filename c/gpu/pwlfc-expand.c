@@ -65,13 +65,29 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     }
 
     double* dH_aii_dev = Array_DATA(dH_aii_obj);
-    if (!dH_aii_dev) return NULL;
+    if (!dH_aii_dev) 
+    {
+	PyErr_SetString(PyExc_RuntimeError, "Error in input dH_aii.");
+        return NULL;
+    }
     gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
-    if (!P_ani_dev) return NULL;
+    if (!P_ani_dev)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input P_ani.");
+        return NULL;
+    }
     gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani_obj);
-    if (!outP_ani_dev) return NULL;
+    if (!outP_ani_dev) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in output outP_ani.");
+	return NULL;
+    }
     npy_int32* ni_a = Array_DATA(ni_a_obj);
-    if (!ni_a) return NULL;
+    if (!ni_a) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input ni_a.");
+	return NULL;
+    }
 
     assert(Array_ITEMSIZE(P_ani_obj) == 16);
     assert(Array_ITEMSIZE(outP_ani_obj) == 16);

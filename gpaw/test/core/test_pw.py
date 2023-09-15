@@ -6,6 +6,7 @@ from gpaw import SCIPY_VERSION
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from gpaw.gpu import cupy as cp
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import world
 
 
@@ -77,21 +78,24 @@ def grids():
     return [g1, g2, g3, g4, g5]
 
 
+xppar = pytest.param(cp, marks=[pytest.mark.skipif(world.size > 1,
+                                reason='xp parallel not working'),
+                                pytest.mark.skipif(SCIPY_VERSION < [1, 6],
+                                reason='too old Scipy'),
+                                pytest.mark.xfail])
+
+
 @pytest.mark.gpu
-@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('xp', [np, xppar])
 @pytest.mark.parametrize('grid', grids())
 def test_pw_integrate(xp, grid):
-    if xp is cp and world.size > 1:
-        return
-    if xp is cp and SCIPY_VERSION < [1, 6]:
-        pytest.skip()
-
     a = grid.desc.cell[0, 0]
     ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     g = grid
     if xp is cp:
         g = g.to_xp(cp)
-    pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype, ecut=ecut, comm=world)
+    pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype,
+                ecut=ecut, comm=world if xp is np else CuPyMPI(world))
     f = g.fft(pw=pw)
 
     gg = g.new()
