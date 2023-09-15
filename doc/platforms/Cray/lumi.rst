@@ -48,7 +48,7 @@ Copy this :git:`~doc/platforms/Cray/siteconfig-lumi-gpu.py` to
 
 Now insert the ``export EBU_USER_PREFIX=...`` line and all the ``module load``
 lines from above into the start of your ``venv/bin/activate`` script so that
-the modules are always loaded when you active your new environment.
+the modules are always loaded when you activate your new environment.
 
 Interactive jobs can be run like this::
 
