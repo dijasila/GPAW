@@ -2,16 +2,13 @@
 from math import sqrt
 
 import numpy as np
-import pytest
 from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.mpi import rank, world
 
 
-def test_fileio_file_reference(in_tmp_dir, gpaw_new):
-    if gpaw_new and world.size > 1:
-        pass#pytest.skip()
+def test_fileio_file_reference(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
                   positions=[(0, 0, 0),
@@ -30,11 +27,11 @@ def test_fileio_file_reference(in_tmp_dir, gpaw_new):
     atoms.get_potential_energy()
     wf0 = calc.get_pseudo_wave_function(2, 1, 1)
 
-    calc.write('tmp', 'all')
+    calc.write('tmp.gpw', 'all')
 
     # Now read with single process
     comm = world.new_communicator(np.array((rank,)))
-    calc = GPAW('tmp', communicator=comm)
+    calc = GPAW('tmp.gpw', communicator=comm)
     wf1 = calc.get_pseudo_wave_function(2, 1, 1)
     diff = np.abs(wf0 - wf1)
     assert np.all(diff < 1e-12)
