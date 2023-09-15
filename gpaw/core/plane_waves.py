@@ -545,11 +545,11 @@ class PWArray(DistributedArrays[PWDesc]):
         if kind == 'normal':
             result_x = self.xp.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
-
-            a_xG = a_xG.reshape((len(a_xG), -1, 2))
-            result_x = self.xp.einsum('xGi, xGi, G -> x',
-                                      a_xG,
-                                      a_xG,
+            x, G2 = a_xG.shape
+            a_xGz = a_xG.reshape((x, G2 // 2, 2))
+            result_x = self.xp.einsum('xGz, xGz, G -> x',
+                                      a_xGz,
+                                      a_xGz,
                                       self.xp.asarray(self.desc.ekin_G))
         else:
             1 / 0

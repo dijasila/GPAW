@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.gpu import synchronize, as_xp
+from gpaw.gpu import synchronize, as_np
 from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
@@ -50,7 +50,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
         if dedtaut_g is not None:
             s_vv += density.tauct_aX.stress_contribution(dedtaut_g)
 
-    s_vv = as_xp(s_vv, np)
+    s_vv = as_np(s_vv)
 
     if xp is not np:
         synchronize()

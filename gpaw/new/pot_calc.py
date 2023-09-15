@@ -27,6 +27,7 @@ from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
+from gpaw.mpi import MPIComm, serial_comm
 
 
 class PotentialCalculator:
@@ -67,6 +68,7 @@ class PotentialCalculator:
                   density,
                   ibzwfs=None,
                   vHt_x: DistributedArrays | None = None,
+                  kpt_band_comm: MPIComm | None = None
                   ) -> tuple[Potential, AtomArrays]:
         energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
@@ -88,9 +90,14 @@ class PotentialCalculator:
 
         energies['kinetic'] = e_kinetic
 
+        if kpt_band_comm is None:
+            if ibzwfs is None:
+                kpt_band_comm = serial_comm
+            else:
+                kpt_band_comm = ibzwfs.kpt_band_comm
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
-            self.setups, density, self.xc, Q_aL, self.soc)
+            self.setups, density, self.xc, Q_aL, self.soc, kpt_band_comm)
 
         for key, e in corrections.items():
             if 0:
@@ -104,26 +111,36 @@ def calculate_non_local_potential(setups,
                                   density,
                                   xc,
                                   Q_aL,
-                                  soc: bool) -> tuple[AtomArrays,
-                                                      dict[str, float]]:
+                                  soc: bool,
+                                  kpt_band_comm: MPIComm
+                                  ) -> tuple[AtomArrays,
+                                             dict[str, float]]:
     dtype = float if density.ncomponents < 4 else complex
     D_asii = density.D_asii.to_xp(np)
     dH_asii = D_asii.layout.new(dtype=dtype).empty(density.ncomponents)
     Q_aL = Q_aL.to_xp(np)
     energy_corrections: DefaultDict[str, float] = defaultdict(float)
+    rank = 0
     for a, D_sii in D_asii.items():
-        Q_L = Q_aL[a]
-        setup = setups[a]
-        dH_sii, corrections = calculate_non_local_potential1(
-            setup, xc, D_sii, Q_L, soc)
-        dH_asii[a][:] = dH_sii
-        for key, e in corrections.items():
-            energy_corrections[key] += e
+        if rank % kpt_band_comm.size == kpt_band_comm.rank:
+            Q_L = Q_aL[a]
+            setup = setups[a]
+            dH_sii, corrections = calculate_non_local_potential1(
+                setup, xc, D_sii, Q_L, soc)
+            dH_asii[a][:] = dH_sii
+            for key, e in corrections.items():
+                energy_corrections[key] += e
+        else:
+            dH_asii[a][:] = 0.0
+        rank += 1
+
+    kpt_band_comm.sum(dH_asii.data)
 
     # Sum over domain:
     names = ['kinetic', 'coulomb', 'zero', 'xc', 'external']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
+    kpt_band_comm.sum(energies)
 
     return (dH_asii.to_xp(density.D_asii.layout.xp),
             dict(zips(names, energies)))
