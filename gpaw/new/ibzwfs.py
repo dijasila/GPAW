@@ -182,7 +182,7 @@ class IBZWaveFunctions:
         e_band = 0.0
         for wfs in self:
             e_band += wfs.occ_n @ wfs.eig_n * wfs.weight * degeneracy
-        e_band = self.kpt_comm.sum(float(e_band))  # XXX CPU float?
+        e_band = self.kpt_comm.sum_scalar(float(e_band))  # XXX CPU float?
 
         self.energies = {
             'band': e_band,
