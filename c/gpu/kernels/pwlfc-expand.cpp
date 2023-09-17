@@ -58,6 +58,11 @@ __global__ void pw_insert_16(int nG,
         tmp_Q[Q_G[G]] = gpuCmulD(c_G[G], scale);
 }
 
+extern "C" void gpawDeviceSynchronize()
+{
+    gpuDeviceSynchronize();
+}
+
 extern "C"
 void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
@@ -195,6 +200,63 @@ __global__ void pwlfc_expand_kernel_16(double* f_Gs,
         }
     }
 }
+
+// outP_ani[a] = \sum_A H_aii[a] P_ani[a]
+__global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI, 
+                                      npy_int32* ni_a, double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev)
+{
+    int n1 = threadIdx.x + blockIdx.x * blockDim.x;
+    if (n1 < nn) {
+        double* dH_ii = dH_aii_dev;
+        int I = 0;        
+        for (int a=0; a< nA; a++)
+        {
+            int ni = ni_a[a];
+            int Istart = I;
+            for (int i=0; i< ni; i++)
+            {
+                gpuDoubleComplex* outP_ni = outP_ani_dev + n1 * nI + I;
+                gpuDoubleComplex result = make_gpuDoubleComplex(0.0, 0.0);
+                gpuDoubleComplex* P_ni = P_ani_dev + n1 * nI + Istart;
+                for (int i2=0; i2 < ni; i2++)
+                {
+                   //printf("%d %d %d %d %g\n", n1, a, i, i2, dH_ii[i2 * ni + i]);
+                   gpuDoubleComplex item = gpuCmulD(*P_ni, dH_ii[i2 * ni + i]);
+                   result.x += item.x;
+                   result.y += item.y;
+                   P_ni++;
+                }
+                outP_ni->x = result.x;
+                outP_ni->y = result.y;
+                I++;
+            }
+            //P_ni += ni;
+            //outP_ni += ni;
+            dH_ii += ni * ni;
+        }
+    }
+}
+
+
+
+extern "C"
+void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
+                                      int nI, npy_int32* ni_a, 
+                                      double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev)
+{
+    gpuLaunchKernel(dH_aii_times_P_ani_16,
+                    dim3((nn+255)/256),
+                    dim3(256),
+                    0, 0,
+                    nA, nn, nI, ni_a, dH_aii_dev,
+                    P_ani_dev, outP_ani_dev);
+}
+
+
 
 extern "C"
 void pwlfc_expand_gpu_launch_kernel(int itemsize,

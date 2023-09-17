@@ -31,6 +31,8 @@
 #endif
 #endif
 
+void gpawDeviceSynchronize();
+
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
@@ -54,6 +56,16 @@ typedef struct {
   PyObject *buffer;
   int status;
 } GPAW_MPI_Request;
+
+static void maybeSynchronize(PyObject* a)
+{
+#ifdef GPAW_GPU_AWARE_MPI
+    if (!PyArray_Check(a))
+    {
+        gpawDeviceSynchronize();
+    }
+#endif
+}
 
 static PyObject *mpi_request_wait(GPAW_MPI_Request *self, PyObject *noargs)
 {
@@ -290,6 +302,7 @@ static PyObject * mpi_sendreceive(MPIObject *self, PyObject *args,
     int nrecv = Array_ITEMSIZE(b);
     for (int d = 0; d < Array_NDIM(b); d++)
 	nrecv *= Array_DIM(b,d);
+    maybeSynchronize(a);
     int ret = MPI_Sendrecv(Array_BYTES(a), nsend, MPI_BYTE, dest, sendtag,
 			   Array_BYTES(b), nrecv, MPI_BYTE, src, recvtag,
 			   self->comm, MPI_STATUS_IGNORE);
@@ -362,6 +375,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     n *= Array_DIM(a,d);
   if (block)
     {
+      maybeSynchronize(a);
       int ret = MPI_Send(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
       if (ret != MPI_SUCCESS)
 	{
@@ -375,6 +389,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
       GPAW_MPI_Request *req = NewMPIRequest();
       req->buffer = (PyObject*)a;
       Py_INCREF(a);
+      maybeSynchronize(a);
       int ret = MPI_Isend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm,
 			  &(req->rq));
       if (ret != MPI_SUCCESS)
@@ -401,6 +416,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
   int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
+  maybeSynchronize(a);
   MPI_Ssend(Array_BYTES(a), n, MPI_BYTE, dest, tag, self->comm);
   Py_RETURN_NONE;
 }
@@ -697,6 +713,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	}
       if (root == -1)
 	{
+          maybeSynchronize(aobj);
 #ifdef GPAW_MPI_INPLACE
 	  MPI_Allreduce(MPI_IN_PLACE, Array_BYTES(aobj), n, datatype,
 			operation, self->comm);
@@ -716,6 +733,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	  char* b = 0;
 	  if (rank == root)
 	    {
+              maybeSynchronize(aobj);
 #ifdef GPAW_MPI_INPLACE
 	      MPI_Reduce(MPI_IN_PLACE, Array_BYTES(aobj), n,
 			 datatype, operation, root, self->comm);
@@ -730,6 +748,7 @@ static PyObject * mpi_reduce(MPIObject *self, PyObject *args, PyObject *kwargs,
 	    }
 	  else
 	    {
+              maybeSynchronize(aobj);
 	      MPI_Reduce(Array_BYTES(aobj), b, n, datatype,
 			 operation, root, self->comm);
 	    }
@@ -853,6 +872,7 @@ static PyObject * mpi_scatter(MPIObject *self, PyObject *args)
   int n = Array_ITEMSIZE(recvobj);
   for (int d = 0; d < Array_NDIM(recvobj); d++)
     n *= Array_DIM(recvobj,d);
+  maybeSynchronize(sendobj);
   MPI_Scatter(source, n, MPI_BYTE, Array_BYTES(recvobj),
 	      n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
@@ -873,6 +893,7 @@ static PyObject * mpi_allgather(MPIObject *self, PyObject *args)
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
   // What about endianness????
+  maybeSynchronize(a);
   MPI_Allgather(Array_BYTES(a), n, MPI_BYTE, Array_BYTES(b), n,
 		MPI_BYTE, self->comm);
   Py_RETURN_NONE;
@@ -902,6 +923,7 @@ static PyObject * mpi_gather(MPIObject *self, PyObject *args)
   int n = Array_ITEMSIZE(a);
   for (int d = 0; d < Array_NDIM(a); d++)
     n *= Array_DIM(a,d);
+  maybeSynchronize(a);
   if (root != self->rank)
     MPI_Gather(Array_BYTES(a), n, MPI_BYTE, 0, n, MPI_BYTE, root, self->comm);
   else
@@ -927,6 +949,7 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   int n = Array_ITEMSIZE(buf);
   for (int d = 0; d < Array_NDIM(buf); d++)
     n *= Array_DIM(buf,d);
+  maybeSynchronize(buf);
   MPI_Bcast(Array_BYTES(buf), n, MPI_BYTE, root, self->comm);
   Py_RETURN_NONE;
 }
@@ -1041,6 +1064,7 @@ static PyObject * mpi_alltoallv(MPIObject *self, PyObject *args)
       r_cnts[i] = tmp3[i] * elem_size;
       r_displs[i] = tmp4[i] * elem_size;
   }
+  maybeSynchronize(send_obj);
 
   MPI_Alltoallv(Array_BYTES(send_obj),
 		s_cnts, s_displs,

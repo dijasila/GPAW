@@ -9,7 +9,7 @@ import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
@@ -363,7 +363,7 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, as_xp(y, np)
+        return x, as_np(y)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""
