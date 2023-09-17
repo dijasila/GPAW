@@ -8,6 +8,30 @@ from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
 
 
+class GridSymmetrizationPlan:
+    def __init__(self, xp, gd, op_scc, translation_sc):
+        self.xp = xp
+        offset_c = 1 - gd.pbc_c
+        size_c = gd.size_c
+
+        realsize_c = gd.mysize_c
+        I_cR = np.indices(realsize_c).reshape((3, -1)) + offset_c[:, None]
+        t_sc = (translation_sc * size_c).round().astype(int)
+        I_Rsc = (np.einsum('sCc,CR->Rsc', op_scc, I_cR) - t_sc)
+        I_Rsc = I_Rsc % size_c - offset_c
+        R_Rs = np.ravel_multi_index(I_Rsc.transpose([2, 0, 1]), realsize_c)
+        self.R_Zs = xp.asarray(np.unique(np.sort(R_Rs, axis=1), axis=0))
+        self.factor = 1.0 / len(op_scc)
+
+    def apply(self, n_sR):
+        for n_R in n_sR:
+            n_R = n_R.ravel()
+            n_Z = self.xp.sum(n_R[self.R_Zs], axis=1) * self.factor
+            n_R[:] = 0.0
+            # On purpose using += which doesn't add same indices twice!
+            n_R[self.R_Zs] += n_Z[:, None]
+
+
 class SymmetrizationPlan:
     def __init__(self, xp, rotations, a_sa, l_aj, layout):
         ns = a_sa.shape[0]  # Number of symmetries

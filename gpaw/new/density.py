@@ -14,7 +14,7 @@ from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack, unpack2
-from gpaw.new.symmetry import SymmetrizationPlan
+from gpaw.new.symmetry import SymmetrizationPlan, GridSymmetrizationPlan
 
 
 class Density:
@@ -117,6 +117,7 @@ class Density:
         self._tauct_R = None
 
         self.symplan = None
+        self.grid_symplan = None
 
     def __repr__(self):
         return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
@@ -227,11 +228,29 @@ class Density:
                                     symmetries.translation_sc)
 
     def symmetrize(self, symmetries):
-        self.nt_sR.symmetrize(symmetries.rotation_scc,
-                              symmetries.translation_sc)
-        if self.taut_sR is not None:
-            self.taut_sR.symmetrize(symmetries.rotation_scc,
-                                    symmetries.translation_sc)
+
+        def symmetrize_new(symmetries):
+            if self.grid_symplan is None:
+                GSP = GridSymmetrizationPlan
+                self.grid_symplan = GSP(self.nt_sR.xp, self.nt_sR.desc,
+                                        symmetries.rotation_scc,
+                                        symmetries.translation_sc)
+            self.grid_symplan.apply(self.nt_sR.data)
+            if self.taut_sR is not None:
+                self.grid_symplan.apply(self.taut_sR.data)
+
+        def symmetrize_old(symemtries):
+            self.nt_sR.symmetrize(symmetries.rotation_scc,
+                                  symmetries.translation_sc)
+            if self.taut_sR is not None:
+                self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                        symmetries.translation_sc)
+
+        from os import environ
+        if environ.get('SYM_OLD'):
+            symmetrize_old(symmetries)
+        else:
+            symmetrize_new(symmetries)
 
         xp = self.nt_sR.xp
         if xp is np:
