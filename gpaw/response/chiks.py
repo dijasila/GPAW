@@ -388,7 +388,8 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
         cmem = maxrss() / 1024**2
 
         isl = ['',
-               'Setting up a generalized Kohn-Sham susceptibility calculation with:',
+               'Setting up a generalized Kohn-Sham susceptibility calculation '
+               'with:',
                f'    Spin component: {spincomponent}',
                f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
                f'    Number of frequency points: {nz}',
