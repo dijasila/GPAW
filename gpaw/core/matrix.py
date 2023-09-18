@@ -386,7 +386,7 @@ class Matrix:
                             check_finite=debug,
                             driver='evx' if H.data.size == 1 else 'evd')
                 else:
-                    if self.xp is cp:
+                    if 0: #self.xp is cp:
                         assert self.dist.comm.size == 1
                         S.invcholesky()
                         self.tril2full()
@@ -396,15 +396,16 @@ class Matrix:
                     if debug:
                         S.data[self.xp.triu_indices(H.shape[0], 1)] = 42.0
                     eps, evecs = sla.eigh(
-                        H.data,
-                        S.data,
+                        self.xp.asnumpy(H.data),
+                        self.xp.asnumpy(S.data),
                         lower=True,
                         overwrite_a=True,
                         overwrite_b=True,
                         check_finite=debug,
                         subset_by_index=(0, limit - 1) if limit else None)
                     limit = limit or len(eps)
-                    H.data.T[:, :limit] = evecs
+                    H.data.T[:, :limit] = self.xp.asarray(evecs)
+                    eps = self.xp.asarray(eps)
             self.dist.comm.broadcast(eps, 0)
         else:
             if slcomm.rank < rows * columns:
