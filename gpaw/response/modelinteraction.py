@@ -79,8 +79,6 @@ class ModelInteraction:
         total_k = 0
 
 
-        # First calculate W in IBZ in PW basis
-        # and then transform to Wannier basis
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
             self.context.print('iq = ', iq, '/', self.gs.kd.nibzkpts)
             # Calculate chi0 and W for IBZ k-point q
@@ -137,7 +135,7 @@ class ModelInteraction:
         A_mnG = np.zeros([nwan, nwan, nG], dtype=complex)
         for iK1 in range(self.gs.kd.nbzkpts):
             kpt1, kpt2, iK2 = get_k1_k2(spin, iK1, iQ, bandrange)
-            # Caluclate density matrix
+            # Calculate density matrix
             rholoc, iqloc = self.get_density_matrix(kpt1,
                                                     kpt2,
                                                     pawcorr,
