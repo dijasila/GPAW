@@ -11,13 +11,19 @@ from gpaw.symmetry import Symmetry as OldSymmetry
 class GridSymmetrizationPlan:
     def __init__(self, xp, gd, op_scc, translation_sc):
         self.xp = xp
-        offset_c = 1 - gd.pbc_c
-        size_c = gd.size_c
+        offset_c = (1 - gd.pbc_c).astype(np.int32)
+        if hasattr(gd, 'N_c'):
+            size_c = gd.N_c
+        else:
+            size_c = gd.size_c
 
-        realsize_c = gd.mysize_c
-        I_cR = np.indices(realsize_c).reshape((3, -1)) + offset_c[:, None]
-        t_sc = (translation_sc * size_c).round().astype(int)
-        I_Rsc = (np.einsum('sCc,CR->Rsc', op_scc, I_cR) - t_sc)
+        if hasattr(gd, 'myshape'):
+            realsize_c = gd.myshape
+        else:
+            realsize_c = gd.end_c - gd.beg_c
+        I_cR = np.indices(realsize_c).reshape((3, -1)).astype(np.int32) + offset_c[:, None]
+        t_sc = (translation_sc * size_c).round().astype(np.int32)
+        I_Rsc = np.einsum('sCc,CR->Rsc', op_scc, I_cR) - t_sc
         I_Rsc = I_Rsc % size_c - offset_c
         R_Rs = np.ravel_multi_index(I_Rsc.transpose([2, 0, 1]), realsize_c)
         self.R_Zs = xp.asarray(np.unique(np.sort(R_Rs, axis=1), axis=0))
@@ -30,6 +36,37 @@ class GridSymmetrizationPlan:
             n_R[:] = 0.0
             # On purpose using += which doesn't add same indices twice!
             n_R[self.R_Zs] += n_Z[:, None]
+
+    def reduce_grid(self, arrays):
+        return tuple([self.reduce_array(arr) for arr in arrays])
+
+    def extend_grid(self, arrays_out, arrays_in):
+        for array_out, array_in in zip(arrays_out, arrays_in):
+            self.extend_array(array_out, array_in)
+
+    def extend_array(self, array_out, array_in):
+        if len(array_in.shape) == 1:
+            array_out[:] = 0
+            array_out.ravel()[self.R_Zs] += array_in[:, None]
+        else:
+            print(array_out.shape, array_in.shape,'out in saheps')
+            for arr_out, arr_in in zip(array_out, array_in):
+                self.extend_array(arr_out, arr_in)
+
+    def reduce_array(self, array):
+        if len(array.shape) == 3:
+            array = array.ravel()
+            array_Z = self.xp.sum(array[self.R_Zs], axis=1) * self.factor
+            print('Reduced shape', array_Z.shape)
+            return array_Z
+        else:
+            array_sZ = np.zeros( tuple(array.shape[:-3]) + (self.R_Zs.shape[0],))
+            assert len(array.shape) == 4
+            for s, arr_R in enumerate(array):
+                array_sZ[s] = self.reduce_array(arr_R)
+            print('Redued shape4', array_sZ.shape)
+            return array_sZ
+
 
 
 class SymmetrizationPlan:
@@ -97,6 +134,7 @@ class SymmetrizationPlan:
         self.S_aZZ = S_aZZ
         self.xp = xp
 
+
     def apply(self, source, target):
         total = 0
         for a, ind in self.work:
@@ -150,6 +188,18 @@ class Symmetries:
             np.array([rotation(l, r_vv) for r_vv in self.rotation_svv])
             for l in range(4)]
         self._rotations = {}
+
+        self._gdcache = {}
+
+    def reduce_grid(self, gd, arrays):
+        if gd not in self._gdcache:
+            self._gdcache[gd] = GridSymmetrizationPlan(np, gd, self.rotation_scc, self.translation_sc)
+        return self._gdcache[gd].reduce_grid(arrays)
+
+    def extend_grid(self, gd, arrays_out, arrays_in):
+        if gd not in self._gdcache:
+            self._gdcache[gd] = GridSymmetrizationPlan(np, gd, self.rotation_scc, self.translation_sc)
+        return self._gdcache[gd].extend_grid(arrays_out, arrays_in)
 
     def __len__(self):
         return len(self.rotation_scc)

@@ -189,9 +189,15 @@ class GGA(XCFunctional):
         return ('{} with {} nearest neighbor stencil'
                 .format(self.name, self.stencil_range))
 
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+    def calculate_impl(self, gd, n_sg, v_sg, e_g, symmetries=None):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        if symmetries is None:
+            self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+        else:
+            n_sz, v_sz, e_z, sigma_xz, dedsigma_xz = symmetries.reduce_grid(gd, (n_sg, v_sg, e_g, sigma_xg, dedsigma_xg))
+            self.kernel.calculate(e_z, n_sz, v_sz, sigma_xz, dedsigma_xz)
+            symmetries.extend_grid(gd, (v_sg, e_g, sigma_xg, dedsigma_xg), (v_sz, e_z, sigma_xz, dedsigma_xz))
+
         add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                 dedsigma_xg, v_sg)
 

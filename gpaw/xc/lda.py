@@ -87,8 +87,15 @@ class LDA(XCFunctional):
         self.kernel = kernel
         XCFunctional.__init__(self, kernel.name, kernel.type)
 
-    def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        self.kernel.calculate(e_g, n_sg, v_sg)
+    def calculate_impl(self, gd, n_sg, v_sg, e_g, symmetries=None):
+        if symmetries is None:
+            self.kernel.calculate(e_g, n_sg, v_sg)
+        else:
+            n_sz, v_sz, e_z = symmetries.reduce_grid(gd, (n_sg, v_sg, e_g))
+            self.kernel.calculate(e_z, n_sz, v_sz)
+            print(e_z.shape, n_sz.shape, v_sz.shape,'env shapes')
+            symmetries.extend_grid(gd, (v_sg, e_g), (v_sz, e_z))
+        
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):

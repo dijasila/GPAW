@@ -228,7 +228,6 @@ class Density:
                                     symmetries.translation_sc)
 
     def symmetrize(self, symmetries):
-
         def symmetrize_new(symmetries):
             if self.grid_symplan is None:
                 GSP = GridSymmetrizationPlan
@@ -251,6 +250,16 @@ class Density:
             symmetrize_old(symmetries)
         else:
             symmetrize_new(symmetries)
+
+        if environ.get('SYM_TIME'):
+            from time import time
+            start = time()
+            symmetrize_old(symmetries)
+            old = time() - start
+            start = time()
+            symmetrize_new(symmetries)
+            new = time() - start
+            print('old', old, 'new', new, 'speedup', old/new)
 
         xp = self.nt_sR.xp
         if xp is np:

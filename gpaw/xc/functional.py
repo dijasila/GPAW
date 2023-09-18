@@ -35,7 +35,7 @@ class XCFunctional(object):
     def set_grid_descriptor(self, gd):
         self.gd = gd
 
-    def calculate(self, gd, n_sg, v_sg=None, e_g=None):
+    def calculate(self, gd, n_sg, v_sg=None, e_g=None, symmetries=None):
         """Calculate energy and potential.
 
         gd: GridDescriptor
@@ -56,7 +56,7 @@ class XCFunctional(object):
             e_g = gd.empty()
         if v_sg is None:
             v_sg = np.zeros_like(n_sg)
-        self.calculate_impl(gd, n_sg, v_sg, e_g)
+        self.calculate_impl(gd, n_sg, v_sg, e_g, symmetries=symmetries)
         return gd.integrate(e_g)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
