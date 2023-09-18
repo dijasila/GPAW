@@ -2,7 +2,6 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw import SCIPY_VERSION
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from gpaw.gpu import cupy as cp
@@ -82,15 +81,7 @@ def grids():
     return [g1, g2, g3, g4, g5]
 
 
-xppar = pytest.param(cp, marks=[pytest.mark.skipif(world.size > 1,
-                                reason='xp parallel not working'),
-                                pytest.mark.skipif(SCIPY_VERSION < [1, 6],
-                                reason='too old Scipy'),
-                                pytest.mark.xfail])
-
-
 @pytest.mark.gpu
-# @pytest.mark.parametrize('xp', [np, xppar])
 @pytest.mark.parametrize('xp', [np, cp])
 @pytest.mark.parametrize('grid', grids())
 def test_pw_integrate(xp, grid):
