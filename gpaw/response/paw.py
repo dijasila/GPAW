@@ -5,6 +5,7 @@ from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
 from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
+from gpaw.response.pw_parallelization import Blocks1D
 from types import SimpleNamespace
 
 
@@ -264,7 +265,8 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
                     if not (l1 + l2 + l + lp) % 2 == 0:
                         continue
                     # Calculate radial part of the correction
-                    dnf_G = fourier_bessel_transform(lp, k_G, rgd, dnf_g)
+                    dnf_G = parallel_fourier_bessel_transform(
+                        k_G, lp, rgd, dnf_g)
 
                     # Calculate angular part of the correction
                     x_G = 4 * np.pi * (-1j)**lp * dnf_G
@@ -296,7 +298,18 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
     return Fbar_Gii
 
 
-def fourier_bessel_transform(l, k_G, rgd, f_g):
+def parallel_fourier_bessel_transform(k_G, *args, comm=None):
+    """Distribute FBT plane-wave components over a given communicator."""
+    # NB: If we need to do something similar elsewhere, we can generalize this
+    # function to a decorator!
+    if comm is None:
+        from gpaw.mpi import world as comm
+    Gblocks = Blocks1D(comm, len(k_G))
+    f_myG = fourier_bessel_transform(k_G[Gblocks.myslice], *args)
+    return Gblocks.all_gather(f_myG)
+
+
+def fourier_bessel_transform(k_G, l, rgd, f_g):
     """Perform a spherical Fourier-Bessel transform of a radial function f(r).
 
     Computes the transform
