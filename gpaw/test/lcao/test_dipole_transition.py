@@ -45,7 +45,7 @@ def test_dipole_transition(gpw_files, tmp_path_factory):
         from gpaw.new.ase_interface import GPAW as NewGPAW
         from gpaw.mpi import serial_comm
         refcalc = NewGPAW(gpw_files['h2o_lcao'],
-                          parallel={'world': serial_comm})
+                          communicator=serial_comm)
         uref = dipole_matrix_elements_from_calc(refcalc, 0, 6)
         uref = uref[0]
         assert uref.shape == (6, 6, 3)

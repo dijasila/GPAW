@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from types import ModuleType
-from typing import Dict, Tuple, Union
+from typing import Dict, Tuple
 
 import _gpaw
 import numpy as np
@@ -12,7 +12,7 @@ import gpaw.utilities.blas as blas
 from gpaw import debug, SCIPY_VERSION
 from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
-from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
 _global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
@@ -58,8 +58,8 @@ class Matrix:
                  M: int,
                  N: int,
                  dtype=None,
-                 data: ArrayLike2D = None,
-                 dist: Union[MatrixDistribution, tuple] = None,
+                 data: ArrayLike2D | None = None,
+                 dist: MatrixDistribution | tuple | None = None,
                  xp=None):
         """Matrix object.
 
@@ -114,10 +114,11 @@ class Matrix:
             assert self.shape == dist.full_shape
         self.dist = dist
 
+        self.data: Array2D
         if data is None:
             self.data = self.xp.empty(dist.shape, self.dtype)
         else:
-            assert data.shape == dist.shape, (data.shape, dist.shape)
+            assert data.shape == dist.shape, (data.shape, dist.shape, dist)
             self.data = data
 
     def __repr__(self):
@@ -317,7 +318,7 @@ class Matrix:
                                     overwrite_a=True,
                                     check_finite=debug)
             else:
-                self.tril2full()
+                S.tril2full()
                 L_nn = cp.linalg.cholesky(S.data)
                 S.data[:] = cp.linalg.inv(L_nn)
 
@@ -329,7 +330,7 @@ class Matrix:
              *,
              cc=False,
              scalapack=(None, 1, 1, None),
-             limit: int = None) -> Array1D:
+             limit: int | None = None) -> Array1D:
         """Calculate eigenvectors and eigenvalues.
 
         Matrix must be symmetric/hermitian and stored in lower half.
@@ -365,7 +366,7 @@ class Matrix:
             assert self.dist.comm.size == slcomm.size
             H = self
 
-        eps = np.empty(H.shape[0])
+        eps = self.xp.empty(H.shape[0])
 
         if rows * columns == 1:
             if self.dist.comm.rank == 0:
@@ -375,18 +376,18 @@ class Matrix:
                     H.data[np.triu_indices(H.shape[0], 1)] = 42.0
                 if S is None:
                     if self.xp is not np:
-                        eps, H.data.T[:] = (
-                            cupy_eigh(  # type: ignore[assignment]
-                                H.data, UPLO='L'))
-                        return eps
-                    eps[:], H.data.T[:] = sla.eigh(
-                        H.data,
-                        lower=True,
-                        overwrite_a=True,
-                        check_finite=debug,
-                        driver='evx' if H.data.size == 1 else 'evd')
+                        assert isinstance(H.data, cp.ndarray)
+                        eps[:], H.data.T[:] = cupy_eigh(H.data, UPLO='L')
+                    else:
+                        eps[:], H.data.T[:] = sla.eigh(
+                            H.data,
+                            lower=True,
+                            overwrite_a=True,
+                            check_finite=debug,
+                            driver='evx' if H.data.size == 1 else 'evd')
                 else:
                     if self.xp is cp:
+                        assert self.dist.comm.size == 1
                         S.invcholesky()
                         self.tril2full()
                         eigs = self.eighg(S)
@@ -740,13 +741,20 @@ def redist(dist1, M1, dist2, M2, context):
 
 def create_distribution(M: int,
                         N: int,
-                        comm: MPIComm = None,
+                        comm: MPIComm | None = None,
                         r: int = 1,
                         c: int = 1,
-                        b: int = None,
+                        b: int | None = None,
                         xp=None) -> MatrixDistribution:
     if xp is cp:
-        return CuPyDistribution(M, N)
+        assert b is None
+        if r == 1 and c == 1:
+            pass  # comm = None
+        comm = comm or serial_comm
+        return CuPyDistribution(M, N, comm,
+                                r if r != -1 else comm.size,
+                                c if c != -1 else comm.size,
+                                b)
 
     if comm is None or comm.size == 1:
         assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
@@ -759,25 +767,41 @@ def create_distribution(M: int,
 
 
 class CuPyDistribution(MatrixDistribution):
-    comm = serial_comm
-    rows = 1
-    columns = 1
-    blocksize = None
-
-    def __init__(self, M, N):
-        self.shape = (M, N)
+    def __init__(self, M, N, comm, r, c, b):
+        self.comm = comm
+        self.rows = r
+        self.columns = c
+        self.blocksize = b
         self.full_shape = (M, N)
+        # assert r == comm.size, (M, N, comm, r, c, b)
+        assert c == 1
+        br = (M + r - 1) // r
+        m = min((comm.rank + 1) * br, M) - min(comm.rank * br, M)
+        self.shape = (m, N)
 
     def __str__(self):
         return 'CuPyDistribution({}x{})'.format(*self.shape)
 
     def global_index(self, n):
+        1 / 0
         return n
 
     def new(self, M, N):
-        return CuPyDistribution(M, N)
+        return CuPyDistribution(M, N,
+                                self.comm,
+                                self.rows, self.columns,
+                                self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
+        if self.comm.size > 1:
+            a = a.gather()
+            b = b.gather()
+            c0 = c
+            c = c.gather()
+            if self.comm.rank > 0:
+                c.redist(c0)
+                return
+
         if symmetric:
             if opa == 'N':
                 assert opb == 'C' or opb == 'T' and a.dtype == float
@@ -789,12 +813,14 @@ class CuPyDistribution(MatrixDistribution):
                 else:
                     if beta == 1.0 and a.shape[1] == 0:
                         return
-                    cp.cublas.gemm('N', 'H',
-                                   a.data, b.data, c.data,
-                                   0.5 * alpha, beta)
-                    cp.cublas.gemm('N', 'H',
-                                   b.data, a.data, c.data,
-                                   0.5 * alpha, 1.0)
+                    if c.data.size > 0:
+                        assert beta in [0.0, 1.0]
+                        cp.cublas.gemm('N', 'H',
+                                       a.data, b.data, c.data,
+                                       0.5 * alpha, beta)
+                        cp.cublas.gemm('N', 'H',
+                                       b.data, a.data, c.data,
+                                       0.5 * alpha, 1.0)
             else:
                 assert opa == 'C' and opb == 'N'
                 assert a is not b
@@ -802,10 +828,13 @@ class CuPyDistribution(MatrixDistribution):
                 blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
 
         else:
-            cp.cublas.gemm(opa.replace('C', 'H'),
-                           opb.replace('C', 'H'),
-                           a.data, b.data, c.data,
-                           alpha, beta)
+            if c.data.size > 0:
+                cp.cublas.gemm(opa.replace('C', 'H'),
+                               opb.replace('C', 'H'),
+                               a.data, b.data, c.data,
+                               alpha, beta)
+        if self.comm.size > 1:
+            c.redist(c0)
 
     def eighg(self, H, L):
         """
@@ -814,6 +843,7 @@ class CuPyDistribution(MatrixDistribution):
            ~      †   ~~   ~         †~
            H = LHL ,  HC = CΛ,  C = L C.
         """
+        assert self.comm.size == 1
         tmp = H.new()
         self.multiply(1.0, L, 'N', H, 'N', 0.0, tmp)
         self.multiply(1.0, tmp, 'N', L, 'C', 0.0, H, symmetric=True)
