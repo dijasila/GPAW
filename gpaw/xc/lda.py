@@ -106,18 +106,20 @@ class LDA(XCFunctional):
         else:
             _dEdD_sp = None
 
-        # Reference implementation
-        from time import time
-        start = time()
         from gpaw.xc.noncollinear import NonCollinearLDAKernel
         collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
-        rcalc = LDARadialCalculator(self.kernel)
-        expansion = LDARadialExpansion(rcalc, collinear)
-        E = calculate_paw_correction(expansion,
-                                     setup, D_sp, dEdD_sp,
-                                     addcoredensity, a)
-        stop = time()
-        print('Old xc correction', stop-start)
+
+        # Reference implementation
+        if 0:
+            from time import time
+            start = time()
+            rcalc = LDARadialCalculator(self.kernel)
+            expansion = LDARadialExpansion(rcalc, collinear)
+            E = calculate_paw_correction(expansion,
+                                         setup, D_sp, dEdD_sp,
+                                         addcoredensity, a)
+            stop = time()
+            print('Old xc correction', stop-start)
 
         xcc = setup.xc_correction
         rgd = xcc.rgd
@@ -128,7 +130,7 @@ class LDA(XCFunctional):
         dev_weight_n = xp.asarray(weight_n)
         dev_dv_g = xp.asarray(rgd.dv_g)
         xp.cuda.runtime.deviceSynchronize()
-        start = time()
+        #start = time()
         B_pqL = xp.asarray(xcc.B_pqL)
         if xcc is None:
             return 0.0
@@ -193,20 +195,20 @@ class LDA(XCFunctional):
                                  
         if addcoredensity:
             Exc -= xcc.e_xc0
-       
-        xp.cuda.runtime.deviceSynchronize()
-        stop = time()
-        print('New xc corrections took', stop-start)
+        dEdD_sp[:] = xp.asnumpy(_dEdD_sp)
+        #xp.cuda.runtime.deviceSynchronize()
+        #stop = time()
+        #print('New xc corrections took', stop-start)
         #print('Old', E)
         #print('New', Exc)
-        if dEdD_sp is not None:
-            #print('Old', dEdD_sp)
-            #print('New', _dEdD_sp)
-            assert np.allclose(xp.asnumpy(_dEdD_sp), dEdD_sp)
-            pass
-        assert np.abs(E - Exc) < 1e-8
+        #if dEdD_sp is not None:
+        #    #print('Old', dEdD_sp)
+        #    #print('New', _dEdD_sp)
+        #    assert np.allclose(xp.asnumpy(_dEdD_sp), dEdD_sp)
+        #    pass
+        #assert np.abs(E - Exc) < 1e-8
 
-        return E
+        return Exc.item()
 
     def calculate_radial(self, rgd, n_sLg, Y_L):
         rcalc = LDARadialCalculator(self.kernel)
