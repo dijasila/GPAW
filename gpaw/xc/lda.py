@@ -91,6 +91,7 @@ class LDA(XCFunctional):
         if symmetries is None:
             self.kernel.calculate(e_g, n_sg, v_sg)
         else:
+            print(type(n_sg), type(v_sg), type(e_g))
             n_sz, v_sz, e_z = symmetries.reduce_grid(gd, (n_sg, v_sg, e_g))
             self.kernel.calculate(e_z, n_sz, v_sz)
             print(e_z.shape, n_sz.shape, v_sz.shape,'env shapes')

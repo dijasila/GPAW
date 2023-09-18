@@ -49,15 +49,18 @@ class XCFunctional(object):
             Energy density.  Values must be written directly, not added.
 
         The total XC energy is returned."""
-
+        import cupy
         if gd is not self.gd:
             self.set_grid_descriptor(gd)
         if e_g is None:
-            e_g = gd.empty()
+            e_g = gd.empty(xp=cupy)
         if v_sg is None:
-            v_sg = np.zeros_like(n_sg)
+            v_sg = cupy.zeros_like(n_sg)
         self.calculate_impl(gd, n_sg, v_sg, e_g, symmetries=symmetries)
-        return gd.integrate(e_g)
+        print(e_g.shape, type(e_g))
+        Exc = gd.integrate(e_g)
+        assert Exc is not None
+        return Exc
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         raise NotImplementedError

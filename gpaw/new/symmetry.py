@@ -11,22 +11,47 @@ from gpaw.symmetry import Symmetry as OldSymmetry
 class GridSymmetrizationPlan:
     def __init__(self, xp, gd, op_scc, translation_sc):
         self.xp = xp
-        offset_c = (1 - gd.pbc_c).astype(np.int32)
+        offset_c = xp.asarray((1 - gd.pbc_c).astype(np.int32))
         if hasattr(gd, 'N_c'):
             size_c = gd.N_c
         else:
             size_c = gd.size_c
+        size_c = xp.asarray(size_c)
+        print('xp:', xp, size_c)
 
         if hasattr(gd, 'myshape'):
             realsize_c = gd.myshape
         else:
             realsize_c = gd.end_c - gd.beg_c
-        I_cR = np.indices(realsize_c).reshape((3, -1)).astype(np.int32) + offset_c[:, None]
-        t_sc = (translation_sc * size_c).round().astype(np.int32)
-        I_Rsc = np.einsum('sCc,CR->Rsc', op_scc, I_cR) - t_sc
-        I_Rsc = I_Rsc % size_c - offset_c
-        R_Rs = np.ravel_multi_index(I_Rsc.transpose([2, 0, 1]), realsize_c)
-        self.R_Zs = xp.asarray(np.unique(np.sort(R_Rs, axis=1), axis=0))
+        translation_sc = xp.asarray(translation_sc) 
+        I_cR = xp.indices(realsize_c, dtype=np.int32).reshape((3, -1)) + offset_c[:, None]
+        t_sc = xp.asarray((translation_sc * size_c).round().astype(np.int32))
+        I_csR = xp.zeros((3, t_sc.shape[0], I_cR.shape[1]), dtype=np.int32)
+        def mat33():
+            for s in range(t_sc.shape[0]):
+                for c1 in range(3):
+                    for c2 in range(3):
+                        op = op_scc[s, c1, c2]
+                        if op == 1:
+                            I_csR[c2, s, :] += I_cR[c1, :]
+                        elif op == -1:
+                            I_csR[c2, s, :] -= I_cR[c1, :]
+                        else:
+                            assert op == 0
+        mat33()
+        I_csR -= t_sc.T[:, :, None]
+        #I_Rsc = np.einsum('sCc,CR->Rsc', op_scc, I_cR) - t_sc
+        I_csR = I_csR  % size_c[:, None, None] - offset_c[:, None, None]
+        R_Rs = xp.ravel_multi_index(I_csR.transpose([0, 2, 1]), realsize_c)
+        #self.R_Zs_old = xp.asarray(np.unique(np.sort(R_Rs, axis=1), axis=0))
+        _, R_Z = xp.unique(xp.min(R_Rs, axis=1), return_index=True)
+        self.R_Zs =R_Rs[R_Z, :]
+        #print(self.R_Zs_old.shape)
+        #print(self.R_Zs.shape)
+        #if not np.allclose(self.R_Zs_old, self.R_Zs):
+        #    for i, (a, b) in enumerate(zip(self.R_Zs_old, self.R_Zs)):
+        #        print(i,a,b)
+        #    asd
         self.factor = 1.0 / len(op_scc)
 
     def apply(self, n_sR):
@@ -60,7 +85,7 @@ class GridSymmetrizationPlan:
             print('Reduced shape', array_Z.shape)
             return array_Z
         else:
-            array_sZ = np.zeros( tuple(array.shape[:-3]) + (self.R_Zs.shape[0],))
+            array_sZ = self.xp.zeros( tuple(array.shape[:-3]) + (self.R_Zs.shape[0],))
             assert len(array.shape) == 4
             for s, arr_R in enumerate(array):
                 array_sZ[s] = self.reduce_array(arr_R)
@@ -192,13 +217,15 @@ class Symmetries:
         self._gdcache = {}
 
     def reduce_grid(self, gd, arrays):
+        import cupy
         if gd not in self._gdcache:
-            self._gdcache[gd] = GridSymmetrizationPlan(np, gd, self.rotation_scc, self.translation_sc)
+            self._gdcache[gd] = GridSymmetrizationPlan(cupy, gd, self.rotation_scc, self.translation_sc)
         return self._gdcache[gd].reduce_grid(arrays)
 
     def extend_grid(self, gd, arrays_out, arrays_in):
+        import cupy
         if gd not in self._gdcache:
-            self._gdcache[gd] = GridSymmetrizationPlan(np, gd, self.rotation_scc, self.translation_sc)
+            self._gdcache[gd] = GridSymmetrizationPlan(cupy, gd, self.rotation_scc, self.translation_sc)
         return self._gdcache[gd].extend_grid(arrays_out, arrays_in)
 
     def __len__(self):

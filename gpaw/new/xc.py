@@ -63,15 +63,16 @@ class LDAOrGGAFunctional(Functional):
                                                            UGArray | None]:
         xp = nt_sr.xp
         vxct_sr = nt_sr.new()
-        if xp is np:
-            vxct_sr.data[:] = 0.0
-            exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data, symmetries = symmetries)
-        else:
-            vxct_np_sr = np.zeros(nt_sr.data.shape)
-            assert isinstance(nt_sr.data, cp.ndarray)
-            exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(),
-                                    vxct_np_sr, symmetries = symmetries)
-            vxct_sr.data[:] = xp.asarray(vxct_np_sr)
+        #if xp is np:
+        vxct_sr.data[:] = 0.0
+        exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data, symmetries = symmetries)
+        assert exc is not None
+        #else:
+        #    vxct_np_sr = np.zeros(nt_sr.data.shape)
+        #    assert isinstance(nt_sr.data, cp.ndarray)
+        #    exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(),
+        #                            vxct_np_sr, symmetries = symmetries)
+        #    vxct_sr.data[:] = xp.asarray(vxct_np_sr)
         return exc, vxct_sr, None
 
     def stress_contribution(self,
