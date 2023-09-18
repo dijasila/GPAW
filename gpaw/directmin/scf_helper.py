@@ -21,24 +21,18 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     else:
         return
 
-    if eigensolver_name == 'etdm-lcao':
-        if hasattr(solver, 'e_sic'):
-            e_sic = solver.e_sic
-        else:
-            e_sic = 0.0
+    if hasattr(solver, 'e_sic'):
+        e_sic = solver.e_sic
+    else:
+        e_sic = 0.0
 
+    if eigensolver_name == 'etdm-lcao':
         with ((wfs.timer('Get canonical representation'))):
             for kpt in wfs.kpt_u:
                 solver.dm_helper.update_to_canonical_orbitals(
                     wfs, ham, kpt, False, False)
 
-        if occ_name == 'mom':
-            check_mom_no_update_of_occupations(wfs)
-
         solver.set_ref_orbitals_and_a_vec(wfs)
-
-        solver.update_ks_energy(ham, wfs, dens)
-        ham.get_energy(0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
 
         log('\nOccupied states converged after'
             ' {:d} e/g evaluations'.format(solver.eg_count))
@@ -90,11 +84,11 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
 
         solver.get_canonical_representation(ham, wfs, rewrite_psi)
 
-        if occ_name == 'mom':
-            check_mom_no_update_of_occupations(wfs)
+    if occ_name == 'mom':
+        check_mom_no_update_of_occupations(wfs)
 
-        solver.get_energy_and_tangent_gradients(
-            ham, wfs, dens)
+    solver.update_ks_energy(ham, wfs, dens)
+    ham.get_energy(0.0, wfs, kin_en_using_band=False, e_sic=e_sic)
 
     if occ_name == 'mom' and not sic_calc:
         if hasattr(solver, 'constraints'):

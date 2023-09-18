@@ -26,9 +26,11 @@ class Derivatives:
         # initialize vectors of elements matrix A
         if a is None:
             if wfs.mode == 'lcao':
-                self.a = {u: np.zeros_like(v) for u, v in etdm.a_vec_u.items()}
+                self.a = {u: np.zeros_like(v, dtype=wfs.dtype)
+                          for u, v in etdm.a_vec_u.items()}
             else:
-                self.a = {u: np.zeros_like(v) for u, v in etdm.U_k.items()}
+                self.a = {u: np.zeros_like(v, dtype=wfs.dtype)
+                          for u, v in etdm.U_k.items()}
 
         if random_amat:
             for kpt in wfs.kpt_u:
@@ -52,13 +54,15 @@ class Derivatives:
                 etdm.rotate_wavefunctions(wfs, self.a, self.c_ref)
                 etdm.dm_helper.set_reference_orbitals(wfs, etdm.n_dim)
                 self.c_ref = etdm.dm_helper.reference_orbitals
-                self.a = {u: np.zeros_like(v) for u, v in etdm.a_vec_u.items()}
+                self.a = {u: np.zeros_like(v, dtype=wfs.dtype)
+                          for u, v in etdm.a_vec_u.items()}
             else:
                 etdm.rotate_wavefunctions(wfs, self.a)
                 for kpt in wfs.kpt_u:
                     k = etdm.kpointval(kpt)
                     etdm.psit_knG[k] = kpt.psit_nG.copy()
-                self.a = {u: np.zeros_like(v) for u, v in etdm.U_k.items()}
+                self.a = {u: np.zeros_like(v, dtype=wfs.dtype)
+                          for u, v in etdm.U_k.items()}
 
     def get_analytical_derivatives(self, etdm, ham, wfs, dens,
                                    what2calc='gradient'):
