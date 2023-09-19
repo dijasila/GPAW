@@ -793,6 +793,7 @@ class CuPyDistribution(MatrixDistribution):
                                 self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
+        print(a.shape, b.shape, opa, opb, alpha, beta, symmetric)
         if self.comm.size > 1:
             a = a.gather()
             b = b.gather()

@@ -3,6 +3,8 @@ import pytest
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import cupy as cp, as_np, as_xp
 from gpaw.mpi import world
+from gpaw.new.c import GPU_AWARE_MPI
+from gpaw.gpu.mpi import CuPyMPI
 
 
 @pytest.mark.gpu
@@ -49,18 +51,25 @@ def op(a, o):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('shape1, shape2, op1, op2, sym',
-                         [((4, 4), (4, 10), 'N', 'N', False)])
-@pytest.mark.parametrize('alpha', [1.0, 2.0])
-@pytest.mark.parametrize('beta', [0.0, 1.0, 2.0])
+@pytest.mark.parametrize('shape1, shape2, op1, op2, beta, sym',
+                         [((5, 19), (5, 19), 'N', 'C', 0.0, True),
+                          ((5, 19), (5, 19), 'N', 'C', 0.0, False),
+                          ((5, 5), (5, 5), 'N', 'C', 0.0, False),
+                          ((5, 5), (5, 5), 'C', 'N', 0.0, False),
+                          ((5, 5), (5, 5), 'N', 'C', 1.0, False),
+                          ((5, 5), (5, 5), 'C', 'N', 1.0, False),
+                          ((5, 5), (5, 5), 'N', 'N', 0.0, False),
+                          ])
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('xp', [np, cp])
 def test_mul(shape1, shape2, op1, op2, alpha, beta, dtype, xp, sym, rng):
+    alpha = 1.234
+    comm = world if GPU_AWARE_MPI else CuPyMPI(world)
     shape3 = (shape1[0] if op1 == 'N' else shape1[1],
               shape2[1] if op2 == 'N' else shape1[0])
-    m1 = Matrix(*shape1, dtype=dtype, dist=(world, -1, 1), xp=xp)
-    m2 = Matrix(*shape2, dtype=dtype, dist=(world, -1, 1), xp=xp)
-    m3 = Matrix(*shape3, dtype=dtype, dist=(world, -1, 1), xp=xp)
+    m1 = Matrix(*shape1, dtype=dtype, dist=(comm, -1, 1), xp=xp)
+    m2 = Matrix(*shape2, dtype=dtype, dist=(comm, -1, 1), xp=xp)
+    m3 = Matrix(*shape3, dtype=dtype, dist=(comm, -1, 1), xp=xp)
     for m in [m1, m2, m3]:
         data = m.data.view(float)
         data[:] = as_xp(rng.random(data.shape), xp)
@@ -69,6 +78,10 @@ def test_mul(shape1, shape2, op1, op2, alpha, beta, dtype, xp, sym, rng):
                 out=m3, symmetric=sym)
     m4 = m3.gather()
     if m4 is not None:
-        a3 = beta * a3 + alpha * op(a1, op1) @ op(a2, op2)
+        if sym:
+            a3 = beta * a3 + 0.5 * alpha * (op(a1, op1) @ op(a2, op2) +
+                                            op(a2, op1) @ op(a1, op2))
+        else:
+            a3 = beta * a3 + alpha * op(a1, op1) @ op(a2, op2)
         error = abs(a3 - as_np(m4.data)).max()
         print(error)
