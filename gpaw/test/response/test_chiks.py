@@ -9,7 +9,7 @@ from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.chi0 import Chi0
 from gpaw.response.pair_functions import (get_inverted_pw_mapping,
                                           get_pw_coordinates)
@@ -306,6 +306,64 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
     # Make it possible to check timings for the test
     context.write_timer()
+
+    
+@pytest.mark.response
+@pytest.mark.parametrize(
+    'system,qrel,gammacentered',
+    product(generate_system_s(spincomponents=['+-']),
+            generate_qrel_q(), generate_gc_g()))
+def test_xi(gpw_files, system, qrel, gammacentered):
+    """Test that calculated self-enhancement function does not change
+    when varrying internal calculator parameters."""
+    # ---------- Inputs ---------- #
+    wfs, spincomponent = system
+    nbands = response_band_cutoff[wfs]
+    atol, rtol = get_tolerances(system, qrel)
+    q_c = get_q_c(wfs, qrel)
+    
+    complex_frequencies = np.array([0., 0.05, 0.1, 0.2]) + 0.1j
+    zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
+
+    ecut = 50
+    rshelmax = 0
+
+    if world.size > 1:
+        nblocks = 2
+    else:
+        nblocks = 1
+
+    fixed_kwargs = dict(nbands=nbands,
+                        ecut=ecut,
+                        gammacentered=gammacentered,
+                        rshelmax=rshelmax,
+                        nblocks=nblocks)
+
+    # Parameters to cross-tabulate
+    disable_sym_s = [True, False]
+    bandsummation_b = ['double', 'pairwise']
+
+    # ---------- Script ---------- #
+
+    calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
+    gs = ResponseGroundStateAdapter(calc)
+
+    xi_mzGG = []
+    for disable_sym in disable_sym_s:
+        for bandsummation in bandsummation_b:
+            xi_calc = SelfEnhancementCalculator(
+                gs,
+                disable_point_group=disable_sym,
+                bandsummation=bandsummation,
+                **fixed_kwargs)
+            xi = xi_calc.calculate(spincomponent, q_c, zd)
+            xi_mzGG.append(xi.array)
+    xi_mzGG = np.array(xi_mzGG)
+
+    # Test versus average
+    avgxi_zGG = np.average(xi_mzGG, axis=0)
+    for xi_zGG in xi_mzGG:
+        assert xi_zGG == pytest.approx(avgxi_zGG, rel=rtol, abs=atol)
 
 
 # ---------- Test functionality ---------- #

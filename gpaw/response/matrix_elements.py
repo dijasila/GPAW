@@ -9,7 +9,7 @@ from gpaw.response import timer
 from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import calculate_LSDA_Wxc
+from gpaw.response.localft import calculate_LSDA_Wxc, add_LSDA_trans_fxc
 
 
 class MatrixElement(ABC):
@@ -208,8 +208,8 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
             The maximum index l (l < 6) to use in the expansion of f(r) into
             real spherical harmonics for the PAW correction.
         rshewmin : float or None
-            If None, the PAW correction will be fully expanded up to the chosen
-            lmax. Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            If None, the f(r) will be fully expanded up to the chosen lmax.
+            Given as a float (0 < rshewmin < 1), rshewmin indicates what
             coefficients to use in the expansion. If any (l,m) coefficient
             contributes with less than a fraction of rshewmin on average, it
             will not be included.
@@ -348,6 +348,20 @@ class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
         pass
 
 
+class TransversePairPotentialCalculator(PlaneWaveMatrixElementCalculator):
+    r"""Calculator for the transverse magnetic pair potential.
+
+    The transverse magnetic pair potential is a plane-wave matrix element
+    where the local functional is the transverse LDA kernel:
+     
+    W^⟂_kt(G+q) = W^⟂_(nks,n'k+qs')(G+q)
+
+                = <ψ_nks| e^-i(G+q)r f_LDA^-+(r) |ψ_n'k+qs'>
+    """
+    def add_f(self, gd, n_sx, f_x):
+        return add_LSDA_trans_fxc(gd, n_sx, f_x, fxc='ALDA')
+
+
 class SiteMatrixElement(MatrixElement):
     def __init__(self, tblocks, qpd, atomic_site_data):
         self.nsites = atomic_site_data.nsites
@@ -389,8 +403,8 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
             The maximum index l (l < 6) to use in the expansion of f(r) into
             real spherical harmonics for the PAW correction.
         rshewmin : float or None
-            If None, the PAW correction will be fully expanded up to the chosen
-            lmax. Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            If None, the f(r) will be fully expanded up to the chosen lmax.
+            Given as a float (0 < rshewmin < 1), rshewmin indicates what
             coefficients to use in the expansion. If any (l,m) coefficient
             contributes with less than a fraction of rshewmin on average, it
             will not be included.
