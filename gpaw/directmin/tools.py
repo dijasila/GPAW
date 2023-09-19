@@ -241,7 +241,7 @@ def excite(calc, i, a, spin=(0, 0), sort=False):
 
 
 def sort_orbitals_according_to_occ(
-        wfs, constraints=None, update_mom=False):
+        wfs, constraints=None, update_mom=False, update_eps=True):
     """
     Sort orbitals according to the occupation
     numbers so that there are no holes in the
@@ -251,7 +251,7 @@ def sort_orbitals_according_to_occ(
     restart = False
     for kpt in wfs.kpt_u:
         changedocc, ind = sort_orbitals_according_to_occ_kpt(
-            wfs, kpt, update_mom=update_mom)
+            wfs, kpt, update_mom=update_mom, update_eps=update_eps)
 
         if changedocc:
             if constraints:
@@ -265,7 +265,8 @@ def sort_orbitals_according_to_occ(
     return restart
 
 
-def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
+def sort_orbitals_according_to_occ_kpt(
+        wfs, kpt, update_mom=False, update_eps=True):
     """
     Sort orbitals according to the occupation
     numbers so that there are no holes in the
@@ -296,7 +297,8 @@ def sort_orbitals_according_to_occ_kpt(wfs, kpt, update_mom=False):
             sort_orbitals_kpt(wfs, kpt, ind, update_proj)
 
         kpt.f_n = kpt.f_n[ind]
-        kpt.eps_n = kpt.eps_n[ind]
+        if update_eps:
+            kpt.eps_n = kpt.eps_n[ind]
 
         if update_mom:
             # OccupationsMOM.numbers needs

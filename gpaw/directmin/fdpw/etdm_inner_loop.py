@@ -362,7 +362,7 @@ class ETDMInnerLoop:
             if occ_name == 'mom':
                 wfs.calculate_occupation_numbers(dens.fixed)
                 self.restart = sort_orbitals_according_to_occ(
-                    wfs, update_mom=True)
+                    wfs, update_mom=True, update_eps=False)
         self.momcounter += 1
 
     def kpointval(self, kpt):
