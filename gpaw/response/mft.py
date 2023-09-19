@@ -234,9 +234,9 @@ class AtomicSites:
 class AtomicSiteData:
     r"""Data object for a set of spherical atomic sites."""
 
-    def __init__(self, sites: AtomicSites, gs: ResponseGroundStateAdapter):
+    def __init__(self, gs: ResponseGroundStateAdapter, sites: AtomicSites):
         """Extract atomic site data from a ground state adapter."""
-        assert self._in_valid_site_radii_range(sites, gs), \
+        assert self._in_valid_site_radii_range(gs, sites), \
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
         self.sites = sites
@@ -306,7 +306,7 @@ class AtomicSiteData:
         return rmin_A * Bohr, rmax_A * Bohr
 
     @staticmethod
-    def _in_valid_site_radii_range(sites, gs):
+    def _in_valid_site_radii_range(gs, sites):
         rmin_A, rmax_A = AtomicSiteData._valid_site_radii_range(gs)
         for a, A in enumerate(sites.A_a):
             if not np.all(
