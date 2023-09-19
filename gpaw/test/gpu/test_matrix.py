@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import cupy as cp, as_np
+from gpaw.gpu import cupy as cp, as_np, as_xp
+from gpaw.mpi import world
 
 
 @pytest.mark.gpu
@@ -41,3 +42,33 @@ def test_eigh():
     # Check that eigenvectors are parallel:
     X = C1.conj() @ S0.data @ C2.T
     assert abs(X) == pytest.approx(np.eye(2))
+
+
+def op(a, o):
+    return a
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('shape1, shape2, op1, op2, sym',
+                         [((4, 4), (4, 10), 'N', 'N', False)])
+@pytest.mark.parametrize('alpha', [1.0, 2.0])
+@pytest.mark.parametrize('beta', [0.0, 1.0, 2.0])
+@pytest.mark.parametrize('dtype', [float, complex])
+@pytest.mark.parametrize('xp', [np, cp])
+def test_mul(shape1, shape2, op1, op2, alpha, beta, dtype, xp, sym, rng):
+    shape3 = (shape1[0] if op1 == 'N' else shape1[1],
+              shape2[1] if op2 == 'N' else shape1[0])
+    m1 = Matrix(*shape1, dtype=dtype, dist=(world, -1, 1), xp=xp)
+    m2 = Matrix(*shape2, dtype=dtype, dist=(world, -1, 1), xp=xp)
+    m3 = Matrix(*shape3, dtype=dtype, dist=(world, -1, 1), xp=xp)
+    for m in [m1, m2, m3]:
+        data = m.data.view(float)
+        data[:] = as_xp(rng.random(data.shape), xp)
+    a1, a2, a3 = (as_np(m.gather().data) for m in [m1, m2, m3])
+    m1.multiply(m2, alpha=alpha, opa=op1, opb=op2, beta=beta,
+                out=m3, symmetric=sym)
+    m4 = m3.gather()
+    if m4 is not None:
+        a3 = beta * a3 + alpha * op(a1, op1) @ op(a2, op2)
+        error = abs(a3 - as_np(m4.data)).max()
+        print(error)
