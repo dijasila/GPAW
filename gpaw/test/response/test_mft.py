@@ -18,8 +18,8 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
                                    add_spin_polarization)
+from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (IsotropicExchangeCalculator,
-                               AtomicSites, AtomicSiteData,
                                StaticSitePairFunction,
                                TwoParticleSiteMagnetizationCalculator,
                                TwoParticleSiteSpinSplittingCalculator)
