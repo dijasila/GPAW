@@ -18,8 +18,7 @@ from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import (LocalFTCalculator,
                                    add_LSDA_Wxc,
                                    add_spin_polarization,
-                                   add_LSDA_spin_splitting,
-                                   extract_micro_setup)
+                                   add_LSDA_spin_splitting)
 from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
@@ -234,9 +233,9 @@ class AtomicSiteData:
             'Please provide site radii in the valid range, see '\
             'AtomicSiteData.valid_site_radii_range()'
 
-        # Extract the scaled positions and microsetups for each atomic site
+        # Extract the scaled positions and micro_setups for each atomic site
         self.spos_ac = gs.spos_ac[self.A_a]
-        self.microsetup_a = [extract_micro_setup(gs, A) for A in self.A_a]
+        self.micro_setup_a = [gs.micro_setups[A] for A in self.A_a]
 
         # Extract pseudo density on the fine real-space grid
         self.finegd = gs.finegd
@@ -365,17 +364,17 @@ class AtomicSiteData:
         Δf_ap = | r^2 dr θ(r<rc_ap) [f(n_a(r)) - f(ñ_a(r))]
                 /
         """
-        for a, (microsetup, rc_p, lambd_p) in enumerate(zip(
-                self.microsetup_a, self.rc_ap, self.lambd_ap)):
+        for a, (micro_setup, rc_p, lambd_p) in enumerate(zip(
+                self.micro_setup_a, self.rc_ap, self.lambd_ap)):
             # Evaluate the PAW correction and integrate angular components
-            df_ng = microsetup.evaluate_paw_correction(add_f)
+            df_ng = micro_setup.evaluate_paw_correction(add_f)
             df_g = integrate_lebedev(df_ng)
             for p, (rcut, lambd) in enumerate(zip(rc_p, lambd_p)):
                 # Evaluate the smooth truncation function
                 theta_g = radial_truncation_function(
-                    microsetup.rgd.r_g, rcut, self.drcut, lambd)
+                    micro_setup.rgd.r_g, rcut, self.drcut, lambd)
                 # Integrate θ(r) Δf(r) on the radial grid
-                out_ap[a, p] += microsetup.rgd.integrate_trapz(df_g * theta_g)
+                out_ap[a, p] += micro_setup.rgd.integrate_trapz(df_g * theta_g)
 
 
 class StaticSitePairFunction(PairFunction):

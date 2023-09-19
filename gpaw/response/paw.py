@@ -393,3 +393,29 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
                                pawdatasets=pawdatasets,
                                pos_av=pos_av,
                                atomrotations=atomrotations)
+
+
+def get_matrix_element_paw_corrections(qpd, pawdata_a, rshe_a, spos_ac):
+    r"""Calculate the PAW correction to a generalized matrix element.
+
+    For a given functional of the electron (spin-)density f[n](r), the PAW
+    correction is given by
+                                  ˍ
+    F_aii'(G+q) = e^(-i[G+q].R_a) F_aii'(G+q)
+          ˍ
+    where F_aii'(G+q) is the atom-centered correction (see above).
+    """
+    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+
+    F_aGii = []
+    for pawdata, rshe, spos_c in zip(pawdata_a, rshe_a, spos_ac):
+        # Calculate atom-centered PAW correction
+        Fbar_Gii = calculate_matrix_element_correction(
+            qG_Gv, pawdata, rshe)
+
+        # Add dependency on the atomic position (phase factor)
+        pos_v = spos_c @ qpd.gd.cell_cv
+        x_G = np.exp(-1j * (qG_Gv @ pos_v))
+        F_aGii.append(x_G[:, np.newaxis, np.newaxis] * Fbar_Gii)
+
+    return F_aGii

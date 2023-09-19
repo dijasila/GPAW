@@ -245,6 +245,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
         cross_tabulation=dict(distribution=distribution_d,
                               nblocks=nblocks_n))
 
+    # Make it possible to check timings for the test
+    chiks_testing_factory.context.write_timer()
+
 
 @pytest.mark.response
 @pytest.mark.parametrize(
@@ -260,7 +263,6 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
 
     # Part 1: chiks calculation
     wfs, spincomponent = system
-    atol, rtol = get_tolerances(system, qrel)
     q_c = get_q_c(wfs, qrel)
 
     ecut = 50
@@ -300,7 +302,10 @@ def test_chiks_vs_chi0(in_tmp_dir, gpw_files, system, qrel):
     chi0_wGG = chi0.body.get_distributed_frequencies_array()
 
     # Part 3: Check chiks vs. chi0
-    assert chiks.array == pytest.approx(chi0_wGG, rel=rtol, abs=atol)
+    assert chiks.array == pytest.approx(chi0_wGG, rel=1e-3, abs=1e-5)
+
+    # Make it possible to check timings for the test
+    context.write_timer()
 
 
 # ---------- Test functionality ---------- #
@@ -313,6 +318,7 @@ class ChiKSTestingFactory:
                  spincomponent, q_c, zd,
                  nbands, ecut, gammacentered):
         self.gs = GSAdapterWithPAWCache(calc)
+        self.context = ResponseContext()
         self.spincomponent = spincomponent
         self.q_c = q_c
         self.zd = zd
@@ -336,7 +342,8 @@ class ChiKSTestingFactory:
             return self.cached_chiks[cache_string]
 
         chiks_calc = ChiKSCalculator(
-            self.gs, ecut=self.ecut, nbands=self.nbands,
+            self.gs, context=self.context,
+            ecut=self.ecut, nbands=self.nbands,
             gammacentered=self.gammacentered,
             disable_time_reversal=disable_syms,
             disable_point_group=disable_syms,
@@ -396,7 +403,7 @@ class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
     """Add a PAW correction cache to the ground state adapter.
 
     WARNING: Use with care! The cache is only valid, when the plane-wave
-    representations are identical.
+    representations are identical and the functional f[n](r) is not changed.
     """
 
     def __init__(self, calc):
@@ -405,16 +412,16 @@ class GSAdapterWithPAWCache(ResponseGroundStateAdapter):
         self._cached_corrections = []
         self._cached_parameters = []
 
-    def pair_density_paw_corrections(self, qpd):
+    def matrix_element_paw_corrections(self, qpd, rshe_a):
         """Overwrite method with a cached version."""
         cache_index = self._cache_lookup(qpd)
         if cache_index is not None:
             return self._cached_corrections[cache_index]
 
-        return self._calculate_correction(qpd)
+        return self._calculate_correction(qpd, rshe_a)
 
-    def _calculate_correction(self, qpd):
-        correction = super().pair_density_paw_corrections(qpd)
+    def _calculate_correction(self, qpd, rshe_a):
+        correction = super().matrix_element_paw_corrections(qpd, rshe_a)
 
         self._cached_corrections.append(correction)
         self._cached_parameters.append((qpd.q_c, qpd.ecut, qpd.gammacentered))
