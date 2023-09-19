@@ -12,7 +12,6 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
-from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
@@ -348,15 +347,19 @@ class IBZWaveFunctions:
                     self.kpt_comm.receive(data, rank)
                     writer.fill(data)
 
-        if skip_wfs:
-            return
+        if not skip_wfs:
+            self._write_wave_functions(writer, spin_k_shape)
 
+    def _write_wave_functions(self, writer, spin_k_shape):
+        # We collect all bands to master.  This may have to be changed
+        # to only one band at a time XXX
         xshape = self.get_max_shape(global_shape=True)
         shape = spin_k_shape + (self.nbands,) + xshape
+        dtype = complex if self.mode == 'pw' else self.dtype
+        c = 1.0 if self.mode == 'lcao' else Bohr**-1.5
 
-        c = Bohr**-1.5
-        if isinstance(wfs, LCAOWaveFunctions):
-            c = 1
+        writer.add_array('coefficients', shape, dtype=dtype)
+        buf_nX = np.empty((self.nbands,) + xshape, dtype=dtype)
 
         for spin in range(self.nspins):
             for k, rank in enumerate(self.rank_k):
@@ -365,27 +368,23 @@ class IBZWaveFunctions:
                     coef_nX = wfs.gather_wave_function_coefficients()
                     if coef_nX is not None:
                         coef_nX = as_np(coef_nX)
+                        if self.mode == 'pw':
+                            x = coef_nX.shape[-1]
+                            if x < xshape[0]:
+                                # For PW-mode, we may need to zero-pad the
+                                # plane-wave coefficient up to the maximum
+                                # for all k-points:
+                                buf_nX[..., :x] = coef_nX
+                                buf_nX[..., x:] = 0.0
+                        else:
+                            buf_nX = coef_nX
                         if rank == 0:
-                            if spin == 0 and k == 0:
-                                writer.add_array('coefficients',
-                                                 shape, dtype=coef_nX.dtype)
-                            # For PW-mode, we may need to zero-pad the
-                            # plane-wave coefficient up to the maximum
-                            # for all k-points:
-                            n = shape[-1] - coef_nX.shape[-1]
-                            if n != 0:
-                                if self.collinear:
-                                    coef_nX = np.pad(coef_nX, ((0, 0), (0, n)))
-                                else:
-                                    coef_nX = np.pad(coef_nX,
-                                                     ((0, 0), (0, 0), (0, n)))
-                            writer.fill(coef_nX * c)
+                            writer.fill(buf_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)
                 elif self.comm.rank == 0:
-                    assert coef_nX is not None
-                    self.kpt_comm.receive(coef_nX, rank)
-                    writer.fill(coef_nX * c)
+                    self.kpt_comm.receive(buf_nX, rank)
+                    writer.fill(buf_nX * c)
 
     def write_summary(self, log):
         fl = self.fermi_levels * Ha
