@@ -543,7 +543,7 @@ def generate_nblocks(context):
 class SingleParticleSiteQuantity(StaticSitePairFunction):
     @property
     def shape(self):
-        return self.atomic_site_data.sites.shape
+        return self.sites.shape
 
 
 class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
@@ -581,7 +581,7 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
 
         # Set up data object with q=0
         qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
-        site_quantity = SingleParticleSiteQuantity(qpd, atomic_site_data)
+        site_quantity = SingleParticleSiteQuantity(qpd, atomic_site_data.sites)
 
         # Perform actual calculation
         self._integrate(site_quantity, transitions)

@@ -392,20 +392,20 @@ class StaticSitePairFunction(PairFunction):
 
     def __init__(self,
                  qpd: SingleQPWDescriptor,
-                 atomic_site_data: AtomicSiteData):
+                 sites: AtomicSites):
         self.qpd = qpd
         self.q_c = qpd.q_c
 
-        self.atomic_site_data = atomic_site_data
+        self.sites = sites
 
         self.array = self.zeros()
 
     @property
     def shape(self):
-        nsites = len(self.atomic_site_data.sites)
-        npartitions = self.atomic_site_data.sites.npartitions
+        nsites = len(self.sites)
+        npartitions = self.sites.npartitions
         return nsites, nsites, npartitions
-        
+
     def zeros(self):
         return np.zeros(self.shape, dtype=complex)
 
@@ -461,7 +461,8 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         # Set up data object (without a plane-wave representation, which is
         # irrelevant in this case)
         qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
-        site_pair_function = StaticSitePairFunction(qpd, atomic_site_data)
+        site_pair_function = StaticSitePairFunction(
+            qpd, atomic_site_data.sites)
 
         # Perform actual calculation
         self._integrate(site_pair_function, transitions)
