@@ -370,16 +370,15 @@ class IBZWaveFunctions:
                         coef_nX = as_np(coef_nX)
                         if self.mode == 'pw':
                             x = coef_nX.shape[-1]
-                            if x < xshape[0]:
+                            if x < xshape[-1]:
                                 # For PW-mode, we may need to zero-pad the
                                 # plane-wave coefficient up to the maximum
                                 # for all k-points:
                                 buf_nX[..., :x] = coef_nX
                                 buf_nX[..., x:] = 0.0
-                        else:
-                            buf_nX = coef_nX
+                                coef_nX = buf_nX
                         if rank == 0:
-                            writer.fill(buf_nX * c)
+                            writer.fill(coef_nX * c)
                         else:
                             self.kpt_comm.send(coef_nX, 0)
                 elif self.comm.rank == 0:
