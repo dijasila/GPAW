@@ -312,7 +312,8 @@ class FDPWETDM(Eigensolver):
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             if self.globaliters == 0:
-                self.initial_occupation_numbers = wfs.occupations.numbers.copy()
+                self.initial_occupation_numbers = \
+                    wfs.occupations.numbers.copy()
             sort_orbitals_according_to_occ(wfs, update_mom=True)
 
     def iterate(self, ham, wfs, dens, log, converge_unocc=False):
