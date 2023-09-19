@@ -363,7 +363,7 @@ class PWFDWaveFunctions(WaveFunctions):
         return None
 
     def send(self, rank, comm):
-        stuff = (self.psit_nX.desc.kpt_c,
+        stuff = (self.kpt_c,
                  self.psit_nX.data,
                  self.spin,
                  self.q,
