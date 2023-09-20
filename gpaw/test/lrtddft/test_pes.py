@@ -58,7 +58,7 @@ def test_lrtddft_pes(in_tmp_dir):
     lr = LrTDDFT(calc_plus, xc=xc)
 
     out = 'lrpes.dat'
-    pes = TDDFTPES(calc, lr)
+    pes = TDDFTPES(calc, lr, tolerance={'magnetic': 9e-6})
     pes.save_folded_pes(filename=out, folding='Gauss')
     parprint('Linear response:')
     pes.save_folded_pes(filename=None, folding=None)
@@ -73,6 +73,6 @@ def test_lrtddft_pes(in_tmp_dir):
     lr = LrTDDFT.read(out)
     lr.calculator = calc_plus
 
-    pes = TDDFTPES(calc, lr)
+    pes = TDDFTPES(calc, lr, tolerance={'magnetic': 9e-6})
     parprint('Linear response:')
     pes.save_folded_pes(filename=None, folding=None)

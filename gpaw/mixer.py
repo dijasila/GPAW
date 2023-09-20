@@ -436,7 +436,7 @@ class NotMixingMixer:
     def calculate_charge_sloshing(self, R_sG):
         return self.gd.integrate(np.fabs(R_sG)).sum()
 
-    def mix_density(self, nt_sG, D_asp):
+    def mix_density(self, nt_sG, D_asp, g_ss=None):
         iold = len(self.nt_isG)
 
         dNt = np.inf
@@ -687,7 +687,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     if nspins == 1:
         kwargs['method'] = SeparateSpinMixerDriver
     else:
-        kwargs['method'] = SpinDifferenceMixerDriver
+        kwargs['method'] = FullSpinMixerDriver
 
     # Clean up mixerkwargs (compatibility)
     if 'nmaxold' in mixerkwargs:
