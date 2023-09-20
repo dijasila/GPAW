@@ -178,17 +178,6 @@ class Matrix:
         elif not isinstance(out, Matrix):
             out = out.matrix
 
-        if 0:  # dist.comm.size > 1:
-            # Special cases that don't need scalapack - most likely also
-            # faster:
-            if alpha == 1.0 and opa == 'N' and opb == 'N':
-                return fastmmm(A, B, out, beta)
-            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
-                if symmetric:
-                    return fastmmm2(A, B, out)
-                else:
-                    return fastmmm2notsym(A, B, out)
-
         dist.multiply(alpha, A, opa, B, opb, beta, out, symmetric=symmetric)
         return out
 
@@ -705,6 +694,17 @@ class BLACSDistribution(MatrixDistribution):
                                  self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
+        if self.comm.size > 1:
+            # Special cases that don't need scalapack - most likely also
+            # faster:
+            if opa == 'N' and opb == 'N':
+                return mmm_nn(a, b, c, alpha, beta, blas.mmm)
+            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
+                if symmetric:
+                    return mmm_nc_sym(a, b, c)
+                else:
+                    return mmm_nc(a, b, c)
+
         if symmetric:
             assert opa == 'N'
             assert opb == 'C' or opb == 'T' and a.dtype == float
@@ -767,6 +767,14 @@ def create_distribution(M: int,
                              b)
 
 
+def cublas_mmm(alpha, a, opa, b, opb, beta, c):
+    if c.size > 0:
+        cp.cublas.gemm(opa.replace('C', 'H'),
+                       opb.replace('C', 'H'),
+                       a, b, c,
+                       alpha, beta)
+
+
 class CuPyDistribution(MatrixDistribution):
     def __init__(self, M, N, comm, r, c, b):
         self.comm = comm
@@ -781,7 +789,9 @@ class CuPyDistribution(MatrixDistribution):
         self.shape = (m, N)
 
     def __str__(self):
-        return 'CuPyDistribution({}x{})'.format(*self.shape)
+        M, N = self.full_shape
+        m, N = self.shape
+        return f'CuPyDistribution(global={M}x{N}, local={m}x{N})'
 
     def global_index(self, n):
         1 / 0
@@ -795,7 +805,8 @@ class CuPyDistribution(MatrixDistribution):
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
         if self.comm.size > 1:
-            print(a.shape, b.shape, opa, opb, alpha, beta, symmetric, a is b)
+            if opa == 'N' and opb == 'N':
+                return mmm_nn(a, b, c, alpha, beta, cublas_mmm)
             a = a.gather()
             b = b.gather()
             c0 = c
@@ -831,11 +842,7 @@ class CuPyDistribution(MatrixDistribution):
                 blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
 
         else:
-            if c.data.size > 0:
-                cp.cublas.gemm(opa.replace('C', 'H'),
-                               opb.replace('C', 'H'),
-                               a.data, b.data, c.data,
-                               alpha, beta)
+            cublas_mmm(alpha, a.data, opa, b.data, opb, beta, c.data)
         if self.comm.size > 1:
             c.redist(c0)
 
@@ -858,17 +865,17 @@ class CuPyDistribution(MatrixDistribution):
         return eig_M
 
 
-def fastmmm(m1, m2, m3, beta):
+def mmm_nn(m1, m2, m3, alpha, beta, mmm):
     comm = m1.dist.comm
-
     buf1 = m2.data
+    xp = m1.xp
 
     N = m1.shape[0]
     n = (N + comm.size - 1) // comm.size
 
     for r in range(comm.size):
         if r == 0:
-            buf2 = np.empty((n, buf1.shape[1]), dtype=buf1.dtype)
+            buf2 = xp.empty((n, buf1.shape[1]), dtype=buf1.dtype)
 
         rrequest = None
         srequest = None
@@ -885,8 +892,7 @@ def fastmmm(m1, m2, m3, beta):
         r0 = (comm.rank + r) % comm.size
         n1 = min(r0 * n, N)
         n2 = min(n1 + n, N)
-        blas.mmm(1.0, m1.data[:, n1:n2], 'N', buf1[:n2 - n1], 'N',
-                 beta, m3.data)
+        mmm(alpha, m1.data[:, n1:n2], 'N', buf1[:n2 - n1], 'N', beta, m3.data)
 
         beta = 1.0
 
@@ -903,7 +909,7 @@ def fastmmm(m1, m2, m3, beta):
     return m3
 
 
-def fastmmm2(a, b, out):
+def mmm_nc_sym(a, b, out):
     if a.comm:
         assert b.comm is a.comm
         if a.comm.size > 1:
@@ -983,7 +989,7 @@ def fastmmm2(a, b, out):
     return out
 
 
-def fastmmm2notsym(a, b, out):
+def mmm_nc(a, b, out):
     if a.comm:
         assert b.comm is a.comm
         if a.comm.size > 1:
