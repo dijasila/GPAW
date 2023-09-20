@@ -28,8 +28,7 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
-from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
-                                           SitePairDensityCalculator,
+from gpaw.response.matrix_elements import (SitePairDensityCalculator,
                                            SitePairSpinSplittingCalculator)
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
@@ -253,8 +252,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Single-particle site magnetization ----- #
     # Set up calculator and calculate the site magnetization
     simple_site_mag_calc = SingleParticleSiteMagnetizationCalculator(
-        gs, context)
-    ssite_mag_ar = simple_site_mag_calc(site_data)
+        gs, site_data.sites, context)
+    ssite_mag_ar = simple_site_mag_calc()
 
     # Test that the imaginary part vanishes (we use only diagonal pair
     # densities correcsponding to |ψ_nks(r)|^2)
@@ -323,8 +322,8 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Single-particle site spin splitting ----- #
     # Set up calculator and calculate the site magnetization
     single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
-        gs, context)
-    single_particle_dxc_ar = single_particle_dxc_calc(site_data)
+        gs, site_data.sites, context)
+    single_particle_dxc_ar = single_particle_dxc_calc()
 
     # Test that the imaginary part vanishes (we use only diagonal pair
     # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
@@ -415,16 +414,20 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
     where μ∊{0,z}.
     """
 
-    def __init__(self, gs, context):
+    def __init__(self, gs, sites, context):
         super().__init__(gs, context,
                          disable_point_group=True,
                          disable_time_reversal=True)
-        self.matrix_element_calc: SiteMatrixElementCalculator | None = None
 
-    def __call__(self, atomic_site_data):
-        self.matrix_element_calc = self.create_matrix_element_calculator(
-            atomic_site_data.sites)
+        # Set up calculator for the f^a matrix element
+        self.sites = sites
+        self.matrix_element_calc = self.create_matrix_element_calculator()
 
+    @abstractmethod
+    def create_matrix_element_calculator(self):
+        """Create the desired site matrix element calculator."""
+
+    def __call__(self):
         # Set up transitions
         # Loop over bands, which are fully or partially occupied
         nocc2 = self.kptpair_extractor.nocc2
@@ -435,16 +438,12 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
 
         # Set up data object with q=0
         qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
-        site_quantity = SingleParticleSiteQuantity(qpd, atomic_site_data.sites)
+        site_quantity = SingleParticleSiteQuantity(qpd, self.sites)
 
         # Perform actual calculation
         self._integrate(site_quantity, transitions)
-        return site_quantity.array
 
-    @abstractmethod
-    def create_matrix_element_calculator(
-            self, atomic_site_data) -> SiteMatrixElementCalculator:
-        """Create the desired site matrix element calculator."""
+        return site_quantity.array
 
     def add_integrand(self, kptpair, weight, site_quantity):
         r"""Add the integrand of the outer k-point integral.
@@ -495,11 +494,11 @@ class SingleParticleSiteMagnetizationCalculator(
             N_k  ‾‾  ‾‾
                  k   n,s
     """
+    def create_matrix_element_calculator(self):
+        return SitePairDensityCalculator(self.gs, self.context, self.sites)
+
     def get_pauli_matrix(self):
         return smat('z')
-
-    def create_matrix_element_calculator(self, sites):
-        return SitePairDensityCalculator(self.gs, self.context, sites)
 
 
 class SingleParticleSiteSpinSplittingCalculator(
@@ -511,10 +510,10 @@ class SingleParticleSiteSpinSplittingCalculator(
                  N_k  ‾‾  ‾‾
                       k   n,s
     """
-    def create_matrix_element_calculator(self, sites):
+    def create_matrix_element_calculator(self):
         return SitePairSpinSplittingCalculator(
-            self.gs, self.context, sites, rshewmin=1e-8)
+            self.gs, self.context, self.sites, rshewmin=1e-8)
 
-    def __call__(self, *args):
-        dxc_ap = super().__call__(*args)
+    def __call__(self):
+        dxc_ap = super().__call__()
         return dxc_ap * Ha  # Ha -> eV
