@@ -75,8 +75,8 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
             max_er *= Ha ** 2 / wfs.nvalence
             solver.run_unocc(ham, wfs, dens, max_er, log)
         else:
-            solver.initialized = False
             log('Unoccupied states are not converged.')
+        solver.initialized = False
 
         rewrite_psi = True
         if sic_calc:

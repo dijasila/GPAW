@@ -247,6 +247,8 @@ class FDPWETDM(Eigensolver):
         :return:
         """
 
+        self.searchdir_algo.reset()
+
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nibzkpts
         # dimensionality, number of state to be converged
@@ -928,8 +930,6 @@ class FDPWETDM(Eigensolver):
 
         self.need_init_odd = False
         self.initialize_dm(wfs, dens, ham, converge_unocc=True)
-        # Erase memory of search direction algorithm
-        self.searchdir_algo.reset()
 
         while self.iters < self.maxiter_unocc:
             en, er = self.iterate(ham, wfs, dens, log, converge_unocc=True)
@@ -943,8 +943,6 @@ class FDPWETDM(Eigensolver):
             if self.iters >= self.maxiter_unocc:
                 log('\nUnoccupied orbitals did not converge after'
                     ' {:d} iterations'.format(self.iters))
-
-        self.initialized = False
 
     def run_inner_loop(self, ham, wfs, dens, grad_knG, niter=0):
 
@@ -1134,8 +1132,6 @@ class FDPWETDM(Eigensolver):
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
-                # Erase memory of search direction algorithm
-                self.searchdir_algo.reset()
 
     def initialize_mom_reference_orbitals(self, wfs, dens):
         # Reinitialize the MOM reference orbitals
