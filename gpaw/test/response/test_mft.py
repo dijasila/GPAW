@@ -3,22 +3,19 @@ Test with unrealisticly loose parameters to catch if the numerics change.
 """
 
 # General modules
-from abc import abstractmethod
-
 import pytest
 import numpy as np
 
 # Script modules
-from ase.units import Ha
-
 from gpaw import GPAW
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
-from gpaw.response.chiks import ChiKSCalculator, smat
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
 from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (IsotropicExchangeCalculator,
-                               StaticSitePairFunction,
+                               SingleParticleSiteMagnetizationCalculator,
+                               SingleParticleSiteSpinSplittingCalculator,
                                TwoParticleSiteMagnetizationCalculator,
                                TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
@@ -26,10 +23,6 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         ParallelepipedicSiteKernels)
 from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
-from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.pair_transitions import PairTransitions
-from gpaw.response.matrix_elements import (SitePairDensityCalculator,
-                                           SitePairSpinSplittingCalculator)
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
@@ -391,129 +384,3 @@ def generate_nblocks(context):
     else:
         nblocks = 1
     return nblocks
-
-
-class SingleParticleSiteQuantity(StaticSitePairFunction):
-    @property
-    def shape(self):
-        return self.sites.shape
-
-
-class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
-    r"""Calculator for single-particle site sum rules.
-
-    For any site matrix element f^a_(nks,n'k's'), one may define a single-
-    particle site sum rule by considering only the diagonal of the matrix
-    element:
-                 __  __
-             1   \   \
-    f_a^μ = ‾‾‾  /   /  σ^μ_ss f_nks f^a_(nks,nks)
-            N_k  ‾‾  ‾‾
-                 k   n,s
-
-    where μ∊{0,z}.
-    """
-
-    def __init__(self, gs, sites, context):
-        super().__init__(gs, context,
-                         disable_point_group=True,
-                         disable_time_reversal=True)
-
-        # Set up calculator for the f^a matrix element
-        self.sites = sites
-        self.matrix_element_calc = self.create_matrix_element_calculator()
-
-    @abstractmethod
-    def create_matrix_element_calculator(self):
-        """Create the desired site matrix element calculator."""
-
-    def __call__(self):
-        # Set up transitions
-        # Loop over bands, which are fully or partially occupied
-        nocc2 = self.kptpair_extractor.nocc2
-        n_n = list(range(nocc2))
-        n_t = np.array(n_n + n_n)
-        s_t = np.array([0] * nocc2 + [1] * nocc2)
-        transitions = PairTransitions(n1_t=n_t, n2_t=n_t, s1_t=s_t, s2_t=s_t)
-
-        # Set up data object with q=0
-        qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
-        site_quantity = SingleParticleSiteQuantity(qpd, self.sites)
-
-        # Perform actual calculation
-        self._integrate(site_quantity, transitions)
-
-        return site_quantity.array
-
-    def add_integrand(self, kptpair, weight, site_quantity):
-        r"""Add the integrand of the outer k-point integral.
-
-        With
-                   __
-                1  \
-        f_a^μ = ‾  /  (...)_k
-                V  ‾‾
-                   k
-
-        the integrand has to be multiplied with the cell volume V0:
-                     __
-                     \
-        (...)_k = V0 /  σ^μ_ss f_nks f^a_(nks,nks)
-                     ‾‾
-                     n,s
-        """
-        # Calculate matrix elements
-        site_matrix_element = self.matrix_element_calc(
-            kptpair, site_quantity.qpd)
-        assert site_matrix_element.tblocks.blockcomm.size == 1
-        f_tap = site_matrix_element.get_global_array()
-
-        # Calculate Pauli matrix factors and multiply the occupations
-        sigma = self.get_pauli_matrix()
-        sigma_t = sigma[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
-        f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
-        sigmaf_t = sigma_t * f_t
-
-        # Calculate and add integrand
-        site_quantity.array[:] += self.gs.volume * weight * np.einsum(
-            't, tap -> ap', sigmaf_t, f_tap)
-
-    @abstractmethod
-    def get_pauli_matrix(self):
-        """Get the desired Pauli matrix σ^μ_ss."""
-
-
-class SingleParticleSiteMagnetizationCalculator(
-        SingleParticleSiteSumRuleCalculator):
-    r"""Calculator for the single-particle site magnetization sum rule.
-
-    The site magnetization is calculated from the site pair density:
-                 __  __
-             1   \   \
-    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
-            N_k  ‾‾  ‾‾
-                 k   n,s
-    """
-    def create_matrix_element_calculator(self):
-        return SitePairDensityCalculator(self.gs, self.context, self.sites)
-
-    def get_pauli_matrix(self):
-        return smat('z')
-
-
-class SingleParticleSiteSpinSplittingCalculator(
-        SingleParticleSiteMagnetizationCalculator):
-    r"""Calculator for the single-particle site spin splitting sum rule.
-                      __  __
-                  1   \   \
-    Δ^(xc)_a^z = ‾‾‾  /   /  σ^z_ss f_nks Δ^(xc,a)_(nks,nks)
-                 N_k  ‾‾  ‾‾
-                      k   n,s
-    """
-    def create_matrix_element_calculator(self):
-        return SitePairSpinSplittingCalculator(
-            self.gs, self.context, self.sites, rshewmin=1e-8)
-
-    def __call__(self):
-        dxc_ap = super().__call__()
-        return dxc_ap * Ha  # Ha -> eV

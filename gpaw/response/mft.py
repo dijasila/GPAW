@@ -12,6 +12,7 @@ from gpaw.response.site_kernels import SiteKernels
 from gpaw.response.site_data import AtomicSites
 from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
+from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.matrix_elements import (SitePairDensityCalculator,
                                            SitePairSpinSplittingCalculator)
 
@@ -186,27 +187,151 @@ class IsotropicExchangeCalculator:
         return chiksr
 
 
-class StaticSitePairFunction(PairFunction):
-    """Data object for static site pair functions."""
-
+class StaticSiteFunction(PairFunction):
+    """Data object for static single-particle site functions."""
     def __init__(self,
                  qpd: SingleQPWDescriptor,
                  sites: AtomicSites):
         self.qpd = qpd
         self.q_c = qpd.q_c
-
         self.sites = sites
-
         self.array = self.zeros()
 
+    @property
+    def shape(self):
+        return self.sites.shape
+
+    def zeros(self):
+        return np.zeros(self.shape, dtype=complex)
+
+
+class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
+    r"""Calculator for single-particle site sum rules.
+
+    For any site matrix element f^a_(nks,n'k's'), one may define a single-
+    particle site sum rule by considering only the diagonal of the matrix
+    element:
+                 __  __
+             1   \   \
+    f_a^μ = ‾‾‾  /   /  σ^μ_ss f_nks f^a_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
+
+    where μ∊{0,z}.
+    """
+
+    def __init__(self, gs, sites, context):
+        super().__init__(gs, context,
+                         disable_point_group=True,
+                         disable_time_reversal=True)
+
+        # Set up calculator for the f^a matrix element
+        self.sites = sites
+        self.matrix_element_calc = self.create_matrix_element_calculator()
+
+    @abstractmethod
+    def create_matrix_element_calculator(self):
+        """Create the desired site matrix element calculator."""
+
+    def __call__(self):
+        # Set up transitions
+        # Loop over bands, which are fully or partially occupied
+        nocc2 = self.kptpair_extractor.nocc2
+        n_n = list(range(nocc2))
+        n_t = np.array(n_n + n_n)
+        s_t = np.array([0] * nocc2 + [1] * nocc2)
+        transitions = PairTransitions(n1_t=n_t, n2_t=n_t, s1_t=s_t, s2_t=s_t)
+
+        # Set up data object with q=0
+        qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
+        site_function = StaticSiteFunction(qpd, self.sites)
+
+        # Perform actual calculation
+        self._integrate(site_function, transitions)
+
+        return site_function.array
+
+    def add_integrand(self, kptpair, weight, site_function):
+        r"""Add the integrand of the outer k-point integral.
+
+        With
+                   __
+                1  \
+        f_a^μ = ‾  /  (...)_k
+                V  ‾‾
+                   k
+
+        the integrand has to be multiplied with the cell volume V0:
+                     __
+                     \
+        (...)_k = V0 /  σ^μ_ss f_nks f^a_(nks,nks)
+                     ‾‾
+                     n,s
+        """
+        # Calculate matrix elements
+        site_matrix_element = self.matrix_element_calc(
+            kptpair, site_function.qpd)
+        assert site_matrix_element.tblocks.blockcomm.size == 1
+        f_tap = site_matrix_element.get_global_array()
+
+        # Calculate Pauli matrix factors and multiply the occupations
+        sigma = self.get_pauli_matrix()
+        sigma_t = sigma[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
+        f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
+        sigmaf_t = sigma_t * f_t
+
+        # Calculate and add integrand
+        site_function.array[:] += self.gs.volume * weight * np.einsum(
+            't, tap -> ap', sigmaf_t, f_tap)
+
+    @abstractmethod
+    def get_pauli_matrix(self):
+        """Get the desired Pauli matrix σ^μ_ss."""
+
+
+class SingleParticleSiteMagnetizationCalculator(
+        SingleParticleSiteSumRuleCalculator):
+    r"""Calculator for the single-particle site magnetization sum rule.
+
+    The site magnetization is calculated from the site pair density:
+                 __  __
+             1   \   \
+    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
+    """
+    def create_matrix_element_calculator(self):
+        return SitePairDensityCalculator(self.gs, self.context, self.sites)
+
+    def get_pauli_matrix(self):
+        return smat('z')
+
+
+class SingleParticleSiteSpinSplittingCalculator(
+        SingleParticleSiteMagnetizationCalculator):
+    r"""Calculator for the single-particle site spin splitting sum rule.
+                      __  __
+                  1   \   \
+    Δ^(xc)_a^z = ‾‾‾  /   /  σ^z_ss f_nks Δ^(xc,a)_(nks,nks)
+                 N_k  ‾‾  ‾‾
+                      k   n,s
+    """
+    def create_matrix_element_calculator(self):
+        return SitePairSpinSplittingCalculator(
+            self.gs, self.context, self.sites, rshewmin=1e-8)
+
+    def __call__(self):
+        dxc_ap = super().__call__()
+        return dxc_ap * Hartree  # Ha -> eV
+
+
+class StaticSitePairFunction(StaticSiteFunction):
+    """Data object for static site pair functions."""
     @property
     def shape(self):
         nsites = len(self.sites)
         npartitions = self.sites.npartitions
         return nsites, nsites, npartitions
-
-    def zeros(self):
-        return np.zeros(self.shape, dtype=complex)
 
 
 class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
