@@ -349,14 +349,13 @@ class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
 
 
 class SiteMatrixElement(MatrixElement):
-    def __init__(self, tblocks, qpd, atomic_site_data):
-        self.nsites = len(atomic_site_data.sites)
-        self.npartitions = atomic_site_data.sites.npartitions
+    def __init__(self, tblocks, qpd, sites):
+        self.sites = sites
         super().__init__(tblocks, qpd)
 
     def zeros(self):
         return np.zeros(
-            (self.tblocks.blocksize, self.nsites, self.npartitions),
+            (self.tblocks.blocksize, len(self.sites), self.sites.npartitions),
             dtype=complex)
     
 
@@ -440,7 +439,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         return F_apii
 
     def create_matrix_element(self, tblocks, qpd):
-        return SiteMatrixElement(tblocks, qpd, self.atomic_site_data)
+        return SiteMatrixElement(tblocks, qpd, self.atomic_site_data.sites)
 
     @timer('Calculate pseudo site matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
