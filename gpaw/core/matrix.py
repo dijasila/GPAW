@@ -631,6 +631,7 @@ class NoDistribution(MatrixDistribution):
                         return
                     blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data)
             else:
+                1 / 0
                 assert opa == 'C' and opb == 'N'
                 assert a is not b
                 blas.r2k(0.5 * alpha, a.data, b.data, beta, c.data, 'n')
@@ -793,8 +794,8 @@ class CuPyDistribution(MatrixDistribution):
                                 self.blocksize)
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, *, symmetric=False):
-        print(a.shape, b.shape, opa, opb, alpha, beta, symmetric)
         if self.comm.size > 1:
+            print(a.shape, b.shape, opa, opb, alpha, beta, symmetric, a is b)
             a = a.gather()
             b = b.gather()
             c0 = c
@@ -823,6 +824,7 @@ class CuPyDistribution(MatrixDistribution):
                                        b.data, a.data, c.data,
                                        0.5 * alpha, 1.0)
             else:
+                1 / 0
                 assert opa == 'C' and opb == 'N'
                 assert a is not b
                 raise NotImplementedError
