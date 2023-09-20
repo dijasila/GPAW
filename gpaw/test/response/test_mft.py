@@ -305,7 +305,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up calculator and calculate the site magnetization
     single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
         gs, site_data.sites, context)
-    single_particle_dxc_ar = single_particle_dxc_calc()
+    single_particle_dxc_ar = single_particle_dxc_calc().array
 
     # Test that the imaginary part vanishes (we use only diagonal pair
     # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
@@ -320,7 +320,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up calculator and calculate site spin splitting by sum rule
     two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
         gs, site_data.sites, context, nblocks=nblocks, nbands=nbands)
-    tp_dxc_abr = two_particle_dxc_calc(q_c)
+    tp_dxc_abr = two_particle_dxc_calc(q_c).array
     context.write_timer()
 
     # Test that the two-particle spin splitting is a positive-valued diagonal

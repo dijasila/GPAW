@@ -223,12 +223,12 @@ def calculate_single_particle_site_magnetization(
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
         gs, sites, context=context)
 
-    sp_magmom_ap = single_particle_calc()
+    site_magnetization = single_particle_calc()
+    sp_magmom_ap = site_magnetization.array
     # The imaginary part should vanish identically since the sum rule only
     # involves the diagonal pair densities, corresponding to |ψ_nks(r)|^2
     assert np.allclose(sp_magmom_ap.imag, 0.)
     sp_magmom_ap = sp_magmom_ap.real
-
     return sp_magmom_ap
 
 
@@ -243,9 +243,8 @@ def calculate_two_particle_site_magnetization(
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
         gs, sites, context=context, nblocks=nblocks, nbands=nbands)
 
-    # Do something here!                                                     XXX
-    tp_magmom_abp = two_particle_calc(q_c)
-
+    site_pair_magnetization = two_particle_calc(q_c)
+    tp_magmom_abp = site_pair_magnetization.array
     return tp_magmom_abp
 
 
@@ -331,7 +330,7 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         # Perform actual calculation
         self._integrate(site_function, transitions)
 
-        return site_function.array
+        return site_function
 
     def add_integrand(self, kptpair, weight, site_function):
         r"""Add the integrand of the outer k-point integral.
@@ -403,8 +402,9 @@ class SingleParticleSiteSpinSplittingCalculator(
             self.gs, self.context, self.sites, rshewmin=1e-8)
 
     def __call__(self):
-        dxc_ap = super().__call__()
-        return dxc_ap * Hartree  # Ha -> eV
+        out = super().__call__()
+        out.array *= Hartree  # Ha -> eV                                      XXX
+        return out
 
 
 class StaticSitePairFunction(StaticSiteFunction):
@@ -474,7 +474,7 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         # Perform actual calculation
         self._integrate(site_pair_function, transitions)
 
-        return site_pair_function.array
+        return site_pair_function
 
     @abstractmethod
     def get_spincomponent(self):
@@ -594,5 +594,6 @@ class TwoParticleSiteSpinSplittingCalculator(
         return site_pair_spin_splitting_calc, site_pair_density_calc
 
     def __call__(self, *args):
-        dxc_abp = super().__call__(*args)
-        return dxc_abp * Hartree  # Ha -> eV
+        out = super().__call__(*args)
+        out.array *= Hartree  # Ha -> eV                                      XXX
+        return out
