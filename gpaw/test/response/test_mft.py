@@ -268,8 +268,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Two-particle site magnetization ----- #
     # Set up calculator and calculate site magnetization by sum rule
     sum_rule_site_mag_calc = TwoParticleSiteMagnetizationCalculator(
-        gs, context, nblocks=nblocks, nbands=nbands)
-    site_mag_abr = sum_rule_site_mag_calc(q_c, site_data)
+        gs, site_data.sites, context, nblocks=nblocks, nbands=nbands)
+    site_mag_abr = sum_rule_site_mag_calc(q_c)
     context.write_timer()
 
     # Test that the sum rule site magnetization is a positive-valued diagonal
@@ -338,8 +338,8 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Two-particle site spin splitting ----- #
     # Set up calculator and calculate site spin splitting by sum rule
     two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
-        gs, context, nblocks=nblocks, nbands=nbands)
-    tp_dxc_abr = two_particle_dxc_calc(q_c, site_data)
+        gs, site_data.sites, context, nblocks=nblocks, nbands=nbands)
+    tp_dxc_abr = two_particle_dxc_calc(q_c)
     context.write_timer()
 
     # Test that the two-particle spin splitting is a positive-valued diagonal
