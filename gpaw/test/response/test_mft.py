@@ -8,15 +8,15 @@ import numpy as np
 
 # Script modules
 from gpaw import GPAW
+from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
 from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (IsotropicExchangeCalculator,
-                               SingleParticleSiteMagnetizationCalculator,
+                               calculate_site_magnetization,
                                SingleParticleSiteSpinSplittingCalculator,
-                               TwoParticleSiteMagnetizationCalculator,
                                TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -231,59 +231,56 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
 @pytest.mark.response
 @pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
-    # Set up ground state adapter and atomic site data
+    # Set up ground state adapter and basic parameters
     calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['co_pw']
     gs = ResponseGroundStateAdapter(calc)
-    context = ResponseContext('Co_sum_rule.txt')
-    site_data = get_co_atomic_site_data(gs)
-    nblocks = generate_nblocks(context)
+    nblocks = generate_nblocks()
+    nbands = response_band_cutoff['co_pw']
+    txt = 'Co_sum_rule.txt'
+
+    # Set up site configurations to investigate
+    indices, radii = get_co_site_args(gs)
 
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
 
+    # Calculate site magnetization
+    magmom_ar, sp_magmom_ar, tp_magmom_abr = calculate_site_magnetization(
+        gs, indices, radii, q_c=q_c, nblocks=nblocks, nbands=nbands, txt=txt)
+
     # ----- Single-particle site magnetization ----- #
-    # Set up calculator and calculate the site magnetization
-    simple_site_mag_calc = SingleParticleSiteMagnetizationCalculator(
-        gs, site_data.sites, context)
-    ssite_mag_ar = simple_site_mag_calc()
 
     # Test that the imaginary part vanishes (we use only diagonal pair
     # densities correcsponding to |ψ_nks(r)|^2)
-    assert np.allclose(ssite_mag_ar.imag, 0.)
-    ssite_mag_ar = ssite_mag_ar.real
+    # Move me to api                                                           XXX
+    assert np.allclose(sp_magmom_ar.imag, 0.)
+    sp_magmom_ar = sp_magmom_ar.real
 
     # Test that the results match a conventional calculation
-    magmom_ar = site_data.calculate_magnetic_moments()
-    assert ssite_mag_ar == pytest.approx(magmom_ar, rel=5e-3)
+    assert sp_magmom_ar == pytest.approx(magmom_ar, rel=5e-3)
 
     # ----- Two-particle site magnetization ----- #
-    # Set up calculator and calculate site magnetization by sum rule
-    sum_rule_site_mag_calc = TwoParticleSiteMagnetizationCalculator(
-        gs, site_data.sites, context, nblocks=nblocks, nbands=nbands)
-    site_mag_abr = sum_rule_site_mag_calc(q_c)
-    context.write_timer()
 
     # Test that the sum rule site magnetization is a positive-valued diagonal
     # real array
-    site_mag_ra = site_mag_abr.diagonal()
-    assert np.all(site_mag_ra.real > 0)
-    assert np.all(np.abs(site_mag_ra.imag) / site_mag_ra.real < 1e-6)
-    site_mag_ra = site_mag_ra.real
+    tp_magmom_ra = tp_magmom_abr.diagonal()
+    assert np.all(tp_magmom_ra.real > 0)
+    assert np.all(np.abs(tp_magmom_ra.imag) / tp_magmom_ra.real < 1e-6)
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        site_mag_abr))) / site_mag_ra < 5e-2)
-    site_mag_ar = site_mag_ra.T
+        tp_magmom_abr))) / tp_magmom_ra.real < 5e-2)
+
     # Test that the magnetic moments on the two Co atoms are identical
-    assert site_mag_ar[0] == pytest.approx(site_mag_ar[1], rel=1e-4)
+    tp_magmom_ar = tp_magmom_abr.diagonal().T.real
+    assert tp_magmom_ar[0] == pytest.approx(tp_magmom_ar[1], rel=1e-4)
 
     # Test that the result more or less matches a conventional calculation at
     # close-packing
-    assert np.average(site_mag_ar, axis=0)[-1] == pytest.approx(
+    assert np.average(tp_magmom_ar, axis=0)[-1] == pytest.approx(
         np.average(magmom_ar, axis=0)[-1], rel=5e-2)
 
     # Test values against reference
-    print(np.average(site_mag_ar, axis=0)[::2])
-    assert np.average(site_mag_ar, axis=0)[::2] == pytest.approx(
+    print(np.average(tp_magmom_ar, axis=0)[::2])
+    assert np.average(tp_magmom_ar, axis=0)[::2] == pytest.approx(
         np.array([3.91823444e-04, 1.45641911e-01, 6.85939109e-01,
                   1.18813171e+00, 1.49761591e+00, 1.58954270e+00]), rel=5e-2)
 
@@ -307,7 +304,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
     site_data = get_co_atomic_site_data(gs)
-    nblocks = generate_nblocks(context)
+    nblocks = generate_nblocks()
 
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
@@ -366,20 +363,29 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
 # ---------- Test functionality ---------- #
 
 
-def get_co_atomic_site_data(gs):
-    # Set up atomic sites
+def get_co_site_args(gs):
+    indices = [0, 1]
+
+    # Set up site radii
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
     # Make sure that the two sites do not overlap
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
-    sites = AtomicSites(indices=[0, 1], radii=[rc_r, rc_r])
+    radii = [rc_r, rc_r]
+
+    return indices, radii
+
+
+def get_co_atomic_site_data(gs):
+    # Set up atomic sites
+    sites = AtomicSites(*get_co_site_args(gs))
     return AtomicSiteData(gs, sites)
 
 
-def generate_nblocks(context):
-    if context.comm.size % 4 == 0:
+def generate_nblocks():
+    if world.comm.size % 4 == 0:
         nblocks = 4
-    elif context.comm.size % 2 == 0:
+    elif world.comm.size % 2 == 0:
         nblocks = 2
     else:
         nblocks = 1
