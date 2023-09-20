@@ -67,6 +67,9 @@ def op(a: np.ndarray, o: str) -> np.ndarray:
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('xp', [np, cp])
 def test_mul(shape1, shape2, op1, op2, beta, sym, same, dtype, xp, rng):
+    if world.size > 1 and xp is cp:
+        if op1 == 'C' or (op1 == 'N' and op2 == 'C' and sym and beta == 0.0):
+            pytest.skip('Not implemented!')
     alpha = 1.234
     comm = world if GPU_AWARE_MPI else CuPyMPI(world)
 

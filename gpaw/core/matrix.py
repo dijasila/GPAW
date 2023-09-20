@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from types import ModuleType
 from typing import Dict, Tuple
-
 import _gpaw
 import numpy as np
 import scipy.linalg as sla
@@ -699,11 +698,12 @@ class BLACSDistribution(MatrixDistribution):
             # faster:
             if opa == 'N' and opb == 'N':
                 return mmm_nn(a, b, c, alpha, beta, blas.mmm)
-            if alpha == 1.0 and beta == 1.0 and opa == 'N' and opb == 'C':
+            if opa == 'N' and opb == 'C':
                 if symmetric:
-                    return mmm_nc_sym(a, b, c)
+                    if beta == 1.0:
+                        return mmm_nc_sym(a, b, c, alpha, blas.mmm)
                 else:
-                    return mmm_nc(a, b, c)
+                    return mmm_nc(a, b, c, alpha, beta, blas.mmm)
 
         if symmetric:
             assert opa == 'N'
@@ -808,13 +808,12 @@ class CuPyDistribution(MatrixDistribution):
         if self.comm.size > 1:
             if opa == 'N' and opb == 'N':
                 return mmm_nn(a, b, c, alpha, beta, cublas_mmm)
-            a = a.gather()
-            b = b.gather()
-            c0 = c
-            c = c.gather()
-            if self.comm.rank > 0:
-                c.redist(c0)
-                return
+            if opa == 'N' and opb == 'C':
+                if symmetric:
+                    if beta == 1.0:
+                        return mmm_nc_sym(a, b, c, alpha, cublas_mmm)
+                else:
+                    return mmm_nc(a, b, c, alpha, beta, cublas_mmm)
 
         if symmetric:
             if opa == 'N':
@@ -844,8 +843,6 @@ class CuPyDistribution(MatrixDistribution):
 
         else:
             cublas_mmm(alpha, a.data, opa, b.data, opb, beta, c.data)
-        if self.comm.size > 1:
-            c.redist(c0)
 
     def eighg(self, H, L):
         """
@@ -910,14 +907,15 @@ def mmm_nn(m1, m2, m3, alpha, beta, mmm):
     return m3
 
 
-def mmm_nc_sym(a, b, out):
+def mmm_nc_sym(a, b, out, alpha, mmm):
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
     mym = len(a.data)
+    xp = a.xp
 
-    buf1 = np.empty((m, N), dtype=a.dtype)
-    buf2 = np.empty((m, N), dtype=a.dtype)
+    buf1 = xp.empty((m, N), dtype=a.dtype)
+    buf2 = xp.empty((m, N), dtype=a.dtype)
     half = comm.size // 2
     aa = a.data
     bb = b.data
@@ -942,11 +940,11 @@ def mmm_nc_sym(a, b, out):
             m2 = min(m1 + m, M)
             if r == 0:
                 # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
-                blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.data[:, m1:m2])
+                mmm(alpha, aa, 'N', bb, 'C', 1.0, out.data[:, m1:m2])
             else:
                 beta = 1.0 if r <= comm.rank else 0.0
-                blas.mmm(1.0, aa, 'N', buf2[:m2 - m1], 'C',
-                         beta, out.data[:, m1:m2])
+                mmm(alpha, aa, 'N', buf2[:m2 - m1], 'C',
+                    beta, out.data[:, m1:m2])
             # out.data[:, m1:m2] = m12.data[:, :m2 - m1]
 
         if rrequest:
@@ -984,14 +982,15 @@ def mmm_nc_sym(a, b, out):
     return out
 
 
-def mmm_nc(a, b, out):
+def mmm_nc(a, b, out, alpha, beta, mmm):
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
     mym = len(a.data)
+    xp = a.xp
 
-    buf1 = np.empty((m, N), dtype=a.dtype)
-    buf2 = np.empty((m, N), dtype=a.dtype)
+    buf1 = xp.empty((m, N), dtype=a.dtype)
+    buf2 = xp.empty((m, N), dtype=a.dtype)
     aa = a.data
     bb = b.data
 
@@ -1012,7 +1011,7 @@ def mmm_nc(a, b, out):
         m1 = min(((comm.rank - r) % comm.size) * m, M)
         m2 = min(m1 + m, M)
         # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
-        blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.data[:, m1:m2])
+        mmm(alpha, aa, 'N', bb[:m2 - m1], 'C', beta, out.data[:, m1:m2])
 
         if rrequest:
             comm.wait(rrequest)
