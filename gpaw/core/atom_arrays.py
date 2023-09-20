@@ -512,5 +512,6 @@ class AtomArrays:
         data = block_diag_matrix_axii.data
         if index is not None:
             data = data[index]
-        dH_aii_times_P_ani_gpu(data, ni_a,
-                               self.data, out_ani.data)
+        if self.data.size > 0:
+            dH_aii_times_P_ani_gpu(data, ni_a,
+                                   self.data, out_ani.data)

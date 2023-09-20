@@ -9,7 +9,7 @@ from gpaw.core.atom_centered_functions import (AtomArraysLayout,
                                                AtomCenteredFunctions)
 from gpaw.core.plane_waves import PWDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
@@ -300,7 +300,7 @@ class Density:
                 dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
         self.nt_sR.desc.comm.sum(dip_v)
         for nt_R in self.nt_sR:
-            dip_v -= as_xp(nt_R.moment(), np)
+            dip_v -= as_np(nt_R.moment())
         return dip_v
 
     def calculate_magnetic_moments(self):
