@@ -2,6 +2,7 @@ from math import sqrt
 import pytest
 
 from ase import Atoms
+from ase.build import fcc111
 
 from gpaw.cluster import Cluster
 from gpaw.mpi import world
@@ -86,6 +87,7 @@ def test_cluster():
 
 
 def test_minimal_box_mixed_pbc():
+    
     atoms = Cluster(Atoms('H'))
     atoms.center(vacuum=2)
     atoms.pbc = [0, 1, 1]
@@ -100,3 +102,20 @@ def test_minimal_box_mixed_pbc():
     atoms.minimal_box(box, h='periodic')
     
     assert atoms.cell[0, 0] == pytest.approx(7)
+    
+    # testing non orthogonal uint sell
+    a = 3.92
+    vac = 2
+    atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
+    atoms.pbc = [1, 1, 0]
+    cell0 = atoms.cell
+    atoms.minimal_box(box)
+    
+    assert atoms.cell[2, 2] == 2 * box
+    assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
+    
+    atoms.cell[0, 0] = 4
+    atoms.cell[1, 1] = 3
+    atoms.minimal_box(box, h='periodic')
+    
+    assert atoms.cell[2, 2] == pytest.approx(7)
