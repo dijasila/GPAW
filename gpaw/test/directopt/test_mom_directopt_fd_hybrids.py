@@ -41,7 +41,8 @@ def test_mom_directopt_fd_hybrids(in_tmp_dir):
     e = h2.get_potential_energy()
     eig = calc.get_eigenvalues()
 
-    calc.set(eigensolver=FDPWETDM(excited_state=True))
+    calc.set(eigensolver=FDPWETDM(excited_state=True,
+                                  converge_unocc=True))
     f_sn = [[0, 1, 0]]
     prepare_mom_calculation(calc, h2, f_sn)
 

@@ -11,7 +11,7 @@ from gpaw.mom import prepare_mom_calculation
 
 
 @pytest.mark.do
-def test_mom_directopt_fd_hybrids(in_tmp_dir):
+def test_mom_directopt_pw_hybrids(in_tmp_dir):
     d = 1.4 * Bohr
     h2 = Atoms('H2',
                positions=[[-d / 2, 0, 0],
@@ -44,7 +44,8 @@ def test_mom_directopt_fd_hybrids(in_tmp_dir):
     eig = calc.get_eigenvalues()
     f = calc.get_forces()
 
-    calc.set(eigensolver=FDPWETDM(excited_state=True))
+    calc.set(eigensolver=FDPWETDM(excited_state=True,
+                                  converge_unocc=True))
     f_sn = [[0, 1]]
     prepare_mom_calculation(calc, h2, f_sn)
 

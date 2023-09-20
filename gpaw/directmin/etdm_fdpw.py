@@ -47,7 +47,7 @@ class FDPWETDM(Eigensolver):
                  momevery=10,
                  printinnerloop=False,
                  blocksize=1,
-                 converge_unocc=True,
+                 converge_unocc=False,
                  maxiter_unocc=333,
                  excited_state=False):
 
