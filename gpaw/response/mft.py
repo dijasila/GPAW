@@ -189,13 +189,9 @@ class IsotropicExchangeCalculator:
 
 
 def calculate_site_magnetization(gs, sites, context='-',
-                                 q_c=[0., 0., 0.],
-                                 nblocks: int = 1,
-                                 nbands: int | None = None):
+                                 q_c=[0., 0., 0.], nblocks=1, nbands=None):
     """
     Some documentation here!                                                   XXX
-
-    Split me up into smaller parts!                                            XXX
     """
     gs, context = ensure_gs_and_context(gs, context=context)
 
@@ -203,13 +199,8 @@ def calculate_site_magnetization(gs, sites, context='-',
     magmom_ap = calculate_conventional_site_magnetization(gs, sites)
     sp_magmom_ap = calculate_single_particle_site_magnetization(
         gs, sites, context=context)
-
-    # Set up calculators
-    two_particle_calc = TwoParticleSiteMagnetizationCalculator(
-        gs, sites, context=context, nblocks=nblocks, nbands=nbands)
-
-    # Calculate sum rule site magnetization
-    tp_magmom_abp = two_particle_calc(q_c)
+    tp_magmom_abp = calculate_two_particle_site_magnetization(
+        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
     context.write_timer()
 
     return magmom_ap, sp_magmom_ap, tp_magmom_abp
@@ -236,6 +227,23 @@ def calculate_single_particle_site_magnetization(
     sp_magmom_ap = single_particle_calc()
 
     return sp_magmom_ap
+
+
+def calculate_two_particle_site_magnetization(
+        gs: ResponseGroundStateAdapter | str,
+        sites: AtomicSites,
+        context: ResponseContext | str = '-',
+        q_c=[0., 0., 0.],
+        nblocks: int = 1,
+        nbands: int | None = None):
+    gs, context = ensure_gs_and_context(gs, context=context)
+    two_particle_calc = TwoParticleSiteMagnetizationCalculator(
+        gs, sites, context=context, nblocks=nblocks, nbands=nbands)
+
+    # Do something here!                                                     XXX
+    tp_magmom_abp = two_particle_calc(q_c)
+
+    return tp_magmom_abp
 
 
 def ensure_gs_and_context(gs: ResponseGroundStateAdapter | str,
