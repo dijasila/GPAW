@@ -234,19 +234,17 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter and basic parameters
     calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
+    sites = get_co_sites(gs)
+    context = 'Co_sum_rule.txt'
     nblocks = generate_nblocks()
     nbands = response_band_cutoff['co_pw']
-    txt = 'Co_sum_rule.txt'
-
-    # Set up site configurations to investigate
-    indices, radii = get_co_site_args(gs)
 
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
 
     # Calculate site magnetization
     magmom_ar, sp_magmom_ar, tp_magmom_abr = calculate_site_magnetization(
-        gs, indices, radii, q_c=q_c, nblocks=nblocks, nbands=nbands, txt=txt)
+        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
 
     # ----- Single-particle site magnetization ----- #
 
@@ -363,23 +361,17 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
 # ---------- Test functionality ---------- #
 
 
-def get_co_site_args(gs):
-    indices = [0, 1]
-
+def get_co_sites(gs):
     # Set up site radii
     rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
     # Make sure that the two sites do not overlap
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
-    radii = [rc_r, rc_r]
-
-    return indices, radii
+    return AtomicSites(indices=[0, 1], radii=[rc_r, rc_r])
 
 
 def get_co_atomic_site_data(gs):
-    # Set up atomic sites
-    sites = AtomicSites(*get_co_site_args(gs))
-    return AtomicSiteData(gs, sites)
+    return AtomicSiteData(gs, get_co_sites(gs))
 
 
 def generate_nblocks():

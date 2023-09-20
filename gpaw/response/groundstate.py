@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TypeVar, Type
 
 import numpy as np
 
@@ -8,6 +9,9 @@ from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
+
+
+RGSA = TypeVar('RGSA', bound='ResponseGroundStateAdapter')
 
 
 class ResponseGroundStateAdapter:
@@ -45,7 +49,7 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw, context):
+    def from_gpw_file(cls: Type[RGSA], gpw, context) -> RGSA:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()

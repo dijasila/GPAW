@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import Tuple
 
 import numpy as np
 
@@ -187,24 +188,19 @@ class IsotropicExchangeCalculator:
         return chiksr
 
 
-def calculate_site_magnetization(gs, indices, radii,
+def calculate_site_magnetization(gs, sites, context='-',
                                  q_c=[0., 0., 0.],
                                  nblocks: int = 1,
-                                 nbands: int | None = None,
-                                 txt='-'):
+                                 nbands: int | None = None):
     """
     Some documentation here!                                                   XXX
 
     Split me up into smaller parts!                                            XXX
     """
-    # Set up gs, context and sites
-    context = ResponseContext(txt)
-    if not isinstance(gs, ResponseGroundStateAdapter):
-        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
+    gs, context = ensure_gs_and_context(gs, context=context)
 
-    # Set up sites and extract site data
-    sites = AtomicSites(indices, radii)
-    site_data = AtomicSiteData(gs, sites)
+    # Calculate the site magnetization
+    magmom_ap = calculate_conventional_site_magnetization(gs, sites)
 
     # Set up calculators
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
@@ -212,13 +208,40 @@ def calculate_site_magnetization(gs, indices, radii,
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
         gs, sites, context=context, nblocks=nblocks, nbands=nbands)
 
-    # Calculate site magnetization
-    magmom_ap = site_data.calculate_magnetic_moments()
+    # Calculate sum rule site magnetization
     sp_magmom_ap = single_particle_calc()
     tp_magmom_abp = two_particle_calc(q_c)
     context.write_timer()
 
     return magmom_ap, sp_magmom_ap, tp_magmom_abp
+
+
+def calculate_conventional_site_magnetization(
+        gs: ResponseGroundStateAdapter | str,
+        sites: AtomicSites):
+    gs = ensure_gs(gs)
+    site_data = AtomicSiteData(gs, sites)
+    return site_data.calculate_magnetic_moments()
+
+
+def ensure_gs_and_context(gs: ResponseGroundStateAdapter | str,
+                          context: ResponseContext | str = '-') -> Tuple[
+                              ResponseGroundStateAdapter,
+                              ResponseContext]:
+    if not isinstance(context, ResponseContext):
+        context = ResponseContext(txt=context)
+    gs = ensure_gs(gs, context=context)
+    return gs, context
+
+
+def ensure_gs(gs: ResponseGroundStateAdapter | str,
+              context: ResponseContext | None = None)\
+        -> ResponseGroundStateAdapter:
+    if not isinstance(gs, ResponseGroundStateAdapter):
+        if context is None:
+            context = ResponseContext()
+        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
+    return gs
 
 
 class StaticSiteFunction(PairFunction):
