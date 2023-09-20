@@ -1,6 +1,9 @@
 import numpy as np
+import pytest
 from gpaw.core.atom_arrays import AtomArraysLayout, AtomDistribution
 from gpaw.mpi import world
+from gpaw.test.core.test_matrix_elements import comms
+from gpaw.gpu import cupy as cp
 
 
 def test_aa_to_full():
@@ -46,3 +49,24 @@ def test_gather():
     assert D2_asii.data.shape == (1, 2)
     for a, D_sii in D2_asii.items():
         assert D_sii[0, 0, 0] == a + 1
+
+
+@pytest.mark.gpu
+@pytest.mark.parametrize('domain_comm, band_comm', list(comms()))
+@pytest.mark.parametrize('xp', [np, cp])
+def test_P_ani_dH_aii(domain_comm, band_comm, xp):
+    ni_a = [2, 3, 4, 17]
+    dH_asii = AtomArraysLayout([(n, n) for n in ni_a],
+                               atomdist=domain_comm,
+                               xp=xp).empty(1)
+    dH_asii.data[:] = 1.0
+    P_ani = AtomArraysLayout(ni_a,
+                             dtype=complex,
+                             atomdist=domain_comm,
+                             xp=xp).empty(
+        10, comm=band_comm)
+    P_ani.data[:] = 1.0j
+    out_ani = P_ani.new()
+    P_ani.block_diag_multiply(dH_asii, out_ani, index=0)
+    for a, out_ni in out_ani.items():
+        assert (out_ni == ni_a[a] * 1.0j).all()

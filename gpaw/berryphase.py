@@ -1,16 +1,21 @@
+from __future__ import annotations
 import json
 import warnings
 from os.path import exists, splitext
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 from ase.dft.bandgap import bandgap
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+
 from gpaw import GPAW
+from gpaw.ibz2bz import get_overlap as get_overlap_new
+from gpaw.ibz2bz import (get_overlap_coefficients,
+                         get_phase_shifted_overlap_coefficients)
 from gpaw.mpi import rank, serial_comm, world
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.utilities.blas import gemmdot
-from gpaw.ibz2bz import (get_overlap_coefficients,
-                         get_phase_shifted_overlap_coefficients)
-from gpaw.ibz2bz import get_overlap as get_overlap_new
 
 
 def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
@@ -31,7 +36,7 @@ def get_overlap(calc, bands, u1_nR, u2_nR, P1_ani, P2_ani, dO_aii, bG_v):
 def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     if isinstance(calc, str):
         calc = GPAW(calc, communicator=serial_comm, txt=None)
-        
+
     assert len(calc.symmetry.op_scc) == 1  # does not work with symmetry
     gap = bandgap(calc)[0]
     assert gap != 0.0
@@ -41,8 +46,11 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         print(M, calc.get_magnetic_moment())
     nvalence = calc.wfs.setups.nvalence
     nocc_s = [int((nvalence + M) / 2), int((nvalence - M) / 2)]
-    assert np.allclose(np.sum(nocc_s), nvalence)
     nocc = nocc_s[spin]
+    if not calc.wfs.collinear:
+        nocc = nvalence
+    else:
+        assert np.allclose(np.sum(nocc_s), nvalence)
 
     bands = list(range(nocc))
     kpts_kc = calc.get_bz_k_points()
@@ -51,7 +59,7 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     wfs = calc.wfs
 
     dO_aii = get_overlap_coefficients(wfs)
-    
+
     kd = calc.wfs.kd
 
     u_knR = []
@@ -63,17 +71,23 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
         # Since symmetry is off this should always hold
         assert np.allclose(k_c, ik_c)
         kpt = wfs.kpt_qs[ik][spin]
-        psit_nG = kpt.psit_nG
-        ut_nR = wfs.gd.empty(nocc, wfs.dtype)
 
         # Check that all states are occupied
         assert np.all(kpt.f_n[:nocc] > 1e-6)
         N_c = wfs.gd.N_c
 
+        ut_nR = []
+        psit_nG = kpt.psit_nG
         for n in range(nocc):
-            ut_nR[n, :] = wfs.pd.ifft(psit_nG[n], ik)
-        u_knR.append(ut_nR)
+            if wfs.collinear:
+                ut_nR.append(wfs.pd.ifft(psit_nG[n], ik))
+            else:
+                ut0_R = wfs.pd.ifft(psit_nG[n][0], ik)
+                ut1_R = wfs.pd.ifft(psit_nG[n][1], ik)
+                # Here R includes a spinor index
+                ut_nR.append([ut0_R, ut1_R])
 
+        u_knR.append(ut_nR)
         proj_k.append(kpt.projections)
 
     indices_kkk = np.arange(Nk).reshape(size)
@@ -94,8 +108,8 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
             else:
                 k2 = indices_k[0]
                 G_c[dir] = 1
-            u1_nR = u_knR[k1]
-            u2_nR = u_knR[k2]
+            u1_nR = np.array(u_knR[k1])
+            u2_nR = np.array(u_knR[k2])
             k1_c = kpts_kc[k1]
             k2_c = kpts_kc[k2] + G_c
 
@@ -163,18 +177,26 @@ def get_berry_phases(calc, spin=0, dir=0, check2d=False):
     return indices_kk, phases
 
 
-def get_polarization_phase(calc):
-    assert isinstance(calc, str)
-    name = splitext(calc)[0]
-    berryname = '{}-berryphases.json'.format(name)
+def get_polarization_phase(calc,
+                           name: str | None = None) -> np.ndarray:
+    if isinstance(calc, (str, Path)):
+        if name is None:
+            name = splitext(calc)[0]
+            berryname = f'{name}-berryphases.json'
+        else:
+            berryname = name
+    else:
+        assert calc.world.size == 1
+        berryname = name or 'berryphases.json'
 
     phase_c = np.zeros((3,), float)
     if not exists(berryname) and world.rank == 0:
         # Calculate and save berry phases
-        calc = GPAW(calc, communicator=serial_comm, txt=None)
+        if isinstance(calc, (str, Path)):
+            calc = GPAW(calc, communicator=serial_comm)
         assert len(calc.symmetry.op_scc) == 1
         nspins = calc.wfs.nspins
-        data = {}
+        data: dict[int | str, Any] = {}
         for c in [0, 1, 2]:
             data[c] = {}
             for spin in range(nspins):
@@ -191,6 +213,8 @@ def get_polarization_phase(calc):
             Z_a.append(setup.Nv)
         data['Z_a'] = Z_a
         data['spos_ac'] = calc.spos_ac.tolist()
+        if not calc.wfs.collinear:
+            data['non-collinear'] = True
 
         with open(berryname, 'w') as fd:
             json.dump(data, fd, indent=True)
@@ -207,9 +231,11 @@ def get_polarization_phase(calc):
         for spin in range(nspins):
             phases = data[str(c)][str(spin)]
             phase_c[c] += np.sum(phases) / len(phases)
-    phase_c = phase_c * 2 / nspins
 
-    print(phase_c)
+    # We should not multiply by two below if non-collinear
+    nc = 'non-collinear' in data.keys()
+    phase_c = phase_c * (2 - nc) / nspins
+
     Z_a = data['Z_a']
     spos_ac = data['spos_ac']
     phase_c += 2 * np.pi * np.dot(Z_a, spos_ac)
@@ -234,7 +260,7 @@ def parallel_transport(calc,
     In addition, one may evaluate the expectation value of spin
     on each of these states along the easy axis (z-axis for
     nonmagnetic systems), which is given by S_km.
-    
+
     Output:
     phi_km, S_km (see above)
     """

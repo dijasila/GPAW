@@ -4,7 +4,7 @@ from typing import Callable
 
 import numpy as np
 from gpaw.core import UGArray, UGDesc
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_xp, as_np
 from gpaw.gpu import cupy as cp
 from gpaw.new.calculation import DFTState
 from gpaw.typing import Array2D, Array4D
@@ -80,7 +80,7 @@ class LDAOrGGAFunctional(Functional):
         ibzwfs = state.ibzwfs
         if ibzwfs.kpt_comm.rank == 0 and ibzwfs.band_comm.rank == 0:
             nt_sr = interpolate(state.density.nt_sR)
-            s_vv = self.xc.stress_tensor_contribution(as_xp(nt_sr.data, np),
+            s_vv = self.xc.stress_tensor_contribution(as_np(nt_sr.data),
                                                       skip_sum=True)
             return as_xp(s_vv, nt_sr.xp)
         return state.density.nt_sR.xp.zeros((3, 3))

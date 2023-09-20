@@ -7,6 +7,7 @@
 
 #include "gpu.h"
 #include "gpu-complex.h"
+#include <stdio.h>
 
 void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     double* f_Gs,
@@ -39,6 +40,75 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       double* f_n,
                                       double complex* psit_nR,
                                       double* rho_R);
+
+
+void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
+                                      int nI, npy_int32* ni_a, 
+                                      double* dH_aii_dev, 
+                                      gpuDoubleComplex* P_ani_dev,
+                                      gpuDoubleComplex* outP_ani_dev);
+
+PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* dH_aii_obj;
+    PyObject* ni_a_obj;
+    PyObject* P_ani_obj;
+    PyObject* outP_ani_obj;
+    if (!PyArg_ParseTuple(args, "OOOO",
+                          &dH_aii_obj, &ni_a_obj, &P_ani_obj, &outP_ani_obj))
+        return NULL;
+
+
+    if (Array_DIM(ni_a_obj, 0) == 0)
+    {
+        Py_RETURN_NONE;
+    }
+
+    double* dH_aii_dev = Array_DATA(dH_aii_obj);
+    if (!dH_aii_dev) 
+    {
+	PyErr_SetString(PyExc_RuntimeError, "Error in input dH_aii.");
+        return NULL;
+    }
+    gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
+    if (!P_ani_dev)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input P_ani.");
+        return NULL;
+    }
+    gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani_obj);
+    if (!outP_ani_dev) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in output outP_ani.");
+	return NULL;
+    }
+    npy_int32* ni_a = Array_DATA(ni_a_obj);
+    if (!ni_a) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input ni_a.");
+	return NULL;
+    }
+
+    assert(Array_ITEMSIZE(P_ani_obj) == 16);
+    assert(Array_ITEMSIZE(outP_ani_obj) == 16);
+    assert(Array_ITEMSIZE(dH_aii_obj) == 8);
+    assert(Array_ITEMSIZE(ni_a_obj) == 4);
+
+    //printf("ni_a"); print_array_info(ni_a_obj);
+    //printf("dH_aii"); print_array_info(dH_aii_obj);
+    //printf("P_ani"); print_array_info(P_ani_obj);
+    //printf("outP_ani"); print_array_info(outP_ani_obj);
+    
+    int nA = Array_DIM(ni_a_obj, 0);
+    int nn = Array_DIM(P_ani_obj, 0);
+    int nI = Array_DIM(P_ani_obj, 1);
+    //printf("nA = %d nn = %d nI = %d\n", nA, nn, nI);
+    //fflush(stdout);
+
+    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
+    Py_RETURN_NONE;
+}
+
 
 PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
 {
