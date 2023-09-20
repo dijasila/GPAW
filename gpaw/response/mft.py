@@ -223,8 +223,11 @@ def calculate_single_particle_site_magnetization(
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
         gs, sites, context=context)
 
-    # Do something here!                                                     XXX
     sp_magmom_ap = single_particle_calc()
+    # The imaginary part should vanish identically since the sum rule only
+    # involves the diagonal pair densities, corresponding to |ψ_nks(r)|^2
+    assert np.allclose(sp_magmom_ap.imag, 0.)
+    sp_magmom_ap = sp_magmom_ap.real
 
     return sp_magmom_ap
 

@@ -246,15 +246,8 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     magmom_ar, sp_magmom_ar, tp_magmom_abr = calculate_site_magnetization(
         gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
 
-    # ----- Single-particle site magnetization ----- #
-
-    # Test that the imaginary part vanishes (we use only diagonal pair
-    # densities correcsponding to |ψ_nks(r)|^2)
-    # Move me to api                                                           XXX
-    assert np.allclose(sp_magmom_ar.imag, 0.)
-    sp_magmom_ar = sp_magmom_ar.real
-
-    # Test that the results match a conventional calculation
+    # Test that the single-particle site magnetization matches a conventional
+    # calculation based on the density
     assert sp_magmom_ar == pytest.approx(magmom_ar, rel=5e-3)
 
     # ----- Two-particle site magnetization ----- #
@@ -283,10 +276,11 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
                   1.18813171e+00, 1.49761591e+00, 1.58954270e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
-    # rc_r = site_data.sites.rc_ap[0] * Bohr
-    # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
-    # plt.plot(rc_r, ssite_mag_ar[0], '-o', mec='k', zorder=1)
-    # plt.plot(rc_r, magmom_ar[0], '-o', mec='k', zorder=0)
+    # from ase.units import Bohr
+    # rc_r = sites.rc_ap[0] * Bohr
+    # plt.plot(rc_r, magmom_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, sp_magmom_ar[0], '-o', mec='k', zorder=0)
+    # plt.plot(rc_r, tp_magmom_ar[0], '-o', mec='k', zorder=1)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
     # plt.title(str(q_c))
