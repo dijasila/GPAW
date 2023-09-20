@@ -768,11 +768,12 @@ def create_distribution(M: int,
 
 
 def cublas_mmm(alpha, a, opa, b, opb, beta, c):
-    if c.size > 0:
-        cp.cublas.gemm(opa.replace('C', 'H'),
-                       opb.replace('C', 'H'),
-                       a, b, c,
-                       alpha, beta)
+    if c.size == 0:
+        return
+    if a.size == 0 and beta == 1.0:
+        return
+    cp.cublas.gemm(opa.replace('C', 'H'), opb.replace('C', 'H'),
+                   a, b, c, alpha, beta)
 
 
 class CuPyDistribution(MatrixDistribution):
