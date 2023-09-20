@@ -11,7 +11,7 @@ from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PWArray
 from gpaw.core.uniform_grid import UGDesc, UGArray
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
@@ -181,11 +181,12 @@ class PWFDWaveFunctions(WaveFunctions):
         P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
-        dS = self.setups.overlap_correction
+        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist,
+                                                     self.xp)
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
-        dS(P_ani, out_ani=P2_ani)
+        P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
@@ -241,7 +242,7 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
+            self._eig_n = as_np(H.eigh(scalapack=(slcomm, r, c, b)))
             H.complex_conjugate()
             # H.data[n, :] now contains the nth eigenvector and eps_n[n]
             # the nth eigenvalue
@@ -440,7 +441,7 @@ class PWFDWaveFunctions(WaveFunctions):
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(
-                    psit_nX.data.dtype).reshape(psit_nX.data.shape)
+                    psit_nX.data.dtype).reshape((-1,) + psit_nX.data.shape[1:])
         return None
 
     def to_uniform_grid_wave_functions(self,

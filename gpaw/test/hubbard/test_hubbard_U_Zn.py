@@ -1,8 +1,7 @@
+import pytest
 from ase import Atom
-
 from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
-from gpaw.test import equal
 
 
 def test_Hubbard_U_Zn():
@@ -28,7 +27,6 @@ def test_Hubbard_U_Zn():
         s.calc = GPAW(**params, setups=':d,3.0,1')
         E_U[spin] = s.get_potential_energy()
 
-    print("E=", E)
-    equal(E[0], E[1], energy_tolerance)
-    print("E_U=", E_U)
-    equal(E_U[0], E_U[1], energy_tolerance)
+    assert E[0] == pytest.approx(E[1], abs=energy_tolerance)
+    assert E_U[0] == pytest.approx(E_U[1], abs=energy_tolerance)
+    assert E_U[0] - E[0] == pytest.approx(-0.167, abs=0.002)
