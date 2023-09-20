@@ -58,7 +58,6 @@ def op(a: np.ndarray, o: str) -> np.ndarray:
 @pytest.mark.parametrize(
     'shape1, shape2, op1, op2, sym, same',
     [((5, 9), (5, 9), 'N', 'C', 1, 1),
-     #((5, 9), (5, 9), 'N', 'C', 1, 0),
      ((2, 3), (2, 3), 'N', 'C', 1, 0),
      ((5, 9), (5, 9), 'N', 'C', 0, 0),
      ((5, 9), (5, 9), 'C', 'N', 0, 0),

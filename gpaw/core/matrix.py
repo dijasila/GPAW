@@ -910,12 +910,6 @@ def mmm_nn(m1, m2, m3, alpha, beta, mmm):
 
 
 def mmm_nc_sym(a, b, out):
-    if a.comm:
-        assert b.comm is a.comm
-        if a.comm.size > 1:
-            assert out.comm == a.comm
-            assert out.state == 'a sum is needed'
-
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
@@ -990,12 +984,6 @@ def mmm_nc_sym(a, b, out):
 
 
 def mmm_nc(a, b, out):
-    if a.comm:
-        assert b.comm is a.comm
-        if a.comm.size > 1:
-            assert out.comm == a.comm
-            assert out.state == 'a sum is needed'
-
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
