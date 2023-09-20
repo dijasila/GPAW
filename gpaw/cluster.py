@@ -3,8 +3,6 @@
 """
 import numpy as np
 
-from math import sqrt
-
 from ase import Atoms
 from ase.io import read
 from ase.build.connected import connected_indices
@@ -71,7 +69,6 @@ class Cluster(Atoms):
             extr[0][c] -= b[c]
             extr[1][c] += b[c] - extr[0][c]  # shifted already
 
-        
         pbc = self.pbc
         old_cell = self.cell
         
