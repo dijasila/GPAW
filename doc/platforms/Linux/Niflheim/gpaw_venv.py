@@ -15,16 +15,23 @@ if version_info < (3, 7):
 
 version = '3.10'  # Python version in the venv that we are creating
 
+# These modules are always loaded
 module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
-module load matplotlib/3.5.2-{{tchain}}-2022a
 module load GPAW-setups/0.9.20000
 module load Wannier90/3.1.0-{{tchain}}-2022a
 module load ELPA/2022.05.001-{{tchain}}-2022a
+module load Python/3.10.4-GCCcore-11.3.0
+"""
+
+# These modules are not loaded if --piponly is specified
+module_cmds_easybuild = f"""\
+module load matplotlib/3.5.2-{{tchain}}-2022a
 module load scikit-learn/1.1.2-{{tchain}}-2022a
 """
 
+# These modules are loaded depending on the toolchain
 module_cmds_tc = {
     'foss': """\
 module load libxc/5.2.3-GCC-11.3.0
@@ -130,6 +137,9 @@ def main():
     parser.add_argument('--recompile', action='store_true',
                         help='Recompile the GPAW C-extensions in an '
                         'exising venv.')
+    parser.add_argument('--piponly', action='store_true',
+                        help='Do not use EasyBuild python modules, '
+                        'install from pip (may affect performance).')
     args = parser.parse_args()
 
     #if args.toolchain == 'intel':
@@ -144,6 +154,8 @@ def main():
         return 0
 
     module_cmds = module_cmds_all.format(tchain=args.toolchain)
+    if not args.piponly:
+        module_cmds += module_cmds_easybuild.format(tchain=args.toolchain)
     module_cmds += module_cmds_tc[args.toolchain]
 
     cmds = (' && '.join(module_cmds.splitlines()) +
@@ -166,6 +178,11 @@ def main():
                 'pytest-xdist',
                 'qeh',
                 'sphinx_rtd_theme']
+    if args.piponly:
+        packages += ['matplotlib',
+                     'scipy',
+                     #'pandas',
+                     'scikit-learn']
     run(f'. {activate} && pip install -q -U ' + ' '.join(packages))
 
     for name in ['ase', 'gpaw']:
