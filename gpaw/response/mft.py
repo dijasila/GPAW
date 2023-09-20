@@ -248,7 +248,7 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         """Calculate the site sum rule for a given wave vector q_c."""
         # Set up calculators for the f^a and g^b matrix elements
         mecalc1, mecalc2 = self.create_matrix_element_calculators(
-            atomic_site_data)
+            atomic_site_data.sites)
         self.matrix_element_calc1 = mecalc1
         self.matrix_element_calc2 = mecalc2
 
@@ -270,7 +270,7 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         return site_pair_function.array
 
     @abstractmethod
-    def create_matrix_element_calculators(self, atomic_site_data):
+    def create_matrix_element_calculators(self, sites):
         """Create the desired site matrix element calculators."""
 
     @abstractmethod
@@ -356,9 +356,9 @@ class TwoParticleSiteMagnetizationCalculator(TwoParticleSiteSumRuleCalculator):
     This is directly related to the sum rule of the χ^(+-) spin component of
     the four-component susceptibility tensor.
     """
-    def create_matrix_element_calculators(self, atomic_site_data):
+    def create_matrix_element_calculators(self, sites):
         site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, sites)
         return site_pair_density_calc, site_pair_density_calc
 
     def get_spincomponent(self):
@@ -383,11 +383,11 @@ class TwoParticleSiteSpinSplittingCalculator(
                                                                           /
               = δ_(a,b) Δ^(xc)_a^z
     """
-    def create_matrix_element_calculators(self, atomic_site_data):
+    def create_matrix_element_calculators(self, sites):
         site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, sites)
         site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, sites)
         return site_pair_spin_splitting_calc, site_pair_density_calc
 
     def __call__(self, *args):

@@ -423,7 +423,7 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
 
     def __call__(self, atomic_site_data):
         self.matrix_element_calc = self.create_matrix_element_calculator(
-            atomic_site_data)
+            atomic_site_data.sites)
 
         # Set up transitions
         # Loop over bands, which are fully or partially occupied
@@ -498,9 +498,8 @@ class SingleParticleSiteMagnetizationCalculator(
     def get_pauli_matrix(self):
         return smat('z')
 
-    def create_matrix_element_calculator(self, atomic_site_data):
-        return SitePairDensityCalculator(self.gs, self.context,
-                                         atomic_site_data)
+    def create_matrix_element_calculator(self, sites):
+        return SitePairDensityCalculator(self.gs, self.context, sites)
 
 
 class SingleParticleSiteSpinSplittingCalculator(
@@ -512,10 +511,9 @@ class SingleParticleSiteSpinSplittingCalculator(
                  N_k  ‾‾  ‾‾
                       k   n,s
     """
-    def create_matrix_element_calculator(self, atomic_site_data):
-        return SitePairSpinSplittingCalculator(self.gs, self.context,
-                                               atomic_site_data,
-                                               rshewmin=1e-8)
+    def create_matrix_element_calculator(self, sites):
+        return SitePairSpinSplittingCalculator(
+            self.gs, self.context, sites, rshewmin=1e-8)
 
     def __call__(self, *args):
         dxc_ap = super().__call__(*args)

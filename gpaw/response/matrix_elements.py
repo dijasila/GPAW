@@ -10,6 +10,7 @@ from gpaw.response.kspair import KohnShamKPointPair
 from gpaw.response.pair import phase_shifted_fft_indices
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
 from gpaw.response.localft import calculate_LSDA_Wxc
+from gpaw.response.site_data import AtomicSiteData
 
 
 class MatrixElement(ABC):
@@ -377,7 +378,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
     For details, see [publication in preparation].
     """
 
-    def __init__(self, gs, context, atomic_site_data,
+    def __init__(self, gs, context, sites,
                  rshelmax: int = -1,
                  rshewmin: float | None = None):
         """Construct the SiteMatrixElementCalculator.
@@ -395,11 +396,12 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
             will not be included.
         """
         super().__init__(gs, context)
-        self.atomic_site_data = atomic_site_data
+        self.sites = sites
+        self.site_data = AtomicSiteData(self.gs, sites)
 
         # Expand local functional in real spherical harmonics around each site
         rshe_a = []
-        for a, micro_setup in enumerate(self.atomic_site_data.micro_setup_a):
+        for a, micro_setup in enumerate(self.site_data.micro_setup_a):
             rshe, info_string = micro_setup.expand_function(
                 self.add_f, lmax=rshelmax, wmin=rshewmin)
             self.print_rshe_info(a, info_string)
@@ -415,7 +417,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at site a."""
-        A = self.atomic_site_data.sites.A_a[a]  # Atomic index of site a
+        A = self.sites.A_a[a]  # Atomic index of site a
         info_string = f'RSHE of site {a} (atom {A}):\n' + info_string
         self.context.print(info_string.replace('\n', '\n    ') + '\n')
 
@@ -427,19 +429,18 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
     def calculate_paw_correction_tensor(self):
         """Calculate the site matrix element correction tensor F_ii'^ap."""
         F_apii = []
-        adata = self.atomic_site_data
         for rshe, A, rc_p, lambd_p in zip(
-                self.rshe_a, adata.sites.A_a,
-                adata.sites.rc_ap, adata.lambd_ap):
+                self.rshe_a, self.sites.A_a,
+                self.sites.rc_ap, self.site_data.lambd_ap):
             # Calculate the PAW correction
             pawdata = self.gs.pawdatasets[A]
             F_apii.append(calculate_site_matrix_element_correction(
-                pawdata, rshe, rc_p, adata.drcut, lambd_p))
+                pawdata, rshe, rc_p, self.site_data.drcut, lambd_p))
 
         return F_apii
 
     def create_matrix_element(self, tblocks, qpd):
-        return SiteMatrixElement(tblocks, qpd, self.atomic_site_data.sites)
+        return SiteMatrixElement(tblocks, qpd, self.sites)
 
     @timer('Calculate pseudo site matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
@@ -471,22 +472,21 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
         # Set up spherical truncation function collection on the coarse
         # real-space grid with the KPointDescriptor of the q-point.
-        adata = self.atomic_site_data
         stfc = spherical_truncation_function_collection(
-            self.gs.gd, adata.spos_ac,
-            adata.sites.rc_ap, adata.drcut, adata.lambd_ap,
+            self.gs.gd, self.site_data.spos_ac,
+            self.sites.rc_ap, self.site_data.drcut, self.site_data.lambd_ap,
             kd=site_matrix_element.qpd.kd, dtype=complex)
 
         # Integrate Θ(r∊Ω_ap) f(r) ñ_kt(r)
         ntlocal = nt_mytR.shape[0]
-        ft_amytp = {a: np.empty((ntlocal, adata.sites.npartitions),
+        ft_amytp = {a: np.empty((ntlocal, self.sites.npartitions),
                                 dtype=complex)
-                    for a in range(len(adata.sites))}
+                    for a in range(len(self.sites))}
         stfc.integrate(nt_mytR * f_R[np.newaxis], ft_amytp, q=0)
 
         # Add integral to output array
         f_mytap = site_matrix_element.array
-        for a in range(len(adata.sites)):
+        for a in range(len(self.sites)):
             f_mytap[:, a] += ft_amytp[a]
 
     @timer('Calculate site matrix element PAW correction')
@@ -505,7 +505,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         f_mytap = site_matrix_element.array
         F_apii = self.get_paw_correction_tensor()
         for a, (A, F_pii) in enumerate(zip(
-                self.atomic_site_data.sites.A_a, F_apii)):
+                self.sites.A_a, F_apii)):
             # Make outer product of the projector overlaps
             P1ccP2_mytii = P1_Amyti[A].conj()[..., np.newaxis] \
                 * P2_Amyti[A][:, np.newaxis]
@@ -521,8 +521,8 @@ class SitePairDensityCalculator(SiteMatrixElementCalculator):
     n^ap_(nks,n'k+qs') = <ψ_nks|Θ(r∊Ω_ap)|ψ_n'k+qs'>
     """
 
-    def __init__(self, gs, context, atomic_site_data):
-        super().__init__(gs, context, atomic_site_data,
+    def __init__(self, gs, context, sites):
+        super().__init__(gs, context, sites,
                          # Expanding f(r) = 1 in real spherical harmonics only
                          # involves l = 0
                          rshelmax=0)
