@@ -550,6 +550,41 @@ def _matrix(M):
     return _matrix(M.matrix)
 
 
+def redist(dist1, M1, dist2, M2, context):
+    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
+                           M1, M2,
+                           dist1.desc[2], dist1.desc[3],
+                           1, 1, 1, 1,  # 1-indexing
+                           context, 'G')
+
+
+def create_distribution(M: int,
+                        N: int,
+                        comm: MPIComm | None = None,
+                        r: int = 1,
+                        c: int = 1,
+                        b: int | None = None,
+                        xp=None) -> MatrixDistribution:
+    if xp is cp:
+        assert b is None
+        if r == 1 and c == 1:
+            pass  # comm = None
+        comm = comm or serial_comm
+        return CuPyDistribution(M, N, comm,
+                                r if r != -1 else comm.size,
+                                c if c != -1 else comm.size,
+                                b)
+
+    if comm is None or comm.size == 1:
+        assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
+        return NoDistribution(M, N)
+
+    return BLACSDistribution(M, N, comm,
+                             r if r != -1 else comm.size,
+                             c if c != -1 else comm.size,
+                             b)
+
+
 class MatrixDistribution:
     comm: MPIComm
     rows: int
@@ -732,41 +767,6 @@ class BLACSDistribution(MatrixDistribution):
                              opb, opa)
 
 
-def redist(dist1, M1, dist2, M2, context):
-    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
-                           M1, M2,
-                           dist1.desc[2], dist1.desc[3],
-                           1, 1, 1, 1,  # 1-indexing
-                           context, 'G')
-
-
-def create_distribution(M: int,
-                        N: int,
-                        comm: MPIComm | None = None,
-                        r: int = 1,
-                        c: int = 1,
-                        b: int | None = None,
-                        xp=None) -> MatrixDistribution:
-    if xp is cp:
-        assert b is None
-        if r == 1 and c == 1:
-            pass  # comm = None
-        comm = comm or serial_comm
-        return CuPyDistribution(M, N, comm,
-                                r if r != -1 else comm.size,
-                                c if c != -1 else comm.size,
-                                b)
-
-    if comm is None or comm.size == 1:
-        assert r == 1 and abs(c) == 1 or c == 1 and abs(r) == 1
-        return NoDistribution(M, N)
-
-    return BLACSDistribution(M, N, comm,
-                             r if r != -1 else comm.size,
-                             c if c != -1 else comm.size,
-                             b)
-
-
 def cublas_mmm(alpha, a, opa, b, opb, beta, c):
     if c.size == 0:
         return
@@ -864,6 +864,13 @@ class CuPyDistribution(MatrixDistribution):
 
 
 def mmm_nn(m1, m2, m3, alpha, beta, mmm):
+    """Parallel matrix-matrix multiplication.
+
+    :::
+
+        m  <- αm m + βm
+         3      1 2    3
+    """
     comm = m1.dist.comm
     buf1 = m2.data
     xp = m1.xp
@@ -908,6 +915,15 @@ def mmm_nn(m1, m2, m3, alpha, beta, mmm):
 
 
 def mmm_nc_sym(a, b, out, alpha, mmm):
+    """Symmetric parallel matrix-matrix multiplication.
+
+    :::
+
+                †
+        c <- αab + c
+
+    Only lower half of c is updated.
+    """
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
@@ -983,6 +999,13 @@ def mmm_nc_sym(a, b, out, alpha, mmm):
 
 
 def mmm_nc(a, b, out, alpha, beta, mmm):
+    """Symmetric parallel matrix-matrix multiplication.
+
+    :::
+
+                †
+        c <- αab  + βc
+    """
     comm = a.dist.comm
     M, N = a.shape
     m = (M + comm.size - 1) // comm.size
