@@ -190,8 +190,36 @@ class IsotropicExchangeCalculator:
 
 def calculate_site_magnetization(gs, sites, context='-',
                                  q_c=[0., 0., 0.], nblocks=1, nbands=None):
-    """
-    Some documentation here!                                                   XXX
+    """Calculate the site magnetization for a given ground state.
+
+    Parameters
+    ----------
+    gs : ResponseGroundStateAdapter or str
+        Ground state adapter or gpw filename.
+    sites : AtomicSites
+        Specification of the magnetic sites
+    context : ResponseContext or str
+        Response context or output txt filename.
+    q_c : array-like
+        q-vector to evaluate the two-particle site magnetization for.
+    nblocks : int
+        Number of blocks to distribute band and spin transitions over, while
+        integrating the two-particle site magnetization.
+    nbands : int
+        Number of bands to include in the band summation of the two-particle
+        site magnetization.
+
+    Returns
+    -------
+    magmom_ap : np.array
+        Magnetic moments of sites a under partitioning p, calculated based on
+        the ground state density.
+    sp_magmom_ap : np.array
+        Magnetic moments of sites a under partitioning p, calculated based on
+        a single-particle sum rule.
+    tp_magmom_abp : np.array
+        Pair magnetization of sites a and b under partitioning p, calculated
+        based on a two-particle sum rule.
     """
     gs, context = ensure_gs_and_context(gs, context=context)
 
