@@ -287,7 +287,6 @@ def calculate_site_pair_magnetization(
         sites: AtomicSites,
         context: ResponseContext | TXTFilename = '-',
         q_c=[0., 0., 0.],
-        nblocks: int = 1,
         nbands: int | None = None):
     """Calculate the site pair magnetization.
 
@@ -295,9 +294,6 @@ def calculate_site_pair_magnetization(
     ----------
     q_c : array-like
         q-vector to evaluate the site pair magnetization for.
-    nblocks : int
-        Number of blocks to distribute band and spin transitions over, while
-        integrating the site pair magnetization.
     nbands : int or None
         Number of bands to include in the band summation of the site pair
         magnetization. If nbands is None, it includes all bands.
@@ -310,7 +306,7 @@ def calculate_site_pair_magnetization(
     """
     gs, context = ensure_gs_and_context(gs, context=context)
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
-        gs, sites, context=context, nblocks=nblocks, nbands=nbands)
+        gs, sites, context=context, nbands=nbands)
     site_pair_magnetization = two_particle_calc(q_c)
     return site_pair_magnetization.array
 
@@ -320,7 +316,6 @@ def calculate_site_pair_spin_splitting(
         sites: AtomicSites,
         context: ResponseContext | TXTFilename = '-',
         q_c=[0., 0., 0.],
-        nblocks: int = 1,
         nbands: int | None = None):
     """Calculate the site pair spin splitting.
 
@@ -328,9 +323,6 @@ def calculate_site_pair_spin_splitting(
     ----------
     q_c : array-like
         q-vector to evaluate the site pair spin splitting for.
-    nblocks : int
-        Number of blocks to distribute band and spin transitions over, while
-        integrating the site pair spin splitting.
     nbands : int or None
         Number of bands to include in the band summation of the site pair spin
         splitting. If nbands is None, it includes all bands.
@@ -343,7 +335,7 @@ def calculate_site_pair_spin_splitting(
     """
     gs, context = ensure_gs_and_context(gs, context=context)
     two_particle_calc = TwoParticleSiteSpinSplittingCalculator(
-        gs, sites, context=context, nblocks=nblocks, nbands=nbands)
+        gs, sites, context=context, nbands=nbands)
     site_pair_spin_splitting = two_particle_calc(q_c)
     return site_pair_spin_splitting.array * Hartree  # Ha -> eV
 
@@ -519,16 +511,11 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
                  gs: ResponseGroundStateAdapter,
                  sites: AtomicSites,
                  context: ResponseContext | None = None,
-                 nblocks: int = 1,
                  nbands: int | None = None):
         """Construct the two-particle site sum rule calculator."""
         if context is None:
             context = ResponseContext()
         super().__init__(gs, context,
-                         nblocks=nblocks,
-                         # Disable use of symmetries for now. The sum rule site
-                         # magnetization symmetries can always be derived and
-                         # implemented at a later stage.
                          disable_point_group=True,
                          disable_time_reversal=True)
         self.nbands = nbands

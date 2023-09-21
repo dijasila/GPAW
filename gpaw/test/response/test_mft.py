@@ -8,7 +8,6 @@ import numpy as np
 
 # Script modules
 from gpaw import GPAW
-from gpaw.mpi import world
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator
@@ -239,7 +238,6 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     gs = ResponseGroundStateAdapter(calc)
     sites = get_co_sites(gs)
     context = 'Co_sum_rule.txt'
-    nblocks = generate_nblocks()
     nbands = response_band_cutoff['co_pw']
 
     # Get wave vector to test
@@ -259,7 +257,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Two-particle site magnetization ----- #
 
     magmom_abr = calculate_site_pair_magnetization(
-        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
+        gs, sites, context=context, q_c=q_c, nbands=nbands)
 
     # Test that the site pair magnetization is a positive-valued diagonal
     # real array
@@ -304,7 +302,6 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     gs = ResponseGroundStateAdapter(calc)
     sites = get_co_sites(gs)
     context = ResponseContext('Co_sum_rule.txt')
-    nblocks = generate_nblocks()
     nbands = response_band_cutoff['co_pw']
 
     # Get wave vector to test
@@ -323,7 +320,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # ----- Two-particle site spin splitting ----- #
 
     dxc_abr = calculate_site_pair_spin_splitting(
-        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
+        gs, sites, context=context, q_c=q_c, nbands=nbands)
 
     # Test that the site pair spin splitting is a positive-valued diagonal
     # real array
@@ -365,13 +362,3 @@ def get_co_sites(gs):
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
     return AtomicSites(indices=[0, 1], radii=[rc_r, rc_r])
-
-
-def generate_nblocks():
-    if world.comm.size % 4 == 0:
-        nblocks = 4
-    elif world.comm.size % 2 == 0:
-        nblocks = 2
-    else:
-        nblocks = 1
-    return nblocks
