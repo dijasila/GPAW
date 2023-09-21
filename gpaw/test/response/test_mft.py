@@ -20,7 +20,7 @@ from gpaw.response.mft import (IsotropicExchangeCalculator,
                                calculate_site_pair_magnetization,
                                calculate_site_spin_splitting,
                                calculate_single_particle_site_spin_splitting,
-                               TwoParticleSiteSpinSplittingCalculator)
+                               calculate_site_pair_spin_splitting)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -261,7 +261,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     magmom_abr = calculate_site_pair_magnetization(
         gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
 
-    # Test that the sum rule site magnetization is a positive-valued diagonal
+    # Test that the site pair magnetization is a positive-valued diagonal
     # real array
     tp_magmom_ra = magmom_abr.diagonal()
     assert np.all(tp_magmom_ra.real > 0)
@@ -321,22 +321,20 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     assert sp_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
 
     # ----- Two-particle site spin splitting ----- #
-    # Set up calculator and calculate site spin splitting by sum rule
-    two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
-        gs, sites, context, nblocks=nblocks, nbands=nbands)
-    tp_dxc_abr = two_particle_dxc_calc(q_c).array
-    context.write_timer()
 
-    # Test that the two-particle spin splitting is a positive-valued diagonal
+    dxc_abr = calculate_site_pair_spin_splitting(
+        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
+
+    # Test that the site pair spin splitting is a positive-valued diagonal
     # real array
-    tp_dxc_ra = tp_dxc_abr.diagonal()
+    tp_dxc_ra = dxc_abr.diagonal()
     assert np.all(tp_dxc_ra.real > 0)
     assert np.all(np.abs(tp_dxc_ra.imag) / tp_dxc_ra.real < 1e-4)
-    tp_dxc_ra = tp_dxc_ra.real
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        tp_dxc_abr))) / tp_dxc_ra < 5e-2)
-    tp_dxc_ar = tp_dxc_ra.T
+        dxc_abr))) / tp_dxc_ra.real < 5e-2)
+
     # Test that the spin splitting on the two Co atoms is identical
+    tp_dxc_ar = dxc_abr.diagonal().T.real
     assert tp_dxc_ar[0] == pytest.approx(tp_dxc_ar[1], rel=1e-4)
 
     # Test values against reference
@@ -346,10 +344,11 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
                   2.14237563e+00, 2.52032513e+00, 2.61406726e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
+    # from ase.units import Bohr
     # rc_r = sites.rc_ap[0] * Bohr
-    # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k')
-    # plt.plot(rc_r, single_particle_dxc_ar[0], '-o', mec='k', zorder=1)
-    # plt.plot(rc_r, dxc_ar[0], '-o', mec='k', zorder=0)
+    # plt.plot(rc_r, dxc_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, sp_dxc_ar[0], '-o', mec='k', zorder=0)
+    # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k', zorder=1)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
     # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
     # plt.title(str(q_c))

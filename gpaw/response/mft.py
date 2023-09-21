@@ -307,25 +307,58 @@ def calculate_site_pair_magnetization(
     Parameters
     ----------
     q_c : array-like
-        q-vector to evaluate the two-particle site magnetization for.
+        q-vector to evaluate the site pair magnetization for.
     nblocks : int
         Number of blocks to distribute band and spin transitions over, while
-        integrating the two-particle site magnetization.
+        integrating the site pair magnetization.
     nbands : int or None
-        Number of bands to include in the band summation of the two-particle
-        site magnetization. If nbands is None, it includes all bands.
+        Number of bands to include in the band summation of the site pair
+        magnetization. If nbands is None, it includes all bands.
 
     Returns
     -------
     magmom_abp : np.array
-        Pair magnetization of site a and b under partitioning p, calculated
-        based on a two-particle sum rule.
+        Pair magnetization in μB of site a and b under partitioning p,
+        calculated based on a two-particle sum rule.
     """
     gs, context = ensure_gs_and_context(gs, context=context)
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
         gs, sites, context=context, nblocks=nblocks, nbands=nbands)
     site_pair_magnetization = two_particle_calc(q_c)
     return site_pair_magnetization.array
+
+
+def calculate_site_pair_spin_splitting(
+        gs: ResponseGroundStateAdapter | GPWFilename,
+        sites: AtomicSites,
+        context: ResponseContext | TXTFilename = '-',
+        q_c=[0., 0., 0.],
+        nblocks: int = 1,
+        nbands: int | None = None):
+    """Calculate the site pair spin splitting.
+
+    Parameters
+    ----------
+    q_c : array-like
+        q-vector to evaluate the site pair spin splitting for.
+    nblocks : int
+        Number of blocks to distribute band and spin transitions over, while
+        integrating the site pair spin splitting.
+    nbands : int or None
+        Number of bands to include in the band summation of the site pair spin
+        splitting. If nbands is None, it includes all bands.
+
+    Returns
+    -------
+    dxc_abp : np.array
+        Pair spin splitting in eV of site a and b under partitioning p,
+        calculated based on a two-particle sum rule.
+    """
+    gs, context = ensure_gs_and_context(gs, context=context)
+    two_particle_calc = TwoParticleSiteSpinSplittingCalculator(
+        gs, sites, context=context, nblocks=nblocks, nbands=nbands)
+    site_pair_spin_splitting = two_particle_calc(q_c)
+    return site_pair_spin_splitting.array * Hartree  # Ha -> eV
 
 
 class StaticSiteFunction(PairFunction):
@@ -647,8 +680,3 @@ class TwoParticleSiteSpinSplittingCalculator(
         site_pair_density_calc = SitePairDensityCalculator(
             self.gs, self.context, self.sites)
         return site_pair_spin_splitting_calc, site_pair_density_calc
-
-    def __call__(self, *args):
-        out = super().__call__(*args)
-        out.array *= Hartree  # Ha -> eV                                      XXX
-        return out
