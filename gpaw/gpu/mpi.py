@@ -14,6 +14,7 @@ class CuPyMPI:
 
     def sum(self, array, root=-1):
         if isinstance(array, (float, int)):
+            1 / 0
             return self.comm.sum(array, root)
         if isinstance(array, np.ndarray):
             self.comm.sum(array, root)
@@ -64,7 +65,7 @@ class CuPyMPI:
             return
         b = a.get()
         self.comm.broadcast(b, root)
-        a[:] = cp.asarray(b)
+        a[...] = cp.asarray(b)
 
     def receive(self, a, rank, tag=0, block=True):
         if isinstance(a, np.ndarray):
@@ -99,6 +100,8 @@ class CuPyMPI:
         to[:] = cp.asarray(a)
 
     def wait(self, request):
+        if not isinstance(request, CuPyRequest):
+            return self.comm.wait(request)
         self.comm.wait(request.request)
         if request.target is not None:
             request.target[:] = cp.asarray(request.buffer)

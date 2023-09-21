@@ -2,12 +2,12 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw import SCIPY_VERSION
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from gpaw.gpu import cupy as cp
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import world
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 @pytest.mark.ci
@@ -49,12 +49,15 @@ def test_pw_map():
 
 
 def grids():
+    comm = world
+    if not GPU_AWARE_MPI:
+        comm = CuPyMPI(comm)
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],
               2: [[0, 2, 4], [0, 4], [0, 4]],
               4: [[0, 2, 4], [0, 2, 4], [0, 4]],
               8: [[0, 1, 2, 3, 4], [0, 2, 4], [0, 4]]}[world.size]
-    grid = UGDesc(cell=[a, a, a], size=(4, 4, 4), comm=world, decomp=decomp)
+    grid = UGDesc(cell=[a, a, a], size=(4, 4, 4), comm=comm, decomp=decomp)
     gridc = grid.new(dtype=complex)
 
     g1 = grid.empty()
@@ -78,24 +81,17 @@ def grids():
     return [g1, g2, g3, g4, g5]
 
 
-xppar = pytest.param(cp, marks=[pytest.mark.skipif(world.size > 1,
-                                reason='xp parallel not working'),
-                                pytest.mark.skipif(SCIPY_VERSION < [1, 6],
-                                reason='too old Scipy'),
-                                pytest.mark.xfail])
-
-
 @pytest.mark.gpu
-@pytest.mark.parametrize('xp', [np, xppar])
+@pytest.mark.parametrize('xp', [np, cp])
 @pytest.mark.parametrize('grid', grids())
 def test_pw_integrate(xp, grid):
-    a = grid.desc.cell[0, 0]
-    ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     g = grid
+    a = g.desc.cell[0, 0]
+    ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     if xp is cp:
         g = g.to_xp(cp)
     pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype,
-                ecut=ecut, comm=world if xp is np else CuPyMPI(world))
+                ecut=ecut, comm=g.desc.comm)
     f = g.fft(pw=pw)
 
     gg = g.new()
