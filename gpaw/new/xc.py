@@ -66,6 +66,7 @@ class LDAOrGGAFunctional(Functional):
         #if xp is np:
         vxct_sr.data[:] = 0.0
         exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data, symmetries = symmetries)
+        exc = exc.get()
         assert exc is not None
         #else:
         #    vxct_np_sr = np.zeros(nt_sr.data.shape)
