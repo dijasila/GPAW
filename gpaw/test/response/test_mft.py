@@ -18,6 +18,7 @@ from gpaw.response.mft import (IsotropicExchangeCalculator,
                                calculate_site_magnetization,
                                calculate_single_particle_site_magnetization,
                                calculate_site_pair_magnetization,
+                               calculate_site_spin_splitting,
                                SingleParticleSiteSpinSplittingCalculator,
                                TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
@@ -300,19 +301,22 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter and atomic site data
     calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
-    nbands = response_band_cutoff['co_pw']
     gs = ResponseGroundStateAdapter(calc)
+    sites = get_co_sites(gs)
     context = ResponseContext('Co_sum_rule.txt')
-    site_data = get_co_atomic_site_data(gs)
     nblocks = generate_nblocks()
+    nbands = response_band_cutoff['co_pw']
 
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
 
+    # Calculate the site spin splitting
+    dxc_ar = calculate_site_spin_splitting(gs, sites)
+
     # ----- Single-particle site spin splitting ----- #
     # Set up calculator and calculate the site magnetization
     single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
-        gs, site_data.sites, context)
+        gs, sites, context)
     single_particle_dxc_ar = single_particle_dxc_calc().array
 
     # Test that the imaginary part vanishes (we use only diagonal pair
@@ -321,13 +325,12 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     single_particle_dxc_ar = single_particle_dxc_ar.real
 
     # Test that the results match a conventional calculation
-    dxc_ar = site_data.calculate_spin_splitting()
     assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
 
     # ----- Two-particle site spin splitting ----- #
     # Set up calculator and calculate site spin splitting by sum rule
     two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
-        gs, site_data.sites, context, nblocks=nblocks, nbands=nbands)
+        gs, sites, context, nblocks=nblocks, nbands=nbands)
     tp_dxc_abr = two_particle_dxc_calc(q_c).array
     context.write_timer()
 
@@ -350,7 +353,7 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
                   2.14237563e+00, 2.52032513e+00, 2.61406726e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
-    # rc_r = site_data.sites.rc_ap[0] * Bohr
+    # rc_r = sites.rc_ap[0] * Bohr
     # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k')
     # plt.plot(rc_r, single_particle_dxc_ar[0], '-o', mec='k', zorder=1)
     # plt.plot(rc_r, dxc_ar[0], '-o', mec='k', zorder=0)
@@ -370,10 +373,6 @@ def get_co_sites(gs):
     nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
     rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
     return AtomicSites(indices=[0, 1], radii=[rc_r, rc_r])
-
-
-def get_co_atomic_site_data(gs):
-    return AtomicSiteData(gs, get_co_sites(gs))
 
 
 def generate_nblocks():

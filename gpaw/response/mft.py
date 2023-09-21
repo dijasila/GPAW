@@ -220,12 +220,28 @@ def calculate_site_magnetization(
     Returns
     -------
     magmom_ap : np.array
-        Magnetic moment of site a under partitioning p, calculated directly
-        from the ground state density.
+        Magnetic moment in μB of site a under partitioning p, calculated
+        directly from the ground state density.
     """
     gs = ensure_gs(gs)
     site_data = AtomicSiteData(gs, sites)
     return site_data.calculate_magnetic_moments()
+
+
+def calculate_site_spin_splitting(
+        gs: ResponseGroundStateAdapter | GPWFilename,
+        sites: AtomicSites):
+    """Calculate the site spin splitting.
+
+    Returns
+    -------
+    dxc_ap : np.array
+        Spin splitting in eV of site a under partitioning p, calculated
+        directly from the ground state density.
+    """
+    gs = ensure_gs(gs)
+    site_data = AtomicSiteData(gs, sites)
+    return site_data.calculate_spin_splitting() * Hartree  # Ha -> eV
 
 
 def calculate_single_particle_site_magnetization(
