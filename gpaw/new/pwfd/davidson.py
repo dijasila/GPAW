@@ -103,7 +103,8 @@ class Davidson(Eigensolver):
         for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS_aii, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum_scalar(
+            float(error)) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
