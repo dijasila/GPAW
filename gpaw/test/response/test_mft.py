@@ -16,6 +16,8 @@ from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
 from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (IsotropicExchangeCalculator,
                                calculate_site_magnetization,
+                               calculate_single_particle_site_magnetization,
+                               calculate_site_pair_magnetization,
                                SingleParticleSiteSpinSplittingCalculator,
                                TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
@@ -243,25 +245,31 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     q_c = get_q_c('co_pw', qrel)
 
     # Calculate site magnetization
-    magmom_ar, sp_magmom_ar, tp_magmom_abr = calculate_site_magnetization(
-        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
+    magmom_ar = calculate_site_magnetization(gs, sites)
 
+    # ----- Single-particle site magnetization ----- #
+    
     # Test that the single-particle site magnetization matches a conventional
     # calculation based on the density
+    sp_magmom_ar = calculate_single_particle_site_magnetization(
+        gs, sites, context)
     assert sp_magmom_ar == pytest.approx(magmom_ar, rel=5e-3)
 
     # ----- Two-particle site magnetization ----- #
 
+    magmom_abr = calculate_site_pair_magnetization(
+        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
+
     # Test that the sum rule site magnetization is a positive-valued diagonal
     # real array
-    tp_magmom_ra = tp_magmom_abr.diagonal()
+    tp_magmom_ra = magmom_abr.diagonal()
     assert np.all(tp_magmom_ra.real > 0)
     assert np.all(np.abs(tp_magmom_ra.imag) / tp_magmom_ra.real < 1e-6)
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        tp_magmom_abr))) / tp_magmom_ra.real < 5e-2)
+        magmom_abr))) / tp_magmom_ra.real < 5e-2)
 
     # Test that the magnetic moments on the two Co atoms are identical
-    tp_magmom_ar = tp_magmom_abr.diagonal().T.real
+    tp_magmom_ar = magmom_abr.diagonal().T.real
     assert tp_magmom_ar[0] == pytest.approx(tp_magmom_ar[1], rel=1e-4)
 
     # Test that the result more or less matches a conventional calculation at

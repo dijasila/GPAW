@@ -188,65 +188,34 @@ class IsotropicExchangeCalculator:
         return chiksr
 
 
-def calculate_site_magnetization(gs, sites, context='-',
-                                 q_c=[0., 0., 0.], nblocks=1, nbands=None):
-    """Calculate the site magnetization for a given ground state.
-
-    Parameters
-    ----------
-    gs : ResponseGroundStateAdapter or str
-        Ground state adapter or gpw filename.
-    sites : AtomicSites
-        Specification of the magnetic sites
-    context : ResponseContext or str
-        Response context or output txt filename.
-    q_c : array-like
-        q-vector to evaluate the two-particle site magnetization for.
-    nblocks : int
-        Number of blocks to distribute band and spin transitions over, while
-        integrating the two-particle site magnetization.
-    nbands : int
-        Number of bands to include in the band summation of the two-particle
-        site magnetization.
+def calculate_site_magnetization(
+        gs: ResponseGroundStateAdapter | str,
+        sites: AtomicSites):
+    """Calculate the site magnetization.
 
     Returns
     -------
     magmom_ap : np.array
-        Magnetic moments of sites a under partitioning p, calculated based on
-        the ground state density.
-    sp_magmom_ap : np.array
-        Magnetic moments of sites a under partitioning p, calculated based on
-        a single-particle sum rule.
-    tp_magmom_abp : np.array
-        Pair magnetization of sites a and b under partitioning p, calculated
-        based on a two-particle sum rule.
+        Magnetic moment of site a under partitioning p, calculated directly
+        from the ground state density.
     """
-    gs, context = ensure_gs_and_context(gs, context=context)
-
-    # Calculate the site magnetization
-    magmom_ap = calculate_conventional_site_magnetization(gs, sites)
-    sp_magmom_ap = calculate_single_particle_site_magnetization(
-        gs, sites, context=context)
-    tp_magmom_abp = calculate_two_particle_site_magnetization(
-        gs, sites, context=context, q_c=q_c, nblocks=nblocks, nbands=nbands)
-    context.write_timer()
-
-    return magmom_ap, sp_magmom_ap, tp_magmom_abp
-
-
-def calculate_conventional_site_magnetization(
-        gs: ResponseGroundStateAdapter | str,
-        sites: AtomicSites):
     gs = ensure_gs(gs)
     site_data = AtomicSiteData(gs, sites)
-    magmom_ap = site_data.calculate_magnetic_moments()
-    return magmom_ap
+    return site_data.calculate_magnetic_moments()
 
 
 def calculate_single_particle_site_magnetization(
         gs: ResponseGroundStateAdapter | str,
         sites: AtomicSites,
         context: ResponseContext | str = '-'):
+    """Calculate the single-particle site magnetization.
+
+    Returns
+    -------
+    sp_magmom_ap : np.array
+        Magnetic moment of site a under partitioning p, calculated based on
+        a single-particle sum rule.
+    """
     gs, context = ensure_gs_and_context(gs, context=context)
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
         gs, sites, context=context)
@@ -260,20 +229,37 @@ def calculate_single_particle_site_magnetization(
     return sp_magmom_ap
 
 
-def calculate_two_particle_site_magnetization(
+def calculate_site_pair_magnetization(
         gs: ResponseGroundStateAdapter | str,
         sites: AtomicSites,
         context: ResponseContext | str = '-',
         q_c=[0., 0., 0.],
         nblocks: int = 1,
         nbands: int | None = None):
+    """Calculate the site pair magnetization.
+
+    Parameters
+    ----------
+    q_c : array-like
+        q-vector to evaluate the two-particle site magnetization for.
+    nblocks : int
+        Number of blocks to distribute band and spin transitions over, while
+        integrating the two-particle site magnetization.
+    nbands : int
+        Number of bands to include in the band summation of the two-particle
+        site magnetization.
+
+    Returns
+    -------
+    magmom_abp : np.array
+        Pair magnetization of site a and b under partitioning p, calculated
+        based on a two-particle sum rule.
+    """
     gs, context = ensure_gs_and_context(gs, context=context)
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
         gs, sites, context=context, nblocks=nblocks, nbands=nbands)
-
     site_pair_magnetization = two_particle_calc(q_c)
-    tp_magmom_abp = site_pair_magnetization.array
-    return tp_magmom_abp
+    return site_pair_magnetization.array
 
 
 def ensure_gs_and_context(gs: ResponseGroundStateAdapter | str,
