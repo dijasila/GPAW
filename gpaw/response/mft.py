@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Tuple
+from typing import Tuple, Union
+from pathlib import Path
 
 import numpy as np
 
@@ -188,8 +189,31 @@ class IsotropicExchangeCalculator:
         return chiksr
 
 
+GPWFilename = Union[Path, str]
+TXTFilename = Union[Path, str]
+
+
+def ensure_gs_and_context(gs: ResponseGroundStateAdapter | GPWFilename,
+                          context: ResponseContext | TXTFilename = '-')\
+        -> Tuple[ResponseGroundStateAdapter, ResponseContext]:
+    if not isinstance(context, ResponseContext):
+        context = ResponseContext(txt=context)
+    gs = ensure_gs(gs, context=context)
+    return gs, context
+
+
+def ensure_gs(gs: ResponseGroundStateAdapter | GPWFilename,
+              context: ResponseContext | None = None)\
+        -> ResponseGroundStateAdapter:
+    if not isinstance(gs, ResponseGroundStateAdapter):
+        if context is None:
+            context = ResponseContext()
+        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
+    return gs
+
+
 def calculate_site_magnetization(
-        gs: ResponseGroundStateAdapter | str,
+        gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites):
     """Calculate the site magnetization.
 
@@ -205,9 +229,9 @@ def calculate_site_magnetization(
 
 
 def calculate_single_particle_site_magnetization(
-        gs: ResponseGroundStateAdapter | str,
+        gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites,
-        context: ResponseContext | str = '-'):
+        context: ResponseContext | TXTFilename = '-'):
     """Calculate the single-particle site magnetization.
 
     Returns
@@ -230,9 +254,9 @@ def calculate_single_particle_site_magnetization(
 
 
 def calculate_site_pair_magnetization(
-        gs: ResponseGroundStateAdapter | str,
+        gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites,
-        context: ResponseContext | str = '-',
+        context: ResponseContext | TXTFilename = '-',
         q_c=[0., 0., 0.],
         nblocks: int = 1,
         nbands: int | None = None):
@@ -245,9 +269,9 @@ def calculate_site_pair_magnetization(
     nblocks : int
         Number of blocks to distribute band and spin transitions over, while
         integrating the two-particle site magnetization.
-    nbands : int
+    nbands : int or None
         Number of bands to include in the band summation of the two-particle
-        site magnetization.
+        site magnetization. If nbands is None, it includes all bands.
 
     Returns
     -------
@@ -260,26 +284,6 @@ def calculate_site_pair_magnetization(
         gs, sites, context=context, nblocks=nblocks, nbands=nbands)
     site_pair_magnetization = two_particle_calc(q_c)
     return site_pair_magnetization.array
-
-
-def ensure_gs_and_context(gs: ResponseGroundStateAdapter | str,
-                          context: ResponseContext | str = '-') -> Tuple[
-                              ResponseGroundStateAdapter,
-                              ResponseContext]:
-    if not isinstance(context, ResponseContext):
-        context = ResponseContext(txt=context)
-    gs = ensure_gs(gs, context=context)
-    return gs, context
-
-
-def ensure_gs(gs: ResponseGroundStateAdapter | str,
-              context: ResponseContext | None = None)\
-        -> ResponseGroundStateAdapter:
-    if not isinstance(gs, ResponseGroundStateAdapter):
-        if context is None:
-            context = ResponseContext()
-        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
-    return gs
 
 
 class StaticSiteFunction(PairFunction):
