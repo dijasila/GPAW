@@ -19,7 +19,7 @@ from gpaw.response.mft import (IsotropicExchangeCalculator,
                                calculate_single_particle_site_magnetization,
                                calculate_site_pair_magnetization,
                                calculate_site_spin_splitting,
-                               SingleParticleSiteSpinSplittingCalculator,
+                               calculate_single_particle_site_spin_splitting,
                                TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
@@ -253,7 +253,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Test that the single-particle site magnetization matches a conventional
     # calculation based on the density
     sp_magmom_ar = calculate_single_particle_site_magnetization(
-        gs, sites, context)
+        gs, sites, context=context)
     assert sp_magmom_ar == pytest.approx(magmom_ar, rel=5e-3)
 
     # ----- Two-particle site magnetization ----- #
@@ -314,18 +314,11 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     dxc_ar = calculate_site_spin_splitting(gs, sites)
 
     # ----- Single-particle site spin splitting ----- #
-    # Set up calculator and calculate the site magnetization
-    single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
-        gs, sites, context)
-    single_particle_dxc_ar = single_particle_dxc_calc().array
-
-    # Test that the imaginary part vanishes (we use only diagonal pair
-    # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
-    assert np.allclose(single_particle_dxc_ar.imag, 0.)
-    single_particle_dxc_ar = single_particle_dxc_ar.real
 
     # Test that the results match a conventional calculation
-    assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
+    sp_dxc_ar = calculate_single_particle_site_spin_splitting(
+        gs, sites, context=context)
+    assert sp_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
 
     # ----- Two-particle site spin splitting ----- #
     # Set up calculator and calculate site spin splitting by sum rule

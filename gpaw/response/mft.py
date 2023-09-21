@@ -253,8 +253,8 @@ def calculate_single_particle_site_magnetization(
     Returns
     -------
     sp_magmom_ap : np.array
-        Magnetic moment of site a under partitioning p, calculated based on
-        a single-particle sum rule.
+        Magnetic moment in μB of site a under partitioning p, calculated based
+        on a single-particle sum rule.
     """
     gs, context = ensure_gs_and_context(gs, context=context)
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
@@ -267,6 +267,32 @@ def calculate_single_particle_site_magnetization(
     assert np.allclose(sp_magmom_ap.imag, 0.)
     sp_magmom_ap = sp_magmom_ap.real
     return sp_magmom_ap
+
+
+def calculate_single_particle_site_spin_splitting(
+        gs: ResponseGroundStateAdapter | GPWFilename,
+        sites: AtomicSites,
+        context: ResponseContext | TXTFilename = '-'):
+    """Calculate the single-particle site spin splitting.
+
+    Returns
+    -------
+    sp_dxc_ap : np.array
+        Spin splitting in eV of site a under partitioning p, calculated based
+        on a single-particle sum rule.
+    """
+    gs, context = ensure_gs_and_context(gs, context=context)
+    single_particle_calc = SingleParticleSiteSpinSplittingCalculator(
+        gs, sites, context=context)
+
+    site_spin_splitting = single_particle_calc()
+    sp_dxc_ap = site_spin_splitting.array
+    # The imaginary part should vanish identically since the rum rule only
+    # involves the diagonal pair spin splitting densities, correcsponding to
+    # -2W_xc^z(r)|ψ_nks(r)|^2
+    assert np.allclose(sp_dxc_ap.imag, 0.)
+    sp_dxc_ap = sp_dxc_ap.real
+    return sp_dxc_ap * Hartree  # Ha -> eV
 
 
 def calculate_site_pair_magnetization(
@@ -434,11 +460,6 @@ class SingleParticleSiteSpinSplittingCalculator(
     def create_matrix_element_calculator(self):
         return SitePairSpinSplittingCalculator(
             self.gs, self.context, self.sites, rshewmin=1e-8)
-
-    def __call__(self):
-        out = super().__call__()
-        out.array *= Hartree  # Ha -> eV                                      XXX
-        return out
 
 
 class StaticSitePairFunction(StaticSiteFunction):
