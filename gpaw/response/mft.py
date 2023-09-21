@@ -259,14 +259,8 @@ def calculate_single_particle_site_magnetization(
     gs, context = ensure_gs_and_context(gs, context=context)
     single_particle_calc = SingleParticleSiteMagnetizationCalculator(
         gs, sites, context=context)
-
     site_magnetization = single_particle_calc()
-    sp_magmom_ap = site_magnetization.array
-    # The imaginary part should vanish identically since the sum rule only
-    # involves the diagonal pair densities, corresponding to |ψ_nks(r)|^2
-    assert np.allclose(sp_magmom_ap.imag, 0.)
-    sp_magmom_ap = sp_magmom_ap.real
-    return sp_magmom_ap
+    return site_magnetization.array
 
 
 def calculate_single_particle_site_spin_splitting(
@@ -284,15 +278,8 @@ def calculate_single_particle_site_spin_splitting(
     gs, context = ensure_gs_and_context(gs, context=context)
     single_particle_calc = SingleParticleSiteSpinSplittingCalculator(
         gs, sites, context=context)
-
     site_spin_splitting = single_particle_calc()
-    sp_dxc_ap = site_spin_splitting.array
-    # The imaginary part should vanish identically since the rum rule only
-    # involves the diagonal pair spin splitting densities, correcsponding to
-    # -2W_xc^z(r)|ψ_nks(r)|^2
-    assert np.allclose(sp_dxc_ap.imag, 0.)
-    sp_dxc_ap = sp_dxc_ap.real
-    return sp_dxc_ap * Hartree  # Ha -> eV
+    return site_spin_splitting.array * Hartree  # Ha -> eV
 
 
 def calculate_site_pair_magnetization(
@@ -376,7 +363,7 @@ class StaticSiteFunction(PairFunction):
         return self.sites.shape
 
     def zeros(self):
-        return np.zeros(self.shape, dtype=complex)
+        return np.zeros(self.shape, dtype=float)
 
 
 class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
@@ -448,6 +435,13 @@ class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         assert site_matrix_element.tblocks.blockcomm.size == 1
         f_tap = site_matrix_element.get_global_array()
 
+        # Since we only use diagonal site matrix elements, corresponding
+        # to the expectation value of the real functions Θ(r∊Ω_ap) and f(r),
+        # f^a_(nks,nks) = <ψ_nks|Θ(r∊Ω_ap)f(r)|ψ_nks>,
+        # the matrix elements are real
+        assert np.allclose(f_tap.imag, 0.)
+        f_tap = f_tap.real
+
         # Calculate Pauli matrix factors and multiply the occupations
         sigma = self.get_pauli_matrix()
         sigma_t = sigma[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
@@ -502,6 +496,9 @@ class StaticSitePairFunction(StaticSiteFunction):
         nsites = len(self.sites)
         npartitions = self.sites.npartitions
         return nsites, nsites, npartitions
+
+    def zeros(self):
+        return np.zeros(self.shape, dtype=complex)
 
 
 class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
