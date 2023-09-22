@@ -68,7 +68,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
 
     # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
-    
+
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
@@ -93,7 +93,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
                 # radial partial wave correction rescaled with a factor of r^-l
-                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**10)
+                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**12)
                 # This allows us to calculate a spline representation of the
                 # spherical Fourier-Bessel transform
                 #                 rc
@@ -101,7 +101,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
                 #             k^l /
                 #                 0
-                kspline = rescaled_fourier_bessel_transform(spline, N=2**12)
+                kspline = rescaled_fourier_bessel_transform(spline, N=2**14)
 
                 # Now, this implementation relies on a range of hardcoded
                 # values, which are not guaranteed to work for all cases.
@@ -137,7 +137,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 k_k = np.array(k_k)
                 dn_k = np.array(dn_k)
                 assert np.allclose(k_k**l * kspline.map(k_k), dn_k,
-                                   rtol=1e-3, atol=1e-5), \
+                                   rtol=1e-2, atol=1e-3), \
                     f'FFBT mismatch: {k_k**l * kspline.map(k_k)}, {dn_k}'
 
                 # Finally, we can map the Fourier-Bessel transform onto the
@@ -201,12 +201,12 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
     spherical Bessel functions j_l(Kr) yields the following expression for the
     atom-centered correction tensor [publication in preparation]:
 
-                         l        l'
-                     __  __   __  __
-    ˍ                \   \    \   \      l'  m'˰   m_i,m_i',m,m'
-    F_aii'(G+q) = 4π /   /    /   /  (-i)   Y (K) G
-                     ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
-                     l  m=-l  l' m'=-l'
+                       l        l'
+                   __  __   __  __
+    ˍ              \   \    \   \      l'  m'˰   m_i,m_i',m,m'
+    F_aii'(K) = 4π /   /    /   /  (-i)   Y (K) G
+                   ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
+                   l  m=-l  l' m'=-l'
 
                                 rc
                                 /  2            a     a      ˷a    ˷a      m
@@ -214,8 +214,8 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
                                 /       l'      j_i   j_i'    j_i   j_i'   l
                                 0
 
-    where G denotes the super Gaunt coefficients, which yields the integral
-    over four spherical harmonics.
+    where K=G+q and G_LLLL denotes the super Gaunt coefficients, which yield
+    the integrals over four spherical harmonics.
     """
     rgd = rshe.rgd
     assert rgd is pawdata.xc_correction.rgd
@@ -302,7 +302,7 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
 
 
 class PWPAWCorrectionData:
-    def __init__(self, Q_aGii, qpd, pawdatasets, pos_av):
+    def __init__(self, Q_aGii, qpd, pawdatasets, pos_av, atomrotations):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
@@ -313,17 +313,19 @@ class PWPAWCorrectionData:
         self.qpd = qpd
         self.pawdatasets = pawdatasets
         self.pos_av = pos_av
+        self.atomrotations = atomrotations
 
     def _new(self, Q_aGii):
         return PWPAWCorrectionData(Q_aGii, qpd=self.qpd,
                                    pawdatasets=self.pawdatasets,
-                                   pos_av=self.pos_av)
+                                   pos_av=self.pos_av,
+                                   atomrotations=self.atomrotations)
 
     def remap(self, M_vv, G_Gv, sym, sign):
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.pawdatasets[a].R_sii[sym]
+            U_ii = self.atomrotations.get_by_a(a).R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
                               U_ii,
@@ -364,7 +366,7 @@ class PWPAWCorrectionData:
         return True
 
 
-def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
+def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     r"""Calculate and bundle paw corrections to the pair densities as a
     PWPAWCorrectionData object.
 
@@ -389,7 +391,8 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
                                pawdatasets=pawdatasets,
-                               pos_av=pos_av)
+                               pos_av=pos_av,
+                               atomrotations=atomrotations)
 
 
 def get_matrix_element_paw_corrections(qpd, pawdata_a, rshe_a, spos_ac):

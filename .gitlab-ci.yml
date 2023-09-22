@@ -117,9 +117,36 @@ build-cuda:
       gpu_target = 'cuda'
       gpu_compiler = 'nvcc'
       gpu_compile_args = ['-O3',
-                          '-g',
-                          '-gencode', 'arch=compute_60,code=sm_60']
+                          '-g']
       libraries += ['cudart', 'cublas']
+      undef_macros += ['GPAW_GPU_AWARE_MPI']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+
+
+build-hip-cuda:
+  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'hip-cuda'
+      gpu_compiler = 'hipcc'
+      gpu_compile_args = ['-O3',
+                          '-g']
+      libraries += ['cudart', 'hipblas']
+
+      # Suppress warnings from hip-cuda headers
+      extra_compile_args += ['-Wno-deprecated-declarations',
+                             '-Wno-implicit-int',
+                             ]
+      undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
@@ -233,7 +260,7 @@ test-latest:
       EOF
 
     - >
-      pytest -v -m ci
+      pytest -v -m ci -m gpu
       -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
@@ -246,6 +273,19 @@ test-latest:
       - htmlcov/
     expire_in: 1 week
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
+
+
+test-latest-new:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - GPAW_NEW=1 pytest -v -m "ci and not later"
 
 
 test-minimal:
@@ -277,6 +317,36 @@ test-cuda:
 
     - gpaw-python -m gpaw info
     - gpaw-python -m pytest -v -m gpu
+
+test-cuda-mpi:
+  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-cuda
+  tags:
+    - cuda-mpi
+  script:
+    - nvidia-smi
+    - gpaw info
+    - mpirun -np 2 gpaw-python -m pytest -v -m gpu
+    - mpirun -np 4 gpaw-python -m pytest -v -m gpu
+
+
+test-hip-cuda:
+  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-hip-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
 
 
 test-libxc:
@@ -420,7 +490,7 @@ gpwfiles:
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -x -r s --durations 30
+      pytest --instafail -r s --durations 30
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -445,7 +515,7 @@ nightly-mpi-1-new:
     - pytest -n 4 --cache-clear -m generate_gpw_files
     - >
       pytest -n 4 --instafail -r s --durations 30 -m
-      "not (later or dscf or gllb or elph or mgga or wannier or legacy or ofdft or mom or do or lrtddft or stress or rttddft or hybrids)"
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
 
 
 nightly-mpi-2:

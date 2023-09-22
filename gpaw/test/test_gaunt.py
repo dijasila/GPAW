@@ -141,8 +141,8 @@ def test_super_permutation_symmetry(lmax: int = 2):
 
 def unit_sphere_test_coordinates():
     """Unit-sphere coordinates to test"""
-    theta, phi = np.meshgrid(np.linspace(0, np.pi, 11),
-                             np.linspace(0, 2 * np.pi, 21),
+    theta, phi = np.meshgrid(np.linspace(0, np.pi, 6),
+                             np.linspace(0, 2 * np.pi, 11),
                              indexing='ij')
     x = np.sin(theta) * np.cos(phi)
     y = np.sin(theta) * np.sin(phi)

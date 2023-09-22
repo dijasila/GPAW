@@ -27,7 +27,7 @@ calculator object. This part should not contain extended examples, theory or
 code references.
 
 :ref:`Documentation/Advanced topics <advanced>`: This part contains
-explainations of the various features of GPAW. The focus here is on
+explanations of the various features of GPAW. The focus here is on
 implementation specific information, not theory, as well as code references.
 
 :ref:`Documentation/Theory <theory>`: This is the place for theoretical

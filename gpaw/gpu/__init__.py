@@ -25,12 +25,12 @@ else:
         import gpaw.gpu.cpupy as cupy
         import gpaw.gpu.cpupyx as cupyx
 
-__all__ = ['cupy', 'cupyx', 'as_xp', 'synchronize']
+__all__ = ['cupy', 'cupyx', 'as_xp', 'as_np', 'synchronize']
 
 
 def synchronize():
     if not cupy_is_fake:
-        cupy.cuda.runtime.deviceSynchronize()
+        cupy.cuda.get_current_stream().synchronize()
 
 
 def setup():
@@ -43,6 +43,19 @@ def setup():
         # initialise C parameters and memory buffers
         import _gpaw
         _gpaw.gpaw_gpu_init()
+
+
+def as_np(array: np.ndarray | cupy.ndarray) -> np.ndarray:
+    """Transfer array to CPU (if not already there).
+
+    Parameters
+    ==========
+    array:
+        Numpy or CuPy array.
+    """
+    if isinstance(array, np.ndarray):
+        return array
+    return cupy.asnumpy(array)
 
 
 def as_xp(array, xp):

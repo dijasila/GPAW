@@ -87,6 +87,7 @@ def create_lcao_ibzwfs(basis, potential,
                        fracpos_ac, grid, dtype,
                        nbands, ncomponents, atomdist, nelectrons,
                        coefficients=None):
+    kpt_band_comm = communicators['D']
     kpt_comm = communicators['k']
     band_comm = communicators['b']
     domain_comm = communicators['d']
@@ -160,9 +161,11 @@ def create_lcao_ibzwfs(basis, potential,
             weight=weight,
             ncomponents=ncomponents)
 
-    ibzwfs = create_ibzwfs(ibz,
-                           nelectrons,
-                           ncomponents,
-                           create_wfs,
-                           kpt_comm)
+    ibzwfs = create_ibzwfs(ibz=ibz,
+                           nelectrons=nelectrons,
+                           ncomponents=ncomponents,
+                           create_wfs_func=create_wfs,
+                           kpt_comm=kpt_comm,
+                           kpt_band_comm=kpt_band_comm,
+                           comm=communicators['w'])
     return ibzwfs, tciexpansions

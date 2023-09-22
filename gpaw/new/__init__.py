@@ -1,8 +1,11 @@
 """New ground-state DFT code."""
+from __future__ import annotations
 from collections import defaultdict
 from contextlib import contextmanager
 from time import time
-from typing import Iterable
+from typing import Iterable, TYPE_CHECKING
+if TYPE_CHECKING:
+    from gpaw.core import UGArray
 
 
 def prod(iterable: Iterable[int]) -> int:
@@ -57,6 +60,16 @@ def zips(*iterables, strict=True):
             plural = " " if i == 1 else "s 1-"
             msg = f"zips() argument {i+1} is longer than argument{plural}{i}"
             raise ValueError(msg)
+
+
+def spinsum(a_sX: UGArray, mean: bool = False) -> UGArray:
+    if a_sX.dims[0] == 2:
+        a_X = a_sX.desc.empty()
+        a_sX.data[:2].sum(axis=0, out=a_X.data)
+        if mean:
+            a_X.data *= 0.5
+        return a_X
+    return a_sX[0]
 
 
 class Timer:
