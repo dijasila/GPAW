@@ -78,7 +78,7 @@ stages:
 
 .lumi-job:
   variables:
-    SCHEDULER_PARAMETERS: "-A project_465000483 -N 1 --ntasks-per-node=1 --gpus-per-node=1 --mem=1G -t 00:10:00 -p dev-g"
+    SCHEDULER_PARAMETERS: "-A project_465000483 -N 1 --ntasks-per-node=1 --gpus-per-node=1 --mem=4G -t 00:10:00 -p dev-g"
   before_script:
     - export EBU_USER_PREFIX=/scratch/project_465000483/EasyBuild
     - module load LUMI/22.12 partition/G
