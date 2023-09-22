@@ -902,7 +902,7 @@ def mmm_nn(m1, m2, m3, alpha, beta, mmm):
         beta = 1.0
 
         if r == 0:
-            buf1 = np.empty_like(buf2)
+            buf1 = xp.empty_like(buf2)
 
         buf1, buf2 = buf2, buf1
 
@@ -987,7 +987,7 @@ def mmm_nc_sym(a, b, out, alpha, mmm):
                 m1 = min(row * m, M)
                 m2 = min(m1 + m, M)
                 if mym > 0 and m2 > m1:
-                    block = np.empty((mym, m2 - m1), out.dtype)
+                    block = xp.empty((mym, m2 - m1), out.dtype)
                     blocks.append((m1, m2, block))
                     requests.append(comm.receive(block, row, 12, False))
 
