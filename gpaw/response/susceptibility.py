@@ -321,7 +321,8 @@ class EigendecomposedSpectrum:
             npos_max = 0
         npos_max = self.wblocks.blockcomm.max(npos_max)
 
-        # Allocate new arrays filled with np.nan
+        # Allocate new arrays, using np.nan for padding (the number of positive
+        # eigenvalues might vary with frequency)
         s_we, v_wGe = self.new_nan_arrays(npos_max)
 
         # Fill arrays with the positive eigenvalue data
@@ -375,7 +376,8 @@ class EigendecomposedSpectrum:
                     for s_e in self.s_we]), \
             'Eigenvalues needs to be sorted in descending order!'
 
-        # Create new output arrays with the requested number of eigenvalues
+        # Create new output arrays with the requested number of eigenvalues,
+        # using np.nan for padding
         s_we, v_wGe = self.new_nan_arrays(neigs)
         # In reality, there may be less actual eigenvalues than requested,
         # since the user usually does not know how many e.g. negative
@@ -426,7 +428,7 @@ class EigendecomposedSpectrum:
         if nmodes == 1:
             # Find frequency where the eigenvalue is maximal
             s_w = wblocks.all_gather(self.s_we[:, 0])
-            wm = np.nanargmax(s_w)
+            wm = np.nanargmax(s_w)  # skip np.nan padding
         else:
             # Find frequency with maximum minimal difference between size of
             # eigenvalues
@@ -434,7 +436,7 @@ class EigendecomposedSpectrum:
                               for e in range(nmodes - 1)]).T
             dsmin_w = np.min(ds_we, axis=1)
             dsmin_w = wblocks.all_gather(dsmin_w)
-            wm = np.nanargmax(dsmin_w)
+            wm = np.nanargmax(dsmin_w)  # skip np.nan padding
 
         return wm
 
