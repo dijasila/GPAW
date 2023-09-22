@@ -2,17 +2,17 @@ import pytest
 from ase import Atoms
 from ase.units import Ha
 
-from gpaw import SCIPY_VERSION
 from gpaw.new.calculation import DFTCalculation
 from gpaw.mpi import size
 
 
 @pytest.mark.gpu
 @pytest.mark.serial
-@pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('gpu', [False, True])
 def test_gpu_pw(dtype, gpu):
+    if gpu and dtype == float:
+        pytest.skip('P_ani * dH_aii kernel not implemented for float')
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
     atoms.center(vacuum=1.0)
@@ -31,11 +31,10 @@ def test_gpu_pw(dtype, gpu):
 
 @pytest.mark.gpu
 @pytest.mark.skipif(size > 2, reason='Not implemented')
-@pytest.mark.skipif(SCIPY_VERSION < [1, 6], reason='Too old scipy')
 @pytest.mark.parametrize('gpu', [False, True])
-@pytest.mark.parametrize('par', ['domain', 'kpt'])
+@pytest.mark.parametrize('par', ['domain', 'kpt', 'band'])
 def test_gpu_pw_k(gpu, par):
-    atoms = Atoms('H', pbc=True, cell=[1, 1, 1])
+    atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
     dft = DFTCalculation.from_parameters(
         atoms,
         dict(mode={'name': 'pw'},
@@ -47,7 +46,6 @@ def test_gpu_pw_k(gpu, par):
     dft.converge()
     dft.energies()
     dft.forces()
-    if par == 'kpt':
-        dft.stress()
+    dft.stress()
     energy = dft.results['energy'] * Ha
-    assert energy == pytest.approx(-19.579937, abs=1e-6)
+    assert energy == pytest.approx(-17.653433, abs=1e-6)

@@ -13,7 +13,7 @@ max-args=6
 
 [SPELLING]
 spelling-dict=en_US
-spelling-private-dict-file=doc/words.txt
+# spelling-private-dict-file=doc/words.txt
 
 [FORMAT]
 max-line-length=80

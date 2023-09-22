@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 import numpy as np
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.new import zips
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
@@ -108,7 +108,7 @@ def add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices):
                                     rhoT_MM[:, M1:M2]).real
 
 
-def add_pot_term(vt_R: UniformGridFunctions,
+def add_pot_term(vt_R: UGArray,
                  basis,
                  q: int,
                  rhoT_MM,

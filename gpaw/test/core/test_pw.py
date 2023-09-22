@@ -2,17 +2,18 @@ from math import pi
 
 import numpy as np
 import pytest
-from gpaw import SCIPY_VERSION
-from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core import PWDesc, UGDesc
 from gpaw.core.plane_waves import find_reciprocal_vectors
 from gpaw.gpu import cupy as cp
+from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import world
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 @pytest.mark.ci
 def test_pw_redist():
     a = 2.5
-    pw = PlaneWaves(ecut=10, cell=[a, a, a], comm=world)
+    pw = PWDesc(ecut=10, cell=[a, a, a], comm=world)
     f1 = pw.empty()
     f1.data[:] = 1.0
     f2 = f1.gather()
@@ -24,13 +25,13 @@ def test_pw_redist():
 @pytest.mark.ci
 def test_pw_map():
     """Test mapping from 5 to 9 G-vectors."""
-    pw5 = PlaneWaves(ecut=0.51 * (2 * pi)**2,
-                     cell=[1, 1, 0.1],
-                     dtype=complex)
-    pw9 = PlaneWaves(ecut=1.01 * (2 * pi)**2,
-                     cell=[1, 1, 0.1],
-                     dtype=complex,
-                     comm=world)
+    pw5 = PWDesc(ecut=0.51 * (2 * pi)**2,
+                 cell=[1, 1, 0.1],
+                 dtype=complex)
+    pw9 = PWDesc(ecut=1.01 * (2 * pi)**2,
+                 cell=[1, 1, 0.1],
+                 dtype=complex,
+                 comm=world)
     my_G_g, g_r = pw9.map_indices(pw5)
     print(world.rank, my_G_g, g_r)
     expected = {
@@ -48,13 +49,15 @@ def test_pw_map():
 
 
 def grids():
+    comm = world
+    if not GPU_AWARE_MPI:
+        comm = CuPyMPI(comm)
     a = 1.0
     decomp = {1: [[0, 4], [0, 4], [0, 4]],
               2: [[0, 2, 4], [0, 4], [0, 4]],
               4: [[0, 2, 4], [0, 2, 4], [0, 4]],
               8: [[0, 1, 2, 3, 4], [0, 2, 4], [0, 4]]}[world.size]
-    grid = UniformGrid(cell=[a, a, a], size=(4, 4, 4), comm=world,
-                       decomp=decomp)
+    grid = UGDesc(cell=[a, a, a], size=(4, 4, 4), comm=comm, decomp=decomp)
     gridc = grid.new(dtype=complex)
 
     g1 = grid.empty()
@@ -82,18 +85,13 @@ def grids():
 @pytest.mark.parametrize('xp', [np, cp])
 @pytest.mark.parametrize('grid', grids())
 def test_pw_integrate(xp, grid):
-    if xp is cp and world.size > 1:
-        return
-    if xp is cp and SCIPY_VERSION < [1, 6]:
-        pytest.skip()
-
-    a = grid.desc.cell[0, 0]
-    ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     g = grid
+    a = g.desc.cell[0, 0]
+    ecut = 0.5 * (2 * np.pi / a)**2 * 1.01
     if xp is cp:
         g = g.to_xp(cp)
-    pw = PlaneWaves(cell=g.desc.cell, dtype=g.desc.dtype,
-                    ecut=ecut, comm=world)
+    pw = PWDesc(cell=g.desc.cell, dtype=g.desc.dtype,
+                ecut=ecut, comm=g.desc.comm)
     f = g.fft(pw=pw)
 
     gg = g.new()
@@ -124,10 +122,10 @@ def test_pw_integrate(xp, grid):
 
 def test_grr():
     from ase.units import Bohr, Ha
-    grid = UniformGrid(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
-                       size=(9, 9, 12),
-                       comm=world)
-    pw = PlaneWaves(ecut=340 / Ha, cell=grid.cell, comm=world)
+    grid = UGDesc(cell=[2 / Bohr, 2 / Bohr, 2.737166 / Bohr],
+                  size=(9, 9, 12),
+                  comm=world)
+    pw = PWDesc(ecut=340 / Ha, cell=grid.cell, comm=world)
     print(pw.G_plus_k_Gv.shape)
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.pw.descriptor import PWDescriptor
@@ -162,7 +160,7 @@ def test_find_g():
 
 
 def test_random():
-    pw = PlaneWaves(ecut=20, cell=[1, 1, 1], comm=world)
+    pw = PWDesc(ecut=20, cell=[1, 1, 1], comm=world)
     a = pw.empty(2)
     a.randomize()
     assert world.rank != 0 or (a.data[:, 0].imag == 0.0).all()

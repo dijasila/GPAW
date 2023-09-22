@@ -1,11 +1,11 @@
 from math import pi
 
 from ase.units import Ha
-
-from gpaw.core import PlaneWaves, UniformGrid
+from gpaw.core import PWDesc, UGDesc
+from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
-from gpaw.core.plane_waves import PlaneWaveExpansions
+from gpaw.core.plane_waves import PWArray
 from gpaw.new import cached_property, zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
@@ -27,6 +27,17 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self.qspiral_v = (None if qspiral is None else
                           qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
+        self._tauct_ag = None
+
+    @cached_property
+    def atomdist(self) -> AtomDistribution:
+        # We should just distribute the atom evenly, but that is not compatible
+        # with LCAO initialization!
+        # return AtomDistribution.from_number_of_atoms(len(self.fracpos_ac),
+        #                                              self.communicators['d'])
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -44,10 +55,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return grid, fine_grid
 
     def create_wf_description(self) -> Domain:
-        pw = PlaneWaves(ecut=self.ecut,
-                        cell=self.grid.cell,
-                        comm=self.grid.comm,
-                        dtype=self.dtype)
+        pw = PWDesc(ecut=self.ecut,
+                    cell=self.grid.cell,
+                    comm=self.grid.comm,
+                    dtype=self.dtype)
         if self.ncomponents == 4:
             return SpinorWaveFunctionDescriptor(pw, qspiral_v=self.qspiral_v)
         return pw
@@ -56,25 +67,30 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
             return ...
         return create_functional(self._xc,
-                                 self.fine_grid,
-                                 self.grid,
-                                 self.interpolation_pw,
-                                 self.setups,
-                                 self.fracpos_ac,
-                                 self.atomdist)
+                                 self.fine_grid)
 
     @cached_property
-    def interpolation_pw(self):
-        return PlaneWaves(ecut=2 * self.ecut,
-                          cell=self.grid.cell,
-                          comm=self.grid.comm)
+    def interpolation_desc(self):
+        return PWDesc(ecut=2 * self.ecut,
+                      cell=self.grid.cell,
+                      comm=self.grid.comm)
+
+    @cached_property
+    def electrostatic_potential_desc(self):
+        return self.interpolation_desc.new(ecut=8 * self.ecut)
 
     def get_pseudo_core_densities(self):
         if self._nct_ag is None:
             self._nct_ag = self.setups.create_pseudo_core_densities(
-                self.interpolation_pw, self.fracpos_ac, self.atomdist,
+                self.interpolation_desc, self.fracpos_ac, self.atomdist,
                 xp=self.xp)
         return self._nct_ag
+
+    def get_pseudo_core_ked(self):
+        if self._tauct_ag is None:
+            self._tauct_ag = self.setups.create_pseudo_core_ked(
+                self.interpolation_desc, self.fracpos_ac, self.atomdist)
+        return self._tauct_ag
 
     def create_poisson_solver(self, fine_pw, params):
         return make_poisson_solver(fine_pw,
@@ -86,24 +102,24 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
     def create_potential_calculator(self):
         nct_ag = self.get_pseudo_core_densities()
         pw = nct_ag.pw
-        fine_pw = pw.new(ecut=8 * self.ecut)
+        fine_pw = self.electrostatic_potential_desc
         poisson_solver = self.create_poisson_solver(
             fine_pw,
             self.params.poissonsolver or {'strength': 1.0})
-        return PlaneWavePotentialCalculator(self.grid,
-                                            self.fine_grid,
-                                            pw,
-                                            fine_pw,
-                                            self.setups,
-                                            self.xc,
-                                            poisson_solver,
-                                            nct_ag, self.nct_R,
-                                            self.soc,
-                                            self.xp)
+        return PlaneWavePotentialCalculator(
+            self.grid, self.fine_grid,
+            pw, fine_pw,
+            self.setups,
+            self.xc,
+            poisson_solver,
+            fracpos_ac=self.fracpos_ac,
+            atomdist=self.atomdist,
+            soc=self.soc,
+            xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian(self.grid, self.wf_desc, self.xc, self.xp)
+            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
         return SpinorPWHamiltonian()
 
     def convert_wave_functions_from_uniform_grid(self,
@@ -166,17 +182,15 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             data = reader.wave_functions.proxy('coefficients', *index)
             data.scale = c
             data.length_of_last_dimension = pw.shape[-1]
-            orig_shape = data.shape
-            data.shape = (self.nbands, ) + pw.shape
 
             if self.communicators['w'].size == 1:
-                wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
-                                                  data=data)
+                orig_shape = data.shape
+                data.shape = (self.nbands, ) + pw.shape
+                wfs.psit_nX = PWArray(pw, self.nbands, data=data)
                 data.shape = orig_shape
             else:
                 band_comm = self.communicators['b']
-                wfs.psit_nX = PlaneWaveExpansions(pw, self.nbands,
-                                                  comm=band_comm)
+                wfs.psit_nX = PWArray(pw, self.nbands, comm=band_comm)
                 if pw.comm.rank == 0:
                     mynbands = (self.nbands +
                                 band_comm.size - 1) // band_comm.size
@@ -190,8 +204,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return ibzwfs
 
 
-def check_g_vector_ordering(grid: UniformGrid,
-                            pw: PlaneWaves,
+def check_g_vector_ordering(grid: UGDesc,
+                            pw: PWDesc,
                             index_G: Array1D) -> None:
     size = tuple(grid.size)
     if pw.dtype == float:
