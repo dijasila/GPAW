@@ -967,7 +967,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def _nicl2_pw(self, vacuum=3.0):
+    def _nicl2_pw(self, vacuum=3.0, identifier=''):
         from ase.build import mx2
 
         # Define input parameters
@@ -998,7 +998,7 @@ class GPWFiles:
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / f'nicl2_pw_vac«{vacuum}».txt')
+            txt=self.path / f'nicl2_pw{identifier}.txt')
 
         atoms.get_potential_energy()
 
@@ -1010,7 +1010,7 @@ class GPWFiles:
 
     @gpwfile
     def nicl2_pw_evac(self):
-        return self._nicl2_pw(vacuum=10.0)
+        return self._nicl2_pw(vacuum=10.0, identifier='_evac')
 
     @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
