@@ -446,7 +446,7 @@ test-lumi:
   needs:
     - build-lumi
   script:
-    - rocm-smi
+    - rocm-smi || true  # rocm-smi yields non-zero return code
     - gpaw info
     - pytest -v -m gpu
 
