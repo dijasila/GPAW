@@ -134,6 +134,7 @@ def diagonalize(potential: Potential,
                                    band_comm)
 
             eig_n = H_GG.eigh(S_GG, limit=nbands)
+            H_GG.complex_conjugate()
             assert eig_n[0] > -1000, 'See issue #241'
             psit_nG = pw.empty(nbands, comm=band_comm)
             mynbands, nG = psit_nG.data.shape
