@@ -113,9 +113,9 @@ def diagonalize(potential: Potential,
     if nbands is None:
         nbands = min(wfs.array_shape(global_shape=True)[0]
                      for wfs in ibzwfs)
-        array = np.array(nbands)
-        ibzwfs.kpt_comm.max(array)
-        nbands = int(array)
+        nbands = ibzwfs.kpt_comm.min_scalar(nbands)
+
+    band_comm = ibzwfs.band_comm
 
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
@@ -124,22 +124,24 @@ def diagonalize(potential: Potential,
             dS_aii = [setup.dO_ii for setup in wfs.setups]
             assert isinstance(wfs, PWFDWaveFunctions)
             assert isinstance(wfs.pt_aiX, PWAtomCenteredFunctions)
-            H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
+            pw = wfs.psit_nX.desc
+            H_GG, S_GG = pw_matrix(pw,
                                    wfs.pt_aiX,
                                    dH_asii[:, wfs.spin],
                                    dS_aii,
                                    vt_sR[wfs.spin],
                                    dedtaut_sR[wfs.spin],
-                                   wfs.psit_nX.comm)
+                                   band_comm)
+
             eig_n = H_GG.eigh(S_GG, limit=nbands)
-            if eig_n[0] < -1000:
-                raise RuntimeError(
-                    f'Lowest eigenvalue is {eig_n[0]} Hartree. '
-                    'You might be suffering from MKL library bug MKLD-11440. '
-                    'See issue #241 in GPAW. '
-                    'Creashing to prevent corrupted results.')
-            psit_nG = wfs.psit_nX.desc.empty(nbands)
-            psit_nG.data[:nbands] = H_GG.data[:nbands].conj()
+            assert eig_n[0] > -1000, 'See issue #241'
+            psit_nG = pw.empty(nbands, comm=band_comm)
+            mynbands, nG = psit_nG.data.shape
+            maxmynbands = (nbands + band_comm.size - 1) // band_comm.size
+            C_nG = H_GG.new(
+                dist=(band_comm, band_comm.size, 1, maxmynbands, 1))
+            H_GG.redist(C_nG)
+            psit_nG.data[:] = C_nG.data[:mynbands]
             new_wfs = PWFDWaveFunctions(
                 psit_nG,
                 wfs.spin,
