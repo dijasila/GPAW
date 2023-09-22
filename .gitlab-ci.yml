@@ -80,10 +80,7 @@ stages:
   tags:
     - lumi
   rules:
-    - if: $GITLAB_USER_LOGIN == "jensj"
-    - if: $GITLAB_USER_LOGIN == "mikaelkuisma"
-    - if: $GITLAB_USER_LOGIN == "trossi"
-    - when: manual
+    - if: ($GITLAB_USER_LOGIN == "jensj" || $GITLAB_USER_LOGIN == "mikaelkuisma" || $GITLAB_USER_LOGIN == "trossi") && ($CI_PIPELINE_SOURCE == "push")
 
 
 .lumi-g-job:
