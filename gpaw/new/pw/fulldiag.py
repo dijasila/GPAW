@@ -76,7 +76,7 @@ def pw_matrix(pw: PWDesc,
                 x_R.fft(out=x_G)
                 H_GG.data[G - G1] += -0.5j * dv * G_Gv[:, v] * x_G.data
 
-    H_GG.add_to_diagonal(dv * pw.ekin_G)
+    H_GG.add_to_diagonal(dv * pw.ekin_G[G1:G2])
     S_GG.data[:] = 0.0
     S_GG.add_to_diagonal(dv)
 
@@ -155,11 +155,12 @@ def diagonalize(potential: Potential,
 
     new_ibzwfs = IBZWaveFunctions(
         ibzwfs.ibz,
-        ibzwfs.nelectrons,
-        ibzwfs.ncomponents,
-        wfs_qs,
-        ibzwfs.kpt_comm,
-        ibzwfs.comm)
+        nelectrons=ibzwfs.nelectrons,
+        ncomponents=ibzwfs.ncomponents,
+        wfs_qs=wfs_qs,
+        kpt_comm=ibzwfs.kpt_comm,
+        kpt_band_comm=ibzwfs.kpt_band_comm,
+        comm=ibzwfs.comm)
 
     new_ibzwfs.calculate_occs(occ_calc)
 

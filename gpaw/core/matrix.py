@@ -349,7 +349,7 @@ class Matrix:
             if S is not None:
                 S0 = S
                 S = S0.new(dist=dist)
-                self.redist(S)
+                S0.redist(S)
         else:
             assert self.dist.comm.size == slcomm.size
             H = self
