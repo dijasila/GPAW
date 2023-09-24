@@ -9,7 +9,7 @@ def test_inv(dtype):
     if world.size > 1 and dtype == float:
         pytest.skip('Not implemented')
 
-    N = 5
+    N = 15
     S0 = Matrix(N, N,
                 dist=(world, 1, 1),
                 dtype=dtype)
