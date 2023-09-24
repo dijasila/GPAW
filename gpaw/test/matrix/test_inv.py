@@ -19,7 +19,7 @@ def test_inv(dtype):
         if dtype == float:
             S0.data[-1, 0] = 0.1
         else:
-            pass#S0.data[-1, 0] = 0.1j
+            S0.data[-1, 0] = 0.1j
 
     S = S0.new(dist=(world, world.size, 1, 2))
     S0.redist(S)
@@ -29,8 +29,6 @@ def test_inv(dtype):
 
     S.tril2full()
     iS.tril2full()
-    print(S.data)
-    print(iS.data)
 
     A = S.multiply(iS)
     A.redist(S0)
