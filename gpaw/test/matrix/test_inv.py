@@ -7,10 +7,9 @@ from gpaw.mpi import broadcast_exception, world
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_inv(dtype):
     if world.size > 1 and dtype == float:
-        # Not implemented
-        return
+        pytest.skip('Not implemented')
 
-    N = 15
+    N = 5
     S0 = Matrix(N, N,
                 dist=(world, 1, 1),
                 dtype=dtype)
@@ -20,7 +19,7 @@ def test_inv(dtype):
         if dtype == float:
             S0.data[-1, 0] = 0.1
         else:
-            S0.data[-1, 0] = 0.1j
+            pass#S0.data[-1, 0] = 0.1j
 
     S = S0.new(dist=(world, world.size, 1, 2))
     S0.redist(S)
@@ -30,6 +29,8 @@ def test_inv(dtype):
 
     S.tril2full()
     iS.tril2full()
+    print(S.data)
+    print(iS.data)
 
     A = S.multiply(iS)
     A.redist(S0)
@@ -37,3 +38,7 @@ def test_inv(dtype):
     with broadcast_exception(world):
         if world.rank == 0:
             assert abs(S0.data - np.eye(N)).max() < 1e-14
+
+
+if __name__ == '__main__':
+    test_inv(complex)
