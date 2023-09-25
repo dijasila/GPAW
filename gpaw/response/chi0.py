@@ -168,23 +168,28 @@ class Chi0Integrand(Integrand):
 
 
 class Chi0Calculator:
-    def __init__(self, *args,
+    def __init__(self, kptpair_factory,
+                 context=None,
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        self.chi0_body_calc = Chi0BodyCalculator(
-            *args, eshift=eshift, **kwargs)
-        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
-            *args, intraband=intraband, rate=rate, **kwargs)
+        self.kptpair_factory = kptpair_factory
+        self.gs = kptpair_factory.gs
+        if context is None:
+            context = kptpair_factory.context
+        self.context = context
 
-        self.gs = self.chi0_body_calc.gs
-        self.context = self.chi0_body_calc.context
+        self.chi0_body_calc = Chi0BodyCalculator(
+            kptpair_factory, context=context,
+            eshift=eshift, **kwargs)
+        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
+            kptpair_factory, context=context,
+            intraband=intraband, rate=rate, **kwargs)
 
         # Attributes groped by other classes...
         # Oh the horror, there are many of these...
         # Remove these in the future XXX
-        self.kptpair_factory = self.chi0_body_calc.kptpair_factory
         self.integrator = self.chi0_body_calc.integrator
 
     @property
@@ -219,7 +224,9 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
 
-    def tmp_init(self, wd, *args,
+    def tmp_init(self, kptpair_factory,
+                 *,
+                 wd,
                  hilbert=True,
                  nbands=None,
                  timeordered=False,
@@ -228,7 +235,7 @@ class Chi0Calculator:
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
         """
-        self.base_ini(*args, **kwargs)
+        self.base_ini(kptpair_factory, **kwargs)
 
         if ecut is None:
             ecut = 50.0
