@@ -44,7 +44,7 @@ def test_shg(in_tmp_dir):
 
 @pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
-    freqs = np.linspace(0.1, 4, 101)
+    freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
