@@ -8,6 +8,25 @@ from ase.units import Ha, Bohr
 import gpaw.mpi as mpi
 
 
+
+class PAWDatasetCollection:
+    def __init__(self, setups):
+        by_species = {}
+        by_atom = []
+        id_by_atom = []
+
+        for atom_id, setup in enumerate(setups):
+            species_id = setups.id_a[atom_id]
+            if species_id not in by_species:
+                by_species[species_id] = PAWDataset(setup)
+            by_atom.append(by_species[species_id])
+            id_by_atom.append(species_id)
+
+        self.by_species = by_species
+        self.by_atom = by_atom
+        self.id_by_atom = id_by_atom
+
+
 class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
@@ -28,8 +47,10 @@ class ResponseGroundStateAdapter:
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
-        self.pawdatasets = {atom.index : PAWDataset(setup)
-                         for (atom, setup) in zip(self.atoms, calc.setups)}
+        #self.pawdatasets = {atom.index : PAWDataset(setup)
+        #                 for (atom, setup) in zip(self.atoms, calc.setups)}
+        # pawdataset_sequence = []
+        self.pawdatasets = PAWDatasetCollection(calc.setups)
 
         self.pbc = self.atoms.pbc
         self.volume = self.gd.volume

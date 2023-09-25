@@ -240,7 +240,7 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         -------
         micro_setup : MicroSetup
         """
-        pawdata = self.gs.pawdatasets[a]
+        pawdata = self.gs.pawdatasets.by_atom[a]
         # Radial grid descriptor:
         rgd = pawdata.xc_correction.rgd
         # Spherical harmonics on the Lebedev quadrature:

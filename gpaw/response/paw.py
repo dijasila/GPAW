@@ -64,7 +64,7 @@ class PWPAWCorrectionData:
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
-        assert len(Q_aGii) == len(pos_av) == len(pawdatasets)
+        assert len(Q_aGii) == len(pos_av) == len(pawdatasets.by_atom)
 
         self.Q_aGii = Q_aGii
 
@@ -80,7 +80,7 @@ class PWPAWCorrectionData:
         Q_aGii = []
         for a, Q_Gii in enumerate(self.Q_aGii):
             x_G = self._get_x_G(G_Gv, M_vv, self.pos_av[a])
-            U_ii = self.pawdatasets[a].R_sii[sym]
+            U_ii = self.pawdatasets.by_atom[a].R_sii[sym]
 
             Q_Gii = np.einsum('ij,kjl,ml->kim',
                               U_ii,
@@ -129,14 +129,15 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac):
 
     # Collect integrals for all species:
     Q_xGii = {}
-    for atom_index, pawdata in pawdatasets.items():
+    for species_index, pawdata in pawdatasets.by_species.items():
         Q_Gii = two_phi_planewave_integrals(qG_Gv, pawdata=pawdata)
         ni = pawdata.ni
-        Q_xGii[atom_index] = Q_Gii.reshape(-1, ni, ni)
+        Q_xGii[species_index] = Q_Gii.reshape(-1, ni, ni)
 
     Q_aGii = []
-    for atom_index, pawdata in pawdatasets.items():
-        Q_Gii = Q_xGii[atom_index]
+    for atom_index, pawdata in enumerate(pawdatasets.by_atom):
+        species_index = pawdatasets.id_by_atom[atom_index]
+        Q_Gii = Q_xGii[species_index]
         x_G = np.exp(-1j * (qG_Gv @ pos_av[atom_index]))
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
