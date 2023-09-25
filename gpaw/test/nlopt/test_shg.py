@@ -44,13 +44,14 @@ def test_shg(in_tmp_dir):
 
 @pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
-    freqs = np.linspace(2, 4, 101)
+    freqs = np.linspace(0.1, 4, 101)
     shg_xyz = {}
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
         # Get nlodata from pre-calculated SiC fixtures
-        make_nlodata(gpw_files[f'sic_pw{tag}'], out_name=f'mml{tag}.npz')
+        calc = gpw_files[f'sic_pw{tag}']
+        make_nlodata(calc, out_name=f'mml{tag}.npz')
         world.barrier()
 
         # Calculate 'xyz' tensor element of SHG spectra
@@ -83,3 +84,29 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
         np.max(np.abs(shg_xyz_rerr_real))
     assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-2), \
         np.max(np.abs(shg_xyz_rerr_imag))
+
+@pytest.mark.later
+def test_shg_hBN(gpw_files, in_tmp_dir):
+    truth = np.array([ -498.32624277  -69.02559975j,  -652.74329198 -122.25657802j,
+                       -939.87916222 -269.17682137j, -1539.46588908 -919.4495916j,
+                       391.40378777-3400.02524452j,  1408.14833639 -749.79781681j,
+                       859.34871229 -237.75920108j,   597.45469429 -112.27235265j,
+                       453.42533737  -64.8513409j,    363.29204261  -42.20753326j])
+    freqs = np.linspace(2, 2.4, 10)
+
+    # Get nlodata from pre-calculated SiC fixtures
+    calc = gpw_files['hbn_pw_nsym']
+    make_nlodata(calc, out_name=f'mml.npz')
+    world.barrier()
+
+    # Calculate 'xyz' tensor element of SHG spectra
+    get_shg(freqs=freqs, eta=0.025, pol='xyz',
+            out_name=f'shg_xyz.npy',
+            mml_name=f'mml.npz')
+    world.barrier()
+
+    # Load the calculated SHG spectra (in units of nm/V)
+    shg_xyz = np.load(f'shg_xyz.npy')[1] * 1e15
+
+    assert shg_xyz.real == pytest.approx(truth.real, abs=1e-8)
+    assert shg_xyz.imag == pytest.approx(truth.imag, abs=1e-8)
