@@ -4,8 +4,10 @@ from types import SimpleNamespace
 import numpy as np
 
 from ase.units import Ha, Bohr
+from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
+from gpaw.ibz2bz import IBZ2BZMaps
 
 
 
@@ -18,7 +20,7 @@ class PAWDatasetCollection:
         for atom_id, setup in enumerate(setups):
             species_id = setups.id_a[atom_id]
             if species_id not in by_species:
-                by_species[species_id] = PAWDataset(setup)
+                by_species[species_id] = ResponsePAWDataset(setup)
             by_atom.append(by_species[species_id])
             id_by_atom.append(species_id)
 
@@ -31,6 +33,7 @@ class ResponseGroundStateAdapter:
     def __init__(self, calc):
         wfs = calc.wfs
 
+        self.atoms = calc.atoms
         self.kd = wfs.kd
         self.world = calc.world
         self.gd = wfs.gd
@@ -43,13 +46,9 @@ class ResponseGroundStateAdapter:
 
         self.kpt_u = wfs.kpt_u
         self.kpt_qs = wfs.kpt_qs
-        #self.setups = wfs.setups
 
         self.fermi_level = wfs.fermi_level
         self.atoms = calc.atoms
-        #self.pawdatasets = {atom.index : PAWDataset(setup)
-        #                 for (atom, setup) in zip(self.atoms, calc.setups)}
-        # pawdataset_sequence = []
         self.pawdatasets = PAWDatasetCollection(calc.setups)
 
         self.pbc = self.atoms.pbc
@@ -57,13 +56,15 @@ class ResponseGroundStateAdapter:
 
         self.nvalence = wfs.nvalence
 
+        self.ibz2bz = IBZ2BZMaps.from_calculator(calc)
+
         self._wfs = wfs
         self._density = calc.density
         self._hamiltonian = calc.hamiltonian
         self._calc = calc
 
-    @staticmethod
-    def from_gpw_file(gpw, context):
+    @classmethod
+    def from_gpw_file(cls, gpw, context):
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -74,7 +75,7 @@ class ResponseGroundStateAdapter:
             with disable_dry_run():
                 calc = GPAW(gpw, txt=None, communicator=mpi.serial_comm)
 
-        return ResponseGroundStateAdapter(calc)
+        return cls(calc)
 
     @property
     def pd(self):
@@ -82,6 +83,23 @@ class ResponseGroundStateAdapter:
         # We need to abstract away "calc" in all places used by response
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
+
+    @lazyproperty
+    def global_pd(self):
+        """Get a PWDescriptor that includes all k-points.
+
+        In particular, this is necessary to allow all cores to be able to work
+        on all k-points in the case where calc is parallelized over k-points,
+        see gpaw.response.kspair
+        """
+        from gpaw.pw.descriptor import PWDescriptor
+
+        assert self.gd.comm.size == 1
+        kd = self.kd.copy()  # global KPointDescriptor without a comm
+        return PWDescriptor(self.pd.ecut, self.gd,
+                            dtype=self.pd.dtype,
+                            kd=kd, fftwflags=self.pd.fftwflags,
+                            gammacentered=self.pd.gammacentered)
 
     def get_occupations_width(self):
         # Ugly hack only used by pair.intraband_pair_density I think.
@@ -114,6 +132,16 @@ class ResponseGroundStateAdapter:
             self._density.interpolate_pseudo_density()
         return self._density.nt_sg
 
+    @lazyproperty
+    def n_sR(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=1)[0]
+
+    @lazyproperty
+    def n_sr(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=2)[0]
+
     @property
     def D_asp(self):
         # Used by fxc_kernels
@@ -130,8 +158,12 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=gridrefinement)
+        if gridrefinement == 1:
+            return self.n_sR, self.gd
+        elif gridrefinement == 2:
+            return self.n_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
 
     # Things used by EXX.  This is getting pretty involved.
     #
@@ -185,7 +217,13 @@ class ResponseGroundStateAdapter:
     def pair_density_paw_corrections(self, qpd):
         from gpaw.response.paw import get_pair_density_paw_corrections
         return get_pair_density_paw_corrections(
-            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac)
+            pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac,
+            atomrotations=self.atomrotations)
+
+    def matrix_element_paw_corrections(self, qpd, rshe_a):
+        from gpaw.response.paw import get_matrix_element_paw_corrections
+        return get_matrix_element_paw_corrections(
+            qpd, self.pawdatasets, rshe_a, self.spos_ac)
 
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
@@ -216,25 +254,47 @@ class ResponseGroundStateAdapter:
 
         return ibzq_qc
 
-# Contains relevant information from Setups class for response calculators
-class PAWDataset:
+    def get_ibz_vertices(self):
+        # For the tetrahedron method in Chi0
+        from gpaw.bztools import get_bz
+        # NB: We are ignoring the pbc_c keyword to get_bz() in order to mimic
+        # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
+        _, ibz_vertices_kc = get_bz(self._calc)
+        return ibz_vertices_kc
+
+    def get_aug_radii(self):
+        return np.array([max(pawdata.rcut_j)
+                         for pawdata in self.pawdatasets.by_atom])
+
+    @lazyproperty
+    def micro_setups(self):
+        from gpaw.response.localft import extract_micro_setup
+        micro_setups = []
+        for a, pawdata in enumerate(self.pawdatasets.by_atom):
+            micro_setups.append(extract_micro_setup(pawdata, self.D_asp[a]))
+        return micro_setups
+
+    @property
+    def atomrotations(self):
+        return self._wfs.setups.atomrotations
+
+
+# Contains all the relevant information
+# from Setups class for response calculators
+class ResponsePAWDataset:
     def __init__(self, setup):
         self.ni = setup.ni
         self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
         self.l_j = setup.l_j
         self.lq = setup.lq
-        self.R_sii = setup.R_sii
         self.nabla_iiv = setup.nabla_iiv
-        self.data = SimpleNamespace(phi_jg = setup.data.phi_jg,
-                                    phit_jg = setup.data.phit_jg)
-        self.xc_correction = SimpleNamespace(rgd = setup.xc_correction.rgd,
-                                             Y_nL = setup.xc_correction.Y_nL,
-                                             n_qg = setup.xc_correction.n_qg,
-                                             nt_qg = setup.xc_correction.nt_qg,
-                                             nc_g = setup.xc_correction.nc_g,
-                                             nct_g = setup.xc_correction.nct_g,
-                                             nc_corehole_g=setup.xc_correction.nc_corehole_g,
-                                             B_pqL = setup.xc_correction.B_pqL,
-                                             e_xc0 = setup.xc_correction.e_xc0)
+        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
+                                    phit_jg=setup.data.phit_jg)
+        self.xc_correction = SimpleNamespace(
+            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+            nc_corehole_g=setup.xc_correction.nc_corehole_g,
+            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
         self.hubbard_u = setup.hubbard_u

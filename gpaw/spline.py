@@ -48,6 +48,7 @@ class Spline:
         return self.spline(r)
 
     def map(self, r_x):
+        """Map f(r) onto a given radial grid."""
         return np.vectorize(self, [float])(r_x)
 
     def get_functions(self, gd, start_c, end_c, spos_c):

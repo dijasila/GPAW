@@ -1,8 +1,13 @@
-import gpaw.gpu.cpupy.cublas as cublas
-import gpaw.gpu.cpupy.linalg as linalg
+from types import SimpleNamespace
+
 import numpy as np
 
-__all__ = ['linalg', 'cublas']
+import gpaw.gpu.cpupy.cublas as cublas
+import gpaw.gpu.cpupy.fft as fft
+import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.random as random
+
+__all__ = ['linalg', 'cublas', 'fft', 'random']
 
 
 def empty(*args, **kwargs):
@@ -34,8 +39,8 @@ def asarray(a):
     return ndarray(np.array(a))
 
 
-def array(a):
-    return ndarray(np.array(a))
+def array(a, dtype=None):
+    return ndarray(np.array(a, dtype))
 
 
 def multiply(a, b, c):
@@ -74,21 +79,39 @@ def triu_indices(n, k=0, m=None):
     return ndarray(i), ndarray(j)
 
 
+def tri(n, k=0, dtype=float):
+    return ndarray(np.tri(n, k=k, dtype=dtype))
+
+
+def moveaxis(a, source, destination):
+    return ndarray(np.moveaxis(a._data, source, destination))
+
+
+def vdot(a, b):
+    return np.vdot(a._data, b._data)
+
+
 def fuse():
     return lambda func: func
 
 
 class ndarray:
     def __init__(self, data):
-        if isinstance(data, (float, complex, int, bool, np.bool_)):
-            data = np.array(data)
+        if isinstance(data, (float, complex, int, np.int32, np.int64,
+                             np.bool_)):
+            data = np.asarray(data)
         assert isinstance(data, np.ndarray), type(data)
         self._data = data
-        self.shape = data.shape
         self.dtype = data.dtype
         self.size = data.size
         self.flags = data.flags
         self.ndim = data.ndim
+        self.nbytes = data.nbytes
+        self.data = SimpleNamespace(ptr=data.ctypes.data)
+
+    @property
+    def shape(self):
+        return self._data.shape
 
     @property
     def T(self):
@@ -102,6 +125,12 @@ class ndarray:
     def imag(self):
         return ndarray(self._data.imag)
 
+    def set(self, a):
+        if self.ndim == 0:
+            self._data.fill(a)
+        else:
+            self._data[:] = a
+
     def get(self):
         return self._data.copy()
 
@@ -114,11 +143,17 @@ class ndarray:
     def sum(self, **kwargs):
         return ndarray(self._data.sum(**kwargs))
 
+    def __repr__(self):
+        return 'cp.' + np.array_repr(self._data)
+
     def __len__(self):
         return len(self._data)
 
     def __bool__(self):
         return bool(self._data)
+
+    def __float__(self):
+        return self._data.__float__()
 
     def __iter__(self):
         for data in self._data:
@@ -137,7 +172,7 @@ class ndarray:
         if isinstance(value, ndarray):
             self._data[index] = value._data
         else:
-            assert isinstance(value, (float, complex))
+            assert isinstance(value, (float, int, complex))
             self._data[index] = value
 
     def __getitem__(self, index):
@@ -150,6 +185,8 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
+        if isinstance(other, (float, complex, int)):
+            return self._data == other
         return ndarray(self._data == other._data)
 
     def __mul__(self, f):
@@ -176,7 +213,17 @@ class ndarray:
         return ndarray(self._data**i)
 
     def __add__(self, f):
+        if isinstance(f, (float, int, complex)):
+            return ndarray(f + self._data)
         return ndarray(f._data + self._data)
+
+    def __sub__(self, f):
+        if isinstance(f, float):
+            return ndarray(self._data - f)
+        return ndarray(self._data - f._data)
+
+    def __rsub__(self, f):
+        return ndarray(f - self._data)
 
     def __radd__(self, f):
         return ndarray(f + self._data)
@@ -185,11 +232,17 @@ class ndarray:
         return ndarray(f / self._data)
 
     def __iadd__(self, other):
-        self._data += other._data
+        if isinstance(other, float):
+            self._data += other
+        else:
+            self._data += other._data
         return self
 
     def __isub__(self, other):
-        self._data -= other._data
+        if isinstance(other, float):
+            self._data -= other
+        else:
+            self._data -= other._data
         return self
 
     def __matmul__(self, other):
@@ -209,3 +262,9 @@ class ndarray:
 
     def item(self):
         return self._data.item()
+
+    def trace(self, offset, axis1, axis2):
+        return ndarray(self._data.trace(offset, axis1, axis2))
+
+    def fill(self, val):
+        self._data.fill(val)

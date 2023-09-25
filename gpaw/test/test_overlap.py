@@ -18,6 +18,16 @@ of Kohn-Sham states.
 
 @pytest.mark.later
 def test_overlap(in_tmp_dir):
+
+    def get_kwargs(nbands, **kwargs) -> dict:
+        base_kwargs = dict(
+            mode='fd',
+            h=h,
+            txt=txt,
+            nbands=nbands,
+            convergence={'eigenstates': nbands})
+        return dict(base_kwargs, **kwargs)
+
     h = 0.4
     box = 2
     nbands = 4
@@ -27,8 +37,7 @@ def test_overlap(in_tmp_dir):
     H2 = Cluster(molecule('H2'))
     H2.minimal_box(box, h)
 
-    c1 = GPAW(h=h, txt=txt, eigensolver='dav', nbands=nbands,
-              convergence={'eigenstates': nbands})
+    c1 = GPAW(**get_kwargs(eigensolver='dav', nbands=nbands))
     c1.calculate(H2)
     lr1 = LrTDDFT(c1)
 
@@ -54,15 +63,14 @@ def test_overlap(in_tmp_dir):
         parprint('LrTDDFT overlap:\n', ovlr)
 
     parprint('cg --------')
-    c2 = GPAW(h=h, txt=txt, eigensolver='cg', nbands=nbands + 1,
-              convergence={'eigenstates': nbands + 1})
+    c2 = GPAW(**get_kwargs(eigensolver='cg', nbands=nbands + 1))
     show(c2)
 
     parprint('spin --------')
     H2.set_initial_magnetic_moments([1, -1])
-    c2 = GPAW(h=h, txt=txt, spinpol=True, nbands=nbands + 1,
-              parallel={'domain': world.size},
-              convergence={'eigenstates': nbands + 1})
+    c2 = GPAW(
+        **get_kwargs(
+            spinpol=True, nbands=nbands + 1, parallel={'domain': world.size}))
     H2.set_initial_magnetic_moments([0, 0])
     try:
         show(c2)
@@ -75,13 +83,9 @@ def test_overlap(in_tmp_dir):
     parprint('k-points --------')
 
     H2.set_pbc([1, 1, 1])
-    c1 = GPAW(h=h, txt=txt, nbands=nbands,
-              kpts=(1, 1, 3),
-              convergence={'eigenstates': nbands})
+    c1 = GPAW(**get_kwargs(nbands=nbands, kpts=(1, 1, 3)))
     c1.calculate(H2)
-    c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
-              kpts=(1, 1, 3),
-              convergence={'eigenstates': nbands + 1})
+    c2 = GPAW(**get_kwargs(nbands=nbands + 1, kpts=(1, 1, 3)))
     try:
         show(c2)
     except (AssertionError, IndexError) as e:

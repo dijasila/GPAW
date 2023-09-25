@@ -1,5 +1,4 @@
 from math import pi
-
 import numpy as np
 
 from gpaw.density import Density
@@ -23,7 +22,6 @@ class ReciprocalSpaceDensity(Density):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
-
         ecut0 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
         ecut = min(ecut, ecut0)
         self.pd2 = PWDescriptor(ecut, gd)

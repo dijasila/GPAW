@@ -8,20 +8,17 @@ a = afcc * 2**(-1 / 3)   # Assuming the same volume per atom
 a = afcc * (2 / 3)**0.5  # Assuming the same nearest neighbor distance
 
 bcc = bulk('Al', 'bcc', a=a)
-bcc.calc = GPAW()
 
 # Convergence with respect to k-points:
-bcc.calc.set(mode=PW(300), txt='Al-bcc-k.txt')
-
 for k in [4, 6, 8, 10]:
-    bcc.calc.set(kpts=(k, k, k))
+    bcc.calc = GPAW(mode=PW(300), kpts=(k, k, k),
+                    txt=f'Al-bcc-k{k}.txt')
     print(k, bcc.get_potential_energy())
 
 # Convergence with respect to grid spacing:
-bcc.calc.set(kpts=(8, 8, 8), txt='Al-bcc-ecut.txt')
-
 for ecut in [200, 300, 400, 500]:
-    bcc.calc.set(mode=PW(ecut))
+    bcc.calc = GPAW(mode=PW(ecut), kpts=(8, 8, 8),
+                    txt=f'Al-bcc-ecut{ecut}.txt')
     print(ecut, bcc.get_potential_energy())
 
 # Set parameters to reasonably converged values

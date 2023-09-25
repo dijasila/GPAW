@@ -23,7 +23,7 @@ def get_H2(calculator=None):
 
 @pytest.mark.lrtddft
 def test_io(in_tmp_dir):
-    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3})
     assert len(exlst) == 3
@@ -47,7 +47,7 @@ def test_io(in_tmp_dir):
 
 @pytest.mark.lrtddft
 def test_invocation():
-    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
+    calc = GPAW(xc='PBE', mode='fd', h=0.25, nbands=5, txt=None)
     H2 = get_H2(calc)
     exlst = LrTDDFT(restrict={'eps': 0.4, 'jend': 3}, txt=None)
     exlst.calculate(H2)

@@ -68,7 +68,8 @@ Example usage
 First we do a standard ground-state calculation with the ``GPAW`` calculator:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 3-22
+   :start-after: P1
+   :end-before: P2
 
 Some important points are:
 
@@ -89,16 +90,21 @@ Some important points are:
   in order to guarantee the convergence of the potential with respect to
   the vacuum size.
   See the documentation on :ref:`advancedpoisson`.
+* Point group symmetries are disabled in TDDFT, since the symmetry is
+  broken by the time-dependent potential. In GPAW versions starting from
+  23.9.0, the TDDFT calculation will refuse to start if the ground state
+  has been converged with point group symmetries enabled.
 
 Next we kick the system in the z direction and propagate 3000 steps of 10 as:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 24-36
+   :start-after: P2
+   :end-before: P3
 
 After the time propagation, the spectrum can be calculated:
 
 .. literalinclude:: lcaotddft.py
-   :lines: 38-40
+   :start-after: P3
 
 This example input script can be downloaded :download:`here <lcaotddft.py>`.
 

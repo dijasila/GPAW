@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 import numpy as np
-from gpaw.core.uniform_grid import UniformGridFunctions
-from gpaw.new import zip
+from gpaw.core.uniform_grid import UGArray
+from gpaw.new import zips
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.typing import Array2D, Array3D
@@ -45,7 +45,7 @@ class TCIDerivatives:
             self._derivatives_q = {
                 q: (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
                 for q, (dThetadR_vMM, dTdR_vMM, dPdR_avMi)
-                in enumerate(zip(dThetadR_qvMM, dTdR_qvMM, dPdR_qavMi))}
+                in enumerate(zips(dThetadR_qvMM, dTdR_qvMM, dPdR_qavMi))}
 
         return self._derivatives_q[q]
 
@@ -108,7 +108,7 @@ def add_kinetic_term(rhoT_MM, dTdR_vMM, F_av, indices):
                                     rhoT_MM[:, M1:M2]).real
 
 
-def add_pot_term(vt_R: UniformGridFunctions,
+def add_pot_term(vt_R: UGArray,
                  basis,
                  q: int,
                  rhoT_MM,

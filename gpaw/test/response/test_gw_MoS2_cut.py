@@ -22,10 +22,10 @@ def gpwfile(in_tmp_dir):
 
     cell = Hexagonal(symbol='Mo',
                      latticeconstant={'a': a, 'c': c}).get_cell()
-    layer = Atoms(symbols='MoS2', cell=cell, pbc=True,
-                  scaled_positions=[(0, 0, 0),
-                                    (2 / 3, 1 / 3, 0.3),
-                                    (2 / 3, 1 / 3, -0.3)])
+    layer = Atoms(symbols='MoS2', cell=cell, pbc=[True, True, False],
+                  scaled_positions=[(0, 0, 0.5),
+                                    (2 / 3, 1 / 3, 0.3 + 0.5),
+                                    (2 / 3, 1 / 3, -0.3 + 0.5)])
 
     pos = layer.get_positions()
     pos[1][2] = pos[0][2] + 3.172 / 2
@@ -39,7 +39,7 @@ def gpwfile(in_tmp_dir):
 
 
 @pytest.mark.response
-def test_response_gw_MoS2_cut(scalapack, gpwfile):
+def test_response_gw_MoS2_cut(scalapack, gpwfile, needs_ase_master):
     gw = G0W0(gpwfile,
               'gw-test',
               nbands=15,

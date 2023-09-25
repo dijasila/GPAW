@@ -48,6 +48,7 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3.10', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://numpy.org/doc/stable', None),
+    'cupy': ('https://docs.cupy.dev/en/stable', None),
     'scipy': ('https://docs.scipy.org/doc/scipy', None),
     'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
@@ -59,7 +60,7 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
                   ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup'),
-                  ('py:class', 'UniformGridFunctions'),
+                  ('py:class', 'UGArray'),
                   ('py:class', 'gpaw.core.arrays.DomainType'),
                   ('py:class', 'DomainType'),
                   ('py:class', 'Path'),
@@ -74,8 +75,8 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'numpy._typing._dtype_like._DTypeDict'),
                   ('py:class', 'DTypeLike'),
                   ('py:class', 'ModuleType'),
-                  ('py:class', 'IO')]
-
+                  ('py:class', 'IO'),
+                  ('py:class', 'gpaw.gpu.cpupy.ndarray')]
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_style = 'gpaw.css'

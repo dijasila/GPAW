@@ -1,18 +1,20 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
-
+  OMP_NUM_THREADS: "1"
 
 default:
   before_script:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
     - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
 
 
 stages:
   - build
+  - precalculate
   - test
 
 
@@ -23,12 +25,14 @@ stages:
     - pip install --user --no-deps git+https://gitlab.com/ase/ase.git@master
     - |
       cat << EOF > siteconfig.py
-      mpicompiler = 'mpicc'
+      parallel_python_interpreter = True
+      mpi = True
+      compiler = 'mpicc'
       libraries = []
       library_dirs = []
       include_dirs = []
-      extra_compile_args = ['-O3',
-                            '-fPIC',
+      extra_compile_args = ['-fPIC',
+                            '-O3',
                             '-g',
                             '-fopenmp',
                             '-Wall',
@@ -45,9 +49,9 @@ stages:
       libraries += ['scalapack-openmpi']
 
       libraries += ['xc']
-
       EOF
   artifacts:
+    when: always
     paths:
       - $PYTHONUSERBASE
       - gpaw.egg-info
@@ -60,8 +64,6 @@ stages:
   stage: test
   before_script:
     - !reference [default, before_script]
-    - export PYTEST_ADDOPTS="--color=yes"
-
 
 .gpu-job:
   rules:
@@ -75,13 +77,10 @@ build:
   tags:
     - linux
   script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
+    - gpaw-python -m gpaw info
 
 
 build-latest:
@@ -92,27 +91,15 @@ build-latest:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
+      define_macros += [('NDEBUG', None)]
+      undef_macros = []
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      extra_compile_args += ['-Wno-deprecated-declarations']
       EOF
     - cat siteconfig.py
     - pip install --user --upgrade numpy scipy
     - pip install --user --log build.log --editable .
     - gpaw -P 1 info
-
-
-build-gpaw-python:
-  image: $IMAGE_PATH/build:oldest
-  extends: .build
-  tags:
-    - linux
-  script:
-    - |
-      cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-      parallel_python_interpreter = True
-      EOF
-    - cat siteconfig.py
-    - pip install --user --log build.log --editable .
     - gpaw-python -m gpaw info
 
 
@@ -126,10 +113,40 @@ build-cuda:
   script:
     - |
       cat << EOF >> siteconfig.py
-      cuda = True
+      gpu = True
+      gpu_target = 'cuda'
       gpu_compiler = 'nvcc'
-      gpu_compile_args = ['-g', '-O3', '-gencode arch=compute_60,code=sm_60']
+      gpu_compile_args = ['-O3',
+                          '-g']
       libraries += ['cudart', 'cublas']
+      undef_macros += ['GPAW_GPU_AWARE_MPI']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+
+
+build-hip-cuda:
+  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'hip-cuda'
+      gpu_compiler = 'hipcc'
+      gpu_compile_args = ['-O3',
+                          '-g']
+      libraries += ['cudart', 'hipblas']
+
+      # Suppress warnings from hip-cuda headers
+      extra_compile_args += ['-Wno-deprecated-declarations',
+                             '-Wno-implicit-int',
+                             ]
+      undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
@@ -143,12 +160,13 @@ build-minimal:
   script:
     - |
       cat << EOF > siteconfig.py
+      mpi = False
       noblas = True
       nolibxc = True
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
-    - gpaw -P 1 info
+    - gpaw info
 
 
 prepare-libxc:
@@ -161,7 +179,7 @@ prepare-libxc:
   before_script:
     - export PREFIX=`realpath $PREFIX`
   script:
-    - git clone -b 6.1.0 https://gitlab.com/libxc/libxc.git
+    - git clone -b 6.2.2 https://gitlab.com/libxc/libxc.git
     - cd libxc
     - autoreconf -i
     - >
@@ -190,13 +208,10 @@ build-libxc:
   script:
     - |
       cat << EOF >> siteconfig.py
-      extra_compile_args += ['-std=c99']
-
       local = Path('.local').resolve()
-      lib = local / 'lib'
-      library_dirs += [lib]
       include_dirs += [local / 'include']
-      extra_link_args += [f'-Wl,-rpath={lib}']
+      library_dirs += [local / 'lib']
+      runtime_library_dirs += [local / 'lib']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
@@ -214,6 +229,15 @@ test:
   script:
     - gpaw info
     - OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+  # This is the only test which uses OpenMP.
+  # We may want to identify a limited set of tests that must work
+  # with OpenMP, but so far we just have it in this job.
+
+    - gpaw-python -m gpaw info
+    - >
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      -We -Wi::ImportWarning
+      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
 test-latest:
@@ -236,29 +260,32 @@ test-latest:
       EOF
 
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci
+      pytest -v -m ci -m gpu
       -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
+    - gpaw-python -m gpaw info
+    - >
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      -We -Wi::ImportWarning
   artifacts:
     paths:
       - htmlcov/
     expire_in: 1 week
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
-test-gpaw-python:
-  image: $IMAGE_PATH/run:oldest
+
+test-latest-new:
+  image: $IMAGE_PATH/run:latest
   extends:
     - .test
   needs:
-    - build-gpaw-python
+    - build-latest
   tags:
     - linux
   script:
-    - gpaw-python -m gpaw info
-    - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+    - gpaw info
+    - GPAW_NEW=1 pytest -v -m "ci and not later"
 
 
 test-minimal:
@@ -281,6 +308,39 @@ test-cuda:
     - .gpu-job
   needs:
     - build-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
+
+    - gpaw-python -m gpaw info
+    - gpaw-python -m pytest -v -m gpu
+
+test-cuda-mpi:
+  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-cuda
+  tags:
+    - cuda-mpi
+  script:
+    - nvidia-smi
+    - gpaw info
+    - mpirun -np 2 gpaw-python -m pytest -v -m gpu
+    - mpirun -np 4 gpaw-python -m pytest -v -m gpu
+
+
+test-hip-cuda:
+  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-hip-cuda
   tags:
     - cuda
   script:
@@ -315,7 +375,7 @@ check-agts:
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
     - >
-      [[ `cut -d ' ' -f1 < task_count` -ge 479 ]] || (echo "Too few agts tasks"; exit 1)
+      [[ `cut -d ' ' -f1 < task_count` -ge 501 ]] || (echo "Too few agts tasks"; exit 1)
 
 
 lint:
@@ -364,8 +424,8 @@ typecheck:
   script:
     - pip install mypy types-PyYAML
     - python --version
-    - python -m mypy --version
-    - python -m mypy -p gpaw
+    - mypy --version
+    - mypy --pretty
 
 
 docs:
@@ -385,3 +445,95 @@ docs:
   artifacts:
     paths:
       - doc/build/html
+    expire_in: 1 week
+
+
+gpwfiles:
+  image: $IMAGE_PATH/run:latest
+  extends:
+    - .test
+  needs:
+    - build-latest
+  stage: precalculate
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
+  script:
+    - pytest -n 8 -m generate_gpw_files
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #    when: never
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+
+.nightly:
+  image: $IMAGE_PATH/run:latest
+  variables:
+    GPAW_MPI_NPROCS: "1"
+  extends:
+    - .test
+  stage: test
+  needs:
+    - build-latest
+    - gpwfiles
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
+  script:
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+
+nightly-mpi-1:
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest --cache-show
+    - pytest -n 4 --instafail -r s --durations 30
+
+
+nightly-mpi-1-new:
+  variables:
+    GPAW_NEW: "1"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      pytest -n 4 --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
+
+
+nightly-mpi-2:
+  variables:
+    GPAW_MPI_NPROCS: "2"
+  extends:
+    - .nightly
+
+
+nightly-mpi-4:
+  variables:
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+
+
+nightly-mpi-8:
+  variables:
+    GPAW_MPI_NPROCS: "8"
+  extends:
+    - .nightly
