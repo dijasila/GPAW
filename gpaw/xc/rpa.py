@@ -208,7 +208,7 @@ class RPACalculator:
                                   hilbert=False,
                                   ecut=ecutmax * Hartree)
 
-        self.blockcomm = chi0calc.integrator.blockcomm
+        self.blockcomm = chi0calc.chi0_body_calc.integrator.blockcomm
 
         energy_qi = []
         nq = len(energy_qi)
@@ -253,7 +253,7 @@ class RPACalculator:
                 energy_i.append(energy)
                 m1 = m2
 
-                a = 1 / chi0calc.integrator.kncomm.size
+                a = 1 / chi0calc.chi0_body_calc.integrator.kncomm.size
                 if ecut < ecutmax and a != 1.0:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:

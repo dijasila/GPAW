@@ -187,11 +187,6 @@ class Chi0Calculator:
             kptpair_factory, context=context,
             intraband=intraband, rate=rate, **kwargs)
 
-        # Attributes groped by other classes...
-        # Oh the horror, there are many of these...
-        # Remove these in the future XXX
-        self.integrator = self.chi0_body_calc.integrator
-
     @property
     def nblocks(self):
         return self.kptpair_factory.nblocks

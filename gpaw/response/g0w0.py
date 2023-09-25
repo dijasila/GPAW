@@ -738,7 +738,7 @@ class G0W0Calculator:
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.wd)
 
-        size = self.chi0calc.integrator.blockcomm.size
+        size = self.chi0calc.chi0_body_calc.integrator.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size

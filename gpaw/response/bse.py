@@ -475,7 +475,7 @@ class BSEBackend:
             hilbert=False,
             nbands=self.nbands)
 
-        self.blockcomm = self._chi0calc.integrator.blockcomm
+        self.blockcomm = self._chi0calc.chi0_body_calc.integrator.blockcomm
 
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
