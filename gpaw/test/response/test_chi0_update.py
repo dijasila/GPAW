@@ -55,11 +55,11 @@ def test_si_update_consistency(in_tmp_dir):
     chi0_steps = chi0.create_chi0(q_c)
     spins = range(gs.nspins)
     # Add chi0 contribution from all the unoccupied bands
-    chi0.update_chi0(chi0_full, gs.nocc1, chi0.nbands, spins)
+    chi0.update_chi0(chi0_full, gs.nocc1, nbands, spins)
     # Add chi0 contribution from *some* of the unoccupied bands
     chi0.update_chi0(chi0_steps, gs.nocc1, intermediate_m, spins)
     # Add chi0 contribution from the remaining unoccupied bands
-    chi0.update_chi0(chi0_steps, intermediate_m, chi0.nbands, spins)
+    chi0.update_chi0(chi0_steps, intermediate_m, nbands, spins)
 
     # Compare the output chi0 body
     assert chi0_steps.chi0_WgG == pytest.approx(chi0_full.chi0_WgG,
