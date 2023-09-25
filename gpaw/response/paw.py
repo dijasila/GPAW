@@ -443,28 +443,6 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
         Qbar_Gii = Qbar_xGii[species_index]
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)
 
-#<<<<<<< HEAD
-#    for species_index, pawdata in pawdatasets.by_species.items():
-#        Q_Gii = two_phi_planewave_integrals(qG_Gv, pawdata=pawdata)
-#        ni = pawdata.ni
-#        Q_xGii[species_index] = Q_Gii.reshape(-1, ni, ni)
-
-#    Q_aGii = []
-#    for atom_index, pawdata in enumerate(pawdatasets.by_atom):
-#        species_index = pawdatasets.id_by_atom[atom_index]
-#        Q_Gii = Q_xGii[species_index]
-#        x_G = np.exp(-1j * (qG_Gv @ pos_av[atom_index]))
-#        Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
-#=======
-#    Q_aGii = []
-#    for pawdata, pos_v in zip(pawdatasets, pos_av):
-#        # Calculate atom-centered correction tensor
-#        Qbar_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
-#        # Add dependency on the atomic position (phase factor)
-#        x_G = np.exp(-1j * (qG_Gv @ pos_v))
-#        Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)
-#>>>>>>> master
-
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
                                pawdatasets=pawdatasets,
                                pos_av=pos_av,
