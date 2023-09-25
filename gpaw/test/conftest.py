@@ -817,9 +817,7 @@ class GPWFiles:
         return atoms.calc
 
     def _hbn_pw(self, symmetry):
-        
-        tag = 'point_group' if symmetry else ''
-        
+        tag = 'pg' if symmetry else ''
         atoms = Graphene(symbol='B',
                          latticeconstant={'a': 2.5, 'c': 1.0},
                          size=(1, 1, 1))
@@ -833,19 +831,19 @@ class GPWFiles:
                           symmetry=symmetry,
                           parallel={'domain': 1},
                           convergence={'bands': 26},
-                          txt=self.path / 'hbn{tag}.txt',
+                          txt=self.path / f'hbn{tag}.txt',
                           kpts={'size': (3, 3, 1), 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
 
     @gpwfile
     def hbn_pw_nsym(self):
-        symmetry={'point_group': False}
+        symmetry = {'point_group': False}
         return self._hbn_pw(symmetry)
 
     @gpwfile
     def hbn_pw(self):
-        symmetry={}
+        symmetry = {}
         return self._hbn_pw(symmetry)
 
     @gpwfile

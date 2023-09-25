@@ -7,7 +7,7 @@ from ase.utils.timing import Timer
 
 from gpaw.new.ase_interface import GPAW
 from gpaw.fd_operators import Gradient
-from gpaw.mpi import world, broadcast, serial_comm
+from gpaw.mpi import world, serial_comm
 from gpaw.utilities.progressbar import ProgressBar
 
 
@@ -22,8 +22,6 @@ def get_mml(calc, spin=0, ni=None, nf=None, timer=None):
     Output:
         p_kvnn2         A big array in master
     """
-
-    state = calc.calculation.state
 
     # Start the timer
     if timer is None:
@@ -228,8 +226,7 @@ def _make_nlodata(calc,
     with timer('Get energies and fermi levels'):
         
         ibzwfs = calc.calculation.state.ibzwfs
-        if world.rank == 0:            
-            
+        if world.rank == 0:
             # Get the data
             E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
             # Energy is returned in Ha. For now we will change

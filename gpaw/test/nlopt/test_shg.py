@@ -85,28 +85,36 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
     assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-2), \
         np.max(np.abs(shg_xyz_rerr_imag))
 
+
 @pytest.mark.later
 def test_shg_hBN(gpw_files, in_tmp_dir):
-    truth = np.array([ -498.32624277  -69.02559975j,  -652.74329198 -122.25657802j,
-                       -939.87916222 -269.17682137j, -1539.46588908 -919.4495916j,
-                       391.40378777-3400.02524452j,  1408.14833639 -749.79781681j,
-                       859.34871229 -237.75920108j,   597.45469429 -112.27235265j,
-                       453.42533737  -64.8513409j,    363.29204261  -42.20753326j])
+    # SHG spectrum of h-BN as previously calculated.
+    # We should be aware of any changes to this.
+    shg_values = np.array([-498.32624277 - 69.02559975j,
+                           -652.74329198 - 122.25657802j,
+                           -939.87916222 - 269.17682137j,
+                           -1539.46588908 - 919.4495916j,
+                           391.40378777 - 3400.02524452j,
+                           1408.14833639 - 749.79781681j,
+                           859.34871229 - 237.75920108j,
+                           597.45469429 - 112.27235265j,
+                           453.42533737 - 64.8513409j,
+                           363.29204261 - 42.20753326j])
     freqs = np.linspace(2, 2.4, 10)
 
     # Get nlodata from pre-calculated SiC fixtures
     calc = gpw_files['hbn_pw_nsym']
-    make_nlodata(calc, out_name=f'mml.npz')
+    make_nlodata(calc, out_name='mml.npz')
     world.barrier()
 
     # Calculate 'xyz' tensor element of SHG spectra
     get_shg(freqs=freqs, eta=0.025, pol='xyz',
-            out_name=f'shg_xyz.npy',
-            mml_name=f'mml.npz')
+            out_name='shg_xyz.npy',
+            mml_name='mml.npz')
     world.barrier()
 
     # Load the calculated SHG spectra (in units of nm/V)
-    shg_xyz = np.load(f'shg_xyz.npy')[1] * 1e15
+    shg_xyz = np.load('shg_xyz.npy')[1] * 1e15
 
-    assert shg_xyz.real == pytest.approx(truth.real, abs=1e-4)
-    assert shg_xyz.imag == pytest.approx(truth.imag, abs=1e-4)
+    assert shg_xyz.real == pytest.approx(shg_values.real, abs=1e-4)
+    assert shg_xyz.imag == pytest.approx(shg_values.imag, abs=1e-4)
