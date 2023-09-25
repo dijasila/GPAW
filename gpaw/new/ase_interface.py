@@ -320,6 +320,7 @@ class ASECalculator:
                 psit_R = wfs.psit_nX[0]
             else:
                 psit_G = wfs.psit_nX[0, spin]
+                grid = grid.new(kpt=psit_G.desc.kpt_c, dtype=psit_G.desc.dtype)
                 psit_R = psit_G.ifft(grid=grid)
             if not psit_R.desc.pbc.all():
                 psit_R = psit_R.to_pbc_grid()
