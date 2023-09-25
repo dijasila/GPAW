@@ -10,7 +10,7 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.paw import (calculate_pair_density_correction,
                                calculate_matrix_element_correction)
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
-from gpaw.response.localft import extract_micro_setup, add_LSDA_trans_fxc
+from gpaw.response.localft import add_LSDA_trans_fxc
 
 from gpaw.setup import create_setup
 from gpaw.sphere.rshe import calculate_reduced_rshe
@@ -36,7 +36,6 @@ def test_paw_corrections(pawdata):
 
 
 @pytest.mark.response
-@pytest.mark.serial
 def test_paw_correction_consistency(gpw_files):
     """Test consistency of the pair density PAW corrections."""
     context = ResponseContext()
@@ -73,13 +72,11 @@ def test_site_paw_correction_consistency(gpw_files):
     gs = ResponseGroundStateAdapter.from_gpw_file(gpw_files['fe_pw'],
                                                   context=context)
 
-    # Calculate and expand the LDA fxc kernel in real spherical harmonics
+    # Expand the LDA fxc kernel in real spherical harmonics
     pawdata = gs.pawdatasets[0]
-    micro_setup = extract_micro_setup(gs, 0)
+    micro_setup = gs.micro_setups[0]
     add_fxc = partial(add_LSDA_trans_fxc, fxc='ALDA')
-    fxc_ng = micro_setup.evaluate_function(add_fxc)
-    rshe, _ = calculate_reduced_rshe(micro_setup.rgd, fxc_ng,
-                                     micro_setup.Y_nL, wmin=1e-8)
+    rshe, _ = micro_setup.expand_function(add_fxc, wmin=1e-8)
 
     # Calculate PAW correction with G + q = 0
     qG_Gv = np.zeros((1, 3))
