@@ -62,9 +62,7 @@ def add_cwd_to_setup_paths():
         del setup_paths[:1]
 
 
-response_band_cutoff = dict(
-)
-
+response_band_cutoff = {}
 
 
 @pytest.fixture(scope='session')

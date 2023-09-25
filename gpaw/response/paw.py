@@ -18,7 +18,6 @@ class Setuplet:
         self.rcut_j = rcut_j
 
 
-
 # Important note: The test suite monkeypatches this value to 2**10 so
 # you may get different results in tests and production until we
 # implementa a better solution.
