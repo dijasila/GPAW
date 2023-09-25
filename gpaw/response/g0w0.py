@@ -384,6 +384,7 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  exx_vxc_calculator,
+                 qcache,
                  ppa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
@@ -427,6 +428,7 @@ class G0W0Calculator:
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
+        self.qcache = qcache
         
         # Note: self.chi0calc.wd should be our only representation
         # of the frequencies.
@@ -458,16 +460,17 @@ class G0W0Calculator:
         if self.context.comm.rank == 0:
             # We pass a serial communicator because the parallel handling
             # is somewhat wonky, we'd rather do that ourselves:
-            try:
-                self.qcache = FileCache(f'qcache_{self.filename}',
-                                        comm=mpi.SerialCommunicator())
-            except TypeError as err:
-                raise RuntimeError(
-                    'File cache requires ASE master '
-                    'from September 20 2022 or newer.  '
-                    'You may need to pull newest ASE.') from err
+            # try:
+            #     self.qcache = FileCache(f'qcache_{self.filename}',
+            #                             comm=mpi.SerialCommunicator())
+            # except TypeError as err:
+            #     raise RuntimeError(
+            #         'File cache requires ASE master '
+            #         'from September 20 2022 or newer.  '
+            #         'You may need to pull newest ASE.') from err
 
-            self.qcache.strip_empties()
+            self.context.print('stripped empties', self.qcache.strip_empties())
+            self.context.print('file cache count', self.qcache.filecount())
 
         self.kpts = kpts
         self.bands = bands
@@ -1049,6 +1052,18 @@ class G0W0(G0W0Calculator):
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
         """
+        try:
+            qcache = FileCache(f'qcache_{filename}',
+                               comm=mpi.SerialCommunicator())
+        except TypeError as err:
+            raise RuntimeError(
+                'File cache requires ASE master '
+                'from September 20 2022 or newer.  '
+                'You may need to pull newest ASE.') from err
+
+        qcache.strip_empties()
+        mode = 'a' if qcache.filecount() > 1 else 'w'
+
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         # (calc can not actually be a calculator at all.)
@@ -1090,7 +1105,7 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        wcontext = context.with_txt(filename + '.w.txt')
+        wcontext = context.with_txt(filename + '.w.txt', mode=mode)
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
@@ -1133,6 +1148,7 @@ class G0W0(G0W0Calculator):
                          frequencies=frequencies,
                          kpts=kpts,
                          exx_vxc_calculator=exx_vxc_calculator,
+                         qcache=qcache,
                          ppa=ppa,
                          **kwargs)
 
