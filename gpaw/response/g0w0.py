@@ -513,7 +513,9 @@ class G0W0Calculator:
                     '',
                     'Computational parameters:'])
         if len(self.ecut_e) == 1:
-            isl.append(f'Plane wave cut-off: {self.chi0calc.ecut * Ha:g} eV')
+            isl.append(
+                'Plane wave cut-off: '
+                f'{self.chi0calc.chi0_body_calc.ecut * Ha:g} eV')
         else:
             assert len(self.ecut_e) > 1
             isl.append('Extrapolating to infinite plane wave cut-off using '
@@ -731,7 +733,7 @@ class G0W0Calculator:
         self.context.print(self.wd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(chi0calc.ecut,
+        nGmax = max(count_reciprocal_vectors(chi0calc.chi0_body_calc.ecut,
                                              self.wcalc.gs.gd, q_c)
                     for q_c in self.wcalc.qd.ibzk_kc)
         nw = len(self.wd)
@@ -793,7 +795,7 @@ class G0W0Calculator:
             self.context.timer.start('W')
 
             # First time calculation
-            if ecut == chi0calc.ecut:
+            if ecut == chi0.qpd.ecut:
                 # Nothing to cut away:
                 m2 = self.nbands
             else:

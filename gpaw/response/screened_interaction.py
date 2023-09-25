@@ -42,7 +42,7 @@ def initialize_w_calculator(chi0calc, context, *,
     gs = chi0calc.gs
     qd = QPointDescriptor.from_gs(gs)
 
-    xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
+    xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.chi0_body_calc.ecut,
                           gs=gs, qd=qd,
                           context=context)
    
