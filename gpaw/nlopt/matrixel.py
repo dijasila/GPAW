@@ -10,7 +10,7 @@ from gpaw.mpi import world, broadcast, serial_comm
 from gpaw.utilities.progressbar import ProgressBar
 
 
-def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
+def get_mml(calc, spin=0, ni=None, nf=None, timer=None):
     """Compute the momentum matrix elements.
 
     Input:
@@ -30,12 +30,7 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
     # Load the ground state calculations
     with timer('Load the ground state'):
         parprint('Loading ground state data.')
-        assert path.exists(
-            gs_name), 'The gs file: {} does not exist!'.format(gs_name)
-        calc = GPAW(
-            gs_name, txt=None,
-            parallel={'kpt': 1, 'band': 1},
-            communicator=serial_comm)
+        
         if calc.parameters['mode'] == 'lcao':
             calc.initialize_positions(calc.atoms)
 
@@ -170,6 +165,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                  spin: str = 'all',
                  ni: int = 0,
                  nf: int = 0) -> None:
+    
     """Get all required NLO data and store it in a file.
 
     Writes NLO data to file: w_sk, f_skn, E_skn, p_skvnn.
@@ -190,32 +186,49 @@ def make_nlodata(gs_name: str = 'gs.gpw',
 
     """
 
+    assert path.exists(
+        gs_name), 'The gs file: {} does not exist!'.format(gs_name)
+    calc = GPAW(gs_name, txt=None,
+                parallel={'kpt': 1, 'band': 1},
+                communicator=serial_comm)
+
+    ns = calc.wfs.nspins
+    nb_full = calc.get_number_of_bands()
+    if spin == 'all':
+        spins = list(range(ns))
+    elif spin == 's0':
+        spins = [0]
+    elif spin == 's1':
+        spins = [1]
+        assert spins[0] < ns, 'Wrong spin input'
+    else:
+        raise NotImplementedError
+
+    if nf <= 0:
+        nf += calc.get_number_of_bands()
+
+    return _make_nlodata(calc=calc, out_name=out_name,
+                         spins=spins, ni=ni, nf=nf, ns=ns, nb_full=nb_full)
+
+
+def _make_nlodata(calc,
+                  out_name: str,
+                  spins: list,
+                  ni: int,
+                  nf: int,
+                  ns: int,
+                  nb_full: int) -> None:
+    
     # Start the timer
     timer = Timer()
 
     # Get the energy and fermi levels (data is only in master)
     with timer('Get energies and fermi levels'):
-        if world.rank == 0:
-            # Load the ground state calculation
-            calc = GPAW(gs_name, txt=None, communicator=serial_comm)
+        if world.rank == 0:            
 
             # check the GS
             assert not calc.symmetry.point_group, \
                 'Point group symmtery should be off.'
-
-            nb_full = calc.get_number_of_bands()
-            if nf <= 0:
-                nf += nb_full
-            ns = calc.wfs.nspins
-            if spin == 'all':
-                spins = list(range(ns))
-            elif spin == 's0':
-                spins = [0]
-            elif spin == 's1':
-                spins = [1]
-                assert spins[0] < ns, 'Wrong spin input'
-            else:
-                raise NotImplementedError
 
             # Get the data
             w_sk = np.array([calc.get_k_point_weights() for s1 in spins])
@@ -229,17 +242,13 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                     f_skn[sind, ik] = calc.get_occupation_numbers(
                         kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
             w_sk *= bz_vol * 2.0 / ns
-            broadcast(nf, root=0)
-            broadcast(spins, root=0)
-        else:
-            nf = broadcast(None, root=0)
-            spins = broadcast(None, root=0)
+
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
         for s1 in spins:
-            p_kvnn = get_mml(gs_name=gs_name, spin=s1,
+            p_kvnn = get_mml(calc=calc, spin=s1,
                              ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
 
