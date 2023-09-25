@@ -30,9 +30,15 @@ def pawdata():
 @pytest.mark.serial
 @pytest.mark.parametrize('pawdata', pawdata())
 def test_paw_corrections(pawdata):
+    radial_points = 2**10
+    if pawdata.symbol in {'I', 'Hg', 'Pb'}:
+        # More points where needed, for performance.
+        # https://gitlab.com/gpaw/gpaw/-/issues/984
+        radial_points *= 4
+
     G_Gv = np.zeros((5, 3))
     G_Gv[:, 0] = np.linspace(0, 20, 5)
-    calculate_pair_density_correction(G_Gv, pawdata=pawdata)
+    calculate_pair_density_correction(G_Gv, pawdata=pawdata, radial_points=radial_points)
 
 
 @pytest.mark.response

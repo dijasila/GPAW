@@ -66,6 +66,22 @@ response_band_cutoff = dict(
 )
 
 
+
+@pytest.fixture(scope='session')
+def sessionscoped_monkeypatch():
+    # The standard monkeypatch fixture is function scoped
+    # so we need to roll our own
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        yield monkeypatch
+
+
+@pytest.fixture(autouse=True, scope='session')
+def monkeypatch_response_spline_points(sessionscoped_monkeypatch):
+    import gpaw.response.paw as paw
+    # https://gitlab.com/gpaw/gpaw/-/issues/984
+    sessionscoped_monkeypatch.setattr(paw, 'DEFAULT_RADIAL_POINTS', 2**10)
+
+
 def with_band_cutoff(*, gpw, band_cutoff):
     # Store the band cutoffs in a dictionary to aid response tests
     response_band_cutoff[gpw] = band_cutoff
