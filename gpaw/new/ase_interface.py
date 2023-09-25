@@ -307,13 +307,20 @@ class ASECalculator:
                                  periodic=False,
                                  broadcast=True) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
+        collinear = state.ibzwfs.collinear
+        wfs = state.ibzwfs.get_wfs(spin=spin if collinear else 0,
+                                   kpt=kpt,
+                                   n1=band, n2=band + 1)
         if wfs is not None:
             basis = getattr(self.calculation.scf_loop.hamiltonian,
                             'basis', None)
             grid = state.density.nt_sR.desc
-            wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
-            psit_R = wfs.psit_nX[0]
+            if collinear:
+                wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+                psit_R = wfs.psit_nX[0]
+            else:
+                psit_G = wfs.psit_nX[0, spin]
+                psit_R = psit_G.ifft(grid=grid)
             if not psit_R.desc.pbc.all():
                 psit_R = psit_R.to_pbc_grid()
             if periodic:

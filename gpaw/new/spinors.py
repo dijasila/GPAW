@@ -4,6 +4,7 @@ import numpy as np
 from gpaw.core.domain import Domain
 from gpaw.core.plane_waves import PWDesc
 from gpaw.typing import Vector
+from gpaw.mpi import serial_comm
 
 
 class SpinorWaveFunctionDescriptor(Domain):
@@ -24,12 +25,12 @@ class SpinorWaveFunctionDescriptor(Domain):
         q = self.qspiral_v
         return f'{self.__class__.__name__}({self.pw}, qspiral_v={q})'
 
-    def new(self, *, kpt):
-        pw = self.pw.new(kpt=kpt)
+    def new(self, *, kpt=None, comm=None):
+        pw = self.pw.new(kpt=kpt, comm=comm)
         pw.qspiral_v = self.qspiral_v
         return SpinorWaveFunctionDescriptor(pw, self.qspiral_v)
 
-    def empty(self, shape, comm, xp=None):
+    def empty(self, shape, comm=serial_comm, xp=None):
         assert isinstance(shape, int)
         return self.pw.empty((shape, 2), comm)
 

@@ -26,4 +26,5 @@ def test_noncollinear_o2(in_tmp_dir):
 
     a.calc.write('o2.gpw')
     a.calc.write('o2w.gpw', 'all')
-    GPAW('o2w.gpw')
+    calc = GPAW('o2w.gpw')
+    calc.get_pseudo_wave_function(0, 0, 0, periodic=True)
