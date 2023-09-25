@@ -439,7 +439,7 @@ class BSEBackend:
                 self.pawcorr_q = [
                     PWPAWCorrectionData(
                         Q_aGii, qpd=qpd,
-                        pawdatasets=self.gs.pawdatasets,
+                        pawdatasets=self.gs.pawdataset_by_species,
                         pos_av=self.gs.get_pos_av(),
                         atomrotations=self.gs.atomrotations)
                     for Q_aGii, qpd in zip(data['Q'], self.qpd_q)]

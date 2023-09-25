@@ -56,7 +56,7 @@ def test_paw_correction_consistency(gpw_files):
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
 
     # Calculate ordinary pair density corrections
-    pawdata = gs.pawdatasets[0]
+    pawdata = gs.pawdatasets.by_atom[0]
     Q1_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
 
     # Calculate pair density as a generalized matrix element
@@ -80,7 +80,7 @@ def test_site_paw_correction_consistency(gpw_files):
                                                   context=context)
 
     # Expand the LDA fxc kernel in real spherical harmonics
-    pawdata = gs.pawdatasets[0]
+    pawdata = gs.pawdatasets.by_atom[0]
     micro_setup = gs.micro_setups[0]
     add_fxc = partial(add_LSDA_trans_fxc, fxc='ALDA')
     rshe, _ = micro_setup.expand_function(add_fxc, wmin=1e-8)
