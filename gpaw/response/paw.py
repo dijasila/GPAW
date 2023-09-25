@@ -18,7 +18,18 @@ class Setuplet:
         self.rcut_j = rcut_j
 
 
-def calculate_pair_density_correction(qG_Gv, *, pawdata):
+# Important note: The test suite monkeypatches this value to 2**10 so
+# you may get different results in tests and production until we
+# implementa a better solution.
+#
+# The motivation for lowering to 2**10 in tests is that many tests
+# take 3-4 times longer if we do not.
+#
+# See https://gitlab.com/gpaw/gpaw/-/issues/984
+DEFAULT_RADIAL_POINTS = 2**12
+
+
+def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     r"""Calculate the atom-centered PAW correction to the pair density.
                                                       ˍ
     The atom-centered pair density correction tensor, Q_aii', is defined as the
@@ -67,6 +78,10 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
 
+    if radial_points is None:
+        # We assign this late due to monkeypatch in testing
+        radial_points = DEFAULT_RADIAL_POINTS
+
     # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
 
@@ -94,7 +109,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
                 # radial partial wave correction rescaled with a factor of r^-l
-                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**12)
+                spline = rgd.spline(dn_g[:gcut2], l=l, points=radial_points)
                 # This allows us to calculate a spline representation of the
                 # spherical Fourier-Bessel transform
                 #                 rc
@@ -102,7 +117,8 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
                 #             k^l /
                 #                 0
-                kspline = rescaled_fourier_bessel_transform(spline, N=2**14)
+                kspline = rescaled_fourier_bessel_transform(
+                    spline, N=4 * radial_points)
 
                 # Now, this implementation relies on a range of hardcoded
                 # values, which are not guaranteed to work for all cases.
