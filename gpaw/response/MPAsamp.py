@@ -35,53 +35,53 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
     # real(SP)    :: aux
     # complex(SP) :: ws
     # real(SP), parameter :: log2=0.693147180560_SP
-  
+
+    w0 = np.array(w0)
+    assert (w0.real >= 0).all()
+    assert (w0.imag >= 0).all()
+
     if npol == 1:
-        w_grid = np.array(w0, dtype=complex)  # (/w1+epsilon(1._SP), w2/)
-    else:
-        """match ps:
-            case '1l':
-                action
-            case '2l':
-            case _:
-                action-default"""
-        if ps == '1l':
-            if alpha == 0:
-                w_grid = np.linspace(w0[0], w0[1], 2 * npol)
-        elif ps == '2l':
-            if alpha == 0:
-                w_grid = np.concatenate((np.linspace(complex(np.real(w0[0]),
-                                         d[1]), complex(np.real(w0[1]), d[1]),
-                                        npol), np.linspace(w0[0], w0[1],
-                                                           npol)))
-                w_grid[0] = complex(np.real(w0[0]), d[0])
-            else:
-                # alpha=1
-                ws = w0[1] - w0[0]
-                w_grid = np.ones(2 * npol, dtype=complex)
-                w_grid[0] = complex(np.real(w0[0]), d[0])
-                w_grid[npol - 1] = complex(np.real(w0[1]), d[1])
-                w_grid[npol] = w0[0]
-                w_grid[2 * npol - 1] = w0[1]
-                lp = int(np.log(npol - 1) / np.log(2))
-                r = int((npol - 1) % (2**lp))
-                # print(r)
-                if r > 0:
-                    for i in range(1, 2 * r):
-                        w_grid[npol + i] = w0[0] + ws * (i / 2.**(lp + 1)
-                                                         )**alpha
-                        w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
-                    for i in range(2 * r, npol):
-                        w_grid[npol + i] = w0[0] + ws * ((i - r) / 2.**(lp)
-                                                         )**alpha
-                        w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
-                else:
-                    w_grid[npol + 1] = w0[0] + ws / (2.**(lp + 1))**alpha
-                    w_grid[1] = complex(np.real(w_grid[npol + 1]), d[1])
-                    for i in range(2 * r + 2, npol - 1):
-                        w_grid[npol + i] = w0[0] + ws * ((i - 1 - r) / 2.**(lp)
-                                                         )**alpha
-                        w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
+        w_grid = np.array(w0, dtype=complex)
+        return w_grid
+
+    if ps == '1l':  # DALV: We could use a match-case function
+        if alpha == 0:
+            return np.linspace(w0[0], w0[1], 2 * npol)
+        raise ValueError("If ps = '1l', only alpha = 0 is implemented")
+
+    if ps == '2l':
+        if alpha == 0:
+            w_grid = np.concatenate((np.linspace(complex(np.real(w0[0]),
+                                     d[1]), complex(np.real(w0[1]), d[1]),
+                                    npol), np.linspace(w0[0], w0[1],
+                                                       npol)))
+            w_grid[0] = complex(np.real(w0[0]), d[0])
+            return w_grid
+
+        ws = w0[1] - w0[0]
+        w_grid = np.ones(2 * npol, dtype=complex)
+        w_grid[0] = complex(np.real(w0[0]), d[0])
+        w_grid[npol - 1] = complex(np.real(w0[1]), d[1])
+        w_grid[npol] = w0[0]
+        w_grid[2 * npol - 1] = w0[1]
+        lp = int(np.log(npol - 1) / np.log(2))
+        r = int((npol - 1) % (2**lp))
+        # print(r)
+        if r > 0:
+            for i in range(1, 2 * r):
+                w_grid[npol + i] = w0[0] + ws * (i / 2.**(lp + 1)
+                                                 )**alpha
+                w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
+            for i in range(2 * r, npol):
+                w_grid[npol + i] = w0[0] + ws * ((i - r) / 2.**(lp)
+                                                 )**alpha
+                w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
         else:
-            raise ValueError("Only '1l' or '2l' values are implemented")
-    return w_grid
+            w_grid[npol + 1] = w0[0] + ws / (2.**(lp + 1))**alpha
+            w_grid[1] = complex(np.real(w_grid[npol + 1]), d[1])
+            for i in range(2 * r + 2, npol - 1):
+                w_grid[npol + i] = w0[0] + ws * ((i - 1 - r) / 2.**(lp)
+                                                 )**alpha
+                w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
+        return w_grid
+    raise ValueError("Only '1l' or '2l' values are implemented")
