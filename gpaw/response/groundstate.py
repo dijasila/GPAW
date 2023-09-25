@@ -10,7 +10,6 @@ import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
 
 
-
 class PAWDatasetCollection:
     def __init__(self, setups):
         by_species = {}

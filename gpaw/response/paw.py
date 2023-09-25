@@ -428,7 +428,6 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     pos_av = spos_ac @ qpd.gd.cell_cv
 
     # Calculate pair density PAW correction tensor
-    #Q_xGii = {}
     Qbar_xGii = {}
     for species_index, pawdata in pawdatasets.by_species.items():
         # Calculate atom-centered correction tensor
