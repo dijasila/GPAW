@@ -113,6 +113,16 @@ class ResponseGroundStateAdapter:
             self._density.interpolate_pseudo_density()
         return self._density.nt_sg
 
+    @lazyproperty
+    def n_sR(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=1)[0]
+
+    @lazyproperty
+    def n_sr(self):
+        return self._density.get_all_electron_density(
+            atoms=self.atoms, gridrefinement=2)[0]
+
     @property
     def D_asp(self):
         # Used by fxc_kernels
@@ -129,8 +139,12 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=gridrefinement)
+        if gridrefinement == 1:
+            return self.n_sR, self.gd
+        elif gridrefinement == 2:
+            return self.n_sr, self.finegd
+        else:
+            raise ValueError(f'Invalid gridrefinement {gridrefinement}')
 
     # Things used by EXX.  This is getting pretty involved.
     #
@@ -187,6 +201,11 @@ class ResponseGroundStateAdapter:
             pawdatasets=self.pawdatasets, qpd=qpd, spos_ac=self.spos_ac,
             atomrotations=self.atomrotations)
 
+    def matrix_element_paw_corrections(self, qpd, rshe_a):
+        from gpaw.response.paw import get_matrix_element_paw_corrections
+        return get_matrix_element_paw_corrections(
+            qpd, self.pawdatasets, rshe_a, self.spos_ac)
+
     def get_pos_av(self):
         # gd.cell_cv must always be the same as pd.gd.cell_cv, right??
         return np.dot(self.spos_ac, self.gd.cell_cv)
@@ -226,6 +245,14 @@ class ResponseGroundStateAdapter:
 
     def get_aug_radii(self):
         return np.array([max(pawdata.rcut_j) for pawdata in self.pawdatasets])
+
+    @lazyproperty
+    def micro_setups(self):
+        from gpaw.response.localft import extract_micro_setup
+        micro_setups = []
+        for a, pawdata in enumerate(self.pawdatasets):
+            micro_setups.append(extract_micro_setup(pawdata, self.D_asp[a]))
+        return micro_setups
 
     @property
     def atomrotations(self):
