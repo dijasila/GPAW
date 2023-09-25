@@ -184,7 +184,6 @@ class Chi0Calculator:
         # Attributes groped by other classes...
         # Oh the horror, there are many of these...
         # Remove these in the future XXX
-        self.nbands = self.chi0_body_calc.nbands
         self.ecut = self.chi0_body_calc.ecut
         self.kptpair_factory = self.chi0_body_calc.kptpair_factory
         self.integrator = self.chi0_body_calc.integrator
