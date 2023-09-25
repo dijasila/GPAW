@@ -425,8 +425,9 @@ class Chi0Calculator:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, analyzer = self.get_kpoints(
+        kptgrid, analyzer = self.get_kpoints(
             qpd, integrationmode=self.integrationmode)
+        bzk_kv = kptgrid.bzk_kv
         domain = (bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
@@ -470,8 +471,8 @@ class Chi0Calculator:
                                    bzk_kc + (~self.pbc).astype(int),
                                    axis=0)
 
-        bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
-        return bzk_kv, analyzer
+        from gpaw.response.kpoints import ResponseKPointGrid
+        return ResponseKPointGrid(qpd.gd.icell_cv, bzk_kc), analyzer
 
     def get_gs_info_string(self, tab=''):
         gs = self.gs
