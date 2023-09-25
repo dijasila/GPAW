@@ -1,10 +1,11 @@
 from os import path
 
 import numpy as np
-from ase.utils.timing import Timer
 from ase.parallel import parprint
+from ase.units import Ha
+from ase.utils.timing import Timer
 
-from gpaw import GPAW
+from gpaw.new.ase_interface import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, broadcast, serial_comm
 from gpaw.utilities.progressbar import ProgressBar
@@ -198,12 +199,13 @@ def make_nlodata(gs_name: str = 'gs.gpw',
         if world.rank == 0:
             # Load the ground state calculation
             calc = GPAW(gs_name, txt=None, communicator=serial_comm)
+            ibzwfs = calc.calculation.state.ibzwfs
 
             # check the GS
             assert not calc.symmetry.point_group, \
                 'Point group symmtery should be off.'
 
-            nb_full = calc.get_number_of_bands()
+            nb_full = calc.get_number_of_bands()  # Fine
             if nf <= 0:
                 nf += nb_full
             ns = calc.wfs.nspins
@@ -218,16 +220,14 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                 raise NotImplementedError
 
             # Get the data
-            w_sk = np.array([calc.get_k_point_weights() for s1 in spins])
+            E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
+            # Energy is returned in Ha. For now we will change
+            # it to eV to not change the module too much.
+            print(E_skn[0, 0] * Ha)
+            crash
+            w_sk = np.array([ibzwfs.ibz.weight_k for s1 in spins])
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
-            nk = len(w_sk[0])
-            E_skn = np.array([calc.band_structure().todict()['energies'][s1]
-                              for s1 in spins])
-            f_skn = np.zeros((len(spins), nk, nb_full), dtype=float)
-            for sind, s1 in enumerate(spins):
-                for ik in range(nk):
-                    f_skn[sind, ik] = calc.get_occupation_numbers(
-                        kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
+
             w_sk *= bz_vol * 2.0 / ns
             broadcast(nf, root=0)
             broadcast(spins, root=0)
