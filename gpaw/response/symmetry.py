@@ -259,7 +259,7 @@ class PWSymmetryAnalyzer:
 
         return bzk_kc
 
-    def get_reduced_kd(self, pbc_c=np.ones(3, bool)):
+    def get_reduced_kd(self, *, pbc_c):
         # Get the little group of q
         U_scc = []
         for s in self.s_s:
