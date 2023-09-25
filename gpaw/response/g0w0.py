@@ -376,6 +376,7 @@ def select_kpts(kpts, kd):
 
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
+                 wd,
                  chi0calc,
                  wcalc,
                  kpts, bands, nbands=None,
@@ -428,11 +429,11 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         
-        # Note: self.chi0calc.wd should be our only representation
-        # of the frequencies.
+        # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
         # so should be easy to remove after some further adaptation.
+        self.wd = wd
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
@@ -496,7 +497,7 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
-                               % self.chi0calc.wd.omega_w[1].imag)
+                               % self.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
 
@@ -727,13 +728,13 @@ class G0W0Calculator:
         self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-        self.context.print(self.chi0calc.wd)
+        self.context.print(self.wd)
 
         # Find maximum size of chi-0 matrices:
         nGmax = max(count_reciprocal_vectors(chi0calc.ecut,
                                              self.wcalc.gs.gd, q_c)
                     for q_c in self.wcalc.qd.ibzk_kc)
-        nw = len(self.chi0calc.wd)
+        nw = len(self.wd)
 
         size = self.chi0calc.integrator.blockcomm.size
 
@@ -1123,6 +1124,7 @@ class G0W0(G0W0Calculator):
             snapshotfile_prefix=filename)
 
         super().__init__(filename=filename,
+                         wd=wd,
                          chi0calc=chi0calc,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
