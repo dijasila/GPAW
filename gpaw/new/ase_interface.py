@@ -11,7 +11,7 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
-from gpaw.mpi import world
+from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
@@ -132,7 +132,10 @@ class ASECalculator:
         * magmoms
         * dipole
         """
-        atoms = atoms or self.atoms
+        if atoms is None:
+            atoms = self.atoms
+        else:
+            synchronize_atoms(atoms, self.comm)
         assert atoms is not None
 
         if self.calculation is not None:
@@ -301,18 +304,26 @@ class ASECalculator:
         return GPAW(**kwargs)
 
     def get_pseudo_wave_function(self, band, kpt=0, spin=0,
-                                 periodic=False) -> Array3D:
+                                 periodic=False,
+                                 broadcast=True) -> Array3D:
         state = self.calculation.state
         wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
-        basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
-        grid = state.density.nt_sR.desc
-        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
-        psit_R = wfs.psit_nX[0]
-        if not psit_R.desc.pbc.all():
-            psit_R = psit_R.to_pbc_grid()
-        if periodic:
-            psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
-        return psit_R.data * Bohr**-1.5
+        if wfs is not None:
+            basis = getattr(self.calculation.scf_loop.hamiltonian,
+                            'basis', None)
+            grid = state.density.nt_sR.desc
+            wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+            psit_R = wfs.psit_nX[0]
+            if not psit_R.desc.pbc.all():
+                psit_R = psit_R.to_pbc_grid()
+            if periodic:
+                psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
+            array_R = psit_R.data * Bohr**-1.5
+        else:
+            array_R = None
+        if broadcast:
+            array_R = bcast(array_R, 0, self.calculation.comm)
+        return array_R
 
     def get_atoms(self):
         atoms = self.atoms.copy()
@@ -349,16 +360,16 @@ class ASECalculator:
     def get_effective_potential(self, spin=0):
         assert spin == 0
         vt_R = self.calculation.state.potential.vt_sR[spin]
-        return vt_R.to_pbc_grid().data * Ha
+        return vt_R.to_pbc_grid().gather(broadcast=True).data * Ha
 
     def get_electrostatic_potential(self):
         density = self.calculation.state.density
         potential, _ = self.calculation.pot_calc.calculate(density)
         vHt_x = potential.vHt_x
         if isinstance(vHt_x, UGArray):
-            return vHt_x.to_pbc_grid().data * Ha
+            return vHt_x.gather(broadcast=True).to_pbc_grid().data * Ha
 
-        return vHt_x.interpolate(
+        return vHt_x.ifft(
             grid=self.calculation.pot_calc.fine_grid).data * Ha
 
     def get_atomic_electrostatic_potentials(self):
@@ -367,21 +378,25 @@ class ASECalculator:
     def get_electrostatic_corrections(self):
         return self.calculation.electrostatic_potential().atomic_corrections()
 
-    def get_pseudo_density(self, spin=None, gridrefinement=1):
+    def get_pseudo_density(self,
+                           spin=None,
+                           gridrefinement=1,
+                           broadcast=True) -> Array3D:
         assert spin is None
         nt_sr = self.calculation.densities().pseudo_densities(
             grid_refinement=gridrefinement)
-        return nt_sr.to_pbc_grid().data.sum(0)
+        return nt_sr.gather(broadcast=broadcast).data.sum(0)
 
     def get_all_electron_density(self,
                                  spin=None,
                                  gridrefinement=1,
+                                 broadcast=True,
                                  skip_core=False):
         assert spin is None
         n_sr = self.calculation.densities().all_electron_densities(
             grid_refinement=gridrefinement,
             skip_core=skip_core)
-        return n_sr.to_pbc_grid().data.sum(0)
+        return n_sr.gather(broadcast=broadcast).data.sum(0)
 
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         state = self.calculation.state
@@ -524,10 +539,21 @@ class ASECalculator:
         builder = create_builder(self.atoms, params, self.comm)
         basis_set = builder.create_basis_set()
         state = self.calculation.state
-        ibzwfs = builder.create_ibz_wave_functions(basis_set, state.potential,
+        comm1 = state.ibzwfs.kpt_band_comm
+        comm2 = builder.communicators['D']
+        potential = state.potential.redist(
+            builder.grid,
+            builder.electrostatic_potential_desc,
+            builder.atomdist,
+            comm1, comm2)
+        density = state.density.redist(builder.grid,
+                                       builder.interpolation_desc,
+                                       builder.atomdist,
+                                       comm1, comm2)
+        ibzwfs = builder.create_ibz_wave_functions(basis_set, potential,
                                                    log=log)
         ibzwfs.fermi_levels = state.ibzwfs.fermi_levels
-        state = DFTState(ibzwfs, state.density, state.potential)
+        state = DFTState(ibzwfs, density, potential)
         scf_loop = builder.create_scf_loop()
         scf_loop.update_density_and_potential = False
 

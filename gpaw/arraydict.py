@@ -1,3 +1,4 @@
+from collections.abc import MutableMapping
 import numpy as np
 
 
@@ -21,7 +22,7 @@ class TableKeyMapping:
         return self.a2key_a[a]
 
 
-class ArrayDict:
+class ArrayDict(MutableMapping):
     """Distributed dictionary of fixed-size, fixed-dtype arrays.
 
     Implements a map [0, ..., N] -> [A0, ..., AN]
@@ -70,10 +71,6 @@ class ArrayDict:
         for a in self:
             copy[a][:] = self[a]
         return copy
-
-    def update(self, d):
-        self.data.update(d)
-        self.check_consistency()
 
     def __getitem__(self, a):
         value = self.data[a]
@@ -158,21 +155,10 @@ class ArrayDict:
         dst.fromarray(data)
         return dst
 
-    # These functions enforce the same ordering as self.partition
-    # when looping.
-    def keys(self):
-        return self.partition.my_indices
-
     def __iter__(self):
-        for key in self.partition.my_indices:
-            yield key
-
-    def values(self):
-        return [self[key] for key in self]
-
-    def items(self):
-        for key in self:
-            yield key, self[key]
+        # These functions enforce the same ordering as self.partition
+        # when looping.
+        return iter(self.partition.my_indices)
 
     def __repr__(self):
         tokens = []
@@ -185,8 +171,12 @@ class ArrayDict:
                                       self.partition.comm.size,
                                       text)
 
-    def get(self, a):
-        return self.data.get(a)
+    def __delitem__(self, a):
+        # Actually this is not quite right; we effectively delete items
+        # when we redistribute the arraydict.  But this is another
+        # code path so let's resolve this later if necessary.
+        raise TypeError('Deleting arraydict elements not supported since '
+                        'doing so violates the input list-of-shapes')
 
     def __len__(self):
         return len(self.data)

@@ -33,7 +33,7 @@ class IBZ2BZMaps(Sequence):
 
     @classmethod
     def from_calculator(cls, calc):
-        R_asii = [setup.R_sii for setup in calc.setups]
+        R_asii = calc.setups.atomrotations.get_R_asii()
         return cls(calc.wfs.kd, calc.spos_ac, R_asii, calc.wfs.gd.N_c)
 
     def __len__(self):

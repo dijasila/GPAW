@@ -20,16 +20,17 @@ class PWHamiltonian(Hamiltonian):
     def apply_local_potential(self,
                               vt_R: UGArray,
                               psit_nG: XArray,
-                              out: XArray
-                              ) -> None:
+                              out: XArray) -> None:
         assert isinstance(psit_nG, PWArray)
         assert isinstance(out, PWArray)
         out_nG = out
-        vt_R = vt_R.gather(broadcast=True)
         xp = psit_nG.xp
+        pw = psit_nG.desc
+        if xp is not np and pw.comm.size == 1 and pw.dtype == complex:
+            return apply_local_potential_gpu(vt_R, psit_nG, out_nG)
+        vt_R = vt_R.gather(broadcast=True)
         grid = vt_R.desc.new(comm=None, dtype=psit_nG.desc.dtype)
         tmp_R = grid.empty(xp=xp)
-        pw = psit_nG.desc
         if pw.comm.size == 1:
             pw_local = pw
         else:
@@ -166,3 +167,38 @@ class SpinorPWHamiltonian(Hamiltonian):
 
     def create_preconditioner(self, blocksize):
         return spinor_precondition
+
+
+def apply_local_potential_gpu(vt_R, psit_nG, out_nG):
+    from gpaw.gpu import cupyx
+    pw = psit_nG.desc
+    e_kin_G = cp.asarray(pw.ekin_G)
+    mynbands = psit_nG.mydims[0]
+    plan = vt_R.desc.fft_plans(xp=cp, dtype=complex)
+    Q_G = plan.indices(pw)
+    shape = tuple(vt_R.desc.size_c)
+    blocksize = 10
+    psit_bR = None
+    for b1 in range(0, mynbands, blocksize):
+        b2 = min(b1 + blocksize, mynbands)
+        nb = b2 - b1
+        if psit_bR is None:
+            psit_bR = cp.empty((nb,) + shape, complex)
+        elif nb < blocksize:
+            psit_bR = psit_bR[:nb]
+        psit_bR[:] = 0.0
+        psit_bR.reshape((nb, -1))[:, Q_G] = psit_nG.data[b1:b2]
+        psit_bR[:] = cupyx.scipy.fft.ifftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        psit_bR *= vt_R.data
+        psit_bR[:] = cupyx.scipy.fft.fftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        out_nG.data[b1:b2] = psit_nG.data[b1:b2]
+        out_nG.data[b1:b2] *= e_kin_G
+        out_nG.data[b1:b2] += psit_bR.reshape((nb, -1))[:, Q_G]
