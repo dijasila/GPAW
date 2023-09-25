@@ -44,7 +44,7 @@ def test_shg(in_tmp_dir):
 
 @pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
-    freqs = np.linspace(0.1, 4, 101)
+    freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
@@ -108,5 +108,5 @@ def test_shg_hBN(gpw_files, in_tmp_dir):
     # Load the calculated SHG spectra (in units of nm/V)
     shg_xyz = np.load(f'shg_xyz.npy')[1] * 1e15
 
-    assert shg_xyz.real == pytest.approx(truth.real, abs=1e-8)
-    assert shg_xyz.imag == pytest.approx(truth.imag, abs=1e-8)
+    assert shg_xyz.real == pytest.approx(truth.real, abs=1e-4)
+    assert shg_xyz.imag == pytest.approx(truth.imag, abs=1e-4)

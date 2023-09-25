@@ -2,7 +2,7 @@ from os import path
 
 import numpy as np
 from ase.parallel import parprint
-from ase.units import Ha
+from ase.units import Bohr, Ha
 from ase.utils.timing import Timer
 
 from gpaw.new.ase_interface import GPAW
@@ -93,6 +93,7 @@ def get_mml(calc, spin=0, ni=None, nf=None, timer=None):
                     ib, k_ind, spin,
                     periodic=True)
                     for ib in blist], complex)
+            u_nR *= Bohr**1.5
 
             P_ani = []
             for ia in range(na):
@@ -211,15 +212,14 @@ def make_nlodata(gs_name: str = 'gs.gpw',
         nf += calc.get_number_of_bands()
 
     return _make_nlodata(calc=calc, out_name=out_name,
-                         spins=spins, ni=ni, nf=nf, ns=ns)
+                         spins=spins, ni=ni, nf=nf)
 
 
 def _make_nlodata(calc,
                   out_name: str,
                   spins: list,
                   ni: int,
-                  nf: int,
-                  ns: int) -> None:
+                  nf: int) -> None:
     
     # Start the timer
     timer = Timer()
@@ -234,10 +234,11 @@ def _make_nlodata(calc,
             E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
             # Energy is returned in Ha. For now we will change
             # it to eV to not change the module too much.
+            E_skn *= Ha
 
             w_sk = np.array([ibzwfs.ibz.weight_k for s1 in spins])
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
-            w_sk *= bz_vol * ibzwfs.spin_degeneracy 
+            w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
