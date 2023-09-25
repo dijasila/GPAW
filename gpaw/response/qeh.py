@@ -177,9 +177,9 @@ class BuildingBlock:
             comm = self.context.comm
             w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
-            chiM_w, chiD_w, _, drhoM_z, drhoD_z = \
+            chiM_w, chiD_w, z, drhoM_z, drhoD_z = \
                 get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
-
+            assert(np.allclose(z, self.z))
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
@@ -398,8 +398,15 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
 
     nw = chi_wGG.shape[0]
     r = qpd.gd.get_grid_point_coordinates()
+
+    # XXX This is already calculated in BuildingBlock class
+    # I keep it here so that it still can be used as an
+    # independent function, but I added an assertion
+    # in the BuildingBlock class
     z = r[2, 0, 0, :]
     L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
+
+    # XXX This seems like a bit dangerous assumption
     z0 = L / 2.  # position of layer
     chiM_w = np.zeros([nw], dtype=complex)
     chiD_w = np.zeros([nw], dtype=complex)
@@ -442,7 +449,7 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
         drhoM_z /= chiM_w[0]
         drhoD_z /= chiD_w[0]
 
-    """ Returns q array, frequency array, chi2D monopole and dipole, induced
+    """ Returns chi2D monopole and dipole, induced
     densities and z array (all in Bohr)
     """
     return chiM_w, chiD_w, z, drhoM_z, drhoD_z
