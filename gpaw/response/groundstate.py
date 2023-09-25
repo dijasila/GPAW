@@ -130,8 +130,11 @@ class ResponseGroundStateAdapter:
 
     def get_all_electron_density(self, gridrefinement=2):
         # Used by fxc, fxc_kernels and localft
-        return self._density.get_all_electron_density(
-            atoms=self.atoms, gridrefinement=gridrefinement)
+        try:
+            return self._density.get_all_electron_density(
+                atoms=self.atoms, gridrefinement=gridrefinement)
+        except AttributeError:
+            return self.get_pseudo_density(gridrefinement)
 
     # Things used by EXX.  This is getting pretty involved.
     #
