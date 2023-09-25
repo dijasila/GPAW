@@ -1,12 +1,33 @@
 """
-A class for finding optimal
-orbitals of the KS-DFT or PZ-SIC
-functionals using exponential transformation
-direct minimization
+A class for finding optimal orbitals corresponding to a stationary point of
+the energy functional using direct optimization and exponential transformation
+in LCAO mode.
 
-arXiv:2101.12597 [physics.comp-ph]
-Comput. Phys. Commun. 267, 108047 (2021).
-https://doi.org/10.1016/j.cpc.2021.108047
+It can be used with Kohn-Sham or Perdew-Zunger self-interaction corrected
+(PZ-SIC) functionals for ground state as well as variational excited state
+calculations.
+
+In ground state calculations, a minimization of the energy is performed, while
+for excited state calculations, the energy is optimized by converging on a
+saddle point.
+
+Exponential transformation direct minimization (ETDM) for ground state
+calculations with LCAO:
+
+    Comput. Phys. Commun. 267, 108047 (2021) :doi:10.1016/j.cpc.2021.108047
+    arXiv:2101.12597 [physics.comp-ph]
+
+Direct orbital optimization (DO) for variational excited state calculations
+with LCAO:
+
+    DO with preconditioned quasi-Newton algorithm and maximum overlap method
+    (DO-MOM)
+    J. Chem. Theory Comput. 16, 6968 (2020) :doi:10.1021/acs.jctc.0c00597
+    arXiv:2006.15922 [physics.chem-ph]
+
+    DO with generalized mode following (DO-GMF)
+    J. Chem. Theory Comput. 19, 3634 (2023) :doi:10.1021/acs.jctc.3c00178
+    arXiv:2302.05912 [physics.chem-ph]
 """
 
 
@@ -28,7 +49,7 @@ from copy import deepcopy
 class LCAOETDM:
 
     """
-    Exponential Transformation Direct Minimization (ETDM)
+    Exponential Transformation Direct Minimization (ETDM) for LCAO mode
     """
 
     def __init__(self,
