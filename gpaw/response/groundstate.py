@@ -36,6 +36,7 @@ class ResponseGroundStateAdapter:
         self.volume = self.gd.volume
 
         self.nvalence = wfs.nvalence
+        self.nocc1, self.nocc2 = self.count_occupied_bands()
 
         self.ibz2bz = IBZ2BZMaps.from_calculator(calc)
 
@@ -224,6 +225,11 @@ class ResponseGroundStateAdapter:
             nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
             nocc2 = max((f_n > ftol).sum(), nocc2)
         return nocc1, nocc2
+
+    @property
+    def metallic(self):
+        # Does the number of filled bands equal the number of non-empty bands?
+        return self.nocc1 != self.nocc2
 
     @property
     def ibzq_qc(self):

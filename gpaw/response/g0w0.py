@@ -787,7 +787,7 @@ class G0W0Calculator:
 
         chi0 = chi0calc.create_chi0(q_c)
 
-        m1 = chi0calc.nocc1
+        m1 = chi0calc.gs.nocc1
         for ie, ecut in enumerate(self.ecut_e):
             self.context.timer.start('W')
 
@@ -1101,7 +1101,7 @@ class G0W0(G0W0Calculator):
             context=wcontext,
             **parameters)
 
-        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
+        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.gs.nocc2)
 
         coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         # XXX eta needs to be converted to Hartree here,

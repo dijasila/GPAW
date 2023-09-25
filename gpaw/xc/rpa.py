@@ -231,7 +231,7 @@ class RPACalculator:
             nG = qpd.ngmax
 
             # First not completely filled band:
-            m1 = chi0calc.nocc1
+            m1 = self.gs.nocc1
             p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
