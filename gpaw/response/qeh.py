@@ -250,6 +250,90 @@ class BuildingBlock:
         else:
             return False
 
+    def interpolate_to_grid(self, q_grid, w_grid):
+
+        """
+        Parameters
+        q_grid: in Ang. should start at q=0
+        w_grid: in eV
+        """
+
+        from scipy.interpolate import RectBivariateSpline
+        from scipy.interpolate import interp1d
+        from gpaw.response.frequencies import FrequencyGridDescriptor
+        if not self.complete:
+            self.calculate_building_block()
+        q_grid *= Bohr
+        w_grid /= Hartree
+
+        assert np.max(q_grid) <= np.max(self.q_abs), \
+            'q can not be larger that %1.2f Ang' % np.max(self.q_abs / Bohr)
+        assert np.max(w_grid) <= np.max(self.wd.omega_w), \
+            'w can not be larger that %1.2f eV' % \
+            np.max(self.wd.omega_w * Hartree)
+
+        sort = np.argsort(self.q_abs)
+        q_abs = self.q_abs[sort]
+
+        # chi monopole
+        self.chiM_qw = self.chiM_qw[sort]
+
+        omit_q0 = False
+        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0, 0], 0):
+            omit_q0 = True  # omit q=0 from interpolation
+            q0_abs = q_abs[0].copy()
+            q_abs[0] = 0.
+            chi0_w = self.chiM_qw[0].copy()
+            self.chiM_qw[0] = np.zeros_like(chi0_w)
+
+        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                 self.chiM_qw.real,
+                                 s=0)
+
+        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                 self.chiM_qw.imag, s=0)
+
+        self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+        if omit_q0:
+            yr = interp1d(self.wd.omega_w, chi0_w.real)
+            yi = interp1d(self.wd.omega_w, chi0_w.imag)
+            chi0_w = yr(w_grid) + 1j * yi(w_grid)
+            q_abs[0] = q0_abs
+            if np.isclose(q_grid[0], 0):
+                self.chiM_qw[0] = chi0_w
+
+        # chi dipole
+        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                 self.chiD_qw[sort].real,
+                                 s=0)
+        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                 self.chiD_qw[sort].imag,
+                                 s=0)
+
+        self.chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+
+        # drho monopole
+
+        yr = RectBivariateSpline(q_abs, self.z,
+                                 self.drhoM_qz[sort].real, s=0)
+        yi = RectBivariateSpline(q_abs, self.z,
+                                 self.drhoM_qz[sort].imag, s=0)
+
+        self.drhoM_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
+
+        # drho dipole
+        yr = RectBivariateSpline(q_abs, self.z,
+                                 self.drhoD_qz[sort].real, s=0)
+        yi = RectBivariateSpline(q_abs, self.z,
+                                 self.drhoD_qz[sort].imag, s=0)
+
+        self.drhoD_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
+
+        self.q_abs = q_grid
+        self.wd = FrequencyGridDescriptor(w_grid)
+        self.save_chi_file(filename=self.filename + '_int')
+
+        
     def collect(self, a_w):
         comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
