@@ -4,7 +4,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
-from gpaw.response.chi0 import Chi0ComponentCalculator
+from gpaw.response.chi0_base import Chi0ComponentCalculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
 from gpaw.response.frequencies import FrequencyGridDescriptor
