@@ -28,7 +28,7 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         # seems a bit dangerous XXX
         return 1
 
-    def calculate(self, wd, rate, spin='all'):
+    def calculate(self, wd, rate):
         """Calculate the Drude dielectric response.
 
         Parameters
@@ -38,21 +38,15 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         rate : float
             Plasma frequency decay rate (in eV), corresponding to the
             imaginary part of the complex frequency.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
         """
         self.print_info(wd, rate)
 
-        # Parse the spin input
-        spins = self.get_spins(spin)
-
         chi0_drude = Chi0DrudeData.from_frequency_descriptor(wd, rate)
-        self._calculate(chi0_drude, spins)
+        self._calculate(chi0_drude)
 
         return chi0_drude
 
-    def _calculate(self, chi0_drude: Chi0DrudeData, spins):
+    def _calculate(self, chi0_drude: Chi0DrudeData):
         """In-place calculation of the Drude dielectric response function,
         based on the free-space plasma frequency of the intraband transitions.
         """
@@ -60,7 +54,8 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         # analysis -> see discussion in gpaw.response.jdos
         qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
                                          ecut=1e-3, gd=self.gs.gd)
-        domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
+        domain, analyzer, prefactor = self.get_integration_domain(
+            qpd, spins=range(self.gs.nspins))
 
         # The plasma frequency integral is special in the way that only
         # the spectral part is needed

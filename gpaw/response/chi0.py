@@ -72,16 +72,13 @@ class Chi0Calculator:
         chi0 = Chi0Data.from_chi0_body_data(chi0_body)
         return chi0
 
-    def calculate(self, q_c, spin='all'):
+    def calculate(self, q_c):
         """Calculate chi0 (possibly with optical extensions).
 
         Parameters
         ----------
         q_c : list or ndarray
             Momentum vector.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
 
         Returns
         -------
@@ -90,14 +87,14 @@ class Chi0Calculator:
             representation descriptors and blocks distribution
         """
         # Calculate body
-        chi0_body = self.chi0_body_calc.calculate(q_c, spin=spin)
+        chi0_body = self.chi0_body_calc.calculate(q_c)
         qpd = chi0_body.qpd
 
         # Calculate optical extension
         if qpd.optical_limit:
             if not abs(self.chi0_body_calc.eshift) < 1e-8:
                 raise NotImplementedError("No wings eshift available")
-            chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd=qpd, spin=spin)
+            chi0_opt_ext = self.chi0_opt_ext_calc.calculate(qpd=qpd)
         else:
             chi0_opt_ext = None
 
@@ -162,16 +159,14 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
             self.integrator.blockcomm,
             self.integrator.kncomm)
 
-    def calculate(self, q_c, spin='all') -> Chi0BodyData:
+    def calculate(self, q_c) -> Chi0BodyData:
         """Calculate the chi0 body.
 
         Parameters
         ----------
         q_c : list or ndarray
             Momentum vector.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin."""
+        """
         # Construct the output data structure
         qpd = self.get_pw_descriptor(q_c)
         self.print_info(qpd)
@@ -179,15 +174,24 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
         # Integrate all transitions into partially filled and empty bands
         m1, m2 = self.get_band_transitions()
-        spins = self.get_spins(spin)
-        self.update_chi0_body(chi0_body, m1, m2, spins)
+        self.update_chi0_body(chi0_body, m1, m2, spins=range(self.gs.nspins))
 
         return chi0_body
 
     def update_chi0_body(self,
                          chi0_body: Chi0BodyData,
                          m1, m2, spins):
-        """In-place calculation of the body."""
+        """In-place calculation of the body.
+
+        Parameters
+        ----------
+        m1 : int
+            Lower band cutoff for band summation
+        m2 : int
+            Upper band cutoff for band summation
+        spins : list
+            List of spin indices to include in the calculation
+        """
         qpd = chi0_body.qpd
 
         # Reset PAW correction in case momentum has change
@@ -318,16 +322,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         return 1
 
     def calculate(self,
-                  qpd: SingleQPWDescriptor | None = None,
-                  spin='all'):
-        """Calculate the chi0 head and wings.
-
-        Paramters
-        ---------
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-        """
+                  qpd: SingleQPWDescriptor | None = None):
+        """Calculate the chi0 head and wings."""
         # Create data object
         if qpd is None:
             qpd = self.get_pw_descriptor(q_c=[0., 0., 0.])
@@ -335,16 +331,16 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
 
         self.print_info(qpd)
 
-        # Define band and spin transitions
+        # Define band transitions
         m1, m2 = self.get_band_transitions()
-        spins = self.get_spins(spin)
 
         # Perform the actual integration
-        self.update_chi0_optical_extension(chi0_opt_ext, m1, m2, spins)
+        self.update_chi0_optical_extension(chi0_opt_ext, m1, m2,
+                                           spins=range(self.gs.nspins))
 
         if self.drude_calc is not None:
             # Add intraband contribution
-            chi0_drude = self.drude_calc.calculate(self.wd, self.rate, spin)
+            chi0_drude = self.drude_calc.calculate(self.wd, self.rate)
             chi0_opt_ext.head_Wvv[:] += chi0_drude.chi_Zvv
 
         return chi0_opt_ext
