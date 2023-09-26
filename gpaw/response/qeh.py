@@ -57,10 +57,6 @@ class BuildingBlock:
         if not isotropic_q:
             self.nq_inftot *= 2
 
-        if direction == 'x':
-            qdir = 0
-        elif direction == 'y':
-            qdir = 1
         self.direction = direction
 
         self.df = df  # dielectric function object
@@ -70,23 +66,67 @@ class BuildingBlock:
         self.context = self.df.context.with_txt(txt)
 
         gs = self.df.gs
-        kd = gs.kd
-        self.kd = kd
+
         r = gs.gd.get_grid_point_coordinates()
         self.z = r[2, 0, 0, :]
 
         nw = len(self.wd)
-        if single_q_c is None:
+
+        self.q_cs, self.q_vs, self.q_abs, self.q_infs, self.nq_cut,\
+            = self.parse_qs(gs, qmax, single_q_c)
+
+        self.complete = False
+        self.last_q_idx = 0
+        self.chiM_qw = np.zeros([0, nw])
+        self.chiD_qw = np.zeros([0, nw])
+        self.drhoM_qz = np.zeros([0, self.z.shape[0]])
+        self.drhoD_qz = np.zeros([0, self.z.shape[0]])
+
+        if self.load_chi_file():
+            if self.complete:
+                self.context.print('Building block loaded from file')
+        self.context.comm.barrier()
+
+    def parse_q(self, gs, qmax, single_q_c):
+        """Helper function to parse input related to q"""
+        if self.direction == 'x':
+            qdir = 0
+        elif self.direction == 'y':
+            qdir = 1
+
+        if single_q_c is not None:
+            single_q_c = np.asarray(single_q_c).flatten()
+            if single_q_c.size > 4:
+                raise ValueError('single_q_c must be a float, or array of '
+                                 'shape (2,) or (3,)!'
+                                 'Detected shape was ' + str(single_q_c.shape))
+            if single_q_c.size == 1:
+                q_cs = np.zeros((1, 3))
+                q_cs[:, qdir] = single_q_c
+            elif single_q_c.size == 2:
+                q_cs = np.array([[single_q_c[0], single_q_c[1], 0]])
+            else:
+                q_cs = single_q_c.reshape(1, -1)
+            
+            rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
+            q_vs = np.dot(q_cs, rcell_cv)
+            q_vs += q_infs
+            q_abs = (q_vs**2).sum(axis=1)**0.5
+            q_infs = q_infs
+
+        else:
             # First: choose all ibzq in 2D BZ
             from ase.dft.kpoints import monkhorst_pack
             from gpaw.kpt_descriptor import KPointDescriptor
+            kd = gs.kd
             offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
             bzq_qc = monkhorst_pack(kd.N_c) + offset_c
             qd = KPointDescriptor(bzq_qc)
             qd.set_symmetry(gs.atoms, kd.symmetry)
             q_cs = qd.ibzk_kc
             rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
-            if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
+            if self.isotropic_q:  # only use q along [1 0 0] or
+                #  [0 1 0] direction.
                 Nk = kd.N_c[qdir]
                 qx = np.array(range(1, Nk // 2)) / float(Nk)
                 q_cs = np.zeros([Nk // 2 - 1, 3])
@@ -121,7 +161,7 @@ class BuildingBlock:
                 q_cut = q_abs[0] / 2
             else:
                 q_cut = q_abs[1]  # smallest finite q
-            self.nq_cut = self.nq_inftot + 1
+            nq_cut = self.nq_inftot + 1
 
             q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
             # x-direction:
@@ -132,44 +172,15 @@ class BuildingBlock:
                     np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
             # add q_inf to list
-            self.q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]),
-                                  axis=0)
-            self.q_vs = np.dot(self.q_cs, rcell_cv)
-            self.q_vs += q_infs
-            self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
-            self.q_infs = q_infs
-        else:
-            single_q_c = np.asarray(single_q_c).flatten()
-            if single_q_c.size > 4:
-                raise ValueError('single_q_c must be a float, or array of '
-                                 'shape (2,) or (3,)!'
-                                 'Detected shape was ' + str(single_q_c.shape))
-            if single_q_c.size == 1:
-                self.q_cs = np.zeros((1, 3))
-                self.q_cs[:, qdir] = single_q_c
-            elif single_q_c.size == 2:
-                self.q_cs = np.array([[single_q_c[0], single_q_c[1], 0]])
-            else:
-                self.q_cs = single_q_c.reshape(1, -1)
+            q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]),
+                             axis=0)
+            q_vs = np.dot(q_cs, rcell_cv)
+            q_vs += q_infs
+            q_abs = (q_vs**2).sum(axis=1)**0.5
+            q_infs = q_infs
 
-            self.q_vs = np.dot(self.q_cs, rcell_cv)
-            self.q_vs += q_infs
-            self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
-            self.q_infs = q_infs
+        return q_cs, q_vs, q_abs, q_infs, nq_cut
 
-
-
-        self.complete = False
-        self.last_q_idx = 0
-        self.chiM_qw = np.zeros([0, nw])
-        self.chiD_qw = np.zeros([0, nw])
-        self.drhoM_qz = np.zeros([0, self.z.shape[0]])
-        self.drhoD_qz = np.zeros([0, self.z.shape[0]])
-
-        if self.load_chi_file():
-            if self.complete:
-                self.context.print('Building block loaded from file')
-        self.context.comm.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
