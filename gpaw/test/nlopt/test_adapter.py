@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 from ase.units import Bohr
 
 from gpaw.new.ase_interface import GPAW
