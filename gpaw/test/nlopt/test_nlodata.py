@@ -1,9 +1,8 @@
 import pytest
-from gpaw import GPAW
+import numpy as np
+
 from gpaw.mpi import broadcast, world
 from gpaw.nlopt.basic import NLOData
-from gpaw.nlopt.matrixel import make_nlodata
-import numpy as np
 
 
 @pytest.mark.skipif(world.size > 1, reason='Serial only')
@@ -25,7 +24,7 @@ def test_write_load_serial(in_tmp_dir):
 
 
 def test_write_load_parallel(in_tmp_dir):
-    if world.rank == 0:   
+    if world.rank == 0:
         w_sk = np.random.rand(1, 5)
         f_skn = np.random.rand(1, 5, 30)
         E_skn = np.random.rand(1, 5, 30)

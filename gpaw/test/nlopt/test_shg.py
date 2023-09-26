@@ -22,11 +22,12 @@ def test_shg(in_tmp_dir):
     calc.write('gs.gpw', 'all')
 
     # Get the mml
-    nloData = make_nlodata('gs.gpw')
+    nlodata = make_nlodata('gs.gpw')
 
     # Do a SHG
-    get_shg(nloData, freqs=np.linspace(0, 5, 100))
-    get_shg(nloData, freqs=np.linspace(0, 5, 100), gauge='vg', out_name='shg2.npy')
+    freqs = np.linspace(0, 5, 101)
+    get_shg(nlodata, freqs=freqs)
+    get_shg(nlodata, freqs=freqs, gauge='vg', out_name='shg2.npy')
 
     # Check it
     if world.rank == 0:
@@ -49,11 +50,11 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
         # Get nlodata from pre-calculated SiC fixtures
         calc = gpw_files[f'sic_pw{tag}']
-        nloData = make_nlodata(calc)
+        nlodata = make_nlodata(calc)
         world.barrier()
 
         # Calculate 'xyz' tensor element of SHG spectra
-        get_shg(nloData, freqs=freqs, eta=0.025, pol='xyz',
+        get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
                 out_name=f'shg_xyz{tag}.npy')
         world.barrier()
 
@@ -99,12 +100,12 @@ def test_shg_hBN(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 2.4, 10)
 
     # Get nlodata from pre-calculated SiC fixtures
-    calc = gpw_files['hbn_pw_nsym']
-    nloData = make_nlodata(calc)
+    calc = gpw_files['hbn_pw_nopg']
+    nlodata = make_nlodata(calc)
     world.barrier()
 
     # Calculate 'xyz' tensor element of SHG spectra
-    get_shg(nloData, freqs=freqs, eta=0.025, pol='xyz',
+    get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
             out_name='shg_xyz.npy')
     world.barrier()
 
