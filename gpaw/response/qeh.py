@@ -178,7 +178,7 @@ class BuildingBlock:
             w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
             chiM_w, chiD_w, z, drhoM_z, drhoD_z = \
-                get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
+                get_chi_2D(qpd, chi_wGG)
             assert np.allclose(z, self.z)
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
@@ -380,7 +380,7 @@ def check_building_blocks(BBfiles=None):
     return True
 
 
-def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
+def get_chi_2D(qpd, chi_wGG):
     r"""Calculate the monopole and dipole contribution to the
     2D susceptibility chi_2D for single q-point q, defined as
 
@@ -394,7 +394,6 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
       Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
       (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
     
-    omega_w: Frequency array
     qpd: Single q-point descriptor
     chi_wGG: Susceptibility in PW basis
       """
