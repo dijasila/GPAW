@@ -458,21 +458,6 @@ class G0W0Calculator:
         self.filename = filename
         self.eta = eta / Ha
 
-        if self.context.comm.rank == 0:
-            # We pass a serial communicator because the parallel handling
-            # is somewhat wonky, we'd rather do that ourselves:
-            # try:
-            #     self.qcache = FileCache(f'qcache_{self.filename}',
-            #                             comm=mpi.SerialCommunicator())
-            # except TypeError as err:
-            #     raise RuntimeError(
-            #         'File cache requires ASE master '
-            #         'from September 20 2022 or newer.  '
-            #         'You may need to pull newest ASE.') from err
-
-            self.context.print('stripped empties', self.qcache.strip_empties())
-            self.context.print('file cache count', self.qcache.filecount())
-
         self.kpts = kpts
         self.bands = bands
 
@@ -1055,6 +1040,8 @@ class G0W0(G0W0Calculator):
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
         """
+        # We pass a serial communicator because the parallel handling
+        # is somewhat wonky, we'd rather do that ourselves:
         try:
             qcache = FileCache(f'qcache_{filename}',
                                comm=mpi.SerialCommunicator())
