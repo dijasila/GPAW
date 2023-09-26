@@ -66,7 +66,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     assert spin < gs.ns, 'Wrong spin input'
 
     # Real and reciprocal space parameters
-    icell_cv = (2 * np.pi) * gs.grid.icell_cv
+    icell_cv = (2 * np.pi) * gs.grid.icell
     nk = np.shape(gs.ibzk_kc)[0]
 
     # Parallelisation and memory estimate
@@ -171,7 +171,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                  spin: str = 'all',
                  ni: int = 0,
                  nf: int = 0) -> None:
-    
+
     """Get all required NLO data and store it in a file.
 
     Writes NLO data to file: w_sk, f_skn, E_skn, p_skvnn.
@@ -192,11 +192,10 @@ def make_nlodata(gs_name: str = 'gs.gpw',
 
     """
 
-    assert path.exists(
-        gs_name), 'The gs file: {} does not exist!'.format(gs_name)
-    calc = GPAW(gs_name, txt=None,
-                parallel={'kpt': 1, 'band': 1},
-                communicator=serial_comm)
+    assert path.exists(gs_name), \
+        f'The gs file: {gs_name} does not exist!'
+    calc = GPAW(gs_name, txt=None, communicator=serial_comm)
+
     assert not calc.symmetry.point_group, \
         'Point group symmtery should be off.'
 
@@ -224,23 +223,22 @@ def _make_nlodata(gs,
                   spins: list,
                   ni: int,
                   nf: int) -> None:
-    
+
     # Start the timer
     timer = Timer()
 
     # Get the energy and fermi levels (data is only in master)
     with timer('Get energies and fermi levels'):
-        
         ibzwfs = gs.ibzwfs
         if world.rank == 0:
             # Get the data
             E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
             # Energy is returned in Ha. For now we will change
-            # it to eV to not change the module too much.
+            # it to eV avoid altering the module too much.
             E_skn *= Ha
 
             w_sk = np.array([ibzwfs.ibz.weight_k for s1 in spins])
-            bz_vol = np.linalg.det(2 * np.pi * gs.gd.icell_cv)
+            bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
             w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements

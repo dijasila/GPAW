@@ -98,6 +98,12 @@ class MatrixElementCalculator(ABC):
              = | dr ψ_nks^*(r) A ψ_n'k+qs'(r)
                /
         """
+        self._add_pseudo_contribution(*self.extract_pseudo_waves(kptpair),
+                                      matrix_element=matrix_element)
+
+    def extract_pseudo_waves(self, kptpair):
+        """Extract the pseudo wave functions for each k-point pair transition.
+        """
         ikpt1 = kptpair.ikpt1
         ikpt2 = kptpair.ikpt2
 
@@ -116,8 +122,7 @@ class MatrixElementCalculator(ABC):
         ut1_mytR = ut1_hR[ikpt1.h_myt]
         ut2_mytR = ut2_hR[ikpt2.h_myt]
 
-        self._add_pseudo_contribution(
-            k1_c, k2_c, ut1_mytR, ut2_mytR, matrix_element)
+        return k1_c, k2_c, ut1_mytR, ut2_mytR
 
     def add_paw_correction(self, kptpair, matrix_element):
         r"""Add the matrix element PAW correction to an output array.
@@ -160,11 +165,12 @@ class MatrixElementCalculator(ABC):
 
     @abstractmethod
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 matrix_element):
+                                 matrix_element: MatrixElement):
         """Add pseudo contribution based on the pseudo waves in real space."""
 
     @abstractmethod
-    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+    def _add_paw_correction(self, P1_amyti, P2_amyti,
+                            matrix_element: MatrixElement):
         """Add paw correction based on the projector overlaps."""
 
     def get_periodic_pseudo_waves(self, K, ikpt):
@@ -258,12 +264,11 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
 
     @timer('Calculate pseudo matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 matrix_element):
+                                 matrix_element: PlaneWaveMatrixElement):
         r"""Add the pseudo matrix element to the output array.
 
-        The pseudo matrix element is evaluated on the coarse real-space grid,
-        multiplied with the functional f[n](r) and then FFT'ed to reciprocal
-        space,
+        The pseudo matrix element is evaluated on the coarse real-space grid
+        and FFT'ed to reciprocal space,
 
         ˷           /               ˷          ˷
         f_kt(G+q) = | dr e^-i(G+q)r ψ_nks^*(r) ψ_n'k+qs'(r) f(r)
@@ -275,18 +280,28 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         functional f[n](r+R)=f(r) is lattice periodic.
         """
         qpd = matrix_element.qpd
+        # G: reciprocal space
         f_mytG = matrix_element.local_array_view
-
-        # Calculate the pseudo pair density in real space, up to a phase of
-        # e^(-i[k+q-k']r).
-        # This phase does not necessarily vanish, since k2_c only is required
-        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
-        nt_mytR = ut1_mytR.conj() * ut2_mytR
+        # R: real space
+        ft_mytR = self._evaluate_pseudo_matrix_element(ut1_mytR, ut2_mytR)
 
         # Get the FFT indices corresponding to the pair density Fourier
         # transform             ˷          ˷
         # FFT_G[e^(-i[k+q-k']r) u_nks^*(r) u_n'k's'(r)]
+        # This includes a (k,k')-dependent phase, since k2_c only is required
+        # to equal k1_c + qpd.q_c modulo a reciprocal lattice vector.
         Q_G = phase_shifted_fft_indices(k1_c, k2_c, qpd)
+
+        # Add the desired plane-wave components of the FFT'ed pseudo matrix
+        # element to the output array
+        for f_G, ft_R in zip(f_mytG, ft_mytR):
+            f_G[:] += qpd.fft(ft_R, 0, Q_G) * self.gs.gd.dv
+
+    @timer('Evaluate pseudo matrix element')
+    def _evaluate_pseudo_matrix_element(self, ut1_mytR, ut2_mytR):
+        """Evaluate the pseudo matrix element in real-space."""
+        # Evaluate the pseudo pair density      ˷          ˷
+        nt_mytR = ut1_mytR.conj() * ut2_mytR  # u_nks^*(r) u_n'k's'(r)
 
         # Evaluate the local functional f(n(r)) on the coarse real-space grid
         # NB: Here we assume that f(r) is sufficiently smooth to be represented
@@ -295,13 +310,11 @@ class PlaneWaveMatrixElementCalculator(MatrixElementCalculator):
         f_R = gd.zeros()
         self.add_f(gd, n_sR, f_R)
 
-        # Add the desired plane-wave components of the FFT'ed pseudo matrix
-        # element to the output array
-        for f_G, nt_R in zip(f_mytG, nt_mytR):
-            f_G[:] += qpd.fft(nt_R * f_R, 0, Q_G) * gd.dv
+        return nt_mytR * f_R[np.newaxis]
 
     @timer('Calculate the matrix-element PAW corrections')
-    def _add_paw_correction(self, P1_amyti, P2_amyti, matrix_element):
+    def _add_paw_correction(self, P1_amyti, P2_amyti,
+                            matrix_element: PlaneWaveMatrixElement):
         r"""Add the matrix-element PAW correction to the output array.
 
         The correction is calculated from
@@ -425,7 +438,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         self._F_apii = None
 
     @abstractmethod
-    def add_f(gd, n_sx, f_x):
+    def add_f(self, gd, n_sx, f_x):
         """Add the local functional f(n(r)) to the f_x output array."""
 
     def print_rshe_info(self, a, info_string):
@@ -447,7 +460,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
                 self.rshe_a, adata.sites.A_a,
                 adata.sites.rc_ap, adata.lambd_ap):
             # Calculate the PAW correction
-            pawdata = self.gs.pawdatasets[A]
+            pawdata = self.gs.pawdatasets.by_atom[A]
             F_apii.append(calculate_site_matrix_element_correction(
                 pawdata, rshe, rc_p, adata.drcut, lambd_p))
 
@@ -458,7 +471,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
     @timer('Calculate pseudo site matrix element')
     def _add_pseudo_contribution(self, k1_c, k2_c, ut1_mytR, ut2_mytR,
-                                 site_matrix_element):
+                                 matrix_element: SiteMatrixElement):
         """Add the pseudo site matrix element to the output array.
 
         The pseudo matrix element is evaluated on the coarse real-space grid
@@ -490,7 +503,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         stfc = spherical_truncation_function_collection(
             self.gs.gd, adata.spos_ac,
             adata.sites.rc_ap, adata.drcut, adata.lambd_ap,
-            kd=site_matrix_element.qpd.kd, dtype=complex)
+            kd=matrix_element.qpd.kd, dtype=complex)
 
         # Integrate Θ(r∊Ω_ap) f(r) ñ_kt(r)
         ntlocal = nt_mytR.shape[0]
@@ -500,12 +513,13 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
         stfc.integrate(nt_mytR * f_R[np.newaxis], ft_amytp, q=0)
 
         # Add integral to output array
-        f_mytap = site_matrix_element.array
+        f_mytap = matrix_element.array
         for a in range(len(adata.sites)):
             f_mytap[:, a] += ft_amytp[a]
 
     @timer('Calculate site matrix element PAW correction')
-    def _add_paw_correction(self, P1_Amyti, P2_Amyti, site_matrix_element):
+    def _add_paw_correction(self, P1_Amyti, P2_Amyti,
+                            matrix_element: SiteMatrixElement):
         r"""Add the site matrix element PAW correction to the output array.
 
         For every site a, we only need a PAW correction for that site itself,
@@ -517,7 +531,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
 
         where F_apii' is the site matrix element correction tensor.
         """
-        f_mytap = site_matrix_element.array
+        f_mytap = matrix_element.array
         F_apii = self.get_paw_correction_tensor()
         for a, (A, F_pii) in enumerate(zip(
                 self.atomic_site_data.sites.A_a, F_apii)):
