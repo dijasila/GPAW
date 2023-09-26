@@ -216,7 +216,7 @@ class PairFunctionIntegrator(ABC):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
-            self.gs.kd, qpd, self.context,
+            self.gs.kpoints, qpd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal)
 

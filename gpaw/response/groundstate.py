@@ -283,6 +283,11 @@ class ResponseGroundStateAdapter:
     def atomrotations(self):
         return self._wfs.setups.atomrotations
 
+    @lazyproperty
+    def kpoints(self):
+        from gpaw.response.kpoints import ResponseKPointGrid
+        return ResponseKPointGrid(self.kd, self.gd.icell_cv, self.kd.bzk_kc)
+
 
 # Contains all the relevant information
 # from Setups class for response calculators
