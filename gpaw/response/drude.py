@@ -164,7 +164,7 @@ class PlasmaFrequencyIntegrand(Integrand):
         gs = self._drude.gs
         kd = gs.kd
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self._drude.kptpair_factory.find_kpoint(k_c)
+        K1 = gs.kpoints.kptfinder.find(k_c)
         ik = kd.bz2ibz_k[K1]
         kpt1 = gs.kpt_qs[ik][s]
         assert gs.kd.comm.size == 1

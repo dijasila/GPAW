@@ -85,11 +85,7 @@ class KPointPairFactory:
                                                       nblocks)
         self.nblocks = nblocks
 
-        self.kptfinder = KPointFinder(self.gs.kd.bzk_kc)
         self.context.print('Number of blocks:', nblocks)
-
-    def find_kpoint(self, k_c):
-        return self.kptfinder.find(k_c)
 
     def distribute_k_points_and_bands(self, band1, band2, kpts=None):
         """Distribute spins, k-points and bands.
@@ -152,7 +148,7 @@ class KPointPairFactory:
 
         # Parse kpoint: is k_c an index or a vector
         if not isinstance(k_c, numbers.Integral):
-            K = self.kptfinder.find(k_c)
+            K = self.gs.kpoints.kptfinder.find(k_c)
         else:
             # Fall back to index
             K = k_c

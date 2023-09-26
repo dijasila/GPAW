@@ -154,8 +154,9 @@ class Chi0Integrand(Integrand):
         kd = gs.kd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.kptpair_factory.find_kpoint(k_c)
-        K2 = self.kptpair_factory.find_kpoint(k_c + qpd.q_c)
+        kptfinder = self.gs.kpoints.kptfinder
+        K1 = kptfinder.find(k_c)
+        K2 = kptfinder.find(k_c + qpd.q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
@@ -456,7 +457,7 @@ class Chi0Calculator:
     def get_kpoints(self, qpd, integrationmode):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.gs.kd, qpd, self.context,
+            self.gs.kpoints, qpd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal)
 
@@ -472,7 +473,12 @@ class Chi0Calculator:
                                    axis=0)
 
         from gpaw.response.kpoints import ResponseKPointGrid
-        return ResponseKPointGrid(qpd.gd.icell_cv, bzk_kc), analyzer
+        kpoints = ResponseKPointGrid(self.gs.kd, qpd.gd.icell_cv, bzk_kc)
+        # Two illogical things here:
+        #  * Analyzer is for original kpoints, not those we just reduced
+        #  * The kpoints object has another bzk_kc array than self.gs.kd.
+        #    We could make a new kd, but I am not sure about ramifications.
+        return kpoints, analyzer
 
     def get_gs_info_string(self, tab=''):
         gs = self.gs
