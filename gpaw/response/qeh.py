@@ -190,7 +190,7 @@ class BuildingBlock:
                                            drhoM_z[np.newaxis, :],
                                            drhoD_z[np.newaxis, :])
 
-        # Induced densities are not probably described in q-> 0 limit-
+        # Induced densities are not properly described in q-> 0 limit-
         # replace with finite q result:
         if self.context.comm.rank == 0:
             for n in range(Nq):
@@ -250,6 +250,10 @@ class BuildingBlock:
         else:
             return False
 
+    # XXX This function is not tested and not frequently used.
+    # It is basically identical to interpolate_buildingblock
+    # in QEH code
+    # Write test or remove?
     def interpolate_to_grid(self, q_grid, w_grid):
 
         """
@@ -421,7 +425,6 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
     for iG in range(npw):  # List of G with Gx,Gy = 0
         if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
             Glist.append(iG)
-    q_abs = np.linalg.norm(q)
 
     # If node lacks frequency points due to block parallelization then
     # return empty arrays
