@@ -3,13 +3,13 @@ A class for finding optimal orbitals corresponding to a stationary point of
 the energy functional using direct optimization and exponential transformation
 in LCAO mode.
 
-It can be used with Kohn-Sham or Perdew-Zunger self-interaction corrected
-(PZ-SIC) functionals for ground state as well as variational excited state
-calculations.
+It can be used with Kohn-Sham functionals and can include Perdew-Zunger
+self-interaction correction (PZ-SIC) in the calculations.
 
-Ground state calculations are performed by minimizing the energy (direct
-minimization). For excited state calculations, the energy is optimized by
-converging on a saddle point (direct optimization).
+Ground state as well as variational excited state calculations can be
+performed. Ground state calculations involve minimization of the energy
+(direct minimization), while excited state calculations involve convergence
+on a saddle point (direct optimization).
 
 Implementation of exponential transformation direct minimization (ETDM) for
 ground state calculations LCAO mode:

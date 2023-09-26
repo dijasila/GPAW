@@ -3,15 +3,16 @@ A class for finding optimal orbitals corresponding to a stationary point of
 the energy functional using direct optimization and exponential transformation
 in FD and PW modes.
 
-It can be used with Kohn-Sham, hybrid (exact exchange) or Perdew-Zunger
-self-interaction corrected (PZ-SIC) functionals for ground state as well as
-variational excited state calculations.
+It can be used with Kohn-Sham and hybrid (exact exchange) functionals, and
+can include Perdew-Zunger self-interaction correction (PZ-SIC) in the
+calculations.
 
-Ground state calculations involve minimization of the energy in a direction
-tangent to the orbitals without the exponential transformation (direct
-minimization). For excited state calculations, the energy is optimized by
-converging on a saddle point, which involves an inner loop using the
-exponential transformation (direct optimization). PZ-SIC functionals require
+Ground state as well as variational excited state calculations can be
+performed. Ground state calculations involve minimization of the energy in a
+direction tangent to the orbitals without the exponential transformation
+(direct minimization). For excited state calculations, the energy is optimized
+by converging on a saddle point, which involves an inner loop using the
+exponential transformation (direct optimization). PZ-SIC requires
 an additional inner loop to minimize the energy with respect to unitary
 transformation of the occupied orbitals.
 
