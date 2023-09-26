@@ -4,7 +4,7 @@ from gpaw.mpi import world, broadcast
 
 
 @dataclass
-class nloData:
+class NLOData:
     w_sk: np.ndarray
     f_skn: np.ndarray
     E_skn: np.ndarray
@@ -18,7 +18,7 @@ class nloData:
     @classmethod
     def load(self, filename):
         """
-        Load the data and distribute among cores
+        Load the data
 
         Input:
             filename        NLO data filename
@@ -32,17 +32,18 @@ class nloData:
         else:
             nlo = dict.fromkeys(['w_sk', 'f_skn', 'E_skn', 'p_skvnn'])
 
-        return nloData(nlo['w_sk'], nlo['f_skn'], nlo['E_skn'], nlo['p_skvnn'])
+        return NLOData(nlo['w_sk'], nlo['f_skn'], nlo['E_skn'], nlo['p_skvnn'])
 
     def distribute(self):
         """
-        Distribute the data among the cores
+        Distribute the data among cores
 
         Input:
             arr_list        A list of numpy array (the first two should be s,k)
         Output:
             k_info          A  dictionary of data with key of s,k index
         """
+
         arr_list = [self.w_sk, self.f_skn, self.E_skn, self.p_skvnn]
 
         # Check the array shape

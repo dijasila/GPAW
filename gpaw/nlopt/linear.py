@@ -5,7 +5,7 @@ from gpaw.mpi import world
 
 
 def get_chi_tensor(
-        nloData,
+        nlodata,
         freqs=[1.0], eta=0.05,
         ftol=1e-4, Etol=1e-6, eshift=0.0,
         band_n=None, out_name=None):
@@ -13,7 +13,7 @@ def get_chi_tensor(
     Calculate full linear susceptibility tensor for nonmagnetic semiconductors.
 
     Input:
-        nloData         The momentum data of type `nloData`
+        nlodata         The momentum data of type `NLOData`
         freqs           Excitation frequency array (a numpy array or list)
         eta             Broadening, a number or an array (default 0.05 eV)
         Etol, ftol      Tol. in energy and fermi to consider degeneracy
@@ -31,7 +31,7 @@ def get_chi_tensor(
     w_lc = freqs + 1j * eta
 
     # Load the required data
-    k_info = nloData.distribute()
+    k_info = nlodata.distribute()
     if k_info:
         tmp = list(k_info.values())[0]
         nb = len(tmp[1])

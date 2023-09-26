@@ -9,7 +9,7 @@ from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_shift(
-        nloData,
+        nlodata,
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
@@ -21,8 +21,8 @@ def get_shift(
 
     Parameters
     ==========
-    nloData
-        The momentum data of type `nloData`
+    nlodata:
+        The momentum data of type `NLOData`
     freqs:
         Excitation frequency array (a numpy array or list).
     eta:
@@ -54,7 +54,7 @@ def get_shift(
 
     # Load the required data
     with timer('Load and distribute the data'):
-        k_info = nloData.distribute()
+        k_info = nlodata.distribute()
         if k_info:
             tmp = list(k_info.values())[0]
             nb = len(tmp[1])

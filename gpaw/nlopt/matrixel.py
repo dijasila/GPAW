@@ -8,8 +8,8 @@ from ase.utils.timing import Timer
 from gpaw.new.ase_interface import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, serial_comm
+from gpaw.nlopt.basic import NLOData
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.nlopt.basic import nloData
 
 
 class WaveFunctionAdapter:
@@ -75,7 +75,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     size = world.size
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
-    parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
+    parprint(f'At least {est_mem:.2f} MB of memory is required.')
 
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
@@ -247,8 +247,10 @@ def _make_nlodata(gs,
             p_skvnn.append(p_kvnn)
 
     # Save the output to the file
-    return nloData(w_sk=w_sk, f_skn=f_skn[:, :, ni:nf],
-                   E_skn=E_skn[:, :, ni:nf], p_skvnn=np.array(p_skvnn, complex))
+    return NLOData(w_sk=w_sk,
+                   f_skn=f_skn[:, :, ni:nf],
+                   E_skn=E_skn[:, :, ni:nf],
+                   p_skvnn=np.array(p_skvnn, complex))
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
