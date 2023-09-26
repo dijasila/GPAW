@@ -109,13 +109,13 @@ class PWSymmetryAnalyzer:
 
     def print_symmetries(self):
         """Handsome print function for symmetry operations."""
-
-        isl = ['']
+        isl = ['\n']
         nx = 6  # You are not allowed to use non-symmorphic syms (value 3)
         ns = len(self.s_s)
         y = 0
         for y in range((ns + nx - 1) // nx):
             for c in range(3):
+                tisl = []
                 for x in range(nx):
                     s = x + y * nx
                     if s == ns:
@@ -123,9 +123,11 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    isl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})')
-                isl.append('')
-            self.context.print('\n'.join(isl))  # flush output
+                    tisl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})')
+                tisl.append('\n')
+                isl.append(''.join(tisl))
+            isl.append('\n')
+        self.context.print(''.join(isl))  # flush output
 
     @timer('Analyze')
     def analyze_kpoints(self):
