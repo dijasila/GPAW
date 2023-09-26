@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 from gpaw.core.domain import Domain
-from gpaw.core.plane_waves import PWDesc
+from gpaw.core.plane_waves import PWDesc, PWArray
 from gpaw.typing import Vector
 from gpaw.mpi import serial_comm
 
@@ -33,6 +33,9 @@ class SpinorWaveFunctionDescriptor(Domain):
     def empty(self, shape, comm=serial_comm, xp=None):
         assert isinstance(shape, int)
         return self.pw.empty((shape, 2), comm)
+
+    def from_data(self, data):
+        return PWArray(self.pw, data.shape[:-2], data=data)
 
     def global_shape(self) -> tuple[int, ...]:
         return (2,) + self.pw.global_shape()

@@ -313,6 +313,7 @@ class PWFDWaveFunctions(WaveFunctions):
         communicators."""
         # Also collect projections instead of recomputing XXX
         n2 = n2 if n2 > 0 else self.nbands + n2
+        spinors = (2,) if self.ncomponents == 4 else ()
         band_comm = self.psit_nX.comm
         domain_comm = self.psit_nX.desc.comm
         nbands = self.nbands
@@ -321,7 +322,8 @@ class PWFDWaveFunctions(WaveFunctions):
         rank2, b2 = divmod(n2, mynbands)
         if band_comm.rank == 0:
             if domain_comm.rank == 0:
-                psit_nX = self.psit_nX.desc.new(comm=None).empty(n2 - n1)
+                psit_nX = self.psit_nX.desc.new(comm=None).empty(
+                    (n2 - n1, *spinors))
             rank = rank1
             ba = b1
             na = n1

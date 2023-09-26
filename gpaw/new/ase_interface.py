@@ -303,11 +303,16 @@ class ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         return GPAW(**kwargs)
 
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
+    def get_pseudo_wave_function(self, band, kpt=0, spin=None,
                                  periodic=False,
                                  broadcast=True) -> Array3D:
         state = self.calculation.state
         collinear = state.ibzwfs.collinear
+        if collinear:
+            if spin is None:
+                spin = 0
+        else:
+            assert spin is None
         wfs = state.ibzwfs.get_wfs(spin=spin if collinear else 0,
                                    kpt=kpt,
                                    n1=band, n2=band + 1)
@@ -319,9 +324,10 @@ class ASECalculator:
                 wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
                 psit_R = wfs.psit_nX[0]
             else:
-                psit_G = wfs.psit_nX[0, spin]
-                grid = grid.new(kpt=psit_G.desc.kpt_c, dtype=psit_G.desc.dtype)
-                psit_R = psit_G.ifft(grid=grid)
+                psit_sG = wfs.psit_nX[0]
+                grid = grid.new(kpt=psit_sG.desc.kpt_c,
+                                dtype=psit_sG.desc.dtype)
+                psit_R = psit_sG.ifft(grid=grid)
             if not psit_R.desc.pbc.all():
                 psit_R = psit_R.to_pbc_grid()
             if periodic:

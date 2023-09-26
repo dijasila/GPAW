@@ -283,6 +283,7 @@ class PWArray(DistributedArrays[PWDesc]):
         for data in self.data:
             yield PWArray(self.desc,
                           data.shape[:-len(self.desc.shape)],
+                          #data.shape[:-1],
                           data=data)
 
     def new(self,

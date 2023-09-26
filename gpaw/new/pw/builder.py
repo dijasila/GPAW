@@ -186,7 +186,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             if self.communicators['w'].size == 1:
                 orig_shape = data.shape
                 data.shape = (self.nbands, ) + pw.shape
-                wfs.psit_nX = PWArray(pw, self.nbands, data=data)
+                wfs.psit_nX = pw.from_data(data)
                 data.shape = orig_shape
             else:
                 band_comm = self.communicators['b']
