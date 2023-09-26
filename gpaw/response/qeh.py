@@ -179,7 +179,7 @@ class BuildingBlock:
 
             chiM_w, chiD_w, z, drhoM_z, drhoD_z = \
                 get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
-            assert(np.allclose(z, self.z))
+            assert np.allclose(z, self.z)
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
@@ -333,7 +333,6 @@ class BuildingBlock:
         self.wd = FrequencyGridDescriptor(w_grid)
         self.save_chi_file(filename=self.filename + '_int')
 
-        
     def collect(self, a_w):
         comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
