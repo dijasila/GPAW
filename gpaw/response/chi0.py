@@ -138,7 +138,6 @@ class Chi0Calculator:
 
 
 class Chi0BodyCalculator(Chi0ComponentPWCalculator):
-
     def __init__(self, *args,
                  eshift=0.0,
                  **kwargs):
