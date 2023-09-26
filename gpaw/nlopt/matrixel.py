@@ -172,7 +172,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
 def make_nlodata(gs_name: str = 'gs.gpw',
                  spin: str = 'all',
                  ni: int = 0,
-                 nf: int = 0) -> None:
+                 nf: int = 0) -> NLOData:
 
     """Get all required NLO data and store it in a file.
 
@@ -220,7 +220,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
 def _make_nlodata(gs,
                   spins: list,
                   ni: int,
-                  nf: int) -> None:
+                  nf: int) -> NLOData:
 
     # Start the timer
     timer = Timer()
