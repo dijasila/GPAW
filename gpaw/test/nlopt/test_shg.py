@@ -8,7 +8,6 @@ from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
 
 
-@pytest.mark.later
 @pytest.mark.skipif(world.size > 4, reason='System too small')
 def test_shg(in_tmp_dir):
     # Check for Hydrogen atom
@@ -42,7 +41,6 @@ def test_shg(in_tmp_dir):
         assert np.all(np.abs(shg[1]) < 1e-8)
 
 
-@pytest.mark.later
 def test_shg_spinpol(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 4, 101)
     shg_xyz = {}
@@ -86,7 +84,6 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
         np.max(np.abs(shg_xyz_rerr_imag))
 
 
-@pytest.mark.later
 def test_shg_hBN(gpw_files, in_tmp_dir):
     # SHG spectrum of h-BN as previously calculated.
     # We should be aware of any changes to this.
