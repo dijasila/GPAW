@@ -3,6 +3,7 @@ from __future__ import annotations
 import warnings
 from time import ctime
 from typing import Union
+from abc import ABC, abstractmethod
 
 import numpy as np
 from ase.units import Ha
@@ -334,31 +335,10 @@ class Chi0RelatedBaseCalculator:
         return f'\n{tab}'.join(gs_list)
 
 
-class Chi0Calculator(Chi0RelatedBaseCalculator):
+class Chi0RelatedPWBaseCalculator(Chi0RelatedBaseCalculator, ABC):
+    """Base class for Chi0XXXCalculators, which utilize a plane-wave basis."""
+
     def __init__(self, kptpair_factory,
-                 context=None,
-                 eshift=0.0,
-                 intraband=True,
-                 rate=0.0,
-                 **kwargs):
-        self.kptpair_factory = kptpair_factory
-        self.gs = kptpair_factory.gs
-        if context is None:
-            context = kptpair_factory.context
-        self.context = context
-
-        self.chi0_body_calc = Chi0BodyCalculator(
-            kptpair_factory, context=context,
-            eshift=eshift, **kwargs)
-        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
-            kptpair_factory, context=context,
-            intraband=intraband, rate=rate, **kwargs)
-
-    @property
-    def pair_calc(self):
-        return self.kptpair_factory.pair_calculator()
-
-    def tmp_init(self, kptpair_factory,
                  *,
                  wd,
                  hilbert=True,
@@ -394,6 +374,10 @@ class Chi0Calculator(Chi0RelatedBaseCalculator):
         if sum(self.pbc) == 1:
             raise ValueError('1-D not supported atm.')
 
+    @property
+    def pair_calc(self):
+        return self.kptpair_factory.pair_calculator()
+
     def construct_integral_task(self):
         if self.eta == 0:
             assert not self.hilbert
@@ -412,6 +396,10 @@ class Chi0Calculator(Chi0RelatedBaseCalculator):
         # at the given frequencies with broadening eta
         return self.construct_literal_task()
 
+    @abstractmethod
+    def construct_hermitian_task(self):
+        """Integral task for the hermitian part of chi0."""
+
     def construct_hilbert_task(self):
         if isinstance(self.integrator, PointIntegrator):
             return self.construct_point_hilbert_task()
@@ -419,16 +407,70 @@ class Chi0Calculator(Chi0RelatedBaseCalculator):
             assert isinstance(self.integrator, TetrahedronIntegrator)
             return self.construct_tetra_hilbert_task()
 
+    @abstractmethod
+    def construct_point_hilbert_task(self):
+        """Integral task for point integrating the spectral part of chi0."""
+
+    @abstractmethod
     def construct_tetra_hilbert_task(self):
-        return HilbertTetrahedron(self.integrator.blockcomm)
+        """Integral task for tetrahedron integration of the spectral part."""
+
+    @abstractmethod
+    def construct_literal_task(self):
+        """Integral task for a literal evaluation of chi0."""
+
+    def get_pw_descriptor(self, q_c):
+        return SingleQPWDescriptor.from_q(q_c, self.ecut, self.gs.gd)
+
+    def get_band_transitions(self):
+        return self.gs.nocc1, self.nbands  # m1, m2
+
+    def get_response_info_string(self, qpd, tab=''):
+        nw = len(self.wd)
+        ecut = self.ecut * Ha
+        nbands = self.nbands
+        ngmax = qpd.ngmax
+        eta = self.eta * Ha
+
+        res_list = [f'{tab}Number of frequency points: {nw}',
+                    f'Planewave cutoff: {ecut}',
+                    f'Number of bands: {nbands}',
+                    f'Number of planewaves: {ngmax}',
+                    f'Broadening (eta): {eta}']
+
+        return f'\n{tab}'.join(res_list)
+
+
+class Chi0Calculator:
+    def __init__(self, kptpair_factory,
+                 context=None,
+                 eshift=0.0,
+                 intraband=True,
+                 rate=0.0,
+                 **kwargs):
+        self.kptpair_factory = kptpair_factory
+        self.gs = kptpair_factory.gs
+        if context is None:
+            context = kptpair_factory.context
+        self.context = context
+
+        self.chi0_body_calc = Chi0BodyCalculator(
+            kptpair_factory, context=context,
+            eshift=eshift, **kwargs)
+        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
+            kptpair_factory, context=context,
+            intraband=intraband, rate=rate, **kwargs)
+
+    @property
+    def pair_calc(self):
+        # In a future refactor, we should find better ways to access the pair
+        # density calculator (and the pair density paw corrections) XXX
+        return self.chi0_body_calc.pair_calc
 
     def create_chi0(self, q_c):
         chi0_body = self.chi0_body_calc.create_chi0_body(q_c)
         chi0 = Chi0Data.from_chi0_body_data(chi0_body)
         return chi0
-
-    def get_pw_descriptor(self, q_c):
-        return SingleQPWDescriptor.from_q(q_c, self.ecut, self.gs.gd)
 
     def calculate(self, q_c, spin='all'):
         """Calculate chi0 (possibly with optical extensions).
@@ -463,9 +505,6 @@ class Chi0Calculator(Chi0RelatedBaseCalculator):
 
         return Chi0Data(chi0_body, chi0_opt_ext)
 
-    def get_band_transitions(self):
-        return self.gs.nocc1, self.nbands  # m1, m2
-
     @timer('Calculate CHI_0')
     def update_chi0(self,
                     chi0: Chi0Data,
@@ -497,29 +536,14 @@ class Chi0Calculator(Chi0RelatedBaseCalculator):
                 chi0.optical_extension, m1, m2, spins)
         return chi0
 
-    def get_response_info_string(self, qpd, tab=''):
-        nw = len(self.wd)
-        ecut = self.ecut * Ha
-        nbands = self.nbands
-        ngmax = qpd.ngmax
-        eta = self.eta * Ha
 
-        res_list = [f'{tab}Number of frequency points: {nw}',
-                    f'Planewave cutoff: {ecut}',
-                    f'Number of bands: {nbands}',
-                    f'Number of planewaves: {ngmax}',
-                    f'Broadening (eta): {eta}']
-
-        return f'\n{tab}'.join(res_list)
-
-
-class Chi0BodyCalculator(Chi0Calculator):
+class Chi0BodyCalculator(Chi0RelatedPWBaseCalculator):
 
     def __init__(self, *args,
                  eshift=0.0,
                  **kwargs):
         self.eshift = eshift / Ha
-        self.tmp_init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         if self.gs.metallic:
             assert abs(self.eshift) < 1e-8, \
@@ -614,6 +638,9 @@ class Chi0BodyCalculator(Chi0Calculator):
     def construct_point_hilbert_task(self):
         return Hilbert(self.integrator.blockcomm, eshift=self.eshift)
 
+    def construct_tetra_hilbert_task(self):
+        return HilbertTetrahedron(self.integrator.blockcomm)
+
     def construct_literal_task(self):
         return GenericUpdate(
             self.eta, self.integrator.blockcomm, eshift=self.eshift)
@@ -657,13 +684,13 @@ class Chi0BodyCalculator(Chi0Calculator):
         self.context.print('\n'.join(isl))
 
 
-class Chi0OpticalExtensionCalculator(Chi0Calculator):
+class Chi0OpticalExtensionCalculator(Chi0RelatedPWBaseCalculator):
 
     def __init__(self, *args,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        self.tmp_init(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
