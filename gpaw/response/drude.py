@@ -4,13 +4,13 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
-from gpaw.response.chi0 import Chi0RelatedBaseCalculator
+from gpaw.response.chi0 import Chi0ComponentCalculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
 from gpaw.response.frequencies import FrequencyGridDescriptor
 
 
-class Chi0DrudeCalculator(Chi0RelatedBaseCalculator):
+class Chi0DrudeCalculator(Chi0ComponentCalculator):
     """Class for calculating the plasma frequency contribution to Chi0,
     that is, the contribution from intraband transitions inside of metallic
     bands. This corresponds directly to the dielectric function in the Drude

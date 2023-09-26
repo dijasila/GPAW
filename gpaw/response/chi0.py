@@ -168,7 +168,7 @@ class Chi0Integrand(Integrand):
         return deps_nm.reshape(-1)
 
 
-class Chi0RelatedBaseCalculator:
+class Chi0ComponentCalculator:
     """Base class for the Chi0XXXCalculator suite."""
 
     def __init__(self, kptpair_factory,
@@ -335,7 +335,7 @@ class Chi0RelatedBaseCalculator:
         return f'\n{tab}'.join(gs_list)
 
 
-class Chi0RelatedPWBaseCalculator(Chi0RelatedBaseCalculator, ABC):
+class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
     """Base class for Chi0XXXCalculators, which utilize a plane-wave basis."""
 
     def __init__(self, kptpair_factory,
@@ -537,7 +537,7 @@ class Chi0Calculator:
         return chi0
 
 
-class Chi0BodyCalculator(Chi0RelatedPWBaseCalculator):
+class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
     def __init__(self, *args,
                  eshift=0.0,
@@ -684,7 +684,7 @@ class Chi0BodyCalculator(Chi0RelatedPWBaseCalculator):
         self.context.print('\n'.join(isl))
 
 
-class Chi0OpticalExtensionCalculator(Chi0RelatedPWBaseCalculator):
+class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
 
     def __init__(self, *args,
                  intraband=True,
