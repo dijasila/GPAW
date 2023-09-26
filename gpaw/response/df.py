@@ -82,8 +82,9 @@ class DielectricFunctionCalculator:
     def get_chi(self, xc='RPA', q_c=[0, 0, 0],
                 direction='x', return_VchiV=True, q_v=None,
                 rshelmax=-1, rshewmin=None):
-        """ Returns v^1/2 chi v^1/2 for the density response and chi for the
-        spin response. The truncated Coulomb interaction is included as
+        """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
+
+        The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
 
