@@ -126,7 +126,7 @@ class PlasmaFrequencyIntegrand(Integrand):
 
     def _band_summation(self):
         # Intraband response needs only integrate partially unoccupied bands.
-        return self._drude.nocc1, self._drude.nocc2
+        return self._drude.gs.nocc1, self._drude.gs.nocc2
 
     def matrix_element(self, k_v, s):
         """NB: In dire need of documentation! XXX."""

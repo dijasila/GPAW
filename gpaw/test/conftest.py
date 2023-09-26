@@ -62,8 +62,22 @@ def add_cwd_to_setup_paths():
         del setup_paths[:1]
 
 
-response_band_cutoff = dict(
-)
+response_band_cutoff = {}
+
+
+@pytest.fixture(scope='session')
+def sessionscoped_monkeypatch():
+    # The standard monkeypatch fixture is function scoped
+    # so we need to roll our own
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        yield monkeypatch
+
+
+@pytest.fixture(autouse=True, scope='session')
+def monkeypatch_response_spline_points(sessionscoped_monkeypatch):
+    import gpaw.response.paw as paw
+    # https://gitlab.com/gpaw/gpaw/-/issues/984
+    sessionscoped_monkeypatch.setattr(paw, 'DEFAULT_RADIAL_POINTS', 2**10)
 
 
 def with_band_cutoff(*, gpw, band_cutoff):
@@ -122,7 +136,7 @@ def gpw_files(request):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
-    * NiCl2 with 6x6x1 k-points: ``nicl2_pw``
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
 
     * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
       ``v2br4_pw`` and ``v2br4_pw_nosym``
@@ -967,8 +981,7 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    @gpwfile
-    def nicl2_pw(self):
+    def _nicl2_pw(self, vacuum=3.0, identifier=''):
         from ase.build import mx2
 
         # Define input parameters
@@ -981,7 +994,6 @@ class GPWFiles:
 
         a = 3.502
         thickness = 2.617
-        vacuum = 3.0
         mm = 2.0
 
         # Set up atoms
@@ -1000,11 +1012,19 @@ class GPWFiles:
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
-            txt=self.path / 'nicl2_pw.txt')
+            txt=self.path / f'nicl2_pw{identifier}.txt')
 
         atoms.get_potential_energy()
 
         return atoms.calc
+
+    @gpwfile
+    def nicl2_pw(self):
+        return self._nicl2_pw(vacuum=3.0)
+
+    @gpwfile
+    def nicl2_pw_evac(self):
+        return self._nicl2_pw(vacuum=10.0, identifier='_evac')
 
     @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
@@ -1394,7 +1414,9 @@ def all_gpw_files(request, gpw_files, pytestconfig):
 
     # TODO This xfail-information should probably live closer to the
     # gpwfile definitions and not here in the fixture.
-    skip_if_new = {'Cu3Au_qna', 'nicl2_pw', 'v2br4_pw_nosym', 'v2br4_pw',
+    skip_if_new = {'Cu3Au_qna',
+                   'nicl2_pw', 'nicl2_pw_evac',
+                   'v2br4_pw', 'v2br4_pw_nosym',
                    'sih4_xc_gllbsc'}
     if gpaw_new and request.param in skip_if_new:
         pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')

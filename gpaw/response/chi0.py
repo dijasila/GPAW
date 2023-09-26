@@ -51,15 +51,15 @@ class Chi0Integrand(Integrand):
 
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
+        self.gs = chi0calc.gs
         self.n1 = 0
-        self.n2 = chi0calc.nocc2
+        self.n2 = self.gs.nocc2
         assert m1 <= m2
         self.m1 = m1
         self.m2 = m2
 
         self.context = chi0calc.context
         self.kptpair_factory = chi0calc.kptpair_factory
-        self.gs = chi0calc.gs
 
         self.qpd = qpd
         self.analyzer = analyzer
@@ -168,28 +168,24 @@ class Chi0Integrand(Integrand):
 
 
 class Chi0Calculator:
-    def __init__(self, *args,
+    def __init__(self, kptpair_factory,
+                 context=None,
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        self.chi0_body_calc = Chi0BodyCalculator(
-            *args, eshift=eshift, **kwargs)
-        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
-            *args, intraband=intraband, rate=rate, **kwargs)
+        self.kptpair_factory = kptpair_factory
+        self.gs = kptpair_factory.gs
+        if context is None:
+            context = kptpair_factory.context
+        self.context = context
 
-        # Attributes groped by other classes...
-        # Oh the horror, there are many of these...
-        # Remove these in the future XXX
-        self.gs = self.chi0_body_calc.gs
-        self.context = self.chi0_body_calc.context
-        self.wd = self.chi0_body_calc.wd
-        self.nbands = self.chi0_body_calc.nbands
-        self.nocc1 = self.chi0_body_calc.nocc1
-        self.nocc2 = self.chi0_body_calc.nocc2
-        self.ecut = self.chi0_body_calc.ecut
-        self.kptpair_factory = self.chi0_body_calc.kptpair_factory
-        self.integrator = self.chi0_body_calc.integrator
+        self.chi0_body_calc = Chi0BodyCalculator(
+            kptpair_factory, context=context,
+            eshift=eshift, **kwargs)
+        self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
+            kptpair_factory, context=context,
+            intraband=intraband, rate=rate, **kwargs)
 
     @property
     def nblocks(self):
@@ -216,9 +212,6 @@ class Chi0Calculator:
         self.kptpair_factory = kptpair_factory
         self.gs = kptpair_factory.gs
 
-        # Number of completely filled bands and number of non-empty bands.
-        self.nocc1, self.nocc2 = self.gs.count_occupied_bands()
-
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
 
@@ -226,7 +219,9 @@ class Chi0Calculator:
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
 
-    def tmp_init(self, wd, *args,
+    def tmp_init(self, kptpair_factory,
+                 *,
+                 wd,
                  hilbert=True,
                  nbands=None,
                  timeordered=False,
@@ -235,7 +230,7 @@ class Chi0Calculator:
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
         """
-        self.base_ini(*args, **kwargs)
+        self.base_ini(kptpair_factory, **kwargs)
 
         if ecut is None:
             ecut = 50.0
@@ -334,7 +329,7 @@ class Chi0Calculator:
         return Chi0Data(chi0_body, chi0_opt_ext)
 
     def get_band_transitions(self):
-        return self.nocc1, self.nbands  # m1, m2
+        return self.gs.nocc1, self.nbands  # m1, m2
 
     def get_spins(self, spin='all'):
         nspins = self.gs.nspins
@@ -486,8 +481,8 @@ class Chi0Calculator:
         nk = gs.kd.nbzkpts
         nik = gs.kd.nibzkpts
 
-        nocc = self.nocc1
-        npocc = self.nocc2
+        nocc = self.gs.nocc1
+        npocc = self.gs.nocc2
         ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
         nstat = ns * npocc
         occsize = nstat * ngridpoints * 16. / 1024**2
@@ -525,8 +520,7 @@ class Chi0BodyCalculator(Chi0Calculator):
         self.eshift = eshift / Ha
         self.tmp_init(*args, **kwargs)
 
-        metallic = self.nocc1 != self.nocc2
-        if metallic:
+        if self.gs.metallic:
             assert abs(self.eshift) < 1e-8, \
                 'A rigid energy shift cannot be applied to the conduction '\
                 'bands if there is no band gap'
@@ -674,8 +668,7 @@ class Chi0OpticalExtensionCalculator(Chi0Calculator):
         # response from the free-space plasma frequency of the intraband
         # transitions to the head of the chi0 wings. This is handled by a
         # separate calculator, provided that intraband is set to True.
-        metallic = self.nocc1 != self.nocc2
-        if metallic and intraband:
+        if self.gs.metallic and intraband:
             from gpaw.response.drude import Chi0DrudeCalculator
             if rate == 'eta':
                 rate = self.eta * Ha  # external units
