@@ -138,7 +138,7 @@ class BuildingBlock:
         self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
         self.q_infs = q_infs
         self.complete = False
-        self.nq = 0
+        self.last_q_idx = 0
         if self.load_chi_file():
             if self.complete:
                 self.context.print('Building block loaded from file')
@@ -148,18 +148,18 @@ class BuildingBlock:
         if self.complete:
             return
         Nq = self.q_cs.shape[0]
-        for nq in range(self.nq, Nq):
-            self.nq = nq
-            self.save_chi_file()
-            q_c = self.q_cs[nq]
-            q_inf = self.q_infs[nq]
+        for current_q_idx in range(self.last_q_idx, Nq):
+            self.save_chi_file(q_idx=current_q_idx)
+            self.last_q_idx = current_q_idx
+            q_c = self.q_cs[current_q_idx]
+            q_inf = self.q_infs[current_q_idx]
             if np.allclose(q_inf, 0):
                 q_inf = None
 
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
             self.context.print(
                 'Calculating contribution from q-point #%d/%d, q_c=%s' % (
-                    nq + 1, Nq, qcstr), flush=False)
+                    current_q_idx + 1, Nq, qcstr), flush=False)
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
@@ -211,10 +211,12 @@ class BuildingBlock:
         self.drhoM_qz = np.append(self.drhoM_qz, drhoM_qz, axis=0)
         self.drhoD_qz = np.append(self.drhoD_qz, drhoD_qz, axis=0)
 
-    def save_chi_file(self, filename=None):
+    def save_chi_file(self, filename=None, q_idx=None):
+        if q_idx is None:
+            q_idx = self.last_q_idx
         if filename is None:
             filename = self.filename
-        data = {'last_q': self.nq,
+        data = {'last_q': q_idx,
                 'complete': self.complete,
                 'isotropic_q': self.isotropic_q,
                 'q_cs': self.q_cs,
@@ -240,7 +242,7 @@ class BuildingBlock:
         if (np.all(data['omega_w'] == self.wd.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
             np.all(data['z'] == self.z)):
-            self.nq = data['last_q']
+            self.last_q_idx = data['last_q']
             self.complete = data['complete']
             self.chiM_qw = data['chiM_qw']
             self.chiD_qw = data['chiD_qw']
