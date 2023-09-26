@@ -499,7 +499,7 @@ class LBFGS_P(SearchDirectionBase):
 class LSR1P(SearchDirectionBase):
     """
     This class describes limited memory versions of
-    SR-1, Powell and their combintaions (such as Bofill).
+    SR-1, Powell and their combinations (such as Bofill).
     """
 
     def __init__(self, memory=20, method='LSR1', phi=None):

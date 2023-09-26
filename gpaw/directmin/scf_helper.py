@@ -13,10 +13,14 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     if name == 'etdm-lcao' or name == 'etdm-fdpw':
         occ_name = getattr(wfs.occupations, 'name', None)
         solver = wfs.eigensolver
-        if isinstance(solver.func_settings, basestring):
-            func_name = solver.func_settings
-        else:
-            func_name = solver.func_settings['name']
+        # if isinstance(solver.func_settings, basestring):
+        #     func_name = solver.func_settings
+        # else:
+        #     func_name = solver.func_settings['name']
+        if hasattr(solver, 'dm_helper'):
+            func_name = solver.dm_helper.func.name
+        elif hasattr(solver, 'odd'):
+            func_name = solver.odd.name
         sic_calc = 'SIC' in func_name
     else:
         return

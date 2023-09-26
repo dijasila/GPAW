@@ -17,7 +17,7 @@ ground state calculations LCAO mode:
     Comput. Phys. Commun. 267, 108047 (2021) :doi:10.1016/j.cpc.2021.108047
     arXiv:2101.12597 [physics.comp-ph]
 
-Implementations of direct optimization (DO) for variational excited state
+GPAW implementations of direct optimization (DO) for variational excited state
 calculations LCAO mode:
 
     DO with preconditioned quasi-Newton algorithms and maximum overlap method
@@ -70,30 +70,87 @@ class LCAOETDM:
                  subspace_convergence=5e-4,
                  excited_state=False
                  ):
-        """
-        Class for direct orbital optimization in LCAO mode.
+        """Class for direct orbital optimization in LCAO mode.
 
-        :param searchdir_algo: algorithm for calculating the search direction
-        (e.g.LBFGS)
-        :param linesearch_algo: line search (e.g. strong Wolfe conditions)
-        :param partial_diagonalizer: Algorithm to use for partial
-        diagonalization of the electronic Hessian if DO-GMF is used
-        :param update_ref_orbs_counter: When to update C_ref
-        :param update_ref_orbs_canonical: update C_ref to canonical orbitals
-        :param update_precond_counter: when to update the preconditioner
-        :param use_prec: use preconditioner or not
-        :param matrix_exp: algorithm for calculating the matrix exponential and
-        gradient. Can be one of 'pade-approx', 'egdecomp', 'egdecomp-u-invar'
-        (used with u-invar representation)
-        :param representation: the way the elements of A are stored. Can be one
-        of 'sparse', 'full', 'u-invar'
-        :param functional: KS or PZ-SIC
-        :param orthonormalization: orthonormalize the orbitals using
-        Gram-Schmidt or Loewdin orthogonalization, or getting the orbitals as
-        eigenstates of the Hamiltonian matrix. Can be one of 'gramschmidt',
-        'loewdin', 'diag'
-        :param randomizeorbitals: if True, add noise to the initial guess
-        :param checkgraderror: check error in estimation of gradient
+        searchdir_algo: str, dict or instance
+            Search direction algorithm. Can be one of the algorithms available
+            in sd_etdm.py:
+                'sd': Steepest descent
+                'fr-cg': Fletcher-Reeves conjugate gradient
+                'l-bfgs': Limited-memory BFGS
+                'l-bfgs-p': Limited-memory BFGS with preconditioner presented
+                    in :doi:10.1016/j.cpc.2021.108047 (default when excited_state
+                    is False)
+                'l-sr1p': limited-memory SR1 algorithm presented in
+                    :doi:10.1021/acs.jctc.0c00597 (default when excited_state
+                    is True)
+            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and 20,
+            respectively, and can be changed by supplying a dictionary:
+            {'name': name, 'memory': memory}, where name should be 'l-bfgs',
+            'l-bfgs-p' or 'l-sr1p' and memory should be an int.
+            To use the generalized mode following (GMF) method for excited
+            states, append '_gmf' to the search direction algorithm name. E.g.
+            'l-bfgs-p_gmf'.
+        linesearch_algo: str, dict or instance
+            Line search algorithm. Can be one of the algorithms available
+            in ls_etdm.py:
+                'max-step': The quasi-Newton step is scaled if it exceeds a
+                    maximum step length (default when excited_state is True).
+                    The default maximum step length is 0.20, and can be changed
+                    by supplying a dictionary:
+                    {'name': 'max-step', 'max_step': max_step}, where max_step
+                    should be a float
+                'swc-awc': Line search with Wolfe conditions (default when
+                    excited_state is False)
+        partial_diagonalizer: 'str' or dict
+            Algorithm for partial diagonalization of the electronic Hessian if
+            GMF is used. Default is 'Davidson'.
+        update_ref_orbs_counter: int
+            When to update the coefficients of the reference orbitals. Default
+            is 20 iterations.
+        update_ref_orbs_canonical: bool
+            If True, the coefficients of the reference orbitals are updated to
+            canonical orbital coefficients, otherwise use the optimal orbital
+            coefficients (default).
+        use_prec: bool
+            If True (default) use a preconditioner. The preconditioner is
+            calculated as the inverse of a diagonal approximation of the Hessian
+            (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p', which uses the
+            composite preconditioner presented in :doi:10.1016/j.cpc.2021.108047.
+        update_precond_counter: int
+            When to update the preconditioner. Default is 1000 iterations.
+        representation: 'str'
+            How to store the elements of the anti-Hermitian matrix for the
+            matrix exponential. Can be one of 'sparse' (default), 'full',
+            'u-invar'. The latter can be used only for unitary invariant
+            functionals, such as Kohn-Sham functionals when the occupied
+            orbitals have the same occupation number, but not for orbital
+            density dependent functionals, such as when using PZ-SIC.
+        matrix_exp: 'str'
+            Algorithm for calculating the matrix exponential and the gradient
+            with respect to the elements of the anti-Hermitian matrix for the
+            exponential transformation. Can be one of 'pade-approx' (default),
+            'egdecomp', 'egdecomp-u-invar' (the latter can be used only with
+            'u-invar' representation).
+        functional: str, dict or instance
+            Type of functional. If equal to 'ks' (default) the functional as
+            specified in the GPAW calculator will be used. Specify 'pz-sic' to
+            apply the Perdew-Zunger self-interaction correction on top of the
+            functional as specified in the GPAW calculator. Dy default full SIC
+            will be applied. A scaling factor for SIC can be given by supplying
+            a dictionary: functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
+            where a is the scaling factor (float).
+        orthonormalization: str
+            Method to orthonormalize the orbitals. Can be one of 'gramschmidt'
+            (Gram-Schmidt orthonormalization, default), 'loewdin' (Loewdin
+            orthonormalization) or 'diag' (eigendecomposition of the Hamiltonian
+            matrix).
+        randomizeorbitals: bool
+            If True, add random noise to the initial guess orbitals. Default
+            is False.
+        checkgraderror: bool
+            Can be used to check the error in the estimation of the gradient
+            if True (only with representation 'full'). Default is False.
         :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
         :param localizationseed: Seed for Pipek-Mezey localization
         :param need_localization: use localized orbitals as initial guess

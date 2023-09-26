@@ -30,7 +30,7 @@ def test_pwsic(in_tmp_dir):
     calc = GPAW(mode=PW(300, force_complex_dtype=True),
                 occupations={'name': 'fixed-uniform'},
                 eigensolver=FDPWETDM(
-                    functional={'name': 'PZ-SIC',
+                    functional={'name': 'pz-sic',
                                 'scaling_factor': (0.5, 0.5)},
                     localizationseed=42,
                     localizationtype='FB_ER',

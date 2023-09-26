@@ -16,7 +16,7 @@ exponential transformation (direct optimization). PZ-SIC requires
 an additional inner loop to minimize the energy with respect to unitary
 transformation of the occupied orbitals.
 
-Implementation of direct minimization for ground state calculations and
+GPAW Implementation of direct minimization for ground state calculations and
 direct optimization with preconditioned quasi-Newton algorithms and maximum
 overlap method (DO-MOM) for excited state calculations FD and PW modes:
 
@@ -66,8 +66,45 @@ class FDPWETDM(Eigensolver):
                  converge_unocc=False,
                  maxiter_unocc=333,
                  excited_state=False):
-        """
-         Class for direct orbital optimization in FD and PW modes.
+        """Class for direct orbital optimization in FD and PW modes.
+
+        searchdir_algo: str, dict or instance
+            Search direction algorithm for the outer loop minimization. Can be
+            one of the algorithms available in sd_etdm.py:
+                'sd': Steepest descent
+                'fr-cg': Fletcher-Reeves conjugate gradient
+                'l-bfgs': Limited-memory BFGS (default)
+                'l-bfgs-p': Limited-memory BFGS with preconditioner presented
+                    in :doi:10.1016/j.cpc.2021.108047
+                'l-sr1p': Limited-memory SR1 algorithm presented in
+                    :doi:10.1021/acs.jctc.0c00597
+            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and 20,
+            respectively, and can be changed by supplying a dictionary:
+            {'name': name, 'memory': memory}, where name should be 'l-bfgs',
+            'l-bfgs-p' or 'l-sr1p' and memory should be an int.
+        linesearch_algo: str, dict or instance
+            Line search algorithm. Can be one of the algorithms available
+            in ls_etdm.py:
+                'max-step': The quasi-Newton step is scaled if it exceeds a
+                    maximum step length (default).
+                    The default maximum step length is 0.20, and can be changed
+                     by supplying a dictionary:
+                     {'name': 'max-step', 'max_step': max_step}, where max_step
+                     should be a float.
+                'swc-awc': Line search with Wolfe conditions
+        use_prec: bool
+            If True (default) use a preconditioner. The preconditioner is
+            calculated as the inverse of a diagonal approximation of the Hessian
+            (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p', which uses the
+            composite preconditioner presented in :doi:10.1016/j.cpc.2021.108047.
+        functional: str, dict or instance
+            Type of functional. If equal to 'ks' (default) the functional as
+            specified in the GPAW calculator will be used. Specify 'pz-sic' to
+            apply the Perdew-Zunger self-interaction correction on top of the
+            functional as specified in the GPAW calculator. Dy default full SIC
+            will be applied. A scaling factor for SIC can be given by supplying
+            a dictionary: functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
+            where a is the scaling factor (float).
         """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
@@ -303,7 +340,7 @@ class FDPWETDM(Eigensolver):
             self.odd = get_functional(self.func_settings, wfs, dens, ham)
             self.e_sic = 0.0
 
-            if 'SIC' in self.func_settings['name']:
+            if 'SIC' in self.odd.name:
                 self.iloop = PZLocalization(
                     self.odd, wfs, self.maxiter_pz_localization,
                     g_tol=self.grad_tol_pz_localization)
@@ -317,7 +354,7 @@ class FDPWETDM(Eigensolver):
                     useprec=True, momevery=self.momevery)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
-                if 'SIC' in self.func_settings['name']:
+                if 'SIC' in self.odd.name:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
                         self.iloop.U_k[k] = self.outer_iloop.U_k[k].copy()
@@ -505,7 +542,7 @@ class FDPWETDM(Eigensolver):
                 ham, wfs, dens, updateproj=updateproj)
             grad = self.get_gradients_2(ham, wfs)
 
-            if 'SIC' in self.func_settings['name']:
+            if 'SIC' in self.odd.name:
                 e_sic = 0.0
                 if self.iters > 0:
                     self.run_inner_loop(ham, wfs, dens, grad_knG=grad)
@@ -758,7 +795,7 @@ class FDPWETDM(Eigensolver):
         scalewithocc = not self.excited_state
 
         grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=scalewithocc)
-        if 'SIC' in self.func_settings['name']:
+        if 'SIC' in self.odd.name:
             for kpt in wfs.kpt_u:
                 self.odd.get_energy_and_gradients_kpt(
                     wfs, kpt, grad_knG, self.iloop.U_k,
@@ -821,7 +858,7 @@ class FDPWETDM(Eigensolver):
 
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-            if 'SIC' in self.func_settings['name']:
+            if 'SIC' in self.odd.name:
                 self.odd.lagr_diag_s[k] = np.append(lo_nn, lu_nn)
 
         del grad_knG

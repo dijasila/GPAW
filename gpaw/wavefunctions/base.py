@@ -72,9 +72,9 @@ class WaveFunctions:
 
         func = None
         if hasattr(self.eigensolver, 'dm_helper'):
-            func = getattr(self.eigensolver.dm_helper.func, "name", None)
+            func = getattr(self.eigensolver.dm_helper.func, 'name', None)
         elif hasattr(self.eigensolver, 'odd'):
-            func = getattr(self.eigensolver.odd, "name", None)
+            func = getattr(self.eigensolver.odd, 'name', None)
         if func is None:
             pass
         elif 'SIC' in func:

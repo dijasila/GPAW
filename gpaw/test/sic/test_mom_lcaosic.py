@@ -47,7 +47,7 @@ def test_mom_lcaosic(in_tmp_dir):
                                   need_init_orbs=False,
                                   localizationtype='PM_PZ',
                                   localizationseed=42,
-                                  functional={'name': 'PZ-SIC',
+                                  functional={'name': 'pz-sic',
                                               'scaling_factor': (0.5, 0.5)}),
              convergence={'eigenstates': 1e-2})
 
