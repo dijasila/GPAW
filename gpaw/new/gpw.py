@@ -179,6 +179,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     nt_sR = builder.grid.empty(builder.ncomponents)
     vt_sR = builder.grid.empty(builder.ncomponents)
+
     if builder.xc.type == 'MGGA':
         taut_sR = builder.grid.empty(builder.ncomponents)
         dedtaut_sR = builder.grid.empty(builder.ncomponents)
@@ -186,12 +187,12 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         taut_sR = None
         dedtaut_sR = None
 
-    atom_array_layout = AtomArraysLayout([(setup.ni * (setup.ni + 1) // 2)
-                                          for setup in builder.setups],
-                                         atomdist=builder.atomdist)
-    D_asp = atom_array_layout.empty(builder.ncomponents)
     dtype = float if builder.ncomponents < 4 else complex
-    dH_asp = atom_array_layout.new(dtype=dtype).empty(builder.ncomponents)
+    atom_array_layout = AtomArraysLayout(
+        [(setup.ni * (setup.ni + 1) // 2) for setup in builder.setups],
+        atomdist=builder.atomdist, dtype=dtype)
+    D_asp = atom_array_layout.empty(builder.ncomponents)
+    dH_asp = atom_array_layout.empty(builder.ncomponents)
 
     if kpt_band_comm.rank == 0:
         nt_sR.scatter_from(nt_sR_array)
@@ -201,7 +202,6 @@ def read_gpw(filename: Union[str, Path, IO[str]],
             dedtaut_sR.scatter_from(dedtaut_sR_array)
         D_asp.scatter_from(D_sap_array)
         dH_asp.scatter_from(dH_sap_array)
-
     if reader.version < 4:
         convert_to_new_packing_convention(D_asp, density=True)
         convert_to_new_packing_convention(dH_asp)

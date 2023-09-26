@@ -50,6 +50,8 @@
 #define CHK_ARRAY_RO(a) // TODO
 #define CHK_ARRAYS(a,b,n) // TODO
 
+#include <stdio.h>
+
 static inline int Array_NDIM(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
@@ -172,6 +174,35 @@ static inline int Array_ISCOMPLEX(PyObject* obj)
     int result = PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
     return result;
 }
+
+static inline void print_array_info(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        printf("numpy ");
+    }
+    if (Array_ISCOMPLEX(obj))
+    {
+        printf("complex ");
+    }
+    printf("itemsize: %d", Array_ITEMSIZE(obj));
+    printf("typenum %d", Array_TYPE(obj));
+    printf("shape: [");
+    for (int i=0; i<Array_NDIM(obj); i++)
+    {
+        printf("%d", Array_DIM(obj, i));
+        if (i != Array_NDIM(obj) - 1)
+        {
+            printf(", ");
+        }
+        else
+        {
+            printf("]");
+        }
+    printf("\n");
+    }
+}
+
 
 #endif
 

@@ -5,6 +5,13 @@ from gpaw.response.MPAsamp import mpa_frequency_sampling
 @pytest.mark.response
 def test_mpa_samp():
 
+    with pytest.raises(ValueError):
+        w_grid = mpa_frequency_sampling(2, [complex(0, 0.1), complex(0, 1)],
+                                        [0.1, 0.1], ps='3l', alpha=1)
+    with pytest.raises(ValueError):
+        w_grid = mpa_frequency_sampling(2, [complex(0, 0.1), complex(0, 1)],
+                                        [0.1, 0.1], ps='1l', alpha=1)
+
     # print("npol=1, ps='1l', w1=0.1j, w2=1j, alpha=1:")
     w_grid = mpa_frequency_sampling(1, [complex(0, 0.1), complex(0, 1)],
                                     [0.1, 0.1], ps='1l', alpha=1)

@@ -9,9 +9,10 @@ from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PWArray
-from gpaw.core.uniform_grid import UGDesc, UGArray
+from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
+from gpaw.mpi import receive, send
 from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
@@ -72,6 +73,14 @@ class PWFDWaveFunctions(WaveFunctions):
 
     @property
     def pt_aiX(self) -> AtomCenteredFunctions:
+        """PAW projector functions.
+
+        :::
+
+            ~a _
+            p (r)
+             i
+        """
         if self._pt_aiX is None:
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
@@ -81,7 +90,15 @@ class PWFDWaveFunctions(WaveFunctions):
         return self._pt_aiX
 
     @property
-    def P_ani(self):
+    def P_ani(self) -> AtomArrays:
+        """PAW projections.
+
+        :::
+
+             ~a  ~
+            <p | ψ >
+              i   n
+        """
         if self._P_ani is None:
             self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm)
@@ -165,11 +182,12 @@ class PWFDWaveFunctions(WaveFunctions):
         P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
-        dS = self.setups.overlap_correction
+        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist,
+                                                     self.xp)
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
-        dS(P_ani, out_ani=P2_ani)
+        P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
@@ -225,7 +243,7 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
+            self._eig_n = as_np(H.eigh(scalapack=(slcomm, r, c, b)))
             H.complex_conjugate()
             # H.data[n, :] now contains the nth eigenvector and eps_n[n]
             # the nth eigenvalue
@@ -344,6 +362,29 @@ class PWFDWaveFunctions(WaveFunctions):
 
         return None
 
+    def send(self, rank, comm):
+        stuff = (self.kpt_c,
+                 self.psit_nX.data,
+                 self.spin,
+                 self.q,
+                 self.k,
+                 self.weight,
+                 self.ncomponents)
+        send(stuff, rank, comm)
+
+    def receive(self, rank, comm):
+        kpt_c, data, spin, q, k, weight, ncomponents = receive(rank, comm)
+        psit_nX = self.psit_nX.desc.new(kpt=kpt_c, comm=None).from_data(data)
+        return PWFDWaveFunctions(psit_nX,
+                                 spin,
+                                 q,
+                                 k,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist,
+                                 weight,
+                                 ncomponents)
+
     def dipole_matrix_elements(self,
                                center_v: Vector = None) -> Array3D:
         """Calculate dipole matrix-elements.
@@ -424,7 +465,7 @@ class PWFDWaveFunctions(WaveFunctions):
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(
-                    psit_nX.data.dtype).reshape(psit_nX.data.shape)
+                    psit_nX.data.dtype).reshape((-1,) + psit_nX.data.shape[1:])
         return None
 
     def to_uniform_grid_wave_functions(self,
