@@ -13,13 +13,13 @@ from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, truncation):
+    def __init__(self, wd, chi0calc, truncation):
         from gpaw.response.pw_parallelization import Blocks1D
+        self.wd = wd
         self.chi0calc = chi0calc
 
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context = chi0calc.context
-        self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
@@ -558,7 +558,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc, truncation=truncation)
+        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):

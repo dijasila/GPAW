@@ -351,7 +351,7 @@ class ActualPairDensityCalculator:
         k_v = 2 * np.pi * np.dot(kpt1.k_c, np.linalg.inv(gd.cell_cv).T)
 
         ut_vR = self.ut_sKnvR[kpt1.s][kpt1.K][n - kpt1.n1]
-        atomdata_a = self.gs.pawdatasets
+        atomdata_a = self.gs.pawdatasets.by_atom
         C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[n - kpt1.na])
                  for atomdata, P_ni in zip(atomdata_a, kpt1.P_ani)]
 
@@ -413,7 +413,7 @@ class ActualPairDensityCalculator:
         # Load kpoints
         gd = self.gs.gd
         k_v = 2 * np.pi * np.dot(kpt.k_c, np.linalg.inv(gd.cell_cv).T)
-        atomdata_a = self.gs.pawdatasets
+        atomdata_a = self.gs.pawdatasets.by_atom
 
         # Break bands into degenerate chunks
         degchunks_cn = []  # indexing c as chunk number
@@ -447,8 +447,7 @@ class ActualPairDensityCalculator:
             for n in range(deg):
                 ut_vR = ut_nvR[n]
                 C_avi = [np.dot(atomdata.nabla_iiv.T, P_ni[ind_n[n] - na])
-                         for atomdata, P_ni in zip(atomdata_a,
-                                                   kpt.P_ani)]
+                         for atomdata, P_ni in zip(atomdata_a, kpt.P_ani)]
 
                 nabla0_nv = -self.gs.gd.integrate(ut_vR, ut_nR).T
                 nt_n = self.gs.gd.integrate(ut_nR[n], ut_nR)

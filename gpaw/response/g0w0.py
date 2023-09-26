@@ -376,6 +376,7 @@ def select_kpts(kpts, kd):
 
 class G0W0Calculator:
     def __init__(self, filename='gw', *,
+                 wd,
                  chi0calc,
                  wcalc,
                  kpts, bands, nbands=None,
@@ -384,6 +385,7 @@ class G0W0Calculator:
                  ecut_e,
                  frequencies=None,
                  exx_vxc_calculator,
+                 qcache,
                  ppa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
@@ -427,12 +429,13 @@ class G0W0Calculator:
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
+        self.qcache = qcache
         
-        # Note: self.chi0calc.wd should be our only representation
-        # of the frequencies.
+        # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
         # so should be easy to remove after some further adaptation.
+        self.wd = wd
         self.frequencies = frequencies
 
         self.ecut_e = ecut_e / Ha
@@ -454,20 +457,6 @@ class G0W0Calculator:
 
         self.filename = filename
         self.eta = eta / Ha
-
-        if self.context.comm.rank == 0:
-            # We pass a serial communicator because the parallel handling
-            # is somewhat wonky, we'd rather do that ourselves:
-            try:
-                self.qcache = FileCache(f'qcache_{self.filename}',
-                                        comm=mpi.SerialCommunicator())
-            except TypeError as err:
-                raise RuntimeError(
-                    'File cache requires ASE master '
-                    'from September 20 2022 or newer.  '
-                    'You may need to pull newest ASE.') from err
-
-            self.qcache.strip_empties()
 
         self.kpts = kpts
         self.bands = bands
@@ -496,7 +485,7 @@ class G0W0Calculator:
         if self.ppa:
             self.context.print('Using Godby-Needs plasmon-pole approximation:')
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
-                               % self.chi0calc.wd.omega_w[1].imag)
+                               % self.wd.omega_w[1].imag)
         else:
             self.context.print('Using full frequency integration')
 
@@ -512,7 +501,9 @@ class G0W0Calculator:
                     '',
                     'Computational parameters:'])
         if len(self.ecut_e) == 1:
-            isl.append(f'Plane wave cut-off: {self.chi0calc.ecut * Ha:g} eV')
+            isl.append(
+                'Plane wave cut-off: '
+                f'{self.chi0calc.chi0_body_calc.ecut * Ha:g} eV')
         else:
             assert len(self.ecut_e) > 1
             isl.append('Extrapolating to infinite plane wave cut-off using '
@@ -727,15 +718,15 @@ class G0W0Calculator:
         self.context.print(self.wcalc.coulomb.description())
 
         chi0calc = self.chi0calc
-        self.context.print(self.chi0calc.wd)
+        self.context.print(self.wd)
 
         # Find maximum size of chi-0 matrices:
-        nGmax = max(count_reciprocal_vectors(chi0calc.ecut,
+        nGmax = max(count_reciprocal_vectors(chi0calc.chi0_body_calc.ecut,
                                              self.wcalc.gs.gd, q_c)
                     for q_c in self.wcalc.qd.ibzk_kc)
-        nw = len(self.chi0calc.wd)
+        nw = len(self.wd)
 
-        size = self.chi0calc.integrator.blockcomm.size
+        size = self.chi0calc.chi0_body_calc.integrator.blockcomm.size
 
         mynGmax = (nGmax + size - 1) // size
         mynw = (nw + size - 1) // size
@@ -787,12 +778,12 @@ class G0W0Calculator:
 
         chi0 = chi0calc.create_chi0(q_c)
 
-        m1 = chi0calc.nocc1
+        m1 = chi0calc.gs.nocc1
         for ie, ecut in enumerate(self.ecut_e):
             self.context.timer.start('W')
 
             # First time calculation
-            if ecut == chi0calc.ecut:
+            if ecut == chi0.qpd.ecut:
                 # Nothing to cut away:
                 m2 = self.nbands
             else:
@@ -1049,6 +1040,20 @@ class G0W0(G0W0Calculator):
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
         """
+        # We pass a serial communicator because the parallel handling
+        # is somewhat wonky, we'd rather do that ourselves:
+        try:
+            qcache = FileCache(f'qcache_{filename}',
+                               comm=mpi.SerialCommunicator())
+        except TypeError as err:
+            raise RuntimeError(
+                'File cache requires ASE master '
+                'from September 20 2022 or newer.  '
+                'You may need to pull newest ASE.') from err
+
+        qcache.strip_empties()
+        mode = 'a' if qcache.filecount() > 1 else 'w'
+
         frequencies = get_frequencies(frequencies, domega0, omega2)
 
         # (calc can not actually be a calculator at all.)
@@ -1090,7 +1095,7 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        wcontext = context.with_txt(filename + '.w.txt')
+        wcontext = context.with_txt(filename + '.w.txt', mode=mode)
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
@@ -1101,7 +1106,7 @@ class G0W0(G0W0Calculator):
             context=wcontext,
             **parameters)
 
-        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.nocc2)
+        bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.gs.nocc2)
 
         coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
         # XXX eta needs to be converted to Hartree here,
@@ -1123,6 +1128,7 @@ class G0W0(G0W0Calculator):
             snapshotfile_prefix=filename)
 
         super().__init__(filename=filename,
+                         wd=wd,
                          chi0calc=chi0calc,
                          wcalc=wcalc,
                          ecut_e=ecut_e,
@@ -1133,6 +1139,7 @@ class G0W0(G0W0Calculator):
                          frequencies=frequencies,
                          kpts=kpts,
                          exx_vxc_calculator=exx_vxc_calculator,
+                         qcache=qcache,
                          ppa=ppa,
                          **kwargs)
 
