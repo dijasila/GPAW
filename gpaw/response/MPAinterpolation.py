@@ -157,7 +157,7 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
         A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
-    print('A', A, 'b', b)
+    #print('A', A, 'b', b)
 
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
@@ -311,42 +311,62 @@ class SinglePoleSolver(Solver):
         self.threshold = 1e-5
         self.epsilon = 1e-8
 
-    def solve(self, X_wG):
-        assert len(X_wG) == 2
+    def solve(self, X_wGG):
+        assert len(X_wGG) == 2
         omega_w = self.omega_w
-        E_G = (X_wG[0,:] * omega_w[0]**2 - X_wG[1, :] * omega_w[1]**2) / (X_wG[0,:] - X_wG[1,:])
-        def branch_sqrt_inplace(E_G):
-            E_G.real = np.abs(E_G.real)
-            E_G[:] = np.emath.sqrt(E_G)
+        E_GG = (X_wGG[0,:, :] * omega_w[0]**2 - X_wGG[1, :, :] * omega_w[1]**2) / (X_wGG[0,:, :] - X_wGG[1,:, :])
+        def branch_sqrt_inplace(E_GG):
+            E_GG.real = np.abs(E_GG.real)
+            E_GG[:] = np.emath.sqrt(E_GG)
 
-        branch_sqrt_inplace(E_G)
-        absE_G = np.abs(E_G)
-        mask = absE_G < self.threshold
-        E_G[mask] = np.abs(omega_w[0]) - 1j * self.epsilon 
-        E_G *= np.sign(E_G)
-        mask = E_G.imag > self.epsilon
-        E_G[mask] = E_G[mask].real - 1j * epsilon
+        branch_sqrt_inplace(E_GG)
+        absE_GG = np.abs(E_GG)
+        mask = absE_GG < self.threshold
+        E_GG[mask] = np.abs(omega_w[0]) - 1j * self.epsilon 
+        E_GG *= np.sign(E_GG)
+        mask = E_GG.imag > self.epsilon
+        E_GG[mask] = E_GG[mask].real - 1j * epsilon
 
 
-        """def mpa_R_1p_fit(npols, npr, w, x, E):
-    # Transforming the problem into a 2* larger least square with real numbers:
-    A = np.zeros((4, 2), dtype='complex64')
-    b = np.zeros((4), dtype='complex64')
-    for k in range(2):
+        #X_wG
+        #R = mpa_R_1p_fit(1, 1, w, x, E)
+
+        #A_GGww = np.zeros((
+
+        A_GGwp = np.zeros((*E_GG.shape, 2, 1), dtype=np.complex128)
+        b_GGw = np.zeros((*E_GG.shape, 2), dtype=np.complex128)
+        for w in range(2):
+            A_GGwp[:, :, w, 0] = 2 * E_GG / (omega_w[w]**2 - E_GG**2)
+            b_GGw[:, :, w] = X_wGG[w, :, :]
+
+        temp_GGp = np.einsum('GHwp,GHw->GHp', A_GGwp.conj(), b_GGw)
+        XTX_GGpp = np.einsum('GHwp,GHwo->GHpo', A_GGwp.conj(), A_GGwp)
+        
+        if XTX_GGpp.shape[2] == 1:
+            # 1D matrix, invert the number
+            XTX_GGpp = 1 / XTX_GGpp
+        else:
+            raise NotImplementedError
+
+        R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+
+        """
+        # Transforming the problem into a 2* larger least square with real numbers:
+        A = np.zeros((2 * npols * 2, npr * 2), dtype='complex64')
+        b = np.zeros((2 * npols * 2), dtype='complex64')
+    for k in range(2 * npols):
         b[2 * k] = np.real(x[k])
         b[2 * k + 1] = np.imag(x[k])
-        A[2 * k][0] = 2. * np.real(E / (w[k]**2 - E**2))
-        A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
-        A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
-        A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
-    print('A', A, 'b', b)
+        for i in range(npr):
+            A[2 * k][2 * i] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
+            A[2 * k][2 * i + 1] = -2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
+            A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
+            A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
+
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
+        """
+        return E_GG, R_GGp[:, :, 0]
 
-    R = Rri[0] + 1j * Rri[1]
-
-    return R"""
-
-        return E_G
 
 """
 class MultipoleSolver(Solver):
@@ -404,17 +424,27 @@ def mpa_RE_solver(npols, w, x):
     return R, E, MPred, PPcond_rate  # , MP_err
 
 for i in range(1):
-    NG = 1000
-    X_wG = 2*(np.random.rand(2, NG) - 0.5) + 1j * (np.random.rand(2, NG) - 0.5)*2
-    omega_w = np.array([0, 1j])
+    NG = 30
+    X_wGG = 2*(np.random.rand(2, NG, NG) - 0.5) + 1j * (np.random.rand(2, NG, NG) - 0.5)*2
+    omega_w = np.array([0, 2j])
     from time import time
     start = time()
-    E_G = RESolver(omega_w).solve(X_wG)
+    E_GG, R_GG = RESolver(omega_w).solve(X_wGG)
     stop = time()
+    fail = False
+    for i in range(NG):
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wGG[:, i, j])
+            assert np.allclose(E, E_GG[i, j])
+            if not np.allclose(R, R_GG[i, j]):
+                print(R, R_GG[i,j], 'ratio:', R_GG[i,j] / R, 'mismatch')
+                fail = True
+    assert not fail
     print('Vectorized', stop-start)
     start = time()
     for i in range(NG):
-        R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wG[:, i])
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wGG[:, i, j])
         #assert np.allclose(E, E_G[i])
         #print('old', E, 'new', E_G[i])
     stop = time()
