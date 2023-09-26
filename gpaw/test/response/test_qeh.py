@@ -20,7 +20,7 @@ xxx isotropic_q = False is temporarily turned off. However,
 
 class FragileBB(BuildingBlock):
     def update_building_block(self, *args, **kwargs):
-        if not hasattr(self, 'doom') and self.nq == 0:
+        if not hasattr(self, 'doom') and self.last_q_idx == 0:
             self.doom = 0
         self.doom += 1  # Advance doom
         print('doom', self.doom)
@@ -30,7 +30,7 @@ class FragileBB(BuildingBlock):
 
 
 def dielectric(calc, domega, omega2, rate=0.0):
-    diel = DielectricFunction(calc=calc,
+    diel = DielectricFunction(calc=calc,    
                               frequencies={'type': 'nonlinear',
                                            'omegamax': 10,
                                            'domega0': domega,
