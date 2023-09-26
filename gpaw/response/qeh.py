@@ -250,93 +250,6 @@ class BuildingBlock:
         else:
             return False
 
-    # XXX This function is not tested and not frequently used.
-    # It is basically identical to interpolate_buildingblock
-    # in QEH code
-    # Write test or remove?
-    def interpolate_to_grid(self, q_grid, w_grid):
-
-        """
-        Parameters
-        q_grid: in Ang. should start at q=0
-        w_grid: in eV
-        """
-
-        from scipy.interpolate import RectBivariateSpline
-        from scipy.interpolate import interp1d
-        from gpaw.response.frequencies import FrequencyGridDescriptor
-        if not self.complete:
-            self.calculate_building_block()
-        q_grid *= Bohr
-        w_grid /= Hartree
-
-        assert np.max(q_grid) <= np.max(self.q_abs), \
-            'q can not be larger that %1.2f Ang' % np.max(self.q_abs / Bohr)
-        assert np.max(w_grid) <= np.max(self.wd.omega_w), \
-            'w can not be larger that %1.2f eV' % \
-            np.max(self.wd.omega_w * Hartree)
-
-        sort = np.argsort(self.q_abs)
-        q_abs = self.q_abs[sort]
-
-        # chi monopole
-        self.chiM_qw = self.chiM_qw[sort]
-
-        omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(self.chiM_qw[0, 0], 0):
-            omit_q0 = True  # omit q=0 from interpolation
-            q0_abs = q_abs[0].copy()
-            q_abs[0] = 0.
-            chi0_w = self.chiM_qw[0].copy()
-            self.chiM_qw[0] = np.zeros_like(chi0_w)
-
-        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
-                                 self.chiM_qw.real,
-                                 s=0)
-
-        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
-                                 self.chiM_qw.imag, s=0)
-
-        self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
-        if omit_q0:
-            yr = interp1d(self.wd.omega_w, chi0_w.real)
-            yi = interp1d(self.wd.omega_w, chi0_w.imag)
-            chi0_w = yr(w_grid) + 1j * yi(w_grid)
-            q_abs[0] = q0_abs
-            if np.isclose(q_grid[0], 0):
-                self.chiM_qw[0] = chi0_w
-
-        # chi dipole
-        yr = RectBivariateSpline(q_abs, self.wd.omega_w,
-                                 self.chiD_qw[sort].real,
-                                 s=0)
-        yi = RectBivariateSpline(q_abs, self.wd.omega_w,
-                                 self.chiD_qw[sort].imag,
-                                 s=0)
-
-        self.chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
-
-        # drho monopole
-
-        yr = RectBivariateSpline(q_abs, self.z,
-                                 self.drhoM_qz[sort].real, s=0)
-        yi = RectBivariateSpline(q_abs, self.z,
-                                 self.drhoM_qz[sort].imag, s=0)
-
-        self.drhoM_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
-
-        # drho dipole
-        yr = RectBivariateSpline(q_abs, self.z,
-                                 self.drhoD_qz[sort].real, s=0)
-        yi = RectBivariateSpline(q_abs, self.z,
-                                 self.drhoD_qz[sort].imag, s=0)
-
-        self.drhoD_qz = yr(q_grid, self.z) + 1j * yi(q_grid, self.z)
-
-        self.q_abs = q_grid
-        self.wd = FrequencyGridDescriptor(w_grid)
-        self.save_chi_file(filename=self.filename + '_int')
-
     def collect(self, a_w):
         comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
@@ -386,7 +299,7 @@ def check_building_blocks(BBfiles=None):
 
 def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
     r"""Calculate the monopole and dipole contribution to the
-    2D susceptibillity chi_2D, defined as
+    2D susceptibility chi_2D for single q-point q, defined as
 
     ::
 
@@ -397,7 +310,10 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
                            chi_{G_z,G_z'} z_factor(G_z'),
       Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
       (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
-
+    
+    omega_w: Frequency array
+    qpd: Single q-point descriptor
+    chi_wGG: Susceptibility in PW basis
       """
 
     nw = chi_wGG.shape[0]
@@ -417,7 +333,6 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
     drhoM_z = np.zeros([len(z)], dtype=complex)  # induced density
     drhoD_z = np.zeros([len(z)], dtype=complex)  # induced dipole density
 
-    q = qpd.K_qv
     npw = chi_wGG.shape[1]
     G_Gv = qpd.get_reciprocal_vectors(add_q=False)
 
