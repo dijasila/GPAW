@@ -213,16 +213,6 @@ class Chi0ComponentCalculator:
                     'Please use find_high_symmetry_monkhorst_pack() from '
                     'gpaw.bztools to generate your k-point grid.')
 
-    def get_spins(self, spin='all'):
-        nspins = self.gs.nspins
-        if spin == 'all':
-            spins = range(nspins)
-        else:
-            assert spin in range(nspins)
-            spins = [spin]
-
-        return spins
-
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
         for spin in spins:

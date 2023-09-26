@@ -28,7 +28,7 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         # seems a bit dangerous XXX
         return 1
 
-    def calculate(self, wd, rate, spin='all'):
+    def calculate(self, wd, rate, spins):
         """Calculate the Drude dielectric response.
 
         Parameters
@@ -38,14 +38,10 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         rate : float
             Plasma frequency decay rate (in eV), corresponding to the
             imaginary part of the complex frequency.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
+        spins : list
+            Spin indices to sum over.  Can we avoid this? XXX
         """
         self.print_info(wd, rate)
-
-        # Parse the spin input
-        spins = self.get_spins(spin)
 
         chi0_drude = Chi0DrudeData.from_frequency_descriptor(wd, rate)
         self._calculate(chi0_drude, spins)
