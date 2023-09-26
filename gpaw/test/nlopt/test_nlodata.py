@@ -1,6 +1,6 @@
 import pytest
 from gpaw import GPAW
-from gpaw.mpi import world
+from gpaw.mpi import broadcast, world
 from gpaw.nlopt.basic import NLOData
 from gpaw.nlopt.matrixel import make_nlodata
 import numpy as np
@@ -25,10 +25,20 @@ def test_write_load_serial(in_tmp_dir):
 
 
 def test_write_load_parallel(in_tmp_dir):
-    w_sk = np.random.rand(1, 5)
-    f_skn = np.random.rand(1, 5, 30)
-    E_skn = np.random.rand(1, 5, 30)
-    p_skvnn = np.random.rand(1, 5, 3, 30, 30)
+    if world.rank == 0:   
+        w_sk = np.random.rand(1, 5)
+        f_skn = np.random.rand(1, 5, 30)
+        E_skn = np.random.rand(1, 5, 30)
+        p_skvnn = np.random.rand(1, 5, 3, 30, 30)
+    else:
+        w_sk = None
+        f_skn = None
+        E_skn = None
+        p_skvnn = None
+    w_sk = broadcast(w_sk, root=0)
+    f_skn = broadcast(f_skn, root=0)
+    E_skn = broadcast(E_skn, root=0)
+    p_skvnn = broadcast(p_skvnn, root=0)
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn)
     nlo.write('nlodata.npz')
