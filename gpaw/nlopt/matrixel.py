@@ -20,19 +20,19 @@ class WaveFunctionAdapter:
         self.nb_full = calc.get_number_of_bands()
 
         state = calc.calculation.state
-        self.ibzwfs = state.ibzwfs
         self.grid = state.density.nt_sR.desc.new(dtype=complex)
         self.ns = state.density.ndensities
+        self.ibzwfs = state.ibzwfs
 
         wfs = calc.wfs
         self.gd = wfs.gd
         self.nabla_aiiv = [setup.nabla_iiv for setup in wfs.setups]
 
-    def get_pseudo_wave_function(self, k_ind, spin, ni, nf):
+    def get_pseudo_wave_function(self, ni, nf, k_ind, spin):
         psit_nX = self.ibzwfs.wfs_qs[k_ind][spin].psit_nX[ni:nf]
         return psit_nX.ifft(grid=self.grid, periodic=True).data
 
-    def get_wave_function_projections(self, k_ind, spin, ni, nf):
+    def get_wave_function_projections(self, ni, nf, k_ind, spin):
         P_ani = {a: P_ni[ni:nf] for a, P_ni in
                  self.ibzwfs.wfs_qs[k_ind][spin].P_ani.items()}
         return P_ani
@@ -101,8 +101,10 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
 
         # Get the wavefunctions
         with timer('Get wavefunctions and projections'):
-            u_nR = gs.get_pseudo_wave_function(k_ind, spin, ni, nf)
-            P_ani = gs.get_wave_function_projections(k_ind, spin, ni, nf)
+            u_nR = gs.get_pseudo_wave_function(ni=ni, nf=nf,
+                                               k_ind=k_ind, spin=spin)
+            P_ani = gs.get_wave_function_projections(ni=ni, nf=nf,
+                                                     k_ind=k_ind, spin=spin)
 
         # Now compute the momentum part
         grad_nv = gs.gd.zeros((nb, 3), complex)
