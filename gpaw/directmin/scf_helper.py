@@ -2,7 +2,6 @@ import warnings
 import numpy as np
 
 from ase.units import Ha
-from ase.utils import basestring
 
 from gpaw.directmin.tools import (sort_orbitals_according_to_energies,
                                   get_n_occ)
@@ -13,10 +12,6 @@ def do_if_converged(eigensolver_name, wfs, ham, dens, log):
     if name == 'etdm-lcao' or name == 'etdm-fdpw':
         occ_name = getattr(wfs.occupations, 'name', None)
         solver = wfs.eigensolver
-        # if isinstance(solver.func_settings, basestring):
-        #     func_name = solver.func_settings
-        # else:
-        #     func_name = solver.func_settings['name']
         if hasattr(solver, 'dm_helper'):
             func_name = solver.dm_helper.func.name
         elif hasattr(solver, 'odd'):

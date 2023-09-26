@@ -78,33 +78,34 @@ class FDPWETDM(Eigensolver):
                     in :doi:10.1016/j.cpc.2021.108047
                 'l-sr1p': Limited-memory SR1 algorithm presented in
                     :doi:10.1021/acs.jctc.0c00597
-            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and 20,
-            respectively, and can be changed by supplying a dictionary:
+            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and
+            20, respectively, and can be changed by supplying a dictionary:
             {'name': name, 'memory': memory}, where name should be 'l-bfgs',
             'l-bfgs-p' or 'l-sr1p' and memory should be an int.
         linesearch_algo: str, dict or instance
             Line search algorithm. Can be one of the algorithms available
             in ls_etdm.py:
                 'max-step': The quasi-Newton step is scaled if it exceeds a
-                    maximum step length (default).
-                    The default maximum step length is 0.20, and can be changed
-                     by supplying a dictionary:
-                     {'name': 'max-step', 'max_step': max_step}, where max_step
-                     should be a float.
+                    maximum step length (default). The default maximum step
+                    length is 0.20, and can be changed by supplying a
+                    dictionary: {'name': 'max-step', 'max_step': max_step},
+                    where max_step should be a float.
                 'swc-awc': Line search with Wolfe conditions
         use_prec: bool
             If True (default) use a preconditioner. The preconditioner is
-            calculated as the inverse of a diagonal approximation of the Hessian
-            (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p', which uses the
-            composite preconditioner presented in :doi:10.1016/j.cpc.2021.108047.
+            calculated as the inverse of a diagonal approximation of the
+            Hessian (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p',
+            which uses the composite preconditioner presented in
+            :doi:10.1016/j.cpc.2021.108047.
         functional: str, dict or instance
             Type of functional. If equal to 'ks' (default) the functional as
             specified in the GPAW calculator will be used. Specify 'pz-sic' to
             apply the Perdew-Zunger self-interaction correction on top of the
-            functional as specified in the GPAW calculator. Dy default full SIC
-            will be applied. A scaling factor for SIC can be given by supplying
-            a dictionary: functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
-            where a is the scaling factor (float).
+            functional as specified in the GPAW calculator. Dy default full
+            SIC will be applied. A scaling factor for SIC can be given by
+            supplying a dictionary:
+            functional={'name': 'pz-sic', 'scaling_factor': (a, a)}, where a
+            is the scaling factor (float).
         """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,

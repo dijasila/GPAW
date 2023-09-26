@@ -49,6 +49,7 @@ from copy import deepcopy
 class LCAOETDM:
 
     def __init__(self,
+                 excited_state=False,
                  searchdir_algo=None,
                  linesearch_algo=None,
                  partial_diagonalizer='Davidson',
@@ -68,7 +69,6 @@ class LCAOETDM:
                  need_init_orbs=None,
                  constraints=None,
                  subspace_convergence=5e-4,
-                 excited_state=False
                  ):
         """Class for direct orbital optimization in LCAO mode.
 
@@ -79,13 +79,13 @@ class LCAOETDM:
                 'fr-cg': Fletcher-Reeves conjugate gradient
                 'l-bfgs': Limited-memory BFGS
                 'l-bfgs-p': Limited-memory BFGS with preconditioner presented
-                    in :doi:10.1016/j.cpc.2021.108047 (default when excited_state
-                    is False)
+                    in :doi:10.1016/j.cpc.2021.108047 (default when
+                    excited_state is False)
                 'l-sr1p': limited-memory SR1 algorithm presented in
                     :doi:10.1021/acs.jctc.0c00597 (default when excited_state
                     is True)
-            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and 20,
-            respectively, and can be changed by supplying a dictionary:
+            The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and
+            20, respectively, and can be changed by supplying a dictionary:
             {'name': name, 'memory': memory}, where name should be 'l-bfgs',
             'l-bfgs-p' or 'l-sr1p' and memory should be an int.
             To use the generalized mode following (GMF) method for excited
@@ -114,9 +114,10 @@ class LCAOETDM:
             coefficients (default).
         use_prec: bool
             If True (default) use a preconditioner. The preconditioner is
-            calculated as the inverse of a diagonal approximation of the Hessian
-            (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p', which uses the
-            composite preconditioner presented in :doi:10.1016/j.cpc.2021.108047.
+            calculated as the inverse of a diagonal approximation of the
+            Hessian (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p',
+            which uses the composite preconditioner presented in
+            :doi:10.1016/j.cpc.2021.108047.
         update_precond_counter: int
             When to update the preconditioner. Default is 1000 iterations.
         representation: 'str'
@@ -136,15 +137,16 @@ class LCAOETDM:
             Type of functional. If equal to 'ks' (default) the functional as
             specified in the GPAW calculator will be used. Specify 'pz-sic' to
             apply the Perdew-Zunger self-interaction correction on top of the
-            functional as specified in the GPAW calculator. Dy default full SIC
-            will be applied. A scaling factor for SIC can be given by supplying
-            a dictionary: functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
-            where a is the scaling factor (float).
+            functional as specified in the GPAW calculator. Dy default full
+            SIC will be applied. A scaling factor for SIC can be given by
+            supplying a dictionary:
+            functional={'name': 'pz-sic', 'scaling_factor': (a, a)}, where a
+            is the scaling factor (float).
         orthonormalization: str
             Method to orthonormalize the orbitals. Can be one of 'gramschmidt'
             (Gram-Schmidt orthonormalization, default), 'loewdin' (Loewdin
-            orthonormalization) or 'diag' (eigendecomposition of the Hamiltonian
-            matrix).
+            orthonormalization) or 'diag' (eigendecomposition of the
+            Hamiltonian matrix).
         randomizeorbitals: bool
             If True, add random noise to the initial guess orbitals. Default
             is False.
