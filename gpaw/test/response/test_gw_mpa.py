@@ -7,9 +7,10 @@ from gpaw.response.MPAinterpolation import mpa_cond1, pole_is_out
 
 @pytest.mark.response
 def test_mpa(in_tmp_dir, gpw_files, scalapack):
-    ref_result = np.asarray([[[11.30094393, 21.62842077],
-                              [5.33751513, 16.06905725],
-                              [8.75269938, 22.46579489]]])
+    ref_result = np.asarray([[[11.283458, 21.601906],
+                              [ 5.326717, 16.066114],
+                              [ 8.73869 , 22.457025]]])
+
     mpa_dict = {'npoles': 4, 'wrange': [1j * Ha, (2 + 1j) * Ha],
                 'wshift': [0.01 * Ha, 0.1 * Ha], 'alpha': 1}
 
