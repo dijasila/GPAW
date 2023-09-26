@@ -1,5 +1,5 @@
 import pytest
-from gpaw.response.MPAsamp import mpa_frequency_sampling
+from gpaw.response.mpa_sampling import mpa_frequency_sampling
 
 
 @pytest.mark.response
@@ -60,4 +60,3 @@ def test_mpa_samp():
                                     1. + 0.1j, 1.5 + 0.1j, 2. + 0.1j, 0. + 1.j,
                                     0.25 + 1.j, 0.5 + 1.j, 1. + 1.j, 1.5 + 1.j,
                                     2. + 1.j])
-

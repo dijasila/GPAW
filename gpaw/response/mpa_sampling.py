@@ -31,7 +31,7 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
     w0 : array of two complex numbers defining the sampling range
     d : array of two real numbers defining the damping range
     ps : string of length 2 defining a sampling with 1 or 2 lines
-    alpha : exponent of the distribution of points along the real axis 
+    alpha : exponent of the distribution of points along the real axis
     """
  
     w0 = np.array(w0)
@@ -83,4 +83,3 @@ def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):  # , w_grid
                 w_grid[i] = complex(np.real(w_grid[npol + i]), d[1])
         return w_grid
     raise ValueError("Only '1l' or '2l' values are implemented")
-
