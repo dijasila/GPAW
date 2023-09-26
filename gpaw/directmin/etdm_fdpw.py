@@ -7,12 +7,17 @@ It can be used with Kohn-Sham, hybrid (exact exchange) or Perdew-Zunger
 self-interaction corrected (PZ-SIC) functionals for ground state as well as
 variational excited state calculations.
 
-In ground state calculations, the energy is minimized in a direction tangent
-to the orbitals without the exponential transformation. For excited state
-calculations, the energy is optimized by converging on a saddle point, which
-involves an inner loop using the exponential transformation. PZ-SIC functionals
-require an additional inner loop to minimize the energy with respect to
-unitary transformation of the occupied orbitals.
+Ground state calculations involve minimization of the energy in a direction
+tangent to the orbitals without the exponential transformation (direct
+minimization). For excited state calculations, the energy is optimized by
+converging on a saddle point, which involves an inner loop using the
+exponential transformation (direct optimization). PZ-SIC functionals require
+an additional inner loop to minimize the energy with respect to unitary
+transformation of the occupied orbitals.
+
+Implementation of direct minimization for ground state calculations and
+direct optimization with preconditioned quasi-Newton algorithms and maximum
+overlap method (DO-MOM) for excited state calculations FD and PW modes:
 
     J. Chem. Theory Comput. 17, 5034–5049 (2021) :doi:10.1021/acs.jctc.1c00157
     arXiv:2102.06542 [physics.comp-ph]
@@ -37,10 +42,6 @@ from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 class FDPWETDM(Eigensolver):
 
-    """
-    Exponential Transformation Direct Minimization (ETDM) for FD and PW modes
-    """
-
     def __init__(self,
                  searchdir_algo=None,
                  linesearch_algo='max-step',
@@ -64,6 +65,9 @@ class FDPWETDM(Eigensolver):
                  converge_unocc=False,
                  maxiter_unocc=333,
                  excited_state=False):
+        """
+         Class for direct orbital optimization in FD and PW modes.
+        """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
                                        blocksize=blocksize)

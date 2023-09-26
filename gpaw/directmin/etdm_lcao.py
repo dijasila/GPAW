@@ -7,20 +7,20 @@ It can be used with Kohn-Sham or Perdew-Zunger self-interaction corrected
 (PZ-SIC) functionals for ground state as well as variational excited state
 calculations.
 
-In ground state calculations, a minimization of the energy is performed, while
-for excited state calculations, the energy is optimized by converging on a
-saddle point.
+Ground state calculations are performed by minimizing the energy (direct
+minimization). For excited state calculations, the energy is optimized by
+converging on a saddle point (direct optimization).
 
-Exponential transformation direct minimization (ETDM) for ground state
-calculations with LCAO:
+Implementation of exponential transformation direct minimization (ETDM) for
+ground state calculations LCAO mode:
 
     Comput. Phys. Commun. 267, 108047 (2021) :doi:10.1016/j.cpc.2021.108047
     arXiv:2101.12597 [physics.comp-ph]
 
-Direct orbital optimization (DO) for variational excited state calculations
-with LCAO:
+Implementations of direct optimization (DO) for variational excited state
+calculations LCAO mode:
 
-    DO with preconditioned quasi-Newton algorithm and maximum overlap method
+    DO with preconditioned quasi-Newton algorithms and maximum overlap method
     (DO-MOM)
     J. Chem. Theory Comput. 16, 6968 (2020) :doi:10.1021/acs.jctc.0c00597
     arXiv:2006.15922 [physics.chem-ph]
@@ -48,10 +48,6 @@ from copy import deepcopy
 
 class LCAOETDM:
 
-    """
-    Exponential Transformation Direct Minimization (ETDM) for LCAO mode
-    """
-
     def __init__(self,
                  searchdir_algo=None,
                  linesearch_algo=None,
@@ -75,14 +71,7 @@ class LCAOETDM:
                  excited_state=False
                  ):
         """
-        This class performs the exponential transformation
-        direct minimization:
-        E = E[C_ref e^{A}]
-        C_ref are the reference orbitals
-        A is a skew-Hermitian matrix
-        We want to find A that optimizes the orbitals. The optimal orbitals
-        are those corresponding to a minimum for the ground state or a saddle
-        point for excited states.
+        Class for direct orbital optimization in LCAO mode.
 
         :param searchdir_algo: algorithm for calculating the search direction
         (e.g.LBFGS)
