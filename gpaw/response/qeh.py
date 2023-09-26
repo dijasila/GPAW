@@ -177,9 +177,8 @@ class BuildingBlock:
             comm = self.context.comm
             w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
-            chiM_w, chiD_w, z, drhoM_z, drhoD_z = \
-                get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
-            assert np.allclose(z, self.z)
+            chiM_w, chiD_w, drhoM_z, drhoD_z = \
+                self.get_chi_2D(qpd, chi_wGG)
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
@@ -210,6 +209,74 @@ class BuildingBlock:
         self.chiD_qw = np.append(self.chiD_qw, chiD_qw, axis=0)
         self.drhoM_qz = np.append(self.drhoM_qz, drhoM_qz, axis=0)
         self.drhoD_qz = np.append(self.drhoD_qz, drhoD_qz, axis=0)
+
+    def get_chi_2D(self, qpd, chi_wGG):
+        r"""Calculate the monopole and dipole contribution to the
+        2D susceptibility chi_2D for single q-point q, defined as
+
+        ::
+
+          \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
+                              = L \chi_{G=G'=0}(q, \omega)
+          \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
+                               = 1/L sum_{G_z,G_z'} z_factor(G_z)
+                               chi_{G_z,G_z'} z_factor(G_z'),
+          Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
+          (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
+
+        qpd: Single q-point descriptor
+        chi_wGG: Susceptibility in PW basis
+          """
+
+        nw = chi_wGG.shape[0]
+        z = self.z
+        L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
+
+        # XXX This seems like a bit dangerous assumption
+        z0 = L / 2.  # position of layer
+        chiM_w = np.zeros([nw], dtype=complex)
+        chiD_w = np.zeros([nw], dtype=complex)
+        drhoM_z = np.zeros([len(z)], dtype=complex)  # induced density
+        drhoD_z = np.zeros([len(z)], dtype=complex)  # induced dipole density
+
+        npw = chi_wGG.shape[1]
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
+
+        Glist = []
+        for iG in range(npw):  # List of G with Gx,Gy = 0
+            if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
+                Glist.append(iG)
+
+        # If node lacks frequency points due to block parallelization then
+        # return empty arrays
+        if nw == 0:
+            return chiM_w, chiD_w, drhoM_z, drhoD_z
+        chiM_w = L * chi_wGG[:, 0, 0]
+        drhoM_z += chi_wGG[0, 0, 0]
+        for iG in Glist[1:]:
+            G_z = G_Gv[iG, 2]
+            qGr_R = np.inner(G_z, z.T).T
+            # Fourier transform to get induced density at \omega=0
+            drhoM_z += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
+            for iG1 in Glist[1:]:
+                G_z1 = G_Gv[iG1, 2]
+                # integrate with z along both coordinates
+                factor = z_factor(z0, L, G_z)
+                factor1 = z_factor(z0, L, G_z1, sign=-1)
+                chiD_w[:] += 1. / L * factor * chi_wGG[:, iG, iG1] * \
+                    factor1
+                # induced dipole density due to V_ext = z
+                drhoD_z[:] += 1. / L * np.exp(1j * qGr_R) * \
+                    chi_wGG[0, iG, iG1] * factor1
+        # Normalize induced densities with chi
+        if nw != 0:
+            drhoM_z /= chiM_w[0]
+            drhoD_z /= chiD_w[0]
+
+        """ Returns chi2D monopole and dipole, induced
+        densities and z array (all in Bohr)
+        """
+        return chiM_w, chiD_w, drhoM_z, drhoD_z
 
     def save_chi_file(self, filename=None, q_idx=None):
         if q_idx is None:
@@ -380,82 +447,6 @@ def check_building_blocks(BBfiles=None):
                   (data['omega_w'] == w).all()):
             return False
     return True
-
-
-def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None):
-    r"""Calculate the monopole and dipole contribution to the
-    2D susceptibility chi_2D for single q-point q, defined as
-
-    ::
-
-      \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
-                          = L \chi_{G=G'=0}(q, \omega)
-      \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
-                           = 1/L sum_{G_z,G_z'} z_factor(G_z)
-                           chi_{G_z,G_z'} z_factor(G_z'),
-      Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
-      (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
-    
-    omega_w: Frequency array
-    qpd: Single q-point descriptor
-    chi_wGG: Susceptibility in PW basis
-      """
-
-    nw = chi_wGG.shape[0]
-    r = qpd.gd.get_grid_point_coordinates()
-
-    # XXX This is already calculated in BuildingBlock class
-    # I keep it here so that it still can be used as an
-    # independent function, but I added an assertion
-    # in the BuildingBlock class
-    z = r[2, 0, 0, :]
-    L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
-
-    # XXX This seems like a bit dangerous assumption
-    z0 = L / 2.  # position of layer
-    chiM_w = np.zeros([nw], dtype=complex)
-    chiD_w = np.zeros([nw], dtype=complex)
-    drhoM_z = np.zeros([len(z)], dtype=complex)  # induced density
-    drhoD_z = np.zeros([len(z)], dtype=complex)  # induced dipole density
-
-    npw = chi_wGG.shape[1]
-    G_Gv = qpd.get_reciprocal_vectors(add_q=False)
-
-    Glist = []
-    for iG in range(npw):  # List of G with Gx,Gy = 0
-        if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
-            Glist.append(iG)
-
-    # If node lacks frequency points due to block parallelization then
-    # return empty arrays
-    if nw == 0:
-        return chiM_w, chiD_w, z, drhoM_z, drhoD_z
-    chiM_w = L * chi_wGG[:, 0, 0]
-    drhoM_z += chi_wGG[0, 0, 0]
-    for iG in Glist[1:]:
-        G_z = G_Gv[iG, 2]
-        qGr_R = np.inner(G_z, z.T).T
-        # Fourier transform to get induced density at \omega=0
-        drhoM_z += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
-        for iG1 in Glist[1:]:
-            G_z1 = G_Gv[iG1, 2]
-            # integrate with z along both coordinates
-            factor = z_factor(z0, L, G_z)
-            factor1 = z_factor(z0, L, G_z1, sign=-1)
-            chiD_w[:] += 1. / L * factor * chi_wGG[:, iG, iG1] * \
-                factor1
-            # induced dipole density due to V_ext = z
-            drhoD_z[:] += 1. / L * np.exp(1j * qGr_R) * \
-                chi_wGG[0, iG, iG1] * factor1
-    # Normalize induced densities with chi
-    if nw != 0:
-        drhoM_z /= chiM_w[0]
-        drhoD_z /= chiD_w[0]
-
-    """ Returns chi2D monopole and dipole, induced
-    densities and z array (all in Bohr)
-    """
-    return chiM_w, chiD_w, z, drhoM_z, drhoD_z
 
 
 def z_factor(z0, d, G, sign=1):
