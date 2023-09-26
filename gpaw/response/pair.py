@@ -4,7 +4,6 @@ import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.pw_parallelization import block_partition
-from gpaw.response.symmetry import KPointFinder
 from gpaw.utilities.blas import mmm
 
 

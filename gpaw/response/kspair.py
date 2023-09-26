@@ -6,7 +6,6 @@ from ase.utils import lazyproperty
 
 from gpaw.projections import Projections, serial_comm
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
-from gpaw.response.symmetry import KPointFinder
 from gpaw.response.pw_parallelization import Blocks1D
 
 
