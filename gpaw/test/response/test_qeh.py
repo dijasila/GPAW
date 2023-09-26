@@ -30,7 +30,7 @@ class FragileBB(BuildingBlock):
 
 
 def dielectric(calc, domega, omega2, rate=0.0):
-    diel = DielectricFunction(calc=calc,    
+    diel = DielectricFunction(calc=calc,
                               frequencies={'type': 'nonlinear',
                                            'omegamax': 10,
                                            'domega0': domega,
