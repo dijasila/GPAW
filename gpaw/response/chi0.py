@@ -297,7 +297,7 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         # transitions to the head of the chi0 wings. This is handled by a
         # separate calculator, provided that intraband is set to True.
         if self.gs.metallic and intraband:
-            from gpaw.response.drude import Chi0DrudeCalculator
+            from gpaw.response.chi0_drude import Chi0DrudeCalculator
             if rate == 'eta':
                 rate = self.eta * Ha  # external units
             self.rate = rate
