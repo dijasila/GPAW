@@ -539,7 +539,7 @@ class G0W0Calculator:
         elif self.mpa:
             self.context.print('Using multipole approximation:')
             self.context.print('  Number of poles: %i'
-                               % len(self.chi0calc.wd.omega_w) / 2)
+                               % (len(self.chi0calc.wd.omega_w) / 2))
             self.context.print('  Energy range: Re(E[-1]) = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[-1].real)
             self.context.print('  Imaginary range: Im(E[-1]) = %.3f Hartee'
