@@ -37,7 +37,7 @@ from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
-from gpaw.scf import SCFLoop
+from gpaw.scf import SCFLoop, SCFEvent
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
@@ -438,7 +438,7 @@ class GPAW(Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
-        yield
+        yield SCFEvent(self.density, self.hamiltonian, self.wfs, 0, self.log)
 
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)

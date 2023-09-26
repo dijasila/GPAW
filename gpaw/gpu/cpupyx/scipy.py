@@ -1,2 +1,3 @@
 import gpaw.gpu.cpupyx.fft as fft
-__all__ = ['fft']
+import gpaw.gpu.cpupyx.sparse as sparse
+__all__ = ['fft', 'sparse']

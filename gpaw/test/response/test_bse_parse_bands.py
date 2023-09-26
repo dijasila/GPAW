@@ -4,6 +4,7 @@ import re
 from gpaw.response.bse import BSE
 
 
+@pytest.mark.later  # uses nicl2_pw fixture which does not work with new code
 @pytest.mark.response
 def test_response_bse_parse_bands(in_tmp_dir, gpw_files):
 

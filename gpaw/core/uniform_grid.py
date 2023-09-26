@@ -9,7 +9,7 @@ import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
@@ -141,6 +141,9 @@ class UGDesc(Domain):
         """
         return UGArray(self, dims, comm, xp=xp)
 
+    def from_data(self, data):
+        return UGArray(self, data.shape[:-3], data=data)
+
     def blocks(self, data: np.ndarray):
         """Yield views of blocks of data."""
         s0, s1, s2 = self.parsize_c
@@ -249,12 +252,15 @@ class UGDesc(Domain):
 
     def fft_plans(self,
                   flags: int = fftw.MEASURE,
-                  xp=np) -> fftw.FFTPlans:
+                  xp=np,
+                  dtype=None) -> fftw.FFTPlans:
         """Create FFTW-plans."""
+        if dtype is None:
+            dtype = self.dtype
         if self.comm.rank == 0:
-            return fftw.create_plans(self.size_c, self.dtype, flags, xp)
+            return fftw.create_plans(self.size_c, dtype, flags, xp)
         else:
-            return fftw.create_plans([0, 0, 0], self.dtype)
+            return fftw.create_plans([0, 0, 0], dtype)
 
     def ranks_from_fractional_positions(self,
                                         fracpos_ac: Array2D) -> Array1D:
@@ -360,7 +366,7 @@ class UGArray(DistributedArrays[UGDesc]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, as_xp(y, np)
+        return x, as_np(y)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""

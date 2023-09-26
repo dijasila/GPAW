@@ -147,6 +147,11 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
             wfs._eig_n = eig_n
             return wfs
 
-        return create_ibzwfs(self.ibz, self.nelectrons, self.ncomponents,
-                             create_wfs, self.communicators['k'],
-                             self.communicators['w'])
+        return create_ibzwfs(
+            ibz=self.ibz,
+            nelectrons=self.nelectrons,
+            ncomponents=self.ncomponents,
+            create_wfs_func=create_wfs,
+            kpt_comm=self.communicators['k'],
+            kpt_band_comm=self.communicators['D'],
+            comm=self.communicators['w'])
