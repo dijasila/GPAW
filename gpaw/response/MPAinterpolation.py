@@ -327,12 +327,6 @@ class SinglePoleSolver(Solver):
         mask = E_GG.imag > self.epsilon
         E_GG[mask] = E_GG[mask].real - 1j * epsilon
 
-
-        #X_wG
-        #R = mpa_R_1p_fit(1, 1, w, x, E)
-
-        #A_GGww = np.zeros((
-
         A_GGwp = np.zeros((*E_GG.shape, 2, 1), dtype=np.complex128)
         b_GGw = np.zeros((*E_GG.shape, 2), dtype=np.complex128)
         for w in range(2):
@@ -350,21 +344,6 @@ class SinglePoleSolver(Solver):
 
         R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
 
-        """
-        # Transforming the problem into a 2* larger least square with real numbers:
-        A = np.zeros((2 * npols * 2, npr * 2), dtype='complex64')
-        b = np.zeros((2 * npols * 2), dtype='complex64')
-    for k in range(2 * npols):
-        b[2 * k] = np.real(x[k])
-        b[2 * k + 1] = np.imag(x[k])
-        for i in range(npr):
-            A[2 * k][2 * i] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
-            A[2 * k][2 * i + 1] = -2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
-            A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
-            A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
-
-    Rri = np.linalg.lstsq(A, b, rcond=None)[0]
-        """
         return E_GG, R_GGp[:, :, 0]
 
 

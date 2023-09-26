@@ -382,7 +382,7 @@ def check_building_blocks(BBfiles=None):
 
 
 def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
-               filenames=None, name=None):
+               filenames=None):
     r"""Calculate the monopole and dipole contribution to the
     2D susceptibillity chi_2D, defined as
 
@@ -401,8 +401,6 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
     filenames: list of str
         list of chi_wGG.pckl files for different q calculated with
         the DielectricFunction module in GPAW
-    name: str
-        name writing output files
     """
 
     q_list_abs = []
@@ -469,16 +467,6 @@ def get_chi_2D(omega_w=None, qpd=None, chi_wGG=None, q0=None,
     """ Returns q array, frequency array, chi2D monopole and dipole, induced
     densities and z array (all in Bohr)
     """
-    if name is not None:
-        arrays = [np.array(q_list_abs), omega_w, chiM_qw, chiD_qw,
-                  z, drhoM_qz, drhoD_qz]
-        names = ['q_abs', 'omega_w', 'z',
-                 'chiM_qw', 'chiD_qw',
-                 'drhoM_qz', 'drhoD_qz']
-        data = {}
-        for array, name in zip(arrays, names):
-            data[name] = array
-        np.save(name + '-chi.npz', **data)
     return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_qw, \
         chiD_qw, z, drhoM_qz, drhoD_qz
 

@@ -43,37 +43,31 @@ def initialize_w_calculator(chi0calc, context, *,
     gs = chi0calc.gs
     qd = QPointDescriptor.from_gs(gs)
 
-    xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.ecut,
+    xckernel = G0W0Kernel(xc=xc, ecut=chi0calc.chi0_body_calc.ecut,
                           gs=gs, qd=qd,
                           context=context)
+  
+    kwargs = dict()
     if ppa:
-        wcalc = PPACalculator(gs, context, qd=qd,
-                              coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma, eta=eta,
-                              q0_correction=q0_correction)
+        wcalc_cls = PPACalculator
     elif mpa:
-        wcalc = MPACalculator(gs, context, qd=qd,
-                              coulomb=coulomb, xckernel=xckernel,
-                              integrate_gamma=integrate_gamma, eta=eta,
-                              mpa=mpa, q0_correction=q0_correction)
+        wcalc_cls = MPACalculator
+        kwargs.update(mpa=mpa)
     else:
-        if eta is not None:
-            hilbert_transform = GWHilbertTransforms(chi0calc.wd.omega_w, eta)
-        else:
-            hilbert_transform = None
-        wcalc = WCalculator(gs, context, qd=qd,
-                            coulomb=coulomb, xckernel=xckernel,
-                            integrate_gamma=integrate_gamma,
-                            hilbert_transform=hilbert_transform,
-                            q0_correction=q0_correction)
+        wcalc_cls = WCalculator
 
-    return wcalc
+    return wcalc_cls(gs, context, qd=qd,
+                     coulomb=coulomb, xckernel=xckernel,
+                     integrate_gamma=integrate_gamma, eta=eta,
+                     q0_correction=q0_correction, **kwargs)
 
 
 class WBaseCalculator():
 
     def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel, integrate_gamma=0, q0_correction=False):
+                 coulomb, xckernel,
+                 integrate_gamma=0, eta=None,
+                 q0_correction=False):
         """
         Base class for W Calculator including basic initializations and Gamma
         Gamma handling.
@@ -101,6 +95,7 @@ class WBaseCalculator():
         self.coulomb = coulomb
         self.xckernel = xckernel
         self.integrate_gamma = integrate_gamma
+        self.eta = eta
 
         if q0_correction:
             assert self.coulomb.truncation == '2D'
@@ -151,23 +146,15 @@ class WBaseCalculator():
 
     
 class WCalculator(WBaseCalculator):
-    def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel, hilbert_transform,
-                 integrate_gamma, q0_correction):
-        super().__init__(gs, context, qd=qd, coulomb=coulomb,
-                         xckernel=xckernel,
-                         integrate_gamma=integrate_gamma,
-                         q0_correction=q0_correction)
-        self.hilbert_transform = hilbert_transform
-
     def get_HW_model(self, chi0, fxc_mode, only_correlation=True):
         assert only_correlation
         W_wGG = self.calculate_W_WgG(chi0,
                                      fxc_mode=fxc_mode,
                                      only_correlation=True)
         # HT used to calculate convulution between time-ordered G and W
+        hilbert_transform = GWHilbertTransforms(chi0.wd.omega_w, self.eta)
         with self.context.timer('Hilbert'):
-            W_xwGG = self.hilbert_transform(W_wGG)
+            W_xwGG = hilbert_transform(W_wGG)
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         return FullFrequencyHWModel(chi0.wd, W_xwGG, factor)
@@ -387,15 +374,6 @@ class MPAHWModel(HWModel):
 
 
 class PPACalculator(WBaseCalculator):
-    def __init__(self, gs, context, *, qd,
-                 coulomb, xckernel,
-                 integrate_gamma, q0_correction, eta):
-        super().__init__(gs, context, qd=qd, coulomb=coulomb,
-                         xckernel=xckernel,
-                         integrate_gamma=integrate_gamma,
-                         q0_correction=q0_correction)
-        self.eta = eta
-
     def get_HW_model(self, chi0,
                      fxc_mode='GW'):
         """Calculate the PPA parametrization of screened interaction.
