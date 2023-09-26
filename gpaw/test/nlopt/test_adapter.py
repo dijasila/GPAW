@@ -3,8 +3,10 @@ from ase.units import Bohr
 
 from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.matrixel import WaveFunctionAdapter
+from gpaw.mpi import world
 
 
+@pytest.mark.skipif(world.size > 1, reason='Serial only')
 def test_adapter_pseudo_wfs(gpw_files):
 
     calc = GPAW(gpw_files['hbn_pw_nopg'])

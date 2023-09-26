@@ -4,12 +4,11 @@ from ase.units import Bohr, _hbar, _e, _me, _eps0
 from ase.utils.timing import Timer
 from ase.parallel import parprint
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data
 from gpaw.nlopt.matrixel import get_rml, get_derivative
 from gpaw.utilities.progressbar import ProgressBar
 
-
 def get_shg(
+        nloData,
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
@@ -17,8 +16,7 @@ def get_shg(
         gauge='lg',
         ftol=1e-4, Etol=1e-6,
         band_n=None,
-        out_name='shg.npy',
-        mml_name='mml.npz'):
+        out_name='shg.npy'):
     """Calculate RPA SHG spectrum for nonmagnetic semiconductors.
 
     Output: shg.npy file with numpy array containing the spectrum and
@@ -26,6 +24,8 @@ def get_shg(
 
     Parameters:
 
+    nloData        
+        The momentum data of type `nloData`
     freqs:
         Excitation frequency array (a numpy array or list)
     eta:
@@ -40,8 +40,6 @@ def get_shg(
         List of bands in the sum (default 0 to nb)
     out_name:
         Output filename (default 'shg.npy')
-    mml_name:
-        The momentum filename (default 'mml.npz')
     """
 
     # Start a timer
@@ -60,7 +58,7 @@ def get_shg(
 
     # Load the required data
     with timer('Load and distribute the data'):
-        k_info = load_data(mml_name=mml_name)
+        k_info = nloData.distribute()
         if k_info:
             tmp = list(k_info.values())[0]
             nb = len(tmp[1])
