@@ -28,7 +28,7 @@ class KPointFinder:
 
 class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
-    def __init__(self, kd, qpd, context,
+    def __init__(self, kpoints, qpd, context,
                  disable_point_group=False,
                  disable_time_reversal=False):
         """Creates a PWSymmetryAnalyzer object.
@@ -51,7 +51,7 @@ class PWSymmetryAnalyzer:
             Switch for disabling time reversal.
         """
         self.qpd = qpd
-        self.kd = kd
+        self.kd = kd = kpoints.kd
         self.context = context
 
         # Settings
@@ -75,7 +75,7 @@ class PWSymmetryAnalyzer:
         self.nsym = 2 * self.nU
         self.use_time_reversal = not self.disable_time_reversal
 
-        self.kptfinder = KPointFinder(kd.bzk_kc)
+        self.kptfinder = kpoints.kptfinder
         self.initialize()
 
     @timer('Initialize')
@@ -261,7 +261,7 @@ class PWSymmetryAnalyzer:
 
         return bzk_kc
 
-    def get_reduced_kd(self, pbc_c=np.ones(3, bool)):
+    def get_reduced_kd(self, *, pbc_c):
         # Get the little group of q
         U_scc = []
         for s in self.s_s:

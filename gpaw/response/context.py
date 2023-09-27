@@ -42,7 +42,7 @@ class ResponseContext:
         self.write_timer()
         # Close old output file and create a new
         self.close()
-        self.open(txt)
+        self.open(txt, mode='w')
         self.set_timer(timer)
 
     def write_timer(self):
