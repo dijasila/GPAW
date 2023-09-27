@@ -187,9 +187,7 @@ class LCAOETDM:
             a constraint is given as a pair of orbital indices, the rotation
             between these two orbitals is constrained. If a constraint is
             given as a single index, the orbital with this index is frozen.
-            E.g.:
-            >>> from gpaw.directmin.etdm_lcao import LCAOETDM
-            >>> calc.set(eigensolver=LCAOETDM(constraints=[[[i]], [[j]]])
+            E.g.: calc.set(eigensolver=LCAOETDM(constraints=[[[i]], [[j]]]))
             will freeze orbital i in the first k-point and orbital j in the
             second k-point.
         subspace_convergence: float
