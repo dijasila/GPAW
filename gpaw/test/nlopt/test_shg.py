@@ -100,7 +100,7 @@ def test_shg_hBN(gpw_files, in_tmp_dir):
     freqs = np.linspace(2, 2.4, 10)
 
     # Get nlodata from pre-calculated SiC fixtures
-    calc = gpw_files['hbn_pw_nsym']
+    calc = gpw_files['hbn_pw_nopg']
     make_nlodata(calc, out_name='mml.npz')
     world.barrier()
 
