@@ -19,22 +19,22 @@ def generate_testing_data(ns, nk, nb, seed=42):
 
 @pytest.mark.skipif(world.size > 1, reason='Serial only')
 def test_write_load_serial(in_tmp_dir):
-    w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(1, 8, 20)
+    w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(2, 4, 20)
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn, world)
     nlo.write('nlodata.npz')
 
     newdata = NLOData.load('nlodata.npz', world)
-    assert np.all(newdata.w_sk == w_sk)
-    assert np.all(newdata.f_skn == f_skn)
-    assert np.all(newdata.E_skn == E_skn)
-    assert np.all(newdata.p_skvnn == p_skvnn)
+    assert newdata.w_sk == pytest.approx(w_sk, abs=1e-16)
+    assert newdata.f_skn == pytest.approx(f_skn, abs=1e-16)
+    assert newdata.E_skn == pytest.approx(E_skn, abs=1e-16)
+    assert newdata.p_skvnn == pytest.approx(p_skvnn, abs=1e-16)
 
 
 def test_serial_file_parallel_data(in_tmp_dir):
     # Random data only on rank = 0
     if world.rank == 0:
-        w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(1, 8, 20)
+        w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(2, 4, 20)
     else:
         w_sk = None
         f_skn = None
@@ -43,21 +43,20 @@ def test_serial_file_parallel_data(in_tmp_dir):
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn, world)
     nlo.write('nlodata.npz')
-    k_info_original = nlo.distribute()
+    k_info = nlo.distribute()
 
     newdata = NLOData.load('nlodata.npz', world)
-    k_info = newdata.distribute()
-    for (k, data), (_, original_data) in zip(k_info.items(),
-                                             k_info_original.items()):
-        assert original_data[0] == data[0]
-        assert np.all(original_data[1] == data[1])
-        assert np.all(original_data[2] == data[2])
-        assert np.all(original_data[3] == data[3])
+    k_info_new = newdata.distribute()
+    for newdata, data in zip(k_info_new.values(), k_info.values()):
+        assert newdata[0] == pytest.approx(data[0], abs=1e-16)
+        assert newdata[1] == pytest.approx(data[1], abs=1e-16)
+        assert newdata[2] == pytest.approx(data[2], abs=1e-16)
+        assert newdata[3] == pytest.approx(data[3], abs=1e-16)
 
 
 def test_write_load_parallel(in_tmp_dir):
     # Same random data array on each core
-    w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(1, 8, 20)
+    w_sk, f_skn, E_skn, p_skvnn = generate_testing_data(2, 4, 20)
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn, world)
     nlo.write('nlodata.npz')
@@ -66,8 +65,10 @@ def test_write_load_parallel(in_tmp_dir):
     k_info = newdata.distribute()
 
     # Compare the distributed data with original data
-    for k, data in k_info.items():
-        assert w_sk[:, k] == data[0]
-        assert np.all(f_skn[:, k] == data[1])
-        assert np.all(E_skn[:, k] == data[2])
-        assert np.all(p_skvnn[:, k] == data[3])
+    for u, data in k_info.items():
+        s = 0 if u < w_sk.shape[1] else 1
+        k = u % w_sk.shape[1]
+        assert data[0] == pytest.approx(w_sk[s, k], abs=1e-16)
+        assert data[1] == pytest.approx(f_skn[s, k], abs=1e-16)
+        assert data[2] == pytest.approx(E_skn[s, k], abs=1e-16)
+        assert data[3] == pytest.approx(p_skvnn[s, k], abs=1e-16)
