@@ -7,13 +7,15 @@ from ase.utils.timing import Timer
 
 from gpaw.new.ase_interface import GPAW
 from gpaw.fd_operators import Gradient
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import MPIComm, serial_comm
 from gpaw.nlopt.basic import NLOData
 from gpaw.utilities.progressbar import ProgressBar
 
 
 class WaveFunctionAdapter:
-    def __init__(self, calc):
+    def __init__(self, calc, comm):
+        self.comm = comm  # This will eventually just become kptcomm from calc
+
         # We don't know why this is needed
         if calc.parameters.mode['name'] == 'lcao':
             calc.initialize_positions(calc.atoms)
@@ -71,8 +73,9 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     nk = np.shape(gs.ibzk_kc)[0]
 
     # Parallelisation and memory estimate
-    rank = world.rank
-    size = world.size
+    comm = gs.comm
+    rank = comm.rank
+    size = comm.size
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
     parprint(f'At least {est_mem:.2f} MB of memory is required.')
@@ -155,7 +158,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
         if rank == 0:
             recv_buf = np.empty((size, nkcore, 3, nb, nb),
                                 dtype=complex)
-        world.gather(p_kvnn, 0, recv_buf)
+        gs.comm.gather(p_kvnn, 0, recv_buf)
         if rank == 0:
             p_kvnn2 = np.zeros((nk, 3, nb, nb), dtype=complex)
             for ii in range(size):
@@ -169,7 +172,8 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     return p_kvnn2
 
 
-def make_nlodata(gs_name: str = 'gs.gpw',
+def make_nlodata(gs_name: str,
+                 comm: MPIComm,
                  spin: str = 'all',
                  ni: int = 0,
                  nf: int = 0) -> NLOData:
@@ -199,7 +203,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
     assert not calc.symmetry.point_group, \
         'Point group symmtery should be off.'
 
-    gs = WaveFunctionAdapter(calc)
+    gs = WaveFunctionAdapter(calc, comm)
     ns = gs.ns
     if spin == 'all':
         spins = list(range(ns))
@@ -250,7 +254,8 @@ def _make_nlodata(gs,
     return NLOData(w_sk=w_sk,
                    f_skn=f_skn[:, :, ni:nf],
                    E_skn=E_skn[:, :, ni:nf],
-                   p_skvnn=np.array(p_skvnn, complex))
+                   p_skvnn=np.array(p_skvnn, complex),
+                   comm=gs.comm)
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
