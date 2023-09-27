@@ -26,6 +26,10 @@ class WaveFunctionAdapter:
         self.collinear = density.collinear
         self.grid = density.nt_sR.desc.new(dtype=complex)
         self.ndens = density.ndensities
+        if self.collinear:
+            self.ns = self.ndens
+        elif not gs.collinear:
+            ns = 2
 
         wfs = calc.wfs
         self.gd = wfs.gd
@@ -239,6 +243,7 @@ def _make_nlodata(gs,
     # Get the energy and fermi levels (data is only in master)
     with timer('Get energies and fermi levels'):
         ibzwfs = gs.ibzwfs
+        ndens = gs.ndens
         if world.rank == 0:
             # Get the data
             E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
@@ -246,7 +251,7 @@ def _make_nlodata(gs,
             # it to eV avoid altering the module too much.
             E_skn *= Ha
 
-            w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndens)])
+            w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(ndens)])
             bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
             w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
