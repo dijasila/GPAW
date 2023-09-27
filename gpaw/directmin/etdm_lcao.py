@@ -68,17 +68,19 @@ class LCAOETDM:
                  localizationseed=None,
                  need_init_orbs=None,
                  constraints=None,
-                 subspace_convergence=5e-4,
+                 subspace_convergence=5e-4
                  ):
         """Class for direct orbital optimization in LCAO mode.
+
+        Parameters:
 
         excited_state: bool
             If False (default), use search direction and line search
             algorithms for ground state calculation ('l-bfgs-p' and 'swc-awc')
             if not specified by searchdir_algo linesearch_algo, and set
-            need_init_orbs to True, if not specified. Otherwise, use search
-            direction and line search algorithms for excited state calculation
-            ('l-sr1p' and 'max-step'), and set need_init_orbs to False.
+            need_init_orbs to True. Otherwise, use search direction and line
+            search algorithms for excited state calculation ('l-sr1p' and
+            'max-step'), and set need_init_orbs to False.
         searchdir_algo: str, dict or instance
             Search direction algorithm. Can be one of the algorithms available
             in sd_etdm.py:
@@ -86,10 +88,10 @@ class LCAOETDM:
                 'fr-cg': Fletcher-Reeves conjugate gradient
                 'l-bfgs': Limited-memory BFGS
                 'l-bfgs-p': Limited-memory BFGS with preconditioner presented
-                    in :doi:10.1016/j.cpc.2021.108047 (default when
+                    in :doi:`10.1016/j.cpc.2021.108047` (default when
                     excited_state is False)
                 'l-sr1p': limited-memory SR1 algorithm presented in
-                    :doi:10.1021/acs.jctc.0c00597 (default when excited_state
+                    :doi:`10.1021/acs.jctc.0c00597` (default when excited_state
                     is True)
             The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and
             20, respectively, and can be changed by supplying a dictionary:
@@ -122,9 +124,9 @@ class LCAOETDM:
         use_prec: bool
             If True (default) use a preconditioner. The preconditioner is
             calculated as the inverse of a diagonal approximation of the
-            Hessian (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p',
+            Hessian (see :doi:`10.1021/j100322a012`) apart for 'l-bfgs-p',
             which uses the composite preconditioner presented in
-            :doi:10.1016/j.cpc.2021.108047.
+            :doi:`10.1016/j.cpc.2021.108047`.
         update_precond_counter: int
             When to update the preconditioner. Default is 1000 iterations.
         representation: 'str'
@@ -167,7 +169,8 @@ class LCAOETDM:
             Recommended for calculations with PZ-SIC.
         localizationtype: str
             Method for localizing the initial guess orbitals. Can be one of:
-                'pz': Unitary optimization among occupied orbitals with PZ-SIC
+                'pz': Unitary optimization among occupied orbitals (subspace
+                    optimization) with PZ-SIC
                 'pm': Pipek-Mezey localization
                 'fb' Foster-Boys localization
             Default is None, meaning that no localization is performed.
@@ -179,10 +182,19 @@ class LCAOETDM:
             orbitals from eigendecomposition of the Hamiltonian matrix. If
             False (default when excited_state is True), use orbitals stored in
             wfs object as initial guess.
-        constraints: list of lists
-            List of constraints for each kpt. Can be given
-            either as pairs of orbital indices or single indices which are
-            converted to list of all pairs involving the single index
+        constraints: list of lists of int
+            List of constraints on the orbital rotation for each k-point. If
+            a constraint is given as a pair of orbital indices, the rotation
+            between these two orbitals is constrained. If a constraint is
+            given as a single index, the orbital with this index is frozen.
+            E.g.:
+            >>> from gpaw.directmin.etdm_lcao import LCAOETDM
+            >>> calc.set(eigensolver=LCAOETDM(constraints=[[[i]], [[j]]])
+            will freeze orbital i in the first k-point and orbital j in the
+            second k-point.
+        subspace_convergence: float
+            Tolerance on the norm of the gradient for convergence of the
+            subspace optimization with PZ-SIC.
         """
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'

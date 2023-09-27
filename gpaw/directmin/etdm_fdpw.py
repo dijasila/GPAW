@@ -69,6 +69,8 @@ class FDPWETDM(Eigensolver):
                  ):
         """Class for direct orbital optimization in FD and PW modes.
 
+        Parameters:
+
         excited_state: bool
             If False (default), perform a minimization in the tangent space of
             orbitals (ground state calculation), and set need_init_orbs to
@@ -83,9 +85,9 @@ class FDPWETDM(Eigensolver):
                 'fr-cg': Fletcher-Reeves conjugate gradient
                 'l-bfgs': Limited-memory BFGS (default)
                 'l-bfgs-p': Limited-memory BFGS with preconditioner presented
-                    in :doi:10.1016/j.cpc.2021.108047
+                    in :doi:`10.1016/j.cpc.2021.108047`
                 'l-sr1p': Limited-memory SR1 algorithm presented in
-                    :doi:10.1021/acs.jctc.0c00597
+                    :doi:`10.1021/acs.jctc.0c00597`
             The default memory for 'l-bfgs'/'l-bfgs-p' and 'l-sr1p' is 3 and
             20, respectively, and can be changed by supplying a dictionary:
             {'name': name, 'memory': memory}, where name should be 'l-bfgs',
@@ -102,9 +104,9 @@ class FDPWETDM(Eigensolver):
         use_prec: bool
             If True (default) use a preconditioner. The preconditioner is
             calculated as the inverse of a diagonal approximation of the
-            Hessian (see :doi:10.1021/j100322a012) apart for 'l-bfgs-p',
+            Hessian (see :doi:`10.1021/j100322a012`) apart for 'l-bfgs-p',
             which uses the composite preconditioner presented in
-            :doi:10.1016/j.cpc.2021.108047.
+            :doi:`10.1016/j.cpc.2021.108047`.
         functional: str, dict or instance
             Type of functional. Can be one of:
                 'ks': The functional as specified in the GPAW calculator is
@@ -121,7 +123,8 @@ class FDPWETDM(Eigensolver):
             Recommended for calculations with PZ-SIC.
         localizationtype: str
             Method for localizing the initial guess orbitals. Can be one of:
-                'pz': Unitary optimization among occupied orbitals with PZ-SIC
+                'pz': Unitary optimization among occupied orbitals (subspace
+                    optimization) with PZ-SIC
                 'er': Edmiston-Ruedenberg localization
                 'pm': Pipek-Mezey localization
                 'fb' Foster-Boys localization
