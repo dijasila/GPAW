@@ -137,6 +137,7 @@ class FDPWETDM(Eigensolver):
             orbitals from eigendecomposition of the Hamiltonian matrix. If
             False (default when excited_state is True), use orbitals stored in
             wfs object as initial guess.
+        localization_tol
         """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
