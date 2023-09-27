@@ -69,8 +69,8 @@ class FDPWETDM(Eigensolver):
                  ):
         """Class for direct orbital optimization in FD and PW modes.
 
-        Parameters:
-
+        Parameters
+        ----------
         excited_state: bool
             If False (default), perform a minimization in the tangent space of
             orbitals (ground state calculation), and set need_init_orbs to

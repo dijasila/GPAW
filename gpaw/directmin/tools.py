@@ -209,13 +209,36 @@ def gramschmidt_lcao(C_nM, S_MM):
 
 
 def excite(calc, i, a, spin=(0, 0), sort=False):
-    """
-    Promote an electron from spin[0], homo + i to spin[1], lumo + a.
-    If sort=True, sort the orbitals according to the occupation numbers,
-    such that there are no holes in the distribution of the occupation
-    numbers.
+    """Helper function to initialize a variational excited state calculation.
 
-    :return: new occupation numbers
+    Promote an electron from homo + i of k-point spin[0] to lumo + a of
+    k-point spin[1].
+
+    Parameters
+    ----------
+    calc: GPAW instance
+        GPAW calculator object.
+    i: int
+        Subtract 1 from the occupation number of the homo + i orbital of
+        k-point spin[0]. E.g. if i=-1, an electron is removed from the
+        homo - 1 orbital.
+    a: int
+        Add 1 to the occupation number of the lumo + a orbital of k-point
+        spin[1]. E.g. if a=1, an electron is added to the lumo + 1 orbital.
+    spin: tuple of two int
+        spin[0] is the k-point from which an electron is removed and spin[1]
+        is the k-point where an electron is added.
+    sort: bool
+        If True, sort the orbitals in the wfs object according to the new
+        occupation numbers, and modify the f_n attribute of the kpt objects.
+        Default is False.
+
+    Returns
+    -------
+    list of numpy.ndarray
+        List of new occupation numbers. Can be supplied to
+        mom.prepare_mom_calculation to initialize an excited state calculation
+        with MOM.
     """
     f_sn = [calc.get_occupation_numbers(spin=s).copy()
             for s in range(calc.wfs.nspins)]

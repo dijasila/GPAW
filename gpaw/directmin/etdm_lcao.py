@@ -72,8 +72,8 @@ class LCAOETDM:
                  ):
         """Class for direct orbital optimization in LCAO mode.
 
-        Parameters:
-
+        Parameters
+        ----------
         excited_state: bool
             If False (default), use search direction and line search
             algorithms for ground state calculation ('l-bfgs-p' and 'swc-awc')
