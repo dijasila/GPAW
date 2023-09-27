@@ -245,7 +245,7 @@ class Eigenstates(Criterion):
         if (context.wfs.nvalence == 0 or error == 0 or np.isinf(error)):
             entry = ''
         else:
-            entry = '{:+5.2f}'.format(np.log10(error))
+            entry = '{:+6.2f}'.format(np.log10(error))
         return converged, entry
 
     def get_error(self, context):
