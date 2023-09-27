@@ -60,13 +60,13 @@ class LCAOETDM:
                  matrix_exp='pade-approx',
                  representation='sparse',
                  functional='ks',
+                 need_init_orbs=None,
                  orthonormalization='gramschmidt',
                  randomizeorbitals=False,
                  checkgraderror=False,
                  need_localization=True,
                  localizationtype=None,
                  localizationseed=None,
-                 need_init_orbs=None,
                  constraints=None,
                  subspace_convergence=5e-4
                  ):
@@ -152,6 +152,11 @@ class LCAOETDM:
                     factor for SIC can be given by supplying a dictionary:
                     functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
                     where a is the scaling factor (float).
+        need_init_orbs: bool
+            If True (default when excited_state is False), obtain initial
+            orbitals from eigendecomposition of the Hamiltonian matrix. If
+            False (default when excited_state is True), use orbitals stored in
+            wfs object as initial guess.
         orthonormalization: str
             Method to orthonormalize the orbitals. Can be one of 'gramschmidt'
             (Gram-Schmidt orthonormalization, default), 'loewdin' (Loewdin
@@ -171,17 +176,12 @@ class LCAOETDM:
             Method for localizing the initial guess orbitals. Can be one of:
                 'pz': Unitary optimization among occupied orbitals (subspace
                     optimization) with PZ-SIC
-                'pm': Pipek-Mezey localization
+                'pm': Pipek-Mezey localization (recommended for PZ-SIC)
                 'fb' Foster-Boys localization
             Default is None, meaning that no localization is performed.
         localizationseed: int
             Seed for Pipek-Mezey or Foster-Boys localization. Default is
             None (no seed is used).
-        need_init_orbs: bool
-            If True (default when excited_state is False), obtain initial
-            orbitals from eigendecomposition of the Hamiltonian matrix. If
-            False (default when excited_state is True), use orbitals stored in
-            wfs object as initial guess.
         constraints: list of lists of int
             List of constraints on the orbital rotation for each k-point. If
             a constraint is given as a pair of orbital indices, the rotation

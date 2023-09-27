@@ -12,13 +12,13 @@ performed. Ground state calculations involve minimization of the energy in a
 direction tangent to the orbitals without the exponential transformation
 (direct minimization). For excited state calculations, the energy is optimized
 by converging on a saddle point, which involves an inner loop using the
-exponential transformation (direct optimization). PZ-SIC requires
-an additional inner loop to minimize the energy with respect to unitary
-transformation of the occupied orbitals.
+exponential transformation (direct optimization). PZ-SIC requires an
+additional inner loop to minimize the energy with respect to unitary
+transformation of the occupied orbitals (inner loop localization).
 
-GPAW Implementation of direct minimization for ground state calculations and
-direct optimization with preconditioned quasi-Newton algorithms and maximum
-overlap method (DO-MOM) for excited state calculations FD and PW modes:
+GPAW Implementation of direct optimization with preconditioned quasi-Newton
+algorithms and maximum overlap method (DO-MOM) for excited state calculations
+FD and PW modes:
 
     J. Chem. Theory Comput. 17, 5034–5049 (2021) :doi:10.1021/acs.jctc.1c00157
     arXiv:2102.06542 [physics.comp-ph]
@@ -50,9 +50,9 @@ class FDPWETDM(Eigensolver):
                  use_prec=True,
                  functional='ks',
                  need_init_orbs=None,
+                 need_localization=True,
                  localizationtype=None,
                  localizationseed=None,
-                 need_localization=True,
                  localization_tol=None,
                  maxiter_pz_localization=50,
                  maxiter_inner_loop=100,
@@ -74,10 +74,9 @@ class FDPWETDM(Eigensolver):
         excited_state: bool
             If False (default), perform a minimization in the tangent space of
             orbitals (ground state calculation), and set need_init_orbs to
-            True, if not specified. Otherwise, perform outer loop minimization
-            in the tangent space and inner loop optimization with exponential
-            transformation (excited state calculation), and set need_init_orbs
-            to False.
+            True. Otherwise, perform outer loop minimization in the tangent
+            space and inner loop optimization with exponential transformation
+            (excited state calculation), and set need_init_orbs to False.
         searchdir_algo: str, dict or instance
             Search direction algorithm for the outer loop minimization. Can be
             one of the algorithms available in sd_etdm.py:
@@ -93,8 +92,8 @@ class FDPWETDM(Eigensolver):
             {'name': name, 'memory': memory}, where name should be 'l-bfgs',
             'l-bfgs-p' or 'l-sr1p' and memory should be an int.
         linesearch_algo: str, dict or instance
-            Line search algorithm. Can be one of the algorithms available
-            in ls_etdm.py:
+            Line search algorithm for the outer loop minimization. Can be one
+            of the algorithms available in ls_etdm.py:
                 'max-step': The quasi-Newton step is scaled if it exceeds a
                     maximum step length (default). The default maximum step
                     length is 0.20, and can be changed by supplying a
@@ -102,10 +101,12 @@ class FDPWETDM(Eigensolver):
                     where max_step should be a float.
                 'swc-awc': Line search with Wolfe conditions
         use_prec: bool
-            If True (default) use a preconditioner. The preconditioner is
-            calculated as the inverse of a diagonal approximation of the
-            Hessian (see :doi:`10.1021/j100322a012`) apart for 'l-bfgs-p',
-            which uses the composite preconditioner presented in
+            If True (default) use a preconditioner. For the outer loop
+            minimization, the preconditioner is the inverse kinetic energy
+            operator. For the inner loop optimization, the preconditioner is
+            the inverse of a diagonal approximation of the Hessian (see
+            :doi:`10.1021/j100322a012`) apart for 'l-bfgs-p', which uses the
+            composite preconditioner presented in
             :doi:`10.1016/j.cpc.2021.108047`.
         functional: str, dict or instance
             Type of functional. Can be one of:
@@ -117,6 +118,11 @@ class FDPWETDM(Eigensolver):
                     factor for SIC can be given by supplying a dictionary:
                     functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
                     where a is the scaling factor (float).
+        need_init_orbs: bool
+            If True (default when excited_state is False), obtain initial
+            orbitals from eigendecomposition of the Hamiltonian matrix. If
+            False (default when excited_state is True), use orbitals stored in
+            wfs object as initial guess.
         need_localization: bool
             If True (default), localize initial guess orbitals. Requires a
             specification of localizationtype, otherwise it is set to False.
@@ -125,19 +131,62 @@ class FDPWETDM(Eigensolver):
             Method for localizing the initial guess orbitals. Can be one of:
                 'pz': Unitary optimization among occupied orbitals (subspace
                     optimization) with PZ-SIC
+                'ks':
                 'er': Edmiston-Ruedenberg localization
-                'pm': Pipek-Mezey localization
+                'pm': Pipek-Mezey localization (recommended for PZ-SIC)
                 'fb' Foster-Boys localization
             Default is None, meaning that no localization is performed.
         localizationseed: int
             Seed for Edmiston-Ruedenberg, Pipek-Mezey or Foster-Boys
             localization. Default is None (no seed is used).
-        need_init_orbs: bool
-            If True (default when excited_state is False), obtain initial
-            orbitals from eigendecomposition of the Hamiltonian matrix. If
-            False (default when excited_state is True), use orbitals stored in
-            wfs object as initial guess.
-        localization_tol
+        localization_tol: float
+            Tolerance for convergence of the localization. If not specified,
+            the following default values will be used:
+            'pz': 5.0e-4
+            'ks': 5.0e-4
+            'er': 5.0e-5
+            'pm': 1.0e-10
+            'fb': 1.0e-10
+        maxiter_pz_localization: int
+            Maximum number of iterations for PZ-SIC inner loop localization.
+        maxiter_inner_loop: int
+            Maximum number of iterations of inner loop optimization for
+            excited state calculations. If the maximum number of inner loop
+            iterations is exceeded, the optimization moves on with the outer
+            loop step.
+        max_step_inner_loop: float
+            Maximum step length of inner loop optimization for excited state
+            calculations. The inner loop optimization uses the 'l-sr1p' search
+            direction. Default is 0.20.
+        grad_tol_pz_localization: float
+            Tolerance on the norm of the gradient for convergence of the
+            PZ-SIC inner loop localization.
+        grad_tol_inner_loop: float
+            Tolerance on the norm of the gradient for convergence of the
+            inner loop optimization for excited state calculations.
+        restartevery_iloop_notconverged: int
+            Number of iterations of the outer loop after which the calculation
+            is restarted if the inner loop optimization for excited states is
+            not converged.
+        restart_canonical: bool
+            If True (default) restart the calculations using orbitals from the
+            eigedecomposition of the Hamiltonian matrix if the inner loop
+            optimization does not converge or MOM detects variational
+            collapse. Otherwise, the optimal orbitals are used.
+        momevery: int
+            MOM is applied every 'momevery' iterations of the inner loop
+            optimization for excited states.
+        printinnerloop: bool
+            If True, print the iterations of the inner loop optimization for
+            excited states to standard output. Default is False.
+        blocksize: int
+            Blocksize for eigensolver super class.
+        converge_unocc: bool
+            If True, converge also the unoccupied orbitals after convergence
+            of the occupied orbitals. Default is False.
+        maxiter_unocc: int
+            Maximum number of iterations for convergence of the unoccupied
+            orbitals.
         """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
