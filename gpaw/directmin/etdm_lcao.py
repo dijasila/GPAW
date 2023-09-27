@@ -63,15 +63,22 @@ class LCAOETDM:
                  orthonormalization='gramschmidt',
                  randomizeorbitals=False,
                  checkgraderror=False,
+                 need_localization=True,
                  localizationtype=None,
                  localizationseed=None,
-                 need_localization=True,
                  need_init_orbs=None,
                  constraints=None,
                  subspace_convergence=5e-4,
                  ):
         """Class for direct orbital optimization in LCAO mode.
 
+        excited_state: bool
+            If False (default), use search direction and line search
+            algorithms for ground state calculation ('l-bfgs-p' and 'swc-awc')
+            if not specified by searchdir_algo linesearch_algo, and set
+            need_init_orbs to True, if not specified. Otherwise, use search
+            direction and line search algorithms for excited state calculation
+            ('l-sr1p' and 'max-step'), and set need_init_orbs to False.
         searchdir_algo: str, dict or instance
             Search direction algorithm. Can be one of the algorithms available
             in sd_etdm.py:
@@ -134,14 +141,15 @@ class LCAOETDM:
             'egdecomp', 'egdecomp-u-invar' (the latter can be used only with
             'u-invar' representation).
         functional: str, dict or instance
-            Type of functional. If equal to 'ks' (default) the functional as
-            specified in the GPAW calculator will be used. Specify 'pz-sic' to
-            apply the Perdew-Zunger self-interaction correction on top of the
-            functional as specified in the GPAW calculator. Dy default full
-            SIC will be applied. A scaling factor for SIC can be given by
-            supplying a dictionary:
-            functional={'name': 'pz-sic', 'scaling_factor': (a, a)}, where a
-            is the scaling factor (float).
+            Type of functional. Can be one of:
+                'ks': The functional as specified in the GPAW calculator is
+                    used (default)
+                'pz-sic': Apply the Perdew-Zunger self-interaction correction
+                    on top of the functional as specified in the GPAW
+                    calculator. Dy default full SIC is applied. A scaling
+                    factor for SIC can be given by supplying a dictionary:
+                    functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
+                    where a is the scaling factor (float).
         orthonormalization: str
             Method to orthonormalize the orbitals. Can be one of 'gramschmidt'
             (Gram-Schmidt orthonormalization, default), 'loewdin' (Loewdin
@@ -151,15 +159,30 @@ class LCAOETDM:
             If True, add random noise to the initial guess orbitals. Default
             is False.
         checkgraderror: bool
-            Can be used to check the error in the estimation of the gradient
-            if True (only with representation 'full'). Default is False.
-        :param localizationtype: Foster-Boys, Pipek-Mezey, Edm.-Rudenb.
-        :param localizationseed: Seed for Pipek-Mezey localization
-        :param need_localization: use localized orbitals as initial guess
-        :param need_init_orbs: if false, then use orbitals stored in kpt
-        :param constraints: List of constraints for each kpt. Can be given
-        either as pairs of orbital indices or single indices which are
-        converted to list of all pairs involving the single index
+            If True, can be used to check the error in the estimation of the
+            gradient (only with representation 'full'). Default is False.
+        need_localization: bool
+            If True (default), localize initial guess orbitals. Requires a
+            specification of localizationtype, otherwise it is set to False.
+            Recommended for calculations with PZ-SIC.
+        localizationtype: str
+            Method for localizing the initial guess orbitals. Can be one of:
+                'pz': Unitary optimization among occupied orbitals with PZ-SIC
+                'pm': Pipek-Mezey localization
+                'fb' Foster-Boys localization
+            Default is None, meaning that no localization is performed.
+        localizationseed: int
+            Seed for Pipek-Mezey or Foster-Boys localization. Default is
+            None (no seed is used).
+        need_init_orbs: bool
+            If True (default when excited_state is False), obtain initial
+            orbitals from eigendecomposition of the Hamiltonian matrix. If
+            False (default when excited_state is True), use orbitals stored in
+            wfs object as initial guess.
+        constraints: list of lists
+            List of constraints for each kpt. Can be given
+            either as pairs of orbital indices or single indices which are
+            converted to list of all pairs involving the single index
         """
 
         assert representation in ['sparse', 'u-invar', 'full'], 'Value Error'
@@ -174,7 +197,6 @@ class LCAOETDM:
         self.sda = searchdir_algo
         self.lsa = linesearch_algo
         self.partial_diagonalizer = partial_diagonalizer
-        self.localizationtype = localizationtype
         self.localizationseed = localizationseed
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_ref_orbs_canonical = update_ref_orbs_canonical

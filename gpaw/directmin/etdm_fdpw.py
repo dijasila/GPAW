@@ -44,6 +44,7 @@ from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 class FDPWETDM(Eigensolver):
 
     def __init__(self,
+                 excited_state=False,
                  searchdir_algo=None,
                  linesearch_algo='max-step',
                  use_prec=True,
@@ -64,10 +65,17 @@ class FDPWETDM(Eigensolver):
                  printinnerloop=False,
                  blocksize=1,
                  converge_unocc=False,
-                 maxiter_unocc=333,
-                 excited_state=False):
+                 maxiter_unocc=333
+                 ):
         """Class for direct orbital optimization in FD and PW modes.
 
+        excited_state: bool
+            If False (default), perform a minimization in the tangent space of
+            orbitals (ground state calculation), and set need_init_orbs to
+            True, if not specified. Otherwise, perform outer loop minimization
+            in the tangent space and inner loop optimization with exponential
+            transformation (excited state calculation), and set need_init_orbs
+            to False.
         searchdir_algo: str, dict or instance
             Search direction algorithm for the outer loop minimization. Can be
             one of the algorithms available in sd_etdm.py:
@@ -98,14 +106,34 @@ class FDPWETDM(Eigensolver):
             which uses the composite preconditioner presented in
             :doi:10.1016/j.cpc.2021.108047.
         functional: str, dict or instance
-            Type of functional. If equal to 'ks' (default) the functional as
-            specified in the GPAW calculator will be used. Specify 'pz-sic' to
-            apply the Perdew-Zunger self-interaction correction on top of the
-            functional as specified in the GPAW calculator. Dy default full
-            SIC will be applied. A scaling factor for SIC can be given by
-            supplying a dictionary:
-            functional={'name': 'pz-sic', 'scaling_factor': (a, a)}, where a
-            is the scaling factor (float).
+            Type of functional. Can be one of:
+                'ks': The functional as specified in the GPAW calculator is
+                    used (default)
+                'pz-sic': Apply the Perdew-Zunger self-interaction correction
+                    on top of the functional as specified in the GPAW
+                    calculator. Dy default full SIC is applied. A scaling
+                    factor for SIC can be given by supplying a dictionary:
+                    functional={'name': 'pz-sic', 'scaling_factor': (a, a)},
+                    where a is the scaling factor (float).
+        need_localization: bool
+            If True (default), localize initial guess orbitals. Requires a
+            specification of localizationtype, otherwise it is set to False.
+            Recommended for calculations with PZ-SIC.
+        localizationtype: str
+            Method for localizing the initial guess orbitals. Can be one of:
+                'pz': Unitary optimization among occupied orbitals with PZ-SIC
+                'er': Edmiston-Ruedenberg localization
+                'pm': Pipek-Mezey localization
+                'fb' Foster-Boys localization
+            Default is None, meaning that no localization is performed.
+        localizationseed: int
+            Seed for Edmiston-Ruedenberg, Pipek-Mezey or Foster-Boys
+            localization. Default is None (no seed is used).
+        need_init_orbs: bool
+            If True (default when excited_state is False), obtain initial
+            orbitals from eigendecomposition of the Hamiltonian matrix. If
+            False (default when excited_state is True), use orbitals stored in
+            wfs object as initial guess.
         """
 
         super(FDPWETDM, self).__init__(keep_htpsit=False,
