@@ -5,9 +5,9 @@ from ase.parallel import parprint
 from ase.units import Ha
 from ase.utils.timing import Timer
 
-from gpaw.new.ase_interface import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, serial_comm
+from gpaw.new.ase_interface import GPAW
 from gpaw.utilities.progressbar import ProgressBar
 
 
@@ -20,9 +20,12 @@ class WaveFunctionAdapter:
         self.nb_full = calc.get_number_of_bands()
 
         state = calc.calculation.state
-        self.grid = state.density.nt_sR.desc.new(dtype=complex)
-        self.ns = state.density.ndensities
         self.ibzwfs = state.ibzwfs
+
+        density = state.density
+        self.collinear = density.collinear
+        self.grid = density.nt_sR.desc.new(dtype=complex)
+        self.ndens = density.ndensities
 
         wfs = calc.wfs
         self.gd = wfs.gd
@@ -202,7 +205,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
         'Point group symmtery should be off.'
 
     gs = WaveFunctionAdapter(calc)
-    ns = gs.ns
+    if gs.collinear:
+        ns = gs.ndens
+    elif not gs.collinear:
+        ns = 2
+
     if spin == 'all':
         spins = list(range(ns))
     elif spin == 's0':
@@ -239,15 +246,15 @@ def _make_nlodata(gs,
             # it to eV avoid altering the module too much.
             E_skn *= Ha
 
-            w_sk = np.array([ibzwfs.ibz.weight_k for s1 in spins])
+            w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndens)])
             bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
             w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
-        for s1 in spins:
-            p_kvnn = get_mml(gs=gs, spin=s1,
+        for spin in spins:
+            p_kvnn = get_mml(gs=gs, spin=spin,
                              ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
 
