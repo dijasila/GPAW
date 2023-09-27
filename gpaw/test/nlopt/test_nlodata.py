@@ -8,10 +8,11 @@ from gpaw.nlopt.basic import NLOData
 @pytest.mark.skipif(world.size > 1, reason='Serial only')
 def test_write_load_serial(in_tmp_dir):
     rng = np.random.default_rng(seed=42)
-    w_sk = rng.random((1, 5))
-    f_skn = rng.random((1, 5, 30))
-    E_skn = rng.random((1, 5, 30))
-    p_skvnn = rng.random((1, 5, 3, 30, 30))
+    w_sk = rng.random((1, 8))
+    f_skn = rng.random((1, 8, 20))
+    E_skn = rng.random((1, 8, 20))
+    p_skvnn = rng.random((1, 8, 3, 20, 20)) \
+        + 1j * rng.random((1, 8, 3, 20, 20))
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn)
     nlo.write('nlodata.npz')
@@ -28,10 +29,11 @@ def test_serial_file_parallel_data(in_tmp_dir):
     # Random data only on rank = 0
     rng = np.random.default_rng(seed=42)
     if world.rank == 0:
-        w_sk = rng.random((1, 5))
-        f_skn = rng.random((1, 5, 30))
-        E_skn = rng.random((1, 5, 30))
-        p_skvnn = rng.random((1, 5, 3, 30, 30))
+        w_sk = rng.random((1, 8))
+        f_skn = rng.random((1, 8, 20))
+        E_skn = rng.random((1, 8, 20))
+        p_skvnn = rng.random((1, 8, 3, 20, 20)) \
+            + 1j * rng.random((1, 8, 3, 20, 20))
     else:
         w_sk = None
         f_skn = None
@@ -57,10 +59,11 @@ def test_serial_file_parallel_data(in_tmp_dir):
 def test_write_load_parallel(in_tmp_dir):
     # Same random data array on each core
     rng = np.random.default_rng(seed=42)
-    w_sk = rng.random((1, 5))
-    f_skn = rng.random((1, 5, 30))
-    E_skn = rng.random((1, 5, 30))
-    p_skvnn = rng.random((1, 5, 3, 30, 30))
+    w_sk = rng.random((1, 8))
+    f_skn = rng.random((1, 8, 20))
+    E_skn = rng.random((1, 8, 20))
+    p_skvnn = rng.random((1, 8, 3, 20, 20)) \
+        + 1j * rng.random((1, 8, 3, 20, 20))
 
     nlo = NLOData(w_sk, f_skn, E_skn, p_skvnn)
     nlo.write('nlodata.npz')
