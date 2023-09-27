@@ -1,12 +1,9 @@
 """
-A class for finding optimal
-orbitals of the KS-DFT or PZ-SIC
-functionals using exponential transformation
-direct minimization in lcao mode
+Helper class for LCAOETDM.
 
-arXiv:2101.12597 [physics.comp-ph]
-Comput. Phys. Commun. 267, 108047 (2021).
-https://doi.org/10.1016/j.cpc.2021.108047
+Handles orbital initialization, setting reference orbitals, applying the
+unitary transformation, calculating the gradient, and getting canonical
+representation.
 """
 
 import numpy as np
