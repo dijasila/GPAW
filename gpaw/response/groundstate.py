@@ -1,6 +1,6 @@
+from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TypeVar, Type
 
 import numpy as np
 
@@ -27,9 +27,6 @@ class PAWDatasetCollection:
         self.by_species = by_species
         self.by_atom = by_atom
         self.id_by_atom = id_by_atom
-
-
-RGSA = TypeVar('RGSA', bound='ResponseGroundStateAdapter')
 
 
 class ResponseGroundStateAdapter:
@@ -68,7 +65,7 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls: Type[RGSA], gpw, context) -> RGSA:
+    def from_gpw_file(cls, gpw, context) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
