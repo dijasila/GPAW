@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Tuple, Union
-from pathlib import Path
 
 import numpy as np
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext
+from gpaw.response import (ResponseGroundStateAdapter, ResponseContext,
+                           GPWFilename, TXTFilename,
+                           ensure_gs, ensure_gs_and_context)
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Wxc
@@ -187,29 +187,6 @@ class IsotropicExchangeCalculator:
         chiksr = chiks.copy_reactive_part()
 
         return chiksr
-
-
-GPWFilename = Union[Path, str]
-TXTFilename = Union[Path, str]
-
-
-def ensure_gs_and_context(gs: ResponseGroundStateAdapter | GPWFilename,
-                          context: ResponseContext | TXTFilename = '-')\
-        -> Tuple[ResponseGroundStateAdapter, ResponseContext]:
-    if not isinstance(context, ResponseContext):
-        context = ResponseContext(txt=context)
-    gs = ensure_gs(gs, context=context)
-    return gs, context
-
-
-def ensure_gs(gs: ResponseGroundStateAdapter | GPWFilename,
-              context: ResponseContext | None = None)\
-        -> ResponseGroundStateAdapter:
-    if not isinstance(gs, ResponseGroundStateAdapter):
-        if context is None:
-            context = ResponseContext()
-        gs = ResponseGroundStateAdapter.from_gpw_file(gs, context)
-    return gs
 
 
 def calculate_site_magnetization(
