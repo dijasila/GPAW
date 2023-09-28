@@ -284,6 +284,9 @@ class ETDMInnerLoop:
             der_phi_old_2 = der_phi_old
 
             if self.restart:
+                if log is not None:
+                    log('MOM has detected variational collapse, changing the'
+                        ' occupied orbitals and restarting the calculation')
                 break
 
             if alpha > 1.0e-10:
