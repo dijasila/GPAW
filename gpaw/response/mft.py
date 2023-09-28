@@ -9,11 +9,10 @@ from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, smat
 from gpaw.response.localft import LocalFTCalculator, add_LSDA_Wxc
 from gpaw.response.site_kernels import SiteKernels
-from gpaw.response.site_data import AtomicSites, AtomicSiteData
+from gpaw.response.site_data import AtomicSites
 from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
-from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
-                                           SitePairDensityCalculator,
+from gpaw.response.matrix_elements import (SitePairDensityCalculator,
                                            SitePairSpinSplittingCalculator)
 
 from ase.units import Hartree
@@ -226,6 +225,7 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
 
     def __init__(self,
                  gs: ResponseGroundStateAdapter,
+                 sites: AtomicSites,
                  context: ResponseContext | None = None,
                  nblocks: int = 1,
                  nbands: int | None = None):
@@ -239,19 +239,20 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
                          # implemented at a later stage.
                          disable_point_group=True,
                          disable_time_reversal=True)
-
         self.nbands = nbands
-        self.matrix_element_calc1: SiteMatrixElementCalculator | None = None
-        self.matrix_element_calc2: SiteMatrixElementCalculator | None = None
 
-    def __call__(self, q_c, atomic_site_data: AtomicSiteData):
-        """Calculate the site sum rule for a given wave vector q_c."""
         # Set up calculators for the f^a and g^b matrix elements
-        mecalc1, mecalc2 = self.create_matrix_element_calculators(
-            atomic_site_data)
+        self.sites = sites
+        mecalc1, mecalc2 = self.create_matrix_element_calculators()
         self.matrix_element_calc1 = mecalc1
         self.matrix_element_calc2 = mecalc2
 
+    @abstractmethod
+    def create_matrix_element_calculators(self):
+        """Create the desired site matrix element calculators."""
+
+    def __call__(self, q_c):
+        """Calculate the site sum rule for a given wave vector q_c."""
         spincomponent = self.get_spincomponent()
         transitions = self.get_band_and_spin_transitions(
             spincomponent, nbands=self.nbands, bandsummation='double')
@@ -261,17 +262,12 @@ class TwoParticleSiteSumRuleCalculator(PairFunctionIntegrator):
         # Set up data object (without a plane-wave representation, which is
         # irrelevant in this case)
         qpd = self.get_pw_descriptor(q_c, ecut=1e-3)
-        site_pair_function = StaticSitePairFunction(
-            qpd, atomic_site_data.sites)
+        site_pair_function = StaticSitePairFunction(qpd, self.sites)
 
         # Perform actual calculation
         self._integrate(site_pair_function, transitions)
 
         return site_pair_function.array
-
-    @abstractmethod
-    def create_matrix_element_calculators(self, atomic_site_data):
-        """Create the desired site matrix element calculators."""
 
     @abstractmethod
     def get_spincomponent(self):
@@ -356,9 +352,9 @@ class TwoParticleSiteMagnetizationCalculator(TwoParticleSiteSumRuleCalculator):
     This is directly related to the sum rule of the χ^(+-) spin component of
     the four-component susceptibility tensor.
     """
-    def create_matrix_element_calculators(self, atomic_site_data):
+    def create_matrix_element_calculators(self):
         site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, self.sites)
         return site_pair_density_calc, site_pair_density_calc
 
     def get_spincomponent(self):
@@ -383,11 +379,11 @@ class TwoParticleSiteSpinSplittingCalculator(
                                                                           /
               = δ_(a,b) Δ^(xc)_a^z
     """
-    def create_matrix_element_calculators(self, atomic_site_data):
+    def create_matrix_element_calculators(self):
         site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, self.sites)
         site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+            self.gs, self.context, self.sites)
         return site_pair_spin_splitting_calc, site_pair_density_calc
 
     def __call__(self, *args):
