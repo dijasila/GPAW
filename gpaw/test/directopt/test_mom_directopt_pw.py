@@ -42,7 +42,7 @@ def test_mom_directopt_pw(in_tmp_dir):
         calc.set(eigensolver=FDPWETDM(excited_state=True,
                                       momevery=momevery,
                                       restart_canonical=canonical,
-                                      printinnerloop=False))
+                                      printinnerloop=True))
         f_sn = excite(calc, 0, 0, (0, 0))
         prepare_mom_calculation(calc, atoms, f_sn)
 

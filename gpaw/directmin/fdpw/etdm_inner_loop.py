@@ -285,8 +285,8 @@ class ETDMInnerLoop:
 
             if self.restart:
                 if log is not None:
-                    log('MOM has detected variational collapse, changing the'
-                        ' occupied orbitals and restarting the calculation')
+                    log('MOM has detected variational collapse, '
+                        'occupied orbitals have changed')
                 break
 
             if alpha > 1.0e-10:

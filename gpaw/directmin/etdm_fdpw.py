@@ -1271,6 +1271,8 @@ class FDPWETDM(Eigensolver):
                 self.initialized = False
                 self.need_init_odd = True
 
+        return self.outer_iloop.restart
+
     def initialize_mom_reference_orbitals(self, wfs, dens):
         # Reinitialize the MOM reference orbitals
         # after orthogonalization/localization

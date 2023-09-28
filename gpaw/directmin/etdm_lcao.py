@@ -1052,6 +1052,9 @@ class LCAOETDM:
             wfs.calculate_occupation_numbers(dens.fixed)
             self.restart = sort_orbitals_according_to_occ(
                 wfs, self.constraints, update_mom=True)
+            return self.restart
+        else:
+            return False
 
     def randomize_orbitals_kpt(self, wfs, kpt):
         """

@@ -52,11 +52,15 @@ class SCFLoop:
         converged = False
 
         while self.niter <= self.maxiter:
-            self.iterate_eigensolver(wfs, ham, dens, log)
+            restart = self.iterate_eigensolver(wfs, ham, dens, log)
 
             ctx = self.check_convergence(
                 dens, ham, wfs, log, callback)
             yield ctx
+
+            if restart:
+                log('MOM has detected variational collapse, '
+                    'occupied orbitals have changed')
 
             converged = (self.converged and
                          self.niter >= self.niter_fixdensity)
@@ -110,16 +114,17 @@ class SCFLoop:
 
     def iterate_eigensolver(self, wfs, ham, dens, log):
 
+        restart = False
         if self.eigensolver_name == 'etdm-lcao':
             wfs.eigensolver.iterate(ham, wfs, dens)
-            wfs.eigensolver.check_mom(wfs, dens)
+            restart = wfs.eigensolver.check_mom(wfs, dens)
             e_entropy = 0.0
             kin_en_using_band = False
         elif self.eigensolver_name == 'etdm-fdpw':
             if not wfs.eigensolver.initialized:
                 wfs.eigensolver.initialize_dm_helper(wfs, ham, dens, log)
             wfs.eigensolver.iterate(ham, wfs, dens, log)
-            wfs.eigensolver.check_restart(wfs)
+            restart = wfs.eigensolver.check_restart(wfs)
             e_entropy = 0.0
             kin_en_using_band = False
         else:
@@ -134,6 +139,8 @@ class SCFLoop:
 
         ham.get_energy(
             e_entropy, wfs, kin_en_using_band=kin_en_using_band, e_sic=e_sic)
+
+        return restart
 
     def update_ham_and_dens(self, wfs, ham, dens):
 
