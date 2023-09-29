@@ -730,7 +730,7 @@ class GPWFiles:
         # Set up calculator
         tag = '_spinpol' if spinpol else ''
         atoms.calc = GPAW(
-            mode=PW(300),
+            mode=PW(400),
             xc='LDA',
             kpts={'size': (4, 4, 4)},
             symmetry={'point_group': False,
@@ -738,7 +738,7 @@ class GPWFiles:
             nbands=band_cutoff + 6,
             occupations=FermiDirac(0.001),
             convergence={'bands': band_cutoff + 1,
-                         'density': 1.e-8},
+                         'density': 1e-8},
             spinpol=spinpol,
             txt=self.path / f'sic_pw{tag}.txt'
         )
@@ -830,8 +830,8 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def _hbn_pw(self, symmetry):
-        tag = '_nopg' if symmetry else ''
+    @gpwfile
+    def hbn_pw(self):
         atoms = Graphene(symbol='B',
                          latticeconstant={'a': 2.5, 'c': 1.0},
                          size=(1, 1, 1))
@@ -842,23 +842,11 @@ class GPWFiles:
                           xc='LDA',
                           nbands=50,
                           occupations=FermiDirac(0.001),
-                          symmetry=symmetry,
                           parallel={'domain': 1},
                           convergence={'bands': 26},
-                          txt=self.path / f'hbn_pw{tag}.txt',
                           kpts={'size': (3, 3, 1), 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
-
-    @gpwfile
-    def hbn_pw_nopg(self):
-        symmetry = {'point_group': False}
-        return self._hbn_pw(symmetry)
-
-    @gpwfile
-    def hbn_pw(self):
-        symmetry = {}
-        return self._hbn_pw(symmetry)
 
     @gpwfile
     def graphene_pw(self):
