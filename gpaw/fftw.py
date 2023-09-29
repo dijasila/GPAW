@@ -213,6 +213,7 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft(self):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.tmp_R.dtype == float:
             try:
                 self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
@@ -281,6 +282,7 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.dtype == complex:
             out_Q = cupyx.scipy.fft.fftn(in_R)
         else:
