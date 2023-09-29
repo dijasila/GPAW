@@ -22,7 +22,6 @@ ESTIMATE = 64
 MEASURE = 0
 PATIENT = 32
 EXHAUSTIVE = 8
-import cupy
 
 _plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
@@ -196,6 +195,7 @@ class NumpyFFTPlans(FFTPlans):
 
 
 def rfftn_patch(tmp_R):
+    from gpaw.gpu import cupyx
     warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {self.tmp_R.shape}.'
                   f'reverting to using just fftn. This is a bug in ROCM cupy.')
     return cupyx.scipy.fft.fftn(tmp_R)[:, :, :tmp_R.shape[-1] // 2 + 1]
