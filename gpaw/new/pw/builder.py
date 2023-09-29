@@ -167,7 +167,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         c = reader.bohr**1.5
         if reader.version < 0:
-            c = 1  # old gpw file
+            c = 1  # very old gpw file
         elif reader.version < 4:
             c /= self.grid.size_c.prod()
 
