@@ -196,7 +196,7 @@ class NumpyFFTPlans(FFTPlans):
 
 def rfftn_patch(tmp_R):
     from gpaw.gpu import cupyx
-    warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {self.tmp_R.shape}.'
+    warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {tmp_R.shape}.'
                   f'reverting to using just fftn. This is a bug in ROCM cupy.')
     return cupyx.scipy.fft.fftn(tmp_R)[:, :, :tmp_R.shape[-1] // 2 + 1]
 
@@ -216,7 +216,7 @@ class CuPyFFTPlans(FFTPlans):
         if self.tmp_R.dtype == float:
             try:
                 self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
-            except cupy.cuda.cufft.CuFFTError:
+            except cp.cuda.cufft.CuFFTError:
                 self.tmp_Q[:] = rfftn_patch(self.tmp_R)
         else:
             self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
@@ -286,7 +286,7 @@ class CuPyFFTPlans(FFTPlans):
         else:
             try:
                 out_Q = cupyx.scipy.fft.rfftn(in_R)
-            except cupy.cuda.cufft.CuFFTError:
+            except cp.cuda.cufft.CuFFTError:
                 out_Q = rfftn_patch(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
