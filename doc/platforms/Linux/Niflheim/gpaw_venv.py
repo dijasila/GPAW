@@ -14,28 +14,32 @@ if version_info < (3, 7):
     raise ValueError('Please use Python-3.7 or later')
 
 version = '3.10'  # Python version in the venv that we are creating
+fversion = 'cpython-310'
+
+subchain = {'foss': 'gfbf'}
 
 # These modules are always loaded
 module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load Wannier90/3.1.0-{{tchain}}-2022a
-module load ELPA/2022.05.001-{{tchain}}-2022a
-module load Python/3.10.4-GCCcore-11.3.0
+module load Wannier90/3.1.0-{{tchain}}-2022b
+module load Python/3.10.8-GCCcore-12.2.0
 """
+# module load ELPA/2022.05.001-{{tchain}}-2022b
+
 
 # These modules are not loaded if --piponly is specified
 module_cmds_easybuild = f"""\
-module load matplotlib/3.5.2-{{tchain}}-2022a
-module load scikit-learn/1.1.2-{{tchain}}-2022a
+module load matplotlib/3.7.0-{{subchain}}-2022b
+module load scikit-learn/1.2.1-{{subchain}}-2022b
 """
 
 # These modules are loaded depending on the toolchain
 module_cmds_tc = {
     'foss': """\
-module load libxc/5.2.3-GCC-11.3.0
-module load libvdwxc/0.4.0-foss-2022a
+module load libxc/5.2.3-GCC-12.2.0
+module load libvdwxc/0.4.0-foss-2022b
 """,
     'intel': """\
 module load libxc/5.2.3-intel-compilers-2022.1.0
@@ -155,7 +159,7 @@ def main():
 
     module_cmds = module_cmds_all.format(tchain=args.toolchain)
     if not args.piponly:
-        module_cmds += module_cmds_easybuild.format(tchain=args.toolchain)
+        module_cmds += module_cmds_easybuild.format(tchain=args.toolchain, subchain=subchain[args.toolchain])
     module_cmds += module_cmds_tc[args.toolchain]
 
     cmds = (' && '.join(module_cmds.splitlines()) +
@@ -209,14 +213,14 @@ def main():
 
     for fro, to in [('ivybridge', 'sandybridge'),
                     ('nahelem', 'icelake')]:
-        f = gpaw / f'build/lib.linux-x86_64-{fro}-{version}'
-        t = gpaw / f'build/lib.linux-x86_64-{to}-{version}'
+        f = gpaw / f'build/lib.linux-x86_64-{fro}-{fversion}'
+        t = gpaw / f'build/lib.linux-x86_64-{to}-{fversion}'
         f.symlink_to(t)
 
     # Create .pth file to load correct .so file:
     pth = ('import sys, os; '
            'arch = os.environ["CPU_ARCH"]; '
-           f"path = f'{venv}/gpaw/build/lib.linux-x86_64-{{arch}}-{version}'; "
+           f"path = f'{venv}/gpaw/build/lib.linux-x86_64-{{arch}}-{fversion}'; "
            'sys.path.append(path)\n')
     Path(f'lib/python{version}/site-packages/niflheim.pth').write_text(pth)
 
