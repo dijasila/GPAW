@@ -172,6 +172,32 @@ def residuals(R,A,x):
 """
 
 
+
+def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
+    npols = len(E_pGG)
+    nw = len(omega_w)
+    A_GGwp = np.zeros((*E_pGG.shape[1:], nw, npols), dtype=np.complex128)
+    b_GGw = np.zeros((*E_pGG.shape[1:], nw), dtype=np.complex128)
+    for w in range(nw):
+        A_GGwp[:, :, w, :] = (2 * E_pGG / (omega_w[w]**2 - E_pGG**2)).transpose((1, 2, 0))
+        b_GGw[:, :, w] = X_wGG[w, :, :]
+
+    for p in range(npols):
+        print((p>=npr_GG).shape)
+        A_GGwp[:, :, :, p][p >= npr_GG] = 0.0
+
+    temp_GGp = np.einsum('GHwp,GHw->GHp', A_GGwp.conj(), b_GGw)
+    XTX_GGpp = np.einsum('GHwp,GHwo->GHpo', A_GGwp.conj(), A_GGwp)
+    
+    if XTX_GGpp.shape[2] == 1:
+        # 1D matrix, invert the number
+        XTX_GGpp = 1 / XTX_GGpp
+    else:
+        XYX_GGpp = np.linalg.pinv(XYX_GGpp)
+
+    R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+    return R_GGp
+
 def mpa_R_fit(npols, npr, w, x, E):
     # integer,     intent(in)  :: np, npr
     # complex(SP), intent(in)  :: w(2*np)
@@ -327,6 +353,8 @@ class SinglePoleSolver(Solver):
         mask = E_GG.imag > self.epsilon
         E_GG[mask] = E_GG[mask].real - 1j * epsilon
 
+        R_GG = fit_residue(1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
+        """
         A_GGwp = np.zeros((*E_GG.shape, 2, 1), dtype=np.complex128)
         b_GGw = np.zeros((*E_GG.shape, 2), dtype=np.complex128)
         for w in range(2):
@@ -343,8 +371,9 @@ class SinglePoleSolver(Solver):
             raise NotImplementedError
 
         R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+        """
 
-        return E_GG, R_GGp[:, :, 0]
+        return E_GG, R_GG
 
 
 """
@@ -354,6 +383,7 @@ class MultipoleSolver(Solver):
         self.omega_w = omega_w
     
     def solve(self, X_G):
+        pass
 """
 
 def RESolver(omega_w):
@@ -388,6 +418,10 @@ def mpa_RE_solver(npols, w, x):
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
 
+        Rnew = fit_residue(np.array([[[npols]]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+        print(R, Rnew)
+        assert np.allclose(R, Rnew)
+
         # if(npr < npols): MPred = True
 
         # PPcond_rate = 0.
@@ -402,8 +436,19 @@ def mpa_RE_solver(npols, w, x):
 
     return R, E, MPred, PPcond_rate  # , MP_err
 
-for i in range(1):
-    NG = 30
+
+def test_mpa():
+    NG = 20
+    nw = 4
+    X_wGG = 2*(np.random.rand(nw, NG, NG) - 0.5) + 1j * (np.random.rand(nw, NG, NG) - 0.5)*2
+    omega_w = np.array([0, 1j, 2.33, 2.33+1j])
+    for i in range(NG):
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(nw // 2, omega_w, X_wGG[:, i, j])
+
+
+def test_ppa():
+    NG = 120
     X_wGG = 2*(np.random.rand(2, NG, NG) - 0.5) + 1j * (np.random.rand(2, NG, NG) - 0.5)*2
     omega_w = np.array([0, 2j])
     from time import time
@@ -419,7 +464,8 @@ for i in range(1):
                 print(R, R_GG[i,j], 'ratio:', R_GG[i,j] / R, 'mismatch')
                 fail = True
     assert not fail
-    print('Vectorized', stop-start)
+    vectorized_time = stop - start
+    print('Vectorized', vectorized_time)
     start = time()
     for i in range(NG):
         for j in range(NG):
@@ -427,5 +473,9 @@ for i in range(1):
         #assert np.allclose(E, E_G[i])
         #print('old', E, 'new', E_G[i])
     stop = time()
-    print('Not vectorized', stop-start)
+    serial_time = stop - start
+    print('Not vectorized', serial_time)
+    print('speedup', serial_time / vectorized_time)
 
+
+test_mpa()
