@@ -673,6 +673,7 @@ class BLACSDistribution(MatrixDistribution):
         self.columns = c
         self.blocksize = b
         self.full_shape = (M, N)
+        self.simple = False
 
         key = (comm, r, c)
         context = _global_blacs_context_store.get(key)
@@ -689,6 +690,7 @@ class BLACSDistribution(MatrixDistribution):
             if c == 1:
                 br = (M + r - 1) // r
                 bc = max(1, N)
+                self.simple = True
             elif r == 1:
                 br = M
                 bc = (N + c - 1) // c
@@ -730,16 +732,18 @@ class BLACSDistribution(MatrixDistribution):
 
     def multiply(self, alpha, a, opa, b, opb, beta, c, symmetric):
         if self.comm.size > 1:
-            # Special cases that don't need scalapack - most likely also
-            # faster:
-            if opa == 'N' and opb == 'N':
-                return mmm_nn(a, b, c, alpha, beta, blas.mmm)
-            if opa == 'N' and opb == 'C':
-                if symmetric:
-                    if beta == 1.0:
-                        return mmm_nc_sym(a, b, c, alpha, blas.mmm)
-                else:
-                    return mmm_nc(a, b, c, alpha, beta, blas.mmm)
+            ok = a.dist.simple and b.dist.simple and c.dist.simple
+            if ok:
+                # Special cases that don't need scalapack - most likely also
+                # faster:
+                if opa == 'N' and opb == 'N':
+                    return mmm_nn(a, b, c, alpha, beta, blas.mmm)
+                if opa == 'N' and opb == 'C':
+                    if symmetric:
+                        if beta == 1.0:
+                            return mmm_nc_sym(a, b, c, alpha, blas.mmm)
+                    else:
+                        return mmm_nc(a, b, c, alpha, beta, blas.mmm)
 
         if symmetric:
             assert opa == 'N'
@@ -815,6 +819,7 @@ class CuPyDistribution(MatrixDistribution):
                         return mmm_nc_sym(a, b, c, alpha, cublas_mmm)
                 else:
                     return mmm_nc(a, b, c, alpha, beta, cublas_mmm)
+            1 / 0
 
         if symmetric:
             if opa == 'N':
@@ -829,6 +834,7 @@ class CuPyDistribution(MatrixDistribution):
                         return
                     if c.data.size > 0:
                         assert beta in [0.0, 1.0]
+                        # Optimize this?
                         cp.cublas.gemm('N', 'H',
                                        a.data, b.data, c.data,
                                        0.5 * alpha, beta)
@@ -903,7 +909,7 @@ def mmm_nn(m1, m2, m3, alpha, beta, mmm):
         beta = 1.0
 
         if r == 0:
-            buf1 = np.empty_like(buf2)
+            buf1 = xp.empty_like(buf2)
 
         buf1, buf2 = buf2, buf1
 
@@ -988,7 +994,7 @@ def mmm_nc_sym(a, b, out, alpha, mmm):
                 m1 = min(row * m, M)
                 m2 = min(m1 + m, M)
                 if mym > 0 and m2 > m1:
-                    block = np.empty((mym, m2 - m1), out.dtype)
+                    block = xp.empty((mym, m2 - m1), out.dtype)
                     blocks.append((m1, m2, block))
                     requests.append(comm.receive(block, row, 12, False))
 
