@@ -23,6 +23,7 @@ from gpaw.typing import Array2D, Array3D, ArrayND, Vector
 class PWFDWaveFunctions(WaveFunctions):
     def __init__(self,
                  psit_nX: DistributedArrays,
+                 *,
                  spin: int,
                  q: int,
                  k: int,
@@ -30,7 +31,8 @@ class PWFDWaveFunctions(WaveFunctions):
                  fracpos_ac: Array2D,
                  atomdist: AtomDistribution,
                  weight: float = 1.0,
-                 ncomponents: int = 1):
+                 ncomponents: int = 1,
+                 qspiral_v: Vector | None = None):
         assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
         nbands = psit_nX.dims[0]
@@ -52,6 +54,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
                                psit_nX.desc.itemsize)
         self.xp = self.psit_nX.xp
+        self.qspiral_v = qspiral_v
 
     def __del__(self):
         # We could be reading from a gpw-file
@@ -86,6 +89,7 @@ class PWFDWaveFunctions(WaveFunctions):
                 [setup.pt_j for setup in self.setups],
                 self.fracpos_ac,
                 atomdist=self.atomdist,
+                qspiral_v=self.qspiral_v,
                 xp=self.psit_nX.xp)
         return self._pt_aiX
 
@@ -346,14 +350,15 @@ class PWFDWaveFunctions(WaveFunctions):
                 na = nb
             if domain_comm.rank == 0:
                 return PWFDWaveFunctions(psit_nX,
-                                         self.spin,
-                                         self.q,
-                                         self.k,
-                                         self.setups,
-                                         self.fracpos_ac,
-                                         self.atomdist.gather(),
-                                         self.weight,
-                                         self.ncomponents)
+                                         spin=self.spin,
+                                         q=self.q,
+                                         k=self.k,
+                                         setups=self.setups,
+                                         fracpos_ac=self.fracpos_ac,
+                                         atomdist=self.atomdist.gather(),
+                                         weight=self.weight,
+                                         ncomponents=self.ncomponents,
+                                         qspiral_v=self.qspiral_v)
         else:
             rank = band_comm.rank
             ranka, ba = max((rank1, b1), (rank, 0))
@@ -481,14 +486,15 @@ class PWFDWaveFunctions(WaveFunctions):
         self.psit_nX.ifft(out=psit_nR)
         return PWFDWaveFunctions(
             psit_nR,
-            self.spin,
-            self.q,
-            self.k,
-            self.setups,
-            self.fracpos_ac,
-            self.atomdist,
-            self.weight,
-            self.ncomponents)
+            spin=self.spin,
+            q=self.q,
+            k=self.k,
+            setups=self.setups,
+            fracpos_ac=self.fracpos_ac,
+            atomdist=self.atomdist,
+            weight=self.weight,
+            ncomponents=self.ncomponents,
+            qspiral_v=self.qspiral_v)
 
     def morph(self, desc, fracpos_ac, atomdist):
         desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
@@ -501,13 +507,14 @@ class PWFDWaveFunctions(WaveFunctions):
 
         wfs = PWFDWaveFunctions(
             psit_nX,
-            self.spin,
-            self.q,
-            self.k,
-            self.setups,
-            fracpos_ac,
-            atomdist,
-            self.weight,
-            self.ncomponents)
+            spin=self.spin,
+            q=self.q,
+            k=self.k,
+            setups=self.setups,
+            fracpos_ac=fracpos_ac,
+            atomdist=atomdist,
+            weight=self.weight,
+            ncomponents=self.ncomponents,
+            qspiral_v=self.qspiral_v)
 
         return wfs

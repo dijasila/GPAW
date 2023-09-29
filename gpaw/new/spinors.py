@@ -7,7 +7,7 @@ from gpaw.typing import Vector
 from gpaw.mpi import serial_comm
 
 
-class SpinorWaveFunctionDescriptor(Domain):
+class XXXSpinorWaveFunctionDescriptor(Domain):
     def __init__(self,
                  pw: PWDesc,
                  qspiral_v: Vector | None = None):

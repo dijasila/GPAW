@@ -83,18 +83,12 @@ class PWDesc(Domain):
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
-        self.qspiral_v = None
-
     def __repr__(self) -> str:
         m = self.myshape[0]
         n = self.shape[0]
-        r = Domain.__repr__(self).replace(
+        return Domain.__repr__(self).replace(
             'Domain(',
             f'PWDesc(ecut={self.ecut} <coefs={m}/{n}>, ')
-        if self.qspiral_v is None:
-            return r
-        q = self.cell_cv @ self.qspiral_v / (2 * pi)
-        return f'{r[:-1]}, qsiral={q}'
 
     def _short_string(self, global_shape):
         return (f'plane wave coefficients: {global_shape[-1]}\n'
@@ -223,12 +217,13 @@ class PWDesc(Domain):
                                 functions,
                                 positions,
                                 *,
+                                qspiral_v=None,
                                 atomdist=None,
                                 integral=None,
                                 cut=False,
                                 xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
-        if self.qspiral_v is None:
+        if qspiral_v is None:
             return PWAtomCenteredFunctions(functions, positions, self,
                                            atomdist=atomdist,
                                            xp=xp)
@@ -236,7 +231,7 @@ class PWDesc(Domain):
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
-                           qspiral_v=self.qspiral_v)
+                           qspiral_v=qspiral_v)
 
 
 class PWArray(DistributedArrays[PWDesc]):
