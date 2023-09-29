@@ -13,36 +13,41 @@ from sys import version_info
 if version_info < (3, 7):
     raise ValueError('Please use Python-3.7 or later')
 
-version = '3.10'  # Python version in the venv that we are creating
-fversion = 'cpython-310'
+# Python version in the venv that we are creating
+version = '3.11'
+fversion = 'cpython-311'
 
-subchain = {'foss': 'gfbf'}
+# Niflheim login hosts, with the oldest architecture as the first
+# nifllogin = ['thul, 'sylg', 'svol', 'surt']
+nifllogin = ['sylg', 'svol', 'surt']
+
+subchain = {'foss': 'gfbf', 'intel': 'iimkl'}
 
 # These modules are always loaded
 module_cmds_all = f"""\
 module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load Wannier90/3.1.0-{{tchain}}-2022b
-module load Python/3.10.8-GCCcore-12.2.0
+module load ELPA/2023.05.001-{{tchain}}-2023a
+module load Wannier90/3.1.0-{{tchain}}-2023a
+module load Python-bundle-PyPI/2023.06-GCCcore-12.3.0
 """
-# module load ELPA/2022.05.001-{{tchain}}-2022b
-
 
 # These modules are not loaded if --piponly is specified
 module_cmds_easybuild = f"""\
-module load matplotlib/3.7.0-{{subchain}}-2022b
-module load scikit-learn/1.2.1-{{subchain}}-2022b
+module load matplotlib/3.7.2-{{subchain}}-2023a
+module load scikit-learn/1.3.1-{{subchain}}-2023a
+module load spglib-python/2.1.0-{{subchain}}-2023a 
 """
 
 # These modules are loaded depending on the toolchain
 module_cmds_tc = {
     'foss': """\
-module load libxc/5.2.3-GCC-12.2.0
-module load libvdwxc/0.4.0-foss-2022b
+module load libxc/6.2.2-GCC-12.3.0
+module load libvdwxc/0.4.0-foss-2023a
 """,
     'intel': """\
-module load libxc/5.2.3-intel-compilers-2022.1.0
+module load libxc/6.2.2-intel-compilers-2023.1.0
 """}
 
 activate_extra = """
@@ -63,10 +68,9 @@ cd {venv}/DFTD3
 URL=https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3
 wget $URL/dftd3.tgz
 tar -xf dftd3.tgz
-ssh thul ". {venv}/bin/activate && cd {venv}/DFTD3 && make"
+ssh {nifllogin[0]} ". {venv}/bin/activate && cd {venv}/DFTD3 && make"
 ln -s {venv}/DFTD3/dftd3 {venv}/bin
 """
-
 
 def run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
     print(cmd)
@@ -80,7 +84,7 @@ def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
         path.unlink()
 
     # Compile:
-    for host in ['thul', 'sylg', 'svol', 'surt']:
+    for host in nifllogin:
         run(f'ssh {host} ". {activate} && pip install -q -e {gpaw}"')
 
     # Clean up:
@@ -89,7 +93,7 @@ def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
     for path in gpaw.glob('build/temp.linux-x86_64-*'):
         shutil.rmtree(path)
 
-def fix_installed_scripts(venvdir: Path) -> None:
+def fix_installed_scripts(venvdir: Path, rootdir: str, pythonroot: str) -> None:
     """Fix command line tools so they work in the virtual environment.
 
     Command line tools (pytest, sphinx-build etc) fail in virtual
@@ -98,13 +102,21 @@ def fix_installed_scripts(venvdir: Path) -> None:
     the original Python interpreter hardcoded in the hash-bang line.
 
     This function copies all scripts into the virtual environment,
-    and changes the hash-bang so it works.
+    and changes the hash-bang so it works.  Starting with the 2023a
+    toolchains, the scripts are distributed over more than one
+    EasyBuild module.
+
+    Arguments:
+    venvdir: Path to the virtual environment
+    rootdir: string holding folder of the EasyBuild package being processed
+    pythondir: string holding folder of the Python package.
     """
 
-    rootdir = os.getenv('EBROOTPYTHON')
+    assert rootdir is not None
+    assert pythonroot is not None
     bindir = rootdir / Path('bin')
     print(f'Patching binaries from {bindir} to {venvdir}/bin')
-    sedscript = f's+{rootdir}+{venvdir}+g'
+    sedscript = f's+{pythonroot}+{venvdir}+g'
     #print('sed script:', sedscript)
     
     # Loop over potential executables
@@ -119,7 +131,7 @@ def fix_installed_scripts(venvdir: Path) -> None:
             # Python executable in the hash-bang
             with open(exe) as f:
                 firstline = f.readline()
-            if rootdir in firstline:
+            if pythonroot in firstline:
                 shutil.copy2(exe, target, follow_symlinks=False)
                 # Now patch the file (if not a symlink)
                 if not exe.is_symlink():
@@ -174,12 +186,21 @@ def main():
     run(f'. {activate} && pip install --upgrade pip -q')
 
     # Fix venv so pytest etc work
-    fix_installed_scripts(venvdir=venv)
-
+    pythonroot = None
+    for ebrootvar in ('EBROOTPYTHON', 'EBROOTPYTHONMINBUNDLEMINPYPI'):
+        # Note that we need the environment variable from the newly created venv, NOT from this process!
+        comm = run(f'. {activate} && echo ${ebrootvar}', capture_output=True, text=True)
+        ebrootdir = comm.stdout.strip()
+        if pythonroot is None:
+            # The first module is the actual Python module.
+            pythonroot = ebrootdir
+        assert ebrootdir, f'Environment variable {ebrootvar} appears to be unset.'
+        fix_installed_scripts(venvdir=venv, rootdir=ebrootdir, pythonroot=pythonroot)
+            
     packages = ['myqueue',
                 'graphviz',
-                'pytest',
-                'pytest-xdist',
+                #'pytest',
+                #'pytest-xdist',
                 'qeh',
                 'sphinx_rtd_theme']
     if args.piponly:
@@ -199,10 +220,11 @@ def main():
 
     # Compile ase-ext C-extension on old thul so that it works on
     # newer architectures
-    run(f'ssh thul ". {activate} && pip install -q ase-ext"')
+    run(f'ssh {nifllogin[0]} ". {activate} && pip install -q ase-ext"')
 
-    run('git clone -q https://github.com/spglib/spglib.git')
-    run(f'ssh thul ". {activate} && pip install {venv}/spglib"')
+    if args.piponly:
+        run('git clone -q https://github.com/spglib/spglib.git')
+        run(f'ssh {nifllogin[0]} ". {activate} && pip install {venv}/spglib"')
 
     # Install GPAW:
     siteconfig = Path(
