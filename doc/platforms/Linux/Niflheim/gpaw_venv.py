@@ -21,34 +21,55 @@ fversion = 'cpython-311'
 # nifllogin = ['thul, 'sylg', 'svol', 'surt']
 nifllogin = ['sylg', 'svol', 'surt']
 
-subchain = {'foss': 'gfbf', 'intel': 'iimkl'}
+# Easybuild uses a hierarchy of toolchains for the main foss and intel
+# chains.  The order in the tuples before are
+#  fullchain: Full chain.
+#  mathchain: Chain with math libraries but no MPI
+#  compchain: Chain with full compiler suite (but no fancy libs)
+#  corechain: Core compiler
+# The subchain complementary to 'mathchain', with MPI but no math libs, is not used here.
+
+_gcccore = 'GCCcore-12.3.0'
+toolchains = {
+    'foss': dict(
+        fullchain='foss-2023a',
+        mathchain='gfbf-2023a',
+        compchain='GCC-12.3.0',
+        corechain=_gcccore,
+    ),
+    'intel': dict(
+        fullchain='intel-2023a',
+        mathchain='iimkl-2023a',
+        compchain='intel-compilers-2023.1.0',
+        corechain=_gcccore,
+    )
+}
 
 # These modules are always loaded
-module_cmds_all = f"""\
+module_cmds_all = """\
 module purge
 unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load ELPA/2023.05.001-{{tchain}}-2023a
-module load Wannier90/3.1.0-{{tchain}}-2023a
-module load Python-bundle-PyPI/2023.06-GCCcore-12.3.0
+module load ELPA/2023.05.001-{fullchain}
+module load Wannier90/3.1.0-{fullchain}
+module load Python-bundle-PyPI/2023.06-{corechain}
+module load libxc/6.2.2-{compchain}
 """
 
 # These modules are not loaded if --piponly is specified
-module_cmds_easybuild = f"""\
-module load matplotlib/3.7.2-{{subchain}}-2023a
-module load scikit-learn/1.3.1-{{subchain}}-2023a
-module load spglib-python/2.1.0-{{subchain}}-2023a 
+module_cmds_easybuild = """\
+module load matplotlib/3.7.2-{mathchain}
+module load scikit-learn/1.3.1-{mathchain}
+module load spglib-python/2.1.0-{mathchain}
 """
 
 # These modules are loaded depending on the toolchain
 module_cmds_tc = {
     'foss': """\
-module load libxc/6.2.2-GCC-12.3.0
-module load libvdwxc/0.4.0-foss-2023a
+module load libvdwxc/0.4.0-{fullchain}
 """,
-    'intel': """\
-module load libxc/6.2.2-intel-compilers-2023.1.0
-"""}
+    'intel': ""
+}
 
 activate_extra = """
 export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:{venv}/gpaw-basis-pvalence-0.9.20000
@@ -169,10 +190,10 @@ def main():
         compile_gpaw_c_code(gpaw, activate)
         return 0
 
-    module_cmds = module_cmds_all.format(tchain=args.toolchain)
+    module_cmds = module_cmds_all.format(**toolchains[args.toolchain])
     if not args.piponly:
-        module_cmds += module_cmds_easybuild.format(tchain=args.toolchain, subchain=subchain[args.toolchain])
-    module_cmds += module_cmds_tc[args.toolchain]
+        module_cmds += module_cmds_easybuild.format(**toolchains[args.toolchain])
+    module_cmds += module_cmds_tc[args.toolchain].format(**toolchains[args.toolchain])
 
     cmds = (' && '.join(module_cmds.splitlines()) +
             f' && python3 -m venv --system-site-packages {args.venv}')
@@ -199,14 +220,15 @@ def main():
             
     packages = ['myqueue',
                 'graphviz',
-                #'pytest',
-                #'pytest-xdist',
                 'qeh',
                 'sphinx_rtd_theme']
     if args.piponly:
         packages += ['matplotlib',
                      'scipy',
-                     #'pandas',
+                     'pandas',
+                     'pytest',
+                     'pytest-xdist',
+                     'pytest-mock',
                      'scikit-learn']
     run(f'. {activate} && pip install -q -U ' + ' '.join(packages))
 
