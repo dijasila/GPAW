@@ -271,14 +271,13 @@ class PWArray(DistributedArrays[PWDesc]):
     def __getitem__(self, index: int | slice) -> PWArray:
         data = self.data[index]
         return PWArray(self.desc,
-                       data.shape[:-len(self.desc.shape)],
+                       data.shape[:-1],
                        data=data)
 
     def __iter__(self):
         for data in self.data:
             yield PWArray(self.desc,
-                          data.shape[:-len(self.desc.shape)],
-                          #data.shape[:-1],
+                          data.shape[:-1],
                           data=data)
 
     def new(self,

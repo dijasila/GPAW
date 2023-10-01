@@ -5,7 +5,7 @@ from math import pi
 from typing import Optional
 
 import numpy as np
-from gpaw.core.arrays import DistributedArrays
+from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PWArray
@@ -22,7 +22,7 @@ from gpaw.typing import Array2D, Array3D, ArrayND, Vector
 
 class PWFDWaveFunctions(WaveFunctions):
     def __init__(self,
-                 psit_nX: DistributedArrays,
+                 psit_nX: XArray,
                  *,
                  spin: int,
                  q: int,
@@ -55,6 +55,22 @@ class PWFDWaveFunctions(WaveFunctions):
                                psit_nX.desc.itemsize)
         self.xp = self.psit_nX.xp
         self.qspiral_v = qspiral_v
+
+        @classmethod
+        def from_wfs(cls,
+                     wfs: PWFDWaveFunctions,
+                     psit_nX: XArray) -> PWFDWaveFunctions:
+            return cls(
+                psit_nX,
+                spin=wfs.spin,
+                q=wfs.q,
+                k=wfs.k,
+                setups=wfs.setup,
+                fracpos_ac=wfs.fracpos_ac,
+                atomdist=wfs.atomdist,
+                weight=wfs.weight,
+                ncomponents=wfs.ncomponents,
+                qspiral_v=wfs.qspiral_v)
 
     def __del__(self):
         # We could be reading from a gpw-file
