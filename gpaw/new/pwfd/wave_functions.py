@@ -46,6 +46,7 @@ class PWFDWaveFunctions(WaveFunctions):
                          atomdist=atomdist,
                          weight=weight,
                          ncomponents=ncomponents,
+                         qspiral_v=qspiral_v,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
                          band_comm=psit_nX.comm)
@@ -54,23 +55,23 @@ class PWFDWaveFunctions(WaveFunctions):
         self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
                                psit_nX.desc.itemsize)
         self.xp = self.psit_nX.xp
-        self.qspiral_v = qspiral_v
 
-        @classmethod
-        def from_wfs(cls,
-                     wfs: PWFDWaveFunctions,
-                     psit_nX: XArray) -> PWFDWaveFunctions:
-            return cls(
-                psit_nX,
-                spin=wfs.spin,
-                q=wfs.q,
-                k=wfs.k,
-                setups=wfs.setup,
-                fracpos_ac=wfs.fracpos_ac,
-                atomdist=wfs.atomdist,
-                weight=wfs.weight,
-                ncomponents=wfs.ncomponents,
-                qspiral_v=wfs.qspiral_v)
+    @classmethod
+    def from_wfs(cls,
+                 wfs: PWFDWaveFunctions,
+                 psit_nX: XArray,
+                 atomdist=None) -> PWFDWaveFunctions:
+        return cls(
+            psit_nX,
+            spin=wfs.spin,
+            q=wfs.q,
+            k=wfs.k,
+            setups=wfs.setups,
+            fracpos_ac=wfs.fracpos_ac,
+            atomdist=atomdist or wfs.atomdist,
+            weight=wfs.weight,
+            ncomponents=wfs.ncomponents,
+            qspiral_v=wfs.qspiral_v)
 
     def __del__(self):
         # We could be reading from a gpw-file
@@ -365,16 +366,10 @@ class PWFDWaveFunctions(WaveFunctions):
                 ba = 0
                 na = nb
             if domain_comm.rank == 0:
-                return PWFDWaveFunctions(psit_nX,
-                                         spin=self.spin,
-                                         q=self.q,
-                                         k=self.k,
-                                         setups=self.setups,
-                                         fracpos_ac=self.fracpos_ac,
-                                         atomdist=self.atomdist.gather(),
-                                         weight=self.weight,
-                                         ncomponents=self.ncomponents,
-                                         qspiral_v=self.qspiral_v)
+                return PWFDWaveFunctions.from_wfs(
+                    self,
+                    psit_nX,
+                    atomdist=self.atomdist.gather())
         else:
             rank = band_comm.rank
             ranka, ba = max((rank1, b1), (rank, 0))
@@ -500,17 +495,7 @@ class PWFDWaveFunctions(WaveFunctions):
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)
         psit_nR = grid.zeros(self.nbands, self.band_comm)
         self.psit_nX.ifft(out=psit_nR)
-        return PWFDWaveFunctions(
-            psit_nR,
-            spin=self.spin,
-            q=self.q,
-            k=self.k,
-            setups=self.setups,
-            fracpos_ac=self.fracpos_ac,
-            atomdist=self.atomdist,
-            weight=self.weight,
-            ncomponents=self.ncomponents,
-            qspiral_v=self.qspiral_v)
+        return PWFDWaveFunctions.from_wfs(self, psit_nR)
 
     def morph(self, desc, fracpos_ac, atomdist):
         desc = desc.new(kpt=self.psit_nX.desc.kpt_c)
@@ -521,16 +506,4 @@ class PWFDWaveFunctions(WaveFunctions):
         self._P_ani = None
         self._pt_aiX = None
 
-        wfs = PWFDWaveFunctions(
-            psit_nX,
-            spin=self.spin,
-            q=self.q,
-            k=self.k,
-            setups=self.setups,
-            fracpos_ac=fracpos_ac,
-            atomdist=atomdist,
-            weight=self.weight,
-            ncomponents=self.ncomponents,
-            qspiral_v=self.qspiral_v)
-
-        return wfs
+        return PWFDWaveFunctions(self, psit_nX)
