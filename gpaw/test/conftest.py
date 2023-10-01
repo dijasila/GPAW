@@ -417,7 +417,8 @@ class GPWFiles:
                             'qspiral': [0.5, 0, 0]},
                       magmoms=[[1, 0, 0]],
                       symmetry='off',
-                      kpts=(2 * k, 1, 1))
+                      kpts=(2 * k, 1, 1),
+                      txt=self.path / 'h_chain.txt')
         h.get_potential_energy()
         return h.calc
 
@@ -433,7 +434,8 @@ class GPWFiles:
         h2.center(vacuum=2.0, axis=(1, 2))
         h2.calc = GPAW(mode={'name': 'pw',
                              'ecut': 400},
-                       kpts=(k, 1, 1))
+                       kpts=(k, 1, 1),
+                       txt=self.path / 'h2_chain.txt')
         h2.get_potential_energy()
         return h2.calc
 
