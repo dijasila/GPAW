@@ -506,4 +506,4 @@ class PWFDWaveFunctions(WaveFunctions):
         self._P_ani = None
         self._pt_aiX = None
 
-        return PWFDWaveFunctions(self, psit_nX)
+        return PWFDWaveFunctions.from_wfs(self, psit_nX)
