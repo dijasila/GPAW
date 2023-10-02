@@ -52,6 +52,20 @@ class HubbardU:
             dH_sp += dH1_sp
         return e_xc, dH_sp
 
+    def ncol_calculate(self, setup, D_sii):
+        D_u_ii = (D_sii[0] + D_sii[3]) / 2
+        D_d_ii = (D_sii[0] - D_sii[3]) / 2
+        dH_ii = np.zeros_like(D_u_ii)
+
+        e_xc = 0.0
+        for l, U, scale in zip(self.l, self.U, self.scale):
+            e1_xc, dH1_ii = ncol_hubbard(setup.l_j, setup.lq,
+                                         D_u_ii, D_d_ii,
+                                         l=l, U=U, scale=scale)
+            e_xc += e1_xc
+            dH_ii += dH1_ii
+        return e_xc, dH_ii
+
     def descriptions(self):
         for U, l, scale in zip(self.U, self.l, self.scale):
             yield f'Hubbard: {{U: {U * units.Ha},  # eV\n'
@@ -173,3 +187,24 @@ def aoom(l_j, lq,
         A = DM[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] * lq[-1]
         V[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] = lq[-1]
         return A, V
+
+
+def ncol_hubbard(l_j, lq, D_u_ii, D_d_ii,
+                 l: int, U: float, scale: bool) -> Tuple[float, ArrayLike2D]:
+
+    nl = np.where(np.equal(l_j, l))[0]
+    nm = 2 * l + 1
+    nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
+
+    N_u_mm = D_u_ii[nn:nn + nm, nn:nn + nm]
+    N_d_mm = D_d_ii[nn:nn + nm, nn:nn + nm]
+
+    e_xc = 0.0
+    e_xc += U / 2 * (N_u_mm - np.dot(N_u_mm, N_u_mm)).trace()
+    e_xc += U / 2 * (N_d_mm - np.dot(N_d_mm, N_d_mm)).trace()
+
+    dH_ii = np.zeros_like(D_u_ii)
+    dH_ii[nn:nn + nm, nn:nn + nm] += U / 2 * (np.eye(nm) - 2 * N_u_mm.T)
+    dH_ii[nn:nn + nm, nn:nn + nm] += U / 2 * (np.eye(nm) - 2 * N_d_mm.T)
+
+    return e_xc, dH_ii
