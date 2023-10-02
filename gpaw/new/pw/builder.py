@@ -167,6 +167,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         index_kG = reader.wave_functions.indices
 
+        if self.ncomponents == 4:
+            shape = (self.nbands, 2)
+        else:
+            shape = (self.nands,)
+
         for wfs in ibzwfs:
             pw = self.wf_desc.new(kpt=wfs.kpt_c)
             if wfs.spin == 0:
@@ -179,15 +184,12 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
             if self.communicators['w'].size == 1:
                 orig_shape = data.shape
-                data.shape = (self.nbands, ) + pw.shape
+                data.shape = shape + pw.shape
                 wfs.psit_nX = pw.from_data(data)
                 data.shape = orig_shape
             else:
                 band_comm = self.communicators['b']
-                if self.ncomponents != 4:
-                    wfs.psit_nX = PWArray(pw, self.nbands, comm=band_comm)
-                else:
-                    wfs.psit_nX = PWArray(pw, (self.nbands, 2), comm=band_comm)
+                wfs.psit_nX = PWArray(pw, shape, comm=band_comm)
                 if pw.comm.rank == 0:
                     mynbands = (self.nbands +
                                 band_comm.size - 1) // band_comm.size
