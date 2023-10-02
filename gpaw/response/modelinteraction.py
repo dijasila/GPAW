@@ -61,7 +61,8 @@ class ModelInteraction:
         """
 
         ibz2bz = ibz2bz_map(self.gs.kd)
-        pair = chi0calc.pair
+        pair_calc = chi0calc.pair_calc
+        pair_factory = chi0calc.kptpair_factory
         if type(Uwan) == str:  # read w90 transformation matrix from file
             Uwan, nk, nwan, nband = self.read_uwan(Uwan)
         else:
@@ -72,7 +73,7 @@ class ModelInteraction:
         assert nk == self.gs.kd.nbzkpts
         assert bandrange[1] - bandrange[0] == nband
     
-        nfreq = len(chi0calc.wd)
+        nfreq = len(chi0calc.chi0_body_calc.wd)
 
         # Variable that will store the screened interaction in Wannier basis
         Wwan_wijkl = np.zeros([nfreq, nwan, nwan, nwan, nwan], dtype=complex)
@@ -89,19 +90,22 @@ class ModelInteraction:
             W_wGG = self.wcalc.calculate_W_wGG(chi0,
                                                fxc_mode='GW',
                                                only_correlation=False)
-            pawcorr = chi0calc.pawcorr
+            pawcorr = chi0calc.chi0_body_calc.pawcorr
 
             self.context.print('Projecting to localized Wannier basis...')
             # Loop over all equivalent k-points
             for iQ in ibz2bz[iq]:
+                Q_c = self.wcalc.qd.bzk_kc[iQ]
+                assert self.wcalc.qd.where_is_q(Q_c, self.wcalc.qd.bzk_kc) == iQ
                 total_k += 1
                 A_mnG = self.get_reduced_wannier_density_matrix(spin,
-                                                                iQ,
+                                                                Q_c,
                                                                 iq,
                                                                 bandrange,
                                                                 pawcorr,
                                                                 qpd,
-                                                                pair,
+                                                                pair_calc,
+                                                                pair_factory,
                                                                 Uwan)
                 Wwan_wijkl += np.einsum('ijk,lkm,pqm->lipjq',
                                             A_mnG.conj(),
@@ -115,32 +119,28 @@ class ModelInteraction:
 
         return Wwan_wijkl
 
-    def get_reduced_wannier_density_matrix(self, spin, iQ, iq, bandrange,
-                                           pawcorr, qpd, pair, Uwan):
+    def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
+                                           pawcorr, qpd, pair_calc,
+                                           pair_factory, Uwan):
         """
         Returns sum_k sum_(m1,m2) U_{n1m1}* U_{n2m2} rho^{m1 k}_{m2 k-q}(G)
         where rho is the usual density matrix and U are wannier tranformation
         matrices.
         """
-        def get_k1_k2(spin, iK1, iQ, bandrange):
-            # get kpt1, kpt1-q kpoint pairs used in density matrix
-            kpt1 = pair.get_k_point(spin, iK1, bandrange[0], bandrange[-1])
-            # Find k2 = K1 + Q
-            K2_c = self.gs.kd.bzk_kc[kpt1.K] + self.gs.kd.bzk_kc[iQ]
-            iK2 = self.gs.kd.where_is_q(K2_c, self.gs.kd.bzk_kc)
-            kpt2 = pair.get_k_point(spin, iK2, bandrange[0], bandrange[-1])
-            return kpt1, kpt2, iK2
         nG = qpd.ngmax
         nwan = Uwan.shape[0]
         A_mnG = np.zeros([nwan, nwan, nG], dtype=complex)
         for iK1 in range(self.gs.kd.nbzkpts):
-            kpt1, kpt2, iK2 = get_k1_k2(spin, iK1, iQ, bandrange)
+            kpt1 = pair_factory.get_k_point(spin, iK1, bandrange[0], bandrange[1])
+            iK2 = self.gs.kd.find_k_plus_q(Q_c, [kpt1.K])[0]
+            kpt2 = pair_factory.get_k_point(spin, iK2, bandrange[0], bandrange[1])  
+
             # Calculate density matrix
             rholoc, iqloc = self.get_density_matrix(kpt1,
                                                     kpt2,
                                                     pawcorr,
                                                     qpd,
-                                                    pair)
+                                                    pair_calc)
             assert iqloc == iq
             # Rotate to Wannier basis and sum to get reduced Wannier density matrix
             # A
@@ -151,7 +151,7 @@ class ModelInteraction:
 
         return A_mnG
 
-    def get_density_matrix(self, kpt1, kpt2, pawcorr, qpd, pair):
+    def get_density_matrix(self, kpt1, kpt2, pawcorr, qpd, pair_calc):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         
         symop, iq = QSymmetryOp.get_symop_from_kpair(
@@ -163,7 +163,7 @@ class ModelInteraction:
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
-            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, pair)
+            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, pair_calc)
         return rho_mnG, iq
 
     def read_uwan(self, seed):
