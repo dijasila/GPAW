@@ -1,5 +1,3 @@
-from math import pi
-
 from ase.units import Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.atom_arrays import AtomDistribution
@@ -22,10 +20,8 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def __init__(self, atoms, params, *, comm, ecut=340, qspiral=None):
         self.ecut = ecut / Ha
-        super().__init__(atoms, params, comm=comm)
+        super().__init__(atoms, params, comm=comm, qspiral=qspiral)
 
-        self.qspiral_v = (None if qspiral is None else
-                          qspiral @ self.grid.icell * (2 * pi))
         self._nct_ag = None
         self._tauct_ag = None
 
