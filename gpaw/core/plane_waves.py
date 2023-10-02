@@ -346,7 +346,7 @@ class PWArray(DistributedArrays[PWDesc]):
             out = grid.empty(self.dims, xp=xp)
         assert self.desc.dtype == out.desc.dtype, (self.desc, out.desc)
         assert out.desc.pbc_c.all()
-        assert comm.size == out.desc.comm.size
+        assert comm.size == out.desc.comm.size, (comm, out.desc.comm)
 
         plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()

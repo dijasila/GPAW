@@ -319,7 +319,7 @@ class ASECalculator:
         if wfs is not None:
             basis = getattr(self.calculation.scf_loop.hamiltonian,
                             'basis', None)
-            grid = state.density.nt_sR.desc
+            grid = state.density.nt_sR.desc.new(comm=None)
             if collinear:
                 wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
                 psit_R = wfs.psit_nX[0]
