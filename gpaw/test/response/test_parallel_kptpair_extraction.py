@@ -112,7 +112,7 @@ def initialize_integral(extractor, context, q_c):
     # Initialize symmetry analyzer
     gs = extractor.gs
     qpd = SingleQPWDescriptor.from_q(q_c, 1e-3, gs.gd)
-    analyzer = PWSymmetryAnalyzer(gs.kd, qpd, context)
+    analyzer = PWSymmetryAnalyzer(gs.kpoints, qpd, context)
 
     return KPointPairPointIntegral(extractor, analyzer)
 

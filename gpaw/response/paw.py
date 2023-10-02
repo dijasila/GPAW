@@ -353,7 +353,7 @@ class PWPAWCorrectionData:
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
-        assert len(Q_aGii) == len(pos_av) == len(pawdatasets)
+        assert len(Q_aGii) == len(pos_av) == len(pawdatasets.by_atom)
 
         self.Q_aGii = Q_aGii
 
@@ -428,12 +428,18 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     pos_av = spos_ac @ qpd.gd.cell_cv
 
     # Calculate pair density PAW correction tensor
-    Q_aGii = []
-    for pawdata, pos_v in zip(pawdatasets, pos_av):
+    Qbar_xGii = {}
+    for species_index, pawdata in pawdatasets.by_species.items():
         # Calculate atom-centered correction tensor
         Qbar_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
         # Add dependency on the atomic position (phase factor)
+        Qbar_xGii[species_index] = Qbar_Gii
+
+    Q_aGii = []
+    for a, (pos_v, pawdata) in enumerate(zip(pos_av, pawdatasets.by_atom)):
         x_G = np.exp(-1j * (qG_Gv @ pos_v))
+        species_index = pawdatasets.id_by_atom[a]
+        Qbar_Gii = Qbar_xGii[species_index]
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
@@ -455,10 +461,13 @@ def get_matrix_element_paw_corrections(qpd, pawdata_a, rshe_a, spos_ac):
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
 
     F_aGii = []
-    for pawdata, rshe, spos_c in zip(pawdata_a, rshe_a, spos_ac):
+    for pawdata, rshe, spos_c in zip(pawdata_a.by_atom, rshe_a, spos_ac):
         # Calculate atom-centered PAW correction
         Fbar_Gii = calculate_matrix_element_correction(
             qG_Gv, pawdata, rshe)
+
+        # XXX Can time be saved by doing some of the processing per species
+        # rather than per atom?
 
         # Add dependency on the atomic position (phase factor)
         pos_v = spos_c @ qpd.gd.cell_cv

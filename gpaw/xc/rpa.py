@@ -208,7 +208,7 @@ class RPACalculator:
                                   hilbert=False,
                                   ecut=ecutmax * Hartree)
 
-        self.blockcomm = chi0calc.integrator.blockcomm
+        self.blockcomm = chi0calc.chi0_body_calc.integrator.blockcomm
 
         energy_qi = []
         nq = len(energy_qi)
@@ -231,7 +231,7 @@ class RPACalculator:
             nG = qpd.ngmax
 
             # First not completely filled band:
-            m1 = chi0calc.nocc1
+            m1 = self.gs.nocc1
             p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
@@ -253,7 +253,7 @@ class RPACalculator:
                 energy_i.append(energy)
                 m1 = m2
 
-                a = 1 / chi0calc.integrator.kncomm.size
+                a = 1 / chi0calc.chi0_body_calc.integrator.kncomm.size
                 if ecut < ecutmax and a != 1.0:
                     # Chi0 will be summed again over chicomm, so we divide
                     # by its size:
@@ -290,8 +290,8 @@ class RPACalculator:
     def calculate_q_rpa(self, chi0calc, chi0_s,
                         m1, m2, gcut):
         chi0 = chi0_s[0]
-        chi0calc.update_chi0(chi0,
-                             m1, m2, spins=chi0calc.get_spins())
+        chi0calc.update_chi0(
+            chi0, m1, m2, spins=range(chi0calc.gs.nspins))
 
         self.context.print('E_c(q) = ', end='', flush=False)
 

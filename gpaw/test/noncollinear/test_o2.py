@@ -6,7 +6,7 @@ from gpaw import GPAW
 from gpaw.mpi import size
 
 
-def test_noncollinear_o2(in_tmp_dir):
+def test_noncollinear_o2(in_tmp_dir, gpaw_new):
     if size > 2:
         pytest.skip()
 
@@ -36,3 +36,7 @@ def test_noncollinear_o2(in_tmp_dir):
 
     p = calc.get_pseudo_wave_function(10, periodic=True)
     assert abs(p0)**2 == pytest.approx((abs(p)**2).sum(axis=0), abs=1e-4)
+
+    if gpaw_new:
+        n_sR = calc.calculation.densities().all_electron_densities()
+        print(n_sR)

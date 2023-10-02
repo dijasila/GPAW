@@ -732,7 +732,7 @@ class GPWFiles:
         # Set up calculator
         tag = '_spinpol' if spinpol else ''
         atoms.calc = GPAW(
-            mode=PW(300),
+            mode=PW(400),
             xc='LDA',
             kpts={'size': (4, 4, 4)},
             symmetry={'point_group': False,
@@ -740,7 +740,7 @@ class GPWFiles:
             nbands=band_cutoff + 6,
             occupations=FermiDirac(0.001),
             convergence={'bands': band_cutoff + 1,
-                         'density': 1.e-8},
+                         'density': 1e-8},
             spinpol=spinpol,
             txt=self.path / f'sic_pw{tag}.txt'
         )
