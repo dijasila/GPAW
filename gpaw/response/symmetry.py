@@ -1,5 +1,3 @@
-import functools
-
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
@@ -30,9 +28,8 @@ class KPointFinder:
 
 class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
-    def __init__(self, kd, qpd, context,
+    def __init__(self, kpoints, qpd, context,
                  disable_point_group=False,
-                 disable_non_symmorphic=True,
                  disable_time_reversal=False):
         """Creates a PWSymmetryAnalyzer object.
 
@@ -50,22 +47,16 @@ class PWSymmetryAnalyzer:
         context: ResponseContext
         disable_point_group: bool
             Switch for disabling point group symmetries.
-        disable_non_symmorphic:
-            Switch for disabling non symmorphic symmetries.
         disable_time_reversal:
             Switch for disabling time reversal.
         """
         self.qpd = qpd
-        self.kd = kd
+        self.kd = kd = kpoints.kd
         self.context = context
-
-        assert disable_non_symmorphic, ('You are not allowed to use '
-                                        'non-symmorphic syms, sorry.')
 
         # Settings
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
         if (kd.symmetry.has_inversion or not kd.symmetry.time_reversal) and \
            not self.disable_time_reversal:
             self.context.print('\nThe ground calculation does not support time'
@@ -75,8 +66,7 @@ class PWSymmetryAnalyzer:
             self.disable_time_reversal = True
 
         self.disable_symmetries = (self.disable_point_group and
-                                   self.disable_time_reversal and
-                                   self.disable_non_symmorphic)
+                                   self.disable_time_reversal)
 
         # Number of symmetries
         U_scc = kd.symmetry.op_scc
@@ -85,7 +75,7 @@ class PWSymmetryAnalyzer:
         self.nsym = 2 * self.nU
         self.use_time_reversal = not self.disable_time_reversal
 
-        self.kptfinder = KPointFinder(kd.bzk_kc)
+        self.kptfinder = kpoints.kptfinder
         self.initialize()
 
     @timer('Initialize')
@@ -103,10 +93,7 @@ class PWSymmetryAnalyzer:
         else:
             self.infostring += 'Time reversal included. '
 
-        if self.disable_non_symmorphic:
-            self.infostring += 'Disabled non-symmorphic symmetries. '
-        else:
-            self.infostring += 'Enabled non-symmorphic symmetries. '
+        self.infostring += 'Disabled non-symmorphic symmetries. '
 
         if self.disable_symmetries:
             self.infostring += 'All symmetries have been disabled. '
@@ -122,15 +109,13 @@ class PWSymmetryAnalyzer:
 
     def print_symmetries(self):
         """Handsome print function for symmetry operations."""
-
-        p = functools.partial(self.context.print, flush=False)
-
-        p()
-        nx = 6 if self.disable_non_symmorphic else 3
+        isl = ['\n']
+        nx = 6  # You are not allowed to use non-symmorphic syms (value 3)
         ns = len(self.s_s)
         y = 0
         for y in range((ns + nx - 1) // nx):
             for c in range(3):
+                tisl = []
                 for x in range(nx):
                     s = x + y * nx
                     if s == ns:
@@ -138,9 +123,11 @@ class PWSymmetryAnalyzer:
                     tmp = self.get_symmetry_operator(self.s_s[s])
                     op_cc, sign, TR, shift_c, ft_c = tmp
                     op_c = sign * op_cc[c]
-                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
-                p()
-            self.context.print()  # flush output
+                    tisl.append(f'  ({op_c[0]:2d} {op_c[1]:2d} {op_c[2]:2d})')
+                tisl.append('\n')
+                isl.append(''.join(tisl))
+            isl.append('\n')
+        self.context.print(''.join(isl))  # flush output
 
     @timer('Analyze')
     def analyze_kpoints(self):
@@ -204,8 +191,9 @@ class PWSymmetryAnalyzer:
         if self.disable_time_reversal:
             s_s = list(filter(self.is_not_time_reversal, s_s))
 
-        if self.disable_non_symmorphic:
-            s_s = list(filter(self.is_not_non_symmorphic, s_s))
+        # You are not allowed to use non-symmorphic syms, sorry. So we remove
+        # the option and always filter those symmetries out.
+        s_s = list(filter(self.is_not_non_symmorphic, s_s))
 
 #        stmp_s = []
 #        for s in s_s:
@@ -273,7 +261,7 @@ class PWSymmetryAnalyzer:
 
         return bzk_kc
 
-    def get_reduced_kd(self, pbc_c=np.ones(3, bool)):
+    def get_reduced_kd(self, *, pbc_c):
         # Get the little group of q
         U_scc = []
         for s in self.s_s:

@@ -1,14 +1,12 @@
 from unittest import SkipTest
 
-import pytest
 from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.mpi import size
 
 
-@pytest.mark.later
-def test_noncollinear_o2(in_tmp_dir):
+def test_noncollinear_o2(in_tmp_dir, gpaw_new):
     if size > 2:
         raise SkipTest()
 
@@ -29,3 +27,7 @@ def test_noncollinear_o2(in_tmp_dir):
     a.calc.write('o2.gpw')
     a.calc.write('o2w.gpw', 'all')
     GPAW('o2w.gpw')
+
+    if gpaw_new:
+        n_sR = a.calc.calculation.densities().all_electron_densities()
+        print(n_sR)

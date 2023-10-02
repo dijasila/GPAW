@@ -73,6 +73,9 @@ class _Communicator:
         self.rank = comm.rank
         self.parent = parent  # XXX check C-object against comm.parent?
 
+    def __repr__(self):
+        return f'MPIComm(size={self.size}, rank={self.rank})'
+
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
         Must be called with identical arguments by all relevant processes.
@@ -264,8 +267,8 @@ class _Communicator:
         if self.rank == root:
             assert a.dtype == b.dtype
             assert a.size == self.size * b.size
-            assert a.flags.contiguous
-        assert b.flags.contiguous
+            assert a.flags.c_contiguous
+        assert b.flags.c_contiguous
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
 
@@ -293,12 +296,12 @@ class _Communicator:
             displacement (relative to recvbuf at which to place the incoming
             data from process i
         """
-        assert sbuffer.flags.contiguous
-        assert scounts.flags.contiguous
-        assert sdispls.flags.contiguous
-        assert rbuffer.flags.contiguous
-        assert rcounts.flags.contiguous
-        assert rdispls.flags.contiguous
+        assert sbuffer.flags.c_contiguous
+        assert scounts.flags.c_contiguous
+        assert sdispls.flags.c_contiguous
+        assert rbuffer.flags.c_contiguous
+        assert rcounts.flags.c_contiguous
+        assert rdispls.flags.c_contiguous
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
@@ -396,10 +399,10 @@ class _Communicator:
               comm.send(mydata, 0, tag=123)
 
         """
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         assert 0 <= root < self.size
         if root == self.rank:
-            assert b.flags.contiguous and b.dtype == a.dtype
+            assert b.flags.c_contiguous and b.dtype == a.dtype
             assert (b.shape[0] == self.size and a.shape == b.shape[1:] or
                     a.size * self.size == b.size)
             self.comm.gather(a, root, b)
@@ -627,6 +630,9 @@ class SerialCommunicator:
 
     def __init__(self, parent=None):
         self.parent = parent
+
+    def __repr__(self):
+        return 'SerialCommunicator()'
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
@@ -878,14 +884,14 @@ def broadcast_array(array: np.ndarray, *communicators) -> np.ndarray:
     return array
 
 
-def send(obj, rank: int, comm) -> None:
+def send(obj, rank: int, comm: MPIComm) -> None:
     """Send object to rank on the MPI communicator comm."""
     b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     comm.send(np.array(len(b)), rank)
     comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
-def receive(rank: int, comm) -> Any:
+def receive(rank: int, comm: MPIComm) -> Any:
     """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)

@@ -84,7 +84,8 @@ class SCFLoop:
                 fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                state, self.niter,
+                log, self.niter,
+                state,
                 wfs_error, dens_error,
                 self.comm, calculate_forces,
                 pot_calc)
@@ -92,7 +93,7 @@ class SCFLoop:
             yield ctx
 
             converged, converged_items, entries = check_convergence(cc, ctx)
-            nconverged = self.comm.sum(int(converged))
+            nconverged = self.comm.sum_scalar(int(converged))
             assert nconverged in [0, self.comm.size], converged_items
 
             if log:
@@ -106,24 +107,29 @@ class SCFLoop:
                 raise TooFewBandsError
 
             if self.update_density_and_potential:
-                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                state.density.update(state.ibzwfs,
+                                     ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
-                state.potential, state.vHt_x, _ = pot_calc.calculate(
-                    state.density, state.ibzwfs, state.vHt_x)
+                state.potential, _ = pot_calc.calculate(
+                    state.density, state.ibzwfs, state.potential.vHt_x)
 
 
 class SCFContext:
     def __init__(self,
-                 state: DFTState,
+                 log,
                  niter: int,
+                 state: DFTState,
                  wfs_error: float,
                  dens_error: float,
                  comm,
                  calculate_forces: Callable[[], Array2D],
                  pot_calc):
-        self.state = state
+        self.log = log
         self.niter = niter
-        energy = np.array([sum(state.potential.energies.values()) +
+        self.state = state
+        energy = np.array([sum(e
+                               for name, e in state.potential.energies.items()
+                               if name != 'stress') +
                            sum(state.ibzwfs.energies.values())])
         comm.broadcast(energy, 0)
         self.ham = SimpleNamespace(e_total_extrapolated=energy[0],

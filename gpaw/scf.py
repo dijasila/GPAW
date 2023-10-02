@@ -55,9 +55,9 @@ class SCFLoop:
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
-            self.check_convergence(
+            ctx = self.check_convergence(
                 dens, ham, wfs, log, callback)
-            yield
+            yield ctx
 
             converged = (self.converged and
                          self.niter >= self.niter_fixdensity)
@@ -91,6 +91,7 @@ class SCFLoop:
 
         callback(self.niter)
         self.log(log, converged_items, entries, context)
+        return context
 
     def not_converged(self, dens, ham, wfs, log):
 
@@ -169,8 +170,7 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         header2 = ('     {:>4s} {:>8s} {:>12s}  '
                    .format('', '', 'energy'))
         header1 += 'log10-change:'
-        for title in ('eigst', 'dens'):
-            header2 += '{:>5s}  '.format(title)
+        header2 += ' eigst   dens  '
         for name in custom:
             criterion = criteria[name]
             header1 += ' ' * 7
@@ -192,7 +192,7 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
     line += '{:>12s}{:1s} '.format(entries['energy'], c['energy'])
 
     # Eigenstates.
-    line += '{:>5s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
+    line += '{:>6s}{:1s} '.format(entries['eigenstates'], c['eigenstates'])
 
     # Density.
     line += '{:>5s}{:1s} '.format(entries['density'], c['density'])

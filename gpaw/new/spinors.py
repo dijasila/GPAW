@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import numpy as np
 from gpaw.core.domain import Domain
-from gpaw.core.plane_waves import PlaneWaves
+from gpaw.core.plane_waves import PWDesc
 from gpaw.typing import Vector
 
 
 class SpinorWaveFunctionDescriptor(Domain):
     def __init__(self,
-                 pw: PlaneWaves,
-                 qspiral_v: Vector = None):
+                 pw: PWDesc,
+                 qspiral_v: Vector | None = None):
         self.pw = pw
         self.qspiral_v = (np.asarray(qspiral_v) if qspiral_v is not None else
                           None)
@@ -21,7 +21,8 @@ class SpinorWaveFunctionDescriptor(Domain):
         self.dv = pw.dv
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self.pw}, {self.qspiral_v})'
+        q = self.qspiral_v
+        return f'{self.__class__.__name__}({self.pw}, qspiral_v={q})'
 
     def new(self, *, kpt):
         pw = self.pw.new(kpt=kpt)

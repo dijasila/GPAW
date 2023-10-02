@@ -1,5 +1,9 @@
+from __future__ import annotations
+from typing import Tuple
+
 import numpy as np
 from time import ctime
+from abc import abstractmethod
 
 from ase.units import Hartree
 
@@ -8,39 +12,42 @@ from gpaw.utilities.blas import mmmx
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
-from gpaw.response.matrix_elements import NewPairDensityCalculator
+from gpaw.response.matrix_elements import (PlaneWaveMatrixElementCalculator,
+                                           NewPairDensityCalculator,
+                                           TransversePairPotentialCalculator)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.pair_functions import SingleQPWDescriptor, Chi
 
 
-class ChiKSCalculator(PairFunctionIntegrator):
-    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
-    of collinear systems in absence of spin-orbit coupling,
-    see [PRB 103, 245110 (2021)]:
+class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
+    r"""Abstract calculator for generalized Kohn-Sham susceptibilities.
+
+    For any combination of plane-wave matrix elements f(K) and g(K), one may
+    define a generalized Kohn-Sham susceptibility in the Lehmann representation
+
                               __  __   __
                            1  \   \    \
-    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+    ̄x_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
                            V  ‾‾  ‾‾   ‾‾
                               k   n,n' s,s'
-                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
-                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+                                    f_(nks,n'k+qs')(G+q) g_(n'k+qs',nks)(-G'-q)
+                                  x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                          ħω - (ε_n'k+qs' - ε_nks) + iħη
 
-    where the matrix elements
+    where σ^μ and σ^ν are Pauli matrices and the plane-wave matrix elements are
+    defined in terms of some real local functional of the electron
+    (spin-)density f[n](r):
 
-    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>_V0
-
-    are the unit cell normalized plane-wave pair densities of each transition.
+    f_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r f(r) |ψ_n'k+qs'>
     """
-
     def __init__(self, gs: ResponseGroundStateAdapter, context=None,
                  nblocks=1,
                  ecut=50, gammacentered=False,
                  nbands=None,
                  bandsummation='pairwise',
                  **kwargs):
-        """Contruct the ChiKSCalculator
+        """Contruct the GeneralizedSuscetibilityCalculator
 
         Parameters
         ----------
@@ -73,10 +80,22 @@ class ChiKSCalculator(PairFunctionIntegrator):
         self.nbands = nbands
         self.bandsummation = bandsummation
 
-        self.pair_density_calc = NewPairDensityCalculator(gs, context)
+        mecalc1, mecalc2 = self.create_matrix_element_calculators()
+        self.matrix_element_calc1 = mecalc1
+        self.matrix_element_calc2 = mecalc2
+        if mecalc2 is not mecalc1:
+            assert self.disable_time_reversal, \
+                'Cannot make use of time-reversal symmetry for generalized ' \
+                'susceptibilities with two different matrix elements'
+
+    @abstractmethod
+    def create_matrix_element_calculators(self) -> Tuple[
+            PlaneWaveMatrixElementCalculator,
+            PlaneWaveMatrixElementCalculator]:
+        """Create the desired site matrix element calculators."""
 
     def calculate(self, spincomponent, q_c, zd) -> Chi:
-        r"""Calculate χ_KS,GG'^μν(q,z), where z = ω + iη
+        r"""Calculate ̄x_KS,GG'^μν(q,z), where z = ω + iη
 
         Parameters
         ----------
@@ -86,13 +105,13 @@ class ChiKSCalculator(PairFunctionIntegrator):
         q_c : list or np.array
             Wave vector in relative coordinates
         zd : ComplexFrequencyDescriptor
-            Complex frequencies z to evaluate χ_KS,GG'^μν(q,z) at.
+            Complex frequencies z to evaluate ̄x_KS,GG'^μν(q,z) at.
         """
         return self._calculate(*self._set_up_internals(spincomponent, q_c, zd))
 
     def _set_up_internals(self, spincomponent, q_c, zd,
                           distribution='GZg'):
-        r"""Set up internal data objects to calculate χ_KS."""
+        r"""Set up internal data objects."""
         assert isinstance(zd, ComplexFrequencyDescriptor)
 
         # Set up the internal plane-wave descriptor
@@ -112,9 +131,11 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return chiks, transitions
 
     def _calculate(self, chiks: Chi, transitions: PairTransitions):
-        r"""Integrate χ_KS according to the specified transitions."""
-        self.context.print('Initializing pair density PAW corrections')
-        self.pair_density_calc.initialize_paw_corrections(chiks.qpd)
+        r"""Integrate ̄x_KS according to the specified transitions."""
+        self.context.print('Initializing the matrix element PAW corrections')
+        self.matrix_element_calc1.initialize_paw_corrections(chiks.qpd)
+        if self.matrix_element_calc2 is not self.matrix_element_calc1:
+            self.matrix_element_calc2.initialize_paw_corrections(chiks.qpd)
 
         # Perform the actual integration
         analyzer = self._integrate(chiks, transitions)
@@ -180,24 +201,27 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return Chi(spincomponent, qpd, zd,
                    blockdist, distribution=distribution)
 
-    @timer('Add integrand to chiks')
+    @timer('Add integrand to ̄x_KS')
     def add_integrand(self, kptpair, weight, chiks):
-        r"""Use the NewPairDensityCalculator object to calculate the integrand
-        for all relevant transitions of the given k-point pair, k -> k + q.
+        r"""Add generalized susceptibility integrand for a given k-point pair.
+
+        Calculates the relevant matrix elements and adds the susceptibility
+        integrand to the output data structure for all relevant band and spin
+        transitions of the given k-point pair, k -> k + q.
 
         Depending on the bandsummation parameter, the integrand of the
-        collinear four-component Kohn-Sham susceptibility tensor (in the
-        absence of spin-orbit coupling) is calculated as:
+        generalized susceptibility is given by:
 
         bandsummation: double
 
                    __
                    \  σ^μ_ss' σ^ν_s's (f_nks - f_n'k's')
-        (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ n_kt(G+q) n_kt^*(G'+q)
+        (...)_k =  /  ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ f_kt(G+q) g_kt^*(G'+q)
                    ‾‾      ħz - (ε_n'k's' - ε_nks)
                    t
 
-        where n_kt(G+q) = n_nks,n'k+qs'(G+q) and
+        where f_kt(G+q) = f_nks,n'k's'(G+q) and k'=k+q up to a reciprocal wave
+        vector.
 
         bandsummation: pairwise
 
@@ -208,15 +232,19 @@ class ChiKSCalculator(PairFunctionIntegrator):
                     t  \
                                                        \
                     σ^μ_s's σ^ν_ss' (f_nks - f_n'k's') |
-           - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | n_kt(G+q) n_kt^*(G'+q)
+           - δ_n'>n ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ | f_kt(G+q) g_kt^*(G'+q)
                          ħz + (ε_n'k's' - ε_nks)       |
                                                        /
 
         The integrand is added to the output array chiks_x multiplied with the
         supplied kptpair integral weight.
         """
-        # Calculate the pair densities n_kt(G+q)
-        pair_density = self.pair_density_calc(kptpair, chiks.qpd)
+        # Calculate the matrix elements f_kt(G+q) and g_kt(G+q)
+        matrix_element1 = self.matrix_element_calc1(kptpair, chiks.qpd)
+        if self.matrix_element_calc2 is self.matrix_element_calc1:
+            matrix_element2 = matrix_element1
+        else:
+            matrix_element2 = self.matrix_element_calc2(kptpair, chiks.qpd)
 
         # Extract the temporal ingredients from the KohnShamKPointPair
         transitions = kptpair.transitions  # transition indices (n,s)->(n',s')
@@ -230,29 +258,38 @@ class ChiKSCalculator(PairFunctionIntegrator):
                                  transitions, df_t, deps_t,
                                  self.bandsummation)
 
-        self._add_integrand(pair_density, x_Zt, weight, chiks)
+        self._add_integrand(
+            matrix_element1, matrix_element2, x_Zt, weight, chiks)
 
-    def _add_integrand(self, pair_density, x_Zt, weight, chiks):
-        r"""Add the integrand to chiks.
+    def _add_integrand(self, matrix_element1, matrix_element2, x_Zt,
+                       weight, chiks):
+        r"""Add the generalized susceptibility integrand based on distribution.
 
         This entail performing a sum of transition t and an outer product
-        in the pair density plane wave components G and G',
+        in the plane-wave components G and G',
                     __
                     \
-        (...)_k =   /  x_t^μν(ħz) n_kt(G+q) n_kt^*(G'+q)
+        (...)_k =   /  x_t^μν(ħz) f_kt(G+q) g_kt^*(G'+q)
                     ‾‾
                     t
 
-        where x_t^μν(ħz) is the temporal part of χ_KS,GG'^μν(q,ω+iη).
+        where x_t^μν(ħz) is the temporal part of ̄x_KS,GG'^μν(q,ω+iη).
         """
-        if chiks.distribution == 'ZgG':
-            self._add_integrand_ZgG(pair_density, x_Zt, weight, chiks)
-        elif chiks.distribution == 'GZg':
-            self._add_integrand_GZg(pair_density, x_Zt, weight, chiks)
-        else:
-            raise ValueError(f'Invalid distribution {chiks.distribution}')
+        _add_integrand = self.get_add_integrand_method(chiks.distribution)
+        _add_integrand(matrix_element1, matrix_element2, x_Zt, weight, chiks)
 
-    def _add_integrand_ZgG(self, pair_density, x_Zt, weight, chiks):
+    def get_add_integrand_method(self, distribution):
+        """_add_integrand seletor."""
+        if distribution == 'ZgG':
+            _add_integrand = self._add_integrand_ZgG
+        elif distribution == 'GZg':
+            _add_integrand = self._add_integrand_GZg
+        else:
+            raise ValueError(f'Invalid distribution {distribution}')
+        return _add_integrand
+
+    def _add_integrand_ZgG(self, matrix_element1, matrix_element2, x_Zt,
+                           weight, chiks):
         """Add integrand in ZgG distribution.
 
         Z = global complex frequency index
@@ -262,23 +299,28 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_ZgG = chiks.array
         myslice = chiks.blocks1d.myslice
 
-        with self.context.timer('Set up ncc and xn'):
+        with self.context.timer('Set up gcc and xf'):
             # Multiply the temporal part with the k-point integration weight
             x_Zt *= weight
+            
+            # Set up f_kt(G+q) and g_kt^*(G'+q)
+            f_tG = matrix_element1.get_global_array()
+            if matrix_element2 is matrix_element1:
+                g_tG = f_tG
+            else:
+                g_tG = matrix_element2.get_global_array()
+            gcc_tG = g_tG.conj()
 
-            # Set up n_kt^*(G'+q)
-            n_tG = pair_density.get_global_array()
-            ncc_tG = n_tG.conj()
+            # Set up x_t^μν(ħz) f_kt(G+q)
+            f_gt = np.ascontiguousarray(f_tG[:, myslice].T)
+            xf_Zgt = x_Zt[:, np.newaxis, :] * f_gt[np.newaxis, :, :]
 
-            # Set up x_t^μν(ħz) n_kt(G+q)
-            n_gt = np.ascontiguousarray(n_tG[:, myslice].T)
-            xn_Zgt = x_Zt[:, np.newaxis, :] * n_gt[np.newaxis, :, :]
+        with self.context.timer('Perform sum over t-transitions of xf * gcc'):
+            for xf_gt, chiks_gG in zip(xf_Zgt, chiks_ZgG):
+                mmmx(1.0, xf_gt, 'N', gcc_tG, 'N', 1.0, chiks_gG)  # slow step
 
-        with self.context.timer('Perform sum over t-transitions of xn * ncc'):
-            for xn_gt, chiks_gG in zip(xn_Zgt, chiks_ZgG):
-                mmmx(1.0, xn_gt, 'N', ncc_tG, 'N', 1.0, chiks_gG)  # slow step
-
-    def _add_integrand_GZg(self, pair_density, x_Zt, weight, chiks):
+    def _add_integrand_GZg(self, matrix_element1, matrix_element2, x_Zt,
+                           weight, chiks):
         """Add integrand in GZg distribution.
 
         G = global G' plane wave index
@@ -288,21 +330,25 @@ class ChiKSCalculator(PairFunctionIntegrator):
         chiks_GZg = chiks.array
         myslice = chiks.blocks1d.myslice
 
-        with self.context.timer('Set up ncc and xn'):
+        with self.context.timer('Set up gcc and xf'):
             # Multiply the temporal part with the k-point integration weight
             x_tZ = np.ascontiguousarray(weight * x_Zt.T)
 
-            # Set up n_kt^*(G'+q)
-            n_tG = pair_density.get_global_array()
-            n_Gt = np.ascontiguousarray(n_tG.T)
-            ncc_Gt = n_Gt.conj()
+            # Set up f_kt(G+q) and g_kt^*(G'+q)
+            f_tG = matrix_element1.get_global_array()
+            if matrix_element2 is matrix_element1:
+                g_tG = f_tG
+            else:
+                g_tG = matrix_element2.get_global_array()
+            g_Gt = np.ascontiguousarray(g_tG.T)
+            gcc_Gt = g_Gt.conj()
 
-            # Set up x_t^μν(ħz) n_kt(G+q)
-            n_tg = n_tG[:, myslice]
-            xn_tZg = x_tZ[:, :, np.newaxis] * n_tg[:, np.newaxis, :]
+            # Set up x_t^μν(ħz) f_kt(G+q)
+            f_tg = f_tG[:, myslice]
+            xf_tZg = x_tZ[:, :, np.newaxis] * f_tg[:, np.newaxis, :]
 
-        with self.context.timer('Perform sum over t-transitions of ncc * xn'):
-            mmmx(1.0, ncc_Gt, 'N', xn_tZg, 'N', 1.0, chiks_GZg)  # slow step
+        with self.context.timer('Perform sum over t-transitions of gcc * xf'):
+            mmmx(1.0, gcc_Gt, 'N', xf_tZg, 'N', 1.0, chiks_GZg)  # slow step
 
     @timer('Symmetrizing chiks')
     def symmetrize(self, chiks, analyzer):
@@ -333,7 +379,7 @@ class ChiKSCalculator(PairFunctionIntegrator):
         return chiks
 
     def get_info_string(self, qpd, nz, spincomponent, nt):
-        r"""Get information about the χ_KS,GG'^μν(q,z) calculation"""
+        r"""Get information about the ̄x_KS,GG'^μν(q,z) calculation"""
         from gpaw.utilities.memory import maxrss
 
         q_c = qpd.q_c
@@ -341,28 +387,118 @@ class ChiKSCalculator(PairFunctionIntegrator):
         Asize = nz * qpd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
         cmem = maxrss() / 1024**2
 
-        s = '\n'
+        isl = ['',
+               'Setting up a generalized Kohn-Sham susceptibility calculation '
+               'with:',
+               f'    Spin component: {spincomponent}',
+               f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+               f'    Number of frequency points: {nz}',
+               self.get_band_and_transitions_info_string(self.nbands, nt),
+               '',
+               self.get_basic_info_string(),
+               '',
+               'Plane-wave basis of the generalized Kohn-Sham susceptibility:',
+               f'    Planewave cutoff: {ecut}',
+               f'    Number of planewaves: {qpd.ngmax}',
+               '    Memory estimates:',
+               f'        A_zGG: {Asize} M / cpu',
+               f'        Memory usage before allocation: {cmem} M / cpu',
+               '',
+               f'{ctime()}']
 
-        s += 'Setting up a Kohn-Sham susceptibility calculation with:\n'
-        s += '    Spin component: %s\n' % spincomponent
-        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        s += '    Number of frequency points: %d\n' % nz
-        s += self.get_band_and_transitions_info_string(self.nbands, nt)
-        s += '\n'
+        return '\n'.join(isl)
 
-        s += self.get_basic_info_string()
-        s += '\n'
 
-        s += 'Plane-wave basis of the Kohn-Sham susceptibility:\n'
-        s += '    Planewave cutoff: %f\n' % ecut
-        s += '    Number of planewaves: %d\n' % qpd.ngmax
-        s += '    Memory estimates:\n'
-        s += '        A_zGG: %f M / cpu\n' % Asize
-        s += '        Memory usage before allocation: %f M / cpu\n' % cmem
-        s += '\n'
-        s += '%s\n' % ctime()
+class ChiKSCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the four-component Kohn-Sham susceptibility tensor
 
-        return s
+    For collinear systems in absence of spin-orbit coupling,
+    see [PRB 103, 245110 (2021)],
+                              __  __   __
+                           1  \   \    \
+    χ_KS,GG'^μν(q,ω+iη) =  ‾  /   /    /   σ^μ_ss' σ^ν_s's (f_nks - f_n'k+qs')
+                           V  ‾‾  ‾‾   ‾‾
+                              k   n,n' s,s'
+                                        n_nks,n'k+qs'(G+q) n_n'k+qs',nks(-G'-q)
+                                      x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                            ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    are the plane-wave pair densities of each transition.
+    """
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        return pair_density_calc, pair_density_calc
+
+
+class SelfEnhancementCalculator(GeneralizedSuscetibilityCalculator):
+    r"""Calculator class for the transverse magnetic self-enhancement function.
+
+    For collinear systems in absence of spin-orbit coupling,
+    see [publication in preparation],
+                           __  __   __
+                        1  \   \    \
+    Ξ_GG'^++(q,ω+iη) =  ‾  /   /    /   σ^+_ss' σ^-_s's (f_nks - f_n'k+qs')
+                        V  ‾‾  ‾‾   ‾‾
+                           k   n,n' s,s'
+                                      n_nks,n'k+qs'(G+q) W^⟂_n'k+qs',nks(-G'-q)
+                                    x ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                           ħω - (ε_n'k+qs' - ε_nks) + iħη
+
+    where the matrix elements
+
+    n_nks,n'k+qs'(G+q) = <nks| e^-i(G+q)r |n'k+qs'>
+
+    and
+
+    W^⟂_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r f_LDA^-+(r) |ψ_n'k+qs'>
+
+    are the plane-wave pair densities and transverse magnetic pair potentials
+    respectively.
+    """
+    def __init__(self, gs: ResponseGroundStateAdapter, context=None,
+                 rshelmax: int = -1,
+                 rshewmin: float | None = None,
+                 **kwargs):
+        """Construct the SelfEnhancementCalculator.
+
+        Parameters
+        ----------
+        rshelmax : int
+            The maximum index l (l < 6) to use in the expansion of the
+            xc-kernel f_LDA^-+(r) into real spherical harmonics for the PAW
+            correction.
+        rshewmin : float or None
+            If None, f_LDA^-+(r) will be fully expanded up to the chosen lmax.
+            Given as a float (0 < rshewmin < 1), rshewmin indicates what
+            coefficients to use in the expansion. If any (l,m) coefficient
+            contributes with less than a fraction of rshewmin on average, it
+            will not be included.
+        """
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
+
+        assert 'disable_time_reversal' not in kwargs
+        super().__init__(gs, context=context,
+                         disable_time_reversal=True,
+                         **kwargs)
+    
+    def create_matrix_element_calculators(self):
+        pair_density_calc = NewPairDensityCalculator(self.gs, self.context)
+        pair_potential_calc = TransversePairPotentialCalculator(
+            self.gs, self.context,
+            rshelmax=self.rshelmax,
+            rshewmin=self.rshewmin)
+        return pair_density_calc, pair_potential_calc
+    
+    def _set_up_internals(self, spincomponent, *args, **kwargs):
+        # For now, we are hardcoded to use the transverse pair potential,
+        # calculating Ξ^++ corresponding to χ^+-
+        assert spincomponent == '+-'
+        return super()._set_up_internals(spincomponent, *args, **kwargs)
 
 
 def get_ecut_to_encompass_centered_sphere(q_v, ecut):

@@ -10,8 +10,7 @@ from ase import Atoms
 from ase.calculators.calculator import kpts2sizeandoffsets
 from ase.units import Bohr
 
-import _gpaw
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.domain import Domain
@@ -33,6 +32,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 def builder(atoms: Atoms,
@@ -143,6 +143,10 @@ class DFTComponentsBuilder:
 
         self.xc = self.create_xc_functional()
 
+        self.interpolation_desc: Domain
+        self.electrostatic_potential_desc: Domain
+        self.atomdist: AtomDistribution
+
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
 
@@ -151,12 +155,7 @@ class DFTComponentsBuilder:
 
     def create_xc_functional(self):
         return create_functional(self._xc,
-                                 self.fine_grid,
-                                 self.grid,
-                                 self.grid,
-                                 self.setups,
-                                 self.fracpos_ac,
-                                 self.atomdist)
+                                 self.fine_grid)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
@@ -164,12 +163,6 @@ class DFTComponentsBuilder:
             raise ValueError(
                 'GPAW requires 3 lattice vectors.  '
                 f'Your system has {number_of_lattice_vectors}.')
-
-    @cached_property
-    def atomdist(self) -> AtomDistribution:
-        return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
-            self.grid.comm)
 
     @cached_property
     def wf_desc(self) -> Domain:
@@ -190,13 +183,8 @@ class DFTComponentsBuilder:
     def get_pseudo_core_densities(self):
         raise NotImplementedError
 
-    @cached_property
-    def nct_R(self):
-        out = self.grid.empty(xp=self.xp)
-        nct_aX = self.get_pseudo_core_densities()
-        nct_aX.to_uniform_grid(out=out,
-                               scale=1.0 / (self.ncomponents % 3))
-        return out
+    def get_pseudo_core_ked(self):
+        raise NotImplementedError
 
     def create_basis_set(self):
         return create_basis(self.ibz,
@@ -211,14 +199,18 @@ class DFTComponentsBuilder:
                             self.communicators['b'])
 
     def density_from_superposition(self, basis_set):
-        return Density.from_superposition(self.nct_R,
-                                          self.atomdist,
-                                          self.setups,
-                                          basis_set,
-                                          self.initial_magmom_av,
-                                          self.ncomponents,
-                                          self.params.charge,
-                                          self.params.hund)
+        return Density.from_superposition(
+            grid=self.grid,
+            nct_aX=self.get_pseudo_core_densities(),
+            tauct_aX=self.get_pseudo_core_ked(),
+            atomdist=self.atomdist,
+            setups=self.setups,
+            basis_set=basis_set,
+            magmom_av=self.initial_magmom_av,
+            ncomponents=self.ncomponents,
+            charge=self.params.charge,
+            hund=self.params.hund,
+            mgga=self.xc.type == 'MGGA')
 
     def create_occupation_number_calculator(self):
         return OccupationNumberCalculator(
@@ -274,22 +266,28 @@ class DFTComponentsBuilder:
 
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
-        P_sknI = reader.wave_functions.projections
-        P_sknI = P_sknI.astype(ibzwfs.dtype)
+        if self.communicators['d'].rank == 0:
+            P_sknI = reader.wave_functions.projections
+            P_sknI = P_sknI.astype(ibzwfs.dtype)
+        else:
+            P_sknI = None
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
             wfs._occ_n = occ_skn[wfs.spin, wfs.k]
             layout = AtomArraysLayout([(setup.ni,) for setup in self.setups],
+                                      atomdist=self.atomdist,
                                       dtype=self.dtype)
+            data = None
             if self.ncomponents < 4:
-                wfs._P_ani = AtomArrays(layout,
-                                        dims=(self.nbands,),
-                                        data=P_sknI[wfs.spin, wfs.k])
+                wfs._P_ani = AtomArrays(layout, dims=(self.nbands,))
+                if P_sknI is not None:
+                    data = P_sknI[wfs.spin, wfs.k]
             else:
-                wfs._P_ani = AtomArrays(layout,
-                                        dims=(self.nbands, 2),
-                                        data=P_sknI[wfs.k])
+                wfs._P_ani = AtomArrays(layout, dims=(self.nbands, 2))
+                if P_sknI is not None:
+                    data = P_sknI[wfs.k]
+            wfs._P_ani.scatter_from(data)
 
         try:
             ibzwfs.fermi_levels = reader.wave_functions.fermi_levels / ha
@@ -319,7 +317,7 @@ def create_communicators(comm: MPIComm = None,
     comms = {key: comm if comm.size > 1 else serial_comm
              for key, comm in comms.items()}
 
-    if xp is not np and not getattr(_gpaw, 'gpu_aware_mpi', False):
+    if xp is not np and not GPU_AWARE_MPI:
         comms = {key: CuPyMPI(comm) for key, comm in comms.items()}
 
     return comms
@@ -441,7 +439,7 @@ def create_uniform_grid(mode: str,
                         h: float = None,
                         interpolation: str = None,
                         ecut: float = None,
-                        comm: MPIComm = serial_comm) -> UniformGrid:
+                        comm: MPIComm = serial_comm) -> UGDesc:
     """Create grid in a backwards compatible way."""
     cell = cell / Bohr
     if h is not None:
@@ -457,4 +455,4 @@ def create_uniform_grid(mode: str,
         modeobj = SimpleNamespace(name=mode, ecut=ecut)
         size = get_number_of_grid_points(cell, h, modeobj, realspace,
                                          symmetry.symmetry)
-    return UniformGrid(cell=cell, pbc=pbc, size=size, comm=comm)
+    return UGDesc(cell=cell, pbc=pbc, size=size, comm=comm)
