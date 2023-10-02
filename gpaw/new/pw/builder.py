@@ -170,7 +170,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.ncomponents == 4:
             shape = (self.nbands, 2)
         else:
-            shape = (self.nands,)
+            shape = (self.nbands,)
 
         for wfs in ibzwfs:
             pw = self.wf_desc.new(kpt=wfs.kpt_c)
