@@ -1,6 +1,5 @@
 import pytest
-from ase.build import molecule
-from gpaw import GPAW, PW
+from gpaw import GPAW
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 

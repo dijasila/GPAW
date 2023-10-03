@@ -1,7 +1,5 @@
 import pytest
-from ase.build import bulk
-from gpaw import GPAW, FermiDirac, PW
-from gpaw.mpi import serial_comm
+from gpaw import GPAW
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.test import equal
 

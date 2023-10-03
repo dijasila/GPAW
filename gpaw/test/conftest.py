@@ -230,6 +230,25 @@ def world_temporary_lock(path):
             raise Locked
 
 
+def si_gpwfiles():
+    gpw_file_dict = {}
+    for a in [0, 1]:
+        for symm, name1 in [({}, 'all'), ('off', 'no'),
+                            ({'point_group': False}, 'tr'),
+                            ({'time_reversal': False}, 'pg')]:
+            name = f'si_gw_a{a}_{name1}'
+
+            def _si_gw(self):
+                atoms = self.generate_si_systems()[a]
+                return self._si_gw(atoms=atoms,
+                                   symm=symm,
+                                   name=f'{name}.txt')
+            _si_gw.__name__ = name
+            gpw_file_dict[name] = gpwfile(_si_gw)
+
+    return gpw_file_dict
+
+
 _all_gpw_methodnames = set()
 
 
@@ -787,9 +806,27 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    @gpwfile
-    def sic_pw(self):
-        return self._sic_pw()
+    @staticmethod
+    def generate_si_systems():
+        a = 5.43
+        si1 = bulk('Si', 'diamond', a=a)
+        si2 = si1.copy()
+        si2.positions -= a / 8
+        return [si1, si2]
+
+    def _si_gw(self, atoms, symm, name):
+        atoms.calc = GPAW(mode=PW(250),
+                          eigensolver='rmm-diis',
+                          occupations=FermiDirac(0.01),
+                          symmetry=symm,
+                          kpts={'size': (2, 2, 2), 'gamma': True},
+                          convergence={'density': 1e-7},
+                          parallel={'domain': 1},
+                          txt=self.path / name)
+        atoms.get_potential_energy()
+        scalapack = atoms.calc.wfs.bd.comm.size
+        atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
+        return atoms.calc
 
     @gpwfile
     def sic_pw_spinpol(self):
@@ -805,11 +842,15 @@ class GPWFiles:
                         basis='dzp',
                         kpts={'size': (4, 4, 4), 'gamma': True},
                         parallel={'domain': 1},
-                        txt=self.path / 'na_pw.txt',
+                        txt=self.path / 'temp.txt',
                         nbands=4,
                         occupations=FermiDirac(0.01),
                         setups={'Na': '1'})
         blk.get_potential_energy()
+        blk.calc.write('gs_occ_pw.gpw')
+
+        calc = GPAW('gs_occ_pw.gpw', txt= self.path / 'na_pw.txt',
+                    parallel={'band': 1})
         blk.calc.diagonalize_full_hamiltonian(nbands=520)
         return blk.calc
 
@@ -1455,6 +1496,11 @@ class GPWFiles:
                     scale_atoms=True)
         si.get_potential_energy()
         return si.calc
+
+
+# We add Si fixtures with various symmetries to the GPWFiles namespace
+for name, method in si_gpwfiles().items():
+    setattr(GPWFiles, name, method)
 
 
 @pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))
