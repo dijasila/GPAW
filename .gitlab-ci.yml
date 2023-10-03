@@ -31,6 +31,7 @@ stages:
       libraries = []
       library_dirs = []
       include_dirs = []
+
       extra_compile_args = ['-fPIC',
                             '-O3',
                             '-g',
