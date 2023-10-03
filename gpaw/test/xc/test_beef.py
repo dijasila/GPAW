@@ -15,7 +15,7 @@ import _gpaw
 def test_beef(in_tmp_dir):
     newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
-    gen('Si', xcname='PBEsol')
+    setup = gen('Si', xcname='PBEsol')
 
     results = {'mBEEF': (5.449, 0.056),
                'BEEF-vdW': (5.484, 0.071),
@@ -27,9 +27,9 @@ def test_beef(in_tmp_dir):
             print('Skipped', xc)
             continue
 
+        kwargs = dict()
         if xc == 'mBEEF-vdW':
-            # Does not work with libxc-4
-            continue
+            kwargs['setups'] = dict(Si=setup)
 
         E = []
         V = []
@@ -39,7 +39,8 @@ def test_beef(in_tmp_dir):
                            mixer=Mixer(0.8, 7, 50.0),
                            xc=xc,
                            kpts=[2, 2, 2],
-                           mode=PW(200))
+                           mode=PW(200),
+                           **kwargs)
             E.append(si.get_potential_energy())
             ens = BEEFEnsemble(si.calc, verbose=False)
             ens.get_ensemble_energies(200)
