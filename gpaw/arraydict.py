@@ -100,8 +100,8 @@ class ArrayDict(MutableMapping):
         for a, array in self.items():
             assert array.dtype == self.dtype
             assert array.shape == self.shapes_a[a], \
-                'array shape {} vs specified shape {}'.format(array.shape,
-                                                          self.shapes_a[a])
+                (f'array shape {array.shape} '
+                 f'vs specified shape {self.shapes_a[a]}')
 
     def toarray(self, axis=None):
         # We could also implement it as a contiguous buffer.

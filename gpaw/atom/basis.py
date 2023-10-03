@@ -414,8 +414,8 @@ class BasisMaker:
                 rsplit, norm, splitwave = rsplit_by_norm(rgd, l, phit_g,
                                                          tailnorm[i]**2.0,
                                                          txt)
-                descr = '{}-{}z split-valence wave'.format(orbitaltype,
-                                                       '0sdtq56789'[zeta])
+                zetastring = '0sdtq56789'[zeta]
+                descr = f'{orbitaltype}-{zetastring}z split-valence wave'
                 bf = BasisFunction(None, l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
 
@@ -476,22 +476,22 @@ class BasisMaker:
             norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
             print('Single quasi Gaussian', file=txt)
-            msg = f'Rchar = {rcharpol_rel:.03f}*rcut = {rchar:.03f} Bohr'
+            msg = f'Rchar = {rcharpol_rel:.3f}*rcut = {rchar:.3f} Bohr'
             adjective = 'Gaussian'
             print(msg, file=txt)
-            type = '{}-type {} polarization'.format('spdfg'[l_pol], adjective)
+            typestring = 'spdfg'[l_pol]
+            type = f'{typestring}-type {adjective} polarization'
             bf_pol = BasisFunction(None, l_pol, rcut, psi_pol, type)
 
             polarization_functions.append(bf_pol)
             for i in range(polarizationcount - 1):
                 npol = i + 2
-                msg = '\n{}: {}'.format(['Secondary', 'Tertiary', 'Quaternary',
-                                     'Quintary', 'Sextary', 'Septenary'][i],
-                                    splitvalencedescr)
+                levelstring = ['Secondary', 'Tertiary', 'Quaternary',
+                               'Quintary', 'Sextary', 'Septenary'][i]
+                msg = f'\n{tmpstring}: {splitvalencedescr}'
                 print(msg, file=txt)
                 rsplit, norm, splitwave = rsplit_by_norm(rgd, l_pol, psi_pol,
-                                                         tailnorm[i],
-                                                         txt)
+                                                         tailnorm[i], txt)
                 descr = ('%s-type split-valence polarization %d'
                          % ('spdfg'[l_pol], npol))
                 bf_pol = BasisFunction(None, l_pol, rsplit,

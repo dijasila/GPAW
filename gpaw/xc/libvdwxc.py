@@ -362,16 +362,15 @@ class VDWXC(XCFunctional):
         return '\n'.join(lines)
 
     def summary(self, log):
-        from ase.units import Hartree
+        from ase.units import Hartree as Ha
         enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
         esl = self.gd.comm.sum(self.last_semilocal_energy)
         # In the current implementation these communicators have the same
         # processes always:
         assert self.libvdwxc.comm.size == self.gd.comm.size
-        log('Non-local {} correlation energy: {:.6f}'.format(self.name,
-                                                       enl * Hartree))
-        log('Semilocal {} energy: {:.6f}'.format(self.semilocal_xc.kernel.name,
-                                           esl * Hartree))
+        log(f'Non-local {self.name} correlation energy: {(enl * Ha):.6f}')
+        log(f'Semilocal {self.semilocal_xc.kernel.name} '
+            f'energy: {esl * Ha:.6f}')
         log('(Not including atomic contributions)')
 
     def get_setup_name(self):

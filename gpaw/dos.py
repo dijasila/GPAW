@@ -36,7 +36,7 @@ class IBZWaveFunctions:
 
     def pdos_weights(self,
                      a: int,
-                     indices: list[int]
+                     indices: List[int]
                      ) -> Array3D:
         """Projections for PDOS.
 
@@ -60,7 +60,7 @@ class IBZWaveFunctions:
         return dos_kns
 
 
-def get_projector_numbers(setup: Setup, ell: int) -> list[int]:
+def get_projector_numbers(setup: Setup, ell: int) -> List[int]:
     """Find indices of bound-state PAW projector functions.
 
     >>> from gpaw.setup import create_setup
@@ -146,8 +146,8 @@ class DOSCalculator:
         self.weight_k = wfs.weights()
 
     def get_energies(self,
-                     emin: float | None = None,
-                     emax: float | None = None,
+                     emin: Optional[float] = None,
+                     emax: Optional[float] = None,
                      npoints: int = 100):
         emin = emin if emin is not None else self.eig_skn.min()
         emax = emax if emax is not None else self.eig_skn.max()
@@ -169,7 +169,7 @@ class DOSCalculator:
         else:
             calc = GPAW(filename, txt=None)
 
-        wfs: BZWaveFunctions | IBZWaveFunctions
+        wfs: Union[BZWaveFunctions, IBZWaveFunctions]
         if soc:
             wfs = soc_eigenstates(calc, theta=theta, phi=phi)
         else:
@@ -195,7 +195,7 @@ class DOSCalculator:
 
     def raw_dos(self,
                 energies: Sequence[float],
-                spin: int | None = None,
+                spin: Optional[int] = None,
                 width: float = 0.1) -> Array1D:
         """Calculate density of states.
 
@@ -216,8 +216,8 @@ class DOSCalculator:
                  energies: Sequence[float],
                  a: int,
                  l: int,
-                 m: int | None = None,
-                 spin: int = None,
+                 m: Optional[int] = None,
+                 spin: Optional[int] = None,
                  width: float = 0.1) -> Array1D:
         """Calculate projected density of states.
 

@@ -27,11 +27,11 @@ from .symmetry import Symmetry
 
 
 def non_self_consistent_eigenvalues(
-        calc: GPAWOld | ASECalculator | str | Path,
+        calc: Union[GPAWOld, ASECalculator, str, Path],
         xcname: str,
         n1: int = 0,
         n2: int = 0,
-        kpt_indices: list[int] = None,
+        kpt_indices: List[int] = None,
         snapshot: str | Path = None,
         ftol: float = 1e-9) -> tuple[Array3D,
                                      Array3D,
@@ -75,7 +75,7 @@ def non_self_consistent_eigenvalues(
 
     # sl=semilocal, nl=nonlocal
     v_hyb_sl_sin = np.zeros(0)
-    v_hyb_nl_sin: list[list[np.ndarray]] | None = None
+    v_hyb_nl_sin: Optional[List[List[np.ndarray]]] = None
 
     if path:
         e_dft_sin, v_dft_sin, v_hyb_sl_sin, v_hyb_nl_sin = read_snapshot(path)
@@ -112,7 +112,7 @@ def _semi_local(calc: GPAWOld | ASECalculator,
                 xc,
                 n1: int,
                 n2: int,
-                kpt_indices: list[int]
+                kpt_indices: List[int]
                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     wfs = calc.wfs
     nspins = wfs.nspins
@@ -130,7 +130,7 @@ def _semi_local(calc: GPAWOld | ASECalculator,
 def _non_local(calc: GPAWOld | ASECalculator,
                n1: int,
                n2: int,
-               kpt_indices_s: list[list[int]],
+               kpt_indices_s: List[List[int]],
                ftol: float,
                omega: float) -> Generator[tuple[int, np.ndarray], None, None]:
     wfs = calc.wfs
@@ -241,8 +241,8 @@ def _calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
 def write_snapshot(e_dft_sin: np.ndarray,
                    v_dft_sin: np.ndarray,
                    v_hyb_sl_sin: np.ndarray,
-                   v_hyb_nl_sin: list[list[np.ndarray]] | None,
-                   path: Path | None,
+                   v_hyb_nl_sin: Optional[List[List[np.ndarray]]],
+                   path: Optional[Path],
                    comm) -> None:
     """Write to json-file what has been calculated so far."""
     if comm.rank == 0 and path:
@@ -260,7 +260,7 @@ def read_snapshot(snapshot: Path
                   ) -> tuple[np.ndarray,
                              np.ndarray,
                              np.ndarray,
-                             list[list[np.ndarray]] | None]:
+                             List[List[np.ndarray]] | None]:
     """Read from json-file what has already been calculated."""
     if snapshot.is_file():
         dct = json.loads(snapshot.read_text())
@@ -285,7 +285,7 @@ def layout(n1: int, n2: int, size: int) -> tuple[int, int]:
     >>> layout(10, 10, 8)
     (4, 2)
     """
-    candidates: list[tuple[float, int, int]] = []
+    candidates: List[tuple[float, int, int]] = []
     for s1 in range(1, size + 1):
         s2, r = divmod(size, s1)
         if r > 0:

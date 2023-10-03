@@ -169,9 +169,7 @@ class Wannier90:
 
         print('begin unit_cell_cart', file=f)
         for cell_c in calc.atoms.cell:
-            print('{:14.10f} {:14.10f} {:14.10f}'.format(cell_c[0],
-                                               cell_c[1],
-                                               cell_c[2]),
+            print(f'{cell_c[0]:14.10f} {cell_c[1]:14.10f} {cell_c[2]:14.10f}',
                   file=f)
         print('end unit_cell_cart', file=f)
         print(file=f)

@@ -425,7 +425,7 @@ class Chi0(Chi0Calculator):
     def __init__(self,
                  calc,
                  *,
-                 frequencies: dict | Array1D = None,
+                 frequencies: Union[dict, Array1D] = None,
                  ecut=50,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1,
