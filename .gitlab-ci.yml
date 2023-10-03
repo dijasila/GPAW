@@ -319,8 +319,9 @@ test-minimal:
     - linux
   script:
     - gpaw info
-    - pytest -v -m ci -We -Wi::ImportWarning
-
+    - >
+      pytest -v -m ci -We -Wi::ImportWarning
+      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 test-cuda:
   image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
