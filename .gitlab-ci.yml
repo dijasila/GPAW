@@ -112,9 +112,9 @@ build-latest:
       # Maybe we should do a glob to avoid version dependence:
       elpa_includedir = elpa_dir / 'include/elpa-2022.11.001'
       libraries += ['elpa']
-      library_dirs += [str(elpa_libdir)]
-      extra_link_args += [str(elpa_libdir)]
-      include_dirs += [str(elpa_includedir)]
+      library_dirs += [f'{elpa_libdir}']
+      extra_link_args += [f'-Wl,-rpath={elpa_libdir}']
+      include_dirs += [f'{elpa_includedir}']
 
       EOF
     - cat siteconfig.py
