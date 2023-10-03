@@ -97,14 +97,14 @@ build-latest:
       extra_compile_args += ['-Wno-deprecated-declarations']
 
       from pathlib import Path
-      # libvdwxc = True
-      # libraries += ['vdwxc']
+      libvdwxc = True
+      libraries += ['vdwxc']
 
-      # libvdwxc_dir = Path('/install')
-      # libvdwxc_libdir = libvdwxc_dir / 'lib'
-      # library_dirs += [libvdwxc_libdir]
-      # extra_link_args += [f'-Wl,-rpath={libvdwxc_libdir}']
-      # include_dirs += [libvdwxc_dir / 'include']
+      libvdwxc_dir = Path('/install')
+      libvdwxc_libdir = libvdwxc_dir / 'lib'
+      library_dirs += [libvdwxc_libdir]
+      extra_link_args += [f'-Wl,-rpath={libvdwxc_libdir}']
+      include_dirs += [libvdwxc_dir / 'include']
 
       # elpa = True
       # libraries += ['elpa']
