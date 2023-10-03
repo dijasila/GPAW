@@ -289,6 +289,8 @@ test-latest:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
       -We -Wi::ImportWarning
+      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+
   artifacts:
     paths:
       - htmlcov/
@@ -382,7 +384,7 @@ test-libxc:
   script:
     - gpaw info
     - pytest -v -m libxc
-
+s
 
 check-agts:
   image: $IMAGE_PATH/run:oldest
@@ -392,7 +394,7 @@ check-agts:
   tags:
     - linux
   script:
-    - pip install git+https://gitlab.com/myqueue/myqueue.git@master
+    - pip install --user git+https://gitlab.com/myqueue/myqueue.git@master
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
