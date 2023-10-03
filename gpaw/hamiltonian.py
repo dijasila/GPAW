@@ -580,16 +580,16 @@ class Hamiltonian:
                         e_kin += f * wfs.integrate(
                             Lapl(psit_G, kpt), psit_G, False)
             e_kin = e_kin.real
-            e_kin = wfs.gd.comm.sum(e_kin)
+            e_kin = wfs.gd.comm.sum_scalar(e_kin)
 
-        e_kin = wfs.kd.comm.sum(e_kin)  # ?
+        e_kin = wfs.kd.comm.sum_scalar(e_kin)  # ?
         # paw corrections
         e_kin_paw = 0.0
         for a, D_sp in density.D_asp.items():
             setup = wfs.setups[a]
             D_p = D_sp.sum(0)
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
-        e_kin_paw = density.gd.comm.sum(e_kin_paw)
+        e_kin_paw = density.gd.comm.sum_scalar(e_kin_paw)
         return e_kin + e_kin_paw
 
     def calculate_kinetic_energy_using_kin_en_matrix(self, density,
@@ -634,14 +634,14 @@ class Hamiltonian:
             self.timer.stop('Pseudo part')
         # del rho_MM
 
-        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        e_kinetic = wfs.kd.comm.sum_scalar(e_kinetic)
         # paw corrections
         for a, D_sp in density.D_asp.items():
             setup = wfs.setups[a]
             D_p = D_sp.sum(0)
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
 
-        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+        e_kin_paw = self.gd.comm.sum_scalar(e_kin_paw)
 
         return e_kinetic.real + e_kin_paw
 
