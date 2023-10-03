@@ -27,11 +27,11 @@ def extended_grid_descriptor(gd,
 
     if extend_N_cd is None:
         assert N_c is not None, 'give only extend_N_cd or N_c'
-        N_c = np.array(N_c, dtype=np.int)
+        N_c = np.array(N_c, dtype=int)
         extend_N_cd = np.tile((N_c - gd.N_c) // 2, (2, 1)).T
     else:  # extend_N_cd is not None:
         assert N_c is None, 'give only extend_N_cd or N_c'
-        extend_N_cd = np.array(extend_N_cd, dtype=np.int)
+        extend_N_cd = np.array(extend_N_cd, dtype=int)
         N_c = gd.N_c + extend_N_cd.sum(axis=1)
 
     cell_cv = gd.h_cv * N_c

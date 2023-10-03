@@ -4,7 +4,8 @@ from gpaw import GPAW
 from gpaw import dscf
 
 # Ground state calculation
-calc = GPAW(nbands=8,
+calc = GPAW(mode='fd',
+            nbands=8,
             h=0.2,
             xc='PBE',
             spinpol=True,
@@ -15,7 +16,7 @@ calc = GPAW(nbands=8,
 
 CO = molecule('CO')
 CO.center(vacuum=3)
-CO.set_calculator(calc)
+CO.calc = calc
 
 E_gs = CO.get_potential_energy()
 
@@ -28,7 +29,8 @@ p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
          for kpt in calc.wfs.kpt_u]
 
 # Excited state calculation
-calc_es = GPAW(nbands=8,
+calc_es = GPAW(mode='fd',
+               nbands=8,
                h=0.2,
                xc='PBE',
                spinpol=True,
@@ -37,7 +39,7 @@ calc_es = GPAW(nbands=8,
                             'eigenstates': 1.0e-9,
                             'bands': -1})
 
-CO.set_calculator(calc_es)
+CO.calc = calc_es
 lumo = dscf.AEOrbital(calc_es, wf_u, p_uai)
 # lumo = dscf.MolecularOrbital(calc, weights={0: [0, 0, 0,  1],
 #                                             1: [0, 0, 0, -1]})

@@ -10,19 +10,17 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
+from typing import Sequence
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemm
-
-
-# Remove this:  XXX
-assert (-1) % 3 == 2
-assert (np.array([-1]) % 3)[0] == 2
+from gpaw.new import prod
+from gpaw.typing import Array1D, Array3D, Vector
+from gpaw.utilities.blas import mmm, r2k, rk
 
 NONBLOCKING = False
 
@@ -31,8 +29,12 @@ class GridBoundsError(ValueError):
     pass
 
 
+class BadGridError(ValueError):
+    pass
+
+
 class GridDescriptor(Domain):
-    """Descriptor-class for uniform 3D grid
+    r"""Descriptor-class for uniform 3D grid
 
     A ``GridDescriptor`` object holds information on how functions, such
     as wave functions and electron densities, are discreticed in a
@@ -60,16 +62,17 @@ class GridDescriptor(Domain):
      >>> a = np.zeros((2, 2, 2))
      >>> a.ravel()[:] = range(8)
      >>> a
-     array([[[0, 1],
-             [2, 3]],
-            [[4, 5],
-             [6, 7]]])
+     array([[[0., 1.],
+             [2., 3.]],
+     <BLANKLINE>
+            [[4., 5.],
+             [6., 7.]]])
      """
 
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
-                 comm=None, parsize_c=None):
+                 comm=None, parsize_c=None, allow_empty_domains=False):
         """Construct grid-descriptor object.
 
         parameters:
@@ -84,6 +87,8 @@ class GridDescriptor(Domain):
             Communicator for domain-decomposition.
         parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
+        allow_empty_domains: bool
+            Allow parallelization that would generate empty domains.
 
         Note that if pbc_c[c] is False, then the actual number of gridpoints
         along axis c is one less than N_c[c].
@@ -127,11 +132,16 @@ class GridDescriptor(Domain):
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise ValueError('Grid {0} too small for {1} cores!'
-                                 .format('x'.join(str(n) for n in self.N_c),
-                                         'x'.join(str(n) for n
-                                                  in self.parsize_c)))
+            if np.any(n_p[1:] == n_p[:-1]):
+                if allow_empty_domains:
+                    # If there are empty domains, sort them to the end
+                    n_p[:] = (np.arange(self.parsize_c[c] + 1) +
+                              1 - self.pbc_c[c]).clip(0, self.N_c[c])
+                else:
+                    msg = ('Grid {0} too small for {1} cores!'
+                           .format('x'.join(str(n) for n in self.N_c),
+                                   'x'.join(str(n) for n in self.parsize_c)))
+                    raise BadGridError(msg)
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -145,11 +155,6 @@ class GridDescriptor(Domain):
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
-
-        # Sanity check for grid spacings:
-        h_c = self.get_grid_spacings()
-        if max(h_c) / min(h_c) > 1.3:
-            raise ValueError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
         if self.orthogonal:
@@ -165,7 +170,7 @@ class GridDescriptor(Domain):
                    self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize_c=None):
+                       comm=None, parsize_c=None, allow_empty_domains=False):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -181,7 +186,8 @@ class GridDescriptor(Domain):
             comm = self.comm
         if parsize_c is None and comm.size == self.comm.size:
             parsize_c = self.parsize_c
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c,
+                              allow_empty_domains)
 
     def coords(self, c, pad=True):
         """Return coordinates along one of the three axes.
@@ -217,7 +223,7 @@ class GridDescriptor(Domain):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
 
-    def zeros(self, n=(), dtype=float, global_array=False, pad=False):
+    def zeros(self, n=(), dtype=float, global_array=False, pad=False, xp=np):
         """Return new zeroed 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -225,9 +231,9 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, True, global_array, pad)
+        return self._new_array(n, dtype, True, global_array, pad, xp)
 
-    def empty(self, n=(), dtype=float, global_array=False, pad=False):
+    def empty(self, n=(), dtype=float, global_array=False, pad=False, xp=np):
         """Return new uninitialized 3D array for this domain.
 
         The type can be set with the ``dtype`` keyword (default:
@@ -235,10 +241,10 @@ class GridDescriptor(Domain):
         global array spanning all domains can be allocated with
         ``global_array=True``."""
 
-        return self._new_array(n, dtype, False, global_array, pad)
+        return self._new_array(n, dtype, False, global_array, pad, xp)
 
     def _new_array(self, n=(), dtype=float, zero=True,
-                   global_array=False, pad=False):
+                   global_array=False, pad=False, xp=np):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
@@ -250,9 +256,9 @@ class GridDescriptor(Domain):
         shape = n + tuple(shape)
 
         if zero:
-            return np.zeros(shape, dtype)
+            return xp.zeros(shape, dtype)
         else:
-            return np.empty(shape, dtype)
+            return xp.empty(shape, dtype)
 
     def get_axial_communicator(self, axis):
         peer_ranks = []
@@ -264,8 +270,7 @@ class GridDescriptor(Domain):
         return peer_comm
 
     def integrate(self, a_xg, b_yg=None,
-                  global_integral=True, hermitian=False,
-                  _transposed_result=None):
+                  global_integral=True, hermitian=False):
         """Integrate function(s) over domain.
 
         a_xg: ndarray
@@ -278,9 +283,7 @@ class GridDescriptor(Domain):
             only, use global_integral=False.
         hermitian: bool
             Result is hermitian.
-        _transposed_result: ndarray
-            Long story.  Don't use this unless you are a method of the
-            MatrixOperator class ..."""
+        """
 
         xshape = a_xg.shape[:-3]
 
@@ -289,26 +292,24 @@ class GridDescriptor(Domain):
             result = a_xg.reshape(xshape + (-1,)).sum(axis=-1) * self.dv
             if global_integral:
                 if result.ndim == 0:
-                    result = self.comm.sum(result)
+                    result = self.comm.sum_scalar(result)
                 else:
                     self.comm.sum(result)
             return result
 
-        A_xg = np.ascontiguousarray(a_xg.reshape((-1,) + a_xg.shape[-3:]))
-        B_yg = np.ascontiguousarray(b_yg.reshape((-1,) + b_yg.shape[-3:]))
+        gsize = prod(a_xg.shape[-3:])
+        A_xg = np.ascontiguousarray(a_xg.reshape((-1, gsize)))
+        B_yg = np.ascontiguousarray(b_yg.reshape((-1, gsize)))
 
-        if _transposed_result is None:
-            result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
-        else:
-            result_yx = _transposed_result
-            global_integral = False
+        result_yx = np.zeros((len(B_yg), len(A_xg)), A_xg.dtype)
 
         if a_xg is b_yg:
             rk(self.dv, A_xg, 0.0, result_yx)
         elif hermitian:
             r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
         else:
-            gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            # gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
+            mmm(self.dv, B_yg, 'N', A_xg, 'C', 0.0, result_yx)
 
         if global_integral:
             self.comm.sum(result_yx)
@@ -326,7 +327,7 @@ class GridDescriptor(Domain):
 
         Reurned descriptor has 2x2x2 fewer grid points."""
 
-        if np.sometrue(self.N_c % 2):
+        if (self.N_c % 2).any():
             raise ValueError('Grid %s not divisible by 2!' % self.N_c)
 
         return self.new_descriptor(self.N_c // 2)
@@ -451,18 +452,23 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
+                    t_c = (ft_sc[s] * self.N_c).round().astype(int)
+                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                                        1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
 
-    def collect(self, a_xg, broadcast=False):
+    def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
-            return a_xg
+            if out is None:
+                return a_xg
+            out[:] = a_xg
+            return out
 
         xshape = a_xg.shape[:-3]
 
@@ -480,7 +486,10 @@ class GridDescriptor(Domain):
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
-        A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        if out is None:
+            A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        else:
+            A_xg = out
         parsize_c = self.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -500,7 +509,7 @@ class GridDescriptor(Domain):
             self.comm.broadcast(A_xg, 0)
         return A_xg
 
-    def distribute(self, B_xg, b_xg):
+    def distribute(self, B_xg, out=None):
         """Distribute full array B_xg to subdomains, result in b_xg.
 
         B_xg is not used by the slaves (i.e. it should be None on all slaves)
@@ -508,12 +517,16 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            b_xg[:] = B_xg
-            return
+            if out is None:
+                return B_xg
+            out[:] = B_xg
+            return out
+
+        if out is None:
+            out = self.empty(B_xg.shape[:-3], dtype=B_xg.dtype)
 
         if self.rank != 0:
-            self.comm.receive(b_xg, 0, 42)
-            return
+            self.comm.receive(out, 0, 42)
         else:
             parsize_c = self.parsize_c
             requests = []
@@ -532,11 +545,13 @@ class GridDescriptor(Domain):
                             # deallocated:
                             requests.append((request, a_xg))
                         else:
-                            b_xg[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
+                            out[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
                         r += 1
 
             for request, a_xg in requests:
                 self.comm.wait(request)
+
+        return out
 
     def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
@@ -568,11 +583,44 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
-    def calculate_dipole_moment(self, rho_g, center=False):
+    def dipole_moment(self,
+                      rho_R: Array3D,
+                      center_v: Vector = None) -> Array1D:
+        """Calculate dipole moment of density.
+
+        Integration region will be centered on center_v.  Default center
+        is center of unit cell.
+        """
+        index_cr = [np.arange(self.beg_c[c], self.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        if center_v is not None:
+            corner_c = (np.linalg.solve(self.h_cv.T,
+                                        center_v) % self.N_c) - self.N_c / 2
+            for corner, index_r, N in zip(corner_c, index_cr, self.N_c):
+                index_r -= corner
+                index_r %= N
+                index_r += corner
+
+        rho_ijk = rho_R
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = -np.dot(d_c, self.h_cv) * self.dv
+        self.comm.sum(d_v)
+        return d_v
+
+    def calculate_dipole_moment(self, rho_g, center=False, origin_c=None):
         """Calculate dipole moment of density."""
         r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
         if center:
+            assert origin_c is None
             r_cz = [r_cz[c] - 0.5 * self.N_c[c] for c in range(3)]
+        elif origin_c is not None:
+            r_cz = [r_cz[c] - origin_c[c] for c in range(3)]
+
         rho_01 = rho_g.sum(axis=2)
         rho_02 = rho_g.sum(axis=1)
         rho_cz = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
@@ -640,8 +688,7 @@ class GridDescriptor(Domain):
         Non-Cubic MD cells' March 29, 1989
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
-        cell_cv = self.N_c * self.h_cv
-        r_c =  np.linalg.solve(cell_cv.T, r_v)
+        r_c = np.linalg.solve(self.cell_cv.T, r_v)
         # do the correction twice works better because of rounding errors
         # e.g.: -1.56250000e-25 % 1.0 = 1.0,
         #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
@@ -651,65 +698,28 @@ class GridDescriptor(Domain):
         if mic:
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
-            assert((s_Gc * self.pbc_c >= -0.5).all())
-            assert((s_Gc * self.pbc_c <= 0.5).all())
+            assert (s_Gc * self.pbc_c >= -0.5).all()
+            assert (s_Gc * self.pbc_c <= 0.5).all()
 
-        return np.dot(s_Gc, cell_cv).T.copy()
+        return np.dot(s_Gc, self.cell_cv).T.copy()
 
-    def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
+    def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
 
         Calculate interpolated values from array vt_g based on the
         scaled coordinates on spos_c.
 
-        Uses moving least squares algorithm by default, or otherwise
-        trilinear interpolation.
-
         This doesn't work in parallel, since it would require
-        communication between neighbouring grid.  """
+        communication between neighbouring grids."""
 
         assert self.comm.size == 1
 
-        if use_mlsqr:
-            mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
-        else:
-            for n, spos_c in enumerate(spos_nc):
-                g_c = self.N_c * spos_c - self.beg_c
+        vt_g = self.zero_pad(vt_g)
+        return map_coordinates(vt_g,
+                               (spos_nc * self.N_c).T,
+                               order=3,
+                               mode='wrap')
 
-                # The begin and end of the array slice
-                bg_c = np.floor(g_c).astype(int)
-                Bg_c = np.ceil(g_c).astype(int)
-
-                # The coordinate within the box (bottom left = 0,
-                # top right = h_c)
-                dg_c = g_c - bg_c
-                Bg_c %= self.N_c
-
-                target_n[n] = (
-                    vt_g[bg_c[0], bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
-
-    def __eq__(self, other):
-        # XXX Wait, should this not check the global distribution?  This
-        # could return True on some nodes and False on others because the
-        # check does not verify self.n_cp.
-        return (self.dv == other.dv and
-                (self.h_cv == other.h_cv).all() and
-                (self.N_c == other.N_c).all() and
-                (self.n_c == other.n_c).all() and
-                (self.beg_c == other.beg_c).all() and
-                (self.end_c == other.end_c).all())
+    def is_my_grid_point(self, R_c: Sequence[int]) -> bool:
+        """Check if grid point belongs to this domain."""
+        return ((self.beg_c <= R_c) & (R_c < self.end_c)).all()

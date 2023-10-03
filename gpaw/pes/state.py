@@ -21,7 +21,7 @@ class State:
         return self.grid_g
 
     def set_grid(self, grid_g):
-#        assert(grid_g.shape == self.gd.empty().shape)
+        #        assert(grid_g.shape == self.gd.empty().shape)
         self.grid_g = grid_g
 
     def get_energy(self):
@@ -64,7 +64,7 @@ class H1s(State):
     def get_grid(self):
         if self.grid_g is None:
             gd = self.gd
-            assert(gd.orthogonal)
+            assert gd.orthogonal
             wf = gd.zeros(dtype=float)
             vr0 = np.array([0., 0., 0.])
             for i in range(gd.n_c[0]):

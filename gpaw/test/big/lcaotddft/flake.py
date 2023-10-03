@@ -1,6 +1,6 @@
 from os import path
 from ase.io import read
-from gpaw import Mixer, PoissonSolver
+from gpaw import Mixer
 from gpaw.tddft.lcao_tddft import LCAOTDDFT
 
 basis = 'dzp'
@@ -16,18 +16,17 @@ if path.exists('flake.gpw'):
 else:
     calc = LCAOTDDFT(mode='lcao', h=spacing, basis=basis,
                      nbands=423,
-                     mixer=Mixer(0.05, 5, weight=100.0),
-                     poissonsolver=PoissonSolver(eps=1e-12))
+                     mixer=Mixer(0.05, 5, weight=100.0))
     atoms = read('%s.xyz' % (title))
     atoms.set_pbc((False, False, False))
     atoms.center(vacuum=vacuum)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
-    gs_calc.write('flake.gpw', 'all')  # ????
-  
+    calc.write('flake.gpw', 'all')
+
 maxiterations = 24000 / time_step
 fname0 = 'flake_dm.dat'
 fname2 = 'flake_spectrum.dat'
-  
+
 calc.absorption_kick(kick)
 calc.propagate(time_step, maxiterations, fname0)

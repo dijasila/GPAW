@@ -19,10 +19,17 @@ class XCFunctional(object):
         return {'type': self.kernel.type,
                 'kernel': self.kernel.name}
 
+    def tostring(self):
+        """Get string representation of XC functional.
+
+        This will give the name for libxc functionals but other data for
+        hybrids."""
+        return self.name
+
     def get_setup_name(self):
         return self.name
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         pass
 
     def set_grid_descriptor(self, gd):
@@ -101,6 +108,10 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
+
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         raise NotImplementedError

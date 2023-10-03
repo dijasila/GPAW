@@ -6,12 +6,14 @@ Anaconda on MacOS
 
 We recommend using Python from :ref:`homebrew` on macOS, but if you need to use the Anaconda python that is also possible.  Both ASE and GPAW work with Anaconda python.
 
+
 Install Anaconda
 ================
 
-* We recommend installing the Python 3 version (but Python 2 should work, we have not tested it, however).
+* Install the Python 3 version.
 
 * We strongly recommend installing Anaconda for a single user.  The permission handling in Anaconda is broken on macOS, and a multi-user installation of Anaconda will break as soon as another user installs a package.
+
 
 Install Homebrew
 ================
@@ -23,7 +25,7 @@ Get the Xcode Command Line Tools with the command::
     $ xcode-select --install
 
 (if it fails, you may have to download Xcode from the App Store)
-    
+
 Install Homebrew::
 
     $ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
@@ -33,7 +35,7 @@ Install ASE and GPAW dependencies
 =================================
 
 ::
-   
+
     $ brew install libxc
     $ brew install open-mpi
     $ brew install fftw
@@ -52,7 +54,7 @@ Install and test ASE and GPAW
 =============================
 
 Install and test ASE::
-   
+
     $ pip install --upgrade --user ase
     $ python -m ase test
 
@@ -64,4 +66,4 @@ Install GPAW setups::
 
     $ gpaw --verbose install-data
 
-    
+

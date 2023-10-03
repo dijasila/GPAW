@@ -4,7 +4,7 @@
 newcell.crc.nd.edu
 ==================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://crcmedia.hpcc.nd.edu/wiki/index.php/Available_Hardware>`_.
 
 The installation of user's packages on newcell described below uses

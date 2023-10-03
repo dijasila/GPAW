@@ -4,7 +4,7 @@
 huygens.sara.nl  (IBM Power6, Infiniband, ESSL)
 ===============================================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://huygens.supercomputer.nl/description/>`_.
 
 One should not use the systems defaul python, but load the python module::
@@ -15,9 +15,9 @@ Now, numpy and ASE can be installed in the standard way::
 
  $ python setup.py install ...
 
-In order to use gcc for parallel compilation of GPAW, set the environment variable 
+In order to use gcc for parallel compilation of GPAW, set the environment variable
 MP_COMPILER::
- 
+
  $ export MP_COMPILER=gcc
 
 Use the following customize.py::

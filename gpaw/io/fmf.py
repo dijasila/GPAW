@@ -1,4 +1,4 @@
-import platform
+import os
 import time
 
 from gpaw import __version__
@@ -19,7 +19,7 @@ class FMF:
         self.estimate_creator(creator)
         self.title = title
         self.place = place
- 
+
     def header(self):
         ec = self.escape
         header = ec + '; -*- fmf version: 1.0 -*-\n'
@@ -38,12 +38,9 @@ class FMF:
             header += line + '\n'
 
         header += ec + 'gpaw-version: ' + __version__ + '\n'
-        try:
-            import socket
-            header += ec + 'hostname: ' + socket.gethostname() + '\n'
-        except:
-            pass
-        header += ec + 'architecture: ' + platform.uname()[4] + '\n'
+        u = os.uname()
+        header += ec + 'hostname: ' + u.nodename + '\n'
+        header += ec + 'architecture: ' + u.machine + '\n'
 
         return header
 
@@ -63,30 +60,4 @@ class FMF:
         return res
 
     def estimate_creator(self, creator=None):
-        if creator is not None:
-            self.creator = creator
-            return
-
-        try:
-            # get
-            import getpass
-            username = getpass.getuser()
-            
-            try:
-                import pwd
-                gecos = pwd.getpwnam(username).pw_gecos
-                hasalpha = False
-                for letter in gecos:
-                    if letter.isalpha():
-                        hasalpha = True
-                if hasalpha:
-                    creator = gecos
-                else:
-                    creator = username
-            except:
-                creator = username
-
-        except:
-            creator = 'unknown'
-
-        self.creator = creator
+        self.creator = creator or os.environ.get('USER', 'unknown')

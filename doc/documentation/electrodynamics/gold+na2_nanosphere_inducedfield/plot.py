@@ -1,13 +1,13 @@
-# Creates: cl_field.ind_Ffe.png, qm_field.ind_Ffe.png, tot_field.ind_Ffe.png
-# -*- coding: utf-8 -*-
+# web-page: cl_field.ind_Ffe.png, qm_field.ind_Ffe.png, tot_field.ind_Ffe.png
 from gpaw.mpi import world
-assert world.size == 1, 'This script should be run in serial mode (with one process).'
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.tddft.units import aufrequency_to_eV
+
+assert world.size == 1, 'This script should be run in serial mode.'
 
 
 # Helper function
@@ -38,6 +38,7 @@ def do_plot(d_g, ng, box, atoms):
     plt.ylim([y[0], y[-1]])
     ax.set_aspect('equal')
 
+
 for fname, name in zip(['cl_field.ind', 'qm_field.ind', 'tot_field.ind'],
                        ['Classical subsystem', 'Quantum subsystem',
                         'Total hybrid system']):
@@ -53,7 +54,7 @@ for fname, name in zip(['cl_field.ind', 'qm_field.ind', 'tot_field.ind'],
     atoms = ind.atoms                          # Atoms
 
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nField enhancement @ %.2f eV' % (name, freq))
+    plt.title(f'{name}\nField enhancement @ {freq:.2f} eV')
     plt.savefig(fname + '_Ffe.png', bbox_inches='tight')
 
     # Imaginary part of density
@@ -68,6 +69,5 @@ for fname, name in zip(['cl_field.ind', 'qm_field.ind', 'tot_field.ind'],
     d_g = ind.Fphi_wg[w].imag
     ng = d_g.shape
     do_plot(d_g, ng, box, atoms)
-    plt.title('%s\nImaginary part of induced potential @ %.2f eV' %
-              (name, freq))
+    plt.title(f'{name}\nImaginary part of induced potential @ {freq:.2f} eV')
     plt.savefig(fname + '_Fphi.png', bbox_inches='tight')

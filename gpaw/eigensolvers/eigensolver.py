@@ -2,10 +2,12 @@
 from functools import partial
 
 import numpy as np
+from ase.dft.bandgap import _bandgap
+from ase.units import Ha
 from ase.utils.timing import timer
 
 from gpaw.matrix import matrix_matrix_multiply as mmm
-from gpaw.utilities.blas import axpy
+from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
 
 
@@ -51,19 +53,65 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
-    def weights(self, kpt):
-        if self.nbands_converge == 'occupied':
-            if kpt.f_n is None:
-                weights = np.empty(self.bd.mynbands)
-                weights[:] = kpt.weight
-            else:
-                weights = kpt.f_n
-        else:
-            weights = np.zeros(self.bd.mynbands)
+    def weights(self, wfs):
+        """Calculate convergence weights for all eigenstates."""
+        weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
+
+        if isinstance(self.nbands_converge, int):
+            # Converge fixed number of bands:
             n = self.nbands_converge - self.bd.beg
             if n > 0:
-                weights[:n] = kpt.weight
-        return weights
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                    weight_n[:n] = kpt.weight
+        elif self.nbands_converge == 'occupied':
+            # Conveged occupied bands:
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                if kpt.f_n is None:  # no eigenvalues yet
+                    weight_n[:] = np.inf
+                else:
+                    # Methfessel-Paxton distribution can give negative
+                    # occupation numbers - so we take the absolute value:
+                    weight_n[:] = np.abs(kpt.f_n)
+        else:
+            # Converge state with energy up to CBM + delta:
+            assert self.nbands_converge.startswith('CBM+')
+            delta = float(self.nbands_converge[4:]) / Ha
+
+            if wfs.kpt_u[0].f_n is None:
+                weight_un[:] = np.inf  # no eigenvalues yet
+            else:
+                # Collect all eigenvalues and calculate band gap:
+                efermi = np.mean(wfs.fermi_levels)
+                eps_skn = np.array(
+                    [[wfs.collect_eigenvalues(k, spin) - efermi
+                      for k in range(wfs.kd.nibzkpts)]
+                     for spin in range(wfs.nspins)])
+                if wfs.world.rank > 0:
+                    eps_skn = np.empty((wfs.nspins,
+                                        wfs.kd.nibzkpts,
+                                        wfs.bd.nbands))
+                wfs.world.broadcast(eps_skn, 0)
+                try:
+                    # Find bandgap + positions of CBM:
+                    gap, _, (s, k, n) = _bandgap(eps_skn,
+                                                 spin=None, direct=False)
+                except ValueError:
+                    gap = 0.0
+
+                if gap == 0.0:
+                    cbm = efermi
+                else:
+                    cbm = efermi + eps_skn[s, k, n]
+
+                ecut = cbm + delta
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
+                    weight_n[kpt.eps_n < ecut] = kpt.weight
+
+                if (eps_skn[:, :, -1] < ecut - efermi).any():
+                    # We don't have enough bands!
+                    weight_un[:] = np.inf
+
+        return weight_un
 
     def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
@@ -78,11 +126,13 @@ class Eigensolver:
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
+        weight_un = self.weights(wfs)
+
         error = 0.0
-        for kpt in wfs.kpt_u:
+        for kpt, weights in zip(wfs.kpt_u, weight_un):
             if not wfs.orthonormalized:
                 wfs.orthonormalize(kpt)
-            e = self.iterate_one_k_point(ham, wfs, kpt)
+            e = self.iterate_one_k_point(ham, wfs, kpt, weights)
             error += e
             if self.orthonormalization_required:
                 wfs.orthonormalize(kpt)
@@ -100,8 +150,7 @@ class Eigensolver:
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
 
-        for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
-            axpy(-eps, psit_G, R_G)
+        multi_axpy(-eps_n, psit.array, R.array)
 
         ham.dH(P, out=C)
         for a, I1, I2 in P.indices:
@@ -143,7 +192,7 @@ class Eigensolver:
         psit = kpt.psit
         tmp = psit.new(buf=wfs.work_array)
         H = wfs.work_matrix_nn
-        P2 = kpt.P.new()
+        P2 = kpt.projections.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
@@ -151,24 +200,16 @@ class Eigensolver:
             # We calculate the complex conjugate of H, because
             # that is what is most efficient with BLAS given the layout of
             # our matrices.
-            #psit.apply(Ht, out=tmp)
-            #psit.matrix_elements(tmp, out=H,
-            #                     symmetric=True, cc=True)
             psit.matrix_elements(operator=Ht, result=tmp, out=H,
                                  symmetric=True, cc=True)
-            ham.dH(kpt.P, out=P2)
-            mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
+            ham.dH(kpt.projections, out=P2)
+            mmm(1.0, kpt.projections, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
             slcomm, r, c, b = wfs.scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            else:
-                ranks = [rbd * wfs.gd.comm.size + rgd
-                         for rgd in range(wfs.gd.comm.size)
-                         for rbd in range(wfs.bd.comm.size)]
-                slcomm = slcomm.new_communicator(ranks)
             # Complex conjugate before diagonalizing:
             eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
             # H.array[n, :] now contains the n'th eigenvector and eps_n[n]
@@ -181,8 +222,8 @@ class Eigensolver:
                 mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)
             mmm(1.0, H, 'N', psit, 'N', 0.0, tmp)
             psit[:] = tmp
-            mmm(1.0, H, 'N', kpt.P, 'N', 0.0, P2)
-            kpt.P.matrix = P2.matrix
+            mmm(1.0, H, 'N', kpt.projections, 'N', 0.0, P2)
+            kpt.projections.matrix = P2.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H.array.T)
 

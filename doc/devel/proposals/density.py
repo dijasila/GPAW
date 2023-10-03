@@ -1,3 +1,4 @@
+# flake8: noqa
 class Density:
     def __init__(self):
         self.gd = None

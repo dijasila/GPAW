@@ -1,9 +1,8 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Please see the accompanying LICENSE file for further information. */
 
-#include "bmgs.h"
-#include <pthread.h>
 #include "../extensions.h"
+#include "bmgs.h"
 
 #ifdef K
 struct RST1DA{
@@ -29,10 +28,10 @@ void *RST1DW(void *threadarg)
 
   for (int j = 0; j < m; j++)
     {
-      const T* aa = args->a + j * (args->n * 2 + K * 2 - 3);
+      const T* aa = args->a + j * args->n;
       T* bb = args->b + j;
 
-      for (int i = 0; i < args->n; i++)
+      for (int i = 0; i < (args->n - K * 2 + 3) / 2; i++)
         {
           if      (K == 2)
             bb[0] = 0.5 * (aa[0] +
@@ -148,9 +147,11 @@ void Z(bmgs_restrict)(int k, T* a, const int n[3], T* b, T* w)
     plg = Z(bmgs_restrict1D8);
 
   int e = k * 2 - 3;
-  plg(a, (n[2] - e) / 2, n[0] * n[1], w);
-  plg(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a);
-  plg(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b);
+  int nb[3] = {(n[0] - e) / 2, (n[1] - e) / 2, (n[2] - e) / 2};
+
+  plg(a, n[2], n[0] * n[1], w);
+  plg(w, n[1], n[0] * nb[2], a);
+  plg(a, n[0], nb[1] * nb[2], b);
 }
 
 #endif

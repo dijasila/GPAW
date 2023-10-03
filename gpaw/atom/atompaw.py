@@ -2,13 +2,13 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.atoms import Atoms
+from scipy.linalg import eigh
 
 from gpaw.calculator import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
-from gpaw.utilities.lapack import general_diagonalize
-from gpaw.occupations import OccupationNumbers
+from gpaw.occupations import OccupationNumberCalculator
 import gpaw.mpi as mpi
 
 
@@ -34,7 +34,7 @@ class AtomWaveFunctions(WaveFunctions):
 
     def initialize(self, density, hamiltonian, spos_ac):
         setup = self.setups[0]
-        bf = AtomBasisFunctions(self.gd, setup.phit_j)
+        bf = AtomBasisFunctions(self.gd, setup.basis_functions_J)
         density.initialize_from_atomic_densities(bf)
         hamiltonian.update(density)
         return 0, 0
@@ -61,7 +61,7 @@ class AtomPoissonSolver:
     def get_stencil(self):
         return 'Exact'
 
-    def solve(self, vHt_g, rhot_g, charge=0):
+    def solve(self, vHt_g, rhot_g, charge=0, timer=None):
         r = self.gd.r_g
         dp = rhot_g * r * self.gd.dr_g
         dq = dp * r
@@ -112,7 +112,7 @@ class AtomEigensolver:
         for kpt in wfs.kpt_u:
             kpt.eps_n = np.empty(wfs.bd.nbands)
             kpt.psit = AtomWaveFunctionsArray(self.gd.empty(wfs.bd.nbands))
-            kpt.P = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
+            kpt.projections = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
 
         self.initialized = True
 
@@ -143,12 +143,12 @@ class AtomEigensolver:
                                   np.outer(pt1 * r, pt2 * r))
                         i2 += 2 * l2 + 1
                     i1 += 2 * l1 + 1
-                general_diagonalize(H, e_n, self.S_l[l].copy())
+                e_n, H = eigh(H, self.S_l[l].copy())
 
                 for n in range(len(self.f_sln[s][l])):
                     N2 = N1 + 2 * l + 1
                     kpt.eps_n[N1:N2] = e_n[n]
-                    kpt.psit_nG[N1:N2] = H[n] / r / sqrt(h)
+                    kpt.psit_nG[N1:N2] = H[:, n] / r / sqrt(h)
                     i1 = 0
                     for pt, ll in zip(self.pt_j, setup.l_j):
                         i2 = i1 + 2 * ll + 1
@@ -167,7 +167,7 @@ class AtomLocalizedFunctionsCollection:
         self.nfunctions = sum(2 * spline.get_angular_momentum_number() + 1
                               for spline in spline_aj[0])
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         pass
 
     def add(self, a_xG, c_axi=1.0, q=-1):
@@ -188,13 +188,14 @@ class AtomLocalizedFunctionsCollection:
 
 
 class AtomBasisFunctions:
-    def __init__(self, gd, phit_j):
+    def __init__(self, gd, bfs_J):
         self.gd = gd
-        self.bl_j = []
+        self.bl_J = []
         self.Mmax = 0
-        for phit in phit_j:
-            l = phit.get_angular_momentum_number()
-            self.bl_j.append((np.array([phit(x) * x**l for x in gd.r_g]), l))
+
+        for bf in bfs_J:
+            l = bf.get_angular_momentum_number()
+            self.bl_J.append((np.array([bf(x) * x**l for x in gd.r_g]), l))
             self.Mmax += 2 * l + 1
         self.atom_indices = [0]
         self.my_atom_indices = [0]
@@ -204,7 +205,7 @@ class AtomBasisFunctions:
 
     def add_to_density(self, nt_sG, f_asi):
         i = 0
-        for b_g, l in self.bl_j:
+        for b_g, l in self.bl_J:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
 
@@ -259,29 +260,28 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         return (0, 0, 0)
 
 
-class AtomOccupations(OccupationNumbers):
+class AtomOccupations(OccupationNumberCalculator):
+    extrapolate_factor = 0.0
+
     def __init__(self, f_sln):
         self.f_sln = f_sln
-        OccupationNumbers.__init__(self, None)
-        self.width = 0
+        OccupationNumberCalculator.__init__(self)
 
-    def calculate_occupation_numbers(self, wfs):
-        for s in range(wfs.nspins):
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess):
+        for s, f_n in enumerate(f_qn):
             n1 = 0
-            for l, f_n in enumerate(self.f_sln[s]):
-                for f in f_n:
+            for l, f0_n in enumerate(self.f_sln[s]):
+                for f in f0_n:
                     n2 = n1 + 2 * l + 1
-                    wfs.kpt_u[s].f_n[n1:n2] = f / float(2 * l + 1)
+                    f_n[n1:n2] = f / (2 * l + 1) / 2
                     n1 = n2
-        if wfs.nspins == 2:
-            self.magmom = wfs.kpt_u[0].f_n.sum() - wfs.kpt_u[1].f_n.sum()
-        self.e_entropy = 0.0
 
-    def get_fermi_level(self):
-        raise ValueError
-
-    def summary(self, log):
-        log('Occupation numbers:', self.f_sln)
+        return np.inf, 0.0
 
 
 class AtomPAW(GPAW):
@@ -313,7 +313,7 @@ class AtomPAW(GPAW):
         """Yield the tuples (l, n, f, eps, psit_G) of states.
 
         Skips degenerate states."""
-        f_sln = self.occupations.f_sln
+        f_sln = self.wfs.occupations.f_sln
         assert len(f_sln) == 1, 'Not yet implemented with more spins'
         f_ln = f_sln[0]
         kpt = self.wfs.kpt_u[0]
@@ -340,16 +340,16 @@ class AtomPAW(GPAW):
 
         bf_j = basis.bf_j
         for l, n, f, eps, psit_G in self.state_iter():
-            phit_g = rgd.empty()
-            phit_g[0] = 0.0
-            phit_g[1:] = psit_G
-            phit_g *= np.sign(psit_G[-1])
+            bf_g = rgd.empty()
+            bf_g[0] = 0.0
+            bf_g[1:] = psit_G
+            bf_g *= np.sign(psit_G[-1])
 
-            # If there's no node at zero, we shouldn't set phit_g to zero
+            # If there's no node at zero, we shouldn't set bf_g to zero
             # We'll make an ugly hack
-            if abs(phit_g[1]) > 3.0 * abs(phit_g[2] - phit_g[1]):
-                phit_g[0] = phit_g[1]
-            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], phit_g,
+            if abs(bf_g[1]) > 3.0 * abs(bf_g[2] - bf_g[1]):
+                bf_g[0] = bf_g[1]
+            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], bf_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis

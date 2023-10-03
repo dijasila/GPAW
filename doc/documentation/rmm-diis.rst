@@ -1,8 +1,8 @@
 .. _RMM-DIIS:
 
-================================
-The residual minimization method
-================================
+============================
+Residual minimization method
+============================
 
 Algorithm
 ---------

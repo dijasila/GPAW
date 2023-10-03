@@ -20,4 +20,10 @@ New release
 
 * Increase the version number and push.
 
-* Send announcement email to the ``gpaw-users`` mailing list.
+* Send announcement email to the ``gpaw-users`` mailing list::
+
+    $ git shortlog -s -n 23.9.1.. | python3 -c "
+    import sys
+    names = [line.split(maxsplit=1)[1].strip() for line in sys.stdin]
+    for name in sorted(names):
+        print('*', name)"

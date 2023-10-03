@@ -1,9 +1,8 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [task('PES_CO.py@8:1h'),
-            task('PES_H2O.py@8:1h'),
-            task('PES_NH3.py@8:55m'),
-            task('PES_plot.py@1:5m',
-                deps='PES_CO.py,PES_H2O.py,PES_NH3.py')]
+def workflow():
+    runs = [run(script='PES_CO.py', cores=8, tmax='1h'),
+            run(script='PES_H2O.py', cores=8, tmax='1h'),
+            run(script='PES_NH3.py', cores=8, tmax='55m')]
+    run(script='PES_plot.py', deps=runs)

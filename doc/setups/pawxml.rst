@@ -127,11 +127,11 @@ The ``type`` attribute can be ``LDA``, ``GGA``, ``MGGA`` or ``HYB``.
 
 The ``name`` attribute designates the exchange-correlation functional and
 can be specified in the following ways:
- 
+
 - Taking the names from the LibXC_ library. The correlation and exchange names are stripped
   from their ``XC_`` part and combined with a ``+``-sign.  Here is an
   example for an LDA functional::
-    
+
   <xc_functional type="LDA", name="LDA_X+LDA_C_PW"/>
 
   and this is what PBE will look like::
@@ -154,7 +154,7 @@ can be specified in the following ways:
   =========  ==========  ===============================  ===================================================================
 
   Examples::
-  
+
     <xc_functional type="LDA", name="PW"/>
 
   ::
@@ -247,7 +247,7 @@ Example::
       0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1
     </derivatives>
   </radial_grid>
-    
+
 This defines one radial grid as `r_i = di` where `i` runs from 0 to 9.  Inside the ``<radial_grid>`` element we have the
 10 values of `r_i` followed by the 10 values of the derivatives
 `dr_i/di`.
@@ -331,7 +331,7 @@ shape function:
 ==========  ===================  =========================================
 
 Example::
-    
+
     <shape_function type="gauss" rc="3.478505426185e-01">
 
 Another formulation [#Kre99]_ defines directly `g_\ell(r)`:
@@ -347,9 +347,9 @@ For ``bessel`` the four parameters (`\alpha_1^\ell`, `q_1^\ell`,
 value of `\ell` as described in [#Kre99]_.
 
 Example::
-    
+
     <shape_function type="bessel" rc="3.478505426185e-01">
- 
+
 
 There is also a more general formulation where `\hat{Q}^{\ell}_{i j}(r)` is given in
 a numerical form. Several *shape functions* can be set (with the ``<shape_function>`` tag),
@@ -359,7 +359,7 @@ See for instance section II.C of [#Laa93]_.
 
 Example 1, defining numerically `g_\ell(r)`
 in `\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
-    
+
     <shape_function type="numeric" l=0 grid="g1">
         ... ... ...
     </shape_function>
@@ -367,7 +367,7 @@ in `\hat{Q}^{\ell}_{i j}(r)=Q^{\ell}_{i j} g_\ell(r)`::
 
 Example 2, defining directly `\hat{Q}^{\ell}_{i j}(r)`
 for states *i=* ``N-2s`` and *j=* ``N-2p``, and *l=0*::
-    
+
     <shape_function type="numeric" l=0 state1="N-2s" state2="N-2p" grid="g1">
         ... ... ...
     </shape_function>
@@ -398,7 +398,7 @@ The radial part must be multiplied by `Y_{00} = (4\pi)^{-1/2}` to get the full d
 (`Y_{00}n_c(\mathbf{r})` should integrate to the number of core electrons).
 The *pseudo core density* and the *pseudo valence* density are defined similarly and also
 have a ``rc`` attribute specifying the matching radius.
- 
+
 
 The ``ae_partial_wave``, ``pseudo_partial_wave`` and
 ``projector_function`` elements contain the radial parts of the
@@ -437,7 +437,7 @@ The zero potential, `\bar{v}` (see section VI.D of [#Blo94]_) is defined similar
 densities; the radial part must be multiplied by `Y_{00} = (4\pi)^{-1/2}` to get the full
 potential. The ``zero_potential`` element has a ``rc`` attribute specifying the cut-off
 radius of `\bar{v}(\mathbf{r})`::
- 
+
   <zero_potential rc="1.1" grid="g1">
      ...
   </zero_potential>
@@ -447,7 +447,7 @@ radius of `\bar{v}(\mathbf{r})`::
 The Kresse-Joubert formulation
 ------------------------------
 
-The Kresse-Joubert formulation of the PAW method\ [#Kre99]_ is very
+The Kresse-Joubert formulation of the PAW method\ [#Kre99]_ is
 similar to the original formulation of Blöchl\ [#Blo94]_.
 However, the Kresse-Joubert formulation does not use `\bar{v}`
 directly, but indirectly through the local ionic pseudopotential,
@@ -524,7 +524,7 @@ Meta-GGA
 Datasets for use with MGGA functionals must also include information on the
 *core kinetic energy density* and *pseudo core kinetic energy density* ;
 the latters are defined with these two elements::
-    
+
     <ae_core_kinetic_energy_density grid="g1">
       ... ... ...
     </ae_core_kinetic_energy_density>
@@ -546,7 +546,7 @@ The core-core contribution to the exact exchange energy
 PAW-correction matrix `X_{ij}^{\text{core-valence}}` are given as:
 
 .. math::
-    
+
     X^{\text{core-core}} = -\frac{1}{4}\sum_{cc'} \iint d\mathbf{r} d\mathbf{r}'
     \frac{\phi_c(\mathbf{r})\phi_{c'}(\mathbf{r}) \phi_c(\mathbf{r}')\phi_{c'}(\mathbf{r}')}
     {|\mathbf{r}-\mathbf{r}'|}
@@ -578,11 +578,11 @@ integrals times **3-j** symbols according to:
 `X^{\text{core-core}}` can be specified in the ``core`` attribute of the
 ``<exact_exchange>`` element.
 
- 
+
 With `n_{waves}` valence states (see `n_{waves}` `definition`__),
 `X_{ij}^{\text{core-valence}}` is a `n_{waves} \times n_{waves}` matrix.
 It can be specified as `n_{waves}^2` numbers inside the ``<exact_exchange>`` element::
-    
+
     <exact_exchange core="...">
       ... ... ...
     </exact_exchange>
@@ -601,7 +601,7 @@ Optional elements
 Although not necessary, it may be helpful to provide the following item(s) in the dataset:
 
  - Radius of the PAW augmentation region ``paw_radius``
-   
+
    This radius defines the region (around the atom) outside which all pseudo quantities
    are equal to the all-electron ones.
    It is equal to the maximum of all the cut-off and matching radii.

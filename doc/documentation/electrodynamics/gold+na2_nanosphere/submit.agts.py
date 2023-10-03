@@ -1,8 +1,7 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    return [
-        task('calculate.py@8:1h'),
-        task('plot_geom.py', deps='calculate.py'),
-        task('plot.py', deps='calculate.py')]
+def workflow():
+    with run(script='calculate.py', cores=8, tmax='1h'):
+        run(script='plot_geom.py')
+        run(script='plot.py')

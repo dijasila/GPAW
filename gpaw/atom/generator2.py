@@ -1,22 +1,23 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
 import sys
-from math import pi, exp, sqrt, log
-from distutils.version import LooseVersion
+from functools import partial
+from math import exp, log, pi, sqrt
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-from scipy.optimize import fsolve
-from scipy import __version__ as scipy_version
-from ase.units import Hartree
-from ase.data import atomic_numbers
-
+from ase.data import atomic_numbers, chemical_symbols
+from ase.units import Ha
 from gpaw import __version__ as version
+from gpaw.atom.aeatom import (AllElectronAtom, Channel, GaussianBasis, colors,
+                              parse_ld_str)
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
-from gpaw.utilities import erf, pack2
-from gpaw.utilities.lapack import general_diagonalize
-from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
-                              GaussianBasis)
+from gpaw.typing import Array2D
+from gpaw.utilities import pack2
+from gpaw.xc.ri.ribasis import generate_ri_basis
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from scipy.linalg import eigh
+from scipy.optimize import fsolve
+from scipy.special import erf
 
 
 class DatasetGenerationError(Exception):
@@ -235,7 +236,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv, vtr_g, vr_g, rcmax):
+    def pseudize(self, pseudizer, vtr_g, vr_g, rcmax, ecut):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -252,13 +253,9 @@ class PAWWaves:
 
         self.nt_g = rgd.zeros()
         for n, phi_g in enumerate(phi_ng):
-            if type == 'poly':
-                phit_ng[n], c0 = rgd.pseudize(phi_g, gc, self.l, nderiv)
-            elif type == 'nc':
-                phit_ng[n], c0 = rgd.pseudize_normalized(phi_g, gc, self.l,
-                                                         nderiv)
-            else:
-                1 / 0
+            phit_ng[n], c0 = pseudizer(phi_g, gc, self.l,
+                                       divergent=self.n_n[n] <= 0,
+                                       ecut=ecut)
             a_g, dadg_g, d2adg2_g = rgd.zeros(3)
             a_g[1:] = self.phit_ng[n, 1:] / r_g[1:]**l
             a_g[0] = c0
@@ -305,34 +302,46 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None):
+                 fd=None,
+                 yukawa_gamma=0.0,
+                 ecut: float = None,
+                 omega=None):
         """fd: stream
-            Text output."""
+            Text output.
+
+           yukawa_gamma: separation parameter for RSF"""
 
         self.aea = aea
 
         self.fd = fd or sys.stdout
+        self.yukawa_gamma = yukawa_gamma
+        self.exxcc_w: dict[float, float] = {}
+        self.exxcv_wii: dict[float, Array2D] = {}
+        self.omega = omega
+        self.ecut = ecut
 
+        self.core_hole: Optional[Tuple[int, int, float]]
         if core_hole:
             state, occ = core_hole.split(',')
-            n = int(state[0])
-            l = 'spdf'.find(state[1])
-            occ = float(occ)
-            aea.add(n, l, -occ)
-            self.core_hole = (n, l, occ)
+            n0 = int(state[0])
+            l0 = 'spdf'.find(state[1])
+            occ0 = float(occ)
+            aea.add(n0, l0, -occ0)
+            self.core_hole = (n0, l0, occ0)
         else:
             self.core_hole = None
 
+        self.l0: Optional[int] = None
         if projectors[-1].isupper():
+            assert projectors[-2] == ',', projectors
             self.l0 = 'SPDFG'.find(projectors[-1])
             projectors = projectors[:-2]
-        else:
-            self.l0 = None
 
         self.lmax = -1
-        self.states = {}
+        self.states: Dict[int, List[Union[None, int, float]]] = {}
         for s in projectors.split(','):
             l = 'spdf'.find(s[-1])
+            n: Union[None, int, float]
             if len(s) == 1:
                 n = None
             elif '.' in s:
@@ -360,6 +369,15 @@ class PAWSetupGenerator:
 
         self.rgd = aea.rgd
 
+        def pseudize(a_g, gc, l=0, points=4, ecut=None, divergent=False):
+            if ecut is None or divergent:
+                return self.rgd.pseudize(a_g, gc, l, points)
+            Gcut = (2 * ecut)**0.5
+            return self.rgd.pseudize_smooth(a_g, gc, l, points,
+                                            Gcut=Gcut)
+
+        self.pseudizer = pseudize
+
         self.vtr_g = None
 
         self.basis = None
@@ -382,14 +400,19 @@ class PAWSetupGenerator:
                 return 1 - erf(sqrt(x)) + 2 * sqrt(x / pi) * exp(-x)
 
             def f(alpha):
-                return log(spillage(alpha)) - log(eps)
+                return log(spillage(alpha[0])) - log(eps)
 
-            if LooseVersion(scipy_version) < '0.8':
-                self.alpha = fsolve(f, 7.0)
-            else:
-                self.alpha = fsolve(f, 7.0)[0]
+            self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
+        elif alpha < 0:
+            rc = min(rc)
+            self.log('Shape function: (sin(pi*r/rc)/r)^2, rc={rc:.2f} Bohr'
+                     .format(rc=rc))
+            self.ghat_g = np.sinc(self.rgd.r_g / rc)**2 * (pi / 2 / rc**3)
+            self.ghat_g[self.rgd.ceil(rc):] = 0.0
+            self.alpha = -rc
+            return
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -424,18 +447,22 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
-    def find_local_potential(self, r0, P):
+    def find_local_potential(self, r0, P, dv0=None):
         self.r0 = r0
         self.nderiv0 = P
         if self.l0 is None:
-            self.find_polynomial_potential(r0, P)
+            self.find_polynomial_potential(r0, P, dv0)
         else:
             self.match_local_potential(r0, P)
 
-    def find_polynomial_potential(self, r0, P):
+    def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
-        self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        self.vtr_g = self.pseudizer(self.aea.vr_sg[0], g0, 1, P)[0]
+        if dv0:
+            x = self.rgd.r_g[:g0] / r0
+            dv_g = dv0 * (1 - 2 * x**2 + x**4)
+            self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -453,8 +480,7 @@ class PAWSetupGenerator:
                                   self.aea.scalar_relativistic, self.aea.Z)[1]
         phi_g[1:gc] /= self.rgd.r_g[1:gc]
         phi_g[0] = a
-
-        phit_g, c = self.rgd.pseudize(phi_g, g0, l=l0, points=P)
+        phit_g, c = self.pseudizer(phi_g, g0, l=l0, points=P, divergent=True)
 
         dgdr_g = 1 / self.rgd.dr_g
         d2gdr2_g = self.rgd.d2gdr2()
@@ -524,9 +550,14 @@ class PAWSetupGenerator:
         self.Q = -self.aea.Z + self.ncore
 
         self.nt_g = self.rgd.zeros()
+        if type == 'poly':
+            pseudizer = partial(self.pseudizer, points=nderiv)
+        elif type == 'nc':
+            def pseudizer(a_g, gc, l=0, ecut=None, divergent=False):
+                return self.rgd.pseudize_normalized(a_g, gc, l, points=nderiv)
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
-                           2.0 * self.rcmax)
+            waves.pseudize(pseudizer, self.vtr_g, self.aea.vr_sg[0],
+                           2.0 * self.rcmax, ecut=self.ecut)
             self.nt_g += waves.nt_g
             self.Q += waves.Q
 
@@ -556,25 +587,25 @@ class PAWSetupGenerator:
 
             rcore *= 1.2
             gcore = self.rgd.round(rcore)
-            self.nct_g = self.rgd.pseudize(self.nc_g, gcore)[0]
+            self.nct_g = self.pseudizer(self.nc_g, gcore)[0]
             nt_g = self.nt_g + self.nct_g
 
             self.log('Constructing smooth pseudo core density for r < %.3f' %
                      rcore)
             self.nt_g = nt_g
 
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
         else:
             rcore *= -1
             gcore = self.rgd.round(rcore)
-            nt_g = self.rgd.pseudize(self.aea.n_sg[0], gcore)[0]
+            nt_g = self.pseudizer(self.aea.n_sg[0], gcore)[0]
             self.nct_g = nt_g - self.nt_g
             self.nt_g = nt_g
 
             self.log('Constructing NLCC-style smooth pseudo core density for '
                      'r < %.3f' % rcore)
 
-            self.tauct_g = self.rgd.pseudize(self.tauc_g, gcore)[0]
+            self.tauct_g = self.pseudizer(self.tauc_g, gcore)[0]
 
         self.npseudocore = self.rgd.integrate(self.nct_g)
         self.log('Pseudo core electrons: %.6f' % self.npseudocore)
@@ -602,11 +633,11 @@ class PAWSetupGenerator:
                                    waves.dS_nn.diagonal()):
                 if n == -1:
                     self.log('  %s         %10.6f %10.5f   %19.2f' %
-                             ('spdf'[l], e, e * Hartree, waves.rcut))
+                             ('spdf'[l], e, e * Ha, waves.rcut))
                 else:
                     self.log(
                         ' %d%s   %5.2f %10.6f %10.5f      %5.3f  %9.2f' %
-                        (n, 'spdf'[l], f, e, e * Hartree, 1 - ds,
+                        (n, 'spdf'[l], f, e, e * Ha, 1 - ds,
                          waves.rcut))
         self.log()
 
@@ -643,12 +674,12 @@ class PAWSetupGenerator:
                         self.log('%2d%s  %2d' % (n, 'spdf'[l], f), end='')
                     else:
                         self.log('       ', end='')
-                    self.log('  %15.3f' % (e0_b[n - 1 - l] * Hartree), end='')
+                    self.log('  %15.3f' % (e0_b[n - 1 - l] * Ha), end='')
                     if n - 1 - l - n0 >= 0:
                         self.log('%15.3f' * 2 %
-                                 (e_b[n - 1 - l - n0] * Hartree,
+                                 (e_b[n - 1 - l - n0] * Ha,
                                   (e_b[n - 1 - l - n0] - e0_b[n - 1 - l]) *
-                                  Hartree))
+                                  Ha))
                     else:
                         self.log()
 
@@ -695,8 +726,7 @@ class PAWSetupGenerator:
                 H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                 S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
 
-        e_b = np.empty(len(basis))
-        general_diagonalize(H_bb, e_b, S_bb)
+        e_b, _ = eigh(H_bb, S_bb)
         return e_b
 
     def test_convergence(self):
@@ -719,13 +749,13 @@ class PAWSetupGenerator:
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
-        import pylab as p
+        import matplotlib.pyplot as plt
 
-        errors = 10.0**np.arange(-4, 0) / Hartree
+        errors = 10.0**np.arange(-4, 0) / Ha
         self.log('\nConvergence of energy:')
         self.log('plane-wave cutoff (wave-length) [ev (Bohr)]\n  ', end='')
         for de in errors:
-            self.log('%14.4f' % (de * Hartree), end='')
+            self.log('%14.4f' % (de * Ha), end='')
         for label, e_k, e0 in [
             ('e-e', eee_k, eee),
             ('c-c', ecc_k, ecc),
@@ -741,14 +771,14 @@ class PAWSetupGenerator:
                 G = k * G_k[1]
                 ecut = 0.5 * G**2
                 h = pi / G
-                self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+                self.log(' %6.1f (%4.2f)' % (ecut * Ha, h), end='')
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Ha, label=label)
         self.log()
-        p.axis(xmax=20)
-        p.xlabel('G')
-        p.ylabel('[eV]')
-        p.legend()
-        p.show()
+        plt.axis(xmax=20)
+        plt.xlabel('G')
+        plt.ylabel('[eV]')
+        plt.legend()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -801,9 +831,11 @@ class PAWSetupGenerator:
         plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
-    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
+    def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16,
+                         tag=None, ri=None):
         rgd = self.rgd
-        self.basis = Basis(self.aea.symbol, 'dzp', readxml=False, rgd=rgd)
+        name = 'dzp' if not tag else f'{tag}.dzp'
+        self.basis = Basis(self.aea.symbol, name, readxml=False, rgd=rgd)
 
         # We print text to sdtout and put it in the basis-set file
         txt = 'Basis functions:\n'
@@ -823,7 +855,7 @@ class PAWSetupGenerator:
                     txt += '%d%s bound state:\n' % (n, 'spdf'[l])
                     txt += ('  cutoff: %.3f to %.3f Bohr (tail-norm=%f)\n' %
                             (ronset, rc, tn))
-                    txt += '  eigenvalue shift: %.3f eV\n' % (de * Hartree)
+                    txt += '  eigenvalue shift: %.3f eV\n' % (de * Ha)
 
         # Split valence:
         for l, waves in enumerate(self.waves_l):
@@ -851,7 +883,7 @@ class PAWSetupGenerator:
             gc = (norm - n_g > splitnorm * norm).sum()
             rc = rgd.r_g[gc]
 
-            phit2_g = rgd.pseudize(phit_g, gc, l, 2)[0]  # "split valence"
+            phit2_g = self.pseudizer(phit_g, gc, l, 2)[0]  # "split valence"
             bf = BasisFunction(n, l, rc, phit_g - phit2_g, 'split valence')
             self.basis.append(bf)
 
@@ -859,19 +891,21 @@ class PAWSetupGenerator:
             txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
 
         # Polarization:
-        gcpol = rgd.round(rcpol)
-        alpha = 1 / (0.25 * rcpol)**2
+        if lpol < 4:
+            gcpol = rgd.round(rcpol)
+            alpha = 1 / (0.25 * rcpol)**2
 
-        # Gaussian that is continuous and has a continuous derivative at rcpol:
-        phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
-        phit_g -= rgd.pseudize(phit_g, gcpol, lpol, 2)[0]
-        phit_g[gcpol:] = 0.0
+            # Gaussian that is continuous and has a continuous
+            # derivative at rcpol:
+            phit_g = np.exp(-alpha * rgd.r_g**2) * rgd.r_g**lpol
+            phit_g -= self.pseudizer(phit_g, gcpol, lpol, 2)[0]
+            phit_g[gcpol:] = 0.0
 
-        bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
-        self.basis.append(bf)
-        txt += 'l=%d polarization functions:\n' % lpol
-        txt += '  cutoff: %.3f Bohr (r^%d exp(-%.3f*r^2))\n' % (rcpol, lpol,
-                                                                alpha)
+            bf = BasisFunction(None, lpol, rcpol, phit_g, 'polarization')
+            self.basis.append(bf)
+            txt += f'l={lpol} polarization functions:\n'
+            txt += f'  cutoff: {rcpol:.3f} Bohr '
+            txt += f'(r^{lpol} exp(-{alpha:.3f}*r^2))\n'
 
         self.log(txt)
 
@@ -880,7 +914,9 @@ class PAWSetupGenerator:
         self.basis.generatorattrs.update(dict(tailnorm=tailnorm,
                                               scale=scale,
                                               splitnorm=splitnorm))
-        self.basis.name = '%de.dzp' % self.nvalence
+
+        if ri:
+            generate_ri_basis(self.basis, ri)
 
         return self.basis
 
@@ -1061,6 +1097,9 @@ class PAWSetupGenerator:
         setup.vbar_g = self.v0r_g * sqrt(4 * pi)
         setup.vbar_g[1:] /= self.rgd.r_g[1:]
         setup.vbar_g[0] = setup.vbar_g[1]
+        setup.vt_g = self.vtr_g * sqrt(4 * pi)
+        setup.vt_g[1:] /= self.rgd.r_g[1:]
+        setup.vt_g[0] = setup.vt_g[1]
         setup.Z = aea.Z
         setup.Nc = self.ncore
         setup.Nv = self.nvalence
@@ -1069,11 +1108,23 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.rcgauss = 1 / sqrt(self.alpha)
+        if self.alpha > 0:
+            setup.shape_function = {'type': 'gauss',
+                                    'rc': 1 / sqrt(self.alpha)}
+        else:
+            setup.shape_function = {'type': 'sinc',
+                                    'rc': -self.alpha}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
+        setup.ExxC_w = self.exxcc_w  # erfc screened core contributions
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
+        setup.X_wp = {omega: pack2(self.exxcv_wii[omega][I][:, I])
+                      for omega in self.exxcv_wii}
+
+        if self.yukawa_gamma > 0.0:
+            self.calculate_yukawa_integrals()
+            setup.X_pg = pack2(self.exxgcv_ii[I][:, I])
 
         setup.tauc_g = self.tauc_g * (4 * pi)**0.5
         setup.tauct_g = self.tauct_g * (4 * pi)**0.5
@@ -1083,9 +1134,10 @@ class PAWSetupGenerator:
         else:
             reltype = 'non-relativistic'
         attrs = [('type', reltype),
-                 ('version', 2),
+                 ('version', 3),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
+        setup.version = '0.7'
 
         setup.l0 = self.l0
         setup.e0 = 0.0
@@ -1102,10 +1154,14 @@ class PAWSetupGenerator:
             setup.fcorehole = occ
             setup.phicorehole_g = phi_g
             setup.has_corehole = True
-
+            ch = self.aea.channels[l]
+            eig = ch.e_n[n - 1 - l]
+            setup.core_hole_e = eig
+            setup.core_hole_e_kin = eig - self.rgd.integrate(
+                ch.calculate_density(n - 1 - l) * self.aea.vr_sg[0], -1)
         return setup
 
-    def calculate_exx_integrals(self):
+    def find_core_states(self):
         # Find core states:
         core = []
         lmax = 0
@@ -1121,8 +1177,12 @@ class PAWSetupGenerator:
         lmax = max(lmax, len(self.waves_l) - 1)
         G_LLL = gaunt(lmax)
 
-        # Calculate core contribution to EXX energy:
-        self.exxcc = 0.0
+        return lmax, core, G_LLL
+
+    def core_core_exchange(self, interaction):
+        # Calculate core contribution to EXX energy per interaction kernel
+        (lmax, core, G_LLL) = self.find_core_states()
+        E = 0.0
         j1 = 0
         for l1, phi1_g in core:
             f = 1.0
@@ -1132,19 +1192,48 @@ class PAWSetupGenerator:
                     G = (G_LLL[l1**2:(l1 + 1)**2,
                                l2**2:(l2 + 1)**2,
                                l**2:(l + 1)**2]**2).sum()
-                    vr_g = self.rgd.poisson(n_g, l)
+                    vr_g = interaction(n_g, l)
                     e = f * self.rgd.integrate(vr_g * n_g, -1) / 4 / pi
-                    self.exxcc -= e * G
+                    E -= e * G
                 f = 2.0
             j1 += 1
+        return E
 
-        self.log('EXX (core-core):', self.exxcc, 'Hartree')
+    def calculate_exx_integrals(self):
 
         # Calculate core-valence contribution to EXX energy:
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxcv_ii = np.zeros((ni, ni))
+        self.exxcc = self.core_core_exchange(self.rgd.poisson)
+        self.log('EXX (core-core):', self.exxcc, 'Hartree')
+
+        if self.omega is not None:
+            hse = RadialHSE(self.rgd, self.omega)
+
+            self.exxcc_w = {self.omega:
+                            self.core_core_exchange(hse.screened_coulomb)}
+            self.log(f'EXX omega={self.omega} (core-core):',
+                     self.exxcc_w[self.omega], 'Hartree')
+
+            X_ii = self.calculate_exx_cv_integrals(ni, hse.screened_coulomb)
+            self.exxcv_wii = {self.omega: X_ii}
+
+        self.exxcv_ii = self.calculate_exx_cv_integrals(ni, self.rgd.poisson)
+
+    def calculate_yukawa_integrals(self):
+        """Wrapper to calculate the rsf core-valence contribution."""
+        ni = sum(len(waves) * (2 * l + 1)
+                 for l, waves in enumerate(self.waves_l))
+
+        def interaction(n_g, l):
+            return self.rgd.yukawa(n_g, l, self.yukawa_gamma)
+
+        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni, interaction)
+
+    def calculate_exx_cv_integrals(self, ni, interaction):
+        (lmax, core, G_LLL) = self.find_core_states()
+        cv_ii = np.zeros((ni, ni))
 
         i1 = 0
         for l1, waves1 in enumerate(self.waves_l):
@@ -1152,14 +1241,15 @@ class PAWSetupGenerator:
                 i2 = 0
                 for l2, waves2 in enumerate(self.waves_l):
                     for phi2_g in waves2.phi_ng:
-                        X_mm = self.exxcv_ii[i1:i1 + 2 * l1 + 1,
-                                             i2:i2 + 2 * l2 + 1]
+                        X_mm = cv_ii[i1:i1 + 2 * l1 + 1,
+                                     i2:i2 + 2 * l2 + 1]
                         if (l1 + l2) % 2 == 0:
                             for lc, phi_g in core:
                                 n_g = phi1_g * phi_g
                                 for l in range((l1 + lc) % 2,
                                                max(l1, l2) + lc + 1, 2):
-                                    vr_g = self.rgd.poisson(phi2_g * phi_g, l)
+                                    n2c = phi2_g * phi_g
+                                    vr_g = interaction(n2c, l)
                                     e = (self.rgd.integrate(vr_g * n_g, -1) /
                                          (4 * pi))
                                     for mc in range(2 * lc + 1):
@@ -1172,14 +1262,19 @@ class PAWSetupGenerator:
                                                 G_L[l2**2:(l2 + 1)**2]) * e
                         i2 += 2 * l2 + 1
                 i1 += 2 * l1 + 1
+        return cv_ii
 
 
 def get_parameters(symbol, args):
+    Z = atomic_numbers.get(symbol)
+    if Z is None:
+        Z = float(symbol)
+        symbol = chemical_symbols[int(round(Z))]
+
     if args.electrons:
         par = parameters[symbol + str(args.electrons)]
     else:
-        Z = atomic_numbers[symbol]
-        par = parameters[symbol + str(default[Z])]
+        par = parameters[symbol + str(default[int(round(Z))])]
 
     projectors, radii = par[:2]
     if len(par) == 3:
@@ -1228,30 +1323,52 @@ def get_parameters(symbol, args):
         rcore *= -1
 
     return dict(symbol=symbol,
+                Z=Z,
                 xc=args.xc_functional,
                 configuration=configuration,
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=args.scalar_relativistic, alpha=args.alpha,
-                r0=r0, nderiv0=nderiv0,
+                r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output)
+                output=args.output,
+                yukawa_gamma=args.gamma,
+                ecut=args.ecut,
+                omega=args.omega)
 
 
-def _generate(symbol, xc, configuration, projectors, radii,
-              scalar_relativistic, alpha,
-              r0, nderiv0,
-              pseudize, rcore, core_hole, output):
+def generate(symbol,
+             Z,
+             projectors,
+             radii,
+             r0, v0,
+             nderiv0,
+             xc='LDA',
+             scalar_relativistic=False,
+             pseudize=('poly', 4),
+             configuration=None,
+             alpha=None,
+             rcore=None,
+             core_hole=None,
+             *,
+             output=None,
+             yukawa_gamma=0.0,
+             ecut=None,
+             omega=None):
     if isinstance(output, str):
         output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
+    aea = AllElectronAtom(symbol, xc, Z=Z,
+                          configuration=configuration)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            fd=output)
+                            fd=output,
+                            yukawa_gamma=yukawa_gamma,
+                            ecut=ecut,
+                            omega=omega)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.find_local_potential(r0, nderiv0)
+    gen.find_local_potential(r0, nderiv0, v0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors(rcore)
@@ -1279,7 +1396,7 @@ def generate_all():
 
 
 class CLICommand:
-    short_description = 'Create PAW dataset'
+    """Create PAW dataset."""
 
     @staticmethod
     def add_arguments(parser):
@@ -1297,7 +1414,7 @@ class CLICommand:
             '(integer) or energy (floating point number). ' +
             'Example: 2s,0.5s,2p,0.5p,0.0d.')
         add('-r', '--radius',
-            help='1.2 or 1.2,1.1,1.1')
+            help='1.2 or 1.2,1.1,1.1.  Units: Bohr.')
         add('-0', '--zero-potential',
             metavar='nderivs,radius',
             help='Parameters for zero potential.')
@@ -1318,6 +1435,7 @@ class CLICommand:
         add('-n', '--no-check', action='store_true')
         add('-t', '--tag', type=str)
         add('-a', '--alpha', type=float)
+        add('-g', '--gamma', type=float, default=0.0)
         add('-b', '--create-basis-set', action='store_true')
         add('--nlcc', action='store_true',
             help='Use NLCC-style pseudo core density '
@@ -1325,6 +1443,13 @@ class CLICommand:
         add('--core-hole')
         add('-e', '--electrons', type=int)
         add('-o', '--output')
+        add('--ecut', type=float, help='Minimize Fourier components above '
+            'ECUT for pseudo wave functions.')
+        add('--ri', type=str,
+            help='Calculate also resolution of identity basis.')
+        add('--omega', type=float, default=None,
+            help='Calculate core-core and core-valence contributions'
+                 ' to erfc screen HSE-potential')
 
     @staticmethod
     def run(args):
@@ -1333,7 +1458,7 @@ class CLICommand:
 
 def main(args):
     kwargs = get_parameters(args.symbol, args)
-    gen = _generate(**kwargs)
+    gen = generate(**kwargs)
 
     if not args.no_check:
         if not gen.check_all():
@@ -1341,7 +1466,7 @@ def main(args):
 
     if args.create_basis_set or args.write:
         if args.create_basis_set:
-            basis = gen.create_basis_set()
+            basis = gen.create_basis_set(tag=args.tag, ri=args.ri)
             basis.write_xml()
 
         if args.write:
@@ -1353,50 +1478,15 @@ def main(args):
             setup.generatordata = ',\n    '.join(parameters)
             setup.write_xml()
 
+    if not args.create_basis_set and args.ri:
+        raise ValueError('Basis set must be created in order to create the '
+                         'RI-basis set as well')
+
     if args.logarithmic_derivatives or args.plot:
         if args.plot:
             import matplotlib.pyplot as plt
         if args.logarithmic_derivatives:
-            r = 1.1 * gen.rcmax
-            emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
-            emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
-            lvalues, energies, r = parse_ld_str(
-                args.logarithmic_derivatives, (emin, emax, 0.05), r)
-            emin = energies[0]
-            de = energies[1] - emin
-
-            error = 0.0
-            for l in lvalues:
-                efix = []
-                # Fixed points:
-                if l < len(gen.waves_l):
-                    efix.extend(gen.waves_l[l].e_n)
-                if l == gen.l0:
-                    efix.append(0.0)
-
-                ld1 = gen.aea.logarithmic_derivative(l, energies, r)
-                ld2 = gen.logarithmic_derivative(l, energies, r)
-                for e in efix:
-                    i = int((e - emin) / de)
-                    if 0 <= i < len(energies):
-                        ld1 -= round(ld1[i] - ld2[i])
-                        if args.plot:
-                            ldfix = ld1[i]
-                            plt.plot([energies[i]], [ldfix],
-                                     'x' + colors[l])
-
-                if args.plot:
-                    plt.plot(energies, ld1, colors[l], label='spdfg'[l])
-                    plt.plot(energies, ld2, '--' + colors[l])
-
-                error = abs(ld1 - ld2).sum() * de
-                print('Logarithmic derivative error:', l, error)
-
-            if args.plot:
-                plt.xlabel('energy [Ha]')
-                plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
-                           r'|_{r=r_c}$')
-                plt.legend(loc='best')
+            plot_log_derivs(gen, args.logarithmic_derivatives, args.plot)
 
         if args.plot:
             gen.plot()
@@ -1410,3 +1500,47 @@ def main(args):
                 plt.show()
             except KeyboardInterrupt:
                 pass
+
+
+def plot_log_derivs(gen, ld_str: str, plot: bool):
+    """Make nice log-derivs plot."""
+    import matplotlib.pyplot as plt
+    r = 1.1 * gen.rcmax
+    emin = min(min(wave.e_n) for wave in gen.waves_l) - 0.8
+    emax = max(max(wave.e_n) for wave in gen.waves_l) + 0.8
+    lvalues, energies, r = parse_ld_str(ld_str, (emin, emax, 0.05), r)
+    emin = energies[0]
+    de = energies[1] - emin
+
+    error = 0.0
+    for l in lvalues:
+        efix = []
+        # Fixed points:
+        if l < len(gen.waves_l):
+            efix.extend(gen.waves_l[l].e_n)
+        if l == gen.l0:
+            efix.append(0.0)
+
+        ld1 = gen.aea.logarithmic_derivative(l, energies, r)
+        ld2 = gen.logarithmic_derivative(l, energies, r)
+        for e in efix:
+            i = int((e - emin) / de)
+            if 0 <= i < len(energies):
+                ld1 -= round(ld1[i] - ld2[i])
+                if plot:
+                    ldfix = ld1[i]
+                    plt.plot([energies[i]], [ldfix],
+                             'x' + colors[l])
+
+        if plot:
+            plt.plot(energies, ld1, colors[l], label='spdfg'[l])
+            plt.plot(energies, ld2, '--' + colors[l])
+
+        error = abs(ld1 - ld2).sum() * de
+        print('Logarithmic derivative error:', l, error)
+
+    if plot:
+        plt.xlabel('energy [Ha]')
+        plt.ylabel(r'$\arctan(d\log\phi_{\ell\epsilon}(r)/dr)/\pi'
+                   r'|_{r=r_c}$')
+        plt.legend(loc='best')

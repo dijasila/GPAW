@@ -1,10 +1,7 @@
-The PAW calculator object
-=========================
+The GPAW calculator object
+==========================
+.. module:: gpaw.calculator
 
-.. autoclass:: gpaw.calculator.GPAW
-   :members:
-   :inherited-members:
-
-.. autoclass:: gpaw.paw.PAW
+.. autoclass:: GPAW
    :members:
    :inherited-members:

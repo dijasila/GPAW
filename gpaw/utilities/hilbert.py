@@ -5,15 +5,16 @@ from numpy.fft import fft, ifft
 Methods for perfoming the Hilbert transform of a function::
 
                      +oo
-            1       /     f(x) 
+            1       /     f(x)
   H[f](y) = -- p.v. | dx -----
-            pi      /    x - y  
+            pi      /    x - y
                      -oo
 """
 
+
 def hilbert_kernel_simple(n):
     """Construct Hilbert kernel with n grid points.
-    
+
     This is just the discrete Fourier transform of 1 / x.
     """
     ker = np.zeros(n, dtype=complex)
@@ -21,9 +22,10 @@ def hilbert_kernel_simple(n):
     ker[n / 2 + 1:] = -1.j
     return ker
 
+
 def hilbert_kernel_interpolate(n):
     """Construct Hilbert kernel with n grid points.
-    
+
     This is just the discrete Hilbert transform of the linear
     interpolation kernel `L(s) = (1 - |s|) Heaviside(1 - |s|)`.
     """
@@ -38,25 +40,26 @@ def hilbert_kernel_interpolate(n):
     ker = np.zeros(n, float)
     ker[1: mid] = aux[2:] - 2 * aux[1:-1] + aux[:-2]
     ker[-1: -mid: -1] = -ker[1: mid]
-    
+
     return -fft(ker) / np.pi
+
 
 def hilbert(f, ker=None, nfft=None, axis=0,
             kerneltype='interpolate', translate=0):
     """Perform Hilbert transform *f* along specified *axis*. The transform is
        made as a convolution of *f* with the Hilbert kernel.
-       
+
        *ker* is the Hilbert kernel, which will be calculated if set to None.
-       
+
        *nfft* is the number of grid points used in the fft. If *nfft* is larger
        than *f* along the transform axis, *f* will be zero-padded to make up
        the difference. If *nfft* is smaller, the first *nfft* elements of *f*
        will be used. *nfft* defaults to two times the the length of *f* along
        *axis*.
-       
+
        *kerneltype* specifies the kerneltype, and can be one of 'interpolate'
        or 'simple'.
-       
+
        *translate* is the number of grid points *f* should be shifted. This can
        be a non-integer amount. translate=10 means that f(x + 10) is
        transformed instead of f(x).
@@ -65,13 +68,15 @@ def hilbert(f, ker=None, nfft=None, axis=0,
     n = f.shape[axis]
 
     # Number of grid points in fft
-    if nfft is None: nfft = 2 * n
+    if nfft is None:
+        nfft = 2 * n
 
     # Generate new kernel if needed
-    if ker is None: ker = eval('hilbert_kernel_' + kerneltype)(nfft)
+    if ker is None:
+        ker = eval('hilbert_kernel_' + kerneltype)(nfft)
 
     # Reshape kernel
-    ker_shape = [1,] * len(f.shape)
+    ker_shape = [1] * len(f.shape)
     ker_shape[axis] = nfft
     ker.shape = tuple(ker_shape)
 
@@ -89,7 +94,8 @@ def hilbert(f, ker=None, nfft=None, axis=0,
     # Make convolution of f and kernel
     hil = ifft(fft(f, n=nfft, axis=axis) * ker * trans, axis=axis)
     return hil[0:n]
-    
+
+
 def analytic_transforms(x):
     """Returns a list of functions and their Hilbert transforms"""
     func_l = [np.sin(x),

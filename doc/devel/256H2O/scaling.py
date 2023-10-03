@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-# Emacs: treat this as -*- python -*-
-from __future__ import print_function
+# flake8: noqa
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options] output_prefix.\nExample of call:\n'+

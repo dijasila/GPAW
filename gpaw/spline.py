@@ -10,7 +10,7 @@ import _gpaw
 
 class Spline:
     def __init__(self, l, rmax, f_g):
-        """Spline(l, rcut, list) -> Spline object
+        """Spline object
 
         The integer l gives the angular momentum quantum number and
         the list contains the spline values from r=0 to r=rcut.
@@ -19,12 +19,12 @@ class Spline:
         The radial function is multiplied by a real solid spherical harmonics
         (r^l * Y_lm).
         """
-        assert 0.0 < rmax
+        assert rmax > 0.0
         f_g = np.array(f_g, float)
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
         self.spline = _gpaw.Spline(l, rmax, f_g)
-        self.l = self.get_angular_momentum_number()
+        self.l = l
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -48,34 +48,30 @@ class Spline:
         return self.spline(r)
 
     def map(self, r_x):
+        """Map f(r) onto a given radial grid."""
         return np.vectorize(self, [float])(r_x)
 
     def get_functions(self, gd, start_c, end_c, spos_c):
         h_cv = gd.h_cv
         # start_c is the new origin so we translate gd.beg_c to start_c
-        origin_c = np.array([0,0,0])
+        origin_c = np.array([0, 0, 0])
         pos_v = np.dot(spos_c, gd.cell_cv) - np.dot(start_c, h_cv)
-        A_gm, G_b = _gpaw.spline_to_grid(self.spline, origin_c, end_c-start_c,
-                                         pos_v, h_cv, end_c-start_c, origin_c)
+        A_gm, G_b = _gpaw.spline_to_grid(self.spline,
+                                         origin_c,
+                                         end_c - start_c,
+                                         pos_v,
+                                         h_cv,
+                                         end_c - start_c,
+                                         origin_c)
 
         if debug:
             assert G_b.ndim == 1 and G_b.shape[0] % 2 == 0
             assert is_contiguous(G_b, np.intc)
-            assert A_gm.shape[:-1] == np.sum(G_b[1::2]-G_b[::2])
+            assert A_gm.shape[:-1] == np.sum(G_b[1::2] - G_b[::2])
 
         indices_gm, ng, nm = self.spline.get_indices_from_zranges(start_c,
                                                                   end_c, G_b)
-        shape = (nm,) + tuple(end_c-start_c)
+        shape = (nm,) + tuple(end_c - start_c)
         work_mB = np.zeros(shape, dtype=A_gm.dtype)
         np.put(work_mB, indices_gm, A_gm)
         return work_mB
-
-
-## class rspline:
-##     def __init__(self, r_g, f_g, l=0):
-##         self.rcut = r_g[-1]
-##         self.l = l
-##         ...
-
-##     def __call__(self, r):
-##         return self.spline(r)*r**l

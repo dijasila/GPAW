@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.build import molecule
 from ase.parallel import paropen
@@ -60,23 +59,24 @@ for formula in systems:
     loa.set_cell(cell)
     loa.center()
     width = 0.0
-    calc = GPAW(h=.18,
+    calc = GPAW(mode='fd',
+                h=.18,
                 nbands=-5,
                 maxiter=333,
-                xc='PBE',
-                txt=formula + '.txt')
+                xc='PBE')
     if len(loa) == 1:
-        calc.set(hund=True)
-        # calc.set(fixmom=True)
-        calc.set(mixer=MixerDif())
-        calc.set(eigensolver='cg')
+        calc = calc.new(hund=True,
+                        # fixmom=True,
+                        mixer=MixerDif(),
+                        eigensolver='cg',
+                        txt=formula + '.txt')
     else:
-        calc.set(mixer=Mixer())
+        calc = calc.new(mixer=Mixer(), txt=formula + '.txt')
         pos = loa.get_positions()
         pos[1, :] = pos[0, :] + [exp_bonds_dE[i][1], 0.0, 0.0]
         loa.set_positions(pos)
         loa.center()
-    loa.set_calculator(calc)
+    loa.calc = calc
     try:
         energy = loa.get_potential_energy()
         difft = calc.get_xc_difference('TPSS')
@@ -84,7 +84,7 @@ for formula in systems:
         diffm = calc.get_xc_difference('M06-L')
         energies[formula] = (energy, energy + difft, energy + diffr,
                              energy + diffm)
-    except:
+    except Exception:
         print(formula, 'Error', file=data)
     else:
         print(formula, energy, energy + difft, energy + diffr, energy + diffm,
@@ -108,7 +108,7 @@ for formula in systems[:13]:
             de_revtpss += energies[atom_formula][2]
             de_m06l += energies[atom_formula][3]
             de_pbe += energies[atom_formula][0]
-    except:
+    except Exception:
         print(formula, 'Error', file=file)
     else:
         de_tpss *= 627.5 / 27.211

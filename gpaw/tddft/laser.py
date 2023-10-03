@@ -33,7 +33,7 @@ class CWField(LaserField):
         #           attosec_to_autime, autime_to_attosec, \
         #           eV_to_aufrequency, aufrequency_to_eV
         self.e0 = e0
-        self.w  = w
+        self.w = w
         self.ts = ts
 
     def strength(self, t):

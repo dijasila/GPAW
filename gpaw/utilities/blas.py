@@ -10,22 +10,46 @@ http://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
 and
 http://www.netlib.org/lapack/lug/node145.html
 """
+from typing import TypeVar
 
-import numpy as np
-
-from gpaw.utilities import is_contiguous
-from gpaw import debug
 import _gpaw
+import numpy as np
+import scipy.linalg.blas as blas
+from gpaw import debug
+from gpaw.new import prod
+from gpaw.typing import Array2D, ArrayND
+from gpaw.utilities import is_contiguous
 
 
-def mmm(alpha, a, opa, b, opb, beta, c):
+def is_finite(array, tril=False):
+    if isinstance(array, np.ndarray):
+        xp = np
+    else:
+        from gpaw.gpu import cupy as xp
+    if tril:
+        array = xp.tril(array)
+    return xp.isfinite(array).all()
+
+
+__all__ = ['mmm']
+
+T = TypeVar('T', float, complex)
+
+
+def mmm(alpha: T,
+        a: Array2D,
+        opa: str,
+        b: Array2D,
+        opb: str,
+        beta: T,
+        c: Array2D) -> None:
     """Matrix-matrix multiplication using dgemm or zgemm.
 
-    For opa='n' and opb='n', we have::
+    For opa='N' and opb='N', we have:::
 
-        c <- alpha * a * b + beta * c.
+        c <- αab + βc.
 
-    Use 't' to transpose matrices and 'c' to transpose and complex conjugate
+    Use 'T' to transpose matrices and 'C' to transpose and complex conjugate
     matrices.
     """
 
@@ -43,8 +67,10 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     assert a2 == b1
     assert c.shape == (a1, b2)
 
-    assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
     assert a.dtype == b.dtype == c.dtype
+    assert a.strides[1] == c.itemsize or a.size == 0
+    assert b.strides[1] == c.itemsize or b.size == 0
+    assert c.strides[1] == c.itemsize or c.size == 0
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
@@ -54,7 +80,21 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
 
 
-def scal(alpha, x):
+def gpu_mmm(alpha, a, opa, b, opb, beta, c):
+    """Launch CPU or GPU version of mmm()."""
+    m = b.shape[1] if opb == 'N' else b.shape[0]
+    n = a.shape[0] if opa == 'N' else a.shape[1]
+    k = b.shape[0] if opb == 'N' else b.shape[1]
+    lda = a.strides[0] // a.itemsize
+    ldb = b.strides[0] // b.itemsize
+    ldc = c.strides[0] // c.itemsize
+    _gpaw.mmm_gpu(alpha, a.data.ptr, lda, opa,
+                  b.data.ptr, ldb, opb, beta,
+                  c.data.ptr, ldc, c.itemsize,
+                  m, n, k)
+
+
+def gpu_scal(alpha, x):
     """alpha x
 
     Performs the operation::
@@ -62,16 +102,41 @@ def scal(alpha, x):
       x <- alpha * x
 
     """
-    if isinstance(alpha, complex):
-        assert is_contiguous(x, complex)
-    else:
-        assert isinstance(alpha, float)
-        assert x.dtype in [float, complex]
-        assert x.flags.contiguous
-    _gpaw.scal(alpha, x)
+    if debug:
+        if isinstance(alpha, complex):
+            assert is_contiguous(x, complex)
+        else:
+            assert isinstance(alpha, float)
+            assert x.dtype in [float, complex]
+            assert x.flags.c_contiguous
+    _gpaw.scal_gpu(alpha, x.data.ptr, x.shape, x.dtype)
 
 
-def gemm(alpha, a, b, beta, c, transa='n'):
+def to2d(array: ArrayND) -> Array2D:
+    """2D view af ndarray.
+
+    >>> to2d(np.zeros((2, 3, 4))).shape
+    (2, 12)
+    """
+    shape = array.shape
+    return array.reshape((shape[0], prod(shape[1:])))
+
+
+def mmmx(alpha: T,
+         a: ArrayND,
+         opa: str,
+         b: ArrayND,
+         opb: str,
+         beta: T,
+         c: ArrayND) -> None:
+    """Matrix-matrix multiplication using dgemm or zgemm.
+
+    Arrays a, b and c are converted to 2D arrays before calling mmm().
+    """
+    mmm(alpha, to2d(a), opa, to2d(b), opb, beta, to2d(c))
+
+
+def gpu_gemm(alpha, a, b, beta, c, transa='n'):
     """General Matrix Multiply.
 
     Performs the operation::
@@ -97,28 +162,34 @@ def gemm(alpha, a, b, beta, c, transa='n'):
 
     where in case of "c" also complex conjugate of a is taken.
     """
-    assert np.isfinite(c).all()
+    if debug:
+        assert beta == 0.0 or is_finite(c)
 
-    assert (a.dtype == float and b.dtype == float and c.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and b.dtype == complex and c.dtype == complex)
-    if transa == 'n':
-        assert a.size == 0 or a[0].flags.contiguous
-        assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
-        assert b.ndim == 2
-        assert b.strides[1] == b.itemsize
-        assert a.shape[0] == b.shape[1]
-        assert c.shape == b.shape[0:1] + a.shape[1:]
-    else:
-        assert a.flags.contiguous
-        assert b.size == 0 or b[0].flags.contiguous
-        assert c.strides[1] == c.itemsize
-        assert a.shape[1:] == b.shape[1:]
-        assert c.shape == (b.shape[0], a.shape[0])
-    _gpaw.gemm(alpha, a, b, beta, c, transa)
+        assert (a.dtype == float and b.dtype == float and c.dtype == float and
+                isinstance(alpha, float) and isinstance(beta, float) or
+                a.dtype == complex and b.dtype == complex and
+                c.dtype == complex)
+        assert a.flags.c_contiguous
+        if transa == 'n':
+            assert c.flags.c_contiguous or (c.ndim == 2
+                                            and c.strides[1] == c.itemsize)
+            assert b.ndim == 2
+            assert b.strides[1] == b.itemsize
+            assert a.shape[0] == b.shape[1]
+            assert c.shape == b.shape[0:1] + a.shape[1:]
+        else:
+            assert b.size == 0 or b[0].flags.c_contiguous
+            assert c.strides[1] == c.itemsize
+            assert a.shape[1:] == b.shape[1:]
+            assert c.shape == (b.shape[0], a.shape[0])
+
+    _gpaw.gemm_gpu(alpha, a.data.ptr, a.shape,
+                   b.data.ptr, b.shape, beta,
+                   c.data.ptr, c.shape,
+                   a.dtype, transa)
 
 
-def gemv(alpha, a, x, beta, y, trans='t'):
+def gpu_gemv(alpha, a, x, beta, y, trans='t'):
     """General Matrix Vector product.
 
     Performs the operation::
@@ -132,29 +203,27 @@ def gemv(alpha, a, x, beta, y, trans='t'):
 
     If trans='c', the complex conjugate of a is used. The default is
     trans='t', i.e. behaviour like np.dot with a 2D matrix and a vector.
-
-    Example::
-
-      >>> y_m = np.dot(A_mn, x_n)
-      >>> # or better yet
-      >>> y_m = np.zeros(A_mn.shape[0], A_mn.dtype)
-      >>> gemv(1.0, A_mn, x_n, 0.0, y_m)
-
     """
-    assert (a.dtype == float and x.dtype == float and y.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and x.dtype == complex and y.dtype == complex)
-    assert a.flags.contiguous
-    assert y.flags.contiguous
-    assert x.ndim == 1
-    assert y.ndim == a.ndim - 1
-    if trans == 'n':
-        assert a.shape[0] == x.shape[0]
-        assert a.shape[1:] == y.shape
-    else:
-        assert a.shape[-1] == x.shape[0]
-        assert a.shape[:-1] == y.shape
-    _gpaw.gemv(alpha, a, x, beta, y, trans)
+    if debug:
+        assert (a.dtype == float and x.dtype == float and y.dtype == float and
+                isinstance(alpha, float) and isinstance(beta, float) or
+                a.dtype == complex and x.dtype == complex and
+                y.dtype == complex)
+        assert a.flags.c_contiguous
+        assert y.flags.c_contiguous
+        assert x.ndim == 1
+        assert y.ndim == a.ndim - 1
+        if trans == 'n':
+            assert a.shape[0] == x.shape[0]
+            assert a.shape[1:] == y.shape
+        else:
+            assert a.shape[-1] == x.shape[0]
+            assert a.shape[:-1] == y.shape
+
+    _gpaw.gemv_gpu(alpha, a.data.ptr, a.shape,
+                   x.data.ptr, x.shape, beta,
+                   y.data.ptr, a.dtype,
+                   trans)
 
 
 def axpy(alpha, x, y):
@@ -165,79 +234,94 @@ def axpy(alpha, x, y):
       y <- alpha * x + y
 
     """
-    if isinstance(alpha, complex):
-        assert is_contiguous(x, complex) and is_contiguous(y, complex)
+    if x.size == 0:
+        return
+    assert x.flags.contiguous
+    assert y.flags.contiguous
+    x = x.ravel()
+    y = y.ravel()
+    if x.dtype == float:
+        z = blas.daxpy(x, y, a=alpha)
     else:
-        assert isinstance(alpha, float)
-        assert x.dtype in [float, complex]
-        assert x.dtype == y.dtype
-        assert x.flags.contiguous and y.flags.contiguous
-    assert x.shape == y.shape
-    _gpaw.axpy(alpha, x, y)
+        z = blas.zaxpy(x, y, a=alpha)
+    assert z is y, (x, y, x.shape, y.shape)
 
 
-def czher(alpha, x, a):
-    """alpha x * x.conj() + a.
+def gpu_axpy(alpha, x, y):
+    """alpha x plus y.
 
     Performs the operation::
 
-      y <- alpha * x * x.conj() + a
+      y <- alpha * x + y
 
-    where x is a N element vector and a is a N by N hermitian matrix, alpha
-    is a real scalar.
     """
+    if debug:
+        if isinstance(alpha, complex):
+            assert is_contiguous(x, complex) and is_contiguous(y, complex)
+        else:
+            assert isinstance(alpha, float)
+            assert x.dtype in [float, complex]
+            assert x.dtype == y.dtype
+            assert x.flags.c_contiguous and y.flags.c_contiguous
+        assert x.shape == y.shape
 
-    assert isinstance(alpha, float)
-    assert is_contiguous(x, complex) and is_contiguous(a, complex)
-    assert x.flags.contiguous and a.flags.contiguous
-    assert x.ndim == 1 and a.ndim == 2
-    assert x.shape[0] == a.shape[0]
-
-    _gpaw.czher(alpha, x, a)
+    _gpaw.axpy_gpu(alpha, x.data.ptr, x.shape,
+                   y.data.ptr, y.shape,
+                   x.dtype)
 
 
 def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
-    Performs the operation::
+    For ``trans='c'`` the following operation is performed:::
 
-                        dag
-      c <- alpha * a . a    + beta * c
+              †
+      c <- αaa + βc,
 
-    where ``a.b`` denotes the matrix multiplication defined by::
+    and for ``trans='t'`` we get:::
 
-                 _
-                \
-      (a.b)   =  ) a         * b
-           ij   /_  ipklm...     pjklm...
-               pklm...
+             †
+      c <- αa a + βc
 
-    ``dag`` denotes the hermitian conjugate (complex conjugation plus a
-    swap of axis 0 and 1).
+    If the ``a`` array has more than 2 dimensions then the 2., 3., ...
+    axes are combined.
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-    assert beta == 0.0 or np.isfinite(c).all()
+    if debug:
+        assert beta == 0.0 or is_finite(c, tril=True)
 
-    assert (a.dtype == float and c.dtype == float or
-            a.dtype == complex and c.dtype == complex)
-    assert a.flags.contiguous
-    assert a.ndim > 1
-    if trans == 'n':
-        assert c.shape == (a.shape[1], a.shape[1])
-    else:
-        assert c.shape == (a.shape[0], a.shape[0])
-    assert c.strides[1] == c.itemsize
+        assert (a.dtype == float and c.dtype == float or
+                a.dtype == complex and c.dtype == complex)
+        assert a.flags.c_contiguous
+        assert a.ndim > 1
+        if trans == 'n':
+            assert c.shape == (a.shape[1], a.shape[1])
+        else:
+            assert c.shape == (a.shape[0], a.shape[0])
+        assert c.strides[1] == c.itemsize or c.size == 0
+
     _gpaw.rk(alpha, a, beta, c, trans)
 
 
-def r2k(alpha, a, b, beta, c):
+def gpu_rk(alpha, a, beta, c, trans='c'):
+    """Launch CPU or GPU version of rk()."""
+    _gpaw.rk_gpu(alpha, a.data.ptr, a.shape,
+                 beta, c.data.ptr, c.shape,
+                 a.dtype)
+
+
+def r2k(alpha, a, b, beta, c, trans='c'):
     """Rank-2k update of a matrix.
 
     Performs the operation::
 
                         dag        cc       dag
       c <- alpha * a . b    + alpha  * b . a    + beta * c
+
+    or if trans='n'::
+                    dag           cc   dag
+      c <- alpha * a   . b + alpha  * b   . a + beta * c
 
     where ``a.b`` denotes the matrix multiplication defined by::
 
@@ -254,20 +338,33 @@ def r2k(alpha, a, b, beta, c):
 
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
-    assert beta == 0.0 or np.isfinite(np.tril(c)).all()
+    if debug:
+        assert beta == 0.0 or is_finite(c, tril=True)
+        assert (a.dtype == float and b.dtype == float and c.dtype == float or
+                a.dtype == complex and b.dtype == complex and
+                c.dtype == complex)
+        assert a.flags.c_contiguous and b.flags.c_contiguous
+        assert a.ndim > 1
+        assert a.shape == b.shape
+        if trans == 'c':
+            assert c.shape == (a.shape[0], a.shape[0])
+        else:
+            assert c.shape == (a.shape[1], a.shape[1])
+        assert c.strides[1] == c.itemsize or c.size == 0
 
-    assert (a.dtype == float and b.dtype == float and c.dtype == float or
-            a.dtype == complex and b.dtype == complex and c.dtype == complex)
-    assert a.flags.contiguous and b.flags.contiguous
-    assert a.ndim > 1
-    assert a.shape == b.shape
-    assert c.shape == (a.shape[0], a.shape[0])
-    assert c.strides[1] == c.itemsize
-    _gpaw.r2k(alpha, a, b, beta, c)
+    _gpaw.r2k(alpha, a, b, beta, c, trans)
 
 
-def dotc(a, b):
-    """Dot product, conjugating the first vector with complex arguments.
+def gpu_r2k(alpha, a, b, beta, c, trans='c'):
+    """Launch CPU or GPU version of r2k()."""
+    _gpaw.r2k_gpu(alpha, a.data.ptr, a.shape,
+                  b.data.ptr, b.shape, beta,
+                  c.data.ptr, c.shape,
+                  a.dtype)
+
+
+def gpu_dotc(a, b):
+    r"""Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
 
@@ -279,13 +376,16 @@ def dotc(a, b):
 
     ``cc`` denotes complex conjugation.
     """
-    assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
-            (is_contiguous(a, complex) and is_contiguous(b, complex)))
-    assert a.shape == b.shape
-    return _gpaw.dotc(a, b)
+    if debug:
+        assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
+                (is_contiguous(a, complex) and is_contiguous(b, complex)))
+        assert a.shape == b.shape
+
+    return _gpaw.dotc_gpu(a.data.ptr, a.shape,
+                          b.data.ptr, a.dtype)
 
 
-def dotu(a, b):
+def gpu_dotu(a, b):
     """Dot product, NOT conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
@@ -298,10 +398,13 @@ def dotu(a, b):
 
 
     """
-    assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
-            (is_contiguous(a, complex) and is_contiguous(b, complex)))
-    assert a.shape == b.shape
-    return _gpaw.dotu(a, b)
+    if debug:
+        assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
+                (is_contiguous(a, complex) and is_contiguous(b, complex)))
+        assert a.shape == b.shape
+
+    return _gpaw.dotu_gpu(a.data.ptr, a.shape,
+                          b.data.ptr, a.dtype)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
@@ -328,15 +431,9 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
         if trans == 'c':
-            return alpha * _gpaw.dotc(b, a)  # dotc conjugates *first* argument
+            return alpha * np.vdot(b, a)  # dotc conjugates *first* argument
         else:
-            return alpha * _gpaw.dotu(a, b)
-
-##     # Use gemv if a or b is a vector, and the other is a matrix??
-##     if a.ndim == 1 and trans == 'n':
-##         gemv(alpha, b, a, beta, out, trans='n')
-##     if b.ndim == 1 and trans == 'n':
-##         gemv(alpha, a, b, beta, out, trans='t')
+            return alpha * a.dot(b)
 
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
@@ -353,7 +450,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         out = np.zeros(outshape, a.dtype)
     else:
         out = out.reshape(outshape)
-    gemm(alpha, b, a, beta, out, trans)
+    mmmx(alpha, a, 'N', b, trans.upper(), beta, out)
 
     # Determine actual shape of result array
     if trans == 'n':
@@ -363,56 +460,76 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
-def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
-    """Perform matrix rotation using gemm
+if not hasattr(_gpaw, 'mmm'):
+    # These are the functions used with noblas=True
+    # TODO: move these functions elsewhere so that
+    # they can be used for unit tests
 
-    For the 2D input matrices in, U, do the rotation::
+    def op(o, m):
+        if o.upper() == 'N':
+            return m
+        if o.upper() == 'T':
+            return m.T
+        if o.upper() == 'C':
+            return m.conj().T
+        raise ValueError(f'unknown op: {o}')
 
-      out <- a * U . in . U^d + b * out
+    def rk(alpha, a, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if trans == 'n':
+            c += alpha * a.conj().T.dot(a)
+        else:
+            a = a.reshape((len(a), -1))
+            c += alpha * a.dot(a.conj().T)
 
-    where '.' denotes matrix multiplication and '^d' the hermitian conjugate.
+    def r2k(alpha, a, b, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if trans == 'c':
+            c += (alpha * a.reshape((len(a), -1))
+                  .dot(b.reshape((len(b), -1)).conj().T) +
+                  alpha * b.reshape((len(b), -1))
+                  .dot(a.reshape((len(a), -1)).conj().T))
+        else:
+            c += alpha * (a.conj().T @ b + b.conj().T @ a)
 
-    work_ij is a temporary work array for storing the intermediate product.
-    out_ii, and work_ij are created if not given.
+    def mmm(alpha: T, a: np.ndarray, opa: str,  # noqa
+            b: np.ndarray, opb: str,
+            beta: T, c: np.ndarray) -> None:
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += alpha * op(opa, a).dot(op(opb, b))
 
-    The method returns a reference to out.
-    """
-    if work_ij is None:
-        work_ij = np.zeros_like(U_ij)
-    if out_ii is None:
-        out_ii = np.zeros(U_ij.shape[:1] * 2, U_ij.dtype)
-    if in_jj.dtype == float:
-        trans = 't'
-    else:
-        trans = 'c'
-    gemm(1., in_jj, U_ij, 0., work_ij, 'n')
-    gemm(a, U_ij, work_ij, b, out_ii, trans)
-    return out_ii
-
-
-if not debug:
-    mmm = _gpaw.mmm
-    scal = _gpaw.scal
-    gemm = _gpaw.gemm
-    gemv = _gpaw.gemv
-    axpy = _gpaw.axpy
-    rk = _gpaw.rk
-    r2k = _gpaw.r2k
-    dotc = _gpaw.dotc
-    dotu = _gpaw.dotu
     gemmdot = _gemmdot
-    rotate = _rotate
+
+elif not debug:
+    mmm = _gpaw.mmm  # noqa
+    rk = _gpaw.rk  # noqa
+    r2k = _gpaw.r2k  # noqa
+    gemmdot = _gemmdot
+
 else:
     def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
-        assert a.flags.contiguous
-        assert b.flags.contiguous
+        assert a.flags.c_contiguous
+        assert b.flags.c_contiguous
         assert a.dtype == b.dtype
         if trans == 'n':
             assert a.shape[-1] == b.shape[0]
         else:
             assert a.shape[-1] == b.shape[-1]
         if out is not None:
-            assert out.flags.contiguous
+            assert out.flags.c_contiguous
             assert a.dtype == out.dtype
             assert a.ndim > 1 or b.ndim > 1
             if trans == 'n':
@@ -420,18 +537,3 @@ else:
             else:
                 assert out.shape == a.shape[:-1] + b.shape[:-1]
         return _gemmdot(a, b, alpha, beta, out, trans)
-
-    def rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
-        assert in_jj.dtype == U_ij.dtype
-        assert in_jj.flags.contiguous
-        assert U_ij.flags.contiguous
-        assert in_jj.shape == U_ij.shape[1:] * 2
-        if out_ii is not None:
-            assert out_ii.dtype == in_jj.dtype
-            assert out_ii.flags.contiguous
-            assert out_ii.shape == U_ij.shape[:1] * 2
-        if work_ij is not None:
-            assert work_ij.dtype == in_jj.dtype
-            assert work_ij.flags.contiguous
-            assert work_ij.shape == U_ij.shape
-        return _rotate(in_jj, U_ij, a, b, out_ii, work_ij)

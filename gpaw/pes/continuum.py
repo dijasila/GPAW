@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, sin, cos
 import numpy as np
 
@@ -56,7 +55,7 @@ class ZerothOrder1(State):
             self.vt_G = np.where(hamiltonian.vt_sG[0] > 0,
                                  0.0, hamiltonian.vt_sG[0])
         self.intvt = self.gd.integrate(self.vt_G)
-        print('# int(vt_G)=', self.intvt, np.sometrue(self.vt_G > 0))
+        print('# int(vt_G)=', self.intvt, (self.vt_G > 0).any())
 
         self.solve()
 
@@ -69,18 +68,18 @@ class ZerothOrder1(State):
             r_R = AI.radii()
             psi_R = AI.average(self.corrt_G)
             v_R = AI.average(self.vt_G)
-            f = open('radial_dR' + str(dR) + '.dat', 'w')
-            print('# R  v(R)    psi(R)', file=f)
-            for r, psi, v in zip(r_R, psi_R, v_R):
-                print(r, psi, v, file=f)
-            f.close()
+            with open('radial_dR' + str(dR) + '.dat', 'w') as fd:
+                print('# R  v(R)    psi(R)', file=fd)
+                for r, psi, v in zip(r_R, psi_R, v_R):
+                    print(r, psi, v, file=fd)
+
             self.written = True
 
         return self.pw.get_grid(k_c, r0) - 1e6 * self.corrt_G
 
     def solve(self):
         hamiltonian = self.calculator.hamiltonian
-        self.poisson = PoissonSolver(nn=hamiltonian.poisson.nn)
+        self.poisson = PoissonSolver('fd', nn=hamiltonian.poisson.nn)
         self.poisson.set_grid_descriptor(self.gd)
         self.poisson.initialize()
 

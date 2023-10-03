@@ -34,7 +34,10 @@ def get_HW14_water_kwargs():
     T = 298.15
     vdw_radii = vdw_radii.copy()
     vdw_radii[1] = 1.09
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
+    def atomic_radii(atoms):
+        return [vdw_radii[n] for n in atoms.numbers]
+
     kwargs = {
         'cavity': EffectivePotentialCavity(
             effective_potential=Power12Potential(atomic_radii, u0),
@@ -47,18 +50,18 @@ def get_HW14_water_kwargs():
     return kwargs
 
 
-__all__ = [SolvationGPAW,
-           EffectivePotentialCavity,
-           Power12Potential,
-           ElDensity,
-           SSS09Density,
-           ADM12SmoothStepCavity,
-           FG02SmoothStepCavity,
-           GradientSurface,
-           KB51Volume,
-           LinearDielectric,
-           CMDielectric,
-           SurfaceInteraction,
-           VolumeInteraction,
-           LeakedDensityInteraction,
-           get_HW14_water_kwargs]
+__all__ = ['SolvationGPAW',
+           'EffectivePotentialCavity',
+           'Power12Potential',
+           'ElDensity',
+           'SSS09Density',
+           'ADM12SmoothStepCavity',
+           'FG02SmoothStepCavity',
+           'GradientSurface',
+           'KB51Volume',
+           'LinearDielectric',
+           'CMDielectric',
+           'SurfaceInteraction',
+           'VolumeInteraction',
+           'LeakedDensityInteraction',
+           'get_HW14_water_kwargs']

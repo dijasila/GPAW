@@ -1,10 +1,7 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
-
 """Check GW calculations.
 
 Compare to data from:
-    
+
     Predictive GW calculations using plane waves and pseudopotentials
 
     Jiří Klimeš, Merzuk Kaltak, Georg Kresse

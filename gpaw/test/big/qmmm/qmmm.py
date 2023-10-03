@@ -28,7 +28,7 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
          for i in range(3)])
 
     dimer.calc = EIQMMM(selection,
-                        GPAW(txt=name + '.txt', h=0.16),
+                        GPAW(mode='fd', txt=name + '.txt', h=0.16),
                         TIP4P(),
                         interaction,
                         vacuum=4,
@@ -39,7 +39,8 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
 
     monomer = dimer[selection]
     monomer.center(vacuum=4)
-    monomer.calc = GPAW(txt=name + 'M.txt', h=0.16)
+    # Grrr.  PreconLBFGS breaks the symmetry!  Some one should fix that.
+    monomer.calc = GPAW(mode='fd', txt=name + 'M.txt', h=0.16, symmetry='off')
     opt = PreconLBFGS(monomer, precon=Exp(A=3), trajectory=name + 'M.traj')
     opt.run(0.02)
     e0 = monomer.get_potential_energy()
@@ -47,7 +48,7 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
     d = dimer.get_distance(0, 3)
     print(name, be, d)
     if name == '012':
-        assert abs(be - -0.288) < 0.002
+        assert abs(be - -0.287) < 0.002
         assert abs(d - 2.76) < 0.02
     else:
         assert abs(be - -0.316) < 0.002

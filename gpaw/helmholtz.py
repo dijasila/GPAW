@@ -1,9 +1,9 @@
 from math import pi, sqrt
 import numpy as np
 from numpy import exp
+from scipy.special import erf, erfc
 
 from gpaw.poisson import FDPoissonSolver
-from gpaw.utilities import cerf, erf
 from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import FDOperator, laplace
 from gpaw.transformers import Transformer
@@ -24,8 +24,8 @@ class HelmholtzGaussian(Gaussian):
 
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(-p**2) / r / 2 * (
-            np.cos(k * r) * (cerf(rhop) + cerf(rhom)) +
-            i * np.sin(k * r) * (2 + cerf(rhop) - cerf(rhom)))
+            np.cos(k * r) * (erf(rhop) + erf(rhom)) +
+            i * np.sin(k * r) * (2 + erf(rhop) - erf(rhom)))
 
 
 class ScreenedPoissonGaussian(Gaussian):
@@ -39,9 +39,6 @@ class ScreenedPoissonGaussian(Gaussian):
         sig2 = sigma**2
         mrho = (sig2 * mu - r) / (sqrt(2) * sigma)
         prho = (sig2 * mu + r) / (sqrt(2) * sigma)
-
-        def erfc(values):
-            return 1. - erf(values)
 
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(sig2 * mu2 / 2.0) / (2 * r) * (
@@ -59,7 +56,7 @@ class HelmholtzOperator(FDOperator):
         n: int
             Range of stencil.  Stencil has O(h^(2n)) error.
         dtype: float or complex
-            Datatype to work on.
+            Data-type to work on.
         """
 
         # Order the 13 neighbor grid points:

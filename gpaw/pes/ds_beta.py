@@ -112,7 +112,6 @@ class CrossSectionBeta:
         T2m = 0.
         gl = self.gl[angle]
         for x, w in zip(gl.get_x(), gl.get_w()):
-#            print angle, x, w
             self.angle[angle] = x
             t20, t2m = function()
             T20 += w * t20

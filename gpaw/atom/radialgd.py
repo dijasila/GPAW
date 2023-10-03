@@ -1,14 +1,18 @@
-from __future__ import division
 import numbers
-from math import pi, factorial as fac
+from abc import ABC, abstractmethod
+from math import factorial as fac
+from math import pi
+from typing import Tuple
 
 import numpy as np
-
+from gpaw.sphere.integrate import integrate_radial_grid
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.typing import Array1D
+from gpaw.utilities import divrl, hartree
+from scipy.interpolate import make_interp_spline, splder
 
 
-def radial_grid_descriptor(eq, **kwargs):
+def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
     if eq == 'r=d*i':
         assert int(kwargs['istart']) == 0
         return EquidistantRadialGridDescriptor(float(kwargs['d']),
@@ -58,10 +62,10 @@ def fsbt(l, f_g, r_g, G_k):
     return f_k
 
 
-class RadialGridDescriptor:
+class RadialGridDescriptor(ABC):
     ndim = 1  # dimension of ndarrays
 
-    def __init__(self, r_g, dr_g, default_spline_points=25):
+    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
         self.dr_g = dr_g
@@ -71,6 +75,12 @@ class RadialGridDescriptor:
 
     def __len__(self):
         return self.N
+
+    @classmethod
+    def new(cls, name, *args, **kwargs):
+        if name == 'equidistant':
+            return EquidistantRadialGridDescriptor(*args, **kwargs)
+        raise ValueError(f'Unknown grid-type: {name}')
 
     def zeros(self, x=()):
         a_xg = self.empty(x)
@@ -87,24 +97,83 @@ class RadialGridDescriptor:
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
-    def integrate_yukawa(self, n1, n2, l, gamma):
-        """Integrate two densities n1 and n2 with yukawa interaction."""
+    def integrate_trapz(self, a_xg, rcut=None):
+        return integrate_radial_grid(a_xg, self.r_g, rcut=rcut)
+
+    def yukawa(self, n_g, l=0, gamma=1e-6):
+        r"""Calculates the radial grid yukawa integral.
+
+        The the integral kernel for the Yukawa interaction:
+
+                    \    _   _
+              exp(- /\ | r - r' |)
+              ----------------------
+                      _   _
+                    | r - r' |
+
+           is defined as
+
+            __    __            \  r              \  r    * ^     ^
+          \     4 ||  I_(l+0.5)(/\  <) K_(l+0.5) (/\  >) Y (r)  Y(r')
+           )          --------------------------          lm     lm
+          / __            (rr')^0.5
+            lm
+
+         where I and K are the modified Bessel functions of the first
+         and second kind (K is also known as Macdonald function).
+         r = min (r, r')     r = max(r, r')
+          <                   >
+         We now calculate the integral:
+
+
+                  ^    / _           ^
+         v (r) Y (r) = |dr' n(r') Y (r')
+          l     lm     /     l     lm
+
+        with the Yukawa kernel mentioned above.
+
+        And the output array is 'vr' as it is
+        within the Hartree / radial Poisson solver.
+        """
+
         from scipy.special import iv, kv
-        r = self.r_g
-        dr = self.dr_g
-        k_rgamma = kv(l + 0.5, r * gamma)      # K(>)
-        i_rgamma = iv(l + 0.5, r * gamma)      # I(<)
-        k_rgamma[0] = kv(l + 0.5, r[1] * gamma * 1e-5)
-        matrix_ik = np.outer(n1 * dr, n2 * dr)
-        len_vec = len(k_rgamma)
-        for i in range(len_vec):
-            k_rgi = k_rgamma[i]
-            for k in range(i):
-                modified_bessels = i_rgamma[k] * k_rgi
-                matrix_ik[i, k] *= modified_bessels
-                matrix_ik[k, i] *= modified_bessels
-            matrix_ik[i, i] *= i_rgamma[i] * k_rgi
-        return matrix_ik.sum()
+        vr_g = self.zeros()
+        nrdr_g = n_g * self.r_g**1.5 * self.dr_g
+        p = 0
+        q = 0
+        k_rgamma = kv(l + 0.5, self.r_g * gamma)      # K(>)
+        i_rgamma = iv(l + 0.5, self.r_g * gamma)      # I(<)
+        k_rgamma[0] = kv(l + 0.5, self.r_g[1] * gamma * 1e-5)
+        # We have two integrals: one for r< and one for r>
+        # This loop-technique helps calculate them in once
+        for g_ind in range(len(nrdr_g) - 1, -1, -1):
+            dp = k_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r>
+            dq = i_rgamma[g_ind] * nrdr_g[g_ind]  # r' is r<
+            vr_g[g_ind] = (p + 0.5 * dp) * i_rgamma[g_ind] - \
+                          (q + 0.5 * dq) * k_rgamma[g_ind]
+            p += dp
+            q += dq
+        vr_g[:] += q * k_rgamma[:]
+        vr_g *= 4 * pi
+        vr_g[:] *= self.r_g[:]**0.5
+        return vr_g
+
+    def derivative_spline(self, n_g, dndr_g=None, *, degree=5):
+        """Spline-based derivative of radial function."""
+        if dndr_g is None:
+            dndr_g = self.empty()
+
+        # Boundary conditions
+        assert degree in [3, 5]
+        if degree == 5:
+            bc_type = ([(2, 0.0), (4, 0.0)], [(2, 0.0), (4, 0.0)])
+        elif degree == 3:
+            bc_type = ([(2, 0.0)], [(2, 0.0)])
+
+        s = make_interp_spline(self.r_g, n_g, k=degree, bc_type=bc_type)
+        s = splder(s)
+        dndr_g[:] = s(self.r_g)
+        return dndr_g
 
     def derivative(self, n_g, dndr_g=None):
         """Finite-difference derivative of radial function."""
@@ -286,13 +355,42 @@ class RadialGridDescriptor:
         norm = self.integrate(a_g**2)
 
         def f(x):
-            b_g[gc0] = x
+            b_g[gc0] = x[0]
             c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
 
         from scipy.optimize import fsolve
         fsolve(f, x0)
+        return b_g, c_x[-1]
+
+    def pseudize_smooth(self,
+                        a_g: Array1D,
+                        gc: int,
+                        l: int = 0,
+                        points: int = 3,
+                        Gcut: float = 6.0) -> Tuple[Array1D, float]:
+        """Minimize Fourier components above Gcut."""
+        b_g, _ = self.pseudize(a_g, gc, l, points)
+        c_x = np.empty(points + 1)
+        gc0 = gc // 2
+        x0 = b_g[gc0]
+        i = [gc0] + list(range(gc, gc + points))
+        r_g = self.r_g
+        r_i = r_g[i]
+
+        def f(x):
+            b_g[gc0] = x[0]
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
+            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+            g_k, b_k = self.fft(b_g * r_g, l)
+            kc = int(Gcut / g_k[1])
+            f_k = g_k[kc:] * b_k[kc:]
+            return f_k @ f_k
+
+        from scipy.optimize import minimize
+        minimize(f, x0)
+
         return b_g, c_x[-1]
 
     def jpseudize(self, a_g, gc, l=0, points=4):
@@ -307,8 +405,8 @@ class RadialGridDescriptor:
         for g < gc+P, where.
         """
 
-        from scipy.special import sph_jn
         from scipy.optimize import brentq
+        from scipy.special import sph_jn
 
         if a_g[gc] == 0:
             return self.zeros(), 0.0
@@ -377,23 +475,28 @@ class RadialGridDescriptor:
         return np.ceil(self.r2g(r)).astype(int)
 
     def spline(self, a_g, rcut=None, l=0, points=None):
+        """Create spline representation of a radial function f(r).
+
+        The spline represents a rescaled version of the function, f(r) / r^l.
+        """
         if points is None:
             points = self.default_spline_points
 
         if rcut is None:
+            # Calculate rcut for the input function, i.e. a value rcut which
+            # satisfies f(r) = 0 ∀ r ≥ rcut
             g = len(a_g) - 1
             while a_g[g] == 0.0:
                 g -= 1
             rcut = self.r_g[g + 1]
 
-        b_g = a_g.copy()
-        N = len(b_g)
-        if l > 0:
-            b_g = divrl(b_g, l, self.r_g[:N])
+        # Rescale f(r) -> f(r) / r^l
+        N = len(a_g)
+        b_g = divrl(a_g, l, self.r_g[:N])
 
+        # Interpolate to a uniform radial grid (for the spline representation)
         r_i = np.linspace(0, rcut, points + 1)
         g_i = np.clip((self.r2g(r_i) + 0.5).astype(int), 1, N - 2)
-
         r1_i = self.r_g[g_i - 1]
         r2_i = self.r_g[g_i]
         r3_i = self.r_g[g_i + 1]
@@ -404,6 +507,7 @@ class RadialGridDescriptor:
         b2_i = b_g[g_i]
         b3_i = b_g[g_i + 1]
         b_i = b1_i * x1_i + b2_i * x2_i + b3_i * x3_i
+
         return Spline(l, rcut, b_i)
 
     def get_cutoff(self, f_g):
@@ -413,6 +517,15 @@ class RadialGridDescriptor:
         gcut = g + 1
         return gcut
 
+    @abstractmethod
+    def r2g(self, r):
+        """Inverse continuous map from a real space distance (r)
+           to a floating point grid index (g).
+
+           Used by methods floor, round, and ceil, which manipulate this
+           floating point to an integer accordingly.
+        """
+
 
 class EquidistantRadialGridDescriptor(RadialGridDescriptor):
     def __init__(self, h, N=1000, h0=0.0):
@@ -420,7 +533,9 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
         The radial grid is r(g) = h0 + g*h,  g = 0, 1, ..., N - 1."""
 
-        RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
+        RadialGridDescriptor.__init__(self,
+                                      h * np.arange(N) + h0,
+                                      h + np.zeros(N))
 
     def r2g(self, r):
         return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
@@ -463,6 +578,9 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         beta = self.a / self.b
         return ng * r / (beta + r)
 
+    def new(self, N):
+        return AERadialGridDescriptor(self.a, self.b, N)
+
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
@@ -495,3 +613,9 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
 
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
+
+    def d2gdr2(self):
+        return -1 / (self.a**2 * self.d * (self.r_g / self.a + 1)**2)
+
+    def new(self, N):
+        return AbinitRadialGridDescriptor(self.a, self.d, N)

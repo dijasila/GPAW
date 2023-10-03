@@ -7,7 +7,7 @@ Curie   (BullX cluster, Intel Nehalem, Infiniband QDR, MKL)
 .. note::
       These instructions are up-to-date as of October 2014
 
-Here you find information about the the system
+Here you find information about the system
 http://www-hpc.cea.fr/en/complexe/tgcc-curie.htm
 
 For large calculations, it is suggested that one utilizes the Scalable Python

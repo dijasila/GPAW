@@ -8,7 +8,8 @@ import gpaw.dscf as dscf
 
 filename = 'lumo'
 
-c_mol = GPAW(nbands=9,
+c_mol = GPAW(mode='fd',
+             nbands=9,
              h=0.2,
              xc='RPBE',
              kpts=(8, 6, 1),
@@ -19,7 +20,8 @@ c_mol = GPAW(nbands=9,
                           'bands': -2},
              txt='CO_lumo.txt')
 
-calc = GPAW(nbands=80,
+calc = GPAW(mode='fd',
+            nbands=80,
             h=0.2,
             xc='RPBE',
             kpts=(8, 6, 1),
@@ -45,7 +47,7 @@ molecule = slab.copy()
 del molecule[:-2]
 
 # Molecule
-molecule.set_calculator(c_mol)
+molecule.calc = c_mol
 molecule.get_potential_energy()
 
 # Find band corresponding to lumo
@@ -78,7 +80,7 @@ p_uai = [dict([(mol[a], P_ni[band_k[kpt.k]]) for a, P_ni in kpt.P_ani.items()])
          for kpt in c_mol.wfs.kpt_u]
 
 #   Slab with adsorbed molecule
-slab.set_calculator(calc)
+slab.calc = calc
 orbital = dscf.AEOrbital(calc, wf_u, p_uai)
 dscf.dscf_calculation(calc, [[1.0, orbital, 1]], slab)
 slab.get_potential_energy()

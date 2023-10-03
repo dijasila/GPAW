@@ -38,7 +38,7 @@ if rank == 0:
     # High-symmetry points in the Brillouin zone
     atoms = ph.get_atoms()
     path_kc, q, Q = bandpath('GKXGLXWL', atoms.cell, 100)
-    point_names = ['$\Gamma$', 'K', 'X', '$\Gamma$', 'L', 'X', 'W', 'L']
+    point_names = [r'$\Gamma$', 'K', 'X', r'$\Gamma$', 'L', 'X', 'W', 'L']
 
     # Calculate band-structure
     omega_kn = ph.band_structure(path_kc)
@@ -57,7 +57,7 @@ if rank == 0:
     plt.yticks(fontsize=18)
     plt.xlim(q[0], q[-1])
     plt.ylim(0, np.ceil(omega_kn.max() / 10) * 10)
-    plt.ylabel("Frequency ($\mathrm{meV}$)", fontsize=22)
+    plt.ylabel(r'Frequency ($\mathrm{meV}$)', fontsize=22)
     plt.grid('on')
     # plt.show()
     plt.savefig('Si_bandstructure.png')

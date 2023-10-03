@@ -1,7 +1,6 @@
-from __future__ import print_function
 import ase.db
 from ase.units import kcal, mol
-from ase.data.g2_1_ref import ex_atomization, atomization
+from gpaw.data.g2_1_ref import ex_atomization, atomization
 
 
 c = ase.db.connect('results.db')
@@ -10,7 +9,7 @@ c = ase.db.connect('results.db')
 atoms = {}
 for d in c.select(natoms=1):
     atoms[d.numbers[0]] = [d.energy, d.exx]
-    
+
 maepbe = 0.0
 maeexx = 0.0
 print('                 PBE                   EXX')

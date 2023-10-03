@@ -1,22 +1,110 @@
-from __future__ import print_function
+import re
 import numpy as np
 
 from gpaw import __version__ as version
 from gpaw.mpi import world
-from gpaw.tddft.units import (au_to_as, au_to_fs, au_to_eV)
+from gpaw.tddft.units import au_to_as, au_to_fs, au_to_eV, rot_au_to_cgs
 from gpaw.tddft.folding import FoldedFrequencies
 from gpaw.tddft.folding import Folding
 
 
-def read_dipole_moment_file(fname, remove_duplicates=True):
+def calculate_fourier_transform(x_t, y_ti, foldedfrequencies):
+    ff = foldedfrequencies
+    X_w = ff.frequencies
+    envelope = ff.folding.envelope
+
+    # Construct integration weights:
+    # We use trapezoidal rule except the end point is accounted with
+    # full weight. This ensures better numerical compatibility
+    # with the on-the-fly Fourier integrators.
+    # This shouldn't affect in usual scenarios as the envelope
+    # should damp the data to zero at the end point in any case.
+    dx_t1 = x_t[1:] - x_t[:-1]
+    dx_t = 0.5 * (np.insert(dx_t1, 0, 0.0) + np.append(dx_t1, dx_t1[-1]))
+
+    # Integrate
+    f_wt = np.exp(1.0j * np.outer(X_w, x_t))
+    y_it = np.swapaxes(y_ti, 0, 1)
+    Y_wi = np.tensordot(f_wt, dx_t * envelope(x_t) * y_it, axes=(1, 1))
+    return Y_wi
+
+
+def read_td_file_data(fname, remove_duplicates=True):
+    """Read data from time-dependent data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    time_t
+        Array of time values
+    data_ti
+        Array of data values
+    """
+    # Read data
+    data_tj = np.loadtxt(fname)
+    time_t = data_tj[:, 0]
+    data_ti = data_tj[:, 1:]
+
+    # Remove duplicates due to abruptly stopped and restarted calculation
+    if remove_duplicates:
+        flt_t = np.ones_like(time_t, dtype=bool)
+        maxtime = time_t[0]
+        for t in range(1, len(time_t)):
+            # Note about ">=" here:
+            # The equality is included here in order to
+            # retain step-like data (for example, the data both just before
+            # and just after the kick is kept).
+            if time_t[t] >= maxtime:
+                maxtime = time_t[t]
+            else:
+                flt_t[t] = False
+        time_t = time_t[flt_t]
+        data_ti = data_ti[flt_t]
+        ndup = len(flt_t) - flt_t.sum()
+        if ndup > 0:
+            print('Removed %d duplicates' % ndup)
+    return time_t, data_ti
+
+
+def read_td_file_kicks(fname):
+    """Read kicks from time-dependent data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    """
     def parse_kick_line(line):
-        kick_str_v = line.split('[', 1)[1].split(']', 1)[0].split(',')
-        kick_v = np.array([float(x) for x in kick_str_v])
-        data_i = line.split('Time =')
-        if len(data_i) == 1:
+        # Kick
+        regexp = (r"Kick = \["
+                  r"(?P<k0>[-+0-9\.e\ ]+), "
+                  r"(?P<k1>[-+0-9\.e\ ]+), "
+                  r"(?P<k2>[-+0-9\.e\ ]+)\]")
+        m = re.search(regexp, line)
+        assert m is not None, 'Kick not found'
+        kick_v = np.array([float(m.group('k%d' % v)) for v in range(3)])
+        # Time
+        regexp = r"Time = (?P<time>[-+0-9\.e\ ]+)"
+        m = re.search(regexp, line)
+        if m is None:
+            print('time not found')
             time = 0.0
         else:
-            time = float(data_i[1])
+            time = float(m.group('time'))
         return kick_v, time
 
     # Search kicks
@@ -26,60 +114,140 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
             if line.startswith('# Kick'):
                 kick_v, time = parse_kick_line(line)
                 kick_i.append({'strength_v': kick_v, 'time': time})
+    return kick_i
 
-    # Read data
-    data_tj = np.loadtxt(fname)
-    time_t = data_tj[:, 0]
-    norm_t = data_tj[:, 1]
-    dm_tv = data_tj[:, 2:]
 
-    # Remove duplicates due to abruptly stopped and restarted calculation
-    if remove_duplicates:
-        flt_t = np.ones_like(time_t, dtype=bool)
-        maxtime = time_t[0]
-        for t in range(1, len(time_t)):
-            if time_t[t] > maxtime:
-                maxtime = time_t[t]
-            else:
-                flt_t[t] = False
+def clean_td_data(kick_i, time_t, data_ti):
+    """Prune time-dependent data.
 
-        time_t = time_t[flt_t]
-        norm_t = norm_t[flt_t]
-        dm_tv = dm_tv[flt_t]
+    This function checks that there is only one kick
+    in the kick list and moves time zero to the kick
+    time (discarding all preceding data).
 
-        ndup = len(flt_t) - flt_t.sum()
-        if ndup > 0:
-            print('Removed %d duplicates' % ndup)
+    Parameters
+    ----------
+    kick_i
+        List of kicks.
+    time_t
+        Array of time values
+    data_ti
+        Array of data values
 
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+
+    Raises
+    ------
+    RuntimeError
+        If kick list contains multiple kicks.
+    """
+    # Check kicks
+    if len(kick_i) > 1:
+        raise RuntimeError('Multiple kicks')
+    kick = kick_i[0]
+    kick_v = kick['strength_v']
+    kick_time = kick['time']
+
+    # Discard times before kick
+    flt_t = time_t >= kick_time
+    time_t = time_t[flt_t]
+    data_ti = data_ti[flt_t]
+
+    # Move time zero to kick time
+    time_t -= kick_time
+    assert time_t[0] == 0.0
+
+    return kick_v, time_t, data_ti
+
+
+def read_dipole_moment_file(fname, remove_duplicates=True):
+    """Read time-dependent dipole moment data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    time_t
+        Array of time values
+    norm_t
+        Array of norm values
+    dm_tv
+        Array of dipole moment values
+    """
+    time_t, data_ti = read_td_file_data(fname, remove_duplicates)
+    kick_i = read_td_file_kicks(fname)
+    norm_t = data_ti[:, 0]
+    dm_tv = data_ti[:, 1:]
     return kick_i, time_t, norm_t, dm_tv
 
 
-def calculate_polarizability(data, foldedfrequencies):
-    kick_v, time_t, dm_tv = data
-    ff = foldedfrequencies
-    omega_w = ff.frequencies
-    envelope = ff.folding.envelope
-
-    time_t = time_t - time_t[0]
-    dt_t = np.insert(time_t[1:] - time_t[:-1], 0, 0.0)
-    dm_tv = dm_tv[:] - dm_tv[0]
-
-    kick_magnitude = np.sum(kick_v**2)
-
-    Nw = len(omega_w)
-    alpha_wv = np.zeros((Nw, 3), dtype=complex)
-    f_wt = np.exp(1.0j * np.outer(omega_w, time_t))
-    dm_vt = np.swapaxes(dm_tv, 0, 1)
-    alpha_wv = np.tensordot(f_wt, dt_t * envelope(time_t) * dm_vt, axes=(1, 1))
-    alpha_wv *= kick_v / kick_magnitude
+def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
+    dm_tv = dm_tv - dm_tv[0]
+    alpha_wv = calculate_fourier_transform(time_t, dm_tv, foldedfrequencies)
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    alpha_wv /= kick_magnitude
     return alpha_wv
 
 
-def calculate_photoabsorption(data, foldedfrequencies):
+def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
-    alpha_wv = calculate_polarizability(data, foldedfrequencies)
+    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv,
+                                        foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
+
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    abs_wv *= kick_v / kick_magnitude
     return abs_wv
+
+
+def read_magnetic_moment_file(fname, remove_duplicates=True):
+    """Read time-dependent magnetic moment data file.
+
+    Parameters
+    ----------
+    fname
+        File path
+    remove_duplicates
+        If true, remove data from overlapping time values.
+        The first encountered values are kept.
+
+    Returns
+    -------
+    kick_i
+        List of kicks.
+        Each kick is a dictionary with keys
+        ``strength_v`` and ``time``.
+    time_t
+        Array of time values
+    mm_tv
+        Array of magnetic moment values
+    """
+    time_t, mm_tv = read_td_file_data(fname, remove_duplicates)
+    kick_i = read_td_file_kicks(fname)
+    return kick_i, time_t, mm_tv
+
+
+def calculate_rotatory_strength_components(kick_v, time_t, mm_tv,
+                                           foldedfrequencies):
+    assert np.all(mm_tv[0] == 0.0)
+    mm_wv = calculate_fourier_transform(time_t, mm_tv, foldedfrequencies)
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    rot_wv = mm_wv.real / (np.pi * kick_magnitude)
+    return rot_wv
 
 
 def write_spectrum(dipole_moment_file, spectrum_file,
@@ -88,28 +256,15 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     def str_list(v_i, fmt='%g'):
         return '[%s]' % ', '.join(map(lambda v: fmt % v, v_i))
 
-    r = read_dipole_moment_file(dipole_moment_file)
-    kick_i, time_t, norm_t, dm_tv = r
-    dt_t = time_t[1:] - time_t[:-1]
-
-    if len(kick_i) > 1:
-        raise RuntimeError('Multiple kicks in %s' % dipole_moment_file)
-    kick = kick_i[0]
-    kick_v = kick['strength_v']
-    kick_time = kick['time']
-
-    # Discard times before kick
-    flt_t = time_t > (kick_time - 0.5 * dt_t.min())
-    time_t = time_t[flt_t]
-    norm_t = norm_t[flt_t]
-    dm_tv = dm_tv[flt_t]
+    kick_i, time_t, _, dm_tv = read_dipole_moment_file(dipole_moment_file)
+    kick_v, time_t, dm_tv = clean_td_data(kick_i, time_t, dm_tv)
     dt_t = time_t[1:] - time_t[:-1]
 
     freqs = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
     folding = Folding(folding, width)
     ff = FoldedFrequencies(freqs, folding)
     omega_w = ff.frequencies
-    spec_wv = calculate((kick_v, time_t, dm_tv), ff)
+    spec_wv = calculate(kick_v, time_t, dm_tv, ff)
 
     # Write spectrum file header
     with open(spectrum_file, 'w') as f:
@@ -150,30 +305,38 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     return folding.envelope(time_t[-1])
 
 
-def photoabsorption_spectrum(dipole_moment_file, spectrum_file,
-                             folding='Gauss', width=0.2123,
-                             e_min=0.0, e_max=30.0, delta_e=0.05):
+def photoabsorption_spectrum(dipole_moment_file: str,
+                             spectrum_file: str,
+                             folding: str = 'Gauss',
+                             width: float = 0.2123,
+                             e_min: float = 0.0,
+                             e_max: float = 30.0,
+                             delta_e: float = 0.05):
     """Calculates photoabsorption spectrum from the time-dependent
     dipole moment.
 
-    Parameters:
+    The spectrum is represented as a dipole strength function
+    in units of 1/eV. Thus, the resulting spectrum should integrate
+    to the number of valence electrons in the system.
 
-    dipole_moment_file: string
+    Parameters
+    ----------
+    dipole_moment_file
         Name of the time-dependent dipole moment file from which
         the spectrum is calculated
-    spectrum_file: string
+    spectrum_file
         Name of the spectrum file
-    folding: 'Gauss' or 'Lorentz'
-        Whether to use Gaussian or Lorentzian folding
-    width: float
+    folding
+        Gaussian (``'Gauss'``) or Lorentzian (``'Lorentz'``) folding
+    width
         Width of the Gaussian (sigma) or Lorentzian (Gamma)
         Gaussian =     1/(sigma sqrt(2pi)) exp(-(1/2)(omega/sigma)^2)
         Lorentzian =  (1/pi) (1/2) Gamma / [omega^2 + ((1/2) Gamma)^2]
-    e_min: float
+    e_min
         Minimum energy shown in the spectrum (eV)
-    e_max: float
+    e_max
         Maximum energy shown in the spectrum (eV)
-    delta_e: float
+    delta_e
         Energy resolution (eV)
     """
     if world.rank == 0:
@@ -228,3 +391,87 @@ def polarizability_spectrum(dipole_moment_file, spectrum_file,
         print('Sinc contamination %.8f' % sinc)
         print('Calculated polarizability spectrum saved to file "%s"'
               % spectrum_file)
+
+
+def rotatory_strength_spectrum(magnetic_moment_files, spectrum_file,
+                               folding='Gauss', width=0.2123,
+                               e_min=0.0, e_max=30.0, delta_e=0.05):
+    """Calculates rotatory strength spectrum from the time-dependent
+    magnetic moment.
+
+    Parameters
+    ----------
+    magnetic_moment_files: list of string
+        Time-dependent magnetic moment files for x, y, and z kicks
+    spectrum_file: string
+        Name of the spectrum file
+    folding: 'Gauss' or 'Lorentz'
+        Whether to use Gaussian or Lorentzian folding
+    width: float
+        Width of the Gaussian (sigma) or Lorentzian (Gamma)
+        Gaussian =     1/(sigma sqrt(2pi)) exp(-(1/2)(omega/sigma)^2)
+        Lorentzian =  (1/pi) (1/2) Gamma / [omega^2 + ((1/2) Gamma)^2]
+    e_min: float
+        Minimum energy shown in the spectrum (eV)
+    e_max: float
+        Maximum energy shown in the spectrum (eV)
+    delta_e: float
+        Energy resolution (eV)
+    """
+    if world.rank != 0:
+        return
+
+    freqs = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
+    folding = Folding(folding, width)
+    ff = FoldedFrequencies(freqs, folding)
+    omega_w = ff.frequencies * au_to_eV
+    rot_w = np.zeros_like(omega_w)
+
+    tot_time = np.inf
+    time_steps = []
+    kick_strength = None
+    for v, fpath in enumerate(magnetic_moment_files):
+        kick_i, time_t, mm_tv = read_magnetic_moment_file(fpath)
+        kick_v, time_t, mm_tv = clean_td_data(kick_i, time_t, mm_tv)
+
+        tot_time = min(tot_time, time_t[-1])
+        time_steps.append(np.around(time_t[1:] - time_t[:-1], 6))
+
+        # Check kicks
+        for v0 in range(3):
+            if v0 == v:
+                continue
+            if kick_v[v0] != 0.0:
+                raise RuntimeError('The magnetic moment files must be '
+                                   'for kicks in x, y, and z directions.')
+        if kick_strength is None:
+            kick_strength = np.sqrt(np.sum(kick_v**2))
+        if np.sqrt(np.sum(kick_v**2)) != kick_strength:
+            raise RuntimeError('The magnetic moment files must have '
+                               'been calculated with the same kick strength.')
+
+        rot_wv = calculate_rotatory_strength_components(kick_v, time_t,
+                                                        mm_tv, ff)
+        rot_w += rot_wv[:, v]
+
+    rot_w *= rot_au_to_cgs * 1e40 / au_to_eV
+
+    # Unique non-zero time steps
+    time_steps = np.unique(time_steps)
+    time_steps = time_steps[time_steps != 0]
+
+    with open(spectrum_file, 'w') as fd:
+        steps_str = ', '.join(f'{val:.4f}' for val in time_steps * au_to_as)
+        lines = ['Rotatory strength spectrum from real-time propagations',
+                 f'Total time = {tot_time * au_to_fs:.4f} fs, '
+                 f'Time steps = [{steps_str}] as',
+                 f'Kick strength = {kick_strength}',
+                 f'{folding.folding}ian folding, '
+                 f'width = {folding.width * au_to_eV:.4f} eV '
+                 f'<=> FWHM = {folding.fwhm * au_to_eV:.4f} eV']
+        fd.write('# ' + '\n# '.join(lines) + '\n')
+        fd.write(f'# {"Energy (eV)":>12} {"R (1e-40 cgs / eV)":>20}\n')
+
+        data_wi = np.vstack((omega_w, rot_w)).T
+        np.savetxt(fd, data_wi,
+                   fmt='%14.6lf' + (' %20.10le' * (data_wi.shape[1] - 1)))

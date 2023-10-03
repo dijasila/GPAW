@@ -1,11 +1,12 @@
 import numpy as np
+from scipy.special import erf
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
-from gpaw.setup import BaseSetup
+from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
-from gpaw.utilities import erf, divrl, hartree as hartree_solve
+from gpaw.utilities import divrl, hartree as hartree_solve
 
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
@@ -36,7 +37,7 @@ def local_potential_to_spline(rgd, vbar_g, filter=None):
     rcut = rgd.r_g[len(vbar_g) - 1]
     if filter is not None:
         filter(rgd, rcut, vbar_g, l=0)
-    #vbar = Spline(0, rcut, vbar_g)
+    # vbar = Spline(0, rcut, vbar_g)
     vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
     return vbar
 
@@ -158,8 +159,8 @@ def generate_basis_functions(ppdata):
                 phit_g /= norm
                 bf = BasisFunction(None, l, rgd.r_g[-1], phit_g, 'gaussian')
                 bf_j.append(bf)
-    # l_orb_j = [state.l for state in self.data['states']]
-    b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_j)
+    # l_orb_J = [state.l for state in self.data['states']]
+    b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_J)
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
@@ -170,9 +171,9 @@ def generate_basis_functions(ppdata):
 
 
 def pseudoplot(pp, show=True):
-    import pylab as pl
+    import matplotlib.pyplot as plt
 
-    fig = pl.figure()
+    fig = plt.figure()
     wfsax = fig.add_subplot(221)
     ptax = fig.add_subplot(222)
     vax = fig.add_subplot(223)
@@ -207,15 +208,13 @@ def pseudoplot(pp, show=True):
         ax.legend()
 
     if show:
-        pl.show()
+        plt.show()
 
 
 class PseudoPotential(BaseSetup):
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.R_sii = None
-        self.HubU = None
         self.lq = None
 
         self.filename = None
@@ -230,12 +229,12 @@ class PseudoPotential(BaseSetup):
         self.f_j = data.f_j
         self.n_j = data.n_j
         self.l_j = data.l_j
-        self.l_orb_j = data.l_orb_j
+        self.l_orb_J = data.l_orb_J
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
-        #self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
-        #                                  filter=filter)
+        # self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
+        #                                   filter=filter)
         self.pt_j = data.get_projectors()
 
         if len(self.pt_j) == 0:
@@ -246,10 +245,17 @@ class PseudoPotential(BaseSetup):
 
         if basis is None:
             basis = data.create_basis_functions()
-        self.phit_j = basis.tosplines()
+
+        self.basis_functions_J = basis.tosplines()
+
+        # We declare (for the benefit of the wavefunctions reuse method)
+        # that we have no PAW projectors as such.  This makes the
+        # 'paw' wfs reuse method a no-op.
+        self.pseudo_partial_waves_j = []
+
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
+                        for phit in self.basis_functions_J])
 
         self.Nct = 0.0
         self.nct = null_spline
@@ -264,7 +270,7 @@ class PseudoPotential(BaseSetup):
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
-        #self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
+        # self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
         #                                      filter=filter)
         self.vbar = data.get_local_potential()
         # XXX HGH and UPF use different radial grids, and this for
@@ -282,6 +288,7 @@ class PseudoPotential(BaseSetup):
         self.M = -data.Eh_compcharge
         self.M_p = np.zeros(_np)
         self.M_pp = np.zeros((_np, _np))
+        self.M_wpp = {}
 
         self.K_p = data.expand_hamiltonian_matrix()
         self.MB = 0.0
@@ -294,20 +301,26 @@ class PseudoPotential(BaseSetup):
 
         self.N0_p = np.zeros(_np)  # not really implemented
         self.nabla_iiv = None
-        self.rnabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd
         self.rcut_j = data.rcut_j
         self.tauct = None
-        self.Delta_iiL = None
+        self.Delta_iiL = np.zeros((self.ni, self.ni, 1))
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_wp = {}
+        self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
+        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)
         self.extra_xc_data = {}
 
         self.wg_lg = None
         self.g_lg = None
+        self.local_corr = LocalCorrectionVar(None)
+        self._Mg_pp = None
+        self._gamma = None

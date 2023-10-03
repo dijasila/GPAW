@@ -6,10 +6,9 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, gemv
+from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
-from gpaw import extra_parameters
 
 
 class CG(Eigensolver):
@@ -41,10 +40,7 @@ class CG(Eigensolver):
         Eigensolver.__init__(self)
         self.niter = niter
         self.rtol = rtol
-        if extra_parameters.get('PK', False):
-            self.orthonormalization_required = True
-        else:
-            self.orthonormalization_required = False
+        self.orthonormalization_required = False
         self.tw_coeff = tw_coeff
 
         self.tolerance = None
@@ -60,9 +56,12 @@ class CG(Eigensolver):
             raise ValueError('CG eigensolver does not support band '
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
+        if wfs.mode == 'pw' and wfs.gd.comm.size > 1:
+            raise ValueError('CG eigensolver does not support domain '
+                             'parallelization in PW-mode.')
         Eigensolver.initialize(self, wfs)
 
-    def iterate_one_k_point(self, ham, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do conjugate gradient iterations for the k-point"""
         self.timer.start('CG')
 
@@ -87,7 +86,7 @@ class CG(Eigensolver):
 
         psit = kpt.psit
         R = psit.new(buf=wfs.work_array)
-        P = kpt.P
+        P = kpt.projections
         P2 = P.new()
 
         self.subspace_diagonalize(ham, wfs, kpt)
@@ -100,10 +99,7 @@ class CG(Eigensolver):
 
         total_error = 0.0
         for n in range(self.nbands):
-            if extra_parameters.get('PK', False):
-                N = n + 1
-            else:
-                N = self.nbands
+            N = self.nbands
             R_G = R.array[n]
             Htpsit_G = Htpsit.array[n]
             psit_G = psit.array[n]
@@ -144,8 +140,7 @@ class CG(Eigensolver):
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
-                gemv(-1.0, psit.array[:N].view(wfs.dtype), overlap_n,
-                     1.0, phi_G.view(wfs.dtype), 'n')
+                phi_G -= psit.array[:N].T.dot(overlap_n).T
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
@@ -222,13 +217,7 @@ class CG(Eigensolver):
                         break
                     error = error_new
 
-            if kpt.f_n is None:
-                weight = 1.0
-            else:
-                weight = kpt.f_n[n]
-            if self.nbands_converge != 'occupied':
-                weight = kpt.weight * float(n < self.nbands_converge)
-            total_error += weight * error
+            total_error += weights[n] * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
         if self.tw_coeff:  # undo the scaling for calculating energies

@@ -4,7 +4,7 @@
 sepeli.csc.fi
 =============
 
-Here you find information about the the system
+Here you find information about the system
 `<http://raketti.csc.fi/english/research/Computing_services/computing/servers/sepeli_policy>`_.
 
 The installed subversion in sepeli does not support https-protocol, so
@@ -24,7 +24,7 @@ Compile like this::
   [ASE is now in use]
   sepeli ~/gpaw/trunk> alias python 'python-pathscale64'
   sepeli ~/gpaw/trunk> unsetenv CC; unsetenv CFLAGS; unsetenv LDFLAGS
-  
+
 On runtime you need the following::
 
   # make shure, that the right acml library is found

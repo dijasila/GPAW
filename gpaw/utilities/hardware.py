@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import re
 
@@ -6,18 +5,27 @@ moab = {
     'cmdstr': '#MSUB ',
     'jobid': '$MOAB_JOBID',
     'mailtype': '-m bea',
-    'mpirun': 'mpirun -n ',
+    'mpirun': 'mpiexec -np ',
     'name': '-N ',
     'nodes': '-l nodes=',
     'ppn': ':ppn=',
     'walltime': '-l walltime=',
+}
+sbatch = {
+    'cmdstr': '#SBATCH ',
+    'jobid': '$SLURM_JOB_ID',
+    'mailtype': '--mail-type=ALL',
+    'mpirun': 'mpiexec -np ',
+    'name': '--job-name=',
+    'nodes': '--nodes=',
+    'tasks': '--tasks-per-node=',
+    'walltime': '--time=',
 }
 
 _hardware_info = {
     "bwUniCluster": {
         "cores_per_node": 16,
         "loginnodes": [r'uc1n*'],
-        'modules': ['mpi'],
         'scheduler': moab,
     },
     "jureca": {
@@ -37,14 +45,12 @@ _hardware_info = {
     "nemo": {
         "cores_per_node": 20,
         "loginnodes": [r"login1.nemo.privat"],
-        'modules': ['mpi/impi'],
         'scheduler': moab,
     },
-    "justus": {
-        "cores_per_node": 16,
+    "justus2": {
+        "cores_per_node": 48,
         "loginnodes": [r"login??"],
-        'modules': ['mpi/impi'],
-        'scheduler': moab,
+        'scheduler': sbatch,
     }
 }
 
@@ -58,7 +64,7 @@ def dhms(secs):
     s = secs % 3600
     dhms[2] = int(s // 60)
     s = secs % 60
-    dhms[3] = int(s+.5)
+    dhms[3] = int(s + .5)
     return dhms
 
 
@@ -69,7 +75,7 @@ def hms(secs):
     s = secs % 3600
     hms[1] = int(s // 60)
     s = secs % 60
-    hms[2] = int(s+.5)
+    hms[2] = int(s + 0.5)
     return hms
 
 
@@ -109,7 +115,7 @@ class ComputeCluster:
             try:
                 import socket
                 return socket.gethostname().split('-')[0]
-            except:
+            except Exception:
                 dummy, hostname = os.popen4('hostname -s')
                 return hostname.readline().split()
 
@@ -163,22 +169,16 @@ class ComputeCluster:
             print(d['ppn'] + str(ppn), file=f)
         else:
             print(file=f)
-            print(c + '--ntasks-per-node=' + str(ppn), file=f)
+            print(c + d['tasks'] + str(ppn), file=f)
         print(c + d['walltime'] + hms_string(set['time']), file=f)
         if set['mail'] is not None:
             print(c + '--mail-user=' + set['mail'], file=f)
         print(c + d['mailtype'], file=f)
-        if 'modules' in self.data:
-            for module in self.data['modules']:
-                print('module load', module, file=f)
         print('cd', set['wd'], file=f)
-        print(('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] +
-               ':$LD_LIBRARY_PATH'), file=f)
-        print('export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH',
-              file=f)
-        print('export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH'], file=f)
-        print('export GPAW_PYTHON=' + env['GPAW_PYTHON'], file=f)
-        print(d['mpirun'] + str(cores) + ' $GPAW_PYTHON',
+        print('export MODULEPATH=' + env['MODULEPATH'], file=f)
+        for module in env['LOADEDMODULES'].split(':'):
+            print('module load', module, file=f)
+        print(d['mpirun'] + str(cores) + ' gpaw python',
               set['script'], end=' ', file=f)
         if 'parameters' in set:
             print(set['parameters'], end=' ', file=f)

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pickle
 from math import log, pi
 
@@ -26,7 +25,7 @@ class XAS:
         #         'The core hole is always in spin 0: please use spin=0')
 
         if wfs.nspins == 1:
-            if spin is not 0:
+            if spin != 0:
                 raise RuntimeError(
                     'use spin=0 for a spin paired calculation')
             nocc = wfs.setups.nvalence // 2
@@ -34,7 +33,7 @@ class XAS:
         else:
             self.list_kpts = []
 
-            if spin is not 0 and spin is not 1:
+            if spin != 0 and spin != 1:
                 print('spin', spin)
                 raise RuntimeError(
                     'use either spin=0 or spin=1')
@@ -297,7 +296,8 @@ class RecursionMethod:
             self.initialize_start_vector(proj=proj, proj_xyz=proj_xyz)
 
     def read(self, filename):
-        data = pickle.load(open(filename, 'rb'))
+        with open(filename, 'rb') as fd:
+            data = pickle.load(fd)
         self.nkpts = data['nkpts']
         if 'swaps' in data:
             # This is an old file:
@@ -377,7 +377,8 @@ class RecursionMethod:
                     kpt_comm.gather(y0_ucG, 0)
 
         if self.wfs.world.rank == 0:
-            pickle.dump(data, open(filename, 'wb'))
+            with open(filename, 'wb') as fd:
+                pickle.dump(data, fd)
 
     def allocate_tmp_arrays(self):
 

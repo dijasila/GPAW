@@ -72,6 +72,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 
 #define   pdtran_  pdtran
 #define   pztranc_ pztranc
+#define   pztranu_ pztranu
 #define   pdgemm_  pdgemm
 #define   pzgemm_  pzgemm
 #define   pdgemv_  pdgemv
@@ -84,6 +85,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pztrsm_  pztrsm
 
 #define   pzhemm_  pzhemm
+#define   pzsymm_  pzsymm
 #define   pdsymm_  pdsymm
 
 #endif
@@ -256,6 +258,12 @@ void pztranc_(int* m, int* n,
               void* beta,
               void* c, int* ic, int* jc, int* descc);
 
+void pztranu_(int* m, int* n,
+              void* alpha,
+              void* a, int* ia, int* ja, int* desca,
+              void* beta,
+              void* c, int* ic, int* jc, int* descc);
+
 void pdgemm_(char* transa, char* transb, int* m, int* n, int* k,
              double* alpha,
              double* a, int* ia, int* ja, int* desca,
@@ -271,6 +279,13 @@ void pzgemm_(char* transa, char* transb, int* m, int* n, int* k,
              void* c, int* ic, int* jc, int* descc);
 
 void pzhemm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
+void pzsymm_(char* side, char* uplo, int* m, int* n,
              void* alpha,
              void* a, int* ia, int* ja, int* desca,
              void* b, int* ib, int* jb, int* descb,
@@ -340,12 +355,14 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
     Py_complex beta;
     PyArrayObject *a, *c;
     PyArrayObject *desca, *descc;
-  
-    if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
+    int conj;
+
+    if (!PyArg_ParseTuple(args, "iiDODOOOi", &m, &n, &alpha,
                           &a, &beta, &c,
-                          &desca, &descc))
+                          &desca, &descc,
+                          &conj))
         return NULL;
- 
+
     int one = 1;
     if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
         pdtran_(&m, &n,
@@ -353,8 +370,14 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
                 DOUBLEP(a), &one, &one, INTP(desca),
                 &(beta.real),
                 DOUBLEP(c), &one, &one, INTP(descc));
-    else
+    else if (conj)
         pztranc_(&m, &n,
+                 &alpha,
+                 (void*)PyArray_DATA(a), &one, &one, INTP(desca),
+                 &beta,
+                 (void*)PyArray_DATA(c), &one, &one, INTP(descc));
+    else
+        pztranu_(&m, &n,
                  &alpha,
                  (void*)PyArray_DATA(a), &one, &one, INTP(desca),
                  &beta,
@@ -372,7 +395,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiiDOODOOOOss", &m, &n, &k, &alpha,
                         &a, &b, &beta, &c,
                         &desca, &descb, &descc,
@@ -405,7 +428,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 }
 
 
-PyObject* pblas_hemm(PyObject *self, PyObject *args)
+PyObject* pblas_hemm_symm(PyObject *self, PyObject *args)
 {
   char* side;
   char* uplo;
@@ -414,22 +437,30 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args)
   Py_complex beta;
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
+  int hemm;
   int one = 1;
-  if (!PyArg_ParseTuple(args, "ssiiDOOdOOOO",
+  if (!PyArg_ParseTuple(args, "ssiiDOODOOOOi",
                  &side, &uplo, &n, &m,
                  &alpha, &a, &b, &beta,
-                 &c, &desca, &descb, &descc)) {
+                 &c, &desca, &descb, &descc,
+                 &hemm)) {
     return NULL;
   }
 
   if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
-     pdsymm_(side, uplo, &n, &m, &alpha,
+     pdsymm_(side, uplo, &n, &m, &(alpha.real),
              (void*)DOUBLEP(a), &one, &one, INTP(desca),
              (void*)DOUBLEP(b), &one, &one, INTP(descb),
-             &beta,
+             &(beta.real),
              (void*)DOUBLEP(c), &one, &one, INTP(descc));
-  } else {
+  } else if (hemm) {
      pzhemm_(side, uplo, &n, &m, &alpha,
+             (void*)COMPLEXP(a), &one, &one, INTP(desca),
+             (void*)COMPLEXP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)COMPLEXP(c), &one, &one, INTP(descc));
+  } else {
+     pzsymm_(side, uplo, &n, &m, &alpha,
              (void*)COMPLEXP(a), &one, &one, INTP(desca),
              (void*)COMPLEXP(b), &one, &one, INTP(descb),
              &beta,
@@ -456,7 +487,7 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args)
                         &descy, &transa)) {
     return NULL;
   }
-  
+
   // ydesc
   // int y_ConTxt = INTP(descy)[1];
 
@@ -490,7 +521,7 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args)
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiDOODOOOOs", &n, &k, &alpha,
                         &a, &b, &beta, &c,
                         &desca, &descb, &descc,
@@ -531,7 +562,7 @@ PyObject* pblas_rk(PyObject *self, PyObject *args)
   PyArrayObject *a, *c;
   PyArrayObject *desca, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiDODOOOs", &n, &k, &alpha,
                         &a, &beta, &c,
                         &desca, &descc,
@@ -576,11 +607,11 @@ PyObject* new_blacs_context(PyObject *self, PyObject *args)
 
   // Create blacs grid on this communicator
   MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
-  
+
   // Get my id and nprocs. This is for debugging purposes only
   Cblacs_pinfo_(&iam, &nprocs);
   MPI_Comm_size(comm, &nprocs);
-  
+
   // Create blacs grid on this communicator continued
   ConTxt = Csys2blacs_handle_(comm);
   Cblacs_gridinit_(&ConTxt, order, nprow, npcol);
@@ -592,7 +623,7 @@ PyObject* get_blacs_gridinfo(PyObject *self, PyObject *args)
 {
   int ConTxt, nprow, npcol;
   int myrow, mycol;
-  
+
   if (!PyArg_ParseTuple(args, "iii", &ConTxt, &nprow, &npcol)) {
     return NULL;
   }
@@ -707,7 +738,7 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
                    (void*)COMPLEXP(b), ib, jb, INTP(descb),
                    c_ConTxt);
     }
-    
+
   Py_RETURN_NONE;
 }
 
@@ -730,14 +761,10 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
 
   // adesc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc; this can be relaxed a bit according to pdsyevd.f
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
 
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
@@ -761,6 +788,9 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
                DOUBLEP(z), &one,  &one, INTP(desca),
                &d_work, &querywork, &i_work, &querywork, &info);
       lwork = (int)(d_work);
+      // Sometimes lwork is not large enough.  Found this formula on
+      // the internet:
+      lwork = MAX(131072, 2 * (int) lwork + 1);
     }
   else
     {
@@ -782,7 +812,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     }
 
   // Computation part
-  liwork = i_work;
+  liwork = MAX(8 * n, i_work + 1);
   iwork = GPAW_MALLOC(int, liwork);
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
@@ -842,12 +872,8 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
 
   // a desc
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsyevx.f
 
@@ -862,7 +888,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   // char cmach = 'S'; // most acccurate eigenvalues
   // double abstol = pdlamch_(&a_ConTxt, &cmach);     // most orthogonal eigenvectors
   // double abstol = 2.0*pdlamch_(&a_ConTxt, &cmach); // most accurate eigenvalues
-  
+
   double orfac = -1.0;
 
   // Query part, need to find the optimal size of a number of work arrays
@@ -950,7 +976,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   free(gap);
   free(iclustr);
   free(ifail);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -985,12 +1011,8 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsyevx.f
 
@@ -1032,14 +1054,14 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
       lwork = (int)(c_work);
       lrwork = (int)(d_work[0]);
     }
-  
+
   if (info != 0) {
     printf ("info = %d", info);
     PyErr_SetString(PyExc_RuntimeError,
                     "scalapack_diagonalize_evr error in query.");
     return NULL;
   }
-  
+
   // Computation part
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
@@ -1072,7 +1094,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
       free(work);
     }
   free(iwork);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -1104,12 +1126,8 @@ PyObject* scalapack_general_diagonalize_dc(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc can be relaxed a bit according to pdsyevd.f
 
@@ -1303,12 +1321,8 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
 
   // a desc
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc; required by pdsygvx.f
 
@@ -1323,7 +1337,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   // char cmach = 'S'; // most acccurate eigenvalues
   // double abstol = pdlamch_(&a_ConTxt, &cmach);     // most orthogonal eigenvectors
   // double abstol = 2.0*pdlamch_(&a_ConTxt, &cmach); // most accurate eigenvalues
-  
+
   double orfac = -1.0;
 
   // Query part, need to find the optimal size of a number of work arrays
@@ -1374,7 +1388,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
                     "scalapack_general_diagonalize_ex error in query.");
     return NULL;
   }
-  
+
   // Computation part
   // lwork = lwork + (n-1)*n; // this is a ridiculous amount of workspace
   liwork = i_work;
@@ -1412,7 +1426,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   free(gap);
   free(iclustr);
   free(ifail);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -1451,12 +1465,8 @@ PyObject* scalapack_general_diagonalize_mr3(PyObject *self, PyObject *args)
 
   // a desc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   // zdesc = adesc = bdesc can be relaxed a bit according to pdsyevd.f
 
@@ -1651,14 +1661,10 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
 
   // adesc
   // int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
+  int p = n - 1;
 
-  // Only square matrices
-  assert (a_m == a_n);
-  int n = a_n;
-  int p = a_n - 1;
-  
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
 
@@ -1710,12 +1716,8 @@ PyObject* scalapack_inverse(PyObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "OOs", &a, &desca, &uplo))
     return NULL;
 
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
-  // Only square matrices
-  assert (a_m == a_n);
-
-  int n = a_n;
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
 
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
      {
@@ -1789,41 +1791,34 @@ PyObject* scalapack_solve(PyObject *self, PyObject *args) {
     return NULL;
 
   int a_ConTxt = INTP(desca)[1];
-  int a_m      = INTP(desca)[2];
-  int a_n      = INTP(desca)[3];
+  int n = INTP(desca)[2];
+  assert(n == INTP(desca)[3]); // Only square matrices
   int a_mb     = INTP(desca)[4];
-  // Only square matrices
-  assert (a_m == a_n);
 
-  int b_m      = INTP(descb)[2];
-  int b_n      = INTP(descb)[3];
-  // Equation valid
-  assert (a_n == b_m);
-
-  int n = a_n;
-  int nrhs = b_n;
+  assert(n == INTP(descb)[2]);  // Equation valid
+  int nrhs = INTP(descb)[3];
 
   int nprow, npcol, myrow, mycol, locM;
 
   Cblacs_gridinfo_(a_ConTxt, &nprow, &npcol, &myrow, &mycol);
   // LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
-  locM = (((a_m/a_mb) + 1)/nprow + 1) * a_mb;
+  locM = (((n/a_mb) + 1)/nprow + 1) * a_mb;
 
   /*
    *  IPIV    (local output) INTEGER array, dimension ( LOCr(M_A)+MB_A )
    *          This array contains the pivoting information.
    *          IPIV(i) -> The global row local row i was swapped with.
    *          This array is tied to the distributed matrix A.
-   
+
    *  An upper bound for these quantities may be computed by:
    *          LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
-   
+
    *  M_A    (global) DESCA( M_ )    The number of rows in the global
    *                                 array A.
-   
+
    *  MB_A   (global) DESCA( MB_ )   The blocking factor used to distribute
    *                                 the rows of the array.
-   
+
    *  NPROW   (global input) INTEGER
    *          NPROW specifies the number of process rows in the grid
    *          to be created.

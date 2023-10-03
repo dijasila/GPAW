@@ -2,7 +2,7 @@
 xc2.rz.uni-karlsruhe.de
 =======================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.rz.uni-karlsruhe.de/ssck/5753.php>`_.
 
 The installation works using ``gcc``::

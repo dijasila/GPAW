@@ -231,15 +231,14 @@ static void c_revtpss_12(revtpss_params *p, const double *rho, const double *sig
   int nder = (p->common.nspin==XC_UNPOLARIZED) ? 1 : 3;
   for(i=0; i<nder; i++){
     if(p->common.nspin==XC_UNPOLARIZED) dauxdsigma[i] /= 2.;
-    double dCdsigma[i]; 
-    dCdsigma[i]=  dCdcsi*dcsidsigma[i];
-	
+    double dCdsigma =  dCdcsi*dcsidsigma[i];
+
     /* partial derivatives*/
-    de_PKZBdsigma[i] = de_PBEdsigma[i] * (1.0 + C * zsq) + dens * e_PBE * dCdsigma[i] * zsq
-      - zsq * (dens * dCdsigma[i] * aux + (1.0 + C) * dauxdsigma[i]);
+    de_PKZBdsigma[i] = de_PBEdsigma[i] * (1.0 + C * zsq) + dens * e_PBE * dCdsigma * zsq
+      - zsq * (dens * dCdsigma * aux + (1.0 + C) * dauxdsigma[i]);
 
   }
-} 
+}
 
 
 static void 

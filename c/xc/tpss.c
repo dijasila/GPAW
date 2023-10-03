@@ -427,12 +427,11 @@ static void c_tpss_12(XC(func_type) *aux1, XC(func_type) *aux2, int nspin, const
   int nder = (nspin==XC_UNPOLARIZED) ? 1 : 3;
   for(i=0; i<nder; i++){
     if(nspin==XC_UNPOLARIZED) dauxdsigma[i] /= 2.;
-    double dCdsigma[i];
-    dCdsigma[i]=  dCdcsi*dcsidsigma[i];
+    double dCdsigma = dCdcsi*dcsidsigma[i];
 
     /* partial derivatives*/
-    de_PKZBdsigma[i] = de_PBEdsigma[i] * (1.0 + C * zsq) + dens * e_PBE * dCdsigma[i] * zsq
-      - zsq * (dens * dCdsigma[i] * aux + (1.0 + C) * dauxdsigma[i]);
+    de_PKZBdsigma[i] = de_PBEdsigma[i] * (1.0 + C * zsq) + dens * e_PBE * dCdsigma * zsq
+      - zsq * (dens * dCdsigma * aux + (1.0 + C) * dauxdsigma[i]);
 
   }
 }

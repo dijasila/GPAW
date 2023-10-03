@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -193,8 +192,8 @@ class Density:
 
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
+        self.nct.set_positions(spos_ac, atom_partition)
+        self.ghat.set_positions(spos_ac, atom_partition)
         self.mixer.reset()
 
         self.nt_xg = None
@@ -378,7 +377,7 @@ class Density:
             raise ValueError('Not a mixer: %s' % mixer)
         self.mixer = MixerWrapper(mixer, self.ncomponents, self.gd)
 
-    def estimate_magnetic_moments(self):
+    def calculate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
         magmom_v = np.zeros(3)
         if self.nspins == 2:
@@ -401,6 +400,8 @@ class Density:
             magmom_v += self.gd.integrate(self.nt_vG)
 
         return magmom_v, magmom_av
+
+    estimate_magnetic_moments = calculate_magnetic_moments
 
     def get_correction(self, a, spin):
         """Integrated atomic density correction.
@@ -427,6 +428,7 @@ class Density:
         """
         if spos_ac is None:
             spos_ac = atoms.get_scaled_positions() % 1.0
+        spos_ch = []    # for coreholes
 
         # Refinement of coarse grid, for representation of the AE-density
         # XXXXXXXXXXXX think about distribution depending on gridrefinement!
@@ -457,6 +459,12 @@ class Density:
         else:
             raise NotImplementedError
 
+        if self.nspins > 1 and not skip_core:
+            # Support for corehole in spin-polarized system
+            spos_ch = []
+            n_ch_a = []
+            n_ch = []
+
         # Add corrections to pseudo-density to get the AE-density
         splines = {}
         phi_aj = []
@@ -474,6 +482,20 @@ class Density:
             phit_aj.append(phit_j)
             nc_a.append([nc])
             nct_a.append([nct])
+            if self.setups[a].data.has_corehole and not skip_core and \
+                    self.nspins > 1:
+                assert self.setups[a].data.lcorehole == 0
+                work_setup = self.setups[a].data
+                rmax = nc.get_cutoff()
+                # work_setup.phicorehole_g
+                phi_ch = work_setup.phicorehole_g
+                phi_ch = np.where(abs(phi_ch) < 1e-160, 0, phi_ch)
+                n_ch = np.dot(work_setup.fcorehole, phi_ch**2) / (4 * pi)
+                # n_ch[0] = n_ch[1] # ch is allready taylored
+                # fcorehole should divided by two - use scale for this
+                n_ch_spl = work_setup.rgd.spline(n_ch, rmax, points=1000)
+                n_ch_a.append([n_ch_spl])
+                spos_ch.append(spos_ac[a])
 
         # Create localized functions from splines
         phi = BasisFunctions(gd, phi_aj)
@@ -484,6 +506,9 @@ class Density:
         phit.set_positions(spos_ac)
         nc.set_positions(spos_ac)
         nct.set_positions(spos_ac)
+        if spos_ch:
+            nch = LFC(gd, n_ch_a)
+            nch.set_positions(spos_ch)
 
         I_sa = np.zeros((self.nspins, len(spos_ac)))
         a_W = np.empty(len(phi.M_W), np.intc)
@@ -494,7 +519,12 @@ class Density:
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
-        D_asp = self.D_asp  # XXX really?
+
+        # We need the charges for the density matrices in order to add
+        # nuclear charges at each atom.  Hence we use the aux partition:
+        # The one where atoms are distributed according to which realspace
+        # domain they belong to.
+        D_asp = self.atomdist.to_aux(self.D_asp)
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
@@ -511,9 +541,13 @@ class Density:
 
                     if not skip_core:
                         I_a[a] -= setup.Nc / self.nspins
+                        if self.setups[a].data.has_corehole and \
+                                self.nspins > 1:
+                            I_a[a] += pow(-1, s) * \
+                                self.setups[a].data.fcorehole / 2
 
-                if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, D_asp.partition.rank_a[a])
+                rank = D_asp.partition.rank_a[a]
+                D_asp.partition.comm.broadcast(D_sp, rank)
                 M2 = M1 + ni
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
@@ -524,6 +558,7 @@ class Density:
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
                                                    x_W)
 
+        # wth is this?
         a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
         for a in nc.atom_indices:
@@ -536,14 +571,16 @@ class Density:
 
             if not skip_core:
                 nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
-
+                # correct for ch here
+                if spos_ch:
+                    nch.lfc.ae_core_density_correction(- scale * pow(-1, s),
+                                                       n_sg[s], a_W, I_a)
             nct.lfc.ae_core_density_correction(-scale, n_sg[s], a_W, I_a)
-            gd.comm.sum(I_a)
+            D_asp.partition.comm.sum(I_a)
             N_c = gd.N_c
             g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
 
             if not skip_core:
-
                 for I, g_c in zip(I_a, g_ac):
                     if (g_c >= 0).all() and (g_c < gd.n_c).all():
                         n_sg[s][tuple(g_c)] -= I / gd.dv
@@ -633,12 +670,15 @@ class Density:
 
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
                                        self.nspins, kptband_comm)
-
-        self.atom_partition, self.atomdist, D_asp = \
-            redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
-                                         self.setups, self.redistributor,
+        self.atom_partition, self.atomdist = \
+            create_atom_partition_and_distibutions(self.gd, self.nspins,
+                                                   self.setups,
+                                                   self.redistributor,
+                                                   kptband_comm)
+        D_asp = \
+            redistribute_atomic_matrices(dens.D_asp, self.gd, self.ncomponents,
+                                         self.setups, self.atom_partition,
                                          kptband_comm)
-
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)
 
 
@@ -672,8 +712,8 @@ class RealSpaceDensity(Density):
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 
@@ -749,16 +789,20 @@ def redistribute_array(nt_sG, gd1, gd2, nspins, kptband_comm):
     return new_nt_sG
 
 
-def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
-                                 kptband_comm):
-    D_sP = pack_atomic_matrices(D_asp)
+def create_atom_partition_and_distibutions(gd2, nspins, setups, redistributor,
+                                           kptband_comm):
     natoms = len(setups)
     atom_partition = AtomPartition(gd2.comm, np.zeros(natoms, int),
                                    'density-gd')
-    D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     spos_ac = np.zeros((natoms, 3))  # XXXX
     atomdist = redistributor.get_atom_distributions(spos_ac)
+    return atom_partition, atomdist
 
+
+def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, atom_partition,
+                                 kptband_comm):
+    D_sP = pack_atomic_matrices(D_asp)
+    D_asp = setups.empty_atomic_matrix(nspins, atom_partition)
     if gd2.comm.rank == 0:
         if kptband_comm.rank > 0:
             nP = sum(setup.ni * (setup.ni + 1) // 2
@@ -767,4 +811,4 @@ def redistribute_atomic_matrices(D_asp, gd2, nspins, setups, redistributor,
         kptband_comm.broadcast(D_sP, 0)
         D_asp.update(unpack_atomic_matrices(D_sP, setups))
         D_asp.check_consistency()
-    return atom_partition, atomdist, D_asp
+    return D_asp

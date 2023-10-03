@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003-2015  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """This module defines a Hamiltonian."""
 
 import functools
@@ -11,16 +7,13 @@ from ase.units import Ha
 
 from gpaw.arraydict import ArrayDict
 from gpaw.external import create_external_potential
-from gpaw.hubbard import hubbard
 from gpaw.lfc import LFC
-from gpaw.poisson import create_poisson_solver
+from gpaw.poisson import PoissonSolver
 from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
-from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
-                            pack_atomic_matrices)
-from gpaw.utilities.debug import frozen
+from gpaw.utilities import (pack2, pack_atomic_matrices, unpack,
+                            unpack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
-
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
@@ -35,8 +28,10 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
             out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
         else:
             dH_xp = dH_asp[a]
-            dH_ii = unpack(dH_xp[0])
-            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            # We need the transpose because
+            # we are dotting from the left
+            dH_ii = unpack(dH_xp[0]).T
+            dH_vii = [unpack(dH_p).T for dH_p in dH_xp[1:]]
             out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
                                              dH_ii + dH_vii[2]) +
                                       np.dot(P.array[:, 1, I1:I2],
@@ -48,7 +43,8 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
-@frozen
+# from gpaw.utilities.debug import frozen
+# @frozen
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
@@ -83,6 +79,7 @@ class Hamiltonian:
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
+        self.e_band = None
 
         self.e_total_free = None
         self.e_total_extrapolated = None
@@ -127,7 +124,7 @@ class Hamiltonian:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
 
-    def summary(self, fermilevel, log):
+    def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 
@@ -148,24 +145,44 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            correction = self.poisson.correction
-        except AttributeError:
+            workfunctions = self.get_workfunctions(wfs)
+        except ValueError:
             pass
         else:
-            c = self.poisson.c  # index of axis perpendicular to dipole-layer
-            if not self.gd.pbc_c[c]:
-                # zero boundary conditions
-                vacuum = 0.0
-            else:
-                axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
-                vacuum = v_g[0].mean()
-
-            wf1 = (vacuum - fermilevel + correction) * Ha
-            wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {0}, {1} eV'
-                .format(wf1, wf2))
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
+                .format(*np.array(workfunctions) * Ha))
             log()
+
+    def get_workfunctions(self, wfs):
+        """
+        Returns the work functions, in Hartree, for a dipole-corrected
+        simulation. Returns None if no dipole correction is present.
+        (wfs can be obtained from calc.wfs)
+        """
+        try:
+            dipole_correction = self.poisson.correction
+        except AttributeError:
+            raise ValueError(
+                'Work function not defined if no field-free region. Consider '
+                'using a dipole correction if you are looking for a '
+                'work function.')
+        c = self.poisson.c  # index of axis perpendicular to dipole-layer
+        if not self.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
+        else:
+            v_q = self.pd3.gather(self.vHt_q)
+            if self.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
+            else:
+                vacuum = np.nan
+
+        fermilevel = wfs.fermi_level
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        return np.array([wf1, wf2])
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -191,7 +208,7 @@ class Hamiltonian:
         self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
 
     def set_positions(self, spos_ac, atom_partition):
-        self.vbar.set_positions(spos_ac)
+        self.vbar.set_positions(spos_ac, atom_partition)
         self.xc.set_positions(spos_ac)
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
         self.positions_set = True
@@ -205,7 +222,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
 
-    def update(self, density):
+    def update(self, density, wfs=None, kin_en_using_band=True):
         """Calculate effective potential.
 
         The XC-potential and the Hartree potential are evaluated on
@@ -213,7 +230,6 @@ class Hamiltonian:
         grid."""
 
         self.timer.start('Hamiltonian')
-
         if self.vt_sg is None:
             with self.timer('Initialize Hamiltonian'):
                 self.initialize()
@@ -227,14 +243,29 @@ class Hamiltonian:
         atomic_energies = self.update_corrections(density, W_aL)
 
         # Make energy contributions summable over world:
-        finegrid_energies *= self.finegd.comm.size / float(self.world.size)
-        coarsegrid_e_kinetic *= self.gd.comm.size / float(self.world.size)
+        finegrid_energies *= self.finegd.comm.size / self.world.size
+        coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
         # (careful with array orderings/contents)
+
+        if 0:
+            print('kinetic', atomic_energies[0], coarsegrid_e_kinetic)
+            print('coulomb', atomic_energies[1], finegrid_energies[0])
+            print('zero', atomic_energies[2], finegrid_energies[1])
+            print('xc', atomic_energies[4], finegrid_energies[3])
+            print('external', atomic_energies[3], finegrid_energies[2])
+
         energies = atomic_energies  # kinetic, coulomb, zero, external, xc
         energies[1:] += finegrid_energies  # coulomb, zero, external, xc
         energies[0] += coarsegrid_e_kinetic  # kinetic
-        with self.timer('Communicate'):
+
+        with self.timer('Communicate'):  # time possible load imbalance
             self.world.sum(energies)
+        if not kin_en_using_band:
+            assert wfs is not None
+            with self.timer('New Kinetic Energy'):
+                energies[0] = \
+                    self.calculate_kinetic_energy_directly(density,
+                                                           wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -279,13 +310,24 @@ class Hamiltonian:
             else:
                 dH_sp = np.zeros_like(D_sp)
 
-            if setup.HubU is not None:
-                assert self.collinear
-                eU, dHU_sp = hubbard(setup, D_sp)
+            if setup.hubbard_u is not None:
+                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp
 
             dH_sp[:self.nspins] += dH_p
+
+            if self.vext is not None:
+                self.vext.paw_correction(setup.Delta_pL[:, 0], dH_sp)
+
+            if self.vext and self.vext.get_name() == 'CDFTPotential':
+                # cDFT atomic hamiltonian, eq. 25
+                # energy correction added in cDFT main
+                h_cdft_a, h_cdft_b = self.vext.get_atomic_hamiltonians(
+                    setups=setup.Delta_pL[:, 0], atom=a)
+
+                dH_sp[0] += h_cdft_a
+                dH_sp[1] += h_cdft_b
 
             if self.ref_dH_asp:
                 assert self.collinear
@@ -298,7 +340,6 @@ class Hamiltonian:
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
                                                      dH_asp[a], a=a)
         self.timer.stop('XC Correction')
-
         for a, D_sp in D_asp.items():
             e_kinetic -= (D_sp * dH_asp[a]).sum().real
 
@@ -308,28 +349,32 @@ class Hamiltonian:
         # Make corrections due to non-local xc:
         # self.Enlxc = 0.0  # XXXxcfunc.get_non_local_energy()
         e_kinetic += self.xc.get_kinetic_energy_correction() / self.world.size
+
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
-
-        self.e_total_free = (self.e_kinetic + self.e_coulomb +
-                             self.e_external + self.e_zero + self.e_xc +
-                             self.e_entropy)
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
-
+    def get_energy(self, e_entropy, wfs, kin_en_using_band=True):
+        """Sum up all eigenvalues weighted with occupation numbers"""
+        self.e_band = wfs.calculate_band_energy()
+        if kin_en_using_band:
+            self.e_kinetic = self.e_kinetic0 + self.e_band
+        else:
+            self.e_kinetic = self.e_kinetic0
+        self.e_entropy = e_entropy
         if 0:
-            print(self.e_total_free,
-                  self.e_total_extrapolated,
-                  self.e_kinetic,
-                  self.e_kinetic0,
+            print(self.e_kinetic0,
+                  self.e_band,
                   self.e_coulomb,
                   self.e_external,
                   self.e_zero,
                   self.e_xc,
                   self.e_entropy)
+
+        self.e_total_free = (self.e_kinetic + self.e_coulomb +
+                             self.e_external + self.e_zero + self.e_xc +
+                             self.e_entropy)
+        self.e_total_extrapolated = (
+            self.e_total_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
 
         return self.e_total_free
 
@@ -371,30 +416,12 @@ class Hamiltonian:
         self.xc.add_forces(F_av)
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
+        if self.vext:
+            if self.vext.get_name() == 'CDFTPotential':
+                F_av += self.vext.get_cdft_forces()
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G
@@ -513,11 +540,117 @@ class Hamiltonian:
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
 
+    def calculate_kinetic_energy_directly(self, density, wfs):
+
+        """
+        Calculate kinetic energy as 1/2 (nable psi)^2
+        it gives better estimate of kinetic energy during the SCF.
+        Important for direct min.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        if wfs.mode == 'lcao':
+            return self.calculate_kinetic_energy_using_kin_en_matrix(
+                density, wfs)
+        elif wfs.mode == 'pw':
+            e_kin = 0.0
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        G2_G = wfs.pd.G2_qG[kpt.q]
+                        e_kin += f * wfs.pd.integrate(
+                            0.5 * G2_G * psit_G, psit_G).real
+        else:
+            e_kin = 0.0
+
+            def Lapl(psit_G, kpt):
+                Lpsit_G = np.zeros_like(psit_G)
+                wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
+                return Lpsit_G
+
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        e_kin += f * wfs.integrate(
+                            Lapl(psit_G, kpt), psit_G, False)
+            e_kin = e_kin.real
+            e_kin = wfs.gd.comm.sum(e_kin)
+
+        e_kin = wfs.kd.comm.sum(e_kin)  # ?
+        # paw corrections
+        e_kin_paw = 0.0
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+        e_kin_paw = density.gd.comm.sum(e_kin_paw)
+        return e_kin + e_kin_paw
+
+    def calculate_kinetic_energy_using_kin_en_matrix(self, density,
+                                                     wfs):
+        """
+        E_k = sum_{M'M} rho_MM' T_M'M
+        better agreement between gradients of energy and
+        the total energy during the direct minimisation.
+        This is important when the line search is used.
+        Also avoids using the eigenvalues which are
+        not calculated during the direct minimisation.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        e_kinetic = 0.0
+        e_kin_paw = 0.0
+
+        for kpt in wfs.kpt_u:
+            # calculation of the density matrix directly
+            # can be expansive for a large scale
+            # as there are lot of empty states
+            # when the exponential transformation is used
+            # (n_bands=n_basis_functions.)
+            #
+            # rho_MM = \
+            #     wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            # e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+            #
+            # the code below is faster
+            self.timer.start('Pseudo part')
+            occ = kpt.f_n > 1e-10
+            x_nn = np.dot(kpt.C_nM[occ],
+                          np.dot(kpt.T_MM,
+                                 kpt.C_nM[occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[occ], x_nn)
+            self.timer.stop('Pseudo part')
+        # del rho_MM
+
+        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        # paw corrections
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+
+        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+
+        return e_kinetic.real + e_kin_paw
+
 
 class RealSpaceHamiltonian(Hamiltonian):
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
                  vext=None,
-                 psolver=None, stencil=3, redistributor=None):
+                 psolver=None, stencil=3, redistributor=None,
+                 charge: float = 0.0):
         Hamiltonian.__init__(self, gd, finegd, nspins, collinear,
                              setups, timer, xc,
                              world, vext=vext,
@@ -527,7 +660,7 @@ class RealSpaceHamiltonian(Hamiltonian):
         if psolver is None:
             psolver = {}
         if isinstance(psolver, dict):
-            psolver = create_poisson_solver(**psolver)
+            psolver = PoissonSolver(**psolver)
         self.poisson = psolver
         self.poisson.set_grid_descriptor(self.finegd)
 
@@ -578,10 +711,17 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         e_external = 0.0
         if self.vext is not None:
-            vext_g = self.vext.get_potential(self.finegd)
-            vt_g += vext_g
-            e_external = self.finegd.integrate(vext_g, dens.rhot_g,
-                                               global_integral=False)
+            if self.vext.get_name() == 'CDFTPotential':
+                vext_g = self.vext.get_potential(self.finegd).copy()
+                e_external += self.vext.get_cdft_external_energy(
+                    dens,
+                    self.nspins, vext_g, vt_g, self.vbar_g, self.vt_sg)
+
+            else:
+                vext_g = self.vext.get_potential(self.finegd)
+                vt_g += vext_g
+                e_external = self.finegd.integrate(vext_g, dens.rhot_g,
+                                                   global_integral=False)
 
         if self.nspins == 2:
             self.vt_sg[1] = vt_g
@@ -594,10 +734,12 @@ class RealSpaceHamiltonian(Hamiltonian):
         self.timer.start('Poisson')
         # npoisson is the number of iterations:
         self.npoisson = self.poisson.solve(self.vHt_g, dens.rhot_g,
-                                           charge=-dens.charge)
+                                           charge=-dens.charge,
+                                           timer=self.timer)
         self.timer.stop('Poisson')
 
         self.timer.start('Hartree integrate/restrict')
+
         e_coulomb = 0.5 * self.finegd.integrate(self.vHt_g, dens.rhot_g,
                                                 global_integral=False)
 
@@ -605,7 +747,8 @@ class RealSpaceHamiltonian(Hamiltonian):
             vt_g += self.vHt_g
 
         self.timer.stop('Hartree integrate/restrict')
-        return np.array([e_coulomb, e_zero, e_external, e_xc])
+        energies = np.array([e_coulomb, e_zero, e_external, e_xc])
+        return energies
 
     def calculate_kinetic_energy(self, density):
         # XXX new timer item for kinetic energy?
@@ -633,8 +776,11 @@ class RealSpaceHamiltonian(Hamiltonian):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            if self.vext.get_name() != 'CDFTPotential':
+                vext_g = self.vext.get_potential(self.finegd)
+                dens.ghat.integrate(self.vHt_g + vext_g, W_aL)
+            else:
+                dens.ghat.integrate(self.vHt_g, W_aL)
         else:
             dens.ghat.integrate(self.vHt_g, W_aL)
 
@@ -648,8 +794,12 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         self.vbar.derivative(dens.nt_g, vbar_av)
         if self.vext:
-            vext_g = self.vext.get_potential(self.finegd)
-            dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
+            if self.vext.get_name() == 'CDFTPotential':
+                # CDFT force added in calculate_forces
+                dens.ghat.derivative(self.vHt_g, ghat_aLv)
+            else:
+                vext_g = self.vext.get_potential(self.finegd)
+                dens.ghat.derivative(self.vHt_g + vext_g, ghat_aLv)
         else:
             dens.ghat.derivative(self.vHt_g, ghat_aLv)
         dens.nct.derivative(vt_G, nct_av)

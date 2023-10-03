@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function
+# flake8: noqa
 from optparse import OptionParser
 
 code_choices = ['gpaw', 'dacapo']
@@ -73,10 +73,11 @@ def memory_bandwidth(code='gpaw', runs=7):
     parameters = {}
 
     if code == 'gpaw':
-        from gpaw import Calculator
+        from gpaw import GPAW as Calculator
         from gpaw.mpi import rank
         parameters['convergence'] = {'eigenstates': 1e-5}
         parameters['h'] = h
+        parameters['mode'] = 'fd'
     elif code == 'dacapo':
         from ase.calculators.dacapo import Dacapo as Calculator
         parameters['planewavecutoff'] = gridspacing2cutoff(h)
@@ -92,7 +93,7 @@ def memory_bandwidth(code='gpaw', runs=7):
                 nbands=nbands,
                 kpts=kpts,
                 **parameters)
-            slab.set_calculator(calc)
+            slab.calc = calc
             e = slab.get_potential_energy()
             del calc
             if exists('out.nc'): remove('out.nc')

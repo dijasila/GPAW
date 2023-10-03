@@ -1,10 +1,8 @@
 # creates: metric.png
 
 import numpy as np
-import matplotlib
-import pylab as plt
+import matplotlib.pyplot as plt
 from math import pi, cos
-from distutils.version import LooseVersion
 
 
 # Special points in the BZ of a simple cubic cell
@@ -29,9 +27,9 @@ for next in path[1:]:
     previous = next
 
 vasp = [1 / max(np.linalg.norm(q), 1e-6)**2 for q in qvec]
-gpaw = [( 1 + cos(qx) + cos(qy) + cos(qz) +
-        cos(qx) * cos(qy) + cos(qx) * cos(qz) + cos(qy) * cos(qz) +
-        cos(qx) * cos(qy) * cos(qz)) / 8. for qx, qy, qz in qvec]
+gpaw = [(1 + cos(qx) + cos(qy) + cos(qz) +
+         cos(qx) * cos(qy) + cos(qx) * cos(qz) + cos(qy) * cos(qz) +
+         cos(qx) * cos(qy) * cos(qz)) / 8. for qx, qy, qz in qvec]
 
 # Plot band data
 fig = plt.figure(1, figsize=(5, 3), dpi=90)
@@ -45,13 +43,9 @@ plt.xticks(lines, textpath)
 plt.yticks([0, 1], [r'$1$', r'$w+1$'])
 plt.axis(lim)
 
-# The pad keyword to legend was deprecated in MPL v. 0.98.4
-if LooseVersion(matplotlib.__version__) < '0.98.4':
-    kwpad = {'pad': 0.1, 'axespad': 0.06}
-else:
-    kwpad = {'borderpad': 0.2, 'borderaxespad': 0.06}
+kwpad = {'borderpad': 0.2, 'borderaxespad': 0.06}
 
 plt.legend(loc='upper right', **kwpad)
 plt.title('Special metric for density changes')
 plt.savefig('metric.png', dpi=90)
-#plt.show()
+# plt.show()

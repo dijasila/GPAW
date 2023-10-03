@@ -9,16 +9,20 @@ Linux:
 .. toctree::
    :maxdepth: 1
 
-   Linux/CentOS
+   gbar/gbar
+   Linux/centos
    Linux/Fedora
    Linux/openSUSE
-   Linux/Ubuntu_ppa
-   Linux/Ubuntu
+   Linux/ubuntu
+   Linux/sophia
    Linux/Niflheim/Niflheim
+   Linux/Niflheim/load
+   Linux/Niflheim/build
    Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon
    Linux/batman
+   Linux/brown
    Linux/bwgrid
    Linux/bwuni
    Linux/carbon_cnm
@@ -28,6 +32,7 @@ Linux:
    Linux/juropa
    Linux/jureca
    Linux/justus
+   Linux/Juwels/juwels
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
@@ -42,6 +47,14 @@ Linux:
    Linux/uranus
    Linux/vsc.univie
    Linux/odyssey
+
+WSL:
+
+.. toctree::
+   :maxdepth: 1
+
+   wsl-ubuntu
+
 
 MacOSX:
 
@@ -66,9 +79,6 @@ BGP:
    :maxdepth: 2
 
    BGP/jugene
-   BGP/rbgc
-   BGP/surveyor
-
    BGP/performance
 
 BGQ:
@@ -98,6 +108,7 @@ Cray:
 .. toctree::
    :maxdepth: 1
 
+   Cray/lumi
    Cray/nersc_cori
    Cray/louhi
    Cray/jaguar
@@ -117,4 +128,3 @@ Solaris:
    :maxdepth: 1
 
    Solaris/corona
-   Solaris/bohr

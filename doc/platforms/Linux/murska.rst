@@ -4,7 +4,7 @@
 murska.csc.fi  (AMD Opteron, Infiniband, ACML)
 =========================================================
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.csc.fi/english/research/Computing_services/computing/servers/murska>`_.
 
 Installation of user's packages on murska is recommended under /v/users/$USER/appl/.

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """Van der Waals density functional.
 
 This module implements the Dion-Rydberg–Schröder–Langreth–Lundqvist
@@ -11,9 +9,7 @@ XC-functional.  There are two implementations:
 
 """
 
-from __future__ import print_function
 import os
-import pickle
 import sys
 import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
@@ -28,7 +24,7 @@ from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.tools import construct_reciprocal
-from gpaw import setup_paths, extra_parameters
+from gpaw import setup_paths
 import gpaw.mpi as mpi
 import _gpaw
 
@@ -95,7 +91,7 @@ def hRPS(x, xc=1.0):
     return xc * (1.0 - y), z * y
 
 
-def VDWFunctional(name, fft=True, **kwargs):
+def VDWFunctional(name, fft=True, stencil=2, **kwargs):
     if name == 'vdW-DF':
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
     elif name == 'vdW-DF2':
@@ -126,8 +122,8 @@ def VDWFunctional(name, fft=True, **kwargs):
     else:
         2 / 0
     if fft:
-        return GGAFFTVDWFunctional(name, kernel, **kwargs)
-    return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
+        return GGAFFTVDWFunctional(name, kernel, stencil, **kwargs)
+    return GGARealSpaceVDWFunctional(name, kernel, stencil, **kwargs)
 
 
 class VDWFunctionalBase:
@@ -203,6 +199,10 @@ class VDWFunctionalBase:
 
     def get_Ecnl(self):
         return self.Ecnl
+
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
@@ -305,16 +305,6 @@ class VDWFunctionalBase:
                     print('VDW: using', filename)
                 return
 
-        if sys.version_info[0] == 2:
-            oldname = name[:-3] + 'pckl'
-            for dir in dirs:
-                filename = os.path.join(dir, oldname)
-                if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename, 'rb'))
-                    if self.verbose:
-                        print('VDW: using', filename)
-                    return
-
         print('VDW: Could not find table file:', name)
         self.make_table(name)
 
@@ -355,7 +345,7 @@ class VDWFunctionalBase:
             np.savetxt(name, self.phi_ij, header=header)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
-        import pylab as plt
+        import matplotlib.pyplot as plt
         x = np.linspace(0, 8.0, 100)
         for delta in [0, 0.5, 0.9]:
             y = [self.phi(D * (1.0 + delta), D * (1.0 - delta))
@@ -499,7 +489,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
 class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
     def __init__(self,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=4096, size=None,
                  **kwargs):
         """FFT vdW-DF.
 
@@ -531,7 +521,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         self.get_alphas()
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
         self.get_alphas()
@@ -554,8 +544,10 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
     def initialize_more_things(self):
         if self.alphas:
+            from gpaw.mpi import SerialCommunicator
             scale_c1 = (self.shape / (1.0 * self.gd.N_c))[:, np.newaxis]
-            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1, True)
+            gdfft = GridDescriptor(self.shape, self.gd.cell_cv * scale_c1,
+                                   True, comm=SerialCommunicator())
             k_k = construct_reciprocal(gdfft)[0][:,
                                                  :,
                                                  :self.shape[2] // 2 + 1]**0.5
@@ -585,8 +577,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         The recipe is from
 
-          http://en.wikipedia.org/wiki/Spline_(mathematics)
-        """
+          http://en.wikipedia.org/wiki/Spline_(mathematics) """
 
         n = self.Nalpha
         lambd = self.lambd
@@ -713,8 +704,6 @@ class FFTVDWFunctional(VDWFunctionalBase):
             del C_pg
             self.timer.start('FFT')
             theta_ak[a] = rfftn(n_g * pa_g, self.shape).copy()
-            if extra_parameters.get('vdw0'):
-                theta_ak[a][0, 0, 0] = 0.0
             self.timer.stop()
 
             if not self.energy_only:
@@ -829,15 +818,15 @@ class FFTVDWFunctional(VDWFunctionalBase):
         world.sum(v0_g)
         world.sum(deda20_g)
         self.timer.stop('sum')
-        slice = self.gd.get_slice()
+        slice = tuple(self.gd.get_slice())
         v_g += v0_g[slice]
         deda2_g += deda20_g[slice]
 
 
 class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
-    def __init__(self, name, kernel, **kwargs):
+    def __init__(self, name, kernel, stencil, **kwargs):
         FFTVDWFunctional.__init__(self, **kwargs)
-        GGA.__init__(self, kernel)
+        GGA.__init__(self, kernel, stencil)
         self.name = name
 
     def calculate_exchange(self, *args):
@@ -849,7 +838,7 @@ class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
 
 
 class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
-    def __init__(self, name, kernel, **kwargs):
+    def __init__(self, name, kernel, stencil, **kwargs):
         RealSpaceVDWFunctional.__init__(self, **kwargs)
         GGA.__init__(self, kernel)
         self.name = name
@@ -859,7 +848,6 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
-        RealSpaceVDWFunctional.set_grid_descriptor(self, gd)
 
 
 class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):

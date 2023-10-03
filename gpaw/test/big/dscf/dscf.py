@@ -1,18 +1,16 @@
-from __future__ import print_function
 from ase.io import read
 from gpaw import GPAW
 import gpaw.dscf as dscf
 from gpaw.mixer import MixerSum
 from numpy import reshape, dot
-from gpaw.test import equal
 
 filename = 'excited'
 
-c_mol = GPAW(nbands=8, h=0.2, xc='RPBE', kpts=(4, 6, 1),
+c_mol = GPAW(mode='fd', nbands=8, h=0.2, xc='RPBE', kpts=(4, 6, 1),
              eigensolver='cg', spinpol=True,
              convergence={'bands': -2}, txt='CO.txt')
 
-calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
+calc = GPAW(mode='fd', nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
             setups={'Pt': '10'},
             eigensolver='cg', spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),
@@ -22,13 +20,13 @@ calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
 # Import Slab with relaxed CO
 slab = read('CO_Pt.traj')
 pos = slab.get_positions()
-slab.set_calculator(calc)
+slab.calc = calc
 E_gs = slab.get_potential_energy()
 
 # Molecule
 molecule = slab.copy()
 del molecule[:-2]
-molecule.set_calculator(c_mol)
+molecule.calc = c_mol
 
 del slab[-2:]
 
@@ -83,5 +81,5 @@ for d in ds:
     del slab[12:]
 
 F_d = (E_es[0] - E_es[2]) / 0.02 / 2
-equal(E_es[1], E_gs + 3.9, 0.1)
-equal(F_d, 3.8, 0.2)
+assert abs(E_es[1] - (E_gs + 3.9)) < 0.1
+assert abs(F_d - 3.8) < 0.2

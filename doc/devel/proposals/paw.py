@@ -1,3 +1,4 @@
+# flake8: noqa
 class PAW(ASECalculator):
     def __init__(self, restart=None, **kwargs):
         ASECalculator.__init__(self)
@@ -14,7 +15,7 @@ class PAW(ASECalculator):
         self.density.read(reader)
         self.hamiltonian.read(reader)
         self.wfs = self.wfs.read(reader)
-        
+
     def update(self, atoms, **kwargs):
         """Lazy update."""
         self.density.update(self.atoms, kwargs)
@@ -23,7 +24,7 @@ class PAW(ASECalculator):
         # If we change mode, we could get a completely new type of
         # wave function object:
         self.wfs = self.wfs.update(self.atoms, kwargs)
-    
+
     def set(self, **kwargs):
         self.update(self,atoms, **kwargs)
 

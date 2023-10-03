@@ -1,5 +1,3 @@
-from __future__ import print_function
-import sys
 import xml.sax
 
 import numpy as np
@@ -51,6 +49,7 @@ class Basis:
         self.name = name
         self.rgd = rgd
         self.bf_j = []
+        self.ribf_j = []
         self.generatorattrs = {}
         self.generatordata = ''
         self.filename = None
@@ -58,14 +57,21 @@ class Basis:
         if readxml:
             self.read_xml(world=world)
 
+    @property
     def nao(self):  # implement as a property so we don't have to
         # catch all the places where Basis objects are modified without
         # updating it.  (we can do that later)
         return sum([2 * bf.l + 1 for bf in self.bf_j])
-    nao = property(nao)
+
+    @property
+    def nrio(self):
+        return sum([2 * ribf.l + 1 for ribf in self.ribf_j])
 
     def append(self, bf):
-        self.bf_j.append(bf)
+        if bf.type != 'auxiliary':
+            self.bf_j.append(bf)
+        else:
+            self.ribf_j.append(bf)
 
     def get_grid_descriptor(self):
         return self.rgd
@@ -74,6 +80,10 @@ class Basis:
         return [self.rgd.spline(bf.phit_g, bf.rc, bf.l, points=400)
                 for bf in self.bf_j]
 
+    def ritosplines(self):
+        return [self.rgd.spline(ribf.phit_g, ribf.rc, ribf.l, points=400)
+                for ribf in self.ribf_j]
+   
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)
         parser.parse(filename, world=world)
@@ -88,7 +98,12 @@ class Basis:
             filename = '%s.basis' % self.symbol
         else:
             filename = '%s.%s.basis' % (self.symbol, self.name)
-        write = open(filename, 'w').write
+
+        with open(filename, 'w') as fd:
+            self.write_to(fd)
+
+    def write_to(self, fd):
+        write = fd.write
         write('<paw_basis version="0.1">\n')
 
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
@@ -100,10 +115,12 @@ class Basis:
         write('\n  </generator>\n')
 
         write('  ' + self.rgd.xml())
-
-        for bf in self.bf_j:
-            write(bf.xml(indentation='  '))
-
+       
+        # Write both the basis functions and auxiliary ones
+        for bfs in [self.bf_j, self.ribf_j]:
+            for bf in bfs:
+                write(bf.xml(indentation='  '))
+        
         write('</paw_basis>\n')
 
     def reduce(self, name):
@@ -151,6 +168,10 @@ class Basis:
 
         lines = [title, name, fileinfo, count1, count2]
         lines.extend(bf_lines)
+        lines.append(f'Number of RI-basis functions {self.nrio}')
+        for ribf in self.ribf_j:
+            lines.append('l=%d %s' % (ribf.l, ribf.type))
+        
         return '\n  '.join(lines)
 
 
@@ -211,7 +232,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             basis.filename, source = search_for_file(fullname, world=world)
         else:
             basis.filename = filename
-            source = open(filename, 'rb').read()
+            with open(filename, 'rb') as fd:
+                source = fd.read()
 
         self.data = None
         xml.sax.parseString(source, self)
@@ -220,9 +242,6 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             basis.reduce(reduced)
 
     def startElement(self, name, attrs):
-        if sys.version_info[0] < 3:
-            attrs.__contains__ = attrs.has_key
-
         basis = self.basis
         if name == 'paw_basis':
             basis.version = attrs['version']
@@ -252,6 +271,8 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         if name == 'basis_function':
             phit_g = np.array([float(x) for x in ''.join(self.data).split()])
             bf = BasisFunction(self.n, self.l, self.rc, phit_g, self.type)
+            # Also auxiliary basis functions are added here. They are
+            # distinguished by their type='auxiliary'.
             basis.append(bf)
         elif name == 'generator':
             basis.generatordata = ''.join([line for line in self.data])
@@ -277,7 +298,7 @@ class BasisPlotter:
         self.normalize = normalize
 
     def plot(self, basis, filename=None, **plot_args):
-        import pylab as pl  # Should not import in module namespace
+        import matplotlib.pyplot as plt
         if plot_args is None:
             plot_args = {}
         r_g = basis.rgd.r_g
@@ -292,7 +313,7 @@ class BasisPlotter:
         for j, bf in enumerate(basis.bf_j):
             ng = len(bf.phit_g)
             rphit_g = r_g[:ng] * bf.phit_g
-            norm = (rphit_g**2 * basis.rgd.dr_g).sum()
+            norm = (rphit_g**2 * basis.rgd.dr_g[:ng]).sum()
             norm_j.append(norm)
             print(bf.type, '[norm=%0.4f]' % norm)
 
@@ -311,28 +332,28 @@ class BasisPlotter:
 
         dashes_l = [(), (6, 3), (4, 1, 1, 1), (1, 1)]
 
-        pl.figure()
+        plt.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
             ng = len(bf.phit_g)
             y_g = bf.phit_g * factor[:ng]
             if self.normalize:
                 y_g /= norm
-            pl.plot(r_g[:ng], y_g, label=bf.type[:12],
-                    dashes=dashes_l[bf.l], lw=2,
-                    **plot_args)
-        axis = pl.axis()
+            plt.plot(r_g[:ng], y_g, label=bf.type[:12],
+                     dashes=dashes_l[bf.l], lw=2,
+                     **plot_args)
+        axis = plt.axis()
         rc = max([bf.rc for bf in basis.bf_j])
         newaxis = [0., rc, axis[2], axis[3]]
-        pl.axis(newaxis)
-        pl.legend()
-        pl.title(self.title % basis.__dict__)
-        pl.xlabel(self.xlabel)
-        pl.ylabel(self.ylabel)
+        plt.axis(newaxis)
+        plt.legend()
+        plt.title(self.title % basis.__dict__)
+        plt.xlabel(self.xlabel)
+        plt.ylabel(self.ylabel)
 
         if filename is None:
             filename = self.default_filename
         if self.save:
-            pl.savefig(filename % basis.__dict__)
+            plt.savefig(filename % basis.__dict__)
 
         if self.show:
-            pl.show()
+            plt.show()

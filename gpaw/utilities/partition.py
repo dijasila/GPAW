@@ -175,9 +175,14 @@ class EvenPartitioning:
 
 # Interface for things that can be redistributed with general_redistribute
 class Redistributable:
-    def get_recvbuffer(self, a): raise NotImplementedError
-    def get_sendbuffer(self, a): raise NotImplementedError
-    def assign(self, a): raise NotImplementedError
+    def get_recvbuffer(self, a):
+        raise NotImplementedError
+
+    def get_sendbuffer(self, a):
+        raise NotImplementedError
+
+    def assign(self, a):
+        raise NotImplementedError
 
 
 # Let's keep this as an independent function for now in case we change the
@@ -187,10 +192,10 @@ def general_redistribute(comm, src_rank_a, dst_rank_a, redistributable):
     # But how is this done best?
     requests = []
     flags = (src_rank_a != dst_rank_a)
-    my_incoming_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        dst_rank_a == comm.rank)).ravel()
-    my_outgoing_atom_indices = np.argwhere(np.bitwise_and(flags, \
-        src_rank_a == comm.rank)).ravel()
+    my_incoming_atom_indices = np.argwhere(
+        np.bitwise_and(flags, dst_rank_a == comm.rank)).ravel()
+    my_outgoing_atom_indices = np.argwhere(
+        np.bitwise_and(flags, src_rank_a == comm.rank)).ravel()
 
     for a in my_incoming_atom_indices:
         # Get matrix from old domain:
@@ -219,14 +224,11 @@ class AtomPartition:
         self.natoms = len(rank_a)
         self.name = name
 
-    def __eq__(self, other):
-        try:
-            comm = other.comm
-            rank_a = other.rank_a
-        except AttributeError:
-            return False
-        return (self.comm.compare(comm) in ['ident', 'congruent']
-                and np.array_equal(self.rank_a, rank_a))
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AtomPartition):
+            return NotImplemented
+        return (self.comm.compare(other.comm) in ['ident', 'congruent']
+                and np.array_equal(self.rank_a, other.rank_a))
 
     def __ne__(self, other):
         return not self == other
@@ -260,19 +262,23 @@ class AtomPartition:
             class Redist:
                 def get_recvbuffer(self, a):
                     return get_empty(a)
+
                 def assign(self, a, b_x):
                     for u, d_ax in enumerate(atomdict_ax):
                         assert a not in d_ax
                         atomdict_ax[u][a] = b_x[u]
+
                 def get_sendbuffer(self, a):
                     return np.array([d_ax.data.pop(a) for d_ax in atomdict_ax])
         else:
             class Redist:
                 def get_recvbuffer(self, a):
                     return get_empty(a)
+
                 def assign(self, a, b_x):
                     assert a not in atomdict_ax
                     atomdict_ax[a] = b_x
+
                 def get_sendbuffer(self, a):
                     return atomdict_ax.data.pop(a)
 
@@ -283,7 +289,7 @@ class AtomPartition:
             raise ValueError('redistribute %s --> %s: %s'
                              % (self, new_partition, err))
         if isinstance(atomdict_ax, ArrayDict):
-            atomdict_ax.partition = new_partition # XXX
+            atomdict_ax.partition = new_partition  # XXX
             atomdict_ax.check_consistency()
 
     def __repr__(self):

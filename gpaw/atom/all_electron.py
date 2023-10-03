@@ -1,35 +1,24 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """
 Atomic Density Functional Theory
 """
 
-from __future__ import print_function
-from math import pi, sqrt, log
-import tempfile
-import pickle
-import sys
-import os
+from math import log, pi, sqrt
 
 import numpy as np
 from ase.data import atomic_names
-from ase.utils import devnull
+from ase.utils import IOContext
 
+from gpaw import ConvergenceError
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import AERadialGridDescriptor
-from gpaw.xc import XC
 from gpaw.utilities import hartree
-from gpaw import ConvergenceError
-
-tempdir = tempfile.gettempdir()
-
+from gpaw.xc import XC
 
 # fine-structure constant
 alpha = 1 / 137.036
 
 
-class AllElectron:
+class AllElectron(IOContext):
     """Object for doing an atomic DFT calculation."""
 
     def __init__(self, symbol, xcname='LDA', scalarrel=True,
@@ -42,14 +31,8 @@ class AllElectron:
           a = AllElectron('Fe')
           a.run()
         """
-        
-        if txt is None:
-            txt = devnull
-        elif txt == '-':
-            txt = sys.stdout
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.txt = txt
+
+        self.txt = self.openfile(txt)
 
         self.symbol = symbol
         self.xcname = xcname
@@ -77,15 +60,9 @@ class AllElectron:
                         f = 1.0
                     else:
                         f = float(conf[2:])
-                    #try:
                     assert n == self.n_j[j]
                     assert l == self.l_j[j]
                     self.f_j[j] = f
-                    #except IndexError:
-                    #    self.n_j.append(n)
-                    #    self.l_j.append(l)
-                    #    self.f_j.append(f)
-                    #    self.e_j.append(self.e_j[-1])
                     j += 1
                 else:
                     j += {'He': 1,
@@ -107,7 +84,6 @@ class AllElectron:
             self.f_j = [self.Z]
             self.e_j = [self.e_j[-1]]
 
-            
         t = self.text
         t()
         if scalarrel:
@@ -155,8 +131,8 @@ class AllElectron:
             u[:] = r**(1 + l) * np.exp(-a * r)
             norm = np.dot(u**2, dr)
             u *= 1.0 / sqrt(norm)
-            
-    def run(self, use_restart_file=True):
+
+    def run(self):
         #     beta g
         # r = ------, g = 0, 1, ..., N - 1
         #     N - g
@@ -192,14 +168,13 @@ class AllElectron:
 
         # Initialize for non-local functionals
         if self.xc.type == 'GLLB':
-            self.xc.pass_stuff_1d(self)
-            self.xc.initialize_1d()
-            
+            self.xc.initialize_1d(self)
+
         n_j = self.n_j
         l_j = self.l_j
         f_j = self.f_j
         e_j = self.e_j
-        
+
         Z = self.Z    # nuclear charge
         r = self.r    # radial coordinate
         dr = self.dr  # dr/dg
@@ -209,54 +184,28 @@ class AllElectron:
         vHr = np.zeros(self.N)
         self.vXC = np.zeros(self.N)
 
-        restartfile = '%s/%s.restart' % (tempdir, self.symbol)
-        if self.xc.type == 'GLLB' or not use_restart_file:
-            # Do not start from initial guess when doing
-            # non local XC!
-            # This is because we need wavefunctions as well
-            # on the first iteration.
-            fd = None
-        else:
-            try:
-                fd = open(restartfile, 'rb')
-            except IOError:
-                fd = None
-            else:
-                try:
-                    n[:] = pickle.load(fd)
-                except (ValueError, IndexError):
-                    fd = None
-                else:
-                    norm = np.dot(n * r**2, dr) * 4 * pi
-                    if abs(norm - sum(f_j)) > 0.01:
-                        fd = None
-                    else:
-                        t('Using old density for initial guess.')
-                        n *= sum(f_j) / norm
-
-        if fd is None:
-            self.initialize_wave_functions()
-            n[:] = self.calculate_density()
+        self.initialize_wave_functions()
+        n[:] = self.calculate_density()
 
         bar = '|------------------------------------------------|'
         t(bar)
-        
+
         niter = 0
         nitermax = 117
         qOK = log(1e-10)
         mix = 0.4
-        
+
         # orbital_free needs more iterations and coefficient
         if self.orbital_free:
             mix = 0.01
             nitermax = 2000
             e_j[0] /= self.tw_coeff
-            if Z > 10 : #help convergence for third row elements
+            if Z > 10:  # help convergence for third row elements
                 mix = 0.002
                 nitermax = 10000
-            
+
         vrold = None
-        
+
         while True:
             # calculate hartree potential
             hartree(0, n * r * dr, r, vHr)
@@ -321,19 +270,8 @@ class AllElectron:
         t()
         t('Converged in %d iteration%s.' % (niter, 's'[:niter != 1]))
 
-        try:
-            fd = open(restartfile, 'wb')
-        except IOError:
-            pass
-        else:
-            pickle.dump(n, fd)
-            try:
-                os.chmod(restartfile, 0o666)
-            except OSError:
-                pass
-
         Ekin = 0
-        
+
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
@@ -341,12 +279,13 @@ class AllElectron:
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
 
         if self.orbital_free:
-        #e and vr are not scaled back
-        #instead Ekin is scaled for total energy (printed and inside setup)
+            # e and vr are not scaled back
+            # instead Ekin is scaled for total energy
+            # (printed and inside setup)
             Ekin *= self.tw_coeff
             t()
             t('Lambda:{0}'.format(self.tw_coeff))
-            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tw_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0] * self.tw_coeff))
             t()
 
         t()
@@ -590,7 +529,7 @@ class AllElectron:
 
     def solve_confined(self, j, rc, vconf=None):
         """Solve the Schroedinger equation in a confinement potential.
-        
+
         Solves the Schroedinger equation like the solve method, but with a
         number of differences.  Before invoking this method, run solve() to
         get initial guesses.
@@ -621,11 +560,11 @@ class AllElectron:
             l = self.l_j[j]
             e = self.e_j[j]
             u = self.u_j[j].copy()
-            
+
         nn, A = shoot_confined(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                                self.scalarrel, rc=rc, beta=self.beta)
         assert nn == n - l - 1  # run() should have been called already
-        
+
         # adjust eigenenergy until u is smooth at the turning point
         de = 1.0
         while abs(de) > 1e-9:
@@ -672,8 +611,8 @@ class AllElectron:
         return int(r * self.N / (self.beta + r))
 
     def get_confinement_potential(self, alpha, ri, rc):
-        """Create a smooth confinement potential.
-        
+        r"""Create a smooth confinement potential.
+
         Returns a (potential) function which is zero inside the radius ri
         and goes to infinity smoothly at rc, after which point it is nan.
         The potential is given by::
@@ -699,6 +638,9 @@ class AllElectron:
         potential[i_rc + 1:] = np.inf
 
         return alpha * potential
+
+    def __del__(self):
+        self.close()
 
 
 def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
@@ -741,7 +683,7 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     else:
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
-    if gmax is None and np.alltrue(c0 > 0):
+    if gmax is None and (c0 > 0).all():
         raise ConvergenceError('Bad initial electron density guess!')
 
     c1 = c10
@@ -776,6 +718,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
         # at the turning point
         gtp = g + 1
         utp = u[gtp]
+        if gtp == len(u) - 1:
+            return 100, 0.0
         dudrplus = 0.5 * (u[gtp + 1] - u[gtp - 1]) / dr[gtp]
     else:
         gtp = gmax
@@ -787,8 +731,9 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp:  # integrate one step further than gtp
-                     # (such that dudr is defined in gtp)
+    # integrate one step further than gtp
+    # (such that dudr is defined in gtp)
+    while g <= gtp:
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1
@@ -817,7 +762,7 @@ def shoot_confined(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel,
     else:
         Mr = r
     c0 = l * (l + 1) + 2 * Mr * (vr - e * r)
-    if gmax is None and np.alltrue(c0 > 0):
+    if gmax is None and (c0 > 0).all():
         print("""
 Problem with initial electron density guess!  Try to run the program
 with the '-n' option (non-scalar-relativistic calculation) and then
@@ -844,7 +789,7 @@ guess for the density).
         # perform backwards integration from infinity to the turning point
         g = gcut - 2
         u[g] = u[g + 1] * f0[g + 1] / fm[g + 1]
-        
+
         while c0[g] > 0.0:  # this defines the classical turning point
             u[g - 1] = (f0[g] * u[g] + fp[g] * u[g + 1]) / fm[g]
             if u[g - 1] < 0.0:
@@ -871,8 +816,9 @@ guess for the density).
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp:  # integrate one step further than gtp
-                     # (such that dudr is defined in gtp)
+    # integrate one step further than gtp
+    # (such that dudr is defined in gtp)
+    while g <= gtp:
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1
@@ -888,6 +834,7 @@ guess for the density).
     A = (dudrplus - dudrminus) * utp
 
     return nodes, A
+
 
 if __name__ == '__main__':
     a = AllElectron('Cu', scalarrel=True)

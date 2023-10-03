@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
 import copy
 import sys
 from math import pi
@@ -15,7 +13,8 @@ from ase.utils import seterr
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
 from gpaw.atom.configurations import configurations
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import (AERadialGridDescriptor,
+                                AbinitRadialGridDescriptor)
 
 
 # Velocity of light in atomic units:
@@ -148,14 +147,20 @@ class Channel:
         self.C_nb = C_bn.T
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
-    def solve2(self, vr_g, scalar_relativistic=False, Z=None):
-        rgd = self.basis.rgd
+    def solve2(self, vr_g, scalar_relativistic=False, Z=None, rgd=None):
+        rgd = rgd or self.basis.rgd
         r_g = rgd.r_g
         l = self.l
         u_g = rgd.empty()
         self.solve2ok = True
         for n in range(len(self.f_n)):
             e = self.e_n[n]
+
+            if e > 0.0:
+                # Skip orbitals with positive energies
+                self.e_n[n] = 42
+                self.phi_ng[n] = 0.0
+                continue
 
             # Find classical turning point:
             x = vr_g * r_g + 0.5 * l * (l + 1) - e * r_g**2
@@ -294,7 +299,11 @@ class Channel:
         g = gmax - 2
         agp1 = 1.0
         u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + x)
-        ag = np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1]))
+        with np.errstate(over='raise'):
+            try:
+                ag = np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1]))
+            except FloatingPointError:
+                ag = 2e50
 
         while True:
             u_g[g] = ag * r_g[g]**(l + x)
@@ -359,6 +368,8 @@ class DiracChannel(Channel):
 class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
                  configuration=None,
+                 ee_interaction=True,
+                 Z=None,
                  log=None):
         """All-electron calculation for spherically symmetric atom.
 
@@ -373,17 +384,22 @@ class AllElectronAtom:
         configuration: list
             Electronic configuration for symbol, format as in
             gpaw.atom.configurations
+        ee_interaction: bool
+            Use ee_interaction=False to turn off electron-electron interaction.
+            Default is True.
         log: stream
             Text output."""
 
         if isinstance(symbol, int):
             symbol = chemical_symbols[symbol]
         self.symbol = symbol
-        self.Z = atomic_numbers[symbol]
+        self.Z = Z or atomic_numbers[symbol]
 
         self.nspins = 1 + int(bool(spinpol))
 
         self.dirac = bool(dirac)
+
+        self.ee_interaction = ee_interaction
 
         if configuration is not None:
             self.configuration = copy.deepcopy(configuration)
@@ -414,7 +430,7 @@ class AllElectronAtom:
         self.initialize_configuration(self.configuration)
 
         self.log('Z:              ', self.Z)
-        self.log('Name:           ', atomic_names[self.Z])
+        self.log('Name:           ', atomic_names[atomic_numbers[symbol]])
         self.log('Symbol:         ', symbol)
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
@@ -487,11 +503,21 @@ class AllElectronAtom:
         if alpha2 is None:
             alpha2 = 50.0 * self.Z**2
 
-        # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 20
-        b = (rcut - a * ngpts) / (rcut * ngpts)
-        b = 1 / round(1 / b)
-        self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        if 1:
+            # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
+            a = 1 / alpha2**0.5 / 20
+            b = (rcut - a * ngpts) / (rcut * ngpts)
+            b = 1 / round(1 / b)
+            self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        else:
+            from scipy.optimize import root
+            rT = self.Z / 137**2
+            r1 = rT / 10 / 5
+            sol = root(lambda d: r1 / d * (np.exp(d * (ngpts - 1)) - 1) - rcut,
+                       0.1)
+            d = sol.x[0]
+            a = r1 / d
+            self.rgd = AbinitRadialGridDescriptor(a, d, ngpts)
 
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
@@ -554,7 +580,10 @@ class AllElectronAtom:
     def calculate_electrostatic_potential(self):
         """Calculate electrostatic potential and energy."""
         n_g = self.n_sg.sum(0)
-        self.vHr_g = self.rgd.poisson(n_g)
+        if self.ee_interaction:
+            self.vHr_g = self.rgd.poisson(n_g)
+        else:
+            self.vHr_g = self.rgd.zeros()
         self.eH = 0.5 * self.rgd.integrate(n_g * self.vHr_g, -1)
         self.eZ = -self.Z * self.rgd.integrate(n_g, -1)
 
@@ -632,12 +661,12 @@ class AllElectronAtom:
         states = []
         for ch in self.channels:
             for n, f in enumerate(ch.f_n):
-                states.append((ch.e_n[n], ch, n))
+                states.append((ch.e_n[n], n, ch.s, ch))
         states.sort()
-        for e, ch, n in states:
+        for e, n, s, ch in states:
             name = str(n + ch.l + 1) + ch.name
             if self.nspins == 2:
-                name += '(%s)' % '+-'[ch.s]
+                name += '(%s)' % '+-'[s]
             n_g = ch.calculate_density(n)
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
@@ -673,7 +702,7 @@ class AllElectronAtom:
         channel = self.get_channel(l, s, k)
         return channel.basis.expand(channel.C_nb[n])
 
-    def plot_wave_functions(self, rc=4.0):
+    def plot_wave_functions(self, rc=4.0, show=True):
         import matplotlib.pyplot as plt
         for ch in self.channels:
             for n in range(len(ch.f_n)):
@@ -699,7 +728,8 @@ class AllElectronAtom:
         plt.xlabel('r [Bohr]')
         plt.ylabel('$r\\phi(r)$')
         plt.axis(xmin=0, xmax=rc)
-        plt.show()
+        if show:
+            plt.show()
 
     def logarithmic_derivative(self, l, energies, rcut):
         ch = Channel(l)
@@ -761,7 +791,12 @@ class AllElectronAtom:
 
 
 class CLICommand:
-    short_description = 'Solve radial equation for an atom'
+    """Solve radial equation for an atom.
+
+    Example:
+
+        gpaw atom Li -f PBE -p  # plot wave functions for a lithium atom
+    """
 
     @staticmethod
     def add_arguments(parser):
@@ -777,7 +812,8 @@ class CLICommand:
             'beta-spin).  The number of electrons defaults to ' +
             'one. Examples: "1s", "2p2b", "4f0.1b,3d-0.1a".')
         add('--spin-polarized', action='store_true')
-        add('-d', '--dirac', action='store_true')
+        add('-d', '--dirac', action='store_true',
+            help='Solve Dirac equation.')
         add('-p', '--plot', action='store_true')
         add('-e', '--exponents',
             help='Exponents a: exp(-a*r^2).  Use "-e 0.1:20.0:30" ' +
@@ -787,8 +823,12 @@ class CLICommand:
             help='Plot logarithmic derivatives. ' +
             'Example: -l spdf,-1:1:0.05,1.3. ' +
             'Energy range and/or radius can be left out.')
+        add('-n', '--ngrid', help='Specify number of grid points.')
+        add('-R', '--rcut', help='Radial cutoff.')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
+        add('--no-ee-interaction', action='store_true',
+            help='Turn off electron-electron interaction.')
 
     @staticmethod
     def run(args):
@@ -832,7 +872,8 @@ def main(args):
     aea = AllElectronAtom(symbol,
                           xc=args.xc_functional,
                           spinpol=args.spin_polarized,
-                          dirac=args.dirac)
+                          dirac=args.dirac,
+                          ee_interaction=not args.no_ee_interaction)
 
     kwargs = {}
     if args.exponents:
@@ -845,6 +886,11 @@ def main(args):
 
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
+
+    if args.ngrid:
+        kwargs['ngpts'] = int(args.ngrid)
+    if args.rcut:
+        kwargs['rcut'] = float(args.rcut)
 
     aea.initialize(**kwargs)
     aea.run()

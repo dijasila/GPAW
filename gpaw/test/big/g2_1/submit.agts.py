@@ -1,6 +1,6 @@
-from myqueue.task import task
+from myqueue.workflow import run
 
 
-def create_tasks():
-    jobs = [task('g21gpaw.py+{}@1:40h'.format(i)) for i in range(4)]
-    return jobs + [task('analyse.py', deps=jobs)]
+def workflow():
+    with run(script='g21gpaw.py', tmax='20h'):
+        run(script='analyse.py')

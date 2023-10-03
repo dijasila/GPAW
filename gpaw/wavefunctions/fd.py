@@ -13,6 +13,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+import _gpaw
 
 
 class FD(Mode):
@@ -86,20 +87,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('Apply hamiltonian')
 
     def get_pseudo_partial_waves(self):
-        phit_aj = [setup.get_actual_atomic_orbitals()
+        phit_aj = [setup.get_partial_waves_for_atomic_orbitals()
                    for setup in self.setups]
         return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]
-        if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G**2, nt_G)
-        else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G.real**2, nt_G)
-                axpy(f, psit_G.imag**2, nt_G)
+        for f, psit_G in zip(f_n, kpt.psit_nG):
+            # Same as nt_G += f * abs(psit_G)**2, but much faster:
+            _gpaw.add_to_density(f, psit_G, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
@@ -132,6 +129,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kptband_comm.sum(taut_sG)
+        for taut_G in taut_sG:
+            self.kd.symmetry.symmetrize(taut_G, self.gd)
         return taut_sG
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
@@ -162,20 +161,22 @@ class FDWaveFunctions(FDPWWaveFunctions):
         weight = 2.0 / kd.nspins / kd.nbzkpts
 
         # Build new list of k-points:
+        kpt_qs = []
         kpt_u = []
-        for s in range(self.nspins):
-            for k in range(kd.nbzkpts):
+        for k in range(kd.nbzkpts):
+            kpt_s = []
+            for s in range(self.nspins):
                 # Index of symmetry related point in the IBZ
                 ik = self.kd.bz2ibz_k[k]
-                r, u = self.kd.get_rank_and_index(s, ik)
+                r, q = self.kd.get_rank_and_index(ik)
                 assert r == 0
-                kpt = self.mykpts[u]
+                kpt = self.kpt_qs[q][s]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
 
                 # New k-point:
-                kpt2 = KPoint(weight, s, k, k, phase_cd)
+                kpt2 = KPoint(1.0 / kd.nbzkpts, weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
 
@@ -192,17 +193,20 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
-                kpt2.P = Projections(
+                kpt2.projections = Projections(
                     self.bd.nbands, nproj_a,
-                    kpt.P.atom_partition,
+                    kpt.projections.atom_partition,
                     self.bd.comm,
                     collinear=True, spin=s, dtype=self.dtype)
 
-                kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
+                kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
+                kpt_s.append(kpt2)
                 kpt_u.append(kpt2)
+            kpt_qs.append(kpt_s)
 
         self.kd = kd
-        self.mykpts = kpt_u
+        self.kpt_qs = kpt_qs
+        self.kpt_u = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace
@@ -259,7 +263,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt.psit.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions):
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
@@ -286,7 +290,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
 
             shape = tuple(gd2.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
+            scale = np.sqrt(12 / gd2.volume)
 
             old_state = np.random.get_state()
 
@@ -312,7 +316,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
 
             shape = tuple(gd1.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
+            scale = np.sqrt(12 / gd1.volume)
 
             old_state = np.random.get_state()
 
@@ -331,7 +335,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
         else:
             shape = tuple(self.gd.n_c)
-            scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))
+            scale = np.sqrt(12 / self.gd.volume)
 
             old_state = np.random.get_state()
 

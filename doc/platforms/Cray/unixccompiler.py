@@ -12,7 +12,6 @@ the "typical" Unix-style command-line C compiler:
   * link static library handled by 'ar' command (possibly with 'ranlib')
   * link shared library handled by 'cc -shared'
 """
-from __future__ import print_function
 __revision__ = "$Id: unixccompiler.py 54954 2007-04-25 06:42:41Z neal.norwitz $"
 
 import os, sys
@@ -264,7 +263,7 @@ class UnixCCompiler(CCompiler):
 
     def runtime_library_dir_option(self, dir):
         # XXX Hackish, at the very least.  See Python bug #445902:
-        # http://sourceforge.net/tracker/index.php
+        # sourceforge.net/tracker/index.php
         #   ?func=detail&aid=445902&group_id=5470&atid=105470
         # Linkers on different platforms need different options to
         # specify that directories need to be added to the list of
@@ -332,7 +331,7 @@ class UnixCCompiler(CCompiler):
             (output_dir, output_filename) = os.path.split(output_filename)
         output_fullname = os.path.join(output_dir, output_filename)
         output_fullname = os.path.abspath(output_fullname)
-        linkline = "%s %s" % (output_filename[:-2], output_fullname)
+        linkline = f"{output_filename[:-2]} {output_fullname}"
         for l in library_dirs:
             linkline += " -L" + l
         for l in libraries:

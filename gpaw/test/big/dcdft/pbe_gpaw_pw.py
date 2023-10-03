@@ -41,7 +41,8 @@ else:
     linspace = (0.92, 1.08, 7)  # eos numpy's linspace
 linspacestr = ''.join([str(t) + 'x' for t in linspace])[:-1]
 
-code = 'gpaw' + '-' + mode + str(e) + '_c' + str(constant_basis) + '_e' + linspacestr
+code = ('gpaw' + '-' + mode + str(e) + '_c' +
+        str(constant_basis) + '_e' + linspacestr)
 code = code + '_k' + str(kptdensity) + '_w' + str(width)
 code = code + '_r' + str(relativistic)
 
@@ -71,7 +72,7 @@ for name in names:
             kwargs.update({'mode': PW(e)})
     if mode == 'pw':
         if name in ['Li', 'Na']:
-            # https://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-May/002870.html
+            # listserv.fysik.dtu.dk/pipermail/gpaw-developers/2012-May/002870.html
             if constant_basis:
                 kwargs.update({'gpts': h2gpts(0.05, cell)})
             else:
@@ -79,6 +80,8 @@ for name in names:
     if mode == 'lcao':
         kwargs.update({'mode': 'lcao'})
         kwargs.update({'basis': 'dzp'})
+    if mode == 'fd':
+        kwargs.update({'mode': 'fd'})
     if name in ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn', 'Ca', 'Sr', 'Ba', 'Be']:
         # results wrong / scf slow with minimal basis
         kwargs.update({'basis': 'dzp'})
@@ -95,15 +98,14 @@ for name in names:
         # perform EOS step
         atoms.set_cell(cell * x, scale_atoms=True)
         # set calculator
-        atoms.calc = GPAW(
+        base_kwargs = dict(
             txt=name + '_' + code + '_' + str(n) + '.txt',
             xc='PBE',
             kpts=kpts,
             occupations=FermiDirac(width),
             parallel={'band': 1},
-            maxiter=777,
-            idiotproof=False)
-        atoms.calc.set(**kwargs)  # remaining calc keywords
+            maxiter=777)
+        atoms.calc = GPAW(**dict(base_kwargs, **kwargs))
         t = time.time()
         atoms.get_potential_energy()
         c.write(atoms,
@@ -113,6 +115,6 @@ for name in names:
                 constant_basis=constant_basis,
                 x=x,
                 niter=atoms.calc.get_number_of_iterations(),
-                time=time.time()-t)
+                time=time.time() - t)
         traj.write(atoms)
         del c[id]

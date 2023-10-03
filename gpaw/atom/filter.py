@@ -36,9 +36,10 @@ potential."""
 
 # XXX use fast bessel transform !!!
 
+
 class Filter:
     """Mask-function Fourier filter"""
-    
+
     def __init__(self, r_g, dr_g, gcut, h):
         """Construct filter.
 
@@ -48,7 +49,7 @@ class Filter:
 
         self.gcut = gcut
         rcut = r_g[gcut]
-        
+
         N = 200
         self.r_g = r_g = r_g[:gcut].copy()  # will be modified later!
         self.dr_g = dr_g[:gcut]
@@ -56,7 +57,7 @@ class Filter:
         # Matrices for Bessel transform:
         q1 = 5 * pi / h / N
         self.q_i = q_i = q1 * np.arange(N)
-        self.c = sqrt(2 * q1 / pi) 
+        self.c = sqrt(2 * q1 / pi)
         self.sinqr_ig = np.sin(q_i[:, None] * r_g) * self.c
         self.cosqr_ig = np.cos(q_i[:, None] * r_g) * self.c
 
@@ -75,7 +76,7 @@ class Filter:
         # Mask function:
         gamma = 3 * log(10) / rcut**2
         self.m_g = np.exp(-gamma * r_g**2)
-        
+
         # We will need to divide by these two!  Remove zeros:
         q_i[0] = 1.0
         r_g[0] = 1.0
@@ -88,7 +89,7 @@ class Filter:
           f(r)     ^
           ---- Y  (r)
            r    lm
-           
+
         Output is::
 
                 l     ^
@@ -96,7 +97,7 @@ class Filter:
                    lm
 
         where the filtered radial part ``g(r)`` is returned."""
-        
+
         r_g = self.r_g
         q_i = self.q_i
 
@@ -116,12 +117,11 @@ class Filter:
         #  2         3   x             2
         #           x                 x
         #
-        #          15    6             15   1 
+        #          15    6             15   1
         # j (x) = (-- - ---) sin(x) - (-- - -) cos(x).
-        #  3        4     2             3   x 
-        #          x     x             x      
+        #  3        4     2             3   x
+        #          x     x             x
         #
-
 
         if l == 0:
             fq_i = np.dot(self.sinqr_ig, fdrim_g * r_g) * self.cut_i
@@ -142,7 +142,7 @@ class Filter:
             fr_g = 3 * np.dot(fq_i / q_i**2, self.sinqr_ig) / r_g**2
             fr_g -= np.dot(fq_i, self.sinqr_ig)
             fr_g -= 3 * np.dot(fq_i / q_i, self.cosqr_ig) / r_g
-        elif l == 3: ### This should be tested
+        elif l == 3:  # XXX This should be tested
             fq_i = 15 * np.dot(self.sinqr_ig, fdrim_g / r_g**2) / q_i**3
             fq_i -= 6 * np.dot(self.sinqr_ig, fdrim_g) / q_i
             fq_i -= 15 * np.dot(self.cosqr_ig, fdrim_g / r_g) / q_i**2
@@ -156,14 +156,14 @@ class Filter:
 
         else:
             raise NotImplementedError
-    
+
         a_g = np.zeros(len(f_g))
         a_g[:self.gcut] = fr_g * self.m_g / r_g**(l + 1)
-        
-        #            n 
+
+        #            n
         #           2 n!     n
         # j (x) = --------- x   for  x << 1.
-        #  n      (2n + 1)! 
+        #  n      (2n + 1)!
         #
         # This formula is used for finding the value of
         #
@@ -174,6 +174,7 @@ class Filter:
         a_g[0] = np.dot(fq_i, q_i**(l + 1)) * c
 
         return a_g
+
 
 if __name__ == '__main__':
     rc = 1.1
@@ -189,7 +190,7 @@ if __name__ == '__main__':
     x_g = r_g / rc
     p_g = 1 - x_g**2 * (3 - 2 * x_g)
     p_g[gcut:] = 0.0
-    #p_g = np.exp(-np.clip(5.0 * r_g**2, 0, 400))
+    # p_g = np.exp(-np.clip(5.0 * r_g**2, 0, 400))
 
     h = 0.4
     f = Filter(r_g, drdg_g, rc2, h)

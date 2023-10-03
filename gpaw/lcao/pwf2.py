@@ -6,7 +6,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full, lowdin
 from gpaw.lcao.tools import basis_subset2, get_bfi2
 from gpaw.coulomb import get_vxc as get_ks_xc
-from gpaw.utilities.blas import r2k, gemm
+from gpaw.utilities.blas import r2k, mmmx
 from gpaw.lcao.projected_wannier import (dots, condition_number, eigvals,
                                          get_bfs, get_lcao_projections_HSP)
 
@@ -24,7 +24,7 @@ def get_rot(F_MM, V_oM, L):
         col1 /= norm
         col2 /= norm
     return U_ow, U_lw, U_Ml
-    
+
 
 def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     nq = len(calc.wfs.kd.ibzk_qc)
@@ -32,7 +32,7 @@ def get_lcao_xc(calc, P_aqMi, bfs=None, spin=0):
     dtype = calc.wfs.dtype
     if bfs is None:
         bfs = get_bfs(calc)
-    
+
     if calc.density.nt_sg is None:
         calc.density.interpolate_pseudo_density()
     nt_sg = calc.density.nt_sg
@@ -71,7 +71,7 @@ def get_xc2(calc, w_wG, P_awi, spin=0):
     xc_ww = np.empty((Nw, Nw))
     r2k(.5 * calc.wfs.gd.dv, w_wG, vxct_G * w_wG, .0, xc_ww)
     tri2full(xc_ww, 'L')
-    
+
     # Add atomic PAW corrections
     for a, P_wi in P_awi.items():
         D_sp = calc.density.D_asp[a][:]
@@ -87,7 +87,7 @@ class ProjectedWannierFunctionsFBL:
     """PWF in the finite band limit.
 
     ::
-    
+
                 --N
         |w_w> = >    |psi_n> U_nw
                 --n=1
@@ -95,7 +95,7 @@ class ProjectedWannierFunctionsFBL:
     def __init__(self, V_nM, No, ortho=False):
         Nw = V_nM.shape[1]
         assert No <= Nw
-        
+
         V_oM, V_uM = V_nM[:No], V_nM[No:]
         F_MM = np.dot(V_uM.T.conj(), V_uM)
         U_ow, U_lw, U_Ml = get_rot(F_MM, V_oM, Nw - No)
@@ -129,7 +129,7 @@ class ProjectedWannierFunctionsIBL:
     """PWF in the infinite band limit.
 
     ::
-    
+
                 --No               --Nw
         |w_w> = >   |psi_o> U_ow + >   |f_M> U_Mw
                 --o=1              --M=1
@@ -138,7 +138,7 @@ class ProjectedWannierFunctionsIBL:
         Nw = V_nM.shape[1]
         assert No <= Nw
         self.V_oM, V_uM = V_nM[:No], V_nM[No:]
-        
+
         F_MM = S_MM - np.dot(self.V_oM.T.conj(), self.V_oM)
         U_ow, U_lw, U_Ml = get_rot(F_MM, self.V_oM, Nw - No)
         self.U_Mw = np.dot(U_Ml, U_lw)
@@ -153,9 +153,10 @@ class ProjectedWannierFunctionsIBL:
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         P_uw = np.dot(V_uM, self.U_Mw)
         self.norms_n = np.hstack((
-            np.dot(U_ow, np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
-            np.dot(P_uw, np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()
-            ))
+            np.dot(U_ow,
+                   np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
+            np.dot(P_uw,
+                   np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()))
 
     def rotate_matrix(self, A_o, A_MM):
         assert A_o.ndim == 1
@@ -188,7 +189,7 @@ class ProjectedWannierFunctionsIBL:
             U_Mw = self.U_Mw[:, indices]
         w_wG = np.zeros((U_ow.shape[1],) + psit_oG.shape[1:])
         if len(U_ow) > 0:
-            gemm(1., psit_oG, U_ow.T.copy(), 0., w_wG)
+            mmmx(1, U_ow.T.copy(), 'N', psit_oG, 'N', 0, w_wG)
         bfs.lcao_to_grid(U_Mw.T.copy(), w_wG, q)
         return w_wG
 
@@ -198,7 +199,7 @@ class PWFplusLCAO(ProjectedWannierFunctionsIBL):
         Nw = V_nM.shape[1]
         self.V_oM = V_nM[:No]
         dtype = V_nM.dtype
-        
+
         # Do PWF optimization for pwfbasis submatrix only!
         Npwf = len(pwfmask.nonzero()[0])
         pwfmask2 = np.outer(pwfmask, pwfmask)
@@ -207,7 +208,7 @@ class PWFplusLCAO(ProjectedWannierFunctionsIBL):
         f_MM = s_MM - np.dot(v_oM.T.conj(), v_oM)
         nw = len(s_MM)
         assert No <= nw
-        
+
         u_ow, u_lw, u_Ml = get_rot(f_MM, v_oM, nw - No)
         u_Mw = np.dot(u_Ml, u_lw)
         u_ow = u_ow - np.dot(v_oM, u_Mw)
@@ -228,7 +229,7 @@ class PWFplusLCAO(ProjectedWannierFunctionsIBL):
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         self.norms_n = None
 
-    
+
 class PWF2:
     def __init__(self, gpwfilename, fixedenergy=0., spin=0, ibl=True,
                  basis='sz', zero_fermi=False, pwfbasis=None, lcaoatoms=None,
@@ -317,7 +318,7 @@ class PWF2:
             return self.S_qww[q].take(indices, 0).take(indices, 1)
 
     def get_projections(self, q=0, indices=None):
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'P_awi'):
             if self.ibl:
                 M = self.M_k[q]
@@ -326,13 +327,14 @@ class PWF2:
                     dict([(a, P_qMi[q]) for a, P_qMi in self.P_aqMi.items()]),
                     indices)
             else:
+                assert 0
                 # XXX pwf?
-                self.P_awi = pwf.rotate_projections(kpt.P_ani, indices)
+                # self.P_awi = pwf.rotate_projections(kpt.P_ani, indices)
         return self.P_awi
 
     def get_orbitals(self, q=0, indices=None):
         self.calc.wfs.initialize_wave_functions_from_restart_file()
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'w_wG'):
             if self.ibl:
                 self.w_wG = self.pwf_q[q].rotate_function(
@@ -375,7 +377,7 @@ class LCAOwrap:
         assert calc.wfs.gd.comm.size == 1
         assert calc.wfs.kd.comm.size == 1
         assert calc.wfs.bd.comm.size == 1
-        
+
         from gpaw.lcao.tools import get_lcao_hamiltonian
         H_skMM, S_kMM = get_lcao_hamiltonian(calc)
 
@@ -386,10 +388,10 @@ class LCAOwrap:
         self.S_qww = S_kMM
         self.P_aqwi = calc.wfs.P_aqMi
         self.Nw = self.S_qww.shape[-1]
-        
+
         for S in self.S_qww:
             print('Condition number: %0.1e' % condition_number(S))
-    
+
     def get_hamiltonian(self, q=0, indices=None):
         if indices is None:
             return self.H_qww[q]

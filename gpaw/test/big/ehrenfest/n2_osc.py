@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import time
 import numpy as np
@@ -34,13 +33,15 @@ if __name__ == '__main__':
         atoms.center(vacuum=6.0)
         cell_c = np.sum(atoms.get_cell()**2, axis=1)**0.5
         N_c = 8 * np.round(cell_c / (0.2 * 8))
-        calc = GPAW(gpts=N_c,
+        calc = GPAW(mode='fd',
+                    gpts=N_c,
                     nbands=5,
                     parallel={'band': 5},
                     basis='dzp',
                     txt=name + '_gs.txt',
-                    eigensolver='rmm-diis')
-        atoms.set_calculator(calc)
+                    eigensolver='rmm-diis',
+                    symmetry={'point_group': False})
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write(name + '_gs.gpw', mode='all')
         del atoms, calc
@@ -75,7 +76,7 @@ if __name__ == '__main__':
             # Hack to prevent calls to GPAW::get_potential_energy when saving
             spa = tdcalc.get_atoms()
             spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
-            spa.set_calculator(spc)
+            spa.calc = spc
             traj.write(spa)
     f.close()
     traj.close()

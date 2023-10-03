@@ -1,12 +1,11 @@
 from math import sqrt, pi
-import numpy as np
 
+import numpy as np
 from ase.units import Bohr
 
 from gpaw.utilities import pack
 from gpaw.analyse.hirshfeld import HirshfeldDensity
 from gpaw.utilities.tools import coordinates
-from gpaw.mpi import MASTER
 
 
 def wignerseitz(gd, atoms, scale=None):
@@ -16,7 +15,7 @@ def wignerseitz(gd, atoms, scale=None):
     if scale is None:
         scale = [1.] * len(atoms)
     else:
-        assert(len(scale) == len(atoms))
+        assert len(scale) == len(atoms)
     r_vG, R2min_G = coordinates(gd, atoms[0].position / Bohr)
     R2min_G *= scale[0] ** 2
     index_G = gd.zeros(dtype=int)
@@ -83,7 +82,7 @@ class WignerSeitz:
 
         Can be applied to any density den_g.
         """
-        assert(den_g.shape == tuple(self.gd.n_c))
+        assert den_g.shape == tuple(self.gd.n_c)
         charges = []
         for atom, q in zip(self.atoms, self.expand(den_g)):
             charges.append(atom.number - q)
@@ -98,9 +97,9 @@ class WignerSeitz:
         finegd = self.gd
 
         den_g, gd = self.calculator.density.get_all_electron_density(atoms)
-        assert(gd == finegd)
+        assert gd == finegd
         denfree_g, gd = self.hdensity.get_density([atom_index])
-        assert(gd == finegd)
+        assert gd == finegd
 
         # the atoms r^3 grid
         position = self.atoms[atom_index].position / Bohr
@@ -141,6 +140,7 @@ class LDOSbyBand:
         return elemi
 
 
+'''
 class WignerSeitzLDOS(LDOSbyBand):
 
     """Class to get the unfolded LDOS defined by Wigner-Seitz cells"""
@@ -169,3 +169,4 @@ class WignerSeitzLDOS(LDOSbyBand):
                     for n in range(paw.nbands):
                         # avery: Added dummy loop body to make compiling work.
                         1
+'''

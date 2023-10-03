@@ -1,54 +1,46 @@
-# -*- coding: utf-8 -*-
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, absolute_import
+from __future__ import annotations
 import functools
+from io import StringIO
 from math import pi, sqrt
-
-import numpy as np
 import ase.units as units
+import numpy as np
 from ase.data import chemical_symbols
-from ase.utils import basestring, StringIO
 
-from gpaw.setup_data import SetupData, search_for_file
+from gpaw import debug
 from gpaw.basis_data import Basis
-from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
-from gpaw.utilities import unpack, pack
-from gpaw.utilities.ekin import ekin, dekindecut
-from gpaw.rotation import rotation
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.overlap import OverlapCorrections
+from gpaw.setup_data import SetupData, search_for_file
+from gpaw.spline import Spline
+from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
+from gpaw.new import zips
+from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from gpaw.core.atom_arrays import AtomArraysLayout
+
+
+class WrongMagmomForHundsRuleError(ValueError):
+    """
+    Custom error for catching bad magnetic moments in Hund's rule calculation
+    """
 
 
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
-    if isinstance(xc, basestring):
+    if isinstance(xc, str):
         xc = XC(xc)
 
-    if isinstance(type, basestring) and ':' in type:
-        # Parse DFT+U parameters from type-string:
-        # Examples: "type:l,U" or "type:l,U,scale"
-        type, lu = type.split(':')
-        if type == '':
-            type = 'paw'
-        l = 'spdf'.find(lu[0])
-        assert lu[1] == ','
-        U = lu[2:]
-        if ',' in U:
-            U, scale = U.split(',')
-        else:
-            scale = True
-        U = float(U) / units.Hartree
-        scale = int(scale)
+    if isinstance(type, str) and ':' in type:
+        from gpaw.hubbard import parse_hubbard_string
+        type, hubbard_u = parse_hubbard_string(type)
     else:
-        U = None
+        hubbard_u = None
 
     if setupdata is None:
         if type == 'hgh' or type == 'hgh.sc':
             lmax = 0
-            from gpaw.hgh import HGHSetupData, setups, sc_setups
+            from gpaw.hgh import HGHSetupData, sc_setups, setups
             if type == 'hgh.sc':
                 table = sc_setups
             else:
@@ -71,9 +63,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
             from gpaw.upf import read_sg15
-            upfname = '%s_ONCV_PBE-*.upf' % symbol
-            upfpath, source = search_for_file(upfname, world=world)
-            if source is None:
+            upfname = f'{symbol}_ONCV_PBE-*.upf'
+            try:
+                upfpath, source = search_for_file(upfname, world=world)
+            except RuntimeError:
                 raise IOError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
@@ -88,12 +81,51 @@ def create_setup(symbol, xc='LDA', lmax=0,
                                   type, True,
                                   world=world)
     if hasattr(setupdata, 'build'):
-        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter))
-        if U is not None:
-            setup.set_hubbard_u(U, l, scale)
+        # It is not so nice that we have hubbard_u floating around here.
+        # For example, none of the other setup types are aware
+        # of hubbard u, so they silently ignore it!
+        setup = LeanSetup(setupdata.build(xc, lmax, basis, filter),
+                          hubbard_u=hubbard_u)
         return setup
     else:
         return setupdata
+
+
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        jsorted,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
+
+    if correction > 0:
+        # Add electrons to the lowest eigenstates:
+        for j in jsorted:
+            c = min(correction, degeneracy_j[j] - f_j[j])
+            f_j[j] += c
+            correction -= c
+            if correction < eps:
+                break
+    elif correction < 0:
+        # Add electrons to the highest eigenstates:
+        for j in jsorted[::-1]:
+            c = min(-correction, f_j[j])
+            f_j[j] -= c
+            correction += c
+            if correction > -eps:
+                break
+
+
+class LocalCorrectionVar:
+    """Class holding data for local the calculation of local corr."""
+    def __init__(self, s=None):
+        """Initialize our data."""
+        for work_key in ('nq', 'lcut', 'n_qg', 'nt_qg', 'nc_g', 'nct_g',
+                         'rgd2', 'Delta_lq', 'T_Lqp'):
+            if s is None or not hasattr(s, work_key):
+                setattr(self, work_key, None)
+            else:
+                setattr(self, work_key, getattr(s, work_key))
 
 
 class BaseSetup:
@@ -106,6 +138,7 @@ class BaseSetup:
     made a proper base class with attributes and so on."""
 
     orbital_free = False
+    hubbard_u = None  # XXX remove me
 
     def print_info(self, text):
         self.data.print_info(text, self)
@@ -113,19 +146,25 @@ class BaseSetup:
     def get_basis_description(self):
         return self.basis.get_description()
 
-    def get_actual_atomic_orbitals(self):
+    def get_partial_waves_for_atomic_orbitals(self):
         """Get those states phit that represent a real atomic state.
 
         This typically corresponds to the (truncated) partial waves (PAW) or
         a single-zeta basis."""
-        phit_j = []
+
+        # XXX ugly hack for pseudopotentials:
+        if not hasattr(self, 'pseudo_partial_waves_j'):
+            return []
+
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        for n, phit in zip(self.n_j, self.phit_j):
+        partial_waves_j = []
+        for n, phit in zips(self.n_j, self.pseudo_partial_waves_j,
+                            strict=False):
             if n > 0:
-                phit_j.append(phit)
-        return phit_j
+                partial_waves_j.append(phit)
+        return partial_waves_j
 
     def calculate_initial_occupation_numbers(self, magmom, hund, charge,
                                              nspins, f_j=None):
@@ -141,60 +180,55 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
-        if len(l_j) == 0:
-            l_j = np.ones(1)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
-            nj = len(f_j)
-            # correct for the charge
-            if charge >= 0:
-                # reduce the higher levels first
-                for j in range(nj - 1, -1, -1):
-                    f = f_j[j]
-                    if use_complete or f < degeneracy_j[j]:
-                        c = min(f, charge)
-                        f_j[j] -= c
-                        charge -= c
-            else:
-                # add to the lower levels first
-                for j in range(nj):
-                    f = f_j[j]
-                    if use_complete or f > 0:
-                        c = min(degeneracy_j[j] - f, -charge)
-                        f_j[j] += c
-                        charge += c
-            if charge != 0 and c != 0:
-                correct_for_charge(f_j, charge, degeneracy_j, True)
-            elif charge != 0 and c == 0:
-                # print('Stopping electron distribution, ran out of '
-                #       'projector functions to fill.')
-                # Then there are more electrons in the
-                # calculation than can be distributed over the
-                # atomic projector functions. Leave remaining density
-                # undistributed.
-                return
+        if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.ones(len(self.n_j))
+            # Bound states:
+            for j, n in enumerate(self.n_j):
+                if n > 0:
+                    eps_j[j] = -1.0
+
+        deg_j = 2 * (2 * l_j + 1)
+
+        # Sort after:
+        #
+        # 1) empty state (f == 0)
+        # 2) open shells (d - f)
+        # 3) eigenvalues (e)
+
+        states = []
+        for j, (f, d, e) in enumerate(zips(f_j, deg_j, eps_j, strict=False)):
+            if e < 0.0:
+                states.append((f == 0, d - f, e, j))
+        states.sort()
+        jsorted = [j for _, _, _, j in states]
+
+        # if len(l_j) == 0:
+        #     l_j = np.ones(1)
+
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_for_charge(f_sj[0], charge, 2 * (2 * l_j + 1))
+                correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
-                raise RuntimeError('Magnetic moment larger than number ' +
-                                   'of valence electrons (|%g| > %g)' %
-                                   (magmom, nval))
+                raise RuntimeError(
+                    'Magnetic moment larger than number ' +
+                    f'of valence electrons (|{magmom:g}| > {nval:g})')
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
-            ndown = 0.5 * (nval - magmom)
-            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1, False)
-            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1, False)
+            ndn = 0.5 * (nval - magmom)
+            deg_j //= 2
+            correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
@@ -202,11 +236,11 @@ class BaseSetup:
         # distribute to the atomic wave functions
         i = 0
         j = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
 
             # Skip functions not in basis set:
-            while j < nj and self.l_orb_j[j] != l:
+            while j < nj and self.l_orb_J[j] != l:
                 j += 1
             if j < len(f_j):  # lengths of f_j and l_j may differ
                 f = f_j[j]
@@ -235,18 +269,18 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise ValueError('Bad magnetic moment %g for %s atom!'
-                             % (magmom, self.symbol))
+            raise WrongMagmomForHundsRuleError(
+                f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
         for M in range(10):
             try:
                 self.calculate_initial_occupation_numbers(M, True, charge, 2)
-            except ValueError:
+            except WrongMagmomForHundsRuleError:
                 pass
             else:
                 return M
@@ -258,11 +292,11 @@ class BaseSetup:
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.l_j)
+        nj = len(self.pt_j)
         j = 0
         i = 0
         ib = 0
-        for phit in self.phit_j:
+        for phit in self.basis_functions_J:
             l = phit.get_angular_momentum_number()
             # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
@@ -279,23 +313,6 @@ class BaseSetup:
         for s in range(nspins):
             D_sp[s] = pack(D_sii[s])
         return D_sp
-
-    def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
-        for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
-        return D_ii / len(map_sa)
-
-    def calculate_rotations(self, R_slmm):
-        nsym = len(R_slmm)
-        self.R_sii = np.zeros((nsym, self.ni, self.ni))
-        i1 = 0
-        for l in self.l_j:
-            i2 = i1 + 2 * l + 1
-            for s, R_lmm in enumerate(R_slmm):
-                self.R_sii[s, i1:i2, i1:i2] = R_lmm[l]
-            i1 = i2
 
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
@@ -322,7 +339,7 @@ class BaseSetup:
         tauct = self.rgd.spline(tauct_g, rcut2, points=1000)
         phi_j = []
         phit_j = []
-        for j, (phi_g, phit_g) in enumerate(zip(data.phi_jg, data.phit_jg)):
+        for j, (phi_g, phit_g) in enumerate(zips(data.phi_jg, data.phit_jg)):
             l = l_j[j]
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
@@ -330,27 +347,6 @@ class BaseSetup:
             phi_j.append(self.rgd.spline(phi_g, rcut2, l, points=100))
             phit_j.append(self.rgd.spline(phit_g, rcut2, l, points=100))
         return phi_j, phit_j, nc, nct, tauc, tauct
-
-    def set_hubbard_u(self, U, l, scale=1, store=0, LinRes=0):
-        """Set Hubbard parameter.
-        U in atomic units, l is the orbital to which we whish to
-        add a hubbard potential and scale enables or desables the
-        scaling of the overlap between the l orbitals, if true we enforce
-        <p|p>=1
-        Note U is in atomic units
-        """
-
-        self.HubLinRes = LinRes
-        self.Hubs = scale
-        self.HubStore = store
-        self.HubOcc = []
-        self.HubU = U
-        self.Hubl = l
-        self.Hubi = 0
-        for ll in self.l_j:
-            if ll == self.Hubl:
-                break
-            self.Hubi = self.Hubi + 2 * ll + 1
 
     def four_phi_integrals(self):
         """Calculate four-phi integral.
@@ -434,9 +430,110 @@ class BaseSetup:
         return self.I4_pp
 
     def get_default_nbands(self):
-        assert len(self.l_orb_j) == len(self.n_j), (self.l_orb_j, self.n_j)
-        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
+        assert len(self.l_orb_J) == len(self.n_j), (self.l_orb_J, self.n_j)
+        return sum([2 * l + 1 for (l, n) in zips(self.l_orb_J, self.n_j)
                     if n > 0])
+
+    def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
+                                      wmct_g):
+        """Calculate "Coulomb" energies."""
+        # Can we reduce the excessive parameter passing?
+        # Seems so ....
+        # Added instance variables
+        # T_Lqp = self.local_corr.T_Lqp
+        # n_qg = self.local_corr.n_qg
+        # Delta_lq = self.local_corr.Delta_lq
+        # nt_qg = self.local_corr.nt_qg
+        # Local variables derived from instance variables
+        _np = self.ni * (self.ni + 1) // 2  # change to inst. att.?
+        mct_g = self.local_corr.nct_g + self.Delta0 * self.g_lg[0]  # s.a.
+        rdr_g = self.local_corr.rgd2.r_g * \
+            self.local_corr.rgd2.dr_g  # change to inst. att.?
+
+        A_q = 0.5 * (np.dot(wn_lqg[0], self.local_corr.nc_g) + np.dot(
+            self.local_corr.n_qg, wnc_g))
+        A_q -= sqrt(4 * pi) * self.Z * np.dot(self.local_corr.n_qg, rdr_g)
+        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) +
+                      np.dot(self.local_corr.nt_qg, wmct_g))
+        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0]) +
+                      np.dot(self.g_lg[0], wmct_g)) * \
+            self.local_corr.Delta_lq[0]
+        M_p = np.dot(A_q, self.local_corr.T_Lqp[0])
+
+        A_lqq = []
+        for l in range(2 * self.local_corr.lcut + 1):
+            A_qq = 0.5 * np.dot(self.local_corr.n_qg, np.transpose(wn_lqg[l]))
+            A_qq -= 0.5 * np.dot(self.local_corr.nt_qg,
+                                 np.transpose(wnt_lqg[l]))
+            if l <= self.lmax:
+                A_qq -= 0.5 * np.outer(self.local_corr.Delta_lq[l],
+                                       np.dot(wnt_lqg[l], self.g_lg[l]))
+                A_qq -= 0.5 * np.outer(np.dot(self.local_corr.nt_qg,
+                                              wg_lg[l]),
+                                       self.local_corr.Delta_lq[l])
+                A_qq -= 0.5 * np.dot(self.g_lg[l], wg_lg[l]) * \
+                    np.outer(self.local_corr.Delta_lq[l],
+                             self.local_corr.Delta_lq[l])
+            A_lqq.append(A_qq)
+
+        M_pp = np.zeros((_np, _np))
+        L = 0
+        for l in range(2 * self.local_corr.lcut + 1):
+            for m in range(2 * l + 1):  # m?
+                M_pp += np.dot(np.transpose(self.local_corr.T_Lqp[L]),
+                               np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
+                L += 1
+
+        return M_p, M_pp
+
+    def calculate_integral_potentials(self, func):
+        """Calculates a set of potentials using func."""
+        wg_lg = [func(self, self.g_lg[l], l)
+                 for l in range(self.lmax + 1)]
+        wn_lqg = [np.array([func(self, self.local_corr.n_qg[q], l)
+                            for q in range(self.local_corr.nq)])
+                  for l in range(2 * self.local_corr.lcut + 1)]
+        wnt_lqg = [np.array([func(self, self.local_corr.nt_qg[q], l)
+                             for q in range(self.local_corr.nq)])
+                   for l in range(2 * self.local_corr.lcut + 1)]
+        wnc_g = func(self, self.local_corr.nc_g, l=0)
+        wnct_g = func(self, self.local_corr.nct_g, l=0)
+        wmct_g = wnct_g + self.Delta0 * wg_lg[0]
+        return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
+
+    def calculate_yukawa_interaction(self, gamma):
+        """Calculate and return the Yukawa based interaction."""
+        if self._Mg_pp is not None and gamma == self._gamma:
+            return self._Mg_pp  # Cached
+
+        # Solves the radial screened poisson equation for density n_g
+        def Yuk(self, n_g, l):
+            """Solve radial screened poisson for density n_g."""
+            gamma = self._gamma
+            return self.local_corr.rgd2.yukawa(n_g, l, gamma) * \
+                self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
+
+        self._gamma = gamma
+        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
+        return self._Mg_pp
+
+    def calculate_erfc_interaction(self, omega):
+        """Calculate and return erfc based valence valence
+           exchange interactions."""
+        hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
+
+        def erfc_interaction(_, n_g, l):
+            return hse(n_g, l)
+        return self.calculate_vvx_interactions(erfc_interaction)
+
+    def calculate_vvx_interactions(self, interaction):
+        """Calculate valence valence interactions for generic
+           interaction."""
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(interaction)
+        self._Mg_pp = self.calculate_coulomb_corrections(
+            wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+        return self._Mg_pp
 
 
 class LeanSetup(BaseSetup):
@@ -444,11 +541,12 @@ class LeanSetup(BaseSetup):
 
     A setup-like class must define at least the attributes of this
     class in order to function in a calculation."""
-    def __init__(self, s):
+    def __init__(self, s, hubbard_u=None):
         """Copies precisely the necessary attributes of the Setup s."""
-        # R_sii and HubU can be changed dynamically (which is ugly)
-        self.R_sii = None  # rotations, initialized when doing sym. reductions
-        self.HubU = s.HubU  # XXX probably None
+        # Hubbard U is poked onto the setup in hacky ways.
+        # This needs cleaning.
+        self.hubbard_u = hubbard_u
+
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -463,14 +561,15 @@ class LeanSetup(BaseSetup):
         self.nao = s.nao
 
         self.pt_j = s.pt_j
-        self.phit_j = s.phit_j  # basis functions
+
+        self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
+        self.basis_functions_J = s.basis_functions_J
 
         self.Nct = s.Nct
         self.nct = s.nct
 
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
-        self.rcgauss = s.rcgauss
         self.vbar = s.vbar
 
         self.Delta_pL = s.Delta_pL
@@ -482,6 +581,7 @@ class LeanSetup(BaseSetup):
         self.M = s.M
         self.M_p = s.M_p
         self.M_pp = s.M_pp
+        self.M_wpp = s.M_wpp
         self.K_p = s.K_p
         self.MB = s.MB
         self.MB_p = s.MB_p
@@ -494,7 +594,7 @@ class LeanSetup(BaseSetup):
         self.f_j = s.f_j
         self.n_j = s.n_j
         self.l_j = s.l_j
-        self.l_orb_j = s.l_orb_j
+        self.l_orb_J = s.l_orb_J
         self.nj = len(s.l_j)
 
         self.data = s.data
@@ -507,12 +607,17 @@ class LeanSetup(BaseSetup):
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
         self.basis = s.basis  # we don't need nao if we use this instead
+
+        # XXX figure out better way to store these.
+        # Refactoring: We should delete this and use psit_j.  However
+        # the code depends on psit_j being the *basis* functions sometimes.
+        if hasattr(s, 'pseudo_partial_waves_j'):
+            self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
         self.nabla_iiv = s.nabla_iiv  # req. by lrtddft
-        self.rnabla_iiv = s.rnabla_iiv  # req. by lrtddft
-        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft2
+        self.rxnabla_iiv = s.rxnabla_iiv  # req. by lrtddft and lrtddft2
 
         # XAS stuff
         self.phicorehole_g = s.phicorehole_g  # should be optional
@@ -532,7 +637,13 @@ class LeanSetup(BaseSetup):
 
         # Required by exx
         self.X_p = s.X_p
+        self.X_wp = s.X_wp
         self.ExxC = s.ExxC
+        self.ExxC_w = s.ExxC_w
+
+        # Required by yukawa rsf
+        self.X_pg = s.X_pg
+        self.X_gamma = s.X_gamma
 
         # Required by electrostatic correction
         self.dEH0 = s.dEH0
@@ -545,6 +656,15 @@ class LeanSetup(BaseSetup):
         self.extra_xc_data = s.extra_xc_data
 
         self.orbital_free = s.orbital_free
+
+        # Stuff required by Yukawa RSF to calculate Mg_pp at runtime
+        # the calcualtion of Mg_pp at rt is needed for dscf
+        if hasattr(s, 'local_corr'):
+            self.local_corr = s.local_corr
+        else:
+            self.local_corr = LocalCorrectionVar(s)
+        self._Mg_pp = None
+        self._gamma = 0
 
 
 class Setup(BaseSetup):
@@ -580,6 +700,8 @@ class Setup(BaseSetup):
     ``M``         Constant correction to Coulomb energy
     ``M_p``       Linear correction to Coulomb energy
     ``M_pp``      2nd order correction to Coulomb energy and Exx energy
+    ``M_wpp``     2nd order correction to erfc screened Coulomb energy and Exx
+                  energy for given w.
     ``Kc``        Core kinetic energy
     ``K_p``       Linear correction to kinetic energy
     ``ExxC``      Core Exx energy
@@ -612,8 +734,6 @@ class Setup(BaseSetup):
     def __init__(self, data, xc, lmax=0, basis=None, filter=None):
         self.type = data.name
 
-        self.HubU = None
-
         if not data.is_compatible(xc):
             raise ValueError('Cannot use %s setup with %s functional' %
                              (data.setupname, xc.get_setup_name()))
@@ -625,7 +745,7 @@ class Setup(BaseSetup):
         self.Nv = data.Nv
         self.Z = data.Z
         l_j = self.l_j = data.l_j
-        self.l_orb_j = data.l_orb_j
+        self.l_orb_J = data.l_orb_J
         n_j = self.n_j = data.n_j
         self.f_j = data.f_j
         self.eps_j = data.eps_j
@@ -633,7 +753,12 @@ class Setup(BaseSetup):
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
+        self.ExxC_w = data.ExxC_w
         self.X_p = data.X_p
+        self.X_wp = data.X_wp
+
+        self.X_gamma = data.X_gamma
+        self.X_pg = data.X_pg
 
         self.orbital_free = data.orbital_free
 
@@ -650,6 +775,11 @@ class Setup(BaseSetup):
 
         self.lmax = lmax
 
+        self._Mg_pp = None  # Yukawa based corrections
+        self._gamma = 0
+        # Attributes for run-time calculation of _Mg_pp
+        self.local_corr = LocalCorrectionVar(data)
+
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
         gcut2 = rgd.ceil(rcut2)
@@ -659,16 +789,18 @@ class Setup(BaseSetup):
 
         vbar_g = data.vbar_g
 
-        if data.generator_version < 2:
+        if float(data.version) < 0.7 and data.generator_version < 2:
+            # Old-style Fourier-filtered datatsets.
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
+
         elif filter:
             rc = rcutmax
             vbar_g = vbar_g.copy()
             filter(rgd, rc, vbar_g)
 
             pt_jg = [pt_g.copy() for pt_g in pt_jg]
-            for l, pt_g in zip(l_j, pt_jg):
+            for l, pt_g in zips(l_j, pt_jg):
                 filter(rgd, rc, pt_g, l)
 
             for l in range(max(l_j) + 1):
@@ -681,17 +813,19 @@ class Setup(BaseSetup):
                     pt_jg[j] = pt_ng[n]
             gcutfilter = rgd.get_cutoff(pt_jg[0])
         else:
-            rcutfilter = max(rcut_j)
-            gcutfilter = rgd.ceil(rcutfilter)
+            gcutfilter = rgd.ceil(max(rcut_j))
+
+        if (vbar_g[gcutfilter:] != 0.0).any():
+            gcutfilter = rgd.get_cutoff(vbar_g)
+            assert r_g[gcutfilter] < 2.0 * max(rcut_j)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (vbar_g[gcutfilter:] == 0).all()
 
         ni = 0
         i = 0
         j = 0
         jlL_i = []
-        for l, n in zip(l_j, n_j):
+        for l, n in zips(l_j, n_j):
             for m in range(2 * l + 1):
                 jlL_i.append((j, l, l**2 + m))
                 i += 1
@@ -700,12 +834,12 @@ class Setup(BaseSetup):
         self.ni = ni
 
         _np = ni * (ni + 1) // 2
-        self.nq = nq = nj * (nj + 1) // 2
+        self.local_corr.nq = nj * (nj + 1) // 2
 
         lcut = max(l_j)
         if 2 * lcut < lmax:
             lcut = (lmax + 1) // 2
-        self.lcut = lcut
+        self.local_corr.lcut = lcut
 
         self.B_ii = self.calculate_projector_overlaps(pt_jg)
 
@@ -726,28 +860,37 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        self.tauct = rgd.spline(tauct_g, self.rcore)
+        if tauct_g is not None:
+            self.tauct = rgd.spline(tauct_g, self.rcore)
+        else:
+            self.tauct = None
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
+        partial_waves = self.create_basis_functions(phit_jg, rcut2, gcut2)
+        self.pseudo_partial_waves_j = partial_waves.tosplines()
+
         if basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
-        phit_j = basis.tosplines()
-        self.phit_j = phit_j
+            basis = partial_waves
+            basis_functions_J = self.pseudo_partial_waves_j
+        else:
+            basis_functions_J = basis.tosplines()
+
+        self.basis_functions_J = basis_functions_J
         self.basis = basis
 
         self.nao = 0
-        for phit in self.phit_j:
-            l = phit.get_angular_momentum_number()
+        for bf in self.basis_functions_J:
+            l = bf.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
-        rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
         phit_jg = np.array([phit_g[:gcut2].copy() for phit_g in phit_jg])
-        self.nc_g = nc_g = nc_g[:gcut2].copy()
-        self.nct_g = nct_g = nct_g[:gcut2].copy()
+        self.local_corr.nc_g = nc_g = nc_g[:gcut2].copy()
+        self.local_corr.nct_g = nct_g = nct_g[:gcut2].copy()
         vbar_g = vbar_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
@@ -761,39 +904,33 @@ class Setup(BaseSetup):
         if self.phicorehole_g is not None:
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
-        T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
-        (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0,
+        self.local_corr.T_Lqp = self.calculate_T_Lqp(lcut, _np, nj, jlL_i)
+        #  set the attributes directly?
+        (self.g_lg, self.local_corr.n_qg, self.local_corr.nt_qg,
+         self.local_corr.Delta_lq, self.Lmax, self.Delta_pL, self.Delta0,
          self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
-                                                    T_Lqp)
-        self.Delta0 = Delta0
-        self.g_lg = g_lg
+                                                    self.local_corr.T_Lqp)
 
         # Solves the radial poisson equation for density n_g
-        def H(n_g, l):
+        def H(self, n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
-        wnc_g = H(nc_g, l=0)
-        wnct_g = H(nct_g, l=0)
-
-        self.wg_lg = wg_lg = [H(g_lg[l], l) for l in range(lmax + 1)]
-
-        wn_lqg = [np.array([H(n_qg[q], l) for q in range(nq)])
-                  for l in range(2 * lcut + 1)]
-        wnt_lqg = [np.array([H(nt_qg[q], l) for q in range(nq)])
-                   for l in range(2 * lcut + 1)]
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(H)
+        self.wg_lg = wg_lg
 
         rdr_g = r_g * dr_g
         dv_g = r_g * rdr_g
         A = 0.5 * np.dot(nc_g, wnc_g)
         A -= sqrt(4 * pi) * self.Z * np.dot(rdr_g, nc_g)
-        mct_g = nct_g + Delta0 * g_lg[0]
-        wmct_g = wnct_g + Delta0 * wg_lg[0]
+        mct_g = nct_g + self.Delta0 * self.g_lg[0]
+        # wmct_g = wnct_g + self.Delta0 * wg_lg[0]
         A -= 0.5 * np.dot(mct_g, wmct_g)
         self.M = A
         self.MB = -np.dot(dv_g * nct_g, vbar_g)
 
-        AB_q = -np.dot(nt_qg, dv_g * vbar_g)
-        self.MB_p = np.dot(AB_q, T_Lqp[0])
+        AB_q = -np.dot(self.local_corr.nt_qg, dv_g * vbar_g)
+        self.MB_p = np.dot(AB_q, self.local_corr.T_Lqp[0])
 
         # Correction for average electrostatic potential:
         #
@@ -802,18 +939,17 @@ class Setup(BaseSetup):
         self.dEH0 = sqrt(4 * pi) * (wnc_g - wmct_g -
                                     sqrt(4 * pi) * self.Z * r_g * dr_g).sum()
         dEh_q = (wn_lqg[0].sum(1) - wnt_lqg[0].sum(1) -
-                 Delta_lq[0] * wg_lg[0].sum())
-        self.dEH_p = np.dot(dEh_q, T_Lqp[0]) * sqrt(4 * pi)
+                 self.local_corr.Delta_lq[0] * wg_lg[0].sum())
+        self.dEH_p = np.dot(dEh_q, self.local_corr.T_Lqp[0]) * sqrt(4 * pi)
 
-        M_p, M_pp = self.calculate_coulomb_corrections(lcut, n_qg, wn_lqg,
-                                                       lmax, Delta_lq,
-                                                       wnt_lqg, g_lg,
-                                                       wg_lg, nt_qg,
-                                                       _np, T_Lqp, nc_g,
-                                                       wnc_g, rdr_g, mct_g,
-                                                       wmct_g)
+        M_p, M_pp = self.calculate_coulomb_corrections(wn_lqg, wnt_lqg,
+                                                       wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
+
+        self.M_wpp = {}
+        for omega in self.ExxC_w:
+            self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
 
         if xc.type == 'GLLB':
             if 'core_f' in self.extra_xc_data:
@@ -841,57 +977,15 @@ class Setup(BaseSetup):
         for L in range(self.Lmax):
             self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
 
-        self.Nct = data.get_smooth_core_density_integral(Delta0)
-        self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])
+        self.Nct = data.get_smooth_core_density_integral(self.Delta0)
+        self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
-        self.rcgauss = data.rcgauss
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 50)
+                       for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
-        self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        try:
-            from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
-            self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
-                                                          phi_jg, phit_jg)
-        except NotImplementedError:
-            self.rxnabla_iiv = None
-
-    def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
-                                      lmax, Delta_lq, wnt_lqg,
-                                      g_lg, wg_lg, nt_qg, _np, T_Lqp,
-                                      nc_g, wnc_g, rdr_g, mct_g, wmct_g):
-        # Can we reduce the excessive parameter passing?
-        A_q = 0.5 * (np.dot(wn_lqg[0], nc_g) + np.dot(n_qg, wnc_g))
-        A_q -= sqrt(4 * pi) * self.Z * np.dot(n_qg, rdr_g)
-        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) + np.dot(nt_qg, wmct_g))
-        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0]) +
-                      np.dot(g_lg[0], wmct_g)) * Delta_lq[0]
-        M_p = np.dot(A_q, T_Lqp[0])
-
-        A_lqq = []
-        for l in range(2 * lcut + 1):
-            A_qq = 0.5 * np.dot(n_qg, np.transpose(wn_lqg[l]))
-            A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
-            if l <= lmax:
-                A_qq -= 0.5 * np.outer(Delta_lq[l],
-                                       np.dot(wnt_lqg[l], g_lg[l]))
-                A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
-                A_qq -= 0.5 * (np.dot(g_lg[l], wg_lg[l]) *
-                               np.outer(Delta_lq[l], Delta_lq[l]))
-            A_lqq.append(A_qq)
-
-        M_pp = np.zeros((_np, _np))
-        L = 0
-        for l in range(2 * lcut + 1):
-            for m in range(2 * l + 1):
-                M_pp += np.dot(np.transpose(T_Lqp[L]),
-                               np.dot(A_lqq[l], T_Lqp[L]))
-                L += 1
-
-        return M_p, M_pp
+        self.rxnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -905,10 +999,11 @@ class Setup(BaseSetup):
         xO_ii = np.dot(B_ii, dO_ii)
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
-    def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
-        G_LLL = gaunt(max(self.l_j))
+    def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
         Lcut = (2 * lcut + 1)**2
-        T_Lqp = np.zeros((Lcut, nq, _np))
+        G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
+        LGcut = G_LLL.shape[2]
+        T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -917,7 +1012,7 @@ class Setup(BaseSetup):
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                T_Lqp[:, q, p] = G_LLL[L1, L2, :Lcut]
+                T_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
         return T_Lqp
@@ -945,7 +1040,7 @@ class Setup(BaseSetup):
     def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
-        nq = self.nq
+        nq = self.local_corr.nq
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
 
@@ -959,8 +1054,8 @@ class Setup(BaseSetup):
                 q += 1
 
         gcutmin = self.gcutmin
-        r_g = self.rgd2.r_g
-        dr_g = self.rgd2.dr_g
+        r_g = self.local_corr.rgd2.r_g
+        dr_g = self.local_corr.rgd2.dr_g
         self.lq = np.dot(n_qg[:, :gcutmin], r_g[:gcutmin]**2 * dr_g[:gcutmin])
 
         Delta_lq = np.zeros((lmax + 1, nq))
@@ -975,7 +1070,7 @@ class Setup(BaseSetup):
                 delta_p = np.dot(Delta_lq[l], T_Lqp[L + m])
                 Delta_pL[:, L + m] = delta_p
 
-        Delta0 = np.dot(self.nc_g - self.nct_g,
+        Delta0 = np.dot(self.local_corr.nc_g - self.local_corr.nct_g,
                         r_g**2 * dr_g) - self.Z / sqrt(4 * pi)
 
         # Electron density inside augmentation sphere.  Used for estimating
@@ -998,13 +1093,17 @@ class Setup(BaseSetup):
           /        1    dx    2         1    dx    2
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(1, max(self.l_j)))
-        Y_LLv = nabla(max(1, max(self.l_j)))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
         nabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            nabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1016,20 +1115,22 @@ class Setup(BaseSetup):
                 f1f2or = np.dot(phi_jg[j1] * phi_jg[j2] -
                                 phit_jg[j1] * phit_jg[j2], r_g * dr_g)
                 dphidr_g = np.empty_like(phi_jg[j2])
-                rgd.derivative(phi_jg[j2], dphidr_g)
+                rgd.derivative_spline(phi_jg[j2], dphidr_g)
                 dphitdr_g = np.empty_like(phit_jg[j2])
-                rgd.derivative(phit_jg[j2], dphitdr_g)
+                rgd.derivative_spline(phit_jg[j2], dphitdr_g)
                 f1df2dr = np.dot(phi_jg[j1] * dphidr_g -
                                  phit_jg[j1] * dphitdr_g, r_g**2 * dr_g)
                 for v in range(3):
                     Lv = 1 + (v + 2) % 3
+                    G_12 = G_LLL[Lv, l1**2:l1**2 + nm1, l2**2:l2**2 + nm2]
+                    Y_12 = Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v]
                     nabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
-                        (4 * pi / 3)**0.5 * (f1df2dr - l2 * f1f2or) *
-                        G_LLL[Lv, l2**2:l2**2 + nm2, l1**2:l1**2 + nm1].T +
-                        f1f2or *
-                        Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
+                        sqrt(4 * pi / 3) * (f1df2dr - l2 * f1f2or) * G_12
+                        + f1f2or * Y_12)
                 i2 += nm2
             i1 += nm1
+        if debug:
+            assert not np.any(np.isnan(nabla_iiv))
         return nabla_iiv
 
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
@@ -1046,13 +1147,17 @@ class Setup(BaseSetup):
                  x     dz     dy
 
         and similar for y and z."""
-
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        # lmax needs to be at least 1 for evaluating
+        # the Gaunt coefficients from derivatives
+        lmax = max(1, max(self.l_j))
+        G_LLL = gaunt(lmax)
+        Y_LLv = nabla(2 * lmax)
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-        rnabla_iiv = np.zeros((self.ni, self.ni, 3))
+        rxnabla_iiv = np.empty((self.ni, self.ni, 3))
+        if debug:
+            rxnabla_iiv[:] = np.nan
         i1 = 0
         for j1 in range(self.nj):
             l1 = self.l_j[j1]
@@ -1066,25 +1171,22 @@ class Setup(BaseSetup):
                 for v in range(3):
                     v1 = (v + 1) % 3
                     v2 = (v + 2) % 3
+                    Lv1 = 1 + (v1 + 2) % 3
+                    Lv2 = 1 + (v2 + 2) % 3
                     # term from radial wfs does not contribute
                     # term from spherical harmonics derivatives
-                    G = np.zeros((nm1, nm2))
-                    for l3 in range(abs(l1 - 1), l1 + 2):
-                        for m3 in range(0, (2 * l3 + 1)):
-                            L3 = l3**2 + m3
-                            try:
-                                G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v1],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
-                                G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
-                                                    1 + v2],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
-                            except IndexError:
-                                pass  # L3 might be too large, ignore
-                    rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
+                    G_12 = np.zeros((nm1, nm2))
+                    G_12 += np.dot(G_LLL[Lv1, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v2])
+                    G_12 -= np.dot(G_LLL[Lv2, l1**2:l1**2 + nm1, :],
+                                   Y_LLv[:, l2**2:l2**2 + nm2, v1])
+                    rxnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] = (
+                        sqrt(4 * pi / 3) * f1f2or * G_12)
                 i2 += nm2
             i1 += nm1
-        return (4 * pi / 3) * rnabla_iiv
+        if debug:
+            assert not np.any(np.isnan(rxnabla_iiv))
+        return rxnabla_iiv
 
     def construct_core_densities(self, setupdata):
         rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
@@ -1118,34 +1220,36 @@ class Setup(BaseSetup):
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
         class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_j):
+            def __init__(self, symbol, phit_J):
                 Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self.phit_j = phit_j
+                self._basis_functions_J = phit_J
 
             def tosplines(self):
-                return self.phit_j
+                return self._basis_functions_J
 
             def get_description(self):
                 template = 'Using partial waves for %s as LCAO basis'
                 string = template % self.symbol
                 return string
 
-        phit_j = []
+        basis_functions_J = []
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
                 l = self.l_j[j]
+                phit_g = phit_g.copy()
                 phit = phit_g[gcut3]
                 dphitdr = ((phit - phit_g[gcut3 - 1]) /
                            (r_g[gcut3] - r_g[gcut3 - 1]))
                 phit_g[gcut2:gcut3] -= phit * a_g + dphitdr * b_g
                 phit_g[gcut3:] = 0.0
-                phit_j.append(self.rgd.spline(phit_g, rcut3, l, points=100))
-        basis = PartialWaveBasis(self.symbol, phit_j)
+                basis_function = self.rgd.spline(phit_g, rcut3, l, points=100)
+                basis_functions_J.append(basis_function)
+        basis = PartialWaveBasis(self.symbol, basis_functions_J)
         return basis
 
     def calculate_oscillator_strengths(self, phi_jg):
         # XXX implement oscillator strengths for lcorehole != 0
-        assert(self.lcorehole == 0)
+        assert self.lcorehole == 0
         self.A_ci = np.zeros((3, self.ni))
         nj = len(phi_jg)
         i = 0
@@ -1177,7 +1281,7 @@ class Setups(list):
     ``core_charge`` Core hole charge.
     """
 
-    def __init__(self, Z_a, setup_types, basis_sets, xc,
+    def __init__(self, Z_a, setup_types, basis_sets, xc, *,
                  filter=None, world=None):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
@@ -1201,8 +1305,8 @@ class Setups(list):
             # Due to the "szp(dzp)" syntax this is complicated!
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
-            if isinstance(basis, basestring):
-                if isinstance(_type, basestring):
+            if isinstance(basis, str):
+                if isinstance(_type, str):
                     setupname = _type
                 else:
                     setupname = _type.name  # _type is an object like SetupData
@@ -1218,9 +1322,9 @@ class Setups(list):
                             reduced, name = basis.split('(')
                             assert name.endswith(')')
                             name = name[:-1]
-                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                            fullname = f'{reduced}({setupname}.{name})'
                         else:
-                            fullname = '%s.%s' % (setupname, basis_a[a])
+                            fullname = f'{setupname}.{basis_a[a]}'
                         basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
@@ -1228,19 +1332,19 @@ class Setups(list):
         natoms = {}
         Mcumulative = 0
         self.M_a = []
-        self.id_a = list(zip(Z_a, type_a, basis_a))
+        self.id_a = list(zips(Z_a, type_a, basis_a))
         for id in self.id_a:
             setup = self.setups.get(id)
             if setup is None:
                 Z, type, basis = id
                 symbol = chemical_symbols[Z]
                 setupdata = None
-                if not isinstance(type, basestring):
+                if not isinstance(type, str):
                     setupdata = type
                 # Basis may be None (meaning that the setup decides), a string
                 # (meaning we load the basis set now from a file) or an actual
                 # pre-created Basis object (meaning we just pass it along)
-                if isinstance(basis, basestring):
+                if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, 2, type,
                                      basis, setupdata=setupdata,
@@ -1269,7 +1373,7 @@ class Setups(list):
     def __str__(self):
         # Write PAW setup information in order of appearance:
         ids = set()
-        s = ''
+        s = 'species:\n'
         for id in self.id_a:
             if id in ids:
                 continue
@@ -1278,23 +1382,20 @@ class Setups(list):
             output = StringIO()
             setup.print_info(functools.partial(print, file=output))
             txt = output.getvalue()
-            basis_descr = setup.get_basis_description()
-            basis_descr = basis_descr.replace('\n  ', '\n    ')
-            s += txt + '  ' + basis_descr + '\n\n'
+            txt += '  # ' + setup.get_basis_description().replace('\n',
+                                                                  '\n  # ')
+            txt = txt.replace('\n', '\n  ')
+            s += '  ' + txt + '\n\n'
 
-        s += 'Reference energy: %.6f\n' % (self.Eref * units.Hartree)
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}  # eV\n'
         return s
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
-        R_slmm = []
-        for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
-            R_slmm.append([rotation(l, op_vv) for l in range(4)])
-
-        for setup in self.setups.values():
-            setup.calculate_rotations(R_slmm)
+        # XXX It is ugly that we set self.atomrotations from here;
+        # it would be better to return it to the caller.
+        from gpaw.atomrotations import AtomRotations
+        self.atomrotations = AtomRotations(self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
@@ -1302,6 +1403,7 @@ class Setups(list):
         return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
+        from gpaw.utilities.ekin import dekindecut, ekin
         dedecut = 0.0
         e = {}
         for id in self.id_a:
@@ -1310,6 +1412,96 @@ class Setups(list):
                 e[id] = -dekindecut(G, de, ecut)
             dedecut += e[id]
         return dedecut
+
+    def basis_indices(self):
+        return FunctionIndices([setup.basis_functions_J for setup in self])
+
+    def projector_indices(self):
+        return FunctionIndices([setup.pt_j for setup in self])
+
+    def create_pseudo_core_densities(self, domain, positions, atomdist,
+                                     xp=np):
+        spline_aj = []
+        for setup in self:
+            if setup.nct is None:
+                spline_aj.append([])
+            else:
+                spline_aj.append([setup.nct])
+        return domain.atom_centered_functions(
+            spline_aj, positions,
+            atomdist=atomdist,
+            integral=[setup.Nct for setup in self],
+            cut=True, xp=xp)
+
+    def create_pseudo_core_ked(self,
+                               domain,
+                               positions,
+                               atomdist):
+        return domain.atom_centered_functions(
+            [[setup.tauct] for setup in self],
+            positions,
+            atomdist=atomdist,
+            cut=True)
+
+    def create_local_potentials(self, domain, positions, atomdist, xp=np):
+        return domain.atom_centered_functions(
+            [[setup.vbar] for setup in self],
+            positions,
+            atomdist=atomdist,
+            xp=xp)
+
+    def create_compensation_charges(self, domain, positions, atomdist,
+                                    xp=np):
+        return domain.atom_centered_functions(
+            [setup.ghat_l for setup in self], positions,
+            atomdist=atomdist,
+            integral=sqrt(4 * pi),
+            xp=xp)
+
+    def get_overlap_corrections(self, atomdist, xp):
+        if atomdist is getattr(self, '_atomdist', None):
+            return self.dS_aii
+        self._atomdist = atomdist
+        dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
+                                  atomdist=atomdist).empty()
+        for a, dS_ii in dS_aii.items():
+            dS_ii[:] = self[a].dO_ii
+        self.dS_aii = dS_aii.to_xp(xp)
+        return self.dS_aii
+
+    def partial_wave_corrections(self) -> list[list[Spline]]:
+        splines: dict[Setup, list[Spline]] = {}
+        dphi_aj = []
+        for setup in self:
+            dphi_j = splines.get(setup)
+            if dphi_j is None:
+                rcut = max(setup.rcut_j) * 1.1
+                gcut = setup.rgd.ceil(rcut)
+                dphi_j = []
+                for l, phi_g, phit_g in zips(setup.l_j,
+                                             setup.data.phi_jg,
+                                             setup.data.phit_jg):
+                    dphi_g = (phi_g - phit_g)[:gcut]
+                    dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
+                                                   points=200))
+                splines[setup] = dphi_j
+            dphi_aj.append(dphi_j)
+
+        return dphi_aj
+
+
+class FunctionIndices:
+    def __init__(self, f_aj):
+        nm_a = [0]
+        for f_j in f_aj:
+            nm = sum([2 * f.get_angular_momentum_number() + 1 for f in f_j])
+            nm_a.append(nm)
+        self.M_a = np.cumsum(nm_a)
+        self.nm_a = np.array(nm_a[1:])
+        self.max = self.M_a[-1]
+
+    def __getitem__(self, a):
+        return self.M_a[a], self.M_a[a + 1]
 
 
 def types2atomtypes(symbols, types, default):
@@ -1325,18 +1517,19 @@ def types2atomtypes(symbols, types, default):
     default.
     """
     natoms = len(symbols)
-    if isinstance(types, basestring):
+    if isinstance(types, str):
         return [types] * natoms
 
-    # If present, None will map to the default type, else use the input default
+    # If present, None will map to the default type,
+    # else use the input default
     type_a = [types.get('default', default)] * natoms
 
     # First symbols ...
     for symbol, type in types.items():
         # Types are given either by strings or they are objects that
         # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
-        assert isinstance(type, basestring) or hasattr(type, 'symbol')
-        if isinstance(symbol, basestring):
+        assert isinstance(type, str) or hasattr(type, 'symbol')
+        if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:
                     type_a[a] = type
@@ -1351,9 +1544,9 @@ def types2atomtypes(symbols, types, default):
 
 if __name__ == '__main__':
     print("""\
-You are using the wrong setup.py script!  This setup.py defines a
+This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
-For building the GPAW code you must use the setup.py distutils script
+For building the GPAW code you must use the setup.py setuptools script
 at the root of the code tree.  Just do "cd .." and you will be at the
 right place.""")
     raise SystemExit

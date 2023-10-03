@@ -44,8 +44,7 @@ def vdWradii(symbols, xc):
     def get_density(Z):
         """Return density and radial grid from setup."""
         # load setup
-        setups = Setups([Z], 'paw', {},
-                        xc, world)
+        setups = Setups([Z], 'paw', {}, xc, world=world)
         setup = setups[0].data
         #  create density
         n_g = setup.nc_g.copy()
@@ -72,7 +71,8 @@ def vdWradii(symbols, xc):
                 n += 1
             # linear interpolation
             ncut = (n_g[n - 1] +
-                    (n_g[n] - n_g[n - 1]) * (R - r_g[n - 1]) / (r_g[n] - r_g[n - 1]))
+                    (n_g[n] - n_g[n - 1]) * (R - r_g[n - 1]) /
+                    (r_g[n] - r_g[n - 1]))
 #            print "Z, Zrg, ncut", Z, Zrg, ncut
 
             # find own R at this density
@@ -82,7 +82,8 @@ def vdWradii(symbols, xc):
                 n += 1
             # linear interpolation
             R = (r_g[n - 1] +
-                 (r_g[n] - r_g[n - 1]) * (ncut - n_g[n - 1]) / (n_g[n] - n_g[n - 1]))
+                 (r_g[n] - r_g[n - 1]) * (ncut - n_g[n - 1]) /
+                 (n_g[n] - n_g[n - 1]))
             radius[symbol] = R * Bohr
 
         radii.append(radius[symbol])

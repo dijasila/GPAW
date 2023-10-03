@@ -23,7 +23,6 @@ Install ASE and GPAW dependencies::
     $ brew install libxc
     $ brew install open-mpi
     $ brew install fftw
-    $ brew install pygtk
 
 Install pip::
 
@@ -38,13 +37,17 @@ Install and test ASE::
     $ pip install --upgrade --user ase
     $ python -m ase test
 
+Use this :ref:`siteconfig.py <siteconfig>` file:
+
+.. literalinclude:: siteconfig.py
+
 Install GPAW::
 
     $ pip install --upgrade --user gpaw
 
 Install GPAW setups::
 
-    $ gpaw --verbose install-data
+    $ gpaw install-data
 
 .. note::
 

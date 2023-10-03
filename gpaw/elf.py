@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """This module defines an ELF class."""
 
 from numpy import pi
@@ -30,12 +28,14 @@ def _elf(nt_sg, nt_grad2_sg, taut_sg, ncut, spinpol):
 
     if spinpol:
         # Kouhut eq. (9)
-        D0 = 2**(2.0/3.0) * cF * (nt_sg[0]**(5.0/3.0) + nt_sg[1]**(5.0/3.0))
+        D0 = 2**(2.0 / 3.0) * cF * (nt_sg[0]**(5.0 / 3.0) +
+                                    nt_sg[1]**(5.0 / 3.0))
+
         taut = taut_sg.sum(axis=0)
         D = taut - (nt_grad2_sg[0] / nt_sg[0] + nt_grad2_sg[1] / nt_sg[1]) / 8
     else:
         # Kouhut eq. (7)
-        D0 = cF * nt_sg[0]**(5.0/3.0)
+        D0 = cF * nt_sg[0]**(5.0 / 3.0)
         taut = taut_sg[0]
         D = taut - nt_grad2_sg[0] / nt_sg[0] / 8
 
@@ -60,6 +60,9 @@ class ELF:
 
     def __init__(self, paw=None, ncut=1e-6):
         """Create the ELF object."""
+
+        if paw.wfs.mode != 'fd':
+            raise NotImplementedError('Only FD mode supported for ELF')
 
         self.gd = paw.wfs.gd
         self.paw = paw
@@ -103,8 +106,8 @@ class ELF:
         for s in range(self.nspins):
             self.density.interpolator.apply(self.taut_sG[s],
                                             self.taut_sg[s])
-            #self.density.interpolator.apply(self.nt_grad2_sG[s],
-            #                                self.nt_grad2_sg[s])
+            # self.density.interpolator.apply(self.nt_grad2_sG[s],
+            #                                 self.nt_grad2_sg[s])
             for v in range(3):
                 ddr_v[v](self.density.nt_sg[s], d_g)
                 self.nt_grad2_sg[s] += d_g**2.0
@@ -118,7 +121,8 @@ class ELF:
 
         # For periodic boundary conditions
         if self.paw.wfs.kd.symmetry is not None:
-            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0], self.paw.wfs.gd)
+            self.paw.wfs.kd.symmetry.symmetrize(self.taut_sG[0],
+                                                self.paw.wfs.gd)
 
         self.nt_grad2_sG[:] = 0.0
 
@@ -126,7 +130,8 @@ class ELF:
 
         for s in range(self.nspins):
             for v in range(3):
-                self.paw.wfs.taugrad_v[v](self.density.nt_sG[s], d_G)
+                Gradient(self.gd, v, n=3).apply(self.density.nt_sG[s], d_G)
+
                 self.nt_grad2_sG[s] += d_G**2.0
 
         # TODO are nct from setups usable for nt_grad2_sG ?
@@ -138,7 +143,7 @@ class ELF:
         if gridrefinement == 1:
             elf_G = _elf(self.density.nt_sG, self.nt_grad2_sG,
                          self.taut_sG, self.ncut, self.spinpol)
-            elf_G = self.gd.collect(elf_G, broadcast)
+            elf_G = self.gd.collect(elf_G, broadcast=broadcast)
             if pad:
                 elf_G = self.gd.zero_pad(elf_G)
             return elf_G
@@ -148,7 +153,7 @@ class ELF:
 
             elf_g = _elf(self.density.nt_sg, self.nt_grad2_sg,
                          self.taut_sg, self.ncut, self.spinpol)
-            elf_g = self.finegd.collect(elf_g, broadcast)
+            elf_g = self.finegd.collect(elf_g, broadcast=broadcast)
             if pad:
                 elf_g = self.finegd.zero_pad(elf_g)
             return elf_g
