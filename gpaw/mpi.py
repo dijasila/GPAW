@@ -214,6 +214,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
+            1 / 0
             return self.comm.min(a, root)
         else:
             tc = a.dtype
@@ -638,6 +639,7 @@ class SerialCommunicator:
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
+            1 / 0
             return array
 
     def sum_scalar(self, a, root=-1):
@@ -647,13 +649,15 @@ class SerialCommunicator:
         r[:] = s
 
     def min(self, value, root=-1):
-        return value
+        if isinstance(value, (int, float, complex)):
+            1 / 0; return value
 
     def min_scalar(self, value, root=-1):
         return value
 
     def max(self, value, root=-1):
-        return value
+        if isinstance(value, (int, float, complex)):
+            1 / 0; return value
 
     def max_scalar(self, value, root=-1):
         return value

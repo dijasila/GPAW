@@ -106,7 +106,7 @@ class WaveFunctions:
         except AttributeError:
             pass
 
-        return self.kptband_comm.sum(e_band)
+        return self.kptband_comm.sum_scalar(e_band)
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
