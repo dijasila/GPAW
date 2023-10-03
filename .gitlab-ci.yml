@@ -482,7 +482,7 @@ gpwfiles:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist
   script:
-    - pytest -n 20 -m generate_gpw_files
+    - pytest -n 16 -m generate_gpw_files
   artifacts:
     paths:
       - .pytest_cache/
@@ -523,7 +523,7 @@ nightly-mpi-1:
   script:
     - gpaw info
     - pytest --cache-show
-    - pytest -n 12 --instafail -r s --durations 30 -v
+    - pytest -n 8 --instafail -r s --durations 30 -v
 
 
 nightly-mpi-1-new:
