@@ -1,4 +1,3 @@
-# flake8: noqa
 import numpy as np
 
 from gpaw import debug
@@ -6,7 +5,10 @@ from gpaw.mpi import world
 from gpaw.overlap import Overlap
 from gpaw.utilities import unpack
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
-mpi_debug = lambda x, ordered=True: None  # silenced
+
+
+def mpi_debug(x, ordered=True):
+    return None  # silenced
 
 
 class PairOverlap:
@@ -315,7 +317,8 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         for a1,setup1 in enumerate(self.setups):
             for a2 in wfs.pt.my_atom_indices:
                 setup2 = self.setups[a2]
-                R = (atoms[a1].get_position() - atoms[a2].get_position()) / Bohr
+                R = (atoms[a1].get_position()
+                     - atoms[a2].get_position()) / Bohr
 
                 if a1 == a2:
                     B_ii = setup1.B_ii
@@ -326,14 +329,15 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
                 #elif a1 == a2:
                 #    B_ii = setup1.B_ii
                 #else:
-                #    B_ii = self.B_aa[ni_a[a2]:ni_a[a2+1], ni_a[a1]:ni_a[a1+1]].T
+                #    B_ii = self.B_aa[ni_a[a2]:ni_a[a2+1],
+                                      ni_a[a1]:ni_a[a1+1]].T
 
                 #self.B_aa[self.ni_a[a1]:self.ni_a[a1+1], \
                 #          self.ni_a[a2]:self.ni_a[a2+1]] = B_ii
                 self.assign_atomic_pair_matrix(self.B_aa, a1, a2, B_ii)
-        self.gd.comm.sum(self.B_aa) #TODO too heavy?
+        self.gd.comm.sum(self.B_aa)  # TODO too heavy?
         """
-        #self.B_aa = overlap_projectors(wfs.gd, wfs.pt, wfs.setups)
+        # self.B_aa = overlap_projectors(wfs.gd, wfs.pt, wfs.setups)
 
         self.B_aa = self.calculate_overlaps(wfs.spos_ac, wfs.pt)
 
