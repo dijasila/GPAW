@@ -118,6 +118,10 @@ def gpw_files(request):
 
     * H2 molecule (not centered): ``h2_pw_0``.
 
+    * N2 molecule ``n2_pw``
+
+    * N molecule ``n_pw``
+
     * Spin-polarized H atom: ``h_pw``.
 
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
@@ -790,6 +794,24 @@ class GPWFiles:
     @gpwfile
     def sic_pw_spinpol(self):
         return self._sic_pw(spinpol=True)
+
+    @gpwfile
+    def na_pw(self):
+        from ase.build import bulk
+        blk = bulk('Na', 'bcc', a=4.23)
+
+        ecut = 350
+        blk.calc = GPAW(mode=PW(ecut),
+                        basis='dzp',
+                        kpts={'size': (4, 4, 4), 'gamma': True},
+                        parallel={'domain': 1},
+                        txt=self.path / 'na_pw.txt',
+                        nbands=4,
+                        occupations=FermiDirac(0.01),
+                        setups={'Na': '1'})
+        blk.get_potential_energy()
+        blk.calc.diagonalize_full_hamiltonian(nbands=520)
+        return blk.calc
 
     @gpwfile
     def na2_fd(self):
