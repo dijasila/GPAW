@@ -119,6 +119,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float, complex)):
+            1 / 0
             return self.comm.sum(a, root)
         else:
             # assert a.ndim != 0
@@ -180,6 +181,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
+            1 / 0
             return self.comm.max(a, root)
         else:
             tc = a.dtype
