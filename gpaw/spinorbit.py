@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from gpaw.calculator import GPAW  # noqa
     from gpaw.new.ase_interface import ASECalculator
 
-_L_vlmm: list[list[np.ndarray]] = []  # see get_L_vlmm() below
+_L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
 
 class WaveFunction:
@@ -34,8 +34,8 @@ class WaveFunction:
                  bz_index: int = None):
         self.eig_m = eigenvalues
         self.projections = projections
-        self.spin_projection_mv: Array2D | None = None
-        self.v_mn: Array2D | None = None
+        self.spin_projection_mv: Optional[Array2D] = None
+        self.v_mn: Optional[Array2D] = None
         self.f_m = np.empty_like(self.eig_m)
         self.f_m[:] = nan
         self.bz_index = bz_index
@@ -52,8 +52,8 @@ class WaveFunction:
         return WaveFunction(self.eig_m.copy(), projections, self.bz_index)
 
     def add_soc(self,
-                dVL_avii: dict[int, Array3D],
-                s_vss: list[Array2D],
+                dVL_avii: Dict[int, Array3D],
+                s_vss: List[Array2D],
                 C_ss: Array2D) -> None:
         """Evaluate H in a basis of S_z eigenstates."""
         if self.projections.bcomm.rank > 0:
@@ -146,7 +146,7 @@ class WaveFunction:
 
     def pdos_weights(self,
                      a: int,
-                     indices: list[int]
+                     indices: List[int]
                      ) -> Array3D:
         """PDOS weights."""
         dos_ms = np.zeros((self.projections.nbands, 2))
@@ -163,10 +163,10 @@ class BZWaveFunctions:
     """Container for eigenvalues and PAW projections (all of BZ)."""
     def __init__(self,
                  kd: KPointDescriptor,
-                 wfs: dict[int, WaveFunction],
-                 occ: OccupationNumberCalculator | None,
+                 wfs: Dict[int, WaveFunction],
+                 occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 nl_aj: dict[int, list[tuple[int, int]]]):
+                 nl_aj: Dict[int, List[Tuple[int, int]]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
@@ -275,7 +275,7 @@ class BZWaveFunctions:
 
     def pdos_weights(self,
                      a: int,
-                     indices: list[int],
+                     indices: List[int],
                      broadcast: bool = True
                      ) -> Array4D:
         """Projections for PDOS.
@@ -293,7 +293,7 @@ class BZWaveFunctions:
 
     def _collect(self,
                  func: Callable[[WaveFunction], ArrayND],
-                 shape: tuple[int, ...] = None,
+                 shape: Tuple[int, ...] = None,
                  dtype=float,
                  broadcast: bool = True,
                  sum_over_domain: bool = False) -> ArrayND:
@@ -340,12 +340,12 @@ class BZWaveFunctions:
         return np.empty(shape=())
 
 
-def soc_eigenstates_raw(ibzwfs: Iterable[tuple[int, WaveFunction]],
-                        dVL_avii: dict[int, Array3D],
+def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
+                        dVL_avii: Dict[int, Array3D],
                         ibz2bzmaps: IBZ2BZMaps,
                         atom_partition,
                         theta: float = 0.0,
-                        phi: float = 0.0) -> dict[int, WaveFunction]:
+                        phi: float = 0.0) -> Dict[int, WaveFunction]:
 
     theta *= np.pi / 180
     phi *= np.pi / 180
@@ -380,13 +380,13 @@ def soc_eigenstates_raw(ibzwfs: Iterable[tuple[int, WaveFunction]],
     return bzwfs
 
 
-def extract_ibz_wave_functions(kpt_qs: list[list[KPoint]],
+def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                                bd: BandDescriptor,
                                gd: GridDescriptor,
                                n1: int,
                                n2: int,
                                eigenvalues: Array3D = None
-                               ) -> Iterator[tuple[int, WaveFunction]]:
+                               ) -> Iterator[Tuple[int, WaveFunction]]:
     """Yield tuples of IBZ-index and wave functions.
 
     All atoms and bands will be on rank == 0 of gd.comm and bd.comm
