@@ -771,7 +771,7 @@ class PAWSetupGenerator:
                 G = k * G_k[1]
                 ecut = 0.5 * G**2
                 h = pi / G
-                self.log(' {:6.1f} ({:4.2f})'.format(ecut * Ha, h), end='')
+                self.log(f' {ecut * Ha:6.1f} ({h:4.2f})', end='')
             plt.semilogy(G_k, abs(e_k - e_k[-1]) * Ha, label=label)
         self.log()
         plt.axis(xmax=20)
@@ -888,7 +888,7 @@ class PAWSetupGenerator:
             self.basis.append(bf)
 
             txt += '%d%s split valence:\n' % (n0, 'spdf'[l])
-            txt += '  cutoff: {:.3f} Bohr (tail-norm={:f})\n'.format(rc, splitnorm)
+            txt += f'  cutoff: {rc:.3f} Bohr (tail-norm={splitnorm:f})\n'
 
         # Polarization:
         if lpol < 4:

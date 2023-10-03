@@ -659,7 +659,7 @@ class BSEBackend:
         N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         self.context.print('', flush=False)
         self.context.print('Checking f-sum rule:', flush=False)
-        self.context.print('  Valence = {}, N = {:f}'.format(nv, N), flush=False)
+        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
         self.context.print('')
 
         if write_eig is not None:
@@ -1012,7 +1012,7 @@ def read_bse_eigenvalues(filename):
 def write_spectrum(filename, w_w, A_w):
     with open(filename, 'w') as fd:
         for w, A in zip(w_w, A_w):
-            print('{:.9f}, {:.9f}'.format(w, A), file=fd)
+            print(f'{w:.9f}, {A:.9f}', file=fd)
 
 
 def read_spectrum(filename):

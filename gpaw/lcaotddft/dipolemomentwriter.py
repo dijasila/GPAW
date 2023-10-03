@@ -80,7 +80,7 @@ class DipoleMomentWriter(TDDFTObserver):
         self.fd.flush()
 
     def _write_header(self, paw):
-        line = '# {}[version={}]'.format(self.__class__.__name__, self.version)
+        line = f'# {self.__class__.__name__}[version={self.version}]'
         line += ('(center=%s, density=%s)\n' %
                  (repr(self.do_center), repr(self.density_type)))
         line += ('# %15s %15s %22s %22s %22s\n' %

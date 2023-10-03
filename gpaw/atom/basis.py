@@ -333,7 +333,7 @@ class BasisMaker:
         if isinstance(energysplit, float):
             energysplit = [energysplit] * len(jvalues)
 
-        title = '{} Basis functions for {}'.format(g.xcname, g.symbol)
+        title = f'{g.xcname} Basis functions for {g.symbol}'
         print(title, file=txt)
         print('=' * len(title), file=txt)
 
@@ -476,7 +476,7 @@ class BasisMaker:
             norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
             print('Single quasi Gaussian', file=txt)
-            msg = 'Rchar = {:.03f}*rcut = {:.03f} Bohr'.format(rcharpol_rel, rchar)
+            msg = f'Rchar = {rcharpol_rel:.03f}*rcut = {rchar:.03f} Bohr'
             adjective = 'Gaussian'
             print(msg, file=txt)
             type = '{}-type {} polarization'.format('spdfg'[l_pol], adjective)
@@ -539,7 +539,7 @@ class BasisMaker:
         if self.name is None:
             compound_name = basistype
         else:
-            compound_name = '{}.{}'.format(self.name, basistype)
+            compound_name = f'{self.name}.{basistype}'
 
         basis = Basis(g.symbol, compound_name, False,
                       EquidistantRadialGridDescriptor(d, ng))

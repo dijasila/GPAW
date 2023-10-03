@@ -232,7 +232,7 @@ class RPACalculator:
 
             # First not completely filled band:
             m1 = self.gs.nocc1
-            p('# {}  -  {}'.format(len(energy_qi), ctime().split()[-2]))
+            p(f'# {len(energy_qi)}  -  {ctime().split()[-2]}')
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
@@ -272,7 +272,7 @@ class RPACalculator:
         p()
         p('Total correlation energy:')
         for e_cut, e in zip(ecut_i, e_i):
-            p('{:6.0f}:   {:6.4f} eV'.format(e_cut * Hartree, e * Hartree))
+            p(f'{e_cut * Hartree:6.0f}:   {e * Hartree:6.4f} eV')
         p()
 
         if len(e_i) > 1:

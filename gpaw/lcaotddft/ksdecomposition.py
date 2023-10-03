@@ -214,7 +214,7 @@ class KohnShamDecomposition:
     def write(self, filename):
         from ase.io.trajectory import write_atoms
 
-        self.log('{}: Writing to {}'.format(self.__class__.__name__, filename))
+        self.log(f'{self.__class__.__name__}: Writing to {filename}')
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)

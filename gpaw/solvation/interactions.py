@@ -64,8 +64,8 @@ class Interaction(NeedsGD):
         raise NotImplementedError
 
     def __str__(self):
-        s = "Interaction: {}\n".format(self.__class__.__name__)
-        s += "  subscript: {}\n".format(self.subscript)
+        s = f"Interaction: {self.__class__.__name__}\n"
+        s += f"  subscript: {self.subscript}\n"
         return s
 
     def update_atoms(self, atoms, log):

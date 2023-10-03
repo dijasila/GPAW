@@ -115,9 +115,9 @@ class Wannier90:
             for orb in orbitals_i:
                 l = l_i[orb]
                 n = n_i[orb]
-                print('f={:1.2f}, {:1.2f}, {:1.2f} : s '.format(r_c[0], r_c[1], r_c[2]),
+                print(f'f={r_c[0]:1.2f}, {r_c[1]:1.2f}, {r_c[2]:1.2f} : s ',
                       end='', file=f)
-                print('# n = {}, l = {}'.format(n, l), file=f)
+                print(f'# n = {n}, l = {l}', file=f)
 
         print('end projections', file=f)
         print(file=f)
@@ -179,7 +179,7 @@ class Wannier90:
         print('begin atoms_frac', file=f)
         for atom, pos_c in zip(calc.atoms, pos_ac):
             print(atom.symbol, end='', file=f)
-            print('{:14.10f} {:14.10f} {:14.10f}'.format(pos_c[0], pos_c[1], pos_c[2]),
+            print(f'{pos_c[0]:14.10f} {pos_c[1]:14.10f} {pos_c[2]:14.10f}',
                   file=f)
         print('end atoms_frac', file=f)
         print(file=f)
@@ -198,7 +198,7 @@ class Wannier90:
         print('begin kpoints', file=f)
 
         for kpt in calc.get_bz_k_points():
-            print('{:14.10f} {:14.10f} {:14.10f}'.format(kpt[0], kpt[1], kpt[2]), file=f)
+            print(f'{kpt[0]:14.10f} {kpt[1]:14.10f} {kpt[2]:14.10f}', file=f)
         print('end kpoints', file=f)
 
         f.close()
@@ -405,7 +405,7 @@ class Wannier90:
                 for m1 in range(len(M_mm)):
                     for m2 in range(len(M_mm)):
                         M = M_mm[m2, m1]
-                        print('{:20.12f} {:20.12f}'.format(M.real, M.imag), file=f)
+                        print(f'{M.real:20.12f} {M.imag:20.12f}', file=f)
 
         f.close()
 

@@ -49,7 +49,7 @@ class QuadrupoleMomentWriter(TDDFTObserver):
     def _write_header(self, paw):
         if paw.niter != 0:
             return
-        line = '# {}[version={}]'.format(self.__class__.__name__, self.version)
+        line = f'# {self.__class__.__name__}[version={self.version}]'
         line += '(center=[%.6f, %.6f, %.6f]' % tuple(self.center_v)
         line += ', density=%s)\n' % repr(self.density_type)
         line += ('# %15s %15s %22s %22s %22s %22s %22s %22s\n' %

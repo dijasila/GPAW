@@ -154,7 +154,7 @@ def rotatory_spectrum(exlist=None,
                 energies, values = Folder(width, folding).fold(x, y, de,
                                                                emin, emax)
             for e, val in zip(energies, values):
-                print('{:10.5f} {:12.7e}'.format(e, val), file=out)
+                print(f'{e:10.5f} {val:12.7e}', file=out)
 
 
 class Writer(Folder):

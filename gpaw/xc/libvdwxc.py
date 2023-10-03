@@ -147,7 +147,7 @@ class LibVDWXC:
         else:
             assert self.mode == 'pfft'
             pardesc = 'pfft with %d x %d CPU grid' % self.pfft_grid
-        return '{} [libvdwxc/{}]'.format(self.vdw_functional_name, pardesc)
+        return f'{self.vdw_functional_name} [libvdwxc/{pardesc}]'
 
     def tostring(self):
         return _gpaw.libvdwxc_tostring(self._ptr)

@@ -91,4 +91,4 @@ class Folding:
     def __repr__(self):
         if self.folding is None:
             return 'No folding'
-        return '{}({:.5f} eV)'.format(self.folding, self.width * au_to_eV)
+        return f'{self.folding}({self.width * au_to_eV:.5f} eV)'

@@ -22,8 +22,8 @@ class BasisSpecification:
 
     def __str__(self):
         l_j = self.setup.l_j
-        jvtxt = ', '.join(['{}(l={})'.format(j, l_j[j]) for j in self.jvalues])
-        jetxt = ', '.join(['{}(l={})'.format(j, l_j[j]) for j in self.jextra])
+        jvtxt = ', '.join([f'{j}(l={l_j[j]})' for j in self.jvalues])
+        jetxt = ', '.join([f'{j}(l={l_j[j]})' for j in self.jextra])
         return '{}: jvalues=[{}], jextra=[{}]'.format(self.setup.symbol,
                                                   jvtxt, jetxt)
 
@@ -50,7 +50,7 @@ def main():
         othersymbols = []
         for symbol in parameters_extra:
             name = parameters_extra[symbol]['name']
-            code = '{}.{}'.format(symbol, name)
+            code = f'{symbol}.{name}'
             othersymbols.append(code)
         # Setups that cause trouble
         # trouble = set(['Os.8', 'Ta.5', 'V.5', 'W.6', 'Ir.9'])

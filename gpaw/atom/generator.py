@@ -247,7 +247,7 @@ class Generator(AllElectron):
 
         t('Cutoffs:')
         for rc, s in zip(rcut_l, 'spdf'):
-            t('rc({})={:.3f}'.format(s, rc))
+            t(f'rc({s})={rc:.3f}')
         t('rc(vbar)=%.3f' % rcutvbar)
         t('rc(comp)=%.3f' % rcutcomp)
         t('rc(nct)=%.3f' % rcutmax)

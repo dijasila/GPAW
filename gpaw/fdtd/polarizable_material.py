@@ -84,7 +84,7 @@ class PolarizableMaterial():
             arguments = component['arguments']
             eps_infty = component['eps_infty']
             eps = component['eps']  # Data as array
-            eval('self.add_component({}(permittivity = Permittivity(data=eps), {}))'.format(name, arguments))
+            eval(f'self.add_component({name}(permittivity = Permittivity(data=eps), {arguments}))')
 
     # Save information on the structures for restarting
     def write(self, writer):
@@ -220,7 +220,7 @@ class PolarizableAtomisticRegion():
         dbohr = self.distance*Bohr
         self.arguments = 'distance = %20.12e, atom_positions=[' % dbohr
         for ap in self.atom_positions:
-            self.arguments += '[{:20.12e}, {:20.12e}, {:20.12e}],'.format(ap[0], ap[1], ap[2])
+            self.arguments += f'[{ap[0]:20.12e}, {ap[1]:20.12e}, {ap[2]:20.12e}],'
         self.arguments = self.arguments[:-1] + ']'
 
     # Setup grid descriptor and the permittivity values inside the box
@@ -248,7 +248,7 @@ class PolarizableSphere():
         assert(len(self.center)==3)
 
         self.name = 'PolarizableSphere'
-        self.arguments = 'center=[{:20.12e}, {:20.12e}, {:20.12e}], radius={:20.12e}'.format(center[0], center[1], center[2], radius)
+        self.arguments = f'center=[{center[0]:20.12e}, {center[1]:20.12e}, {center[2]:20.12e}], radius={radius:20.12e}'
 
     def get_mask(self, gd):
 
@@ -272,7 +272,7 @@ class PolarizableEllipsoid():
         self.permittivity = permittivity
 
         self.name = 'PolarizableEllipsoid'
-        self.arguments = 'center=[{:20.12e}, {:20.12e}, {:20.12e}], radii=[{:20.12e}, {:20.12e}, {:20.12e}]'.format(center[0], center[1], center[2], radii[0], radii[1], radii[2])
+        self.arguments = f'center=[{center[0]:20.12e}, {center[1]:20.12e}, {center[2]:20.12e}], radii=[{radii[0]:20.12e}, {radii[1]:20.12e}, {radii[2]:20.12e}]'
 
 
     def get_mask(self, gd):
@@ -295,7 +295,7 @@ class PolarizableRod():
         self.name = 'PolarizableRod'
         self.arguments = 'radius = %20.12e, corners=[' % radius
         for c in corners:
-            self.arguments += '[{:20.12e}, {:20.12e}, {:20.12e}],'.format(c[0], c[1], c[2])
+            self.arguments += f'[{c[0]:20.12e}, {c[1]:20.12e}, {c[2]:20.12e}],'
         self.arguments = self.arguments[:-1] + ']'
         self.arguments += f', round_corners={round_corners}'
 
@@ -424,7 +424,7 @@ class PolarizableTetrahedron():
         self.name = 'PolarizableTetrahedron'
         self.arguments = 'corners=['
         for c in corners:
-            self.arguments += '[{:20.12e}, {:20.12e}, {:20.12e}],'.format(c[0], c[1], c[2])
+            self.arguments += f'[{c[0]:20.12e}, {c[1]:20.12e}, {c[2]:20.12e}],'
         self.arguments += ']'
 
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units

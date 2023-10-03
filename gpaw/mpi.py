@@ -1195,7 +1195,7 @@ def print_mpi_stack_trace(type, value, tb):
 
     for lineno, line in enumerate(lines):
         lineno = ('%%0%dd' % line_ndigits) % lineno
-        sys.stderr.write('rank={} L{}: {}\n'.format(rankstring, lineno, line))
+        sys.stderr.write(f'rank={rankstring} L{lineno}: {line}\n')
 
 
 if world.size > 1:  # Triggers for dry-run communicators too, but we care not.

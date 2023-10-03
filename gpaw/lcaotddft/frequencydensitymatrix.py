@@ -168,7 +168,7 @@ class FrequencyDensityMatrix(TDDFTObserver):
         self.write(self.restart_filename)
 
     def write(self, filename):
-        self.log('{}: Writing to {}'.format(self.__class__.__name__, filename))
+        self.log(f'{self.__class__.__name__}: Writing to {filename}')
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)

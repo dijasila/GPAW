@@ -138,7 +138,7 @@ def write_header(log, world):
     log('_gpaw: ', cut(line))
 
     # ASE
-    line = '{} (version {}'.format(os.path.dirname(ase.__file__), ase_version)
+    line = f'{os.path.dirname(ase.__file__)} (version {ase_version}'
     githash = search_current_git_hash(ase, world)
     if githash is not None:
         line += f'-{githash:.10}'

@@ -754,7 +754,7 @@ def _write_trace_in_z(grid, property, name, dir):
     property_z = property.mean(0).mean(0)
     with paropen(os.path.join(dir, name), 'w') as f:
         for i, val in enumerate(property_z):
-            f.write('{:f} {:1.8f}\n'.format((i + 1) * grid.h_cv[2][2] * Bohr, val))
+            f.write(f'{(i + 1) * grid.h_cv[2][2] * Bohr:f} {val:1.8f}\n')
 
 
 def _write_property_on_grid(grid, property, atoms, name, dir):
