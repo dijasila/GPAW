@@ -384,7 +384,6 @@ test-libxc:
   script:
     - gpaw info
     - pytest -v -m libxc
-s
 
 check-agts:
   image: $IMAGE_PATH/run:oldest
