@@ -15,7 +15,6 @@ class FragileG0W0(G0W0):
 
 
 @pytest.mark.response
-@pytest.mark.skipif(world.size > 1, reason='crash (#1007)')
 def test_restart_file(in_tmp_dir, gpw_files, needs_ase_master):
     kwargs = dict(bands=(3, 5),
                   nbands=9,
