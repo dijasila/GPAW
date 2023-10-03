@@ -346,8 +346,12 @@ def parallel_transport(calc,
 
     #F.N
     def projections(bz_index):
-        #return soc_kpts[bz_index].P_amj
-        return soc_kpts[bz_index].projections
+        # return soc_kpts[bz_index].P_amj
+        # return soc_kpts[bz_index].projections
+        proj = soc_kpts[bz_index].projections
+        new_proj = proj.new()
+        new_proj.matrix.array = proj.matrix.array.copy()
+        return new_proj
 
     def wavefunctions(bz_index):
         """
