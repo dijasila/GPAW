@@ -45,7 +45,7 @@ def broadcast_exception(comm):
             broadcast(ex, rank, comm)
             raise
     else:
-        rank = comm.max(-1)
+        rank = comm.max_scalar(-1)
     # rank will now be the highest failing rank or -1
     if rank >= 0:
         raise broadcast(None, rank, comm)
