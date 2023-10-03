@@ -324,13 +324,20 @@ def parallel_transport(calc,
 
     kpts_kc = calc.get_bz_k_points()
 
+    # T.S.
+    """
     if Nloc > 1:
         b_c = kpts_kc[kpts_kq[0][1]] - kpts_kc[kpts_kq[0][0]]
         b_v = np.dot(b_c, icell_cv)
     else:
         b_v = G_v
+    """
+    if Nloc > 1:
+        b_c = kpts_kc[kpts_kq[0][1]] - kpts_kc[kpts_kq[0][0]]
+    else:
+        b_c = G_c
     phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-        dO_aii, calc.spos_ac, -b_v)
+        dO_aii, calc.spos_ac, -b_c)
 
     soc_kpts = soc_eigenstates(calc,
                                scale=scale,
