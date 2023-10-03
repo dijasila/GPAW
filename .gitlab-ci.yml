@@ -467,9 +467,9 @@ gpwfiles:
       - .pytest_cache/
     expire_in: 30 mins
   rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #    when: never
-  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
 .nightly:
