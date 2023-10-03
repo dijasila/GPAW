@@ -416,10 +416,10 @@ def parallel_transport(calc,
         iq0 = qpts_q[0]
         if Nloc == 1:
             u1_nsG = wavefunctions(iq0)
-            P1_ani = projections(iq0)
+            proj1 = projections(iq0)
         u2_nsG = wavefunctions(iq0)
         u2_nsG[:] *= np.exp(-1.0j * gemmdot(G_v, r_g, beta=0.0))
-        P2_ani = projections(iq0)
+        proj2 = projections(iq0)
         #F.N
         """
         M_mm = get_overlap(calc,
@@ -432,13 +432,13 @@ def parallel_transport(calc,
                            b_v)
         """
         phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-                dO_aii, calc.spos_ac, -b_v)
+            dO_aii, calc.spos_ac, -b_v)
         M_mm = get_overlap_new(bands,
                                calc.wfs.gd,
                                u1_nsG,
                                u2_nsG,
-                               P1_ani,
-                               P2_ani,
+                               proj1,
+                               proj2,
                                phase_shifted_dO_aii)
 
         V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
@@ -448,18 +448,31 @@ def parallel_transport(calc,
         u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
         u2_nsG = u_nsxyz
         for a in range(len(calc.atoms)):
+            assert not proj2.collinear
+            P2_nsi = proj2[a][bands]
+            for s in range(2):
+                P2_ni = P2_nsi[:, s]
+                P2_ni = np.dot(U_mm, P2_ni)
+                P2_nsi[:, s] = P2_ni
+        # T.S.
+        """
+        for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
             P2_ni = np.dot(U_mm, P2_ni)
             P2_ani[a][bands] = P2_ni
+        """
 
         # Get overlap between first kpts and its smoothly translated image
         u2_nsG[:] *= np.exp(1.0j * gemmdot(G_v, r_g, beta=0.0))
+        # T.S.
+        """
         for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
             # P2_ni *= np.exp(1.0j * np.dot(G_v, r_av[a]))
             P2_ani[a][bands] = P2_ni
+        """
         u1_nsG = wavefunctions(iq0)
-        P1_ani = projections(iq0)
+        proj1 = projections(iq0)
         #F.N
         """
         M_mm = get_overlap(calc,
@@ -475,8 +488,8 @@ def parallel_transport(calc,
                                calc.wfs.gd,
                                u1_nsG,
                                u2_nsG,
-                               P1_ani,
-                               P2_ani,
+                               proj1,
+                               proj2,
                                dO_aii)
 
         l_m, l_mm = np.linalg.eig(M_mm)
