@@ -84,7 +84,7 @@ build:
 
 
 build-latest:
-  image: $IMAGE_PATH/build:staging
+  image: $IMAGE_PATH/build:latest
   extends: .build
   tags:
     - linux
@@ -261,8 +261,8 @@ test:
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
-.test-latest:
-  image: $IMAGE_PATH/run:staging
+test-latest:
+  image: $IMAGE_PATH/run:latest
   extends:
     - .test
   needs:
@@ -296,8 +296,8 @@ test:
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
 
-.test-latest-new:
-  image: $IMAGE_PATH/run:staging
+test-latest-new:
+  image: $IMAGE_PATH/run:latest
   extends:
     - .test
   needs:
@@ -383,7 +383,7 @@ test-libxc:
     - pytest -v -m libxc
 
 
-.check-agts:
+check-agts:
   image: $IMAGE_PATH/run:oldest
   stage: test
   needs:
@@ -400,7 +400,7 @@ test-libxc:
 
 
 lint:
-  image: $IMAGE_PATH/run:staging
+  image: $IMAGE_PATH/run:latest
   stage: build
   tags:
     - linux
@@ -437,8 +437,8 @@ lint:
       gpaw
 
 
-.typecheck:
-  image: $IMAGE_PATH/run:staging
+typecheck:
+  image: $IMAGE_PATH/run:latest
   stage: build
   tags:
     - linux
@@ -449,7 +449,7 @@ lint:
     - mypy --pretty
 
 
-.docs:
+docs:
   image: $IMAGE_PATH/docs:oldest
   stage: test
   needs:
@@ -470,7 +470,7 @@ lint:
 
 
 gpwfiles:
-  image: $IMAGE_PATH/run:staging
+  image: $IMAGE_PATH/run:latest
   extends:
     - .test
   needs:
@@ -494,7 +494,7 @@ gpwfiles:
 
 
 .nightly:
-  image: $IMAGE_PATH/run:staging
+  image: $IMAGE_PATH/run:latest
   variables:
     GPAW_MPI_NPROCS: "1"
   extends:
@@ -539,14 +539,14 @@ nightly-mpi-1-new:
       "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids)"
 
 
-.nightly-mpi-2:
+nightly-mpi-2:
   variables:
     GPAW_MPI_NPROCS: "2"
   extends:
     - .nightly
 
 
-.nightly-mpi-4:
+nightly-mpi-4:
   variables:
     GPAW_MPI_NPROCS: "4"
   extends:
