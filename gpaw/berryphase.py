@@ -368,10 +368,10 @@ def parallel_transport(calc,
             # print(kpts_kc[iq1], kpts_kc[iq2])
             if q == 0:
                 u1_nsG = wavefunctions(iq1)
-                P1_ani = projections(iq1)
+                proj1 = projections(iq1)
 
             u2_nsG = wavefunctions(iq2)
-            P2_ani = projections(iq2)
+            proj2 = projections(iq2)
 
             #F.N
             """
@@ -390,8 +390,8 @@ def parallel_transport(calc,
                                    calc.wfs.gd,
                                    u1_nsG,
                                    u2_nsG,
-                                   P1_ani,
-                                   P2_ani,
+                                   proj1,
+                                   proj2,
                                    phase_shifted_dO_aii)
 
             V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
@@ -401,12 +401,15 @@ def parallel_transport(calc,
             u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
             u2_nsG = u_nsxyz
             for a in range(len(calc.atoms)):
-                P2_ni = P2_ani[a][bands]
-                P2_ni = np.dot(U_mm, P2_ni)
-                P2_ani[a][bands] = P2_ni
+                assert not proj2.collinear
+                P2_nsi = proj2[a][bands]
+                for s in range(2):
+                    P2_ni = P2_nsi[:, s]
+                    P2_ni = np.dot(U_mm, P2_ni)
+                    P2_nsi[:, s] = P2_ni
             U_qmm.append(U_mm)
             u1_nsG = u2_nsG
-            P1_ani = P2_ani
+            proj1 = proj2
         U_qmm = np.array(U_qmm)
 
         # Fix phases for last point
