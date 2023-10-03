@@ -240,7 +240,7 @@ test:
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
-test-latest:
+.test-latest:
   image: $IMAGE_PATH/run:staging
   extends:
     - .test
@@ -275,7 +275,7 @@ test-latest:
   coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
 
 
-test-latest-new:
+.test-latest-new:
   image: $IMAGE_PATH/run:staging
   extends:
     - .test
@@ -362,7 +362,7 @@ test-libxc:
     - pytest -v -m libxc
 
 
-check-agts:
+.check-agts:
   image: $IMAGE_PATH/run:oldest
   stage: test
   needs:
@@ -416,7 +416,7 @@ lint:
       gpaw
 
 
-typecheck:
+.typecheck:
   image: $IMAGE_PATH/run:staging
   stage: build
   tags:
@@ -428,7 +428,7 @@ typecheck:
     - mypy --pretty
 
 
-docs:
+.docs:
   image: $IMAGE_PATH/docs:oldest
   stage: test
   needs:
@@ -461,7 +461,7 @@ gpwfiles:
     - !reference [default, before_script]
     - pip install pytest-instafail pytest-xdist
   script:
-    - pytest -n 8 -m generate_gpw_files
+    - pytest -n 20 -m generate_gpw_files
   artifacts:
     paths:
       - .pytest_cache/
@@ -502,7 +502,7 @@ nightly-mpi-1:
   script:
     - gpaw info
     - pytest --cache-show
-    - pytest -n 4 --instafail -r s --durations 30
+    - pytest -n 20 --instafail -r s --durations 30
 
 
 .nightly-mpi-1-new:
