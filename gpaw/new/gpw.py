@@ -105,9 +105,9 @@ def write_wave_function_indices(writer, ibzwfs, grid):
             writer.fill(index_G)
 
 
-def read_gpw(filename: str | Path | IO[str],
+def read_gpw(filename: Union[str, Path, IO[str]],
              *,
-             log: Logger | str | Path | IO[str] = None,
+             log: Union[Logger, str, Path, IO[str]] = None,
              comm=None,
              parallel: dict[str, Any] = None,
              dtype: DTypeLike = None):

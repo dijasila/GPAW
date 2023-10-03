@@ -325,7 +325,7 @@ class StepPotentialz(ExternalPotential):
         self.zstep = zstep
 
     def __str__(self):
-        return f'Step potentialz: {self.value_left:.3f} V to '
+        return f'Step potentialz: {self.value_left:.3f} V to '\
                f'{self.value_right:.3f} V at z={self.zstep}'
 
     def calculate_potential(self, gd):

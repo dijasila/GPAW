@@ -488,7 +488,7 @@ class BasisMaker:
                 npol = i + 2
                 levelstring = ['Secondary', 'Tertiary', 'Quaternary',
                                'Quintary', 'Sextary', 'Septenary'][i]
-                msg = f'\n{tmpstring}: {splitvalencedescr}'
+                msg = f'\n{levelstring}: {splitvalencedescr}'
                 print(msg, file=txt)
                 rsplit, norm, splitwave = rsplit_by_norm(rgd, l_pol, psi_pol,
                                                          tailnorm[i], txt)

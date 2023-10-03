@@ -527,11 +527,10 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         g_qG = gd.collect(g_qG)
         if world.rank == 0:
             P_app = {a: np.array([pack(np.outer(P_wi[w1], P_wi[w2]),
-                                             tolerance=1e3)
-                                        for w1, w2 in np.ndindex(Nw, Nw)])
-                          for a, P_wi in P_awi.items()}
-            P_aqp = {a: np.dot(Uisq_qp, Px_pp)
-                          for a, Px_pp in P_app.items()}
+                                       tolerance=1e3)
+                                  for w1, w2 in np.ndindex(Nw, Nw)])
+                     for a, P_wi in P_awi.items()}
+            P_aqp = {a: np.dot(Uisq_qp, Px_pp) for a, Px_pp in P_app.items()}
             with open(writeoptimizedpairs, 'wb') as fd:
                 pickle.dump((g_qG, P_aqp), fd, 2)
 

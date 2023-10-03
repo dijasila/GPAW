@@ -274,8 +274,8 @@ class ExcitedState(GPAW):
             symbols = self.atoms.get_chemical_symbols()
             for a, symbol in enumerate(symbols):
                 self.log('%3d %-2s %10.5f %10.5f %10.5f' %
-                          ((a, symbol) +
-                           tuple(self.results['forces'][a])))
+                         ((a, symbol) +
+                          tuple(self.results['forces'][a])))
 
         return self.results['forces']
 

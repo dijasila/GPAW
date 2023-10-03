@@ -32,7 +32,7 @@ def non_self_consistent_eigenvalues(
         n1: int = 0,
         n2: int = 0,
         kpt_indices: List[int] = None,
-        snapshot: str | Path = None,
+        snapshot: Union[str, Path] = None,
         ftol: float = 1e-9) -> tuple[Array3D,
                                      Array3D,
                                      Array3D]:
@@ -113,7 +113,7 @@ def _semi_local(calc: GPAWOld | ASECalculator,
                 n1: int,
                 n2: int,
                 kpt_indices: List[int]
-                ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+                ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     wfs = calc.wfs
     nspins = wfs.nspins
     e_dft_sin = np.array([[calc.get_eigenvalues(k, spin)[n1:n2]
@@ -132,7 +132,7 @@ def _non_local(calc: GPAWOld | ASECalculator,
                n2: int,
                kpt_indices_s: List[List[int]],
                ftol: float,
-               omega: float) -> Generator[tuple[int, np.ndarray], None, None]:
+               omega: float) -> Generator[Tuple[int, np.ndarray], None, None]:
     wfs = calc.wfs
     kd = wfs.kd
     dens = calc.density
@@ -257,10 +257,10 @@ def write_snapshot(e_dft_sin: np.ndarray,
 
 
 def read_snapshot(snapshot: Path
-                  ) -> tuple[np.ndarray,
+                  ) -> Tuple[np.ndarray,
                              np.ndarray,
                              np.ndarray,
-                             List[List[np.ndarray]] | None]:
+                             Optional[List[List[np.ndarray]]]]:
     """Read from json-file what has already been calculated."""
     if snapshot.is_file():
         dct = json.loads(snapshot.read_text())
@@ -277,7 +277,7 @@ def read_snapshot(snapshot: Path
 
 
 @functools.lru_cache()
-def layout(n1: int, n2: int, size: int) -> tuple[int, int]:
+def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
     """Distribute n1*n2 matrix over s1*s2=size blocks.
 
     Returns s1, s2.
@@ -285,7 +285,7 @@ def layout(n1: int, n2: int, size: int) -> tuple[int, int]:
     >>> layout(10, 10, 8)
     (4, 2)
     """
-    candidates: List[tuple[float, int, int]] = []
+    candidates: List[Tuple[float, int, int]] = []
     for s1 in range(1, size + 1):
         s2, r = divmod(size, s1)
         if r > 0:

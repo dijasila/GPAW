@@ -121,8 +121,8 @@ class KPointDescriptor:
         ===================  =================================================
         """
 
-        self.N_c: Array1D | None = None
-        self.offset_c: Array1D | None = None
+        self.N_c: Optional[Array1D] = None
+        self.offset_c: Optional[Array1D] = None
 
         if kpts is None:
             self.bzk_kc = np.zeros((1, 3))

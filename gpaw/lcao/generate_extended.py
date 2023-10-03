@@ -24,8 +24,7 @@ class BasisSpecification:
         l_j = self.setup.l_j
         jvtxt = ', '.join([f'{j}(l={l_j[j]})' for j in self.jvalues])
         jetxt = ', '.join([f'{j}(l={l_j[j]})' for j in self.jextra])
-        return '{}: jvalues=[{}], jextra=[{}]'.format(self.setup.symbol,
-                                                  jvtxt, jetxt)
+        return f'{self.setup.symbol}: jvalues=[{jvtxt}], jextra=[{jetxt}]'
 
 
 description = """Generate basis sets that include unoccupied p states as

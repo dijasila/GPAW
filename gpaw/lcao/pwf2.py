@@ -409,7 +409,7 @@ class LCAOwrap:
             return {a: P_qwi[q] for a, P_qwi in self.P_aqwi.items()}
         else:
             return {a: P_qwi[q].take(indices, 0)
-                         for a, P_qwi in self.P_aqwi.items()}
+                    for a, P_qwi in self.P_aqwi.items()}
 
     def get_orbitals(self, q=-1, indices=None):
         assert q == -1

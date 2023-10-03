@@ -853,7 +853,8 @@ class Generator(AllElectron):
                 else:
                     t()
             else:
-                t('*{}:                {:12.6f}'.format('spdf'[l], ePAW), end='')
+                t('*{}:                {:12.6f}'.format('spdf'[l], ePAW),
+                  end='')
                 if ePAW < self.emax:
                     t('  GHOST-STATE!')
                     self.ghost = True

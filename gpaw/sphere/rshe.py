@@ -160,10 +160,8 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
 def get_reduction_info_string(L_M, fw_gL, rshew_L):
     """Construct info string about the reduced expansion."""
     isl = []
-    isl.append('{:6}  {:10}  {:10}  {:8}'.format('(l,m)',
-                                                     'max weight',
-                                                     'avg weight',
-                                                     'included'))
+    isl.append('{:6}  {:10}  {:10}  {:8}'.format('(l,m)', 'max weight',
+                                                 'avg weight', 'included'))
     for L, (fw_g, rshew) in enumerate(zip(fw_gL.T, rshew_L)):
         included = L in L_M
         isl.append('\n' + get_rshe_coefficient_info_string(
@@ -186,7 +184,6 @@ def get_rshe_coefficient_info_string(L, included, rshew, fw_g):
     m = L - l * (l + 1)
     included = 'yes' if included else 'no'
     info_string = '{:6}  {:1.8f}  {:1.8f}  {:8}'.format(f'({l},{m})',
-                                                            np.max(fw_g),
-                                                            rshew,
-                                                            included)
+                                                        np.max(fw_g),
+                                                        rshew, included)
     return info_string

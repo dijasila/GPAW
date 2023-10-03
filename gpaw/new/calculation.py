@@ -85,7 +85,7 @@ class DFTCalculation:
     @classmethod
     def from_parameters(cls,
                         atoms: Atoms,
-                        params: dict | InputParameters,
+                        params: Union[dict, InputParameters],
                         comm=None,
                         log=None,
                         builder=None) -> DFTCalculation:

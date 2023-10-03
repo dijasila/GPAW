@@ -76,8 +76,8 @@ def spectrum(exlist=None,
                   file=out)
             print('# GPAW version:', version, file=out)
             if folding is not None:  # fold the spectrum
-                print('# {} folded, width={:g} [{}]'.format(folding, width,
-                                                      energyunit), file=out)
+                print(f'# {folding} folded, width={width:g} [{energyunit}]',
+                      file=out)
             if form == 'r':
                 out.write('# length form')
             else:
@@ -130,10 +130,9 @@ def rotatory_spectrum(exlist=None,
             print('# Rotatory spectrum from linear response TD-DFT', file=out)
             print('# GPAW version:', version, file=out)
             if folding is not None:  # fold the spectrum
-                print('# {} folded, width={:g} [{}]'.format(folding, width,
-                                                      energyunit), file=out)
-            print('# om [%s]     R [cgs]'
-                  % energyunit, file=out)
+                print(f'# {folding} folded, width={width:g} [{energyunit}]',
+                      file=out)
+            print(f'# om [{energyunit}]     R [cgs]', file=out)
 
             x = []
             y = []

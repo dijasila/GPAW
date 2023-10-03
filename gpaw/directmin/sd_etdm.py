@@ -148,8 +148,7 @@ class ModeFollowing(ModeFollowingBase, SearchDirectionBase):
         self.sd = search_direction
         self.name = self.sd.name + '_gmf'
         self.type = self.sd.type + '_gmf'
-        super().__init__(partial_diagonalizer,
-                                            convex_step_length)
+        super().__init__(partial_diagonalizer, convex_step_length)
 
     @property
     def beta_0(self):

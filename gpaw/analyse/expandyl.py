@@ -228,7 +228,7 @@ class ExpandYl(AngularIntegral):
                               end=' ', file=fd)
 
                         for g in gl:
-                            print('{g:8.2f}', end=' ', file=fd)
+                            print(f'{g:8.2f}', end=' ', file=fd)
                         print(file=fd)
                         fd.flush()
 

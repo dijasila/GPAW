@@ -89,7 +89,7 @@ class GeneralizedSuscetibilityCalculator(PairFunctionIntegrator):
                 'susceptibilities with two different matrix elements'
 
     @abstractmethod
-    def create_matrix_element_calculators(self) -> tuple[
+    def create_matrix_element_calculators(self) -> Tuple[
             PlaneWaveMatrixElementCalculator,
             PlaneWaveMatrixElementCalculator]:
         """Create the desired site matrix element calculators."""
