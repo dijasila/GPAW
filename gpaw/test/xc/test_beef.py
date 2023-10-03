@@ -14,9 +14,8 @@ import _gpaw
 @pytest.mark.slow
 @pytest.mark.parametrize('xc', ['mBEEF', 'BEEF-vdW', 'mBEEF-vdW'])
 def test_beef(in_tmp_dir, xc):
-    assert _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
-
-    setup = gen('Si', xcname='PBEsol')
+    if xc[0] == 'm':
+        assert _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
     results = {'mBEEF': (5.449, 0.056),
                'BEEF-vdW': (5.484, 0.071),
@@ -24,7 +23,7 @@ def test_beef(in_tmp_dir, xc):
 
     kwargs = dict()
     if xc == 'mBEEF-vdW':
-        kwargs['setups'] = dict(Si=setup)
+        kwargs['setups'] = dict(Si=gen('Si', xcname='PBEsol'))
 
     E = []
     V = []
