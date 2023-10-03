@@ -533,8 +533,7 @@ nightly-mpi-1:
   artifacts:
     paths:
       - htmlcov/
-    expire_in:
-      - 1 day
+    expire_in: 1 day
 
 nightly-mpi-1-new:
   variables:
