@@ -83,7 +83,7 @@ class Basis:
     def ritosplines(self):
         return [self.rgd.spline(ribf.phit_g, ribf.rc, ribf.l, points=400)
                 for ribf in self.ribf_j]
-   
+
     def read_xml(self, filename=None, world=None):
         parser = BasisSetXMLParser(self)
         parser.parse(filename, world=world)
@@ -115,12 +115,12 @@ class Basis:
         write('\n  </generator>\n')
 
         write('  ' + self.rgd.xml())
-       
+
         # Write both the basis functions and auxiliary ones
         for bfs in [self.bf_j, self.ribf_j]:
             for bf in bfs:
                 write(bf.xml(indentation='  '))
-        
+
         write('</paw_basis>\n')
 
     def reduce(self, name):
@@ -171,12 +171,13 @@ class Basis:
         lines.append(f'Number of RI-basis functions {self.nrio}')
         for ribf in self.ribf_j:
             lines.append('l=%d %s' % (ribf.l, ribf.type))
-        
+
         return '\n  '.join(lines)
 
 
 class BasisFunction:
     """Encapsulates various basis function data."""
+
     def __init__(self, n=None, l=None, rc=None, phit_g=None, type=''):
         self.n = n
         self.l = l

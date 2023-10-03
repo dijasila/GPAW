@@ -43,7 +43,7 @@ class CompensationChargeExpansionCoefficients:
 
     def get_charge(self, Q_aL):
         local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
-        return Q_aL.partition.comm.sum(local_charge)
+        return Q_aL.partition.comm.sum_scalar(local_charge)
 
 
 class NullBackgroundCharge:

@@ -213,7 +213,7 @@ class SimpleStm(STM):
             fname = 'stm_n%dk%ds%d.dat' % (n, k, s)
         else:
             fname = file
-        
+
         with open(fname, 'w') as fd:
 
             import datetime

@@ -10,9 +10,9 @@ from gpaw.utilities.memory import maxrss
 class ProgressBar:
     def __init__(self, fd=sys.stdout, nobar=False):
         """Progress-bar.
-        
+
         Usage::
-            
+
             pb = ProgressBar()
             for i in range(10):
                 pb.update(i / 10.0)
@@ -20,19 +20,19 @@ class ProgressBar:
             pb.finish()
         """
         self.fd = fd
-        
+
         try:
             self.tty = fd.isatty()
         except AttributeError:
             self.tty = False
-        
+
         self.done = False
         self.n = None
         self.nobar = nobar
         self.t = time()
         self.symbols = ['-', '*']
         fd.flush()
-        
+
     def update(self, x):
         """Update progress-bar (0 <= x <= 1)."""
         if x == 0 or self.done:
@@ -86,12 +86,12 @@ class ProgressBar:
                 p(f'| Time: {t:.3f}s')
                 self.fd.flush()
                 self.done = True
-        
+
     def format_time(self, seconds):
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
         return f'{h:.0f}h{m:.0f}m{s:.0f}s'
-                
+
     def finish(self):
         self.update(1)
 

@@ -430,7 +430,7 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.qcache = qcache
-        
+
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
@@ -673,7 +673,7 @@ class G0W0Calculator:
                         continue
 
                     nc_G = n_G.conj()
-                    
+
                     # ie: ecut index for extrapolation
                     # kpt1.s: spin index of *
                     # k: k-point index of *
@@ -773,7 +773,7 @@ class G0W0Calculator:
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
         sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
-                  **self.get_validation_inputs())
+                                  **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
         chi0 = chi0calc.create_chi0(q_c)
@@ -805,7 +805,7 @@ class G0W0Calculator:
                     self.wcalc.qd, iq, q_c)):
 
                 for (progress, kpt1, kpt2)\
-                    in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
+                        in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
                     pb.update((nQ + progress) / self.wcalc.qd.mynk)
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
@@ -848,11 +848,11 @@ class G0W0Calculator:
             Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
                                                       fxc_mode=fxc_mode)
             if (chi0calc.chi0_body_calc.pawcorr is not None and
-                rqpd.ecut < chi0.qpd.ecut):
+                    rqpd.ecut < chi0.qpd.ecut):
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
-                
+
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
@@ -1156,6 +1156,7 @@ class G0W0(G0W0Calculator):
 
 class EXXVXCCalculator:
     """EXX and Kohn-Sham XC contribution."""
+
     def __init__(self, gpwfile, snapshotfile_prefix):
         self._gpwfile = gpwfile
         self._snapshotfile_prefix = snapshotfile_prefix
