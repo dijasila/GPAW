@@ -574,6 +574,8 @@ pages:
   stage: deploy
   dependencies:
     - nightly-mpi-1
+  tags:
+    - xeon24
   script:
     - mv htmlcov/ public
   artifacts:
