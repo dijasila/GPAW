@@ -511,7 +511,7 @@ gpwfiles:
   script:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -r s --durations 30
+      pytest --instafail -r s --durations 30 -v
   #rules:
   #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -523,7 +523,7 @@ nightly-mpi-1:
   script:
     - gpaw info
     - pytest --cache-show
-    - pytest -n 20 --instafail -r s --durations 30
+    - pytest -n 20 --instafail -r s --durations 30 -v
 
 
 .nightly-mpi-1-new:
