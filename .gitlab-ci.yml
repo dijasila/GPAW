@@ -100,15 +100,21 @@ build-latest:
       libvdwxc = True
       libraries += ['vdwxc']
 
-      libvdwxc_dir = Path('/install')
+      libvdwxc_dir = Path('/install/libvdwxc')
       libvdwxc_libdir = libvdwxc_dir / 'lib'
       library_dirs += [libvdwxc_libdir]
       extra_link_args += [f'-Wl,-rpath={libvdwxc_libdir}']
       include_dirs += [libvdwxc_dir / 'include']
 
-      # elpa = True
-      # libraries += ['elpa']
-      # include_dirs += ['/usr/include/elpa']
+      elpa = True
+      elpa_dir = Path('/install/elpa')
+      elpa_libdir = elpa_dir / 'lib'
+      # Maybe we should do a glob to avoid version dependence:
+      elpa_includedir = elpa_dir / 'include/elpa-2022.11.001'
+      libraries += ['elpa']
+      library_dirs += [str(elpa_libdir)]
+      extra_link_args += [str(elpa_libdir)]
+      include_dirs += [str(elpa_includedir)]
 
       EOF
     - cat siteconfig.py
