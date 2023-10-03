@@ -329,6 +329,8 @@ def parallel_transport(calc,
         b_v = np.dot(b_c, icell_cv)
     else:
         b_v = G_v
+    phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
+        dO_aii, calc.spos_ac, -b_v)
 
     soc_kpts = soc_eigenstates(calc,
                                scale=scale,
@@ -384,8 +386,6 @@ def parallel_transport(calc,
                                dO_aii,
                                b_v)
             """
-            phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-                dO_aii, calc.spos_ac, -b_v)
             M_mm = get_overlap_new(bands,
                                    calc.wfs.gd,
                                    u1_nsG,
@@ -431,8 +431,6 @@ def parallel_transport(calc,
                            dO_aii,
                            b_v)
         """
-        phase_shifted_dO_aii = get_phase_shifted_overlap_coefficients(
-            dO_aii, calc.spos_ac, -b_v)
         M_mm = get_overlap_new(bands,
                                calc.wfs.gd,
                                u1_nsG,
