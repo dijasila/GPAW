@@ -190,11 +190,11 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             else:
                 band_comm = self.communicators['b']
                 wfs.psit_nX = PWArray(pw, shape, comm=band_comm)
+                mynbands = (self.nbands +
+                            band_comm.size - 1) // band_comm.size
+                n1 = min(band_comm.rank * mynbands, self.nbands)
+                n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
                 if pw.comm.rank == 0:
-                    mynbands = (self.nbands +
-                                band_comm.size - 1) // band_comm.size
-                    n1 = min(band_comm.rank * mynbands, self.nbands)
-                    n2 = min((band_comm.rank + 1) * mynbands, self.nbands)
                     assert wfs.psit_nX.mydims[0] == n2 - n1
                     data = data[n1:n2]  # read from file
                 else:
