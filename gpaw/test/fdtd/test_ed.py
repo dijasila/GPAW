@@ -1,6 +1,5 @@
 import pytest
 from gpaw import GPAW
-from gpaw.mpi import world
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
 

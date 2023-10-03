@@ -5,7 +5,6 @@ from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.inducedfield.inducedfield_fdtd import (
     FDTDInducedField, calculate_hybrid_induced_field)
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
-from gpaw.mpi import world
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.test import equal
 
