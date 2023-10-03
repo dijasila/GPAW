@@ -523,10 +523,10 @@ nightly-mpi-1:
   script:
     - gpaw info
     - pytest --cache-show
-    - pytest -n 20 --instafail -r s --durations 30 -v
+    - pytest -n 12 --instafail -r s --durations 30 -v
 
 
-.nightly-mpi-1-new:
+nightly-mpi-1-new:
   variables:
     GPAW_NEW: "1"
   extends:
@@ -553,7 +553,7 @@ nightly-mpi-1:
     - .nightly
 
 
-.nightly-mpi-8:
+nightly-mpi-8:
   variables:
     GPAW_MPI_NPROCS: "8"
   extends:
