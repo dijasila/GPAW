@@ -440,6 +440,41 @@ class GPWFiles:
         return h2.calc
 
     @gpwfile
+    def n2_pw(self):
+        from ase.build import molecule
+        N2 = molecule('N2')
+        N2.center(vacuum=2.0)
+
+        N2.calc = GPAW(mode=PW(force_complex_dtype=True),
+                       xc='PBE',
+                       parallel={'domain': 1},
+                       eigensolver='rmm-diis',
+                       txt=self.path / 'n2_pw.txt')
+
+        N2.get_potential_energy()
+        N2.calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
+        return N2.calc
+
+    @gpwfile
+    def n_pw(self):
+        from ase.build import molecule
+        N2 = molecule('N2')
+        N2.center(vacuum=2.0)
+
+        N = molecule('N')
+        N.set_cell(N2.cell)
+        N.center()
+
+        N.calc = GPAW(mode=PW(force_complex_dtype=True),
+                      xc='PBE',
+                      parallel={'domain': 1},
+                      eigensolver='rmm-diis',
+                      txt=self.path / 'n_pw.txt')
+        N.get_potential_energy()
+        N.calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
+        return N.calc
+
+    @gpwfile
     def o2_pw(self):
         d = 1.1
         a = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
