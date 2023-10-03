@@ -556,7 +556,7 @@ def write_response_function(filename, omega_w, rf0_w, rf_w):
                       (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                       file=fd)
             else:
-                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+                print('{:.6f}, {:.6f}, {:.6f}'.format(omega, rf0, rf), file=fd)
 
 
 def read_response_function(filename):

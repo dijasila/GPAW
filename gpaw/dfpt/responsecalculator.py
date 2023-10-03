@@ -186,13 +186,13 @@ class ResponseCalculator:
                 print("iter:%3i\t" % iter, end=' ')
                 norm = self.iteration()
                 print("abs-norm: %6.3e\t" % norm, end=' ')
-                print(("integrated density response (abs): % 5.2e (%5.2e) "
+                print("integrated density response (abs): % 5.2e (%5.2e) "
                        % (self.gd.integrate(self.nt1_G.real),
-                          self.gd.integrate(np.absolute(self.nt1_G)))))
+                          self.gd.integrate(np.absolute(self.nt1_G))))
 
                 if norm < tolerance:
-                    print(("self-consistent loop converged in %i iterations"
-                           % iter))
+                    print("self-consistent loop converged in %i iterations"
+                           % iter)
                     break
 
             if iter == max_iter:

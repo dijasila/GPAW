@@ -67,7 +67,7 @@ class Integrator:
                 arguments.append(domain_l[index])
             mydomain.append(tuple(arguments))
 
-        self.context.print('Distributing domain %s' % (domainsize,),
+        self.context.print('Distributing domain {}'.format(domainsize),
                            'over %d process%s' %
                            (self.kncomm.size,
                             ['es', ''][self.kncomm.size == 1]),

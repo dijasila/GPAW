@@ -299,7 +299,7 @@ class DFTComponentsBuilder:
 
 def create_communicators(comm: MPIComm = None,
                          nibzkpts: int = 1,
-                         domain: Union[int, tuple[int, int, int]] = None,
+                         domain: int | tuple[int, int, int] = None,
                          kpt: int = None,
                          band: int = None,
                          xp: ModuleType = np) -> dict[str, MPIComm]:
@@ -407,7 +407,7 @@ def calculate_number_of_bands(nbands: int | str | None,
         # Number of bound partial waves:
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
-        N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+        N = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
         N = min(N, nbandsmax)
         if is_lcao and N > nao:
             N = nao

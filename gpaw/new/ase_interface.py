@@ -27,7 +27,7 @@ from gpaw.utilities import pack
 from gpaw.utilities.memory import maxrss
 
 
-def GPAW(filename: Union[str, Path, IO[str]] = None,
+def GPAW(filename: str | Path | IO[str] = None,
          txt: str | Path | IO[str] | None = '?',
          communicator=None,
          **kwargs) -> ASECalculator:

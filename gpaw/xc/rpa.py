@@ -182,7 +182,7 @@ class RPACalculator:
             p('Response function bands : %s' % nbands)
         p('Plane wave cutoffs (eV) :', end='')
         for e in ecut_i:
-            p(' {0:.3f}'.format(e * Hartree), end='')
+            p(f' {e * Hartree:.3f}', end='')
         p()
         p(self.coulomb.description())
         self.context.print('')
@@ -232,7 +232,7 @@ class RPACalculator:
 
             # First not completely filled band:
             m1 = self.gs.nocc1
-            p('# %s  -  %s' % (len(energy_qi), ctime().split()[-2]))
+            p('# {}  -  {}'.format(len(energy_qi), ctime().split()[-2]))
             p('q = [%1.3f %1.3f %1.3f]' % tuple(q_c))
 
             energy_i = []
@@ -272,7 +272,7 @@ class RPACalculator:
         p()
         p('Total correlation energy:')
         for e_cut, e in zip(ecut_i, e_i):
-            p('%6.0f:   %6.4f eV' % (e_cut * Hartree, e * Hartree))
+            p('{:6.0f}:   {:6.4f} eV'.format(e_cut * Hartree, e * Hartree))
         p()
 
         if len(e_i) > 1:

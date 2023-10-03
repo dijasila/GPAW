@@ -270,8 +270,8 @@ class VDWFunctionalBase:
                             self.Zab / 36 / kF_g * a2_g / n_g**2, self.q0cut)
 
         if self.verbose:
-            print(('VDW: q0 (min, mean, max): (%f, %f, %f)' %
-                   (q0_g.min(), q0_g.mean(), q0_g.max())))
+            print('VDW: q0 (min, mean, max): (%f, %f, %f)' %
+                   (q0_g.min(), q0_g.mean(), q0_g.max()))
 
         if self.soft_correction:
             dEcnl = -gd.integrate(n_g**2 / q0_g**3) * 0.5 * self.C_soft
@@ -338,7 +338,7 @@ class VDWFunctionalBase:
 
         print()
         print('VDW: Done!')
-        header = ('phi0={0:.3f}, ds={1:.3f}, Dmax={2:.3f}, nD={3}, ndelta={4}'
+        header = ('phi0={:.3f}, ds={:.3f}, Dmax={:.3f}, nD={}, ndelta={}'
                   .format(self.phi0, self.ds, self.D_j[-1],
                           len(self.delta_i), len(self.D_j)))
         if self.world.rank == 0:
@@ -562,8 +562,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
                 print('VDW: density array size:',
                       self.gd.get_size_of_global_array())
                 print('VDW: zero-padded array size:', self.shape)
-                print(('VDW: maximum kinetic energy: %.3f Hartree' %
-                       (0.5 * k_k.max()**2)))
+                print('VDW: maximum kinetic energy: %.3f Hartree' %
+                       (0.5 * k_k.max()**2))
 
             assert self.j_k.max() < self.Nr // 2, ('Use larger Nr than %i.' %
                                                    self.Nr)
@@ -585,8 +585,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
         q = q1 * (lambd**np.arange(n) - 1) / (lambd - 1)
 
         if self.verbose:
-            print(('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
-                   (n, q1, q[-2], q[-1])))
+            print('VDW: using %d cubic splines: 0.00, %.2f, ..., %.2f, %.2f' %
+                   (n, q1, q[-2], q[-1]))
 
         y = np.eye(n)
         a = y
@@ -631,8 +631,8 @@ class FFTVDWFunctional(VDWFunctionalBase):
         k_j = np.arange(M // 2) * (2 * pi / rcut)
 
         if self.verbose:
-            print(("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
-                   (0.5 * k_j[-1]**2)))
+            print("VDW: cutoff for fft'ed kernel: %.3f Hartree" %
+                   (0.5 * k_j[-1]**2))
 
         for a in range(self.Nalpha):
             qa = self.q_a[a]

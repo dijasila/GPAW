@@ -222,7 +222,7 @@ def get_polarization_phase(calc,
     world.barrier()
     # Read data and calculate phase
     if world.rank == 0:
-        print('Reading berryphases {}'.format(berryname))
+        print(f'Reading berryphases {berryname}')
     with open(berryname) as fd:
         data = json.load(fd)
 

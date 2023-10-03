@@ -636,7 +636,7 @@ class PWArray(DistributedArrays[PWDesc]):
     def moment(self):
         pw = self.desc
         # Masks:
-        m0_G, m1_G, m2_G = [i_G == 0 for i_G in pw.indices_cG]
+        m0_G, m1_G, m2_G = (i_G == 0 for i_G in pw.indices_cG)
         a_G = self.gather()
         if a_G is not None:
             b_G = a_G.data.imag

@@ -495,7 +495,7 @@ class G0W0Calculator:
         if kpts is None:
             isl.append('All k-points in IBZ')
         else:
-            kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
+            kptstxt = ', '.join([f'{k:d}' for k in self.kpts])
             isl.append(f'k-points (IBZ indices): [{kptstxt}]')
         isl.extend([f'Band range: ({b1:d}, {b2:d})',
                     '',
@@ -891,17 +891,17 @@ class G0W0Calculator:
         for s in range(self.wcalc.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 self.context.print(
-                    '\nk-point ' + '{0} ({1}): ({2:.3f}, {3:.3f}, '
-                    '{4:.3f})'.format(i, ik, *ibzk_kc[ik]) +
+                    '\nk-point ' + '{} ({}): ({:.3f}, {:.3f}, '
+                    '{:.3f})'.format(i, ik, *ibzk_kc[ik]) +
                     '                ' + self.fxc_modes[0])
-                self.context.print('band' + ''.join('{0:>8}'.format(name)
+                self.context.print('band' + ''.join(f'{name:>8}'
                                                     for name in names))
 
                 def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         self.context.print(
-                            '{0:4}'.format(n + b1) +
-                            ''.join('{0:8.3f}'.format(
+                            f'{n + b1:4}' +
+                            ''.join('{:8.3f}'.format(
                                 resultset[name][s, i, n]) for name in names))
 
                 for fxc_mode in results:

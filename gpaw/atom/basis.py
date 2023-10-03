@@ -333,7 +333,7 @@ class BasisMaker:
         if isinstance(energysplit, float):
             energysplit = [energysplit] * len(jvalues)
 
-        title = '%s Basis functions for %s' % (g.xcname, g.symbol)
+        title = '{} Basis functions for {}'.format(g.xcname, g.symbol)
         print(title, file=txt)
         print('=' * len(title), file=txt)
 
@@ -414,7 +414,7 @@ class BasisMaker:
                 rsplit, norm, splitwave = rsplit_by_norm(rgd, l, phit_g,
                                                          tailnorm[i]**2.0,
                                                          txt)
-                descr = '%s-%sz split-valence wave' % (orbitaltype,
+                descr = '{}-{}z split-valence wave'.format(orbitaltype,
                                                        '0sdtq56789'[zeta])
                 bf = BasisFunction(None, l, rsplit, phit_g - splitwave, descr)
                 multizetas[i].append(bf)
@@ -476,16 +476,16 @@ class BasisMaker:
             norm = np.dot(rgd.dr_g, psi_pol * psi_pol) ** .5
             psi_pol /= norm
             print('Single quasi Gaussian', file=txt)
-            msg = 'Rchar = %.03f*rcut = %.03f Bohr' % (rcharpol_rel, rchar)
+            msg = 'Rchar = {:.03f}*rcut = {:.03f} Bohr'.format(rcharpol_rel, rchar)
             adjective = 'Gaussian'
             print(msg, file=txt)
-            type = '%s-type %s polarization' % ('spdfg'[l_pol], adjective)
+            type = '{}-type {} polarization'.format('spdfg'[l_pol], adjective)
             bf_pol = BasisFunction(None, l_pol, rcut, psi_pol, type)
 
             polarization_functions.append(bf_pol)
             for i in range(polarizationcount - 1):
                 npol = i + 2
-                msg = '\n%s: %s' % (['Secondary', 'Tertiary', 'Quaternary',
+                msg = '\n{}: {}'.format(['Secondary', 'Tertiary', 'Quaternary',
                                      'Quintary', 'Sextary', 'Septenary'][i],
                                     splitvalencedescr)
                 print(msg, file=txt)
@@ -539,7 +539,7 @@ class BasisMaker:
         if self.name is None:
             compound_name = basistype
         else:
-            compound_name = '%s.%s' % (self.name, basistype)
+            compound_name = '{}.{}'.format(self.name, basistype)
 
         basis = Basis(g.symbol, compound_name, False,
                       EquidistantRadialGridDescriptor(d, ng))

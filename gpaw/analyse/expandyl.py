@@ -151,7 +151,7 @@ class ExpandYl(AngularIntegral):
     def expand(self, psit_g):
         """Expand a wave function"""
 
-        gamma_l = np.zeros((self.lmax + 1))
+        gamma_l = np.zeros(self.lmax + 1)
         nL = len(self.L_l)
         L_l = self.L_l
 
@@ -221,7 +221,7 @@ class ExpandYl(AngularIntegral):
                         gl = 100 * gl / gsum
 
                         print('%2d %5d %5d' % (s, k, n), end=' ', file=fd)
-                        print('%6.4f %10.4f %8.4f' % (kpt.weight,
+                        print('{:6.4f} {:10.4f} {:8.4f}'.format(kpt.weight,
                                                       kpt.eps_n[n] * Hartree,
                                                       kpt.f_n[n]),
                               end=' ', file=fd)

@@ -72,7 +72,7 @@ class OldLCAOTDDFT(GPAW):
         self.niter = 0
         # TODO: deprecate kick keywords (and store them as td_potential)
         self.kick_strength = np.zeros(3)
-        self.kick_ext: Optional[ExternalPotential] = None
+        self.kick_ext: ExternalPotential | None = None
         self.tddft_initialized = False
         self.action = ''
         tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential,

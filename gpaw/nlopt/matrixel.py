@@ -74,7 +74,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     size = world.size
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
-    parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
+    parprint(f'At least {est_mem:.2f} MB of memory is required.')
 
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)

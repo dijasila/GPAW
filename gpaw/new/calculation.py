@@ -85,7 +85,7 @@ class DFTCalculation:
     @classmethod
     def from_parameters(cls,
                         atoms: Atoms,
-                        params: Union[dict, InputParameters],
+                        params: dict | InputParameters,
                         comm=None,
                         log=None,
                         builder=None) -> DFTCalculation:
@@ -153,13 +153,12 @@ class DFTCalculation:
 
     def iconverge(self, convergence=None, maxiter=None, calculate_forces=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
-        for ctx in self.scf_loop.iterate(self.state,
+        yield from self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
                                          calculate_forces,
-                                         log=self.log):
-            yield ctx
+                                         log=self.log)
 
     def converge(self,
                  convergence=None,

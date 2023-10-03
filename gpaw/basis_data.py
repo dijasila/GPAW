@@ -40,7 +40,7 @@ def get_basis_name(zetacount, polarizationcount):
         return '%szp' % zetachar
     else:
         polarizationchar = _basis_number2letter[polarizationcount]
-        return '%sz%sp' % (zetachar, polarizationchar)
+        return '{}z{}p'.format(zetachar, polarizationchar)
 
 
 class Basis:
@@ -97,7 +97,7 @@ class Basis:
         if self.name is None:
             filename = '%s.basis' % self.symbol
         else:
-            filename = '%s.%s.basis' % (self.symbol, self.name)
+            filename = '{}.{}.basis'.format(self.symbol, self.name)
 
         with open(filename, 'w') as fd:
             self.write_to(fd)
@@ -106,7 +106,7 @@ class Basis:
         write = fd.write
         write('<paw_basis version="0.1">\n')
 
-        generatorattrs = ' '.join(['%s="%s"' % (key, value)
+        generatorattrs = ' '.join(['{}="{}"'.format(key, value)
                                    for key, value
                                    in self.generatorattrs.items()])
         write('  <generator %s>' % generatorattrs)
@@ -192,7 +192,7 @@ class BasisFunction:
         txt = '<basis_function '
         if self.n is not None:
             txt += 'n="%d" ' % self.n
-        txt += ('l="%r" rc="%r" type="%s"' % (self.l, self.rc, self.type))
+        txt += ('l="{!r}" rc="{!r}" type="{}"'.format(self.l, self.rc, self.type))
         if gridid is not None:
             txt += ' grid="%s"' % gridid
         return txt + '>'
@@ -227,7 +227,7 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
         else:
             name = basis.name
             reduced = None
-        fullname = '%s.%s.basis' % (basis.symbol, name)
+        fullname = '{}.{}.basis'.format(basis.symbol, name)
         if filename is None:
             basis.filename, source = search_for_file(fullname, world=world)
         else:

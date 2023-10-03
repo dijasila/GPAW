@@ -13,7 +13,7 @@ from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
-_global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
+_global_blacs_context_store: dict[tuple[_Communicator, int, int], int] = {}
 
 
 def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:

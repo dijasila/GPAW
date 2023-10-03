@@ -76,7 +76,7 @@ def spectrum(exlist=None,
                   file=out)
             print('# GPAW version:', version, file=out)
             if folding is not None:  # fold the spectrum
-                print('# %s folded, width=%g [%s]' % (folding, width,
+                print('# {} folded, width={:g} [{}]'.format(folding, width,
                                                       energyunit), file=out)
             if form == 'r':
                 out.write('# length form')
@@ -130,7 +130,7 @@ def rotatory_spectrum(exlist=None,
             print('# Rotatory spectrum from linear response TD-DFT', file=out)
             print('# GPAW version:', version, file=out)
             if folding is not None:  # fold the spectrum
-                print('# %s folded, width=%g [%s]' % (folding, width,
+                print('# {} folded, width={:g} [{}]'.format(folding, width,
                                                       energyunit), file=out)
             print('# om [%s]     R [cgs]'
                   % energyunit, file=out)
@@ -154,7 +154,7 @@ def rotatory_spectrum(exlist=None,
                 energies, values = Folder(width, folding).fold(x, y, de,
                                                                emin, emax)
             for e, val in zip(energies, values):
-                print('%10.5f %12.7e' % (e, val), file=out)
+                print('{:10.5f} {:12.7e}'.format(e, val), file=out)
 
 
 class Writer(Folder):
@@ -186,7 +186,7 @@ class Writer(Folder):
                 if comment:
                     print('#', comment, file=out)
                 if self.folding is not None:
-                    print('# %s folded, width=%g [eV]' % (self.folding,
+                    print('# {} folded, width={:g} [eV]'.format(self.folding,
                           self.width), file=out)
                     energies, values = self.fold(self.energies, self.values,
                                                  de, emin, emax)
