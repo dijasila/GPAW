@@ -30,7 +30,7 @@ def test_si_update_consistency(in_tmp_dir):
     intermediate_m = 5
 
     # ---------- Script ---------- #
-    
+
     # Ground state calculation
     atoms = bulk('Si', 'diamond', a=a)
     atoms.center()
