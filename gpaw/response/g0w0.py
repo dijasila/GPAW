@@ -1050,8 +1050,8 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-
-        qcache.strip_empties()
+        if world.rank == 0:
+            qcache.strip_empties()
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
