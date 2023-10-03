@@ -1,20 +1,24 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 from __future__ import annotations
+
+import atexit
+import pickle
 import sys
 import time
 import traceback
-import atexit
-import pickle
 from contextlib import contextmanager
 from typing import Any
 
-from ase.parallel import world as aseworld, MPI as ASE_MPI
+import _gpaw
 import numpy as np
+import warnings
+from ase.parallel import MPI as ASE_MPI
+from ase.parallel import world as aseworld
 
 import gpaw
+
 from .broadcast_imports import world as _world
-import _gpaw
 
 MASTER = 0
 
@@ -119,7 +123,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float, complex)):
-            1 / 0
+            warnings.warn('Please use sum_scalar(...)')
             return self.comm.sum(a, root)
         else:
             # assert a.ndim != 0
@@ -153,6 +157,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
+            1 / 0
             return self.comm.product(a, root)
         else:
             tc = a.dtype
@@ -181,7 +186,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            1 / 0
+            warnings.warn('Please use max_scalar(...)')
             return self.comm.max(a, root)
         else:
             tc = a.dtype
@@ -214,7 +219,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            1 / 0
+            warnings.warn('Please use min_scalar(...)')
             return self.comm.min(a, root)
         else:
             tc = a.dtype
@@ -639,7 +644,7 @@ class SerialCommunicator:
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
-            1 / 0
+            warnings.warn('Please use sum_scalar(...)')
             return array
 
     def sum_scalar(self, a, root=-1):
@@ -650,14 +655,16 @@ class SerialCommunicator:
 
     def min(self, value, root=-1):
         if isinstance(value, (int, float, complex)):
-            1 / 0; return value
+            warnings.warn('Please use min_scalar(...)')
+            return value
 
     def min_scalar(self, value, root=-1):
         return value
 
     def max(self, value, root=-1):
         if isinstance(value, (int, float, complex)):
-            1 / 0; return value
+            warnings.warn('Please use max_scalar(...)')
+            return value
 
     def max_scalar(self, value, root=-1):
         return value
