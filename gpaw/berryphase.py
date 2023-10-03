@@ -353,7 +353,7 @@ def parallel_transport(calc,
         return ut_nR
         """
         return soc_kpts[bz_index].wavefunctions(
-            calc, periodic=True)[bands]
+            calc, periodic=True)
 
     phi_km = np.zeros((Npar, len(bands)), float)
     S_km = np.zeros((Npar, len(bands)), float)
@@ -396,10 +396,10 @@ def parallel_transport(calc,
 
             V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
             U_mm = np.dot(V_mm, W_mm).conj()
-            u_nysxz = np.dot(U_mm, np.swapaxes(u2_nsG, 0, 3))
-            u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
-            u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
-            u2_nsG = u_nsxyz
+            u_mysxz = np.dot(U_mm, np.swapaxes(u2_nsG[bands], 0, 3))
+            u_mxsyz = np.swapaxes(u_mysxz, 1, 3)
+            u_msxyz = np.swapaxes(u_mxsyz, 1, 2)
+            u2_nsG[bands] = u_msxyz
             for a in range(len(calc.atoms)):
                 assert not proj2.collinear
                 P2_nsi = proj2[a][bands]
@@ -443,10 +443,10 @@ def parallel_transport(calc,
 
         V_mm, sing_m, W_mm = np.linalg.svd(M_mm)
         U_mm = np.dot(V_mm, W_mm).conj()
-        u_nysxz = np.dot(U_mm, np.swapaxes(u2_nsG, 0, 3))
-        u_nxsyz = np.swapaxes(u_nysxz, 1, 3)
-        u_nsxyz = np.swapaxes(u_nxsyz, 1, 2)
-        u2_nsG = u_nsxyz
+        u_mysxz = np.dot(U_mm, np.swapaxes(u2_nsG[bands], 0, 3))
+        u_mxsyz = np.swapaxes(u_mysxz, 1, 3)
+        u_msxyz = np.swapaxes(u_mxsyz, 1, 2)
+        u2_nsG[bands] = u_msxyz
         for a in range(len(calc.atoms)):
             assert not proj2.collinear
             P2_nsi = proj2[a][bands]
