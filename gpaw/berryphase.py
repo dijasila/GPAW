@@ -414,6 +414,7 @@ def parallel_transport(calc,
                     P2_ni = P2_nsi[:, s]
                     P2_ni = np.dot(U_mm, P2_ni)
                     P2_nsi[:, s] = P2_ni
+                proj2[a][bands] = P2_nsi
             U_qmm.append(U_mm)
             u1_nsG = u2_nsG
             proj1 = proj2
@@ -459,6 +460,7 @@ def parallel_transport(calc,
                 P2_ni = P2_nsi[:, s]
                 P2_ni = np.dot(U_mm, P2_ni)
                 P2_nsi[:, s] = P2_ni
+            proj2[a][bands] = P2_nsi
         # T.S.
         """
         for a in range(len(calc.atoms)):
