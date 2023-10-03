@@ -551,7 +551,8 @@ class GPWFiles:
             pbc=False,
         )
         H2O.center()
-        calc = GPAW(txt=self.path / 'h2o_xas.txt',
+        calc = GPAW(
+            txt=self.path / 'h2o_xas.txt',
             mode="fd",
             nbands=10,
             h=0.2,
@@ -661,7 +662,7 @@ class GPWFiles:
         return self.si_corehole_sym(sym='off', setupname=setupname)
 
     def si_corehole_sym(self, sym, setupname):
-        tag = 'nosym' if sym is 'off' else 'sym'
+        tag = 'nosym' if sym == 'off' else 'sym'
 
         a = 5.43095
         si_nonortho = Atoms(
