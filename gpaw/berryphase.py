@@ -409,12 +409,12 @@ def parallel_transport(calc,
             u2_nsG[bands] = u_msxyz
             for a in range(len(calc.atoms)):
                 assert not proj2.collinear
-                P2_nsi = proj2[a][bands]
+                P2_msi = proj2[a][bands]
                 for s in range(2):
-                    P2_ni = P2_nsi[:, s]
-                    P2_ni = np.dot(U_mm, P2_ni)
-                    P2_nsi[:, s] = P2_ni
-                proj2[a][bands] = P2_nsi
+                    P2_mi = P2_msi[:, s]
+                    P2_mi = np.dot(U_mm, P2_mi)
+                    P2_msi[:, s] = P2_mi
+                proj2[a][bands] = P2_msi
             U_qmm.append(U_mm)
             u1_nsG = u2_nsG
             proj1 = proj2
@@ -455,12 +455,12 @@ def parallel_transport(calc,
         u2_nsG[bands] = u_msxyz
         for a in range(len(calc.atoms)):
             assert not proj2.collinear
-            P2_nsi = proj2[a][bands]
+            P2_msi = proj2[a][bands]
             for s in range(2):
-                P2_ni = P2_nsi[:, s]
-                P2_ni = np.dot(U_mm, P2_ni)
-                P2_nsi[:, s] = P2_ni
-            proj2[a][bands] = P2_nsi
+                P2_mi = P2_msi[:, s]
+                P2_mi = np.dot(U_mm, P2_mi)
+                P2_msi[:, s] = P2_mi
+            proj2[a][bands] = P2_msi
         # T.S.
         """
         for a in range(len(calc.atoms)):
