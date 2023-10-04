@@ -1,4 +1,3 @@
-
 class Perturbation:
     """Abstract base class for various perturbation types.
 

@@ -1,4 +1,3 @@
-
 class KPointContainer:
     """Simple container for storing k-dependent quantities."""
 

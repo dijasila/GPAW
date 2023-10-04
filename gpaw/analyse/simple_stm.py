@@ -241,7 +241,7 @@ class SimpleStm(STM):
                         height = -1
                     else:
                         height = heights[i, j] * Bohr
-                    print('%10g %10g %12g' % (yvals[j], xvals[i], height),
+                    print(f'{yvals[j]:10g} {xvals[i]:10g} {height:12g}',
                           file=fd)
                 print(file=fd)
 

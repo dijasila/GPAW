@@ -174,7 +174,7 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
         for name in custom:
             criterion = criteria[name]
             header1 += ' ' * 7
-            header2 += '{:>5s}  '.format(criterion.tablename)
+            header2 += f'{criterion.tablename:>5s}  '
         if ctx.wfs.nspins == 2:
             header1 += '{:>8s} '.format('magmom')
             header2 += '{:>8s} '.format('')
@@ -199,7 +199,7 @@ def write_iteration(criteria, converged_items, entries, ctx, log):
 
     # Custom criteria (optional).
     for name in custom:
-        line += '{:>5s}{:s} '.format(entries[name], c[name])
+        line += f'{entries[name]:>5s}{c[name]:s} '
 
     # Magnetic moment (optional).
     if ctx.wfs.nspins == 2 or not ctx.wfs.collinear:
