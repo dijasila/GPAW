@@ -580,5 +580,5 @@ pages:
     paths:
       - public
     expire_in: 1 week
-  # only: master
-  # XXX rules should be like those it depends on
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
