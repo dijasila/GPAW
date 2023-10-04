@@ -13,15 +13,16 @@ atoms.center(vacuum=15, axis=2)
 # GPAW parameters:
 nk = 40
 params_gs = {
-    mode='lcao',
-    symmetry={'point_group': False, 'time_reversal': True},
-    nbands='nao',
-    convergence={'bands': -10},
-    parallel={'domain': 1},
-    occupations=FermiDirac(width=0.05),
-    kpts={'size': (nk, nk, 1), 'gamma': True},
-    xc='PBE',
-    txt='gs.txt'}
+    'mode': 'lcao',
+    'symmetry': {'point_group': False, 'time_reversal': True},
+    'nbands': 'nao',
+    'convergence': {'bands': -10},
+    'parallel': {'domain': 1},
+    'occupations': FermiDirac(width=0.05),
+    'kpts': {'size': (nk, nk, 1), 'gamma': True},
+    'xc': 'PBE',
+    'txt': 'gs.txt'
+}
 
 # Ground state calculation:
 gs_name = 'gs.gpw'
@@ -45,10 +46,10 @@ pol = 'yyy'
 shg_name1 = 'shg_' + pol + '_lg.npy'
 get_shg(
     nlodata, freqs=w_ls, eta=eta, pol=pol,
-    gauge='lg', out_name=shg_name1, mml_name=mml_name)
+    gauge='lg', out_name=shg_name1)
 
 # VG calculation
 shg_name2 = 'shg_' + pol + '_vg.npy'
 get_shg(
     nlodata, freqs=w_ls, eta=eta, pol=pol,
-    gauge='vg', out_name=shg_name2, mml_name=mml_name)
+    gauge='vg', out_name=shg_name2)

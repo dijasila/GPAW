@@ -22,7 +22,7 @@ def get_shift(
     Parameters
     ==========
     nlodata:
-        The momentum data of type `NLOData`
+        Data object of class NLOData.
     freqs:
         Excitation frequency array (a numpy array or list).
     eta:
@@ -30,7 +30,7 @@ def get_shift(
     pol:
         Tensor element (default 'yyy').
     Etol, ftol:
-        Tol. in energy and fermi to consider degeneracy.
+        Tolerance in energy and fermi to consider degeneracy.
     band_n:
         List of bands in the sum (default 0 to nb).
     out_name:
