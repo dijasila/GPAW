@@ -135,9 +135,9 @@ class PWSymmetryAnalyzer:
         """Calculate the reduction in the number of kpoints."""
         K_gK = self.group_kpoints()
         ng = len(K_gK)
-        self.infostring += '{0} groups of equivalent kpoints. '.format(ng)
+        self.infostring += f'{ng} groups of equivalent kpoints. '
         percent = (1. - (ng + 0.) / self.kd.nbzkpts) * 100
-        self.infostring += '{0}% reduction. '.format(percent)
+        self.infostring += f'{percent}% reduction. '
 
     @timer('Analyze symmetries.')
     def analyze_symmetries(self):
@@ -205,7 +205,7 @@ class PWSymmetryAnalyzer:
 
 #        s_s = stmp_s
 
-        self.infostring += 'Found {} allowed symmetries. '.format(len(s_s))
+        self.infostring += f'Found {len(s_s)} allowed symmetries. '
         self.s_s = s_s
         self.shift_sc = shift_sc
 
