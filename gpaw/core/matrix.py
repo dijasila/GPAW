@@ -833,6 +833,7 @@ class CuPyDistribution(MatrixDistribution):
                         return
                     if c.data.size > 0:
                         assert beta in [0.0, 1.0]
+                        # Optimize this?
                         cp.cublas.gemm('N', 'H',
                                        a.data, b.data, c.data,
                                        0.5 * alpha, beta)
