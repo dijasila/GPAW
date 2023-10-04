@@ -191,9 +191,9 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.calculator.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.new` method:
 
-   >>> calc.set(txt='H2.txt', charge=1)
+   >>> new_calc = calc.new(txt='H2.txt', charge=1)
 
    This would send all output to a file named :file:`'H2.txt'`, and the
    calculation will be done with one electron removed.
@@ -1091,7 +1091,7 @@ change the number of grid points:
    There is an alternative way to do this, that can be handy sometimes:
 
    >>> atoms, calc = restart('H2.gpw')
-   >>> calc.set(gpts=(20, 20, 20))
+   >>> atoms.calc = calc.new(gpts=(20, 20, 20))
    >>> print(atoms.get_potential_energy())
 
 

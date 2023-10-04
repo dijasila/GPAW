@@ -27,17 +27,19 @@ E_GS = atoms.get_potential_energy()
 f = excite(calc, 0, 0, spin=(0, 0))
 
 # Direct approach using ground state orbitals with changed occupation numbers
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-bfgs-p_gmf'},
-                          linesearch_algo={'name': 'max-step'},
-                          partial_diagonalizer={'name': 'Davidson',
-                                                'logfile': 'davidson_tPP.txt',
-                                                'sp_order': 6,
-                                                'seed': 42},
-                          update_ref_orbs_counter=1000,
-                          representation='u-invar',
-                          need_init_orbs=False),
-         occupations={'name': 'mom', 'numbers': f,
-                      'use_fixed_occupations': True},
-         txt='N-Phenylpyrrole_EX_DO-GMF.txt')
+logfile = 'davidson_tPP.txt'
+newcalc = calc.new(eigensolver=ETDM(searchdir_algo={'name': 'l-bfgs-p_gmf'},
+                                    linesearch_algo={'name': 'max-step'},
+                                    partial_diagonalizer={'name': 'Davidson',
+                                                          'logfile': logfile,
+                                                          'sp_order': 6,
+                                                          'seed': 42},
+                                    update_ref_orbs_counter=1000,
+                                    representation='u-invar',
+                                    need_init_orbs=False),
+                   occupations={'name': 'mom', 'numbers': f,
+                                'use_fixed_occupations': True},
+                   txt='N-Phenylpyrrole_EX_DO-GMF.txt')
 
+atoms.calc = newcalc
 E_EX = atoms.get_potential_energy()

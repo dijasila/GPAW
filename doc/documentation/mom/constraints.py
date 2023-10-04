@@ -29,10 +29,11 @@ C_GS = [calc.wfs.kpt_u[x].C_nM.copy() for x in range(len(calc.wfs.kpt_u))]
 f_gs = [calc.wfs.kpt_u[x].f_n.copy() for x in range(len(calc.wfs.kpt_u))]
 
 # Direct approach using ground state orbitals with changed occupation numbers
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                          linesearch_algo={'name': 'max-step'},
-                          need_init_orbs=False),
-         txt='N-Phenylpyrrole_EX_direct.txt')
+calc = calc.new(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                                 linesearch_algo={'name': 'max-step'},
+                                 need_init_orbs=False),
+                txt='N-Phenylpyrrole_EX_direct.txt')
+atoms.calc = calc
 
 # Spin-mixed open-shell occupation numbers
 f = excite(calc, 0, 0, spin=(0, 0))
@@ -50,9 +51,10 @@ h = 26  # Hole
 p = 27  # Excited electron
 
 # Constrained optimization freezing hole and excited electron
-calc.set(eigensolver=ETDM(constraints=[[[h], [p]], []],
-                          need_init_orbs=False),
-         txt='N-Phenylpyrrole_EX_constrained.txt')
+calc = calc.new(eigensolver=ETDM(constraints=[[[h], [p]], []],
+                                 need_init_orbs=False),
+                txt='N-Phenylpyrrole_EX_constrained.txt')
+atoms.calc = calc
 
 # Spin-mixed open-shell occupation numbers
 f = excite(calc, 0, 0, spin=(0, 0))
@@ -62,10 +64,11 @@ prepare_mom_calculation(calc, atoms, f)
 E_EX_constrained = atoms.get_potential_energy()
 
 # Unconstrained optimization using constrained solution as initial guess
-calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                          linesearch_algo={'name': 'max-step'},
-                          need_init_orbs=False),
-         txt='N-Phenylpyrrole_EX_from_constrained.txt')
+calc = calc.new(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
+                                 linesearch_algo={'name': 'max-step'},
+                                 need_init_orbs=False),
+                txt='N-Phenylpyrrole_EX_from_constrained.txt')
+atoms.calc = calc
 
 # Direct optimization maximum overlap method calculation
 E_EX_from_constrained = atoms.get_potential_energy()

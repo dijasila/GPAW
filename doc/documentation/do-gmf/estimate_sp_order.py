@@ -29,9 +29,10 @@ h = 26  # Hole
 p = 27  # Excited electron
 
 # Constrained optimization freezing hole and excited electron
-calc.set(eigensolver=ETDM(constraints=[[[h], [p]], []],
-                          need_init_orbs=False),
-         txt='N-Phenylpyrrole_EX_constrained.txt')
+calc = calc.new(eigensolver=ETDM(constraints=[[[h], [p]], []],
+                                 need_init_orbs=False),
+                txt='N-Phenylpyrrole_EX_constrained.txt')
+atoms.calc = calc
 
 # Spin-mixed open-shell occupation numbers
 f = excite(calc, 0, 0, spin=(0, 0))
