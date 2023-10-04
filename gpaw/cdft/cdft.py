@@ -443,7 +443,7 @@ class CDFT(Calculator):
             return np.zeros(len(self.v_i))
         else:
             return -self.dn_i
-    
+
     def cdft_free_energy(self):
         return self.Ecdft
 
