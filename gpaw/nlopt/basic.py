@@ -10,7 +10,7 @@ class NLOData:
     E_skn: np.ndarray
     p_skvnn: np.ndarray
     comm: MPIComm
-    
+
     def write(self, filename):
         if self.comm.rank == 0:
             np.savez(filename, w_sk=self.w_sk, f_skn=self.f_skn,

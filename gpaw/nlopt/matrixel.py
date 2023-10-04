@@ -39,7 +39,7 @@ class WaveFunctionAdapter:
         P_ani = {a: P_ni[ni:nf] for a, P_ni in
                  self.ibzwfs.wfs_qs[k_ind][spin].P_ani.items()}
         return P_ani
-    
+
 
 def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     """Compute the momentum matrix elements.
