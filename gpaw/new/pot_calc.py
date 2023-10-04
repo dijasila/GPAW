@@ -173,7 +173,10 @@ def calculate_non_local_potential1(setup: Setup,
     e_external = 0.0
     if setup.hubbard_u is not None:
         if ncomponents == 4:
-            eU, dHU_ii = setup.hubbard_u.ncol_calculate(setup, D_sii)
+            D_u_ii = (D_sii[0] + D_sii[3]) / 2
+            D_d_ii = (D_sii[0] - D_sii[3]) / 2
+            
+            eU, dHU_ii = setup.hubbard_u.ncol_calculate(setup, D_u_ii, D_d_ii)
             e_xc += eU
         else:
             eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)

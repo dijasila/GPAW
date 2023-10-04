@@ -52,17 +52,15 @@ class HubbardU:
             dH_sp += dH1_sp
         return e_xc, dH_sp
 
-    def ncol_calculate(self, setup, D_sii):
-        D_u_ii = (D_sii[0] + D_sii[3]) / 2
-        D_d_ii = (D_sii[0] - D_sii[3]) / 2
+    def calculate_new(self, setup, D_u_ii, D_d_ii):
         dH_ii = np.zeros_like(D_u_ii)
 
         e_xc = 0.0
         for l, U, scale in zip(self.l, self.U, self.scale):
-            e1_xc, dH1_ii = ncol_hubbard(setup.l_j, setup.lq,
-                                         D_u_ii, D_d_ii,
-                                         l=l, U=U, scale=scale)
-            e_xc += e1_xc
+            e1_xc, dH1_ii = hubbard_new(setup.l_j, setup.lq,
+                                        D_u_ii, D_d_ii,
+                                        l=l, U=U, scale=scale)
+            e_xc += np.real(e1_xc)
             dH_ii += dH1_ii
         return e_xc, dH_ii
 
@@ -189,8 +187,8 @@ def aoom(l_j, lq,
         return A, V
 
 
-def ncol_hubbard(l_j, lq, D_u_ii, D_d_ii,
-                 l: int, U: float, scale: bool) -> Tuple[float, ArrayLike2D]:
+def hubbard_new(l_j, lq, D_u_ii, D_d_ii,
+                l: int, U: float, scale: bool) -> Tuple[float, ArrayLike2D]:
 
     nl = np.where(np.equal(l_j, l))[0]
     nm = 2 * l + 1
