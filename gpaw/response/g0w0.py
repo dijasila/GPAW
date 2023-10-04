@@ -430,7 +430,7 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.qcache = qcache
-        
+
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
         # It is currently only used by the restart code,
@@ -495,7 +495,7 @@ class G0W0Calculator:
         if kpts is None:
             isl.append('All k-points in IBZ')
         else:
-            kptstxt = ', '.join(['{0:d}'.format(k) for k in self.kpts])
+            kptstxt = ', '.join([f'{k:d}' for k in self.kpts])
             isl.append(f'k-points (IBZ indices): [{kptstxt}]')
         isl.extend([f'Band range: ({b1:d}, {b2:d})',
                     '',
@@ -673,7 +673,7 @@ class G0W0Calculator:
                         continue
 
                     nc_G = n_G.conj()
-                    
+
                     # ie: ecut index for extrapolation
                     # kpt1.s: spin index of *
                     # k: k-point index of *
@@ -773,7 +773,7 @@ class G0W0Calculator:
         # Reset calculation
         sigmashape = (len(self.ecut_e), *self.shape)
         sigmas = {fxc_mode: Sigma(iq, q_c, fxc_mode, sigmashape,
-                  **self.get_validation_inputs())
+                                  **self.get_validation_inputs())
                   for fxc_mode in self.fxc_modes}
 
         chi0 = chi0calc.create_chi0(q_c)
@@ -805,7 +805,7 @@ class G0W0Calculator:
                     self.wcalc.qd, iq, q_c)):
 
                 for (progress, kpt1, kpt2)\
-                    in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
+                        in self.pair_distribution.kpt_pairs_by_q(bzq_c, 0, m2):
                     pb.update((nQ + progress) / self.wcalc.qd.mynk)
 
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
@@ -848,11 +848,11 @@ class G0W0Calculator:
             Wdict[fxc_mode] = self.wcalc.get_HW_model(rchi0,
                                                       fxc_mode=fxc_mode)
             if (chi0calc.chi0_body_calc.pawcorr is not None and
-                rqpd.ecut < chi0.qpd.ecut):
+                    rqpd.ecut < chi0.qpd.ecut):
                 assert not self.ppa, """In previous master, PPA with ecut
                 extrapolation was not working. Now it would work, but
                 disabling it here still for sake of it is not tested."""
-                
+
                 pw_map = PWMapping(rqpd, chi0.qpd)
                 # This is extremely bad behaviour! G0W0Calculator
                 # should not change properties on the
@@ -891,17 +891,17 @@ class G0W0Calculator:
         for s in range(self.wcalc.gs.nspins):
             for i, ik in enumerate(self.kpts):
                 self.context.print(
-                    '\nk-point ' + '{0} ({1}): ({2:.3f}, {3:.3f}, '
-                    '{4:.3f})'.format(i, ik, *ibzk_kc[ik]) +
+                    '\nk-point ' + '{} ({}): ({:.3f}, {:.3f}, '
+                    '{:.3f})'.format(i, ik, *ibzk_kc[ik]) +
                     '                ' + self.fxc_modes[0])
-                self.context.print('band' + ''.join('{0:>8}'.format(name)
+                self.context.print('band' + ''.join(f'{name:>8}'
                                                     for name in names))
 
                 def actually_print_results(resultset):
                     for n in range(b2 - b1):
                         self.context.print(
-                            '{0:4}'.format(n + b1) +
-                            ''.join('{0:8.3f}'.format(
+                            f'{n + b1:4}' +
+                            ''.join('{:8.3f}'.format(
                                 resultset[name][s, i, n]) for name in names))
 
                 for fxc_mode in results:
@@ -1050,8 +1050,8 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-
-        qcache.strip_empties()
+        if world.rank == 0:
+            qcache.strip_empties()
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
         frequencies = get_frequencies(frequencies, domega0, omega2)
@@ -1156,6 +1156,7 @@ class G0W0(G0W0Calculator):
 
 class EXXVXCCalculator:
     """EXX and Kohn-Sham XC contribution."""
+
     def __init__(self, gpwfile, snapshotfile_prefix):
         self._gpwfile = gpwfile
         self._snapshotfile_prefix = snapshotfile_prefix
