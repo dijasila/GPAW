@@ -520,6 +520,7 @@ class ASECalculator:
             dexc += xc.calculate_paw_correction(
                 setup,
                 np.array([pack(D_ii) for D_ii in D_sii.real]))
+        dexc = state.ibzwfs.domain_comm.sum_scalar(dexc)
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
