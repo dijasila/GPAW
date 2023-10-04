@@ -28,6 +28,7 @@ class KPointFinder:
 
 class PWSymmetryAnalyzer:
     """Class for handling planewave symmetries."""
+
     def __init__(self, kpoints, qpd, context,
                  disable_point_group=False,
                  disable_time_reversal=False):
@@ -360,7 +361,7 @@ class PWSymmetryAnalyzer:
     @timer('symmetrize_wGG')
     def symmetrize_wGG(self, A_wGG):
         """Symmetrize an array in GG'."""
-        
+
         for A_GG in A_wGG:
             tmp_GG = np.zeros_like(A_GG, order='C')
             # tmp2_GG = np.zeros_like(A_GG)
@@ -377,7 +378,7 @@ class PWSymmetryAnalyzer:
                 #     tmp2_GG += A_GG[G_G, :][:, G_G]
                 # if sign == -1:
                 #     tmp2_GG += A_GG[G_G, :][:, G_G].T
-            
+
             # assert np.allclose(tmp_GG, tmp2_GG)
             A_GG[:] = tmp_GG / self.how_many_symmetries()
 

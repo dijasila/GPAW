@@ -347,6 +347,7 @@ class NewPairDensityCalculator(PlaneWaveMatrixElementCalculator):
 
     n_kt(G+q) = n_(nks,n'k+qs')(G+q) = <ψ_nks| e^-i(G+q)r |ψ_n'k+qs'>
     """
+
     def __init__(self, gs, context):
         super().__init__(gs, context,
                          # Expanding f(r) = 1 in real spherical harmonics only
@@ -367,11 +368,12 @@ class TransversePairPotentialCalculator(PlaneWaveMatrixElementCalculator):
 
     The transverse magnetic pair potential is a plane-wave matrix element
     where the local functional is the transverse LDA kernel:
-     
+
     W^⟂_kt(G+q) = W^⟂_(nks,n'k+qs')(G+q)
 
                 = <ψ_nks| e^-i(G+q)r f_LDA^-+(r) |ψ_n'k+qs'>
     """
+
     def add_f(self, gd, n_sx, f_x):
         return add_LSDA_trans_fxc(gd, n_sx, f_x, fxc='ALDA')
 
@@ -385,7 +387,7 @@ class SiteMatrixElement(MatrixElement):
         return np.zeros(
             (self.tblocks.blocksize, len(self.sites), self.sites.npartitions),
             dtype=complex)
-    
+
 
 class SiteMatrixElementCalculator(MatrixElementCalculator):
     r"""Class for calculating site matrix elements.

@@ -137,7 +137,7 @@ def test_super_permutation_symmetry(lmax: int = 2):
                 for L4 in range(L3max):
                     assert abs(G_LLLL[L1, L2, L3, L4]
                                - G_LLLL[L1, L2, L4, L3]) < 1e-10
-        
+
 
 def unit_sphere_test_coordinates():
     """Unit-sphere coordinates to test"""
