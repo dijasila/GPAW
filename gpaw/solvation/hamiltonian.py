@@ -120,7 +120,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                 vt_g += self.vt_ia_g
         Eias = np.array([ia.E for ia in self.interactions])
 
-        Ekin1 = self.gd.comm.sum(self.calculate_kinetic_energy(density))
+        Ekin1 = self.gd.comm.sum_scalar(self.calculate_kinetic_energy(density))
         W_aL = self.calculate_atomic_hamiltonians(density)
         atomic_energies = self.update_corrections(density, W_aL)
         self.world.sum(atomic_energies)

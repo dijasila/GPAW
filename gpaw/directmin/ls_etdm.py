@@ -54,7 +54,7 @@ class MaxStep:
             if tmp > slength:
                 slength = tmp
 
-        slength = kd.comm.max(slength)
+        slength = kd.comm.max_scalar(slength)
         if slength > self.max_step:
             a_star = self.max_step / slength
         else:
