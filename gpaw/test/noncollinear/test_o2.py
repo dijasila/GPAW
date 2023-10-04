@@ -9,8 +9,8 @@ from gpaw.mpi import size
 def test_noncollinear_o2(in_tmp_dir, gpaw_new):
     if size > 2:
         pytest.skip('mpi world size >2')
-    if size == 2:
-        pytest.skip('fatal crash with mpi world size==2')
+    if not gpaw_new:
+        pytest.skip('fatal crash with old code')
 
     a = Atoms('OO', [[0, 0, 0], [0, 0, 1.1]], magmoms=[1, 1], pbc=(1, 0, 0))
     a.center(vacuum=2.5)

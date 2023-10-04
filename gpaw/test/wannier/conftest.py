@@ -9,7 +9,6 @@ def wannier90(scope='session'):
         pytest.skip('no wannier90.x executable')
 
     # Actually we should /return/ the path, and we should have stored
-    # it in a kind of config rather than in hardcode the executable.
+    # it in a kind of config rather than hardcoding the executable.
     #
-    # The executable is also hardcoded inside the code, which is why
-    # we don't do it that way.
+    # TODO: return wannier90 path and pass it to Wannier90 class
