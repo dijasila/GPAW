@@ -185,9 +185,11 @@ def make_nlodata(gs_name: str,
     Parameters:
 
     gs_name:
-        Ground state file name
+        Ground state filename.
+    comm:
+        Communicator for parallelisation.
     spin:
-        Which spin channel ('all', 's0' , 's1')
+        Spin channels to include ('all', 's0' , 's1').
     ni:
         First band to compute the mml.
     nf:

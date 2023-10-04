@@ -27,22 +27,22 @@ def get_shg(
     Parameters:
 
     nlodata:
-        Data object of type `NLOData`. Contains energies, occupancies and
-        momentum matrix elements
+        Data object of class NLOData. Contains energies, occupancies and
+        momentum matrix elements.
     freqs:
-        Excitation frequency array (a numpy array or list)
+        Excitation frequency array (a numpy array or list).
     eta:
-        Broadening, a number or an array (default 0.05 eV)
+        Broadening, a number or an array (default 0.05 eV).
     pol:
-        Tensor element (default 'yyy')
+        Tensor element (default 'yyy').
     gauge:
-        Choose the gauge (lg or vg)
+        Choose the gauge ('lg' or 'vg').
     Etol, ftol:
-        Tol. in energy and fermi to consider degeneracy
+        Tol. in energy and fermi to consider degeneracy.
     band_n:
-        List of bands in the sum (default 0 to nb)
+        List of bands in the sum (default 0 to nb).
     out_name:
-        Output filename (default 'shg.npy')
+        Output filename (default 'shg.npy').
     """
 
     # Start a timer
