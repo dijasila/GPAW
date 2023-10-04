@@ -113,8 +113,8 @@ def test_super_selection_rules(lmax: int = 2):
                         lp_range = np.arange(abs(l1 - l2), l1 + l2 + 1)
                         assert np.min(abs(lp_range - l3)) <= l4 <= l1 + l2 + l3
                         # m' needs to be allowed and repeated
-                        mpset1 = set([-m1 - m2, m1 + m2, -m1 + m2, m1 - m2])
-                        mpset2 = set([-m3 - m4, m3 + m4, -m3 + m4, m3 - m4])
+                        mpset1 = {-m1 - m2, m1 + m2, -m1 + m2, m1 - m2}
+                        mpset2 = {-m3 - m4, m3 + m4, -m3 + m4, m3 - m4}
                         assert len(mpset1 | mpset2) < len(mpset1) + len(mpset2)
 
 

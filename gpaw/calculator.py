@@ -340,7 +340,7 @@ class GPAW(Calculator):
 
     def read(self, filename):
         from ase.io.trajectory import read_atoms
-        self.log('Reading from {}'.format(filename))
+        self.log(f'Reading from {filename}')
 
         self.reader = reader = Reader(filename)
         assert reader.version <= 3, 'Can\'t read new GPW-files'
@@ -349,7 +349,7 @@ class GPAW(Calculator):
         self._set_atoms(atoms)
 
         res = reader.results
-        self.results = dict((key, res.get(key)) for key in res.keys())
+        self.results = {key: res.get(key) for key in res.keys()}
         if self.results:
             self.log('Read {}'.format(', '.join(sorted(self.results))))
 
@@ -528,7 +528,7 @@ class GPAW(Calculator):
         # Verify that keys are consistent with default ones.
         for key in kwargs:
             if key != 'txt' and key not in self.default_parameters:
-                raise TypeError('Unknown GPAW parameter: {}'.format(key))
+                raise TypeError(f'Unknown GPAW parameter: {key}')
 
             if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
@@ -558,7 +558,7 @@ class GPAW(Calculator):
                 if isinstance(dct, dict) and None in dct:
                     dct['default'] = dct.pop(None)
                     warnings.warn(
-                        'Please use {key}={dct}'.format(key=key, dct=dct),
+                        f'Please use {key}={dct}',
                         DeprecatedParameterWarning)
 
         if not changed_parameters:
@@ -762,7 +762,7 @@ class GPAW(Calculator):
 
             if spinpol:
                 self.log('Spin-polarized calculation.')
-                self.log('Magnetic moment: {:.6f}\n'.format(magmom_av.sum()))
+                self.log(f'Magnetic moment: {magmom_av.sum():.6f}\n')
             else:
                 self.log('Spin-paired calculation\n')
         else:
@@ -829,7 +829,7 @@ class GPAW(Calculator):
             # Number of bound partial waves:
             nbandsmax = sum(setup.get_default_nbands()
                             for setup in self.setups)
-            nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+            nbands = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
             if nbands > nbandsmax:
                 nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:

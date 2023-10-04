@@ -55,42 +55,42 @@ class ProgressBar:
             bar = '-' * (n - 1) + self.symbols[int(t % len(self.symbols))]
             p(('\r{0} / {1} ({2:.0f}%) |{3:' + str(N) + '}| ')
               .format(t_dt, est, x * 100, bar), end='')
-            p(' {0:.0f} MB/core'.format(maxrss() / 1024**2), end='')
+            p(f' {maxrss() / 1024**2:.0f} MB/core', end='')
             if x == 1:
                 p()
                 self.done = True
             self.fd.flush()
         elif self.nobar:
             if self.n is None:
-                p(('Started: {0:.0f} MB/core')
+                p(('Started: {:.0f} MB/core')
                   .format(maxrss() / 1024**2))
                 self.n = 0
             if n > self.n:
-                p(('{0} of {1} ({2:.0f}%) {3:.0f} MB/core')
+                p(('{} of {} ({:.0f}%) {:.0f} MB/core')
                   .format(t_dt, est, x * 100, maxrss() / 1024**2))
                 self.fd.flush()
                 self.n = n
             if x == 1:
-                p('Finished in {0}'.format(t_dt))
+                p(f'Finished in {t_dt}')
                 self.fd.flush()
                 self.done = True
         else:
             if self.n is None:
-                p('{0}s |'.format(t / x), end='')
+                p(f'{t / x}s |', end='')
                 self.n = 0
             if n > self.n:
                 p('-' * (n - self.n), end='')
                 self.fd.flush()
                 self.n = n
             if x == 1:
-                p('| Time: {0:.3f}s'.format(t))
+                p(f'| Time: {t:.3f}s')
                 self.fd.flush()
                 self.done = True
 
     def format_time(self, seconds):
         m, s = divmod(seconds, 60)
         h, m = divmod(m, 60)
-        return '{0:.0f}h{1:.0f}m{2:.0f}s'.format(h, m, s)
+        return f'{h:.0f}h{m:.0f}m{s:.0f}s'
 
     def finish(self):
         self.update(1)

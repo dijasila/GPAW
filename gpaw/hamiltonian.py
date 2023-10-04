@@ -115,18 +115,18 @@ class Hamiltonian:
 
     def __str__(self):
         s = 'Hamiltonian:\n'
-        s += ('  XC and Coulomb potentials evaluated on a {0}*{1}*{2} grid\n'
+        s += ('  XC and Coulomb potentials evaluated on a {}*{}*{} grid\n'
               .format(*self.finegd.N_c))
         s += '  Using the %s Exchange-Correlation functional\n' % self.xc.name
         # We would get the description of the XC functional here,
         # except the thing has probably not been fully initialized yet.
         if self.vext is not None:
-            s += '  External potential:\n    {0}\n'.format(self.vext)
+            s += f'  External potential:\n    {self.vext}\n'
         return s
 
     def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
-            '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
+            f'(reference = {self.setups.Eref * Ha:.6f})\n')
 
         energies = [('Kinetic:      ', self.e_kinetic),
                     ('Potential:    ', self.e_coulomb),

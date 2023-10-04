@@ -202,13 +202,15 @@ basis, thus the properties of the introduction are not fulfilled.
 This PDOS can however be used as a qualitative measure of the local
 character of the DOS.
 
-An example of how to obtain and plot the *d* band on atom number ``0`` of Au, is shown below::
-
-Atomic Orbital PDOS (see :download:`atomic_orbital_gs.py` and
+An example of how to obtain and plot the *d* band on atom number ``0`` of Au,
+is shown below (see :download:`atomic_orbital_gs.py` and
 :download:`atomic_orbital_pdos.py`):
 
+.. literalinclude:: atomic_orbital_gs.py
 .. literalinclude:: atomic_orbital_pdos.py
+   :start-after: web-page
 
+.. image:: ag-ddos.png
 
 Warning: You should always plot the PDOS before using the calculated
 center and width to check that it is sensible. The very localized

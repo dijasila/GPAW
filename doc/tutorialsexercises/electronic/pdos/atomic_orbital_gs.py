@@ -2,12 +2,8 @@ from ase.build import bulk
 from gpaw import GPAW
 
 atoms = bulk('Au')
-
-k = 4
-calc = GPAW(mode='pw',
-            kpts=(k, k, k))
-
-atoms.calc = calc
-
+k = 8
+atoms.calc = GPAW(mode='pw',
+                  kpts=(k, k, k))
 atoms.get_potential_energy()
-calc.write('au.gpw', mode='all')
+atoms.calc.write('au.gpw')
