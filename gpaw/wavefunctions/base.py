@@ -435,7 +435,7 @@ class WaveFunctions:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
-        homo = self.world.max(homo)
+        homo = self.world.max_scalar(homo)
 
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
@@ -444,7 +444,7 @@ class WaveFunctions:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)
-            lumo = self.world.min(lumo)
+            lumo = self.world.min_scalar(lumo)
 
         return np.array([homo, lumo])
 

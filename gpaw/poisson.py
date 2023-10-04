@@ -462,7 +462,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
         # Set the average potential to zero in periodic systems
         if (self.gd.pbc_c).all():
-            phi_ave = self.gd.comm.sum(np.sum(phi.ravel()))
+            phi_ave = self.gd.comm.sum_scalar(np.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= np.prod(N_c)
             phi -= phi_ave
@@ -499,8 +499,8 @@ class FDPoissonSolver(BasePoissonSolver):
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                            residual.ravel())) * self.gd.dv
+            error = self.gd.comm.sum_scalar(
+                np.dot(residual.ravel(), residual.ravel())) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())

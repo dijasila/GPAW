@@ -123,8 +123,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float, complex)):
-            warnings.warn('Please use sum_scalar(...)')
-            return self.comm.sum(a, root)
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
+            return self.comm.sum_scalar(a, root)
         else:
             # assert a.ndim != 0
             tc = a.dtype
@@ -186,8 +186,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            warnings.warn('Please use max_scalar(...)')
-            return self.comm.max(a, root)
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
+            return self.comm.max_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
@@ -219,8 +219,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            warnings.warn('Please use min_scalar(...)')
-            return self.comm.min(a, root)
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
+            return self.comm.min_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
@@ -644,7 +644,7 @@ class SerialCommunicator:
 
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
-            warnings.warn('Please use sum_scalar(...)')
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
             return array
 
     def sum_scalar(self, a, root=-1):
@@ -655,7 +655,7 @@ class SerialCommunicator:
 
     def min(self, value, root=-1):
         if isinstance(value, (int, float, complex)):
-            warnings.warn('Please use min_scalar(...)')
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
             return value
 
     def min_scalar(self, value, root=-1):
@@ -663,7 +663,7 @@ class SerialCommunicator:
 
     def max(self, value, root=-1):
         if isinstance(value, (int, float, complex)):
-            warnings.warn('Please use max_scalar(...)')
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
             return value
 
     def max_scalar(self, value, root=-1):

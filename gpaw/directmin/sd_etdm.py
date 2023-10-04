@@ -689,7 +689,7 @@ def dot_all_k_and_b(x1, x2, wfs):
     dot_pr_x1x2 = 0.0
     for k in x1.keys():
         dot_pr_x1x2 += np.dot(x1[k].conj(), x2[k]).real
-    dot_pr_x1x2 = wfs.kd.comm.sum(dot_pr_x1x2)
+    dot_pr_x1x2 = wfs.kd.comm.sum_scalar(dot_pr_x1x2)
     return dot_pr_x1x2
 
 
