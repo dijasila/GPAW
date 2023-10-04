@@ -383,8 +383,8 @@ class ASECalculator:
         if isinstance(vHt_x, UGArray):
             return vHt_x.gather(broadcast=True).to_pbc_grid().data * Ha
 
-        return vHt_x.ifft(
-            grid=self.calculation.pot_calc.fine_grid).data * Ha
+        grid = self.calculation.pot_calc.fine_grid
+        return vHt_x.ifft(grid=grid).gather(broadcast=True).data * Ha
 
     def get_atomic_electrostatic_potentials(self):
         return self.calculation.electrostatic_potential().atomic_potentials()
