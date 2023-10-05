@@ -241,7 +241,7 @@ def _make_nlodata(gs,
         E_skn *= Ha
 
         w_sk = np.array([ibzwfs.ibz.weight_k for s1 in spins])
-        bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
+        bz_vol = np.abs(np.linalg.det(2 * np.pi * gs.grid.icell))
         w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
