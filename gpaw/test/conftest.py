@@ -836,6 +836,10 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
     def sic_pw_spinpol(self):
         return self._sic_pw(spinpol=True)
 
