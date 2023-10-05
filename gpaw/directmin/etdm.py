@@ -479,8 +479,8 @@ class ETDM:
                     self.constraints[k])
 
                 self.error += error
-            self.error = wfs.kd.comm.sum(self.error)
-            self.e_sic = wfs.kd.comm.sum(self.e_sic)
+            self.error = wfs.kd.comm.sum_scalar(self.error)
+            self.e_sic = wfs.kd.comm.sum_scalar(self.e_sic)
 
         self.eg_count += 1
 
@@ -538,7 +538,7 @@ class ETDM:
             der_phi += g_vec_u[k].conj() @ p_mat_u[k]
 
         der_phi = der_phi.real
-        der_phi = wfs.kd.comm.sum(der_phi)
+        der_phi = wfs.kd.comm.sum_scalar(der_phi)
 
         return phi, der_phi, g_vec_u
 
