@@ -49,7 +49,7 @@ class ModelInteraction:
         In this implementation we compute W_n1,n2;n3,n4(R=0) efficiently
         by expressing it in terms of the reduced Wannier density matrices
 
-        A_{n1,n2,q} = \sum_{k} rhowan^{n1,k1}_{n2, k-q}
+        A_{n1,n2,q} = \sum_{k} rhowan^{n1,k}_{n2, k-q}
 
         where the Wannier density matrix is calculated from the usual density
         matrix rho^{m1,k}_{m2 k-q} = < psi_{m1,k} | e^{i(q+G)r} | psi_{m2, k-q} >
