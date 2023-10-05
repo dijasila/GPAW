@@ -836,10 +836,10 @@ class CuPyDistribution(MatrixDistribution):
                         # Optimize this?
                         cp.cublas.gemm('N', 'H',
                                        a.data, b.data, c.data,
-                                       0.5 * alpha, beta)
-                        cp.cublas.gemm('N', 'H',
-                                       b.data, a.data, c.data,
-                                       0.5 * alpha, 1.0)
+                                       alpha, beta)
+                        # cp.cublas.gemm('N', 'H',
+                        #                b.data, a.data, c.data,
+                        #                0.5 * alpha, 1.0)
             else:
                 1 / 0
                 assert opa == 'C' and opb == 'N'
