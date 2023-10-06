@@ -60,6 +60,7 @@ class PWFDWaveFunctions(WaveFunctions):
     def from_wfs(cls,
                  wfs: PWFDWaveFunctions,
                  psit_nX: XArray,
+                 fracpos_ac=None,
                  atomdist=None) -> PWFDWaveFunctions:
         return cls(
             psit_nX,
@@ -67,7 +68,7 @@ class PWFDWaveFunctions(WaveFunctions):
             q=wfs.q,
             k=wfs.k,
             setups=wfs.setups,
-            fracpos_ac=wfs.fracpos_ac,
+            fracpos_ac=wfs.fracpos_ac if fracpos_ac is None else fracpos_ac,
             atomdist=atomdist or wfs.atomdist,
             weight=wfs.weight,
             ncomponents=wfs.ncomponents,
@@ -506,4 +507,5 @@ class PWFDWaveFunctions(WaveFunctions):
         self._P_ani = None
         self._pt_aiX = None
 
-        return PWFDWaveFunctions.from_wfs(self, psit_nX)
+        return PWFDWaveFunctions.from_wfs(self, psit_nX,
+                                          fracpos_ac=fracpos_ac)
