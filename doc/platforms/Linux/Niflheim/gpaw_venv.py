@@ -197,14 +197,14 @@ def main():
     if args.toolchain == 'intel' and not args.piponly:
         # Temporarily not possible!
         print("""
-ERROR: 
+ERROR:
 Currently the intel/2023a toolchain does not contain pre-built numpy
 and scipy modules.  You can still use the Intel toolchain but need to
 specify the --piponly option as well, to install numpy and scipy with
 pip.  This will reduce the performance gain from util Intel compilers.
 """)
         exit(1)
-    
+
     module_cmds = module_cmds_all.format(**toolchains[args.toolchain])
     if not args.piponly:
         module_cmds += module_cmds_easybuild.format(**toolchains[args.toolchain])
@@ -232,7 +232,7 @@ pip.  This will reduce the performance gain from util Intel compilers.
             pythonroot = ebrootdir
         assert ebrootdir, f'Environment variable {ebrootvar} appears to be unset.'
         fix_installed_scripts(venvdir=venv, rootdir=ebrootdir, pythonroot=pythonroot)
-            
+
     packages = ['myqueue',
                 'graphviz',
                 'qeh',
@@ -253,7 +253,8 @@ pip.  This will reduce the performance gain from util Intel compilers.
     run(f'. {activate} && pip install -q -e ase/')
 
     if args.dftd3:
-        run(' && '.join(dftd3.format(venv=venv).splitlines()))
+        run(' && '.join(dftd3.format(venv=venv,
+                                     nifllogin=nifllogin).splitlines()))
 
     # Compile ase-ext C-extension on old thul so that it works on
     # newer architectures
