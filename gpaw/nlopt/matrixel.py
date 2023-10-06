@@ -28,8 +28,8 @@ class WaveFunctionAdapter:
         self.ndens = density.ndensities
         if self.collinear:
             self.ns = self.ndens
-        elif not gs.collinear:
-            ns = 2
+        elif not self.collinear:
+            self.ns = 2
 
         wfs = calc.wfs
         self.gd = wfs.gd
