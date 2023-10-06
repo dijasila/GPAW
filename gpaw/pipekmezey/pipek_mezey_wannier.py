@@ -99,7 +99,7 @@ class PipekMezey:
     def __init__(self, wfs=None, calc=None,
                  method='W', penalty=2.0, spin=0,
                  mu=None, dtype=None, seed=None):
-        
+
         assert wfs or calc is not None
 
         if calc is not None:
@@ -111,11 +111,11 @@ class PipekMezey:
             self.mode = self.wfs.mode
         else:
             self.mode = None
-        
+
         self.method = method  # Charge partitioning scheme
         self.penalty = abs(penalty)  # penalty exponent
         self.mu = mu  # WF variance (if 'H')
-        
+
         self.gd = self.wfs.gd
         # Allow complex rotations
         if dtype is not None:
@@ -153,9 +153,9 @@ class PipekMezey:
 
         # kpts and dirs
         self.k_kc = self.wfs.kd.bzk_kc
-        
+
         assert len(self.wfs.kd.ibzk_kc) == len(self.k_kc)
-        
+
         self.kgd = get_monkhorst_pack_size_and_offset(self.k_kc)[0]
         self.k_kc *= -1  # Bloch phase sign conv. GPAW
 
@@ -197,7 +197,7 @@ class PipekMezey:
                                len(self.wfs.kpt_u))
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
-                
+
                 if self.wfs.mode == 'pw':
                     cmo = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
                     cmo1 = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)

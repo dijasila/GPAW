@@ -3,7 +3,7 @@
     Find the set of maximally localized Wannier functions
     using the spread functional of Marzari and Vanderbilt
     (PRB 56, 1997 page 12847).
-    
+
     this code is as in ASE but modified to use it with gpaw's wfs.
 """
 
@@ -43,7 +43,7 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
     fvalue = fvalueold + 10
     count = 0
     V = np.zeros(func.get_gradients().shape, dtype=complex)
-         
+
     while abs((fvalue - fvalueold) / fvalue) > tolerance:
         fvalueold = fvalue
         dF = func.get_gradients()
@@ -51,12 +51,12 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
         V += step * dF
         func.step(V, **kwargs)
         fvalue = func.get_function_value()
-         
+
         if fvalue < fvalueold:
             step *= 0.5
         count += 1
         func.niter = count
-         
+
         if verbose:
             parprint('MDmin: iter=%s, step=%s, value=%s'
                      % (count, step, fvalue))

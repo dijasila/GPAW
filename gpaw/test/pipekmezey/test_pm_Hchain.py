@@ -28,7 +28,7 @@ def test_pipekmezey_chain(in_tmp_dir):
                 symmetry={'point_group': False,
                           'time_reversal': False},
                 parallel={'domain': mpi.world.size})
-    
+
     calc.atoms = atoms
     calc.calculate()
 

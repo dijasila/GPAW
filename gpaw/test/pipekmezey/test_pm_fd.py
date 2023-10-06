@@ -17,7 +17,7 @@ def test_pipekmezey_fd(in_tmp_dir):
                 h=0.24,
                 convergence={'density': 1e-4,
                              'eigenstates': 1e-4})
-    
+
     calc.atoms = atoms
     calc.calculate()
 

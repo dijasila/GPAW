@@ -18,7 +18,7 @@ def test_pipekmezey_spin(in_tmp_dir):
                 convergence={'density': 1e-4,
                              'eigenstates': 1e-4},
                 hund=True)
-    
+
     calc.atoms = atoms
     calc.calculate()
 
