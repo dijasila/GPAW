@@ -155,7 +155,7 @@ of exponential transformation direct minimization (ETDM)
 [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ described in :ref:`directmin`.
 This method uses the exponential transformation and efficient quasi-Newton
 algorithms to find stationary points of the energy in the space of unitary
-matrices. Currently, DO can be performed only in LCAO mode.
+matrices.
 
 For excited-state calculations, the recommended quasi-Newton
 algorithm is a limited-memory symmetric rank-one (L-SR1) method

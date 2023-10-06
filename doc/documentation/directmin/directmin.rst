@@ -28,9 +28,9 @@ Example
 
 .. literalinclude:: h2o_pw.py
 
-If you are interested in convergence of unoccupied states too then set:
+If you want to converge the unoccupied orbitals too then set:
 
-* ``convergelumo=True``.
+* ``converge_unocc=True``.
 
 LCAO mode
 ----------
@@ -90,13 +90,13 @@ to specify the following in the calculator:
 Here is an example of how to run a calculation with direct minimization
 in LCAO:
 
-.. literalinclude:: h2o.py
+.. literalinclude:: h2o_lcao.py
 
 As one can see, it is possible to specify the amount of memory used in
 the L-BFGS algorithm. The larger the memory, the fewer iterations required to reach convergence.
 Default value is 3. One cannot use a memory larger than the number of iterations after which
 the reference orbitals are updated to the canonical orbitals (specified by the keyword ``update_ref_orbs_counter``
-in ``ETDM``, default value is 20).
+in ``LCAOETDM``, default value is 20).
 
 **Important:** The exponential matrix is calculated here using
 the SciPy function *expm*. In order to obtain good performance,
@@ -110,8 +110,8 @@ exponential should be used (see also `Implementation Details`_):
 
 .. code-block:: python
 
-    calc = GPAW(eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                 representation='u-invar'),
+    calc = GPAW(eigensolver=LCAOETDM(matrix_exp='egdecomp-u-invar',
+                                     representation='u-invar'),
                 ...)
 
 .. _Performance:
@@ -235,8 +235,8 @@ the second algorithm do the following:
 
 .. code-block:: python
 
-    from gpaw.directmin.etdm import ETDM
-    calc = GPAW(eigensolver=ETDM(matrix_exp='egdecomp'),
+    from gpaw.directmin.etdm_lcao import LCAOETDM
+    calc = GPAW(eigensolver=LCAOETDM(matrix_exp='egdecomp'),
                 ...)
 
 To use the third method, first ensure that your functional
@@ -244,9 +244,9 @@ is unitary invariant and then do the following:
 
 .. code-block:: python
 
-    from gpaw.directmin.etdm import ETDM
-    calc = GPAW(eigensolver=ETDM(matrix_exp='egdecomp-u-invar',
-                                 representation='u-invar'),
+    from gpaw.directmin.etdm_lcao import LCAOETDM
+    calc = GPAW(eigensolver=LCAOETDM(matrix_exp='egdecomp-u-invar',
+                                     representation='u-invar'),
                 ...)
 
 The last option is the most efficient but it is valid only for a unitary invariant functionals
