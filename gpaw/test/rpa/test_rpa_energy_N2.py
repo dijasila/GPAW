@@ -1,5 +1,6 @@
 import pytest
 from gpaw import GPAW
+from gpaw.mpi import serial_comm
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
@@ -9,7 +10,7 @@ from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 def test_rpa_rpa_energy_N2(in_tmp_dir, gpw_files, scalapack):
     ecut = 25
 
-    N2_calc = GPAW(gpw_files['n2_pw'])
+    N2_calc = GPAW(gpw_files['n2_pw'], communicator=serial_comm)
 
     E_n2_pbe = N2_calc.get_potential_energy()
     E_n2_hf = nsc_energy(N2_calc, 'EXX')
@@ -17,7 +18,7 @@ def test_rpa_rpa_energy_N2(in_tmp_dir, gpw_files, scalapack):
     rpa = RPACorrelation(N2_calc, nfrequencies=8, ecut=[ecut])
     E_n2_rpa = rpa.calculate()
 
-    N_calc = GPAW(gpw_files['n_pw'])
+    N_calc = GPAW(gpw_files['n_pw'], communicator=serial_comm)
     E_n_pbe = N_calc.get_potential_energy()
     E_n_hf = nsc_energy(N_calc, 'EXX')
 
