@@ -17,6 +17,7 @@ from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
+from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
 
@@ -109,8 +110,11 @@ class _PoissonSolver:
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, *, remove_moment=None, use_charge_center=False,
-                 metallic_electrodes=False, eps=None):
+    def __init__(self, *, remove_moment=None,
+                 use_charge_center=False,
+                 metallic_electrodes=False,
+                 eps=None,
+                 use_charged_periodic_corrections=False):
 
         if eps is not None:
             warnings.warn(
@@ -135,6 +139,10 @@ class BasePoissonSolver(_PoissonSolver):
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
+        self.use_charged_periodic_corrections = \
+            use_charged_periodic_corrections
+        self.charged_periodic_correction = None
+        self.eps = eps
         self.metallic_electrodes = metallic_electrodes
         assert self.metallic_electrodes in [False, None, 'single', 'both']
 
@@ -144,6 +152,9 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.use_charged_periodic_corrections:
+            d['use_charged_periodic_corrections'] = \
+                self.use_charged_periodic_corrections
         if self.metallic_electrodes:
             d['metallic_electrodes'] = self.metallic_electrodes
 
@@ -158,6 +169,9 @@ class BasePoissonSolver(_PoissonSolver):
         if self.use_charge_center:
             lines.append('    Compensate for charged system using center of '
                          'majority charge')
+        if self.use_charged_periodic_corrections:
+            lines.append('    Subtract potential of homogeneous background')
+
         return '\n'.join(lines)
 
     def solve(self, phi, rho, charge=None, maxcharge=1e-6,
@@ -202,6 +216,13 @@ class BasePoissonSolver(_PoissonSolver):
                 phi[:] = 0.0
 
             iters = self.solve_neutral(phi, rho - background, timer=timer)
+
+            if self.use_charged_periodic_corrections:
+                if self.charged_periodic_correction is None:
+                    self.charged_periodic_correction = madelung(
+                        self.gd.cell_cv)
+                phi += actual_charge * self.charged_periodic_correction
+
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
@@ -295,11 +316,13 @@ class BasePoissonSolver(_PoissonSolver):
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
-                 metallic_electrodes=False):
-        super().__init__(
+                 metallic_electrodes=False,
+                 use_charged_periodic_corrections=False):
+        super(FDPoissonSolver, self).__init__(
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
-            metallic_electrodes=metallic_electrodes)
+            metallic_electrodes=metallic_electrodes,
+            use_charged_periodic_corrections=use_charged_periodic_corrections)
         self.eps = eps
         self.relax = relax
         self.nn = nn
