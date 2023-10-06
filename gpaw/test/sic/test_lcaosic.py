@@ -6,6 +6,7 @@ from ase import Atoms
 import numpy as np
 
 
+@pytest.mark.sic
 def test_lcaosic(in_tmp_dir):
     """
     Test Perdew-Zunger Self-Interaction
