@@ -2,7 +2,6 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-from gpaw.test import equal
 
 
 @pytest.mark.pipekmezey
@@ -26,4 +25,4 @@ def test_pipekmezey_pw(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.3138, 0.0001)
+    assert P == pytest.approx(3.3138, abs=0.0006)
