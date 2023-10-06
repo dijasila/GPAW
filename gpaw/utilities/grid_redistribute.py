@@ -633,13 +633,13 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
             print('RECV FORTH')
             print(recvbuf_master)
             print('MAXERR', maxerr)
-    maxerr = gd.comm.sum(maxerr)
+    maxerr = gd.comm.sum_scalar(maxerr)
     assert maxerr == 0.0, 'bad values after distribute "forth"'
 
     recvbuf2 = redistribute(gd, gd2, recvbuf, distribute_dir, reduce_dir,
                             operation='back')
 
-    final_err = gd.comm.sum(np.abs(src - recvbuf2).max())
+    final_err = gd.comm.sum_scalar(np.abs(src - recvbuf2).max())
     assert final_err == 0.0, 'bad values after distribute "back"'
 
 
