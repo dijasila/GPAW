@@ -70,7 +70,6 @@ class KSLCAO:
 
     def get_ham_in_mol_orb_representation(self, h_mm, c_nm, f_n,
                                           representation, full_ham):
-
         """
         H = (C_nM @ H_MM @ C_nM.T.conj()).conj()
         for sparse and u_inv representation we calculate
@@ -117,7 +116,6 @@ class KSLCAO:
         return error
 
     def get_exact_gradient_matrix(self, h_ij, evec, evals):
-
         """
         Given eigendecomposition of A
         calculate exact gradient matrix

@@ -116,7 +116,7 @@ class WaveFunctions:
         except AttributeError:
             pass
 
-        return self.kptband_comm.sum(e_band)
+        return self.kptband_comm.sum_scalar(e_band)
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
@@ -445,7 +445,7 @@ class WaveFunctions:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
-        homo = self.world.max(homo)
+        homo = self.world.max_scalar(homo)
 
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
@@ -454,7 +454,7 @@ class WaveFunctions:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)
-            lumo = self.world.min(lumo)
+            lumo = self.world.min_scalar(lumo)
 
         return np.array([homo, lumo])
 

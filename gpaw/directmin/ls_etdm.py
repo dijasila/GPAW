@@ -37,11 +37,11 @@ def get_slength(p, wfs, mode=None):
         for k in p:
             for val in p[k]:
                 ret += np.real(wfs.integrate(val, val, global_integral=False))
-        ret = wfs.world.sum(ret)
+        ret = wfs.world.sum_scalar(ret)
         return np.sqrt(ret)
 
 
-class MaxStep(object):
+class MaxStep:
 
     def __init__(self, evaluate_phi_and_der_phi, max_step=0.2):
         """
@@ -62,7 +62,7 @@ class MaxStep(object):
         kd = kwargs['kpdescr']
 
         slength = get_slength(p, wfs, mode)
-        slength = kd.comm.max(slength)
+        slength = kd.comm.max_scalar(slength)
 
         a_star = self.max_step / slength if slength > self.max_step else 1.0
 
@@ -116,7 +116,7 @@ class StrongWolfeConditions(MaxStep):
         might not be needed
         """
 
-        super(StrongWolfeConditions, self).__init__(
+        super().__init__(
             evaluate_phi_and_der_phi)
 
         self.max_iter = max_iter

@@ -296,7 +296,7 @@ class Derivatives:
         return num_hes
 
 
-class Davidson(object):
+class Davidson:
     """
     Finite difference generalized Davidson partial diagonalizer to obtain a
     number of the eigenpairs with the smallest eigenvalues.

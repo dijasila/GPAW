@@ -85,7 +85,7 @@ def FDPoissonSolverWrapper(dipolelayer=None, **kwargs):
     return FDPoissonSolver(**kwargs)
 
 
-class _PoissonSolver(object):
+class _PoissonSolver:
     """Abstract PoissonSolver class
 
        This class defines an interface and a common ancestor
@@ -342,7 +342,7 @@ class FDPoissonSolver(BasePoissonSolver):
         self._initialized = False
 
     def todict(self):
-        d = super(FDPoissonSolver, self).todict()
+        d = super().todict()
         d.update({'name': 'fd', 'nn': self.nn, 'relax': self.relax,
                   'eps': self.eps})
         return d
@@ -439,7 +439,7 @@ class FDPoissonSolver(BasePoissonSolver):
         lines.extend(['    Stencil: %s' % self.operators[0].description,
                       '    Max iterations: %d' % self.maxiter])
         lines.extend(['    Tolerance: %e' % self.eps])
-        lines.append(super(FDPoissonSolver, self).get_description())
+        lines.append(super().get_description())
         return '\n'.join(lines)
 
     def _init(self):
@@ -485,7 +485,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
         # Set the average potential to zero in periodic systems
         if (self.gd.pbc_c).all():
-            phi_ave = self.gd.comm.sum(np.sum(phi.ravel()))
+            phi_ave = self.gd.comm.sum_scalar(np.sum(phi.ravel()))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= np.prod(N_c)
             phi -= phi_ave
@@ -522,8 +522,8 @@ class FDPoissonSolver(BasePoissonSolver):
         if level == 0:
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
-            error = self.gd.comm.sum(np.dot(residual.ravel(),
-                                            residual.ravel())) * self.gd.dv
+            error = self.gd.comm.sum_scalar(
+                np.dot(residual.ravel(), residual.ravel())) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
@@ -578,7 +578,7 @@ class FFTPoissonSolver(BasePoissonSolver):
     nn = 999
 
     def __init__(self):
-        super(FFTPoissonSolver, self).__init__()
+        super().__init__()
         self._initialized = False
 
     def get_description(self):
@@ -666,7 +666,7 @@ use_scipy_transforms = True
 
 
 def rfst2(A_g, axes=[0, 1]):
-    all = set([0, 1, 2])
+    all = {0, 1, 2}
     third = [all.difference(set(axes)).pop()]
 
     if use_scipy_transforms:
@@ -697,7 +697,7 @@ def irfst2(A_g, axes=[0, 1]):
         # Y /= 211200
         return Y
 
-    all = set([0, 1, 2])
+    all = {0, 1, 2}
     third = [all.difference(set(axes)).pop()]
     A_g = np.transpose(A_g, axes + third)
     x, y, z = A_g.shape
@@ -1002,7 +1002,7 @@ class FastPoissonSolver(BasePoissonSolver):
         return 1  # Non-iterative method, return 1 iteration
 
     def todict(self):
-        d = super(FastPoissonSolver, self).todict()
+        d = super().todict()
         d.update({'name': 'fast', 'nn': self.nn})
         return d
 

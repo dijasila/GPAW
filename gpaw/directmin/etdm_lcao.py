@@ -667,7 +667,7 @@ class LCAOETDM:
             for k in g_vec_u:
                 der_phi_2i[0] += g_vec_u[k].conj() @ p_vec_u[k]
             der_phi_2i[0] = der_phi_2i[0].real
-            der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
+            der_phi_2i[0] = wfs.kd.comm.sum_scalar(der_phi_2i[0])
 
             alpha, phi_alpha, der_phi_alpha, g_vec_u = \
                 self.line_search.step_length_update(
@@ -753,8 +753,8 @@ class LCAOETDM:
                         += self.dm_helper.func.e_sic_by_orbitals[k].sum()
 
                 self.error += error
-            self.error = wfs.kd.comm.sum(self.error)
-            self.e_sic = wfs.kd.comm.sum(self.e_sic)
+            self.error = wfs.kd.comm.sum_scalar(self.error)
+            self.e_sic = wfs.kd.comm.sum_scalar(self.e_sic)
 
         self.eg_count += 1
 
@@ -812,7 +812,7 @@ class LCAOETDM:
             der_phi += g_vec_u[k].conj() @ p_mat_u[k]
 
         der_phi = der_phi.real
-        der_phi = wfs.kd.comm.sum(der_phi)
+        der_phi = wfs.kd.comm.sum_scalar(der_phi)
 
         return phi, der_phi, g_vec_u
 
