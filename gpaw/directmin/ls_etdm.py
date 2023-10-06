@@ -27,7 +27,7 @@ def is_descent_and_approximate_wolfe_conditions(
     return descent and awc
 
 
-class MaxStep(object):
+class MaxStep:
 
     def __init__(self, evaluate_phi_and_der_phi, max_step=0.2):
         """
@@ -54,7 +54,7 @@ class MaxStep(object):
             if tmp > slength:
                 slength = tmp
 
-        slength = kd.comm.max(slength)
+        slength = kd.comm.max_scalar(slength)
         if slength > self.max_step:
             a_star = self.max_step / slength
         else:
@@ -78,7 +78,7 @@ class Parabola(MaxStep):
         """
         :param evaluate_phi_and_der_phi:
         """
-        super(Parabola, self).__init__(evaluate_phi_and_der_phi)
+        super().__init__(evaluate_phi_and_der_phi)
         self.name = 'parabola'
 
     def todict(self):
@@ -153,7 +153,7 @@ class StrongWolfeConditions(MaxStep):
 
         """
 
-        super(StrongWolfeConditions, self).__init__(
+        super().__init__(
             evaluate_phi_and_der_phi)
 
         self.max_iter = max_iter

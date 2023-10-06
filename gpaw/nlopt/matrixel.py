@@ -6,16 +6,19 @@ from ase.units import Ha
 from ase.utils.timing import Timer
 
 from gpaw.fd_operators import Gradient
-from gpaw.mpi import world, serial_comm
-from gpaw.new.ase_interface import GPAW
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.nlopt.basic import NLOData
 from gpaw.utilities.progressbar import ProgressBar
 
 
 class WaveFunctionAdapter:
-    def __init__(self, calc):
+    def __init__(self, calc, comm):
+        self.comm = comm  # This will eventually just become kptcomm from calc
+
         # We don't know why this is needed
         if calc.parameters.mode['name'] == 'lcao':
             calc.initialize_positions(calc.atoms)
+
         self.ibzk_kc = calc.get_ibz_k_points()
         self.nb_full = calc.get_number_of_bands()
 
@@ -77,11 +80,12 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     nk = np.shape(gs.ibzk_kc)[0]
 
     # Parallelisation and memory estimate
-    rank = world.rank
-    size = world.size
+    comm = gs.comm
+    rank = comm.rank
+    size = comm.size
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
-    parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
+    parprint(f'At least {est_mem:.2f} MB of memory is required.')
 
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
@@ -161,7 +165,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
         if rank == 0:
             recv_buf = np.empty((size, nkcore, 3, nb, nb),
                                 dtype=complex)
-        world.gather(p_kvnn, 0, recv_buf)
+        gs.comm.gather(p_kvnn, 0, recv_buf)
         if rank == 0:
             p_kvnn2 = np.zeros((nk, 3, nb, nb), dtype=complex)
             for ii in range(size):
@@ -175,11 +179,11 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     return p_kvnn2
 
 
-def make_nlodata(gs_name: str = 'gs.gpw',
-                 out_name: str = 'mml.npz',
+def make_nlodata(gs_name: str,
+                 comm: MPIComm,
                  spin: str = 'all',
                  ni: int = 0,
-                 nf: int = 0) -> None:
+                 nf: int = 0) -> NLOData:
 
     """Get all required NLO data and store it in a file.
 
@@ -188,11 +192,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
     Parameters:
 
     gs_name:
-        Ground state file name
-    out_name:
-        Output filename
+        Ground state filename.
+    comm:
+        Communicator for parallelisation.
     spin:
-        Which spin channel ('all', 's0' , 's1')
+        Spin channels to include ('all', 's0' , 's1').
     ni:
         First band to compute the mml.
     nf:
@@ -208,7 +212,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
     assert not calc.symmetry.point_group, \
         'Point group symmtery should be off.'
 
-    gs = WaveFunctionAdapter(calc)
+    gs = WaveFunctionAdapter(calc, comm)
     if gs.collinear:
         ns = gs.ndens
     elif not gs.collinear:
@@ -227,15 +231,13 @@ def make_nlodata(gs_name: str = 'gs.gpw',
     if nf <= 0:
         nf += gs.nb_full
 
-    return _make_nlodata(gs=gs, out_name=out_name,
-                         spins=spins, ni=ni, nf=nf)
+    return _make_nlodata(gs=gs, spins=spins, ni=ni, nf=nf)
 
 
 def _make_nlodata(gs,
-                  out_name: str,
                   spins: list,
                   ni: int,
-                  nf: int) -> None:
+                  nf: int) -> NLOData:
 
     # Start the timer
     timer = Timer()
@@ -244,16 +246,16 @@ def _make_nlodata(gs,
     with timer('Get energies and fermi levels'):
         ibzwfs = gs.ibzwfs
         ndens = gs.ndens
-        if world.rank == 0:
-            # Get the data
-            E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
-            # Energy is returned in Ha. For now we will change
-            # it to eV avoid altering the module too much.
-            E_skn *= Ha
 
-            w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(ndens)])
-            bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
-            w_sk *= bz_vol * ibzwfs.spin_degeneracy
+        # Get the data
+        E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
+        # Energy is returned in Ha. For now we will change
+        # it to eV avoid altering the module too much.
+        E_skn *= Ha
+
+        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(ndens)])
+        bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
+        w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
@@ -264,9 +266,11 @@ def _make_nlodata(gs,
             p_skvnn.append(p_kvnn)
 
     # Save the output to the file
-    if world.rank == 0:
-        np.savez(out_name, w_sk=w_sk, f_skn=f_skn[:, :, ni:nf],
-                 E_skn=E_skn[:, :, ni:nf], p_skvnn=np.array(p_skvnn, complex))
+    return NLOData(w_sk=w_sk,
+                   f_skn=f_skn[:, :, ni:nf],
+                   E_skn=E_skn[:, :, ni:nf],
+                   p_skvnn=np.array(p_skvnn, complex),
+                   comm=gs.comm)
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
