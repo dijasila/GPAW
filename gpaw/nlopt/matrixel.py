@@ -7,45 +7,10 @@ from ase.utils.timing import Timer
 
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.basic import NLOData
+from gpaw.nlopt.adapters import CollinearGSInfo, NoncollinearGSInfo
 from gpaw.utilities.progressbar import ProgressBar
-
-
-class WaveFunctionAdapter:
-    def __init__(self, calc, comm):
-        self.comm = comm  # This will eventually just become kptcomm from calc
-
-        # We don't know why this is needed
-        if calc.parameters.mode['name'] == 'lcao':
-            calc.initialize_positions(calc.atoms)
-
-        self.ibzk_kc = calc.get_ibz_k_points()
-        self.nb_full = calc.get_number_of_bands()
-
-        state = calc.calculation.state
-        self.ibzwfs = state.ibzwfs
-
-        density = state.density
-        self.collinear = density.collinear
-        self.grid = density.nt_sR.desc.new(dtype=complex)
-        self.ndens = density.ndensities
-        if self.collinear:
-            self.ns = self.ndens
-        elif not self.collinear:
-            self.ns = 2
-
-        wfs = calc.wfs
-        self.gd = wfs.gd
-        self.nabla_aiiv = [setup.nabla_iiv for setup in wfs.setups]
-
-    def get_pseudo_wave_function(self, ni, nf, k_ind, spin):
-        psit_nX = self.ibzwfs.wfs_qs[k_ind][spin].psit_nX[ni:nf]
-        return psit_nX.ifft(grid=self.grid, periodic=True).data
-
-    def get_wave_function_projections(self, ni, nf, k_ind, spin):
-        P_ani = {a: P_ni[ni:nf] for a, P_ni in
-                 self.ibzwfs.wfs_qs[k_ind][spin].P_ani.items()}
-        return P_ani
 
 
 def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
@@ -114,6 +79,7 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
         with timer('Get wavefunctions and projections'):
             u_nR = gs.get_pseudo_wave_function(ni=ni, nf=nf,
                                                k_ind=k_ind, spin=spin)
+
             P_ani = gs.get_wave_function_projections(ni=ni, nf=nf,
                                                      k_ind=k_ind, spin=spin)
 
@@ -125,13 +91,14 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
                 for ib in range(nb):
                     nabla_v[iv](u_nR[ib], grad_nv[ib, iv], phases)
 
-            # Compute the integral
+            # Compute the integrals
             p_vnn = np.transpose(
                 gs.gd.integrate(u_nR, grad_nv), (2, 0, 1))
 
             # Add the overlap part
             M_nn = np.array([gs.gd.integrate(
                 u_nR[ib], u_nR) for ib in range(nb)])
+
             for iv in range(3):
                 p_vnn[iv] += 1j * k_v[iv] * M_nn
 
@@ -212,12 +179,12 @@ def make_nlodata(gs_name: str,
     assert not calc.symmetry.point_group, \
         'Point group symmtery should be off.'
 
-    gs = WaveFunctionAdapter(calc, comm)
-    if gs.collinear:
-        ns = gs.ndens
-    elif not gs.collinear:
-        ns = 2
+    if calc.calculation.state.density.collinear:
+        gs = CollinearGSInfo(calc, comm)
+    elif not calc.calculation.state.density.collinear:
+        gs = NoncollinearGSInfo(calc, comm)
 
+    ns = gs.ns
     if spin == 'all':
         spins = list(range(ns))
     elif spin == 's0':
@@ -245,7 +212,6 @@ def _make_nlodata(gs,
     # Get the energy and fermi levels (data is only in master)
     with timer('Get energies and fermi levels'):
         ibzwfs = gs.ibzwfs
-        ndens = gs.ndens
 
         # Get the data
         E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
@@ -253,8 +219,8 @@ def _make_nlodata(gs,
         # it to eV avoid altering the module too much.
         E_skn *= Ha
 
-        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(ndens)])
-        bz_vol = np.linalg.det(2 * np.pi * gs.grid.icell)
+        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndens)])
+        bz_vol = np.abs(np.linalg.det(2 * np.pi * gs.grid.icell))
         w_sk *= bz_vol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
@@ -264,6 +230,8 @@ def _make_nlodata(gs,
             p_kvnn = get_mml(gs=gs, spin=spin,
                              ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
+        if not gs.collinear:
+            p_skvnn = [p_skvnn[0] + p_skvnn[1]]
 
     # Save the output to the file
     return NLOData(w_sk=w_sk,
