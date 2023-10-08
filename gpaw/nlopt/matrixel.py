@@ -1,19 +1,25 @@
 from os import path
+from typing import Optional
 
-import numpy as np
 from ase.parallel import parprint
 from ase.units import Ha
 from ase.utils.timing import Timer
+import numpy as np
+from numpy.typing import NDArray
 
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.ase_interface import GPAW
+from gpaw.nlopt.adapters import GSInfo
 from gpaw.nlopt.basic import NLOData
-from gpaw.nlopt.adapters import CollinearGSInfo, NoncollinearGSInfo
 from gpaw.utilities.progressbar import ProgressBar
 
 
-def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
+def get_mml(gs: GSInfo,
+            spin: int = 0,
+            ni: Optional[int] = None,
+            nf: Optional[int] = None,
+            timer: Optional[Timer] = None) -> NDArray[np.complex128]:
     """Compute the momentum matrix elements.
 
     Input:
@@ -105,13 +111,13 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
         # The PAW corrections are added
         with timer('Add the PAW correction'):
             for ia, nabla_iiv in enumerate(gs.nabla_aiiv):
-                P0_ni = P_ani[ia]
+                P_ni = P_ani[ia]
 
                 # Loop over components
                 for iv in range(3):
                     nabla_ii = nabla_iiv[:, :, iv]
                     p_vnn[iv] += np.dot(
-                        np.dot(P0_ni.conj(), nabla_ii), P0_ni.T)
+                        np.dot(P_ni.conj(), nabla_ii), P_ni.T)
 
         # Make it momentum and store it
         p_kvnn[ik] = -1j * p_vnn
@@ -125,15 +131,16 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
         pb.finish()
 
     # Gather all data to the master
-    p_kvnn2 = []
     with timer('Gather the data to master'):
         parprint('Gathering date to the master.')
-        recv_buf = None
         if rank == 0:
             recv_buf = np.empty((size, nkcore, 3, nb, nb),
                                 dtype=complex)
+        else:
+            recv_buf = None
         gs.comm.gather(p_kvnn, 0, recv_buf)
         if rank == 0:
+            assert recv_buf is not None
             p_kvnn2 = np.zeros((nk, 3, nb, nb), dtype=complex)
             for ii in range(size):
                 k_inds = range(ii, nk, size)
@@ -143,7 +150,10 @@ def get_mml(gs, spin=0, ni=None, nf=None, timer=None):
     if rank == 0:
         timer.write()
 
-    return p_kvnn2
+    if rank == 0:
+        return p_kvnn2
+    else:
+        return np.array([], dtype=complex)
 
 
 def make_nlodata(gs_name: str,
@@ -179,9 +189,12 @@ def make_nlodata(gs_name: str,
     assert not calc.symmetry.point_group, \
         'Point group symmtery should be off.'
 
+    gs: GSInfo
     if calc.calculation.state.density.collinear:
+        from gpaw.nlopt.adapters import CollinearGSInfo
         gs = CollinearGSInfo(calc, comm)
-    elif not calc.calculation.state.density.collinear:
+    else:
+        from gpaw.nlopt.adapters import NoncollinearGSInfo
         gs = NoncollinearGSInfo(calc, comm)
 
     ns = gs.ns
@@ -201,7 +214,7 @@ def make_nlodata(gs_name: str,
     return _make_nlodata(gs=gs, spins=spins, ni=ni, nf=nf)
 
 
-def _make_nlodata(gs,
+def _make_nlodata(gs: GSInfo,
                   spins: list,
                   ni: int,
                   nf: int) -> NLOData:

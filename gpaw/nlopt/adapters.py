@@ -22,6 +22,8 @@ class GSInfo:
         self.gd = wfs.gd
         self.nabla_aiiv = [setup.nabla_iiv for setup in wfs.setups]
 
+        self.ns = None
+
     def get_pseudo_wave_function(self, ni, nf, k_ind, spin):
         raise NotImplementedError
 
