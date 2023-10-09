@@ -836,13 +836,17 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
     def sic_pw_spinpol(self):
         return self._sic_pw(spinpol=True)
 
     @gpwfile
     def na_pw(self):
         from ase.build import bulk
-        from gpaw.mpi import serial_comm
+
         blk = bulk('Na', 'bcc', a=4.23)
 
         ecut = 350
@@ -860,9 +864,6 @@ class GPWFiles:
         calc = GPAW('gs_occ_pw.gpw', txt=self.path / 'na_pw.txt',
                     parallel={'band': 1})
         calc.diagonalize_full_hamiltonian(nbands=520)
-        calc.write('gs_pw.gpw', 'all')
-
-        calc = GPAW('gs_pw.gpw', communicator=serial_comm, txt=None)
         return calc
 
     @gpwfile
@@ -1681,10 +1682,12 @@ def pytest_configure(config):
         'rpa: tests of RPA',
         'rttddft: Real-time TDDFT',
         'serial: run in serial only',
+        'sic: PZ-SIC',
         'slow: slow test',
         'soc: Spin-orbit coupling',
         'stress: Calculation of stress tensor',
-        'wannier: Wannier functions']:
+        'wannier: Wannier functions',
+        'pipekmezey : PipekMezey wannier functions']:
         config.addinivalue_line('markers', line)
 
 
