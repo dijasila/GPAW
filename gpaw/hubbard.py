@@ -52,17 +52,41 @@ class HubbardU:
             dH_sp += dH1_sp
         return e_xc, dH_sp
 
-    def calculate_new(self, setup, D_u_ii, D_d_ii):
-        dH_ii = np.zeros_like(D_u_ii)
+    def calculate_new(self, setup, D_sii):
 
+        dH_sii = np.zeros_like(D_sii)
+        ncomponents = dH_sii.shape[0]
         e_xc = 0.0
         for l, U, scale in zip(self.l, self.U, self.scale):
-            e1_xc, dH1_ii = hubbard_new(setup.l_j, setup.lq,
-                                        D_u_ii, D_d_ii,
-                                        l=l, U=U, scale=scale)
-            e_xc += np.real(e1_xc)
-            dH_ii += dH1_ii
-        return e_xc, dH_ii
+            if ncomponents == 1:
+                eU, dHU_ii = hubbard_n(D_sii[0] / 2, U=U, l=l,
+                                       l_j=setup.l_j, lq=setup.lq, scale=scale)
+                e_xc += 2 * eU
+                dH_sii[0] += 2 * dHU_ii
+
+            if ncomponents == 2:
+                eU, dHU_ii = hubbard_n(D_sii[0], U=U, l=l,
+                                       l_j=setup.l_j, lq=setup.lq, scale=scale)
+                e_xc += eU
+                dH_sii[0] += dHU_ii
+
+                eU, dHU_ii = hubbard_n(D_sii[1], U=U, l=l,
+                                       l_j=setup.l_j, lq=setup.lq, scale=scale)
+                e_xc += eU
+                dH_sii[1] += dHU_ii
+
+            if ncomponents == 4:
+                eU, dHU_ii = hubbard_n((D_sii[0] + D_sii[3]) / 2, U=U, l=l,
+                                       l_j=setup.l_j, lq=setup.lq, scale=scale)
+                e_xc += eU
+                dH_sii[0] += dHU_ii
+
+                eU, dHU_ii = hubbard_n((D_sii[0] - D_sii[3]) / 2, U=U, l=l,
+                                       l_j=setup.l_j, lq=setup.lq, scale=scale)
+                e_xc += eU
+                dH_sii[0] += dHU_ii
+
+        return e_xc, dH_sii
 
     def descriptions(self):
         for U, l, scale in zip(self.U, self.l, self.scale):
@@ -187,22 +211,48 @@ def aoom(l_j, lq,
         return A, V
 
 
-def hubbard_new(l_j, lq, D_u_ii, D_d_ii,
-                l: int, U: float, scale: bool) -> Tuple[float, ArrayLike2D]:
+def hubbard_n(D_ii,
+              U: float,
+              l: int,
+              l_j,
+              lq,
+              scale: bool) -> Tuple[float, ArrayLike2D]:
+
+    dHU_ii = np.zeros_like(D_ii)
 
     nl = np.where(np.equal(l_j, l))[0]
-    nm = 2 * l + 1
-    nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
+    nm_j = 2 * np.array(l_j) + 1
+    nm = nm_j[nl[0]]
+    if len(nl) == 2:
+        # First get q-indices for the inner products
+        q1 = nl[0] * len(l_j) - (nl[0] - 1) * nl[0] // 2  # Bounded-bounded
+        q2 = nl[1] * len(l_j) - (nl[1] - 1) * nl[1] // 2  # Unbounded-unbounded
+        q12 = q1 + nl[1] - nl[0]  # Bounded-unbounded
 
-    N_u_mm = D_u_ii[nn:nn + nm, nn:nn + nm]
-    N_d_mm = D_d_ii[nn:nn + nm, nn:nn + nm]
+        # If the Hubbard correction should be scaled, the three inner products
+        # will be divided by the inner product of the bounded partial wave.
+        if scale:
+            lq_1 = 1
+            lq_12 = lq[q12] / lq[q1]
+            lq_2 = lq[q2] / lq[q1]
+        else:
+            lq_1 = lq[q1]
+            lq_12 = lq[q12]
+            lq_2 = lq[q2]
 
-    e_xc = 0.0
-    e_xc += U / 2 * (N_u_mm - np.dot(N_u_mm, N_u_mm)).trace()
-    e_xc += U / 2 * (N_d_mm - np.dot(N_d_mm, N_d_mm)).trace()
+        # Get relevant entries of the density matrix
+        i1 = slice(nm_j[:nl[0]].sum(), nm_j[:nl[0]].sum() + nm)  # Bounded
+        i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)  # Unbounded
 
-    dH_ii = np.zeros_like(D_u_ii)
-    dH_ii[nn:nn + nm, nn:nn + nm] += U / 2 * (np.eye(nm) - 2 * N_u_mm.T)
-    dH_ii[nn:nn + nm, nn:nn + nm] += U / 2 * (np.eye(nm) - 2 * N_d_mm.T)
+        N_mm = (D_ii[i1, i1] * lq_1 + D_ii[i1, i2] * lq_12
+                + D_ii[i2, i1] * lq_12 + D_ii[i2, i2] * lq_2)
 
-    return e_xc, dH_ii
+        eU = U / 2 * (N_mm - N_mm @ N_mm).trace()
+
+        dHU = U / 2 * (np.eye(nm) - 2 * N_mm.T)
+        dHU_ii[i1, i1] += dHU
+        dHU_ii[i1, i2] += dHU
+        dHU_ii[i2, i1] += dHU
+        dHU_ii[i2, i2] += dHU
+
+    return eU, dHU_ii

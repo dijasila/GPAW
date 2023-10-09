@@ -171,23 +171,12 @@ def calculate_non_local_potential1(setup: Setup,
     dH_sp[:ndensities] = dH_p
     e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
     e_external = 0.0
-    if setup.hubbard_u is not None:
-        if ncomponents == 4:
-            D_u_ii = (D_sii[0] + D_sii[3]) / 2
-            D_d_ii = (D_sii[0] - D_sii[3]) / 2
-            
-            eU, dHU_ii = setup.hubbard_u.ncol_calculate(setup, D_u_ii, D_d_ii)
-            e_xc += eU
-        else:
-            eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
-            e_xc += eU
-            dH_sp += dHU_sp
 
     dH_sii = unpack(dH_sp)
-
     if setup.hubbard_u is not None:
-        if ncomponents == 4:
-            dH_sii[0] += dHU_ii
+        eU, dHU_sii = setup.hubbard_u.ncol_calculate(setup, D_sii)
+        e_xc += eU
+        dH_sii += dHU_sii
 
     e_kinetic -= (D_sii * dH_sii).sum().real
 
