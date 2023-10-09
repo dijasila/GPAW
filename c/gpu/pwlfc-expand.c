@@ -48,6 +48,74 @@ void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
                                       gpuDoubleComplex* P_ani_dev,
                                       gpuDoubleComplex* outP_ani_dev);
 
+void evaluate_pbe_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e,
+                                double* sigma,
+                                double* dedsigma);
+
+void evaluate_lda_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e);
+
+PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* n_obj;
+    PyObject* v_obj;
+    PyObject* e_obj; 
+    if (!PyArg_ParseTuple(args, "OOO",
+                          &n_obj, &v_obj, &e_obj))
+        return NULL;
+    int nspin = Array_DIM(n_obj, 0);
+    if ((nspin != 1) && (nspin != 2))
+    {
+        PyErr_Format(PyExc_RuntimeError, "Expected 1 or 2 spins. Got %d.", nspin);
+        return NULL;
+    }
+    int ng = 1;
+    for (int d=1; d<Array_NDIM(n_obj); d++)
+    {
+        ng *= Array_DIM(n_obj, d);
+    }
+    evaluate_lda_launch_kernel(nspin, ng, 
+                               Array_DATA(n_obj),
+                               Array_DATA(v_obj),
+                               Array_DATA(e_obj));
+    Py_RETURN_NONE;
+}
+
+PyObject* evaluate_pbe_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* n_obj;
+    PyObject* v_obj;
+    PyObject* sigma_obj;
+    PyObject* dedsigma_obj;
+    PyObject* e_obj; 
+    if (!PyArg_ParseTuple(args, "OOOOO",
+                          &n_obj, &v_obj, &e_obj, &sigma_obj, &dedsigma_obj))
+        return NULL;
+    int nspin = Array_DIM(n_obj, 0);
+    if ((nspin != 1) || (nspin != 2))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Expected 1 or 2 spins.");
+        return NULL;
+    }
+    int ng = 1;
+    for (int d=1; d<Array_NDIM(n_obj); d++)
+    {
+        ng *= Array_DIM(n_obj, d);
+    }
+    evaluate_pbe_launch_kernel(nspin, ng, 
+                               Array_DATA(n_obj),
+                               Array_DATA(v_obj),
+                               Array_DATA(e_obj),
+                               Array_DATA(sigma_obj),
+                               Array_DATA(dedsigma_obj));
+    Py_RETURN_NONE;
+}
+
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 {
     PyObject* dH_aii_obj;

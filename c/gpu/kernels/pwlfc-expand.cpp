@@ -3,6 +3,165 @@
 #include "numpy/arrayobject.h"
 #include "assert.h"
 
+#define BETA   0.066725
+#define GAMMA  0.031091
+#define MU     0.2195164512208958
+#define C2     0.26053088059892404
+#define C0I    0.238732414637843
+#define C1    -0.45816529328314287
+#define CC1    1.9236610509315362
+#define CC2    2.5648814012420482
+#define IF2    0.58482236226346462
+#define C3     0.10231023756535741
+#define C0     4.1887902047863905
+#define THIRD  0.33333333333333333
+#define NMIN   1.0E-10
+
+
+__global__ void evaluate_pbe_kernel(int nspin, int ng,
+                                    double* n,
+                                    double* v,
+                                    double* e,
+                                    double* sigma,
+                                    double* dedsigma)
+{
+    double kappa = 0.804;
+}
+
+__device__ double G(double rtrs, double A, double alpha1,
+                    double beta1, double beta2, double beta3, double beta4,
+                    double* dGdrs)
+{
+  double Q0 = -2.0 * A * (1.0 + alpha1 * rtrs * rtrs);
+  double Q1 = 2.0 * A * rtrs * (beta1 + 
+                                rtrs * (beta2 + 
+                                        rtrs * (beta3 + 
+                                                rtrs * beta4)));
+  double G1 = Q0 * log(1.0 + 1.0 / Q1);
+  double dQ1drs = A * (beta1 / rtrs + 2.0 * beta2 +
+                       rtrs * (3.0 * beta3 + 4.0 * beta4 * rtrs));
+  *dGdrs = -2.0 * A * alpha1 * G1 / Q0 - Q0 * dQ1drs / (Q1 * (Q1 + 1.0));
+  return G1;
+}
+
+
+__global__ void evaluate_lda_kernel(int nspin, int ng,
+                                    double* n_sg,
+                                    double* v_sg,
+                                    double* e_g)
+{
+    int g = threadIdx.x + blockIdx.x * blockDim.x;
+    if (g < ng)
+    {
+        if (nspin == 1)
+        {
+            double n = n_sg[g];
+            if (n < NMIN)
+               n = NMIN;
+            double rs = pow(C0I / n, THIRD);
+            // LDA Exchange
+            double ex = C1 / rs;
+            double dexdrs = -ex / rs;
+            // LDA Correlation
+            double rtrs = sqrt(rs);
+            double de0drs;
+            double ec = G(rtrs, GAMMA, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294, &de0drs);
+
+            double decdrs = de0drs;
+            e_g[g] = n * (ex + ec);
+            v_sg[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+        }
+        else
+        {
+            double na = 2.0 * n_sg[g];
+            if (na < NMIN)
+                na = NMIN;
+            double rsa = pow(C0I / na, THIRD);
+            double nb = 2.0 * n_sg[g + ng];
+            if (nb < NMIN)
+               nb = NMIN;
+            double rsb = pow(C0I / nb, THIRD);
+            double n = 0.5 * (na + nb);
+            double rs = pow(C0I / n, THIRD);
+            double zeta = 0.5 * (na - nb) / n;
+
+            // LDA Exchange
+            double exa = C1 / rsa;
+            double dexadrsa = -exa / rsa;
+            double exb = C1 / rsb;
+            double dexbdrsb = -exb / rsb;
+            
+            // LDA Correlation
+            double rtrs = sqrt(rs);
+            double de0drs;
+            double ec = G(rtrs, GAMMA, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294, &de0drs);
+
+            double de1drs;
+            double e1 = G(rtrs, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662,
+                          0.62517, &de1drs);
+            double dalphadrs;
+            double alpha = -G(rtrs, 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                              0.49671, &dalphadrs);
+            dalphadrs = -dalphadrs;
+            double zp = 1.0 + zeta;
+            double zm = 1.0 - zeta;
+            double xp = pow(zp, THIRD);
+            double xm = pow(zm, THIRD);
+            double f = CC1 * (zp * xp + zm * xm - 2.0);
+            double f1 = CC2 * (xp - xm);
+            double zeta2 = zeta * zeta;
+            double zeta3 = zeta2 * zeta;
+            double zeta4 = zeta2 * zeta2;
+            double x = 1.0 - zeta4;
+            double decdrs = (de0drs * (1.0 - f * zeta4) + 
+                            de1drs * f * zeta4 +
+                            dalphadrs * f * x * IF2);
+            double decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                             f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2));
+            ec = ec + alpha * IF2 * f * x + (e1 - ec) * f * zeta4;
+          
+            e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
+            v_sg[g] += (exa + ec -
+                        (rsa * dexadrsa + rs * decdrs) / 3.0 -
+                        (zeta - 1.0) * decdzeta);
+            v_sg[g+ng] += (exb + ec -
+                        (rsb * dexbdrsb + rs * decdrs) / 3.0 -
+                        (zeta + 1.0) * decdzeta);
+        }
+    }
+}
+
+
+extern "C"
+void evaluate_pbe_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e,
+                                double* sigma,
+                                double* dedsigma)
+{
+    gpuLaunchKernel(evaluate_pbe_kernel,
+                    dim3((ng+255)/256),
+                    dim3(256),
+                    0, 0,
+                    nspin, ng,
+                    n, v, e, sigma, dedsigma);
+}
+
+extern "C"
+void evaluate_lda_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e)
+{
+    gpuLaunchKernel(evaluate_lda_kernel,
+                    dim3((ng+1023)/1024),
+                    dim3(1024),
+                    0, 0,
+                    nspin, ng,
+                    n, v, e);
+}
+
 __global__ void pw_insert_many_16(int nb,
                                   int nG,
                                   int nQ,
