@@ -1,6 +1,7 @@
 import pytest
 from gpaw.xc import XC
 
+
 @pytest.mark.gpu
 @pytest.mark.parametrize('nspins', [1, 2])
 def test_gpu_pbe(nspins, gpu):
