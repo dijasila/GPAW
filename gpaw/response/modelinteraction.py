@@ -4,7 +4,6 @@ from gpaw.mpi import world
 from gpaw.response.pair import get_gs_and_context
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
-from gpaw.response.g0w0 import QSymmetryOp, get_nmG
 
 
 def ibz2bz_map(qd):
@@ -159,7 +158,6 @@ class ModelInteraction:
                                Uwan[:, :, iK1].conj(),
                                Uwan[:, :, iK2],
                                rholoc)
-
 
         return A_mnG
 
