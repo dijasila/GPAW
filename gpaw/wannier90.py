@@ -62,8 +62,6 @@ class Wannier90:
                     dis_mix_ratio=0.5,
                     search_shells=None,
                     write_u_matrices=False):
-
-
         calc = self.calc
         seed = self.seed
         bands = self.bands
