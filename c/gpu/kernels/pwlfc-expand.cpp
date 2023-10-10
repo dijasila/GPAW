@@ -17,16 +17,24 @@
 #define THIRD  0.33333333333333333
 #define NMIN   1.0E-10
 
-
-__global__ void evaluate_pbe_kernel(int nspin, int ng,
-                                    double* n,
-                                    double* v,
-                                    double* e,
-                                    double* sigma,
-                                    double* dedsigma)
+__device__ double pbe_exchange(double n, double rs, double a2,
+                               double* dedrs, double* deda2)
 {
     double kappa = 0.804;
+    double e = C1 / rs;
+    *dedrs = -e / rs;
+    double c = C2 * rs / n;
+    c *= c;
+    double s2 = a2 * c;
+    double x = 1.0 + MU * s2 / kappa;
+    double Fx = 1.0 + kappa - kappa / x;
+    double dFxds2 = MU / (x * x);
+    double ds2drs = 8.0 * c * a2 / rs;
+    *dedrs += Fx + e * dFxds2 * ds2drs;
+    *deda2 = e * dFxds2 * c;
+    e *= Fx;
 }
+
 
 __device__ double G(double rtrs, double A, double alpha1,
                     double beta1, double beta2, double beta3, double beta4,
@@ -45,10 +53,12 @@ __device__ double G(double rtrs, double A, double alpha1,
 }
 
 
-__global__ void evaluate_lda_kernel(int nspin, int ng,
-                                    double* n_sg,
-                                    double* v_sg,
-                                    double* e_g)
+template <int nspin, bool gga> __global__ void evaluate_ldaorgga_kernel(int ng,
+                                                                        double* n_sg,
+                                                                        double* v_sg,
+                                                                        double* e_g,
+                                                                        double* sigma_xg,
+                                                                        double* dedsigma_xg)
 {
     int g = threadIdx.x + blockIdx.x * blockDim.x;
     if (g < ng)
@@ -70,6 +80,7 @@ __global__ void evaluate_lda_kernel(int nspin, int ng,
             double decdrs = de0drs;
             e_g[g] = n * (ex + ec);
             v_sg[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+            
         }
         else
         {
@@ -131,6 +142,11 @@ __global__ void evaluate_lda_kernel(int nspin, int ng,
     }
 }
 
+// The define wrappers do not allow special characters for the first argument
+// Hence, here defining an expression in such way, that the first argument can be
+// a well defined identifier, and the preprocessor macro parses it correctly.
+constexpr void(*LDA_SPINPAIRED)(int, double*, double*, double*, double*, double*) = &evaluate_ldaorgga_kernel<1, false>;
+constexpr void(*LDA_SPINPOLARIZED)(int, double*, double*, double*, double*, double*) = &evaluate_ldaorgga_kernel<2, false>;
 
 extern "C"
 void evaluate_pbe_launch_kernel(int nspin, int ng,
@@ -140,12 +156,24 @@ void evaluate_pbe_launch_kernel(int nspin, int ng,
                                 double* sigma,
                                 double* dedsigma)
 {
-    gpuLaunchKernel(evaluate_pbe_kernel,
-                    dim3((ng+255)/256),
-                    dim3(256),
-                    0, 0,
-                    nspin, ng,
-                    n, v, e, sigma, dedsigma);
+    if (nspin == 1)
+    {
+        gpuLaunchKernel(LDA_SPINPAIRED,
+                        dim3((ng+255)/256),
+                        dim3(256),
+                        0, 0,
+                        ng,
+                        n, v, e, sigma, dedsigma);
+    }
+    else if (nspin == 2) 
+    {
+        gpuLaunchKernel(LDA_SPINPOLARIZED,
+                        dim3((ng+255)/256),
+                        dim3(256),
+                        0, 0,
+                        ng,
+                        n, v, e, sigma, dedsigma);
+    }
 }
 
 extern "C"
@@ -154,12 +182,24 @@ void evaluate_lda_launch_kernel(int nspin, int ng,
                                 double* v,
                                 double* e)
 {
-    gpuLaunchKernel(evaluate_lda_kernel,
-                    dim3((ng+1023)/1024),
-                    dim3(1024),
-                    0, 0,
-                    nspin, ng,
-                    n, v, e);
+    if (nspin == 1)
+    {
+        gpuLaunchKernel(LDA_SPINPAIRED,
+                        dim3((ng+255)/256),
+                        dim3(256),
+                        0, 0,
+                        ng,
+                        n, v, e, NULL, NULL);
+    }
+    else if (nspin == 2) 
+    {
+        gpuLaunchKernel(LDA_SPINPOLARIZED,
+                        dim3((ng+255)/256),
+                        dim3(256),
+                        0, 0,
+                        ng,
+                        n, v, e, NULL, NULL);
+    }
 }
 
 __global__ void pw_insert_many_16(int nb,
