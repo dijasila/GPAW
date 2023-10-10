@@ -168,6 +168,13 @@ class ModelInteraction:
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, pair_calc)
+
+            #Time reversal yields conjugation?
+            """
+            if symop.sign == -1:
+                print('sign -1')
+                rho_mnG[m] = rho_mnG[m]
+            """
         return rho_mnG, iq
 
     def read_uwan(self, seed):
