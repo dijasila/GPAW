@@ -4,6 +4,7 @@ from gpaw.mpi import world
 from gpaw.response.pair import get_gs_and_context
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response.g0w0 import QSymmetryOp, get_nmG
 
 
 def ibz2bz_map(qd):
@@ -98,6 +99,12 @@ class ModelInteraction:
                 Q_c = self.wcalc.qd.bzk_kc[iQ]
                 assert self.wcalc.qd.where_is_q(Q_c,
                                                 self.wcalc.qd.bzk_kc) == iQ
+                if self.qd.time_reversal_k[iQ]:
+                    print('TIME-REVERSAL')
+                    #TR symmetry, only yields cc
+                    #Q_c = self.wcalc.qd.ibzk_kc[iq]
+                    #W_wGG = W_wGG.conj()
+
                 A_mnG = self.get_reduced_wannier_density_matrix(spin,
                                                                 Q_c,
                                                                 iq,
@@ -140,18 +147,20 @@ class ModelInteraction:
                                             bandrange[1])
 
             # Calculate density matrix
-            rholoc, iqloc = self.get_density_matrix(kpt1,
-                                                    kpt2,
-                                                    pawcorr,
-                                                    qpd,
-                                                    pair_calc)
+            rholoc, iqloc, sign = self.get_density_matrix(kpt1,
+                                                          kpt2,
+                                                          pawcorr,
+                                                          qpd,
+                                                          pair_calc)
             assert iqloc == iq
+            
             # Rotate to Wannier basis and sum to get reduced Wannier
             # density matrix A
             A_mnG += np.einsum('ia,jb,abG->ijG',
                                Uwan[:, :, iK1].conj(),
                                Uwan[:, :, iK2],
                                rholoc)
+
 
         return A_mnG
 
@@ -161,21 +170,15 @@ class ModelInteraction:
         symop, iq = QSymmetryOp.get_symop_from_kpair(
             self.gs.kd, self.qd, kpt1, kpt2)
         nG = qpd.ngmax
-        pawcorr, I_G = symop.apply_symop_q(
+        mypawcorr, I_G = symop.apply_symop_q(
             qpd, pawcorr, kpt1, kpt2)
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
-            rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G, pair_calc)
-
-            #Time reversal yields conjugation?
-            """
-            if symop.sign == -1:
-                print('sign -1')
-                rho_mnG[m] = rho_mnG[m]
-            """
-        return rho_mnG, iq
+            rho_mnG[m] = get_nmG(kpt1, kpt2, mypawcorr, m, qpd, I_G, pair_calc)
+            
+        return rho_mnG, iq, symop.sign
 
     def read_uwan(self, seed):
         if "_u.mat" not in seed:
