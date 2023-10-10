@@ -99,11 +99,6 @@ class ModelInteraction:
                 Q_c = self.wcalc.qd.bzk_kc[iQ]
                 assert self.wcalc.qd.where_is_q(Q_c,
                                                 self.wcalc.qd.bzk_kc) == iQ
-                if self.qd.time_reversal_k[iQ]:
-                    print('TIME-REVERSAL')
-                    #TR symmetry, only yields cc
-                    #Q_c = self.wcalc.qd.ibzk_kc[iq]
-                    #W_wGG = W_wGG.conj()
 
                 A_mnG = self.get_reduced_wannier_density_matrix(spin,
                                                                 Q_c,
@@ -114,6 +109,10 @@ class ModelInteraction:
                                                                 pair_calc,
                                                                 pair_factory,
                                                                 Uwan)
+                if self.qd.time_reversal_k[iQ]:
+                    # TR corresponds to complex conjugation
+                    A_mnG = A_mnG.conj()
+
                 Wwan_wijkl += np.einsum('ijk,lkm,pqm->lipjq',
                                         A_mnG.conj(),
                                         W_wGG,
