@@ -17,27 +17,9 @@ def test_w90(in_tmp_dir, gpw_files, symm):
               scaled_positions=((0, 0, 0), (0.25, 0.25, 0.25)))
 
     if symm:
-        #calc = GPAW(gpw_files['gaas_pw'])
-        calc = GPAW(mode=PW(200),
-                    xc='LDA',
-                    occupations=FermiDirac(width=0.01),
-                    convergence={'bands': -1},
-                    kpts={'size': (k, k, k), 'gamma': True},
-                    txt='gs_GaAs.txt')
-
+        calc = GPAW(gpw_files['gaas_pw'])
     else:
-        #calc = GPAW(gpw_files['gaas_pw_nosym'])
-        calc = GPAW(mode=PW(200),
-                    xc='LDA',
-                    occupations=FermiDirac(width=0.01),
-                    convergence={'bands': -1},
-                    symmetry='off',
-                    kpts={'size': (k, k, k), 'gamma': True},
-                    txt='gs_GaAs_symmOff.txt')
-
-    a.calc = calc
-    a.get_potential_energy()
-    calc.write('GaAs.gpw', mode='all')
+        calc = GPAW(gpw_files['gaas_pw_nosym'])
 
     
     seed = 'GaAs'
@@ -63,10 +45,16 @@ def test_w90(in_tmp_dir, gpw_files, symm):
     truncation = None
     Wm = initialize_w_model(calc, chi0calc)
     Wwann = Wm.calc_in_Wannier(chi0calc,Uwan=seed,bandrange=[0,4])
+    (1.059069004580567+2.873325682818419e-17j)
+    (0.7744817912919332+1.699625225785978e-17j)
+    (0.7744817912872252-2.4259190263322844e-18j)
+    (0.7744817912816624-1.5508496535341566e-17j)
+    (0.4058975488523744+3.711483001934005e-18j)
+    (0.7548791410801549-0.0017578979720108043j)
 
-    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(1.13031, abs=0.003)
-    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(0.80556, abs=0.003)
-    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(0.80556, abs=0.003)
-    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(0.80556, abs=0.003)
-    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.42424, abs=0.003)
-    assert Wwann[0, 3, 0, 3, 0] == pytest.approx(0.79786, abs=0.003)
+    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(1.059, abs=0.003)
+    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(0.774, abs=0.003)
+    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(0.774, abs=0.003)
+    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(0.774, abs=0.003)
+    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.406, abs=0.003)
+    assert Wwann[0, 3, 0, 3, 0] == pytest.approx(0.755, abs=0.003)
