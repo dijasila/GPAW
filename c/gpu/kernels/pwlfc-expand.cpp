@@ -5,8 +5,8 @@
 
 #define BETA   0.066725
 #define GAMMA  0.031091
-//#define MU     0.2195164512208958
-#define MU     0.2195149727645171
+#define MU     0.2195164512208958 // PBE mod in libxc
+//#define MU     0.2195149727645171 from libxc
 #define C2     0.26053088059892404
 #define C0I    0.238732414637843
 #define C1    -0.45816529328314287
@@ -19,8 +19,8 @@
 #define NMIN   1.0E-10
 
 
-template <bool gga> __device__ double exchange(double n, double rs, double a2,
-                                               double* dedrs, double* deda2)
+template <bool gga> __device__ double pbe_exchange(double n, double rs, double a2,
+                                                   double* dedrs, double* deda2)
 {
     double e = C1 / rs;
     *dedrs = -e / rs;
@@ -59,7 +59,7 @@ __device__ double G(double rtrs, double A, double alpha1,
 }
 
 
-template <bool gga, int nspin> pbe_correlation(double n, double rs, double zeta, double a2, 
+template <bool gga, int nspin> __device__ double pbe_correlation(double n, double rs, double zeta, double a2, 
 		                                       double* dedrs, double* dedzeta, double* deda2)
 {
   bool spinpol = nspin == 2;
@@ -169,161 +169,110 @@ template <int nspin, bool gga> __global__ void evaluate_ldaorgga_kernel(int ng,
                                                                         double* dedsigma_xg)
 {
     int g = threadIdx.x + blockIdx.x * blockDim.x;
-    if (g < ng)
+    if (g >= ng)
     {
-        if (nspin == 1)
-        {
-            double n = n_sg[g];
-            if (n < NMIN)
-               n = NMIN;
-            double rs = pow(C0I / n, THIRD);
-            // LDA or PBE Exchange
-            double ex;
-            double dexdrs=0;
-            double a2=0;
-            double dexda2=0;
-            if (gga)
-                a2 = sigma_xg[g];
-            ex = exchange<gga>(n, rs, a2, &dexdrs, &dexda2);
+        return;
+    }
+    if (nspin == 1)
+    {
+        double n = n_sg[g];
+        if (n < NMIN)
+          n = NMIN;
+        double rs = pow(C0I / n, THIRD);
+        double dexdrs;
+        double dexda2;
+        double ex;
+        double decdrs;
+        double decda2;
+        double ec;
+        if (gga)
+          {
+            double a2 = sigma_xg[g];
+            ex = pbe_exchange<gga>(n, rs, a2, &dexdrs, &dexda2);
+            ec = pbe_correlation<gga, nspin>(n, rs, 0.0, a2, &decdrs, 0, &decda2);
+            dedsigma_xg[g] = n * (dexda2 + decda2);
+          }
+        else
+          {
+            ex = pbe_exchange<gga>(n, rs, 0.0, &dexdrs, 0);
+            ec = pbe_correlation<gga, nspin>(n, rs, 0.0, 0.0, &decdrs, 0, 0);
+          }
+        e_g[g] = n * (ex + ec);
+        v_sg[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
+    }
+    else
+    {
+        const double* na_g = n_sg;
+        double* va_g = v_sg;
+        const double* nb_g = na_g + ng;
+        double* vb_g = va_g + ng;
 
-            // LDA Correlation
-            double rtrs = sqrt(rs);
-            double de0drs;
-            double ec = G(rtrs, GAMMA, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294, &de0drs);
-            double decdrs = de0drs;
-            e_g[g] = n * (ex + ec);
-            v_sg[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
-            
+        const double* sigma0_g = 0;
+        const double* sigma1_g = 0;
+        const double* sigma2_g = 0;
+        double* dedsigma0_g = 0;
+        double* dedsigma1_g = 0;
+        double* dedsigma2_g = 0;
+
+        if (gga)
+        {
+            sigma0_g = sigma_xg;
+            sigma1_g = sigma0_g + ng;
+            sigma2_g = sigma1_g + ng;
+            dedsigma0_g = dedsigma_xg;
+            dedsigma1_g = dedsigma0_g + ng;
+            dedsigma2_g = dedsigma1_g + ng;
+        }
+
+        double na = 2.0 * na_g[g];
+        if (na < NMIN)
+          na = NMIN;
+        double rsa = pow(C0I / na, THIRD);
+        double nb = 2.0 * nb_g[g];
+        if (nb < NMIN)
+          nb = NMIN;
+        double rsb = pow(C0I / nb, THIRD);
+        double n = 0.5 * (na + nb);
+        double rs = pow(C0I / n, THIRD);
+        double zeta = 0.5 * (na - nb) / n;
+        double dexadrs;
+        double dexada2;
+        double exa;
+        double dexbdrs;
+        double dexbda2;
+        double exb;
+        double decdrs;
+        double decdzeta;
+        double decda2;
+        double ec;
+        if (gga)
+        {
+            exa = pbe_exchange<gga>(na, rsa, 4.0 * sigma0_g[g],
+                               &dexadrs, &dexada2);
+            exb = pbe_exchange<gga>(nb, rsb, 4.0 * sigma2_g[g],
+                                   &dexbdrs, &dexbda2);
+            double a2 = sigma0_g[g] + 2 * sigma1_g[g] + sigma2_g[g];
+            ec = pbe_correlation<gga, nspin>(n, rs, zeta, a2, 
+                                             &decdrs, &decdzeta, &decda2);
+            dedsigma0_g[g] = 2 * na * dexada2 + n * decda2;
+            dedsigma1_g[g] = 2 * n * decda2;
+            dedsigma2_g[g] = 2 * nb * dexbda2 + n * decda2;
         }
         else
         {
-            double na = 2.0 * n_sg[g];
-            if (na < NMIN)
-                na = NMIN;
-            double rsa = pow(C0I / na, THIRD);
-            double nb = 2.0 * n_sg[g + ng];
-            if (nb < NMIN)
-               nb = NMIN;
-            double rsb = pow(C0I / nb, THIRD);
-            double n = 0.5 * (na + nb);
-            double rs = pow(C0I / n, THIRD);
-            double zeta = 0.5 * (na - nb) / n;
-
-            double exa; double exb;
-            double dexadrs; double dexbdrs;
-            double dexada2; double dexbda2;
-            double a2a=0;
-            double a2b=0;
-            if (gga)
-            {
-                a2a = 4 * sigma_xg[g];
-                a2b = 4 * sigma_xg[g + 2*ng];
-            }
-            exa = exchange<gga>(na, rsa, a2a, &dexadrs, &dexada2);
-            exb = exchange<gga>(nb, rsb, a2b, &dexbdrs, &dexbda2);
-
-            // LDA Correlation
-            double rtrs = sqrt(rs);
-            double de0drs;
-            double e0 = G(rtrs, GAMMA, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294, &de0drs);
-
-            double de1drs;
-            double e1 = G(rtrs, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662,
-                          0.62517, &de1drs);
-            double dalphadrs;
-            double alpha = -G(rtrs, 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
-                              0.49671, &dalphadrs);
-            dalphadrs = -dalphadrs;
-            double zp = 1.0 + zeta;
-            double zm = 1.0 - zeta;
-            double xp = pow(zp, THIRD);
-            double xm = pow(zm, THIRD);
-            double f = CC1 * (zp * xp + zm * xm - 2.0);
-            double f1 = CC2 * (xp - xm);
-            double zeta2 = zeta * zeta;
-            double zeta3 = zeta2 * zeta;
-            double zeta4 = zeta2 * zeta2;
-            double x = 1.0 - zeta4;
-            double decdrs = (de0drs * (1.0 - f * zeta4) + 
-                            de1drs * f * zeta4 +
-                            dalphadrs * f * x * IF2);
-            double decdzeta = (4.0 * zeta3 * f * (e1 - e0 - alpha * IF2) +
-                             f1 * (zeta4 * e1 - zeta4 * e0 + x * alpha * IF2));
-            double ec = e0 + alpha * IF2 * f * x + (e1 - e0) * f * zeta4;
-
-           
-            if (gga)
-            {
-                double n2 = n * n;
-                double t2;
-                double y;
-                double phi = 117.0;
-                double phi2 = 117.0;
-                double phi3 = 117.0;
-                double a2;
-                if (nspin == 2)
-                   a2 = sigma_xg[g] + 2 * sigma_xg[g+ng] + sigma_xg[g+2*ng];
-                else
-                   a2 = sigma_xg[g];
-                if (nspin == 2)
-                {
-                    phi = 0.5 * (xp * xp + xm * xm);
-                    phi2 = phi * phi;
-                    phi3 = phi * phi2;
-                    t2 = C3 * a2 * rs / (n2 * phi2);
-                    y = -e / (GAMMA * phi3);
-                }
-                else
-                {
-                    t2 = C3 * a2 * rs / n2;
-                    y = -e / GAMMA;
-                }
-                double x = exp(y);
-                double A;
-                if (x != 1.0)
-                  A = BETA / (GAMMA * (x - 1.0)); 
-                else
-                  A = BETA / (GAMMA * y);
-                double At2 = A * t2;
-                double nom = 1.0 + At2;
-                double denom = nom + At2 * At2;
-                double H = GAMMA * log( 1.0 + BETA * t2 * nom / (denom * GAMMA));
-                double tmp = (GAMMA * BETA /
-                              (denom * (BETA * t2 * nom + GAMMA * denom)));
-                double tmp2 = A * A * x / BETA;
-                double dAdrs = tmp2 * *dedrs;
-                if (nspin == 2)
-                {
-                  H *= phi3;
-                  tmp *= phi3;
-                  dAdrs /= phi3;
-                }
-                double dHdt2 = (1.0 + 2.0 * At2) * tmp;
-                double dHdA = -At2 * t2 * t2 * (2.0 + At2) * tmp;
-                *dedrs += dHdt2 * 7 * t2 / rs + dHdA * dAdrs;
-                *deda2 = dHdt2 * C3 * rs / n2;
-                if (nspin==2)
-                {
-                    double dphidzeta = (1.0 / xp - 1.0 / xm) / 3.0;
-                    double dAdzeta = tmp2 * (*dedzeta - 
-                             3.0 * e * dphidzeta / phi) / phi3;
-                    *dedzeta += ((3.0 * H / phi - dHdt2 * 2.0 * t2 / phi ) * dphidzeta +
-                                dHdA * dAdzeta);
-                    *deda2 /= phi2;
-                }
-                ec += H;
-            }
-
-            e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
-
-            
-            v_sg[g] += (exa + ec -
-                        (rsa * dexadrs + rs * decdrs) / 3.0 -
-                        (zeta - 1.0) * decdzeta);
-            v_sg[g+ng] += (exb + ec -
-                        (rsb * dexbdrs + rs * decdrs) / 3.0 -
-                        (zeta + 1.0) * decdzeta);
+           exa = pbe_exchange<gga>(na, rsa, 0.0, &dexadrs, 0);
+           exb = pbe_exchange<gga>(nb, rsb, 0.0, &dexbdrs, 0);
+           ec = pbe_correlation<gga, nspin>(n, rs, zeta, 0.0, 
+                                            &decdrs, &decdzeta, 0);
         }
+
+        e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
+        va_g[g] += (exa + ec -
+                    (rsa * dexadrs + rs * decdrs) / 3.0 -
+                    (zeta - 1.0) * decdzeta);
+        vb_g[g] += (exb + ec -
+                    (rsb * dexbdrs + rs * decdrs) / 3.0 -
+                    (zeta + 1.0) * decdzeta);
     }
 }
 

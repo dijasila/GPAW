@@ -202,7 +202,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
                                    &dexbdrs, &dexbda2);
               double a2 = sigma0_g[g] + 2 * sigma1_g[g] + sigma2_g[g];
               ec = self->correlation(n, rs, zeta, a2, 1, 1,
-                                     &decdrs, &decdzeta, &);
+                                     &decdrs, &decdzeta, &decda2);
               dedsigma0_g[g] = 2 * na * dexada2 + n * decda2;
               dedsigma1_g[g] = 2 * n * decda2;
               dedsigma2_g[g] = 2 * nb * dexbda2 + n * decda2;
@@ -214,12 +214,6 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
               ec = self->correlation(n, rs, zeta, 0.0, 0, 1,
                                      &decdrs, &decdzeta, 0);
             }
-
-
-
-
-
-
           e_g[g] = 0.5 * (na * exa + nb * exb) + n * ec;
           va_g[g] += (exa + ec -
                       (rsa * dexadrs + rs * decdrs) / 3.0 -
