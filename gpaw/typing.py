@@ -22,7 +22,7 @@ try:
 except ImportError:
     ArrayLike = Any  # type: ignore
     DTypeLike = Any  # type: ignore
-    NDArray = Any  # type: ignore
+    NDArray = np.ndarray  # type: ignore
 
 ArrayLike1D = ArrayLike
 ArrayLike2D = ArrayLike
@@ -32,8 +32,6 @@ Array1D = ArrayND
 Array2D = ArrayND
 Array3D = ArrayND
 Array4D = ArrayND
-
-NDArray = NDArray
 
 # Used for sequences of three numbers:
 Vector = Union[Sequence[float], Array1D]
