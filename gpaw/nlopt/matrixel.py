@@ -11,7 +11,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.adapters import GSInfo
 from gpaw.nlopt.basic import NLOData
-from gpaw.typing import ComplexNDArray
+from gpaw.typing import ArrayND
 from gpaw.utilities.progressbar import ProgressBar
 
 
@@ -19,7 +19,7 @@ def get_mml(gs: GSInfo,
             spin: int = 0,
             ni: Optional[int] = None,
             nf: Optional[int] = None,
-            timer: Optional[Timer] = None) -> ComplexNDArray:
+            timer: Optional[Timer] = None) -> ArrayND:
     """Compute the momentum matrix elements.
 
     Input:

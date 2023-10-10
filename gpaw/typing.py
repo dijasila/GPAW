@@ -18,14 +18,10 @@ except ImportError:
 
 try:
     # Needs numpy-1.20:
-    from numpy.typing import ArrayLike, DTypeLike, NDArray
-    RealNDArray = NDArray[np.float64]
-    ComplexNDArray = NDArray[np.complex128]
+    from numpy.typing import ArrayLike, DTypeLike
 except ImportError:
     ArrayLike = Any  # type: ignore
     DTypeLike = Any  # type: ignore
-    RealNDArray = np.ndarray[Any, np.dtype[np.float64]]  # type: ignore
-    ComplexNDArray = np.ndarray[Any, np.dtype[np.complex128]]  # type: ignore
 
 ArrayLike1D = ArrayLike
 ArrayLike2D = ArrayLike
