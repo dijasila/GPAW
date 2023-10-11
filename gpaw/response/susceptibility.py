@@ -319,7 +319,7 @@ class EigendecomposedSpectrum:
             npos_max = int(np.max(np.sum(pos_we, axis=1)))
         else:
             npos_max = 0
-        npos_max = self.wblocks.blockcomm.max(npos_max)
+        npos_max = self.wblocks.blockcomm.max_scalar(npos_max)
 
         # Allocate new arrays, using np.nan for padding (the number of positive
         # eigenvalues might vary with frequency)
@@ -480,9 +480,9 @@ class EigendecomposedSpectrum:
 def write_full_spectral_weight(filename, omega_w, A_w):
     """Write the sum of spectral weights A(ω) to a file."""
     with open(filename, 'w') as fd:
-        print('# {0:>11}, {1:>11}'.format('omega [eV]', 'A(w)'), file=fd)
+        print('# {:>11}, {:>11}'.format('omega [eV]', 'A(w)'), file=fd)
         for omega, A in zip(omega_w, A_w):
-            print('  {0:11.6f}, {1:11.6f}'.format(omega, A), file=fd)
+            print(f'  {omega:11.6f}, {A:11.6f}', file=fd)
 
 
 def read_full_spectral_weight(filename):
@@ -497,15 +497,15 @@ def write_eigenmode_lineshapes(filename, omega_w, a_wm):
     """Write the eigenmode lineshapes a^μν_n(ω) to a file."""
     with open(filename, 'w') as fd:
         # Print header
-        header = '# {0:>11}'.format('omega [eV]')
+        header = '# {:>11}'.format('omega [eV]')
         for m in range(a_wm.shape[1]):
-            header += ', {0:>11}'.format(f'a_{m}(w)')
+            header += ', {:>11}'.format(f'a_{m}(w)')
         print(header, file=fd)
         # Print data
         for omega, a_m in zip(omega_w, a_wm):
-            data = '  {0:11.6f}'.format(omega)
+            data = f'  {omega:11.6f}'
             for a in a_m:
-                data += ', {0:11.6f}'.format(a)
+                data += f', {a:11.6f}'
             print(data, file=fd)
 
 

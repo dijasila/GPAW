@@ -122,8 +122,9 @@ class Chi0Integrand(Integrand):
         kd = gs.kd
 
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self.kptpair_factory.find_kpoint(k_c)
-        K2 = self.kptpair_factory.find_kpoint(k_c + qpd.q_c)
+        kptfinder = self.gs.kpoints.kptfinder
+        K1 = kptfinder.find(k_c)
+        K2 = kptfinder.find(k_c + qpd.q_c)
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
@@ -213,16 +214,6 @@ class Chi0ComponentCalculator:
                     'Please use find_high_symmetry_monkhorst_pack() from '
                     'gpaw.bztools to generate your k-point grid.')
 
-    def get_spins(self, spin='all'):
-        nspins = self.gs.nspins
-        if spin == 'all':
-            spins = range(nspins)
-        else:
-            assert spin in range(nspins)
-            spins = [spin]
-
-        return spins
-
     def get_integration_domain(self, qpd, spins):
         """Get integrator domain and prefactor for the integral."""
         for spin in spins:
@@ -230,8 +221,9 @@ class Chi0ComponentCalculator:
         # The integration domain is determined by the following function
         # that reduces the integration domain to the irreducible zone
         # of the little group of q.
-        bzk_kv, analyzer = self.get_kpoints(
+        kpoints, analyzer = self.get_kpoints(
             qpd, integrationmode=self.integrationmode)
+        bzk_kv = kpoints.bzk_kv
         domain = (bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
@@ -260,7 +252,7 @@ class Chi0ComponentCalculator:
     def get_kpoints(self, qpd, integrationmode):
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
-            self.gs.kd, qpd, self.context,
+            self.gs.kpoints, qpd, self.context,
             disable_point_group=self.disable_point_group,
             disable_time_reversal=self.disable_time_reversal)
 
@@ -275,8 +267,13 @@ class Chi0ComponentCalculator:
                                    bzk_kc + (~self.pbc).astype(int),
                                    axis=0)
 
-        bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
-        return bzk_kv, analyzer
+        from gpaw.response.kpoints import ResponseKPointGrid
+        kpoints = ResponseKPointGrid(self.gs.kd, qpd.gd.icell_cv, bzk_kc)
+        # Two illogical things here:
+        #  * Analyzer is for original kpoints, not those we just reduced
+        #  * The kpoints object has another bzk_kc array than self.gs.kd.
+        #    We could make a new kd, but I am not sure about ramifications.
+        return kpoints, analyzer
 
     def get_gs_info_string(self, tab=''):
         gs = self.gs

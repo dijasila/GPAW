@@ -304,7 +304,7 @@ class BuildingBlock:
     def load_chi_file(self):
         try:
             data = np.load(self.filename + '-chi.npz')
-        except IOError:
+        except OSError:
             return False
         if (np.all(data['omega_w'] == self.wd.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
