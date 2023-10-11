@@ -1,4 +1,7 @@
+from __future__ import annotations
+from typing import Tuple
 import numpy as np
+from gpaw.typing import Array1D
 
 
 def sampling_branches(w_dist, parallel_lines=2, ϖ=1, eta0=1e-5, eta_rest=0.1):
@@ -55,11 +58,11 @@ def frequency_distribution(npoles, wrange, alpha=1):
 
 
 def mpa_frequency_sampling(npoles: int,
-                           w0: tuple[complex, complex],
+                           w0: Tuple[complex, complex],
                            eta0: float,
                            eta_rest: float,
                            parallel_lines: int = 2,
-                           alpha: float = 1):
+                           alpha: float = 1) -> Array1D:
     """
     This function creates a frequency grid in the complex plane.
     The grid can have 1 or 2 branches with points non homogeneously
