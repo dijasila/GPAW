@@ -1,9 +1,10 @@
 import numpy as np
 from ase.units import Ha
 from gpaw.mpi import world
-from gpaw.response.pair import get_gs_and_context
+from gpaw.response import ResponseContext
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
+from gpaw.response import timer
 
 
 def ibz2bz_map(qd):
@@ -15,11 +16,12 @@ def ibz2bz_map(qd):
     return out_map
 
 
-def initialize_w_model(calc, chi0calc, truncation=None, txt='w_model.out',
+def initialize_w_model(chi0calc, truncation=None, txt='w_model.out',
                        world=world, timer=None, integrate_gamma=0,
                        q0_correction=False):
-    gs, wcontext = get_gs_and_context(
-        calc, txt=txt, world=world, timer=timer)
+    gs = chi0calc.gs
+    wcontext = ResponseContext(txt=txt,
+                               comm=world, timer=timer)
     coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
     wcalc = initialize_w_calculator(chi0calc,
                                     wcontext,
@@ -37,7 +39,8 @@ class ModelInteraction:
         self.gs = wcalc.gs
         self.context = self.wcalc.context
         self.qd = self.wcalc.qd
-        
+
+    @timer('Calculate W in Wannier')
     def calc_in_Wannier(self, chi0calc, Uwan, bandrange, spin=0):
         """Calculates the screened interaction matrix in Wannier basis.
         NOTE: Does not work with SOC!
@@ -84,7 +87,11 @@ class ModelInteraction:
             self.context.print('iq = ', iq, '/', self.gs.kd.nibzkpts)
             # Calculate chi0 and W for IBZ k-point q
             self.context.print('calculating chi0...')
+
+            self.context.timer.start('chi0')
             chi0 = chi0calc.calculate(q_c)
+            self.context.timer.stop('chi0')
+
             qpd = chi0.qpd
             self.context.print('calculating W_wGG...')
             W_wGG = self.wcalc.calculate_W_wGG(chi0,
@@ -121,9 +128,11 @@ class ModelInteraction:
         # factor from BZ summation and taking from Hartree to eV
         factor = Ha * self.gs.kd.nbzkpts**3
         Wwan_wijkl /= factor
-
+        self.context.write_timer()
+        
         return Wwan_wijkl
 
+    @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
                                            pawcorr, qpd, pair_calc,
                                            pair_factory, Uwan):
@@ -135,7 +144,9 @@ class ModelInteraction:
         nG = qpd.ngmax
         nwan = Uwan.shape[0]
         A_mnG = np.zeros([nwan, nwan, nG], dtype=complex)
-        for iK1 in range(self.gs.kd.nbzkpts):
+
+        # Parallell sum over k-points
+        for iK1 in self.myKrange():
             kpt1 = pair_factory.get_k_point(spin, iK1,
                                             bandrange[0],
                                             bandrange[1])
@@ -158,7 +169,7 @@ class ModelInteraction:
                                Uwan[:, :, iK1].conj(),
                                Uwan[:, :, iK2],
                                rholoc)
-
+        world.sum(A_mnG)
         return A_mnG
 
     def get_density_matrix(self, kpt1, kpt2, pawcorr, qpd, pair_calc):
@@ -203,3 +214,13 @@ class ModelInteraction:
                     uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
         assert set(iklist) == set(range(nk))  # check that all k:s were found
         return uwan, nk, nw1, nw2
+
+    def myKrange(self, rank=None):
+        if rank is None:
+            rank = world.rank
+        nK = self.gs.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(rank * myKsize,
+                         min((rank + 1) * myKsize, nK))
+        # myKsize = len(myKrange)
+        return myKrange
