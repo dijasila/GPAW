@@ -1,5 +1,65 @@
 import numpy as np
 
+def sampling_branches(w_dist, ps='2l', varpi=1, shift0=1.e-5, shift=0.1):
+
+    if len(w_dist) == 1:  # the value of ps is irrelevant in the case of a single pole
+        assert (shift0 >= 0)
+        assert (varpi > shift0)
+        w_grid = np.array([w_dist + 1j*shift0, w_dist + 1j*varpi], dtype=complex)
+        return w_grid
+
+    if ps == '1l':  # only one branch
+        assert (varpi >= 0)
+        w_grid = np.array(w_dist + 1j*varpi, dtype=complex)
+        return w_grid
+
+    if ps == '2l':  # two branches
+        assert (shift0 >= 0)
+        assert (shift >= 0)
+        assert (varpi > shift0 and varpi > shift)
+        w_grid = np.concatenate((w_dist[0] + 1j*shift0, w_dist[1:] + 1j*shift, w_dist + 1j*varpi))
+        return w_grid
+
+
+def frequency_distribution(npol, wrange, alpha=1):
+
+    if npol == 1:
+        w_grid = 0
+        return w_grid
+
+    assert(wrange[0] >= 0)
+    assert(wrange[1] > wrange[0])
+
+    if alpha == 0:  # homogeneous distribution
+        w_grid = np.linspace(wrange[0], wrange[1], 2*npol)
+        return w_grid
+
+    ws = wrange[1] - wrange[0]
+    partition = np.ones(npol)
+    for i in range(1, npol+1):
+        partition[i] = pivot_slice(i, 1/3)  # semi-homogeneous partition
+    wgrid = wrange[0] + ws*partition**alpha
+    
+
+def pivot_slice(npol, pivot):
+
+    assert(0 < pivot < 1)
+
+    pivot_slice(1, pivot) = 0
+    pivot_slice(2, pivot) = 1
+    pivot_slice(3, pivot) = pivot
+    if(npol % 2 == 0):
+        pivot_slice(npol, pivot) = (pivot_slice(npol-1, pivot) + pivot_slice(npol-3, pivot))/2
+    else:
+        pivot_slice(npol, pivot) = (pivot_slice(npol-2, pivot) + pivot_slice(npol-3, pivot))/2
+    pivot_slice(2, pivot) = 1
+
+
+    assert(npol > 1)
+    lp = int(np.log(npol - 1) / np.log(2))
+    r = int((npol - 1) % (2**lp))
+       
+
 
 def mpa_frequency_sampling(npol, w0, d, ps='2l', alpha=1):
     """
