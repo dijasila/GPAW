@@ -1,15 +1,18 @@
 from __future__ import annotations
-from typing import Tuple
 import numpy as np
 from gpaw.typing import Array1D
 
 
-def sampling_branches(w_dist, parallel_lines=2, ϖ=1, eta0=1e-5, eta_rest=0.1):
+def sampling_branches(w_dist: Array1D,
+                      parallel_lines: int = 2,
+                      varpi: float = 1,
+                      eta0: float = 1e-5,
+                      eta_rest: float = 0.1) -> Array1D:
     """
         w_dist         an array of points in real axis
         parallel_lines How many lines to parallel to the real frequency axis
                        the sampling has.
-        ϖ              The distance of the second line from the real axis
+        varpi          The distance of the second line from the real axis
         d              [d0, drest], where d0 is the imaginary part of the
                        first point of the first line, and drest is the
                        imaginary part of the rest of the points of the first
@@ -21,24 +24,26 @@ def sampling_branches(w_dist, parallel_lines=2, ϖ=1, eta0=1e-5, eta_rest=0.1):
     if len(w_dist) == 1:
         assert eta0 >= 0
         assert parallel_lines == 2
-        w_grid = np.array([w_dist + 1j * eta0, w_dist + 1j * ϖ], dtype=complex)
+        w_grid = np.array([w_dist + 1j * eta0, w_dist + 1j * varpi], dtype=complex)
         return w_grid
 
     if parallel_lines == 1:  # only one branch
-        assert ϖ >= 0
-        w_grid = w_dist + 1j * ϖ
+        assert varpi >= 0
+        w_grid = w_dist + 1j * varpi
         return w_grid
 
     # parallel lines == 2
     assert eta0 >= 0
     assert eta_rest >= 0
-    assert ϖ > eta0 and ϖ > eta_rest
+    assert varpi > eta0 and varpi > eta_rest
     w_grid = np.concatenate((np.array([w_dist[0] + 1j * eta0]),
-                            w_dist[1:] + 1j * eta_rest, w_dist + 1j * ϖ))
+                            w_dist[1:] + 1j * eta_rest, w_dist + 1j * varpi))
     return w_grid
 
 
-def frequency_distribution(npoles, wrange, alpha=1):
+def frequency_distribution(npoles: int,
+                           wrange: tuple[float, float] | Array1D,
+                           alpha: float = 1) -> Array1D:
 
     if npoles == 1:
         w_grid = np.array([0.])
@@ -58,7 +63,7 @@ def frequency_distribution(npoles, wrange, alpha=1):
 
 
 def mpa_frequency_sampling(npoles: int,
-                           w0: Tuple[complex, complex],
+                           w0: tuple[complex, complex],
                            eta0: float,
                            eta_rest: float,
                            parallel_lines: int = 2,
@@ -88,17 +93,17 @@ def mpa_frequency_sampling(npoles: int,
     ----------------------------------------------------------------------
     |(w0[0].real, w0[0].imag) .. . . . . . .   . (w0[1].real, w0[1].imag)|
     |                                                                    |
-    |     (w0[0].real, eta0)  .. . . . . . .   . (w0[1].real, eta_rest)      |
-    ______________________________________________________________________
+    |     (w0[0].real, eta0)  .. . . . . . .   . (w0[1].real, eta_rest)  |
+    |____________________________________________________________________|
     """
     _w0 = np.array(w0)
     grid_p = frequency_distribution(npoles, _w0.real, alpha)
     grid_w = sampling_branches(grid_p, parallel_lines=parallel_lines,
-                               ϖ=w0[0].imag, eta0=eta0, eta_rest=eta_rest)
+                               varpi=w0[0].imag, eta0=eta0, eta_rest=eta_rest)
     return grid_w
 
 
-def semi_homogenous_partition(npoles):
+def semi_homogenous_partition(npoles: int) -> Array1D:
     """
     Returns a semi-homogenous partition with n-poles between 0 and 1
     according to
