@@ -39,6 +39,8 @@ def test_gpu_pbe(nspins, gpu):
     print('speedup', cpu / gpu)
     print('max error v_g', cp.max(cp.abs(v_sg - cp.asarray(cpuv_sg)).ravel()))
     assert cp.allclose(v_sg, cpuv_sg, atol=1e-7, rtol=1e-13)
+    print('max error dedsigmax_g', cp.max(cp.abs(dedsigma_xg - cp.asarray(cpudedsigma_xg)).ravel()))
+    assert cp.allclose(dedsigma_xg, cpudedsigma_xg, atol=1e-7, rtol=1e-13)
     print('max error e_g', cp.max(cp.abs(e_g - cp.asarray(cpue_g)).ravel()))
     assert cp.allclose(e_g, cpue_g, atol=1e-12, rtol=1e-12)
 
