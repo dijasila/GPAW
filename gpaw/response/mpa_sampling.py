@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def sampling_branches(w_dist, parallel_lines=2, ϖ=1, d=[1e-5, 0.1]):
+def sampling_branches(w_dist, parallel_lines=2, ϖ=1, eta0=1e-5, eta_rest=0.1):
     """
         w_dist         an array of points in real axis
         parallel_lines How many lines to parallel to the real frequency axis
@@ -16,9 +16,9 @@ def sampling_branches(w_dist, parallel_lines=2, ϖ=1, d=[1e-5, 0.1]):
         raise ValueError('parallel_lines must be either 1 or 2.')
 
     if len(w_dist) == 1:
-        assert d[0] >= 0
+        assert eta0 >= 0
         assert parallel_lines == 2
-        w_grid = np.array([w_dist + 1j * d[0], w_dist + 1j * ϖ], dtype=complex)
+        w_grid = np.array([w_dist + 1j * eta0, w_dist + 1j * ϖ], dtype=complex)
         return w_grid
 
     if parallel_lines == 1:  # only one branch
@@ -27,11 +27,11 @@ def sampling_branches(w_dist, parallel_lines=2, ϖ=1, d=[1e-5, 0.1]):
         return w_grid
 
     # parallel lines == 2
-    assert d[0] >= 0
-    assert d[1] >= 0
-    assert ϖ > d[0] and ϖ > d[1]
-    w_grid = np.concatenate((np.array([w_dist[0] + 1j * d[0]]),
-                            w_dist[1:] + 1j * d[1], w_dist + 1j * ϖ))
+    assert eta0 >= 0
+    assert eta_rest >= 0
+    assert ϖ > eta0 and ϖ > eta_rest
+    w_grid = np.concatenate((np.array([w_dist[0] + 1j * eta0]),
+                            w_dist[1:] + 1j * eta_rest, w_dist + 1j * ϖ))
     return w_grid
 
 
@@ -54,7 +54,12 @@ def frequency_distribution(npol, wrange, alpha=1):
     return w_grid
 
 
-def mpa_frequency_sampling_new(npol, w0, d, parallel_lines=2, alpha=1):
+def mpa_frequency_sampling(npol: int,
+                           w0: tuple[complex, complex],
+                           eta0: float,
+                           eta_rest: float,
+                           parallel_lines: int = 2,
+                           alpha: float = 1):
     """
     This function creates a frequency grid in the complex plane.
     The grid can have 1 or 2 branches with points non homogeneously
@@ -83,7 +88,7 @@ def mpa_frequency_sampling_new(npol, w0, d, parallel_lines=2, alpha=1):
     w0 = np.array(w0)
     grid_p = frequency_distribution(npol, w0.real, alpha)
     grid_w = sampling_branches(grid_p, parallel_lines=parallel_lines,
-                               ϖ=w0[0].imag, d=d)
+                               ϖ=w0[0].imag, eta0=eta0, eta_rest=eta_rest)
     return grid_w
 
 
