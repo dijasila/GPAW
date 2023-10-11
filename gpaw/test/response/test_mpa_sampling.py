@@ -1,9 +1,9 @@
 import pytest
-from gpaw.response.mpa_sampling import mpa_frequency_sampling
+from gpaw.response.mpa_sampling import mpa_frequency_sampling_new as mpa_frequency_sampling
 
 
 @pytest.mark.response
-def test_mpa_samp():
+def test_mpa_sampling_errors():
 
     with pytest.raises(ValueError):
         w_grid = mpa_frequency_sampling(2, [complex(0, 0.1), complex(0, 1)],
@@ -12,15 +12,24 @@ def test_mpa_samp():
         w_grid = mpa_frequency_sampling(2, [complex(0, 0.1), complex(0, 1)],
                                         [0.1, 0.1], ps='1l', alpha=1)
 
+@pytest.mark.response
+def test_mpa_sampling_1pole():
     # print("npol=1, ps='1l', w1=0.1j, w2=1j, alpha=1:")
-    w_grid = mpa_frequency_sampling(1, [complex(0, 0.1), complex(0, 1)],
-                                    [0.1, 0.1], ps='1l', alpha=1)
-    assert w_grid == pytest.approx([0. + 0.1j, 0. + 1.j])
+    with pytest.raises(AssertionError):
+        w_grid = mpa_frequency_sampling(1, [complex(0, 0.1), complex(0, 1)],
+                                        [0.1, 0.1], ps='1l', alpha=1)
 
     # print("npol=1, ps='2l', w1=0.1j, w2=1j, alpha=0:")
-    w_grid = mpa_frequency_sampling(1, [complex(0, 0.1), complex(0, 1)],
+    w_grid = mpa_frequency_sampling(1, [complex(0, 1), complex(0, 1)],
                                     [0.1, 0.1], ps='2l', alpha=0)
     assert w_grid == pytest.approx([0. + 0.1j, 0. + 1.j])
+
+@pytest.mark.response
+def test_mpa_sampling_2poles():
+    w_grid = mpa_frequency_sampling(2, [complex(0, 1), complex(1, 1)],
+                                    [0.1, 0.1], ps='2l', alpha=1)
+    assert w_grid == pytest.approx([0. + 0.1j, 1. + 0.1j, 0 + 1j, 1 + 1j])
+
 
     # print("npol=2, ps='1l', w1=0+1j, w2=2+1j, alpha=0:")
     w_grid = mpa_frequency_sampling(2, [complex(0, 1), complex(2, 1)],
@@ -31,13 +40,15 @@ def test_mpa_samp():
     # print("npol=2, ps='2l', w1=0+1j, w2=2+1j, alpha=1:")
     w_grid = mpa_frequency_sampling(2, [complex(0, 1), complex(2, 1)],
                                     [0.01, 0.1])
-    assert w_grid == pytest.approx([0. + 0.01j, 1. + 0.1j, 0. + 1.j, 1. + 1.j])
+    assert w_grid == pytest.approx([0. + 0.01j, 2. + 0.1j, 0. + 1.j, 2. + 1.j])
 
+@pytest.mark.response
+def test_mpa_sampling_multiple_poles():
     # print("npol=3, ps='2l', w1=0+1j, w2=2+1j, alpha=1:")
     w_grid = mpa_frequency_sampling(3, [complex(0, 1), complex(2, 1)],
                                     [0.01, 0.1])
-    assert w_grid == pytest.approx([0. + 0.01j, 0.5 + 0.1j, 2. + 0.1j,
-                                    0. + 1.j, 0.5 + 1.j, 2. + 1.j])
+    assert w_grid == pytest.approx([0. + 0.01j, 1 + 0.1j, 2. + 0.1j,
+                                    0. + 1.j, 1 + 1.j, 2. + 1.j])
 
     # print("npol=4, ps='2l', w1=0+1j, w2=2+1j, alpha=1:")
     w_grid = mpa_frequency_sampling(4, [complex(0, 1), complex(2, 1)],
