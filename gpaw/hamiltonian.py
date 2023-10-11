@@ -316,9 +316,9 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.hubbard_u is not None:
-                eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+                eU, dHU_sii = setup.hubbard_u.calculate(setup, unpack(D_sp))
                 e_xc += eU
-                dH_sp += dHU_sp
+                dH_sp += pack2(dHU_sii)
 
             dH_sp[:self.nspins] += dH_p
 
