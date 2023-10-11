@@ -35,9 +35,9 @@ def sampling_branches(w_dist, parallel_lines=2, ϖ=1, eta0=1e-5, eta_rest=0.1):
     return w_grid
 
 
-def frequency_distribution(npol, wrange, alpha=1):
+def frequency_distribution(npoles, wrange, alpha=1):
 
-    if npol == 1:
+    if npoles == 1:
         w_grid = np.array([0.])
         return w_grid
 
@@ -46,15 +46,15 @@ def frequency_distribution(npol, wrange, alpha=1):
         raise ValueError('Frequency range inverted.')
 
     if alpha == 0:  # homogeneous distribution
-        w_grid = np.linspace(wrange[0], wrange[1], 2 * npol)
+        w_grid = np.linspace(wrange[0], wrange[1], 2 * npoles)
         return w_grid
 
     ws = wrange[1] - wrange[0]
-    w_grid = semi_homogenous_partition(npol)**alpha * ws + wrange[0]
+    w_grid = semi_homogenous_partition(npoles)**alpha * ws + wrange[0]
     return w_grid
 
 
-def mpa_frequency_sampling(npol: int,
+def mpa_frequency_sampling(npoles: int,
                            w0: tuple[complex, complex],
                            eta0: float,
                            eta_rest: float,
@@ -70,10 +70,13 @@ def mpa_frequency_sampling(npol: int,
 
     Parameters
     ----------
-    npol : numper of poles (half the number of frequency points)
-    w0 : array of two complex numbers defining the sampling range
-    d : array of two real numbers defining the damping range
-    ps : string of length 2 defining a sampling with 1 or 2 lines
+    npoles : numper of poles (half the number of frequency points)
+    w0   : [w_start, w_end]. An array of two complex numbers defining the
+          sampling range
+    eta0 : damping factor for the first point
+    eta_rest : damping factor for the rest of the points
+    parallel_lines : Either 1 or 2, how many lines there are parallel
+                     to the real axis.
     alpha : exponent of the distribution of points along the real axis
     ______________________________________________________________________
                   Example: double parallel sampling with 9 poles
@@ -82,17 +85,17 @@ def mpa_frequency_sampling(npol: int,
     ----------------------------------------------------------------------
     |(w0[0].real, w0[0].imag) .. . . . . . .   . (w0[1].real, w0[1].imag)|
     |                                                                    |
-    |     (w0[0].real, d[0])  .. . . . . . .   . (w0[1].real, d[1])      |
+    |     (w0[0].real, eta0)  .. . . . . . .   . (w0[1].real, eta_rest)      |
     ______________________________________________________________________
     """
     w0 = np.array(w0)
-    grid_p = frequency_distribution(npol, w0.real, alpha)
+    grid_p = frequency_distribution(npoles, w0.real, alpha)
     grid_w = sampling_branches(grid_p, parallel_lines=parallel_lines,
                                ϖ=w0[0].imag, eta0=eta0, eta_rest=eta_rest)
     return grid_w
 
 
-def semi_homogenous_partition(npol):
+def semi_homogenous_partition(npoles):
     """
     Returns a semi-homogenous partition with n-poles between 0 and 1
     according to
@@ -102,32 +105,32 @@ def semi_homogenous_partition(npol):
     small_cases = {1: np.array([0.0]),
                    2: np.array([0.0, 1.0]),
                    3: np.array([0.0, 0.5, 1.0])}
-    if npol < 4:
-        return small_cases[npol]
+    if npoles < 4:
+        return small_cases[npoles]
     # Calculate the grid spacing
     # Round up to the next power of 2. This will determine the minimum spacing
-    dw = 1 / 2**np.ceil(np.log2(npol))
-    dw_n = np.zeros(npol)
+    dw = 1 / 2**np.ceil(np.log2(npoles))
+    dw_n = np.zeros(npoles)
 
     # Get the previous power of two, by searching down,
     # e.g. lp(4) = 2, lp(7)=4, lp(8)=4, lp(9)=8
-    lp = 2**int(np.log2(npol - 1))
+    lp = 2**int(np.log2(npoles - 1))
 
     # There are usually 2 kinds of intervals in a semi homogenous grid,
     # they are always in order such that smallest intervals are closer to zero.
     # The interval sizes are dw, 2*dw.
-    # There is an exception to this rule when npol == power of two + 1, because
-    # then there would be only one type of interval with the rule below.
-    # To keep the grid inhomogenous, one adds the third interval 4 * dw.
-    if npol == lp + 1:
+    # There is an exception to this rule when npoles == power of two + 1,
+    # because then there would be only one type of interval with the rule
+    # below. To keep the grid inhomogenous, one adds the third interval 4 * dw.
+    if npoles == lp + 1:
         np1 = 2
         np3 = 1
     else:
-        np1 = (npol - (lp + 1)) * 2
+        np1 = (npoles - (lp + 1)) * 2
         np3 = 0
     # The number of intervals is always one less, than the number of points
     # in the grid. Therefore, We can deduce np2 from np1 and np3.
-    np2 = npol - 1 - np1 - np3
+    np2 = npoles - 1 - np1 - np3
 
     # Build up the intervals onto an array
     dw_n = np.repeat([0, 1, 2, 4], [1, np1, np2, np3])
