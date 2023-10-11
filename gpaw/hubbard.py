@@ -4,7 +4,6 @@ import numpy as np
 import ase.units as units
 
 from gpaw.typing import Array2D, ArrayLike2D
-from gpaw.utilities import pack2, unpack2
 
 
 def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
@@ -120,22 +119,21 @@ def aoom(l_j, lq,
          D_ii: Array2D,
          l: int,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
-    """Atomic Orbital Occupation Matrix.
+    """Atomic orbital occupation matrix.
 
-    Determine the Atomic Orbital Occupation Matrix (aoom) for a
+    Determine the atomic orbital occupation matrix (aoom) for a
     given l-quantum number.
 
-    This operation takes the density matrix (D_sii), which for
-    example is given by unpack2(D_asq[i][spin]), and corrects for
-    the overlap between the selected orbitals (l) upon which the
-    the density is expanded (ex <p|p*>,<p|p>,<p*|p*> ).
+    This function finds the submatrix / submatrices of the density matrix
+    (D_sii) which
+    represent the overlap of orbitals the selected orbitals (l) upon which the
+    the density is expanded (ex <p_x|p*>,<p|p>,<p*|p*> ).
 
-    Returned is only the "corrected" part of the density matrix,
-    which represents the orbital occupation matrix for l=2 this is
-    a 5x5 matrix.
+    Returned is only the part of the density matrix which represents the
+    orbital occupation matrix. For l=2 this is a 5x5 matrix.
     """
 
-    # j-indices which have the correct angular momentum quantum number 
+    # j-indices which have the correct angular momentum quantum number
     nl = np.where(np.equal(l_j, l))[0]
 
     nm_j = 2 * np.array(l_j) + 1
@@ -152,7 +150,8 @@ def aoom(l_j, lq,
         q12 = q1 + nl[1] - nl[0]  # Bounded-unbounded
 
         # If the Hubbard correction should be scaled, the three inner products
-        # will be divided by the inner product of the bounded partial wave.
+        # will be divided by the inner product of the bounded partial wave,
+        # increasing these inner products since 0 < lq[q1] < 1.
         if scale:
             lq_1 = 1
             lq_12 = lq[q12] / lq[q1]
