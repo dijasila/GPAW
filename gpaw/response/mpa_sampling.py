@@ -88,8 +88,8 @@ def mpa_frequency_sampling(npoles: int,
     |     (w0[0].real, eta0)  .. . . . . . .   . (w0[1].real, eta_rest)      |
     ______________________________________________________________________
     """
-    w0 = np.array(w0)
-    grid_p = frequency_distribution(npoles, w0.real, alpha)
+    _w0 = np.array(w0)
+    grid_p = frequency_distribution(npoles, _w0.real, alpha)
     grid_w = sampling_branches(grid_p, parallel_lines=parallel_lines,
                                ϖ=w0[0].imag, eta0=eta0, eta_rest=eta_rest)
     return grid_w
