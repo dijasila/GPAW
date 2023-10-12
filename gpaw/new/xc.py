@@ -120,7 +120,8 @@ class GGAFunctional(LDAFunctional):
         else:
             if self.name != 'PBE':
                 raise ValueError(f'{self.name} not supported on GPU')
-            evaluate_pbe_gpu(nt_sr.data, vxct_sr.data, e_r.data)
+            evaluate_pbe_gpu(nt_sr.data, vxct_sr.data, e_r.data,
+                             sigma_xr.data, dedsigma_xr.data)
 
         add_gradient_correction([grad.apply for grad in self.grad_v],
                                 gradn_svr.data, sigma_xr.data,
