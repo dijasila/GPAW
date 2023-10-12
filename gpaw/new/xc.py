@@ -3,19 +3,21 @@ from __future__ import annotations
 from typing import Callable
 
 import numpy as np
+
 from gpaw.core import UGArray, UGDesc
-from gpaw.gpu import as_xp, as_np
-from gpaw.gpu import cupy as cp
+from gpaw.fd_operators import Gradient
+from gpaw.gpu import as_np, as_xp
+from gpaw.new import zips
+from gpaw.new.c import (add_to_density, add_to_density_gpu, evaluate_lda_gpu,
+                        evaluate_pbe_gpu)
 from gpaw.new.calculation import DFTState
+from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D, Array4D
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
 from gpaw.xc.mgga import MGGA
-from gpaw.new.ibzwfs import IBZWaveFunctions
-from gpaw.new import zips
-from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
-from gpaw.new.c import evaluate_lda_gpu
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -40,7 +42,7 @@ class Functional:
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.type = self.xc.type
-        self.xc.set_grid_descriptor(grid._gd)
+        # self.xc.set_grid_descriptor(grid._gd)
 
     def __str__(self):
         return f'name: {self.xc.get_description()}'
@@ -91,12 +93,86 @@ class LDAFunctional(Functional):
 
 
 class GGAFunctional(LDAFunctional):
+    def __init__(self,
+                 xc: OldXCFunctional,
+                 grid: UGDesc):
+        super().__init__(xc, grid)
+        self.grad_v = [Gradient(grid._gd, v, n=xc.stencil_range)
+                       for v in range(3)]
+
     def calculate(self,
                   nt_sr: UGArray,
                   taut_sr: UGArray | None = None) -> tuple[float,
                                                            UGArray,
                                                            UGArray | None]:
-        1 / 0
+        gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
+
+        xp = nt_sr.xp
+        vxct_sr = nt_sr.new()
+        vxct_sr.data[:] = 0.0
+        dedsigma_xr = sigma_xr.new()
+        e_r = nt_sr.desc.empty(xp=xp)
+
+        if xp is np:
+            self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
+                                     sigma_xr.data, dedsigma_xr.data)
+        else:
+            if self.name != 'PBE':
+                raise ValueError(f'{self.name} not supported on GPU')
+            evaluate_pbe_gpu(nt_sr.data, vxct_sr.data, e_r.data)
+
+        add_gradient_correction([grad.apply for grad in self.grad_v],
+                                gradn_svr.data, sigma_xr.data,
+                                dedsigma_xr.data, vxct_sr.data)
+        exc = e_r.integrate()
+        return exc, vxct_sr, None
+
+
+def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
+    """Calculate gradient of density and sigma.
+
+    Returns:::
+
+      _    _
+      ∇ n (r)
+         s
+
+    and:::
+
+         _     _   2     _    _          _   2
+      σ (r) = |∇n |, σ = ∇n . ∇n ,  σ = |∇n |
+       0         0    1    0    1-   2     1
+    """
+    nspins = len(n_sr)
+    xp = n_sr.xp
+
+    gradn_svr = n_sr.desc.empty((nspins, 3), xp=xp)
+    for v, grad in enumerate(grad_v):
+        for s in range(nspins):
+            grad(n_sr[s], gradn_svr[s, v])
+
+    sigma_xr = n_sr.desc.zeros(nspins * 2 - 1, xp=xp)
+    dot_product(gradn_svr[0], None, sigma_xr[0])
+    if nspins == 2:
+        dot_product(gradn_svr[0], gradn_svr[1], out=sigma_xr[1])
+        dot_product(gradn_svr[1], None, sigma_xr[2])
+
+    return gradn_svr, sigma_xr
+
+
+def dot_product(a_vr, b_vr, out_r):
+    xp = a_vr.xp
+    if b_vr is None:
+        if xp is np:
+            for a_r in a_vr.data:
+                add_to_density(1.0, a_r, out_r.data)
+        else:
+            add_to_density_gpu(np.ones(3), a_vr.data, out_r.data)
+    else:
+        if xp is np:
+            np.einsum('vr, vr -> r', a_vr.data, b_vr.data, out=out_r.data)
+        else:
+            out_r.data[:] = xp.einsum('vr, vr -> r', a_vr.data, b_vr.data)
 
 
 class MGGAFunctional(Functional):

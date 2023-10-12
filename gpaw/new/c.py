@@ -97,7 +97,6 @@ def evaluate_lda_gpu(nt_sr, vxct_sr, e_r) -> None:
     XCKernel('LDA').calculate(e_r._data, nt_sr._data, vxct_sr._data)
 
 
-
 if not TYPE_CHECKING:
     try:
         from _gpaw import (  # noqa
