@@ -42,7 +42,7 @@ class Functional:
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.type = self.xc.type
-        # self.xc.set_grid_descriptor(grid._gd)
+        self.xc.gd = grid._gd
 
     def __str__(self):
         return f'name: {self.xc.get_description()}'
@@ -95,9 +95,10 @@ class LDAFunctional(Functional):
 class GGAFunctional(LDAFunctional):
     def __init__(self,
                  xc: OldXCFunctional,
-                 grid: UGDesc):
+                 grid: UGDesc,
+                 stencil_range: int = 2):
         super().__init__(xc, grid)
-        self.grad_v = [Gradient(grid._gd, v, n=xc.stencil_range)
+        self.grad_v = [Gradient(grid._gd, v, n=stencil_range)
                        for v in range(3)]
 
     def calculate(self,
@@ -143,7 +144,7 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
       σ (r) = |∇n |, σ = ∇n . ∇n ,  σ = |∇n |
        0         0    1    0    1-   2     1
     """
-    nspins = len(n_sr)
+    nspins = n_sr.dims[0]
     xp = n_sr.xp
 
     gradn_svr = n_sr.desc.empty((nspins, 3), xp=xp)
@@ -151,10 +152,10 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
         for s in range(nspins):
             grad(n_sr[s], gradn_svr[s, v])
 
-    sigma_xr = n_sr.desc.zeros(nspins * 2 - 1, xp=xp)
+    sigma_xr = n_sr.desc.empty(nspins * 2 - 1, xp=xp)
     dot_product(gradn_svr[0], None, sigma_xr[0])
     if nspins == 2:
-        dot_product(gradn_svr[0], gradn_svr[1], out=sigma_xr[1])
+        dot_product(gradn_svr[0], gradn_svr[1], sigma_xr[1])
         dot_product(gradn_svr[1], None, sigma_xr[2])
 
     return gradn_svr, sigma_xr
@@ -163,6 +164,7 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
 def dot_product(a_vr, b_vr, out_r):
     xp = a_vr.xp
     if b_vr is None:
+        out_r.data[:] = 0.0
         if xp is np:
             for a_r in a_vr.data:
                 add_to_density(1.0, a_r, out_r.data)
