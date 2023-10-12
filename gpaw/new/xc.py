@@ -183,8 +183,10 @@ class MGGAFunctional(GGAFunctional):
         return 'PBE'
 
     def calculate(self,
-                  nt_sr,
-                  taut_sr) -> tuple[float, UGArray, UGArray | None]:
+                  nt_sr: UGArray,
+                  taut_sr: UGArray | None = None) -> tuple[float,
+                                                           UGArray,
+                                                           UGArray | None]:
         gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
         assert isinstance(self.xc, MGGA), self.xc
         e_r = self.grid.empty()
