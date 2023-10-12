@@ -92,6 +92,12 @@ def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
     raise NotImplementedError
 
 
+def evaluate_lda_gpu(nt_sr, vxct_sr, e_r) -> None:
+    from gpaw.xc.kernel import XCKernel
+    XCKernel('LDA').calculate(e_r._data, nt_sr._data, vxct_sr._data)
+
+
+
 if not TYPE_CHECKING:
     try:
         from _gpaw import (  # noqa
@@ -106,6 +112,6 @@ if not TYPE_CHECKING:
     try:
         from _gpaw import (  # noqa
             pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
-            dH_aii_times_P_ani_gpu)
+            dH_aii_times_P_ani_gpu, evaluate_lda_gpu)
     except ImportError:
         pass

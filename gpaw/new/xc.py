@@ -15,16 +15,20 @@ from gpaw.xc.mgga import MGGA
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new import zips
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+from gpaw.new.c import evaluate_lda_gpu
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
                       grid: UGDesc) -> Functional:
     if isinstance(xc, (str, dict)):
         xc = XC(xc)
+    if xc.type == 'LDA':
+        return LDAFunctional(xc, grid)
+    if xc.type == 'GGA':
+        return GGAFunctional(xc, grid)
     if xc.type == 'MGGA':
         return MGGAFunctional(xc, grid)
-    assert xc.type in {'LDA', 'GGA'}, xc
-    return LDAOrGGAFunctional(xc, grid)
+    raise ValueError(f'{xc.type} not supported')
 
 
 class Functional:
@@ -54,7 +58,7 @@ class Functional:
         raise NotImplementedError
 
 
-class LDAOrGGAFunctional(Functional):
+class LDAFunctional(Functional):
     def calculate(self,
                   nt_sr: UGArray,
                   taut_sr: UGArray | None = None) -> tuple[float,
@@ -62,10 +66,15 @@ class LDAOrGGAFunctional(Functional):
                                                            UGArray | None]:
         xp = nt_sr.xp
         vxct_sr = nt_sr.new()
-        if xp is cp and self.name not in ['LDA', 'PBE']:
-            raise ValueError(f'{self.name} not supported on GPU')
         vxct_sr.data[:] = 0.0
-        exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
+        e_r = nt_sr.desc.empty(xp=xp)
+        if xp is np:
+            self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data)
+        else:
+            if self.name != 'LDA':
+                raise ValueError(f'{self.name} not supported on GPU')
+            evaluate_lda_gpu(nt_sr.data, vxct_sr.data, e_r.data)
+        exc = e_r.integrate()
         return exc, vxct_sr, None
 
     def stress_contribution(self,
@@ -79,6 +88,15 @@ class LDAOrGGAFunctional(Functional):
                                                       skip_sum=True)
             return as_xp(s_vv, nt_sr.xp)
         return state.density.nt_sR.xp.zeros((3, 3))
+
+
+class GGAFunctional(LDAFunctional):
+    def calculate(self,
+                  nt_sr: UGArray,
+                  taut_sr: UGArray | None = None) -> tuple[float,
+                                                           UGArray,
+                                                           UGArray | None]:
+        1 / 0
 
 
 class MGGAFunctional(Functional):
