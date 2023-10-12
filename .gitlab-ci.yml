@@ -559,6 +559,20 @@ nightly-mpi-2-new:
       pytest --instafail -r s --durations 30 -m
       "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
 
+nightly-mpi-4-new:
+  variables:
+    GPAW_NEW: "1"
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
+
 
 nightly-mpi-2:
   variables:
