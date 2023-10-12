@@ -16,7 +16,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D, Array4D
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
-from gpaw.xc.gga import add_gradient_correction, gga_vars
+from gpaw.xc.gga import add_gradient_correction
 from gpaw.xc.mgga import MGGA
 
 
@@ -112,7 +112,7 @@ class GGAFunctional(LDAFunctional):
         vxct_sr = nt_sr.new()
         vxct_sr.data[:] = 0.0
         dedsigma_xr = sigma_xr.new()
-        e_r = nt_sr.desc.empty(xp=xp)
+        e_r = self.grid.empty(xp=xp)
 
         if xp is np:
             self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
@@ -173,33 +173,33 @@ def dot_product(a_vr, b_vr, out_r):
             add_to_density_gpu(np.ones(3), a_vr.data, out_r.data)
     else:
         if xp is np:
-            np.einsum('vr, vr -> r', a_vr.data, b_vr.data, out=out_r.data)
+            xp.einsum('vr, vr -> r', a_vr.data, b_vr.data, out=out_r.data)
         else:
             out_r.data[:] = xp.einsum('vr, vr -> r', a_vr.data, b_vr.data)
 
 
-class MGGAFunctional(Functional):
+class MGGAFunctional(GGAFunctional):
     def get_setup_name(self):
         return 'PBE'
 
     def calculate(self,
                   nt_sr,
                   taut_sr) -> tuple[float, UGArray, UGArray | None]:
-        gd = self.xc.gd
+        gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
         assert isinstance(self.xc, MGGA), self.xc
-        sigma_xr, dedsigma_xr, gradn_svr = gga_vars(gd, self.xc.grad_v,
-                                                    nt_sr.data)
         e_r = self.grid.empty()
         if taut_sr is None:
             taut_sr = nt_sr.new(zeroed=True)
         dedtaut_sr = taut_sr.new()
         vxct_sr = taut_sr.new()
         vxct_sr.data[:] = 0.0
+        dedsigma_xr = sigma_xr.new()
         self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
-                                 sigma_xr, dedsigma_xr,
+                                 sigma_xr.data, dedsigma_xr.data,
                                  taut_sr.data, dedtaut_sr.data)
-        add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
-                                dedsigma_xr, vxct_sr.data)
+        add_gradient_correction([grad.apply for grad in self.grad_v],
+                                gradn_svr.data, sigma_xr.data,
+                                dedsigma_xr.data, vxct_sr.data)
         return e_r.integrate(), vxct_sr, dedtaut_sr
 
     def stress_contribution(self,
@@ -231,7 +231,7 @@ class MGGAFunctional(Functional):
         assert taut_sR is not None
         taut_sr = interpolate(taut_sR)
         assert isinstance(self.xc, MGGA)
-        stress_vv += _mgga(self.xc, nt_sr.data, taut_sr.data)
+        stress_vv += _mgga(self.xc, self.grad_v, nt_sr, taut_sr.data)
 
         return stress_vv
 
@@ -303,23 +303,24 @@ def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
     return None
 
 
-def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
-    # The GGA and LDA part of this should be factored out!
-    sigma_xr, dedsigma_xr, gradn_svr = gga_vars(xc.gd,
-                                                xc.grad_v,
-                                                nt_sr)
-    nspins = len(nt_sr)
-    dedtaut_sr = np.empty_like(nt_sr)
+def _mgga(xc: MGGA,
+          grad_v,
+          nt_sr: UGArray,
+          taut_sr: Array4D) -> Array2D:
+    gradn_svr, sigma_xr = (a.data for a in gradient_and_sigma(grad_v, nt_sr))
+    nspins = nt_sr.dims[0]
+    dedtaut_sr = np.empty_like(nt_sr.data)
     vt_sr = xc.gd.zeros(nspins)
     e_r = xc.gd.empty()
-    xc.kernel.calculate(e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
+    dedsigma_xr = np.empty_like(sigma_xr)
+    xc.kernel.calculate(e_r, nt_sr.data, vt_sr, sigma_xr, dedsigma_xr,
                         taut_sr, dedtaut_sr)
 
     def integrate(a1_r, a2_r=None):
         return xc.gd.integrate(a1_r, a2_r, global_integral=False)
 
     P = integrate(e_r)
-    for vt_r, nt_r in zip(vt_sr, nt_sr):
+    for vt_r, nt_r in zip(vt_sr, nt_sr.data):
         P -= integrate(vt_r, nt_r)
     for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
         P -= 2 * integrate(sigma_r, dedsigma_r)
