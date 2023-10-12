@@ -423,7 +423,7 @@ class ActualPairDensityCalculator:
                     raise RuntimeError(
                         'You are cutting over a degenerate band '
                         'using block parallelization.')
-                degchunks_cn.append((inds_n))
+                degchunks_cn.append(inds_n)
 
         # Calculate matrix elements by diagonalizing each block
         for ind_n in degchunks_cn:

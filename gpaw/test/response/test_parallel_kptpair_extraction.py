@@ -43,7 +43,7 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
     context = ResponseContext()
     serial_gs = ResponseGroundStateAdapter.from_gpw_file(
         gpw_files[wfs], context)
-    
+
     # Initialize parallel ground state adapter
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
     nbands = response_band_cutoff[wfs]

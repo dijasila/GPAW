@@ -86,14 +86,14 @@ def test_chi0_intraband(in_tmp_dir):
                              rate=0.1,
                              integrationmode=None,
                              txt='intraband_spinpolarized_df_im.txt')
-    
+
     df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
     df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
     df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
     chi0_drude = df4.chi0calc.chi0_opt_ext_calc.drude_calc.calculate(
         df4.wd, 0.1)
     wp4 = chi0_drude.plasmafreq_vv[0, 0]**0.5
-    
+
     # Compare plasmon frequencies and intensities
     w_w = df1.wd.omega_w
     # frequency grids must be the same
@@ -124,7 +124,7 @@ def test_chi0_intraband(in_tmp_dir):
     w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
     equal(w1, w3, 1e-2)
     equal(I1, I3, 1e-1)
-    
+
     # w_x equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCx).imag)
@@ -136,7 +136,7 @@ def test_chi0_intraband(in_tmp_dir):
     w3, I3 = findpeak(w_w, -(1. / df3LFCy).imag)
     equal(w1, w3, 1e-2)
     equal(I1, I3, 1e-1)
-    
+
     # w_y equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCy).imag)
@@ -148,7 +148,7 @@ def test_chi0_intraband(in_tmp_dir):
     w3, I3 = findpeak(w_w, -(1. / df3LFCz).imag)
     equal(w1, w3, 1e-2)
     equal(I1, I3, 1e-1)
-    
+
     # w_z equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCz).imag)
