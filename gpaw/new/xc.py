@@ -6,7 +6,7 @@ import numpy as np
 
 from gpaw.core import UGArray, UGDesc
 from gpaw.fd_operators import Gradient
-from gpaw.gpu import as_np, as_xp
+from gpaw.gpu import as_np, as_xp, einsum
 from gpaw.new import zips
 from gpaw.new.c import (add_to_density, add_to_density_gpu, evaluate_lda_gpu,
                         evaluate_pbe_gpu)
@@ -95,10 +95,9 @@ class LDAFunctional(Functional):
 class GGAFunctional(LDAFunctional):
     def __init__(self,
                  xc: OldXCFunctional,
-                 grid: UGDesc,
-                 stencil_range: int = 2):
+                 grid: UGDesc):
         super().__init__(xc, grid)
-        self.grad_v = [Gradient(grid._gd, v, n=stencil_range)
+        self.grad_v = [Gradient(grid._gd, v, n=self.xc.stencil_range)
                        for v in range(3)]
 
     def calculate(self,
@@ -172,10 +171,7 @@ def dot_product(a_vr, b_vr, out_r):
         else:
             add_to_density_gpu(np.ones(3), a_vr.data, out_r.data)
     else:
-        if xp is np:
-            xp.einsum('vr, vr -> r', a_vr.data, b_vr.data, out=out_r.data)
-        else:
-            out_r.data[:] = xp.einsum('vr, vr -> r', a_vr.data, b_vr.data)
+        einsum('vabc, vabc -> abc', a_vr.data, b_vr.data, out=out_r.data)
 
 
 class MGGAFunctional(GGAFunctional):
