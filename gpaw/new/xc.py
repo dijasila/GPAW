@@ -5,7 +5,6 @@ from typing import Callable
 import numpy as np
 
 from gpaw.core import UGArray, UGDesc
-from gpaw.fd_operators import Gradient
 from gpaw.gpu import as_np, as_xp, einsum
 from gpaw.new import zips
 from gpaw.new.c import (add_to_density, add_to_density_gpu, evaluate_lda_gpu,
@@ -18,6 +17,7 @@ from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction
 from gpaw.xc.mgga import MGGA
+from gpaw.xc.vdw import VDWFunctionalBase
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -98,8 +98,7 @@ class GGAFunctional(LDAFunctional):
                  grid: UGDesc):
         super().__init__(xc, grid)
         # xc already has Gradient.apply bound methods!!!
-        self.grad_v = [Gradient(grid._gd, v, n=self.xc.stencil_range)
-                       for v in range(3)]
+        self.grad_v = [grad.__self__ for grad in xc.grad_v]  # type: ignore
 
     def calculate(self,
                   nt_sr: UGArray,
@@ -109,17 +108,17 @@ class GGAFunctional(LDAFunctional):
         gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
 
         xp = nt_sr.xp
-        vxct_sr = nt_sr.new()
-        vxct_sr.data[:] = 0.0
+        vxct_sr = nt_sr.new(zeroed=True)
         dedsigma_xr = sigma_xr.new()
         e_r = self.grid.empty(xp=xp)
 
         if xp is np:
-            args = [
-                a.data for a in [e_r, nt_sr, vxct_sr, sigma_xr, dedsigma_xr]]
+            args = [a.data
+                    for a in [e_r, nt_sr, vxct_sr, sigma_xr, dedsigma_xr]]
             if 'vdW' not in self.name:
                 self.xc.kernel.calculate(*args)
             else:
+                assert isinstance(self.xc, VDWFunctionalBase)
                 self.xc.calculate_exchange(*args)
                 self.xc.calculate_correlation(*args)
         else:
