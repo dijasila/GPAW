@@ -42,7 +42,7 @@ class Functional:
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.type = self.xc.type
-        self.xc.gd = grid._gd
+        self.xc.set_grid_descriptor(grid._gd)
 
     def __str__(self):
         return f'name: {self.xc.get_description()}'
@@ -97,6 +97,7 @@ class GGAFunctional(LDAFunctional):
                  xc: OldXCFunctional,
                  grid: UGDesc):
         super().__init__(xc, grid)
+        # xc already has Gradient.apply bound methods!!!
         self.grad_v = [Gradient(grid._gd, v, n=self.xc.stencil_range)
                        for v in range(3)]
 
@@ -114,8 +115,13 @@ class GGAFunctional(LDAFunctional):
         e_r = self.grid.empty(xp=xp)
 
         if xp is np:
-            self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
-                                     sigma_xr.data, dedsigma_xr.data)
+            args = [
+                a.data for a in [e_r, nt_sr, vxct_sr, sigma_xr, dedsigma_xr]]
+            if 'vdW' not in self.name:
+                self.xc.kernel.calculate(*args)
+            else:
+                self.xc.calculate_exchange(*args)
+                self.xc.calculate_correlation(*args)
         else:
             if self.name != 'PBE':
                 raise ValueError(f'{self.name} not supported on GPU')
