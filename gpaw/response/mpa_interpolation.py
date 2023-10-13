@@ -341,16 +341,14 @@ class SinglePoleSolver(Solver):
         omega_w = self.omega_w
         E_GG = (X_wGG[0,:, :] * omega_w[0]**2 - X_wGG[1, :, :] * omega_w[1]**2) / (X_wGG[0,:, :] - X_wGG[1,:, :])
         def branch_sqrt_inplace(E_GG):
-            E_GG.real = np.abs(E_GG.real)
+            E_GG.real = np.abs(E_GG.real)  # physical pole
+            E_GG.imag = -np.abs(E_GG.imag)  # correct time ordering
             E_GG[:] = np.emath.sqrt(E_GG)
 
         branch_sqrt_inplace(E_GG)
-        absE_GG = np.abs(E_GG)
-        mask = absE_GG < self.threshold
-        E_GG[mask] = np.abs(omega_w[0]) - 1j * self.epsilon 
-        E_GG *= np.sign(E_GG)
-        mask = E_GG.imag > self.epsilon
-        E_GG[mask] = E_GG[mask].real - 1j * epsilon
+        mask = E_GG < self.threshold  # null pole
+        E_GG[mask] = self.threshold - 1j * self.epsilon 
+        #E_GG *= np.sign(E_GG)
 
         R_GG = fit_residue(1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
         """
@@ -378,11 +376,21 @@ class SinglePoleSolver(Solver):
 """
 class MultipoleSolver(Solver):
     def __init__(self, omega_w):
+        Solver.__init__(self, omega_w)
+        self.threshold = 1e-5
+        self.epsilon = 1e-8
+
+    def solve(self, X_wGG):
         self.npoles = npoles
         self.omega_w = omega_w
-    
-    def solve(self, X_G):
-        pass
+        assert len(X_wGG) == 2*npoles
+
+        # DALV: Pade-Thiele solver (mpa_sol='PT')
+        E, npr, PPcond = mpa_E_solver_Pade(npoles, omega_w**2, x)
+        R = mpa_R_fit(npols, npr, w, x, E)
+        Rnew = fit_residue(np.array([[[npols]]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+
+        return E_wGG, R_wGG
 """
 
 def RESolver(omega_w):
