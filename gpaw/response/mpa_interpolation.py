@@ -36,26 +36,33 @@ epsilon = 1e-8  # SP
 
 
 def mpa_cond1(z: tuple[complex, complex] | Array1D,
-              E: tuple[complex] | Array1D) -> tuple[[complex], [float]] | Array2D:  
+              E2: tuple[complex] | Array1D) -> tuple[[complex], [float]] | Array2D:  
     # complex(SP), intent(in)     :: z(2)
     # complex(SP), intent(inout)  :: E
     # real(SP),    intent(out)    :: PPcond_rate
 
+     
     PPcond_rate = 0
-    if abs(E) < null_pole_thr:  # need to check also NAN(abs(E))
-        E = complex(abs(z[0]), -epsilon)
+    if abs(E2) < null_pole_thr:  # need to check also NAN(abs(E))
+        #E = complex(abs(z[0]), -epsilon)
         PPcond_rate = 1
-    elif np.real(E) > 0.:
-        E = np.emath.sqrt(E)
+    elif np.real(E2) > 0.:
+        pass
+        #E = np.emath.sqrt(E)
     else:
-        E = np.emath.sqrt(-np.conj(E))  # note: PPA uses E = 1._SP
+        #E = np.emath.sqrt(-np.conj(E2))  # note: PPA uses E = 1._SP
         PPcond_rate = 1
 
     # DALV: since MPA uses complex poles we need to guarantee the time ordering
-    if np.real(E) < 0.:
-        E = -E
-    if np.imag(E) > -epsilon:
-        E = complex(np.real(E), -epsilon)
+    #if np.real(E) < 0.:
+    #    E = -E
+    
+    
+    E2 = complex(abs(E2.real), -abs(E2.imag))
+    E = np.emath.sqrt(E2)
+
+    #if np.imag(E) > -epsilon:
+    #    E = np.conj(E) # complex(np.real(E), -epsilon)
 
     return E, PPcond_rate
 
@@ -69,8 +76,8 @@ def mpa_E_1p_solver(z, x):
     # complex(SP), intent(out)  :: E
     # real(SP),    intent(out)  :: PPcond_rate
 
-    E = (x[0] * z[0]**2 - x[1] * z[1]**2) / (x[0] - x[1])
-    E, PPcond_rate = mpa_cond1(z, E)
+    E2 = (x[0] * z[0]**2 - x[1] * z[1]**2) / (x[0] - x[1])
+    E, PPcond_rate = mpa_cond1(z, E2)
     return E, PPcond_rate
 
 
@@ -173,6 +180,7 @@ def residuals(R,A,x):
 
 
 def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
+    print('X_wGG.shape', X_wGG.shape)
     npols = len(E_pGG)
     nw = len(omega_w)
     A_GGwp = np.zeros((*E_pGG.shape[1:], nw, npols), dtype=np.complex128)
@@ -183,8 +191,12 @@ def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
 
     for p in range(npols):
         print((p>=npr_GG).shape)
-        A_GGwp[:, :, :, p][p >= npr_GG] = 0.0
+        print(npr_GG.shape, 'nprGGshape')
+        print('A_GGwp', A_GGwp.shape)
+        for w in range(A_GGwp.shape[2]):
+            A_GGwp[:, :, w, p][p >= npr_GG] = 0.0
 
+    print('A matrix new', A_GGwp[0,0])
     temp_GGp = np.einsum('GHwp,GHw->GHp', A_GGwp.conj(), b_GGw)
     XTX_GGpp = np.einsum('GHwp,GHwo->GHpo', A_GGwp.conj(), A_GGwp)
     
@@ -192,7 +204,7 @@ def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
         # 1D matrix, invert the number
         XTX_GGpp = 1 / XTX_GGpp
     else:
-        XYX_GGpp = np.linalg.pinv(XYX_GGpp)
+        XTX_GGpp = np.linalg.pinv(XTX_GGpp)
 
     R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
     return R_GGp
@@ -253,6 +265,7 @@ def mpa_R_fit(npols, npr, w, x, E):
             A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
             A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
 
+    print('A matrix old', A)
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
     R = np.zeros(npols, dtype='complex64')
@@ -260,6 +273,34 @@ def mpa_R_fit(npols, npr, w, x, E):
 
     return R
 
+def mpa_E_solver_Pade_new(npols,
+                          omega_w, # used to be z
+                          X_wGG):  # used to be x
+    b = np.zeros(npols + 1, dtype=np.complex128) 
+
+    #b_m1 = b = np.zeros(npols + 1, dtype='complex64')
+    #b_m1[0] = b[0] = 1
+    #c = np.copy(x)
+
+    X_GGw = X_wGG.transpose((2,0,1))
+
+    for i in range(1, 2 * npols):
+        #c_m1 = np.copy(c)
+        c[i:] = (X_GGw[:, :, i-1] - X_GGw[:, :, i:]) / ((z[i:] - z[i - 1]) * c_m1[i:])
+
+        b_m2 = np.copy(b_m1)
+        b_m1 = np.copy(b)
+
+        b = b_m1 - z[i - 1] * c[i] * b_m2
+
+        b_m2[npols:0:-1] = c[i] * b_m2[npols - 1::-1]
+
+        b[1:] = b[1:] + b_m2[1:]
+
+    Companion = np.polynomial.polynomial.polycompanion(b[:npols + 1])
+    E = eigvals(Companion)
+    E, npr, PPcond = mpa_cond(npols, z, E)
+    return E, npr, PPcond
 
 def mpa_E_solver_Pade(npols, z, x):
     # integer,     intent(in)   :: np
@@ -350,7 +391,7 @@ class SinglePoleSolver(Solver):
         E_GG[mask] = self.threshold - 1j * self.epsilon 
         #E_GG *= np.sign(E_GG)
 
-        R_GG = fit_residue(1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
+        R_GG = fit_residue(np.zeros_like(E_GG)+1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
         """
         A_GGwp = np.zeros((*E_GG.shape, 2, 1), dtype=np.complex128)
         b_GGw = np.zeros((*E_GG.shape, 2), dtype=np.complex128)
@@ -425,7 +466,7 @@ def mpa_RE_solver(npols, w, x):
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
 
-        Rnew = fit_residue(np.array([[[npols]]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+        Rnew = fit_residue(np.array([[npr]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
         print(R, Rnew)
         assert np.allclose(R, Rnew)
 
@@ -442,6 +483,18 @@ def mpa_RE_solver(npols, w, x):
     # for later: MP_err = err_func_X(np, R, E, w, x)
 
     return R, E, MPred, PPcond_rate  # , MP_err
+
+def test_residue_fit_1pole():
+    npols, npr, w, x, E = (1, 1, np.array([0.  +0.j, 0.  +1.j]), np.array([ 0.13034393-0.40439649j,  0.36642415-0.67018998j]), np.array([1.654376 -0.25302243j]))
+    R = mpa_R_fit(npols, npr, w, x, E)
+    Rnew = fit_residue(np.array([[npols]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+    assert np.allclose(R, Rnew)
+
+def test_residue_fit():
+    npols, npr, w, x, E = (2, 2, np.array([0.  +0.j, 0.  +1.j, 2.33+0.j, 2.33+1.j]), np.array([ 0.13034393-0.40439649j,  0.36642415-0.67018998j,  0.77096523+0.85578656j,  -0.38002124-0.20843867j]), np.array([1.654376 -0.25302243j, 2.4306366-0.15733093j]))
+    R = mpa_R_fit(npols, npr, w, x, E)
+    Rnew = fit_residue(np.array([[npols]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+    assert np.allclose(R, Rnew)
 
 
 def test_mpa():
@@ -484,5 +537,4 @@ def test_ppa():
     print('Not vectorized', serial_time)
     print('speedup', serial_time / vectorized_time)
 
-
-test_mpa()
+#test_mpa()
