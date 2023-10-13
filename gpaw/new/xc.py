@@ -147,7 +147,7 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
 
          _     _   2     _    _          _   2
       σ (r) = |∇n |, σ = ∇n . ∇n ,  σ = |∇n |
-       0         0    1    0    1-   2     1
+       0         0    1    0    1    2     1
     """
     nspins = n_sr.dims[0]
     xp = n_sr.xp
