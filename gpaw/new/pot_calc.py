@@ -173,12 +173,12 @@ def calculate_non_local_potential1(setup: Setup,
     e_external = 0.0
 
     dH_sii = unpack(dH_sp)
-    e_kinetic -= (D_sii * dH_sii).sum().real
-
     if setup.hubbard_u is not None:
         eU, dHU_sii = setup.hubbard_u.calculate(setup, D_sii)
         e_xc += eU
         dH_sii += dHU_sii
+
+    e_kinetic -= (D_sii * dH_sii).sum().real
 
     return dH_sii, {'kinetic': e_kinetic,
                     'coulomb': e_coulomb,

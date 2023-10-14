@@ -65,14 +65,19 @@ def hubbard(l_j, lq,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sii)
 
+    # j-indices which have the correct angular momentum quantum number
     nl = np.where(np.equal(l_j, l))[0]
-    nn = (2 * np.array(l_j) + 1)[0:nl[0]].sum()
+
+    nm_j = 2 * np.array(l_j) + 1
+    nm = nm_j[nl[0]]
+
+    # Get relevant entries of the density matrix
+    i1 = slice(nm_j[:nl[0]].sum(), nm_j[:nl[0]].sum() + nm)
 
     eU = 0.
     dHU_sii = []
 
-    s = 0
-    for D_ii in D_sii:
+    for s, D_ii in enumerate(D_sii):
         N_mm, dHU_ii = aoom(l_j, lq, D_ii, l, scale)
         N_mm = N_mm / 2 * nspins
 
@@ -82,7 +87,7 @@ def hubbard(l_j, lq,
                 Eorb = U / 2. * (N_mm -
                                  0.5 * np.dot(N_mm, N_mm)).trace()
 
-                Vorb = U / 2. * (np.eye(2 * l + 1) - N_mm)
+                Vorb = U / 2. * (np.eye(nm) - N_mm)
 
             else:
                 Eorb = U / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace()
@@ -92,25 +97,24 @@ def hubbard(l_j, lq,
             Eorb = U / 2. * (N_mm -
                              np.dot(N_mm, N_mm)).trace()
 
-            Vorb = U * (0.5 * np.eye(2 * l + 1) - N_mm)
+            Vorb = U * (0.5 * np.eye(nm) - N_mm)
 
         eU += Eorb
         if nspins == 1:
-            # Add contribution of other spin manifold
+            # Add contribution from other spin manifold
             eU += Eorb
 
         if len(nl) == 2:
-            mm = (2 * np.array(l_j) + 1)[0:nl[1]].sum()
+            i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)
 
-            dHU_ii[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-            dHU_ii[mm:mm + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
-            dHU_ii[nn:nn + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
-            dHU_ii[mm:mm + 2 * l + 1, mm:mm + 2 * l + 1] *= Vorb
+            dHU_ii[i1, i1] *= Vorb
+            dHU_ii[i1, i2] *= Vorb
+            dHU_ii[i2, i1] *= Vorb
+            dHU_ii[i2, i2] *= Vorb
         else:
-            dHU_ii[nn:nn + 2 * l + 1, nn:nn + 2 * l + 1] *= Vorb
+            dHU_ii[i1, i1] *= Vorb
 
         dHU_sii.append(dHU_ii)
-        s += 1
 
     return eU, dHU_sii
 
@@ -119,18 +123,16 @@ def aoom(l_j, lq,
          D_ii: Array2D,
          l: int,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
-    """Atomic orbital occupation matrix.
+    """
+    This function returns the atomic orbital occupation matrix (aoom) for a
+    given l quantum number.
 
-    Determine the atomic orbital occupation matrix (aoom) for a
-    given l-quantum number.
+    The submatrix / submatrices of the density matrix (D_sii) for the
+    selected l quantum number are determined and summed together which
+    represents the orbital occupation matrix. For l=2 this is a 5x5 matrix.
 
-    This function finds the submatrix / submatrices of the density matrix
-    (D_sii) which
-    represent the overlap of orbitals the selected orbitals (l) upon which the
-    the density is expanded (ex <p_x|p*>,<p|p>,<p*|p*> ).
-
-    Returned is only the part of the density matrix which represents the
-    orbital occupation matrix. For l=2 this is a 5x5 matrix.
+    If scale = True, the inner products are scaled such that the inner product
+    of the bounded partial waves is 1.
     """
 
     # j-indices which have the correct angular momentum quantum number
@@ -140,7 +142,7 @@ def aoom(l_j, lq,
     nm = nm_j[nl[0]]
 
     # Get relevant entries of the density matrix
-    i1 = slice(nm_j[:nl[0]].sum(), nm_j[:nl[0]].sum() + nm)  # Bounded
+    i1 = slice(nm_j[:nl[0]].sum(), nm_j[:nl[0]].sum() + nm)
 
     dHU_ii = np.zeros_like(D_ii)
     if len(nl) == 2:
@@ -161,10 +163,10 @@ def aoom(l_j, lq,
             lq_12 = lq[q12]
             lq_2 = lq[q2]
 
-        # Get relevant entries of the density matrix (unbounded partial waves)
+        # Get the entries in the density matrix of the unbounded partial waves
         i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)
 
-        # Finally, scale and add the four submatrices of the occupation matrix
+        # Scale and add the four submatrices to get the occupation matrix
         N_mm = (D_ii[i1, i1] * lq_1 + D_ii[i1, i2] * lq_12
                 + D_ii[i2, i1] * lq_12 + D_ii[i2, i2] * lq_2)
 
