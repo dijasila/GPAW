@@ -21,9 +21,10 @@ from gpaw.xc.vdw import VDWFunctionalBase
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
-                      grid: UGDesc) -> Functional:
+                      grid: UGDesc,
+                      xp=np) -> Functional:
     if isinstance(xc, (str, dict)):
-        xc = XC(xc)
+        xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
         return LDAFunctional(xc, grid)
     if xc.type == 'GGA':

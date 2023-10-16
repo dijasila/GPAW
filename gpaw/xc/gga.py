@@ -166,19 +166,20 @@ def gga_vars(gd, grad_v, n_sg):
     return sigma_xg, dedsigma_xg, gradn_svg
 
 
-def get_gradient_ops(gd, nn):
-    return [Gradient(gd, v, n=nn).apply for v in range(3)]
+def get_gradient_ops(gd, nn, xp):
+    return [Gradient(gd, v, n=nn, xp=xp).apply for v in range(3)]
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=2):
+    def __init__(self, kernel, stencil=2, xp=np):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
+        self.xp = xp
 
     def set_grid_descriptor(self, gd):
         XCFunctional.set_grid_descriptor(self, gd)
-        self.grad_v = get_gradient_ops(gd, self.stencil_range)
+        self.grad_v = get_gradient_ops(gd, self.stencil_range, self.xp)
 
     def todict(self):
         d = super().todict()

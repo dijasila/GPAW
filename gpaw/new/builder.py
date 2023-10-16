@@ -154,8 +154,7 @@ class DFTComponentsBuilder:
         raise NotImplementedError
 
     def create_xc_functional(self):
-        return create_functional(self._xc,
-                                 self.fine_grid)
+        return create_functional(self._xc, self.fine_grid, self.xp)
 
     def check_cell(self, cell):
         number_of_lattice_vectors = cell.rank
