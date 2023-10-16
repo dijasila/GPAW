@@ -8,7 +8,7 @@ from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
 
 
-def safe_id(in_a, tolerance=1e-8):
+def safe_id(magmom_av, tolerance=1e-8):
     """
      While calculating ident for atoms, there may be rounding errors
      in magnetic moments supplied. This will create an unique integer
@@ -17,12 +17,15 @@ def safe_id(in_a, tolerance=1e-8):
      [magmom_a - tolerance, magmom_a + tolerance].
     """
     id_a = []
-    for a, number in enumerate(in_a):
+    for a, magmom_v in enumerate(magmom_av):
         quantized = None
         for a2 in range(a):
-            if np.linalg.norm(id_a[a2] - number) < tolerance:
+            if np.linalg.norm(magmom_av[a2] - magmom_v) < tolerance:
                 quantized = a2
-        id_a.append(quantized or a)
+                break
+        if quantized is None:
+            quantized = a
+        id_a.append(quantized)
     return id_a
 
 
@@ -102,7 +105,7 @@ class SymmetrizationPlan:
 
 def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     ids = ids or [()] * len(atoms)
-    if magmoms:
+    if magmoms is not None:
         ids = [id + (m,) for id, m in zips(ids, safe_id(magmoms))]
     symmetry = OldSymmetry(ids,
                            atoms.cell.complete(),
