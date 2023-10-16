@@ -43,13 +43,15 @@ class FakeWFS:
         if isinstance(wfs, PWFDWaveFunctions):
             if hasattr(wfs.psit_nX.desc, 'ecut'):
                 self.mode = 'pw'
-                self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
+                self.ecut = wfs.psit_nX.desc.ecut
+                self.pd = PWDescriptor(self.ecut,
                                        self.gd, self.dtype, self.kd)
                 self.pwgrid = grid.new(dtype=self.dtype)
             else:
                 self.mode = 'fd'
         else:
             self.mode = 'lcao'
+        self.collinear = wfs.ncomponents < 4
 
     def _get_wave_function_array(self, u, n, realspace):
         psit_X = self.kpt_u[u].wfs.psit_nX[n]
@@ -93,9 +95,17 @@ class KPT:
         self.ngpts = ngpts
         self.wfs = wfs
         self.pd = pd
+
+        I1 = 0
+        nproj_a = []
+        for a, shape in enumerate(wfs.P_ani.layout.shape_a):
+            I2 = I1 + prod(shape)
+            nproj_a.append(I2 - I1)
+            I1 = I2
+
         self.projections = Projections(
             wfs.nbands,
-            [I2 - I1 for (a, I1, I2) in wfs.P_ani.layout.myindices],
+            nproj_a,
             atom_partition,
             wfs.P_ani.comm,
             wfs.ncomponents < 4,
@@ -143,6 +153,7 @@ class FakeDensity:
         self._densities = calculation.densities()
         self.ncomponents = len(self.nt_sG)
         self.nspins = self.ncomponents % 3
+        self.collinear = self.ncomponents < 4
 
     @cached_property
     def D_asp(self):

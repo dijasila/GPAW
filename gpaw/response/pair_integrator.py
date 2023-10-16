@@ -70,7 +70,7 @@ class PairFunctionIntegrator(ABC):
     KPointPairIntegral.weighted_kpoint_pairs() generates these kptpairs along
     with their integral weights such that self._integrate() can construct the
     pair functions in a flexible, yet general manner.
-    
+
     NB: Although it is not a fundamental limitation to pair functions as
     described above, the current implementation is based on a plane-wave
     represenation of spatial coordinates. This means that symmetries are
@@ -80,8 +80,7 @@ class PairFunctionIntegrator(ABC):
 
     def __init__(self, gs, context, nblocks=1,
                  disable_point_group=False,
-                 disable_time_reversal=False,
-                 disable_non_symmorphic=True):
+                 disable_time_reversal=False):
         """Construct the PairFunctionIntegrator
 
         Parameters
@@ -95,8 +94,6 @@ class PairFunctionIntegrator(ABC):
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
         """
         self.gs = gs
         self.context = context
@@ -119,9 +116,7 @@ class PairFunctionIntegrator(ABC):
         # Symmetry flags
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        if (disable_time_reversal and disable_point_group
-            and disable_non_symmorphic):
+        if disable_time_reversal and disable_point_group:
             self.disable_symmetries = True
         else:
             self.disable_symmetries = False
@@ -143,7 +138,7 @@ class PairFunctionIntegrator(ABC):
         """
         # Initialize the plane-wave symmetry analyzer
         analyzer = self.get_pw_symmetry_analyzer(out.qpd)
-        
+
         # Perform the actual integral as a point integral over k-point pairs
         integral = KPointPairPointIntegral(self.kptpair_extractor, analyzer)
         weighted_kptpairs = integral.weighted_kpoint_pairs(transitions)
@@ -221,10 +216,9 @@ class PairFunctionIntegrator(ABC):
         from gpaw.response.symmetry import PWSymmetryAnalyzer
 
         return PWSymmetryAnalyzer(
-            self.gs.kd, qpd, self.context,
+            self.gs.kpoints, qpd, self.context,
             disable_point_group=self.disable_point_group,
-            disable_time_reversal=self.disable_time_reversal,
-            disable_non_symmorphic=self.disable_non_symmorphic)
+            disable_time_reversal=self.disable_time_reversal)
 
     def get_band_and_spin_transitions(self, spincomponent, nbands=None,
                                       bandsummation='pairwise'):
@@ -261,22 +255,22 @@ class PairFunctionIntegrator(ABC):
         knsize = self.intrablockcomm.size
         bsize = self.blockcomm.size
 
-        s = ''
+        isl = ['',
+               'The pair function integration is based on a ground state '
+               'with:',
+               f'    Number of spins: {nspins}',
+               f'    Number of bands: {nbands}',
+               f'    Number of completely occupied bands: {nocc1}',
+               f'    Number of partially occupied bands: {nocc2}',
+               f'    Number of kpoints: {nk}',
+               f'    Number of irreducible kpoints: {nik}',
+               '',
+               'The pair function integration is performed in parallel with:',
+               f'    comm.size: {csize}',
+               f'    intrablockcomm.size: {knsize}',
+               f'    blockcomm.size: {bsize}']
 
-        s += 'The pair function integration is based on a ground state with:\n'
-        s += '    Number of spins: %d\n' % nspins
-        s += '    Number of bands: %d\n' % nbands
-        s += '    Number of completely occupied bands: %d\n' % nocc1
-        s += '    Number of partially occupied bands: %d\n' % nocc2
-        s += '    Number of kpoints: %d\n' % nk
-        s += '    Number of irredicible kpoints: %d\n' % nik
-        s += '\n'
-        s += 'The pair function integration is performed in parallel with:\n'
-        s += '    comm.size: %d\n' % csize
-        s += '    intrablockcomm.size: %d\n' % knsize
-        s += '    blockcomm.size: %d\n' % bsize
-
-        return s
+        return '\n'.join(isl)
 
     @staticmethod
     def get_band_and_transitions_info_string(nbands, nt):

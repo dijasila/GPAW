@@ -33,7 +33,7 @@ class IBZ2BZMaps(Sequence):
 
     @classmethod
     def from_calculator(cls, calc):
-        R_asii = [setup.R_sii for setup in calc.setups]
+        R_asii = calc.setups.atomrotations.get_R_asii()
         return cls(calc.wfs.kd, calc.spos_ac, R_asii, calc.wfs.gd.N_c)
 
     def __len__(self):
@@ -208,10 +208,6 @@ def get_overlap(bands,
                 proj2: Projections,
                 dO_aii):
     """Computes the overlap between all-electron wave functions.
-
-    Similar to gpaw.berryphase.get_overlap but adapted to work with projector
-    objects rather than arrays.
-    Eventually berryphase.get_overlap should be replaced by this function. XXX
 
     Parameters
     ----------

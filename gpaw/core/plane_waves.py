@@ -3,17 +3,20 @@ from __future__ import annotations
 from math import pi
 from typing import TYPE_CHECKING
 
-import gpaw.fftw as fftw
 import numpy as np
 from ase.units import Ha
+
+import gpaw.fftw as fftw
 from gpaw import debug
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.pwacf import PWAtomCenteredFunctions
+from gpaw.gpu import cupy as cp
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
-from gpaw.new.c import add_to_density, pw_insert
+from gpaw.new.c import (add_to_density, add_to_density_gpu, pw_insert,
+                        pw_insert_gpu)
 from gpaw.pw.descriptor import pad
 from gpaw.typing import (Array1D, Array2D, Array3D, ArrayLike1D, ArrayLike2D,
                          Literal, Vector)
@@ -27,9 +30,9 @@ class PWDesc(Domain):
 
     def __init__(self,
                  *,
-                 ecut: float,
-                 cell: ArrayLike1D | ArrayLike2D,
-                 kpt: Vector = None,
+                 ecut: float,  # hartree
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
                  dtype=None):
         """Description of plane-wave basis.
@@ -37,10 +40,11 @@ class PWDesc(Domain):
         parameters
         ----------
         ecut:
-            Cutoff energy for kinetic energy of plane waves.
+            Cutoff energy for kinetic energy of plane waves (units: hartree).
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         comm:
             Communicator for distribution of plane-waves.
         kpt:
@@ -79,18 +83,12 @@ class PWDesc(Domain):
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
-        self.qspiral_v = None
-
     def __repr__(self) -> str:
         m = self.myshape[0]
         n = self.shape[0]
-        r = Domain.__repr__(self).replace(
+        return Domain.__repr__(self).replace(
             'Domain(',
             f'PWDesc(ecut={self.ecut} <coefs={m}/{n}>, ')
-        if self.qspiral_v is None:
-            return r
-        q = self.cell_cv @ self.qspiral_v / (2 * pi)
-        return f'{r[:-1]}, qsiral={q}'
 
     def _short_string(self, global_shape):
         return (f'plane wave coefficients: {global_shape[-1]}\n'
@@ -135,7 +133,7 @@ class PWDesc(Domain):
 
     def new(self,
             *,
-            ecut: float = None,
+            ecut: float | None = None,
             kpt=None,
             dtype=None,
             comm: MPIComm | Literal['inherit'] | None = 'inherit'
@@ -219,12 +217,13 @@ class PWDesc(Domain):
                                 functions,
                                 positions,
                                 *,
+                                qspiral_v=None,
                                 atomdist=None,
                                 integral=None,
                                 cut=False,
                                 xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
-        if self.qspiral_v is None:
+        if qspiral_v is None:
             return PWAtomCenteredFunctions(functions, positions, self,
                                            atomdist=atomdist,
                                            xp=xp)
@@ -232,7 +231,7 @@ class PWDesc(Domain):
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
-                           qspiral_v=self.qspiral_v)
+                           qspiral_v=qspiral_v)
 
 
 class PWArray(DistributedArrays[PWDesc]):
@@ -240,7 +239,7 @@ class PWArray(DistributedArrays[PWDesc]):
                  pw: PWDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) as a plane-wave expansions.
 
@@ -271,12 +270,14 @@ class PWArray(DistributedArrays[PWDesc]):
 
     def __getitem__(self, index: int | slice) -> PWArray:
         data = self.data[index]
-        return PWArray(self.desc, data.shape[:-1], data=data)
+        return PWArray(self.desc,
+                       data.shape[:-1],
+                       data=data)
 
     def __iter__(self):
         for data in self.data:
             yield PWArray(self.desc,
-                          data.shape[:-len(self.desc.shape)],
+                          data.shape[:-1],
                           data=data)
 
     def new(self,
@@ -345,7 +346,7 @@ class PWArray(DistributedArrays[PWDesc]):
             out = grid.empty(self.dims, xp=xp)
         assert self.desc.dtype == out.desc.dtype, (self.desc, out.desc)
         assert out.desc.pbc_c.all()
-        assert comm.size == out.desc.comm.size
+        assert comm.size == out.desc.comm.size, (comm, out.desc.comm)
 
         plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
@@ -362,10 +363,10 @@ class PWArray(DistributedArrays[PWDesc]):
         return out
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UGDesc = None,
-                    out: UGArray = None) -> UGArray:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         assert plan1 is None
         return self.ifft(plan=plan2, grid=grid, out=out)
 
@@ -428,8 +429,10 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(self.data, ssize_r, soffset_r,
                        out.data, rsize_r, roffset_r)
 
-    def scatter_from(self, data: Array1D = None) -> None:
+    def scatter_from(self, data: Array1D | PWArray | None = None) -> None:
         """Scatter data from rank-0 to all ranks."""
+        if isinstance(data, PWArray):
+            data = data.data
         comm = self.desc.comm
         if comm.size == 1:
             assert data is not None
@@ -468,7 +471,7 @@ class PWArray(DistributedArrays[PWDesc]):
         comm.alltoallv(a_G.data, ssize_r, soffset_r,
                        self.data, rsize_r, roffset_r)
 
-    def integrate(self, other: PWArray = None) -> np.ndarray:
+    def integrate(self, other: PWArray | None = None) -> np.ndarray:
         """Integral of self or self time cc(other)."""
         dv = self.dv
         if other is not None:
@@ -491,7 +494,6 @@ class PWArray(DistributedArrays[PWDesc]):
             else:
                 result = self.xp.empty(self.mydims, complex)
             self.desc.comm.broadcast(result, 0)
-
         if self.desc.dtype == float:
             result = result.real
         if result.ndim == 0:
@@ -539,11 +541,11 @@ class PWArray(DistributedArrays[PWDesc]):
         if kind == 'normal':
             result_x = self.xp.einsum('xG, xG -> x', a_xG, a_xG)
         elif kind == 'kinetic':
-
-            a_xG = a_xG.reshape((len(a_xG), -1, 2))
-            result_x = self.xp.einsum('xGi, xGi, G -> x',
-                                      a_xG,
-                                      a_xG,
+            x, G2 = a_xG.shape
+            a_xGz = a_xG.reshape((x, G2 // 2, 2))
+            result_x = self.xp.einsum('xGz, xGz, G -> x',
+                                      a_xGz,
+                                      a_xGz,
                                       self.xp.asarray(self.desc.ekin_G))
         else:
             1 / 0
@@ -556,7 +558,8 @@ class PWArray(DistributedArrays[PWDesc]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UGArray) -> None:
+                   out: UGArray,
+                   _slow: bool = False) -> None:
         """Add weighted absolute square of self to output array.
 
         With `a_n(G)` being self and `w_n` the weights:::
@@ -573,6 +576,9 @@ class PWArray(DistributedArrays[PWDesc]):
         a_nG = self
 
         if domain_comm.size == 1:
+            if not _slow and xp is cp and pw.dtype == complex:
+                return abs_square_gpu(a_nG, weights, out)
+
             a_R = out.desc.new(dtype=pw.dtype).empty(xp=xp)
             for weight, a_G in zips(weights, a_nG):
                 if weight == 0.0:
@@ -613,9 +619,10 @@ class PWArray(DistributedArrays[PWDesc]):
     def to_pbc_grid(self):
         return self
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
         rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
@@ -626,7 +633,7 @@ class PWArray(DistributedArrays[PWDesc]):
     def moment(self):
         pw = self.desc
         # Masks:
-        m0_G, m1_G, m2_G = [i_G == 0 for i_G in pw.indices_cG]
+        m0_G, m1_G, m2_G = (i_G == 0 for i_G in pw.indices_cG)
         a_G = self.gather()
         if a_G is not None:
             b_G = a_G.data.imag
@@ -790,3 +797,33 @@ def find_reciprocal_vectors(ecut: float,
     G_plus_k = G_plus_k_Qv[mask]
 
     return G_plus_k, ekin, indices.T
+
+
+def abs_square_gpu(psit_nG, weight_n, nt_R):
+    from gpaw.gpu import cupyx
+    pw = psit_nG.desc
+    plan = nt_R.desc.fft_plans(xp=cp, dtype=complex)
+    Q_G = cp.asarray(plan.indices(pw))
+    weight_n = cp.asarray(weight_n)
+    N = len(weight_n)
+    shape = tuple(nt_R.desc.size_c)
+    B = 32
+    psit_bR = None
+    for b1 in range(0, N, B):
+        b2 = min(b1 + B, N)
+        nb = b2 - b1
+        if psit_bR is None:
+            psit_bR = cp.empty((nb,) + shape, complex)
+        elif nb < B:
+            psit_bR = psit_bR[:nb]
+        psit_bR[:] = 0.0
+        pw_insert_gpu(psit_nG.data[b1:b2],
+                      Q_G,
+                      1.0,
+                      psit_bR.reshape((nb, -1)))
+        psit_bR[:] = cupyx.scipy.fft.ifftn(
+            psit_bR,
+            shape,
+            norm='forward',
+            overwrite_x=True)
+        add_to_density_gpu(weight_n[b1:b2], psit_bR, nt_R.data)
