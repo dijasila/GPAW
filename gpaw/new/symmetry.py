@@ -102,9 +102,7 @@ class SymmetrizationPlan:
 
 def create_symmetries_object(atoms, ids=None, magmoms=None, parameters=None):
     ids = ids or [()] * len(atoms)
-    if magmoms is None:
-        pass
-    else:
+    if magmoms:
         ids = [id + (m,) for id, m in zips(ids, safe_id(magmoms))]
     symmetry = OldSymmetry(ids,
                            atoms.cell.complete(),
