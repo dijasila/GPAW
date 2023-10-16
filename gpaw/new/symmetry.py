@@ -8,7 +8,7 @@ from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
 
 
-def safe_id(magmom_av, tolerance=1e-8):
+def safe_id(magmom_av, tolerance=1e-4):
     """
      While calculating ident for atoms, there may be rounding errors
      in magnetic moments supplied. This will create an unique integer
