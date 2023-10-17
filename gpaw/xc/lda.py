@@ -18,17 +18,12 @@ class LDARadialExpansion:
         else:
             n_sLg[0, 0] += 4 * nc0_sg[0]
 
-        dEdD_sqL = np.zeros_like(np.transpose(D_sLq, (0, 2, 1)))
-
         Lmax = n_sLg.shape[1]
-        E = 0.0
-        for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-            w = weight_n[n]
-
-            e_g, dedn_sg = self.rcalc(rgd, n_sLg, Y_L)
-            dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                               n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-            E += w * rgd.integrate(e_g)
+        _Y_nL = Y_nL[:, :Lmax].copy()
+        e_ng, dedn_sng = self.rcalc(rgd, n_sLg, _Y_nL)
+        dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
+                rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL) 
+        E = np.einsum('ng,g,n', e_ng, rgd.dv_g, weight_n)
         return E, dEdD_sqL
 
 
@@ -73,13 +68,13 @@ class LDARadialCalculator:
     def __init__(self, kernel):
         self.kernel = kernel
 
-    def __call__(self, rgd, n_sLg, Y_L):
+    def __call__(self, rgd, n_sLg, Y_nL):
         nspins = len(n_sLg)
-        n_sg = np.dot(Y_L, n_sLg)
-        e_g = rgd.empty()
-        dedn_sg = rgd.zeros(nspins)
-        self.kernel.calculate(e_g, n_sg, dedn_sg)
-        return e_g, dedn_sg
+        n_sng = np.einsum('nL,sLg->sng', Y_nL, n_sLg)
+        e_ng = np.empty((len(Y_nL), rgd.N))
+        dedn_sng = np.zeros((nspins, len(Y_nL), rgd.N))
+        self.kernel.calculate(e_ng, n_sng, dedn_sng)
+        return e_ng, dedn_sng
 
 
 class LDA(XCFunctional):
@@ -108,7 +103,8 @@ class LDA(XCFunctional):
         if e_g is None:
             e_g = rgd.empty()
         rcalc = LDARadialCalculator(self.kernel)
-        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis], [1.0])
+        e_g[:], dedn_sng = rcalc(rgd, n_sg[:, np.newaxis], np.array([[1.0]]))
+        dedn_sg = dedn_sng[:,0,:]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
 
