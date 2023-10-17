@@ -9,7 +9,6 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
 
-
 class GGARadialExpansion:
     def __init__(self, rcalc, *args):
         self.rcalc = rcalc
@@ -33,8 +32,12 @@ class GGARadialExpansion:
         e_ng, dedn_sng, b_vsng, dedsigma_xng = \
             self.rcalc(rgd, n_sLg, _Y_nL, dndr_sLg, _rnablaY_nLv, n=None, 
                        *self.args)
+        import time
+        start = time.time()
         dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
                              rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL, optimize=True) 
+        stop = time.time()
+        print('dED_sqL took', stop-start)
         #dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
         #                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         dedsigma_xng *= rgd.dr_g
@@ -51,11 +54,10 @@ class GGARadialExpansion:
 # First part of gga_calculate_radial - initializes some quantities.
 def radial_gga_vars(rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv):
     nspins = len(n_sLg)
-    n_sng = np.empty((nspins, len(Y_nL), rgd.N))
-    np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True, out=n_sng)
-
+    #n_sng = np.empty((nspins, len(Y_nL), rgd.N))
+    #np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True, out=n_sng)
+    n_sng = Y_nL @ n_sLg
     a_sng = np.einsum('nL,sLg->sng', Y_nL, dndr_sLg, optimize=True)
-    print(rnablaY_nLv.shape, n_sLg.shape)
     b_vsng = np.einsum('nLv,sLg->vsng', rnablaY_nLv, n_sLg, optimize=True)
 
     e_ng = np.empty((len(Y_nL), rgd.N))
