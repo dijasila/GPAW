@@ -75,7 +75,7 @@ def hubbard(D_sii: Array3D,
     i1 = slice(nm_j[:nl[0]].sum(), nm_j[:nl[0]].sum() + nm)
 
     eU = 0.
-    dHU_sii = []
+    dHU_sii = np.zeros_like(D_sii)
 
     for s, D_ii in enumerate(D_sii):
         N_mm, dHU_ii = aoom(D_ii, l, l_j, lq, scale)
@@ -84,35 +84,37 @@ def hubbard(D_sii: Array3D,
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                Eorb = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
+                eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
 
-                Vorb = U / 2. * (np.eye(nm) - N_mm)
+                dHU_mm = U / 2. * (np.eye(nm) - N_mm)
 
             else:
-                Eorb = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
+                eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
 
-                Vorb = -U / 2. * N_mm
+                dHU_mm = -U / 2. * N_mm
         else:
-            Eorb = U / 2. * (N_mm - N_mm @ N_mm).trace()
+            eU1 = U / 2. * (N_mm - N_mm @ N_mm).trace()
 
-            Vorb = U / 2. * (np.eye(nm) - 2 * N_mm)
+            dHU_mm = U / 2. * (np.eye(nm) - 2 * N_mm)
 
-        eU += Eorb
+        eU += eU1
         if nspins == 1:
             # Add contribution from other spin manifold
-            eU += Eorb
+            eU += eU1
 
-        if len(nl) == 2:
+        if len(nl) == 1:
+            dHU_ii[i1, i1] *= dHU_mm
+        elif len(nl) == 2:
             i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)
 
-            dHU_ii[i1, i1] *= Vorb
-            dHU_ii[i1, i2] *= Vorb
-            dHU_ii[i2, i1] *= Vorb
-            dHU_ii[i2, i2] *= Vorb
+            dHU_ii[i1, i1] *= dHU_mm
+            dHU_ii[i1, i2] *= dHU_mm
+            dHU_ii[i2, i1] *= dHU_mm
+            dHU_ii[i2, i2] *= dHU_mm
         else:
-            dHU_ii[i1, i1] *= Vorb
+            raise NotImplementedError
 
-        dHU_sii.append(dHU_ii)
+        dHU_sii[s] = dHU_ii
 
     return eU, dHU_sii
 
@@ -126,7 +128,7 @@ def aoom(D_ii: Array2D,
     This function returns the atomic orbital occupation matrix (aoom) for a
     given l quantum number.
 
-    The submatrix / submatrices of the density matrix (D_sii) for the
+    The submatrix / submatrices of the density matrix (D_ii) for the
     selected l quantum number are determined and summed together which
     represents the orbital occupation matrix. For l=2 this is a 5x5 matrix.
 
@@ -152,7 +154,7 @@ def aoom(D_ii: Array2D,
 
         # If the Hubbard correction should be scaled, the three inner products
         # will be divided by the inner product of the bounded partial wave,
-        # increasing these inner products since 0 < lq[q1] < 1.
+        # increasing the value of these inner products since 0 < lq[q1] < 1
         if scale:
             lq_1 = 1
             lq_12 = lq[q12] / lq[q1]
