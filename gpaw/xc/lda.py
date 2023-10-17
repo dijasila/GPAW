@@ -11,6 +11,7 @@ class LDARadialExpansion:
         self.rcalc = rcalc
         self.collinear = collinear
 
+    
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
         if self.collinear:
@@ -53,7 +54,6 @@ def calculate_paw_correction(expansion,
 
     e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
     et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
-    print('e',e,'et',et)
     if dEdD_sp is not None:
         dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
                             xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
@@ -70,13 +70,13 @@ class LDARadialCalculator:
 
     def __call__(self, rgd, n_sLg, Y_nL):
         nspins = len(n_sLg)
-        n_sng = np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True)
+        # Note: Without explicitly allocating the array, einsum will create
+        # non-contiguous array, and kernel call will fail
+        n_sng = np.zeros((nspins, len(Y_nL), rgd.N))
+        np.einsum('nL,sLg->sng', Y_nL, n_sLg, out=n_sng, optimize=True)
         e_ng = np.empty((len(Y_nL), rgd.N))
         dedn_sng = np.zeros((nspins, len(Y_nL), rgd.N))
-        print(n_sng)
         self.kernel.calculate(e_ng, n_sng, dedn_sng)
-        print('e_mg', e_ng)
-        print('dedn', dedn_sng)
         return e_ng, dedn_sng
 
 

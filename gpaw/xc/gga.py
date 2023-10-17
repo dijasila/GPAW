@@ -51,8 +51,8 @@ class GGARadialExpansion:
 # First part of gga_calculate_radial - initializes some quantities.
 def radial_gga_vars(rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv):
     nspins = len(n_sLg)
-
-    n_sng = np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True)
+    n_sng = np.empty((nspins, len(Y_nL), rgd.N))
+    np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True, out=n_sng)
 
     a_sng = np.einsum('nL,sLg->sng', Y_nL, dndr_sLg, optimize=True)
     print(rnablaY_nLv.shape, n_sLg.shape)
