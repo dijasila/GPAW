@@ -84,20 +84,18 @@ def hubbard(D_sii: Array3D,
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                Eorb = U / 2. * (N_mm -
-                                 0.5 * np.dot(N_mm, N_mm)).trace().real
+                Eorb = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
 
                 Vorb = U / 2. * (np.eye(nm) - N_mm)
 
             else:
-                Eorb = U / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace().real
+                Eorb = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
 
                 Vorb = -U / 2. * N_mm
         else:
-            Eorb = U / 2. * (N_mm -
-                             np.dot(N_mm, N_mm)).trace()
+            Eorb = U / 2. * (N_mm - N_mm @ N_mm).trace()
 
-            Vorb = U * (0.5 * np.eye(nm) - N_mm)
+            Vorb = U / 2. * (np.eye(nm) - 2 * N_mm)
 
         eU += Eorb
         if nspins == 1:

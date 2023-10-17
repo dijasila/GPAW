@@ -41,8 +41,7 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
 
         pawdata = gs.pawdatasets.by_atom[a]
         if pawdata.hubbard_u is not None:
-            _, dHU_sii = pawdata.hubbard_u.calculate(
-                pawdata, unpack2(D_sp))
+            _, dHU_sii = pawdata.hubbard_u.calculate(pawdata, unpack2(D_sp))
             dvxc_sp += pack2(dHU_sii)
         xc.calculate_paw_correction(pawdata, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
