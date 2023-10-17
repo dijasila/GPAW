@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import numpy as np
-import ase.units as units
+from ase.units import Ha
 
 from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike2D
 
@@ -21,7 +21,7 @@ def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
     for lu in lus.split(';'):  # Multiple U corrections
         l_, u_, scale_ = (lu + ',,').split(',')[:3]
         l.append('spdf'.find(l_))
-        U.append(float(u_) / units.Hartree)
+        U.append(float(u_) / Ha)
         if scale_:
             scale.append(bool(int(scale_)))
         else:
@@ -52,7 +52,7 @@ class HubbardU:
 
     def descriptions(self):
         for U, l, scale in zip(self.U, self.l, self.scale):
-            yield f'Hubbard: {{U: {U * units.Ha},  # eV\n'
+            yield f'Hubbard: {{U: {U * Ha},  # eV\n'
             yield f'          l: {l},\n'
             yield f'          scale: {bool(scale)}}}'
 
