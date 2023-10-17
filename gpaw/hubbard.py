@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 import ase.units as units
 
-from gpaw.typing import Array2D, ArrayLike2D
+from gpaw.typing import Array1D, Array2D, Array3D, ArrayLike2D
 
 
 def parse_hubbard_string(type: str) -> Tuple[str, 'HubbardU']:
@@ -43,9 +43,8 @@ class HubbardU:
         eU = 0.
         dHU_sii = np.zeros_like(D_sii)
         for l, U, scale in zip(self.l, self.U, self.scale):
-            eU1, dHU1_sii = hubbard(
-                setup.l_j, setup.lq, D_sii,
-                l=l, U=U, scale=scale)
+            eU1, dHU1_sii = hubbard(D_sii, U=U, l=l, l_j=setup.l_j,
+                                    lq=setup.lq, scale=scale)
 
             eU += eU1
             dHU_sii += dHU1_sii
@@ -58,10 +57,11 @@ class HubbardU:
             yield f'          scale: {bool(scale)}}}'
 
 
-def hubbard(l_j, lq,
-            D_sii,
-            l: int,
+def hubbard(D_sii: Array3D,
             U: float,
+            l: int,
+            l_j: list[int],
+            lq: Array1D,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sii)
 
@@ -78,19 +78,19 @@ def hubbard(l_j, lq,
     dHU_sii = []
 
     for s, D_ii in enumerate(D_sii):
-        N_mm, dHU_ii = aoom(l_j, lq, D_ii, l, scale)
+        N_mm, dHU_ii = aoom(D_ii, l, l_j, lq, scale)
         N_mm = N_mm / 2 * nspins
 
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
                 Eorb = U / 2. * (N_mm -
-                                 0.5 * np.dot(N_mm, N_mm)).trace()
+                                 0.5 * np.dot(N_mm, N_mm)).trace().real
 
                 Vorb = U / 2. * (np.eye(nm) - N_mm)
 
             else:
-                Eorb = U / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace()
+                Eorb = U / 2. * (-0.5 * np.dot(N_mm, N_mm)).trace().real
 
                 Vorb = -U / 2. * N_mm
         else:
@@ -119,9 +119,10 @@ def hubbard(l_j, lq,
     return eU, dHU_sii
 
 
-def aoom(l_j, lq,
-         D_ii: Array2D,
+def aoom(D_ii: Array2D,
          l: int,
+         l_j: list[int],
+         lq: Array1D,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
     """
     This function returns the atomic orbital occupation matrix (aoom) for a
