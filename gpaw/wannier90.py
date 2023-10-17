@@ -60,6 +60,8 @@ class Wannier90:
                     dis_num_iter=200,
                     dis_froz_max=0.1,
                     dis_mix_ratio=0.5,
+                    dis_win_min=None,
+                    dis_win_max=None,
                     search_shells=None,
                     write_u_matrices=False):
         calc = self.calc
@@ -164,7 +166,12 @@ class Wannier90:
         if len(bands) > Nw:
             ef = calc.get_fermi_level()
             print('fermi_energy  = %2.3f' % ef, file=f)
-            print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
+            if dis_froz_max is not None:
+                print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
+            if dis_win_min is not None:
+                print('dis_win_min  = %2.3f' % (ef + dis_win_min), file=f)
+            if dis_win_max is not None:
+                print('dis_win_max  = %2.3f' % (ef + dis_win_max), file=f)
             print('dis_num_iter  = %d' % dis_num_iter, file=f)
             print('dis_mix_ratio = %1.1f' % dis_mix_ratio, file=f)
         print(file=f)
