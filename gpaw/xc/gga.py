@@ -34,16 +34,16 @@ class GGARadialExpansion:
             self.rcalc(rgd, n_sLg, _Y_nL, dndr_sLg, _rnablaY_nLv, n=None, 
                        *self.args)
         dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
-                             rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL) 
+                             rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL, optimize=True) 
         #dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
         #                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
         dedsigma_xng *= rgd.dr_g
         B_vsng = dedsigma_xng[::2] * b_vsng
         if nspins == 2:
             B_vsng += 0.5 * dedsigma_xng[1] * b_vsng[:, ::-1]
-        B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, n_qg)
-        dEdD_sqL += 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, _rnablaY_nLv, B_vsnq) 
-        E = np.einsum('ng,g,n', e_ng, rgd.dv_g, weight_n)
+        B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, n_qg, optimize=True)
+        dEdD_sqL += 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, _rnablaY_nLv, B_vsnq, optimize=True) 
+        E = np.einsum('ng,g,n', e_ng, rgd.dv_g, weight_n, optimize=True)
 
         return E, dEdD_sqL
 
@@ -52,11 +52,11 @@ class GGARadialExpansion:
 def radial_gga_vars(rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv):
     nspins = len(n_sLg)
 
-    n_sng = np.einsum('nL,sLg->sng', Y_nL, n_sLg)
+    n_sng = np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True)
 
-    a_sng = np.einsum('nL,sLg->sng', Y_nL, dndr_sLg)
+    a_sng = np.einsum('nL,sLg->sng', Y_nL, dndr_sLg, optimize=True)
     print(rnablaY_nLv.shape, n_sLg.shape)
-    b_vsng = np.einsum('nLv,sLg->vsng', rnablaY_nLv, n_sLg)
+    b_vsng = np.einsum('nLv,sLg->vsng', rnablaY_nLv, n_sLg, optimize=True)
 
     e_ng = np.empty((len(Y_nL), rgd.N))
     sigma_xng = np.empty((2 * nspins -1, len(Y_nL), rgd.N))
