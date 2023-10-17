@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 from ase.units import Ha
@@ -60,7 +60,7 @@ class HubbardU:
 def hubbard(D_sii: Array3D,
             U: float,
             l: int,
-            l_j: list[int],
+            l_j: List[int],
             lq: Array1D,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sii)
@@ -119,7 +119,7 @@ def hubbard(D_sii: Array3D,
 
 def aoom(D_ii: Array2D,
          l: int,
-         l_j: list[int],
+         l_j: List[int],
          lq: Array1D,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
     """
