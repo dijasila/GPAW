@@ -446,7 +446,7 @@ class Wannier90:
             f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
             grid_v = np.shape(u_nG)[1:]
             print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
-            for n in range(Nn):
+            for n in bands:
                 for iz in range(grid_v[2]):
                     for iy in range(grid_v[1]):
                         for ix in range(grid_v[0]):
@@ -455,6 +455,7 @@ class Wannier90:
             f.close()
 
     def wavefunctions(self, bz_index, bands):
+        maxband = bands[-1] + 1
         if self.spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
             return self.soc[bz_index].wavefunctions(
@@ -464,9 +465,9 @@ class Wannier90:
         ut_nR = np.array([self.calc.wfs.get_wave_function_array(
             n, ibz_index, self.spin,
             periodic=True)
-            for n in bands])
+                          for n in range(maxband)])
         ut_nR_sym = np.array([self.ibz2bz[bz_index].map_pseudo_wave_to_BZ(
-            ut_nR[n]) for n in bands])
+            ut_nR[n]) for n in range(maxband)])
 
         return ut_nR_sym
 
