@@ -188,30 +188,14 @@ class ModelInteraction:
         return rho_mnG, iq, symop.sign
 
     def read_uwan(self, seed):
+        # XXX Note: only works for nband=nwan
+        # Test and generalize for entangled bands
+        from gpaw.wannier90 import read_uwan
         if "_u.mat" not in seed:
             seed += "_u.mat"
         self.context.print(
             "Reading Wannier transformation matrices from file " + seed)
-        f = open(seed, "r")
-        kd = self.gs.kd
-        f.readline()  # first line is a comment
-        nk, nw1, nw2 = [int(i) for i in f.readline().split()]
-        assert nw1 == nw2
-        assert nk == kd.nbzkpts
-        uwan = np.empty([nw1, nw2, nk], dtype=complex)
-        iklist = []  # list to store found iks
-        for ik1 in range(nk):
-            f.readline()  # empty line
-            K_c = [float(rdum) for rdum in f.readline().split()]
-            assert np.allclose(np.array(K_c), self.gs.kd.bzk_kc[ik1])
-            ik = kd.where_is_q(K_c, kd.bzk_kc)
-            iklist.append(ik)
-            for ib1 in range(nw1):
-                for ib2 in range(nw2):
-                    rdum1, rdum2 = [float(rdum) for rdum in
-                                    f.readline().split()]
-                    uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
-        assert set(iklist) == set(range(nk))  # check that all k:s were found
+        uwan, nk, nw1, nw2 = read_uwan(seed, self.gs.kd)
         return uwan, nk, nw1, nw2
 
     def myKrange(self, rank=None):
