@@ -32,8 +32,7 @@ def backend_problemsize_kwargs(request):
     if name == 'eigh':
         return ScipyDiagonalizer, eigenproblem_size, {}
     elif name in {'blacs', 'elpa'}:
-        if not compiled_with_sl():
-            pytest.skip('no scalapack')
+        request.getfixturevalue('scalapack')
 
         nrows = 2 if world.size > 1 else 1
         ncols = world.size // 2 if nrows > 1 else 1
@@ -46,9 +45,7 @@ def backend_problemsize_kwargs(request):
             'blocksize': 32 if world.size == 1 else 64}
 
         if name == 'elpa':
-            from gpaw.utilities.elpa import LibElpa
-            if not LibElpa.have_elpa():
-                pytest.skip('no elpa')
+            request.getfixturevalue('elpa')
             scalapack_kwargs['use_elpa'] = True
 
         return ParallelDiagonalizer, eigenproblem_size, scalapack_kwargs
