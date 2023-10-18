@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 from ase.parallel import world
-from gpaw.utilities import compiled_with_sl
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
     ParallelDiagonalizer)

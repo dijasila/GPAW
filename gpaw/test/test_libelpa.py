@@ -1,14 +1,9 @@
-import pytest
-from gpaw.utilities.elpa import LibElpa
 import numpy as np
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
 
-pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
-                                reason='not LibElpa.have_elpa()')
 
-
-def test_libelpa():
+def test_libelpa(elpa):
     rng = np.random.RandomState(87878787)
 
     if world.size == 1:

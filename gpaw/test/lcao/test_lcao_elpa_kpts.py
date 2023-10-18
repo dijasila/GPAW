@@ -1,16 +1,10 @@
-import pytest
-from gpaw.utilities.elpa import LibElpa
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mpi import world
 
-# Run single SCF iteration and compare total energy with elpa vs. scalapack
 
-pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
-                                reason='not LibElpa.have_elpa()')
-
-
-def test_lcao_lcao_elpa_kpts():
+def test_lcao_lcao_elpa_kpts(elpa):
+    """Run single SCF iteration comparing elpa vs. scalapack energy."""
     energies = []
 
     for elpasolver in [None, '1stage', '2stage']:
