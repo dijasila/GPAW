@@ -41,9 +41,10 @@ def test_w90(in_tmp_dir, gpw_files, symm):
     Wm = initialize_w_model(chi0calc)
     Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
 
-    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(1.059, abs=0.003)
-    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(0.774, abs=0.003)
-    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(0.774, abs=0.003)
-    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(0.774, abs=0.003)
-    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.406, abs=0.003)
-    assert Wwann[0, 3, 0, 3, 0] == pytest.approx(0.755, abs=0.003)
+    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(2.537, abs=0.003)
+    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(1.855, abs=0.003)
+    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(1.855, abs=0.003)
+    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(1.855, abs=0.003)
+    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.972, abs=0.003)
+    assert Wwann[0, 3, 0, 3, 0].real == pytest.approx(1.808, abs=0.003)
+    assert np.abs(Wwann[0, 3, 0, 3, 0].imag) < 0.005
