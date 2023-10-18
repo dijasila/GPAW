@@ -96,6 +96,28 @@ matrix elements for arbitrary *local* functionals of the (spin-)density
 In particular, bla bla bla.
 
 
+Excercises
+==========
+
+To get comfortable with the presented functionality, here are some suggested
+excercises to get you started:
+
+1) Use the function ``calculate_site_pair_magnetization`` to calculate the site
+   pair magnetization of iron and analyze the band convergence.
+
+2) Investigate the sensitivity of the site pair functions as a function of the
+   wave vector `\mathbf{q}`.
+
+3) Calculate the site magnetization and spin splitting for a ferromagnetic
+   material with inequivalent magnetic sublattices.
+
+   a) Are you still able to find ranges of radii, where the site spin splitting
+      is constant?
+   b) What happens to the band convergence of the pair functions?
+   c) How does the off-diagonal elements of the pair functions converge as a
+      function of the number of bands?
+
+
 References
 ==========
 
