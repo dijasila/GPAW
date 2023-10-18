@@ -25,15 +25,15 @@ def prepare_eigensolver_matrices(size_of_matrices, dtype):
     return A, B
 
 
-@pytest.fixture(params=['eigh', 'blacs'])
+@pytest.fixture(params=['eigh', 'blacs', 'elpa'])
 def backend_problemsize_kwargs(request):
     name = request.param
     eigenproblem_size = world.size * 64
     if name == 'eigh':
         return ScipyDiagonalizer, eigenproblem_size, {}
-    elif name == 'blacs':
+    elif name in {'blacs', 'elpa'}:
         if not compiled_with_sl():
-            pytest.skip()
+            pytest.skip('no scalapack')
 
         nrows = 2 if world.size > 1 else 1
         ncols = world.size // 2 if nrows > 1 else 1
@@ -44,6 +44,13 @@ def backend_problemsize_kwargs(request):
             'grid_ncols': ncols,
             'scalapack_communicator': world,
             'blocksize': 32 if world.size == 1 else 64}
+
+        if name == 'elpa':
+            from gpaw.utilities.elpa import LibElpa
+            if not LibElpa.have_elpa():
+                pytest.skip('no elpa')
+            scalapack_kwargs['use_elpa'] = True
+
         return ParallelDiagonalizer, eigenproblem_size, scalapack_kwargs
 
 
