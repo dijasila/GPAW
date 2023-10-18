@@ -18,23 +18,22 @@ radius `r_\mathrm{c}` around the given magnetic atom `a`.
 Local functionals of the spin-density
 =====================================
 
-For any functional of the spin-density `f[n^\uparrow,n^\downarrow](\mathbf{r})`,
+For any functional of the (spin-)density `f[n, \mathbf{m}](\mathbf{r})`,
 one may define a corresponding site quantity,
 
 .. math::
    f_a = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
-   f[n^\uparrow,n^\downarrow](\mathbf{r}).
+   f[n,\mathbf{m}](\mathbf{r}).
 
-Currently, GPAW supplies functionality to compute such site quantities
-defined based on *local* functionals of the spin-density,
-`f[n^\uparrow,n^\downarrow](\mathbf{r}) = f(n^\uparrow(\mathbf{r}),n^\downarrow(\mathbf{r}))`.
+GPAW supplies functionality to compute such site quantities defined based on
+*local* functionals of the spin-density for collinear systems,
+`f[n,\mathbf{m}](\mathbf{r}) = f(n(\mathbf{r}),n^z(\mathbf{r}))`.
 The implementation (using the PAW method) is documented in [#Skovhus]_.
 
 In particular, the site magnetization,
 
 .. math::
-   m_a = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
-   \left(n_\uparrow(\mathbf{r}) - n_\downarrow(\mathbf{r})\right),
+   m_a = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a}) n^z(\mathbf{r}),
 
 can be calculated via the function ``calculate_site_magnetization``, whereas
 the function ``calculate_site_spin_splitting`` computes the LSDA site spin
@@ -55,6 +54,30 @@ After running the calculation script, you can download and excecute
 :download:`Fe_plot_site_properties.py`
 to plot the site magnetization and spin splitting as a function of the
 spherical site radius `r_\mathrm{c}`.
+
+
+Site-based sum rules
+====================
+
+In addition to site quantities, one may also introduce site matrix elements,
+that is, expectation values of functionals
+`f(\mathbf{r})=f[n, \mathbf{m}](\mathbf{r})`
+evaluated on specific spherical sites,
+
+.. math::
+   f^a_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'} = \langle \psi_{n\mathbf{k}s}|
+   \Theta(\mathbf{r}\in\Omega_{a}) f(\mathbf{r})
+   |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle.
+   = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a}) f(\mathbf{r})\,
+   \psi_{n\mathbf{k}s}^*(\mathbf{r})
+   \psi_{m\mathbf{k}+\mathbf{q}s'}(\mathbf{r}).
+
+Similar to the site quantities, GPAW includes functionality to calculate site
+matrix elements for arbitrary *local* functionals of the (spin-)density
+`f(\mathbf{r}) = f(n(\mathbf{r}),n^z(\mathbf{r}))`, as documented in
+[#Skovhus]_.
+
+In particular, bla bla bla.
 
 
 References
