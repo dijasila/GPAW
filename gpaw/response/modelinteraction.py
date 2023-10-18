@@ -68,7 +68,7 @@ class ModelInteraction:
         ibz2bz = ibz2bz_map(self.gs.kd)
         pair_calc = chi0calc.pair_calc
         pair_factory = chi0calc.kptpair_factory
-        if isinstance(Uwan,str):  # read w90 transformation matrix from file
+        if isinstance(Uwan, str):  # read w90 transformation matrix from file
             Uwan, nk, nwan, nband = self.read_uwan(Uwan)
         else:
             nk = Uwan.shape[2]
@@ -125,8 +125,9 @@ class ModelInteraction:
                                         optimize='optimal')
 
         # factor from BZ summation and taking from Hartree to eV
-        factor = Ha * self.gs.kd.nbzkpts**3
-        Wwan_wijkl /= factor
+        # and volume factor from matrix element in PW basis
+        factor = Ha / self.gs.kd.nbzkpts**3 / self.gs.volume
+        Wwan_wijkl *= factor
         self.context.write_timer()
 
         return Wwan_wijkl
