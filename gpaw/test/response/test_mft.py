@@ -247,7 +247,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     magmom_ar = calculate_site_magnetization(gs, sites)
 
     # ----- Single-particle site magnetization ----- #
-    
+
     # Test that the single-particle site magnetization matches a conventional
     # calculation based on the density
     sp_magmom_ar = calculate_single_particle_site_magnetization(
