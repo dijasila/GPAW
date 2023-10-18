@@ -165,11 +165,14 @@ Example: Iron
 In the
 :download:`Fe_site_sum_rules.py`
 script, the single-particle site spin splitting is calculated along with the
-site pair spin splitting of a varrying number of bands.
-Having done so, you can run
+site pair spin splitting using a varrying number of bands. It should take less
+than half an hour on a 40 core node to run.
+Having done so, you can excecute
 :download:`Fe_plot_site_sum_rules.py`
 to plot the band convergence of `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})`.
 
+.. image:: Fe_site_sum_rules.png
+	   :align: center
 
 
 Excercises
