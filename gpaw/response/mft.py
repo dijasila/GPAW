@@ -637,7 +637,7 @@ class TwoParticleSiteSpinSplittingCalculator(
     """
     def create_matrix_element_calculators(self):
         site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
-            self.gs, self.context, self.sites)
+            self.gs, self.context, self.sites, rshewmin=1e-8)
         site_pair_density_calc = SitePairDensityCalculator(
             self.gs, self.context, self.sites)
         return site_pair_spin_splitting_calc, site_pair_density_calc
