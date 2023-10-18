@@ -29,12 +29,14 @@ sites = AtomicSites(indices=[0], radii=[rc_r])
 # Calculate the single-particle sum rule
 gs = ResponseGroundStateAdapter(calc)
 context = ResponseContext('Fe_sum_rules.txt')
+context.print('\n\n--- Single-particle sum rule ---\n\n')
 sp_dxc_ar = calculate_single_particle_site_spin_splitting(gs, sites, context)
 # Calculate the site pair spin splitting with varrying number of empty-shell
 # bands included
 unocc_n = 4 * np.arange(9)
 dxc_nr = np.empty((len(unocc_n), len(rc_r)), dtype=complex)
 for n, unocc in enumerate(unocc_n):
+    context.print(f'\n\n--- Two-particle sum rule with unocc={unocc} ---\n\n')
     dxc_abr = calculate_site_pair_spin_splitting(
         gs, sites, context,
         q_c=[0., 0., 0.],  # q-vector of the pair function
