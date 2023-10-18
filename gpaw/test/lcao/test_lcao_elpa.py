@@ -1,14 +1,9 @@
-import pytest
-from gpaw.utilities.elpa import LibElpa
 from ase.build import molecule
 from gpaw.mpi import world
 from gpaw import GPAW, Mixer
 
-pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
-                                reason='not LibElpa.have_elpa()')
 
-
-def test_lcao_lcao_elpa():
+def test_lcao_elpa(elpa):
     size = (world.size // 2, 2) if world.size > 1 else (1, 1)
 
     energies = []
