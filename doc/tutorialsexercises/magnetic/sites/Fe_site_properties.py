@@ -47,11 +47,11 @@ sites = AtomicSites(
     radii=[rc_r],  # spherical cutoff radii for each magnetic atom
 )
 # and calculate the site properties of interest
-m_r = calculate_site_magnetization(gs, sites)
-dxc_r = calculate_site_spin_splitting(gs, sites)
+m_ar = calculate_site_magnetization(gs, sites)
+dxc_ar = calculate_site_spin_splitting(gs, sites)
 
 # Save site data
 if rank == 0:
     np.save('rc_r.npy', rc_r)
-    np.save('m_r.npy', m_r)
-    np.save('dxc_r.npy', dxc_r)
+    np.save('m_r.npy', m_ar[0])
+    np.save('dxc_r.npy', dxc_ar[0])
