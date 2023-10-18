@@ -155,8 +155,22 @@ thanks to a simple sum rule [#Skovhus]_. Because the sum rule relies on the
 completeness of the Kohn-Sham eigenstates, it breaks down when using only a
 finite number of bands. Hence, it can be useful to study the band convergence of
 `m_{ab}(\mathbf{q})` and `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})` to gain insight
-about related completeness issues of more complicated pair functions.
-   
+about related completeness issues of more complicated pair functions. In GPAW,
+they can be calculated using the ``calculate_site_pair_magnetization`` and
+``calculate_site_spin_splitting`` functions.
+
+Example: Iron
+-------------
+
+In the
+:download:`Fe_site_sum_rules.py`
+script, the single-particle site spin splitting is calculated along with the
+site pair spin splitting of a varrying number of bands.
+Having done so, you can run
+:download:`Fe_plot_site_sum_rules.py`
+to plot the band convergence of `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})`.
+
+
 
 Excercises
 ==========
@@ -164,8 +178,8 @@ Excercises
 To get comfortable with the presented functionality, here are some suggested
 excercises to get you started:
 
-1) Use the function ``calculate_site_pair_magnetization`` to calculate the site
-   pair magnetization of iron and analyze the band convergence.
+1) Calculate the site pair magnetization of iron and analyze its band
+   convergence.
 
 2) Investigate the sensitivity of the site pair functions as a function of the
    wave vector `\mathbf{q}`.
