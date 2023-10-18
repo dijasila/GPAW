@@ -55,6 +55,22 @@ After running the calculation script, you can download and excecute
 to plot the site magnetization and spin splitting as a function of the
 spherical site radius `r_\mathrm{c}`.
 
+.. image:: Fe_site_properties.png
+	   :align: center
+
+Although there does not exist an *a priori* magnetic site radius `r_\mathrm{c}`,
+we clearly see that there is a region, where the site spin splitting is constant
+as a function of the radius, hence making `\Delta_a^\mathrm{xc}` a well-defined
+property of the system in its own right.
+However, the same cannot be said for the site magnetization, which continues to
+varry as a function of the cutoff radius. This is due to the fact that the
+interstitial region between the Fe atoms is slightly spin-polarized
+anti-parallely to the local magnetic moments, resulting in a radius
+`r_\mathrm{c}^\mathrm{max}` which maximizes the site magnetization. If one wants
+to employ a rigid spin approximation for the magnetic site, i.e. to assume that
+the direction of magnetization is constant within the site volume, it would be a
+natural choice to use `r_\mathrm{c}^\mathrm{max}` to define the sites.
+
 
 Site-based sum rules
 ====================
