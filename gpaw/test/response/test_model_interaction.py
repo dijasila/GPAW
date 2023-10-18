@@ -7,13 +7,14 @@ from gpaw.wannier90 import Wannier90
 import os
 from gpaw.mpi import world, serial_comm
 
+
 @pytest.mark.parametrize('symm', [True, False])
 @pytest.mark.response
 def test_w(in_tmp_dir, gpw_files, symm):
 
     if not symm and world.size < 2:
         pytest.skip('Skip nosymm test in serial')
-        
+
     if symm:
         gpwfile = gpw_files['gaas_pw']
     else:
@@ -50,13 +51,12 @@ def test_w(in_tmp_dir, gpw_files, symm):
     if world.size % 2 == 0 and symm:
         omega = np.array([0, 1])
         chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
-                        txt='test.log', intraband=False, nblocks = 2)
+                        txt='test.log', intraband=False, nblocks=2)
         Wm = initialize_w_model(chi0calc)
         Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
         check_W(Wwann)
 
-        
-    
+
 def check_W(Wwann):
     assert Wwann[0, 0, 0, 0, 0] == pytest.approx(2.478, abs=0.003)
     assert Wwann[0, 1, 1, 1, 1] == pytest.approx(1.681, abs=0.003)

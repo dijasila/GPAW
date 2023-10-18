@@ -8,6 +8,7 @@ from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.pair import KPointPairFactory
 
+
 def ibz2bz_map(qd):
     """ Maps each k in BZ to corresponding k in IBZ. """
     out_map = [[] for _ in range(qd.nibzkpts)]
@@ -91,7 +92,7 @@ class ModelInteraction:
 
         # Variable that will store the screened interaction in Wannier basis
         Wwan_wijkl = np.zeros([mynfreq, nwan, nwan, nwan, nwan], dtype=complex)
-        
+
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
             self.context.print('iq = ', iq, '/', self.gs.kd.nibzkpts)
             # Calculate chi0 and W for IBZ k-point q
