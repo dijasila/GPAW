@@ -1,6 +1,7 @@
 import numpy as np
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
+from gpaw.utilities.elpa import LibElpa
 
 
 def test_libelpa(elpa):
