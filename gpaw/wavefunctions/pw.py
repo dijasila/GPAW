@@ -84,7 +84,7 @@ class PW(Mode):
         else:
             self.cell_cv = cell / Bohr
 
-        Mode.__init__(self, force_complex_dtype)
+        super().__init__(force_complex_dtype)
 
     def __call__(self, parallel, initksl, gd, **kwargs):
         dedepsilon = 0.0
@@ -111,7 +111,7 @@ class PW(Mode):
         return wfs
 
     def todict(self):
-        dct = Mode.todict(self)
+        dct = super().todict()
         dct['ecut'] = self.ecut * Ha
 
         if self.cell_cv is not None:

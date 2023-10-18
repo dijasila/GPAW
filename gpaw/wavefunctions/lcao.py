@@ -24,7 +24,7 @@ class LCAO(Mode):
                  force_complex_dtype=False):
         self.atomic_correction = atomic_correction
         self.interpolation = interpolation
-        Mode.__init__(self, force_complex_dtype)
+        super().__init__(force_complex_dtype)
 
     def __call__(self, *args, **kwargs):
         return LCAOWaveFunctions(*args,

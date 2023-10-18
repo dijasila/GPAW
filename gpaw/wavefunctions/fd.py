@@ -22,7 +22,7 @@ class FD(Mode):
     def __init__(self, nn=3, interpolation=3, force_complex_dtype=False):
         self.nn = nn
         self.interpolation = interpolation
-        Mode.__init__(self, force_complex_dtype)
+        super().__init__(force_complex_dtype)
 
     def __call__(self, *args, **kwargs):
         return FDWaveFunctions(self.nn, *args, **kwargs)
