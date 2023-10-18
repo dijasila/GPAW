@@ -174,6 +174,20 @@ to plot the band convergence of `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})`.
 .. image:: Fe_site_sum_rules.png
 	   :align: center
 
+Whereas the single-particle site spin splitting (dotted line) is virtually
+identical to the splitting calculated from the spin-density (blue line), there
+are significant deviations from the two-particle site spin splitting sum rule,
+especially with a low number of bands.
+Including at least 12 bands beyond the *4s* and *3d* valence bands, we obtain a
+reasonable fulfillment of the sum rule in the region of radii, where the site
+spin splitting is flat. Interestingly, this is not the case at smaller site
+radii, meaning that the remaining incompleteness due to the PAW setups shifts
+the site spin splitting away from the nucleus, while remaining approximately
+constant when integrating out the entire augmentation sphere.
+
+In the figure, we have left out the imaginary part of the site pair spin
+splitting. You can check yourself that it vanishes more or less identically.
+
 
 Excercises
 ==========
