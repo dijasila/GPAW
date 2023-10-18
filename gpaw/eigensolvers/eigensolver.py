@@ -207,7 +207,12 @@ class Eigensolver:
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
-            slcomm, r, c, b = wfs.scalapack_parameters
+            sl_params = wfs.scalapack_parameters
+            slcomm = sl_params['slcomm']
+            r = sl_params['grid_nrows']
+            c = sl_params['grid_ncols']
+            b = sl_params['blocksize']
+
             if r == c == 1:
                 slcomm = None
             # Complex conjugate before diagonalizing:

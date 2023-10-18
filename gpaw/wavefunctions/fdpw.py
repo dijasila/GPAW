@@ -195,13 +195,27 @@ class LCAOWfsMover:
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
     def __init__(self, parallel, initksl, reuse_wfs_method=None, **kwargs):
-        WaveFunctions.__init__(self, **kwargs)
+        super().__init__(**kwargs)
 
         ranks = [rbd * self.gd.comm.size + rgd
                  for rgd in range(self.gd.comm.size)
                  for rbd in range(self.bd.comm.size)]
-        slcomm = parallel[0].new_communicator(ranks)
-        self.scalapack_parameters = (slcomm, ) + parallel[1:]
+
+        # Maybe investigate why we hack the sl communicator here.
+        # Apparently it was set previously to a choice of ranks which
+        # we didn't like.
+        #
+        # But AFAICS, it's actually the same choice of ranks, only
+        # the gd/bd rank ordering is transposed.  Is that on purpose then?
+        #
+        # Can we just remove the new_communicator()?
+        parallel = parallel.copy()
+        previous_slcomm = parallel['slcomm']
+        parallel['slcomm'] = previous_slcomm.new_communicator(ranks)
+        assert previous_slcomm.size == parallel['slcomm'].size
+        assert previous_slcomm.compare(parallel['slcomm']) in {
+            'congruent', 'similar'}
+        self.scalapack_parameters = parallel
 
         self.initksl = initksl
         if reuse_wfs_method is None or reuse_wfs_method == 'keep':
@@ -241,9 +255,10 @@ class FDPWWaveFunctions(WaveFunctions):
         return self._work_matrix_nn
 
     def __str__(self):
-        comm, r, c, b = self.scalapack_parameters
+        sl_param = self.scalapack_parameters
         L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-              .format(r, c, b))
+              .format(sl_param['grid_nrows'], sl_param['grid_ncols'],
+                      sl_param['blocksize']))
         L2 = ('  Wavefunction extrapolation:\n    {}'
               .format(self.wfs_mover.description))
         return '\n'.join([L1, L2])

@@ -1371,10 +1371,20 @@ class GPAW(Calculator):
                                                timer=self.timer)
 
             reuse_wfs_method = par.experimental.get('reuse_wfs_method', 'paw')
-            sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
-                                       sl_default or
-                                       (1, 1, None))
-            self.wfs = mode(sl, initksl,
+
+            sl_grid_and_blocksize = (self.parallel['sl_diagonalize'] or
+                                     sl_default or
+                                     (1, 1, None))
+
+            sl_setup = {
+                'slcomm': domainband_comm,
+                'grid_nrows': sl_grid_and_blocksize[0],
+                'grid_ncols': sl_grid_and_blocksize[1],
+                'blocksize': sl_grid_and_blocksize[2],
+                'use_elpa': self.parallel['use_elpa'],
+                'elpasolver': self.parallel['elpasolver']}
+
+            self.wfs = mode(sl_setup, initksl,
                             reuse_wfs_method=reuse_wfs_method,
                             collinear=collinear,
                             **wfs_kwargs)
