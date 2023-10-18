@@ -28,6 +28,7 @@ one may define a corresponding site quantity,
 Currently, GPAW supplies functionality to compute such site quantities
 defined based on *local* functionals of the spin-density,
 `f[n^\uparrow,n^\downarrow](\mathbf{r}) = f(n^\uparrow(\mathbf{r}),n^\downarrow(\mathbf{r}))`.
+The implementation (using the PAW method) is documented in [#Skovhus]_.
 
 In particular, the site magnetization,
 
@@ -42,3 +43,22 @@ splitting,
 .. math::
    \Delta_a^\mathrm{xc} = -2 \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
    B^\mathrm{xc}(\mathbf{r}) m(\mathbf{r}).
+
+Example: Iron
+-------------
+
+In the script
+:download:`Fe_site_properties.py`,
+the site magnetization and spin splitting are calculated from the ground state
+of bcc iron. The script should take less than 10 minutes on a 40 core node.
+After running the calculation script, you can download and excecute
+:download:`Fe_plot_site_properties.py`
+to plot the site magnetization and spin splitting as a function of the
+spherical site radius `r_\mathrm{c}`.
+
+
+References
+==========
+
+.. [#Skovhus] T. Skovhus and T. Olsen,
+           *publication in preparation*, (2024)
