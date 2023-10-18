@@ -23,7 +23,7 @@ atoms.center()
 # Perform ground state calculation
 calc = GPAW(xc='LDA',
             mode=PW(800),
-            kpts={'size': (32, 32, 32), 'gamma': True},
+            kpts={'size': (16, 16, 16), 'gamma': True},
             # We converge the ground state density tightly
             convergence={'density': 1.e-8},
             occupations=FermiDirac(0.001),
