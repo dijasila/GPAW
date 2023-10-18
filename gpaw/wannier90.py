@@ -464,8 +464,7 @@ class Wannier90:
         ibz_index = self.calc.wfs.kd.bz2ibz_k[bz_index]
         ut_nR = np.array([self.calc.wfs.get_wave_function_array(
             n, ibz_index, self.spin,
-            periodic=True)
-                          for n in range(maxband)])
+            periodic=True) for n in range(maxband)])
         ut_nR_sym = np.array([self.ibz2bz[bz_index].map_pseudo_wave_to_BZ(
             ut_nR[n]) for n in range(maxband)])
 
