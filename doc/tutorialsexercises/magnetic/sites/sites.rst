@@ -41,7 +41,7 @@ splitting,
 
 .. math::
    \Delta_a^\mathrm{xc} = -2 \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
-   B^\mathrm{xc}(\mathbf{r}) m(\mathbf{r}).
+   W_\mathrm{xc}^z(\mathbf{r}) n^z(\mathbf{r}).
 
 Example: Iron
 -------------
@@ -75,25 +75,60 @@ natural choice to use `r_\mathrm{c}^\mathrm{max}` to define the sites.
 Site-based sum rules
 ====================
 
-In addition to site quantities, one may also introduce site matrix elements,
-that is, expectation values of functionals
+In addition to site quantities, one may also introduce the concept of site
+matrix elements, that is, expectation values of functionals
 `f(\mathbf{r})=f[n, \mathbf{m}](\mathbf{r})`
 evaluated on specific spherical sites,
 
 .. math::
    f^a_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'} = \langle \psi_{n\mathbf{k}s}|
    \Theta(\mathbf{r}\in\Omega_{a}) f(\mathbf{r})
-   |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle.
+   |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle
    = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a}) f(\mathbf{r})\,
    \psi_{n\mathbf{k}s}^*(\mathbf{r})
    \psi_{m\mathbf{k}+\mathbf{q}s'}(\mathbf{r}).
 
 Similar to the site quantities, GPAW includes functionality to calculate site
 matrix elements for arbitrary *local* functionals of the (spin-)density
-`f(\mathbf{r}) = f(n(\mathbf{r}),n^z(\mathbf{r}))`, as documented in
-[#Skovhus]_.
+`f(\mathbf{r}) = f(n(\mathbf{r}),n^z(\mathbf{r}))`, with implementational
+details documented in [#Skovhus]_.
 
-In particular, bla bla bla.
+For example, one can calculate the site pair density
+
+.. math::
+   n^a_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'} =
+   \langle \psi_{n\mathbf{k}s}|
+   \Theta(\mathbf{r}\in\Omega_{a})
+   |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle
+
+as well as the site pair spin splitting
+
+.. math::
+   \Delta^{\mathrm{xc},a}_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'}=-2
+   \langle \psi_{n\mathbf{k}s}|
+   \Theta(\mathbf{r}\in\Omega_{a}) W_\mathrm{xc}^z(\mathbf{r})
+   |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle.
+
+Now, from such site matrix elements, one can formulate a series of sum rules for
+various site quantities. For instance, one can construct single-particle sum
+rules for both the site magnetization and the site spin splitting, simply by
+summing over the diagonal of the site matrix elements for all the occupied
+states, weighted by the Pauli matrix `\sigma^z`,
+
+.. math::
+   m_a = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,s}
+   \sigma^z_{ss} f_{n\mathbf{k}s} n^a_{n\mathbf{k}s,n\mathbf{k}s}.
+
+.. math::
+   \Delta_a^\mathrm{xc} = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,s}
+   \sigma^z_{ss} f_{n\mathbf{k}s}
+   \Delta^{\mathrm{xc},a}_{n\mathbf{k}s,n\mathbf{k}s}.
+
+Although trivial, these sum rules can be used as a consistency tests for the
+implementation and can be accessed via the functions
+``calculate_single_particle_site_magnetization``
+and 
+``calculate_single_particle_site_spin_splitting``.
 
 
 Excercises
