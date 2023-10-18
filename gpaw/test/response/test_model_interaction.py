@@ -7,10 +7,13 @@ from gpaw.wannier90 import Wannier90
 import os
 from gpaw.mpi import world, serial_comm
 
-
 @pytest.mark.parametrize('symm', [True, False])
-def test_w90(in_tmp_dir, gpw_files, symm):
+@pytest.mark.response
+def test_w(in_tmp_dir, gpw_files, symm):
 
+    if not symm and world.size < 2:
+        pytest.skip('Skip nosymm test in serial')
+        
     if symm:
         gpwfile = gpw_files['gaas_pw']
     else:
@@ -19,6 +22,7 @@ def test_w90(in_tmp_dir, gpw_files, symm):
     calc = GPAW(gpwfile, communicator=serial_comm)
     seed = 'GaAs'
 
+    # Wannier90 only works in serial
     if world.rank == 0:
         w90 = Wannier90(calc, orbitals_ai=[[], [0, 1, 2, 3]],
                         bands=range(4),
@@ -36,15 +40,28 @@ def test_w90(in_tmp_dir, gpw_files, symm):
     world.barrier()
 
     omega = np.array([0])
-    chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=100,
+    chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                     txt='test.log', intraband=False)
     Wm = initialize_w_model(chi0calc)
     Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
+    check_W(Wwann)
 
-    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(2.537, abs=0.003)
-    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(1.855, abs=0.003)
-    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(1.855, abs=0.003)
-    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(1.855, abs=0.003)
-    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.972, abs=0.003)
-    assert Wwann[0, 3, 0, 3, 0].real == pytest.approx(1.808, abs=0.003)
+    # test block parallelization
+    if world.size % 2 == 0 and symm:
+        omega = np.array([0, 1])
+        chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
+                        txt='test.log', intraband=False, nblocks = 2)
+        Wm = initialize_w_model(chi0calc)
+        Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
+        check_W(Wwann)
+
+        
+    
+def check_W(Wwann):
+    assert Wwann[0, 0, 0, 0, 0] == pytest.approx(2.478, abs=0.003)
+    assert Wwann[0, 1, 1, 1, 1] == pytest.approx(1.681, abs=0.003)
+    assert Wwann[0, 2, 2, 2, 2] == pytest.approx(1.681, abs=0.003)
+    assert Wwann[0, 3, 3, 3, 3] == pytest.approx(1.681, abs=0.003)
+    assert Wwann[0, 3, 3, 0, 0] == pytest.approx(0.861, abs=0.003)
+    assert Wwann[0, 3, 0, 3, 0].real == pytest.approx(1.757, abs=0.003)
     assert np.abs(Wwann[0, 3, 0, 3, 0].imag) < 0.005

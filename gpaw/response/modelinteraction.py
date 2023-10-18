@@ -5,7 +5,8 @@ from gpaw.response import ResponseContext
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response import timer
-
+from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.pair import KPointPairFactory
 
 def ibz2bz_map(qd):
     """ Maps each k in BZ to corresponding k in IBZ. """
@@ -66,8 +67,11 @@ class ModelInteraction:
         """
 
         ibz2bz = ibz2bz_map(self.gs.kd)
-        pair_calc = chi0calc.pair_calc
-        pair_factory = chi0calc.kptpair_factory
+
+        # Create pair_factory with nblocks = 1
+        pair_factory = KPointPairFactory(self.gs, self.context, nblocks=1)
+        pair_calc = pair_factory.pair_calculator()
+
         if isinstance(Uwan, str):  # read w90 transformation matrix from file
             Uwan, nk, nwan, nband = self.read_uwan(Uwan)
         else:
@@ -79,18 +83,22 @@ class ModelInteraction:
         assert bandrange[1] - bandrange[0] == nband
         nfreq = len(chi0calc.chi0_body_calc.wd)
 
-        # Variable that will store the screened interaction in Wannier basis
-        Wwan_wijkl = np.zeros([nfreq, nwan, nwan, nwan, nwan], dtype=complex)
+        # Find frequency range for block distributed arrays
+        blockdist = chi0calc.chi0_body_calc.get_blockdist()
+        blocks1d = Blocks1D(blockdist.blockcomm, nfreq)
+        mynfreq = blocks1d.nlocal
+        self.intrablockcomm = blockdist.intrablockcomm
 
+        # Variable that will store the screened interaction in Wannier basis
+        Wwan_wijkl = np.zeros([mynfreq, nwan, nwan, nwan, nwan], dtype=complex)
+        
         for iq, q_c in enumerate(self.gs.kd.ibzk_kc):
             self.context.print('iq = ', iq, '/', self.gs.kd.nibzkpts)
             # Calculate chi0 and W for IBZ k-point q
             self.context.print('calculating chi0...')
-
             self.context.timer.start('chi0')
             chi0 = chi0calc.calculate(q_c)
             self.context.timer.stop('chi0')
-
             qpd = chi0.qpd
             self.context.print('calculating W_wGG...')
             W_wGG = self.wcalc.calculate_W_wGG(chi0,
@@ -130,7 +138,7 @@ class ModelInteraction:
         Wwan_wijkl *= factor
         self.context.write_timer()
 
-        return Wwan_wijkl
+        return blocks1d.all_gather(Wwan_wijkl)
 
     @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
@@ -169,7 +177,7 @@ class ModelInteraction:
                                Uwan[:, :, iK1].conj(),
                                Uwan[:, :, iK2],
                                rholoc)
-        world.sum(A_mnG)
+        self.intrablockcomm.sum(A_mnG)
         return A_mnG
 
     def get_density_matrix(self, kpt1, kpt2, pawcorr, qpd, pair_calc):
@@ -217,9 +225,9 @@ class ModelInteraction:
 
     def myKrange(self, rank=None):
         if rank is None:
-            rank = world.rank
+            rank = self.intrablockcomm.rank
         nK = self.gs.kd.nbzkpts
-        myKsize = -(-nK // world.size)
+        myKsize = -(-nK // self.intrablockcomm.size)
         myKrange = range(rank * myKsize,
                          min((rank + 1) * myKsize, nK))
         # myKsize = len(myKrange)
