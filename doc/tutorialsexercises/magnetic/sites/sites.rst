@@ -92,7 +92,6 @@ Similar to the site quantities, GPAW includes functionality to calculate site
 matrix elements for arbitrary *local* functionals of the (spin-)density
 `f(\mathbf{r}) = f(n(\mathbf{r}),n^z(\mathbf{r}))`, with implementational
 details documented in [#Skovhus]_.
-
 For example, one can calculate the site pair density
 
 .. math::
@@ -108,6 +107,7 @@ as well as the site pair spin splitting
    \langle \psi_{n\mathbf{k}s}|
    \Theta(\mathbf{r}\in\Omega_{a}) W_\mathrm{xc}^z(\mathbf{r})
    |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle.
+
 
 Now, from such site matrix elements, one can formulate a series of sum rules for
 various site quantities. For instance, one can construct single-particle sum
@@ -130,6 +130,33 @@ implementation and can be accessed via the functions
 and 
 ``calculate_single_particle_site_spin_splitting``.
 
+In addition to the single-particle sum rules, one may also introduce actual
+site pair functions that characterize the band transitions of the system.
+In particular, one may introduce the so-called site pair magnetization
+
+.. math::
+   m_{ab}(\mathbf{q}) = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,m}
+   \left( f_{n\mathbf{k}\uparrow} - f_{m\mathbf{k}+\mathbf{q}\downarrow} \right)
+   n^a_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}
+   n^b_{m\mathbf{k}+\mathbf{q}\downarrow,n\mathbf{k}\uparrow}
+
+and site pair spin splitting
+
+.. math::
+   \Delta^\mathrm{xc}_{ab}(\mathbf{q}) = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,m}
+   \left( f_{n\mathbf{k}\uparrow} - f_{m\mathbf{k}+\mathbf{q}\downarrow} \right)
+   \Delta^{\mathrm{xc},a}_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}
+   n^b_{m\mathbf{k}+\mathbf{q}\downarrow,n\mathbf{k}\uparrow},
+
+which turn out to be `\mathbf{q}`-independent diagonal pair functions,
+`m_{ab}(\mathbf{q})=\delta_{ab} m_a` and
+`\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})=\delta_{ab} \Delta^\mathrm{xc}_a`,
+thanks to a simple sum rule [#Skovhus]_. Because the sum rule relies on the
+completeness of the Kohn-Sham eigenstates, it breaks down when using only a
+finite number of bands. Hence, it can be useful to study the band convergence of
+`m_{ab}(\mathbf{q})` and `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})` to gain insight
+about related completeness issues of more complicated pair functions.
+   
 
 Excercises
 ==========
