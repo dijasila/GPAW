@@ -9,7 +9,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
-    ScalapackDiagonalizer)
+    ParallelDiagonalizer)
 
 
 class DummyArray:
@@ -61,7 +61,7 @@ class Davidson(Eigensolver):
 
         # May be more logical to use a different boolean criterion here
         if sl_setup['blocksize'] is not None:
-            self.diagonalizer_backend = ScalapackDiagonalizer(
+            self.diagonalizer_backend = ParallelDiagonalizer(
                 arraysize=self.nbands * 2,
                 grid_nrows=sl_setup['grid_nrows'],
                 grid_ncols=sl_setup['grid_ncols'],

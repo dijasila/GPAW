@@ -4,7 +4,7 @@ from ase.parallel import world
 from gpaw.utilities import compiled_with_sl
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
-    ScalapackDiagonalizer)
+    ParallelDiagonalizer)
 
 
 def prepare_eigensolver_matrices(size_of_matrices, dtype):
@@ -44,7 +44,7 @@ def backend_problemsize_kwargs(request):
             'grid_ncols': ncols,
             'scalapack_communicator': world,
             'blocksize': 32 if world.size == 1 else 64}
-        return ScalapackDiagonalizer, eigenproblem_size, scalapack_kwargs
+        return ParallelDiagonalizer, eigenproblem_size, scalapack_kwargs
 
 
 @pytest.mark.parametrize('dtype,', [float, complex])
@@ -59,7 +59,7 @@ def test_diagonalizer_eigenproblem_correctness(backend_problemsize_kwargs,
 
     if diagonalizer_class is ScipyDiagonalizer:
         diagonalizer = diagonalizer_class(**diagonalizer_kwargs)
-    elif diagonalizer_class is ScalapackDiagonalizer:
+    elif diagonalizer_class is ParallelDiagonalizer:
         diagonalizer = diagonalizer_class(**diagonalizer_kwargs, dtype=dtype)
 
     a, b = prepare_eigensolver_matrices(eigenproblem_size, dtype=dtype)

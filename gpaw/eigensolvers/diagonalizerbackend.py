@@ -43,23 +43,23 @@ class ScipyDiagonalizer:
                 A, B, lower=True, check_finite=debug, overwrite_b=True)
 
 
-class ScalapackDiagonalizer:
-    """Diagonalizer class that uses general_diagonalize_dc.
+class ParallelDiagonalizer:
+    """Diagonalizer class that uses ScaLAPACK/ELPA.
 
-    The ScalapackDiagonalizer wraps general_diagonalize_dc to solve a
-    (generalized) eigenproblem on one core.
+    The class wraps general_diagonalize_dc or similar Elpa function to solve a
+    (generalized) eigenproblem.
     """
 
     def __init__(
             self,
-            arraysize,
-            grid_nrows,
-            grid_ncols,
+            arraysize: int,
+            grid_nrows: int,
+            grid_ncols: int,
             *,
             dtype,
             scalapack_communicator,
-            blocksize=64,
-            use_elpa=False):
+            blocksize: int = 64,
+            use_elpa: bool = False):
         """Initialize grids, communicators, redistributors.
 
         Parameters
