@@ -345,7 +345,7 @@ class SICNPropagator(ECNPropagator):
     # We should check that the new PC loop improves the energy conservation by comparing with smaller timesteps. A simple comparison plot should be fine. Note, that the RRemission potential works now only with the new version.
     if new_PC:
         def propagate(self, time, time_step):
-            PC_crit = 1e-6 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
+            PC_crit = 1e-2 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
             # since the propagate + update call will change the result for H0 at time t,
             # we have to somehow safe the previous H0 in order to estimate the intermediate H0 at t+dt/2
             prevH0 = []
