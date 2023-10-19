@@ -168,4 +168,14 @@ class ParallelDiagonalizer:
     @lazyproperty
     def _elpa(self):
         from gpaw.utilities.elpa import LibElpa
-        return LibElpa(self.distributed_descriptor, solver='1stage')
+        elpa = LibElpa(self.distributed_descriptor, solver='2stage')
+        gpu_kwargs = {}
+        if 1:
+            gpu_kwargs = {
+                'nvidia-gpu': 1,
+                'use_gpu_id': 0,
+                'gpu_cholesky': 1,
+                'gpu_hermitian_multiply': 1
+            }
+        elpa.elpa_set1(gpu_kwargs)
+        return elpa
