@@ -130,9 +130,12 @@ class Davidson(Eigensolver):
         P2_ani = P_ani.new()
         P3_ani = P_ani.new()
 
+        domain_band_comm = wfs.domain_band_comm
         domain_comm = psit_nX.desc.comm
         band_comm = psit_nX.comm
         is_domain_band_master = domain_comm.rank == 0 and band_comm.rank == 0
+        assert domain_comm.size * band_comm.size == domain_band_comm.size
+        assert is_domain_band_master == (domain_band_comm.rank == 0)
 
         M0_nn = M_nn.new(dist=(band_comm, 1, 1))
 
@@ -201,8 +204,38 @@ class Davidson(Eigensolver):
             if is_domain_band_master:
                 H_NN.data[:B, :B] = xp.diag(eig_N[:B])
                 S_NN.data[:B, :B] = xp.eye(B)
-                eig_N[:] = H_NN.eigh(S_NN)
-                wfs._eig_n = as_np(eig_N[:B])
+
+            from gpaw.eigensolvers.diagonalizerbackend import (
+                ScipyDiagonalizer, ParallelDiagonalizer)
+
+            if domain_band_comm.size > 1:
+                # WIP: Get this to work with ParallelDiagonalizer
+                # in real parallel case
+                diagonalizer = ScipyDiagonalizer()
+            else:
+                # We are ironically using ParallelDiagonalizer only in serial,
+                # but the actual reason is that we want to call Elpa on GPU,
+                # which is actually meaningful.
+                diagonalizer = ParallelDiagonalizer(
+                    arraysize=len(eig_N),
+                    grid_nrows=domain_comm.size,  # XXX improve me
+                    grid_ncols=band_comm.size,  # XXX improve me
+                    # Refactor: Probably better to infer dtype from arrays
+                    dtype=H_NN.data.dtype,
+                    scalapack_communicator=domain_band_comm,
+                    use_elpa=True)
+
+            # Previous eig call was:
+            # eig_N[:] = H_NN.eigh(S_NN)
+            # wfs._eig_n = as_np(eig_N[:B])
+
+            diagonalizer.diagonalize(
+                H_NN.data, S_NN.data, eig_N,
+                is_master=is_domain_band_master, debug=False)
+
+            H_NN.data[:] = H_NN.data.T  # XXX
+            wfs._eig_n = as_np(eig_N[:B])
+
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)

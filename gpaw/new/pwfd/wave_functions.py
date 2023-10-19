@@ -32,7 +32,8 @@ class PWFDWaveFunctions(WaveFunctions):
                  atomdist: AtomDistribution,
                  weight: float = 1.0,
                  ncomponents: int = 1,
-                 qspiral_v: Vector | None = None):
+                 qspiral_v: Vector | None = None,
+                 domain_band_comm):
         assert isinstance(atomdist, AtomDistribution)
         self.psit_nX = psit_nX
         nbands = psit_nX.dims[0]
@@ -49,7 +50,8 @@ class PWFDWaveFunctions(WaveFunctions):
                          qspiral_v=qspiral_v,
                          dtype=psit_nX.desc.dtype,
                          domain_comm=psit_nX.desc.comm,
-                         band_comm=psit_nX.comm)
+                         band_comm=psit_nX.comm,
+                         domain_band_comm=domain_band_comm)
         self._pt_aiX: Optional[AtomCenteredFunctions] = None
         self.orthonormalized = False
         self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *

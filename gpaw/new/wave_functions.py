@@ -31,7 +31,8 @@ class WaveFunctions:
                  dtype=float,
                  qspiral_v=None,
                  domain_comm: MPIComm = serial_comm,
-                 band_comm: MPIComm = serial_comm):
+                 band_comm: MPIComm = serial_comm,
+                 domain_band_comm: MPIComm):
         """"""
         assert spin < ncomponents
 
@@ -47,6 +48,7 @@ class WaveFunctions:
         self.atomdist = atomdist
         self.domain_comm = domain_comm
         self.band_comm = band_comm
+        self.domain_band_comm = domain_band_comm
         self.nbands = nbands
         self.qspiral_v = qspiral_v
 

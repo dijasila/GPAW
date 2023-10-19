@@ -91,6 +91,7 @@ def create_lcao_ibzwfs(basis, potential,
     kpt_comm = communicators['k']
     band_comm = communicators['b']
     domain_comm = communicators['d']
+    domain_band_comm = communicators['K']
 
     rank_k = ibz.ranks(kpt_comm)
     here_k = rank_k == kpt_comm.rank
@@ -155,6 +156,7 @@ def create_lcao_ibzwfs(basis, potential,
             fracpos_ac=fracpos_ac,
             atomdist=atomdist,
             domain_comm=domain_comm,
+            domain_band_comm=domain_band_comm,
             spin=spin,
             q=q,
             k=k,
