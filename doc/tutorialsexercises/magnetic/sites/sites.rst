@@ -181,9 +181,9 @@ especially with a low number of bands.
 Including at least 12 bands beyond the *4s* and *3d* valence bands, we obtain a
 reasonable fulfillment of the sum rule in the region of radii, where the site
 spin splitting is flat. Interestingly, this is not the case at smaller site
-radii, meaning that the remaining incompleteness due to the PAW setups shifts
-the site spin splitting away from the nucleus, while remaining approximately
-constant when integrating out the entire augmentation sphere.
+radii, meaning that the remaining incompleteness shifts the site spin splitting
+away from the nucleus, while remaining approximately constant when integrating
+out the entire augmentation sphere.
 
 In the figure, we have left out the imaginary part of the site pair spin
 splitting. You can check yourself that it vanishes more or less identically.
