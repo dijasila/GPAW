@@ -1,29 +1,36 @@
+import numpy as np
+from gpaw.response.chi0 import Chi0Calculator
+from gpaw import mpi
+from typing import Union
+from gpaw.typing import Array1D
+
 class cRPA_weight:
-    def __init__(self, extra_weights_n):
-        self.extra_weights_n = extra_weights_n
-        self.extra_pair_weights_nm = self.set_extra_pair_weights()
+    def __init__(self, extra_weights_nk, bandrange, nk):
+        #probability that state nk is in wannier subspace
+        self.extra_weights_nk = extra_weights_nk
+        self.bandrange = bandrange
+        self.nk = nk
 
     @classmethod
-    def from_wannier_matrix(cls, Uwan_wnk, bandrange):
+    def from_wannier_matrix(cls, Uwan_wnk, bandrange, nbands, kd=None):
         from gpaw.wannier90 import read_uwan
 
         # if Uwan is string try to read wannier90 matrix
-        if isinstance(Uwan_knw, str):
-            seed = Uwan_knw
+        if isinstance(Uwan_wnk, str):
+            seed = Uwan_wnk
             assert kd is not None
-            if "_u.mat" not in seed:
-                seed += "_u.mat"
-            uwan, nk, nw1, nw2 = read_uwan(seed, self.gs.kd)
-        R_asii = calc.setups.atomrotations.get_R_asii()
-        return cls(calc.wfs.kd, calc.spos_ac, R_asii, calc.wfs.gd.N_c)
+            Uwan_wnk, nk, nw1, nw2 = read_uwan(seed, kd)
+            assert nw2 == len(bandrange)
+        extra_weights_nk = np.zeros((nbands, nk))
+        extra_weights_nk[bandrange,:] = np.sum(np.abs(Uwan_wnk)**2, axis=0)
+        assert np.allclose(np.sum(extra_weights_nk, axis=0), nw1)
+        return cls(extra_weights_nk, bandrange, nk)
 
+    """
+    Note: One can add more classmethods to initialize extra weight
+    from bandindex or from energywindow
+    """
 
-    def set_extra_pair_weights(self):
-        nb = len(self.extra_weights_n)
-        weights_nm = np.zeros(nb, nb)
-        for i in range(nb):
-            for j in range(nb):
-                self.extra_pair_weights_nm[i, j] = (1.0 - self.extra_weights_n[i]) * # ... Use cRPA formula... XXX write using array ops not loops if possible
 
         
 class cRPA(Chi0Calculator):
@@ -32,7 +39,7 @@ class cRPA(Chi0Calculator):
 
     def __init__(self,
                  calc,
-                 extra_weights,
+                 cRPA_weight,
                  *,
                  frequencies: Union[dict, Array1D] = None,
                  ecut=50,
@@ -45,10 +52,7 @@ class cRPA(Chi0Calculator):
 
         Parameters
         ----------
-        extra_weights: a list of weights for the model subspace bands. 1=included
-                in model. Can also be noninteger and computed from e.g Wannier
-                transformation matrices. Sould have the same length as the number
-                bands in the calculation.
+        cRPA_weight: cRPA_weight object
         Remaining parameters: See Chi0
 
         """
@@ -66,16 +70,25 @@ class cRPA(Chi0Calculator):
             threshold=threshold,
             nblocks=nblocks)
         assert len(extra_weights) == calc.numbands
-        self.extra_weights_n = extra_weights
-        self.extra_pair_weights_nm = self.set_extra_pair_weights()
+        self.cRPA_weight = cRPA_weight
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
+        
+    def get_integrand(self, ...):
+        return cRPAIntegrand(...)
 
+class cRPAIntegrand(Chi0Integrand):
+
+    def __init__(...):
+        ...
+
+    
     @timer('Get matrix element')
     def matrix_element(self, k_v, s):
+
         """Return pair density matrix element for integration.
         
-        Overrides function in Chi0Calculator to add aditional
+        Overrides function in Chi0Integrand to add aditional
         weight in cRPA approach.
         """
 
@@ -94,3 +107,4 @@ class cRPA(Chi0Calculator):
 
         
         return self.n_mnG.reshape(-1, out_ngmax)
+
