@@ -7,6 +7,7 @@ from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.pair import KPointPairFactory
+from gpaw.wannier90 import read_uwan
 
 
 def ibz2bz_map(qd):
@@ -74,7 +75,7 @@ class ModelInteraction:
         pair_calc = pair_factory.pair_calculator()
 
         if isinstance(Uwan, str):  # read w90 transformation matrix from file
-            Uwan, nk, nwan, nband = self.read_uwan(Uwan)
+            Uwan, nk, nwan, nband = read_uwan(Uwan, self.gs.kd)
         else:
             nk = Uwan.shape[2]
             nband = Uwan.shape[1]
@@ -197,16 +198,6 @@ class ModelInteraction:
 
         return rho_mnG, iq, symop.sign
 
-    def read_uwan(self, seed):
-        # XXX Note: only works for nband=nwan
-        # Test and generalize for entangled bands
-        from gpaw.wannier90 import read_uwan
-        if "_u.mat" not in seed:
-            seed += "_u.mat"
-        self.context.print(
-            "Reading Wannier transformation matrices from file " + seed)
-        uwan, nk, nw1, nw2 = read_uwan(seed, self.gs.kd)
-        return uwan, nk, nw1, nw2
 
     def myKrange(self, rank=None):
         if rank is None:

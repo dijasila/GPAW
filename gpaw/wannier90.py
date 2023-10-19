@@ -515,7 +515,7 @@ def read_uwan(seed, kd, dis = False):
     """
     Reads wannier transformation matrix
     """
-    if "_u.mat" not in seed:
+    if ".mat" not in seed:
         if dis:
             seed += "_u_dis.mat"
         else:
