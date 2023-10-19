@@ -184,6 +184,46 @@ class RRemission(object):
         self.dipolexyz = (self.density.calculate_dipole_moment()
                           - self.dipolexyz_previous) / self.deltat
         if self.environment == 0 and self.polarization_cavity == [1, 1, 1]:
+            ### 2nd order version
+            # if len(self.dipole_time[:,0]) > 4:
+            #     self.dipder3 = ((3/2*self.dipole_time[-4,:]
+            #                      - 7*self.dipole_time[-3,:]
+            #                      + 12*self.dipole_time[-2,:]
+            #                      - 9*self.dipole_time[-1,:]
+            #                      + 5/2*self.density.calculate_dipole_moment())
+            #                     / self.deltat**3)
+            # elif len(self.dipole_time[:,0]) == 4:
+            #     self.dipder3 = ((3/2*self.dipole_time[-3,:]
+            #                      - 7*self.dipole_time[-3,:]
+            #                      + 12*self.dipole_time[-2,:]
+            #                      - 9*self.dipole_time[-1,:]
+            #                      + 5/2*self.density.calculate_dipole_moment())
+            #                     / self.deltat**3)
+            # elif len(self.dipole_time[:,0]) == 3:
+            #     self.dipder3 = ((3/2*self.dipole_time[-2,:]
+            #                      - 7*self.dipole_time[-2,:]
+            #                      + 12*self.dipole_time[-2,:]
+            #                      - 9*self.dipole_time[-1,:]
+            #                      + 5/2*self.density.calculate_dipole_moment())
+            #                     / self.deltat**3)
+            # elif len(self.dipole_time[:,0]) == 2:
+            #     self.dipder3 = ((3/2*self.dipole_time[-1,:]
+            #                      - 7*self.dipole_time[-1,:]
+            #                      + 12*self.dipole_time[-1,:]
+            #                      - 9*self.dipole_time[-1,:]
+            #                      + 5/2*self.density.calculate_dipole_moment())
+            #                     / self.deltat**3)
+            # elif len(self.dipole_time[:,0]) == 1:
+            #     self.dipder3 = ((3/2*self.dipole_time[0,:]
+            #                      - 7*self.dipole_time[0,:]
+            #                      + 12*self.dipole_time[0,:]
+            #                      - 9*self.dipole_time[0,:]
+            #                      + 5/2*self.density.calculate_dipole_moment())
+            #                     / self.deltat**3)*0
+            # #self.dipder3[0] = 0
+            # #self.dipder3[1] = 0
+            # print(self.dipder3)
+            ### 1st order version
             if len(self.dipole_time[:,0]) > 2:
                 self.dipder3 = ((-self.dipole_time[-3,:]
                                  + 3*self.dipole_time[-2,:]

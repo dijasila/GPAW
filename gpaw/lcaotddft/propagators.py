@@ -345,7 +345,7 @@ class SICNPropagator(ECNPropagator):
     # We should check that the new PC loop improves the energy conservation by comparing with smaller timesteps. A simple comparison plot should be fine. Note, that the RRemission potential works now only with the new version.
     if new_PC:
         def propagate(self, time, time_step):
-            PC_crit = 1e-4 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
+            PC_crit = 1e-6 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
             # since the propagate + update call will change the result for H0 at time t,
             # we have to somehow safe the previous H0 in order to estimate the intermediate H0 at t+dt/2
             prevH0 = []
@@ -392,7 +392,7 @@ class SICNPropagator(ECNPropagator):
                 if np.sum(np.abs(PCnew_dip - PCprev_dip)) < PC_crit:
                     print(str(PC_ii+1) +' PC iterations to reach a dipole criterium of '+str(PC_crit)) # It would make sense to add this information to the standard td output (includes already iter and time, so just add used PC iteras)
                     break
-            if PC_ii > 5:
+            if PC_ii > 90:
                 raise RuntimeError('The SICN PC propagator required '+str(PC_ii) +' iterations which suggests a too large time step. Please consider selecting a shorter time step.')
             return time + time_step
     else:
