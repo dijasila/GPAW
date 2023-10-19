@@ -60,6 +60,8 @@ class Wannier90:
                     dis_num_iter=200,
                     dis_froz_max=0.1,
                     dis_mix_ratio=0.5,
+                    dis_win_min=None,
+                    dis_win_max=None,
                     search_shells=None,
                     write_u_matrices=False):
         calc = self.calc
@@ -164,7 +166,12 @@ class Wannier90:
         if len(bands) > Nw:
             ef = calc.get_fermi_level()
             print('fermi_energy  = %2.3f' % ef, file=f)
-            print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
+            if dis_froz_max is not None:
+                print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
+            if dis_win_min is not None:
+                print('dis_win_min  = %2.3f' % (ef + dis_win_min), file=f)
+            if dis_win_max is not None:
+                print('dis_win_max  = %2.3f' % (ef + dis_win_max), file=f)
             print('dis_num_iter  = %d' % dis_num_iter, file=f)
             print('dis_mix_ratio = %1.1f' % dis_mix_ratio, file=f)
         print(file=f)
@@ -439,7 +446,7 @@ class Wannier90:
             f = open('UNK%s.%d' % (str(ik + 1).zfill(5), spin + 1), 'w')
             grid_v = np.shape(u_nG)[1:]
             print(grid_v[0], grid_v[1], grid_v[2], ik + 1, Nn, file=f)
-            for n in range(Nn):
+            for n in bands:
                 for iz in range(grid_v[2]):
                     for iy in range(grid_v[1]):
                         for ix in range(grid_v[0]):
@@ -448,6 +455,7 @@ class Wannier90:
             f.close()
 
     def wavefunctions(self, bz_index, bands):
+        maxband = bands[-1] + 1
         if self.spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
             return self.soc[bz_index].wavefunctions(
@@ -456,10 +464,9 @@ class Wannier90:
         ibz_index = self.calc.wfs.kd.bz2ibz_k[bz_index]
         ut_nR = np.array([self.calc.wfs.get_wave_function_array(
             n, ibz_index, self.spin,
-            periodic=True)
-            for n in bands])
+            periodic=True) for n in range(maxband)])
         ut_nR_sym = np.array([self.ibz2bz[bz_index].map_pseudo_wave_to_BZ(
-            ut_nR[n]) for n in bands])
+            ut_nR[n]) for n in range(maxband)])
 
         return ut_nR_sym
 
