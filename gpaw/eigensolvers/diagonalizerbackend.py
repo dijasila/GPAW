@@ -40,7 +40,8 @@ class ScipyDiagonalizer:
         """
         if is_master:
             eps[:], A[:] = eigh(
-                A, B, lower=True, check_finite=debug, overwrite_b=True)
+                A, B, lower=True, check_finite=debug, overwrite_b=True,
+                overwrite_a=True)
 
 
 class ParallelDiagonalizer:
