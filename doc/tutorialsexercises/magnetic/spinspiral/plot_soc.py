@@ -1,3 +1,4 @@
+# web-page: soc.png
 from matplotlib.colors import Normalize
 from matplotlib import pyplot as plt
 from scipy.interpolate import griddata
