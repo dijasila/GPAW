@@ -88,10 +88,16 @@ class cRPA(Chi0Calculator):
         self.cRPA_weight = cRPA_weight
         super().__init__(wd=wd, pair=pair, nbands=nbands, ecut=ecut, **kwargs)
 
-        
+    """
+    Need to make function get_integrand in Chi0 and overwrite here so that it returns a cRPAIntegrand
+    """
     def get_integrand(self, ...):
         return cRPAIntegrand(...)
 
+"""
+Similar to Chi0Integrand but with get_matrix_element overwritten with function that adds Wannier weight
+Should add additional weight (1 - P_aP_b) where P_a is probabaility that state a is in subspace
+"""
 class cRPAIntegrand(Chi0Integrand):
 
     def __init__(...):
@@ -118,7 +124,7 @@ class cRPAIntegrand(Chi0Integrand):
             k_v, s, block=not self.optical,
             target_method=target_method,
         )
-        n_nmG *= self.extra_pair_weights_nm[..., np.newaxis]**0.5
+        n_nmG *= "..."
 
         
         return self.n_mnG.reshape(-1, out_ngmax)
