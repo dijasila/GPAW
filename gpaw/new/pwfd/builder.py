@@ -153,7 +153,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
                 ncomponents=self.ncomponents,
-                qspiral_v=self.qspiral_v)
+                qspiral_v=self.qspiral_v,
+                domain_band_comm=self.communicators['K'])
 
             eig_n = self.xp.empty(self.nbands)
             eig_n[:] = np.inf
