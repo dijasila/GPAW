@@ -44,7 +44,7 @@ def test_w(in_tmp_dir, gpw_files, symm):
     chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                     txt='test.log', intraband=False)
     Wm = initialize_w_model(chi0calc)
-    Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
+    Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_wnk=seed, bandrange=[0, 4])
     check_W(Wwann)
 
     # test block parallelization
@@ -53,7 +53,7 @@ def test_w(in_tmp_dir, gpw_files, symm):
         chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                         txt='test.log', intraband=False, nblocks=2)
         Wm = initialize_w_model(chi0calc)
-        Wwann = Wm.calc_in_Wannier(chi0calc, Uwan=seed, bandrange=[0, 4])
+        Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_wnk=seed, bandrange=[0, 4])
         check_W(Wwann)
 
 
