@@ -9,6 +9,7 @@
 #include "gpu-complex.h"
 #include <stdio.h>
 
+// Predeclaration of functions at kernel/
 void pwlfc_expand_gpu_launch_kernel(int itemsize,
                                     double* f_Gs,
                                     gpuDoubleComplex *emiGR_Ga,
@@ -59,6 +60,12 @@ void evaluate_lda_launch_kernel(int nspin, int ng,
                                 double* n,
                                 double* v,
                                 double* e);
+
+void multi_einsum_launch_kernel(char* str,
+                                int problems,
+                                int arguments,
+                                int* dimensions,
+                                double** array_pointers);
 
 PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
 {
@@ -128,6 +135,86 @@ PyObject* evaluate_pbe_gpu(PyObject* self, PyObject* args)
                                sigma_ptr,
                                dedsigma_ptr);
     Py_RETURN_NONE;
+}
+
+PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    static char *kwlist[] = {"string", "arguments", "out", NULL};
+    char* string;
+
+
+    // arguments is expected to be list of tuples
+    PyObject* arguments_obj;
+    PyObject* out_obj;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|O", kwlist, 
+                                     &string, &arguments_obj, &out_obj))
+        return NULL;
+
+    int problems = PyList_Size(arguments_obj);
+    if (problems == 0)
+    {
+        Py_RETURN_NONE;      
+    }
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+
+    int arguments = PyTuple_Size(PyList_GetItem(arguments_obj, 0));
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+
+    double** array_pointers = (double**) malloc(problems * arguments * sizeof(double*));
+    // max dimensions is 4
+    int* dimensions = (int*) malloc(problems * arguments * 4 * sizeof(int));
+    for (int i=0; i<problems; i++)
+    {
+        PyObject* args = PyList_GetItem(arguments_obj, 0);
+        if (PyErr_Occurred())
+        {
+            goto error;
+        }
+        if (PyTuple_Size(args) != arguments)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Inconsistent number of arguments at problem %d.", i);
+            goto error;
+        }
+        for (int j=0; j<arguments; j++)
+        {
+            PyObject* cupy_array = PyTuple_GetItem(args, j);
+            double* array_ptr = Array_DATA(cupy_array);
+            if (PyErr_Occurred())
+            {
+                goto error;
+            }
+            array_pointers[j + i * arguments] = array_ptr;
+
+            int ndim = Array_NDIM(cupy_array);
+            if (ndim > 4)
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Arrays only up to 4 dimensions supported.");
+                goto error;
+            }
+            for (int k=0; k<ndim; k++)
+            {
+                dimensions[k + 4*j + 4*arguments*i] = Array_DIM(cupy_array, k);
+            }
+        }
+    }
+
+    multi_einsum_launch_kernel(string, problems, 
+                               arguments,
+                               dimensions,
+                               array_pointers);
+    free(array_pointers);
+    free(dimensions);
+    Py_RETURN_NONE;
+error:
+    free(array_pointers);
+    free(dimensions);
+    return NULL;    
 }
 
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)

@@ -125,9 +125,11 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
-                D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
-                                              P_ni.conj(), occ_n, P_ni).real
+            from _gpaw import multi_einsum_gpu
+            multi_einsum_gpu('ni, n, nj -> ij', zip(P_ani.values(), [xp.array(occ_n)] * len(D_asii), D_asii.values()))
+            #for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
+            #    D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
+            #                                  P_ni.conj(), occ_n, P_ni).real
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',

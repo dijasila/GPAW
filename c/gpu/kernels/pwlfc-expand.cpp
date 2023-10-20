@@ -18,6 +18,272 @@
 #define THIRD  0.33333333333333333
 #define NMIN   1.0E-10
 
+class Parser
+{
+    public:
+        Parser(const char* str) : str(str), chr(str), error(""), head(0), error_set(0)
+        {
+        }
+
+        void print_error()
+        {
+            printf("%s\n", error);
+        }
+
+    protected:
+        char peek()
+        {
+            return *chr;
+        }
+
+        char next()
+        {
+            char c = *chr;
+            if (c != 0)
+            {
+                chr++;
+            }
+            if (c == ' ')
+            {
+                return next();
+            }
+            return c;
+        }
+
+        bool parse_alphabet(char& c)
+        {
+            c = next();
+            return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+        }
+
+        bool parse_char(char c)
+        {
+            char d = next();
+            return d == c;
+        }
+
+        void expected_error(const char* expected_str)
+        {
+            if (error_set)
+            {
+                printf("Internal error. Error already set:");
+                print_error();
+            }
+            error_set = true;
+            char c = next();
+            if (c != 0)
+            {
+                sprintf(error, "Expected %s instead of '%c'.", expected_str, c);
+            }
+            else
+            {
+                sprintf(error, "Expected %s instead of end of string.", expected_str);
+            }
+        }
+
+        void push()
+        {
+            stack[head++] = chr;
+        }
+
+        void pop()
+        {
+            chr = stack[--head];
+        }
+
+        void stash()
+        {
+            --head;
+        }
+
+    private:
+        const char* str;
+        const char* chr;
+        char error[50];
+        bool error_set;
+
+        const char* stack[10];
+        int head;
+};
+
+class EinsumArgumentParser : public Parser
+{
+    public:
+    EinsumArgumentParser(const char* str) 
+        : Parser(str), index_head(0), seen("")
+    {
+        for (int i=0;i<10;i++)
+            indices_len[i] = 0;
+    }
+
+    void print()
+    {
+        for (int i=0; i<index_head; i++)
+        {
+            if (i < index_head-1)
+               printf("in: ");
+            else
+               printf("out: ");
+            for (int j=0; j<indices_len[i]; j++)
+               printf("%d ", indices_list[i][j]);
+            for (int j=0; j<indices_len[i]; j++)
+                printf("%d ", seen[indices_list[i][j]]);
+            printf("\n");
+        }
+    }
+    
+    bool parse()
+    {
+        bool success;
+        success = parse_indices_list();
+        if (!success)
+        {
+            return false;
+        }
+
+        success = parse_out_separator();
+        if (!success)
+        {
+            return false;
+        }
+        success = parse_indices();
+        if (!success)
+        {
+            return false;
+        }
+        return true;
+    }
+
+
+    protected:
+    bool parse_out_separator()
+    {
+        bool success;
+        push();
+        success = parse_char('-');
+        if (!success)
+        {
+            pop();
+            expected_error("-");
+            return false;
+        }
+        stash();
+        push();
+        success = parse_char('>');
+        if (!success)
+        {
+            pop();
+            expected_error("> after -");
+            return false;
+        }
+        stash();
+        return true;
+    }
+   
+    bool parse_indices_list()
+    {
+        bool success;
+        char indices[30];
+        success = parse_indices();
+        if (!success)
+        {
+            return false;
+        }
+        while (true)
+        {
+            push();
+            success = parse_comma();
+            if (!success)
+            {
+                pop();
+                break;
+            }
+            stash();
+            push();
+            success = parse_indices();
+            if (!success)
+            {
+                pop();
+                expected_error("indices");
+                return false;
+            }
+            stash();
+        }
+        return true;
+    }
+
+    bool parse_comma()
+    {
+        return parse_char(',');
+    }
+
+    void add_index(char c)
+    {
+        indices_list[index_head][indices_len[index_head]++] = repr(c);
+    }
+
+    int repr(char c)
+    {
+        char* seen_ptr = seen;
+        while (*seen_ptr++ != 0)
+        {
+            if (*seen_ptr == c)
+            {
+                return seen_ptr - seen;
+            }
+        }
+        *(--seen_ptr) = c;
+        *(++seen_ptr) = 0;
+        return seen_ptr - seen - 1;
+    }
+
+    bool parse_indices()
+    {
+        char str[10];
+        bool success;
+        char c;
+        push();
+        success = parse_alphabet(c);
+        add_index(c);
+        if (!success)
+        {
+            pop();
+            expected_error("indices");
+            return false;
+        }
+        stash();
+        while (true)
+        {
+            push();
+            success = parse_alphabet(c);
+            if (!success)
+            {
+                pop();
+                break;
+            }
+            add_index(c);
+        }
+        index_head++;
+        return true;
+    }
+
+    private:
+
+    int indices_list[10][10];
+    int indices_len[10];
+    char seen[10];
+    int index_head;
+};
+
+extern "C"
+void multi_einsum_launch_kernel(char* str,
+                                int problems,
+                                int arguments,
+                                int* dimensions,
+                                double** array_pointers)
+{
+    printf("%s\n", str);
+}
 
 template <bool gga> __device__ double pbe_exchange(double n, double rs, double a2,
                                                    double* dedrs, double* deda2)
