@@ -157,12 +157,14 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
     }
     if (PyErr_Occurred())
     {
+        printf("1\n");
         return NULL;
     }
 
     int arguments = PyTuple_Size(PyList_GetItem(arguments_obj, 0));
     if (PyErr_Occurred())
     {
+        printf("2\n");
         return NULL;
     }
 
@@ -174,6 +176,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
         PyObject* args = PyList_GetItem(arguments_obj, 0);
         if (PyErr_Occurred())
         {
+            printf("3\n");
             goto error;
         }
         if (PyTuple_Size(args) != arguments)
@@ -184,9 +187,15 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
         for (int j=0; j<arguments; j++)
         {
             PyObject* cupy_array = PyTuple_GetItem(args, j);
+            if (PyErr_Occurred())
+            {
+                printf("4\n");
+                goto error;
+            }
             double* array_ptr = Array_DATA(cupy_array);
             if (PyErr_Occurred())
             {
+                printf("5\n");
                 goto error;
             }
             array_pointers[j + i * arguments] = array_ptr;
@@ -197,9 +206,9 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                 PyErr_SetString(PyExc_RuntimeError, "Arrays only up to 4 dimensions supported.");
                 goto error;
             }
-            for (int k=0; k<ndim; k++)
+            for (int k=0; k<4; k++)
             {
-                dimensions[k + 4*j + 4*arguments*i] = Array_DIM(cupy_array, k);
+                dimensions[k + 4*j + 4*arguments*i] = (k<ndim) ? Array_DIM(cupy_array, k) : 0;
             }
         }
     }

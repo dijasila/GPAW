@@ -109,11 +109,21 @@ class Parser
 class EinsumArgumentParser : public Parser
 {
     public:
+    int indices_list[10][10];
+    int indices_len[10];
+    char seen[10];
+    int index_head;
+
     EinsumArgumentParser(const char* str) 
         : Parser(str), index_head(0), seen("")
     {
         for (int i=0;i<10;i++)
             indices_len[i] = 0;
+    }
+
+    int nargs()
+    {
+        return index_head;
     }
 
     void print()
@@ -127,7 +137,7 @@ class EinsumArgumentParser : public Parser
             for (int j=0; j<indices_len[i]; j++)
                printf("%d ", indices_list[i][j]);
             for (int j=0; j<indices_len[i]; j++)
-                printf("%d ", seen[indices_list[i][j]]);
+                printf("%c ", seen[indices_list[i][j]]);
             printf("\n");
         }
     }
@@ -224,18 +234,19 @@ class EinsumArgumentParser : public Parser
 
     int repr(char c)
     {
-        char* seen_ptr = seen;
-        while (*seen_ptr++ != 0)
+        char* seen_ptr;
+        for (seen_ptr = seen; *seen_ptr != 0; seen_ptr++)
         {
             if (*seen_ptr == c)
             {
                 return seen_ptr - seen;
             }
         }
-        *(--seen_ptr) = c;
-        *(++seen_ptr) = 0;
+        *seen_ptr++ = c;
+        *seen_ptr = 0;
         return seen_ptr - seen - 1;
     }
+
 
     bool parse_indices()
     {
@@ -269,11 +280,34 @@ class EinsumArgumentParser : public Parser
 
     private:
 
-    int indices_list[10][10];
-    int indices_len[10];
-    char seen[10];
-    int index_head;
 };
+
+template <int max_indices> __global__ 
+    void multi_einsum_kernel_3index_4arg(int problems, int na, int nb, int nc,
+                                                       int* strides_pac)
+{
+    int g = threadIdx.x + blockIdx.x * blockDim.x;
+    if (g < problems)
+    {
+        double* array_pointer_table = array_pointers[g * 4]; // (shape 4x problems)
+        double* A = array_pointer_table[0];
+        double* B = array_pointer_table[1];
+        double* C = array_pointer_table[2];
+        double* D = array_pointer_table[3];
+        double* strides_ac = strides_pac + g * (3 * 3);
+        
+        for (int a=0; a<na; a++) 
+        for (int b=0; b<nb; b++) 
+        for (int c=0; c<nc; c++)
+        {
+            int indexA = a * strides_ac[0] + b * strides_ac[1] + c * strides_ac[2];
+            int indexB = a * strides_ac[3] + b * strides_ac[4] + c * strides_ac[5];
+            int indexC = a * strides_ac[6] + b * strides_ac[7] + c * strides_ac[8];
+            int indexD = a * strides_ac[9] + b * strides_ac[10] + c * strides_ac[11];
+            D[indexD] += A[indexA] * B[indexB] * C[indexC]; 
+        } 
+    }
+}
 
 extern "C"
 void multi_einsum_launch_kernel(char* str,
@@ -283,6 +317,10 @@ void multi_einsum_launch_kernel(char* str,
                                 double** array_pointers)
 {
     printf("%s\n", str);
+    EinsumArgumentParser parser(str);
+    parser.parse();
+    parser.print_error();
+    parser.print();
 }
 
 template <bool gga> __device__ double pbe_exchange(double n, double rs, double a2,
