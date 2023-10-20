@@ -21,7 +21,7 @@ def ibz2bz_map(qd):
 
 def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
                        q0_correction=False, txt='w_model.out',
-                       world=world, timer=None):
+                       eta=None, world=world, timer=None):
     """ Helper function to initialize ModelInteraction
 
     Parameters
@@ -52,7 +52,8 @@ def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
                                     coulomb=coulomb,
                                     xc='RPA',
                                     integrate_gamma=integrate_gamma,
-                                    q0_correction=q0_correction)
+                                    q0_correction=q0_correction,
+                                    eta=eta/Ha)
     return ModelInteraction(wcalc)
 
 
