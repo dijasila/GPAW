@@ -496,7 +496,8 @@ class LCAOETDM:
                 for j in range(i + 1, M):
                     i1_sparse.append(i)
                     i2_sparse.append(j)
-            self.ind_sparse_up[u] = (np.asarray(i1_sparse), np.asarray(i2_sparse))
+            self.ind_sparse_up[u] = (np.asarray(i1_sparse),
+                                     np.asarray(i2_sparse))
             if self.representation == 'u-invar':
                 self.ind_all_up[u] = self.ind_ov_up[u]
             if self.representation == 'sparse':
