@@ -53,12 +53,23 @@ class LibElpa:
         self._consts = _elpaconstants()
         elpasolver = self._consts[solver]
 
+        # We often use blocksize==global matrix size for
+        # serial layouts but GPU-Elpa doesn't like blocksizes
+        # that are not powers of two.
+        #
+        # So here we hack the blocksize to a large enough power of two
+        # for this specific case.
+        blocksize = desc.mb
+        if blocksize == desc.gshape[0]:
+            blocksize = 2**int(np.ceil(np.log2(desc.gshape[0])))
+            assert blocksize >= desc.gshape[0]
+
         bg = desc.blacsgrid
         self.elpa_set1(dict(
             na=desc.gshape[0],
             local_ncols=desc.shape[0],
             local_nrows=desc.shape[1],
-            nblk=desc.mb,
+            nblk=blocksize,
             process_col=bg.myrow,  # XXX interchanged
             process_row=bg.mycol,
             blacs_context=bg.context))
