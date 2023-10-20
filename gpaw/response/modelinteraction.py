@@ -53,7 +53,7 @@ def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
                                     xc='RPA',
                                     integrate_gamma=integrate_gamma,
                                     q0_correction=q0_correction,
-                                    eta=eta/Ha)
+                                    eta=eta / Ha)
     return ModelInteraction(wcalc)
 
 
