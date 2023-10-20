@@ -510,3 +510,33 @@ def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
     # map projections to bz
     proj_sym = ibz2bz[K].map_projections(proj)
     return proj_sym
+
+def read_uwan(seed, kd, dis = False):
+    """
+    Reads wannier transformation matrix
+    """
+    if ".mat" not in seed:
+        if dis:
+            seed += "_u_dis.mat"
+        else:
+            seed += "_u.mat"
+    f = open(seed, "r")
+    f.readline()  # first line is a comment
+    nk, nw1, nw2 = [int(i) for i in f.readline().split()]
+    #assert nw1 == nw2
+    assert nk == kd.nbzkpts
+    uwan = np.empty([nw1, nw2, nk], dtype=complex)
+    iklist = []  # list to store found iks
+    for ik1 in range(nk):
+        f.readline()  # empty line
+        K_c = [float(rdum) for rdum in f.readline().split()]
+        ik = kd.where_is_q(K_c, kd.bzk_kc)
+        assert np.allclose(np.array(K_c), kd.bzk_kc[ik])
+        iklist.append(ik)
+        for ib1 in range(nw1):
+            for ib2 in range(nw2):
+                rdum1, rdum2 = [float(rdum) for rdum in
+                                f.readline().split()]
+                uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
+    assert set(iklist) == set(range(nk))  # check that all k:s were found
+    return uwan, nk, nw1, nw2
