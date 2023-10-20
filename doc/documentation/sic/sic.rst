@@ -26,7 +26,7 @@ Since the functional is not a unitary invariant functional,
 it is necessary to employ complex orbitals to find the lowest energy state.
 Here is an example using FD mode:
 
-.. literalinclude:: sic_example.py
+.. literalinclude:: sic_example_fd.py
 
 To use PW mode, just import PW mode and replace FD with PW.
 While here is the example for LCAO mode:
