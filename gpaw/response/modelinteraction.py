@@ -47,13 +47,15 @@ def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
     wcontext = ResponseContext(txt=txt,
                                comm=world, timer=timer)
     coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
+    if eta is not None:
+        eta /= Ha
     wcalc = initialize_w_calculator(chi0calc,
                                     wcontext,
                                     coulomb=coulomb,
                                     xc='RPA',
                                     integrate_gamma=integrate_gamma,
                                     q0_correction=q0_correction,
-                                    eta=eta / Ha)
+                                    eta=eta)
     return ModelInteraction(wcalc)
 
 
