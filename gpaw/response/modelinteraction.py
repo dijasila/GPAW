@@ -7,6 +7,7 @@ from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response import timer
 from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.pair import KPointPairFactory
+from gpaw.wannier90 import read_uwan
 
 
 def ibz2bz_map(qd):
@@ -18,9 +19,30 @@ def ibz2bz_map(qd):
     return out_map
 
 
-def initialize_w_model(chi0calc, truncation=None, txt='w_model.out',
-                       world=world, timer=None, integrate_gamma=0,
-                       q0_correction=False):
+def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
+                       q0_correction=False, txt='w_model.out',
+                       world=world, timer=None):
+    """ Helper function to initialize ModelInteraction
+
+    Parameters
+    ----------
+    chi0calc: Chi0Calculator
+    truncation: str
+        Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
+    integrate_gamma: int
+        Method to integrate the Coulomb interaction. 1 is a numerical
+        integration at all q-points with G=[0,0,0] - this breaks the
+        symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+        this conserves the symmetry. integrate_gamma=2 is the same as 1,
+        but the average is only carried out in the non-periodic directions.
+    q0_correction: bool
+        Analytic correction to the q=0 contribution applicable to 2D
+        systems.
+    txt: str
+        Filename of output files.
+    world: MPI comm
+    timer: ResponseContext timer
+    """
     gs = chi0calc.gs
     wcontext = ResponseContext(txt=txt,
                                comm=world, timer=timer)
@@ -37,6 +59,13 @@ def initialize_w_model(chi0calc, truncation=None, txt='w_model.out',
 class ModelInteraction:
 
     def __init__(self, wcalc):
+        """Class to compute interaction matrix in Wannier basis
+
+        Parameters
+        ----------
+        wcalc: WCalculator
+        """
+
         self.wcalc = wcalc
         self.gs = wcalc.gs
         self.context = self.wcalc.context
@@ -74,7 +103,7 @@ class ModelInteraction:
         pair_calc = pair_factory.pair_calculator()
 
         if isinstance(Uwan, str):  # read w90 transformation matrix from file
-            Uwan, nk, nwan, nband = self.read_uwan(Uwan)
+            Uwan, nk, nwan, nband = read_uwan(Uwan, self.gs.kd)
         else:
             nk = Uwan.shape[2]
             nband = Uwan.shape[1]
@@ -196,33 +225,6 @@ class ModelInteraction:
             rho_mnG[m] = get_nmG(kpt1, kpt2, mypawcorr, m, qpd, I_G, pair_calc)
 
         return rho_mnG, iq, symop.sign
-
-    def read_uwan(self, seed):
-        if "_u.mat" not in seed:
-            seed += "_u.mat"
-        self.context.print(
-            "Reading Wannier transformation matrices from file " + seed)
-        f = open(seed, "r")
-        kd = self.gs.kd
-        f.readline()  # first line is a comment
-        nk, nw1, nw2 = [int(i) for i in f.readline().split()]
-        assert nw1 == nw2
-        assert nk == kd.nbzkpts
-        uwan = np.empty([nw1, nw2, nk], dtype=complex)
-        iklist = []  # list to store found iks
-        for ik1 in range(nk):
-            f.readline()  # empty line
-            K_c = [float(rdum) for rdum in f.readline().split()]
-            assert np.allclose(np.array(K_c), self.gs.kd.bzk_kc[ik1])
-            ik = kd.where_is_q(K_c, kd.bzk_kc)
-            iklist.append(ik)
-            for ib1 in range(nw1):
-                for ib2 in range(nw2):
-                    rdum1, rdum2 = [float(rdum) for rdum in
-                                    f.readline().split()]
-                    uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
-        assert set(iklist) == set(range(nk))  # check that all k:s were found
-        return uwan, nk, nw1, nw2
 
     def myKrange(self, rank=None):
         if rank is None:
