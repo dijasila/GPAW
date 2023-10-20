@@ -13,6 +13,21 @@ class cRPA_weight:
 
     @classmethod
     def from_wannier_matrix(cls, Uwan_wnk, bandrange, nbands, kd=None):
+        """Initialize cRPA_weight from Wannier transformation matrix
+        Uwan_wnk: cmplx or str 
+                  if cmplx: Wannier transfirmation matrix: 
+                  w = wannier index, n band index, k k-index
+                  if str: name of wannier90 output file with transformation
+                  matrix
+        bandrange: int
+                   Range of bands that Wannier functions were constructed
+                   from
+        nbands:    int
+                   total number of bands in the calculation
+        kd:        kpoint descriptor (used if type(Uwan_wnk) = str )
+        
+        """
+        
         from gpaw.wannier90 import read_uwan
 
         # if Uwan is string try to read wannier90 matrix
