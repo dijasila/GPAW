@@ -36,7 +36,7 @@ class MatrixDescriptor:
 
     def check(self, a_mn):
         """Check that specified array is compatible with this descriptor."""
-        return a_mn.shape == self.shape and a_mn.flags.contiguous
+        return a_mn.shape == self.shape and a_mn.flags.c_contiguous
 
     def checkassert(self, a_mn):
         ok = self.check(a_mn)
