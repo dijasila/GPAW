@@ -51,7 +51,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
                 ncomponents=self.ncomponents,
-                qspiral_v=self.qspiral_v)
+                qspiral_v=self.qspiral_v,
+                domain_band_comm=self.communicators['K'])
 
             return wfs
 
@@ -116,7 +117,10 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
                 ncomponents=self.ncomponents,
-                qspiral_v=self.qspiral_v)
+                qspiral_v=self.qspiral_v,
+                # XXX Information travel path is contrary to how other
+                # communicators are passed, should likely refactor
+                domain_band_comm=self.communicators['K'])
             wfs._eig_n = eig_n
             return wfs
 
@@ -149,7 +153,8 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 fracpos_ac=self.fracpos_ac,
                 atomdist=self.atomdist,
                 ncomponents=self.ncomponents,
-                qspiral_v=self.qspiral_v)
+                qspiral_v=self.qspiral_v,
+                domain_band_comm=self.communicators['K'])
 
             eig_n = self.xp.empty(self.nbands)
             eig_n[:] = np.inf

@@ -5,6 +5,11 @@
 #include <mpi.h>
 #include "mympi.h"
 
+#ifdef GPAW_GPU
+#define GPAW_ARRAY_ALLOW_CUPY
+#endif
+#include "array.h"
+
 elpa_t* unpack_handleptr(PyObject* handle_obj)
 {
     elpa_t* elpa = (elpa_t *)PyArray_DATA((PyArrayObject *)handle_obj);
@@ -147,7 +152,7 @@ PyObject* pyelpa_constants(PyObject *self, PyObject *args)
 PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
 {
     PyObject *handle_obj;
-    PyArrayObject *A_obj, *C_obj, *eps_obj;
+    PyObject *A_obj, *C_obj, *eps_obj;
 
     if (!PyArg_ParseTuple(args,
                           "OOOO",
@@ -159,9 +164,9 @@ PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
 
     elpa_t handle = unpack_handle(handle_obj);
 
-    double *a = (double*)PyArray_DATA(A_obj);
-    double *ev = (double*)PyArray_DATA(eps_obj);
-    double *q = (double*)PyArray_DATA(C_obj);
+    double *a = (double*)Array_DATA(A_obj);
+    double *ev = (double*)Array_DATA(eps_obj);
+    double *q = (double*)Array_DATA(C_obj);
 
     int err;
     elpa_eigenvectors(handle, a, ev, q, &err);
@@ -171,7 +176,7 @@ PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args)
 PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
 {
     PyObject *handle_obj;
-    PyArrayObject *A_obj, *S_obj, *C_obj, *eps_obj;
+    PyObject *A_obj, *S_obj, *C_obj, *eps_obj;
     int is_already_decomposed;
 
     if (!PyArg_ParseTuple(args,
@@ -187,12 +192,12 @@ PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
     elpa_t handle = unpack_handle(handle_obj);
 
     int err;
-    double *ev = (double *)PyArray_DATA(eps_obj);
-    double *a = (double *)PyArray_DATA(A_obj);
-    double *b = (double *)PyArray_DATA(S_obj);
-    double *q = (double *)PyArray_DATA(C_obj);
+    double *ev = (double *)Array_DATA(eps_obj);
+    double *a = (double *)Array_DATA(A_obj);
+    double *b = (double *)Array_DATA(S_obj);
+    double *q = (double *)Array_DATA(C_obj);
 
-    if(PyArray_DESCR(A_obj)->type_num == NPY_DOUBLE) {
+    if(Array_TYPE(A_obj) == NPY_DOUBLE) {
         elpa_generalized_eigenvectors(handle, a, b, ev, q,
                                       is_already_decomposed, &err);
 

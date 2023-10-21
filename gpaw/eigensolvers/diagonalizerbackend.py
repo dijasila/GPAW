@@ -40,7 +40,8 @@ class ScipyDiagonalizer:
         """
         if is_master:
             eps[:], A[:] = eigh(
-                A, B, lower=True, check_finite=debug, overwrite_b=True)
+                A, B, lower=True, check_finite=debug, overwrite_b=True,
+                overwrite_a=True)
 
 
 class ParallelDiagonalizer:
@@ -131,9 +132,18 @@ class ParallelDiagonalizer:
         Bsc_mm = self.distributed_descriptor.zeros(dtype=self.dtype)
         vec_mm = self.distributed_descriptor.zeros(dtype=self.dtype)
 
+        input_on_gpu = not isinstance(A, np.ndarray)
+
         temporary_eps = np.zeros([self.arraysize])
+        orig_A = A
+
         if is_master:
             assert self.blacsgrid.comm.rank == 0
+            if input_on_gpu:
+                # Assume copy array
+                import cupy
+                A = cupy.asnumpy(A)
+                B = cupy.asnumpy(B)
             Asc_MM[:, :] = A
             Bsc_MM[:, :] = B
 
@@ -162,9 +172,24 @@ class ParallelDiagonalizer:
             # Conjugate-transpose here since general_diagonalize_dc gives us
             # Fortran-convention eigenvectors.
             A[:, :] = vec_MM.conj().T
+            if input_on_gpu:
+                temporary_eps = cupy.asarray(temporary_eps)
             eps[:] = temporary_eps
+
+        if input_on_gpu:
+            orig_A[:] = cupy.asarray(A)
 
     @lazyproperty
     def _elpa(self):
         from gpaw.utilities.elpa import LibElpa
-        return LibElpa(self.distributed_descriptor, solver='1stage')
+        elpa = LibElpa(self.distributed_descriptor, solver='2stage')
+        gpu_kwargs = {}
+        if 1:
+            gpu_kwargs = {
+                'nvidia-gpu': 1,
+                'use_gpu_id': 0,
+                'gpu_cholesky': 1,
+                'gpu_hermitian_multiply': 1
+            }
+        elpa.elpa_set1(gpu_kwargs)
+        return elpa

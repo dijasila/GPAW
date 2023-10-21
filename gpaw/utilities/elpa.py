@@ -53,15 +53,28 @@ class LibElpa:
         self._consts = _elpaconstants()
         elpasolver = self._consts[solver]
 
+        # We often use blocksize==global matrix size for
+        # serial layouts but GPU-Elpa doesn't like blocksizes
+        # that are not powers of two.
+        #
+        # So here we hack the blocksize to a large enough power of two
+        # for this specific case.
+        blocksize = desc.mb
+        if blocksize == desc.gshape[0]:
+            blocksize = 2**int(np.ceil(np.log2(desc.gshape[0])))
+            assert blocksize >= desc.gshape[0]
+
         bg = desc.blacsgrid
-        self.elpa_set(na=desc.gshape[0],
-                      local_ncols=desc.shape[0],
-                      local_nrows=desc.shape[1],
-                      nblk=desc.mb,
-                      process_col=bg.myrow,  # XXX interchanged
-                      process_row=bg.mycol,
-                      blacs_context=bg.context)
-        self.elpa_set(nev=nev, solver=elpasolver)
+        self.elpa_set1(dict(
+            na=desc.gshape[0],
+            local_ncols=desc.shape[0],
+            local_nrows=desc.shape[1],
+            nblk=blocksize,
+            process_col=bg.myrow,  # XXX interchanged
+            process_row=bg.mycol,
+            blacs_context=bg.context))
+        self.elpa_set1(dict(nev=nev, solver=elpasolver))
+
         self.desc = desc
 
         _gpaw.pyelpa_setup(self._ptr)
@@ -95,9 +108,15 @@ class LibElpa:
                                          is_already_decomposed)
 
     def elpa_set(self, **kwargs):
+        self.elpa_set1(kwargs)
+
+    def elpa_set1(self, kwargs):
         for key, value in kwargs.items():
             # print('pyelpa_set {}={}'.format(key, value))
-            _gpaw.pyelpa_set(self._ptr, key, value)
+            try:
+                _gpaw.pyelpa_set(self._ptr, key, value)
+            except RuntimeError as err:
+                raise TypeError(f'Cannot do {key}={value}') from err
             self._parameters[key] = value
 
     def __repr__(self):

@@ -32,6 +32,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  atomdist: AtomDistribution,
                  kpt_c=(0.0, 0.0, 0.0),
                  domain_comm: MPIComm = serial_comm,
+                 domain_band_comm: MPIComm,
                  spin: int = 0,
                  q: int = 0,
                  k: int = 0,
@@ -49,7 +50,8 @@ class LCAOWaveFunctions(WaveFunctions):
                          ncomponents=ncomponents,
                          dtype=C_nM.dtype,
                          domain_comm=domain_comm,
-                         band_comm=C_nM.dist.comm)
+                         band_comm=C_nM.dist.comm,
+                         domain_band_comm=domain_band_comm)
         self.density_adder = density_adder
         self.tci_derivatives = tci_derivatives
         self.basis = basis
