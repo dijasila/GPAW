@@ -70,6 +70,7 @@ void multi_einsum_launch_kernel(char* str,
                                 double** array_pointers_pa,
                                 int add,
                                 int is_complex,
+                                int is_complex_out,
                                 char** error);
 
 PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
@@ -190,6 +191,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
     int* dimensions = (int*) malloc(problems * arguments * 4 * sizeof(int));
     int* strides = (int*) malloc(problems * arguments * 4 * sizeof(int));
     int first_item_size = -1;
+    int first_output_size = -1;
     for (int i=0; i<problems; i++)
     {
         PyObject* args = PyList_GetItem(arguments_obj, i);
@@ -222,17 +224,36 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
             }
             double* array_ptr = Array_DATA(cupy_array);
             int item_size = Array_ITEMSIZE(cupy_array);
-            if (first_item_size != -1)
+            if (j < arguments - 1)
             {
-                if (item_size != first_item_size)
+                if (first_item_size != -1)
                 {
-                    PyErr_SetString(PyExc_RuntimeError, "All arguments must be of same dtype.");
-                    goto error;
+                    if (item_size != first_item_size)
+                    {
+                        PyErr_SetString(PyExc_RuntimeError, "All arguments must be of same dtype.");
+                        goto error;
+                    }
+                }
+                else
+                {
+                    first_item_size = item_size;
                 }
             }
             else
             {
-                first_item_size = item_size;
+                if (first_output_size != -1)
+                {
+                    if (item_size != first_output_size)
+                    {
+                        PyErr_SetString(PyExc_RuntimeError, "All outputs must be of same dtype.");
+                        goto error;
+                    }
+                }
+                else
+                {
+                    first_output_size = item_size;
+                }
+
             }
             if (PyErr_Occurred())
             {
@@ -269,6 +290,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                                array_pointers,
                                add,
                                first_item_size == 16,
+                               first_output_size == 16,
                                (char**) &error);
     free(array_pointers);
     free(dimensions);

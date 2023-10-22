@@ -28,6 +28,10 @@ else:
 __all__ = ['cupy', 'cupyx', 'as_xp', 'as_np', 'synchronize']
 
 
+def multi_einsum(*args, **kwargs):
+    from _gpaw import multi_einsum_gpu
+    return multi_einsum_gpu(*args, **kwargs)
+
 def synchronize():
     if not cupy_is_fake:
         cupy.cuda.get_current_stream().synchronize()
