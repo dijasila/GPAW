@@ -622,24 +622,6 @@ template <int max_out, int max_in, int max_args> struct kernel_funcs
                     });
                 });
             });
-        /*
-        for (int in=0;in<=max_in;in++)
-        {
-            for (int out=0;out<=max_out;out++)
-            {
-                for (int args=0;args<=max_args;args++)
-                {
-                    for (bool add:{true, false})
-                    {
-                        real_calls[0][in][out][args] = &multi_einsum_kernel<false, in, out, args>;
-                        //for (bool complex_out:{true, false})
-                        //{
-                        //    complex_calls[complex_out ? 1 : 0][add ? 1 :0][in][out][args] = &multi_einsum_kernel_complex<complex_out, add, in, out, args>;
-                        //}
-                    }
-                }
-            }
-        }*/
     }
 
     int nind_in;
@@ -691,7 +673,7 @@ void multi_einsum_launch_kernel(char* str,
 
     int nind_out = parser.nindex_out();
     int nind_in = parser.nindex_in();
-    printf("number of arguments %d ", arguments);
+    printf("number of arguments %d\n", arguments);
     printf("iscomplex %d\n", is_complex);
     printf("indices out:");
     for (int n=0; n<nind_out; n++)
@@ -703,7 +685,7 @@ void multi_einsum_launch_kernel(char* str,
     {
         printf(" %d", parser.index_in(n));
     }
-
+    /*
     for (int p=0; p< problems; p++)
     {
         for (int a=0; a<arguments; a++)
@@ -715,7 +697,7 @@ void multi_einsum_launch_kernel(char* str,
                        strides_pai[p * (arguments * maxind) + 4 * a + i]);
             }
         }
-    }
+    }*/
 
     printf("\n");
     
@@ -776,6 +758,7 @@ void multi_einsum_launch_kernel(char* str,
             }
         }
 
+        /*
         printf("Problem %d\nOuter size:",p);
         for (int i=0;i<nind_out; i++)
         {
@@ -803,11 +786,27 @@ void multi_einsum_launch_kernel(char* str,
             }
             printf("\n");
         }
+        */
     }
 
     intbuffer.copy_to_device();
     arguments_pa_buffer.copy_to_device();
-  
+ 
+    if (nind_out >= 3)
+    {
+        *error = "Too many inner product indices. Edit template parameters of kernel_funcs.";
+        return;
+    } 
+    if (nind_in >= 4)
+    {
+        *error = "Too many output indices. Edit template parameters of kernel_funcs.";
+        return;
+    } 
+    if (nind_in >= 5)
+    {
+        *error = "Too many arguments. Edit template parameters of kernel_funcs.";
+        return;
+    } 
     kernel_funcs <3, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
 
     if (is_complex)
