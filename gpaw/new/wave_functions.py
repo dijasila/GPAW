@@ -129,11 +129,11 @@ class WaveFunctions:
 
             #from code import interact
             #interact(local=locals())
-            A = list(zips(P_ani.values(), [xp.array(occ_n)] * len(D_asii.values()), D_asii.values()))
-            multi_einsum_gpu('ni, n, nj -> ij', list(zips(P_ani.values(), [xp.array(occ_n)] * len(D_asii.values()), D_asii.values())))
-            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
-                D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
-                                              P_ni.conj(), occ_n, P_ni).real
+            #A = list(zips(P_ani.values(), [xp.array(occ_n)] * len(D_asii.values()), D_asii.values()))
+            multi_einsum_gpu('ni*, n, nj -> ij', list(zips(P_ani.values(), [xp.array(occ_n, dtype=complex)] * len(D_asii.values()))), add=D_asii.values())
+            #for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
+            #    D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
+            #                                  P_ni.conj(), occ_n, P_ni).real
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',

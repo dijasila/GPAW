@@ -30,6 +30,7 @@ class Parser
         {
             printf("%s\n", error);
         }
+        char error[50];
 
     protected:
         char peek()
@@ -100,7 +101,6 @@ class Parser
     private:
         const char* str;
         const char* chr;
-        char error[50];
         bool error_set;
 
         const char* stack[10];
@@ -112,6 +112,7 @@ class EinsumArgumentParser : public Parser
     public:
     int indices_list[10][10];
     int indices_len[10];
+    bool cc[10];
     char seen[10];
     int index_head;
 
@@ -119,7 +120,10 @@ class EinsumArgumentParser : public Parser
         : Parser(str), index_head(0), seen("")
     {
         for (int i=0;i<10;i++)
+        {
             indices_len[i] = 0;
+            cc[i] = false;
+        }
     }
 
     int nindex() const
@@ -189,6 +193,14 @@ class EinsumArgumentParser : public Parser
                printf("in: ");
             else
                printf("out: ");
+            if (cc[i])
+            {
+                printf("*");
+            }
+            else
+            {
+                printf(" ");
+            }
             for (int j=0; j<indices_len[i]; j++)
                printf("%d ", indices_list[i][j]);
             for (int j=0; j<indices_len[i]; j++)
@@ -256,6 +268,7 @@ class EinsumArgumentParser : public Parser
         while (true)
         {
             push();
+
             success = parse_comma();
             if (!success)
             {
@@ -276,6 +289,11 @@ class EinsumArgumentParser : public Parser
         return true;
     }
 
+    bool parse_star()
+    {
+        return parse_char('*');
+    }
+
     bool parse_comma()
     {
         return parse_char(',');
@@ -284,6 +302,11 @@ class EinsumArgumentParser : public Parser
     void add_index(char c)
     {
         indices_list[index_head][indices_len[index_head]++] = repr(c);
+    }
+
+    void set_cc()
+    {
+        cc[index_head] = true;
     }
 
     int repr(char c)
@@ -318,6 +341,17 @@ class EinsumArgumentParser : public Parser
         stash();
         while (true)
         {
+            push();
+            success = parse_star();
+            if (!success)
+            {
+                pop();
+            }
+            else
+            {
+                stash();
+                set_cc();
+            }
             push();
             success = parse_alphabet(c);
             if (!success)
@@ -431,6 +465,49 @@ template <int N, int nargs> struct strider
     }
 };
 
+template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_einsum_kernel_complex(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, int* cc, gpuDoubleComplex **arguments_pa)
+{
+    int problem_index = blockIdx.x;
+    if (problem_index >= problems)
+    {
+        return;
+    }
+    int *size_out = size_out_pi + problem_index * nind_out;
+    int *size_in = size_in_pi + problem_index * nind_in;
+    int *strides_in = strides_in_pai + problem_index * nind_in * nargs;
+    int *strides_out = strides_out_pai + problem_index * nind_out * nargs;
+    multidim_looper<nind_out> out_index(size_out, blockDim.x, threadIdx.x);
+    strider<nind_out, nargs> strider_out(out_index, strides_out);
+    gpuDoubleComplex **arguments_a = arguments_pa + problem_index * nargs;                                                 
+    while (out_index.next())
+    {
+        int out = strider_out.get_index(nargs - 1);
+        multidim_looper<nind_in> in_index(size_in, 1, 0);
+        strider<nind_in, nargs> strider_in(in_index, strides_in);
+        gpuDoubleComplex sum = make_gpuDoubleComplex(0,0);
+        while (in_index.next())
+        {
+            gpuDoubleComplex value = make_gpuDoubleComplex(1,0);
+            for (int arg=0; arg < nargs -1; arg++)
+            {
+                gpuDoubleComplex arg_value = arguments_a[arg][strider_in.get_index(arg) + strider_out.get_index(arg)];
+                if (cc[arg])
+                    arg_value = gpuConj(arg_value);
+                value = gpuCmul(value, arg_value);
+            }
+            sum = gpuCadd(sum, value);
+        }
+        if (add)
+        {
+            arguments_a[nargs-1][out] = gpuCadd(arguments_a[nargs-1][out], sum);
+        }
+        else
+        {
+            arguments_a[nargs-1][out] = sum;
+        }
+    }
+}
+
 template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_einsum_kernel(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, double** arguments_pa)
 {
     int problem_index = blockIdx.x;
@@ -463,16 +540,12 @@ template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_
         if (add)
         {
             arguments_a[nargs-1][out] += sum;
-            //printf("Adding %f to %d.\n", sum, out);
         }
         else
         {
             arguments_a[nargs-1][out] = sum;
-            //printf("Storing %f to %d.\n", sum, out);
         }
-
     }
-
 }
 
 template <typename T> struct dual_buffer
@@ -525,6 +598,8 @@ template <typename T> struct buffer
 
 constexpr void(*multieinsum_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<false, 2, 1, 4>;
 constexpr void(*multieinadd_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<true, 2, 1, 4>;
+constexpr void(*multieinsum_214_complex)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<false, 2, 1, 4>;
+constexpr void(*multieinadd_214_complex)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<true, 2, 1, 4>;
 
 extern "C"
 void multi_einsum_launch_kernel(char* str,
@@ -534,9 +609,11 @@ void multi_einsum_launch_kernel(char* str,
                                 int* dimensions_pai,
                                 int* strides_pai,
                                 double** array_pointers_pa,
-                                int add)
+                                int add,
+                                int is_complex,
+                                char** error)
 {
-    buffer<int> intbuffer(2 * problems * arguments * maxind);
+    buffer<int> intbuffer(2 * problems * arguments * maxind + arguments);
     buffer<double*> arguments_pa_buffer(problems * arguments);
     dual_buffer<double*> arguments_pa = arguments_pa_buffer.allocate(problems * arguments);
     
@@ -544,11 +621,17 @@ void multi_einsum_launch_kernel(char* str,
     EinsumArgumentParser parser(str);
     parser.parse();
     parser.print_error();
+    if (strlen(parser.error))
+    {
+        *error = parser.error;
+        return;
+    }
     parser.print();
 
     int nind_out = parser.nindex_out();
     int nind_in = parser.nindex_in();
     printf("number of arguments %d ", arguments);
+    printf("iscomplex %d\n", is_complex);
     printf("indices out:");
     for (int n=0; n<nind_out; n++)
     {
@@ -579,7 +662,11 @@ void multi_einsum_launch_kernel(char* str,
     dual_buffer<int> size_out_pi = intbuffer.allocate(problems * nind_out);
     dual_buffer<int> strides_in_pai = intbuffer.allocate(problems * arguments * nind_in);
     dual_buffer<int> strides_out_pai = intbuffer.allocate(problems * arguments * nind_out);
-    
+    dual_buffer<int> cc_a = intbuffer.allocate(arguments);
+    for (int a=0; a<arguments; a++)
+    {
+        cc_a.cpu_ptr[a] = parser.cc[a];
+    } 
     for (int p = 0; p < problems; p++)
     {
         for (int a=0; a<arguments; a++)
@@ -639,7 +726,7 @@ void multi_einsum_launch_kernel(char* str,
             printf(" %d", size_in_pi.cpu_ptr[p * nind_in + i]);
         }
 
-        printf("Strides for all arguments:\n");
+        printf("\nStrides for all arguments:\n");
 
         for (int a=0; a<arguments; a++)
         {
@@ -673,28 +760,65 @@ void multi_einsum_launch_kernel(char* str,
     if ((nind_out == 2) && (nind_in == 1) && (arguments == 4))
     {
         if (add) 
-        gpuLaunchKernel(multieinadd_214,
-                        dim3(problems),
-                        dim3(256),
-                        0, 0,
-                        problems,
-                        size_out_pi.gpu_ptr,
-                        size_in_pi.gpu_ptr,
-                        strides_out_pai.gpu_ptr,
-                        strides_in_pai.gpu_ptr,
-                        arguments_pa.gpu_ptr);
+        {
+            if (is_complex)
+            {
+                gpuLaunchKernel(multieinadd_214_complex,
+                                dim3(problems),
+                                dim3(256),
+                                0, 0,
+                                problems,
+                                size_out_pi.gpu_ptr,
+                                size_in_pi.gpu_ptr,
+                                strides_out_pai.gpu_ptr,
+                                strides_in_pai.gpu_ptr,
+                                cc_a.gpu_ptr,
+                                (gpuDoubleComplex**) arguments_pa.gpu_ptr);
+            }
+            else
+            {
+                gpuLaunchKernel(multieinadd_214,
+                                dim3(problems),
+                                dim3(256),
+                                0, 0,
+                                problems,
+                                size_out_pi.gpu_ptr,
+                                size_in_pi.gpu_ptr,
+                                strides_out_pai.gpu_ptr,
+                                strides_in_pai.gpu_ptr,
+                                arguments_pa.gpu_ptr);
+            }
+        }
         else
-        gpuLaunchKernel(multieinsum_214,
-                        dim3(problems),
-                        dim3(256),
-                        0, 0,
-                        problems,
-                        size_out_pi.gpu_ptr,
-                        size_in_pi.gpu_ptr,
-                        strides_out_pai.gpu_ptr,
-                        strides_in_pai.gpu_ptr,
-                        arguments_pa.gpu_ptr);
-                        
+        {
+            if (is_complex)
+            {
+                gpuLaunchKernel(multieinsum_214_complex,
+                                dim3(problems),
+                                dim3(256),
+                                0, 0,
+                                problems,
+                                size_out_pi.gpu_ptr,
+                                size_in_pi.gpu_ptr,
+                                strides_out_pai.gpu_ptr,
+                                strides_in_pai.gpu_ptr,
+                                cc_a.gpu_ptr,
+                                (gpuDoubleComplex**)arguments_pa.gpu_ptr);
+            }
+            else
+            {
+                gpuLaunchKernel(multieinsum_214,
+                                dim3(problems),
+                                dim3(256),
+                                0, 0,
+                                problems,
+                                size_out_pi.gpu_ptr,
+                                size_in_pi.gpu_ptr,
+                                strides_out_pai.gpu_ptr,
+                                strides_in_pai.gpu_ptr,
+                                arguments_pa.gpu_ptr);
+            }
+        }               
     }
     else
     {

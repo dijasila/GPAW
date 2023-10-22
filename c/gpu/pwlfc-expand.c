@@ -68,7 +68,9 @@ void multi_einsum_launch_kernel(char* str,
                                 int* dimensions_pai,
                                 int* strides_pai,
                                 double** array_pointers_pa,
-                                int add);
+                                int add,
+                                int is_complex,
+                                char** error);
 
 PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
 {
@@ -187,6 +189,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
     // max dimensions is 4
     int* dimensions = (int*) malloc(problems * arguments * 4 * sizeof(int));
     int* strides = (int*) malloc(problems * arguments * 4 * sizeof(int));
+    int first_item_size = -1;
     for (int i=0; i<problems; i++)
     {
         PyObject* args = PyList_GetItem(arguments_obj, i);
@@ -218,6 +221,19 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                 goto error;
             }
             double* array_ptr = Array_DATA(cupy_array);
+            int item_size = Array_ITEMSIZE(cupy_array);
+            if (first_item_size != -1)
+            {
+                if (item_size != first_item_size)
+                {
+                    PyErr_SetString(PyExc_RuntimeError, "All arguments must be of same dtype.");
+                    goto error;
+                }
+            }
+            else
+            {
+                first_item_size = item_size;
+            }
             if (PyErr_Occurred())
             {
                 printf("5\n");
@@ -243,7 +259,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
             }
         }
     }
-
+    char error[50] = "";
     multi_einsum_launch_kernel(string,
                                problems, 
                                arguments,
@@ -251,9 +267,16 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                                dimensions,
                                strides,
                                array_pointers,
-                               add);
+                               add,
+                               first_item_size == 16,
+                               (char**) &error);
     free(array_pointers);
     free(dimensions);
+    if (strlen(error))
+    {
+        PyErr_SetString(PyExc_RuntimeError, error);
+        return NULL;
+    }
     Py_RETURN_NONE;
 error:
     free(array_pointers);
