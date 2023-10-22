@@ -28,7 +28,7 @@ def rand(*args, dtype=None):
 @pytest.mark.parametrize('na', [0, 1, 100])
 @pytest.mark.parametrize('dtype', [float, np.complex128])
 @pytest.mark.parametrize('cc', [True, False])
-def test_multi_einsum(add, na, dtype, cc):
+def test_multi_einsum(gpu, add, na, dtype, cc):
     nn = 300
     ni_a = np.random.randint(30, 50, size=na)
     P_ani = [rand(nn, ni, dtype=dtype) for ni in ni_a]
