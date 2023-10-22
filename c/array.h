@@ -68,6 +68,24 @@ static inline int Array_NDIM(PyObject* obj)
     return PyTuple_Size(shape);
 }
 
+static inline int Array_STRIDE(PyObject* obj, int dim)
+{
+    #ifndef GPAW_ARRAY_DISABLE_NUMPY
+    if (PyArray_Check(obj))
+    {
+	return PyArray_STRIDES((PyArrayObject*)obj)[dim];
+    }
+    #endif
+    PyObject* strides = PyObject_GetAttrString(obj, "strides");
+    if (strides == NULL) return -1;
+    PyObject* pystride = PyTuple_GetItem(strides, dim);
+    Py_DECREF(strides);
+    if (pystride == NULL) return -1;
+    int value = (int) PyLong_AS_LONG(pystride);
+    return value;
+}
+
+
 static inline int Array_DIM(PyObject* obj, int dim)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY

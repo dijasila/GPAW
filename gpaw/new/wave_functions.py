@@ -132,12 +132,13 @@ class WaveFunctions:
                                                   P_ni.conj(),
                                                   occ_n, P_ni).real
             else:
-                na = len(D_asii.values())
-                add = list([D_sii[self.spin] for D_sii in D_asii.values()])
+                atoms = D_asii.keys()
+                na = len(atoms)
+                add = [D_asii[a][self.spin] for a in atoms]
                 multi_einsum('ni*, n, nj -> ij',
-                             P_ani.values(),
+                             [P_ani[a] for a in atoms],
                              [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
-                             P_ani.values(),
+                             [P_ani[a] for a in atoms],
                              add=add)
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):

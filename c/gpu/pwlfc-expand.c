@@ -268,15 +268,15 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                 PyErr_SetString(PyExc_RuntimeError, "Arrays only up to 4 dimensions supported.");
                 goto error;
             }
-            int stride = 1;
+            int stride = 0;
             for (int k=4-1; k>=0; k--)
             {
-                dimensions[k + 4*j + 4*arguments*i] = (k<ndim) ? Array_DIM(cupy_array, k) : 0;
-                strides[k + 4*j + 4*arguments*i] = (k<ndim) ? stride : 0;
                 if (k<ndim)
                 {
-                    stride *= Array_DIM(cupy_array, k);
+                    stride = Array_STRIDE(cupy_array, k) / item_size;
                 }
+                dimensions[k + 4*j + 4*arguments*i] = (k<ndim) ? Array_DIM(cupy_array, k) : 0;
+                strides[k + 4*j + 4*arguments*i] = (k<ndim) ? stride : 0;
             }
         }
     }

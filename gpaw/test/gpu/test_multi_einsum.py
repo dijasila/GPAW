@@ -8,14 +8,14 @@ from gpaw.gpu import cupy as cp
 def multi_einsum_np(path, *args, out=None):
     args = list(zip(*args))
     for i in range(len(args)):
-        np.einsum(path, *args[i], out=out[i], optimize=True)
+        np.einsum(path, *args[i], out=out[i], optimize=True, casting='unsafe')
         print(out[i].shape)
 
 
 def multi_einadd_np(path, *args, out=None):
     args = list(zip(*args))
     for i in range(len(args)):
-        out[i] += np.einsum(path, *args[i], optimize=True)
+        out[i] += np.einsum(path, *args[i], optimize=True, casting='unsafe')
         print(out[i].shape)
 
 
@@ -28,14 +28,18 @@ def rand(*args, dtype=None):
 @pytest.mark.gpu
 @pytest.mark.parametrize('add', [False])
 @pytest.mark.parametrize('na', [0, 1, 100])
-@pytest.mark.parametrize('dtype', [float, np.complex128])
+@pytest.mark.parametrize('dtype, complex_out',
+                         [(float, False),
+                          (np.complex128, False),
+                          (np.complex128, True)])
 @pytest.mark.parametrize('cc', [True, False])
-def test_multi_einsum(gpu, add, na, dtype, cc):
+def test_multi_einsum(gpu, add, na, dtype, cc, complex_out):
     nn = 300
-    ni_a = np.random.randint(30, 50, size=na)
+    ni_a = np.random.randint(15, 25, size=na)
     P_ani = [rand(nn, ni, dtype=dtype) for ni in ni_a]
     f_n = rand(nn, dtype=dtype)
-    D_aii = [rand(ni, ni, dtype=dtype) for ni in ni_a]
+    out_type = np.complex128 if complex_out else float
+    D_aii = [rand(ni, ni, dtype=out_type) for ni in ni_a]
     D_aii_old = [D_ii.copy() for D_ii in D_aii]
     f_an = [f_n] * na
     einsum_str = "ni,n,nj->ij"
