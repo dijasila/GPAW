@@ -12,6 +12,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
 from gpaw.gpu import multi_einsum
 
+
 class WaveFunctions:
     bytes_per_band: int
     xp: ModuleType  # numpy or cupy
@@ -128,27 +129,15 @@ class WaveFunctions:
             if xp is np:
                 for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
                     D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
-                                                  P_ni.conj(), occ_n, P_ni).real
+                                                  P_ni.conj(),
+                                                  occ_n, P_ni).real
             else:
-                A = list(zips(P_ani.values(), [xp.array(occ_n, dtype=P_ani.layout.dtype)] * len(D_asii.values()), P_ani.values()))
-                #print(type(A))
-                #for a in A:
-                #    for b in a:
-                #        print(type(b))
-                #D2_asii = [ D_sii.copy() for D_sii in D_asii.values() ]
-                #for D_sii in D_asii.values():
-                #    D_sii[:] = 0.0
-                #for D_sii, P_ni in zips(D2_asii, P_ani.values()):
-                #    D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
-                #                                  P_ni.conj(), occ_n, P_ni).real
-                multi_einsum('ni*, n, nj -> ij', A, add=list([ D_sii[self.spin] for D_sii in D_asii.values()]))
-
-                #for D_sii, D2_sii in zip(D_asii.values(), D2_asii):
-                #    print('start')
-                #    print('gpu einsum', D_sii)
-                #    print('reference', D2_sii)
-                #    print('diff', D2_sii - D_sii)
-                #    print('xxx')
+                na = len(D_asii.values())
+                A = list(zips(P_ani.values(),
+                              [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
+                              P_ani.values()))
+                add = list([D_sii[self.spin] for D_sii in D_asii.values()])
+                multi_einsum('ni*, n, nj -> ij', A, add=add)
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',
