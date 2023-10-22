@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from _gpaw import multi_einsum_gpu
+from gpaw.gpu import multi_einsum
 from time import time
 from gpaw.gpu import cupy as cp
 
@@ -65,13 +65,13 @@ def test_multi_einsum(add, na, dtype, cc):
     start = time()
 
     if add:
-        multi_einsum_gpu(einsum_gpustr,
-                         list(zip(P_ani_gpu, f_an_gpu, P_ani_gpu)),
-                         add=D_aii_gpu)
+        multi_einsum(einsum_gpustr,
+                     list(zip(P_ani_gpu, f_an_gpu, P_ani_gpu)),
+                     add=D_aii_gpu)
     else:
-        multi_einsum_gpu(einsum_gpustr,
-                         list(zip(P_ani_gpu, f_an_gpu, P_ani_gpu)),
-                         out=D_aii_gpu)
+        multi_einsum(einsum_gpustr,
+                     list(zip(P_ani_gpu, f_an_gpu, P_ani_gpu)),
+                     out=D_aii_gpu)
     cp.cuda.runtime.deviceSynchronize()
     stop = time()
     print('GPU einsum took', stop - start)
