@@ -583,8 +583,8 @@ template <typename T> struct buffer
     dual_buffer<T> allocate(int n)
     {
         int current_head = head;
-        dual_buffer b(cpu_ptr + current_head,
-                      gpu_ptr + current_head);
+        dual_buffer<T> b(cpu_ptr + current_head,
+                         gpu_ptr + current_head);
         head += n; 
         assert (head <= size);
         return b;
