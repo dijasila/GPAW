@@ -150,13 +150,13 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
     PyObject* arguments_obj;
     PyObject* out_obj = NULL;
     PyObject* add_obj = NULL;
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|O", kwlist, 
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|OO", kwlist, 
                                      &string, &arguments_obj, &out_obj, &add_obj))
         return NULL;
 
     if ((add_obj != NULL) && (out_obj != NULL))
     {
-        PySet_SetString("Cannot set both out and add arguments.");
+        PyErr_SetString(PyExc_RuntimeError, "Cannot set both out and add arguments.");
         return NULL;
     }
     bool add = add_obj != NULL;

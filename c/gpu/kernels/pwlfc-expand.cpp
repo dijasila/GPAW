@@ -447,7 +447,7 @@ template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_
     double** arguments_a = arguments_pa + problem_index * nargs;                                                 
     while (out_index.next())
     {
-        int out = strider_out.get_index(nargs - 1); // Out is the final argument
+        int out = strider_out.get_index(nargs - 1);
         multidim_looper<nind_in> in_index(size_in, 1, 0);
         strider<nind_in, nargs> strider_in(in_index, strides_in);
         double sum = 0;
@@ -461,11 +461,16 @@ template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_
             sum += value;
         }
         if (add)
-        arguments_a[nargs-1][out] += sum;
+        {
+            arguments_a[nargs-1][out] += sum;
+            //printf("Adding %f to %d.\n", sum, out);
+        }
         else
-        arguments_a[nargs-1][out] = sum;
+        {
+            arguments_a[nargs-1][out] = sum;
+            //printf("Storing %f to %d.\n", sum, out);
+        }
 
-        //printf("Storing %f to %d.\n", sum, out);
     }
 
 }
@@ -518,8 +523,8 @@ template <typename T> struct buffer
 };
 
 
-constexpr void(*multieinsum_214)(bool, int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<false, 2, 1, 4>;
-constexpr void(*multieinadd_214)(bool, int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<true, 2, 1, 4>;
+constexpr void(*multieinsum_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<false, 2, 1, 4>;
+constexpr void(*multieinadd_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<true, 2, 1, 4>;
 
 extern "C"
 void multi_einsum_launch_kernel(char* str,
