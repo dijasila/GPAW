@@ -22,7 +22,7 @@ class MGGA(XCFunctional):
         self.fixed_ke = False
 
     def set_grid_descriptor(self, gd):
-        self.grad_v = get_gradient_ops(gd, self.stencil_range)
+        self.grad_v = get_gradient_ops(gd, self.stencil_range, np)
         XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):
