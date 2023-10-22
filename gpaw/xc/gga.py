@@ -152,10 +152,13 @@ def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
     for v in range(3):
         for s in range(nspins):
             grad_v[v](dedsigma_xg[2 * s] * gradn_svg[s, v], vv_g)
-            axpy(-2.0, vv_g, v_sg[s])
+            vv_g *= 2.0
+            v_sg[s] -= vv_g
+            # axpy(-2.0, vv_g, v_sg[s])
             if nspins == 2:
                 grad_v[v](dedsigma_xg[1] * gradn_svg[s, v], vv_g)
-                axpy(-1.0, vv_g, v_sg[1 - s])
+                v_sg[1 - s] -= vv_g
+                # axpy(-1.0, vv_g, v_sg[1 - s])
                 # TODO: can the number of gradient evaluations be reduced?
 
 

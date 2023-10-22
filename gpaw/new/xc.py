@@ -23,6 +23,7 @@ from gpaw.xc.vdw import VDWFunctionalBase
 def create_functional(xc: OldXCFunctional | str | dict,
                       grid: UGDesc,
                       xp=np) -> Functional:
+    print(6666666666666666, xc, xp)
     if isinstance(xc, (str, dict)):
         xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
@@ -87,7 +88,7 @@ class LDAFunctional(Functional):
         ibzwfs = state.ibzwfs
         if ibzwfs.kpt_comm.rank == 0 and ibzwfs.band_comm.rank == 0:
             nt_sr = interpolate(state.density.nt_sR)
-            s_vv = self.xc.stress_tensor_contribution(as_np(nt_sr.data),
+            s_vv = self.xc.stress_tensor_contribution(nt_sr.data,
                                                       skip_sum=True)
             return as_xp(s_vv, nt_sr.xp)
         return state.density.nt_sR.xp.zeros((3, 3))
