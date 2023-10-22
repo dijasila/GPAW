@@ -9,7 +9,7 @@ from gpaw.core.atom_centered_functions import (AtomArraysLayout,
                                                AtomCenteredFunctions)
 from gpaw.core.plane_waves import PWDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
-from gpaw.gpu import as_np, multi_einsum
+from gpaw.gpu import as_np, multi_einsum, cupy_is_fake
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
@@ -178,7 +178,7 @@ class Density:
             atomdist=self.D_asii.layout.atomdist,
             xp=xp).empty()
 
-        if xp is np:
+        if xp is np or cupy_is_fake:
             for a, D_sii in self.D_asii.items():
                 Q_L = xp.einsum('sij, ijL -> L',
                                 D_sii[:self.ndensities].real,

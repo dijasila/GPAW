@@ -10,7 +10,7 @@ from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
-from gpaw.gpu import multi_einsum
+from gpaw.gpu import multi_einsum, cupy_is_fake
 
 
 class WaveFunctions:
@@ -126,7 +126,7 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            if xp is np:
+            if xp is np or cupy_is_fake:
                 for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
                     D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
                                                   P_ni.conj(),
