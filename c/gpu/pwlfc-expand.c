@@ -62,10 +62,13 @@ void evaluate_lda_launch_kernel(int nspin, int ng,
                                 double* e);
 
 void multi_einsum_launch_kernel(char* str,
-                                int problems,
-                                int arguments,
-                                int* dimensions,
-                                double** array_pointers);
+                                int problems,  // p index
+                                int arguments, // a index
+                                int maxind,    // i index
+                                int* dimensions_pai,
+                                int* strides_pai,
+                                double** array_pointers_pa,
+                                int add);
 
 PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
 {
@@ -139,16 +142,28 @@ PyObject* evaluate_pbe_gpu(PyObject* self, PyObject* args)
 
 PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    static char *kwlist[] = {"string", "arguments", "out", NULL};
+    static char *kwlist[] = {"string", "arguments", "out", "add", NULL};
     char* string;
 
 
     // arguments is expected to be list of tuples
     PyObject* arguments_obj;
-    PyObject* out_obj;
+    PyObject* out_obj = NULL;
+    PyObject* add_obj = NULL;
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|O", kwlist, 
-                                     &string, &arguments_obj, &out_obj))
+                                     &string, &arguments_obj, &out_obj, &add_obj))
         return NULL;
+
+    if ((add_obj != NULL) && (out_obj != NULL))
+    {
+        PySet_SetString("Cannot set both out and add arguments.");
+        return NULL;
+    }
+    bool add = add_obj != NULL;
+    if (add)
+    {
+        out_obj = add_obj;
+    }
 
     int problems = PyList_Size(arguments_obj);
     if (problems == 0)
@@ -161,7 +176,7 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
         return NULL;
     }
 
-    int arguments = PyTuple_Size(PyList_GetItem(arguments_obj, 0));
+    int arguments = PyTuple_Size(PyList_GetItem(arguments_obj, 0)) + 1; // We add one, because we append out
     if (PyErr_Occurred())
     {
         printf("2\n");
@@ -171,22 +186,32 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
     double** array_pointers = (double**) malloc(problems * arguments * sizeof(double*));
     // max dimensions is 4
     int* dimensions = (int*) malloc(problems * arguments * 4 * sizeof(int));
+    int* strides = (int*) malloc(problems * arguments * 4 * sizeof(int));
     for (int i=0; i<problems; i++)
     {
-        PyObject* args = PyList_GetItem(arguments_obj, 0);
+        PyObject* args = PyList_GetItem(arguments_obj, i);
+        PyObject* output = PyList_GetItem(out_obj, i);
         if (PyErr_Occurred())
         {
             printf("3\n");
             goto error;
         }
-        if (PyTuple_Size(args) != arguments)
+        if (PyTuple_Size(args) != arguments - 1)
         {
             PyErr_Format(PyExc_RuntimeError, "Inconsistent number of arguments at problem %d.", i);
             goto error;
         }
         for (int j=0; j<arguments; j++)
         {
-            PyObject* cupy_array = PyTuple_GetItem(args, j);
+            PyObject* cupy_array;
+            if (j < arguments - 1) 
+            {
+                cupy_array = PyTuple_GetItem(args, j);
+            }
+            else
+            {
+                cupy_array = output;
+            }
             if (PyErr_Occurred())
             {
                 printf("4\n");
@@ -206,17 +231,27 @@ PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
                 PyErr_SetString(PyExc_RuntimeError, "Arrays only up to 4 dimensions supported.");
                 goto error;
             }
-            for (int k=0; k<4; k++)
+            int stride = 1;
+            for (int k=4-1; k>=0; k--)
             {
                 dimensions[k + 4*j + 4*arguments*i] = (k<ndim) ? Array_DIM(cupy_array, k) : 0;
+                strides[k + 4*j + 4*arguments*i] = (k<ndim) ? stride : 0;
+                if (k<ndim)
+                {
+                    stride *= Array_DIM(cupy_array, k);
+                }
             }
         }
     }
 
-    multi_einsum_launch_kernel(string, problems, 
+    multi_einsum_launch_kernel(string,
+                               problems, 
                                arguments,
+                               4,
                                dimensions,
-                               array_pointers);
+                               strides,
+                               array_pointers,
+                               add);
     free(array_pointers);
     free(dimensions);
     Py_RETURN_NONE;

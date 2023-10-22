@@ -2,6 +2,7 @@
 #include "../gpu-complex.h"
 #include "numpy/arrayobject.h"
 #include "assert.h"
+#include <cstdlib>
 
 #define BETA   0.066725
 #define GAMMA  0.031091
@@ -121,13 +122,67 @@ class EinsumArgumentParser : public Parser
             indices_len[i] = 0;
     }
 
-    int nargs()
+    int nindex() const
+    {
+        return strlen(seen);
+    }
+
+    int nindex_out() const
+    {
+        return indices_len[index_head-1];
+    }
+
+    int nindex_in() const
+    {
+        return nindex() - nindex_out();
+    }
+
+
+    bool is_out_index(int i) const
+    {
+        for (int n=0; n<indices_len[index_head-1]; n++)
+        {
+            if (i == indices_list[index_head-1][n])
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    int index_in(int n) const
+    {
+        int index = 0;
+        for (int i=0; i<nindex(); i++)
+        {
+            if (is_out_index(i))
+            {
+                continue;
+            }
+            if (n == index)
+            {
+                return i;
+            }
+            index ++;
+        }
+        return -1;
+    }
+
+    int index_out(int n)
+    {
+        return indices_list[index_head-1][n];
+    }
+
+    int nargs() const
     {
         return index_head;
     }
 
-    void print()
+    void print() const
     {
+        printf("Number of indices %d.\n", nindex());
+        printf("Number of outer indices %d.\n", nindex_out());
+        printf("Number of inner indices %d.\n", nindex_in());
         for (int i=0; i<index_head; i++)
         {
             if (i < index_head-1)
@@ -193,7 +248,6 @@ class EinsumArgumentParser : public Parser
     bool parse_indices_list()
     {
         bool success;
-        char indices[30];
         success = parse_indices();
         if (!success)
         {
@@ -250,7 +304,6 @@ class EinsumArgumentParser : public Parser
 
     bool parse_indices()
     {
-        char str[10];
         bool success;
         char c;
         push();
@@ -282,6 +335,7 @@ class EinsumArgumentParser : public Parser
 
 };
 
+/*
 template <int max_indices> __global__ 
     void multi_einsum_kernel_3index_4arg(int problems, int na, int nb, int nc,
                                                        int* strides_pac)
@@ -308,19 +362,339 @@ template <int max_indices> __global__
         } 
     }
 }
+*/
+
+template <int N> struct multidim_looper
+{
+    public:
+    int pos[N];
+    int *lengths;
+    int nthreads;
+    int threadidx;
+
+    __device__ multidim_looper(int *lengths,
+                    const int& nthreads, 
+                    const int& threadidx)
+       : lengths(lengths), nthreads(nthreads), threadidx(threadidx)
+    {
+        pos[0] = threadidx - nthreads;
+        for (int n=1; n<N; n++)
+        {
+            pos[n] = 0;
+        }
+    }
+
+    void print()
+    {
+        printf("thread: %d/%d\n", threadidx, nthreads);
+        for (int n=0;n<N; n++)
+        {
+            printf("element %d/%d ",pos[n]+1, lengths[n]);
+        }
+        printf("\n");
+    }
+
+    // return false, if one should stop here
+    __device__ bool next()
+    {
+        int newidx = pos[0] + nthreads;
+        int pos_inc;
+        for (int n=0; n<N; n++)
+        {
+            pos[n] = newidx % lengths[n];
+            pos_inc = newidx / lengths[n];
+            if (n < N-1)
+            {
+                newidx = pos[n+1] + pos_inc;
+            }
+        }
+        return (pos_inc == 0);
+    }
+};
+
+template <int N, int nargs> struct strider
+{
+    int *strides_ai;
+    const multidim_looper <N> &m;
+    __device__ strider(const multidim_looper<N> &m, int *strides_ai) : m(m), strides_ai(strides_ai)
+    {
+    }
+
+    __device__ int get_index(int arg) const
+    {
+        int ravel = 0;
+        for (int n=0; n<N; n++)
+        {
+            ravel += m.pos[n] * strides_ai[arg * N + n];
+        }
+        return ravel;
+    }
+};
+
+template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_einsum_kernel(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, double** arguments_pa)
+{
+    int problem_index = blockIdx.x;
+    if (problem_index >= problems)
+    {
+        return;
+    }
+    int *size_out = size_out_pi + problem_index * nind_out;
+    int *size_in = size_in_pi + problem_index * nind_in;
+    int *strides_in = strides_in_pai + problem_index * nind_in * nargs;
+    int *strides_out = strides_out_pai + problem_index * nind_out * nargs;
+    multidim_looper<nind_out> out_index(size_out, blockDim.x, threadIdx.x);
+    strider<nind_out, nargs> strider_out(out_index, strides_out);
+    double** arguments_a = arguments_pa + problem_index * nargs;                                                 
+    while (out_index.next())
+    {
+        int out = strider_out.get_index(nargs - 1); // Out is the final argument
+        multidim_looper<nind_in> in_index(size_in, 1, 0);
+        strider<nind_in, nargs> strider_in(in_index, strides_in);
+        double sum = 0;
+        while (in_index.next())
+        {
+            double value = 1;
+            for (int arg=0; arg < nargs -1; arg++)
+            {
+                value *= arguments_a[arg][strider_in.get_index(arg) + strider_out.get_index(arg)];
+            }
+            sum += value;
+        }
+        if (add)
+        arguments_a[nargs-1][out] += sum;
+        else
+        arguments_a[nargs-1][out] = sum;
+
+        //printf("Storing %f to %d.\n", sum, out);
+    }
+
+}
+
+template <typename T> struct dual_buffer
+{
+    T* cpu_ptr;
+    T* gpu_ptr;
+    dual_buffer(T* cpu_ptr, T* gpu_ptr)
+        : cpu_ptr(cpu_ptr), gpu_ptr(gpu_ptr)
+    {
+    }
+};
+
+template <typename T> struct buffer
+{
+    int size;
+    T* cpu_ptr;
+    T* gpu_ptr;
+    int allocated;
+    int head;
+     
+    buffer(int size)
+        : size(size), allocated(0), head(0)
+    {
+        gpuMalloc(&gpu_ptr, size * sizeof(T));
+        cpu_ptr = (T*) malloc(size * sizeof(T));
+    }
+
+    dual_buffer<T> allocate(int n)
+    {
+        int current_head = head;
+        dual_buffer b(cpu_ptr + current_head,
+                      gpu_ptr + current_head);
+        head += n; 
+        assert (head <= size);
+        return b;
+    }
+
+    ~buffer()
+    {
+        gpuFree(gpu_ptr);
+        free(cpu_ptr);
+    }
+
+    void copy_to_device()
+    {
+        gpuMemcpy(gpu_ptr, cpu_ptr, sizeof(T) * size, gpuMemcpyHostToDevice);
+    }
+};
+
+
+constexpr void(*multieinsum_214)(bool, int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<false, 2, 1, 4>;
+constexpr void(*multieinadd_214)(bool, int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<true, 2, 1, 4>;
 
 extern "C"
 void multi_einsum_launch_kernel(char* str,
-                                int problems,
-                                int arguments,
-                                int* dimensions,
-                                double** array_pointers)
+                                int problems,  // p index
+                                int arguments, // a index
+                                int maxind,    // i index
+                                int* dimensions_pai,
+                                int* strides_pai,
+                                double** array_pointers_pa,
+                                int add)
 {
+    buffer<int> intbuffer(2 * problems * arguments * maxind);
+    buffer<double*> arguments_pa_buffer(problems * arguments);
+    dual_buffer<double*> arguments_pa = arguments_pa_buffer.allocate(problems * arguments);
+    
     printf("%s\n", str);
     EinsumArgumentParser parser(str);
     parser.parse();
     parser.print_error();
     parser.print();
+
+    int nind_out = parser.nindex_out();
+    int nind_in = parser.nindex_in();
+    printf("number of arguments %d ", arguments);
+    printf("indices out:");
+    for (int n=0; n<nind_out; n++)
+    {
+        printf(" %d", parser.index_out(n));
+    }
+    printf("\nindices in:");
+    for (int n=0; n<nind_in; n++)
+    {
+        printf(" %d", parser.index_in(n));
+    }
+
+    for (int p=0; p< problems; p++)
+    {
+        for (int a=0; a<arguments; a++)
+        {
+            for (int i=0; i<maxind; i++)
+            {
+                printf("p=%d a=%d i=%d size=%d stride=%d\n", p,a,i,
+                       dimensions_pai[p * (arguments * maxind) + 4 * a + i],
+                       strides_pai[p * (arguments * maxind) + 4 * a + i]);
+            }
+        }
+    }
+
+    printf("\n");
+    
+    dual_buffer<int> size_in_pi = intbuffer.allocate(problems * nind_in);
+    dual_buffer<int> size_out_pi = intbuffer.allocate(problems * nind_out);
+    dual_buffer<int> strides_in_pai = intbuffer.allocate(problems * arguments * nind_in);
+    dual_buffer<int> strides_out_pai = intbuffer.allocate(problems * arguments * nind_out);
+    
+    for (int p = 0; p < problems; p++)
+    {
+        for (int a=0; a<arguments; a++)
+        {
+            arguments_pa.cpu_ptr[p*arguments + a] = array_pointers_pa[p*arguments + a];
+        }
+        for (int i=0; i < nind_out; i++)
+        {
+            int index_out_size = dimensions_pai[ p * (arguments * maxind) + maxind * (arguments-1) + i]; 
+            size_out_pi.cpu_ptr[p * nind_out + i ] = index_out_size;
+            //printf("p: %d outind: %d size: %d\n", p, i, index_out_size);
+            for (int a=0; a < arguments; a++)
+            {
+               int stride = 0;
+               for (int locind=0; locind < parser.indices_len[a]; locind++)
+               {
+                   if (parser.indices_list[a][locind] == parser.indices_list[arguments-1][i])
+                   {
+                       stride += strides_pai[ p * (arguments * maxind) + maxind * a + locind];
+                   }
+               }
+               //printf("strides p %d a %d i %d: %d\n", p, a, i, stride);
+               strides_out_pai.cpu_ptr[p * (nind_out*arguments) + a * nind_out + i ] = stride; 
+
+            }
+        }
+        for (int i=0; i < nind_in; i++)
+        {
+            for (int a=0; a < arguments; a++)
+            {
+               int stride = 0;
+               for (int locind=0; locind < parser.indices_len[a]; locind++)
+               {
+                   if (parser.indices_list[a][locind] == parser.index_in(i))
+                   {
+                       stride += strides_pai[ p * (arguments * maxind) + maxind * a + locind];
+                       int index_in_size = dimensions_pai[ p * (arguments * maxind) + maxind * a + locind]; // move inside stride
+                       size_in_pi.cpu_ptr[p * nind_in + i ] = index_in_size;
+                   }
+               }
+               //printf("strides p %d a %d i %d: %d\n", p, a, i, stride);
+               strides_in_pai.cpu_ptr[p * (nind_in*arguments) + a * nind_in + i ] = stride;
+
+            //printf("p: %d in_ind: %d size: %d\n", p, i, index_in_size);
+
+            }
+        }
+
+        printf("Problem %d\nOuter size:",p);
+        for (int i=0;i<nind_out; i++)
+        {
+            printf(" %d", size_out_pi.cpu_ptr[p * nind_out + i]);
+        }
+        printf("\nInner size:");
+        for (int i=0;i<nind_in; i++)
+        {
+            printf(" %d", size_in_pi.cpu_ptr[p * nind_in + i]);
+        }
+
+        printf("Strides for all arguments:\n");
+
+        for (int a=0; a<arguments; a++)
+        {
+            printf("out:");
+            for (int i=0;i<nind_out;i++)
+            {
+                printf(" %d", strides_out_pai.cpu_ptr[p * (nind_out*arguments) + a * nind_out + i]);
+            }
+            printf("in:");
+            for (int i=0;i<nind_in;i++)
+            {
+                printf(" %d", strides_in_pai.cpu_ptr[p * (nind_in*arguments) + a * nind_in + i]);
+            }
+            printf("\n");
+        }
+
+        /*
+        for (int i=0; i < nind_in; i++)
+        {
+            int size = parser.index_in_size(i);
+            size_in_pi.cpu_ptr[p * maxind + ind ] = dimensions_pai[ p * (arguments * maxind) + maxind * (arguments-1) + ind]; 
+            //strides_out_pi.cpu_ptr[p * maxind + i ] = strides_pai[ p * (arguments * maxind) + maxind * (arguments-1) + i];
+            printf("p: %d inind: %d size: %d\n", p, i, size_in_pi.cpu_ptr[p*maxind+i]);
+        }
+        */
+    }
+
+    intbuffer.copy_to_device();
+    arguments_pa_buffer.copy_to_device();
+  
+    if ((nind_out == 2) && (nind_in == 1) && (arguments == 4))
+    {
+        if (add) 
+        gpuLaunchKernel(multieinadd_214,
+                        dim3(problems),
+                        dim3(256),
+                        0, 0,
+                        problems,
+                        size_out_pi.gpu_ptr,
+                        size_in_pi.gpu_ptr,
+                        strides_out_pai.gpu_ptr,
+                        strides_in_pai.gpu_ptr,
+                        arguments_pa.gpu_ptr);
+        else
+        gpuLaunchKernel(multieinsum_214,
+                        dim3(problems),
+                        dim3(256),
+                        0, 0,
+                        problems,
+                        size_out_pi.gpu_ptr,
+                        size_in_pi.gpu_ptr,
+                        strides_out_pai.gpu_ptr,
+                        strides_in_pai.gpu_ptr,
+                        arguments_pa.gpu_ptr);
+                        
+    }
+    else
+    {
+        printf("Einsum not implemented for nind_out %d nind_in %d arguments %d.\n", nind_out, nind_in, arguments);
+    }
 }
 
 template <bool gga> __device__ double pbe_exchange(double n, double rs, double a2,
