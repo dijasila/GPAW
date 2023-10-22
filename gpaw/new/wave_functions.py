@@ -134,7 +134,7 @@ class WaveFunctions:
             else:
                 na = len(D_asii.values())
                 add = list([D_sii[self.spin] for D_sii in D_asii.values()])
-                multi_einsum('ni*, n, nj -> ij', 
+                multi_einsum('ni*, n, nj -> ij',
                              P_ani.values(),
                              [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
                              P_ani.values(),
