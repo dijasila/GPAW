@@ -369,34 +369,6 @@ class EinsumArgumentParser : public Parser
 
 };
 
-/*
-template <int max_indices> __global__ 
-    void multi_einsum_kernel_3index_4arg(int problems, int na, int nb, int nc,
-                                                       int* strides_pac)
-{
-    int g = threadIdx.x + blockIdx.x * blockDim.x;
-    if (g < problems)
-    {
-        double* array_pointer_table = array_pointers[g * 4]; // (shape 4x problems)
-        double* A = array_pointer_table[0];
-        double* B = array_pointer_table[1];
-        double* C = array_pointer_table[2];
-        double* D = array_pointer_table[3];
-        double* strides_ac = strides_pac + g * (3 * 3);
-        
-        for (int a=0; a<na; a++) 
-        for (int b=0; b<nb; b++) 
-        for (int c=0; c<nc; c++)
-        {
-            int indexA = a * strides_ac[0] + b * strides_ac[1] + c * strides_ac[2];
-            int indexB = a * strides_ac[3] + b * strides_ac[4] + c * strides_ac[5];
-            int indexC = a * strides_ac[6] + b * strides_ac[7] + c * strides_ac[8];
-            int indexD = a * strides_ac[9] + b * strides_ac[10] + c * strides_ac[11];
-            D[indexD] += A[indexA] * B[indexB] * C[indexC]; 
-        } 
-    }
-}
-*/
 
 template <int N> struct multidim_looper
 {
@@ -465,7 +437,7 @@ template <int N, int nargs> struct strider
     }
 };
 
-template <bool complex_out, bool add, int nind_out, int nind_in, int nargs> __global__ void multi_einsum_kernel_complex(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, int* cc, gpuDoubleComplex **arguments_pa)
+template <bool complex_out, bool add, size_t nind_out, size_t nind_in, size_t nargs> __global__ void multi_einsum_kernel_complex(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, int* cc, gpuDoubleComplex **arguments_pa)
 {
     int problem_index = blockIdx.x;
     if (problem_index >= problems)
@@ -481,7 +453,7 @@ template <bool complex_out, bool add, int nind_out, int nind_in, int nargs> __gl
     gpuDoubleComplex **arguments_a = arguments_pa + problem_index * nargs;                                                 
     while (out_index.next())
     {
-        int out = strider_out.get_index(nargs - 1);
+        int out = strider_out.get_index((int)nargs - 1);
         multidim_looper<nind_in> in_index(size_in, 1, 0);
         strider<nind_in, nargs> strider_in(in_index, strides_in);
         gpuDoubleComplex sum = make_gpuDoubleComplex(0,0);
@@ -497,6 +469,7 @@ template <bool complex_out, bool add, int nind_out, int nind_in, int nargs> __gl
             }
             sum = gpuCadd(sum, value);
         }
+
         if (add)
         {
             if (complex_out)
@@ -515,7 +488,7 @@ template <bool complex_out, bool add, int nind_out, int nind_in, int nargs> __gl
     }
 }
 
-template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_einsum_kernel(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, double** arguments_pa)
+template <bool add, size_t nind_out, size_t nind_in, size_t nargs> __global__ void multi_einsum_kernel(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, double** arguments_pa)
 {
     int problem_index = blockIdx.x;
     if (problem_index >= problems)
@@ -531,7 +504,7 @@ template <bool add, int nind_out, int nind_in, int nargs> __global__ void multi_
     double** arguments_a = arguments_pa + problem_index * nargs;                                                 
     while (out_index.next())
     {
-        int out = strider_out.get_index(nargs - 1);
+        int out = strider_out.get_index((int)nargs - 1);
         multidim_looper<nind_in> in_index(size_in, 1, 0);
         strider<nind_in, nargs> strider_in(in_index, strides_in);
         double sum = 0;
@@ -603,12 +576,90 @@ template <typename T> struct buffer
 };
 
 
-constexpr void(*multieinsum_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<false, 2, 1, 4>;
-constexpr void(*multieinadd_214)(int, int*, int*, int*, int*, double**) = &multi_einsum_kernel<true, 2, 1, 4>;
-constexpr void(*multieinsum_214_complex)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<true, false, 2, 1, 4>;
-constexpr void(*multieinadd_214_complex)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<true, true, 2, 1, 4>;
-constexpr void(*multieinsum_214_complex_real)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<false, false, 2, 1, 4>;
-constexpr void(*multieinadd_214_complex_real)(int, int*, int*, int*, int*, int*, gpuDoubleComplex**) = &multi_einsum_kernel_complex<false, true, 2, 1, 4>;
+
+typedef void(*multi_einsum_real_kernel_call)(int, int*, int* ,int*, int*, double**);
+typedef void(*multi_einsum_complex_kernel_call)(int, int*, int* ,int*, int*, int*, gpuDoubleComplex**);
+
+template<std::size_t N>
+struct num { static const constexpr auto value = N; };
+
+template <class F, std::size_t... Is>
+void for_(F func, std::index_sequence<Is...>)
+{
+  using expander = int[];
+  (void)expander{0, ((void)func(num<Is>{}), 0)...};
+}
+
+template <std::size_t N, typename F>
+void for_(F func)
+{
+  for_(func, std::make_index_sequence<N>());
+}
+
+
+template <int max_out, int max_in, int max_args> struct kernel_funcs
+{
+    multi_einsum_real_kernel_call real_calls[2][max_out][max_in][max_args];
+    multi_einsum_complex_kernel_call complex_calls[2][2][max_out][max_in][max_args];
+    constexpr kernel_funcs(int nind_out, int nind_in, int arguments, bool add, bool is_complex_out)
+        : nind_in(nind_in), nind_out(nind_out), arguments(arguments), add(add), is_complex_out(is_complex_out)
+    {
+        assert(nind_out < max_out);
+        assert(nind_in < max_in);
+        assert(arguments < max_args);
+        for_<max_in>([&] (auto nind_in) 
+            {
+                for_<max_out>([&] (auto nind_out) 
+                {
+                    for_<max_args>([&] (auto args) 
+                    {
+                       real_calls[0][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel<false, nind_out.value, nind_in.value, args.value>;
+                       real_calls[1][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel<true, nind_out.value, nind_in.value, args.value>;
+                       complex_calls[0][0][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel_complex<false, false, nind_out.value, nind_in.value, args.value>;
+                       complex_calls[0][1][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel_complex<false, true, nind_out.value, nind_in.value, args.value>;
+                       complex_calls[1][0][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel_complex<true, false, nind_out.value, nind_in.value, args.value>;
+                       complex_calls[1][1][nind_out.value][nind_in.value][args.value] = &multi_einsum_kernel_complex<true, true, nind_out.value, nind_in.value, args.value>;
+                    });
+                });
+            });
+        /*
+        for (int in=0;in<=max_in;in++)
+        {
+            for (int out=0;out<=max_out;out++)
+            {
+                for (int args=0;args<=max_args;args++)
+                {
+                    for (bool add:{true, false})
+                    {
+                        real_calls[0][in][out][args] = &multi_einsum_kernel<false, in, out, args>;
+                        //for (bool complex_out:{true, false})
+                        //{
+                        //    complex_calls[complex_out ? 1 : 0][add ? 1 :0][in][out][args] = &multi_einsum_kernel_complex<complex_out, add, in, out, args>;
+                        //}
+                    }
+                }
+            }
+        }*/
+    }
+
+    int nind_in;
+    int nind_out;
+    int arguments;
+    int add;
+    int is_complex_out; 
+
+
+
+    multi_einsum_real_kernel_call get_real_kernel()
+    {
+        return real_calls[add][nind_out][nind_in][arguments];
+    }
+
+    multi_einsum_complex_kernel_call get_complex_kernel()
+    {
+        return complex_calls[is_complex_out][add][nind_out][nind_in][arguments];
+    }
+};
 
 extern "C"
 void multi_einsum_launch_kernel(char* str,
@@ -752,122 +803,39 @@ void multi_einsum_launch_kernel(char* str,
             }
             printf("\n");
         }
-
-        /*
-        for (int i=0; i < nind_in; i++)
-        {
-            int size = parser.index_in_size(i);
-            size_in_pi.cpu_ptr[p * maxind + ind ] = dimensions_pai[ p * (arguments * maxind) + maxind * (arguments-1) + ind]; 
-            //strides_out_pi.cpu_ptr[p * maxind + i ] = strides_pai[ p * (arguments * maxind) + maxind * (arguments-1) + i];
-            printf("p: %d inind: %d size: %d\n", p, i, size_in_pi.cpu_ptr[p*maxind+i]);
-        }
-        */
     }
 
     intbuffer.copy_to_device();
     arguments_pa_buffer.copy_to_device();
   
-    if ((nind_out == 2) && (nind_in == 1) && (arguments == 4))
-    {
-        if (add) 
-        {
-            if (is_complex)
-            {
-                if (is_complex_out)
-                {
-                    gpuLaunchKernel(multieinadd_214_complex,
-                                    dim3(problems),
-                                    dim3(256),
-                                    0, 0,
-                                    problems,
-                                    size_out_pi.gpu_ptr,
-                                    size_in_pi.gpu_ptr,
-                                    strides_out_pai.gpu_ptr,
-                                    strides_in_pai.gpu_ptr,
-                                    cc_a.gpu_ptr,
-                                    (gpuDoubleComplex**) arguments_pa.gpu_ptr);
-                }
-                else
-                {
-                    gpuLaunchKernel(multieinadd_214_complex_real,
-                                    dim3(problems),
-                                    dim3(256),
-                                    0, 0,
-                                    problems,
-                                    size_out_pi.gpu_ptr,
-                                    size_in_pi.gpu_ptr,
-                                    strides_out_pai.gpu_ptr,
-                                    strides_in_pai.gpu_ptr,
-                                    cc_a.gpu_ptr,
-                                    (gpuDoubleComplex**) arguments_pa.gpu_ptr);
+    kernel_funcs <3, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
 
-                }
-            }
-            else
-            {
-                gpuLaunchKernel(multieinadd_214,
-                                dim3(problems),
-                                dim3(256),
-                                0, 0,
-                                problems,
-                                size_out_pi.gpu_ptr,
-                                size_in_pi.gpu_ptr,
-                                strides_out_pai.gpu_ptr,
-                                strides_in_pai.gpu_ptr,
-                                arguments_pa.gpu_ptr);
-            }
-        }
-        else
-        {
-            if (is_complex)
-            {
-                if (is_complex_out)
-                {
-                    gpuLaunchKernel(multieinsum_214_complex,
-                                    dim3(problems),
-                                    dim3(256),
-                                    0, 0,
-                                    problems,
-                                    size_out_pi.gpu_ptr,
-                                    size_in_pi.gpu_ptr,
-                                    strides_out_pai.gpu_ptr,
-                                    strides_in_pai.gpu_ptr,
-                                    cc_a.gpu_ptr,
-                                    (gpuDoubleComplex**)arguments_pa.gpu_ptr);
-                }
-                else
-                {
-                    gpuLaunchKernel(multieinsum_214_complex_real,
-                                    dim3(problems),
-                                    dim3(256),
-                                    0, 0,
-                                    problems,
-                                    size_out_pi.gpu_ptr,
-                                    size_in_pi.gpu_ptr,
-                                    strides_out_pai.gpu_ptr,
-                                    strides_in_pai.gpu_ptr,
-                                    cc_a.gpu_ptr,
-                                    (gpuDoubleComplex**)arguments_pa.gpu_ptr);
-                }
-            }
-            else
-            {
-                gpuLaunchKernel(multieinsum_214,
-                                dim3(problems),
-                                dim3(256),
-                                0, 0,
-                                problems,
-                                size_out_pi.gpu_ptr,
-                                size_in_pi.gpu_ptr,
-                                strides_out_pai.gpu_ptr,
-                                strides_in_pai.gpu_ptr,
-                                arguments_pa.gpu_ptr);
-            }
-        }               
+    if (is_complex)
+    {
+        gpuLaunchKernel(f.get_complex_kernel(),
+                        dim3(problems),
+                        dim3(256),
+                        0, 0,
+                        problems,
+                        size_out_pi.gpu_ptr,
+                        size_in_pi.gpu_ptr,
+                        strides_out_pai.gpu_ptr,
+                        strides_in_pai.gpu_ptr,
+                        cc_a.gpu_ptr,
+                        (gpuDoubleComplex**) arguments_pa.gpu_ptr);
     }
     else
     {
-        printf("Einsum not implemented for nind_out %d nind_in %d arguments %d.\n", nind_out, nind_in, arguments);
+        gpuLaunchKernel(f.get_real_kernel(),
+                        dim3(problems),
+                        dim3(256),
+                        0, 0,
+                        problems,
+                        size_out_pi.gpu_ptr,
+                        size_in_pi.gpu_ptr,
+                        strides_out_pai.gpu_ptr,
+                        strides_in_pai.gpu_ptr,
+                        arguments_pa.gpu_ptr);
     }
 }
 

@@ -133,11 +133,12 @@ class WaveFunctions:
                                                   occ_n, P_ni).real
             else:
                 na = len(D_asii.values())
-                A = list(zips(P_ani.values(),
-                              [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
-                              P_ani.values()))
                 add = list([D_sii[self.spin] for D_sii in D_asii.values()])
-                multi_einsum('ni*, n, nj -> ij', A, add=add)
+                multi_einsum('ni*, n, nj -> ij', 
+                             P_ani.values(),
+                             [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
+                             P_ani.values(),
+                             add=add)
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',

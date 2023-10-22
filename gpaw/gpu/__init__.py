@@ -28,9 +28,19 @@ else:
 __all__ = ['cupy', 'cupyx', 'as_xp', 'as_np', 'synchronize']
 
 
-def multi_einsum(*args, **kwargs):
+def multi_einsum(einsum_str, *args, **kwargs):
     from _gpaw import multi_einsum_gpu
-    return multi_einsum_gpu(*args, **kwargs)
+    _args = list(zip(*args))
+    if len(_args) == 0:
+        return
+    assert isinstance(_args, list)
+    assert isinstance(_args[0], tuple)
+    assert isinstance(_args[0][0], cupy.ndarray), type(_args[0][0])
+    for kw in ['add', 'out']:
+        if kw in kwargs:
+            assert isinstance(kwargs[kw], list), type(kwargs[kw])
+            assert isinstance(kwargs[kw][0], cupy.ndarray), type(kwargs[kw][0])
+    return multi_einsum_gpu(einsum_str, _args, **kwargs)
 
 
 def synchronize():
