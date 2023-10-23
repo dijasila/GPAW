@@ -625,7 +625,7 @@ class TwoParticleSiteZeemanEnergyCalculator(
     r"""Calculator for the two-particle site Zeeman energy sum rule.
 
     The site Zeeman energy can be calculated from the site pair density and
-    site pair Zeeman energy via the following sum rule [publication in
+    site Zeeman pair energy via the following sum rule [publication in
     preparation]:
                      __  __
     ˍ            1   \   \  /
