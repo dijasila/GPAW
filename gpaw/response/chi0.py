@@ -24,7 +24,7 @@ from gpaw.response.integrators import (
     HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
     HilbertOpticalLimitTetrahedron,
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
-from gpaw.response.cRPA import cRPA_weight
+#from gpaw.response.cRPA import cRPA_weight
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):
@@ -55,9 +55,6 @@ class Chi0Calculator:
         if context is None:
             context = kptpair_factory.context
         self.context = context
-
-        if crpa_weight is not None:
-            assert isinstance(crpa_weight, cRPA_weight)
 
         self.chi0_body_calc = Chi0BodyCalculator(
             kptpair_factory, context=context,
@@ -209,7 +206,8 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=False, m1=m1, m2=m2)
+                                  optical=False, m1=m1, m2=m2,
+                                  crpa_weight=self.crpa_weight)
 
         chi0_body.data_WgG[:] /= prefactor
         if self.hilbert:
@@ -301,7 +299,6 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                  rate=0.0,
                  **kwargs):
         super().__init__(*args, **kwargs)
-
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
         # transitions to the head of the chi0 wings. This is handled by a
@@ -373,7 +370,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=True, m1=m1, m2=m2)
+                                  optical=True, m1=m1, m2=m2,
+                                  crpa_weight=self.crpa_weight)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
