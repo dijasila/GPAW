@@ -28,7 +28,7 @@ def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
     ----------
     chi0calc: Chi0Calculator
     truncation: str
-        Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
+        Coulomb truncation scheme. Can be either 2D, 1D, 0D or None.
     integrate_gamma: int
         Method to integrate the Coulomb interaction. 1 is a numerical
         integration at all q-points with G=[0,0,0] - this breaks the
