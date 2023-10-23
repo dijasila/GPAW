@@ -488,7 +488,13 @@ template <bool complex_out, bool add, size_t nind_out, size_t nind_in, size_t na
     }
 }
 
-template <bool add, size_t nind_out, size_t nind_in, size_t nargs> __global__ void multi_einsum_kernel(int problems, int* size_out_pi, int* size_in_pi, int* strides_out_pai, int* strides_in_pai, double** arguments_pa)
+template <bool add, size_t nind_out, size_t nind_in, size_t nargs>
+    __global__ void multi_einsum_kernel(int problems, 
+                                        int* size_out_pi,
+                                        int* size_in_pi,
+                                        int* strides_out_pai,
+                                        int* strides_in_pai,
+                                        double** arguments_pa)
 {
     int problem_index = blockIdx.x;
     if (problem_index >= problems)
@@ -1271,20 +1277,20 @@ void pw_insert_gpu_launch_kernel(
 
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
-                                       gpuDoubleComplex *emiGR_Ga,
-                                       double *Y_GL,
-                                       int* l_s,
-                                       int* a_J,
-                                       int* s_J,
-                                       int* I_J,
-                                       double* f_GI,
-                                       int nG,
-                                       int nJ,
-                                       int nL,
-                                       int nI,
-                                       int natoms,
-                                       int nsplines,
-                                       bool cc)
+                                      gpuDoubleComplex *emiGR_Ga,
+                                      double *Y_GL,
+                                      int* l_s,
+                                      int* a_J,
+                                      int* s_J,
+                                      int* I_J,
+                                      double* f_GI,
+                                      int nG,
+                                      int nJ,
+                                      int nL,
+                                      int nI,
+                                      int natoms,
+                                      int nsplines,
+                                      bool cc)
 {
     int G = threadIdx.x + blockIdx.x * blockDim.x;
     int J = threadIdx.y + blockIdx.y * blockDim.y;
