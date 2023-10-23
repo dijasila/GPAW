@@ -44,8 +44,9 @@ def test_w(in_tmp_dir, gpw_files, symm):
     chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                     txt='test.log', intraband=False)
     Wm = initialize_w_model(chi0calc)
-    Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed, bandrange=[0, 4])
+    w, Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed, bandrange=[0, 4])
     check_W(Wwann)
+    assert np.allclose(w, omega)
 
     # test block parallelization
     if world.size % 2 == 0 and symm:
@@ -53,8 +54,9 @@ def test_w(in_tmp_dir, gpw_files, symm):
         chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                         txt='test.log', intraband=False, nblocks=2)
         Wm = initialize_w_model(chi0calc)
-        Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed, bandrange=[0, 4])
+        w, Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed, bandrange=[0, 4])
         check_W(Wwann)
+        assert np.allclose(w, omega)
 
 
 def check_W(Wwann):

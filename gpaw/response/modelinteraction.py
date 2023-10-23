@@ -186,7 +186,7 @@ class ModelInteraction:
         Wwan_wijkl *= factor
         self.context.write_timer()
 
-        return blocks1d.all_gather(Wwan_wijkl)
+        return chi0calc.wd.omega_w, blocks1d.all_gather(Wwan_wijkl)
 
     @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
