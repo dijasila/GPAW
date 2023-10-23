@@ -1,3 +1,4 @@
+# web-page: Fe_site_sum_rules.png
 """Plot the site pair spin splitting calculated with varrying number of bands.
 """
 

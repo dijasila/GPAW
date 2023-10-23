@@ -1,3 +1,4 @@
+# web-page: Fe_site_properties.png
 """Plot the site magnetization and site spin splitting of Fe(bcc)."""
 
 import numpy as np
