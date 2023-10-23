@@ -37,6 +37,8 @@ class FDPotentialCalculator(PotentialCalculator):
         self._interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
         self._restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
+        self.xp = xp
+
         super().__init__(xc, poisson_solver, setups,
                          fracpos_ac=fracpos_ac)
 
@@ -87,7 +89,8 @@ class FDPotentialCalculator(PotentialCalculator):
 
         e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
 
-        charge_r = grid2.empty()
+        charge_r = grid2.empty(xp=self.xp)
+        #print(type(charge_r.data),'charge_r')
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
 
