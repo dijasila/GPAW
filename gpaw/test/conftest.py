@@ -337,17 +337,17 @@ class GPWFiles:
 
     @gpwfile
     def fcc_Ni_col(self):
-        return self.fcc_Ni('col')
+        return self._fcc_Ni('col')
 
     @gpwfile
     def fcc_Ni_ncol(self):
-        return self.fcc_Ni('ncol')
+        return self._fcc_Ni('ncol')
 
     @gpwfile
     def fcc_Ni_ncolsoc(self):
-        return self.fcc_Ni('ncolsoc')
+        return self._fcc_Ni('ncolsoc')
 
-    def fcc_Ni(self, calc_type):
+    def _fcc_Ni(self, calc_type):
         Ni = bulk('Ni', 'fcc', 3.48)
         Ni.center()
 
@@ -355,7 +355,7 @@ class GPWFiles:
         easy_axis = 1 / np.sqrt(3) * np.ones(3)
         Ni.set_initial_magnetic_moments([mm])
 
-        symmetry = {'point_group': True, 'time_reversal': True} if \
+        symmetry = {'point_group': False, 'time_reversal': True} if \
             calc_type == 'col' else 'off'
         magmoms = None if calc_type == 'col' else [mm * easy_axis]
         soc = True if calc_type == 'ncolsoc' else False
@@ -365,6 +365,7 @@ class GPWFiles:
                           parallel={'domain': 1, 'band': 1},
                           symmetry=symmetry,
                           occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          convergence={'density': 1e-6},
                           magmoms=magmoms, soc=soc,
                           txt=self.path / f'fcc_Ni_{calc_type}.txt')
         Ni.get_potential_energy()
