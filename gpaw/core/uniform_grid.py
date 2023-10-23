@@ -15,7 +15,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new.c import add_to_density, symmetrize_ft
+from gpaw.new.c import add_to_density, add_to_density_gpu, symmetrize_ft
 from gpaw.fd_operators import Gradient
 
 
@@ -474,8 +474,8 @@ class UGArray(DistributedArrays[UGDesc]):
         norm_x = []
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
-            norm_x.append(np.vdot(a_R, a_R).real * self.desc.dv)
-        result = np.array(norm_x).reshape(self.mydims)
+            norm_x.append(self.xp.vdot(a_R, a_R).real * self.desc.dv)
+        result = xp.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
@@ -703,8 +703,12 @@ class UGArray(DistributedArrays[UGDesc]):
                    out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        for f, psit_R in zips(weights, self.data):
-            add_to_density(f, psit_R, out.data)
+        
+        if self.xp is np:
+            for f, psit_R in zips(weights, self.data):
+                print(f, type(psit_R), type(out.data),'abs_square_call to add_to_density')
+        else:
+            add_to_density(weights, self.data, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""

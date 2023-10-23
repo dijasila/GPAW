@@ -278,7 +278,8 @@ class BasePoissonSolver(_PoissonSolver):
             niter = self.solve_neutral(phi, rho_neutral, timer=timer)
 
             # correct error introduced by removing monopole
-            axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
+            #axpy(q, self.phi_gauss, phi)  
+            phi += q * self.phi_gauss
 
             return niter
         else:

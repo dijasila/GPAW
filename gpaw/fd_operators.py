@@ -106,8 +106,8 @@ class FDOperator:
             self.operator.apply(in_xR.data._data, out_xR.data._data,
                                 in_xR.desc.phase_factor_cd)
         else:
-            self.operator.apply_gpu(in_xR.data.ptr, out_xR.data.ptr,
-                                    in_xR.shape, in_xR.dtype,
+            self.operator.apply_gpu(in_xR.data.data.ptr, out_xR.data.data.ptr,
+                                    in_xR.data.shape, in_xR.data.dtype,
                                     in_xR.desc.phase_factor_cd)
         return out_xR
 
@@ -125,10 +125,10 @@ class FDOperator:
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
-            print("type(f_g), type(s_g), n, w, relax_method")
-            print(type(f_g), type(s_g), n, w, relax_method)
             self.operator.relax(relax_method, f_g, s_g, n, w)
         else:
+            print("type(f_g), type(s_g), n, w, relax_method")
+            print(type(f_g), type(s_g), n, w, relax_method)
             self.operator.relax_gpu(relax_method,
                                     f_g.data.ptr,
                                     s_g.data.ptr,
