@@ -1,4 +1,5 @@
 .. _sites:
+.. module:: gpaw.response.mft
 
 =============================================
 Local properties of individual magnetic sites
@@ -35,8 +36,8 @@ In particular, the site magnetization,
 .. math::
    m_a = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a}) n^z(\mathbf{r}),
 
-can be calculated via the function ``calculate_site_magnetization``, whereas
-the function ``calculate_site_spin_splitting`` computes the LSDA site spin
+can be calculated via the function :func:`calculate_site_magnetization`, whereas
+the function :func:`calculate_site_spin_splitting` computes the LSDA site spin
 splitting,
 
 .. math::
@@ -126,9 +127,9 @@ states, weighted by the Pauli matrix `\sigma^z`,
 
 Although trivial, these sum rules can be used as a consistency tests for the
 implementation and can be accessed via the functions
-``calculate_single_particle_site_magnetization``
-and 
-``calculate_single_particle_site_spin_splitting``.
+:func:`calculate_single_particle_site_magnetization`
+and
+:func:`calculate_single_particle_site_spin_splitting`.
 
 In addition to the single-particle sum rules, one may also introduce actual
 site pair functions that characterize the band transitions of the system.
@@ -156,8 +157,9 @@ completeness of the Kohn-Sham eigenstates, it breaks down when using only a
 finite number of bands. Hence, it can be useful to study the band convergence of
 `m_{ab}(\mathbf{q})` and `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})` to gain insight
 about related completeness issues of more complicated pair functions. In GPAW,
-they can be calculated using the ``calculate_site_pair_magnetization`` and
-``calculate_site_spin_splitting`` functions.
+they can be calculated using the :func:`calculate_site_pair_magnetization` and
+:func:`calculate_site_spin_splitting` functions.
+
 
 Example: Iron
 -------------
@@ -211,8 +213,18 @@ excercises to get you started:
       function of the number of bands?
 
 
+API
+===
+
+.. autofunction:: calculate_site_magnetization
+.. autofunction:: calculate_site_spin_splitting
+.. autofunction:: calculate_site_pair_magnetization
+.. autofunction:: calculate_single_particle_site_magnetization
+.. autofunction:: calculate_single_particle_site_spin_splitting
+
+
 References
 ==========
 
 .. [#Skovhus] T. Skovhus and T. Olsen,
-           *publication in preparation*, (2024)
+	   *publication in preparation*, (2024)

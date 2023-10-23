@@ -196,7 +196,7 @@ def calculate_site_magnetization(
 
     Returns
     -------
-    magmom_ap : np.array
+    magmom_ap : np.ndarray
         Magnetic moment in μB of site a under partitioning p, calculated
         directly from the ground state density.
     """
@@ -212,7 +212,7 @@ def calculate_site_spin_splitting(
 
     Returns
     -------
-    dxc_ap : np.array
+    dxc_ap : np.ndarray
         Spin splitting in eV of site a under partitioning p, calculated
         directly from the ground state density.
     """
@@ -229,7 +229,7 @@ def calculate_single_particle_site_magnetization(
 
     Returns
     -------
-    sp_magmom_ap : np.array
+    sp_magmom_ap : np.ndarray
         Magnetic moment in μB of site a under partitioning p, calculated based
         on a single-particle sum rule.
     """
@@ -248,7 +248,7 @@ def calculate_single_particle_site_spin_splitting(
 
     Returns
     -------
-    sp_dxc_ap : np.array
+    sp_dxc_ap : np.ndarray
         Spin splitting in eV of site a under partitioning p, calculated based
         on a single-particle sum rule.
     """
@@ -269,7 +269,7 @@ def calculate_site_pair_magnetization(
 
     Parameters
     ----------
-    q_c : array-like
+    q_c : Vector
         q-vector to evaluate the site pair magnetization for.
     nbands : int or None
         Number of bands to include in the band summation of the site pair
@@ -277,7 +277,7 @@ def calculate_site_pair_magnetization(
 
     Returns
     -------
-    magmom_abp : np.array
+    magmom_abp : np.ndarray
         Pair magnetization in μB of site a and b under partitioning p,
         calculated based on a two-particle sum rule.
     """
@@ -298,7 +298,7 @@ def calculate_site_pair_spin_splitting(
 
     Parameters
     ----------
-    q_c : array-like
+    q_c : Vector
         q-vector to evaluate the site pair spin splitting for.
     nbands : int or None
         Number of bands to include in the band summation of the site pair spin
@@ -306,7 +306,7 @@ def calculate_site_pair_spin_splitting(
 
     Returns
     -------
-    dxc_abp : np.array
+    dxc_abp : np.ndarray
         Pair spin splitting in eV of site a and b under partitioning p,
         calculated based on a two-particle sum rule.
     """
