@@ -1,9 +1,10 @@
 .. _sites:
-.. module:: gpaw.response.mft
 
 =============================================
 Local properties of individual magnetic sites
 =============================================
+
+.. module:: gpaw.response.mft
 
 It is almost always very useful to analyze magnetic systems in terms of the
 individual magnetic sites of the crystal. In this tutorial, we illustrate how
