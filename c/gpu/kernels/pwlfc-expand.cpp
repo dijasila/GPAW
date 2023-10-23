@@ -360,6 +360,27 @@ __global__ void pw_insert_many_16(int nb,
     }
 }
 
+__global__ void add_to_density_8(int nb,
+                                  int nR,
+                                  double* f_n,
+                                  double* psit_nR,
+                                  double* rho_R)
+{
+    //int b = threadIdx.x + blockIdx.x * blockDim.x;
+    int R = threadIdx.x + blockIdx.x * blockDim.x;
+    if (R < nR)
+    {
+        double rho = 0.0;
+        for (int b=0; b< nb; b++)
+        {
+            int idx = b * nR + R;
+            rho += f_n[b] * (psit_nR[idx] * psit_nR[idx]);
+        }
+        rho_R[R] += rho;
+    }
+}
+
+
 __global__ void add_to_density_16(int nb,
                                   int nR,
                                   double* f_n,
@@ -403,8 +424,10 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
                                       double* f_n,
                                       gpuDoubleComplex* psit_nR,
-                                      double* rho_R)
+                                      double* rho_R,
+                                      int wfs_is_complex)
 {
+    if (wfs_is_complex)
     gpuLaunchKernel(add_to_density_16,
                     dim3((nR+255)/256),
                     dim3(256),
@@ -412,6 +435,15 @@ void add_to_density_gpu_launch_kernel(int nb,
                     nb, nR,
                     f_n,
                     psit_nR,
+                    rho_R);
+    else
+    gpuLaunchKernel(add_to_density_8,
+                    dim3((nR+255)/256),
+                    dim3(256),
+                    0, 0,
+                    nb, nR,
+                    f_n,
+                    (double*) psit_nR,
                     rho_R);
 }
 

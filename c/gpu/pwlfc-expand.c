@@ -39,7 +39,8 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
                                       double* f_n,
                                       double complex* psit_nR,
-                                      double* rho_R);
+                                      double* rho_R,
+                                      int wfs_is_complex);
 
 
 void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
@@ -284,12 +285,11 @@ PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
     double* rho_R = Array_DATA(rho_R_obj);
     int nb = Array_SIZE(f_n_obj);
     int nR = Array_SIZE(psit_nR_obj) / nb;
-    assert(Array_ITEMSIZE(psit_nR_obj) == 16);
     assert(Array_ITEMSIZE(rho_R_obj) == 8);
     if (PyErr_Occurred())
     {
         return NULL;
     }
-    add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R);
+    add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R, Array_ITEMSIZE(psit_nR_obj)==16); 
     Py_RETURN_NONE;
 }
