@@ -54,8 +54,10 @@ def test_w(in_tmp_dir, gpw_files, symm):
         chi0calc = Chi0(gpwfile, frequencies=omega, hilbert=False, ecut=30,
                         txt='test.log', intraband=False, nblocks=2)
         Wm = initialize_w_model(chi0calc)
-        w, Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed, bandrange=[0, 4])
+        w, Wwann = Wm.calc_in_Wannier(chi0calc, Uwan_mnk=seed,
+                                      bandrange=[0, 4])
         check_W(Wwann)
+        print(omega, w)
         assert np.allclose(w, omega)
 
 
