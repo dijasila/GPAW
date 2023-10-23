@@ -13,6 +13,7 @@ from numpy.fft import fftn, ifftn
 
 import _gpaw
 from gpaw import debug
+from gpaw.gpu import cupy_is_fake
 
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
@@ -80,10 +81,11 @@ class FDOperator:
         self.cfd = cfd
 
         self.xp = xp
-
+        gpu = xp is not np and not cupy_is_fake
+        print('G'*55, gpu, xp)
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
-                                       comm, cfd, xp is not np)
+                                       comm, cfd, gpu)
 
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints
@@ -92,20 +94,34 @@ class FDOperator:
     def __str__(self):
         return '<' + self.description + '>'
 
+    def __call__(self, in_xR, out_xR=None):
+        """New UGArray interface."""
+        if out_xR is None:
+            out_xR = in_xR.new()
+        if self.xp is np:
+            self.operator.apply(in_xR.data, out_xR.data,
+                                in_xR.desc.phase_factor_cd)
+        elif cupy_is_fake:
+            print('XXXXX', in_xR, out_xR, out_xR.xp)
+            self.operator.apply(in_xR.data._data, out_xR.data._data,
+                                in_xR.desc.phase_factor_cd)
+        else:
+            self.operator.apply_gpu(in_xR.data.ptr, out_xR.data.ptr,
+                                    in_xR.shape, in_xR.dtype,
+                                    in_xR.desc.phase_factor_cd)
+        return out_xR
+
     def apply(self, in_xg, out_xg, phase_cd=None):
+        """Old NumPy interface."""
         if self.xp is np:
             self.operator.apply(in_xg, out_xg, phase_cd)
+        elif cupy_is_fake:
+            self.operator.apply(in_xg._data, out_xg._data,
+                                phase_cd)
         else:
             self.operator.apply_gpu(in_xg.data.ptr,
                                     out_xg.data.ptr,
                                     in_xg.shape, in_xg.dtype, phase_cd)
-
-    def __call__(self, in_xR, out_xR=None):
-        if out_xR is None:
-            out_xR = in_xR.new()
-        self.operator.apply(in_xR.data, out_xR.data,
-                            in_xR.desc.phase_factor_cd)
-        return out_xR
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
@@ -231,6 +247,8 @@ class Gradient(FDOperator):
         dtype: float or complex
             Data-type to work on.
         """
+
+        print('GRADIENT', xp)
 
         from scipy.spatial import Voronoi
 
