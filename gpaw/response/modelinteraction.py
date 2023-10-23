@@ -75,15 +75,16 @@ class ModelInteraction:
         self.qd = self.wcalc.qd
 
     @timer('Calculate W in Wannier')
-    def calc_in_Wannier(self, chi0calc, Uwan_wnk, bandrange, spin=0):
+    def calc_in_Wannier(self, chi0calc, Uwan_mnk, bandrange, spin=0):
         """Calculates the screened interaction matrix in Wannier basis.
         NOTE: Does not work with SOC!
 
         Parameters:
         ----------
         chi0calc: Chi0Calculator
-        Uwan_wnk: cmplx or str
+        Uwan_mnk: cmplx or str
             Wannier transformation matrix. if str name of wannier90 output
+            m: Wannier index, n: bandindex, k: k-index
         bandrange: int
             range of bands that the wannier functions were constructed from
         spin: int
@@ -118,13 +119,13 @@ class ModelInteraction:
         pair_factory = KPointPairFactory(self.gs, self.context, nblocks=1)
         pair_calc = pair_factory.pair_calculator()
 
-        if isinstance(Uwan_wnk, str):
+        if isinstance(Uwan_mnk, str):
             # read w90 transformation matrix from file
-            Uwan_wnk, nk, nwan, nband = read_uwan(Uwan_wnk, self.gs.kd)
+            Uwan_mnk, nk, nwan, nband = read_uwan(Uwan_mnk, self.gs.kd)
         else:
-            nk = Uwan_wnk.shape[2]
-            nband = Uwan_wnk.shape[1]
-            nwan = Uwan_wnk.shape[0]
+            nk = Uwan_mnk.shape[2]
+            nband = Uwan_mnk.shape[1]
+            nwan = Uwan_mnk.shape[0]
 
         assert nk == self.gs.kd.nbzkpts
         assert bandrange[1] - bandrange[0] == nband
@@ -168,7 +169,7 @@ class ModelInteraction:
                                                                 qpd,
                                                                 pair_calc,
                                                                 pair_factory,
-                                                                Uwan_wnk)
+                                                                Uwan_mnk)
                 if self.qd.time_reversal_k[iQ]:
                     # TR corresponds to complex conjugation
                     A_mnG = A_mnG.conj()
@@ -190,14 +191,14 @@ class ModelInteraction:
     @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
                                            pawcorr, qpd, pair_calc,
-                                           pair_factory, Uwan_wnk):
+                                           pair_factory, Uwan_mnk):
         """
         Returns sum_k sum_(m1,m2) U_{n1m1}* U_{n2m2} rho^{m1 k}_{m2 k-q}(G)
         where rho is the usual density matrix and U are wannier tranformation
         matrices.
         """
         nG = qpd.ngmax
-        nwan = Uwan_wnk.shape[0]
+        nwan = Uwan_mnk.shape[0]
         A_mnG = np.zeros([nwan, nwan, nG], dtype=complex)
 
         # Parallell sum over k-points
@@ -221,8 +222,8 @@ class ModelInteraction:
             # Rotate to Wannier basis and sum to get reduced Wannier
             # density matrix A
             A_mnG += np.einsum('ia,jb,abG->ijG',
-                               Uwan_wnk[:, :, iK1].conj(),
-                               Uwan_wnk[:, :, iK2],
+                               Uwan_mnk[:, :, iK1].conj(),
+                               Uwan_mnk[:, :, iK2],
                                rholoc)
         self.intrablockcomm.sum(A_mnG)
         return A_mnG
