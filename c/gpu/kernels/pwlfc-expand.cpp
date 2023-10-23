@@ -838,6 +838,66 @@ void multi_einsum_launch_kernel(char* str,
     }
 }
 
+__global__ void calculate_residual_kernel_complex(int nG, int nn,
+                                                  gpuDoubleComplex* residual_nG,
+                                                  double* eps_n,
+                                                  gpuDoubleComplex* wf_nG)
+{
+    int g = threadIdx.x + blockIdx.x * blockDim.x;
+    int n = threadIdx.y + blockIdx.y * blockDim.y;
+    if ((g < nG) && (n < nn))
+    {
+        residual_nG[n*nG + g] = gpuCsub(residual_nG[n*nG + g], 
+                                gpuCmulD(wf_nG[n*nG + g], eps_n[n]));
+    }
+}
+
+__global__ void calculate_residual_kernel_real(int nG, int nn,
+                                               double* residual_nG,
+                                               double* eps_n,
+                                               double* wf_nG)
+{
+    int g = threadIdx.x + blockIdx.x * blockDim.x;
+    int n = threadIdx.y + blockIdx.y * blockDim.y;
+    if ((g < nG) && (n < nn))
+    {
+        residual_nG[n*nG + g] -= eps_n[n] * wf_nG[n*nG + g];
+    }
+}
+
+extern "C"
+void calculate_residual_launch_kernel(int nG,
+                                      int nn,
+                                      double* residual_nG, 
+                                      double* eps_n, 
+                                      double* wf_nG,
+                                      int is_complex)
+{
+    if (is_complex)
+    {
+        gpuLaunchKernel(calculate_residual_kernel_complex,
+                        dim3((nn+15)/16, (nG+15)/16),
+                        dim3(16, 16),
+                        0, 0,
+                        nG, nn,
+                        (gpuDoubleComplex*) residual_nG,
+                        eps_n,
+                        (gpuDoubleComplex*) wf_nG);
+    }
+    else
+    {
+        gpuLaunchKernel(calculate_residual_kernel_real,
+                        dim3((nn+15)/16, (nG+15)/16),
+                        dim3(16, 16),
+                        0, 0,
+                        nG, nn,
+                        residual_nG,
+                        eps_n,
+                        wf_nG);
+    }
+}
+
+
 template <bool gga> __device__ double pbe_exchange(double n, double rs, double a2,
                                                    double* dedrs, double* deda2)
 {
@@ -1474,5 +1534,4 @@ void pwlfc_expand_gpu_launch_kernel(int itemsize,
                         nsplines,
                         cc);
     }
-    //gpuDeviceSynchronize();
 }
