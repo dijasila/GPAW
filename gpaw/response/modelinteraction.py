@@ -181,7 +181,7 @@ class ModelInteraction:
                                         A_mnG,
                                         optimize='optimal')
 
-        # factor from BZ summation and taking from Hartree to eV
+        # factor from three BZ summations and taking from Hartree to eV
         # and volume factor from matrix element in PW basis
         factor = Ha / self.gs.kd.nbzkpts**3 / self.gs.volume
         Wwan_wijkl *= factor
