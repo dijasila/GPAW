@@ -11,8 +11,6 @@ from gpaw.mpi import size
 @pytest.mark.parametrize('dtype', [float, complex])
 @pytest.mark.parametrize('gpu', [False, True])
 def test_gpu_pw(dtype, gpu):
-    if gpu and dtype == float:
-        pytest.skip('P_ani * dH_aii kernel not implemented for float')
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
     atoms.center(vacuum=1.0)

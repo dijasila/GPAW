@@ -47,7 +47,8 @@ void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
                                       int nI, npy_int32* ni_a, 
                                       double* dH_aii_dev, 
                                       gpuDoubleComplex* P_ani_dev,
-                                      gpuDoubleComplex* outP_ani_dev);
+                                      gpuDoubleComplex* outP_ani_dev,
+                                      int is_complex);
 
 void evaluate_pbe_launch_kernel(int nspin, int ng,
                                 double* n,
@@ -163,17 +164,21 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     if (!outP_ani_dev) 
     {
         PyErr_SetString(PyExc_RuntimeError, "Error in output outP_ani.");
-	return NULL;
+        return NULL;
     }
     npy_int32* ni_a = Array_DATA(ni_a_obj);
     if (!ni_a) 
     {
         PyErr_SetString(PyExc_RuntimeError, "Error in input ni_a.");
-	return NULL;
+        return NULL;
     }
 
-    assert(Array_ITEMSIZE(P_ani_obj) == 16);
-    assert(Array_ITEMSIZE(outP_ani_obj) == 16);
+    int is_complex = Array_ITEMSIZE(P_ani_obj) == 16;
+    if (Array_ITEMSIZE(P_ani_obj) != Array_ITEMSIZE(outP_ani_obj))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Incompatible P_ani and outP_ani.");
+        return NULL;
+    }
     assert(Array_ITEMSIZE(dH_aii_obj) == 8);
     assert(Array_ITEMSIZE(ni_a_obj) == 4);
 
@@ -185,7 +190,7 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
+    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev, is_complex);
     Py_RETURN_NONE;
 }
 
