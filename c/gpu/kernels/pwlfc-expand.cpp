@@ -23,8 +23,8 @@ __global__ void calculate_residual_kernel_complex(int nG, int nn,
                                                   double* eps_n,
                                                   gpuDoubleComplex* wf_nG)
 {
-    int g = threadIdx.x + blockIdx.x * blockDim.x;
-    int n = threadIdx.y + blockIdx.y * blockDim.y;
+    int n = threadIdx.x + blockIdx.x * blockDim.x;
+    int g = threadIdx.y + blockIdx.y * blockDim.y;
     if ((g < nG) && (n < nn))
     {
         residual_nG[n*nG + g] = gpuCsub(residual_nG[n*nG + g], 
@@ -37,8 +37,8 @@ __global__ void calculate_residual_kernel_real(int nG, int nn,
                                                double* eps_n,
                                                double* wf_nG)
 {
-    int g = threadIdx.x + blockIdx.x * blockDim.x;
-    int n = threadIdx.y + blockIdx.y * blockDim.y;
+    int n = threadIdx.x + blockIdx.x * blockDim.x;
+    int g = threadIdx.y + blockIdx.y * blockDim.y;
     if ((g < nG) && (n < nn))
     {
         residual_nG[n*nG + g] -= eps_n[n] * wf_nG[n*nG + g];

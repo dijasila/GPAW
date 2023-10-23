@@ -310,8 +310,8 @@ PyObject* calculate_residual_gpu(PyObject* self, PyObject* args)
     double *residual_nG = Array_DATA(residual_nG_obj);
     double* eps_n = Array_DATA(eps_n_obj);
     double *wf_nG = Array_DATA(wf_nG_obj);
-    int nG = Array_DIM(residual_nG_obj, 0);
-    int nn = Array_DIM(residual_nG_obj, 1);
+    int nn = Array_DIM(residual_nG_obj, 0);
+    int nG = Array_DIM(residual_nG_obj, 1);
     bool is_complex = Array_ITEMSIZE(residual_nG_obj) == 16;
     if (PyErr_Occurred())
     {
