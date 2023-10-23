@@ -1,4 +1,5 @@
 import numpy as np
+from gpaw.response import ResponseGroundStateAdapter
 
 
 class cRPA_weight:
@@ -9,7 +10,7 @@ class cRPA_weight:
         self.nk = nk
 
     @classmethod
-    def from_wannier_matrix(cls, Uwan_wnk, bandrange, nbands, kd=None):
+    def from_wannier_matrix(cls, Uwan_wnk, bandrange, gs):
         """Initialize cRPA_weight from Wannier transformation matrix
         Uwan_wnk: cmplx or str
                   if cmplx: Wannier transfirmation matrix:
@@ -21,10 +22,15 @@ class cRPA_weight:
                    from
         nbands:    int
                    total number of bands in the calculation
-        kd:        kpoint descriptor (used if type(Uwan_wnk) = str )
+        gs: ResponseGroundStateAdapter or str (path to gpw file)
         """
 
         from gpaw.wannier90 import read_uwan
+        if isinstance(gs, str):
+            gs = ResponseGroundStateAdapter.from_gpw_file(gs,
+                                                          context=None)
+        nbands = gs.nbands
+        kd = gs.kd
 
         # if Uwan is string try to read wannier90 matrix
         if isinstance(Uwan_wnk, str):
