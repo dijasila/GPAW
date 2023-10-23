@@ -83,6 +83,10 @@ def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
         J1 = J2
 
 
+def calculate_residuals_gpu(residual_nG, eps_n, wfs_nG):
+    residual_nG -= eps_n[:, None] * wfs_nG
+
+
 def add_to_density_gpu(weight_n, psit_nR, nt_R):
     for weight, psit_R in zip(weight_n, psit_nR):
         nt_R += float(weight) * cp.abs(psit_R)**2
@@ -106,6 +110,6 @@ if not TYPE_CHECKING:
     try:
         from _gpaw import (  # noqa
             pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
-            dH_aii_times_P_ani_gpu)
+            dH_aii_times_P_ani_gpu, calculate_residuals_gpu)
     except ImportError:
         pass
