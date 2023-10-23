@@ -26,9 +26,11 @@ class cRPA_weight:
         """
 
         from gpaw.wannier90 import read_uwan
+        context = ResponseContext(txt=self.filename + '.txt',
+                                  comm=world, timer=None)
         if isinstance(gs, str):
             gs = ResponseGroundStateAdapter.from_gpw_file(gs,
-                                                          context=None)
+                                                          context=context)
         nbands = gs.nbands
         kd = gs.kd
 
