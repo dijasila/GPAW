@@ -1,6 +1,6 @@
 import numpy as np
 
-from ase.units import Bohr, Hartree
+from ase.units import Bohr
 from ase.neighborlist import natural_cutoffs, build_neighbor_list
 
 from gpaw.sphere.integrate import (integrate_lebedev,
@@ -137,7 +137,7 @@ class AtomicSiteData:
     def calculate_spin_splitting(self):
         r"""Calculate the spin splitting Δ^(xc) for each atomic site."""
         dxc_ap = self.integrate_local_function(add_LSDA_spin_splitting)
-        return dxc_ap * Hartree  # return the splitting in eV
+        return dxc_ap
 
     def integrate_local_function(self, add_f):
         r"""Integrate a local function f[n](r) = f(n(r)) over the atomic sites.
