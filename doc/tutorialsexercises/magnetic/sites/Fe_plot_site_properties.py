@@ -27,4 +27,5 @@ plt.ylim((0., None))
 
 # Save as png
 filename = 'Fe_site_properties.png'
-plt.savefig(filename, format='png', bbox_inches='tight')
+plt.tight_layout(w_pad=1.08)
+plt.savefig(filename, format='png')
