@@ -68,23 +68,41 @@ class ElectronPhononMatrix:
         self.timer = Timer()
 
         self.atoms = atoms
-        self.supercell_cache = MultiFileJSONCache(supercell_cache)
-        self.R_cN = self._get_lattice_vectors()
-
         if indices is None:
             self.indices = np.arange(len(atoms))
         else:
             self.indices = indices
+        if isinstance(self.indices, np.ndarray):
+            self.indices = self.indices.tolist()
+
+        if not load_sc_as_needed:
+            assert indices is None, "Use 'load_sc_as_needed' with 'indices'"
+
+        self._set_supercell_cache(supercell_cache, load_sc_as_needed)
+
+        self.timer.start("Read phonons")
+        self._set_phonon_cache(phonon, atoms)
+
+        if set(self.phonon.indices) != set(self.indices):
+            self.phonon.set_atoms(self.indices)
+            self.phonon.D_N = None
+
+        self._read_phonon_cache()
+        self.timer.stop("Read phonons")
+
+    def _set_supercell_cache(self, supercell_cache: str,
+                             load_sc_as_needed: bool):
+        self.supercell_cache = MultiFileJSONCache(supercell_cache)
+        self.R_cN = self._get_lattice_vectors()
 
         if load_sc_as_needed:
             self._yield_g_NNMM = self._yield_g_NNMM_as_needed
             self.g_xNNMM = None
         else:
-            assert indices is None, "Use 'load_sc_as_needed' with 'indices'"
             self.g_xsNNMM, _ = Supercell.load_supercell_matrix(supercell_cache)
             self._yield_g_NNMM = self._yield_g_NNMM_from_var
 
-        self.timer.start("Read phonons")
+    def _set_phonon_cache(self, phonon, atoms):
         if isinstance(phonon, Phonons):
             self.phonon = phonon
         elif isinstance(phonon, str):
@@ -100,18 +118,14 @@ class ElectronPhononMatrix:
             name = phonon.get("name", "phonon")
             delta = phonon.get("delta", 0.01)
             center_refcell = phonon.get("center_refcell", False)
-            self.phonon = Phonons(atoms, None, supercell, name, delta,
-                                  center_refcell)
+            self.phonon = Phonons(atoms, supercell=supercell, name=name,
+                                  delta=delta, center_refcell=center_refcell)
         else:
             raise TypeError
 
-        if set(self.phonon.indices) != set(self.indices):
-            self.phonon.set_atoms(self.indices)
-            self.phonon.D_N = None
-
+    def _read_phonon_cache(self):
         if self.phonon.D_N is None:
             self.phonon.read(symmetrize=10)
-        self.timer.stop("Read phonons")
 
     def _yield_g_NNMM_as_needed(self, x, s):
         return self.supercell_cache[str(x)][s]
