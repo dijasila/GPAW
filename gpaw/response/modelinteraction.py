@@ -28,7 +28,7 @@ def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
     ----------
     chi0calc: Chi0Calculator
     truncation: str
-        Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
+        Coulomb truncation scheme. Can be either 2D, 1D, 0D or None.
     integrate_gamma: int
         Method to integrate the Coulomb interaction. 1 is a numerical
         integration at all q-points with G=[0,0,0] - this breaks the
@@ -102,15 +102,15 @@ class ModelInteraction:
         In this implementation we compute W_n1,n2;n3,n4(R=0) efficiently
         by expressing it in terms of the reduced Wannier density matrices
 
-        A_{n1,n2,q} = sum_{k} rhowan^{n1,k}_{n2, k-q}
+        A_{n1,n2,q} = sum_{k} rhowan^{n1,k}_{n2, k+q}
 
         where the Wannier density matrix is calculated from the usual
         density matrix
-        rho^{m1,k}_{m2 k-q} = < psi_{m1,k} | e^{i(q+G)r} | psi_{m2, k-q} >
+        rho^{m1,k}_{m2 k+q} = < psi_{m1,k} | e^{i(q+G)r} | psi_{m2, k+q} >
         and the Wannier transformation matrices U_{nm}(k) as
 
-        rhowan^{n1, k}_{n2, k-q} =
-        = sum_{m1, m5} U^*_{n1,m1}(k) U_{n2, m2}(k-q) rho^{m1,k}_{m2 k-q}
+        rhowan^{n1, k}_{n2, k+q} =
+        = sum_{m1, m5} U^*_{n1,m1}(k) U_{n2, m2}(k+q) rho^{m1,k}_{m2 k+q}
         """
 
         ibz2bz = ibz2bz_map(self.gs.kd)
@@ -181,7 +181,7 @@ class ModelInteraction:
                                         A_mnG,
                                         optimize='optimal')
 
-        # factor from BZ summation and taking from Hartree to eV
+        # factor from three BZ summations and taking from Hartree to eV
         # and volume factor from matrix element in PW basis
         factor = Ha / self.gs.kd.nbzkpts**3 / self.gs.volume
         Wwan_wijkl *= factor
