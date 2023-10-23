@@ -129,7 +129,8 @@ class ModelInteraction:
 
         assert nk == self.gs.kd.nbzkpts
         assert bandrange[1] - bandrange[0] == nband
-        nfreq = len(chi0calc.chi0_body_calc.wd)
+        wd = chi0calc.chi0_body_calc.wd
+        nfreq = len(wd)
 
         # Find frequency range for block distributed arrays
         blockdist = chi0calc.chi0_body_calc.get_blockdist()
@@ -186,7 +187,7 @@ class ModelInteraction:
         Wwan_wijkl *= factor
         self.context.write_timer()
 
-        return blocks1d.all_gather(Wwan_wijkl)
+        return wd.omega_w * Ha, blocks1d.all_gather(Wwan_wijkl)
 
     @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
