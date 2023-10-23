@@ -511,7 +511,8 @@ def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
     proj_sym = ibz2bz[K].map_projections(proj)
     return proj_sym
 
-def read_uwan(seed, kd, dis = False):
+
+def read_uwan(seed, kd, dis=False):
     """
     Reads wannier transformation matrix
     """
@@ -523,7 +524,6 @@ def read_uwan(seed, kd, dis = False):
     f = open(seed, "r")
     f.readline()  # first line is a comment
     nk, nw1, nw2 = [int(i) for i in f.readline().split()]
-    #assert nw1 == nw2
     assert nk == kd.nbzkpts
     uwan = np.empty([nw1, nw2, nk], dtype=complex)
     iklist = []  # list to store found iks

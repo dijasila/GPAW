@@ -19,37 +19,82 @@ def ibz2bz_map(qd):
     return out_map
 
 
-def initialize_w_model(chi0calc, truncation=None, txt='w_model.out',
-                       world=world, timer=None, integrate_gamma=0,
-                       q0_correction=False):
+def initialize_w_model(chi0calc, truncation=None, integrate_gamma=0,
+                       q0_correction=False, txt='w_model.out',
+                       eta=None, world=world, timer=None):
+    """ Helper function to initialize ModelInteraction
+
+    Parameters
+    ----------
+    chi0calc: Chi0Calculator
+    truncation: str
+        Coulomb truncation scheme. Can be either 2D, 1D, or 0D.
+    integrate_gamma: int
+        Method to integrate the Coulomb interaction. 1 is a numerical
+        integration at all q-points with G=[0,0,0] - this breaks the
+        symmetry slightly. 0 is analytical integration at q=[0,0,0] only -
+        this conserves the symmetry. integrate_gamma=2 is the same as 1,
+        but the average is only carried out in the non-periodic directions.
+    q0_correction: bool
+        Analytic correction to the q=0 contribution applicable to 2D
+        systems.
+    txt: str
+        Filename of output files.
+    world: MPI comm
+    timer: ResponseContext timer
+    """
     gs = chi0calc.gs
     wcontext = ResponseContext(txt=txt,
                                comm=world, timer=timer)
     coulomb = CoulombKernel.from_gs(gs, truncation=truncation)
+    if eta is not None:
+        eta /= Ha
     wcalc = initialize_w_calculator(chi0calc,
                                     wcontext,
                                     coulomb=coulomb,
                                     xc='RPA',
                                     integrate_gamma=integrate_gamma,
-                                    q0_correction=q0_correction)
+                                    q0_correction=q0_correction,
+                                    eta=eta)
     return ModelInteraction(wcalc)
 
 
 class ModelInteraction:
 
     def __init__(self, wcalc):
+        """Class to compute interaction matrix in Wannier basis
+
+        Parameters
+        ----------
+        wcalc: WCalculator
+        """
+
         self.wcalc = wcalc
         self.gs = wcalc.gs
         self.context = self.wcalc.context
         self.qd = self.wcalc.qd
 
     @timer('Calculate W in Wannier')
-    def calc_in_Wannier(self, chi0calc, Uwan, bandrange, spin=0):
+    def calc_in_Wannier(self, chi0calc, Uwan_mnk, bandrange, spin=0):
         """Calculates the screened interaction matrix in Wannier basis.
         NOTE: Does not work with SOC!
 
-        W_n1,n2;n3,n4(R=0) =
-        <w^*_{n1,R=0} w_{n2, R=0} | W |w^*_{n3,R=0} w_{n4, R=0} >
+        Parameters:
+        ----------
+        chi0calc: Chi0Calculator
+        Uwan_mnk: cmplx or str
+            Wannier transformation matrix. if str name of wannier90 output
+            m: Wannier index, n: bandindex, k: k-index
+        bandrange: int
+            range of bands that the wannier functions were constructed from
+        spin: int
+            spin index (0 or 1)
+
+        Documentation
+        -------------
+
+        W_n1,n2;n3,n4(R=0, w) =
+        <w^*_{n1,R=0} w_{n2, R=0} | W(r,r',w) |w^*_{n3,R=0} w_{n4, R=0} >
 
         w_{n R} = V/(2pi)^3 int_{BZ} dk e^{-kR} psi^w_{nk}
         psi^w_{nk} = sum_m U_nm(k) psi^{KS}_{mk}
@@ -74,12 +119,13 @@ class ModelInteraction:
         pair_factory = KPointPairFactory(self.gs, self.context, nblocks=1)
         pair_calc = pair_factory.pair_calculator()
 
-        if isinstance(Uwan, str):  # read w90 transformation matrix from file
-            Uwan, nk, nwan, nband = read_uwan(Uwan, self.gs.kd)
+        if isinstance(Uwan_mnk, str):
+            # read w90 transformation matrix from file
+            Uwan_mnk, nk, nwan, nband = read_uwan(Uwan_mnk, self.gs.kd)
         else:
-            nk = Uwan.shape[2]
-            nband = Uwan.shape[1]
-            nwan = Uwan.shape[0]
+            nk = Uwan_mnk.shape[2]
+            nband = Uwan_mnk.shape[1]
+            nwan = Uwan_mnk.shape[0]
 
         assert nk == self.gs.kd.nbzkpts
         assert bandrange[1] - bandrange[0] == nband
@@ -123,7 +169,7 @@ class ModelInteraction:
                                                                 qpd,
                                                                 pair_calc,
                                                                 pair_factory,
-                                                                Uwan)
+                                                                Uwan_mnk)
                 if self.qd.time_reversal_k[iQ]:
                     # TR corresponds to complex conjugation
                     A_mnG = A_mnG.conj()
@@ -145,14 +191,14 @@ class ModelInteraction:
     @timer('get_reduced_wannier_density_matrix')
     def get_reduced_wannier_density_matrix(self, spin, Q_c, iq, bandrange,
                                            pawcorr, qpd, pair_calc,
-                                           pair_factory, Uwan):
+                                           pair_factory, Uwan_mnk):
         """
         Returns sum_k sum_(m1,m2) U_{n1m1}* U_{n2m2} rho^{m1 k}_{m2 k-q}(G)
         where rho is the usual density matrix and U are wannier tranformation
         matrices.
         """
         nG = qpd.ngmax
-        nwan = Uwan.shape[0]
+        nwan = Uwan_mnk.shape[0]
         A_mnG = np.zeros([nwan, nwan, nG], dtype=complex)
 
         # Parallell sum over k-points
@@ -176,8 +222,8 @@ class ModelInteraction:
             # Rotate to Wannier basis and sum to get reduced Wannier
             # density matrix A
             A_mnG += np.einsum('ia,jb,abG->ijG',
-                               Uwan[:, :, iK1].conj(),
-                               Uwan[:, :, iK2],
+                               Uwan_mnk[:, :, iK1].conj(),
+                               Uwan_mnk[:, :, iK2],
                                rholoc)
         self.intrablockcomm.sum(A_mnG)
         return A_mnG
@@ -197,7 +243,6 @@ class ModelInteraction:
             rho_mnG[m] = get_nmG(kpt1, kpt2, mypawcorr, m, qpd, I_G, pair_calc)
 
         return rho_mnG, iq, symop.sign
-
 
     def myKrange(self, rank=None):
         if rank is None:
