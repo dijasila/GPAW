@@ -102,15 +102,15 @@ class ModelInteraction:
         In this implementation we compute W_n1,n2;n3,n4(R=0) efficiently
         by expressing it in terms of the reduced Wannier density matrices
 
-        A_{n1,n2,q} = sum_{k} rhowan^{n1,k}_{n2, k-q}
+        A_{n1,n2,q} = sum_{k} rhowan^{n1,k}_{n2, k+q}
 
         where the Wannier density matrix is calculated from the usual
         density matrix
-        rho^{m1,k}_{m2 k-q} = < psi_{m1,k} | e^{i(q+G)r} | psi_{m2, k-q} >
+        rho^{m1,k}_{m2 k+q} = < psi_{m1,k} | e^{i(q+G)r} | psi_{m2, k+q} >
         and the Wannier transformation matrices U_{nm}(k) as
 
-        rhowan^{n1, k}_{n2, k-q} =
-        = sum_{m1, m5} U^*_{n1,m1}(k) U_{n2, m2}(k-q) rho^{m1,k}_{m2 k-q}
+        rhowan^{n1, k}_{n2, k+q} =
+        = sum_{m1, m5} U^*_{n1,m1}(k) U_{n2, m2}(k+q) rho^{m1,k}_{m2 k+q}
         """
 
         ibz2bz = ibz2bz_map(self.gs.kd)
