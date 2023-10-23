@@ -16,9 +16,9 @@ from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_mml(gs: GSInfo,
-            spin: int = 0,
-            ni: Optional[int] = None,
-            nf: Optional[int] = None,
+            spin: int,
+            ni: int,
+            nf: int,
             timer: Optional[Timer] = None) -> ArrayND:
     """Compute the momentum matrix elements.
 
@@ -37,17 +37,13 @@ def get_mml(gs: GSInfo,
     parprint('Calculating momentum matrix elements...')
 
     # Specify desired range and number of bands in calculation
-    nb_full = gs.nb_full
-    ni = int(ni) if ni is not None else 0
-    nf = int(nf) if nf is not None else nb_full
-    nf = nb_full + nf if (nf < 0) else nf
+    bands = slice(ni, nf)
     nb = nf - ni
 
     # Spin input
     assert spin < gs.ns, 'Wrong spin input'
 
     # Real and reciprocal space parameters
-    icell_cv = (2 * np.pi) * gs.grid.icell
     nk = np.shape(gs.ibzk_kc)[0]
 
     # Parallelisation and memory estimate
@@ -56,20 +52,12 @@ def get_mml(gs: GSInfo,
     size = comm.size
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
-    parprint(f'At least {est_mem:.2f} MB of memory is required.')
+    parprint(f'At least {est_mem:.2f} MB of memory is required on master.')
 
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
 
-    # if calc.parameters['mode'] == 'lcao':
-    nabla_v = [
-        Gradient(
-            gs.gd, vv, 1.0, 4,
-            complex).apply for vv in range(3)]
-    phases = np.ones((3, 2), dtype=complex)
-
     # Initial call to print 0% progress
-    ik = 0
     if rank == 0:
         pb = ProgressBar()
 
@@ -78,61 +66,32 @@ def get_mml(gs: GSInfo,
         k_ind = rank + size * ik
         if k_ind >= nk:
             break
-        k_c = gs.ibzk_kc[k_ind]
-        k_v = np.dot(k_c, icell_cv)
+        wfs = gs.get_wfs(k_ind, spin)
 
-        # Get the wavefunctions
-        with timer('Get wavefunctions and projections'):
-            u_nR = gs.get_pseudo_wave_function(ni=ni, nf=nf,
-                                               k_ind=k_ind, spin=spin)
+        with timer('Contribution from pseudo wave functions'):
+            G_plus_k_Gv, u_nG = gs.get_plane_wave_coefficients(
+                wfs, bands=bands, spin=spin)
+            p_vnn = np.einsum('Gv,mG,nG->vmn',
+                              G_plus_k_Gv, u_nG.conj(), u_nG) * gs.ucvol
 
-            P_ani = gs.get_wave_function_projections(ni=ni, nf=nf,
-                                                     k_ind=k_ind, spin=spin)
+        with timer('Contribution from PAW corrections'):
+            P_ani = gs.get_wave_function_projections(
+                wfs, bands=bands, spin=spin)
+            for P_ni, nabla_iiv in zip(P_ani.values(), gs.nabla_aiiv):
+                p_vnn -= 1j * np.einsum('mi,nj,ijv->vmn',
+                                        P_ni.conj(), P_ni, nabla_iiv)
 
-        # Now compute the momentum part
-        grad_nv = gs.gd.zeros((nb, 3), complex)
-        with timer('Momentum calculation'):
-            # Get the derivative
-            for iv in range(3):
-                for ib in range(nb):
-                    nabla_v[iv](u_nR[ib], grad_nv[ib, iv], phases)
-
-            # Compute the integrals
-            p_vnn = np.transpose(
-                gs.gd.integrate(u_nR, grad_nv), (2, 0, 1))
-
-            # Add the overlap part
-            M_nn = np.array([gs.gd.integrate(
-                u_nR[ib], u_nR) for ib in range(nb)])
-
-            for iv in range(3):
-                p_vnn[iv] += 1j * k_v[iv] * M_nn
-
-        # The PAW corrections are added
-        with timer('Add the PAW correction'):
-            for ia, nabla_iiv in enumerate(gs.nabla_aiiv):
-                P_ni = P_ani[ia]
-
-                # Loop over components
-                for iv in range(3):
-                    nabla_ii = nabla_iiv[:, :, iv]
-                    p_vnn[iv] += np.dot(
-                        np.dot(P_ni.conj(), nabla_ii), P_ni.T)
-
-        # Make it momentum and store it
-        p_kvnn[ik] = -1j * p_vnn
+        p_kvnn[ik] = p_vnn
 
         # Print the progress
         if rank == 0:
             pb.update(ik / nkcore)
-        ik += 1
 
     if rank == 0:
         pb.finish()
 
     # Gather all data to the master
     with timer('Gather the data to master'):
-        parprint('Gathering date to the master.')
         if rank == 0:
             recv_buf = np.empty((size, nkcore, 3, nb, nb),
                                 dtype=complex)
@@ -159,8 +118,8 @@ def get_mml(gs: GSInfo,
 def make_nlodata(gs_name: str,
                  comm: MPIComm,
                  spin: str = 'all',
-                 ni: int = 0,
-                 nf: int = 0) -> NLOData:
+                 ni: Optional[int] = None,
+                 nf: Optional[int] = None) -> NLOData:
 
     """Get all required NLO data and store it in a file.
 
@@ -197,6 +156,7 @@ def make_nlodata(gs_name: str,
         from gpaw.nlopt.adapters import NoncollinearGSInfo
         gs = NoncollinearGSInfo(calc, comm)
 
+    # Parse spin input
     ns = gs.ns
     if spin == 'all':
         spins = list(range(ns))
@@ -208,8 +168,11 @@ def make_nlodata(gs_name: str,
     else:
         raise NotImplementedError
 
-    if nf <= 0:
-        nf += gs.nb_full
+    # Parse band input
+    nb_full = gs.nb_full
+    ni = int(ni) if ni is not None else 0
+    nf = int(nf) if nf is not None else nb_full
+    nf = nb_full + nf if (nf <= 0) else nf
 
     return _make_nlodata(gs=gs, spins=spins, ni=ni, nf=nf)
 
@@ -233,15 +196,14 @@ def _make_nlodata(gs: GSInfo,
         E_skn *= Ha
 
         w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndens)])
-        bz_vol = np.abs(np.linalg.det(2 * np.pi * gs.grid.icell))
-        w_sk *= bz_vol * ibzwfs.spin_degeneracy
+        w_sk *= gs.bzvol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
         for spin in spins:
-            p_kvnn = get_mml(gs=gs, spin=spin,
-                             ni=ni, nf=nf, timer=timer)
+            p_kvnn = get_mml(gs=gs, ni=ni, nf=nf,
+                             spin=spin, timer=timer)
             p_skvnn.append(p_kvnn)
         if not gs.collinear:
             p_skvnn = [p_skvnn[0] + p_skvnn[1]]
