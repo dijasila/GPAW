@@ -14,7 +14,8 @@ from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+    def __init__(self, chi0calc, optical, qpd, analyzer,
+                 m1, m2, crpa_weight=None):
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
@@ -33,6 +34,7 @@ class Chi0Integrand(Integrand):
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
+        self.crpa_weight = crpa_weight
 
     @timer('Get matrix element')
     def matrix_element(self, k_v, s):
@@ -103,6 +105,12 @@ class Chi0Integrand(Integrand):
             n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
+        # XXX ADD cRPA Weights here!
+        if self.crpa_weight is not None:
+            ikn = self.gs.kd.where_is_q(kptpair.kpt1.K, self.gs.kd.bzk_kc)
+            ikm = self.gs.kd.where_is_q(kptpair.kpt2.K, self.gs.kd.bzk_kc)
+            df_nm *= self.crpa_weight.get_weight_nm(n_n, m_m, ikn, ikm)
+
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
 
@@ -310,6 +318,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
                  timeordered=False,
                  ecut=None,
                  eta=0.2,
+                 crpa_weight=None,
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
         """
@@ -333,6 +342,8 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
             assert self.hilbert  # Timeordered is only needed for G0W0
 
         self.pawcorr = None
+
+        self.crpa_weight = crpa_weight
 
         self.context.print('Nonperiodic BCs: ', (~self.pbc))
         if sum(self.pbc) == 1:

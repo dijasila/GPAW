@@ -24,6 +24,7 @@ from gpaw.response.integrators import (
     HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
     HilbertOpticalLimitTetrahedron,
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
+from gpaw.response.cRPA import cRPA_weight
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):
@@ -47,6 +48,7 @@ class Chi0Calculator:
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
+                 crpa_weight=None,
                  **kwargs):
         self.kptpair_factory = kptpair_factory
         self.gs = kptpair_factory.gs
@@ -54,12 +56,17 @@ class Chi0Calculator:
             context = kptpair_factory.context
         self.context = context
 
+        if crpa_weight is not None:
+            assert isinstance(crpa_weight, cRPA_weight)
+
         self.chi0_body_calc = Chi0BodyCalculator(
             kptpair_factory, context=context,
-            eshift=eshift, **kwargs)
+            eshift=eshift, crpa_weight=crpa_weight,
+            **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             kptpair_factory, context=context,
-            intraband=intraband, rate=rate, **kwargs)
+            intraband=intraband, rate=rate,
+            crpa_weight=crpa_weight, **kwargs)
 
     @property
     def pair_calc(self):
