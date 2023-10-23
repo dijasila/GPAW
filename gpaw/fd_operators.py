@@ -109,6 +109,8 @@ class FDOperator:
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
+            print("type(f_g), type(s_g), n, w, relax_method")
+            print(type(f_g), type(s_g), n, w, relax_method)
             self.operator.relax(relax_method, f_g, s_g, n, w)
         else:
             self.operator.relax_gpu(relax_method,

@@ -65,7 +65,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return self._tauct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
-        solver = make_poisson_solver(**self.params.poissonsolver)
+        solver = make_poisson_solver(**self.params.poissonsolver, xp=self.xp)
         solver.set_grid_descriptor(self.fine_grid._gd)
         return PoissonSolverWrapper(solver)
 
@@ -89,7 +89,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         psit_nR = grid.zeros(self.nbands, self.communicators['b'])
         mynbands = len(C_nM.data)
         basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
-        return psit_nR
+        return psit_nR.to_xp(self.xp)
 
     def read_ibz_wave_functions(self, reader):
         ibzwfs = super().read_ibz_wave_functions(reader)
@@ -148,6 +148,7 @@ class FDHamiltonian(Hamiltonian):
         assert isinstance(out, UGArray)
         self.kin(psit_nR, out)
         for p, o in zips(psit_nR.data, out.data):
+            print('p p vt_R', type(p), type(o), type(vt_R.data))
             o += p * vt_R.data
 
     def apply_mgga(self,
