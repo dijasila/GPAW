@@ -1,4 +1,4 @@
-"""Calculate the site magnetization and spin splitting, based on the ground
+"""Calculate the site magnetization and Zeeman energy, based on the ground
 state of Fe(bcc)."""
 
 import numpy as np
@@ -9,7 +9,7 @@ from gpaw.mpi import rank
 from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (calculate_site_magnetization,
-                               calculate_site_spin_splitting)
+                               calculate_site_zeeman_energy)
 
 # ----- Ground state calculation ----- #
 
@@ -48,10 +48,10 @@ sites = AtomicSites(
 )
 # and calculate the site properties of interest
 m_ar = calculate_site_magnetization(gs, sites)
-dxc_ar = calculate_site_spin_splitting(gs, sites)
+EZ_ar = calculate_site_zeeman_energy(gs, sites)
 
 # Save site data
 if rank == 0:
     np.save('rc_r.npy', rc_r)
     np.save('m_r.npy', m_ar[0])
-    np.save('dxc_r.npy', dxc_ar[0])
+    np.save('EZ_r.npy', EZ_ar[0])
