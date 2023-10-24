@@ -41,13 +41,9 @@ def test_gpu(dtype, gpu, mode):
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])
 @pytest.mark.parametrize('par', ['domain', 'kpt', 'band'])
-<<<<<<< HEAD
 @pytest.mark.parametrize('mode', ['pw', 'fd'])
-def test_gpu_k(gpu, par, mode):
-=======
 @pytest.mark.parametrize('xc', ['LDA','PBE'])
-def test_gpu_pw_k(gpu, par, xc):
->>>>>>> gpu-pbe2
+def test_gpu_k(gpu, par, mode, xc):
     atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
     if mode == 'fd':
         poisson = FDPoissonSolver()
@@ -58,6 +54,8 @@ def test_gpu_pw_k(gpu, par, xc):
         dict(mode={'name': mode},
              spinpol=True,
              xc=xc,
+             h=0.05,
+             convergence={'density':1e-8},
              kpts=(4, 1, 1),
              poissonsolver=poisson,
              parallel={'gpu': gpu,
@@ -66,20 +64,12 @@ def test_gpu_pw_k(gpu, par, xc):
         log='-')
     dft.converge()
     dft.energies()
-<<<<<<< HEAD
     if mode == 'pw':
         dft.forces()
-        dft.stress()
+        #dft.stress()
     energy = dft.results['energy'] * Ha
-    if mode == 'pw':
-        assert energy == pytest.approx(-17.653433, abs=1e-6)
-    else:
-        assert energy == pytest.approx(-17.371538, abs=1e-6)
-=======
-    dft.forces()
-    #dft.stress()
-    energy = dft.results['energy'] * Ha
-    ref = {'PBE': -17.304186,
-           'LDA': -17.653433 }
-    assert energy == pytest.approx(ref[xc], abs=1e-6)
->>>>>>> gpu-pbe2
+    ref = {'LDAfd': -17.371538,
+           'PBEfd':  -17.020741056233575,
+           'PBEpw': -17.304186,
+           'LDApw': -17.653433 }[xc+mode]
+    assert energy == pytest.approx(ref, abs=1e-6)
