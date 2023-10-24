@@ -9,7 +9,7 @@ import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
-from gpaw.gpu import as_np
+from gpaw.gpu import as_np, cupy_is_fake
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import cached_property, zips
@@ -706,7 +706,10 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.xp is np:
             for f, psit_R in zips(weights, self.data):
-                print(f, type(psit_R), type(out.data),'abs_square_call to add_to_density')
+                add_to_density(f, psit_R, out.data)
+        elif cupy_is_fake:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R._data, out.data._data)
         else:
             add_to_density(weights, self.data, out.data)
 

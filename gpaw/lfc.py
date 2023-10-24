@@ -581,9 +581,9 @@ class LocalizedFunctionsCollection(BaseLFC):
         comm = self.gd.comm
 
         if self.xp is np or cupy_is_fake:
-            c_xM = np.zeros(xshape + (self.Mmax,), dtype)
+            c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
             if cupy_is_fake:
-                self.lfc.integrate(a_xG._data, c_xM, q)
+                self.lfc.integrate(a_xG._data, c_xM._data, q)
             else:
                 self.lfc.integrate(a_xG, c_xM, q)
         else:
