@@ -7,77 +7,87 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 
 
 class LDARadialExpansion:
-    def __init__(self, rcalc, collinear=True):
-        self.rcalc = rcalc
-        self.collinear = collinear
+    def __init__(self, expander, *, n_qg, nc_g):
+        self.n_qg = n_qg
+        n_sLg = np.dot(expander.D_sLq, n_qg)
+        if nc_g is not None:
+            n_sLg[:, 0] += nc_g / expander.nspins * (4 * np.pi)**0.5
+        self.n_sLg = n_sLg
+        self.n_sng = np.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True)
+        self.expander = expander
+        self.nspins = len(self.n_sLg)
+        self.rgd = expander.rgd
 
-    
-    def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
-        n_sLg = np.dot(D_sLq, n_qg)
-        if self.collinear:
-            n_sLg[:, 0] += nc0_sg
-        else:
-            n_sLg[0, 0] += 4 * nc0_sg[0]
-
-        Lmax = n_sLg.shape[1]
-        _Y_nL = Y_nL[:, :Lmax].copy()
-        e_ng, dedn_sng = self.rcalc(rgd, n_sLg, _Y_nL)
+    def integrate(self, potential, sign=1.0, dEdD_sp=None):
+        print(potential.dedn_sng, 'dedn_sng')
+        print(potential.dedn_sng.shape, weight_n.shape)
         dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
-                rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL, optimize=True)
-        E = np.einsum('ng,g,n', e_ng, rgd.dv_g, weight_n, optimize=True)
-        return E, dEdD_sqL
+                             self.expander.rgd.dv_g,
+                             weight_n,
+                             potential.dedn_sng,
+                             self.n_qg,
+                             self.expander.Y_nL, optimize=True)
+        dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+        print(sign, dE, 'dE')
+        print(dEdD_sp.shape, dE.shape,'xx')
+        dEdD_sp += sign * dE
+        print(potential.e_ng, 'e_ng')
+        E = np.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
+        print('E', sign, E)
+        return sign * E
+
+class LDAPotentialExpansion:
+    def __init__(self, dedn_sng, e_ng):
+        self.dedn_sng = dedn_sng
+        self.e_ng = e_ng
+
+    def empty_like(radial_expansion):
+        return LDAPotentialExpansion(np.zeros_like(radial_expansion.n_sng),
+                                     np.empty_like(radial_expansion.n_sng[0]))
 
 
-def calculate_paw_correction(expansion,
-                             setup, D_sp, dEdD_sp=None,
-                             addcoredensity=True, a=None):
-    xcc = setup.xc_correction
-    if xcc is None:
-        return 0.0
+class LDARadialExpander:
+    def __init__(self, setup, D_sp): #rcalc, collinear=True, addcoredensity=True):
+        xcc = setup.xc_correction
+        
+        # Packed density matrix p=(i, j), where i and j are partial wave indices
+        self.D_sp = D_sp
+        
+        # Expansion with respect to independent radial parts times spherical harmonic
+        self.D_sLq = np.inner(D_sp, xcc.B_pqL.T)
+        self.nspins = len(self.D_sLq)
+        self.xcc = xcc
+        self.Lmax = xcc.B_pqL.shape[2]
+        self.Y_nL = Y_nL[:, :self.Lmax].copy()
+        self.rgd = self.xcc.rgd
 
-    rgd = xcc.rgd
-    nspins = len(D_sp)
+    def expansion_cls(self):
+        return LDARadialExpansion
 
-    if addcoredensity:
-        nc0_sg = rgd.empty(nspins)
-        nct0_sg = rgd.empty(nspins)
-        nc0_sg[:] = sqrt(4 * pi) / nspins * xcc.nc_g
-        nct0_sg[:] = sqrt(4 * pi) / nspins * xcc.nct_g
-        if xcc.nc_corehole_g is not None and nspins == 2:
-            nc0_sg[0] -= 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
-            nc0_sg[1] += 0.5 * sqrt(4 * pi) * xcc.nc_corehole_g
-    else:
-        nc0_sg = 0
-        nct0_sg = 0
+    def expansion_vars(self, ae=True, addcoredensity=True):
+        # Valence radial parts
+        n_qg = self.xcc.n_qg if ae else self.xcc.nt_qg
+        # Core radial density
+        nc_g = self.xcc.nc_g if ae else self.xcc.nct_g
+        if not addcoredensity:
+            nc_g = None
+        return dict(n_qg=n_qg,
+                    nc_g=nc_g)
 
-    D_sLq = np.inner(D_sp, xcc.B_pqL.T)
-
-    e, dEdD_sqL = expansion(rgd, D_sLq, xcc.n_qg, nc0_sg)
-    et, dEtdD_sqL = expansion(rgd, D_sLq, xcc.nt_qg, nct0_sg)
-    if dEdD_sp is not None:
-        dEdD_sp += np.inner((dEdD_sqL - dEtdD_sqL).reshape((nspins, -1)),
-                            xcc.B_pqL.reshape((len(xcc.B_pqL), -1)))
-
-    if addcoredensity:
-        return e - et - xcc.e_xc0
-    else:
-        return e - et
+    def expand(self, ae=True, addcoredensity=True):
+        dct = self.expansion_vars(ae=ae, addcoredensity=addcoredensity)
+        return self.expansion_cls()(self, **dct)
 
 
 class LDARadialCalculator:
     def __init__(self, kernel):
         self.kernel = kernel
 
-    def __call__(self, rgd, n_sLg, Y_nL):
-        nspins = len(n_sLg)
-        # Note: Without explicitly allocating the array, einsum will create
-        # non-contiguous array, and kernel call will fail
-        n_sng = np.zeros((nspins, len(Y_nL), rgd.N))
-        np.einsum('nL,sLg->sng', Y_nL, n_sLg, out=n_sng, optimize=True)
-        e_ng = np.empty((len(Y_nL), rgd.N))
-        dedn_sng = np.zeros((nspins, len(Y_nL), rgd.N))
-        self.kernel.calculate(e_ng, n_sng, dedn_sng)
-        return e_ng, dedn_sng
+    def __call__(self, expansion):
+        assert isinstance(expansion, LDARadialExpansion)
+        potential = LDAPotentialExpansion.empty_like(expansion)
+        self.kernel.calculate(potential.e_ng, expansion.n_sng, potential.dedn_sng)
+        return potential
 
 
 class LDA(XCFunctional):
@@ -88,15 +98,11 @@ class LDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=True, a=None):
-        from gpaw.xc.noncollinear import NonCollinearLDAKernel
-        collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
-        rcalc = LDARadialCalculator(self.kernel)
-        expansion = LDARadialExpansion(rcalc, collinear)
-        return calculate_paw_correction(expansion,
-                                        setup, D_sp, dEdD_sp,
-                                        addcoredensity, a)
+    def get_radial_expander(self, setup, D_sp):
+        return LDARadialExpander(setup, D_sp)
+
+    def get_radial_calculator(self):
+        return LDARadialCalculator(self.kernel)
 
     def calculate_radial(self, rgd, n_sLg, Y_nL):
         rcalc = LDARadialCalculator(self.kernel)

@@ -6,10 +6,43 @@ from scipy.special import eval_legendre
 from gpaw.xc.gga import (add_gradient_correction, gga_vars,
                          GGARadialExpansion, GGARadialCalculator,
                          get_gradient_ops)
-from gpaw.xc.lda import calculate_paw_correction
+#from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
 
+
+class MGGARadialExpansion(GGARadialExpansion):
+    def __init__(self, rcalc, *args):
+        self.rcalc = rcalc
+        self.args = args
+
+    def __call__(self, rgd, D_sLq, n_qg, nc0_sg, tau_npg, tauc_g):
+        tau_sng = np.einsum('sp,npg->sng', self.D_sp, tau_npg)
+        tau_sng += tauc_g
+        gga_call = GGARadialExpansion.__call__
+        dedtau_sng = np.zeros_like(tau_sng)
+        return gga_call(self, rgd, D_sLq, n_qg, nc0_sg,
+                        forward_to_kernel=dict(tau_sg=tau_sng,
+                                               dedtau_sg=dedtau_sng))
+
+
+class MGGARadialCalculator(GGARadialCalculator):
+    def __call__(self, rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv,
+                 forward_to_kernel=dict()):
+        return GGARadialCalculator.__call__(self, rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv,
+                                            forward_to_kernel=forward_to_kernel)
+
+
+
+def create_mgga_radial_calculator(self):
+        class MockKernel:
+            def __init__(self, mgga):
+                self.mgga = mgga
+
+            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
+                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
+
+        return GGARadialCalculator(MockKernel(self))
 
 class MGGA(XCFunctional):
     orbital_dependent = True
@@ -211,26 +244,14 @@ class MGGA(XCFunctional):
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
                 self.xcc)
 
-        rcalc = self.create_mgga_radial_calculator()
-        expansion = GGARadialExpansion(rcalc)
-        # The damn thing uses too many 'self' variables to define a clean
-        # integrator object.
+        rcalc = MGGARadialCalculator(self.kernel)
+        expansion = MGGARadialExpansion(rcalc)
         E = calculate_paw_correction(expansion,
                                      setup, D_sp, dEdD_sp,
                                      addcoredensity, a)
-        del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
         return E
 
-    def create_mgga_radial_calculator(self):
-        class MockKernel:
-            def __init__(self, mgga):
-                self.mgga = mgga
-
-            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-        return GGARadialCalculator(MockKernel(self))
-
+    """
     def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
         n = self.n
         nspins = len(n_sg)
@@ -262,6 +283,7 @@ class MGGA(XCFunctional):
         if self.n == len(weight_n):
             self.n = 0
             self.ae = False
+    """
 
     def add_forces(self, F_av):
         dF_av = self.tauct.dict(derivative=True)

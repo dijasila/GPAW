@@ -62,7 +62,31 @@ class XCFunctional:
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         raise NotImplementedError
 
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        xcc = setup.xc_correction
+        if xcc is None:
+            return 0.0
+
+        from gpaw.xc.noncollinear import NonCollinearLDAKernel
+        collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
+
+        expander = self.get_radial_expander(setup, D_sp)
+        rcalc = self.get_radial_calculator()
+        E = 0
+        for sign, ae in [(1.0, True), (-1.0, False)]:
+            expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
+            E += expansion.integrate(rcalc(expansion), sign=sign, dEdD_sp=dEdD_sp)
+
+        if addcoredensity:
+            E -= xcc.e_xc0
+        print('final dEdD', dEdD_sp)
+        return E 
+
+    def get_radial_expander(self, setup, D_sp):
+        raise NotImplementedError
+
+    def get_radial_calculator(self):
         raise NotImplementedError
 
     def set_positions(self, spos_ac, atom_partition=None):
