@@ -5,6 +5,7 @@ from gpaw.response.chi0 import find_maximum_frequency, Chi0Calculator
 from gpaw.response.pair import get_gs_and_context
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import KPointPairFactory
+from ase.units import Ha
 
 class cRPA:
     def __init__(self, extra_weights_nk, bandrange, gs, context):
@@ -67,7 +68,7 @@ class cRPA:
 
         if (isinstance(frequencies, dict) and
             frequencies.get('omegamax') is None):
-            omegamax = find_maximum_frequency(gs.kpt_u, context,
+            omegamax = find_maximum_frequency(self.gs.kpt_u, self.context,
                                               nbands=nbands)
             frequencies['omegamax'] = omegamax * Ha
 
