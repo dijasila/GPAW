@@ -711,7 +711,7 @@ class UGArray(DistributedArrays[UGDesc]):
             for f, psit_R in zips(weights, self.data):
                 add_to_density(f, psit_R._data, out.data._data)
         else:
-            add_to_density(weights, self.data, out.data)
+            add_to_density_gpu(self.xp.asarray(weights), self.data, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""
