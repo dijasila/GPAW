@@ -21,6 +21,8 @@ def create_propagator(name, **kwargs):
         return create_propagator(**kwargs)
     elif name == 'sicn':
         return SICNPropagator(**kwargs)
+    elif name == 'scpc':
+        return SelfConsistentPropagator(**kwargs)
     elif name == 'ecn':
         return ECNPropagator(**kwargs)
     elif name.endswith('.ulm'):
@@ -341,95 +343,39 @@ class SICNPropagator(ECNPropagator):
         for kpt in self.wfs.kpt_u:
             kpt.C2_nM = np.empty_like(kpt.C_nM)
 
-    new_PC=True # I would suggest that we relabel the 'Predictor' and 'Propagator' steps. The 'Propagator' is usually the 'Predictor' and then 'Corrector' steps are added (as now in the new version).
-    # We should check that the new PC loop improves the energy conservation by comparing with smaller timesteps. A simple comparison plot should be fine. Note, that the RRemission potential works now only with the new version.
-    if new_PC:
-        def propagate(self, time, time_step):
-            PC_crit = 1e-2 # Just some value that resulted in a few PC iterations for testing. A value of 1e-8 seems to provide more or less the same iterations as the previous version. A PC criterium of 1e-10 seems like a decent tradeoff with a single additional PC iteration, but in order to get a better energy conservation we could provide the option to tighten the PC criterium. a value of 1e-12 leads to 3-4 iterations. It also seems fine to just keep 1e-8 as criterium and allow a finer criterium by choice.
-            # since the propagate + update call will change the result for H0 at time t,
-            # we have to somehow safe the previous H0 in order to estimate the intermediate H0 at t+dt/2
-            prevH0 = []
-            #self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
-            get_H_MM = self.hamiltonian.get_hamiltonian_matrix
-            # --------------
-            # Predictor step
-            # --------------
-            # 1. Store current C_nM
-            self.save_wfs()  # kpt.C2_nM = kpt.C_nM
-            for kpt in self.wfs.kpt_u:
-                # H_MM(t) = <M|H(t)|M>
-                kpt.H0_MM = get_H_MM(kpt, time)
-                prevH0.append(kpt.H0_MM)
-                # 2. Solve Psi(t+dt) from
-                #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
-                #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
-                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                   time_step)
-            if self.hamiltonian.rremission is not None:
-                self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
-            self.hamiltonian.update()
-            for PC_ii in range(100):
-                # ---------------
-                # Propagator step
-                # ---------------
-                # 1. Calculate H(t+dt)
-                itkpt=-1
-                for kpt in self.wfs.kpt_u:
-                    # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
-                    itkpt+=1
-                    kpt.H0_MM = prevH0[itkpt] + get_H_MM(kpt, time + time_step)
-                    kpt.H0_MM *= 0.5
-                    # 3. Solve Psi(t+dt) from
-                    #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
-                    #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-                    self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                       time_step)
-                    kpt.H0_MM = None
-                PCprev_dip = self.density.calculate_dipole_moment()
-                # 4. Calculate new Hamiltonian (and density)
-                self.hamiltonian.update()
-                PCnew_dip = self.density.calculate_dipole_moment()
-                if np.sum(np.abs(PCnew_dip - PCprev_dip)) < PC_crit:
-                    print(str(PC_ii+1) +' PC iterations to reach a dipole criterium of '+str(PC_crit)) # It would make sense to add this information to the standard td output (includes already iter and time, so just add used PC iteras)
-                    break
-            if PC_ii > 90:
-                raise RuntimeError('The SICN PC propagator required '+str(PC_ii) +' iterations which suggests a too large time step. Please consider selecting a shorter time step.')
-            return time + time_step
-    else:
-        def propagate(self, time, time_step):
-            get_H_MM = self.hamiltonian.get_hamiltonian_matrix
-            # --------------
-            # Predictor step
-            # --------------
-            # 1. Store current C_nM
-            self.save_wfs()  # kpt.C2_nM = kpt.C_nM
-            for kpt in self.wfs.kpt_u:
-                # H_MM(t) = <M|H(t)|M>
-                kpt.H0_MM = get_H_MM(kpt, time)
-                # 2. Solve Psi(t+dt) from
-                #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
-                #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
-                self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                   time_step)
-            # ---------------
-            # Propagator step
-            # ---------------
-            # 1. Calculate H(t+dt)
-            self.hamiltonian.update()
-            for kpt in self.wfs.kpt_u:
-                # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
-                kpt.H0_MM += get_H_MM(kpt, time + time_step)
-                kpt.H0_MM *= 0.5
-                # 3. Solve Psi(t+dt) from
-                #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
-                #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
-                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
-                                   time_step)
-                kpt.H0_MM = None
-            # 4. Calculate new Hamiltonian (and density)
-            self.hamiltonian.update()
-            return time + time_step
-
+    def propagate(self, time, time_step):
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
+        # --------------
+        # Predictor step
+        # --------------
+        # 1. Store current C_nM
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
+        for kpt in self.wfs.kpt_u:
+            # H_MM(t) = <M|H(t)|M>
+            kpt.H0_MM = get_H_MM(kpt, time)
+            # 2. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+        # ---------------
+        # Propagator step
+        # ---------------
+        # 1. Calculate H(t+dt)
+        self.hamiltonian.update()
+        for kpt in self.wfs.kpt_u:
+            # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
+            kpt.H0_MM += get_H_MM(kpt, time + time_step)
+            kpt.H0_MM *= 0.5
+            # 3. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+            self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+            kpt.H0_MM = None
+        # 4. Calculate new Hamiltonian (and density)
+        self.hamiltonian.update()
+        return time + time_step
 
     def save_wfs(self):
         for kpt in self.wfs.kpt_u:
@@ -437,6 +383,94 @@ class SICNPropagator(ECNPropagator):
 
     def todict(self):
         return {'name': 'sicn'}
+
+
+class SelfConsistentPropagator(ECNPropagator):
+    """
+    This is an actual Predictor-Corrector propagator that uses the SICN
+    and combines it with an actual Corrector step. This is identical to
+    SICN for a very low tolerance of e.g. 1e-2. The higher the tolerance,
+    the better energy etc will be preserved by the propagator. Notice,
+    that the standard SICN accuracy is often sufficient, but some
+    routines (like the 3rd time-derivative in the RRemission class)
+    require higher accuracy for reliable predictions. The PC update
+    become especially important for large time-steps. Try for instance
+    dt=100 and propagte for a few thousand step, compare SICN vs SCPC.
+    You will notice an artifical exponential decay of the SICN dipole
+    after kick while SCPC will preserve the dipole oscillations.
+    """
+    def __init__(self, tolerance = 1e-8, PCmax = 20):
+        ECNPropagator.__init__(self)
+        self.tolerance = tolerance
+        self.PCmax = PCmax
+        self.PC_ii = 0
+
+    def initialize(self, paw):
+        ECNPropagator.initialize(self, paw)
+        # Allocate kpt.C2_nM arrays
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM = np.empty_like(kpt.C_nM)
+
+    def propagate(self, time, time_step):
+        """
+        Since the propagate + update call will change the result
+        for H0 at time t, we have to somehow safe the previous H0
+        in order to estimate the intermediate H0 at t+dt/2.
+        """
+        prevH0 = []
+        get_H_MM = self.hamiltonian.get_hamiltonian_matrix
+        # --------------
+        # Predictor step
+        # --------------
+        # 1. Store current C_nM
+        self.save_wfs()  # kpt.C2_nM = kpt.C_nM
+        for kpt in self.wfs.kpt_u:
+            # H_MM(t) = <M|H(t)|M>
+            kpt.H0_MM = get_H_MM(kpt, time)
+            prevH0.append(kpt.H0_MM)
+            # 2. Solve Psi(t+dt) from
+            #    (S_MM - 0.5j*H_MM(t)*dt) Psi(t+dt)
+            #       = (S_MM + 0.5j*H_MM(t)*dt) Psi(t)
+            self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                               time_step)
+        if self.hamiltonian.rremission is not None:
+            self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
+        self.hamiltonian.update()
+        for PC_ii in range(self.PCmax):
+            self.PC_ii = PC_ii
+            # ---------------
+            # Propagator step
+            # ---------------
+            # 1. Calculate H(t+dt)
+            itkpt=-1
+            for kpt in self.wfs.kpt_u:
+                # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
+                itkpt+=1
+                kpt.H0_MM = prevH0[itkpt] + get_H_MM(kpt, time + time_step)
+                kpt.H0_MM *= 0.5
+                # 3. Solve Psi(t+dt) from
+                #    (S_MM - 0.5j*H_MM(t+0.5*dt)*dt) Psi(t+dt)
+                #       = (S_MM + 0.5j*H_MM(t+0.5*dt)*dt) Psi(t)
+                self.propagate_wfs(kpt.C2_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
+                                   time_step)
+                kpt.H0_MM = None
+            PCprev_dip = self.density.calculate_dipole_moment()
+            # 4. Calculate new Hamiltonian (and density)
+            self.hamiltonian.update()
+            PCnew_dip = self.density.calculate_dipole_moment()
+            if np.sum(np.abs(PCnew_dip - PCprev_dip)) < self.tolerance:
+                #print(str(PC_ii+1) +' PC iterations to reach a dipole criterium of '+str(self.tolerance)) # It would make sense to add this information to the standard td output (includes already iter and time, so just add used PC iteras)
+                break
+        if PC_ii == self.PCmax-1:
+            raise RuntimeError('The SCPC propagator required too many iterations to reached the demanded accuracy.')
+        return time + time_step
+
+    def save_wfs(self):
+        for kpt in self.wfs.kpt_u:
+            kpt.C2_nM[:] = kpt.C_nM
+
+    def todict(self):
+        return {'name': 'scpc', 'tolerance': self.tolerance, 'PCmax': self.PCmax}
 
 
 class TaylorPropagator(Propagator):
