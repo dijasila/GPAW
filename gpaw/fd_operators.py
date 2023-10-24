@@ -104,6 +104,8 @@ class FDOperator:
             self.operator.apply(in_xR.data._data, out_xR.data._data,
                                 in_xR.desc.phase_factor_cd)
         else:
+            assert isinstance(in_xR.data, self.xp.ndarray)
+            assert isinstance(out_xR.data, self.xp.ndarray)
             self.operator.apply_gpu(in_xR.data.data.ptr, out_xR.data.data.ptr,
                                     in_xR.data.shape, in_xR.data.dtype,
                                     in_xR.desc.phase_factor_cd)

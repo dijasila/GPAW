@@ -175,7 +175,9 @@ def dot_product(a_vr, b_vr, out_r):
             for a_r in a_vr.data:
                 add_to_density(1.0, a_r, out_r.data)
         else:
-            add_to_density_gpu(np.ones(3), a_vr.data, out_r.data)
+            print(type(a_vr.data))
+            print(type(out_r.data))
+            add_to_density_gpu(xp.ones(3), a_vr.data, out_r.data)
     else:
         einsum('vabc, vabc -> abc', a_vr.data, b_vr.data, out=out_r.data)
 
