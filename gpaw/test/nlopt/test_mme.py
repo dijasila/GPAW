@@ -4,7 +4,6 @@ import numpy as np
 
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
-from gpaw.spinorbit import soc_eigenstates
 
 
 def test_mme_Ni(gpw_files):

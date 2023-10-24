@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class GSInfo:
     """
     This is the base class for the ground state adapters in the non-linear

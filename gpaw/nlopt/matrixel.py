@@ -6,7 +6,6 @@ from ase.units import Ha
 from ase.utils.timing import Timer
 import numpy as np
 
-from gpaw.fd_operators import Gradient
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.adapters import GSInfo
