@@ -36,9 +36,9 @@ class TDDFTLogger(TDDFTObserver):
         density = paw.density
         norm = density.finegd.integrate(density.rhot_g)
         T = localtime()
-        total_energy = (paw.hamiltonian.e_kinetic0+ paw.hamiltonian.e_coulomb+
-                        paw.hamiltonian.e_zero+ paw.hamiltonian.e_external+
-                        paw.hamiltonian.e_xc)
+        total_energy = (paw.hamiltonian.e_kinetic0 + paw.hamiltonian.e_coulomb
+                        + paw.hamiltonian.e_zero + paw.hamiltonian.e_external
+                        + paw.hamiltonian.e_xc)
         if isinstance(paw.propagator, SelfConsistentPropagator):
             paw.log('iter: %4d  %02d:%02d:%02d %11.2f %9.1f %4d %6.18f' %
                     (paw.niter, T[3], T[4], T[5],

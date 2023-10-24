@@ -9,7 +9,7 @@ from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_tri2full)
-from gpaw.lcaotddft.qed import RRemission
+
 
 def create_propagator(name, **kwargs):
     if name is None:
@@ -399,7 +399,7 @@ class SelfConsistentPropagator(ECNPropagator):
     You will notice an artifical exponential decay of the SICN dipole
     after kick while SCPC will preserve the dipole oscillations.
     """
-    def __init__(self, tolerance = 1e-8, PCmax = 20):
+    def __init__(self, tolerance=1e-8, PCmax=20):
         ECNPropagator.__init__(self)
         self.tolerance = tolerance
         self.PCmax = PCmax
@@ -434,7 +434,8 @@ class SelfConsistentPropagator(ECNPropagator):
             self.propagate_wfs(kpt.C_nM, kpt.C_nM, kpt.S_MM, kpt.H0_MM,
                                time_step)
         if self.hamiltonian.rremission is not None:
-            self.hamiltonian.rremission.savelast(self.density.calculate_dipole_moment())
+            self.hamiltonian.rremission.savelast(
+                self.density.calculate_dipole_moment())
         self.hamiltonian.update()
         for PC_ii in range(self.PCmax):
             self.PC_ii = PC_ii
@@ -442,10 +443,10 @@ class SelfConsistentPropagator(ECNPropagator):
             # Propagator step
             # ---------------
             # 1. Calculate H(t+dt)
-            itkpt=-1
+            itkpt = - 1
             for kpt in self.wfs.kpt_u:
                 # 2. Estimate H(t+0.5*dt) ~ 0.5 * [ H(t) + H(t+dt) ]
-                itkpt+=1
+                itkpt += 1
                 kpt.H0_MM = prevH0[itkpt] + get_H_MM(kpt, time + time_step)
                 kpt.H0_MM *= 0.5
                 # 3. Solve Psi(t+dt) from
@@ -459,10 +460,11 @@ class SelfConsistentPropagator(ECNPropagator):
             self.hamiltonian.update()
             PCnew_dip = self.density.calculate_dipole_moment()
             if np.sum(np.abs(PCnew_dip - PCprev_dip)) < self.tolerance:
-                #print(str(PC_ii+1) +' PC iterations to reach a dipole criterium of '+str(self.tolerance)) # It would make sense to add this information to the standard td output (includes already iter and time, so just add used PC iteras)
                 break
-        if PC_ii == self.PCmax-1:
-            raise RuntimeError('The SCPC propagator required too many iterations to reached the demanded accuracy.')
+        if PC_ii == self.PCmax - 1:
+            raise RuntimeError('The SCPC propagator required too',
+                               ' many iterations to reached the',
+                               ' demanded accuracy.')
         return time + time_step
 
     def save_wfs(self):
@@ -470,7 +472,8 @@ class SelfConsistentPropagator(ECNPropagator):
             kpt.C2_nM[:] = kpt.C_nM
 
     def todict(self):
-        return {'name': 'scpc', 'tolerance': self.tolerance, 'PCmax': self.PCmax}
+        return {'name': 'scpc', 'tolerance': self.tolerance,
+                'PCmax': self.PCmax}
 
 
 class TaylorPropagator(Propagator):
