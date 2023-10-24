@@ -124,6 +124,8 @@ class FDOperator:
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
             self.operator.relax(relax_method, f_g, s_g, n, w)
+        elif cupy_is_fake:
+            self.operator.relax(relax_method, f_g._data, s_g._data, n, w)
         else:
             self.operator.relax_gpu(relax_method,
                                     f_g.data.ptr,
