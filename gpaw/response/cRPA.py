@@ -27,8 +27,6 @@ class cRPA:
         bandrange: int
                    Range of bands that Wannier functions were constructed
                    from
-        nbands:    int
-                   total number of bands in the calculation
         calc:      str
                    gpw-file
         txt:       str
@@ -50,6 +48,28 @@ class cRPA:
         extra_weights_nk = np.zeros((nbands, nk))
         extra_weights_nk[bandrange, :] = np.sum(np.abs(Uwan_wnk)**2, axis=0)
         assert np.allclose(np.sum(extra_weights_nk, axis=0), nw1)
+        return cls(extra_weights_nk, bands, gs, context)
+
+    @classmethod
+    def from_band_indexes(cls, bands, calc,
+                          txt='chi0.txt', timer=None, world=world):
+        """Initialize cRPA_weight from Wannier transformation matrix
+        bands:     list(int)
+                   list with bandindexes that the screening should be 
+                   removed from
+        calc:      str
+                   gpw-file
+        txt:       str
+                   output file
+        """
+
+        from gpaw.wannier90 import read_uwan
+        gs, context = get_gs_and_context(calc, txt, world, timer)
+        nbands = gs.bd.nbands
+        nk = gs.kd.nbzkpts
+        extra_weights_nk = np.zeros((nbands, nk))
+        extra_weights_nk[bands, :] = 1
+        assert np.allclose(np.sum(extra_weights_nk, axis=0), len(bands))
         return cls(extra_weights_nk, bandrange, gs, context)
 
     """
