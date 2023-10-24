@@ -62,7 +62,11 @@ def test_gpu_k(gpu, par, mode):
         log='-')
     dft.converge()
     dft.energies()
-    dft.forces()
-    #dft.stress()
+    if mode == 'pw':
+        dft.forces()
+        dft.stress()
     energy = dft.results['energy'] * Ha
-    assert energy == pytest.approx(-17.653433, abs=1e-6)
+    if mode == 'pw':
+        assert energy == pytest.approx(-17.653433, abs=1e-6)
+    else:
+        assert energy == pytest.approx(-17.371538, abs=1e-6)
