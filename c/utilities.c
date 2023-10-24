@@ -305,7 +305,7 @@ double distance(double *a, double *b)
 }
 
 
-PyObject* add_to_density_gpu(Pyobject* self, PyObject* args);
+PyObject* add_to_density_gpu(PyObject* self, PyObject* args);
 // Equivalent to:
 //
 //     nt_R += f * abs(psit_R)**2
