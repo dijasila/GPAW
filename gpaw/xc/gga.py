@@ -9,6 +9,7 @@ from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import LDARadialExpander, LDARadialExpansion
 
+
 class GGARadialExpansion(LDARadialExpansion):
     def __init__(self, expander, *, n_qg, nc_g):
         LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g)
@@ -40,7 +41,6 @@ class GGARadialExpansion(LDARadialExpansion):
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         E = LDARadialExpansion.integrate(self, potential, sign=sign, dEdD_sp=dEdD_sp)
-
         nspins = self.nspins
         rgd = self.expander.rgd
         potential.dedsigma_xng *= rgd.dr_g
@@ -52,6 +52,7 @@ class GGARadialExpansion(LDARadialExpansion):
         dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
         dEdD_sp += sign * dE
         return E
+
 
 class GGARadialExpander(LDARadialExpander):
     def __init__(self, setup, D_sp):
@@ -98,74 +99,6 @@ class GGARadialCalculator:
         potential.dedn_sng += add_radial_gradient_correction(expansion.rgd, expansion.sigma_xng, potential.dedsigma_xng, expansion.a_sng)
         return potential
 
-"""class GGARadialExpansion:
-    def __init__(self, rcalc, *args):
-        self.rcalc = rcalc
-        self.args = args
-
-    def __call__(self, rgd, D_sLq, n_qg, nc0_sg,
-                 forward_to_kernel=dict()):
-        n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
-
-        dndr_sLg = np.empty_like(n_sLg)
-        for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
-            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                rgd.derivative(n_g, dndr_g)
-
-        nspins, Lmax, nq = D_sLq.shape
-        dEdD_sqL = np.zeros((nspins, nq, Lmax))
-
-        Lmax = n_sLg.shape[1]
-        _Y_nL = Y_nL[:, :Lmax].copy()
-        _rnablaY_nLv = rnablaY_nLv[:, :Lmax, :].copy()
-        e_ng, dedn_sng, b_vsng, dedsigma_xng = \
-            self.rcalc(rgd, n_sLg, _Y_nL, dndr_sLg, _rnablaY_nLv, 
-                       *self.args, **forward_to_kernel)
-        import time
-        start = time.time()
-        dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
-                             rgd.dv_g, weight_n, dedn_sng, n_qg, _Y_nL, optimize=True) 
-        stop = time.time()
-        print('dED_sqL took', stop-start)
-        #dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-        #                   n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-        dedsigma_xng *= rgd.dr_g
-        B_vsng = dedsigma_xng[::2] * b_vsng
-        if nspins == 2:
-            B_vsng += 0.5 * dedsigma_xng[1] * b_vsng[:, ::-1]
-        B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, n_qg, optimize=True)
-        dEdD_sqL += 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, _rnablaY_nLv, B_vsnq, optimize=True) 
-        E = np.einsum('ng,g,n', e_ng, rgd.dv_g, weight_n, optimize=True)
-
-        return E, dEdD_sqL
-"""
-
-# First part of gga_calculate_radial - initializes some quantities.
-def radial_gga_vars(rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv):
-    nspins = len(n_sLg)
-    #n_sng = np.empty((nspins, len(Y_nL), rgd.N))
-    #np.einsum('nL,sLg->sng', Y_nL, n_sLg, optimize=True, out=n_sng)
-    n_sng = Y_nL @ n_sLg
-    a_sng = np.einsum('nL,sLg->sng', Y_nL, dndr_sLg, optimize=True)
-    b_vsng = np.einsum('nLv,sLg->vsng', rnablaY_nLv, n_sLg, optimize=True)
-
-    e_ng = np.empty((len(Y_nL), rgd.N))
-    sigma_xng = np.empty((2 * nspins -1, len(Y_nL), rgd.N))
-    sigma_xng[::2] = (b_vsng ** 2).sum(0)
-    if nspins == 2:
-        sigma_xng[1] = (b_vsng[:, 0] * b_vsng[:, 1]).sum(0)
-    sigma_xng[:, :, 1:] /= rgd.r_g[1:] ** 2
-    sigma_xng[:, :, 0] = sigma_xng[:, :, 1]
-    sigma_xng[::2] += a_sng ** 2
-    if nspins == 2:
-        sigma_xng[1] += a_sng[0] * a_sng[1]
-
-    e_g = rgd.empty()
-    dedn_sng = np.zeros((nspins, len(Y_nL), rgd.N))
-    dedsigma_xng = np.zeros((2 * nspins - 1, len(Y_nL), rgd.N))
-    return e_ng, n_sng, dedn_sng, sigma_xng, dedsigma_xng, a_sng, b_vsng
-
 
 def add_radial_gradient_correction(rgd, sigma_xng, dedsigma_xng, a_sng):
     nspins = len(a_sng)
@@ -184,20 +117,6 @@ def add_radial_gradient_correction(rgd, sigma_xng, dedsigma_xng, a_sng):
     vv_sng[:, :, 0] = vv_sng[:, :, 1]
     return vv_sng
 
-"""
-class GGARadialCalculator:
-    def __init__(self, kernel):
-        self.kernel = kernel
-
-    def __call__(self, rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv):
-        (e_ng, n_sng, dedn_sng, sigma_xng, dedsigma_xng, a_sng,
-         b_vsng) = radial_gga_vars(rgd, n_sLg, Y_nL, dndr_sLg, rnablaY_nLv)
-        
-        self.kernel.calculate(e_ng, n_sng, dedn_sng, sigma_xng, dedsigma_xng)
-        vv_sng = add_radial_gradient_correction(rgd, sigma_xng,
-                                                dedsigma_xng, a_sng)
-        return e_ng, dedn_sng + vv_sng, b_vsng, dedsigma_xng
-"""
 
 def calculate_sigma(gd, grad_v, n_sg):
     r"""Calculate sigma(r) and grad n(r).

@@ -12,11 +12,13 @@ class LDARadialExpansion:
         n_sLg = np.dot(expander.D_sLq, n_qg)
         if nc_g is not None:
             n_sLg[:, 0] += nc_g / expander.nspins * (4 * np.pi)**0.5
-        self.n_sLg = n_sLg
-        self.n_sng = np.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True)
         self.expander = expander
-        self.nspins = len(self.n_sLg)
+        self.nspins = len(n_sLg)
         self.rgd = expander.rgd
+        
+        self.n_sLg = n_sLg
+        self.n_sng = np.empty((self.nspins, len(weight_n), self.rgd.N))
+        np.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         print(potential.dedn_sng, 'dedn_sng')
