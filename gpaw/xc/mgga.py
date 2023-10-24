@@ -54,7 +54,7 @@ class MGGARadialExpander(GGARadialExpander):
         dct = GGARadialExpander.expansion_vars(self, ae, addcoredensity)
         tau_npg = self.xcc.tau_npg if ae else self.xcc.taut_npg
         tauc_g = self.xcc.tauc_g if ae else self.xcc.tauct_g
-        tauc_g /= sqrt(4 * pi) * self.nspins
+        tauc_g = tauc_g / (sqrt(4 * pi) * self.nspins)
         dct.update(tau_npg=tau_npg, tauc_g=tauc_g)
         return dct
 

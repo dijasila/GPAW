@@ -44,7 +44,7 @@ class LDAPotentialExpansion:
 
 
 class LDARadialExpander:
-    def __init__(self, setup, D_sp): #rcalc, collinear=True, addcoredensity=True):
+    def __init__(self, setup, D_sp=np.zeros(0)): #rcalc, collinear=True, addcoredensity=True):
         xcc = setup.xc_correction
         
         # Packed density matrix p=(i, j), where i and j are partial wave indices
@@ -104,15 +104,6 @@ class LDA(XCFunctional):
     def calculate_radial(self, rgd, n_sLg, Y_nL):
         rcalc = LDARadialCalculator(self.kernel)
         return rcalc(rgd, n_sLg, Y_nL)
-
-    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
-        if e_g is None:
-            e_g = rgd.empty()
-        rcalc = LDARadialCalculator(self.kernel)
-        e_g[:], dedn_sng = rcalc(rgd, n_sg[:, np.newaxis], np.array([[1.0]]))
-        dedn_sg = dedn_sng[:,0,:]
-        v_sg[:] = dedn_sg
-        return rgd.integrate(e_g)
 
     def stress_tensor_contribution(self, n_sg, skip_sum=False):
         nspins = len(n_sg)

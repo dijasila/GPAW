@@ -252,21 +252,6 @@ class GGA(XCFunctional):
             self.gd.comm.sum(stress_vv)
         return stress_vv
 
-    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
-        dndr_sg = np.empty_like(n_sg)
-        for n_g, dndr_g in zip(n_sg, dndr_sg):
-            rgd.derivative(n_g, dndr_g)
-        if e_g is None:
-            e_g = rgd.empty()
-
-        rcalc = GGARadialCalculator(self.kernel)
-
-        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis],
-                                np.array([[1.0]]),
-                                dndr_sg[:, np.newaxis],
-                                np.zeros((1, 1, 3)), n=None)[:2]
-        v_sg[:] = dedn_sg[:, 0, :]
-        return rgd.integrate(e_g)
 
 
 class PurePythonGGAKernel:
