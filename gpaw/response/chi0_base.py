@@ -150,7 +150,8 @@ class Chi0ComponentCalculator:
                  context=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
-                 integrationmode=None):
+                 integrationmode=None,
+                 crpa_weight=None):
         """Set up attributes common to all chi0 related calculators."""
         self.kptpair_factory = kptpair_factory
         self.gs = kptpair_factory.gs
@@ -166,6 +167,7 @@ class Chi0ComponentCalculator:
         # Set up integrator
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
+        self.crpa_weight = crpa_weight
 
     @property
     def nblocks(self):
@@ -317,7 +319,6 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
                  timeordered=False,
                  ecut=None,
                  eta=0.2,
-                 crpa_weight=None,
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
         """
@@ -341,8 +342,6 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
             assert self.hilbert  # Timeordered is only needed for G0W0
 
         self.pawcorr = None
-
-        self.crpa_weight = crpa_weight
 
         self.context.print('Nonperiodic BCs: ', (~self.pbc))
         if sum(self.pbc) == 1:

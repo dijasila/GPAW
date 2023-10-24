@@ -37,7 +37,7 @@ class cRPA:
         gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = gs.bd.nbands
         kd = gs.kd
-        bandrange = range(bandrange[0], bandrange[1])
+        bandrange = np.arange(bandrange[0], bandrange[1])
         # if Uwan is string try to read wannier90 matrix
         if isinstance(Uwan_wnk, str):
             seed = Uwan_wnk
@@ -48,7 +48,7 @@ class cRPA:
         extra_weights_nk = np.zeros((nbands, nk))
         extra_weights_nk[bandrange, :] = np.sum(np.abs(Uwan_wnk)**2, axis=0)
         assert np.allclose(np.sum(extra_weights_nk, axis=0), nw1)
-        return cls(extra_weights_nk, bands, gs, context)
+        return cls(extra_weights_nk, bandrange, gs, context)
 
     @classmethod
     def from_band_indexes(cls, bands, calc,
@@ -62,15 +62,13 @@ class cRPA:
         txt:       str
                    output file
         """
-
-        from gpaw.wannier90 import read_uwan
         gs, context = get_gs_and_context(calc, txt, world, timer)
         nbands = gs.bd.nbands
         nk = gs.kd.nbzkpts
         extra_weights_nk = np.zeros((nbands, nk))
         extra_weights_nk[bands, :] = 1
         assert np.allclose(np.sum(extra_weights_nk, axis=0), len(bands))
-        return cls(extra_weights_nk, bandrange, gs, context)
+        return cls(extra_weights_nk, bands, gs, context)
 
     """
     Note: One can add more classmethods to initialize extra weight
@@ -110,3 +108,11 @@ class cRPA:
         weights_nm = - np.outer(weights_n, weights_m)
         weights_nm += 1.0
         return weights_nm
+
+    def get_drude_weight_n(self, n_n, ikn):
+        """ weight_nm = 1. - P_n*Pm where
+        P_n is probability that state n is in model
+        subspace.
+        """
+        weights_n = 1. - self.extra_weights_nk[n_n, ikn]**2
+        return weights_n
