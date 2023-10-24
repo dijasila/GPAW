@@ -6,6 +6,7 @@ from ase.units import Bohr
 import _gpaw
 from gpaw import debug
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
+from gpaw.gpu import cupy_is_fake
 from gpaw.utilities import smallest_safe_grid_spacing
 
 """
@@ -407,11 +408,14 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM = self.xp.empty(self.Mmax)
             c_xM.fill(c_axi)
             if self.xp is not np:
-                if self.Mmax > 0:
-                    self.lfc.add_gpu(c_xM.data.ptr,
-                                     c_xM.shape,
-                                     a_xG.data.ptr,
-                                     a_xG.shape, q)
+                if cupy_is_fake:
+                    self.lfc.add(c_xM.data, a_xG.data, q)
+                else:
+                    if self.Mmax > 0:
+                        self.lfc.add_gpu(c_xM.data.ptr,
+                                         c_xM.shape,
+                                         a_xG.data.ptr,
+                                         a_xG.shape, q)
             else:
                 self.lfc.add(c_xM, a_xG, q)
             return
