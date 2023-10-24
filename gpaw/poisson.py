@@ -475,7 +475,6 @@ class FDPoissonSolver(BasePoissonSolver):
         self._init()
         self.phis[0] = phi
         eps = self.eps
-        print(type(phi), type(rho), type(self.rhos[0]))
         if self.B is None:
             self.rhos[0][:] = rho
         else:
@@ -998,7 +997,6 @@ class FastPoissonSolver(BasePoissonSolver):
                                   pbc=gd.pbc_c[axes[2]])
         with timer('Communicate from 2D'):
             work1d_g = gd1d.empty(dtype=work2d_g.dtype, xp=self.xp)
-            print(type(work2d_g), type(work1d_g))
             grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g, xp=self.xp)
         with timer('FFT 2D'):
             work1d_g = itransform2(work1d_g, axes=axes[1::-1],

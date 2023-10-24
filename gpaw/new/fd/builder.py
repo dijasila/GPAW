@@ -149,7 +149,6 @@ class FDHamiltonian(Hamiltonian):
         assert isinstance(out, UGArray)
         self.kin(psit_nR, out)
         for p, o in zips(psit_nR.data, out.data):
-            print('p p vt_R', type(p), type(o), type(vt_R.data))
             o += p * vt_R.data
 
     def apply_mgga(self,

@@ -23,7 +23,6 @@ from gpaw.xc.vdw import VDWFunctionalBase
 def create_functional(xc: OldXCFunctional | str | dict,
                       grid: UGDesc,
                       xp=np) -> Functional:
-    print(6666666666666666, xc, xp)
     if isinstance(xc, (str, dict)):
         xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
@@ -157,7 +156,6 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
     gradn_svr = n_sr.desc.empty((nspins, 3), xp=xp)
     for v, grad in enumerate(grad_v):
         for s in range(nspins):
-            print(v, s, grad, grad.xp, n_sr, xp)
             grad(n_sr[s], gradn_svr[s, v])
 
     sigma_xr = n_sr.desc.empty(nspins * 2 - 1, xp=xp)
