@@ -41,16 +41,17 @@ class GGARadialExpansion(LDARadialExpansion):
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         E = LDARadialExpansion.integrate(self, potential, sign=sign, dEdD_sp=dEdD_sp)
-        nspins = self.nspins
-        rgd = self.expander.rgd
-        potential.dedsigma_xng *= rgd.dr_g
-        B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
-        if nspins == 2:
-            B_vsng += 0.5 * dedsigma_xng[1] * b_vsng[:, ::-1]
-        B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=True)
-        dEdD_sqL = 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
-        dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
-        dEdD_sp += sign * dE
+        if dEdD_sp is not None:
+            nspins = self.nspins
+            rgd = self.expander.rgd
+            potential.dedsigma_xng *= rgd.dr_g
+            B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
+            if nspins == 2:
+                B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
+            B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=True)
+            dEdD_sqL = 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
+            dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+            dEdD_sp += sign * dE
         return E
 
 

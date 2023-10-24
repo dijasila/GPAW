@@ -21,21 +21,16 @@ class LDARadialExpansion:
         np.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
-        print(potential.dedn_sng, 'dedn_sng')
-        print(potential.dedn_sng.shape, weight_n.shape)
-        dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
-                             self.expander.rgd.dv_g,
-                             weight_n,
-                             potential.dedn_sng,
-                             self.n_qg,
-                             self.expander.Y_nL, optimize=True)
-        dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
-        print(sign, dE, 'dE')
-        print(dEdD_sp.shape, dE.shape,'xx')
-        dEdD_sp += sign * dE
-        print(potential.e_ng, 'e_ng')
         E = np.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
-        print('E', sign, E)
+        if dEdD_sp is not None:
+            dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
+                                 self.expander.rgd.dv_g,
+                                 weight_n,
+                                 potential.dedn_sng,
+                                 self.n_qg,
+                                 self.expander.Y_nL, optimize=True)
+            dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+            dEdD_sp += sign * dE
         return sign * E
 
 class LDAPotentialExpansion:
