@@ -475,7 +475,7 @@ class UGArray(DistributedArrays[UGDesc]):
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
             norm_x.append(self.xp.vdot(a_R, a_R).real * self.desc.dv)
-        result = xp.array(norm_x).reshape(self.mydims)
+        result = self.xp.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
@@ -703,7 +703,7 @@ class UGArray(DistributedArrays[UGDesc]):
                    out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        
+
         if self.xp is np:
             for f, psit_R in zips(weights, self.data):
                 print(f, type(psit_R), type(out.data),'abs_square_call to add_to_density')
