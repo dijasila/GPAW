@@ -90,7 +90,6 @@ class FDPotentialCalculator(PotentialCalculator):
         e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
 
         charge_r = grid2.empty(xp=self.xp)
-        #print(type(charge_r.data),'charge_r')
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
 
@@ -109,7 +108,7 @@ class FDPotentialCalculator(PotentialCalculator):
             vHt_r = grid2.zeros(xp=self.xp)
         self.poisson_solver.solve(vHt_r, charge_r)
         e_coulomb = 0.5 * vHt_r.integrate(charge_r)
-
+         
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)

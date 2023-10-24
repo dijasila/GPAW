@@ -45,6 +45,8 @@ def test_gpu(dtype, gpu, mode):
 @pytest.mark.parametrize('xc', ['LDA','PBE'])
 def test_gpu_k(gpu, par, mode, xc):
     atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
+    #atoms.translate([0,3,0])
+    #atoms.center()
     if mode == 'fd':
         poisson = FDPoissonSolver()
     else:
@@ -54,7 +56,6 @@ def test_gpu_k(gpu, par, mode, xc):
         dict(mode={'name': mode},
              spinpol=True,
              xc=xc,
-             h=0.025,
              convergence={'density':1e-8},
              kpts=(4, 1, 1),
              poissonsolver=poisson,
@@ -68,8 +69,8 @@ def test_gpu_k(gpu, par, mode, xc):
         dft.forces()
         #dft.stress()
     energy = dft.results['energy'] * Ha
-    ref = {'LDAfd': -17.371538,
-           'PBEfd':  -17.020741056233575,
+    ref = {'LDAfd': -17.371536887378824,
+           'PBEfd': -17.020743089737195,
            'PBEpw': -17.304186,
            'LDApw': -17.653433 }[xc+mode]
     assert energy == pytest.approx(ref, abs=1e-6)

@@ -342,8 +342,6 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
-        self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW, self.xp is not np)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -370,6 +368,8 @@ class LocalizedFunctionsCollection(BaseLFC):
                 for iterator in iterators:
                     next(iterator)
 
+        self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
+                             self.gd.dv, self.phase_qW, self.xp is not np)
         return sdisp_Wc
 
     def M_to_ai(self, src_xM, dst_axi):
