@@ -70,6 +70,19 @@ def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
     raise NotImplementedError
 
 
+def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
+                           P_nI, out_nI):
+    I1 = 0
+    J1 = 0
+    for ni in ni_a._data:
+        I2 = I1 + ni
+        J2 = J1 + ni**2
+        dH_ii = dH_aii[J1:J2].reshape((ni, ni))
+        out_nI[:, I1:I2] = P_nI[:, I1:I2] @ dH_ii
+        I1 = I2
+        J1 = J2
+
+
 def add_to_density_gpu(weight_n, psit_nR, nt_R):
     for weight, psit_R in zip(weight_n, psit_nR):
         nt_R += float(weight) * cp.abs(psit_R)**2
@@ -81,7 +94,9 @@ def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
 
 if not TYPE_CHECKING:
     try:
-        from _gpaw import add_to_density, pw_precond, pw_insert, pwlfc_expand, symmetrize_ft  # noqa
+        from _gpaw import (  # noqa
+            add_to_density, pw_precond, pw_insert,
+            pwlfc_expand, symmetrize_ft)
     except ImportError:
         pass
     try:
@@ -89,6 +104,8 @@ if not TYPE_CHECKING:
     except ImportError:
         pass
     try:
-        from _gpaw import pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu  # noqa
+        from _gpaw import (  # noqa
+            pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
+            dH_aii_times_P_ani_gpu)
     except ImportError:
         pass

@@ -130,8 +130,6 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     if lmax == -1:
         lmax = 5
     assert lmax in range(6)
-    wmin = wmin if wmin is not None else 0.
-    assert isinstance(wmin, float) and wmin >= 0.
 
     # We assume to start with a full expansion
     assert rshe.nM == rshe.nL
@@ -140,14 +138,19 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
     # Filter away (l,m)-coefficients based on their average weight in
     # completing the surface norm square f(r)
     fsns_g = integrate_lebedev(f_ng ** 2)  # surface norm square
-    fw_gL = f_gL ** 2 / fsns_g[:, np.newaxis]  # weight of each L index
+    mask_g = fsns_g > 1e-12  # Base filter on finite surface norm squares only
+    fw_gL = f_gL[mask_g] ** 2 / fsns_g[mask_g, np.newaxis]  # weight of each L
     rshew_L = np.average(fw_gL, axis=0)  # Average over the radial grid
 
     # Take rshe coefficients up to l <= lmax (<= 5) which contribute with
     # at least wmin to the surface norm square on average
     nL = min(rshe.nL, (lmax + 1)**2)
     L_L = np.arange(nL)
-    L_M = np.where(rshew_L[L_L] >= wmin)[0]
+    if wmin is not None:
+        assert isinstance(wmin, float) and wmin > 0.
+        L_M = np.where(rshew_L[L_L] >= wmin)[0]
+    else:
+        L_M = L_L
 
     info_string = get_reduction_info_string(L_M, fw_gL, rshew_L)
 
@@ -157,10 +160,8 @@ def assess_rshe_reduction(f_ng, rshe, lmax=-1, wmin=None):
 def get_reduction_info_string(L_M, fw_gL, rshew_L):
     """Construct info string about the reduced expansion."""
     isl = []
-    isl.append('{0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                     'max weight',
-                                                     'avg weight',
-                                                     'included'))
+    isl.append('{:6}  {:10}  {:10}  {:8}'.format('(l,m)', 'max weight',
+                                                 'avg weight', 'included'))
     for L, (fw_g, rshew) in enumerate(zip(fw_gL.T, rshew_L)):
         included = L in L_M
         isl.append('\n' + get_rshe_coefficient_info_string(
@@ -182,8 +183,7 @@ def get_rshe_coefficient_info_string(L, included, rshew, fw_g):
     l = int(np.sqrt(L))
     m = L - l * (l + 1)
     included = 'yes' if included else 'no'
-    info_string = '{0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
-                                                            np.max(fw_g),
-                                                            rshew,
-                                                            included)
+    info_string = '{:6}  {:1.8f}  {:1.8f}  {:8}'.format(f'({l},{m})',
+                                                        np.max(fw_g),
+                                                        rshew, included)
     return info_string

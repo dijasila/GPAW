@@ -5,56 +5,58 @@ The ``lumi.csc.fi`` supercomputer
 =================================
 
 .. note::
-   These instructions are up-to-date as of January 2023.
+   These instructions are up-to-date as of September 2023.
 
-As all the GPU related libraries are not available in the CPU only
-partition, separate installation is needed for LUMI-C and LUMI-G.
-
-
-GPAW for LUMI-C
-===============
-
-Following instructions are preliminary guidelines on how to install GPAW to
-be utilized with the CPU only partition of LUMI-C. To begin, add a
-following file to your current directory and call it ``siteconfig-lumi.py``.
-
-.. literalinclude:: siteconfig-lumi.py
-
-Following script will install latest GPAW under ``gpaw-cpu`` sub-directory
-(within the current directory). It is recommended to perform installation
-under the ``project`` directory (see `LUMI user documentation
-<https://docs.lumi-supercomputer.eu/runjobs/lumi_env/storing-data/>`_)::
-
-  module load cray-python/3.9.12.1 PrgEnv-gnu/8.3.3
-
-  export GPAW_CONFIG=$PWD/siteconfig-lumi.py
-  export PYTHONUSERBASE=$PWD/gpaw-cpu
-  pip install --user git+https://gitlab.com/gpaw/gpaw.git 2>&1 | tee install.log
-
-In order to use GPAW, one needs to set also ``PATH``::
-
-  export PATH=$PYTHONUSERBASE/bin:$PATH
+It is recommended to perform installation under the
+``/projappl/project_...`` directory (see `LUMI user documentation
+<https://docs.lumi-supercomputer.eu/storage/>`_). A separate installation
+is needed for LUMI-C and LUMI-G.
 
 
 GPAW for LUMI-G
 ===============
 
-GPU version of GPAW depends on `cupy <https://cupy.dev/>`_ which needs to
-be installed first. Currently, the version of ``rocm`` library differs in the
-login and compute nodes, and thus the installation needs to be done in the
-compute node as follows::
+Load the following modules:
 
-  module load cray-python/3.9.12.1 PrgEnv-gnu/8.3.3
-  module load craype-accel-amd-gfx90a rocm
+.. code-block:: bash
 
-  export PYTHONUSERBASE=$PWD/gpaw-gpu
-  # Start shell in GPU node
-  srun -p dev-g --nodes=1 --ntasks-per-node=1 --gpus-per-node=1 -A <project> -t 0:30:00 --pty bash
-  # Set environment variables for cupy installation
-  export CUPY_INSTALL_USE_HIP=1
-  export ROCM_HOME=$ROCM_PATH
-  export HCC_AMDGPU_TARGET=gfx90a
-  pip install --user git+https://github.com/cupy/cupy.git@v11.2.0
+  export EBU_USER_PREFIX=/scratch/project_465000538/GPAW/EasyBuild
+  module load LUMI/22.12 partition/G
+  module load cpeGNU/22.12
+  module load craype-accel-amd-gfx90a
+  module load rocm/5.2.3
+  module load cray-python/3.9.13.1
+  module load cray-fftw/3.3.10.1
+  module load ASE/3.22.1-cpeGNU-22.12
+  module load CuPy/12.2.0-cpeGNU-22.12
+  module load ELPA/2023.05.001-cpeGNU-22.12-GPU
+  module load libxc/6.2.2-cpeGNU-22.12
+
+Create a virtual environment and activate it::
+
+  python3 -m venv venv
+  source venv/bin/activate
+
+Clone the GPAW source code::
+
+  git clone git@gitlab.com:gpaw/gpaw
+
+Copy this :git:`~doc/platforms/Cray/siteconfig-lumi-gpu.py` to
+``gpaw/siteconfig.py`` and compile the C-code and the GPU kernels with::
+
+  pip install -v -e gpaw/
+
+Now insert the ``export EBU_USER_PREFIX=...`` line and all the ``module load``
+lines from above into the start of your ``venv/bin/activate`` script so that
+the modules are always loaded when you activate your new environment.
+
+Interactive jobs can be run like this::
+
+  srun -A project_465000538 -p small-g --nodes=1 --ntasks-per-node=2 --gpus-per-node=1 -t 0:30:00 --pty bash
+
+To use Omnitrace, source this file???::
+
+  source /scratch/project_465000538/GPAW/omnitrace-1.10.2-opensuse-15.4-ROCm-50200-PAPI-OMPT-Python3/share/omnitrace/setup-env.sh
 
 
 Configuring MyQueue

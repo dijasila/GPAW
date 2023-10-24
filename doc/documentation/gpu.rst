@@ -36,6 +36,7 @@ The gpaw.gpu module
 
 .. autodata:: cupy_is_fake
 .. autodata:: is_hip
+.. autofunction:: as_np
 .. autofunction:: as_xp
 .. autofunction:: cupy_eigh
 

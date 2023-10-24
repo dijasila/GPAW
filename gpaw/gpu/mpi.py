@@ -9,8 +9,12 @@ class CuPyMPI:
         self.rank = comm.rank
         self.size = comm.size
 
+    def __repr__(self):
+        return f'CuPyMPI({self.comm})'
+
     def sum(self, array, root=-1):
         if isinstance(array, (float, int)):
+            1 / 0
             return self.comm.sum(array, root)
         if isinstance(array, np.ndarray):
             self.comm.sum(array, root)
@@ -61,14 +65,17 @@ class CuPyMPI:
             return
         b = a.get()
         self.comm.broadcast(b, root)
-        a[:] = cp.asarray(b)
+        a[...] = cp.asarray(b)
 
-    def receive(self, a, rank, tag=0):
+    def receive(self, a, rank, tag=0, block=True):
         if isinstance(a, np.ndarray):
-            return self.comm.receive(a, rank, tag)
+            return self.comm.receive(a, rank, tag, block)
         b = np.empty(a.shape, a.dtype)
-        self.comm.receive(b, rank, tag)
-        a[:] = cp.asarray(b)
+        req = self.comm.receive(b, rank, tag, block)
+        if block:
+            a[:] = cp.asarray(b)
+            return
+        return CuPyRequest(req, b, a)
 
     def ssend(self, a, rank, tag):
         if isinstance(a, np.ndarray):
@@ -93,13 +100,24 @@ class CuPyMPI:
         to[:] = cp.asarray(a)
 
     def wait(self, request):
+        if not isinstance(request, CuPyRequest):
+            return self.comm.wait(request)
         self.comm.wait(request.request)
+        if request.target is not None:
+            request.target[:] = cp.asarray(request.buffer)
+
+    def waitall(self, requests):
+        self.comm.waitall([request.request for request in requests])
+        for request in requests:
+            if request.target is not None:
+                request.target[:] = cp.asarray(request.buffer)
 
     def get_c_object(self):
         return self.comm.get_c_object()
 
 
 class CuPyRequest:
-    def __init__(self, request, array):
+    def __init__(self, request, buffer, target=None):
         self.request = request
-        self.array = array
+        self.buffer = buffer
+        self.target = target

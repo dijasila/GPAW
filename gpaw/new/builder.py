@@ -143,6 +143,7 @@ class DFTComponentsBuilder:
 
         self.xc = self.create_xc_functional()
 
+        self.interpolation_desc: Domain
         self.electrostatic_potential_desc: Domain
         self.atomdist: AtomDistribution
 
@@ -406,7 +407,7 @@ def calculate_number_of_bands(nbands: int | str | None,
         # Number of bound partial waves:
         nbandsmax = sum(setup.get_default_nbands()
                         for setup in setups)
-        N = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+        N = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
         N = min(N, nbandsmax)
         if is_lcao and N > nao:
             N = nao

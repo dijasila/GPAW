@@ -294,6 +294,8 @@ class PWLFC(BaseLFC):
                 self.comm.sum(c_xI)
 
         nx = prod(c_xI.shape[:-1])
+        if nx == 0:
+            return
         c_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
@@ -320,6 +322,8 @@ class PWLFC(BaseLFC):
         c_xI = xp.zeros(a_xG.shape[:-1] + (self.nI,), self.dtype)
 
         nx = prod(c_xI.shape[:-1])
+        if nx == 0:
+            return
         b_xI = c_xI.reshape((nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
@@ -357,6 +361,8 @@ class PWLFC(BaseLFC):
         xp = self.xp
         c_vxI = xp.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.dtype)
         nx = prod(c_vxI.shape[1:-1])
+        if nx == 0:
+            return
         b_vxI = c_vxI.reshape((3, nx, self.nI))
         a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.dtype)
 
@@ -444,7 +450,7 @@ class PWLFC(BaseLFC):
                 I1 = I2
 
         if isinstance(c_axi, float):
-            c_axi = dict((a, c_axi) for a in range(len(self.pos_av)))
+            c_axi = {a: c_axi for a in range(len(self.pos_av))}
 
         G0_Gv = self.pw.G_plus_k_Gv
 
@@ -479,6 +485,8 @@ class PWLFC(BaseLFC):
         c_xI = xp.zeros(a_xG.shape[:-1] + (self.nI,), self.pw.dtype)
 
         x = prod(c_xI.shape[:-1])
+        if x == 0:
+            return 0.0
         b_xI = c_xI.reshape((x, self.nI))
         a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
