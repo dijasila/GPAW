@@ -54,7 +54,7 @@ def test_gpu_k(gpu, par, mode, xc):
         dict(mode={'name': mode},
              spinpol=True,
              xc=xc,
-             h=0.05,
+             h=0.025,
              convergence={'density':1e-8},
              kpts=(4, 1, 1),
              poissonsolver=poisson,
