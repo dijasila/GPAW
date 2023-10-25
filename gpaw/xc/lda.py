@@ -7,13 +7,14 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.new.c import evaluate_lda_gpu
 
 class LDARadialExpansion:
-    def __init__(self, expander, *, n_qg, nc_g):
+    def __init__(self, expander, *, n_qg, nc_g, temp_ngqL):
         xp = expander.xp
         self.xp = xp
         self.n_qg = n_qg
         n_sLg = xp.dot(expander.D_sLq, n_qg)
         if nc_g is not None:
             n_sLg[:, 0] += nc_g / expander.nspins * (4 * xp.pi)**0.5
+
         self.expander = expander
         self.nspins = len(n_sLg)
         self.rgd = expander.rgd
@@ -23,8 +24,9 @@ class LDARadialExpansion:
         #    self.n_sng = xp.empty((self.nspins, len(weight_n), self.rgd.N))
         #    xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
         #else:
-        self.n_sng = xp.ascontiguousarray(xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True))
-
+        #self.n_sng = xp.ascontiguousarray(xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True))
+        self.n_sng = xp.ascontiguousarray(expander.Y_nL @ n_sLg)
+        self.temp_ngqL = temp_ngqL
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         xp = self.xp
         #E = xp.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
@@ -32,18 +34,12 @@ class LDARadialExpansion:
             self.setup.dv_ng = self.expander.rgd.dv_g[None, :] * xp.asarray(weight_n[:, None])
         E = (potential.e_ng * self.setup.dv_ng).ravel().sum()
         if dEdD_sp is not None:
-            if not hasattr(self.setup, 'temp_ngqL'):
-                self.setup.temp_ngqL = xp.einsum('g,n,qg,nL->ngqL', 
-                                                 self.expander.rgd.dv_g,
-                                                 weight_n,
-                                                 self.n_qg,
-                                                 self.expander.Y_nL, optimize=True)
 
             #dEdD_sqL = xp.einsum('ngqL,sng->sqL',
             #                     self.setup.temp_ngqL,
             #                     potential.dedn_sng,
             #                     optimize=False)
-            dEdD_sqL = (potential.dedn_sng.reshape((potential.dedn_sng.shape[0], -1)) @ self.setup.temp_ngqL.reshape((-1, self.setup.temp_ngqL.shape[2] * self.setup.temp_ngqL.shape[3]))).reshape((len(potential.dedn_sng), self.setup.temp_ngqL.shape[2] , self.setup.temp_ngqL.shape[3]))
+            dEdD_sqL = (potential.dedn_sng.reshape((potential.dedn_sng.shape[0], -1)) @ self.temp_ngqL.reshape((-1, self.temp_ngqL.shape[2] * self.temp_ngqL.shape[3]))).reshape((len(potential.dedn_sng), self.temp_ngqL.shape[2] , self.temp_ngqL.shape[3]))
             #dEdD_sqL = xp.einsum('g,n,sng,qg,nL->sqL', 
             #                     self.expander.rgd.dv_g,
             #                     weight_n,
@@ -82,7 +78,10 @@ class LDARadialExpander:
         self.Lmax = xcc.B_pqL.shape[2]
         self.Y_nL = xp.asarray(Y_nL[:, :self.Lmax].copy())
         self.rgd = self.xcc.rgd
-
+        #n_sLg = xp.dot(self.D_sLq, n_qg)
+        #if nc_g is not None:
+        #    n_sLg[:, 0] += nc_g / expander.nspins * (4 * xp.pi)**0.5
+        #self.n_sLg = n_sLg
     def expansion_cls(self):
         return LDARadialExpansion
 
@@ -91,10 +90,15 @@ class LDARadialExpander:
         n_qg = self.xcc.n_qg if ae else self.xcc.nt_qg
         # Core radial density
         nc_g = self.xcc.nc_g if ae else self.xcc.nct_g
+
+        temp_ngqL = self.xcc.temp_ngqL if ae else self.xcc.tempt_ngqL
+
+
         if not addcoredensity:
             nc_g = None
         return dict(n_qg=n_qg,
-                    nc_g=nc_g)
+                    nc_g=nc_g,
+                    temp_ngqL=temp_ngqL)
 
     def expand(self, ae=True, addcoredensity=True):
         dct = self.expansion_vars(ae=ae, addcoredensity=addcoredensity)

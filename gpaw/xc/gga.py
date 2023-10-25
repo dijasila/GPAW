@@ -12,23 +12,9 @@ from gpaw.new.c import evaluate_pbe_gpu
 
 
 class GGARadialExpansion(LDARadialExpansion):
-    def __init__(self, expander, *, n_qg, nc_g):
-        LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g)
+    def __init__(self, expander, *, n_qg, nc_g, temp_ngqL, a_sng, b_vsng, dndr_sLg):
+        LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g, temp_ngqL=temp_ngqL)
         xp = self.xp
-        # Radial derivative expansions
-        if not hasattr(expander.setup, 'dndr_sLg'):
-            dndr_sLg = xp.empty_like(self.n_sLg)
-            for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
-                for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                    expander.rgd.derivative(n_g, dndr_g)
-            expander.setup.dndr_sLg = dndr_sLg
-            expander.setup.a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=False)
-            expander.setup.b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=False)
-
-        dndr_sLg = expander.setup.dndr_sLg
-        a_sng = expander.setup.a_sng
-        b_vsng = expander.setup.b_vsng
-
 
         nspins = expander.nspins
         rgd = expander.rgd
@@ -70,6 +56,39 @@ class GGARadialExpander(LDARadialExpander):
         self.rnablaY_nLv = xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
         self.wrnablaY_nLv = xp.asarray(weight_n)[:, None, None] * xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
         self.setup = setup
+    
+    def expansion_vars(self, ae=True, addcoredensity=True):
+        dct = LDARadialExpander.expansion_vars(self, ae=ae, addcoredensity=addcoredensity)
+        xp = self.xp 
+        # Radial derivative expansions
+        if ae:        
+            if not hasattr(self.setup, 'dndr_sLg'):
+                dndr_sLg = xp.empty_like(self.n_sLg)
+                for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                    for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                        expander.rgd.derivative(n_g, dndr_g)
+                dndr_sLg = dndr_sLg
+                self.setup.a_sng = xp.einsum('nL,sLg->sng', self.Y_nL, dndr_sLg, optimize=False)
+                self.setup.b_vsng = xp.einsum('nLv,sLg->vsng', self.rnablaY_nLv, self.n_sLg, optimize=False)
+                self.setup.dndr_sLg = dndr_sLg
+            dct.update({'a_sng': self.setup.a_sng,
+                        'b_vsng': self.setup.b_vsng,
+                        'dndr_sLg': self.setup.dndr_sLg})
+        else:
+            if not hasattr(self.setup, 'dndrt_sLg'):
+                dndr_sLg = xp.empty_like(self.n_sLg)
+                for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                    for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                        expander.rgd.derivative(n_g, dndr_g)
+                dndr_sLg = dndr_sLg
+                self.setup.at_sng = xp.einsum('nL,sLg->sng', self.Y_nL, dndr_sLg, optimize=False)
+                self.setup.bt_vsng = xp.einsum('nLv,sLg->vsng', self.rnablaY_nLv, self.n_sLg, optimize=False)
+                self.setup.dndrt_sLg = dndr_sLg
+            dct.update({'a_sng': self.setup.at_sng,
+                        'b_vsng': self.setup.bt_vsng,
+                        'dndr_sLg': self.setup.dndrt_sLg})
+        return dct
+        
 
     def expansion_cls(self, *args, **kwargs):
         return GGARadialExpansion

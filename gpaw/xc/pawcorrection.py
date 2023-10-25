@@ -85,8 +85,7 @@ class PAWXCCorrection:
                 p += 1
             i1 += 1
         self.B_pqL = xp.asarray(B_Lqp.T.copy())
-
-        #
+        
         self.n_qg = xp.zeros((njj, ng))
         self.nt_qg = xp.zeros((njj, ng))
         w_jg = xp.asarray(w_jg)
@@ -97,6 +96,22 @@ class PAWXCCorrection:
                 self.n_qg[q] = w_jg[j1] * w_jg[j2]
                 self.nt_qg[q] = wt_jg[j1] * wt_jg[j2]
                 q += 1
+
+        def d(n_sLg):
+            dndr_sLg = xp.empty_like(n_sLg)
+            for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                    rgd.derivative(n_g, dndr_g)
+
+        #self.dndr_qg = d(n_sLg)
+
+        def I(n_qg):
+            return np.einsum('g,n,qg,nL->ngqL', self.rgd.dv_g,
+                                                weight_n,
+                                                n_qg,
+                                                self.Y_nL, optimize=True)
+        self.temp_ngqL = xp.asarray(I(self.n_qg))
+        self.tempt_ngqL = xp.asarray(I(self.nt_qg))
 
         self.nc_g = xp.asarray(nc_g)
         self.nct_g = xp.asarray(nct_g)
