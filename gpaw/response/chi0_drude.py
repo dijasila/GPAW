@@ -144,15 +144,15 @@ class PlasmaFrequencyIntegrand(Integrand):
             else:
                 dfde_n = np.zeros_like(f_n)
 
-            # XXX ADD cRPA Weights here!
-            if self.crpa_weight is not None:
-                ikn = self.gs.kd.where_is_q(kpt1.K, self.gs.kd.bzk_kc)
-                dfde_n *= self.crpa_weight.get_drude_weight_n(n_n, ikn)
-
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
             weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
                              self.analyzer.how_many_symmetries())
             vel_nv *= weight
+            # XXX ADD cRPA Weights here!
+            if self.crpa_weight is not None:
+                ikn = self.gs.kd.where_is_q(kpt1.K, self.gs.kd.bzk_kc)
+                crpa_weight = self.crpa_weight.get_drude_weight_n(n_n, ikn)
+                vel_nv *= np.sqrt(crpa_weight[:, np.newaxis])
 
         return vel_nv
 
