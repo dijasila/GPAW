@@ -8,13 +8,17 @@ from gpaw.rotation import rotation
 from gpaw.symmetry import Symmetry as OldSymmetry
 
 
-def safe_id(magmom_av, tolerance=1e-4):
-    """
-     While calculating ident for atoms, there may be rounding errors
-     in magnetic moments supplied. This will create an unique integer
-     identifier for each magnetic moment double, based on the range
-     as set by the first occurence of each floating point number:
-     [magmom_a - tolerance, magmom_a + tolerance].
+def safe_id(magmom_av, tolerance=1e-3):
+    """Convert magnetic moments to integer id's.
+
+    While calculating id's for atoms, there may be rounding errors
+    in magnetic moments supplied. This will create an unique integer
+    identifier for each magnetic moment double, based on the range
+    as set by the first occurence of each floating point number:
+    [magmom_a - tolerance, magmom_a + tolerance].
+
+    >>> safe_id([1.01, 0.99, 0.5], tolerance=0.025)
+    [0, 0, 2]
     """
     id_a = []
     for a, magmom_v in enumerate(magmom_av):
@@ -209,4 +213,3 @@ class Symmetries:
                 i1 = i2
             rotation_sii = xp.asarray(rotation_sii)
             self._rotations[ells] = rotation_sii
-        return rotation_sii
