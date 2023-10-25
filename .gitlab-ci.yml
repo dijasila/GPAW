@@ -250,6 +250,10 @@ test:
     - linux
   script:
     - gpaw info
+    - /usr/local/bin/pytest --help
+    - echo $PATH
+    - which pytest
+    - python -m pytest --help
     - >
       OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
