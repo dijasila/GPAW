@@ -136,13 +136,24 @@ def calculate_non_local_potential(setups,
 
     kpt_band_comm.sum(dH_asii.data)
 
+    dH_asii = dH_asii.to_xp(density.D_asii.layout.xp)
+   
+    if 1:
+        print(D_asii.keys())
+        print('before', dH_asii.data)
+        e_xc, e_kin = xc.xc.calculate_paw_corrections(setups, D_asii, dH_asii)
+        energy_corrections['xc'] += e_xc
+        energy_corrections['kinetic'] += e_kin 
+        print('after',dH_asii.data)
+    
+
     # Sum over domain:
     names = ['kinetic', 'coulomb', 'zero', 'xc', 'external']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
     kpt_band_comm.sum(energies)
 
-    return (dH_asii.to_xp(density.D_asii.layout.xp),
+    return (dH_asii,
             dict(zips(names, energies)))
 
 
@@ -169,7 +180,15 @@ def calculate_non_local_potential1(setup: Setup,
     if soc:
         dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
     dH_sp[:ndensities] = dH_p
-    print(dH_sp, 'dH_sp_before', xc.xc.xp)
+    e_external = 0.0
+    if setup.hubbard_u is not None:
+        eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
+        e_xc += eU
+        dH_sp += dHU_sp
+    e_xc = 0.0
+    #dH_sp[:] = 0.0 #XXX
+    """
+    print('D_sp_in', D_sp)
     if xc.xc.xp is not np:
         D_sp_gpu = xc.xc.xp.asarray(D_sp)
         dH_sp_gpu = xc.xc.xp.asarray(dH_sp)
@@ -177,13 +196,8 @@ def calculate_non_local_potential1(setup: Setup,
         dH_sp[:] = xc.xc.xp.asnumpy(dH_sp_gpu)
     else:
         e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
-
-    print(dH_sp, 'dH_sp_after', xc.xc.xp)
-    e_external = 0.0
-    if setup.hubbard_u is not None:
-        eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)
-        e_xc += eU
-        dH_sp += dHU_sp
+    """
+    
 
     dH_sii = unpack(dH_sp)
     e_kinetic -= (D_sii * dH_sii).sum().real

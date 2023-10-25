@@ -1,6 +1,6 @@
 import numpy as np
 from gpaw.xc.kernel import XCKernel
-
+from gpaw.utilities import pack2, unpack, unpack2, pack
 
 class XCFunctional:
     orbital_dependent = False
@@ -63,6 +63,47 @@ class XCFunctional:
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         raise NotImplementedError
+
+    def calculate_paw_corrections(self, setups, D_asii, dEdD_asii, addcoredensity=True):
+        E = 0
+        ekin = 0
+        D_asp = self.xp.array([ self.xp.array([ self.xp.asarray(pack(self.xp.asnumpy(D_ii).real)) for D_ii in D_sii]) for D_sii in D_asii.values() ])
+        dEdD_asp = self.xp.zeros_like(D_asp)
+        expander = self.get_radial_expander(setups[0], D_asp, xp=self.xp)
+        rcalc = self.get_radial_calculator(xp=self.xp)
+        E = 0
+        for sign, ae in [(1.0, True), (-1.0, False)]:
+            expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
+            Ein = expansion.integrate(rcalc(expansion), sign=sign, dEdD_asp=dEdD_asp)
+            E += Ein
+
+        print(dEdD_asp.shape,'123')
+        for a, H_sp in enumerate(dEdD_asp):
+            dEdD_asii[a] += self.xp.asarray(unpack(self.xp.asnumpy(H_sp)))
+
+        if addcoredensity:
+            E -= setups[0].xc_correction.e_xc0 * len(dEdD_asp)
+        ekin -= (dEdD_asp * D_asp).sum().real
+        return float(E), float(ekin)
+
+        for setup, D_sii, dEdD_sii in zip(setups, D_asii, dEdD_asii):
+            if self.xp is not np:
+                D_sp = self.xp.array([ self.xp.asarray(pack(self.xp.asnumpy(D_ii).real)) for D_ii in D_sii])
+            else:
+                D_sp = self.xp.array([ pack(D_ii.real) for D_ii in D_sii])
+            dEdD_sp = self.xp.zeros_like(D_sp)
+            print('D_sp in', D_sp)
+            #E += self.calculate_paw_correction(setup, D_sp, dEdD_sp)
+            
+            if self.xp is not np:
+                H_sii = self.xp.asarray(unpack(self.xp.asnumpy(dEdD_sp))) 
+                dEdD_sii += self.xp.asarray(unpack(self.xp.asnumpy(dEdD_sp)))
+                ekin -= (H_sii * self.xp.asarray(D_sii)).sum().real
+            else:
+                ekin -= (unpack(dEdD_sp) * D_sii).sum().real
+                dEdD_sii[:] += unpack(dEdD_sp)
+
+        return float(E), float(ekin)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):

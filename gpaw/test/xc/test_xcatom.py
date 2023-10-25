@@ -18,9 +18,14 @@ def test_xc_xcatom(xp, xc):
     nii = ni * (ni + 1) // 2
     D_p = xp.asarray(0.1 * ra.random(nii) + 0.2)
     H_p = xp.zeros(nii)
-
-    xc.calculate_paw_correction(
-        s, D_p.reshape(1, -1), H_p.reshape(1, -1))
+    print(D_p)
+    D_ii = unpack(D_p)
+    H_ii = unpack(H_ii)
+    xc.calculate_paw_corrections(
+        [s], [unpack(D_p.reshape(1, -1))], [unpack(H_p.reshape(1, -1)])
+    
+    #xc.calculate_paw_correction(
+    #    s, D_p.reshape(1, -1), H_p.reshape(1, -1))
     dD_p = xp.asarray(x * ra.random(nii))
     dE = xp.dot(H_p, dD_p) / x
     D_p += dD_p
