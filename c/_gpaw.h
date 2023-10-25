@@ -427,8 +427,16 @@ static PyObject* moduleinit(void)
                            PyUnicode_FromString(xc_version_string()));
 # endif
 #endif
+#ifdef GPAW_GPU
+    PyObject_SetAttrString(m, "GPU_ENABLED", Py_True);
+#else
+    PyObject_SetAttrString(m, "GPU_ENABLED", Py_False);
+#endif
 #ifdef GPAW_GPU_AWARE_MPI
     PyObject_SetAttrString(m, "gpu_aware_mpi", Py_True);
+#else
+    PyObject_SetAttrString(m, "gpu_aware_mpi", Py_False);
+#endif
 #endif
 #ifdef _OPENMP
     PyObject_SetAttrString(m, "have_openmp", Py_True);
