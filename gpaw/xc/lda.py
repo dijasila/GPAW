@@ -13,7 +13,8 @@ class LDARadialExpansion:
         self.n_qg = n_qg
         n_saLg = np.einsum('asLq,qg->saLg', expander.D_asLq, n_qg, optimize=True) #xp.dot(expander.D_sLq, n_qg)
         if nc_g is not None:
-            n_saLg[:, None, 0] += nc_g / expander.nspins * (4 * xp.pi)**0.5
+            #for a in range(n_saLg.shape[1]):
+            n_saLg[0, :, 0, :] += nc_g[None, :] / expander.nspins * (4 * xp.pi)**0.5 # only spinpaired works
         self.expander = expander
         self.nspins = len(n_saLg)
         self.rgd = expander.rgd

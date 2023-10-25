@@ -121,6 +121,7 @@ def calculate_non_local_potential(setups,
     Q_aL = Q_aL.to_xp(np)
     energy_corrections: DefaultDict[str, float] = defaultdict(float)
     rank = 0
+    
     for a, D_sii in D_asii.items():
         if rank % kpt_band_comm.size == kpt_band_comm.rank:
             Q_L = Q_aL[a]
@@ -135,9 +136,7 @@ def calculate_non_local_potential(setups,
         rank += 1
 
     kpt_band_comm.sum(dH_asii.data)
-
-    dH_asii = dH_asii.to_xp(density.D_asii.layout.xp)
-   
+    
     if 1:
         print(D_asii.keys())
         print('before', dH_asii.data)
@@ -145,6 +144,9 @@ def calculate_non_local_potential(setups,
         energy_corrections['xc'] += e_xc
         energy_corrections['kinetic'] += e_kin 
         print('after',dH_asii.data)
+
+    dH_asii = dH_asii.to_xp(density.D_asii.layout.xp)
+   
     
 
     # Sum over domain:

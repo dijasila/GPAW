@@ -79,27 +79,31 @@ class XCFunctional:
         E = 0
         ekin = 0
         for sid, setup in by_species.items():
-            D_asp = self.xp.array([ self.xp.array([ self.xp.asarray(pack(self.xp.asnumpy(D_ii).real)) for D_ii in D_asii[a]]) for a, s in enumerate(id_by_atom) if s == sid])
+            D_asp = []
+            for a, s in enumerate(id_by_atom):
+                if s != sid:
+                    continue
+                D_asp.append(np.array([pack(D_ii.real) for D_ii in D_asii[a]]))
+            D_asp = self.xp.asarray(np.array(D_asp))
             dEdD_asp = self.xp.zeros_like(D_asp)
             expander = self.get_radial_expander(setup, D_asp, xp=self.xp)
             rcalc = self.get_radial_calculator(xp=self.xp)
-            E = 0
             for sign, ae in [(1.0, True), (-1.0, False)]:
                 expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
                 Ein = expansion.integrate(rcalc(expansion), sign=sign, dEdD_asp=dEdD_asp)
                 E += Ein
 
-            print(dEdD_asp.shape,'123')
+            ekin -= (dEdD_asp * D_asp).sum().real
+            dEdD_asp = self.xp.asnumpy(dEdD_asp)
             a2 = 0
             for a, s in enumerate(id_by_atom):
                 if s != sid:
                     continue
-                dEdD_asii[a] += self.xp.asarray(unpack(self.xp.asnumpy(dEdD_asp[a2])))
+                dEdD_asii[a] += unpack(dEdD_asp[a2])
                 a2 += 1
 
             if addcoredensity:
                 E -= setup.xc_correction.e_xc0 * len(dEdD_asp)
-            ekin -= (dEdD_asp * D_asp).sum().real
         return float(E), float(ekin)
 
         for setup, D_sii, dEdD_sii in zip(setups, D_asii, dEdD_asii):
