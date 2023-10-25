@@ -113,6 +113,13 @@ class PAWXCCorrection:
         self.temp_ngqL = xp.asarray(I(self.n_qg))
         self.tempt_ngqL = xp.asarray(I(self.nt_qg))
 
+        def core(nc_g):
+            nc_Lg = np.zeros((self.B_pqL.shape[2], self.n_qg.shape[1]))
+            nc_Lg[0] += nc_g * (4 * xp.pi)**0.5
+            return nc_Lg
+
+        self.nc_Lg = xp.asarray(core(nc_g))
+        self.nct_Lg = xp.asarray(core(nct_g))
         self.nc_g = xp.asarray(nc_g)
         self.nct_g = xp.asarray(nct_g)
 
