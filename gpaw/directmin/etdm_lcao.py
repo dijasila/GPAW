@@ -258,6 +258,7 @@ class LCAOETDM:
         self.ind_up = {}
         self.ind_oo_up = {}
         self.ind_ov_up = {}
+        self.ind_sparse_up = {}
         self.ind_all_up = {}
         self.n_dim = {}
         self.n_dim_oo = {}
@@ -490,12 +491,17 @@ class LCAOETDM:
                     i1_ov.append(i)
                     i2_ov.append(j)
             self.ind_ov_up[u] = (np.asarray(i1_ov), np.asarray(i2_ov))
+            i1_sparse, i2_sparse = [], []
+            for i in range(n_occ):
+                for j in range(i + 1, M):
+                    i1_sparse.append(i)
+                    i2_sparse.append(j)
+            self.ind_sparse_up[u] = (np.asarray(i1_sparse),
+                                     np.asarray(i2_sparse))
             if self.representation == 'u-invar':
                 self.ind_all_up[u] = self.ind_ov_up[u]
             if self.representation == 'sparse':
-                i1 = np.array(i1_oo + i1_ov)
-                i2 = np.array(i2_oo + i2_ov)
-                self.ind_all_up[u] = self.sort_ind_p(i1, i2)
+                self.ind_all_up[u] = self.ind_sparse_up[u]
             elif self.representation == 'full' and self.dtype == complex:
                 # Take indices of all upper triangular and diagonal
                 # elements of A_BigMatrix
@@ -561,31 +567,6 @@ class LCAOETDM:
                     'settings do not use PZ-SIC.'
                 self.lock_subspace('oo')
             self.need_localization = False
-
-    def sort_ind_p(self, i1, i2):
-        ind = np.argsort(i1)
-        i1 = i1[ind]
-        i2 = i2[ind]
-        ind = np.empty_like(ind)
-        ind[:] = -1
-        for p1 in range(len(i1)):
-            val1 = np.inf
-            val2 = np.inf
-            for p2 in range(len(i2)):
-                if p2 in ind:
-                    continue
-                if i1[p2] < val1:
-                    val1 = i1[p2]
-                    val2 = i2[p2]
-                    sort = p2
-                elif i1[p2] == val1:
-                    if i2[p2] < val2:
-                        val2 = i2[p2]
-                        sort = p2
-                else:
-                    break
-            ind[p1] = sort
-        return np.asarray(i1[ind]), np.asarray(i2[ind])
 
     def lock_subspace(self, subspace='oo'):
         self.subspace_optimization = True
