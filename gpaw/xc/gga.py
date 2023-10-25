@@ -16,14 +16,17 @@ class GGARadialExpansion(LDARadialExpansion):
         LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g)
         xp = self.xp
         # Radial derivative expansions
-        dndr_sLg = xp.empty_like(self.n_sLg)
-        for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
-            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                expander.rgd.derivative(n_g, dndr_g)
-        self.dndr_sLg = dndr_sLg
+        if not hasattr(expander.setup, 'dndr_sLg'):
+            dndr_sLg = xp.empty_like(self.n_sLg)
+            for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                    expander.rgd.derivative(n_g, dndr_g)
+            expander.setup.dndr_sLg = dndr_sLg
+        else:
+            dndr_sLg = expander.setup.dndr_sLg
 
-        a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=True)
-        b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=True)
+        a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=False)
+        b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=False)
 
         nspins = expander.nspins
         rgd = expander.rgd
@@ -51,9 +54,10 @@ class GGARadialExpansion(LDARadialExpansion):
             B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
             if nspins == 2:
                 B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
-            B_vsnq = xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=True)
-            dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
-            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+            B_vsnq = xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=False)
+            dEdD_sqL = 8 * pi * xp.einsum('nLv,vsnq->sqL', weight_n[:, None, None] * self.expander.rnablaY_nLv, B_vsnq, optimize=False) 
+            #dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
+            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
             dEdD_sp += sign * dE
         return E
 
@@ -62,6 +66,7 @@ class GGARadialExpander(LDARadialExpander):
     def __init__(self, setup, D_sp, xp=np):
         LDARadialExpander.__init__(self, setup, D_sp, xp=xp)
         self.rnablaY_nLv = xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
+        self.setup = setup
 
     def expansion_cls(self, *args, **kwargs):
         return GGARadialExpansion

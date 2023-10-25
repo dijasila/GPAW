@@ -78,13 +78,10 @@ class XCFunctional:
         E = 0
         for sign, ae in [(1.0, True), (-1.0, False)]:
             expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
-            Ein = expansion.integrate(rcalc(expansion), sign=sign, dEdD_sp=dEdD_sp)
-            print(sign*Ein, sign)
-            E += Ein
+            E += expansion.integrate(rcalc(expansion), sign=sign, dEdD_sp=dEdD_sp)
 
         if addcoredensity:
             E -= xcc.e_xc0
-        print('final dEdD', dEdD_sp)
         return E 
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):

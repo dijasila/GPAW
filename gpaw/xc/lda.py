@@ -17,27 +17,39 @@ class LDARadialExpansion:
         self.expander = expander
         self.nspins = len(n_sLg)
         self.rgd = expander.rgd
-        
+        self.setup = expander.setup
         self.n_sLg = n_sLg
         #if xp is np:
         #    self.n_sng = xp.empty((self.nspins, len(weight_n), self.rgd.N))
         #    xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
         #else:
-        print(type(expander.Y_nL))
-        print(type(n_sLg))
         self.n_sng = xp.ascontiguousarray(xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True))
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         xp = self.xp
-        E = xp.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
+        #E = xp.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
+        if not hasattr(self.setup, 'dv_gn'):
+            self.setup.dv_gn = self.expander.rgd.dv_g[:, None] * weight_n[None, :]
+        E = (potential.e_ng * self.setup.dv_gn).ravel().sum()
         if dEdD_sp is not None:
-            dEdD_sqL = xp.einsum('g,n,sng,qg,nL->sqL', 
-                                 self.expander.rgd.dv_g,
-                                 weight_n,
+            if not hasattr(self.setup, 'temp_ngqL'):
+                self.setup.temp_ngqL = xp.einsum('g,n,qg,nL->ngqL', 
+                                                 self.expander.rgd.dv_g,
+                                                 weight_n,
+                                                 self.n_qg,
+                                                 self.expander.Y_nL, optimize=True)
+
+            dEdD_sqL = xp.einsum('ngqL,sng->sqL',
+                                 self.setup.temp_ngqL,
                                  potential.dedn_sng,
-                                 self.n_qg,
-                                 self.expander.Y_nL, optimize=True)
-            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+                                 optimize=False)
+            #dEdD_sqL = xp.einsum('g,n,sng,qg,nL->sqL', 
+            #                     self.expander.rgd.dv_g,
+            #                     weight_n,
+            #                     potential.dedn_sng,
+            #                     self.n_qg,
+            #                     self.expander.Y_nL, optimize=True)
+            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
             dEdD_sp += sign * dE
         return sign * E
 
@@ -61,7 +73,6 @@ class LDARadialExpander:
         self.D_sp = D_sp
         
         # Expansion with respect to independent radial parts times spherical harmonic
-        print(type(D_sp), type(xcc.B_pqL))
         self.D_sLq = xp.inner(D_sp, xcc.B_pqL.T)
         self.nspins = len(self.D_sLq)
         self.xcc = xcc
