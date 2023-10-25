@@ -5,12 +5,11 @@ variables:
 
 default:
   before_script:
+    - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
+    - mkdir -p `python -m site --user-site`
+    - export PATH=$PYTHONUSERBASE/bin:$PATH
     - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
-
-#    - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
-#    - mkdir -p `python -m site --user-site`
-#    - export PATH=$PYTHONUSERBASE/bin:$PATH
 
 
 stages:
