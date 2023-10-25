@@ -495,8 +495,8 @@ gpwfiles:
     paths:
       - .pytest_cache/
     expire_in: 30 mins
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #rules:
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
 
 
 .nightly:
@@ -518,8 +518,8 @@ gpwfiles:
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
       pytest --instafail -r s --durations 30
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #rules:
+  #  - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 
@@ -585,7 +585,7 @@ nightly-mpi-8:
     - .nightly
 
 
-pages:
+.pages:
   image: $IMAGE_PATH/main:latest-staging  # (Any image present on the runner will do)
   stage: deploy
   dependencies:
