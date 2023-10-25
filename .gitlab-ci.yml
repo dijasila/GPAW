@@ -319,7 +319,7 @@ test-latest-new:
 
 
 test-minimal:
-  image: $IMAGE_PATH/main:latest-staging
+  image: $IMAGE_PATH/main:oldest-staging
   extends:
     - .test
   needs:
