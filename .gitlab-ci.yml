@@ -85,7 +85,7 @@ build:
 
 
 build-latest:
-  image: $IMAGE_PATH/build:latest
+  image: $IMAGE_PATH/main:latest-staging
   extends: .build
   tags:
     - linux
@@ -270,7 +270,7 @@ test:
 
 
 test-latest:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   extends:
     - .test
   needs:
@@ -306,7 +306,7 @@ test-latest:
 
 
 test-latest-new:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   extends:
     - .test
   needs:
@@ -319,7 +319,7 @@ test-latest-new:
 
 
 test-minimal:
-  image: $IMAGE_PATH/main:oldest-staging
+  image: $IMAGE_PATH/main:latest-staging
   extends:
     - .test
   needs:
@@ -409,7 +409,7 @@ check-agts:
 
 
 lint:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   stage: build
   tags:
     - linux
@@ -447,7 +447,7 @@ lint:
 
 
 typecheck:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   stage: build
   tags:
     - linux
@@ -479,7 +479,7 @@ docs:
 
 
 gpwfiles:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   extends:
     - .test
   needs:
@@ -500,7 +500,7 @@ gpwfiles:
 
 
 .nightly:
-  image: $IMAGE_PATH/run:latest
+  image: $IMAGE_PATH/main:latest-staging
   variables:
     GPAW_MPI_NPROCS: "1"
   extends:
@@ -586,7 +586,7 @@ nightly-mpi-8:
 
 
 pages:
-  image: $IMAGE_PATH/run:latest  # (Any image present on the runner will do)
+  image: $IMAGE_PATH/main:latest-staging  # (Any image present on the runner will do)
   stage: deploy
   dependencies:
     - nightly-mpi-1
