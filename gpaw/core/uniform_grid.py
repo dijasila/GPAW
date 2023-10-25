@@ -742,7 +742,7 @@ class UGArray(DistributedArrays[UGDesc]):
         """Insert random numbers between -0.5 and 0.5 into data."""
         if seed is None:
             seed = self.comm.rank + self.desc.comm.rank * self.comm.size
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
