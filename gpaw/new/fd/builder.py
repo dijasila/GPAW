@@ -16,7 +16,7 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    def __init__(self, atoms, params, *, comm, nn=3, interpolation=1):
+    def __init__(self, atoms, params, *, comm, nn=3, interpolation=3):
         super().__init__(atoms,
                          params,
                          comm=comm)
