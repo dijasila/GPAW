@@ -124,4 +124,4 @@ if not TYPE_CHECKING:
             dH_aii_times_P_ani_gpu, calculate_residuals_gpu,
             evaluate_lda_gpu, evaluate_pbe_gpu)
     except ImportError:
-        pass
+        raise

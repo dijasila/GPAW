@@ -48,10 +48,10 @@ class PAWXCCorrection:
                  phicorehole_g,  # ?
                  fcorehole,      # ?
                  tauc_g,  # kinetic core energy array
-                 tauct_g):  # pseudo kinetic core energy array
+                 tauct_g, xp=np):  # pseudo kinetic core energy array
         self.e_xc0 = e_xc0
         self.Lmax = (lmax + 1)**2
-        self.rgd = rgd
+        self.rgd = rgd.as_xp(xp)
         self.dv_g = rgd.dv_g
         self.Y_nL = Y_nL[:, :self.Lmax]
         self.rnablaY_nLv = rnablaY_nLv[:, :self.Lmax]
@@ -84,11 +84,13 @@ class PAWXCCorrection:
                 B_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
-        self.B_pqL = B_Lqp.T.copy()
+        self.B_pqL = xp.asarray(B_Lqp.T.copy())
 
         #
-        self.n_qg = np.zeros((njj, ng))
-        self.nt_qg = np.zeros((njj, ng))
+        self.n_qg = xp.zeros((njj, ng))
+        self.nt_qg = xp.zeros((njj, ng))
+        w_jg = xp.asarray(w_jg)
+        wt_jg = xp.asarray(wt_jg)
         q = 0
         for j1, l1 in jl:
             for j2, l2 in jl[j1:]:
@@ -96,8 +98,8 @@ class PAWXCCorrection:
                 self.nt_qg[q] = wt_jg[j1] * wt_jg[j2]
                 q += 1
 
-        self.nc_g = nc_g
-        self.nct_g = nct_g
+        self.nc_g = xp.asarray(nc_g)
+        self.nct_g = xp.asarray(nct_g)
 
         if fcorehole != 0.0:
             self.nc_corehole_g = fcorehole * phicorehole_g**2 / (4 * pi)

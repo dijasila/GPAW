@@ -8,25 +8,27 @@ from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import LDARadialExpander, LDARadialExpansion
+from gpaw.new.c import evaluate_pbe_gpu
 
 
 class GGARadialExpansion(LDARadialExpansion):
     def __init__(self, expander, *, n_qg, nc_g):
         LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g)
-
+        xp = self.xp
         # Radial derivative expansions
-        dndr_sLg = np.empty_like(self.n_sLg)
+        dndr_sLg = xp.empty_like(self.n_sLg)
         for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
             for n_g, dndr_g in zip(n_Lg, dndr_Lg):
                 expander.rgd.derivative(n_g, dndr_g)
         self.dndr_sLg = dndr_sLg
 
-        a_sng = np.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=True)
-        b_vsng = np.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=True)
+        a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=True)
+        b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=True)
 
         nspins = expander.nspins
         rgd = expander.rgd
-        sigma_xng = np.empty((2 * expander.nspins -1, len(expander.Y_nL), expander.rgd.N))
+        sigma_xng = xp.empty((2 * expander.nspins -1, len(expander.Y_nL), expander.rgd.N))
+        print(xp, type(sigma_xng), type(b_vsng))
         sigma_xng[::2] = (b_vsng ** 2).sum(0)
         if nspins == 2:
             sigma_xng[1] = (b_vsng[:, 0] * b_vsng[:, 1]).sum(0)
@@ -42,23 +44,24 @@ class GGARadialExpansion(LDARadialExpansion):
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
         E = LDARadialExpansion.integrate(self, potential, sign=sign, dEdD_sp=dEdD_sp)
         if dEdD_sp is not None:
+            xp = self.xp
             nspins = self.nspins
             rgd = self.expander.rgd
             potential.dedsigma_xng *= rgd.dr_g
             B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
             if nspins == 2:
                 B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
-            B_vsnq = np.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=True)
-            dEdD_sqL = 8 * pi * np.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
-            dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+            B_vsnq = xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=True)
+            dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
+            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
             dEdD_sp += sign * dE
         return E
 
 
 class GGARadialExpander(LDARadialExpander):
-    def __init__(self, setup, D_sp):
-        LDARadialExpander.__init__(self, setup, D_sp)
-        self.rnablaY_nLv = rnablaY_nLv[:, :self.Lmax, :].copy()
+    def __init__(self, setup, D_sp, xp=np):
+        LDARadialExpander.__init__(self, setup, D_sp, xp=xp)
+        self.rnablaY_nLv = xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
 
     def expansion_cls(self, *args, **kwargs):
         return GGARadialExpansion
@@ -71,32 +74,47 @@ class GGAPotentialExpansion:
         self.dedsigma_xng = dedsigma_xng
 
     def empty_like(radial_expansion):
+        xp = radial_expansion.xp
         s = radial_expansion.nspins
         n = len(weight_n)
         g = radial_expansion.rgd.N
         x = 2 * s - 1
-        dedn_sng = np.zeros((s, n, g))
-        e_ng = np.empty((n, g))
-        dedsigma_xng = np.zeros((x, n, g))
+        dedn_sng = xp.zeros((s, n, g))
+        e_ng = xp.empty((n, g))
+        dedsigma_xng = xp.zeros((x, n, g))
         return GGAPotentialExpansion(dedn_sng, e_ng, dedsigma_xng)
 
 
 class GGARadialCalculator:
-    def __init__(self, kernel):
+    def __init__(self, kernel, xp=np):
         self.kernel = kernel
+        self.xp = xp
 
     def __call__(self, expansion):
         assert isinstance(expansion, GGARadialExpansion)
         potential = GGAPotentialExpansion.empty_like(expansion)
         potential.dedn_sng[:] = 0.0
+        potential.dedsigma_xng[:] = 0.0
         assert potential.e_ng.flags.c_contiguous
         assert potential.dedn_sng.flags.c_contiguous
+        assert potential.dedsigma_xng.flags.c_contiguous
+        assert expansion.n_sng.flags.c_contiguous
+        assert expansion.sigma_xng.flags.c_contiguous
         nspins = expansion.nspins
-        self.kernel.calculate(potential.e_ng.ravel(), 
-                              expansion.n_sng.reshape((nspins, -1)),
-                              potential.dedn_sng.reshape((nspins, -1)), 
-                              expansion.sigma_xng.reshape((nspins*2-1, -1)), 
-                              potential.dedsigma_xng.reshape((nspins*2-1, -1)))
+        xp = expansion.xp
+        if xp is np:
+            self.kernel.calculate(potential.e_ng.ravel(), 
+                                  expansion.n_sng.reshape((nspins, -1)),
+                                  potential.dedn_sng.reshape((nspins, -1)), 
+                                  expansion.sigma_xng.reshape((nspins*2-1, -1)), 
+                                  potential.dedsigma_xng.reshape((nspins*2-1, -1)))
+        else:
+            # XXX Hard coded to PBE, assert here
+            evaluate_pbe_gpu(expansion.n_sng.reshape((nspins, -1)),
+                             potential.dedn_sng.reshape((nspins, -1)), 
+                             potential.e_ng.ravel(), 
+                             expansion.sigma_xng.reshape((nspins*2-1, -1)), 
+                             potential.dedsigma_xng.reshape((nspins*2-1, -1)))
         potential.dedn_sng += add_radial_gradient_correction(expansion.rgd, expansion.sigma_xng, potential.dedsigma_xng, expansion.a_sng)
         return potential
 
@@ -190,7 +208,7 @@ def get_gradient_ops(gd, nn, xp):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=2, xp=np):
+    def __init__(self, kernel, stencil=2, xp=None):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
@@ -216,11 +234,11 @@ class GGA(XCFunctional):
                                 dedsigma_xg, v_sg)
 
 
-    def get_radial_expander(self, setup, D_sp):
-        return GGARadialExpander(setup, D_sp)
+    def get_radial_expander(self, setup, D_sp, xp=np):
+        return GGARadialExpander(setup, D_sp, xp=xp)
 
-    def get_radial_calculator(self):
-        return GGARadialCalculator(self.kernel)
+    def get_radial_calculator(self, xp=np):
+        return GGARadialCalculator(self.kernel, xp=xp)
 
     def stress_tensor_contribution(self, n_sg, skip_sum=False):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)

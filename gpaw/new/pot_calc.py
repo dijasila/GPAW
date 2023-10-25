@@ -169,7 +169,16 @@ def calculate_non_local_potential1(setup: Setup,
     if soc:
         dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
     dH_sp[:ndensities] = dH_p
-    e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
+    print(dH_sp, 'dH_sp_before', xc.xc.xp)
+    if xc.xc.xp is not np:
+        D_sp_gpu = xc.xc.xp.asarray(D_sp)
+        dH_sp_gpu = xc.xc.xp.asarray(dH_sp)
+        e_xc = float(xc.calculate_paw_correction(setup, D_sp_gpu, dH_sp_gpu))
+        dH_sp[:] = xc.xc.xp.asnumpy(dH_sp_gpu)
+    else:
+        e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
+
+    print(dH_sp, 'dH_sp_after', xc.xc.xp)
     e_external = 0.0
     if setup.hubbard_u is not None:
         eU, dHU_sp = setup.hubbard_u.calculate(setup, D_sp)

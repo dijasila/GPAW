@@ -73,8 +73,8 @@ class XCFunctional:
         from gpaw.xc.noncollinear import NonCollinearLDAKernel
         collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
 
-        expander = self.get_radial_expander(setup, D_sp)
-        rcalc = self.get_radial_calculator()
+        expander = self.get_radial_expander(setup, D_sp, xp=self.xp)
+        rcalc = self.get_radial_calculator(xp=self.xp)
         E = 0
         for sign, ae in [(1.0, True), (-1.0, False)]:
             expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
@@ -105,10 +105,10 @@ class XCFunctional:
         e_g = potential.e_ng[0]
         return expansion.integrate(potential)
 
-    def get_radial_expander(self, setup, D_sp):
+    def get_radial_expander(self, setup, D_sp, xp=np):
         raise NotImplementedError
 
-    def get_radial_calculator(self):
+    def get_radial_calculator(self, xp=np):
         raise NotImplementedError
 
     def set_positions(self, spos_ac, atom_partition=None):

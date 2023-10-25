@@ -4,32 +4,40 @@ import numpy as np
 
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import Y_nL, weight_n
-
+from gpaw.new.c import evaluate_lda_gpu
 
 class LDARadialExpansion:
     def __init__(self, expander, *, n_qg, nc_g):
+        xp = expander.xp
+        self.xp = xp
         self.n_qg = n_qg
-        n_sLg = np.dot(expander.D_sLq, n_qg)
+        n_sLg = xp.dot(expander.D_sLq, n_qg)
         if nc_g is not None:
-            n_sLg[:, 0] += nc_g / expander.nspins * (4 * np.pi)**0.5
+            n_sLg[:, 0] += nc_g / expander.nspins * (4 * xp.pi)**0.5
         self.expander = expander
         self.nspins = len(n_sLg)
         self.rgd = expander.rgd
         
         self.n_sLg = n_sLg
-        self.n_sng = np.empty((self.nspins, len(weight_n), self.rgd.N))
-        np.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
+        #if xp is np:
+        #    self.n_sng = xp.empty((self.nspins, len(weight_n), self.rgd.N))
+        #    xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True, out=self.n_sng)
+        #else:
+        print(type(expander.Y_nL))
+        print(type(n_sLg))
+        self.n_sng = xp.ascontiguousarray(xp.einsum('nL,sLg->sng', expander.Y_nL, n_sLg, optimize=True))
 
     def integrate(self, potential, sign=1.0, dEdD_sp=None):
-        E = np.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
+        xp = self.xp
+        E = xp.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
         if dEdD_sp is not None:
-            dEdD_sqL = np.einsum('g,n,sng,qg,nL->sqL', 
+            dEdD_sqL = xp.einsum('g,n,sng,qg,nL->sqL', 
                                  self.expander.rgd.dv_g,
                                  weight_n,
                                  potential.dedn_sng,
                                  self.n_qg,
                                  self.expander.Y_nL, optimize=True)
-            dE = np.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
+            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=True)
             dEdD_sp += sign * dE
         return sign * E
 
@@ -39,23 +47,26 @@ class LDAPotentialExpansion:
         self.e_ng = e_ng
 
     def empty_like(radial_expansion):
-        return LDAPotentialExpansion(np.zeros_like(radial_expansion.n_sng),
-                                     np.empty_like(radial_expansion.n_sng[0]))
+        xp = radial_expansion.xp
+        return LDAPotentialExpansion(xp.zeros_like(radial_expansion.n_sng),
+                                     xp.empty_like(radial_expansion.n_sng[0]))
 
 
 class LDARadialExpander:
-    def __init__(self, setup, D_sp=np.zeros(0)): #rcalc, collinear=True, addcoredensity=True):
+    def __init__(self, setup, D_sp=None, xp=np): #rcalc, collinear=True, addcoredensity=True):
+        self.xp = xp
         xcc = setup.xc_correction
         
         # Packed density matrix p=(i, j), where i and j are partial wave indices
         self.D_sp = D_sp
         
         # Expansion with respect to independent radial parts times spherical harmonic
-        self.D_sLq = np.inner(D_sp, xcc.B_pqL.T)
+        print(type(D_sp), type(xcc.B_pqL))
+        self.D_sLq = xp.inner(D_sp, xcc.B_pqL.T)
         self.nspins = len(self.D_sLq)
         self.xcc = xcc
         self.Lmax = xcc.B_pqL.shape[2]
-        self.Y_nL = Y_nL[:, :self.Lmax].copy()
+        self.Y_nL = xp.asarray(Y_nL[:, :self.Lmax].copy())
         self.rgd = self.xcc.rgd
 
     def expansion_cls(self):
@@ -77,29 +88,35 @@ class LDARadialExpander:
 
 
 class LDARadialCalculator:
-    def __init__(self, kernel):
+    def __init__(self, kernel, xp=np):
         self.kernel = kernel
+        self.xp = xp
 
     def __call__(self, expansion):
         assert isinstance(expansion, LDARadialExpansion)
         potential = LDAPotentialExpansion.empty_like(expansion)
-        self.kernel.calculate(potential.e_ng, expansion.n_sng, potential.dedn_sng)
+        if self.xp is np:
+            self.kernel.calculate(potential.e_ng, expansion.n_sng, potential.dedn_sng)
+        else:
+            # ASSERT here, is it the actual LDA functional that we want
+            evaluate_lda_gpu(expansion.n_sng, potential.dedn_sng, potential.e_ng)
         return potential
 
 
 class LDA(XCFunctional):
-    def __init__(self, kernel):
+    def __init__(self, kernel, xp=np):
         self.kernel = kernel
+        self.xp = xp
         XCFunctional.__init__(self, kernel.name, kernel.type)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.kernel.calculate(e_g, n_sg, v_sg)
 
-    def get_radial_expander(self, setup, D_sp):
-        return LDARadialExpander(setup, D_sp)
+    def get_radial_expander(self, setup, D_sp, xp=np):
+        return LDARadialExpander(setup, D_sp, xp=xp)
 
-    def get_radial_calculator(self):
-        return LDARadialCalculator(self.kernel)
+    def get_radial_calculator(self, xp=np):
+        return LDARadialCalculator(self.kernel, xp=xp)
 
     def calculate_radial(self, rgd, n_sLg, Y_nL):
         rcalc = LDARadialCalculator(self.kernel)

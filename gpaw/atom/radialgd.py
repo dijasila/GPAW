@@ -65,13 +65,14 @@ def fsbt(l, f_g, r_g, G_k):
 class RadialGridDescriptor(ABC):
     ndim = 1  # dimension of ndarrays
 
-    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
+    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25, xp=np):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
         self.dr_g = dr_g
         self.N = len(r_g)
         self.dv_g = 4 * pi * r_g**2 * dr_g
         self.default_spline_points = default_spline_points
+        self.xp = xp
 
     def __len__(self):
         return self.N
@@ -567,7 +568,7 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
 
 class AERadialGridDescriptor(RadialGridDescriptor):
-    def __init__(self, a, b, N=1000, default_spline_points=25):
+    def __init__(self, a, b, N=1000, default_spline_points=25, xp=np):
         """Radial grid descriptor for all-electron calculation.
 
         The radial grid is::
@@ -579,10 +580,16 @@ class AERadialGridDescriptor(RadialGridDescriptor):
 
         self.a = a
         self.b = b
-        g = np.arange(N)
+        g = xp.arange(N)
         r_g = self.a * g / (1 - self.b * g)
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
+
+    def as_xp(self, xp):
+        if self.xp is not xp:
+            return AERadialGridDescriptor(self.a, self.b, self.N, self.default_spline_points, xp=xp) 
+        return self
+    
 
     def r2g(self, r):
         # return r / (r * self.b + self.a)

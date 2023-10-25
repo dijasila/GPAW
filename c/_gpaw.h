@@ -352,7 +352,7 @@ static PyMethodDef functions[] = {
     {"evaluate_lda_gpu", evaluate_lda_gpu, METH_VARARGS, 0},
     {"evaluate_pbe_gpu", evaluate_pbe_gpu, METH_VARARGS, 0},
     {"multi_einsum_gpu", multi_einsum_gpu, METH_VARARGS | METH_KEYWORDS, 0},
-    {"calculate_residual_gpu", calculate_residual_gpu, METH_VARARGS, 0},
+    {"calculate_residuals_gpu", calculate_residual_gpu, METH_VARARGS, 0},
 #endif // GPAW_GPU
     {0, 0, 0, 0}
 };
