@@ -84,7 +84,7 @@ def cupy_eigh(a: cupy.ndarray, UPLO: str) -> tuple[cupy.ndarray, cupy.ndarray]:
     HIP-GPU version is too slow for now so we do it on the CPU.
     """
     from scipy.linalg import eigh
-    if not is_hip:
+    if 0: # not is_hip:
         return cupy.linalg.eigh(a, UPLO=UPLO)
     eigs, evals = eigh(cupy.asnumpy(a),
                        lower=(UPLO == 'L'),

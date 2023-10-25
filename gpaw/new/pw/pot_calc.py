@@ -22,12 +22,14 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  fracpos_ac,
                  atomdist,
                  soc=False,
+                 symmetries=None,
                  xp=np):
         self.xp = xp
         super().__init__(xc, poisson_solver, setups,
                          fracpos_ac=fracpos_ac,
                          soc=soc)
-
+       
+        self.symmetries = symmetries
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
@@ -102,8 +104,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             taut_sr = self.interpolate(density.taut_sR)
         else:
             taut_sr = None
-
-        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
+        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr, symmetries=self.symmetries)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)

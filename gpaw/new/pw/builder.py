@@ -108,6 +108,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             fracpos_ac=self.fracpos_ac,
             atomdist=self.atomdist,
             soc=self.soc,
+            symmetries=self.ibz.symmetries,
             xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
