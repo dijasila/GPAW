@@ -462,10 +462,10 @@ class LocalizedFunctionsCollection(BaseLFC):
                     c_xi = b_axi[a]
                 c_xM[..., M1:M2] = c_xi
                 M1 = M2
-            if cupy_is_fake:
-                self.lfc.add(c_xM._data, a_xG._data, q)
-            else:
+            if self.xp is np:
                 self.lfc.add(c_xM, a_xG, q)
+            else:
+                self.lfc.add(c_xM._data, a_xG._data, q)
             return
 
         assert comm.size == 1
@@ -582,10 +582,10 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         if self.xp is np or cupy_is_fake:
             c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
-            if cupy_is_fake:
-                self.lfc.integrate(a_xG._data, c_xM._data, q)
-            else:
+            if self.xp is np:
                 self.lfc.integrate(a_xG, c_xM, q)
+            else:
+                self.lfc.integrate(a_xG._data, c_xM._data, q)
         else:
             assert comm.size == 1
             if self.Mmax > 0:
