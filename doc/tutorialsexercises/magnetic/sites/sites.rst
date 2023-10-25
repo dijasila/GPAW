@@ -38,11 +38,11 @@ In particular, the site magnetization,
    m_a = \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a}) n^z(\mathbf{r}),
 
 can be calculated via the function :func:`calculate_site_magnetization`, whereas
-the function :func:`calculate_site_spin_splitting` computes the LSDA site spin
-splitting,
+the function :func:`calculate_site_zeeman_energy` computes the LSDA site Zeeman
+energy,
 
 .. math::
-   \Delta_a^\mathrm{xc} = -2 \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
+   E_a^\mathrm{Z} = - \int d\mathbf{r}\: \Theta(\mathbf{r}\in\Omega_{a})
    W_\mathrm{xc}^z(\mathbf{r}) n^z(\mathbf{r}).
 
 Example: Iron
@@ -50,19 +50,19 @@ Example: Iron
 
 In the script
 :download:`Fe_site_properties.py`,
-the site magnetization and spin splitting are calculated from the ground state
+the site magnetization and Zeeman energy are calculated from the ground state
 of bcc iron. The script should take less than 10 minutes on a 40 core node.
 After running the calculation script, you can download and excecute
 :download:`Fe_plot_site_properties.py`
-to plot the site magnetization and spin splitting as a function of the
+to plot the site magnetization and Zeeman energy as a function of the
 spherical site radius `r_\mathrm{c}`.
 
 .. image:: Fe_site_properties.png
 	   :align: center
 
 Although there does not exist an *a priori* magnetic site radius `r_\mathrm{c}`,
-we clearly see that there is a region, where the site spin splitting is constant
-as a function of the radius, hence making `\Delta_a^\mathrm{xc}` a well-defined
+we clearly see that there is a region, where the site Zeeman energy is constant
+as a function of the radius, hence making `E_a^\mathrm{Z}` a well-defined
 property of the system in its own right.
 However, the same cannot be said for the site magnetization, which continues to
 varry as a function of the cutoff radius. This is due to the fact that the
@@ -102,10 +102,10 @@ For example, one can calculate the site pair density
    \Theta(\mathbf{r}\in\Omega_{a})
    |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle
 
-as well as the site pair spin splitting
+as well as the site Zeeman pair energy
 
 .. math::
-   \Delta^{\mathrm{xc},a}_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'}=-2
+   E^{\mathrm{Z},a}_{n\mathbf{k}s,m\mathbf{k}+\mathbf{q}s'}=-
    \langle \psi_{n\mathbf{k}s}|
    \Theta(\mathbf{r}\in\Omega_{a}) W_\mathrm{xc}^z(\mathbf{r})
    |\psi_{m\mathbf{k}+\mathbf{q}s'} \rangle.
@@ -113,28 +113,28 @@ as well as the site pair spin splitting
 
 Now, from such site matrix elements, one can formulate a series of sum rules for
 various site quantities. For instance, one can construct single-particle sum
-rules for both the site magnetization and the site spin splitting, simply by
+rules for both the site magnetization and the site Zeeman energy, simply by
 summing over the diagonal of the site matrix elements for all the occupied
 states, weighted by the Pauli matrix `\sigma^z`,
 
 .. math::
    m_a = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,s}
-   \sigma^z_{ss} f_{n\mathbf{k}s} n^a_{n\mathbf{k}s,n\mathbf{k}s}.
+   \sigma^z_{ss} f_{n\mathbf{k}s} n^a_{n\mathbf{k}s,n\mathbf{k}s},
 
 .. math::
-   \Delta_a^\mathrm{xc} = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,s}
+   E_a^\mathrm{Z} = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,s}
    \sigma^z_{ss} f_{n\mathbf{k}s}
-   \Delta^{\mathrm{xc},a}_{n\mathbf{k}s,n\mathbf{k}s}.
+   E^{\mathrm{Z},a}_{n\mathbf{k}s,n\mathbf{k}s}.
 
 Although trivial, these sum rules can be used as a consistency tests for the
 implementation and can be accessed via the functions
 :func:`calculate_single_particle_site_magnetization`
 and
-:func:`calculate_single_particle_site_spin_splitting`.
+:func:`calculate_single_particle_site_zeeman_energy`.
 
 In addition to the single-particle sum rules, one may also introduce actual
-site pair functions that characterize the band transitions of the system.
-In particular, one may introduce the so-called site pair magnetization
+pair functions that characterize the band transitions of the system.
+In particular, one may introduce the so-called pair site magnetization
 
 .. math::
    m_{ab}(\mathbf{q}) = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,m}
@@ -142,24 +142,24 @@ In particular, one may introduce the so-called site pair magnetization
    n^a_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}
    n^b_{m\mathbf{k}+\mathbf{q}\downarrow,n\mathbf{k}\uparrow}
 
-and site pair spin splitting
+and pair site Zeeman energy
 
 .. math::
-   \Delta^\mathrm{xc}_{ab}(\mathbf{q}) = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,m}
+   E^\mathrm{Z}_{ab}(\mathbf{q}) = \frac{1}{N_k} \sum_\mathbf{k} \sum_{n,m}
    \left( f_{n\mathbf{k}\uparrow} - f_{m\mathbf{k}+\mathbf{q}\downarrow} \right)
-   \Delta^{\mathrm{xc},a}_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}
+   E^{\mathrm{Z},a}_{n\mathbf{k}\uparrow,m\mathbf{k}+\mathbf{q}\downarrow}
    n^b_{m\mathbf{k}+\mathbf{q}\downarrow,n\mathbf{k}\uparrow},
 
 which turn out to be `\mathbf{q}`-independent diagonal pair functions,
 `m_{ab}(\mathbf{q})=\delta_{ab} m_a` and
-`\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})=\delta_{ab} \Delta^\mathrm{xc}_a`,
+`E^{\mathrm{Z}}_{ab}(\mathbf{q})=\delta_{ab} E^\mathrm{Z}_a`,
 thanks to a simple sum rule [#Skovhus]_. Because the sum rule relies on the
 completeness of the Kohn-Sham eigenstates, it breaks down when using only a
 finite number of bands. Hence, it can be useful to study the band convergence of
-`m_{ab}(\mathbf{q})` and `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})` to gain insight
+`m_{ab}(\mathbf{q})` and `E^{\mathrm{Z}}_{ab}(\mathbf{q})` to gain insight
 about related completeness issues of more complicated pair functions. In GPAW,
-they can be calculated using the :func:`calculate_site_pair_magnetization` and
-:func:`calculate_site_spin_splitting` functions.
+they can be calculated using the :func:`calculate_pair_site_magnetization` and
+:func:`calculate_pair_site_zeeman_energy` functions.
 
 
 Example: Iron
@@ -167,29 +167,29 @@ Example: Iron
 
 In the
 :download:`Fe_site_sum_rules.py`
-script, the single-particle site spin splitting is calculated along with the
-site pair spin splitting using a varrying number of bands. It should take less
+script, the single-particle site Zeeman energy is calculated along with the
+pair site Zeeman energy using a varrying number of bands. It should take less
 than half an hour on a 40 core node to run.
 Having done so, you can excecute
 :download:`Fe_plot_site_sum_rules.py`
-to plot the band convergence of `\Delta^{\mathrm{xc}}_{ab}(\mathbf{q})`.
+to plot the band convergence of `E^{\mathrm{Z}}_{ab}(\mathbf{q})`.
 
 .. image:: Fe_site_sum_rules.png
 	   :align: center
 
-Whereas the single-particle site spin splitting (dotted line) is virtually
-identical to the splitting calculated from the spin-density (blue line), there
-are significant deviations from the two-particle site spin splitting sum rule,
-especially with a low number of bands.
+Whereas the single-particle site Zeeman energy (dotted line) is virtually
+identical to the Zeeman energy calculated from the spin-density (blue line),
+there are significant deviations from the two-particle site Zeeman energy sum
+rule, especially with a low number of bands.
 Including at least 12 bands beyond the *4s* and *3d* valence bands, we obtain a
 reasonable fulfillment of the sum rule in the region of radii, where the site
-spin splitting is flat. Interestingly, this is not the case at smaller site
-radii, meaning that the remaining incompleteness shifts the site spin splitting
+Zeeman energy is flat. Interestingly, this is not the case at smaller site
+radii, meaning that the remaining incompleteness shifts the site Zeeman energy
 away from the nucleus, while remaining approximately constant when integrating
 out the entire augmentation sphere.
 
-In the figure, we have left out the imaginary part of the site pair spin
-splitting. You can check yourself that it vanishes more or less identically.
+In the figure, we have left out the imaginary part of the pair site Zeeman
+energy. You can check yourself that it vanishes more or less identically.
 
 
 Excercises
@@ -207,7 +207,7 @@ excercises to get you started:
 3) Calculate the site magnetization and spin splitting for a ferromagnetic
    material with inequivalent magnetic sublattices.
 
-   a) Are you still able to find ranges of radii, where the site spin splitting
+   a) Are you still able to find ranges of radii, where the site Zeeman energy
       is constant?
    b) What happens to the band convergence of the pair functions?
    c) How does the off-diagonal elements of the pair functions converge as a
@@ -218,10 +218,11 @@ API
 ===
 
 .. autofunction:: calculate_site_magnetization
-.. autofunction:: calculate_site_spin_splitting
-.. autofunction:: calculate_site_pair_magnetization
+.. autofunction:: calculate_site_zeeman_energy
 .. autofunction:: calculate_single_particle_site_magnetization
-.. autofunction:: calculate_single_particle_site_spin_splitting
+.. autofunction:: calculate_single_particle_site_zeeman_energy
+.. autofunction:: calculate_pair_site_magnetization
+.. autofunction:: calculate_pair_site_zeeman_energy
 
 
 References

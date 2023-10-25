@@ -16,10 +16,10 @@ from gpaw.response.site_data import AtomicSites, AtomicSiteData
 from gpaw.response.mft import (IsotropicExchangeCalculator,
                                calculate_site_magnetization,
                                calculate_single_particle_site_magnetization,
-                               calculate_site_pair_magnetization,
-                               calculate_site_spin_splitting,
-                               calculate_single_particle_site_spin_splitting,
-                               calculate_site_pair_spin_splitting)
+                               calculate_pair_site_magnetization,
+                               calculate_site_zeeman_energy,
+                               calculate_single_particle_site_zeeman_energy,
+                               calculate_pair_site_zeeman_energy)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -256,7 +256,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
     # ----- Two-particle site magnetization ----- #
 
-    magmom_abr = calculate_site_pair_magnetization(
+    magmom_abr = calculate_pair_site_magnetization(
         gs, sites, context=context, q_c=q_c, nbands=nbands)
 
     # Test that the site pair magnetization is a positive-valued diagonal
@@ -296,7 +296,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
 
 @pytest.mark.response
 @pytest.mark.parametrize('qrel', generate_qrel_q())
-def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
+def test_Co_site_zeeman_energy_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Set up ground state adapter and atomic site data
     calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
     gs = ResponseGroundStateAdapter(calc)
@@ -307,47 +307,47 @@ def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
 
-    # Calculate the site spin splitting
-    dxc_ar = calculate_site_spin_splitting(gs, sites)
+    # Calculate the site Zeeman energy
+    EZ_ar = calculate_site_zeeman_energy(gs, sites)
 
-    # ----- Single-particle site spin splitting ----- #
+    # ----- Single-particle site Zeeman energy ----- #
 
     # Test that the results match a conventional calculation
-    sp_dxc_ar = calculate_single_particle_site_spin_splitting(
+    sp_EZ_ar = calculate_single_particle_site_zeeman_energy(
         gs, sites, context=context)
-    assert sp_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
+    assert sp_EZ_ar == pytest.approx(EZ_ar, rel=5e-3)
 
-    # ----- Two-particle site spin splitting ----- #
+    # ----- Two-particle site Zeeman energy ----- #
 
-    dxc_abr = calculate_site_pair_spin_splitting(
+    EZ_abr = calculate_pair_site_zeeman_energy(
         gs, sites, context=context, q_c=q_c, nbands=nbands)
 
-    # Test that the site pair spin splitting is a positive-valued diagonal
+    # Test that the pair site Zeeman energy is a positive-valued diagonal
     # real array
-    tp_dxc_ra = dxc_abr.diagonal()
-    assert np.all(tp_dxc_ra.real > 0)
-    assert np.all(np.abs(tp_dxc_ra.imag) / tp_dxc_ra.real < 1e-4)
+    tp_EZ_ra = EZ_abr.diagonal()
+    assert np.all(tp_EZ_ra.real > 0)
+    assert np.all(np.abs(tp_EZ_ra.imag) / tp_EZ_ra.real < 1e-4)
     assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
-        dxc_abr))) / tp_dxc_ra.real < 5e-2)
+        EZ_abr))) / tp_EZ_ra.real < 5e-2)
 
-    # Test that the spin splitting on the two Co atoms is identical
-    tp_dxc_ar = dxc_abr.diagonal().T.real
-    assert tp_dxc_ar[0] == pytest.approx(tp_dxc_ar[1], rel=1e-4)
+    # Test that the Zeeman energy on the two Co atoms is identical
+    tp_EZ_ar = EZ_abr.diagonal().T.real
+    assert tp_EZ_ar[0] == pytest.approx(tp_EZ_ar[1], rel=1e-4)
 
     # Test values against reference
-    print(np.average(tp_dxc_ar, axis=0)[::2])
-    assert np.average(tp_dxc_ar, axis=0)[::2] == pytest.approx(
+    print(np.average(tp_EZ_ar, axis=0)[::2])
+    assert np.average(tp_EZ_ar, axis=0)[::2] * 2. == pytest.approx(
         np.array([3.68344584e-04, 3.13780575e-01, 1.35409600e+00,
                   2.14237563e+00, 2.52032513e+00, 2.61406726e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
     # from ase.units import Bohr
     # rc_r = sites.rc_ap[0] * Bohr
-    # plt.plot(rc_r, dxc_ar[0], '-o', mec='k')
-    # plt.plot(rc_r, sp_dxc_ar[0], '-o', mec='k', zorder=0)
-    # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k', zorder=1)
+    # plt.plot(rc_r, EZ_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, sp_EZ_ar[0], '-o', mec='k', zorder=0)
+    # plt.plot(rc_r, tp_EZ_ar[0], '-o', mec='k', zorder=1)
     # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
-    # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
+    # plt.ylabel(r'$E_\mathrm{Z}$ [eV]')
     # plt.title(str(q_c))
     # plt.show()
 
