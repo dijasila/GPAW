@@ -7,7 +7,7 @@ default:
   before_script:
     - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
     - mkdir -p `python -m site --user-site`
-    - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PATH=$PYTHONUSERBASE/bin:/usr/local/bin:$PATH
     - export PYTEST_ADDOPTS="--color=yes"
   interruptible: true
 
