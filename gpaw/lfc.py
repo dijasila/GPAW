@@ -625,8 +625,9 @@ class LocalizedFunctionsCollection(BaseLFC):
             M2 = M1 + sphere.Mmax
             if c_xi is not None:
                 if len(sphere.ranks) > 0:
-                    c_xi[:] = c_xM[..., M1:M2] + c_arxi[a].sum(axis=0)
-                else:
+                    if c_xM.shape[-1] > M1:
+                        c_xi[:] = c_xM[..., M1:M2] + c_arxi[a].sum(axis=0)
+                elif c_xM.shape[-1] > M1:
                     c_xi[:] = c_xM[..., M1:M2]
             M1 = M2
 
