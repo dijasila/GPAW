@@ -55,7 +55,7 @@ class GGARadialExpansion(LDARadialExpansion):
             if nspins == 2:
                 B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
             B_vsnq = xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=False)
-            dEdD_sqL = 8 * pi * xp.einsum('nLv,vsnq->sqL', weight_n[:, None, None] * self.expander.rnablaY_nLv, B_vsnq, optimize=False) 
+            dEdD_sqL = 8 * pi * xp.einsum('nLv,vsnq->sqL', self.expander.wrnablaY_nLv, B_vsnq, optimize=False) 
             #dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
             dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
             dEdD_sp += sign * dE
@@ -66,6 +66,7 @@ class GGARadialExpander(LDARadialExpander):
     def __init__(self, setup, D_sp, xp=np):
         LDARadialExpander.__init__(self, setup, D_sp, xp=xp)
         self.rnablaY_nLv = xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
+        self.wrnablaY_nLv = xp.asarray(weight_n)[:, None, None] * xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
         self.setup = setup
 
     def expansion_cls(self, *args, **kwargs):
