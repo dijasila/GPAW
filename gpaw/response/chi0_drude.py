@@ -59,7 +59,9 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
 
         # The plasma frequency integral is special in the way that only
         # the spectral part is needed
-        integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer, self.crpa_weight)
+        integrand = PlasmaFrequencyIntegrand(self, qpd,
+                                             analyzer,
+                                             self.crpa_weight)
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
@@ -148,7 +150,7 @@ class PlasmaFrequencyIntegrand(Integrand):
             weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
                              self.analyzer.how_many_symmetries())
             vel_nv *= weight
-            # XXX ADD cRPA Weights here!
+            # additional cRPA weights
             if self.crpa_weight is not None:
                 ikn = self.gs.kd.where_is_q(kpt1.K, self.gs.kd.bzk_kc)
                 crpa_weight = self.crpa_weight.get_drude_weight_n(n_n, ikn)

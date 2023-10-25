@@ -24,7 +24,6 @@ from gpaw.response.integrators import (
     HermitianOpticalLimit, HilbertOpticalLimit, OpticalLimit,
     HilbertOpticalLimitTetrahedron,
     Hermitian, Hilbert, HilbertTetrahedron, GenericUpdate)
-#from gpaw.response.cRPA import cRPA_weight
 
 
 def find_maximum_frequency(kpt_u, context, nbands=0):

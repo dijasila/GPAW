@@ -105,7 +105,7 @@ class Chi0Integrand(Integrand):
             n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
-        # XXX ADD cRPA Weights here!
+        # additional cRPA weights
         if self.crpa_weight is not None:
             ikn = self.gs.kd.where_is_q(kptpair.kpt1.K, self.gs.kd.bzk_kc)
             ikm = self.gs.kd.where_is_q(kptpair.kpt2.K, self.gs.kd.bzk_kc)

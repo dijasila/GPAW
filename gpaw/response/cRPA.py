@@ -1,11 +1,11 @@
 import numpy as np
-from gpaw.response import ResponseGroundStateAdapter
 from gpaw.mpi import world
 from gpaw.response.chi0 import find_maximum_frequency, Chi0Calculator
 from gpaw.response.pair import get_gs_and_context
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import KPointPairFactory
 from ase.units import Ha
+
 
 class cRPA:
     def __init__(self, extra_weights_nk, bandrange, gs, context):
@@ -55,7 +55,7 @@ class cRPA:
                           txt='chi0.txt', timer=None, world=world):
         """Initialize cRPA_weight from Wannier transformation matrix
         bands:     list(int)
-                   list with bandindexes that the screening should be 
+                   list with bandindexes that the screening should be
                    removed from
         calc:      str
                    gpw-file
@@ -76,7 +76,7 @@ class cRPA:
     """
 
     def get_constrained_chi0_calculator(self,
-                                        frequencies = {'type': 'nonlinear'},
+                                        frequencies={'type': 'nonlinear'},
                                         ecut=50,
                                         nblocks=1,
                                         nbands=None,
@@ -90,9 +90,10 @@ class cRPA:
                                               nbands=nbands)
             frequencies['omegamax'] = omegamax * Ha
 
-
         wd = FrequencyDescriptor.from_array_or_dict(frequencies)
-        kptpair_factory = KPointPairFactory(self.gs, self.context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(self.gs,
+                                            self.context,
+                                            nblocks=nblocks)
 
         return Chi0Calculator(wd=wd, kptpair_factory=kptpair_factory,
                               nbands=nbands, ecut=ecut,
