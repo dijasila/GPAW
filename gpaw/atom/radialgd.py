@@ -185,6 +185,19 @@ class RadialGridDescriptor(ABC):
         dndr_g /= self.dr_g
         return dndr_g
 
+    def derivative3(self, a_ng, b_ng):
+        """Finite-difference derivative of multiple radial functions.
+
+        For an infinitely dense grid, this method would be identical
+        to the `derivative` method."""
+
+        c_ng = a_ng / self.dr_g
+        b_ng[:, 0] = 0.5 * c_ng[:, 1] + c_ng[:, 0]
+        b_ng[:, 1] = 0.5 * c_ng[:, 2] - c_ng[:, 0]
+        b_ng[:, 1:-1] = 0.5 * (c_ng[:, 2:] - c_ng[:, :-2])
+        b_ng[:, -2] = c_ng[:, -1] - 0.5 * c_ng[:, -3]
+        b_ng[:, -1] = -c_ng[:, -1] - 0.5 * c_ng[:, -2]
+
     def derivative2(self, a_g, b_g):
         """Finite-difference derivative of radial function.
 

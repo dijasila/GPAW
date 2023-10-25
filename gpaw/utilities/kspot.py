@@ -153,18 +153,19 @@ class AllElectronPotential:
         # Interpolate the smooth xc potential  from fine grid to radial grid
         radvxct_g = self.grid_to_radial(a, gd, vxct_sg[0])
 
+        Y_nL = xccorr.Y_nL
         # Arrays for evaluating radial xc potential slice
-        vxc_sg = np.zeros((len(D_sp), xccorr.ng))
+        vxc_sng = np.zeros((len(D_sp), len(Y_nL), xccorr.ng))
 
-        for n, Y_L in enumerate(xccorr.Y_nL):
-            n_sLg = np.dot(D_sLq, xccorr.n_qg)
-            n_sLg[:, 0] += sqrt(4 * pi) * xccorr.nc_g
-            vxc_sg[:] = xc.calculate_radial(xccorr.rgd, n_sLg, Y_L)[1]
-            radvxct_g += weight_n[n] * vxc_sg[0]
-            nt_sLg = np.dot(D_sLq, xccorr.nt_qg)
-            nt_sLg[:, 0] += sqrt(4 * pi) * xccorr.nct_g
-            vxc_sg[:] = xc.calculate_radial(xccorr.rgd, nt_sLg, Y_L)[1]
-            radvxct_g -= weight_n[n] * vxc_sg[0]
+        n_sLg = np.dot(D_sLq, xccorr.n_qg)
+        n_sLg[:, 0] += sqrt(4 * pi) * xccorr.nc_g
+        vxc_sng[:] = xc.calculate_radial(xccorr.rgd, n_sLg, Y_nL)[1]
+        radvxct_g += np.sum(weight_n[:, None] * vxc_sng[0], axis=0)
+        nt_sLg = np.dot(D_sLq, xccorr.nt_qg)
+        nt_sLg[:, 0] += sqrt(4 * pi) * xccorr.nct_g
+        vxc_sng[:] = xc.calculate_radial(xccorr.rgd, nt_sLg, Y_nL)[1]
+        radvxct_g -= np.sum(weight_n[:, None] * vxc_sng[0], axis=0)
+                
 
         radvks_g = radvxct_g * xccorr.rgd.r_g + radHt_g
         return (xccorr.rgd.r_g, radvks_g)

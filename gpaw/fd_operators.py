@@ -82,7 +82,6 @@ class FDOperator:
 
         self.xp = xp
         gpu = xp is not np and not cupy_is_fake
-        print('G'*55, gpu, xp)
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
                                        comm, cfd, gpu)
@@ -102,12 +101,13 @@ class FDOperator:
             self.operator.apply(in_xR.data, out_xR.data,
                                 in_xR.desc.phase_factor_cd)
         elif cupy_is_fake:
-            print('XXXXX', in_xR, out_xR, out_xR.xp)
             self.operator.apply(in_xR.data._data, out_xR.data._data,
                                 in_xR.desc.phase_factor_cd)
         else:
-            self.operator.apply_gpu(in_xR.data.ptr, out_xR.data.ptr,
-                                    in_xR.shape, in_xR.dtype,
+            assert isinstance(in_xR.data, self.xp.ndarray)
+            assert isinstance(out_xR.data, self.xp.ndarray)
+            self.operator.apply_gpu(in_xR.data.data.ptr, out_xR.data.data.ptr,
+                                    in_xR.data.shape, in_xR.data.dtype,
                                     in_xR.desc.phase_factor_cd)
         return out_xR
 
@@ -126,6 +126,8 @@ class FDOperator:
     def relax(self, relax_method, f_g, s_g, n, w=None):
         if self.xp is np:
             self.operator.relax(relax_method, f_g, s_g, n, w)
+        elif cupy_is_fake:
+            self.operator.relax(relax_method, f_g._data, s_g._data, n, w)
         else:
             self.operator.relax_gpu(relax_method,
                                     f_g.data.ptr,
@@ -245,8 +247,6 @@ class Gradient(FDOperator):
         dtype: float or complex
             Data-type to work on.
         """
-
-        print('GRADIENT', xp)
 
         from scipy.spatial import Voronoi
 

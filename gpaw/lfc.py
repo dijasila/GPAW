@@ -6,6 +6,7 @@ from ase.units import Bohr
 import _gpaw
 from gpaw import debug
 from gpaw.grid_descriptor import GridDescriptor, GridBoundsError
+from gpaw.gpu import cupy_is_fake
 from gpaw.utilities import smallest_safe_grid_spacing
 
 """
@@ -341,8 +342,6 @@ class LocalizedFunctionsCollection(BaseLFC):
         self.G_B = self.G_B[indices]
         self.W_B = self.W_B[indices]
 
-        self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
-                             self.gd.dv, self.phase_qW, self.xp is not np)
 
         # Find out which ranks have a piece of the
         # localized functions:
@@ -369,6 +368,8 @@ class LocalizedFunctionsCollection(BaseLFC):
                 for iterator in iterators:
                     next(iterator)
 
+        self.lfc = _gpaw.LFC(self.A_Wgm, self.M_W, self.G_B, self.W_B,
+                             self.gd.dv, self.phase_qW, self.xp is not np)
         return sdisp_Wc
 
     def M_to_ai(self, src_xM, dst_axi):
@@ -407,11 +408,14 @@ class LocalizedFunctionsCollection(BaseLFC):
             c_xM = self.xp.empty(self.Mmax)
             c_xM.fill(c_axi)
             if self.xp is not np:
-                if self.Mmax > 0:
-                    self.lfc.add_gpu(c_xM.data.ptr,
-                                     c_xM.shape,
-                                     a_xG.data.ptr,
-                                     a_xG.shape, q)
+                if cupy_is_fake:
+                    self.lfc.add(c_xM._data, a_xG._data, q)
+                else:
+                    if self.Mmax > 0:
+                        self.lfc.add_gpu(c_xM.data.ptr,
+                                         c_xM.shape,
+                                         a_xG.data.ptr,
+                                         a_xG.shape, q)
             else:
                 self.lfc.add(c_xM, a_xG, q)
             return
@@ -447,8 +451,8 @@ class LocalizedFunctionsCollection(BaseLFC):
         for request in requests:
             comm.wait(request)
 
-        if self.xp is np:
-            c_xM = np.empty(xshape + (self.Mmax,), dtype)
+        if self.xp is np or cupy_is_fake:
+            c_xM = self.xp.empty(xshape + (self.Mmax,), dtype)
             M1 = 0
             for a in self.atom_indices:
                 c_xi = c_axi.get(a)
@@ -458,7 +462,10 @@ class LocalizedFunctionsCollection(BaseLFC):
                     c_xi = b_axi[a]
                 c_xM[..., M1:M2] = c_xi
                 M1 = M2
-            self.lfc.add(c_xM, a_xG, q)
+            if cupy_is_fake:
+                self.lfc.add(c_xM._data, a_xG._data, q)
+            else:
+                self.lfc.add(c_xM, a_xG, q)
             return
 
         assert comm.size == 1
@@ -573,9 +580,12 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         comm = self.gd.comm
 
-        if self.xp is np:
-            c_xM = np.zeros(xshape + (self.Mmax,), dtype)
-            self.lfc.integrate(a_xG, c_xM, q)
+        if self.xp is np or cupy_is_fake:
+            c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
+            if cupy_is_fake:
+                self.lfc.integrate(a_xG._data, c_xM._data, q)
+            else:
+                self.lfc.integrate(a_xG, c_xM, q)
         else:
             assert comm.size == 1
             if self.Mmax > 0:

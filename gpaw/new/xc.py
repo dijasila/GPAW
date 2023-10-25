@@ -23,7 +23,6 @@ from gpaw.xc.vdw import VDWFunctionalBase
 def create_functional(xc: OldXCFunctional | str | dict,
                       grid: UGDesc,
                       xp=np) -> Functional:
-    print(6666666666666666, xc, xp)
     if isinstance(xc, (str, dict)):
         xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
@@ -157,7 +156,6 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
     gradn_svr = n_sr.desc.empty((nspins, 3), xp=xp)
     for v, grad in enumerate(grad_v):
         for s in range(nspins):
-            print(v, s, grad, grad.xp, n_sr, xp)
             grad(n_sr[s], gradn_svr[s, v])
 
     sigma_xr = n_sr.desc.empty(nspins * 2 - 1, xp=xp)
@@ -177,7 +175,7 @@ def dot_product(a_vr, b_vr, out_r):
             for a_r in a_vr.data:
                 add_to_density(1.0, a_r, out_r.data)
         else:
-            add_to_density_gpu(np.ones(3), a_vr.data, out_r.data)
+            add_to_density_gpu(xp.ones(3), a_vr.data, out_r.data)
     else:
         einsum('vabc, vabc -> abc', a_vr.data, b_vr.data, out=out_r.data)
 
