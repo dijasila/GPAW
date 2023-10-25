@@ -7,13 +7,11 @@ from gpaw.mpi import size
 from gpaw.poisson import FDPoissonSolver
 
 
-"""
 @pytest.mark.gpu
 @pytest.mark.serial
 @pytest.mark.parametrize('dtype', [float, complex])
-#@pytest.mark.parametrize('gpu', [False, True])
 @pytest.mark.parametrize('gpu', [False, True])
-@pytest.mark.parametrize('mode', ['pw'])
+@pytest.mark.parametrize('mode', ['pw', 'fd'])
 def test_gpu(dtype, gpu, mode):
     atoms = Atoms('H2')
     atoms.positions[1, 0] = 0.75
@@ -37,14 +35,14 @@ def test_gpu(dtype, gpu, mode):
         assert energy == pytest.approx(-16.032945, abs=1e-6)
     else:
         assert energy == pytest.approx(6.681945750355547, abs=1e-6)
-"""
+
 
 @pytest.mark.gpu
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])
-@pytest.mark.parametrize('par', ['domain']) #, 'kpt', 'band'])
-@pytest.mark.parametrize('mode', ['pw',])
-@pytest.mark.parametrize('xc', ['LDA'])
+@pytest.mark.parametrize('par', ['domain', 'kpt', 'band'])
+@pytest.mark.parametrize('mode', ['pw', 'fd'])
+@pytest.mark.parametrize('xc', ['LDA','PBE'])
 def test_gpu_k(gpu, par, mode, xc):
     atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
     #atoms.translate([0,3,0])

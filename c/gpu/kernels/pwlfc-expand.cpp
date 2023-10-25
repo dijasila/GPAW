@@ -1303,7 +1303,8 @@ void add_to_density_gpu_launch_kernel(int nb,
 				      int nR,
 				      double* f_n,
 				      gpuDoubleComplex* psit_nR,
-				      double* rho_R)
+				      double* rho_R,
+                      int wfs_is_complex)
 {
     if (wfs_is_complex)
     gpuLaunchKernel(add_to_density_16,

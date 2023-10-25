@@ -213,3 +213,4 @@ class Symmetries:
                 i1 = i2
             rotation_sii = xp.asarray(rotation_sii)
             self._rotations[ells] = rotation_sii
+        return rotation_sii

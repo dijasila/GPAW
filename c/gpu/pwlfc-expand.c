@@ -9,10 +9,7 @@
 #include "gpu-complex.h"
 #include <stdio.h>
 
-<<<<<<< HEAD
 // Predeclaration of functions at kernel/
-=======
->>>>>>> master
 void calculate_residual_launch_kernel(int nG,
                                       int nn,
                                       double* residual_ng, 
@@ -481,27 +478,6 @@ PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
         return NULL;
     }
     add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R, Array_ITEMSIZE(psit_nR_obj)==16); 
-    Py_RETURN_NONE;
-}
-
-
-PyObject* calculate_residual_gpu(PyObject* self, PyObject* args)
-{
-    PyObject *residual_nG_obj, *eps_n_obj, *wf_nG_obj;
-    if (!PyArg_ParseTuple(args, "OOO",
-                          &residual_nG_obj, &eps_n_obj, &wf_nG_obj))
-        return NULL;
-    double *residual_nG = Array_DATA(residual_nG_obj);
-    double* eps_n = Array_DATA(eps_n_obj);
-    double *wf_nG = Array_DATA(wf_nG_obj);
-    int nG = Array_DIM(residual_nG_obj, 0);
-    int nn = Array_DIM(residual_nG_obj, 1);
-    bool is_complex = Array_ITEMSIZE(residual_nG_obj) == 16;
-    if (PyErr_Occurred())
-    {
-        return NULL;
-    }
-    calculate_residual_launch_kernel(nG, nn, residual_nG, eps_n, wf_nG, is_complex);
     Py_RETURN_NONE;
 }
 
