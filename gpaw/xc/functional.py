@@ -65,25 +65,41 @@ class XCFunctional:
         raise NotImplementedError
 
     def calculate_paw_corrections(self, setups, D_asii, dEdD_asii, addcoredensity=True):
+        by_species = {}
+        by_atom = []
+        id_by_atom = []
+
+        for atom_id, setup in enumerate(setups):
+            species_id = setups.id_a[atom_id]
+            if species_id not in by_species:
+                by_species[species_id] = setup
+            by_atom.append(by_species[species_id])
+            id_by_atom.append(species_id)
+
         E = 0
         ekin = 0
-        D_asp = self.xp.array([ self.xp.array([ self.xp.asarray(pack(self.xp.asnumpy(D_ii).real)) for D_ii in D_sii]) for D_sii in D_asii.values() ])
-        dEdD_asp = self.xp.zeros_like(D_asp)
-        expander = self.get_radial_expander(setups[0], D_asp, xp=self.xp)
-        rcalc = self.get_radial_calculator(xp=self.xp)
-        E = 0
-        for sign, ae in [(1.0, True), (-1.0, False)]:
-            expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
-            Ein = expansion.integrate(rcalc(expansion), sign=sign, dEdD_asp=dEdD_asp)
-            E += Ein
+        for sid, setup in by_species.items():
+            D_asp = self.xp.array([ self.xp.array([ self.xp.asarray(pack(self.xp.asnumpy(D_ii).real)) for D_ii in D_asii[a]]) for a, s in enumerate(id_by_atom) if s == sid])
+            dEdD_asp = self.xp.zeros_like(D_asp)
+            expander = self.get_radial_expander(setup, D_asp, xp=self.xp)
+            rcalc = self.get_radial_calculator(xp=self.xp)
+            E = 0
+            for sign, ae in [(1.0, True), (-1.0, False)]:
+                expansion = expander.expand(ae=ae, addcoredensity=addcoredensity)
+                Ein = expansion.integrate(rcalc(expansion), sign=sign, dEdD_asp=dEdD_asp)
+                E += Ein
 
-        print(dEdD_asp.shape,'123')
-        for a, H_sp in enumerate(dEdD_asp):
-            dEdD_asii[a] += self.xp.asarray(unpack(self.xp.asnumpy(H_sp)))
+            print(dEdD_asp.shape,'123')
+            a2 = 0
+            for a, s in enumerate(id_by_atom):
+                if s != sid:
+                    continue
+                dEdD_asii[a] += self.xp.asarray(unpack(self.xp.asnumpy(dEdD_asp[a2])))
+                a2 += 1
 
-        if addcoredensity:
-            E -= setups[0].xc_correction.e_xc0 * len(dEdD_asp)
-        ekin -= (dEdD_asp * D_asp).sum().real
+            if addcoredensity:
+                E -= setup.xc_correction.e_xc0 * len(dEdD_asp)
+            ekin -= (dEdD_asp * D_asp).sum().real
         return float(E), float(ekin)
 
         for setup, D_sii, dEdD_sii in zip(setups, D_asii, dEdD_asii):
