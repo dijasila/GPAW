@@ -22,11 +22,13 @@ class GGARadialExpansion(LDARadialExpansion):
                 for n_g, dndr_g in zip(n_Lg, dndr_Lg):
                     expander.rgd.derivative(n_g, dndr_g)
             expander.setup.dndr_sLg = dndr_sLg
-        else:
-            dndr_sLg = expander.setup.dndr_sLg
+            expander.setup.a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=False)
+            expander.setup.b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=False)
 
-        a_sng = xp.einsum('nL,sLg->sng', expander.Y_nL, dndr_sLg, optimize=False)
-        b_vsng = xp.einsum('nLv,sLg->vsng', expander.rnablaY_nLv, self.n_sLg, optimize=False)
+        dndr_sLg = expander.setup.dndr_sLg
+        a_sng = expander.setup.a_sng
+        b_vsng = expander.setup.b_vsng
+
 
         nspins = expander.nspins
         rgd = expander.rgd
@@ -54,7 +56,7 @@ class GGARadialExpansion(LDARadialExpansion):
             B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
             if nspins == 2:
                 B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
-            B_vsnq = xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=False)
+            B_vsnq = B_vsng @ self.n_qg.T #xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=False)
             dEdD_sqL = 8 * pi * xp.einsum('nLv,vsnq->sqL', self.expander.wrnablaY_nLv, B_vsnq, optimize=False) 
             #dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
             dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
