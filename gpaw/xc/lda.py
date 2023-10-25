@@ -39,18 +39,21 @@ class LDARadialExpansion:
                                                  self.n_qg,
                                                  self.expander.Y_nL, optimize=True)
 
-            dEdD_sqL = xp.einsum('ngqL,sng->sqL',
-                                 self.setup.temp_ngqL,
-                                 potential.dedn_sng,
-                                 optimize=False)
+            #dEdD_sqL = xp.einsum('ngqL,sng->sqL',
+            #                     self.setup.temp_ngqL,
+            #                     potential.dedn_sng,
+            #                     optimize=False)
+            dEdD_sqL = (potential.dedn_sng.reshape((potential.dedn_sng.shape[0], -1)) @ self.setup.temp_ngqL.reshape((-1, self.setup.temp_ngqL.shape[2] * self.setup.temp_ngqL.shape[3]))).reshape((len(potential.dedn_sng), self.setup.temp_ngqL.shape[2] , self.setup.temp_ngqL.shape[3]))
             #dEdD_sqL = xp.einsum('g,n,sng,qg,nL->sqL', 
             #                     self.expander.rgd.dv_g,
             #                     weight_n,
             #                     potential.dedn_sng,
             #                     self.n_qg,
             #                     self.expander.Y_nL, optimize=True)
-            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
-            dEdD_sp += sign * dE
+            #dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
+            B_xp = self.expander.xcc.B_pqL.transpose((1,2,0)).reshape((-1, self.expander.xcc.B_pqL.shape[0]))
+            dE_sp = dEdD_sqL.reshape((len(dEdD_sqL), -1)) @ B_xp
+            dEdD_sp += sign * dE_sp
         return sign * E
 
 class LDAPotentialExpansion:
@@ -68,7 +71,7 @@ class LDARadialExpander:
     def __init__(self, setup, D_sp=None, xp=np): #rcalc, collinear=True, addcoredensity=True):
         self.xp = xp
         xcc = setup.xc_correction
-        
+        self.setup = setup 
         # Packed density matrix p=(i, j), where i and j are partial wave indices
         self.D_sp = D_sp
         
