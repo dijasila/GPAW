@@ -437,7 +437,6 @@ static PyObject* moduleinit(void)
 #else
     PyObject_SetAttrString(m, "gpu_aware_mpi", Py_False);
 #endif
-#endif
 #ifdef _OPENMP
     PyObject_SetAttrString(m, "have_openmp", Py_True);
 #else
