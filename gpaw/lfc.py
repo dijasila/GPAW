@@ -407,17 +407,16 @@ class LocalizedFunctionsCollection(BaseLFC):
             assert q == -1 and a_xG.ndim == 3
             c_xM = self.xp.empty(self.Mmax)
             c_xM.fill(c_axi)
-            if self.xp is not np:
-                if cupy_is_fake:
-                    self.lfc.add(c_xM._data, a_xG._data, q)
-                else:
-                    if self.Mmax > 0:
-                        self.lfc.add_gpu(c_xM.data.ptr,
-                                         c_xM.shape,
-                                         a_xG.data.ptr,
-                                         a_xG.shape, q)
-            else:
+            if self.xp is np:
                 self.lfc.add(c_xM, a_xG, q)
+            elif cupy_is_fake:
+                self.lfc.add(c_xM._data, a_xG._data, q)
+            else:
+                if self.Mmax > 0:
+                    self.lfc.add_gpu(c_xM.data.ptr,
+                                     c_xM.shape,
+                                     a_xG.data.ptr,
+                                     a_xG.shape, q)
             return
 
         dtype = a_xG.dtype
@@ -580,12 +579,12 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         comm = self.gd.comm
 
-        if self.xp is np or cupy_is_fake:
+        if self.xp is np:
             c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
-            if self.xp is np:
-                self.lfc.integrate(a_xG, c_xM, q)
-            else:
-                self.lfc.integrate(a_xG._data, c_xM._data, q)
+            self.lfc.integrate(a_xG, c_xM, q)
+        elif cupy_is_fake:
+            c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
+            self.lfc.integrate(a_xG._data, c_xM._data, q)
         else:
             assert comm.size == 1
             if self.Mmax > 0:
