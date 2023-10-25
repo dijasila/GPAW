@@ -792,22 +792,25 @@ void multi_einsum_launch_kernel(char* str,
     intbuffer.copy_to_device();
     arguments_pa_buffer.copy_to_device();
  
-    if (nind_out >= 3)
+    if (nind_out >= 5)
     {
         *error = "Too many inner product indices. Edit template parameters of kernel_funcs.";
+        printf("%s\n", *error);
         return;
     } 
     if (nind_in >= 4)
     {
         *error = "Too many output indices. Edit template parameters of kernel_funcs.";
+        printf("%s\n", *error);
         return;
     } 
     if (nind_in >= 5)
     {
         *error = "Too many arguments. Edit template parameters of kernel_funcs.";
+        printf("%s\n", *error);
         return;
     } 
-    kernel_funcs <3, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
+    kernel_funcs <5, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
 
     if (is_complex)
     {
