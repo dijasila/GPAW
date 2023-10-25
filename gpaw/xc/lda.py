@@ -29,7 +29,7 @@ class LDARadialExpansion:
         xp = self.xp
         #E = xp.einsum('ng,g,n', potential.e_ng, self.expander.rgd.dv_g, weight_n, optimize=True)
         if not hasattr(self.setup, 'dv_gn'):
-            self.setup.dv_gn = self.expander.rgd.dv_g[:, None] * weight_n[None, :]
+            self.setup.dv_gn = self.expander.rgd.dv_g[:, None] * xp.asarray(weight_n[None, :])
         E = (potential.e_ng * self.setup.dv_gn).ravel().sum()
         if dEdD_sp is not None:
             if not hasattr(self.setup, 'temp_ngqL'):
