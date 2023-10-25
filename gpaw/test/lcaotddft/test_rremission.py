@@ -19,7 +19,8 @@ def test_rremission(in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
-    td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(0.5, [0, 0, 1]))
+    td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(0.5, [0, 0, 1]),
+                        propagator={'name': 'scpc', 'tolerance': 1e-0})
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
     td_calc.propagate(40, 20)

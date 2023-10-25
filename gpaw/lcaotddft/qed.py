@@ -246,7 +246,7 @@ class RRemission(object):
             # currently the rr_quantization_plane is overloaded with
             # the harmonic frequency [input in eV]
             # rr_amplify is an artificial amplification
-            rr_amplify = 1e5
+            rr_amplify = 1e0
             if self.rr_quantization_plane > 0:
                 rr_argument_in = (((self.rr_quantization_plane * Bohr**2)**2
                                    / Hartree**2)
@@ -331,6 +331,9 @@ class RRemission(object):
         popt, pcov = curve_fit(linear, xcut, ycut)
         y_subtracted = y - popt * x
         return [popt, y_subtracted]
+
+    def is_invertible(self, a):
+        return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
 
     def dyadicGt(self, deltat, maxtimesteps):
         if os.path.isfile('dyadicD.npz') and maxtimesteps > 1000:
@@ -482,35 +485,56 @@ class RRemission(object):
                                        np.fft.fft(dm_z[:, 2] * dmp)],
                                       dtype=complex)
 
-                for ii in range(9):
-                    pol_interp = interpolate.interp1d(omegafftdm,
-                                                      pol_matrix[ii, :],
-                                                      kind="cubic",
-                                                      fill_value="extrapolate")
-                    # fill_value=(0,0),
-                    # bounds_error=False)
-                    # fill_value="extrapolate")
-                    Xw[:, ii] = ((4. * np.pi * pol_interp(omegafft)
-                                  * deltat / (timedm[1] - timedm[0]))
-                                 * window_Gw0)
-                    """
-                    The factor deltat/(t_1-t_0) accounts for the difference
-                    in normalization for the FFTs in both spaces. This ensures
-                    that the back-FFT will result in the correct magnitude of
-                    the combined system.
-                    """
+                print('DOING EMBEDDING STUFF')
+                claussius = False # True/False = does claussius-mossoti or weak field
+                # notice, that the Xw here has the N/V pulled out
+                if claussius:
+                    alpha_ij = np.zeros((len(omegafft),9),dtype=complex)
+                    for ii in range(9):
+                        pol_interp = interpolate.interp1d(omegafftdm,
+                                                          pol_matrix[ii, :],
+                                                          kind="cubic",
+                                                          fill_value="extrapolate")
+                        alpha_ij[:,ii]=(pol_interp(omegafft)
+                                        * deltat / (timedm[1] - timedm[0])
+                                        * window_Gw0)
+                    for el in range(len(omegafft)):
+                        if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
+                            Xw[ww, :] = 4. * np.pi / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
+                        else:
+                            Xw[el, :] = 4. * np.pi / self.cavity_volume * alpha_ij[el, :]
+                    print('There is something off with the V factors between Xw and alpha_ij as well as in G(1)')
 
-                print("Increase in frequency resolution",
-                      len(omegafft) / len(omegafftdm))
-                """
-                THE PROBLEM WITH THE OVERTONES IS PROBABLY A CONSEQUENCE
-                OF THE FITTING WHICH results in negative imaginary components
-                (see pictures) The original dipole moments have this feature
-                only without additonal dmping. MAJOR PROBLEM: The fitted Xw
-                is giving a constant real-part which does not go to 0.
-                Simplest solution maybe: dmpen to 0 or decrease dt such
-                that omega max increases.
-                """
+                else: # previous weak-field version
+                    for ii in range(9):
+                        pol_interp = interpolate.interp1d(omegafftdm,
+                                                          pol_matrix[ii, :],
+                                                          kind="cubic",
+                                                          fill_value="extrapolate")
+                        # fill_value=(0,0),
+                        # bounds_error=False)
+                        # fill_value="extrapolate")
+                        Xw[:, ii] = ((4. * np.pi * pol_interp(omegafft)
+                                      * deltat / (timedm[1] - timedm[0]))
+                                     * window_Gw0)
+                        """
+                        The factor deltat/(t_1-t_0) accounts for the difference
+                        in normalization for the FFTs in both spaces. This ensures
+                        that the back-FFT will result in the correct magnitude of
+                        the combined system.
+                        """
+
+                    print("Increase in frequency resolution",
+                          len(omegafft) / len(omegafftdm))
+                    """
+                    THE PROBLEM WITH THE OVERTONES IS PROBABLY A CONSEQUENCE
+                    OF THE FITTING WHICH results in negative imaginary components
+                    (see pictures) The original dipole moments have this feature
+                    only without additonal dmping. MAJOR PROBLEM: The fitted Xw
+                    is giving a constant real-part which does not go to 0.
+                    Simplest solution maybe: dmpen to 0 or decrease dt such
+                    that omega max increases.
+                    """
                 for ii in range(9):
                     plt.figure()
                     plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
@@ -529,20 +553,6 @@ class RRemission(object):
                                         omegafft**2 + (1j * self.ensemble_loss
                                                        * omegafft)))
             if self.precomputedG is None:
-                """
-                    WORKINGHERE -- adding local field correction
-                                   derived by Frieder
-                print("Setting up Gbar0 correction -- only ISO yet")
-                iso_eps = 1 + (Xw[:, 0] + Xw[:, 4] + Xw[:, 8])/3
-                for ii in range(3):
-                    for jj in range(3):
-                        Gbar0[:,ii,jj] = (
-                            self.krondelta[ii,jj] *
-                            1/(3.* V_e * iso_eps * omegafft ** 2)
-                --- missing: define V_e somewhere
-                """
-
-
                 print("Dressing G for simplified cavity")
                 for ii in range(3):
                     for jj in range(3):
@@ -563,6 +573,8 @@ class RRemission(object):
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
                 bg_correction = False
+                if bg_correction == False:
+                    print("Using new version with local field correction but ignoring free-space dressing.")
                 if bg_correction:
                     G_freespace = np.zeros((len(omegafft), 9), dtype=complex)
                     Gbg = np.zeros((len(omegafft), 9), dtype=complex)
@@ -580,21 +592,43 @@ class RRemission(object):
                     build Gw via taking the inverse. Notice, that for Xw=0,
                     Gw=Gw0 and the singular case is also set to Gw=Gw0.
                     """
-                    if np.sum(np.abs(Gw0[el, :])) > 1e-18:
-                        Gw[el, :] = np.reshape(
-                            np.linalg.inv(
-                                np.linalg.inv(
-                                    np.reshape(Gw0[el, :], (3, 3))
-                                ) - (alpha**2 * omegafft[el]**2 *
-                                     self.ensemble_number *
-                                     np.reshape(Xw[el, :], (3, 3)))
-                            ),
-                            (-1, )
-                        )
+                    newG1 = False
+                    if newG1 == True:
+                        if np.sum(np.abs(Gw0[el, :])) > 1e-18:
+                            Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                                                   (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
+                                                    (np.eye(3) + self.cavity_volume / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                                                    )
+                                                   ,(-1, ))
+                        else:
+                            Gw[el, :] = Gw0[el, :]
                     else:
-                        Gw[el, :] = Gw0[el, :]
-
+                        if np.sum(np.abs(Gw0[el, :])) > 1e-18:
+                            Gw[el, :] = np.reshape(
+                                np.linalg.inv(
+                                    np.linalg.inv(
+                                        np.reshape(Gw0[el, :], (3, 3))
+                                    ) - (alpha**2 * omegafft[el]**2 *
+                                         self.ensemble_number *
+                                         np.reshape(Xw[el, :], (3, 3)))
+                                ),
+                                (-1, )
+                            )
+                        else:
+                            Gw[el, :] = Gw0[el, :]
                 if bg_correction == True and self.cutofffrequency is not None:
+                    """
+                        WORKINGHERE -- adding local field correction
+                                       derived by Frieder
+                    print("Setting up Gbar0 correction -- only ISO yet")
+                    iso_eps = 1 + (Xw[:, 0] + Xw[:, 4] + Xw[:, 8])/3
+                    for ii in range(3):
+                        for jj in range(3):
+                            Gbar0[:,ii,jj] = (
+                                self.krondelta[ii,jj] *
+                                1/(3.* V_e * iso_eps * omegafft ** 2)
+                    --- missing: define V_e somewhere
+                    """
                     for ii in range(3):
                         [Gbg_re, Gout_re] = self.l_fit(omegafft,
                                                        np.real(Gw[:, 4 * ii]),
@@ -624,6 +658,7 @@ class RRemission(object):
                     Gw0 = Gw0 - G_freespace
         else:
             Gw = Gw0
+            print('USING BARE Gw0')
         if self.precomputedG is not None:
             # We can move the sign to Dt later but the previous version
             # was missing a sign in g and for test-suit reasons I added this
@@ -685,6 +720,8 @@ class RRemission(object):
                                                    self.dipolexyz)
         self.dipolexyz_time[self.itert, :] = self.dipolexyz
         electric_rr_field = np.zeros((3, ), dtype=complex)
+        if self.itert == 0:
+            RuntimeError('Use the scpc propagator for the RR potential.')
         for ii in range(3):
             for jj in range(3):
                 dyadic_t = self.dyadic[:self.itert, 3 * ii + jj]

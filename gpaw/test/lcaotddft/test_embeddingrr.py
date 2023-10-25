@@ -107,7 +107,8 @@ def test_embeddingrr(in_tmp_dir, write_inputs):
     td_calc = LCAOTDDFT('gs.gpw',
                         rremission=RRemission(1e-5, [0, 0, 1],
                                               [2.98, 3, 0.01, 10, 5000, 30000],
-                                              [1, 1, 0, 0, 0]))
+                                              [1, 1, 0, 0, 0]),
+                        propagator={'name': 'scpc', 'tolerance': 1e-0})
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
     td_calc.propagate(dt, nt)
@@ -237,12 +238,14 @@ def test_embeddingrr(in_tmp_dir, write_inputs):
     td_calc = LCAOTDDFT('gs.gpw',
                         rremission=RRemission(cross_section, [0, 0, 1],
                                               [2.98, 3, 0.01, 10, 5000, 60000],
-                                              [1, 1, 0, 0, 0]))
+                                              [1, 1, 0, 0, 0]),
+                        propagator={'name': 'scpc', 'tolerance': 1e-0})
     DipoleMomentWriter(td_calc, 'dm_split.dat')
     td_calc.absorption_kick([0.0, 0.0, 1e-5])
     td_calc.propagate(dt, int(nt * 0.5))
     td_calc.write('td_split0.gpw', mode='all')
-    td_calc_restart = LCAOTDDFT('td_split0.gpw')
+    td_calc_restart = LCAOTDDFT('td_split0.gpw',
+                                propagator={'name': 'scpc', 'tolerance': 1e-0})
     DipoleMomentWriter(td_calc_restart, 'dm_split.dat')
     td_calc_restart.propagate(dt, int(nt * 0.5))
     td_calc_restart.write('td_split1.gpw', mode='all')
