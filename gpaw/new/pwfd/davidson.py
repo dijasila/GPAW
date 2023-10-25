@@ -11,6 +11,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
+from gpaw.new.c import calculate_residuals_gpu
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -252,8 +253,7 @@ def calculate_residuals(residual_nX: XArray,
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
-            r -= p * e
+        calculate_residuals_gpu(residual_nX.data, eig_n, wfs.psit_nX.data)
 
     dH(wfs.P_ani, P1_ani)
     wfs.P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
