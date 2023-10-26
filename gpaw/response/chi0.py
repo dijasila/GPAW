@@ -311,7 +311,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                 self.kptpair_factory,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
-                integrationmode=self.integrationmode)
+                integrationmode=self.integrationmode,
+                crpa_weight=self.crpa_weight)
         else:
             self.drude_calc = None
             self.rate = None

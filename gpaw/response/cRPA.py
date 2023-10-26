@@ -99,21 +99,24 @@ class cRPA:
                               nbands=nbands, ecut=ecut,
                               crpa_weight=self, **kwargs)
 
-    def get_weight_nm(self, n_n, m_m, ikn, ikm):
+    def get_weight_nm(self, n_n, m_m, k1_c, k2_c):
         """ weight_nm = 1. - P_n*Pm where
         P_n is probability that state n is in model
         subspace.
         """
+        ikn = self.gs.kd.where_is_q(k1_c, self.gs.kd.bzk_kc)
+        ikm = self.gs.kd.where_is_q(k2_c, self.gs.kd.bzk_kc)
         weights_n = self.extra_weights_nk[n_n, ikn]
         weights_m = self.extra_weights_nk[m_m, ikm]
         weights_nm = - np.outer(weights_n, weights_m)
         weights_nm += 1.0
         return weights_nm
 
-    def get_drude_weight_n(self, n_n, ikn):
+    def get_drude_weight_n(self, n_n, k_c):
         """ weight_nm = 1. - P_n*Pm where
         P_n is probability that state n is in model
         subspace.
         """
+        ikn = self.gs.kd.where_is_q(k_c, self.gs.kd.bzk_kc)
         weights_n = 1. - self.extra_weights_nk[n_n, ikn]**2
         return weights_n
