@@ -1,4 +1,3 @@
-#ifndef INTERPOLATE
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
@@ -7,15 +6,14 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
 
-#define BLOCK_X   (32)
-#define BLOCK_Y   (16)
-#define BCACHE_X  (BLOCK_X + 1)
-#define BCACHE_Y  (BLOCK_Y + 1)
-#define ACACHE_X  (BLOCK_X / 2 + 1)
-#define ACACHE_Y  (BLOCK_Y / 2 + 1)
-
+#ifndef GPU_USE_COMPLEX
+#  define BLOCK_X   (32)
+#  define BLOCK_Y   (16)
+#  define BCACHE_X  (BLOCK_X + 1)
+#  define BCACHE_Y  (BLOCK_Y + 1)
+#  define ACACHE_X  (BLOCK_X / 2 + 1)
+#  define ACACHE_Y  (BLOCK_Y / 2 + 1)
 #endif
-#define INTERPOLATE
 
 
 __global__ void Zgpu(interpolate_kernel)(
