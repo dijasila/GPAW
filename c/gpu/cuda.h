@@ -74,7 +74,6 @@
 
 #define gpublasCreate             cublasCreate
 #define gpublasSetStream          cublasSetStream
-#define gpublasDgemm              cublasDgemm
 #define gpublasGetMatrixAsync     cublasGetMatrixAsync
 #define gpublasSetMatrixAsync     cublasSetMatrixAsync
 #define gpublasDsyrk              cublasDsyrk

@@ -73,7 +73,6 @@
 
 #define gpublasCreate             hipblasCreate
 #define gpublasSetStream          hipblasSetStream
-#define gpublasDgemm              hipblasDgemm
 #define gpublasGetMatrixAsync     hipblasGetMatrixAsync
 #define gpublasSetMatrixAsync     hipblasSetMatrixAsync
 #define gpublasDsyrk              hipblasDsyrk
