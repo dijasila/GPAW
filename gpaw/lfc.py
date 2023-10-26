@@ -584,7 +584,7 @@ class LocalizedFunctionsCollection(BaseLFC):
             self.lfc.integrate(a_xG._data, c_xM._data, q)
         else:
             if self.Mmax > 0:
-                c_xM = c_axi.data
+                c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(a_xG.data.ptr,
                                        a_xG.shape,
                                        c_xM.data.ptr,
