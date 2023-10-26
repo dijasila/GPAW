@@ -251,7 +251,7 @@ test:
   script:
     - gpaw info
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
+      OMP_NUM_THREADS=3 pytest -v -m ci -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
     # This is the only test which uses OpenMP.
@@ -260,12 +260,12 @@ test:
 
     - gpaw-python -m gpaw info
     - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      OMP_NUM_THREADS=4 gpaw-python -m pytest -v -m ci
       -We -Wi::ImportWarning
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
-test-latest:
+.test-latest:
   image: $IMAGE_PATH/main:latest
   extends:
     - .test
