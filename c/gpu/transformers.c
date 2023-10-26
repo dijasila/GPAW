@@ -128,7 +128,7 @@ static void _transformer_apply_gpu(TransformerObject* self,
                                                   bc->size2,
                                                   (gpuDoubleComplex*) (out2),
                                                   self->size_out,
-                                                  (gpuDoubleComplex*) (buf2),
+                                                  (gpuDoubleComplex*) (buf16),
                                                   myblocks);
                 }
             } else {
