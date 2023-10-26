@@ -5,14 +5,14 @@ from typing import Callable
 import numpy as np
 
 from gpaw.core import UGArray, UGDesc
-from gpaw.gpu import as_xp, einsum
+from gpaw.gpu import einsum
 from gpaw.new import zips
 from gpaw.new.c import (add_to_density, add_to_density_gpu, evaluate_lda_gpu,
                         evaluate_pbe_gpu)
 from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
-from gpaw.typing import Array2D, Array4D
+from gpaw.typing import Array2D
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction
@@ -60,7 +60,7 @@ class Functional:
                             state: DFTState,
                             interpolate: Callable[[UGArray], UGArray]
                             ) -> Array2D:
-        args, kwargs = self._stress1(state, interpolate)
+        args, kwargs = self._args(state, interpolate)
         if state.ibzwfs.kpt_band_comm.rank == 0:
             if self.xp is np:
                 self.xc.kernel.calculate(*[array.data for array in args])
@@ -73,7 +73,16 @@ class Functional:
                                  sigma_xr.data, dedsigma_xr.data)
             else:
                 1 / 0
-        return self._stress2(*args, **kwargs)
+        return self._stress(*args, **kwargs)
+
+    def _args(self,
+              state: DFTState,
+              interpolate: Callable[[UGArray], UGArray]
+              ) -> tuple[tuple[UGArray], dict]:
+        raise NotImplementedError
+
+    def _stress(self, *args: UGArray, **kwargs) -> Array2D:
+        raise NotImplementedError
 
 
 class LDAFunctional(Functional):
@@ -94,7 +103,7 @@ class LDAFunctional(Functional):
         exc = e_r.integrate()
         return exc, vxct_sr, None
 
-    def _stress1(self, state, interpolate):
+    def _args(self, state, interpolate):
         ibzwfs = state.ibzwfs
         if ibzwfs.kpt_band_comm.rank != 0:
             return (), {}
@@ -104,7 +113,7 @@ class LDAFunctional(Functional):
         vt_sr = nt_sr.new(zeroed=True)
         return (e_r, nt_sr, vt_sr), {}
 
-    def _stress2(self, e_r, nt_sr, vt_sr) -> Array2D:
+    def _stress(self, e_r, nt_sr, vt_sr) -> Array2D:
         P = e_r.integrate(skip_sum=True)
         for vt_r, nt_r in zip(vt_sr, nt_sr):
             P -= vt_r.integrate(nt_r, skip_sum=True)
@@ -152,10 +161,11 @@ class GGAFunctional(LDAFunctional):
         exc = e_r.integrate()
         return exc, vxct_sr, None
 
-    def _stress1(self,
-                 state: DFTState,
-                 interpolate: Callable[[UGArray], UGArray]) -> Array2D:
-        args, kwargs = LDAFunctional._stress1(self, state, interpolate)
+    def _args(self,
+              state: DFTState,
+              interpolate: Callable[[UGArray], UGArray]
+              ) -> tuple[tuple[UGArray], dict]:
+        args, kwargs = LDAFunctional._args(self, state, interpolate)
         if args:
             e_r, nt_sr, vt_sr = args
             gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
@@ -164,11 +174,11 @@ class GGAFunctional(LDAFunctional):
             kwargs = {'gradn_svr': gradn_svr}
         return args, kwargs
 
-    def _stress2(self,
-                 e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
-                 gradn_svr,
-                 ) -> Array2D:
-        stress_vv = LDAFunctional._stress2(self, e_r, nt_sr, vt_sr)
+    def _stress(self,
+                e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
+                gradn_svr,
+                ) -> Array2D:
+        stress_vv = LDAFunctional._stress(self, e_r, nt_sr, vt_sr)
         P = 0.0
         for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
             P -= 2 * sigma_r.integrate(dedsigma_r, skip_sum=True)
@@ -259,11 +269,9 @@ class MGGAFunctional(GGAFunctional):
                                 dedsigma_xr.data, vxct_sr.data)
         return e_r.integrate(), vxct_sr, dedtaut_sr
 
-    def _stress1(self,
-                 state: DFTState,
-                 interpolate: Callable[[UGArray], UGArray]
-                 ) -> Array2D:
-        args, kwargs = GGAFunctional._stress1(self, state, interpolate)
+    def _args(self, state: DFTState, interpolate: Callable[[UGArray], UGArray]
+              ):
+        args, kwargs = GGAFunctional._args(self, state, interpolate)
         taut_swR = _taut(state.ibzwfs, state.density.nt_sR.desc)
 
         if not args:
@@ -279,15 +287,15 @@ class MGGAFunctional(GGAFunctional):
 
         return args, kwargs
 
-    def _stress2(self,
-                 e_r, nt_sr, vt_sr,
-                 sigma_xr, dedsigma_xr,
-                 taut_sr, dedtaut_sr,
-                 gradn_svr,
-                 taut_swR,
-                 interpolate
-                 ) -> Array2D:
-        stress_vv = GGAFunctional._stress2(
+    def _stress(self,
+                e_r, nt_sr, vt_sr,
+                sigma_xr, dedsigma_xr,
+                taut_sr, dedtaut_sr,
+                gradn_svr,
+                taut_swR,
+                interpolate
+                ) -> Array2D:
+        stress_vv = GGAFunctional._stress(
             self, e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
             gradn_svr=gradn_svr)
         for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
