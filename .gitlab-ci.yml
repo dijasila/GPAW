@@ -147,8 +147,8 @@ build-cuda:
     - pip install --user --log build.log --editable .
 
 
-.build-hip-cuda:
-  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+build-hip-cuda:
+  image: $IMAGE_PATH/cuda:11-staging
   extends:
     - .build
     - .gpu-job
@@ -361,8 +361,8 @@ test-cuda-mpi:
     - mpirun -np 4 gpaw-python -m pytest -v -m gpu
 
 
-.test-hip-cuda:
-  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+test-hip-cuda:
+  image: $IMAGE_PATH/cuda:11-staging
   extends:
     - .test
     - .gpu-job
