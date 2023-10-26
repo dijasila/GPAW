@@ -481,18 +481,20 @@ PyObject* integrate_gpu(LFCObject *lfc, PyObject *args)
     int c_nd = PyTuple_Size(c_shape);
     int nM = (int) PyLong_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
 
-    if (!lfc->bloch_boundary_conditions) {
-        const double* a_G = (const double*) a_xG_gpu;
-        double* c_M = (double*) c_xM_gpu;
+    if (nM > 0) {
+        if (!lfc->bloch_boundary_conditions) {
+            const double* a_G = (const double*) a_xG_gpu;
+            double* c_M = (double*) c_xM_gpu;
 
-        lfc_reducemap(lfc, a_G, nG, c_M, nM, nx, q);
-        gpuCheckLastError();
-    } else {
-        const gpuDoubleComplex* a_G = (const gpuDoubleComplex*) a_xG_gpu;
-        gpuDoubleComplex* c_M = (gpuDoubleComplex*) c_xM_gpu;
+            lfc_reducemap(lfc, a_G, nG, c_M, nM, nx, q);
+            gpuCheckLastError();
+        } else {
+            const gpuDoubleComplex* a_G = (const gpuDoubleComplex*) a_xG_gpu;
+            gpuDoubleComplex* c_M = (gpuDoubleComplex*) c_xM_gpu;
 
-        lfc_reducemapz(lfc, a_G, nG, c_M, nM, nx, q);
-        gpuCheckLastError();
+            lfc_reducemapz(lfc, a_G, nG, c_M, nM, nx, q);
+            gpuCheckLastError();
+        }
     }
     if (PyErr_Occurred())
         return NULL;
