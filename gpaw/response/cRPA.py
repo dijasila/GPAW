@@ -15,11 +15,13 @@ class cRPA:
         self.gs = gs
         self.context = context
 
+
     @classmethod
-    def from_wannier_matrix(cls, Uwan_wnk, bandrange, calc,
-                            txt='chi0.txt', timer=None, world=world):
+    def from_wannier_matrix(cls, Uwan_mnk, bandrange, calc,
+                            wannier_range=None, txt='chi0.txt',
+                            timer=None, world=world):
         """Initialize cRPA_weight from Wannier transformation matrix
-        Uwan_wnk: cmplx or str
+        Uwan_mnk: cmplx or str
                   if cmplx: Wannier transfirmation matrix:
                   w = wannier index, n band index, k k-index
                   if str: name of wannier90 output file with transformation
@@ -29,25 +31,41 @@ class cRPA:
                    from
         calc:      str
                    gpw-file
+        wannier_range: list(int) or None
+                   If not None only remove screening from selected
+                   wannier functions in list
         txt:       str
                    output file
         """
 
         from gpaw.wannier90 import read_uwan
         gs, context = get_gs_and_context(calc, txt, world, timer)
+        context.print("Initializing cRPA from wannier matrix")
         nbands = gs.bd.nbands
         kd = gs.kd
-        bandrange = np.arange(bandrange[0], bandrange[1])
+        bandrange = np.arange(bandrange[0], bandrange[-1])
         # if Uwan is string try to read wannier90 matrix
-        if isinstance(Uwan_wnk, str):
-            seed = Uwan_wnk
+        if isinstance(Uwan_mnk, str):
+            seed = Uwan_mnk
             assert kd is not None
-            Uwan_wnk, nk, nw1, nw2 = read_uwan(seed, kd)
+            Uwan_mnk, nk, nw1, nw2 = read_uwan(seed, kd)
             assert nw2 == len(bandrange)
             assert nk == kd.nbzkpts
+            nwan = len(Uwan_mnk)
+            assert nw1 == nwan
+        else:
+            nwan = len(Uwan_mnk)
+
+        if wannier_range is not None:
+            assert(len(Uwan_mnk) > max(wannier_range))
+        else:
+            wannier_range = range(nwan)
+        context.print("Removing screening from Wannier functions:")
+        context.print(wannier_range)
         extra_weights_nk = np.zeros((nbands, nk))
-        extra_weights_nk[bandrange, :] = np.sum(np.abs(Uwan_wnk)**2, axis=0)
-        assert np.allclose(np.sum(extra_weights_nk, axis=0), nw1)
+        extra_weights_nk[bandrange, :] = np.sum(np.abs(Uwan_mnk[wannier_range])**2, axis=0)
+
+        assert np.allclose(np.sum(extra_weights_nk, axis=0), len(wannier_range))
         return cls(extra_weights_nk, bandrange, gs, context)
 
     @classmethod
@@ -63,11 +81,15 @@ class cRPA:
                    output file
         """
         gs, context = get_gs_and_context(calc, txt, world, timer)
+        context.print("Initializing cRPA from band indexes")
+        context.print("Removing screening from bands:")
+        context.print(bands)
         nbands = gs.bd.nbands
         nk = gs.kd.nbzkpts
         extra_weights_nk = np.zeros((nbands, nk))
         extra_weights_nk[bands, :] = 1
         assert np.allclose(np.sum(extra_weights_nk, axis=0), len(bands))
+
         return cls(extra_weights_nk, bands, gs, context)
 
     """
@@ -99,24 +121,23 @@ class cRPA:
                               nbands=nbands, ecut=ecut,
                               crpa_weight=self, **kwargs)
 
-    def get_weight_nm(self, n_n, m_m, k1_c, k2_c):
+    def get_weight_nm(self, n_n, m_m, ikn, ikm):
         """ weight_nm = 1. - P_n*Pm where
         P_n is probability that state n is in model
         subspace.
         """
-        ikn = self.gs.kd.where_is_q(k1_c, self.gs.kd.bzk_kc)
-        ikm = self.gs.kd.where_is_q(k2_c, self.gs.kd.bzk_kc)
         weights_n = self.extra_weights_nk[n_n, ikn]
         weights_m = self.extra_weights_nk[m_m, ikm]
         weights_nm = - np.outer(weights_n, weights_m)
         weights_nm += 1.0
+        weights_nm[weights_nm <= 1e-20] = 0.0
         return weights_nm
 
-    def get_drude_weight_n(self, n_n, k_c):
+    def get_drude_weight_n(self, n_n, ikn):
         """ weight_nm = 1. - P_n*Pm where
         P_n is probability that state n is in model
         subspace.
         """
-        ikn = self.gs.kd.where_is_q(k_c, self.gs.kd.bzk_kc)
         weights_n = 1. - self.extra_weights_nk[n_n, ikn]**2
+        weights_n[weights_n <= 1e-20] = 0.0
         return weights_n
