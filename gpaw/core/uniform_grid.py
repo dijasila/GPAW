@@ -546,7 +546,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -641,7 +641,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.fft_restrict(plan1, plan2,
                                             out.desc.new(comm=None))
                 out.scatter_from(output.data)
