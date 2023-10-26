@@ -126,7 +126,7 @@ build-latest:
 
 
 build-cuda:
-  image: $IMAGE_PATH/build-cuda:ubuntu-20.04-cuda-11.6.0
+  image: $IMAGE_PATH/cuda:11
   extends:
     - .build
     - .gpu-job
@@ -148,7 +148,7 @@ build-cuda:
 
 
 build-hip-cuda:
-  image: $IMAGE_PATH/build-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  image: $IMAGE_PATH/cuda:11
   extends:
     - .build
     - .gpu-job
@@ -329,7 +329,7 @@ test-minimal:
       -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 test-cuda:
-  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
+  image: $IMAGE_PATH/cuda:11
   extends:
     - .test
     - .gpu-job
@@ -346,7 +346,7 @@ test-cuda:
     - gpaw-python -m pytest -v -m gpu
 
 test-cuda-mpi:
-  image: $IMAGE_PATH/run-cuda:ubuntu-20.04-cuda-11.6.0
+  image: $IMAGE_PATH/cuda:11
   extends:
     - .test
     - .gpu-job
@@ -362,7 +362,7 @@ test-cuda-mpi:
 
 
 test-hip-cuda:
-  image: $IMAGE_PATH/run-hip-cuda:ubuntu-20.04-cuda-11.6.0-hip-5.3.3
+  image: $IMAGE_PATH/cuda:11
   extends:
     - .test
     - .gpu-job
