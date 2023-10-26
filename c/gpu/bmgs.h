@@ -40,6 +40,11 @@ void bmgs_interpolate_gpu(int k, int skip[3][2],
                           double* b, const int sizeb[3],
                           int blocks);
 
+void bmgs_interpolate_stencil_gpu(int k, int skip[3][2],
+                                  const double* a, const int sizea[3],
+                                  double* b, const int sizeb[3],
+                                  double* w, int blocks);
+
 // complex routines:
 void bmgs_fd_gpuz(const bmgsstencil_gpu* s, const gpuDoubleComplex* adev,
                   gpuDoubleComplex* bdev, int boundary, int blocks,
@@ -71,6 +76,11 @@ void bmgs_interpolate_gpuz(int k, int skip[3][2],
                            const gpuDoubleComplex* a, const int n[3],
                            gpuDoubleComplex* b, const int sizeb[3],
                            int blocks);
+
+void bmgs_interpolate_stencil_gpuz(int k, int skip[3][2],
+                                  const gpuDoubleComplex* a, const int sizea[3],
+                                  gpuDoubleComplex* b, const int sizeb[3],
+                                  gpuDoubleComplex* w, int blocks);
 
 void reducemap_dotuz(const gpuDoubleComplex* a_gpu,
                      const gpuDoubleComplex* b_gpu, gpuDoubleComplex* result,
