@@ -576,15 +576,13 @@ class LocalizedFunctionsCollection(BaseLFC):
 
         comm = self.gd.comm
 
+        c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
         if self.xp is np:
-            c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
             self.lfc.integrate(a_xG, c_xM, q)
         elif cupy_is_fake:
-            c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
             self.lfc.integrate(a_xG._data, c_xM._data, q)
         else:
             if self.Mmax > 0:
-                c_xM = self.xp.zeros(xshape + (self.Mmax,), dtype)
                 self.lfc.integrate_gpu(a_xG.data.ptr,
                                        a_xG.shape,
                                        c_xM.data.ptr,
