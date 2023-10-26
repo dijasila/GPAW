@@ -107,12 +107,13 @@ class Chi0Integrand(Integrand):
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         # additional cRPA weights
         if self.crpa_weight is not None:
+            # XXX squared or not squared. That is the question...
             df_nm *= self.crpa_weight.get_weight_nm(n_n, m_m,
                                                     kptpair.kpt1.K,
-                                                    kptpair.kpt2.K)
+                                                    kptpair.kpt2.K)**2
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
-
+        
         return n_nmG
 
     @timer('Get eigenvalues')

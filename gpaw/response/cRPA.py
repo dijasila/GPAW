@@ -15,7 +15,6 @@ class cRPA:
         self.gs = gs
         self.context = context
 
-
     @classmethod
     def from_wannier_matrix(cls, Uwan_mnk, bandrange, calc,
                             wannier_range=None, txt='chi0.txt',
@@ -63,9 +62,12 @@ class cRPA:
         context.print("Removing screening from Wannier functions:")
         context.print(wannier_range)
         extra_weights_nk = np.zeros((nbands, nk))
-        extra_weights_nk[bandrange, :] = np.sum(np.abs(Uwan_mnk[wannier_range])**2, axis=0)
+        extra_weights_nk[bandrange, :] = \
+            np.sum(np.abs(Uwan_mnk[wannier_range])**2,
+                                                axis=0)
 
-        assert np.allclose(np.sum(extra_weights_nk, axis=0), len(wannier_range))
+        assert np.allclose(np.sum(extra_weights_nk, axis=0),
+                           len(wannier_range))
         return cls(extra_weights_nk, bandrange, gs, context)
 
     @classmethod
