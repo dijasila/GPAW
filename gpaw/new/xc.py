@@ -5,7 +5,7 @@ from typing import Callable
 import numpy as np
 
 from gpaw.core import UGArray, UGDesc
-from gpaw.gpu import as_np, as_xp, einsum
+from gpaw.gpu import as_xp, einsum
 from gpaw.new import zips
 from gpaw.new.c import (add_to_density, add_to_density_gpu, evaluate_lda_gpu,
                         evaluate_pbe_gpu)
@@ -23,7 +23,6 @@ from gpaw.xc.vdw import VDWFunctionalBase
 def create_functional(xc: OldXCFunctional | str | dict,
                       grid: UGDesc,
                       xp=np) -> Functional:
-    print(6666666666666666, xc, xp)
     if isinstance(xc, (str, dict)):
         xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
@@ -59,7 +58,11 @@ class Functional:
                             state: DFTState,
                             interpolate: Callable[[UGArray], UGArray]
                             ) -> Array2D:
-        raise NotImplementedError
+        args, kwargs = self._stress1(state, interpolate)
+        if state.ibzwfs.kpt_band_comm.rank != 0:
+            self.xc.kernel.calculate(*[array.data for array in args])
+        return self._stress2(*args, **kwargs)
+
 
 
 class LDAFunctional(Functional):
@@ -81,17 +84,23 @@ class LDAFunctional(Functional):
         exc = e_r.integrate()
         return exc, vxct_sr, None
 
-    def stress_contribution(self,
-                            state: DFTState,
-                            interpolate: Callable[[UGArray], UGArray]
-                            ) -> Array2D:
+    def _stress1(self, state, interpolate)
         ibzwfs = state.ibzwfs
-        if ibzwfs.kpt_comm.rank == 0 and ibzwfs.band_comm.rank == 0:
-            nt_sr = interpolate(state.density.nt_sR)
-            s_vv = self.xc.stress_tensor_contribution(nt_sr.data,
-                                                      skip_sum=True)
-            return as_xp(s_vv, nt_sr.xp)
-        return state.density.nt_sR.xp.zeros((3, 3))
+        if ibzwfs.kpt_band_comm.rank != 0:
+            return (), {}
+        nt_sR = state.density.nt_sR
+        xp = nt_sR.xp
+        e_r = self.grid.empty(xp=xp)
+        vt_sr = nt_sr.new(zeroed=True)
+        nt_sr = interpolate(nt_sR)
+        return (e_r, nt_sr, vt_sr), {}
+
+    def _stress2(self,
+                 e_r, nt_sr, vt_sr) -> Array2D:
+        P = e_r.integrate(skip_sum=True)
+        for vt_r, nt_r in zip(vt_sr, nt_sr):
+            P -= vt_r.integrate(nt_r, skip_sum=True)
+        return P * np.eye(3)
 
 
 class GGAFunctional(LDAFunctional):
@@ -135,6 +144,40 @@ class GGAFunctional(LDAFunctional):
         exc = e_r.integrate()
         return exc, vxct_sr, None
 
+    def _stress1(self,
+                 state: DFTState,
+                 interpolate: Callable[[UGArray], UGArray]) -> Array2D:
+        args, kwargs = LDAFunctional._stress1(self, state, interpolate)
+        if args:
+            e_r, nt_sr, vt_sr = args
+            gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
+            dedsigma_xr = sigma_xr.new()
+            args += (sigma_xr, dedsigma_xr)
+            kwargs = {'gradn_svr': gradn_svr}
+        return args, kwargs
+
+    def _stress2(self,
+                 e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
+                 gradn_svr,
+                 ) -> Array2D:
+        stress_vv = LDAFunctional._stress2(None, e_r, nt_sr, vt_sr)
+        P = 0.0
+        for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
+            P -= 2 * sigma_r.integrate(dedsigma_r, skip_sum=True)
+        for v1 in range(3):
+            for v2 in range(3):
+                stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
+                                               gradn_svr[0, v2],
+                                               dedsigma_xr[0]) * 2
+                if nspins == 2:
+                    stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
+                                                   gradn_svr[1, v2],
+                                                   dedsigma_xr[1]) * 2
+                    stress_vv[v1, v2] -= integrate(gradn_svr[1, v1] *
+                                                   gradn_svr[1, v2],
+                                                   dedsigma_xr[2]) * 2
+        return stress_vv
+
 
 def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
     """Calculate gradient of density and sigma.
@@ -157,7 +200,6 @@ def gradient_and_sigma(grad_v, n_sr: UGArray) -> tuple[UGArray, UGArray]:
     gradn_svr = n_sr.desc.empty((nspins, 3), xp=xp)
     for v, grad in enumerate(grad_v):
         for s in range(nspins):
-            print(v, s, grad, grad.xp, n_sr, xp)
             grad(n_sr[s], gradn_svr[s, v])
 
     sigma_xr = n_sr.desc.empty(nspins * 2 - 1, xp=xp)
@@ -177,8 +219,6 @@ def dot_product(a_vr, b_vr, out_r):
             for a_r in a_vr.data:
                 add_to_density(1.0, a_r, out_r.data)
         else:
-            print(type(a_vr.data))
-            print(type(out_r.data))
             add_to_density_gpu(xp.ones(3), a_vr.data, out_r.data)
     else:
         einsum('vabc, vabc -> abc', a_vr.data, b_vr.data, out=out_r.data)
@@ -210,19 +250,34 @@ class MGGAFunctional(GGAFunctional):
                                 dedsigma_xr.data, vxct_sr.data)
         return e_r.integrate(), vxct_sr, dedtaut_sr
 
-    def stress_contribution(self,
-                            state: DFTState,
-                            interpolate: Callable[[UGArray], UGArray]
-                            ) -> Array2D:
-        stress_vv = np.zeros((3, 3))
-
+    def _stress1(self,
+                 state: DFTState,
+                 interpolate: Callable[[UGArray], UGArray]
+                 ) -> Array2D:
+        args, kwargs = GGAFunctional._stress1(self, state, interpolate)
         taut_swR = _taut(state.ibzwfs, state.density.nt_sR.desc)
-        if taut_swR is None:
-            return stress_vv
 
-        dedtaut_sR = state.potential.dedtaut_sR
-        assert dedtaut_sR is not None
-        dedtaut_sr = interpolate(dedtaut_sR)
+        if not args:
+            return (), {}
+
+        e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr = args
+        taut_sR = state.density.taut_sR
+        taut_sr = interpolate(taut_sR)
+        dedtaut_sr = taut_sr.new()
+        args += (taut_sr, dedtaut_sr)
+        kwargs['taut_swR'] = taut_swR
+
+        return args, kwargs
+
+    def _stress2(self,
+                 e_r, nt_sr, vt_sr,
+                 sigma_xr, dedsigma_xr,
+                 taut_sr, dedtaut_sr,
+                 gradn_svr,
+                 taut_swR
+                 ) -> Array2D:
+        stress_vv = GGAFunctional._stress2(
+            e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr, gradn_svr=gradn_svr)
         for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
             w = 0
             for v1 in range(3):
@@ -234,12 +289,8 @@ class MGGAFunctional(GGAFunctional):
                         stress_vv[v2, v1] -= s
                     w += 1
 
-        nt_sr = interpolate(state.density.nt_sR)
-        taut_sR = state.density.taut_sR
-        assert taut_sR is not None
-        taut_sr = interpolate(taut_sR)
-        assert isinstance(self.xc, MGGA)
-        stress_vv += _mgga(self.xc, self.grad_v, nt_sr, taut_sr.data)
+        for taut_r, dedtaut_r in zip(taut_sr, dedtaut_sr):
+            P -= integrate(taut_r, dedtaut_r)
 
         return stress_vv
 
@@ -309,43 +360,3 @@ def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
             taut_swR.scatter_from(taut1_swR)
             return taut_swR
     return None
-
-
-def _mgga(xc: MGGA,
-          grad_v,
-          nt_sr: UGArray,
-          taut_sr: Array4D) -> Array2D:
-    gradn_svr, sigma_xr = (a.data for a in gradient_and_sigma(grad_v, nt_sr))
-    nspins = nt_sr.dims[0]
-    dedtaut_sr = np.empty_like(nt_sr.data)
-    vt_sr = xc.gd.zeros(nspins)
-    e_r = xc.gd.empty()
-    dedsigma_xr = np.empty_like(sigma_xr)
-    xc.kernel.calculate(e_r, nt_sr.data, vt_sr, sigma_xr, dedsigma_xr,
-                        taut_sr, dedtaut_sr)
-
-    def integrate(a1_r, a2_r=None):
-        return xc.gd.integrate(a1_r, a2_r, global_integral=False)
-
-    P = integrate(e_r)
-    for vt_r, nt_r in zip(vt_sr, nt_sr.data):
-        P -= integrate(vt_r, nt_r)
-    for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
-        P -= 2 * integrate(sigma_r, dedsigma_r)
-    for taut_r, dedtaut_r in zip(taut_sr, dedtaut_sr):
-        P -= integrate(taut_r, dedtaut_r)
-
-    stress_vv = P * np.eye(3)
-    for v1 in range(3):
-        for v2 in range(3):
-            stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
-                                           gradn_svr[0, v2],
-                                           dedsigma_xr[0]) * 2
-            if nspins == 2:
-                stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
-                                               gradn_svr[1, v2],
-                                               dedsigma_xr[1]) * 2
-                stress_vv[v1, v2] -= integrate(gradn_svr[1, v1] *
-                                               gradn_svr[1, v2],
-                                               dedsigma_xr[2]) * 2
-    return stress_vv
