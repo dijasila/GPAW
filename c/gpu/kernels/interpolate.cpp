@@ -1,3 +1,4 @@
+#ifndef INTERPOLATE
 #include <stdio.h>
 #include <time.h>
 #include <sys/types.h>
@@ -6,14 +7,15 @@
 #include "../gpu.h"
 #include "../gpu-complex.h"
 
-#ifndef GPU_USE_COMPLEX
-#  define BLOCK_X   (32)
-#  define BLOCK_Y   (16)
-#  define BCACHE_X  (BLOCK_X + 1)
-#  define BCACHE_Y  (BLOCK_Y + 1)
-#  define ACACHE_X  (BLOCK_X / 2 + 1)
-#  define ACACHE_Y  (BLOCK_Y / 2 + 1)
+#define BLOCK_X   (32)
+#define BLOCK_Y   (16)
+#define BCACHE_X  (BLOCK_X + 1)
+#define BCACHE_Y  (BLOCK_Y + 1)
+#define ACACHE_X  (BLOCK_X / 2 + 1)
+#define ACACHE_Y  (BLOCK_Y / 2 + 1)
+
 #endif
+#define INTERPOLATE
 
 
 __global__ void Zgpu(interpolate_kernel)(
@@ -173,6 +175,73 @@ void Zgpu(bmgs_interpolate_gpu)(int k, int skip[3][2],
     gpuLaunchKernel(Zgpu(interpolate_kernel), dimGrid, dimBlock, 0, 0,
                     a, n, b, b_n, skip0, skip1, xdiv, blocks);
     gpuCheckLastError();
+}
+
+#define K 2
+#define IP1D Zcuda(interpolate1D2)
+#define IP1D_kernel Zcuda(interpolate1D2_kernel)
+#include "interpolate-stencil.cpp"
+#undef IP1D
+#undef IP1D_kernel
+#undef K
+
+#define K 4
+#define IP1D Zcuda(interpolate1D4)
+#define IP1D_kernel Zcuda(interpolate1D4_kernel)
+#include "interpolate-stencil.cpp"
+#undef IP1D
+#undef IP1D_kernel
+#undef K
+
+#define K 6
+#define IP1D Zcuda(interpolate1D6)
+#define IP1D_kernel Zcuda(interpolate1D6_kernel)
+#include "interpolate-stencil.cpp"
+#undef IP1D
+#undef IP1D_kernel
+#undef K
+
+#define K 8
+#define IP1D Zcuda(interpolate1D8)
+#define IP1D_kernel Zcuda(interpolate1D8_kernel)
+#include "interpolate-stencil.cpp"
+#undef IP1D
+#undef IP1D_kernel
+#undef K
+
+extern "C"
+void Zgpu(bmgs_interpolate_stencil_gpu)(int k, int skip[3][2],
+                                        const Tgpu* a, const int sizea[3],
+                                        Tgpu* b, const int sizeb[3],
+                                        Tgpu* w, int blocks)
+{
+    void (*func)(const Tgpu*, int, int, Tgpu*, int[2]);
+    if (k == 2)
+        func = Zcuda(bmgs_interpolate1D2);
+    else if (k == 4)
+        func = Zcuda(bmgs_interpolate1D4);
+    else if (k == 6)
+        func = Zcuda(bmgs_interpolate1D6);
+    else
+        func = Zcuda(bmgs_interpolate1D8);
+
+    int e = k - 1;
+    for (int i=0; i < blocks; i++) {
+        func(a, sizea[2] - e + skip[2][1],
+                sizea[0] *
+                sizea[1],
+                b, skip[2]);
+        func(b, sizea[1] - e + skip[1][1],
+                sizea[0] *
+                ((sizea[2] - e) * 2 - skip[2][0] + skip[2][1]),
+                w, skip[1]);
+        func(w, sizea[0] - e + skip[0][1],
+                ((sizea[1] - e) * 2 - skip[1][0] + skip[1][1]) *
+                ((sizea[2] - e) * 2 - skip[2][0] + skip[2][1]),
+                b, skip[0]);
+        a += sizea[0] * sizea[1] * sizea[2];
+        b += sizeb[0] * sizeb[1] * sizeb[2];
+    }
 }
 
 #ifndef GPU_USE_COMPLEX
