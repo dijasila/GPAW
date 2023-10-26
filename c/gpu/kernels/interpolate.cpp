@@ -176,32 +176,32 @@ void Zgpu(bmgs_interpolate_gpu)(int k, int skip[3][2],
 }
 
 #define K 2
-#define IP1D Zcuda(interpolate1D2)
-#define IP1D_kernel Zcuda(interpolate1D2_kernel)
+#define IP1D Zgpu(interpolate1D2)
+#define IP1D_kernel Zgpu(interpolate1D2_kernel)
 #include "interpolate-stencil.cpp"
 #undef IP1D
 #undef IP1D_kernel
 #undef K
 
 #define K 4
-#define IP1D Zcuda(interpolate1D4)
-#define IP1D_kernel Zcuda(interpolate1D4_kernel)
+#define IP1D Zgpu(interpolate1D4)
+#define IP1D_kernel Zgpu(interpolate1D4_kernel)
 #include "interpolate-stencil.cpp"
 #undef IP1D
 #undef IP1D_kernel
 #undef K
 
 #define K 6
-#define IP1D Zcuda(interpolate1D6)
-#define IP1D_kernel Zcuda(interpolate1D6_kernel)
+#define IP1D Zgpu(interpolate1D6)
+#define IP1D_kernel Zgpu(interpolate1D6_kernel)
 #include "interpolate-stencil.cpp"
 #undef IP1D
 #undef IP1D_kernel
 #undef K
 
 #define K 8
-#define IP1D Zcuda(interpolate1D8)
-#define IP1D_kernel Zcuda(interpolate1D8_kernel)
+#define IP1D Zgpu(interpolate1D8)
+#define IP1D_kernel Zgpu(interpolate1D8_kernel)
 #include "interpolate-stencil.cpp"
 #undef IP1D
 #undef IP1D_kernel
@@ -215,13 +215,13 @@ void Zgpu(bmgs_interpolate_stencil_gpu)(int k, int skip[3][2],
 {
     void (*func)(const Tgpu*, int, int, Tgpu*, int[2]);
     if (k == 2)
-        func = Zcuda(bmgs_interpolate1D2);
+        func = Zgpu(interpolate1D2);
     else if (k == 4)
-        func = Zcuda(bmgs_interpolate1D4);
+        func = Zgpu(interpolate1D4);
     else if (k == 6)
-        func = Zcuda(bmgs_interpolate1D6);
+        func = Zgpu(interpolate1D6);
     else
-        func = Zcuda(bmgs_interpolate1D8);
+        func = Zgpu(interpolate1D8);
 
     int e = k - 1;
     for (int i=0; i < blocks; i++) {
