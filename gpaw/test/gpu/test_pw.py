@@ -31,7 +31,7 @@ def test_gpu_pw(dtype, gpu):
 @pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])
 @pytest.mark.parametrize('par', ['domain', 'kpt', 'band'])
-@pytest.mark.parametrize('xc', ['LDA','PBE'])
+@pytest.mark.parametrize('xc', ['LDA', 'PBE'])
 def test_gpu_pw_k(gpu, par, xc):
     atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
     dft = DFTCalculation.from_parameters(
