@@ -26,9 +26,9 @@ def create_functional(xc: OldXCFunctional | str | dict,
     if isinstance(xc, (str, dict)):
         xc = XC(xc, xp=xp)
     if xc.type == 'LDA':
-        return LDAFunctional(xc, grid)
+        return LDAFunctional(xc, grid, xp)
     if xc.type == 'GGA':
-        return GGAFunctional(xc, grid)
+        return GGAFunctional(xc, grid, xp)
     if xc.type == 'MGGA':
         return MGGAFunctional(xc, grid)
     raise ValueError(f'{xc.type} not supported')
@@ -37,9 +37,11 @@ def create_functional(xc: OldXCFunctional | str | dict,
 class Functional:
     def __init__(self,
                  xc: OldXCFunctional,
-                 grid: UGDesc):
+                 grid: UGDesc,
+                 xp=np):
         self.xc = xc
         self.grid = grid
+        self.xp = xp
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
         self.type = self.xc.type
@@ -59,7 +61,7 @@ class Functional:
                             interpolate: Callable[[UGArray], UGArray]
                             ) -> Array2D:
         args, kwargs = self._stress1(state, interpolate)
-        if state.ibzwfs.kpt_band_comm.rank != 0:
+        if state.ibzwfs.kpt_band_comm.rank == 0:
             self.xc.kernel.calculate(*[array.data for array in args])
         return self._stress2(*args, **kwargs)
 
@@ -70,11 +72,10 @@ class LDAFunctional(Functional):
                   taut_sr: UGArray | None = None) -> tuple[float,
                                                            UGArray,
                                                            UGArray | None]:
-        xp = nt_sr.xp
         vxct_sr = nt_sr.new()
         vxct_sr.data[:] = 0.0
-        e_r = nt_sr.desc.empty(xp=xp)
-        if xp is np:
+        e_r = nt_sr.desc.empty(xp=self.xp)
+        if self.xp is np:
             self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data)
         else:
             if self.name != 'LDA':
@@ -88,25 +89,24 @@ class LDAFunctional(Functional):
         if ibzwfs.kpt_band_comm.rank != 0:
             return (), {}
         nt_sR = state.density.nt_sR
-        xp = nt_sR.xp
-        e_r = self.grid.empty(xp=xp)
+        e_r = self.grid.empty(xp=self.xp)
         nt_sr = interpolate(nt_sR)
         vt_sr = nt_sr.new(zeroed=True)
         return (e_r, nt_sr, vt_sr), {}
 
-    def _stress2(self,
-                 e_r, nt_sr, vt_sr) -> Array2D:
+    def _stress2(self, e_r, nt_sr, vt_sr) -> Array2D:
         P = e_r.integrate(skip_sum=True)
         for vt_r, nt_r in zip(vt_sr, nt_sr):
             P -= vt_r.integrate(nt_r, skip_sum=True)
-        return P * np.eye(3)
+        return P * self.xp.eye(3)
 
 
 class GGAFunctional(LDAFunctional):
     def __init__(self,
                  xc: OldXCFunctional,
-                 grid: UGDesc):
-        super().__init__(xc, grid)
+                 grid: UGDesc,
+                 xp=np):
+        super().__init__(xc, grid, xp)
         # xc already has Gradient.apply bound methods!!!
         self.grad_v = [grad.__self__ for grad in xc.grad_v]  # type: ignore
 
@@ -117,12 +117,11 @@ class GGAFunctional(LDAFunctional):
                                                            UGArray | None]:
         gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
 
-        xp = nt_sr.xp
         vxct_sr = nt_sr.new(zeroed=True)
         dedsigma_xr = sigma_xr.new()
-        e_r = self.grid.empty(xp=xp)
+        e_r = self.grid.empty(xp=self.xp)
 
-        if xp is np:
+        if self.xp is np:
             args = [a.data
                     for a in [e_r, nt_sr, vxct_sr, sigma_xr, dedsigma_xr]]
             if 'vdW' not in self.name:
@@ -159,10 +158,11 @@ class GGAFunctional(LDAFunctional):
                  e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
                  gradn_svr,
                  ) -> Array2D:
-        stress_vv = LDAFunctional._stress2(None, e_r, nt_sr, vt_sr)
+        stress_vv = LDAFunctional._stress2(self, e_r, nt_sr, vt_sr)
         P = 0.0
         for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
             P -= 2 * sigma_r.integrate(dedsigma_r, skip_sum=True)
+        stress_vv += P * self.xp.eye(3)
 
         nspins = len(nt_sr)
         for v1 in range(3):
@@ -278,7 +278,8 @@ class MGGAFunctional(GGAFunctional):
                  interpolate
                  ) -> Array2D:
         stress_vv = GGAFunctional._stress2(
-            e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr, gradn_svr=gradn_svr)
+            self, e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
+            gradn_svr=gradn_svr)
         for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
             w = 0
             for v1 in range(3):
