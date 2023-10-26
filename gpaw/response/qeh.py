@@ -142,17 +142,23 @@ class BuildingBlock:
         if self.load_chi_file():
             if self.complete:
                 self.context.print('Building block loaded from file')
+        self.context.print('used edited qeh code!')
         self.context.comm.barrier()
 
     def calculate_building_block(self, add_intraband=False):
+        import time
+        self.context.print('running calculate_building_block')
         if self.complete:
             return
         Nq = self.q_cs.shape[0]
         for nq in range(self.nq, Nq):
+            t0_loop = time.time()
             self.nq = nq
             self.save_chi_file()
             q_c = self.q_cs[nq]
             q_inf = self.q_infs[nq]
+            print('qc = ', q_c)
+            print('q_inf = ', q_inf)
             if np.allclose(q_inf, 0):
                 q_inf = None
 
@@ -163,6 +169,8 @@ class BuildingBlock:
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
+            self.context.print('running get_dielectric_matrix')
+            t0 = time.time()
             qpd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
@@ -171,15 +179,17 @@ class BuildingBlock:
                     q_v=q_inf,
                     direction=self.direction,
                     add_intraband=add_intraband)
-            self.context.print('calculated chi!')
-
+            self.context.print('calculated chi in %.3f seconds!'
+                               % (time.time() - t0))
+            t0 = time.time()
             nw = len(self.wd)
             comm = self.context.comm
             w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
             _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
                 get_chi_2D(self.wd.omega_w, qpd, chi_wGG)
-
+            self.context.print('calculated get_chi_2D in %.3f seconds'
+                               % (time.time() - t0))
             chiM_w = chiM_qw[0]
             chiD_w = chiD_qw[0]
             chiM_w = self.collect(chiM_w)
@@ -190,7 +200,8 @@ class BuildingBlock:
                 self.update_building_block(chiM_w[np.newaxis, :],
                                            chiD_w[np.newaxis, :],
                                            drhoM_qz, drhoD_qz)
-
+            self.context.print('Finished look %d in %.3f seconds'
+                               % (nq, time.time() - t0_loop))
         # Induced densities are not probably described in q-> 0 limit-
         # replace with finite q result:
         if self.context.comm.rank == 0:
