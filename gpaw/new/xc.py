@@ -78,7 +78,7 @@ class Functional:
     def _args(self,
               state: DFTState,
               interpolate: Callable[[UGArray], UGArray]
-              ) -> tuple[tuple[UGArray], dict]:
+              ) -> tuple[tuple[UGArray, ...], dict]:
         raise NotImplementedError
 
     def _stress(self, *args: UGArray, **kwargs) -> Array2D:
@@ -113,7 +113,7 @@ class LDAFunctional(Functional):
         vt_sr = nt_sr.new(zeroed=True)
         return (e_r, nt_sr, vt_sr), {}
 
-    def _stress(self, e_r, nt_sr, vt_sr) -> Array2D:
+    def _stress(self, e_r: UGArray, nt_sr: UGArray, vt_sr: UGArray) -> Array2D:
         P = e_r.integrate(skip_sum=True)
         for vt_r, nt_r in zip(vt_sr, nt_sr):
             P -= vt_r.integrate(nt_r, skip_sum=True)
@@ -164,7 +164,7 @@ class GGAFunctional(LDAFunctional):
     def _args(self,
               state: DFTState,
               interpolate: Callable[[UGArray], UGArray]
-              ) -> tuple[tuple[UGArray], dict]:
+              ) -> tuple[tuple[UGArray, ...], dict]:
         args, kwargs = LDAFunctional._args(self, state, interpolate)
         if args:
             e_r, nt_sr, vt_sr = args
@@ -279,6 +279,7 @@ class MGGAFunctional(GGAFunctional):
 
         e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr = args
         taut_sR = state.density.taut_sR
+        assert taut_sR is not None
         taut_sr = interpolate(taut_sR)
         dedtaut_sr = taut_sr.new()
         args += (taut_sr, dedtaut_sr)
@@ -294,7 +295,7 @@ class MGGAFunctional(GGAFunctional):
                 gradn_svr,
                 taut_swR,
                 interpolate
-                ) -> Array2D:
+                ) -> Array2D:  # type: ignore
         stress_vv = GGAFunctional._stress(
             self, e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
             gradn_svr=gradn_svr)
