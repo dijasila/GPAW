@@ -73,7 +73,8 @@ class Functional:
                                  sigma_xr.data, dedsigma_xr.data)
             else:
                 1 / 0
-        return self._stress(*args, **kwargs)
+            return self._stress(*args, **kwargs)
+        return self.xp.zeros((3, 3))
 
     def _args(self,
               state: DFTState,
