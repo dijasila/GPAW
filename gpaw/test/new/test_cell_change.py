@@ -12,11 +12,11 @@ def test_new_cell(gpu):
     atoms = Atoms('Li', pbc=True, cell=[a, a, a])
     output = StringIO()
     atoms.calc = GPAW(
-        #xc='PBE',
+        xc='PBE',
         mode={'name': 'pw'},
         kpts=(4, 1, 1),
         parallel={'gpu': gpu},
-        )#txt=output)
+        txt=output)
     e0 = atoms.get_potential_energy()
     s0 = atoms.get_stress()
     f0 = atoms.get_forces()

@@ -62,7 +62,17 @@ class Functional:
                             ) -> Array2D:
         args, kwargs = self._stress1(state, interpolate)
         if state.ibzwfs.kpt_band_comm.rank == 0:
-            self.xc.kernel.calculate(*[array.data for array in args])
+            if self.xp is np:
+                self.xc.kernel.calculate(*[array.data for array in args])
+            elif self.name == 'LDA':
+                e_r, nt_sr, vt_sr = args
+                evaluate_lda_gpu(nt_sr.data, vt_sr.data, e_r.data)
+            elif self.name == 'PBE':
+                e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr = args
+                evaluate_pbe_gpu(nt_sr.data, vt_sr.data, e_r.data,
+                                 sigma_xr.data, dedsigma_xr.data)
+            else:
+                1 / 0
         return self._stress2(*args, **kwargs)
 
 
@@ -98,7 +108,7 @@ class LDAFunctional(Functional):
         P = e_r.integrate(skip_sum=True)
         for vt_r, nt_r in zip(vt_sr, nt_sr):
             P -= vt_r.integrate(nt_r, skip_sum=True)
-        return P * self.xp.eye(3)
+        return float(P) * self.xp.eye(3)
 
 
 class GGAFunctional(LDAFunctional):
@@ -162,7 +172,7 @@ class GGAFunctional(LDAFunctional):
         P = 0.0
         for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
             P -= 2 * sigma_r.integrate(dedsigma_r, skip_sum=True)
-        stress_vv += P * self.xp.eye(3)
+        stress_vv += float(P) * self.xp.eye(3)
 
         nspins = len(nt_sr)
         for v1 in range(3):
