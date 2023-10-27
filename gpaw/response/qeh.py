@@ -266,12 +266,14 @@ class BuildingBlock:
         for iG in Glist[1:]:
             G_z = G_Gv[iG, 2]
             qGr_R = np.inner(G_z, z.T).T
+            factor = z_factor(z0, L, G_z)
+            chiMD_w += chi_wGG[:, 0, iG] * np.conjugate(factor)
+            chiDM_w += factor * chi_wGG[:, iG, 0]
             # Fourier transform to get induced density at \omega=0
             drhoM_z += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
             for iG1 in Glist[1:]:
                 G_z1 = G_Gv[iG1, 2]
                 # integrate with z along both coordinates
-                factor = z_factor(z0, L, G_z)
                 factor1 = z_factor(z0, L, G_z1, sign=-1)
                 chiDD_w[:] += 1. / L * factor * chi_wGG[:, iG, iG1] * \
                     factor1
