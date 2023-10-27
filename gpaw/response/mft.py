@@ -16,7 +16,7 @@ from gpaw.response.pair_functions import SingleQPWDescriptor, PairFunction
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
 from gpaw.response.matrix_elements import (SitePairDensityCalculator,
-                                           SitePairSpinSplittingCalculator)
+                                           SiteZeemanPairEnergyCalculator)
 
 from ase.units import Hartree
 
@@ -205,20 +205,20 @@ def calculate_site_magnetization(
     return site_data.calculate_magnetic_moments()
 
 
-def calculate_site_spin_splitting(
+def calculate_site_zeeman_energy(
         gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites):
-    """Calculate the site spin splitting.
+    """Calculate the site Zeeman energy.
 
     Returns
     -------
-    dxc_ap : np.ndarray
-        Spin splitting in eV of site a under partitioning p, calculated
+    EZ_ap : np.ndarray
+        Local Zeeman energy in eV of site a under partitioning p, calculated
         directly from the ground state density.
     """
     gs = ensure_gs(gs)
     site_data = AtomicSiteData(gs, sites)
-    return site_data.calculate_spin_splitting() * Hartree  # Ha -> eV
+    return site_data.calculate_zeeman_energies() * Hartree  # Ha -> eV
 
 
 def calculate_single_particle_site_magnetization(
@@ -240,39 +240,39 @@ def calculate_single_particle_site_magnetization(
     return site_magnetization.array
 
 
-def calculate_single_particle_site_spin_splitting(
+def calculate_single_particle_site_zeeman_energy(
         gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites,
         context: ResponseContext | TXTFilename = '-'):
-    """Calculate the single-particle site spin splitting.
+    """Calculate the single-particle site Zeeman energy.
 
     Returns
     -------
-    sp_dxc_ap : np.ndarray
-        Spin splitting in eV of site a under partitioning p, calculated based
-        on a single-particle sum rule.
+    sp_EZ_ap : np.ndarray
+        Local Zeeman energy in eV of site a under partitioning p, calculated
+        based on a single-particle sum rule.
     """
     gs, context = ensure_gs_and_context(gs, context=context)
-    single_particle_calc = SingleParticleSiteSpinSplittingCalculator(
+    single_particle_calc = SingleParticleSiteZeemanEnergyCalculator(
         gs, sites, context=context)
-    site_spin_splitting = single_particle_calc()
-    return site_spin_splitting.array * Hartree  # Ha -> eV
+    site_zeeman_energy = single_particle_calc()
+    return site_zeeman_energy.array * Hartree  # Ha -> eV
 
 
-def calculate_site_pair_magnetization(
+def calculate_pair_site_magnetization(
         gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites,
         context: ResponseContext | TXTFilename = '-',
         q_c=[0., 0., 0.],
         nbands: int | None = None):
-    """Calculate the site pair magnetization.
+    """Calculate the pair site magnetization.
 
     Parameters
     ----------
     q_c : Vector
-        q-vector to evaluate the site pair magnetization for.
+        q-vector to evaluate the pair site magnetization for.
     nbands : int or None
-        Number of bands to include in the band summation of the site pair
+        Number of bands to include in the band summation of the pair site
         magnetization. If nbands is None, it includes all bands.
 
     Returns
@@ -284,37 +284,37 @@ def calculate_site_pair_magnetization(
     gs, context = ensure_gs_and_context(gs, context=context)
     two_particle_calc = TwoParticleSiteMagnetizationCalculator(
         gs, sites, context=context, nbands=nbands)
-    site_pair_magnetization = two_particle_calc(q_c)
-    return site_pair_magnetization.array
+    pair_site_magnetization = two_particle_calc(q_c)
+    return pair_site_magnetization.array
 
 
-def calculate_site_pair_spin_splitting(
+def calculate_pair_site_zeeman_energy(
         gs: ResponseGroundStateAdapter | GPWFilename,
         sites: AtomicSites,
         context: ResponseContext | TXTFilename = '-',
         q_c=[0., 0., 0.],
         nbands: int | None = None):
-    """Calculate the site pair spin splitting.
+    """Calculate the pair site Zeeman energy.
 
     Parameters
     ----------
     q_c : Vector
-        q-vector to evaluate the site pair spin splitting for.
+        q-vector to evaluate the pair site Zeeman energy for.
     nbands : int or None
-        Number of bands to include in the band summation of the site pair spin
-        splitting. If nbands is None, it includes all bands.
+        Number of bands to include in the band summation of the pair site
+        Zeeman energy. If nbands is None, it includes all bands.
 
     Returns
     -------
-    dxc_abp : np.ndarray
-        Pair spin splitting in eV of site a and b under partitioning p,
+    EZ_abp : np.ndarray
+        Local pair Zeeman energy in eV of site a and b under partitioning p,
         calculated based on a two-particle sum rule.
     """
     gs, context = ensure_gs_and_context(gs, context=context)
-    two_particle_calc = TwoParticleSiteSpinSplittingCalculator(
+    two_particle_calc = TwoParticleSiteZeemanEnergyCalculator(
         gs, sites, context=context, nbands=nbands)
-    site_pair_spin_splitting = two_particle_calc(q_c)
-    return site_pair_spin_splitting.array * Hartree  # Ha -> eV
+    pair_site_zeeman_energy = two_particle_calc(q_c)
+    return pair_site_zeeman_energy.array * Hartree  # Ha -> eV
 
 
 class StaticSiteFunction(PairFunction):
@@ -444,22 +444,22 @@ class SingleParticleSiteMagnetizationCalculator(
         return smat('z')
 
 
-class SingleParticleSiteSpinSplittingCalculator(
+class SingleParticleSiteZeemanEnergyCalculator(
         SingleParticleSiteMagnetizationCalculator):
-    r"""Calculator for the single-particle site spin splitting sum rule.
-                      __  __
-                  1   \   \
-    Δ^(xc)_a^z = ‾‾‾  /   /  σ^z_ss f_nks Δ^(xc,a)_(nks,nks)
-                 N_k  ‾‾  ‾‾
-                      k   n,s
+    r"""Calculator for the single-particle site Zeeman energy sum rule.
+                 __  __
+             1   \   \
+    E_a^Z = ‾‾‾  /   /  σ^z_ss f_nks E^(Z,a)_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
     """
     def create_matrix_element_calculator(self):
-        return SitePairSpinSplittingCalculator(
+        return SiteZeemanPairEnergyCalculator(
             self.gs, self.context, self.sites, rshewmin=1e-8)
 
 
 class StaticSitePairFunction(StaticSiteFunction):
-    """Data object for static site pair functions."""
+    """Data object for static pair site functions."""
     @property
     def shape(self):
         nsites = len(self.sites)
@@ -620,24 +620,24 @@ class TwoParticleSiteMagnetizationCalculator(TwoParticleSiteSumRuleCalculator):
         return smat('+')
 
 
-class TwoParticleSiteSpinSplittingCalculator(
+class TwoParticleSiteZeemanEnergyCalculator(
         TwoParticleSiteMagnetizationCalculator):
-    r"""Calculator for the two-particle site spin splitting sum rule.
+    r"""Calculator for the two-particle site Zeeman energy sum rule.
 
-    The site spin splitting can be calculated from the site pair density and
-    site pair spin splitting via the following sum rule [publication in
+    The site Zeeman energy can be calculated from the site pair density and
+    site Zeeman pair energy via the following sum rule [publication in
     preparation]:
-                          __  __
-    ˍ                 1   \   \  /
-    Δ^(xc)_ab^z(q) = ‾‾‾  /   /  | (f_nk↑ - f_mk+q↓)
-                     N_k  ‾‾  ‾‾ \                                        \
-                          k   n,m  × Δ^(xc,a)_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑) |
-                                                                          /
-              = δ_(a,b) Δ^(xc)_a^z
+                     __  __
+    ˍ            1   \   \  /
+    E_ab^Z(q) = ‾‾‾  /   /  | (f_nk↑ - f_mk+q↓)
+                N_k  ‾‾  ‾‾ \                                       \
+                     k   n,m  × E^(Z,a)_(nk↑,mk+q↓) n^b_(mk+q↓,nk↑) |
+                                                                    /
+              = δ_(a,b) E_a^Z
     """
     def create_matrix_element_calculators(self):
-        site_pair_spin_splitting_calc = SitePairSpinSplittingCalculator(
+        site_zeeman_pair_energy_calc = SiteZeemanPairEnergyCalculator(
             self.gs, self.context, self.sites, rshewmin=1e-8)
         site_pair_density_calc = SitePairDensityCalculator(
             self.gs, self.context, self.sites)
-        return site_pair_spin_splitting_calc, site_pair_density_calc
+        return site_zeeman_pair_energy_calc, site_pair_density_calc

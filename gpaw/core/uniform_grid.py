@@ -419,7 +419,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims, xp=self.xp)
+            out = grid.empty(self.dims, comm=self.comm, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
@@ -558,7 +558,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -653,7 +653,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.fft_restrict(plan1, plan2,
                                             out.desc.new(comm=None))
                 out.scatter_from(output.data)
