@@ -112,7 +112,8 @@ class BuildingBlock:
             q_vs = np.dot(q_cs, rcell_cv)
             q_vs += q_infs
             q_abs = (q_vs**2).sum(axis=1)**0.5
-            q_infs = q_infs
+            q_infs = q_inf
+            print('hello')
 
         else:
             # First: choose all ibzq in 2D BZ
