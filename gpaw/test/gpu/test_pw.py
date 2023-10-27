@@ -25,6 +25,7 @@ def test_gpu(dtype, gpu, mode):
         dict(mode={'name': mode},
              dtype=dtype,
              poissonsolver=poisson,
+             convergence={'density':1e-8},
              parallel={'gpu': gpu},
              setups='paw'),
         log='-')
