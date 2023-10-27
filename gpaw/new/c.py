@@ -86,7 +86,8 @@ def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
 
 
 def calculate_residuals_gpu(residual_nG, eps_n, wfs_nG):
-    residual_nG -= eps_n[:, None] * wfs_nG
+    for residual_G, eps, wfs_G in zip(residual_nG, eps_n, wfs_nG):
+        residual_G -= eps * wfs_G
 
 
 def add_to_density_gpu(weight_n, psit_nR, nt_R):
