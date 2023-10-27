@@ -36,7 +36,7 @@ class RRemission(object):
             the first column should be frequency and the 2rd, 3th and 4th
             should be xx, yy, zz component. This will be generalized
             at a later point.
-        [4] dummy,
+        [4] using Claussius-Mossoti if 1, otherwise dilute limit.
         [5] increase frequency resolution
         comment: [3] If you provide a file, e.g. using the separate G_dyadic
                      tool, all remaining parameters will be ignored. Notice,
@@ -45,7 +45,6 @@ class RRemission(object):
                      will be G = rr_quantization_plane * G_in. This is done
                      to allow simple parameter scalings but naturally
                      deviates from the ab initio idea.
-                 [4] is a dummy that should be removed later.
     environmentens_in: array
         [0] number of ensemble oscillators,
         [1] Ve/V ratio of occupied ensemble to cavity volume,
@@ -81,7 +80,9 @@ class RRemission(object):
                                 * self.cavity_resonance[0])
             self.deltat = None
             self.maxtimesteps = None
+            self.cutoff_lower = None
             self.cutofffrequency = None
+            self.claussius = environmentcavity_in[4]
             if isinstance(environmentcavity_in[3], type('inappropriate')):
                 self.precomputedG = environmentcavity_in[3]
                 self.frequ_resolution_ampl = 2 * environmentcavity_in[5]
@@ -122,7 +123,7 @@ class RRemission(object):
                                                (self.cavity_loss /
                                                 self.cavity_resonance[0]),
                                                self.precomputedG,
-                                               0,
+                                               self.claussius,
                                                self.frequ_resolution_ampl])
             if self.environmentensemble == 0:
                 writer.write(environmentens_in=None)
@@ -168,6 +169,10 @@ class RRemission(object):
         if self.environment == 1 and self.dyadic is None:
             [self.dyadic, self.dyadic_st] = self.dyadicGt(self.deltat,
                                                           self.maxtimesteps)
+            static = True
+            if static == False:
+                self.dyadic_st = self.dyadic_st * 0
+                print("You remove the static component from the dyadic.")
             if not hasattr(self, 'dipole_projected'):
                 self.dipole_projected = np.zeros(self.maxtimesteps)
                 self.dipolexyz_time = np.zeros((self.maxtimesteps, 3))
@@ -356,6 +361,7 @@ class RRemission(object):
         Gst = np.zeros((9, ), dtype=complex)
         Dt = np.zeros((len(omegafft), 9), dtype=complex)
         window_Gw0 = 1.
+        window_Gw0_L = 1.
         if self.precomputedG is None:
             g_omega = 0
             for omegares in self.cavity_resonance:
@@ -421,16 +427,25 @@ class RRemission(object):
                 normalization that will happen in the iFFT to get from
                 the frequency domain back to time and D(t).
                 """
+                # self.cutoff_lower = 0.01
                 self.cutofffrequency = 0.8
                 if self.cutofffrequency is not None:
                     window_Gw0 = 1 - (0.5 + 0.5 *
                                       special.erf((abs(omegafft) -
                                                    self.cutofffrequency) * 25))
-                    print("CAREFUL, you are using a window function for G0w",
-                          "and Xw with a cutoff-energy [eV] ",
-                          str(self.cutofffrequency * Hartree))
+                if self.cutoff_lower is not None:
+                    window_Gw0_L = (0.5 + 0.5 *
+                                    special.erf((abs(omegafft) -
+                                                 self.cutoff_lower) * 250))
+                    print("CAREFUL, you are using window function(s) for G0w",
+                          "and Xw (only upper) with a cutoff-energy [eV] ",
+                          str(self.cutofffrequency * Hartree),
+                          str(self.cutoff_lower * Hartree))
+
+                    print("CAREFUL, it could be that the cutoffs break Kramers-Kroenig and lead to false imaginary components in D.")
 
                 Gw0[:, ii * shiftfac] = (GG_pj(omegafft) * window_Gw0 *
+                                         window_Gw0_L *
                                          len(omegafft))
 
         if self.ensemble_number is not None:
@@ -485,11 +500,15 @@ class RRemission(object):
                                        np.fft.fft(dm_z[:, 2] * dmp)],
                                       dtype=complex)
 
-                print('DOING EMBEDDING STUFF')
-                claussius = False # True/False = does claussius-mossoti or weak field
-                # notice, that the Xw here has the N/V pulled out
-                if claussius:
-                    alpha_ij = np.zeros((len(omegafft),9),dtype=complex)
+                print('Embedding RR, particle density is ',
+                      self.ensemble_number / self.cavity_volume,
+                      'with particle number',
+                      self.ensemble_number,
+                      'and volume of',
+                      self.cavity_volume)
+                # alpha_ij is the polarizablity (local response)
+                alpha_ij = np.zeros((len(omegafft),9),dtype=complex)
+                if self.claussius == 1:
                     for ii in range(9):
                         pol_interp = interpolate.interp1d(omegafftdm,
                                                           pol_matrix[ii, :],
@@ -500,10 +519,10 @@ class RRemission(object):
                                         * window_Gw0)
                     for el in range(len(omegafft)):
                         if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
-                            Xw[ww, :] = 4. * np.pi / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
+                            Xw[ww, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
-                            Xw[el, :] = 4. * np.pi / self.cavity_volume * alpha_ij[el, :]
-                    print('There is something off with the V factors between Xw and alpha_ij as well as in G(1)')
+                            Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
+                    print('You are using Claussius-Mossoti for Xw')
 
                 else: # previous weak-field version
                     for ii in range(9):
@@ -514,9 +533,9 @@ class RRemission(object):
                         # fill_value=(0,0),
                         # bounds_error=False)
                         # fill_value="extrapolate")
-                        Xw[:, ii] = ((4. * np.pi * pol_interp(omegafft)
-                                      * deltat / (timedm[1] - timedm[0]))
-                                     * window_Gw0)
+                        alpha_ij[:, ii] = ((pol_interp(omegafft)
+                                            * deltat / (timedm[1] - timedm[0]))
+                                           * window_Gw0)
                         """
                         The factor deltat/(t_1-t_0) accounts for the difference
                         in normalization for the FFTs in both spaces. This ensures
@@ -537,10 +556,13 @@ class RRemission(object):
                     """
                 for ii in range(9):
                     plt.figure()
-                    plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
-                    plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
+                    plt.plot(omegafft * Hartree, np.real(alpha_ij[:, ii]))
+                    plt.plot(omegafft * Hartree, np.imag(alpha_ij[:, ii]))
+                    if self.claussius == 1:
+                        plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
+                        plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
                     plt.xlabel("Energy (eV)")
-                    plt.ylabel(r"$\chi_i(\omega)$, i=" + str(ii))
+                    plt.ylabel(r"$\alpha_i(\omega)$, i=" + str(ii))
                     if self.cutofffrequency is not None:
                         plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
                     plt.savefig('Xw_' + str(ii) + '.png')
@@ -548,10 +570,10 @@ class RRemission(object):
             else:
                 print('Drude-Lorentz model for polarizablity')
                 for ii in range(3):
-                    Xw[:, ii * 4] = (self.ensemble_omegap**2
-                                     / (self.ensemble_resonance**2 -
-                                        omegafft**2 + (1j * self.ensemble_loss
-                                                       * omegafft)))
+                    alpha_ij[:, ii * 4] = (self.ensemble_omegap**2
+                                           / (self.ensemble_resonance**2 -
+                                              omegafft**2 + (1j * self.ensemble_loss
+                                                             * omegafft)))
             if self.precomputedG is None:
                 print("Dressing G for simplified cavity")
                 for ii in range(3):
@@ -562,8 +584,8 @@ class RRemission(object):
                             np.reciprocal(
                                 np.reciprocal(g_omega) -
                                 (
-                                    alpha ** 2 * omegafft ** 2 *
-                                    self.ensemble_number * Xw[:, 3 * ii + jj] *
+                                    alpha ** 2 * omegafft ** 2 * 4 * np.pi *
+                                    self.ensemble_number * alpha_ij[:, 3 * ii + jj] *
                                     self.polarization_cavity[ii] *
                                     self.polarization_cavity[jj]
                                 )
@@ -596,8 +618,8 @@ class RRemission(object):
                     if newG1 == True:
                         if np.sum(np.abs(Gw0[el, :])) > 1e-18:
                             Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
-                                                   (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
-                                                    (np.eye(3) + self.cavity_volume / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                                                   (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
+                                                    (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
                                                     )
                                                    ,(-1, ))
                         else:
@@ -609,8 +631,8 @@ class RRemission(object):
                                     np.linalg.inv(
                                         np.reshape(Gw0[el, :], (3, 3))
                                     ) - (alpha**2 * omegafft[el]**2 *
-                                         self.ensemble_number *
-                                         np.reshape(Xw[el, :], (3, 3)))
+                                         self.ensemble_number * 4 * np.pi *
+                                         np.reshape(alpha_ij[el, :], (3, 3)))
                                 ),
                                 (-1, )
                             )
@@ -664,11 +686,11 @@ class RRemission(object):
             # was missing a sign in g and for test-suit reasons I added this
             Gw = Gw * (-1)
             Gw0 = Gw0 * (-1)
-            if self.rr_quantization_plane * Bohr**2 != 1.:
-                Gw = Gw * self.rr_quantization_plane * Bohr**2
-                print("CAREFUL, you amplify the strength of G by a factor",
-                      "self.rr_quantization_plane=",
-                      self.rr_quantization_plane * Bohr**2)
+            # if self.rr_quantization_plane * Bohr**2 != 1.:
+            #     Gw = Gw * self.rr_quantization_plane * Bohr**2
+            #     print("CAREFUL, you amplify the strength of G by a factor",
+            #           "self.rr_quantization_plane=",
+            #           self.rr_quantization_plane * Bohr**2)
         for ii in range(9):
             Dt[:, ii] = -np.gradient(np.fft.ifft(Gw[:, ii].flatten()), deltat)
             # For some reason the explicit derivative works best, version
