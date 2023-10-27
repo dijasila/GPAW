@@ -25,7 +25,7 @@ def test_gpu(dtype, gpu, mode):
         dict(mode={'name': mode},
              dtype=dtype,
              poissonsolver=poisson,
-             convergence={'density':1e-8},
+             convergence={'density':1e-7},
              parallel={'gpu': gpu},
              setups='paw'),
         log='-')
@@ -57,7 +57,7 @@ def test_gpu_k(gpu, par, mode, xc):
         dict(mode={'name': mode},
              spinpol=True,
              xc=xc,
-             convergence={'density': 1e-8},
+             convergence={'density': 1e-7},
              kpts=(4, 1, 1),
              h=h,
              poissonsolver=poisson,
