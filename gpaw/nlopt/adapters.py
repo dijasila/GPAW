@@ -7,45 +7,37 @@ class GSInfo:
     optics module. It is only compatible with GPAW_NEW.
 
     The class should never be called directly, but should instead be called
-    through the CollinearGSInfo and NoncollinearGSInfo classes.
+    through the CollinearGSInfo or NoncollinearGSInfo classes.
 
     These subclasses are necessary due to the different ways which the spin
     index is handled in collinear and noncollinear ground state calculations.
     """
     def __init__(self, calc, comm):
         self.comm = comm  # This will eventually just become kptcomm from calc
-
-        # We don't know why this is needed
-        if calc.parameters.mode['name'] == 'lcao':
-            calc.initialize_positions(calc.atoms)
-
-        self.ibzk_kc = calc.get_ibz_k_points()
-        self.nb_full = calc.get_number_of_bands()
+        assert calc.params.mode['name'] == 'pw', \
+            'Calculator must be in plane wave mode.'
 
         calculation = calc.calculation
+        self.nabla_aiiv = [setup.nabla_iiv for setup in calculation.setups]
+
         state = calculation.state
         self.ibzwfs = state.ibzwfs
 
         density = state.density
         self.collinear = density.collinear
-        self.ndens = density.ndensities
+        self.ndensities = density.ndensities
 
         grid = density.nt_sR.desc
         self.ucvol = np.abs(np.linalg.det(grid.cell))
-        self.bzvol = 2 * np.pi * np.abs(np.linalg.det(grid.icell))
-
-        wfs = calc.wfs
-        self.gd = wfs.gd
-        self.nabla_aiiv = [setup.nabla_iiv for setup in calculation.setups]
+        self.bzvol = np.abs(np.linalg.det(2 * np.pi * grid.icell))
 
         self.ns = None
 
     def get_plane_wave_coefficients(self, wfs, bands, spin):
         """
-        Returns the periodic part of the real-space pseudo wfs
-        for the given k-point, spin index and slice of band indices.
+        Returns the plane wave coefficients and reciprocal vectors.
 
-        Output is an array with shape (slice of band indices, 3D grid indices)
+        Output is an array with shape (band index, reciprocal vector index)
         """
         psit_nG = wfs.psit_nX[bands]
         G_plus_k_Gv = psit_nG.desc.G_plus_k_Gv
@@ -53,11 +45,10 @@ class GSInfo:
 
     def get_wave_function_projections(self, wfs, bands, spin):
         """
-        Returns the projections of the pseudo wfs onto the partial waves
-        for the given k-point, spin index and slice of band indices.
+        Returns the projections of the pseudo wfs onto the partial waves.
 
-        Output is a dictionary with atom index keys and array values
-        with shape (slice of band indices, partial wave index)
+        Output is a dictionary with atom index keys and array values with
+        shape (band index, partial wave index)
         """
         return self._proj_data(wfs.P_ani, bands, spin)
 
@@ -74,7 +65,7 @@ class GSInfo:
 class CollinearGSInfo(GSInfo):
     def __init__(self, calc, comm):
         super().__init__(calc, comm)
-        self.ns = self.ndens
+        self.ns = self.ndensities
 
     def get_wfs(self, k_ind, spin):
         return self.ibzwfs.wfs_qs[k_ind][spin]

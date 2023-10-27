@@ -19,15 +19,25 @@ def get_mml(gs: GSInfo,
             ni: int,
             nf: int,
             timer: Optional[Timer] = None) -> ArrayND:
-    """Compute the momentum matrix elements.
+    """
+    Compute momentum matrix elements.
 
-    Input:
-        gs_name         Ground state file name
-        spin            Which spin channel (for spin-polarized systems 0 or 1)
-        ni, nf          First and last band to compute the mml (0 to nb)
-        timer           Timer to keep track of time
-    Output:
-        p_kvnn2         A big array in master
+    Parameters
+    ----------
+    gs
+        Ground state adapter.
+    spin
+        Spin channel index (for spin-polarized systems 0 or 1).
+    ni, nf
+        First and last band to compute the mml (0 to nb).
+    timer
+        Timer to keep track of time.
+
+    Returns
+    -------
+    p_kvnn2
+        Momentum matrix elements in atomic units gathered on master.
+
     """
 
     # Start the timer
@@ -42,13 +52,11 @@ def get_mml(gs: GSInfo,
     # Spin input
     assert spin < gs.ns, 'Wrong spin input'
 
-    # Real and reciprocal space parameters
-    nk = np.shape(gs.ibzk_kc)[0]
-
     # Parallelisation and memory estimate
     comm = gs.comm
     rank = comm.rank
     size = comm.size
+    nk = len(gs.ibzwfs.ibz)
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
     parprint(f'At least {est_mem:.2f} MB of memory is required on master.')
@@ -56,7 +64,7 @@ def get_mml(gs: GSInfo,
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
 
-    # Initial call to print 0% progress
+    # Initial call to print 0 % progress
     if rank == 0:
         pb = ProgressBar()
 
@@ -82,23 +90,19 @@ def get_mml(gs: GSInfo,
 
         p_kvnn[ik] = p_vnn
 
-        # Print the progress
         if rank == 0:
             pb.update(ik / nkcore)
 
     if rank == 0:
         pb.finish()
 
-    # Gather all data to the master
     with timer('Gather the data to master'):
-        if rank == 0:
-            recv_buf = np.empty((size, nkcore, 3, nb, nb),
-                                dtype=complex)
-        else:
+        if not rank == 0:
             recv_buf = None
-        gs.comm.gather(p_kvnn, 0, recv_buf)
-        if rank == 0:
-            assert recv_buf is not None
+            gs.comm.gather(p_kvnn, 0, recv_buf)
+        else:
+            recv_buf = np.empty((size, nkcore, 3, nb, nb), dtype=complex)
+            gs.comm.gather(p_kvnn, 0, recv_buf)
             p_kvnn2 = np.zeros((nk, 3, nb, nb), dtype=complex)
             for ii in range(size):
                 k_inds = range(ii, nk, size)
@@ -119,24 +123,27 @@ def make_nlodata(gs_name: str,
                  spin: str = 'all',
                  ni: Optional[int] = None,
                  nf: Optional[int] = None) -> NLOData:
+    """
+    This function calculates and returns all required
+    NLO data: w_sk, f_skn, E_skn, p_skvnn.
 
-    """Get all required NLO data and store it in a file.
-
-    Writes NLO data to file: w_sk, f_skn, E_skn, p_skvnn.
-
-    Parameters:
-
-    gs_name:
-        Ground state filename.
-    comm:
+    Parameters
+    ----------
+    gs_name
+        Ground state file name
+    comm
         Communicator for parallelisation.
-    spin:
+    spin
         Spin channels to include ('all', 's0' , 's1').
-    ni:
+    ni
         First band to compute the mml.
-    nf:
-        Last band to compute the mml (relative to number of bands
-        for nf <= 0).
+    nf
+        Last band to compute the mml (relative to number of bands for nf <= 0).
+
+    Returns
+    -------
+    NLOData
+        Data object carrying required matrix elements for NLO calculations.
 
     """
 
@@ -168,7 +175,7 @@ def make_nlodata(gs_name: str,
         raise NotImplementedError
 
     # Parse band input
-    nb_full = gs.nb_full
+    nb_full = gs.ibzwfs.nbands
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb_full
     nf = nb_full + nf if (nf <= 0) else nf
@@ -194,7 +201,7 @@ def _make_nlodata(gs: GSInfo,
         # it to eV avoid altering the module too much.
         E_skn *= Ha
 
-        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndens)])
+        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndensities)])
         w_sk *= gs.bzvol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
@@ -219,13 +226,24 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
     """
     Compute the position matrix elements
 
-    Input:
-        E_n             Energies
-        p_vnn           Momentum matrix elements
-        pol_v           Tensor element
-        Etol            Tol. in energy to consider degeneracy
-    Output:
-        r_vnn, D_vnn    Position and velocity difference matrix el.
+    Parameters
+    ----------
+    E_n
+        Band energies.
+    p_vnn
+        Momentum matrix elements.
+    pol_v
+        Tensor element.
+    Etol
+        Tolerance in energy to consider degeneracy.
+
+    Returns
+    -------
+    r_vnn
+        Position matrix elements.
+    D_vnn
+        Velocity difference matrix elements.
+
     """
 
     # Useful variables
@@ -249,16 +267,26 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
 
 def get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
     """
-    Compute the generalized derivative of position matrix elements
+    Compute the generalised derivative of position matrix elements
 
-    Input:
-        E_n             Energies
-        r_vnn           Momentum matrix elements
-        D_vnn           Velocity difference
-        pol_v           Tensor element
-        Etol            Tol. in energy to consider degeneracy
-    Output:
-        rd_vvnn         Generilized derivative of position
+    Parameters
+    ----------
+    E_n
+        Band energies.
+    r_vnn
+        Momentum matrix elements.
+    D_vnn
+        Velocity difference matrix elements.
+    pol_v
+        Tensor element.
+    Etol
+        Tolerance in energy to consider degeneracy.
+
+    Returns
+    -------
+    rd_vvnn
+        Generalised derivative of position matrix elements.
+
     """
 
     # Useful variables
