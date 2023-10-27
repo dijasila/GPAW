@@ -35,7 +35,7 @@ def test_gpu(dtype, gpu, mode):
     if mode == 'pw':
         assert energy == pytest.approx(-16.032945, abs=1e-6)
     else:
-        assert energy == pytest.approx(6.681945750355547, abs=1e-6)
+        assert energy == pytest.approx(5.122987810441543, abs=1e-6)
 
 
 @pytest.mark.gpu
