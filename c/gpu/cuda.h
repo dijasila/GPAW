@@ -24,6 +24,7 @@
 #define gpuCreal                  cuCreal
 #define gpuCimag                  cuCimag
 #define gpuCadd                   cuCadd
+#define gpuCsub                   cuCsub
 #define gpuCmul                   cuCmul
 #define gpuConj                   cuConj
 

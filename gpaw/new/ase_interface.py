@@ -176,17 +176,16 @@ class ASECalculator:
             self.move_atoms(atoms)
             self.converge()
 
-        if prop not in self.calculation.results:
-            if prop == 'forces':
-                with self.timer('Forces'):
-                    self.calculation.forces()
-            elif prop == 'stress':
-                with self.timer('Stress'):
-                    self.calculation.stress()
-            elif prop == 'dipole':
-                self.calculation.dipole()
-            else:
-                raise KeyError('Unknown property:', prop)
+        if prop == 'forces':
+            with self.timer('Forces'):
+                self.calculation.forces()
+        elif prop == 'stress':
+            with self.timer('Stress'):
+                self.calculation.stress()
+        elif prop == 'dipole':
+            self.calculation.dipole()
+        elif prop not in self.calculation.results:
+            raise KeyError('Unknown property:', prop)
 
         return self.calculation.results[prop] * units[prop]
 
@@ -244,7 +243,7 @@ class ASECalculator:
         """Helper method for force-convergence criterium."""
         with self.timer('Forces'):
             self.calculation.forces(silent=True)
-        return self.calculation.results['forces']
+        return self.calculation.results['forces'].copy()
 
     def __del__(self):
         self.log('---')

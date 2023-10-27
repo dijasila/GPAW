@@ -407,7 +407,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims, xp=self.xp)
+            out = grid.empty(self.dims, comm=self.comm, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
