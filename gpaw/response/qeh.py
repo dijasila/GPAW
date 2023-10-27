@@ -411,6 +411,27 @@ class BuildingBlock:
 
         self.chiD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
 
+        # chi off-diagonal
+        if not self.has_z_inversion_symmetry:
+            yr = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                     self.chiDM_qw[sort].real,
+                                     s=0)
+            yi = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                     self.chiDM_qw[sort].imag,
+                                     s=0)
+            self.chiDM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+
+            yr = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                     self.chiMD_qw[sort].real,
+                                     s=0)
+            yi = RectBivariateSpline(q_abs, self.wd.omega_w,
+                                     self.chiMD_qw[sort].imag,
+                                     s=0)
+            self.chiMD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
+        else:
+            self.chiDM_qw = np.zeros((len(q_grid, len(w_grid))))
+            self.chiMD_qw = np.zeros((len(q_grid, len(w_grid))))
+
         # drho monopole
 
         yr = RectBivariateSpline(q_abs, self.z,
