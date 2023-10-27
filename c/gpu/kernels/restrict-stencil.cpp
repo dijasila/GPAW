@@ -64,10 +64,10 @@ __global__ void RST1D_kernel(
 
 void RST1D(const Tgpu* a, int n, int m, Tgpu* b, int ang, int bng, int blocks)
 {
-    int gridx = (m + BLOCK_X - 1) / BLOCK_X;
-    int gridy = (n + BLOCK_Y - 1) / BLOCK_Y;
+    int gridx = (m + BLOCK - 1) / BLOCK;
+    int gridy = (n + BLOCK - 1) / BLOCK;
 
-    dim3 dimBlock(BLOCK_X, BLOCK_Y);
+    dim3 dimBlock(BLOCK, BLOCK);
     dim3 dimGrid(gridx, gridy * blocks);
 
     gpuLaunchKernel(

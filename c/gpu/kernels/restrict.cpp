@@ -7,6 +7,7 @@
 #include "../gpu-complex.h"
 
 #ifndef GPU_USE_COMPLEX
+#  define BLOCK     (16)
 #  define BLOCK_X   (32)
 #  define BLOCK_Y   (8)
 #  define ACACHE_X  (2 * BLOCK_X + 1)
