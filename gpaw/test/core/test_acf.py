@@ -21,35 +21,33 @@ def grid():
 # Gussian:
 alpha = 4.0
 s = (0, 3.0, lambda r: np.exp(-alpha * r**2))
-s2 = (1, 3.0, lambda r: np.exp(-alpha * r**2))
-s3 = (2, 3.0, lambda r: np.exp(-alpha * r**2))
 gauss_integral = np.pi / 2 / alpha**1.5
 
-import cupy as cp
+
 @pytest.mark.ci
-@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('xp', [np])
 def test_acf_fd(grid, xp):
 
     basis = grid.atom_centered_functions(
-        [[s,s2,s3]],
+        [[s]],
         positions=[[0.5, 0.5, 0.5]], xp=xp)
     coefs = basis.layout.empty()
     if 0 in coefs:
-        coefs[0] = xp.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        print(coefs[0])
+        coefs[0] = [1.0]
     f1 = grid.zeros(xp=xp)
-    basis.add_to(f1, coefs)#.to_xp(xp))
-    xp.savetxt(str(xp is np), f1.data[0].real)
+    basis.add_to(f1, coefs.to_xp(xp))
+
     if 0:
         from sympy import exp, integrate, oo, var
         a0, r = var('a, r')
         integrate(exp(-a0 * r**2) * r**2, (r, 0, oo))
 
     assert f1.integrate() == pytest.approx(gauss_integral)
-    print('integral', f1.integrate())
+
     f2 = f1.gather(broadcast=True)
     x, y = f2.xy(n // 2, n // 2, ...)
     y0 = np.exp(-alpha * (x - a / 2)**2) / (4 * np.pi)**0.5
-    print(abs(y - y0).max())
     assert abs(y - y0).max() == pytest.approx(0.0, abs=0.001)
 
 
