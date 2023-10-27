@@ -282,9 +282,10 @@ void Zgpu(bmgs_restrict_stencil_gpu)(int k, Tgpu* a, const int na[3],
         func = Zgpu(restrict1D8);
 
     int e = k * 2 - 3;
-    func(a, (n[2] - e) / 2, n[0] * n[1], w, ang, ang, blocks);
-    func(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a, ang, ang, blocks);
-    func(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b, ang, bng, blocks);
+    func(a, (na[2] - e) / 2, na[0] * na[1], w, ang, ang, blocks);
+    func(w, (na[1] - e) / 2, na[0] * (na[2] - e) / 2, a, ang, ang, blocks);
+    func(a, (na[0] - e) / 2, (na[1] - e) * (na[2] - e) / 4, b, ang, bng,
+         blocks);
 }
 
 #ifndef GPU_USE_COMPLEX
