@@ -21,7 +21,7 @@ __global__ void RST1D_kernel(
     a += blocksi * ang + aind;
     b += blocksi * bng + (j + jtid) + (i + itid) * m;
 
-    acp = a c + ACACHE_X * itid + jtid + ACACHE_K / 2;
+    acp = ac + ACACHE_X * itid + jtid + ACACHE_K / 2;
     if (aind < ang)
         acp[0] = a[0];
     if ((aind + BLOCK) < ang)
