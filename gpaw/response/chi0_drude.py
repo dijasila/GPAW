@@ -154,7 +154,7 @@ class PlasmaFrequencyIntegrand(Integrand):
         if self.crpa_weight is not None:
             crpa_weight = self.crpa_weight.get_drude_weight_n(n_n, kpt1.K)
             # XXX should it be sqrt here?
-            vel_nv *= crpa_weight[:, np.newaxis]
+            vel_nv *= np.sqrt(crpa_weight[:, np.newaxis])
         return vel_nv
 
     def eigenvalues(self, k_v, s):

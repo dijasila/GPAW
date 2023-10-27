@@ -8,16 +8,18 @@ from ase.units import Ha
 
 
 class cRPA:
-    def __init__(self, extra_weights_nk, bandrange, gs, context):
+    def __init__(self, extra_weights_nk, bandrange, gs, context, factor = 1.):
         # Probability that state nk is in wannier subspace
         self.extra_weights_nk = extra_weights_nk
         self.bandrange = bandrange
         self.gs = gs
         self.context = context
-
+        self.factor = factor # weight = (1 - p*p)**factor. spex has factor = 2, but I think it is wrong
     @classmethod
     def from_wannier_matrix(cls, Uwan_mnk, bandrange, calc,
-                            wannier_range=None, txt='chi0.txt',
+                            wannier_range=None, round_weights = False,
+                            factor = 1.,
+                            txt='chi0.txt',
                             timer=None, world=world):
         """Initialize cRPA_weight from Wannier transformation matrix
         Uwan_mnk: cmplx or str
@@ -65,10 +67,11 @@ class cRPA:
         extra_weights_nk[bandrange, :] = \
             np.sum(np.abs(Uwan_mnk[wannier_range])**2,
                                                 axis=0)
-
+        if round_weights:
+            extra_weights_nk = np.rint(extra_weights_nk)
         assert np.allclose(np.sum(extra_weights_nk, axis=0),
                            len(wannier_range))
-        return cls(extra_weights_nk, bandrange, gs, context)
+        return cls(extra_weights_nk, bandrange, gs, context, factor=factor)
 
     @classmethod
     def from_band_indexes(cls, bands, calc,
@@ -133,7 +136,7 @@ class cRPA:
         weights_nm = - np.outer(weights_n, weights_m)
         weights_nm += 1.0
         weights_nm[weights_nm <= 1e-20] = 0.0
-        return weights_nm
+        return weights_nm ** self.factor
 
     def get_drude_weight_n(self, n_n, ikn):
         """ weight_nm = 1. - P_n*Pm where
@@ -142,4 +145,4 @@ class cRPA:
         """
         weights_n = 1. - self.extra_weights_nk[n_n, ikn]**2
         weights_n[weights_n <= 1e-20] = 0.0
-        return weights_n
+        return weights_n ** self.factor
