@@ -614,8 +614,7 @@ class RRemission(object):
                     build Gw via taking the inverse. Notice, that for Xw=0,
                     Gw=Gw0 and the singular case is also set to Gw=Gw0.
                     """
-                    newG1 = False
-                    if newG1 == True:
+                    if self.claussius == 1:
                         if np.sum(np.abs(Gw0[el, :])) > 1e-18:
                             Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
                                                    (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
