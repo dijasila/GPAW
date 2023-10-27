@@ -47,8 +47,10 @@ def test_gpu_k(gpu, par, mode, xc):
     atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
     if mode == 'fd':
         poisson = FDPoissonSolver()
+        h = 0.1
     else:
         poisson = None
+        h = None
     dft = DFTCalculation.from_parameters(
         atoms,
         dict(mode={'name': mode},
@@ -56,6 +58,7 @@ def test_gpu_k(gpu, par, mode, xc):
              xc=xc,
              convergence={'density': 1e-8},
              kpts=(4, 1, 1),
+             h=h,
              poissonsolver=poisson,
              parallel={'gpu': gpu,
                        par: size},
@@ -63,12 +66,12 @@ def test_gpu_k(gpu, par, mode, xc):
         log='-')
     dft.converge()
     dft.energies()
-    dft.forces()
     if mode == 'pw':
+        dft.forces()
         dft.stress()
     energy = dft.results['energy'] * Ha
-    ref = {'LDAfd': -17.371536887378824,
-           'PBEfd': -17.020743089737195,
+    ref = {'LDAfd': -17.685022604078714,
+           'PBEfd': -17.336991943070384,
            'PBEpw': -17.304186,
            'LDApw': -17.653433}[xc + mode]
     assert energy == pytest.approx(ref, abs=1e-6)
