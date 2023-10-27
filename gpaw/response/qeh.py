@@ -313,7 +313,7 @@ class BuildingBlock:
                 'chiM_qw': self.chiM_qw,
                 'chiD_qw': self.chiD_qw,
                 'chiDM_qw': self.chiDM_qw,
-                'chiDM_qw': self.chiDM_qw,
+                'chiMD_qw': self.chiMD_qw,
                 'z': self.z,
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
