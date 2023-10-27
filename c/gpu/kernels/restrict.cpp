@@ -230,6 +230,62 @@ void Zgpu(bmgs_restrict_gpu)(int k, const Tgpu* a, const int size[3],
     gpuCheckLastError();
 }
 
+#define K 2
+#define RST1D Zgpu(restrict1D2)
+#define RST1D_kernel Zgpu(restrict1D2_kernel)
+#include "restrict-stencil.cpp"
+#undef RST1D
+#undef RST1D_kernel
+#undef K
+
+#define K 4
+#define RST1D Zgpu(restrict1D4)
+#define RST1D_kernel Zgpu(restrict1D4_kernel)
+#include "restrict-stencil.cpp"
+#undef RST1D
+#undef RST1D_kernel
+#undef K
+
+#define K 6
+#define RST1D Zgpu(restrict1D6)
+#define RST1D_kernel Zgpu(restrict1D6_kernel)
+#include "restrict-stencil.cpp"
+#undef RST1D
+#undef RST1D_kernel
+#undef K
+
+#define K 8
+#define RST1D Zgpu(restrict1D8)
+#define RST1D_kernel Zgpu(restrict1D8_kernel)
+#include "restrict-stencil.cpp"
+#undef RST1D
+#undef RST1D_kernel
+#undef K
+
+extern "C"
+void Zgpu(bmgs_restrict_stencil_gpu)(int k, Tgpu* a, const int na[3],
+                                     Tgpu* b, const int nb[3],
+                                     Tgpu* w, int blocks)
+{
+    void (*func)(const Tgpu*, int, int, Tgpu*, int, int, int);
+    int ang = na[0] * na[1] * na[2];
+    int bng = nb[0] * nb[1] * nb[2];
+
+    if (k == 2)
+        func = Zgpu(restrict1D2);
+    else if (k == 4)
+        func = Zgpu(restrict1D4);
+    else if (k == 6)
+        func = Zgpu(restrict1D6);
+    else
+        func = Zgpu(restrict1D8);
+
+    int e = k * 2 - 3;
+    func(a, (n[2] - e) / 2, n[0] * n[1], w, ang, ang, blocks);
+    func(w, (n[1] - e) / 2, n[0] * (n[2] - e) / 2, a, ang, ang, blocks);
+    func(a, (n[0] - e) / 2, (n[1] - e) * (n[2] - e) / 4, b, ang, bng, blocks);
+}
+
 #ifndef GPU_USE_COMPLEX
 #define GPU_USE_COMPLEX
 #include "restrict.cpp"

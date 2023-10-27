@@ -145,15 +145,31 @@ static void _transformer_apply_gpu(TransformerObject* self,
                 }
             }
         } else {
-            if (real) {
-                bmgs_restrict_gpu(self->k, buf, bc->size2,
-                                  out2, self->size_out, myblocks);
+            if (stencil) {
+                if (real) {
+                    bmgs_restrict_stencil_gpu(self->k, buf, bc->size2,
+                                              out2, self->size_out, buf16,
+                                              myblocks);
+                } else {
+                    bmgs_restrict_stencil_gpuz(self->k,
+                                               (gpuDoubleComplex*) (buf),
+                                               bc->size2,
+                                               (gpuDoubleComplex*) (out2),
+                                               self->size_out,
+                                               (gpuDoubleComplex*) (buf16),
+                                               myblocks);
+                }
             } else {
-                bmgs_restrict_gpuz(self->k,
-                                   (gpuDoubleComplex*) (buf),
-                                   bc->size2,
-                                   (gpuDoubleComplex*) (out2),
-                                   self->size_out, myblocks);
+                if (real) {
+                    bmgs_restrict_gpu(self->k, buf, bc->size2,
+                                      out2, self->size_out, myblocks);
+                } else {
+                    bmgs_restrict_gpuz(self->k,
+                                       (gpuDoubleComplex*) (buf),
+                                       bc->size2,
+                                       (gpuDoubleComplex*) (out2),
+                                       self->size_out, myblocks);
+                }
             }
         }
     }

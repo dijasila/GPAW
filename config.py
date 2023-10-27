@@ -146,7 +146,8 @@ def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
                  'lfc-reduce.cpp',
                  'lfc-reduce-kernel.cpp',
                  'reduce.cpp',
-                 'reduce-kernel.cpp']:
+                 'reduce-kernel.cpp',
+                 'restrict-stencil.cpp']:
         kernels.remove(kernels_dpath / name)
 
     # Compile GPU kernels
