@@ -18,14 +18,17 @@ def test_gpu(dtype, gpu, mode):
     atoms.center(vacuum=1.0)
     if mode == 'fd':
         poisson = FDPoissonSolver()
+        h = 0.17
     else:
         poisson = None
+        h = None
     dft = DFTCalculation.from_parameters(
         atoms,
         dict(mode={'name': mode},
              dtype=dtype,
              poissonsolver=poisson,
-             convergence={'density':1e-7},
+             h=h,
+             convergence={'density': 1e-8},
              parallel={'gpu': gpu},
              setups='paw'),
         log='-')
@@ -35,7 +38,7 @@ def test_gpu(dtype, gpu, mode):
     if mode == 'pw':
         assert energy == pytest.approx(-16.032945, abs=1e-6)
     else:
-        assert energy == pytest.approx(5.122987810441543, abs=1e-6)
+        assert energy == pytest.approx(5.071972893296197, abs=1e-6)
 
 
 @pytest.mark.gpu
@@ -45,21 +48,22 @@ def test_gpu(dtype, gpu, mode):
 @pytest.mark.parametrize('mode', ['pw', 'fd'])
 @pytest.mark.parametrize('xc', ['LDA', 'PBE'])
 def test_gpu_k(gpu, par, mode, xc):
-    atoms = Atoms('H', pbc=True, cell=[1.0, 1.1, 1.1])
+    atoms = Atoms('H', pbc=True, cell=[1, 1.1, 1.1])
     if mode == 'fd':
         poisson = FDPoissonSolver()
-        h = 0.1
+        h = 0.09
     else:
         poisson = None
         h = None
+
     dft = DFTCalculation.from_parameters(
         atoms,
         dict(mode={'name': mode},
              spinpol=True,
              xc=xc,
-             convergence={'density': 1e-7},
-             kpts=(4, 1, 1),
              h=h,
+             convergence={'density': 1e-8},
+             kpts=(4, 1, 1),
              poissonsolver=poisson,
              parallel={'gpu': gpu,
                        par: size},
