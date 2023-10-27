@@ -21,6 +21,38 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 
 
+import ctypes
+
+class MemoryPool:
+
+    def __init__(self, size):
+        # Pre-allocate memory block of given size
+        self.buffer = (ctypes.c_byte * size)()
+        self.size = size
+        self.used = 0
+
+    def allocate(self, nbytes):
+        """Allocate a block of memory of nbytes from the pool."""
+        if self.used + nbytes > self.size:
+            raise MemoryError("Memory Pool exhausted")
+
+        # Calculate start address of the new block
+        block_addr = ctypes.addressof(self.buffer) + self.used
+
+        # Update the used memory marker
+        self.used += nbytes
+
+        return block_addr
+
+    def free(self, nbytes):
+        """Free the last nbytes from the pool."""
+        if nbytes > self.used:
+            raise ValueError("Cannot free more memory than allocated")
+        
+        # Update the used memory marker
+        self.used -= nbytes
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  spinors=False,
@@ -39,7 +71,6 @@ class BSEBackend:
                  write_v=False):
         self.gs = gs
         self.context = context
-
         self.spinors = spinors
         self.scale = scale
 
@@ -575,10 +606,37 @@ class BSEBackend:
         self.get_bse_matrix(q_c=q_c, direction=direction,
                             readfile=readfile, optical=optical, hybrid=False)
         vg = self.v_G
-        return np.array(vg) 
+        return np.array(vg)
 
-     
 
+    def collect_C_TGG(self, C_tGG):
+        Nv = self.nv * (self.spinors + 1)
+        Nc = self.nc * (self.spinors + 1)
+        Ns = self.spins
+        nS = self.nS
+        rho_GS = self.rhoG0_S
+        nG = rho_GS.shape[-1]
+        ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+
+        if world.rank == 0:
+            C_TGG = np.zeros((nS, nG, nG), dtype=complex)
+            C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
+            Ntot = len(C_tGG)
+        
+            for rank in range(1, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                buf = np.empty((ns, nG, nG), dtype=complex)  # Adjusted buffer shape
+                world.receive(buf, rank, tag=123)
+                C_TGG[Ntot:Ntot + ns] = buf
+                Ntot += ns
+        else:
+            world.send(C_tGG, 0, tag=123)
+    
+        world.barrier()
+        if world.rank == 0:
+            return C_TGG 
+
+    
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, readfile=None, optical=True,
                  write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
@@ -591,10 +649,19 @@ class BSEBackend:
                 del self.w_qGG
             except:
                 pass    
-        
+        print("Calculating BSE matrix", flush=True) 
         self.get_bse_matrix(q_c=q_c, direction=direction,
                             readfile=readfile, optical=optical, hybrid = hybrid, get_chi0=get_chi0)
-  
+        print("Done calculating BSE matrix", flush=True)
+    
+        import psutil
+        available_memory = psutil.virtual_memory().available
+        max_tensor_dim_n = int((available_memory / 8)**(1/3))
+        print('this is max tensor dim n:', flush=True)
+        print(max_tensor_dim_n, flush=True)
+        max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
+        print('this is max tensor dim m:', flush=True)
+        print(max_tensor_dim_m, flush=True)
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
         rho_GS = self.rhoG0_S
@@ -603,6 +670,7 @@ class BSEBackend:
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros((len(w_w),nG, nG), dtype=complex)
+        print("Initilizing the k-point parallized part", flush=True)
         if not self.td:
             if world.rank == 0:
                 A_GT = rho_GS.T @ self.v_ST
@@ -628,23 +696,37 @@ class BSEBackend:
                 ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
                 assert self.kd.nbzkpts % world.size == 0
                 grid = BlacsGrid(world, world.size, 1)
-                
-                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                print("Made 1", flush=True) 
+                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
                 C_tGG = desc.empty(dtype=complex)
-                print('made CtGG', flush = True)
-                print(np.shape(C_tGG), flush=True)
+                print('Made 1 _ 1', flush = True)
                 np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
-                C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
-                print('made CTGG', flush = True)
-                print(np.shape(C_TGG), flush=True)
+                print('Made 1 _ 2', flush = True)
+                available_memory = psutil.virtual_memory().available
+                max_tensor_dim_n = int((available_memory / 8)**(1/3))
+                print('this is max tensor dim n:', flush=True)
+                print(max_tensor_dim_n, flush=True)
+                max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
+                print('this is max tensor dim m:', flush=True)
+                print(max_tensor_dim_m, flush=True)
+                C_TGG = self.collect_C_TGG(C_tGG)
+               # C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
+                print(np.shape(C_TGG))
+                print("Made 2", flush=True)
                 desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                print('made disc1', flush = True)
                 C_tGG1 = desc1.empty(dtype=complex)
+                print('made CtGG1', flush = True)
                 np.einsum('Gt,Ht->tGH', A_Gt.conj() , B_Gt, out=C_tGG1.reshape((-1, nG, nG)))
-                C_TGG1 = desc1.collect_on_master(C_tGG1).reshape((-1, nG, nG))
-
+                print('made the einsum', flush = True)
+                C_TGG1 = self.collect_C_TGG(C_tGG1)
+                #C_TGG1 = desc1.collect_on_master(C_tGG1).reshape((-1, nG, nG))
+                print("Made 3", flush=True)
                 if grid.comm.rank != 0:
                     return
             C_T = C_TGG 
+
+        print("Made the k-point parallelized part", flush=True)
 
         eta /= Hartree
 

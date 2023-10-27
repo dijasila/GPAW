@@ -21,6 +21,38 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 
 
+import ctypes
+
+class MemoryPool:
+
+    def __init__(self, size):
+        # Pre-allocate memory block of given size
+        self.buffer = (ctypes.c_byte * size)()
+        self.size = size
+        self.used = 0
+
+    def allocate(self, nbytes):
+        """Allocate a block of memory of nbytes from the pool."""
+        if self.used + nbytes > self.size:
+            raise MemoryError("Memory Pool exhausted")
+
+        # Calculate start address of the new block
+        block_addr = ctypes.addressof(self.buffer) + self.used
+
+        # Update the used memory marker
+        self.used += nbytes
+
+        return block_addr
+
+    def free(self, nbytes):
+        """Free the last nbytes from the pool."""
+        if nbytes > self.used:
+            raise ValueError("Cannot free more memory than allocated")
+        
+        # Update the used memory marker
+        self.used -= nbytes
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  spinors=False,
@@ -36,12 +68,14 @@ class BSEBackend:
                  mode='BSE',
                  wfile=None,
                  write_h=False,
-                 write_v=False):
+                 write_v=False, q_c = [0.0,0.0,0.0]):
         self.gs = gs
         self.context = context
-
         self.spinors = spinors
         self.scale = scale
+
+
+        self.q_c=q_c
 
         assert mode in ['RPA', 'TDHF', 'BSE']
 
@@ -129,6 +163,12 @@ class BSEBackend:
         # Chi0 object
         self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
+
+
+        qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
+        ikq_k = self.kd.find_k_plus_q(self.q_c)
+        v_G = self.coulomb.V(qpd=qpd0, q_v=None)
+        self.v_G = v_G
 
     def calculate(self, optical=True, hybrid = False, get_chi0 = False):
 
@@ -275,12 +315,15 @@ class BSEBackend:
         
        # rhoex_KsmnG = np.linalg.inv(rhoex_KsmnG)
         rhoG0_S1 = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        print('first shape:', flush=True)
+        print(len(rhoG0_S1),flush = True)
         #self.rhoG0_S = np.reshape(rhoex_KsmnG, -1
         #self.rhoG0_S = rhoex_KsmnG.reshape((len(v_G), -2))
        # self.rhoG0_S = (rhoex_KsmnG.reshape((-2, len(v_G
        # self.rhoG0_S = (rhoex_KsmnG.reshape((-2,len(v_G)))).T
         self.rhoG0_S = np.reshape(rhoex_KsmnG, (len(rhoG0_S1),-1))
-
+        print('second shape:', flush=True)
+        print(np.shape(self.rhoG0_S), flush=True)
         if hasattr(self, 'H_sS'):
             return
 
@@ -562,7 +605,9 @@ class BSEBackend:
         elif readfile == 'H_SS':
             self.context.print('Reading Hamiltonian from file')
             self.par_load('H_SS.ulm', 'H_SS')
+            print('managed to load the file', flush = True)
             self.diagonalize()
+            print('managed to diagonalize it', flush = True)
         elif readfile == 'v_TS':
             self.context.print('Reading eigenstates from file')
             self.par_load('v_TS.ulm', 'v_TS')
@@ -575,10 +620,37 @@ class BSEBackend:
         self.get_bse_matrix(q_c=q_c, direction=direction,
                             readfile=readfile, optical=optical, hybrid=False)
         vg = self.v_G
-        return np.array(vg) 
+        return np.array(vg)
 
-     
 
+    def collect_C_TGG(self, C_tGG):
+        Nv = self.nv * (self.spinors + 1)
+        Nc = self.nc * (self.spinors + 1)
+        Ns = self.spins
+        nS = self.nS
+        rho_GS = self.rhoG0_S
+        nG = rho_GS.shape[-1]
+        ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+
+        if world.rank == 0:
+            C_TGG = np.zeros((nS, nG, nG), dtype=complex)
+            C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
+            Ntot = len(C_tGG)
+        
+            for rank in range(1, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                buf = np.empty((ns, nG, nG), dtype=complex)  # Adjusted buffer shape
+                world.receive(buf, rank, tag=123)
+                C_TGG[Ntot:Ntot + ns] = buf
+                Ntot += ns
+        else:
+            world.send(C_tGG, 0, tag=123)
+    
+        world.barrier()
+        if world.rank == 0:
+            return C_TGG 
+
+    
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, readfile=None, optical=True,
                  write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
@@ -591,10 +663,19 @@ class BSEBackend:
                 del self.w_qGG
             except:
                 pass    
-        
+        print("Calculating BSE matrix", flush=True)
         self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical, hybrid = hybrid, get_chi0=get_chi0)
-  
+                            readfile=readfile, optical=optical, hybrid = hybrid, get_chi0=get_chi0)            
+        print("Done calculating BSE matrix", flush=True)
+    
+        import psutil
+        available_memory = psutil.virtual_memory().available
+        max_tensor_dim_n = int((available_memory / 8)**(1/3))
+        print('this is max tensor dim n:', flush=True)
+        print(max_tensor_dim_n, flush=True)
+        max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
+        print('this is max tensor dim m:', flush=True)
+        print(max_tensor_dim_m, flush=True)
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
         rho_GS = self.rhoG0_S
@@ -603,6 +684,7 @@ class BSEBackend:
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros((len(w_w),nG, nG), dtype=complex)
+        print("Initilizing the k-point parallized part", flush=True)
         if not self.td:
             if world.rank == 0:
                 A_GT = rho_GS.T @ self.v_ST
@@ -628,23 +710,37 @@ class BSEBackend:
                 ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
                 assert self.kd.nbzkpts % world.size == 0
                 grid = BlacsGrid(world, world.size, 1)
-                
-                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                print("Made 1", flush=True) 
+                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
                 C_tGG = desc.empty(dtype=complex)
-                print('made CtGG', flush = True)
-                print(np.shape(C_tGG), flush=True)
+                print('Made 1 _ 1', flush = True)
                 np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
-                C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
-                print('made CTGG', flush = True)
-                print(np.shape(C_TGG), flush=True)
+                print('Made 1 _ 2', flush = True)
+                available_memory = psutil.virtual_memory().available
+                max_tensor_dim_n = int((available_memory / 8)**(1/3))
+                print('this is max tensor dim n:', flush=True)
+                print(max_tensor_dim_n, flush=True)
+                max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
+                print('this is max tensor dim m:', flush=True)
+                print(max_tensor_dim_m, flush=True)
+                C_TGG = self.collect_C_TGG(C_tGG)
+               # C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
+                print(np.shape(C_TGG))
+                print("Made 2", flush=True)
                 desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                print('made disc1', flush = True)
                 C_tGG1 = desc1.empty(dtype=complex)
+                print('made CtGG1', flush = True)
                 np.einsum('Gt,Ht->tGH', A_Gt.conj() , B_Gt, out=C_tGG1.reshape((-1, nG, nG)))
-                C_TGG1 = desc1.collect_on_master(C_tGG1).reshape((-1, nG, nG))
-
+                print('made the einsum', flush = True)
+                C_TGG1 = self.collect_C_TGG(C_tGG1)
+                #C_TGG1 = desc1.collect_on_master(C_tGG1).reshape((-1, nG, nG))
+                print("Made 3", flush=True)
                 if grid.comm.rank != 0:
                     return
             C_T = C_TGG 
+
+        print("Made the k-point parallelized part", flush=True)
 
         eta /= Hartree
 
@@ -682,6 +778,47 @@ class BSEBackend:
       #  symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
      #                                                kpt1, kpt2)
         return np.swapaxes(vchi_w, -1, -2) #, self.qpd_q[iq]
+
+    def bse_plus_convergence(self, m_remove_nc, n_remove_nv, eta=0.1, 
+                             optical=True, q_c = [0,0,0], w_w=None, direction = 0, 
+                              readfile='H_SS', write_eig=None):
+        if world.rank == 0:
+            import ase.io.ulm as ulm
+            r = ulm.open(readfile + '.ulm')
+            A_XS = r.A_XS
+            self.rhoG0_S = r.rhoG0_S
+            self.df_S = r.df_S
+
+            nnc = 0
+            nnv = 0
+            for m in range(m_remove_nc):
+                A_XS = A_XS[np.arange(A_XS.shape[0]) % (self.nc-nnc) != (self.nc-nnc-1)][:, np.arange(A_XS.shape[1]) % (self.nc-nnc) != (self.nc-nnc-1)]     
+                self.rhoG0_S = self.rhoG0_S[np.arange(self.rhoG0_S.shape[0]) % (self.nc-nnc) != (self.nc-nnc-1)] 
+                self.df_S = self.df_S[np.arange(self.df_S.shape[0]) % (self.nc-nnc) != (self.nc-nnc-1)] 
+                nnc += 1
+            for n in range(n_remove_nv):
+                exclude_indices = [i for j in range(0, A_XS.shape[0], (self.nc-nnc)*(self.nv-nnv)) for i in range(j, j + self.nc - nnc)]
+                row_mask = np.ones(A_XS.shape[0], dtype=bool)
+                col_mask = np.ones(A_XS.shape[1], dtype=bool)
+                row_mask[exclude_indices] = False
+                col_mask[exclude_indices] = False
+                A_XS = A_XS[row_mask][:, col_mask]
+                self.rhoG0_S = self.rhoG0_S[row_mask]
+                self.df_S = self.df_S[row_mask]
+                nnv += 1
+ 
+           # self.nv = self.nv - n_remove_nv
+           # self.nc = self.nc - m_remove_nc
+           # self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
+           # self.nS *= (self.spinors + 1)**2
+
+            w = ulm.open('H_SS.ulm', 'w')
+            w.write(rhoG0_S=self.rhoG0_S)
+            w.write(df_S=self.df_S)
+            w.write(A_XS=A_XS)
+            w.close()
+            
+        return 
    
     def get_chi0(self, w_w = None, eta = 0.1, q_c =[0.0,0.0,0.0], direction = 0, readfile = None, 
                                       optical = True, write_eig = None, return_vchi = True):
@@ -691,6 +828,9 @@ class BSEBackend:
         chi0 = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction, readfile=readfile, optical=optical,
                  write_eig=write_eig, return_vchi = return_vchi, hybrid = True, get_chi0=True)
         return chi0
+
+
+    
 
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
@@ -837,6 +977,7 @@ class BSEBackend:
         import ase.io.ulm as ulm
 
         if world.rank == 0:
+            print('went to the rank 0 part', flush = True)
             r = ulm.open(filename, 'r')
             if name == 'v_TS':
                 self.w_T = r.w_T
@@ -844,18 +985,24 @@ class BSEBackend:
             self.df_S = r.df_S
             A_XS = r.A_XS
             r.close()
+            print('finished the world 0 part', flush = True)
         else:
+            print('went to the rank not 0 part', flush = True)
             if name == 'v_TS':
                 self.w_T = np.zeros((self.nS), dtype=float)
-            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+            self.rhoG0_S = np.zeros((self.nS, len(self.v_G)), dtype=complex)
             self.df_S = np.zeros((self.nS), dtype=float)
             A_XS = None
-
+            print('finished the rank not 0 part', flush=True)
+        print('broadcasting rhoG0S and dfS', flush = True)
         world.broadcast(self.rhoG0_S, 0)
         world.broadcast(self.df_S, 0)
+        print('finished broadcasting the rhog0s and dfs', flush = True)
 
-        if name == 'H_SS':
+        if name == 'H_SS': 
+            print('distributing hss', flush =True)
             self.H_sS = self.distribute_A_SS(A_XS)
+            print('even created the H_sS', flush = True)
 
         if name == 'v_TS':
             world.broadcast(self.w_T, 0)
@@ -882,16 +1029,23 @@ class BSEBackend:
         if world.rank == 0:
             for rank in range(0, world.size):
                 nkr, nk, ns = self.parallelisation_sizes(rank)
+                print('this is nkr, nk and ns', flush = True)
+                print([nkr,nk,ns], flush =True)
                 if rank == 0:
                     A_sS = A_SS[0:ns]
                     Ntot = ns
+                    print('did last rank 0 part', flush = True)
                 else:
                     world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
                     Ntot += ns
+                    print('did the else statement', flush = True)
         else:
             nkr, nk, ns = self.parallelisation_sizes()
+            print('this is the second nkr, nk, ns', flush = True)
+            print([nkr,nk,ns], flush = True)
             A_sS = np.empty((ns, self.nS), dtype=complex)
             world.receive(A_sS, 0, tag=123)
+            print('did the second else statement', flush =True)
         world.barrier()
         if transpose:
             A_sS = A_sS.T
