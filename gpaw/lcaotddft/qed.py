@@ -518,7 +518,7 @@ class RRemission(object):
                                         * deltat / (timedm[1] - timedm[0])
                                         * window_Gw0)
                     for el in range(len(omegafft)):
-                        if self.is_invertible(np.reshape(alpha[el, :], (3, 3))):
+                        if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
                             Xw[ww, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
