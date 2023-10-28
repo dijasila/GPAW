@@ -476,7 +476,7 @@ class RRemission(object):
                 # One could move the calculation of the polarizability matrix
                 # into some tool and let the user specify directly the location
                 # of that matrix. This would make it necessary to have a tool
-                # for alpha and the user would need to run it. However, this
+                # for alpha_ij and the user would need to run it. However, this
                 # would also allow to get alpha_ij from another code.
                 # Maybe the best option would be to provide both input
                 # alternatives, careful with the FFT norms.
@@ -518,7 +518,7 @@ class RRemission(object):
                                         * deltat / (timedm[1] - timedm[0])
                                         * window_Gw0)
                     for el in range(len(omegafft)):
-                        if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
+                        if self.is_invertible(np.reshape(alpha[el, :], (3, 3))):
                             Xw[ww, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
@@ -556,13 +556,15 @@ class RRemission(object):
                     """
                 for ii in range(9):
                     plt.figure()
-                    plt.plot(omegafft * Hartree, np.real(alpha_ij[:, ii]))
-                    plt.plot(omegafft * Hartree, np.imag(alpha_ij[:, ii]))
                     if self.claussius == 1:
                         plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
                         plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
+                    else:
+                        plt.plot(omegafft * Hartree, np.real(alpha_ij[:, ii]))
+                        plt.plot(omegafft * Hartree, np.imag(alpha_ij[:, ii]))
                     plt.xlabel("Energy (eV)")
-                    plt.ylabel(r"$\alpha_i(\omega)$, i=" + str(ii))
+                    plt.ylabel(r"$\alpha_ij/\xi(\omega)$, i=" + str(ii)
+                               + 'CM=' + str(self.claussius) )
                     if self.cutofffrequency is not None:
                         plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
                     plt.savefig('Xw_' + str(ii) + '.png')
@@ -728,7 +730,8 @@ class RRemission(object):
                 #plt.close()
 
                 #plt.show()
-        np.savez("dyadicD", Dt=Dt, Gst=Gst)
+        np.savez("Xw", alpha_ij=alpha_ij, Xw=Xw)
+        np.savez("dyadicD", Dt=Dt, Gw=Gw, Gst=Gst)
         return [Dt[:maxtimesteps, :], Gst]
 
     def selffield(self, deltat):
