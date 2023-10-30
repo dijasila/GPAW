@@ -519,7 +519,7 @@ class RRemission(object):
                                         * window_Gw0)
                     for el in range(len(omegafft)):
                         if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
-                            Xw[ww, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) - 1. / 3. * np.eye(3)), (-1, ))
+                            Xw[ww, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) / (4. * np.pi * self.ensemble_number / self.cavity_volume) + 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
                     print('You are using Claussius-Mossoti for Xw')
@@ -727,11 +727,15 @@ class RRemission(object):
                 plt.ylabel(r"$D^{(1),no static}_i(t)$, i=" + str(ii))
                 plt.legend(loc="upper right")
                 plt.savefig('Dt_' + str(ii) + '.png')
-                #plt.close()
-
-                #plt.show()
-        np.savez("Xw", alpha_ij=alpha_ij, Xw=Xw)
-        np.savez("dyadicD", Dt=Dt, Gw=Gw, Gst=Gst)
+        np.savez("Xw",
+                 energy=omegafft[:maxtimesteps, :] * Hartree,
+                 alpha_ij=alpha_ij[:maxtimesteps, :],
+                 Xw=Xw[:maxtimesteps, :])
+        np.savez("dyadicD",
+                 Dt=Dt[:maxtimesteps, :],
+                 energy=omegafft[:maxtimesteps, :] * Hartree,
+                 Gw=Gw[:maxtimesteps, :],
+                 Gst=Gst[:maxtimesteps, :])
         return [Dt[:maxtimesteps, :], Gst]
 
     def selffield(self, deltat):
