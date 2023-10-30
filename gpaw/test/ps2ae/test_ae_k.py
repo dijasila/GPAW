@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from ase.units import Bohr
 
@@ -12,10 +10,10 @@ from gpaw.utilities.ps2ae import PS2AE
 @pytest.mark.parametrize('name, tol',
                          [('bcc_li_pw', 3e-5),
                           ('bcc_li_fd', 4e-4)])
-def test_ae_k(gpw_files, name, tol):
+def test_ae_k(gpw_files, name, tol, gpaw_new):
     """Test normalization of non gamma-point wave functions."""
 
-    if os.environ.get('GPAW_NEW'):
+    if gpaw_new:
         # New API:
         if size > 1:
             return

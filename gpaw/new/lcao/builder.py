@@ -3,7 +3,7 @@ from functools import partial
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.fd.builder import FDDFTComponentsBuilder
 from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
@@ -87,6 +87,7 @@ def create_lcao_ibzwfs(basis, potential,
                        fracpos_ac, grid, dtype,
                        nbands, ncomponents, atomdist, nelectrons,
                        coefficients=None):
+    kpt_band_comm = communicators['D']
     kpt_comm = communicators['k']
     band_comm = communicators['b']
     domain_comm = communicators['d']
@@ -114,7 +115,7 @@ def create_lcao_ibzwfs(basis, potential,
 
     for a, P_qMi in P_aqMi.items():
         dO_ii = setups[a].dO_ii
-        for P_Mi, S_MM in zip(P_qMi, S0_qMM):
+        for P_Mi, S_MM in zips(P_qMi, S0_qMM):
             S_MM += P_Mi[M1:M2].conj() @ dO_ii @ P_Mi.T
     domain_comm.sum(S0_qMM)
 
@@ -160,9 +161,11 @@ def create_lcao_ibzwfs(basis, potential,
             weight=weight,
             ncomponents=ncomponents)
 
-    ibzwfs = create_ibzwfs(ibz,
-                           nelectrons,
-                           ncomponents,
-                           create_wfs,
-                           kpt_comm)
+    ibzwfs = create_ibzwfs(ibz=ibz,
+                           nelectrons=nelectrons,
+                           ncomponents=ncomponents,
+                           create_wfs_func=create_wfs,
+                           kpt_comm=kpt_comm,
+                           kpt_band_comm=kpt_band_comm,
+                           comm=communicators['w'])
     return ibzwfs, tciexpansions

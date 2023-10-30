@@ -9,17 +9,17 @@ import gpaw.mpi as mpi
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, truncation):
+    def __init__(self, wd, chi0calc, truncation):
         from gpaw.response.pw_parallelization import Blocks1D
+        self.wd = wd
         self.chi0calc = chi0calc
 
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context = chi0calc.context
-        self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
@@ -495,7 +495,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, threshold=1,
+                 nbands=None, eta=0.2,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -519,9 +519,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Number of bands from calculation.
         eta: float
             Broadening parameter.
-        threshold: float
-            Threshold for matrix elements in optical response perturbation
-            theory.
         intraband: bool
             Include intraband transitions.
         world: comm
@@ -546,12 +543,12 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(
-            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(
+            gs=gs, context=context, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
             wd=wd,
-            pair=pair,
+            kptpair_factory=kptpair_factory,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
             intraband=intraband,
@@ -561,7 +558,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc, truncation=truncation)
+        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):

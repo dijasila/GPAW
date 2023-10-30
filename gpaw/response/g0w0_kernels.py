@@ -25,10 +25,10 @@ class G0W0Kernel:
             **self._kwargs)
 
 
-def calculate_spinkernel(*, ecut, xcflags, gs, qd, ns, qpd, context):
+def calculate_spinkernel(*, ecut, xcflags, gs, qd, qpd, context):
     assert xcflags.spin_kernel
     xc = xcflags.xc
-
+    ns = gs.nspins
     ibzq_qc = qd.ibzk_kc
     iq = np.argmin(np.linalg.norm(ibzq_qc - qpd.q_c[np.newaxis], axis=1))
     assert np.allclose(ibzq_qc[iq], qpd.q_c)

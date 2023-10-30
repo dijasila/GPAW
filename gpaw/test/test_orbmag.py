@@ -7,7 +7,6 @@ from gpaw.spinorbit import soc_eigenstates
 
 
 def test_orbmag_Ni(gpw_files):
-
     # Parameters
 
     easy_axis = 1 / np.sqrt(3) * np.ones(3)

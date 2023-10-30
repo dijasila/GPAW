@@ -1,30 +1,40 @@
 from __future__ import annotations
+
+from typing import Callable
+
 import numpy as np
+from gpaw.core import UGArray, UGDesc
+from gpaw.gpu import as_xp, as_np
+from gpaw.gpu import cupy as cp
+from gpaw.new.calculation import DFTState
+from gpaw.typing import Array2D, Array4D
+from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction, gga_vars
-from gpaw.xc import XC
-from gpaw.fd_operators import Gradient
-import _gpaw
+from gpaw.xc.mgga import MGGA
+from gpaw.new.ibzwfs import IBZWaveFunctions
+from gpaw.new import zips
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
-                      grid, coarse_grid, interpolate_domain,
-                      setups, fracpos_ac, atomdist):
+                      grid: UGDesc) -> Functional:
     if isinstance(xc, (str, dict)):
         xc = XC(xc)
     if xc.type == 'MGGA':
-        return MGGAFunctional(xc, grid, coarse_grid,
-                              interpolate_domain, setups, fracpos_ac, atomdist)
+        return MGGAFunctional(xc, grid)
+    assert xc.type in {'LDA', 'GGA'}, xc
     return LDAOrGGAFunctional(xc, grid)
 
 
 class Functional:
-    def __init__(self, xc, grid):
+    def __init__(self,
+                 xc: OldXCFunctional,
+                 grid: UGDesc):
         self.xc = xc
         self.grid = grid
         self.setup_name = self.xc.get_setup_name()
         self.name = self.xc.name
-        self.no_forces = self.name.startswith('GLLB')
         self.type = self.xc.type
         self.xc.set_grid_descriptor(grid._gd)
 
@@ -37,144 +47,132 @@ class Functional:
     def get_setup_name(self) -> str:
         return self.name
 
-    def apply(self, spin, psit_nX, vt_nX) -> None:
-        pass
-
-    def move(self, fracpos_ac, atomdist) -> None:
-        pass
+    def stress_contribution(self,
+                            state: DFTState,
+                            interpolate: Callable[[UGArray], UGArray]
+                            ) -> Array2D:
+        raise NotImplementedError
 
 
 class LDAOrGGAFunctional(Functional):
     def calculate(self,
-                  nt_sr,
-                  vxct_sr,
-                  ibzwfs=None,
-                  interpolate=None,
-                  restrict=None) -> tuple[float, float]:
-        if nt_sr.xp is np:
+                  nt_sr: UGArray,
+                  taut_sr: UGArray | None = None) -> tuple[float,
+                                                           UGArray,
+                                                           UGArray | None]:
+        xp = nt_sr.xp
+        vxct_sr = nt_sr.new()
+        if xp is np:
             vxct_sr.data[:] = 0.0
-            return self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data), 0.0
-        vxct_np_sr = np.zeros(vxct_sr.data.shape)
-        exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(), vxct_np_sr)
-        vxct_sr.data[:] = vxct_sr.xp.asarray(vxct_np_sr)
-        return exc, 0.0
+            exc = self.xc.calculate(self.xc.gd, nt_sr.data, vxct_sr.data)
+        else:
+            vxct_np_sr = np.zeros(nt_sr.data.shape)
+            assert isinstance(nt_sr.data, cp.ndarray)
+            exc = self.xc.calculate(nt_sr.desc._gd, nt_sr.data.get(),
+                                    vxct_np_sr)
+            vxct_sr.data[:] = xp.asarray(vxct_np_sr)
+        return exc, vxct_sr, None
+
+    def stress_contribution(self,
+                            state: DFTState,
+                            interpolate: Callable[[UGArray], UGArray]
+                            ) -> Array2D:
+        ibzwfs = state.ibzwfs
+        if ibzwfs.kpt_comm.rank == 0 and ibzwfs.band_comm.rank == 0:
+            nt_sr = interpolate(state.density.nt_sR)
+            s_vv = self.xc.stress_tensor_contribution(as_np(nt_sr.data),
+                                                      skip_sum=True)
+            return as_xp(s_vv, nt_sr.xp)
+        return state.density.nt_sR.xp.zeros((3, 3))
 
 
 class MGGAFunctional(Functional):
-    def __init__(self,
-                 xc,
-                 grid,
-                 coarse_grid,
-                 domain,
-                 setups,
-                 fracpos_ac,
-                 atomdist):
-        super().__init__(xc, grid)
-        tauct_aX = setups.create_pseudo_core_kinetic_energy_densities(
-            domain, fracpos_ac, atomdist)
-        self.ked_calculator = KEDCalculator.create(tauct_aX)
-        self.coarse_grid = coarse_grid
-        self.dedtaut_sR = None
-
-    def move(self, fracpos_ac, atomdist):
-        self.ked_calculator.move(fracpos_ac, atomdist)
-
     def get_setup_name(self):
         return 'PBE'
 
-    def apply(self, spin, psit_nX, vt_nX):
-        self.ked_calculator._apply(self.dedtaut_sR[spin], psit_nX, vt_nX)
-
     def calculate(self,
                   nt_sr,
-                  vxct_sr,
-                  ibzwfs,
-                  interpolate,
-                  restrict) -> tuple[float, float]:
-        nspins = nt_sr.dims[0]
-        taut_sR = self.coarse_grid.empty(nspins)
-        self.ked_calculator.calculate_pseudo_ked(ibzwfs, taut_sR)
-        taut_sr = self.grid.empty(nspins)
-        interpolate(taut_sR, taut_sr)
-
+                  taut_sr) -> tuple[float, UGArray, UGArray | None]:
         gd = self.xc.gd
-
+        assert isinstance(self.xc, MGGA), self.xc
         sigma_xr, dedsigma_xr, gradn_svr = gga_vars(gd, self.xc.grad_v,
                                                     nt_sr.data)
-
         e_r = self.grid.empty()
+        if taut_sr is None:
+            taut_sr = nt_sr.new(zeroed=True)
         dedtaut_sr = taut_sr.new()
+        vxct_sr = taut_sr.new()
         vxct_sr.data[:] = 0.0
         self.xc.kernel.calculate(e_r.data, nt_sr.data, vxct_sr.data,
                                  sigma_xr, dedsigma_xr,
                                  taut_sr.data, dedtaut_sr.data)
-
-        self.dedtaut_sR = taut_sR.new()
-        ekin = 0.0
-        for dedtaut_R, dedtaut_r, taut_R in zip(self.dedtaut_sR,
-                                                dedtaut_sr,
-                                                taut_sR):
-            restrict(dedtaut_r, dedtaut_R)
-            taut_R.data -= self.ked_calculator.tauct_R.data
-            ekin -= dedtaut_R.integrate(taut_R)
-
         add_gradient_correction(self.xc.grad_v, gradn_svr, sigma_xr,
                                 dedsigma_xr, vxct_sr.data)
+        return e_r.integrate(), vxct_sr, dedtaut_sr
 
-        return e_r.integrate(), ekin
+    def stress_contribution(self,
+                            state: DFTState,
+                            interpolate: Callable[[UGArray], UGArray]
+                            ) -> Array2D:
+        stress_vv = np.zeros((3, 3))
 
+        taut_swR = _taut(state.ibzwfs, state.density.nt_sR.desc)
+        if taut_swR is None:
+            return stress_vv
 
-class KEDCalculator:
-    @staticmethod
-    def create(tauct_aX):
-        if hasattr(tauct_aX, 'pw'):
-            return PWKEDCalculator(tauct_aX)
-        return FDKEDCalculator(tauct_aX)
+        dedtaut_sR = state.potential.dedtaut_sR
+        assert dedtaut_sR is not None
+        dedtaut_sr = interpolate(dedtaut_sR)
+        for taut_wR, dedtaut_r in zips(taut_swR, dedtaut_sr):
+            w = 0
+            for v1 in range(3):
+                for v2 in range(v1, 3):
+                    taut_r = interpolate(taut_wR[w])
+                    s = taut_r.integrate(dedtaut_r, skip_sum=True)
+                    stress_vv[v1, v2] -= s
+                    if v2 != v1:
+                        stress_vv[v2, v1] -= s
+                    w += 1
 
-    def __init__(self, tauct_aX):
-        self.tauct_aX = tauct_aX
-        self.tauct_R = None
+        nt_sr = interpolate(state.density.nt_sR)
+        taut_sR = state.density.taut_sR
+        assert taut_sR is not None
+        taut_sr = interpolate(taut_sR)
+        assert isinstance(self.xc, MGGA)
+        stress_vv += _mgga(self.xc, nt_sr.data, taut_sr.data)
 
-    def move(self, fracpos_ac, atomdist):
-        self.tauct_aX.move(fracpos_ac, atomdist)
-        self.tauct_R = None
-
-    def calculate_pseudo_ked(self, ibzwfs, taut_sR):
-        nspins = taut_sR.dims[0]
-        if self.tauct_R is None:
-            self.tauct_R = taut_sR.desc.empty()
-            self.tauct_aX.to_uniform_grid(out=self.tauct_R,
-                                          scale=1.0 / nspins)
-
-        taut_sR.data[:] = 0.0
-
-        if ibzwfs is not None:
-            for wfs in ibzwfs:
-                occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
-                self.add_ked(occ_n, wfs.psit_nX, taut_sR[wfs.spin])
-            taut_sR.symmetrize(ibzwfs.ibz.symmetries.rotation_scc,
-                               ibzwfs.ibz.symmetries.translation_sc)
-            ibzwfs.kpt_comm.sum(taut_sR.data)
-            ibzwfs.band_comm.sum(taut_sR.data)
-
-        taut_sR.data += self.tauct_R.data
-
-    def add_ked(self):
-        raise NotImplementedError
+        return stress_vv
 
 
-class PWKEDCalculator(KEDCalculator):
-    def add_ked(self, occ_n, psit_nG, taut_R):
+def _taut(ibzwfs: IBZWaveFunctions, grid: UGDesc) -> UGArray | None:
+    """Calculate upper half of symmetric ked tensor.
+
+    Returns ``taut_swR=taut_svvR``.  Mapping from ``w`` to ``vv``::
+
+        0 1 2
+        . 3 4
+        . . 5
+
+    Only cores with ``kpt_comm.rank==0`` and ``band_comm.rank==0``
+    return the uniform grids - other cores return None.
+    """
+    # "1" refers to undistributed arrays
+    dpsit1_vR = grid.new(comm=None, dtype=ibzwfs.dtype).empty(3)
+    taut1_swR = grid.new(comm=None).zeros((ibzwfs.nspins, 6))
+    assert isinstance(taut1_swR, UGArray)  # Argggghhh!
+    domain_comm = grid.comm
+
+    for wfs in ibzwfs:
+        assert isinstance(wfs, PWFDWaveFunctions)
+        psit_nG = wfs.psit_nX
         pw = psit_nG.desc
-        domain_comm = pw.comm
 
-        # Undistributed work arrays:
-        dpsit1_R = taut_R.desc.new(comm=None, dtype=pw.dtype).empty()
         pw1 = pw.new(comm=None)
         psit1_G = pw1.empty()
         iGpsit1_G = pw1.empty()
-        taut1_R = taut_R.desc.new(comm=None).zeros()
         Gplusk1_Gv = pw1.reciprocal_vectors()
+
+        occ_n = wfs.weight * wfs.spin_degeneracy * wfs.myocc_n
 
         (N,) = psit_nG.mydims
         for n1 in range(0, N, domain_comm.size):
@@ -186,49 +184,67 @@ class PWKEDCalculator(KEDCalculator):
             f = occ_n[n]
             if f == 0.0:
                 continue
-            for v in range(3):
+            for Gplusk1_G, dpsit1_R in zips(Gplusk1_Gv.T, dpsit1_vR):
                 iGpsit1_G.data[:] = psit1_G.data
-                iGpsit1_G.data *= 1j * Gplusk1_Gv[:, v]
+                iGpsit1_G.data *= 1j * Gplusk1_G
                 iGpsit1_G.ifft(out=dpsit1_R)
-                # taut1_R.data += 0.5 * f * abs(dpsit1_R.data)**2
-                _gpaw.add_to_density(0.5 * f, dpsit1_R.data, taut1_R.data)
+            w = 0
+            for v1 in range(3):
+                for v2 in range(v1, 3):
+                    taut1_swR[wfs.spin, w].data += (
+                        f * (dpsit1_vR[v1].data.conj() *
+                             dpsit1_vR[v2].data).real)
+                    w += 1
 
-        domain_comm.sum(taut1_R.data)
-        tmp_R = taut_R.new()
-        tmp_R.scatter_from(taut1_R)
-        taut_R.data += tmp_R.data
-
-    def _apply(self, dedtaut_R, psit_nG, vt_nG):
-        pw = psit_nG.desc
-        dpsit_R = dedtaut_R.desc.new(dtype=pw.dtype).empty()
-        Gplusk1_Gv = pw.reciprocal_vectors()
-        tmp_G = pw.empty()
-
-        for psit_G, vt_G in zip(psit_nG, vt_nG):
-            for v in range(3):
-                tmp_G.data[:] = psit_G.data
-                tmp_G.data *= 1j * Gplusk1_Gv[:, v]
-                tmp_G.ifft(out=dpsit_R)
-                dpsit_R.data *= dedtaut_R.data
-                dpsit_R.fft(out=tmp_G)
-                vt_G.data -= 0.5j * Gplusk1_Gv[:, v] * tmp_G.data
+    ibzwfs.kpt_comm.sum(taut1_swR.data, 0)
+    if ibzwfs.kpt_comm.rank == 0:
+        ibzwfs.band_comm.sum(taut1_swR.data, 0)
+        if ibzwfs.band_comm.rank == 0:
+            domain_comm.sum(taut1_swR.data, 0)
+            if domain_comm.rank == 0:
+                symmetries = ibzwfs.ibz.symmetries
+                taut1_swR.symmetrize(symmetries.rotation_scc,
+                                     symmetries.translation_sc)
+            taut_swR = grid.empty((ibzwfs.nspins, 6))
+            taut_swR.scatter_from(taut1_swR)
+            return taut_swR
+    return None
 
 
-class FDKEDCalculator(KEDCalculator):
-    def __init__(self, tauct_aX):
-        super().__init__(tauct_aX)
-        self.grad_v = []
+def _mgga(xc: MGGA, nt_sr: Array4D, taut_sr: Array4D) -> Array2D:
+    # The GGA and LDA part of this should be factored out!
+    sigma_xr, dedsigma_xr, gradn_svr = gga_vars(xc.gd,
+                                                xc.grad_v,
+                                                nt_sr)
+    nspins = len(nt_sr)
+    dedtaut_sr = np.empty_like(nt_sr)
+    vt_sr = xc.gd.zeros(nspins)
+    e_r = xc.gd.empty()
+    xc.kernel.calculate(e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
+                        taut_sr, dedtaut_sr)
 
-    def add_ked(self, occ_n, psit_nR, taut_R):
-        if len(self.grad_v) == 0:
-            grid = psit_nR.desc
-            self.grad_v = [
-                Gradient(grid._gd, v, n=3, dtype=grid.dtype)
-                for v in range(3)]
+    def integrate(a1_r, a2_r=None):
+        return xc.gd.integrate(a1_r, a2_r, global_integral=False)
 
-        tmp_R = psit_nR.desc.empty()
-        for f, psit_R in zip(occ_n, psit_nR):
-            for grad in self.grad_v:
-                grad(psit_R, tmp_R)
-                # taut_R.data += 0.5 * f * abs(tmp_R.data)**2
-                _gpaw.add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+    P = integrate(e_r)
+    for vt_r, nt_r in zip(vt_sr, nt_sr):
+        P -= integrate(vt_r, nt_r)
+    for sigma_r, dedsigma_r in zip(sigma_xr, dedsigma_xr):
+        P -= 2 * integrate(sigma_r, dedsigma_r)
+    for taut_r, dedtaut_r in zip(taut_sr, dedtaut_sr):
+        P -= integrate(taut_r, dedtaut_r)
+
+    stress_vv = P * np.eye(3)
+    for v1 in range(3):
+        for v2 in range(3):
+            stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
+                                           gradn_svr[0, v2],
+                                           dedsigma_xr[0]) * 2
+            if nspins == 2:
+                stress_vv[v1, v2] -= integrate(gradn_svr[0, v1] *
+                                               gradn_svr[1, v2],
+                                               dedsigma_xr[1]) * 2
+                stress_vv[v1, v2] -= integrate(gradn_svr[1, v1] *
+                                               gradn_svr[1, v2],
+                                               dedsigma_xr[2]) * 2
+    return stress_vv

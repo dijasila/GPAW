@@ -13,15 +13,45 @@ Git master branch
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
+
+Version 23.9.1
+==============
+
+Sep 15, 2023: :git:`23.9.1 <../23.9.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Include new GPU ``.c``, ``.h`` and ``.cpp`` files in :git:`MANIFEST.in`
+  (:issue:`975`).
+
+
+Version 23.9.0
+==============
+
+Sep 13, 2023: :git:`23.9.0 <../23.9.0>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
 * In the future, it will become an error to not specify a
   :ref:`mode <manual_mode>` parameter for a DFT calculation.
   For now, users will get a warning when finite-difference mode is
-  implicitly chosen.  Please change your scripts to avid this error/warning.
+  implicitly chosen.  Please change your scripts to avoid this error/warning.
 
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 * :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
   now throw an error if the ground state contains point group symmetries
+
+* We are now using Pytest-cache for our :func:`gpaw.test.conftest.gpw_files`
+  fixture.
+
+* New
+  :meth:`~gpaw.new.ase_interface.ASECalculator.get_orbital_magnetic_moments`
+  method: calculates the orbital magnetic moment vector for each atom.
+
+* New experimental density mixer: ``MixerFull``.
 
 
 Version 23.6.1

@@ -122,3 +122,45 @@ class DysonSolver:
         chi_GG = enhancement_GG @ chiks_GG
 
         return chi_GG
+
+
+class DysonEnhancer:
+    """Class for applying self-enhancement functions."""
+    def __init__(self, context):
+        self.context = context
+
+    def __call__(self, chiks: Chi, xi: Chi) -> Chi:
+        """Solve the Dyson equation and return the many-body susceptibility."""
+        assert chiks.distribution == 'zGG' and \
+            chiks.blockdist.fully_block_distributed
+        assert xi.distribution == 'zGG' and \
+            xi.blockdist.fully_block_distributed
+        assert chiks.spincomponent == xi.spincomponent
+        assert np.allclose(chiks.zd.hz_z, xi.zd.hz_z)
+        assert np.allclose(chiks.qpd.q_c, xi.qpd.q_c)
+
+        chi = chiks.new()
+        chi.array = self.invert_dyson(chiks.array, xi.array)
+
+        return chi
+
+    @timer('Invert Dyson-like equation')
+    def invert_dyson(self, chiks_zGG, xi_zGG):
+        r"""Invert the frequency dependent Dyson equation in plane-wave basis:
+                                           __
+                                           \
+        χ_GG'^+-(q,z) = χ_KS,GG'^+-(q,z) + /  Ξ_GG1^++(q,z) χ_G1G'^+-(q,z)
+                                           ‾‾
+                                           G1
+        """
+        self.context.print('Inverting Dyson-like equation')
+        chi_zGG = np.empty_like(chiks_zGG)
+        for chi_GG, chiks_GG, xi_GG in zip(chi_zGG, chiks_zGG, xi_zGG):
+            chi_GG[:] = self.invert_dyson_single_frequency(chiks_GG, xi_GG)
+        return chi_zGG
+
+    @staticmethod
+    def invert_dyson_single_frequency(chiks_GG, xi_GG):
+        enhancement_GG = np.linalg.inv(np.eye(len(chiks_GG)) - xi_GG)
+        chi_GG = enhancement_GG @ chiks_GG
+        return chi_GG

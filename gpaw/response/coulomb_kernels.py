@@ -83,7 +83,7 @@ def calculate_2D_truncated_coulomb(qpd, q_v=None, *, pbc_c):
     """
 
     qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
-    if qpd.kd.gamma:
+    if qpd.optical_limit:
         if q_v is not None:
             qG_Gv += q_v
         else:  # only to avoid warning. Later set to zero in factory function

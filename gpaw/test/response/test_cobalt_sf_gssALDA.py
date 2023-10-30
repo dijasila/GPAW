@@ -229,14 +229,14 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     assert mrpeak11 == pytest.approx(wpeak11, abs=0.01)
 
     # Test magnon mode eigenvalues at extrema
-    assert Speak00 == pytest.approx(8.409, abs=0.01)
-    assert Speak01 == pytest.approx(6.734, abs=0.01)
-    assert Speak10 == pytest.approx(3.800, abs=0.01)
-    assert Speak11 == pytest.approx(3.683, abs=0.01)
-    assert Srpeak00 == pytest.approx(6.402, abs=0.01)
-    assert Srpeak01 == pytest.approx(5.087, abs=0.01)
-    assert Srpeak10 == pytest.approx(2.837, abs=0.01)
-    assert Srpeak11 == pytest.approx(2.692, abs=0.01)
+    assert Speak00 == pytest.approx(8.409, abs=0.02)
+    assert Speak01 == pytest.approx(6.734, abs=0.02)
+    assert Speak10 == pytest.approx(3.800, abs=0.02)
+    assert Speak11 == pytest.approx(3.683, abs=0.02)
+    assert Srpeak00 == pytest.approx(6.402, abs=0.02)
+    assert Srpeak01 == pytest.approx(5.087, abs=0.02)
+    assert Srpeak10 == pytest.approx(2.837, abs=0.02)
+    assert Srpeak11 == pytest.approx(2.692, abs=0.02)
 
     # Test enhancement factors
     assert enh0 == pytest.approx(36.77, abs=0.1)

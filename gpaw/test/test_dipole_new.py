@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 from gpaw import GPAW
-from gpaw.core import UniformGrid
+from gpaw.core import UGDesc
 from gpaw.mpi import world
 
 
 def test_ug_moment():
-    ug = UniformGrid.from_cell_and_grid_spacing(
+    ug = UGDesc.from_cell_and_grid_spacing(
         [1.0, 2.0, 3.0, 80, 90, 70],
         0.1,
         comm=world,

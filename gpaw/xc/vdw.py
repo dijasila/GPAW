@@ -200,7 +200,7 @@ class VDWFunctionalBase:
     def get_Ecnl(self):
         return self.Ecnl
 
-    def stress_tensor_contribution(self, n_sg):
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
         raise NotImplementedError('Calculation of stress tensor is not ' +
                                   f'implemented for {self.name}')
 

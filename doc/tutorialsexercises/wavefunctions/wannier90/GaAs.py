@@ -10,7 +10,6 @@ calc = GPAW(mode=PW(600),
             xc='LDA',
             occupations=FermiDirac(width=0.01),
             convergence={'density': 1.e-6},
-            symmetry='off',
             kpts={'size': (2, 2, 2), 'gamma': True},
             txt='gs_GaAs.txt')
 

@@ -135,16 +135,13 @@ class JDOSCalculator(PairFunctionIntegrator):
 
     def get_info_string(self, q_c, nz, spincomponent, nbands, nt):
         """Get information about the joint density of states calculation"""
-        s = '\n'
-
-        s += 'Calculating the joint density of states with:\n'
-        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        s += '    Number of frequency points: %d\n' % nz
-        s += '    Spin component: %s\n' % spincomponent
-        s += self.get_band_and_transitions_info_string(nbands, nt)
-        s += '\n'
-
-        s += self.get_basic_info_string()
-
-        return s
+        info_list = ['',
+                     'Calculating the joint density of states with:',
+                     f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+                     f'    Number of frequency points: {nz}',
+                     f'    Spin component: {spincomponent}',
+                     self.get_band_and_transitions_info_string(nbands, nt),
+                     '',
+                     self.get_basic_info_string()]
+        return '\n'.join(info_list)
         

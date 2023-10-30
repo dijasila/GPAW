@@ -3,9 +3,9 @@ from __future__ import annotations
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
 from gpaw.core.matrix import Matrix, create_distribution
-from gpaw.core.plane_waves import (PlaneWaveAtomCenteredFunctions,
-                                   PlaneWaveExpansions, PlaneWaves)
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.plane_waves import (PWAtomCenteredFunctions,
+                                   PWArray, PWDesc)
+from gpaw.core.uniform_grid import UGArray
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
 from gpaw.new.ibzwfs import IBZWaveFunctions
@@ -14,12 +14,12 @@ from gpaw.new.potential import Potential
 from gpaw.new.smearing import OccupationNumberCalculator
 
 
-def pw_matrix(pw: PlaneWaves,
-              pt_aiG: PlaneWaveAtomCenteredFunctions,
+def pw_matrix(pw: PWDesc,
+              pt_aiG: PWAtomCenteredFunctions,
               dH_aii: AtomArrays,
               dS_aii: list[Array2D],
-              vt_R: UniformGridFunctions,
-              dedtaut_R: UniformGridFunctions,
+              vt_R: UGArray,
+              dedtaut_R: UGArray | None,
               comm) -> tuple[Matrix, Matrix]:
     """Calculate H and S matrices in plane-wave basis.
 
@@ -52,9 +52,9 @@ def pw_matrix(pw: PlaneWaves,
     G1, G2 = dist.my_row_range()
 
     x_G = pw.empty()
-    assert isinstance(x_G, PlaneWaveExpansions)  # Fix this!
+    assert isinstance(x_G, PWArray)  # Fix this!
     x_R = vt_R.desc.new(dtype=complex).zeros()
-    assert isinstance(x_R, UniformGridFunctions)  # Fix this!
+    assert isinstance(x_R, UGArray)  # Fix this!
     dv = pw.dv
 
     for G in range(G1, G2):
@@ -108,6 +108,7 @@ def diagonalize(potential: Potential,
     """Diagonalize hamiltonian in plane-wave basis."""
     vt_sR = potential.vt_sR
     dH_asii = potential.dH_asii
+    dedtaut_sR = potential.dedtaut_sR or [None, None]
 
     if nbands is None:
         nbands = min(wfs.array_shape(global_shape=True)[0]
@@ -116,18 +117,13 @@ def diagonalize(potential: Potential,
         ibzwfs.kpt_comm.max(array)
         nbands = int(array)
 
-    if xc.type == 'MGGA':
-        dedtaut_sR = xc.dedtaut_sR
-    else:
-        dedtaut_sR = [None] * ibzwfs.ncomponents
-
     wfs_qs: list[list[WaveFunctions]] = []
     for wfs_s in ibzwfs.wfs_qs:
         wfs_qs.append([])
         for wfs in wfs_s:
             dS_aii = [setup.dO_ii for setup in wfs.setups]
             assert isinstance(wfs, PWFDWaveFunctions)
-            assert isinstance(wfs.pt_aiX, PlaneWaveAtomCenteredFunctions)
+            assert isinstance(wfs.pt_aiX, PWAtomCenteredFunctions)
             H_GG, S_GG = pw_matrix(wfs.psit_nX.desc,
                                    wfs.pt_aiX,
                                    dH_asii[:, wfs.spin],
@@ -162,7 +158,8 @@ def diagonalize(potential: Potential,
         ibzwfs.nelectrons,
         ibzwfs.ncomponents,
         wfs_qs,
-        ibzwfs.kpt_comm)
+        ibzwfs.kpt_comm,
+        ibzwfs.comm)
 
     new_ibzwfs.calculate_occs(occ_calc)
 

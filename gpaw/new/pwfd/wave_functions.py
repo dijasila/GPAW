@@ -8,11 +8,12 @@ import numpy as np
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
 from gpaw.core.atom_centered_functions import AtomCenteredFunctions
-from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.core.uniform_grid import UniformGrid, UniformGridFunctions
+from gpaw.core.plane_waves import PWArray
+from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.gpu import as_xp
-from gpaw.new import prod, zip
+from gpaw.gpu import as_np
+from gpaw.mpi import receive, send
+from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
@@ -72,6 +73,14 @@ class PWFDWaveFunctions(WaveFunctions):
 
     @property
     def pt_aiX(self) -> AtomCenteredFunctions:
+        """PAW projector functions.
+
+        :::
+
+            ~a _
+            p (r)
+             i
+        """
         if self._pt_aiX is None:
             self._pt_aiX = self.psit_nX.desc.atom_centered_functions(
                 [setup.pt_j for setup in self.setups],
@@ -81,7 +90,15 @@ class PWFDWaveFunctions(WaveFunctions):
         return self._pt_aiX
 
     @property
-    def P_ani(self):
+    def P_ani(self) -> AtomArrays:
+        """PAW projections.
+
+        :::
+
+             ~a  ~
+            <p | ψ >
+              i   n
+        """
         if self._P_ani is None:
             self._P_ani = self.pt_aiX.empty(self.psit_nX.dims,
                                             self.psit_nX.comm)
@@ -99,7 +116,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self._occ_n = None
 
     def add_to_density(self,
-                       nt_sR: UniformGridFunctions,
+                       nt_sR: UGArray,
                        D_asii: AtomArrays) -> None:
         occ_n = self.weight * self.spin_degeneracy * self.myocc_n
 
@@ -110,13 +127,13 @@ class PWFDWaveFunctions(WaveFunctions):
             return
 
         psit_nsG = self.psit_nX
-        assert isinstance(psit_nsG, PlaneWaveExpansions)
+        assert isinstance(psit_nsG, PWArray)
 
         tmp_sR = nt_sR.desc.new(dtype=complex).empty(2)
         p1_R, p2_R = tmp_sR.data
         nt_xR = nt_sR.data
 
-        for f, psit_sG in zip(occ_n, psit_nsG):
+        for f, psit_sG in zips(occ_n, psit_nsG):
             psit_sG.ifft(out=tmp_sR)
             p11_R = p1_R.real**2 + p1_R.imag**2
             p22_R = p2_R.real**2 + p2_R.imag**2
@@ -125,6 +142,10 @@ class PWFDWaveFunctions(WaveFunctions):
             nt_xR[1] += 2 * f * p12_R.real
             nt_xR[2] += 2 * f * p12_R.imag
             nt_xR[3] += f * (p11_R - p22_R)
+
+    def add_to_ked(self, taut_sR) -> None:
+        occ_n = self.weight * self.spin_degeneracy * self.myocc_n
+        self.psit_nX.add_ked(occ_n, taut_sR[self.spin])
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
         r"""Orthonormalize wave functions.
@@ -161,11 +182,12 @@ class PWFDWaveFunctions(WaveFunctions):
         P2_ani = P_ani.new()
         psit2_nX = psit_nX.new(data=work_array_nX)
 
-        dS = self.setups.overlap_correction
+        dS_aii = self.setups.get_overlap_corrections(P_ani.layout.atomdist,
+                                                     self.xp)
 
         # We are actually calculating S^*:
         S = psit_nX.matrix_elements(psit_nX, domain_sum=False, cc=True)
-        dS(P_ani, out_ani=P2_ani)
+        P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
         P_ani.matrix.multiply(P2_ani, opb='C', symmetric=True, out=S, beta=1.0)
         domain_comm.sum(S.data, 0)
 
@@ -221,10 +243,10 @@ class PWFDWaveFunctions(WaveFunctions):
             slcomm, r, c, b = scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            self._eig_n = as_xp(H.eigh(scalapack=(slcomm, r, c, b)), np)
+            self._eig_n = as_np(H.eigh(scalapack=(slcomm, r, c, b)))
             H.complex_conjugate()
-            # H.data[n, :] now contains the n'th eigenvector and eps_n[n]
-            # the n'th eigenvalue
+            # H.data[n, :] now contains the nth eigenvector and eps_n[n]
+            # the nth eigenvalue
         else:
             self._eig_n = np.empty(psit_nX.dims)
 
@@ -267,10 +289,10 @@ class PWFDWaveFunctions(WaveFunctions):
                                           dH_asii,
                                           myocc_n,
                                           F_av):
-        F_avnsi = self.pt_aiX.derivative(self.psit_nX)
-        for a, F_vnsi in F_avnsi.items():
-            F_vnsi = F_vnsi.conj()
-            F_vnsi *= myocc_n[:, np.newaxis, np.newaxis]
+        F_ansvi = self.pt_aiX.derivative(self.psit_nX)
+        for a, F_nsvi in F_ansvi.items():
+            F_nsvi = F_nsvi.conj()
+            F_nsvi *= myocc_n[:, np.newaxis, np.newaxis, np.newaxis]
             dH_sii = dH_asii[a]
             dH_ii = dH_sii[0]
             dH_vii = dH_sii[1:]
@@ -278,10 +300,10 @@ class PWFDWaveFunctions(WaveFunctions):
                 [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                  [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
             P_nsi = self.P_ani[a]
-            F_v = np.einsum('vnsi, stij, ntj -> v', F_vnsi, dH_ssii, P_nsi)
-            F_vnsi *= self.myeig_n[:, np.newaxis, np.newaxis]
+            F_v = np.einsum('nsvi, stij, ntj -> v', F_nsvi, dH_ssii, P_nsi)
+            F_nsvi *= self.myeig_n[:, np.newaxis, np.newaxis, np.newaxis]
             dO_ii = self.setups[a].dO_ii
-            F_v -= np.einsum('vnsi, ij, nsj -> v', F_vnsi, dO_ii, P_nsi)
+            F_v -= np.einsum('nsvi, ij, nsj -> v', F_nsvi, dO_ii, P_nsi)
             F_av[a] += 2 * F_v.real
 
     def collect(self,
@@ -340,6 +362,29 @@ class PWFDWaveFunctions(WaveFunctions):
 
         return None
 
+    def send(self, rank, comm):
+        stuff = (self.kpt_c,
+                 self.psit_nX.data,
+                 self.spin,
+                 self.q,
+                 self.k,
+                 self.weight,
+                 self.ncomponents)
+        send(stuff, rank, comm)
+
+    def receive(self, rank, comm):
+        kpt_c, data, spin, q, k, weight, ncomponents = receive(rank, comm)
+        psit_nX = self.psit_nX.desc.new(kpt=kpt_c, comm=None).from_data(data)
+        return PWFDWaveFunctions(psit_nX,
+                                 spin,
+                                 q,
+                                 k,
+                                 self.setups,
+                                 self.fracpos_ac,
+                                 self.atomdist,
+                                 weight,
+                                 ncomponents)
+
     def dipole_matrix_elements(self,
                                center_v: Vector = None) -> Array3D:
         """Calculate dipole matrix-elements.
@@ -376,7 +421,7 @@ class PWFDWaveFunctions(WaveFunctions):
         position_av = spos_ac @ cell_cv
 
         R_aiiv = []
-        for setup, position_v in zip(self.setups, position_av):
+        for setup, position_v in zips(self.setups, position_av):
             Delta_iiL = setup.Delta_iiL
             R_iiv = Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
             R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5
@@ -388,10 +433,10 @@ class PWFDWaveFunctions(WaveFunctions):
 
         self.psit_nX.desc.comm.sum(dipole_nnv)
 
-        if isinstance(self.psit_nX, UniformGridFunctions):
+        if isinstance(self.psit_nX, UGArray):
             psit_nR = self.psit_nX
         else:
-            assert isinstance(self.psit_nX, PlaneWaveExpansions)
+            assert isinstance(self.psit_nX, PWArray)
             # Find size of fft grid large enough to store square of wfs.
             pw = self.psit_nX.desc
             s1, s2, s3 = pw.indices_cG.ptp(axis=1)  # type: ignore
@@ -401,7 +446,7 @@ class PWFDWaveFunctions(WaveFunctions):
                       2 * s2 + 2,
                       4 * s3 + 2]
             size_c = [get_efficient_fft_size(N, 2) for N in size_c]
-            grid = UniformGrid(cell=pw.cell_cv, size=size_c)
+            grid = UGDesc(cell=pw.cell_cv, size=size_c)
             psit_nR = self.psit_nX.ifft(grid=grid)
 
         for na, psita_R in enumerate(psit_nR):
@@ -420,13 +465,13 @@ class PWFDWaveFunctions(WaveFunctions):
             if data_nX.dist.comm.rank == 0:
                 # XXX PW-gamma-point mode: float or complex matrix.dtype?
                 return data_nX.data.view(
-                    psit_nX.data.dtype).reshape(psit_nX.data.shape)
+                    psit_nX.data.dtype).reshape((-1,) + psit_nX.data.shape[1:])
         return None
 
     def to_uniform_grid_wave_functions(self,
                                        grid,
                                        basis):
-        if isinstance(self.psit_nX, UniformGridFunctions):
+        if isinstance(self.psit_nX, UGArray):
             return self
 
         grid = grid.new(kpt=self.kpt_c, dtype=self.dtype)

@@ -1,32 +1,33 @@
 import numpy as np
-from gpaw.core import PlaneWaves
+from gpaw.core import PWDesc
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import broadcast_float
-from gpaw.new import zip
+from gpaw.new import zips, spinsum
 from gpaw.new.pot_calc import PotentialCalculator
 from gpaw.new.pw.stress import calculate_stress
 from gpaw.setup import Setups
+from gpaw.new.calculation import DFTState
 
 
 class PlaneWavePotentialCalculator(PotentialCalculator):
     def __init__(self,
                  grid,
                  fine_grid,
-                 pw: PlaneWaves,
-                 fine_pw: PlaneWaves,
+                 pw: PWDesc,
+                 fine_pw: PWDesc,
                  setups: Setups,
                  xc,
                  poisson_solver,
-                 nct_ag,
-                 nct_R,
+                 *,
+                 fracpos_ac,
+                 atomdist,
                  soc=False,
                  xp=np):
-        fracpos_ac = nct_ag.fracpos_ac
-        atomdist = nct_ag.atomdist
         self.xp = xp
-        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac, soc)
+        super().__init__(xc, poisson_solver, setups,
+                         fracpos_ac=fracpos_ac,
+                         soc=soc)
 
-        self.nct_ag = nct_ag
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)
         self.ghat_aLh = setups.create_compensation_charges(
@@ -51,18 +52,18 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
 
+        # For forces and stress:
         self._nt_g = None
         self._vt_g = None
+        self._dedtaut_g = None
 
-        self.e_stress = np.nan
+    def interpolate(self, a_R, a_r=None):
+        return a_R.interpolate(self.fftplan, self.fftplan2,
+                               grid=self.fine_grid, out=a_r)
 
-        self.interpolation_domain = nct_ag.pw
-
-    def interpolate(self, a_R, a_r):
-        a_R.interpolate(self.fftplan, self.fftplan2, out=a_r)
-
-    def restrict(self, a_r, a_R):
-        a_r.fft_restrict(self.fftplan2, self.fftplan, out=a_R)
+    def restrict(self, a_r, a_R=None):
+        return a_r.fft_restrict(self.fftplan2, self.fftplan,
+                                grid=self.grid, out=a_R)
 
     def calculate_charges(self, vHt_h):
         return self.ghat_aLh.integrate(vHt_h)
@@ -78,7 +79,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             nt0_g = None
 
         ndensities = nt_sR.dims[0] % 3
-        for spin, (nt_R, nt_r) in enumerate(zip(nt_sR, nt_sr)):
+        for spin, (nt_R, nt_r) in enumerate(zips(nt_sR, nt_sr)):
             self.interpolate(nt_R, nt_r)
             if spin < ndensities and pw.comm.rank == 0:
                 nt0_g.data += self.xp.asarray(
@@ -87,23 +88,22 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         return nt_sr, pw, nt0_g
 
     def _interpolate_and_calculate_xc(self, xc, nt_sR, ibzwfs):
-        nt_sr, pw, nt0_g = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.empty(nt_sR.dims, xp=self.xp)
-        e_xc, e_kinetic = self.xc.calculate(
-            nt_sr, vxct_sr, ibzwfs,
-            interpolate=self.interpolate,
-            restrict=self.restrict)
-        return nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic
+        ...
 
     def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
         _, _, _, _, e_xc, _ = self._interpolate_and_calculate_xc(
             xc, nt_sR, ibzwfs)
         return e_xc
 
-    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h):
-        nt_sr, pw, nt0_g, vxct_sr, e_xc, e_kinetic = (
-            self._interpolate_and_calculate_xc(
-                self.xc, density.nt_sR, ibzwfs))
+    def calculate_pseudo_potential(self, density, ibzwfs, vHt_h=None):
+        nt_sr, pw, nt0_g = self._interpolate_density(density.nt_sR)
+
+        if density.taut_sR is not None:
+            taut_sr = self.interpolate(density.taut_sR)
+        else:
+            taut_sr = None
+
+        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
 
         if pw.comm.rank == 0:
             nt0_g.data *= 1 / np.prod(density.nt_sR.desc.size_c)
@@ -155,79 +155,67 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_sR.data[1] = vt_sR.data[0]
         vt_sR.data[density.ndensities:] = 0.0
 
-        e_kinetic += self._restrict(vxct_sr, vt_sR, density)
+        vtmp_R = vt_sR.desc.empty(xp=self.xp)
+        for spin, (vt_R, vxct_r) in enumerate(zips(vt_sR, vxct_sr)):
+            self.restrict(vxct_r, vtmp_R)
+            vt_R.data += vtmp_R.data
 
         e_external = 0.0
 
-        self.e_stress = e_coulomb + e_zero
-
         self._reset()
 
-        return {'kinetic': e_kinetic,
-                'coulomb': e_coulomb,
+        return {'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, vt_sR, vHt_h
+                'stress': e_coulomb + e_zero,
+                'external': e_external}, vt_sR, dedtaut_sr, vHt_h
 
-    def _restrict(self, vxct_sr, vt_sR, density=None):
-        vtmp_R = vt_sR.desc.empty(xp=self.xp)
-        e_kinetic = 0.0
-        for spin, (vt_R, vxct_r) in enumerate(zip(vt_sR, vxct_sr)):
-            self.restrict(vxct_r, vtmp_R)
-            vt_R.data += vtmp_R.data
-            if density:
-                e_kinetic -= vt_R.integrate(density.nt_sR[spin])
-                if spin < density.ndensities:
-                    e_kinetic += vt_R.integrate(self.nct_R)
-        return float(e_kinetic)
-
-    def xxxrestrict(self, vt_sr):
-        vt_sR = self.grid.empty(vt_sr.dims, xp=self.xp)
-        for vt_R, vt_r in zip(vt_sR, vt_sr):
-            vt_r.fft_restrict(
-                self.fftplan2, self.fftplan, out=vt_R)
-        return vt_sR
-
-    def _move(self, fracpos_ac, atomdist, ndensities):
+    def move(self, fracpos_ac, atomdist):
         self.ghat_aLh.move(fracpos_ac, atomdist)
         self.vbar_ag.move(fracpos_ac, atomdist)
         self.vbar_g.data[:] = 0.0
         self.vbar_ag.add_to(self.vbar_g)
         self.vbar0_g = self.vbar_g.gather()
-        self.nct_ag.move(fracpos_ac, atomdist)
-        self.nct_ag.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
-        self.xc.move(fracpos_ac, atomdist)
         self._reset()
 
     def _reset(self):
         self._vt_g = None
         self._nt_g = None
+        self._dedtaut_g = None
 
-    def _force_stress_helper(self, state):
-        if self._vt_g is None:
-            density = state.density
-            potential = state.potential
-            nt_R = density.nt_sR[0]
-            vt_R = potential.vt_sR[0]
-            if density.ndensities > 1:
-                nt_R = nt_R.desc.empty(xp=self.xp)
-                nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(
-                    axis=0)
-                vt_R = vt_R.desc.empty(xp=self.xp)
-                vt_R.data[:] = (
-                    potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                    density.ndensities)
-            self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
-            self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
-        return self._vt_g, self._nt_g
+    def _force_stress_helper(self, state: DFTState):
+        """Only do the work once - in case both forces and stress is needed"""
+        if self._vt_g is not None:
+            return self._vt_g, self._nt_g, self._dedtaut_g
+
+        density = state.density
+        potential = state.potential
+        nt_R = spinsum(density.nt_sR)
+        vt_R = spinsum(potential.vt_sR, mean=True)
+        self._vt_g = vt_R.fft(self.fftplan, pw=self.pw)
+        self._nt_g = nt_R.fft(self.fftplan, pw=self.pw)
+
+        dedtaut_sR = potential.dedtaut_sR
+        if dedtaut_sR is not None:
+            dedtaut_R = spinsum(dedtaut_sR, mean=True)
+            self._dedtaut_g = dedtaut_R.fft(self.fftplan, pw=self.pw)
+        else:
+            self._dedtaut_g = None
+
+        return self._vt_g, self._nt_g, self._dedtaut_g
 
     def force_contributions(self, state):
-        vt_g, nt_g = self._force_stress_helper(state)
+        vt_g, nt_g, dedtaut_g = self._force_stress_helper(state)
+        if dedtaut_g is None:
+            Ftauct_av = None
+        else:
+            Ftauct_av = state.density.tauct_aX.derivative(dedtaut_g)
 
-        return (self.ghat_aLh.derivative(state.vHt_x),
-                self.nct_ag.derivative(vt_g),
+        return (self.ghat_aLh.derivative(state.potential.vHt_x),
+                state.density.nct_aX.derivative(vt_g),
+                Ftauct_av,
                 self.vbar_ag.derivative(nt_g))
 
     def stress(self, state):
-        vt_g, nt_g = self._force_stress_helper(state)
-        return calculate_stress(self, state, vt_g, nt_g)
+        vt_g, nt_g, dedtaut_g = self._force_stress_helper(state)
+        return calculate_stress(self, state, vt_g, nt_g, dedtaut_g)

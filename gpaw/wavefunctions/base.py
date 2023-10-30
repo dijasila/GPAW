@@ -2,7 +2,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.projections import Projections
-from gpaw.utilities import pack, unpack2
+from gpaw.utilities import pack
 from gpaw.utilities.blas import axpy, mmm
 from gpaw.utilities.partition import AtomPartition
 
@@ -188,14 +188,9 @@ class WaveFunctions:
         if len(self.kd.symmetry.op_scc) == 0:
             return
 
-        a_sa = self.kd.symmetry.a_sa
         D_asp.redistribute(self.atom_partition.as_serial())
-        for s in range(self.nspins):
-            D_aii = [unpack2(D_asp[a][s])
-                     for a in range(len(D_asp))]
-            for a, D_ii in enumerate(D_aii):
-                setup = self.setups[a]
-                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        self.setups.atomrotations.symmetrize_atomic_density_matrices(
+            D_asp, a_sa=self.kd.symmetry.a_sa)
         D_asp.redistribute(self.atom_partition)
 
     def calculate_occupation_numbers(self, fixed_fermi_level=False):

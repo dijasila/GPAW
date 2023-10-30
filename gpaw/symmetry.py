@@ -346,7 +346,7 @@ class Symmetry:
         a_g: ndarray
             Array with Bloch function from the irreducible BZ.
         kibz_c: ndarray
-            Corresponing k-point coordinates.
+            Corresponding k-point coordinates.
         kbz_c: ndarray
             K-point coordinates of the symmetry related k-point.
         op_cc: ndarray

@@ -355,7 +355,7 @@ class RadialGridDescriptor(ABC):
         norm = self.integrate(a_g**2)
 
         def f(x):
-            b_g[gc0] = x
+            b_g[gc0] = x[0]
             c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
@@ -380,7 +380,7 @@ class RadialGridDescriptor(ABC):
         r_i = r_g[i]
 
         def f(x):
-            b_g[gc0] = x
+            b_g[gc0] = x[0]
             c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             g_k, b_k = self.fft(b_g * r_g, l)

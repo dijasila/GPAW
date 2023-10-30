@@ -215,7 +215,6 @@ class PseudoPotential(BaseSetup):
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.R_sii = None
         self.lq = None
 
         self.filename = None

@@ -2,13 +2,11 @@
 # in normal as well as 'all' mode
 
 import pytest
-import numpy as np
 from ase.build import molecule
 from gpaw import GPAW
 
 
-@pytest.mark.skip(reason='TODO')
-def test_restart():
+def test_restart(in_tmp_dir):
     system = molecule('H2')
     system.center(vacuum=2.5)
 
@@ -25,6 +23,4 @@ def test_restart():
         if mode == 'normal':
             continue
         wf2 = calc2.get_pseudo_wave_function(0)
-        err = np.abs(wf2 - wf).max()
-        print('%s: err=%s' % (mode, repr(err)))
-        assert abs(err) < 1e-14
+        assert wf2 == pytest.approx(wf, abs=1e-14)

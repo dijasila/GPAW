@@ -8,7 +8,7 @@ import numpy as np
 
 
 def get_hydrogen_chain_dielectric_function(NH, NK):
-    a = Atoms('H', cell=[1, 1, 1], pbc=True)
+    a = Atoms('H', cell=[1, 1, 2], pbc=True)
     a.center()
     a = a.repeat((1, 1, NH))
     a.calc = GPAW(mode=PW(200, force_complex_dtype=True),
@@ -20,17 +20,21 @@ def get_hydrogen_chain_dielectric_function(NH, NK):
     a.calc.write('H_chain.gpw', 'all')
 
     DF = DielectricFunction('H_chain.gpw', ecut=1e-3, hilbert=False,
-                            omega2=np.inf, intraband=False)
+                            frequencies={'type': 'nonlinear',
+                                         'domega0': None,
+                                         'omega2': np.inf,
+                                         'omegamax': None},
+                            intraband=False)
     eps_NLF, eps_LF = DF.get_dielectric_function(direction='z')
     omega_w = DF.get_frequencies()
     return omega_w, eps_LF
 
 
+@pytest.mark.serial
 @pytest.mark.response
-@pytest.mark.skip(reason='TODO')
-def test_hyd_chain_response():
-    NH_i = [2**n for n in [0, 4]]
-    NK_i = [2**n for n in [6, 2]]
+def test_hyd_chain_response(in_tmp_dir):
+    NH_i = [2**n for n in [0, 2]]
+    NK_i = [2**n for n in [4, 2]]
 
     opeak_old = np.nan
     peak_old = np.nan

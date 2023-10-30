@@ -7,11 +7,12 @@ import numpy as np
 from ase.units import Bohr
 
 from gpaw.core.atom_arrays import AtomArrays, AtomArraysLayout
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.setup import Setups
 from gpaw.spherical_harmonics import Y
 from gpaw.spline import Spline
 from gpaw.typing import Array1D, Array3D, Vector, Array2D
+from gpaw.new import zips
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTCalculation
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
 
 class Densities:
     def __init__(self,
-                 nt_sR: UniformGridFunctions,
+                 nt_sR: UGArray,
                  D_asii: AtomArrays,
                  fracpos_ac: Array2D,
                  setups: Setups):
@@ -40,7 +41,7 @@ class Densities:
                          grid_spacing: float = None,  # Ang
                          grid_refinement: int = None,
                          add_compensation_charges: bool = True
-                         ) -> UniformGridFunctions:
+                         ) -> UGArray:
         nt_sR = self._pseudo_densities(grid_spacing, grid_refinement)
 
         ncomponents = nt_sR.dims[0]
@@ -71,7 +72,7 @@ class Densities:
     def _pseudo_densities(self,
                           grid_spacing: float = None,  # Ang
                           grid_refinement: int = None,
-                          ) -> UniformGridFunctions:
+                          ) -> UGArray:
         nt_sR = self.nt_sR.to_pbc_grid()
         grid = nt_sR.desc
         if grid_spacing is not None:
@@ -90,16 +91,16 @@ class Densities:
                                grid_spacing: float = None,  # Ang
                                grid_refinement: int = None,
                                skip_core: bool = False,
-                               ) -> UniformGridFunctions:
+                               ) -> UGArray:
         n_sR = self._pseudo_densities(grid_spacing, grid_refinement)
         ncomponents = n_sR.dims[0]
         nspins = ncomponents % 3
         grid = n_sR.desc
 
         splines = {}
-        for fracpos_c, setup, D_sii in zip(self.fracpos_ac,
-                                           self.setups,
-                                           self.D_asii.values()):
+        for a, D_sii in self.D_asii.items():
+            fracpos_c = self.fracpos_ac[a]
+            setup = self.setups[a]
             if setup not in splines:
                 phi_j, phit_j, nc, nct = setup.get_partial_waves()[:4]
                 if skip_core:
@@ -124,16 +125,17 @@ class Densities:
 
             if not skip_core:
                 # Add missing charge to grid point closest to atom:
-                R_c = tuple(
-                    np.around(grid.size * fracpos_c).astype(int) % grid.size)
-                for n_R, e in zip(n_sR.data, electrons_s):
-                    n_R[R_c] += e / grid.dv
+                R_c = np.around(grid.size * fracpos_c).astype(int) % grid.size
+                R_c -= grid.start_c
+                if (R_c >= 0).all() and (R_c < grid.mysize_c).all():
+                    for n_R, e in zips(n_sR.data, electrons_s):
+                        n_R[tuple(R_c)] += e / grid.dv
 
         return n_sR.scaled(Bohr, Bohr**-3)
 
 
 def add(R_v: Vector,
-        a_sR: UniformGridFunctions,
+        a_sR: UGArray,
         phi_j: list[Spline],
         phit_j: list[Spline],
         nc: Spline,
@@ -171,11 +173,11 @@ def add(R_v: Vector,
                 l_j = [phi.l for phi in phi_j]
 
                 i1 = 0
-                for l1, phi1_r, phit1_r in zip(l_j, phi_jr, phit_jr):
+                for l1, phi1_r, phit1_r in zips(l_j, phi_jr, phit_jr):
                     i2 = 0
                     i1b = i1 + 2 * l1 + 1
                     D_smi = D_sii[:, i1:i1b]
-                    for l2, phi2_r, phit2_r in zip(l_j, phi_jr, phit_jr):
+                    for l2, phi2_r, phit2_r in zips(l_j, phi_jr, phit_jr):
                         i2b = i2 + 2 * l2 + 1
                         D_smm = D_smi[:, :, i2:i2b]
                         b_sr = np.einsum(

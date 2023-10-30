@@ -1,40 +1,20 @@
 import pytest
-from ase import Atoms
 from gpaw.new.ase_interface import GPAW
 
-a = 2.5
-k = 4
 
-
-def test_afm_h_chain(in_tmp_dir):
+def test_afm_h_chain(in_tmp_dir, gpw_files):
     """Compare 2*H AFM cell with 1*H q=1/2 spin-spiral cell."""
-    h = Atoms('H',
-              magmoms=[1],
-              cell=[a, 0, 0],
-              pbc=[1, 0, 0])
-    h.center(vacuum=2.0, axis=(1, 2))
-    h.calc = GPAW(mode={'name': 'pw',
-                        'ecut': 400,
-                        'qspiral': [0.5, 0, 0]},
-                  magmoms=[[1, 0, 0]],
-                  symmetry='off',
-                  kpts=(2 * k, 1, 1))
+    h_calc = GPAW(gpw_files['h_chain'])
+    h = h_calc.atoms
+    h.calc = h_calc
     e1 = h.get_potential_energy()
     h1, l1 = h.calc.get_homo_lumo()
-    h.calc.write('h.gpw')
-    print(e1, h.get_magnetic_moment())
-    a1 = GPAW('h.gpw').get_atoms()
-    print(a1.get_potential_energy(), a1.calc.calculation.magmoms())
+    # print(e1, h.get_magnetic_moment())
+    # print(a1.get_potential_energy(), a1.calc.calculation.magmoms())
 
-    h2 = Atoms('H2',
-               [(0, 0, 0), (a, 0, 0)],
-               magmoms=[1, -1],
-               cell=[2 * a, 0, 0],
-               pbc=[1, 0, 0])
-    h2.center(vacuum=2.0, axis=(1, 2))
-    h2.calc = GPAW(mode={'name': 'pw',
-                         'ecut': 400},
-                   kpts=(k, 1, 1))
+    h2_calc = GPAW(gpw_files['h2_chain'])
+    h2 = h2_calc.atoms
+    h2.calc = h2_calc
     e2 = h2.get_potential_energy()
     h2, l2 = h2.calc.get_homo_lumo()
 

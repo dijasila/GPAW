@@ -4,7 +4,7 @@ from ase.units import Bohr
 
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.new import cached_property, prod
+from gpaw.new import cached_property, prod, zips
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
@@ -50,6 +50,7 @@ class FakeWFS:
                 self.mode = 'fd'
         else:
             self.mode = 'lcao'
+        self.collinear = wfs.ncomponents < 4
 
     def _get_wave_function_array(self, u, n, realspace):
         psit_X = self.kpt_u[u].wfs.psit_nX[n]
@@ -93,9 +94,17 @@ class KPT:
         self.ngpts = ngpts
         self.wfs = wfs
         self.pd = pd
+
+        I1 = 0
+        nproj_a = []
+        for a, shape in enumerate(wfs.P_ani.layout.shape_a):
+            I2 = I1 + prod(shape)
+            nproj_a.append(I2 - I1)
+            I1 = I2
+
         self.projections = Projections(
             wfs.nbands,
-            [I2 - I1 for (a, I1, I2) in wfs.P_ani.layout.myindices],
+            nproj_a,
             atom_partition,
             wfs.P_ani.comm,
             wfs.ncomponents < 4,
@@ -143,12 +152,13 @@ class FakeDensity:
         self._densities = calculation.densities()
         self.ncomponents = len(self.nt_sG)
         self.nspins = self.ncomponents % 3
+        self.collinear = self.ncomponents < 4
 
     @cached_property
     def D_asp(self):
         D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                 self.atom_partition)
-        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii])
+        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii.real])
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 
@@ -172,14 +182,13 @@ class FakeHamiltonian:
         self.grid = calculation.state.potential.vt_sR.desc
         self.e_total_free = calculation.results.get('free_energy')
         self.e_xc = calculation.state.potential.energies['xc']
-        # self.poisson = calculation.pot_calc.poisson_solver.solver
 
     def restrict_and_collect(self, vxct_sg):
         fine_grid = self.pot_calc.fine_grid
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
         vxct_sR = self.grid.empty(len(vxct_sg))
-        for vxct_r, vxct_R in zip(vxct_sr, vxct_sR):
+        for vxct_r, vxct_R in zips(vxct_sr, vxct_sR):
             self.pot_calc.restrict(vxct_r, vxct_R)
         return vxct_sR.data
 

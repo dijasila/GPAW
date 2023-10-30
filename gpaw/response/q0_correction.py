@@ -10,9 +10,11 @@ class Q0Correction:
         # Check that basic assumptions of cell and k-grid
         # for Q0Correction are fulfilled
         assert N_c[2] == 1  # z-axis is non periodic direction
-        assert (all(cell_cv[:2, 2] == 0) and all(cell_cv[2, :2] == 0)
-                and cell_cv[2, 2] > 0)
-        
+        eps = 1e-14
+        assert (abs(cell_cv[:2, 2]).max() < eps and
+                abs(cell_cv[2, :2]).max() < eps and
+                cell_cv[2, 2] > 0)
+
         # Hardcoded crap?
         x0density = 0.1  # ? 0.01
 
@@ -35,7 +37,7 @@ class Q0Correction:
         qpts_qc = self.bzk_kc
         pi = np.pi
         L = self.cell_cv[2, 2]
-        
+
         vc_G0 = sqrtV_G[1:]**2
 
         B_GG = einv_GG[1:, 1:]

@@ -27,6 +27,7 @@ def test_mgga_nsc_MGGA(in_tmp_dir):
     _ = calc.get_reference_energy()
     de12t = calc.get_xc_difference(xc('TPSS'))
     de12m = calc.get_xc_difference(xc('M06-L'))
+    de12m2 = calc.get_xc_difference(xc('M06-L'))
     de12r = calc.get_xc_difference(xc('revTPSS'))
 
     print('================')
@@ -36,6 +37,7 @@ def test_mgga_nsc_MGGA(in_tmp_dir):
     print('de12r = ', de12r)
     print('tpss = ', e1 + de12t)
     print('m06l = ', e1 + de12m)
+    print('m06l = ', e1 + de12m2)
     print('revtpss = ', e1 + de12r)
     print('================')
 

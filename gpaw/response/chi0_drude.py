@@ -1,31 +1,31 @@
 from time import ctime
-from functools import partial
 
 import numpy as np
 from ase.units import Ha
 
 from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
-from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.chi0_base import Chi0ComponentCalculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
 from gpaw.response.frequencies import FrequencyGridDescriptor
 
 
-class Chi0DrudeCalculator(Chi0Calculator):
+class Chi0DrudeCalculator(Chi0ComponentCalculator):
     """Class for calculating the plasma frequency contribution to Chi0,
     that is, the contribution from intraband transitions inside of metallic
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
     def __init__(self, *args, **kwargs):
-        self.base_ini(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.task, self.wd = self.construct_integral_task_and_wd()
 
     @property
     def nblocks(self):
-        # The plasma frequencies aren't distributed in memory
-        # NB: There can be a mismatch with self.pair.nblocks, which seems
-        # dangerous XXX
+        # The plasma frequencies aren't distributed in memory, hence we
+        # overwrite nblocks.
+        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which
+        # seems a bit dangerous XXX
         return 1
 
     def calculate(self, wd, rate, spin='all'):
@@ -109,16 +109,14 @@ class Chi0DrudeCalculator(Chi0Calculator):
         return task, wd
 
     def print_info(self, wd, rate):
-        p = partial(self.context.print, flush=False)
-
-        p()
-        p('%s' % ctime())
-        p('Calculating drude chi0 with:')
-        p('    Number of frequency points: %d' % len(wd))
-        p('    Plasma frequency decay rate: %f eV' % rate)
-        p()
-        p(self.get_gs_info_string(tab='    '))
-        self.context.print('')
+        isl = ['',
+               f'{ctime()}',
+               'Calculating drude chi0 with:',
+               f'    Number of frequency points:{len(wd)}',
+               f'    Plasma frequency decay rate: {rate} eV',
+               '',
+               self.get_gs_info_string(tab='    ')]
+        self.context.print('\n'.join(isl))
 
 
 class PlasmaFrequencyIntegrand(Integrand):
@@ -129,16 +127,18 @@ class PlasmaFrequencyIntegrand(Integrand):
 
     def _band_summation(self):
         # Intraband response needs only integrate partially unoccupied bands.
-        return self._drude.nocc1, self._drude.nocc2
+        return self._drude.gs.nocc1, self._drude.gs.nocc2
 
     def matrix_element(self, k_v, s):
         """NB: In dire need of documentation! XXX."""
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        kpt1 = self._drude.pair.get_k_point(s, k_c, n1, n2)
+        kptpair_factory = self._drude.kptpair_factory
+        kpt1 = kptpair_factory.get_k_point(s, k_c, n1, n2)
         n_n = range(n1, n2)
 
-        vel_nv = self._drude.pair.intraband_pair_density(kpt1, n_n)
+        vel_nv = kptpair_factory.pair_calculator().intraband_pair_density(
+            kpt1, n_n)
 
         if self._drude.integrationmode is None:
             f_n = kpt1.f_n
@@ -165,7 +165,7 @@ class PlasmaFrequencyIntegrand(Integrand):
         gs = self._drude.gs
         kd = gs.kd
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
-        K1 = self._drude.pair.find_kpoint(k_c)
+        K1 = self._drude.kptpair_factory.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
         kpt1 = gs.kpt_qs[ik][s]
         assert gs.kd.comm.size == 1

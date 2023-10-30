@@ -2,27 +2,25 @@ from math import pi
 
 import numpy as np
 
-from gpaw.core import UniformGrid
-from gpaw.new import zip
+from gpaw.core import UGDesc
+from gpaw.new import zips, spinsum
 from gpaw.new.pot_calc import PotentialCalculator
 
 
-class UniformGridPotentialCalculator(PotentialCalculator):
+class FDPotentialCalculator(PotentialCalculator):
     def __init__(self,
-                 wf_grid: UniformGrid,
-                 fine_grid: UniformGrid,
+                 wf_grid: UGDesc,
+                 fine_grid: UGDesc,
                  setups,
                  xc,
                  poisson_solver,
-                 nct_aR, nct_R,
+                 *,
+                 fracpos_ac,
+                 atomdist,
                  interpolation_stencil_range=3,
                  xp=np):
         self.fine_grid = fine_grid
         self.grid = wf_grid
-        self.nct_aR = nct_aR
-
-        fracpos_ac = nct_aR.fracpos_ac
-        atomdist = nct_aR.atomdist
 
         self.vbar_ar = setups.create_local_potentials(fine_grid, fracpos_ac,
                                                       atomdist, xp=xp)
@@ -36,29 +34,36 @@ class UniformGridPotentialCalculator(PotentialCalculator):
 
         n = interpolation_stencil_range
         self.interpolation_stencil_range = n
-        self.interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
-        self.restrict = fine_grid.transformer(wf_grid, n, xp=xp)
+        self._interpolate = wf_grid.transformer(fine_grid, n, xp=xp)
+        self._restrict = fine_grid.transformer(wf_grid, n, xp=xp)
 
-        super().__init__(xc, poisson_solver, setups, nct_R, fracpos_ac)
-        self.interpolation_domain = nct_aR.grid
+        super().__init__(xc, poisson_solver, setups,
+                         fracpos_ac=fracpos_ac)
 
     def __str__(self):
         txt = super().__str__()
         degree = self.interpolation_stencil_range * 2 - 1
         name = ['linear', 'cubic', 'quintic', 'heptic'][degree // 2]
-        txt += ('interpolation: tri-%s ' % name +
-                ' # %d. degree polynomial\n' % degree)
+        txt += (f'interpolation: tri-{name}' +
+                f' # {degree}. degree polynomial\n')
         return txt
+
+    def interpolate(self, a_xR, a_xr=None):
+        return self._interpolate(a_xR, a_xr)
+
+    def restrict(self, a_xr, a_xR=None):
+        return self._restrict(a_xr, a_xR)
 
     def calculate_charges(self, vHt_r):
         return self.ghat_aLr.integrate(vHt_r)
 
-    def calculate_non_selfconsistent_exc(self, xc, nt_sR, ibzwfs):
+    def calculate_non_selfconsistent_exc(self, xc, nt_sR, taut_sR):
         nt_sr, _, _ = self._interpolate_density(nt_sR)
-        vxct_sr = nt_sr.desc.zeros(nt_sr.dims)
-        e_xc, _ = xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                               interpolate=self.interpolate,
-                               restrict=self.restrict)
+        if taut_sR is not None:
+            taut_sr = self.interpolate(taut_sR)
+        else:
+            taut_sr = None
+        e_xc, _, _ = xc.calculate(nt_sr, taut_sr)
         return e_xc
 
     def _interpolate_density(self, nt_sR):
@@ -66,7 +71,7 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         if not nt_sR.desc.pbc_c.all():
             Nt1_s = nt_sR.integrate()
             Nt2_s = nt_sr.integrate()
-            for Nt1, Nt2, nt_r in zip(Nt1_s, Nt2_s, nt_sr):
+            for Nt1, Nt2, nt_r in zips(Nt1_s, Nt2_s, nt_sr):
                 if Nt2 > 1e-14:
                     nt_r.data *= Nt1 / Nt2
         return nt_sr, None, None
@@ -75,10 +80,13 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         nt_sr, _, _ = self._interpolate_density(density.nt_sR)
         grid2 = nt_sr.desc
 
-        vxct_sr = grid2.zeros(nt_sr.dims)
-        e_xc, e_kinetic = self.xc.calculate(nt_sr, vxct_sr, ibzwfs,
-                                            interpolate=self.interpolate,
-                                            restrict=self.restrict)
+        if density.taut_sR is not None:
+            taut_sr = self.interpolate(density.taut_sR)
+        else:
+            taut_sr = None
+
+        e_xc, vxct_sr, dedtaut_sr = self.xc.calculate(nt_sr, taut_sr)
+
         charge_r = grid2.empty()
         charge_r.data[:] = nt_sr.data[:density.ndensities].sum(axis=0)
         e_zero = self.vbar_r.integrate(charge_r)
@@ -102,44 +110,37 @@ class UniformGridPotentialCalculator(PotentialCalculator):
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)
-        for spin, (vt_R, nt_R) in enumerate(zip(vt_sR, density.nt_sR)):
-            e_kinetic -= vt_R.integrate(nt_R)
-            if spin < density.ndensities:
-                e_kinetic += vt_R.integrate(self.nct_R)
 
         e_external = 0.0
 
-        return {'kinetic': e_kinetic,
-                'coulomb': e_coulomb,
+        return {'coulomb': e_coulomb,
                 'zero': e_zero,
                 'xc': e_xc,
-                'external': e_external}, vt_sR, vHt_r
+                'external': e_external}, vt_sR, dedtaut_sr, vHt_r
 
-    def _move(self, fracpos_ac, atomdist, ndensities):
+    def move(self, fracpos_ac, atomdist):
         self.ghat_aLr.move(fracpos_ac, atomdist)
         self.vbar_ar.move(fracpos_ac, atomdist)
         self.vbar_ar.to_uniform_grid(out=self.vbar_r)
-        self.nct_aR.move(fracpos_ac, atomdist)
-        self.nct_aR.to_uniform_grid(out=self.nct_R, scale=1.0 / ndensities)
 
     def force_contributions(self, state):
         density = state.density
         potential = state.potential
-        nt_R = density.nt_sR[0]
-        vt_R = potential.vt_sR[0]
-        if density.ndensities > 1:
-            nt_R = nt_R.desc.empty()
-            nt_R.data[:] = density.nt_sR.data[:density.ndensities].sum(axis=0)
-            vt_R = vt_R.desc.empty()
-            vt_R.data[:] = (
-                potential.vt_sR.data[:density.ndensities].sum(axis=0) /
-                density.ndensities)
+        nt_R = spinsum(density.nt_sR)
+        vt_R = spinsum(potential.vt_sR, mean=True)
+        dedtaut_sR = potential.dedtaut_sR
+        if dedtaut_sR is not None:
+            dedtaut_R = spinsum(dedtaut_sR, mean=True)
+            Ftauct_av = state.density.tauct_aX.derivative(dedtaut_R)
+        else:
+            Ftauct_av = None
 
         nt_r = self.interpolate(nt_R)
         if not nt_r.desc.pbc_c.all():
             scale = nt_R.integrate() / nt_r.integrate()
             nt_r.data *= scale
 
-        return (self.ghat_aLr.derivative(state.vHt_x),
-                self.nct_aR.derivative(vt_R),
+        return (self.ghat_aLr.derivative(state.potential.vHt_x),
+                state.density.nct_aX.derivative(vt_R),
+                Ftauct_av,
                 self.vbar_ar.derivative(nt_r))

@@ -95,11 +95,11 @@ def test_chi0_intraband(in_tmp_dir):
     wp4 = chi0_drude.plasmafreq_vv[0, 0]**0.5
     
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0calc.wd.omega_w
+    w_w = df1.wd.omega_w
     # frequency grids must be the same
-    w_w2 = df2.chi0calc.wd.omega_w
-    w_w3 = df3.chi0calc.wd.omega_w
-    w_w4 = df4.chi0calc.wd.omega_w
+    w_w2 = df2.wd.omega_w
+    w_w3 = df3.wd.omega_w
+    w_w4 = df4.wd.omega_w
     assert np.allclose(w_w, w_w2, atol=1e-5, rtol=1e-4)
     assert np.allclose(w_w2, w_w3, atol=1e-5, rtol=1e-4)
     assert np.allclose(w_w3, w_w4, atol=1e-5, rtol=1e-4)

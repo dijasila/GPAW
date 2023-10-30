@@ -20,7 +20,7 @@ the negative electronic charge, q = - e.
 """
 
 import numpy as np
-
+from gpaw.new import zips
 from gpaw.spinorbit import get_L_vlmm
 
 L_vlmm = get_L_vlmm()
@@ -41,10 +41,10 @@ def get_orbmag_from_calc(calc):
     orbmag_av = np.zeros([len(calc.atoms), 3])
     for wfs in calc.wfs.kpt_u:
         f_n = wfs.f_n
-        for (a, P_nsi), setup in zip(wfs.P_ani.items(), calc.setups):
+        for (a, P_nsi), setup in zips(wfs.P_ani.items(), calc.setups):
             orbmag_av[a] += calculate_orbmag_1k(f_n,
                                                 P_nsi,
-                                                zip(setup.n_j, setup.l_j))
+                                                zips(setup.n_j, setup.l_j))
 
     calc.wfs.kd.comm.sum(orbmag_av)
 
@@ -56,7 +56,7 @@ def get_orbmag_from_soc_eigs(soc):
     assert soc.bcomm.size == 1 and soc.domain_comm.size == 1
 
     orbmag_av = np.zeros([len(soc.nl_aj), 3])
-    for wfs, weight in zip(soc.wfs.values(), soc.weights()):
+    for wfs, weight in zips(soc.wfs.values(), soc.weights()):
         f_n = wfs.f_m * weight
         for a, nl_j in soc.nl_aj.items():
             orbmag_av[a] += calculate_orbmag_1k(f_n, wfs.projections[a], nl_j)

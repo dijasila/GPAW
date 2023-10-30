@@ -1,6 +1,5 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.tddft.abc import LinearAbsorbingBoundary
 from gpaw.tddft.laser import CWField
@@ -8,16 +7,11 @@ import pytest
 
 
 @pytest.mark.later
-def test_tddft_be_nltd_ip(in_tmp_dir):
+def test_tddft_be_nltd_ip(in_tmp_dir, gpw_files):
     atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
     atoms.center(vacuum=6)
-    calc = GPAW(mode='fd', h=0.35, symmetry={'point_group': False})
-    atoms.calc = calc
-    atoms.get_potential_energy()
 
-    calc.write('be_gs.gpw', 'all')
-
-    td_calc = TDDFT('be_gs.gpw',
+    td_calc = TDDFT(gpw_files['be_atom_fd'],
                     td_potential=CWField(1e-3, 2.0 * np.pi / 50.0, 150.0))
     td_calc.set_absorbing_boundary(
         LinearAbsorbingBoundary(5.0, 0.01,

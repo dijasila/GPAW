@@ -1,40 +1,17 @@
 import numpy as np
 import pytest
-from ase.build import bulk
 from ase.parallel import parprint
 
-from gpaw import GPAW, PW, FermiDirac
+from gpaw import GPAW
 
 
 @pytest.mark.mgga
-def test_pw_fe_stress_mgga(in_tmp_dir):
-    xc = 'revTPSS'
-    m = [2.9]
-    fe = bulk('Fe')
-    fe.set_initial_magnetic_moments(m)
-    k = 3
-    fe.calc = GPAW(mode=PW(800),
-                   h=0.15,
-                   occupations=FermiDirac(width=0.03),
-                   xc=xc,
-                   kpts=(k, k, k),
-                   convergence={'energy': 1e-8},
-                   parallel={'domain': 1, 'augment_grids': True},
-                   txt='fe.txt')
-
-    fe.set_cell(np.dot(fe.cell,
-                       [[1.02, 0, 0.03],
-                        [0, 0.99, -0.02],
-                        [0.2, -0.01, 1.03]]),
-                scale_atoms=True)
-
-    fe.get_potential_energy()
+def test_pw_fe_stress_mgga(gpw_files, gpaw_new):
+    fe = GPAW(gpw_files['fe_pw_distorted']).get_atoms()
 
     # Trigger nasty bug (fixed in !486):
-    try:
+    if not gpaw_new:
         fe.calc.wfs.pt.blocksize = fe.calc.wfs.pd.maxmyng - 1
-    except AttributeError:
-        pass
 
     s_analytical = fe.get_stress()
     # Calculated numerical stress once, store here to speed up test

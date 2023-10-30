@@ -595,7 +595,7 @@ class KSSingle(Excitation, PairDensity):
         result.me = self.me + other.me
         result.mur = self.mur + other.mur
         result.muv = self.muv + other.muv
-        result.magn = self.magn - other.magn
+        result.magn = self.magn + other.magn
         return result
 
     def __sub__(self, other):

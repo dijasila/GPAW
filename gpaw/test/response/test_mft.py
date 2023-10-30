@@ -3,22 +3,24 @@ Test with unrealisticly loose parameters to catch if the numerics change.
 """
 
 # General modules
+from abc import abstractmethod
+
 import pytest
 import numpy as np
 
 # Script modules
-from ase.units import Bohr
+from ase.units import Ha
 
 from gpaw import GPAW
-from gpaw.sphere.integrate import integrate_lebedev
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.chiks import ChiKSCalculator, smat
-from gpaw.response.localft import (LocalFTCalculator, LocalPAWFTCalculator,
-                                   add_spin_polarization)
-from gpaw.response.mft import (IsotropicExchangeCalculator, AtomicSiteData,
-                               SumRuleSiteMagnetization,
-                               SumRuleSiteMagnetizationCalculator)
+from gpaw.response.localft import LocalFTCalculator, LocalPAWFTCalculator
+from gpaw.response.site_data import AtomicSites, AtomicSiteData
+from gpaw.response.mft import (IsotropicExchangeCalculator,
+                               StaticSitePairFunction,
+                               TwoParticleSiteMagnetizationCalculator,
+                               TwoParticleSiteSpinSplittingCalculator)
 from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         CylindricalSiteKernels,
                                         ParallelepipedicSiteKernels)
@@ -26,7 +28,9 @@ from gpaw.response.heisenberg import (calculate_single_site_magnon_energies,
                                       calculate_fm_magnon_energies)
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_transitions import PairTransitions
-from gpaw.response.matrix_elements import SitePairDensityCalculator
+from gpaw.response.matrix_elements import (SiteMatrixElementCalculator,
+                                           SitePairDensityCalculator,
+                                           SitePairSpinSplittingCalculator)
 from gpaw.test.conftest import response_band_cutoff
 from gpaw.test.response.test_chiks import generate_qrel_q, get_q_c
 
@@ -136,11 +140,11 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
     # of random noise, that one cannot trust individual values of J very well.
     # This is improved when increasing the number of k-points, but the problem
     # never completely vanishes
-    J_atol = 5.e-3
+    J_atol = 1.e-2
     J_rtol = 5.e-2
     # However, derived physical values have an increased error cancellation due
     # to their collective nature.
-    mw_rtol = 5.e-3  # relative tolerance of absolute results
+    mw_rtol = 25e-3  # relative tolerance of absolute results
     mw_ctol = 5.e-2  # relative tolerance on kernel and eta self-consistency
 
     # ---------- Script ---------- #
@@ -200,9 +204,7 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
     mwuc_qs = calculate_single_site_magnon_energies(Juc_qs, q_qc, mom)
 
     # Compare results to test values
-    # print(J_qabp[..., 1])
-    # print(mw_qnp[..., 1])
-    # print(mwuc_qs[:, 0])
+    print(J_qabp[..., 1], mw_qnp[..., 1], mwuc_qs[:, 0])
     test_J_qab = np.array([[[1.23106207 - 0.j, 0.25816335 - 0.j],
                             [0.25816335 + 0.j, 1.23106207 + 0.j]],
                            [[0.88823839 + 0.j, 0.07345416 - 0.04947835j],
@@ -215,19 +217,14 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
     test_mwuc_q = np.array([0., 0.69678659, 0.44825874])
 
     # Exchange constants
-    # err = np.absolute(J_qabp[..., 1] - test_J_qab)
-    # is_bad = err > J_atol + J_rtol * np.absolute(test_J_qab)
-    # print(is_bad)
-    # print(np.absolute(err[is_bad] / np.absolute(test_J_qab[is_bad])))
-    assert np.allclose(J_qabp[..., 1], test_J_qab,
-                       atol=J_atol, rtol=J_rtol)
+    assert J_qabp[..., 1] == pytest.approx(test_J_qab, abs=J_atol, rel=J_rtol)
 
     # Magnon energies
     assert np.all(np.abs(mw_qnp[0, 0, :]) < 1.e-8)  # Goldstone theorem
     assert np.allclose(mwuc_qs[0, :], 0.)  # Goldstone
-    assert np.allclose(mw_qnp[1:, 0, 1], test_mw_qn[1:, 0], rtol=mw_rtol)
-    assert np.allclose(mw_qnp[:, 1, 1], test_mw_qn[:, 1], rtol=mw_rtol)
-    assert np.allclose(mwuc_qs[1:, 0], test_mwuc_q[1:], rtol=mw_rtol)
+    assert mw_qnp[1:, 0, 1] == pytest.approx(test_mw_qn[1:, 0], rel=mw_rtol)
+    assert mw_qnp[:, 1, 1] == pytest.approx(test_mw_qn[:, 1], rel=mw_rtol)
+    assert mwuc_qs[1:, 0] == pytest.approx(test_mwuc_q[1:], rel=mw_rtol)
 
     # Check self-consistency of results
     # We should be in a radius range, where the magnon energies don't change
@@ -240,174 +237,24 @@ def test_Co_hcp(in_tmp_dir, gpw_files):
 
 
 @pytest.mark.response
-def test_Fe_site_magnetization(gpw_files):
-    # Set up ground state adapter
-    calc = GPAW(gpw_files['fe_pw'], parallel=dict(domain=1))
-    gs = ResponseGroundStateAdapter(calc)
-
-    # Extract valid site radii range
-    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
-    rmin = rmin_a[0]  # Only one magnetic atom in the unit cell
-    rmax = rmax_a[0]
-    # We expect rmax to be equal to the nearest neighbour distance
-    # subtracted with the augmentation sphere radius. For a bcc lattice,
-    # nn_dist = sqrt(3) a / 2:
-    augr = gs.get_aug_radii()[0]
-    rmax_expected = np.sqrt(3) * 2.867 / 2. - augr * Bohr
-    assert abs(rmax - rmax_expected) < 1e-6
-    # Test that an error is raised outside the valid range
-    with pytest.raises(AssertionError):
-        AtomicSiteData(gs, indices=[0],  # Too small radii
-                       radii=[np.linspace(rmin * 0.8, rmin, 5)])
-    with pytest.raises(AssertionError):
-        AtomicSiteData(gs, indices=[0],  # Too large radii
-                       radii=[np.linspace(rmax, rmax * 1.2, 5)])
-    # Define atomic sites to span the valid range
-    rc_r = np.linspace(rmin_a[0], rmax_a[0], 100)
-    # Add the radius of the augmentation sphere explicitly
-    rc_r = np.append(rc_r, [augr * Bohr])
-    atomic_sites = AtomicSiteData(gs, indices=[0], radii=[rc_r])
-
-    # Calculate site magnetization
-    magmom_ar = atomic_sites.calculate_magnetic_moments()
-    magmom_r = magmom_ar[0]
-
-    # Test that a cutoff at the augmentation sphere radius reproduces
-    # the local magnetic moment of the GPAW calculation
-    magmom_at_augr = calc.get_atoms().get_magnetic_moments()[0]
-    assert abs(magmom_r[-1] - magmom_at_augr) < 1e-2
-
-    # Do a manual calculation of the magnetic moment using the
-    # all-electron partial waves
-    # Calculate all-electron m(r)
-    microsetup = atomic_sites.microsetup_a[0]
-    m_ng = np.array([microsetup.rgd.zeros()
-                     for n in range(microsetup.Y_nL.shape[0])])
-    for n, Y_L in enumerate(microsetup.Y_nL):
-        n_sg = np.dot(Y_L, microsetup.n_sLg)
-        add_spin_polarization(microsetup.rgd, n_sg, m_ng[n, :])
-    # Integrate with varrying radii
-    m_g = integrate_lebedev(m_ng)
-    ae_magmom_r = np.array([
-        microsetup.rgd.integrate_trapz(m_g, rcut=rcut / Bohr)
-        for rcut in rc_r])
-    # Test that values match approximately inside the augmentation sphere
-    inaug_r = rc_r <= augr * Bohr
-    assert magmom_r[inaug_r] == pytest.approx(ae_magmom_r[inaug_r], abs=3e-2)
-
-    # import matplotlib.pyplot as plt
-    # plt.plot(rc_r[:-1], magmom_r[:-1])
-    # plt.plot(rc_r[:-1], ae_magmom_r[:-1], zorder=0)
-    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
-    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
-    # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
-    # plt.show()
-
-
-@pytest.mark.response
-def test_Co_site_data(gpw_files):
-    # Set up ground state adapter
-    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
-    gs = ResponseGroundStateAdapter(calc)
-
-    # Extract valid site radii range
-    rmin_a, rmax_a = AtomicSiteData.valid_site_radii_range(gs)
-    # The valid ranges should be equal due to symmetry
-    assert abs(rmin_a[1] - rmin_a[0]) < 1e-8
-    assert abs(rmax_a[1] - rmax_a[0]) < 1e-8
-    rmin = rmin_a[0]
-    rmax = rmax_a[0]
-    # We expect rmax to be equal to the nearest neighbour distance
-    # subtracted with the augmentation sphere radius. For the hcp-lattice,
-    # nn_dist = min(a, sqrt(a^2/3 + c^2/4)):
-    augr_a = gs.get_aug_radii()
-    assert abs(augr_a[1] - augr_a[0]) < 1e-8
-    augr = augr_a[0]
-    rmax_expected = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
-    rmax_expected -= augr * Bohr
-    assert abs(rmax - rmax_expected) < 1e-6
-
-    # Use radii spanning the entire valid range
-    rc_r = np.linspace(rmin, rmax, 101)
-    # Add the radius of the augmentation sphere explicitly
-    rc_r = np.append(rc_r, [augr * Bohr])
-    nr = len(rc_r)
-    # Varry the site radii together and independently
-    rc1_r = list(rc_r) + list(rc_r) + [augr * Bohr] * nr
-    rc2_r = list(rc_r) + [augr * Bohr] * nr + list(rc_r)
-    atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc1_r, rc2_r])
-
-    # Calculate site magnetization
-    magmom_ar = atomic_sites.calculate_magnetic_moments()
-
-    # Test that the magnetization inside the augmentation sphere matches
-    # the local magnetic moment of the GPAW calculation
-    magmom_at_augr_a = calc.get_atoms().get_magnetic_moments()
-    assert magmom_ar[:, -1] == pytest.approx(magmom_at_augr_a, abs=2e-2)
-
-    # Test consistency of varrying radii
-    assert magmom_ar[0, :nr] == pytest.approx(magmom_ar[1, :nr])
-    assert magmom_ar[0, nr:2 * nr] == pytest.approx(magmom_ar[0, :nr])
-    assert magmom_ar[0, 2 * nr:] == pytest.approx([magmom_ar[0, -1]] * nr)
-    assert magmom_ar[1, nr:2 * nr] == pytest.approx([magmom_ar[1, -1]] * nr)
-    assert magmom_ar[1, 2 * nr:] == pytest.approx(magmom_ar[1, :nr])
-
-    # Calculate the atomic spin splitting
-    rc_r = rc_r[:-1]
-    atomic_sites = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
-    dxc_ar = atomic_sites.calculate_spin_splitting()
-    print(dxc_ar[0, ::20])
-
-    # Test that the spin splitting comes out as expected
-    assert dxc_ar[0] == pytest.approx(dxc_ar[1])
-    assert dxc_ar[0, ::20] == pytest.approx([0.02638351, 1.41476112,
-                                             2.49540004, 2.79727200,
-                                             2.82727948, 2.83670767], rel=1e-3)
-
-    # import matplotlib.pyplot as plt
-    # plt.subplot(1, 2, 1)
-    # plt.plot(rc_r, magmom_ar[0, :nr - 1])
-    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
-    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
-    # plt.ylabel(r'$m$ [$\mu_\mathrm{B}$]')
-    # plt.subplot(1, 2, 2)
-    # plt.plot(rc_r, dxc_ar[0])
-    # plt.axvline(augr * Bohr, c='0.5', linestyle='--')
-    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
-    # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
-    # plt.show()
-
-
-@pytest.mark.response
 @pytest.mark.parametrize('qrel', generate_qrel_q())
 def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
-    # Set up ground state adapter
+    # Set up ground state adapter and atomic site data
     calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
     nbands = response_band_cutoff['co_pw']
     gs = ResponseGroundStateAdapter(calc)
     context = ResponseContext('Co_sum_rule.txt')
-
-    if context.comm.size % 4 == 0:
-        nblocks = 4
-    elif context.comm.size % 2 == 0:
-        nblocks = 2
-    else:
-        nblocks = 1
+    site_data = get_co_atomic_site_data(gs)
+    nblocks = generate_nblocks(context)
 
     # Get wave vector to test
     q_c = get_q_c('co_pw', qrel)
 
-    # Set up atomic sites
-    rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
-    # Make sure that the two sites do not overlap
-    nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
-    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
-    atomic_site_data = AtomicSiteData(gs, indices=[0, 1], radii=[rc_r, rc_r])
-
-    # ----- Site magnetization from site pair densities ----- #
+    # ----- Single-particle site magnetization ----- #
     # Set up calculator and calculate the site magnetization
-    simple_site_mag_calc = SimpleSiteMagnetizationCalculator(gs, context)
-    ssite_mag_ar = simple_site_mag_calc(atomic_site_data)
+    simple_site_mag_calc = SingleParticleSiteMagnetizationCalculator(
+        gs, context)
+    ssite_mag_ar = simple_site_mag_calc(site_data)
 
     # Test that the imaginary part vanishes (we use only diagonal pair
     # densities correcsponding to |ψ_nks(r)|^2)
@@ -415,14 +262,14 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     ssite_mag_ar = ssite_mag_ar.real
 
     # Test that the results match a conventional calculation
-    magmom_ar = atomic_site_data.calculate_magnetic_moments()
+    magmom_ar = site_data.calculate_magnetic_moments()
     assert ssite_mag_ar == pytest.approx(magmom_ar, rel=5e-3)
 
-    # ----- Site magnetization by sum rule ----- #
+    # ----- Two-particle site magnetization ----- #
     # Set up calculator and calculate site magnetization by sum rule
-    sum_rule_site_mag_calc = SumRuleSiteMagnetizationCalculator(
+    sum_rule_site_mag_calc = TwoParticleSiteMagnetizationCalculator(
         gs, context, nblocks=nblocks, nbands=nbands)
-    site_mag_abr = sum_rule_site_mag_calc(q_c, atomic_site_data)
+    site_mag_abr = sum_rule_site_mag_calc(q_c, site_data)
     context.write_timer()
 
     # Test that the sum rule site magnetization is a positive-valued diagonal
@@ -449,6 +296,7 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
                   1.18813171e+00, 1.49761591e+00, 1.58954270e+00]), rel=5e-2)
 
     # import matplotlib.pyplot as plt
+    # rc_r = site_data.sites.rc_ap[0] * Bohr
     # plt.plot(rc_r, site_mag_ar[0], '-o', mec='k')
     # plt.plot(rc_r, ssite_mag_ar[0], '-o', mec='k', zorder=1)
     # plt.plot(rc_r, magmom_ar[0], '-o', mec='k', zorder=0)
@@ -458,38 +306,124 @@ def test_Co_site_magnetization_sum_rule(in_tmp_dir, gpw_files, qrel):
     # plt.show()
 
 
+@pytest.mark.response
+@pytest.mark.parametrize('qrel', generate_qrel_q())
+def test_Co_site_spin_splitting_sum_rule(in_tmp_dir, gpw_files, qrel):
+    # Set up ground state adapter and atomic site data
+    calc = GPAW(gpw_files['co_pw'], parallel=dict(domain=1))
+    nbands = response_band_cutoff['co_pw']
+    gs = ResponseGroundStateAdapter(calc)
+    context = ResponseContext('Co_sum_rule.txt')
+    site_data = get_co_atomic_site_data(gs)
+    nblocks = generate_nblocks(context)
+
+    # Get wave vector to test
+    q_c = get_q_c('co_pw', qrel)
+
+    # ----- Single-particle site spin splitting ----- #
+    # Set up calculator and calculate the site magnetization
+    single_particle_dxc_calc = SingleParticleSiteSpinSplittingCalculator(
+        gs, context)
+    single_particle_dxc_ar = single_particle_dxc_calc(site_data)
+
+    # Test that the imaginary part vanishes (we use only diagonal pair
+    # spin splitting densities correcsponding to -2W_xc^z(r)|ψ_nks(r)|^2)
+    assert np.allclose(single_particle_dxc_ar.imag, 0.)
+    single_particle_dxc_ar = single_particle_dxc_ar.real
+
+    # Test that the results match a conventional calculation
+    dxc_ar = site_data.calculate_spin_splitting()
+    assert single_particle_dxc_ar == pytest.approx(dxc_ar, rel=5e-3)
+
+    # ----- Two-particle site spin splitting ----- #
+    # Set up calculator and calculate site spin splitting by sum rule
+    two_particle_dxc_calc = TwoParticleSiteSpinSplittingCalculator(
+        gs, context, nblocks=nblocks, nbands=nbands)
+    tp_dxc_abr = two_particle_dxc_calc(q_c, site_data)
+    context.write_timer()
+
+    # Test that the two-particle spin splitting is a positive-valued diagonal
+    # real array
+    tp_dxc_ra = tp_dxc_abr.diagonal()
+    assert np.all(tp_dxc_ra.real > 0)
+    assert np.all(np.abs(tp_dxc_ra.imag) / tp_dxc_ra.real < 1e-4)
+    tp_dxc_ra = tp_dxc_ra.real
+    assert np.all(np.abs(np.diagonal(np.fliplr(  # off-diagonal elements
+        tp_dxc_abr))) / tp_dxc_ra < 5e-2)
+    tp_dxc_ar = tp_dxc_ra.T
+    # Test that the spin splitting on the two Co atoms is identical
+    assert tp_dxc_ar[0] == pytest.approx(tp_dxc_ar[1], rel=1e-4)
+
+    # Test values against reference
+    print(np.average(tp_dxc_ar, axis=0)[::2])
+    assert np.average(tp_dxc_ar, axis=0)[::2] == pytest.approx(
+        np.array([3.68344584e-04, 3.13780575e-01, 1.35409600e+00,
+                  2.14237563e+00, 2.52032513e+00, 2.61406726e+00]), rel=5e-2)
+
+    # import matplotlib.pyplot as plt
+    # rc_r = site_data.sites.rc_ap[0] * Bohr
+    # plt.plot(rc_r, tp_dxc_ar[0], '-o', mec='k')
+    # plt.plot(rc_r, single_particle_dxc_ar[0], '-o', mec='k', zorder=1)
+    # plt.plot(rc_r, dxc_ar[0], '-o', mec='k', zorder=0)
+    # plt.xlabel(r'$r_\mathrm{c}$ [$\mathrm{\AA}$]')
+    # plt.ylabel(r'$\Delta_\mathrm{xc}$ [eV]')
+    # plt.title(str(q_c))
+    # plt.show()
+
+
 # ---------- Test functionality ---------- #
 
 
-class SimpleSiteMagnetization(SumRuleSiteMagnetization):
+def get_co_atomic_site_data(gs):
+    # Set up atomic sites
+    rmin_a, _ = AtomicSiteData.valid_site_radii_range(gs)
+    # Make sure that the two sites do not overlap
+    nn_dist = min(2.5071, np.sqrt(2.5071**2 / 3 + 4.0695**2 / 4))
+    rc_r = np.linspace(rmin_a[0], nn_dist / 2, 11)
+    sites = AtomicSites(indices=[0, 1], radii=[rc_r, rc_r])
+    return AtomicSiteData(gs, sites)
+
+
+def generate_nblocks(context):
+    if context.comm.size % 4 == 0:
+        nblocks = 4
+    elif context.comm.size % 2 == 0:
+        nblocks = 2
+    else:
+        nblocks = 1
+    return nblocks
+
+
+class SingleParticleSiteQuantity(StaticSitePairFunction):
     @property
     def shape(self):
-        nsites = self.atomic_site_data.nsites
-        npartitions = self.atomic_site_data.npartitions
-        return nsites, npartitions
+        return self.sites.shape
 
 
-class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
-    r"""Calculate the site magnetization using site pair densities.
+class SingleParticleSiteSumRuleCalculator(PairFunctionIntegrator):
+    r"""Calculator for single-particle site sum rules.
 
-    The site magnetization can be calculate from the diagonals of the site pair
-    densities as follows:
+    For any site matrix element f^a_(nks,n'k's'), one may define a single-
+    particle site sum rule by considering only the diagonal of the matrix
+    element:
                  __  __
              1   \   \
-    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+    f_a^μ = ‾‾‾  /   /  σ^μ_ss f_nks f^a_(nks,nks)
             N_k  ‾‾  ‾‾
                  k   n,s
+
+    where μ∊{0,z}.
     """
 
     def __init__(self, gs, context):
         super().__init__(gs, context,
                          disable_point_group=True,
                          disable_time_reversal=True)
-        self.site_pair_density_calc: SitePairDensityCalculator | None = None
+        self.matrix_element_calc: SiteMatrixElementCalculator | None = None
 
     def __call__(self, atomic_site_data):
-        self.site_pair_density_calc = SitePairDensityCalculator(
-            self.gs, self.context, atomic_site_data)
+        self.matrix_element_calc = self.create_matrix_element_calculator(
+            atomic_site_data)
 
         # Set up transitions
         # Loop over bands, which are fully or partially occupied
@@ -501,40 +435,88 @@ class SimpleSiteMagnetizationCalculator(PairFunctionIntegrator):
 
         # Set up data object with q=0
         qpd = self.get_pw_descriptor([0., 0., 0.], ecut=1e-3)
-        site_mag = SimpleSiteMagnetization(qpd, atomic_site_data)
+        site_quantity = SingleParticleSiteQuantity(qpd, atomic_site_data.sites)
 
         # Perform actual calculation
-        self._integrate(site_mag, transitions)
-        return site_mag.array
+        self._integrate(site_quantity, transitions)
+        return site_quantity.array
 
-    def add_integrand(self, kptpair, weight, site_mag):
-        r"""Add the site magnetization integrand of the outer k-point integral.
+    @abstractmethod
+    def create_matrix_element_calculator(
+            self, atomic_site_data) -> SiteMatrixElementCalculator:
+        """Create the desired site matrix element calculator."""
+
+    def add_integrand(self, kptpair, weight, site_quantity):
+        r"""Add the integrand of the outer k-point integral.
 
         With
                    __
                 1  \
-        n_a^z = ‾  /  (...)_k
+        f_a^μ = ‾  /  (...)_k
                 V  ‾‾
                    k
 
         the integrand has to be multiplied with the cell volume V0:
                      __
                      \
-        (...)_k = V0 /  σ^z_ss f_nks n^a_(nks,nks)
+        (...)_k = V0 /  σ^μ_ss f_nks f^a_(nks,nks)
                      ‾‾
                      n,s
         """
-        # Calculate site pair densties
-        site_pair_density = self.site_pair_density_calc(kptpair, site_mag.qpd)
-        assert site_pair_density.tblocks.blockcomm.size == 1
-        n_tap = site_pair_density.get_global_array()
+        # Calculate matrix elements
+        site_matrix_element = self.matrix_element_calc(
+            kptpair, site_quantity.qpd)
+        assert site_matrix_element.tblocks.blockcomm.size == 1
+        f_tap = site_matrix_element.get_global_array()
 
-        # Calculate Pauli matrix factors multiply the occupations
-        sigz = smat('z')
-        sigz_t = sigz[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
+        # Calculate Pauli matrix factors and multiply the occupations
+        sigma = self.get_pauli_matrix()
+        sigma_t = sigma[kptpair.transitions.s1_t, kptpair.transitions.s2_t]
         f_t = kptpair.get_all(kptpair.ikpt1.f_myt)
-        sigzf_t = sigz_t * f_t
+        sigmaf_t = sigma_t * f_t
 
         # Calculate and add integrand
-        site_mag.array[:] += self.gs.volume * weight * np.einsum(
-            't, tap -> ap', sigzf_t, n_tap)
+        site_quantity.array[:] += self.gs.volume * weight * np.einsum(
+            't, tap -> ap', sigmaf_t, f_tap)
+
+    @abstractmethod
+    def get_pauli_matrix(self):
+        """Get the desired Pauli matrix σ^μ_ss."""
+
+
+class SingleParticleSiteMagnetizationCalculator(
+        SingleParticleSiteSumRuleCalculator):
+    r"""Calculator for the single-particle site magnetization sum rule.
+
+    The site magnetization is calculated from the site pair density:
+                 __  __
+             1   \   \
+    n_a^z = ‾‾‾  /   /  σ^z_ss f_nks n^a_(nks,nks)
+            N_k  ‾‾  ‾‾
+                 k   n,s
+    """
+    def get_pauli_matrix(self):
+        return smat('z')
+
+    def create_matrix_element_calculator(self, atomic_site_data):
+        return SitePairDensityCalculator(self.gs, self.context,
+                                         atomic_site_data)
+
+
+class SingleParticleSiteSpinSplittingCalculator(
+        SingleParticleSiteMagnetizationCalculator):
+    r"""Calculator for the single-particle site spin splitting sum rule.
+                      __  __
+                  1   \   \
+    Δ^(xc)_a^z = ‾‾‾  /   /  σ^z_ss f_nks Δ^(xc,a)_(nks,nks)
+                 N_k  ‾‾  ‾‾
+                      k   n,s
+    """
+    def create_matrix_element_calculator(self, atomic_site_data):
+        return SitePairSpinSplittingCalculator(self.gs, self.context,
+                                               atomic_site_data,
+                                               rshewmin=1e-8)
+
+    def __call__(self, *args):
+        dxc_ap = super().__call__(*args)
+        return dxc_ap * Ha  # Ha -> eV

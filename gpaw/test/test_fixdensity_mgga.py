@@ -1,5 +1,3 @@
-import os
-
 import pytest
 from ase import Atoms
 
@@ -8,7 +6,7 @@ from gpaw import GPAW
 
 @pytest.mark.ci
 @pytest.mark.mgga
-def test_fixdensity(in_tmp_dir):
+def test_fixdensity(in_tmp_dir, gpaw_new):
     a = 2.5
     slab = Atoms('Li', cell=(a, a, 2 * a), pbc=1)
     slab.calc = GPAW(mode='fd',
@@ -48,32 +46,28 @@ def test_fixdensity(in_tmp_dir):
     assert e2 == pytest.approx(e1, abs=3e-5)
     assert e3 == pytest.approx(e1, abs=3e-5)
 
-    if os.environ.get('GPAW_NEW'):
-        return
-
-    try:
+    if not gpaw_new:
         calc = GPAW('li.gpw',
                     txt='li-4.txt',
                     fixdensity=True,
                     nbands=5,
                     kpts=kpts,
                     symmetry='off')
+        try:
+            with pytest.warns(DeprecationWarning):
+                calc.get_potential_energy()
+        except ValueError:
+            pass
+        else:
+            assert False
 
-        with pytest.warns(DeprecationWarning):
-            calc.get_potential_energy()
-        calc.get_eigenvalues(kpt=0)[0]
-    except ValueError:
-        pass
+    calc = GPAW('li_nowf.gpw')
+    if not gpaw_new:
+        with pytest.raises(ValueError):
+            calc = calc.fixed_density(txt='li-3.txt', nbands=5, kpts=kpts)
     else:
-        raise RuntimeError
-
-    try:
-        calc = GPAW('li_nowf.gpw', txt=None)
-        calc = calc.fixed_density(
-            txt='li-3.txt',
-            nbands=5,
-            kpts=kpts)
-    except ValueError:
-        pass
-    else:
-        raise RuntimeError
+        calc = calc.fixed_density(txt='li-3.txt', nbands=5, kpts=kpts)
+        e4 = calc.get_eigenvalues(kpt=0)[0]
+        f4 = calc.get_fermi_level()
+        assert f4 == pytest.approx(f1, abs=1e-10)
+        assert e4 == pytest.approx(e1, abs=3e-5)

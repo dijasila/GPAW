@@ -55,9 +55,9 @@ class SCFLoop:
         while self.niter <= self.maxiter:
             self.iterate_eigensolver(wfs, ham, dens)
 
-            self.check_convergence(
+            ctx = self.check_convergence(
                 dens, ham, wfs, log, callback)
-            yield
+            yield ctx
 
             converged = (self.converged and
                          self.niter >= self.niter_fixdensity)
@@ -91,6 +91,7 @@ class SCFLoop:
 
         callback(self.niter)
         self.log(log, converged_items, entries, context)
+        return context
 
     def not_converged(self, dens, ham, wfs, log):
 

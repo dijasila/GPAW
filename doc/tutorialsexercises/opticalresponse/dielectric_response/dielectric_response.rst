@@ -20,7 +20,8 @@ vector. The off-diagonal element of
 `\epsilon_{\mathbf{G} \mathbf{G}^{\prime}}` determines the local field
 effect.
 
-The macroscopic dielectric function is defined by (with local field correction)
+The macroscopic dielectric function (with local field correction) is defined
+by
 
 .. math:: \epsilon_{M}(\mathbf{q},\omega) =
               \frac{1}{\epsilon^{-1}_{00}(\mathbf{q},\omega)}
@@ -35,7 +36,7 @@ Optical absorption spectrum is obtained through
 .. math:: \mathrm{ABS} = \mathrm{Im}
               \epsilon_{M}(\mathbf{q} \rightarrow 0,\omega)
 
-Electron energy loss spectrum (EELS) is get by
+Electron energy loss spectrum (EELS) is obtained by
 
 .. math:: \mathrm{EELS} = -\mathrm{Im}
               \frac{1}{\epsilon_{M}(\mathbf{q},\omega)}
@@ -57,7 +58,7 @@ Frequency grid
 
 .. module:: gpaw.response.frequencies
 
-The dielectric function is evaluted on a non-linear frequency grid according
+The dielectric function is evaluated on a non-linear frequency grid according
 to the formula
 
 .. math::
@@ -82,11 +83,12 @@ The parameters can be specified using keyword arguments::
 
     df = DielectricFunction(
         ...,
-        frequencies={'domega0: 0.05,    # eV. Default = 0.1 eV
-                     'omega2': 5.0,     # eV. Default = 10.0 eV
-                     'omegamax': 15.0)  # eV.  Default is the maximum
-                                        # difference between energy
-                                        # eigenvalues
+        frequencies={'type': 'nonlinear', # frequency grid specification
+                     'domega0: 0.05,      # eV. Default = 0.1 eV
+                     'omega2': 5.0,       # eV. Default = 10.0 eV
+                     'omegamax': 15.0})   # eV. Default is the maximum
+                                          # difference between energy
+                                          # eigenvalues
 
 Setting ``omegamax`` manually is usually not advisable, however you
 might want it in cases where semi-core states are included where very large
@@ -237,9 +239,9 @@ the energy loss of a fast electron passing by a material is defined by
 
 .. math:: \mathrm{EELS} = -\mathrm{Im} \frac{1}{\epsilon(\mathbf{q}, \omega)}
 
-and the plasmon frequency `\omega_p` is defined as when
+and the plasmon frequency `\omega_p` is defined as
 `\epsilon(\omega_p) \rightarrow 0`. It means that an external
-perturbation at this frequency, even infinitesimal, can generate large
+perturbation at this frequency, even infinitesimal, can generate a large
 collective electronic response.
 
 A simple startup: bulk aluminum

@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 import pytest
 from ase import Atoms
@@ -26,9 +24,10 @@ for d in [1, 2, 4, 8]:
                 marks=[pytest.mark.gpu,
                        pytest.mark.skipif(SCIPY_VERSION < [1, 6],
                                           reason='Too old scipy')])])
-def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
-    if (gpu or os.environ.get('GPAW_NEW')) and d * k < world.size:
+def test_pw_par_strategies(in_tmp_dir, d, k, gpu, gpaw_new):
+    if (gpu or gpaw_new) and d > 1:
         pytest.skip()
+
     ecut = 200
     kpoints = [1, 1, 4]
     atoms = Atoms('HLi',
@@ -56,11 +55,9 @@ def test_pw_par_strategies(in_tmp_dir, d, k, gpu):
     assert f == pytest.approx(np.array([[0, 0, -7.85130336e-01],
                                         [0, 0, 8.00667631e-01]]))
 
-    if not gpu and not os.environ.get('GPAW_NEW'):
-        s = atoms.get_stress()
-        assert s == pytest.approx(
-            [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
+    s = atoms.get_stress()
+    assert s == pytest.approx(
+        [3.98105501e-03, 3.98105501e-03, -4.98044912e-03, 0, 0, 0])
 
-    if not gpu:
-        atoms.calc.write('hli.gpw', mode='all')
-        GPAW('hli.gpw', txt=None)
+    atoms.calc.write('hli.gpw', mode='all')
+    GPAW('hli.gpw', txt=None)
