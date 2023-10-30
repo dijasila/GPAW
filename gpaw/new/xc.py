@@ -65,6 +65,7 @@ class Functional:
         if state.ibzwfs.kpt_band_comm.rank == 0:
             if self.xp is np:
                 self.xc.kernel.calculate(*[array.data for array in args])
+            # Special GPU cases:
             elif self.name == 'LDA':
                 e_r, nt_sr, vt_sr = args
                 evaluate_lda_gpu(nt_sr.data, vt_sr.data, e_r.data)
@@ -115,7 +116,10 @@ class LDAFunctional(Functional):
         vt_sr = nt_sr.new(zeroed=True)
         return (e_r, nt_sr, vt_sr), {}
 
-    def _stress(self, e_r: UGArray, nt_sr: UGArray, vt_sr: UGArray) -> Array2D:
+    def _stress(self,  # type: ignore
+                e_r: UGArray,
+                nt_sr: UGArray,
+                vt_sr: UGArray) -> Array2D:
         P = e_r.integrate(skip_sum=True)
         for vt_r, nt_r in zip(vt_sr, nt_sr):
             P -= vt_r.integrate(nt_r, skip_sum=True)
@@ -176,7 +180,7 @@ class GGAFunctional(LDAFunctional):
             kwargs = {'gradn_svr': gradn_svr}
         return args, kwargs
 
-    def _stress(self,
+    def _stress(self,  # type: ignore
                 e_r, nt_sr, vt_sr, sigma_xr, dedsigma_xr,
                 gradn_svr,
                 ) -> Array2D:
@@ -290,8 +294,9 @@ class MGGAFunctional(GGAFunctional):
 
         return args, kwargs
 
-    def _stress(self,
-                e_r, nt_sr, vt_sr,
+    def _stress(self,  # type: ignore
+                e_r,
+                nt_sr, vt_sr,
                 sigma_xr, dedsigma_xr,
                 taut_sr, dedtaut_sr,
                 gradn_svr,

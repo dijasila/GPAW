@@ -721,7 +721,7 @@ class UGArray(DistributedArrays[UGDesc]):
                 add_to_density(f, psit_R, out.data)
         elif cupy_is_fake:
             for f, psit_R in zips(weights, self.data):
-                add_to_density(f, psit_R._data, out.data._data)
+                add_to_density(f, psit_R._data, out.data._data)  # type: ignore
         else:
             add_to_density_gpu(self.xp.asarray(weights), self.data, out.data)
 

@@ -170,7 +170,7 @@ class SpinorPWHamiltonian(Hamiltonian):
 
         return out_nsG
 
-    def create_preconditioner(self, blocksize):
+    def create_preconditioner(self, blocksize, xp):
         return spinor_precondition
 
 
