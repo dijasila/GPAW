@@ -5,10 +5,13 @@ from gpaw.core import UGDesc
 from gpaw.gpu import cupy as cp
 from gpaw.mpi import world
 from gpaw.spline import Spline
+from gpaw.new.c import GPU_AWARE_MPI
 
 
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_acf(dtype):
+    if world.size > 1 and not GPU_AWARE_MPI:
+        pytest.skip('MPI not GPU-aware')
     s = Spline(0, 1.0, [1.0, 0.5, 0.0])
     n = 40
     a = 8.0
