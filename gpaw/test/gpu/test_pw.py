@@ -49,10 +49,16 @@ def test_gpu(dtype, gpu, mode):
 @pytest.mark.parametrize('mode', ['pw', 'fd'])
 @pytest.mark.parametrize('xc', ['LDA', 'PBE'])
 def test_gpu_k(gpu, par, mode, xc):
-    if gpu and par == 'domain' and size > 1 and not GPU_AWARE_MPI:
-        pytest.skip('Domain decomposition needs GPU-aware MPI')
-    if gpu and (mode == 'fd' or xc == 'PBE') and size > 1:
-        pytest.skip('???')
+    if gpu and size > 1 and not GPU_AWARE_MPI:
+        if mode == 'fd' and par == 'domain':
+            pytest.skip('Domain decomposition needs GPU-aware MPI')
+        if mode == 'pw' and par == 'domain' and xc == 'PBE':
+            pytest.skip('Domain decomposition needs GPU-aware MPI')
+        if mode == 'fd':
+            pytest.skip('???')
+        if mode == 'pw' and par in ['kpt', 'band'] and xc == 'PBE':
+            pytest.skip('???')
+
     atoms = Atoms('H', pbc=True, cell=[1, 1.1, 1.1])
     if mode == 'fd':
         poisson = FDPoissonSolver()
