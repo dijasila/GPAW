@@ -26,6 +26,13 @@ def rand(*args, dtype=None):
 
 
 @pytest.mark.gpu
+def test_multi_einsum_errors(gpu):
+    import cupy
+    A = cupy.random.rand(10,14)
+    B = cupy.random.rand(10,14)
+    multi_einsum('abc,abc->abc', [A], [A], out=[B])
+
+@pytest.mark.gpu
 @pytest.mark.parametrize('add', [False])
 @pytest.mark.parametrize('na', [0, 1, 100])
 @pytest.mark.parametrize('dtype, complex_out',

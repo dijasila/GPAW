@@ -1,8 +1,16 @@
+#include "Python.h"
+
+
 #include "../gpu.h"
 #include "../gpu-complex.h"
 #include "numpy/arrayobject.h"
 #include "assert.h"
 #include <cstdlib>
+
+#define GPAW_ARRAY_DISABLE_NUMPY
+#define GPAW_ARRAY_ALLOW_CUPY
+#include "../../array.h"
+#undef GPAW_ARRAY_DISABLE_NUMPY
 
 class Tokenizer
 {
@@ -660,7 +668,7 @@ void multi_einsum_launch_kernel(char* str,
                                 int add,
                                 int is_complex,
                                 int is_complex_out,
-                                const char** error)
+                                char* error)
 {
     buffer<int> intbuffer(2 * problems * arguments * maxind + arguments);
     buffer<double*> arguments_pa_buffer(problems * arguments);
@@ -673,7 +681,8 @@ void multi_einsum_launch_kernel(char* str,
     parser.print_error();
     if (strlen(parser.error))
     {
-        *error = parser.error;
+        printf("error launch %s\n", parser.error);
+        strcpy(error, parser.error); 
         return;
     }
     parser.print();
@@ -726,6 +735,13 @@ void multi_einsum_launch_kernel(char* str,
         for (int i=0; i < nind_out; i++)
         {
             int index_out_size = dimensions_pai[ p * (arguments * maxind) + maxind * (arguments-1) + i]; 
+            if (index_out_size == 0)
+            {
+                char error_str[256];
+                sprintf(error_str, "Too few indices in output of einsum for problem %d (indexing starts at 0).", p);
+                strcpy(error, error_str);
+                return;
+            }
             size_out_pi.cpu_ptr[p * nind_out + i ] = index_out_size;
             //printf("p: %d outind: %d size: %d\n", p, i, index_out_size);
             for (int a=0; a < arguments; a++)
@@ -754,6 +770,19 @@ void multi_einsum_launch_kernel(char* str,
                    {
                        stride += strides_pai[ p * (arguments * maxind) + maxind * a + locind];
                        int index_in_size = dimensions_pai[ p * (arguments * maxind) + maxind * a + locind]; // move inside stride
+                       if (index_in_size == 0)
+                       {
+                           char error_str[256];
+                           if (a < arguments -1)
+                           {
+                               sprintf(error_str, "Too few indices in argument %d of einsum.", a+1);
+                           }
+                           else
+                           {
+                               sprintf(error_str, "Too few indices in output of einsum.");
+                           }
+                           strcpy(error, error_str);
+                       }
                        size_in_pi.cpu_ptr[p * nind_in + i ] = index_in_size;
                    }
                }
@@ -799,22 +828,22 @@ void multi_einsum_launch_kernel(char* str,
     intbuffer.copy_to_device();
     arguments_pa_buffer.copy_to_device();
  
-    if (nind_out >= 3)
+    if (nind_out >= 4)
     {
-        *error = "Too many inner product indices. Edit template parameters of kernel_funcs.";
+        strcpy(error, "Too many output indices. Edit template parameters of kernel_funcs to allow more.");
         return;
     } 
     if (nind_in >= 4)
     {
-        *error = "Too many output indices. Edit template parameters of kernel_funcs.";
+        strcpy(error, "Too many inner indices. Edit template parameters of kernel_funcs.");
         return;
     } 
     if (nind_in >= 5)
     {
-        *error = "Too many arguments. Edit template parameters of kernel_funcs.";
+        strcpy(error, "Too many arguments. Edit template parameters of kernel_funcs.");
         return;
     } 
-    kernel_funcs <3, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
+    kernel_funcs <4, 4, 5> f(nind_out, nind_in, arguments, add, is_complex_out);
 
     if (is_complex)
     {
@@ -844,4 +873,170 @@ void multi_einsum_launch_kernel(char* str,
                         arguments_pa.gpu_ptr);
     }
 }
+
+extern "C"
+PyObject* multi_einsum_gpu(PyObject* self, PyObject* args, PyObject* kwargs)
+{
+    static const char *kwlist[] = {"string", "arguments", "out", "add", NULL};
+    char* string;
+    char error[256] = "";
+
+
+    // arguments is expected to be list of tuples
+    PyObject* arguments_obj;
+    PyObject* out_obj = NULL;
+    PyObject* add_obj = NULL;
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sO|OO", (char**) kwlist, 
+                                     &string, &arguments_obj, &out_obj, &add_obj))
+        return NULL;
+
+    if ((add_obj != NULL) && (out_obj != NULL))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Cannot set both out and add arguments.");
+        return NULL;
+    }
+    bool add = add_obj != NULL;
+    if (add)
+    {
+        out_obj = add_obj;
+    }
+
+    int problems = PyList_Size(arguments_obj);
+    if (problems == 0)
+    {
+        Py_RETURN_NONE;      
+    }
+    if (PyErr_Occurred())
+    {
+        printf("1\n");
+        return NULL;
+    }
+
+    int arguments = PyTuple_Size(PyList_GetItem(arguments_obj, 0)) + 1; // We add one, because we append out
+    if (PyErr_Occurred())
+    {
+        printf("2\n");
+        return NULL;
+    }
+
+    double** array_pointers = (double**) malloc(problems * arguments * sizeof(double*));
+    // max dimensions is 4
+    int* dimensions = (int*) malloc(problems * arguments * 4 * sizeof(int));
+    int* strides = (int*) malloc(problems * arguments * 4 * sizeof(int));
+    int first_item_size = -1;
+    int first_output_size = -1;
+    for (int i=0; i<problems; i++)
+    {
+        PyObject* args = PyList_GetItem(arguments_obj, i);
+        PyObject* output = PyList_GetItem(out_obj, i);
+        if (PyErr_Occurred())
+        {
+            printf("3\n");
+            goto error;
+        }
+        if (PyTuple_Size(args) != arguments - 1)
+        {
+            PyErr_Format(PyExc_RuntimeError, "Inconsistent number of arguments at problem %d.", i);
+            goto error;
+        }
+        for (int j=0; j<arguments; j++)
+        {
+            PyObject* cupy_array;
+            if (j < arguments - 1) 
+            {
+                cupy_array = PyTuple_GetItem(args, j);
+            }
+            else
+            {
+                cupy_array = output;
+            }
+            if (PyErr_Occurred())
+            {
+                printf("4\n");
+                goto error;
+            }
+            double* array_ptr = (double*) Array_DATA(cupy_array);
+            int item_size = Array_ITEMSIZE(cupy_array);
+            if (j < arguments - 1)
+            {
+                if (first_item_size != -1)
+                {
+                    if (item_size != first_item_size)
+                    {
+                        PyErr_SetString(PyExc_RuntimeError, "All arguments must be of same dtype.");
+                        goto error;
+                    }
+                }
+                else
+                {
+                    first_item_size = item_size;
+                }
+            }
+            else
+            {
+                if (first_output_size != -1)
+                {
+                    if (item_size != first_output_size)
+                    {
+                        PyErr_SetString(PyExc_RuntimeError, "All outputs must be of same dtype.");
+                        goto error;
+                    }
+                }
+                else
+                {
+                    first_output_size = item_size;
+                }
+
+            }
+            if (PyErr_Occurred())
+            {
+                printf("5\n");
+                goto error;
+            }
+            array_pointers[j + i * arguments] = array_ptr;
+
+            int ndim = Array_NDIM(cupy_array);
+            if (ndim > 4)
+            {
+                PyErr_SetString(PyExc_RuntimeError, "Arrays only up to 4 dimensions supported.");
+                goto error;
+            }
+            int stride = 0;
+            for (int k=4-1; k>=0; k--)
+            {
+                if (k<ndim)
+                {
+                    stride = Array_STRIDE(cupy_array, k) / item_size;
+                }
+                dimensions[k + 4*j + 4*arguments*i] = (k<ndim) ? Array_DIM(cupy_array, k) : 0;
+                strides[k + 4*j + 4*arguments*i] = (k<ndim) ? stride : 0;
+            }
+        }
+    }
+    multi_einsum_launch_kernel(string,
+                               problems, 
+                               arguments,
+                               4,
+                               dimensions,
+                               strides,
+                               array_pointers,
+                               add,
+                               first_item_size == 16,
+                               first_output_size == 16,
+                               error);
+    free(array_pointers);
+    free(dimensions);
+    if (strlen(error))
+    {
+        printf("Error %s\n", error);
+        PyErr_SetString(PyExc_RuntimeError, error);
+        return NULL;
+    }
+    Py_RETURN_NONE;
+error:
+    free(array_pointers);
+    free(dimensions);
+    return NULL;    
+}
+
 
