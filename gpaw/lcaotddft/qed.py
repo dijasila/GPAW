@@ -728,14 +728,14 @@ class RRemission(object):
                 plt.legend(loc="upper right")
                 plt.savefig('Dt_' + str(ii) + '.png')
         np.savez("Xw",
-                 energy=omegafft[:maxtimesteps, :] * Hartree,
+                 energy=omegafft[:maxtimesteps] * Hartree,
                  alpha_ij=alpha_ij[:maxtimesteps, :],
                  Xw=Xw[:maxtimesteps, :])
         np.savez("dyadicD",
                  Dt=Dt[:maxtimesteps, :],
-                 energy=omegafft[:maxtimesteps, :] * Hartree,
+                 energy=omegafft[:maxtimesteps] * Hartree,
                  Gw=Gw[:maxtimesteps, :],
-                 Gst=Gst[:maxtimesteps, :])
+                 Gst=Gst)
         return [Dt[:maxtimesteps, :], Gst]
 
     def selffield(self, deltat):
