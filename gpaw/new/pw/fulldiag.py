@@ -108,9 +108,9 @@ def diagonalize(potential: Potential,
     """Diagonalize hamiltonian in plane-wave basis."""
     vt_sR = potential.vt_sR
     dH_asii = potential.dH_asii
-    dedtaut_sR = potential.dedtaut_sR
-    if dedtaut_sR is None:
-        dedtaut_sR = [None, None]
+    dedtaut_sR: UGArray | list[None] = [None] * len(vt_sR)
+    if potential.dedtaut_sR is not None:
+        dedtaut_sR = potential.dedtaut_sR
 
     if nbands is None:
         nbands = min(wfs.array_shape(global_shape=True)[0]
