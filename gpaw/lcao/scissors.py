@@ -3,6 +3,7 @@ from typing import Sequence, Tuple
 
 import numpy as np
 from ase.units import Ha
+from scipy.linalg import eigvalsh
 
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.typing import Array2D, Array3D
@@ -55,8 +56,12 @@ class Scissors(DirectLCAO):
                                      kpt: KPoint,
                                      Vt_xMM: Array3D = None,
                                      root: int = -1,
-                                     add_kinetic: bool = True) -> Array2D:
+                                     add_kinetic: bool = True,
+                                     shifts=None) -> Array2D:
         """Add scissors operator."""
+        if shifts is None:
+            shifts = self.shifts
+
         H_MM = DirectLCAO.calculate_hamiltonian_matrix(
             self, ham, wfs, kpt, Vt_xMM, root, add_kinetic)
         if kpt.C_nM is None:
@@ -75,7 +80,7 @@ class Scissors(DirectLCAO):
 
         M1 = 0
         a1 = 0
-        for homo, lumo, natoms in self.shifts:
+        for homo, lumo, natoms in shifts:
             a2 = a1 + natoms
             M2 = M1 + sum(setup.nao for setup in ham.setups[a1:a2])
 
@@ -90,3 +95,21 @@ class Scissors(DirectLCAO):
             M1 = M2
 
         return H_MM
+
+    def one_shot(self, hamiltonian, wfs, shifts):
+        shifts = [(homo / Ha, lumo / Ha, natoms)
+                  for homo, lumo, natoms in shifts]
+        eig_skn = []
+        s = -1
+        for kpt in wfs.kpt_u:
+            if kpt.s != s:
+                eig_skn.append([])
+                s = kpt.s
+                Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
+                    hamiltonian.vt_sG[s])
+            H_MM = self.calculate_hamiltonian_matrix(
+                hamiltonian, wfs, kpt, Vt_xMM, root=0, shifts=shifts)
+            S_MM = wfs.S_qMM[kpt.q]
+            eig_n = eigvalsh(H_MM, S_MM)
+            eig_skn[-1].append(eig_n)
+        return np.array(eig_skn)
