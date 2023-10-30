@@ -8,13 +8,11 @@ import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
 from scipy.fftpack import dst as scipydst
 
-
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection, dipole_correction
 from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
@@ -114,7 +112,10 @@ class BasePoissonSolver(_PoissonSolver):
                  use_charge_center=False,
                  metallic_electrodes=False,
                  eps=None,
-                 use_charged_periodic_corrections=False):
+                 use_charged_periodic_corrections=False,
+                 xp=np):
+
+        self.xp = xp
 
         if eps is not None:
             warnings.warn(
@@ -267,13 +268,13 @@ class BasePoissonSolver(_PoissonSolver):
             if zero_initial_phi:
                 phi[:] = 0.0
             else:
-                axpy(-q, self.phi_gauss, phi)  # phi -= q * self.phi_gauss
+                phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
             niter = self.solve_neutral(phi, rho_neutral, timer=timer)
 
             # correct error introduced by removing monopole
-            axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
+            phi += q * self.phi_gauss
 
             return niter
         else:
@@ -309,20 +310,21 @@ class BasePoissonSolver(_PoissonSolver):
     def load_gauss(self, center=None):
         if not hasattr(self, 'rho_gauss') or center is not None:
             gauss = Gaussian(self.gd, center=center)
-            self.rho_gauss = gauss.get_gauss(0)
-            self.phi_gauss = gauss.get_gauss_pot(0)
+            self.rho_gauss = self.xp.asarray(gauss.get_gauss(0))
+            self.phi_gauss = self.xp.asarray(gauss.get_gauss_pot(0))
 
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
                  metallic_electrodes=False,
-                 use_charged_periodic_corrections=False):
+                 use_charged_periodic_corrections=False, **kwargs):
         super(FDPoissonSolver, self).__init__(
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
             metallic_electrodes=metallic_electrodes,
-            use_charged_periodic_corrections=use_charged_periodic_corrections)
+            use_charged_periodic_corrections=use_charged_periodic_corrections,
+            **kwargs)
         self.eps = eps
         self.relax = relax
         self.nn = nn
@@ -355,7 +357,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
         Allows subclasses to change the Laplace operator
         """
-        return Laplace(gd, scale, n, dtype)
+        return Laplace(gd, scale, n, dtype, xp=self.xp)
 
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
@@ -367,7 +369,7 @@ class FDPoissonSolver(BasePoissonSolver):
                 raise RuntimeError('Cannot use Mehrstellen stencil with '
                                    'non orthogonal cell.')
 
-            self.operators = [LaplaceA(gd, -scale)]
+            self.operators = [LaplaceA(gd, -scale, xp=self.xp)]
             self.B = LaplaceB(gd)
         else:
             self.operators = [self.create_laplace(gd, scale, self.nn)]
@@ -390,8 +392,8 @@ class FDPoissonSolver(BasePoissonSolver):
             except ValueError:
                 break
             self.operators.append(self.create_laplace(gd2, scale, 1))
-            self.interpolators.append(Transformer(gd2, gd))
-            self.restrictors.append(Transformer(gd, gd2))
+            self.interpolators.append(Transformer(gd2, gd, xp=self.xp))
+            self.restrictors.append(Transformer(gd, gd2, xp=self.xp))
             self.presmooths.append(4)
             self.postsmooths.append(4)
             self.weights.append(1.0)
@@ -447,14 +449,14 @@ class FDPoissonSolver(BasePoissonSolver):
             return
         # Should probably be renamed allocate
         gd = self.gd
-        self.rhos = [gd.empty()]
+        self.rhos = [gd.empty(xp=self.xp)]
         self.phis = [None]
-        self.residuals = [gd.empty()]
+        self.residuals = [gd.empty(xp=self.xp)]
         for level in range(self.levels):
             gd2 = gd.coarsen()
-            self.phis.append(gd2.empty())
-            self.rhos.append(gd2.empty())
-            self.residuals.append(gd2.empty())
+            self.phis.append(gd2.empty(xp=self.xp))
+            self.rhos.append(gd2.empty(xp=self.xp))
+            self.residuals.append(gd2.empty(xp=self.xp))
             gd = gd2
         assert len(self.phis) == len(self.rhos)
         level += 1
@@ -469,7 +471,6 @@ class FDPoissonSolver(BasePoissonSolver):
         self._init()
         self.phis[0] = phi
         eps = self.eps
-
         if self.B is None:
             self.rhos[0][:] = rho
         else:
@@ -485,7 +486,7 @@ class FDPoissonSolver(BasePoissonSolver):
 
         # Set the average potential to zero in periodic systems
         if (self.gd.pbc_c).all():
-            phi_ave = self.gd.comm.sum_scalar(np.sum(phi.ravel()))
+            phi_ave = self.gd.comm.sum_scalar(float(np.sum(phi.ravel())))
             N_c = self.gd.get_size_of_global_array()
             phi_ave /= np.prod(N_c)
             phi -= phi_ave
@@ -523,7 +524,7 @@ class FDPoissonSolver(BasePoissonSolver):
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum_scalar(
-                np.dot(residual.ravel(), residual.ravel())) * self.gd.dv
+                float(np.dot(residual.ravel(), residual.ravel()))) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
@@ -920,17 +921,18 @@ class FastPoissonSolver(BasePoissonSolver):
 
         # Calculate eigenvalues in fst/fft decomposition for
         # non-cholesky axes in parallel
-        r_cx = np.indices(gd2d.n_c)
-        r_cx += gd2d.beg_c[:, np.newaxis, np.newaxis, np.newaxis]
+        xp = self.xp
+        r_cx = xp.indices(gd2d.n_c)
+        r_cx += xp.asarray(gd2d.beg_c[:, xp.newaxis, xp.newaxis, xp.newaxis])
         r_cx = r_cx.astype(complex)
         for c, axis in enumerate(fftfst_axes):
-            r_cx[axis] *= 2j * np.pi / gd2d.N_c[axis]
+            r_cx[axis] *= 2j * xp.pi / gd2d.N_c[axis]
             if axis in fst_axes:
                 r_cx[axis] /= 2
         for c, axis in enumerate(cholesky_axes):
             r_cx[axis] = 0.0
-        np.exp(r_cx, out=r_cx)
-        fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
+        xp.exp(r_cx, out=r_cx)
+        fft_lambdas = xp.zeros_like(r_cx[0], dtype=complex)
         laplace = Laplace(self.gd, -0.25 / pi, self.nn)
         self.stencil_description = laplace.description
 
@@ -941,22 +943,23 @@ class FastPoissonSolver(BasePoissonSolver):
                 continue
             non_zero_axes, = np.where(offset_c)
             if set(non_zero_axes).issubset(fftfst_axes):
-                temp = np.ones_like(fft_lambdas)
+                temp = xp.ones_like(fft_lambdas)
                 for c, axis in enumerate(fftfst_axes):
                     temp *= r_cx[axis] ** offset_c[axis]
                 fft_lambdas += coeff * (temp - 1.0)
 
-        assert np.linalg.norm(fft_lambdas.imag) < 1e-10
+        assert xp.linalg.norm(fft_lambdas.imag) < 1e-10
         fft_lambdas = fft_lambdas.real.copy()  # arr.real is not contiguous
 
         # If there is no Cholesky decomposition, the system is already
         # fully diagonal and we can directly invert the linear problem
         # by dividing with the eigenvalues.
+        # TODO: Remove cholesky alltogether, since it is not used
         assert len(cholesky_axes) == 0
         # if len(cholesky_axes) == 0:
         with np.errstate(divide='ignore'):
-            self.inv_fft_lambdas = np.where(
-                np.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
+            self.inv_fft_lambdas = xp.where(
+                xp.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
 
     def solve_neutral(self, phi_g, rho_g, timer=None):
         if len(self.cholesky_axes) != 0:
@@ -969,14 +972,14 @@ class FastPoissonSolver(BasePoissonSolver):
         axes = self.axes
 
         with timer('Communicate to 1D'):
-            work1d_g = gd1d.empty(dtype=rho_g.dtype)
-            grid2grid(comm, gd, gd1d, rho_g, work1d_g)
+            work1d_g = gd1d.empty(dtype=rho_g.dtype, xp=self.xp)
+            grid2grid(comm, gd, gd1d, rho_g, work1d_g, xp=self.xp)
         with timer('FFT 2D'):
             work1d_g = transform2(work1d_g, axes=axes[:2],
                                   pbc=gd.pbc_c[axes[:2]])
         with timer('Communicate to 2D'):
-            work2d_g = gd2d.empty(dtype=work1d_g.dtype)
-            grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
+            work2d_g = gd2d.empty(dtype=work1d_g.dtype, xp=self.xp)
+            grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g, xp=self.xp)
         with timer('FFT 1D'):
             work2d_g = transform(work2d_g, axis=axes[2],
                                  pbc=gd.pbc_c[axes[2]])
@@ -989,14 +992,14 @@ class FastPoissonSolver(BasePoissonSolver):
             work2d_g = itransform(work2d_g, axis=axes[2],
                                   pbc=gd.pbc_c[axes[2]])
         with timer('Communicate from 2D'):
-            work1d_g = gd1d.empty(dtype=work2d_g.dtype)
-            grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
+            work1d_g = gd1d.empty(dtype=work2d_g.dtype, xp=self.xp)
+            grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g, xp=self.xp)
         with timer('FFT 2D'):
             work1d_g = itransform2(work1d_g, axes=axes[1::-1],
                                    pbc=gd.pbc_c[axes[1::-1]])
         with timer('Communicate from 1D'):
-            work_g = gd.empty(dtype=work1d_g.dtype)
-            grid2grid(comm, gd1d, gd, work1d_g, work_g)
+            work_g = gd.empty(dtype=work1d_g.dtype, xp=self.xp)
+            grid2grid(comm, gd1d, gd, work1d_g, work_g, xp=self.xp)
 
         phi_g[:] = work_g.real
         return 1  # Non-iterative method, return 1 iteration

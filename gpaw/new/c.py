@@ -86,7 +86,8 @@ def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
 
 
 def calculate_residuals_gpu(residual_nG, eps_n, wfs_nG):
-    residual_nG -= eps_n[:, None] * wfs_nG
+    for residual_G, eps, wfs_G in zip(residual_nG, eps_n, wfs_nG):
+        residual_G -= eps * wfs_G
 
 
 def add_to_density_gpu(weight_n, psit_nR, nt_R):
@@ -98,6 +99,17 @@ def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
     raise NotImplementedError
 
 
+def evaluate_lda_gpu(nt_sr, vxct_sr, e_r) -> None:
+    from gpaw.xc.kernel import XCKernel
+    XCKernel('LDA').calculate(e_r._data, nt_sr._data, vxct_sr._data)
+
+
+def evaluate_pbe_gpu(nt_sr, vxct_sr, e_r, sigma_xr, dedsigma_xr) -> None:
+    from gpaw.xc.kernel import XCKernel
+    XCKernel('PBE').calculate(e_r._data, nt_sr._data, vxct_sr._data,
+                              sigma_xr._data, dedsigma_xr._data)
+
+
 if not TYPE_CHECKING:
     from _gpaw import (  # noqa
         add_to_density, pw_precond, pw_insert,
@@ -106,4 +118,5 @@ if not TYPE_CHECKING:
     if GPU_ENABLED:
         from _gpaw import (  # noqa
             pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
-            dH_aii_times_P_ani_gpu, calculate_residuals_gpu)
+            dH_aii_times_P_ani_gpu, evaluate_lda_gpu, evaluate_pbe_gpu,
+            calculate_residuals_gpu)
