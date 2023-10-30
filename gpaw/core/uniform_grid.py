@@ -191,7 +191,8 @@ class UGDesc(Domain):
         if stencil_range != 1 and xp is not np:
             # XXX GPU kernel doesn't support large stencils at the moment
             # See c/gpu/kernels/interpolate.cpp:156
-            transformer = Transformer(self._gd, other._gd, nn=stencil_range, xp=np)
+            transformer = Transformer(self._gd, other._gd,
+                                      nn=stencil_range, xp=np)
 
             def apply(input, output):
                 input_work = as_np(input)
@@ -199,8 +200,8 @@ class UGDesc(Domain):
                 transformer.apply(input_work, output_work)
                 output[:] = as_xp(output_work, xp)
         else:
-            apply = Transformer(self._gd, other._gd, nn=stencil_range, xp=xp).apply
-
+            apply = Transformer(self._gd, other._gd,
+                                nn=stencil_range, xp=xp).apply
 
         def transform(functions, out=None):
             if out is None:

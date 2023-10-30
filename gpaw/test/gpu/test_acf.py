@@ -8,16 +8,16 @@ from gpaw.spline import Spline
 
 
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_lfc(dtype):
+def test_acf(dtype):
     s = Spline(0, 1.0, [1.0, 0.5, 0.0])
     n = 40
     a = 8.0
     fracpos_ac = [(0.5, 0.5, 0.25 + 0.25 * i) for i in [0, 1, 2]]
 
     grid = UGDesc(cell=[a, a, a], size=(n, n, n), comm=world, dtype=dtype)
-    basis_cpu = grid.atom_centered_functions([[s],[s],[s]],
+    basis_cpu = grid.atom_centered_functions([[s], [s], [s]],
                                              positions=fracpos_ac, xp=np)
-    basis_gpu = grid.atom_centered_functions([[s],[s],[s]],
+    basis_gpu = grid.atom_centered_functions([[s], [s], [s]],
                                              positions=fracpos_ac, xp=cp)
 
     P_cpu_ani = basis_cpu.layout.empty()

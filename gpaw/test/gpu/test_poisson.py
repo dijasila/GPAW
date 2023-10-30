@@ -3,6 +3,7 @@ from gpaw.poisson import FDPoissonSolver
 import pytest
 import numpy as np
 
+
 @pytest.mark.gpu
 def test_poisson(gpu):
     import cupy
@@ -18,7 +19,8 @@ def test_poisson(gpu):
         mu = lat / 2.0
 
         rho = gd.zeros(xp=xp)
-        rho[:] = xp.exp(-((x - mu)**2 + (y - mu)**2 + (z - mu)**2) / (2.0 * sigma))
+        rho[:] = xp.exp(
+            -((x - mu)**2 + (y - mu)**2 + (z - mu)**2) / (2.0 * sigma))
         charge = gd.integrate(rho)
         rho -= charge * gd.dv
 
@@ -27,6 +29,5 @@ def test_poisson(gpu):
         poisson = FDPoissonSolver(xp=xp)
         poisson.set_grid_descriptor(gd)
         poisson.solve(phi, rho)
-        print(phi[4,3,3])
         phis.append(phi)
     cupy.allclose(phis[0], phis[1], rtol=1e-10)

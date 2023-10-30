@@ -43,6 +43,7 @@ class Davidson(Eigensolver):
         self.preconditioner = None
         self.preconditioner_factory = preconditioner_factory
         self.blocksize = blocksize
+
     def __str__(self):
         return o2y(dict(name='Davidson',
                         niter=self.niter,
@@ -53,7 +54,8 @@ class Davidson(Eigensolver):
         wfs = ibzwfs.wfs_qs[0][0]
         assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
-        self.preconditioner = self.preconditioner_factory(self.blocksize, xp=xp)
+        self.preconditioner = self.preconditioner_factory(self.blocksize,
+                                                          xp=xp)
         B = ibzwfs.nbands
         b = max(wfs.n2 - wfs.n1 for wfs in ibzwfs)
         domain_comm = wfs.psit_nX.desc.comm
