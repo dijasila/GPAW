@@ -112,4 +112,4 @@ class Scissors(DirectLCAO):
             S_MM = wfs.S_qMM[kpt.q]
             eig_n = eigvalsh(H_MM, S_MM)
             eig_skn[-1].append(eig_n)
-        return np.array(eig_skn)
+        return np.array(eig_skn) * Ha
