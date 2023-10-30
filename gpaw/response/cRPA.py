@@ -49,7 +49,10 @@ class cRPA:
         if isinstance(Uwan_mnk, str):
             seed = Uwan_mnk
             assert kd is not None
-            Uwan_mnk, nk, nw1, nw2 = read_uwan(seed, kd)
+            Uwan_mnk, nk, nw1, nw2 = read_uwan(seed, kd, dis=False)
+            if nw2 < len(bandrange):
+                Uwan_mnk, nk, nw1, nw2 = read_uwan(seed, kd,
+                                                   dis=True)
             assert nw2 == len(bandrange)
             assert nk == kd.nbzkpts
             nwan = len(Uwan_mnk)
