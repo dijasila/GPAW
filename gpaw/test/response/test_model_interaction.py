@@ -6,10 +6,22 @@ from gpaw.response.chi0 import Chi0
 from gpaw.wannier90 import Wannier90
 import os
 from gpaw.mpi import world, serial_comm
+from subprocess import PIPE, run
+
+
+def out():
+    result = run('wannier90.x --version',
+                 stdout=PIPE,
+                 stderr=PIPE,
+                 universal_newlines=True,
+                 shell=True)
+    return result.stdout
 
 
 @pytest.mark.parametrize('symm', [True, False])
 @pytest.mark.response
+@pytest.mark.skipif(': 3.' not in out(),
+                    reason="requires at least Wannier90 version 3.0")
 def test_w(in_tmp_dir, gpw_files, symm):
 
     if not symm and world.size < 2:
