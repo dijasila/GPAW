@@ -121,7 +121,14 @@ class ModelInteraction:
 
         if isinstance(Uwan_mnk, str):
             # read w90 transformation matrix from file
-            Uwan_mnk, nk, nwan, nband = read_uwan(Uwan_mnk, self.gs.kd)
+            seed = Uwan_mnk
+            Uwan_mnk, nk, nwan, nband = read_uwan(seed,
+                                                  self.gs.kd,
+                                                  dis=False)
+            if bandrange[1] - bandrange[0] > nband:
+                Uwan_mnk, nk, nwan, nband = read_uwan(seed,
+                                                      self.gs.kd,
+                                                      dis=True)
         else:
             nk = Uwan_mnk.shape[2]
             nband = Uwan_mnk.shape[1]

@@ -512,7 +512,7 @@ def get_projections_in_bz(wfs, K, s, ibz2bz, bcomm=None):
     return proj_sym
 
 
-def read_uwan(seed, kd, dis=False):
+def read_umat(seed, kd, dis=False):
     """
     Reads wannier transformation matrix
     """
@@ -539,4 +539,30 @@ def read_uwan(seed, kd, dis=False):
                                 f.readline().split()]
                 uwan[ib1, ib2, ik] = complex(rdum1, rdum2)
     assert set(iklist) == set(range(nk))  # check that all k:s were found
+    return uwan, nk, nw1, nw2
+
+
+def read_uwan(seed, kd, dis=False):
+    """
+    Reads wannier transformation matrix
+    Input parameters:
+    -----------------
+    seed: str
+          seed in wannier calculation
+    kd: kpt descriptor
+    dis: logical
+        should be set to true if nband > nwan
+    """
+    assert '.mat' not in seed
+    # reads in wannier transformation matrix
+    umat, nk, nw1, nw2 = read_umat(seed, kd, dis=False)
+
+    if dis:
+        # Reads in transformation to optimal subspace
+        umat_dis, nk, nw1, nw2 = read_umat(seed, kd, dis=True)
+        uwan = np.zeros_like(umat_dis)
+        for ik in range(nk):
+            uwan[:, :, ik] = umat[:, :, ik] @ umat_dis[:, :, ik]
+    else:
+        uwan = umat
     return uwan, nk, nw1, nw2
