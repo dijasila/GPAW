@@ -50,6 +50,7 @@ class FakeWFS:
                 self.mode = 'fd'
         else:
             self.mode = 'lcao'
+        self.collinear = wfs.ncomponents < 4
 
     def _get_wave_function_array(self, u, n, realspace):
         psit_X = self.kpt_u[u].wfs.psit_nX[n]
@@ -151,6 +152,7 @@ class FakeDensity:
         self._densities = calculation.densities()
         self.ncomponents = len(self.nt_sG)
         self.nspins = self.ncomponents % 3
+        self.collinear = self.ncomponents < 4
 
     @cached_property
     def D_asp(self):

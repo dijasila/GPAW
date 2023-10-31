@@ -223,10 +223,7 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         in order to calculate PAW corrections. Most of the information is
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
-
-        micro_setups = [extract_micro_setup(self.gs, a)
-                        for a in range(len(self.gs.atoms))]
-
+        micro_setups = self.gs.micro_setups
         return R_av, micro_setups
 
 
@@ -271,24 +268,28 @@ class MicroSetup:
 
         return df_ng
 
+    def expand_function(self, add_f, **kwargs):
+        f_ng = self.evaluate_function(add_f)
+        return self.expand(f_ng, **kwargs)
 
-def extract_micro_setup(gs, a):
-    """Extract the all-electron and pseudo spin-densities inside augmentation
-    sphere a, as well as the relevant radial and angular grid data.
+    def expand_paw_correction(self, add_f, **kwargs):
+        df_ng = self.evaluate_paw_correction(add_f)
+        return self.expand(df_ng, **kwargs)
 
-    Returns
-    -------
-    micro_setup : MicroSetup
-    """
-    pawdata = gs.pawdatasets[a]
+    def expand(self, f_ng, **kwargs):
+        """Expand into real spherical harmonics."""
+        return calculate_reduced_rshe(self.rgd, f_ng, self.Y_nL, **kwargs)
+
+
+def extract_micro_setup(pawdata, D_sp) -> MicroSetup:
+    """Extract the a.e. and pseudo (spin-)densities as a MicroSetup."""
     # Radial grid descriptor:
     rgd = pawdata.xc_correction.rgd
     # Spherical harmonics on the Lebedev quadrature:
     Y_nL = pawdata.xc_correction.Y_nL
-
-    D_sp = gs.D_asp[a]  # atomic density matrix
-    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata, D_sp)
-
+    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata,
+                                                      # atomic density matrix
+                                                      D_sp)
     return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
 
 
@@ -433,24 +434,19 @@ class LocalPAWFTEngine:
                               l m=-l            0
 
         The calculated atomic correction is then added to the output array."""
-        # Radial and angular grid information
-        rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
+        rgd = micro_setup.rgd
 
-        # Calculate df on Lebedev quadrature (angular grid) and radial grid
-        df_ng = self._calculate_df(micro_setup)
-
-        # Reduce radial grid to where df is nonzero
-        df_ng, r_g, dv_g = self.get_reduced_radial_grid(df_ng, rgd)
-
-        # Expand correction in real spherical harmonics
-        rshe, info_string = self.perform_rshe(rgd, df_ng, Y_nL)
+        # Expand Δf_a[n_a,ñ_a](r) in real spherical harmonics
+        rshe, info_string = micro_setup.expand_paw_correction(
+            self._add_f, lmax=self.rshelmax, wmin=self.rshewmin)
         self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
         # Bessel functions)
         (ii_MmyG,
          j_gMmyG,
-         Y_MmyG) = self._expand_plane_waves(G_myGv, r_g, rshe.L_M, rshe.l_M)
+         Y_MmyG) = self._expand_plane_waves(
+             G_myGv, rgd.r_g, rshe.L_M, rshe.l_M)
 
         # Calculate the PAW correction as an integral over the radial grid
         # and rshe coefficients
@@ -459,7 +455,7 @@ class LocalPAWFTEngine:
             # Radial integral, dv = 4πr^2
             df_gM = rshe.f_gM
             radial_coef_MmyG = np.tensordot(j_gMmyG * df_gM[..., np.newaxis],
-                                            dv_g, axes=([0, 0]))
+                                            rgd.dv_g, axes=([0, 0]))
             # Angular integral (sum over l,m)
             atomic_corr_myG = np.sum(angular_coef_MmyG * radial_coef_MmyG,
                                      axis=0)
@@ -468,40 +464,6 @@ class LocalPAWFTEngine:
 
             # Add to output array
             fPAW_G[G_myG] += position_prefactor_myG * atomic_corr_myG
-
-    @timer('Calculate PAW correction inside augmentation spheres')
-    def _calculate_df(self, micro_setup):
-        return micro_setup.evaluate_paw_correction(self._add_f)
-
-    @staticmethod
-    def get_reduced_radial_grid(df_ng, rgd):
-        """Get the radial grid parameters where df_ng is nonzero.
-
-        Returns
-        -------
-        df_ng : nd.array
-            df_ng on reduced radial grid
-        r_g : nd.array
-            radius of each point on the reduced radial grid
-        dv_g : nd.array
-            volume element of each point on the reduced radial grid
-        """
-        # Find PAW correction range
-        dfmask_g = np.where(np.any(np.abs(df_ng) > 0., axis=0))
-        ng = np.max(dfmask_g) + 1
-
-        # Integrate only r-values inside PAW correction range
-        df_ng = df_ng[:, :ng]
-        r_g = rgd.r_g[:ng]
-        dv_g = rgd.dv_g[:ng]
-
-        return df_ng, r_g, dv_g
-
-    @timer('Expand PAW correction in real spherical harmonics')
-    def perform_rshe(self, rgd, df_ng, Y_nL):
-        r"""Expand Δf_a[n_a,ñ_a](r) in real spherical harmonics."""
-        return calculate_reduced_rshe(
-            rgd, df_ng, Y_nL, self.rshelmax, self.rshewmin)
 
     def print_rshe_info(self, a, info_string):
         """Print information about the expansion at atom a."""
@@ -536,9 +498,9 @@ class LocalPAWFTEngine:
         # Setup arrays to fully vectorize computations
         nM = len(L_M)
         (r_gMmyG, l_gMmyG,
-         Gnorm_gMmyG) = [a.reshape(len(r_g), nM, nmyG)
+         Gnorm_gMmyG) = (a.reshape(len(r_g), nM, nmyG)
                          for a in np.meshgrid(r_g, l_M, Gnorm_myG,
-                                              indexing='ij')]
+                                              indexing='ij'))
 
         with self.context.timer('Compute spherical bessel functions'):
             # Slow step

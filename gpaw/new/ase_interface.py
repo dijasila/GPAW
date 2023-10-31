@@ -11,7 +11,7 @@ from ase.units import Bohr, Ha
 from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
-from gpaw.mpi import world, synchronize_atoms
+from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
 from gpaw.new import Timer, cached_property
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
@@ -303,19 +303,41 @@ class ASECalculator:
         kwargs = {**dict(self.params.items()), **kwargs}
         return GPAW(**kwargs)
 
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
-                                 periodic=False) -> Array3D:
+    def get_pseudo_wave_function(self, band, kpt=0, spin=None,
+                                 periodic=False,
+                                 broadcast=True) -> Array3D:
         state = self.calculation.state
-        wfs = state.ibzwfs.get_wfs(spin=spin, kpt=kpt, n1=band, n2=band + 1)
-        basis = getattr(self.calculation.scf_loop.hamiltonian, 'basis', None)
-        grid = state.density.nt_sR.desc
-        wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
-        psit_R = wfs.psit_nX[0]
-        if not psit_R.desc.pbc.all():
-            psit_R = psit_R.to_pbc_grid()
-        if periodic:
-            psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
-        return psit_R.data * Bohr**-1.5
+        collinear = state.ibzwfs.collinear
+        if collinear:
+            if spin is None:
+                spin = 0
+        else:
+            assert spin is None
+        wfs = state.ibzwfs.get_wfs(spin=spin if collinear else 0,
+                                   kpt=kpt,
+                                   n1=band, n2=band + 1)
+        if wfs is not None:
+            basis = getattr(self.calculation.scf_loop.hamiltonian,
+                            'basis', None)
+            grid = state.density.nt_sR.desc.new(comm=None)
+            if collinear:
+                wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+                psit_R = wfs.psit_nX[0]
+            else:
+                psit_sG = wfs.psit_nX[0]
+                grid = grid.new(kpt=psit_sG.desc.kpt_c,
+                                dtype=psit_sG.desc.dtype)
+                psit_R = psit_sG.ifft(grid=grid)
+            if not psit_R.desc.pbc.all():
+                psit_R = psit_R.to_pbc_grid()
+            if periodic:
+                psit_R.multiply_by_eikr(-psit_R.desc.kpt_c)
+            array_R = psit_R.data * Bohr**-1.5
+        else:
+            array_R = None
+        if broadcast:
+            array_R = bcast(array_R, 0, self.calculation.comm)
+        return array_R
 
     def get_atoms(self):
         atoms = self.atoms.copy()

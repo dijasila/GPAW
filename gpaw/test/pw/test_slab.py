@@ -2,7 +2,7 @@ import pytest
 from ase import Atoms
 from ase.optimize import BFGS
 
-from gpaw import PW, SCIPY_VERSION
+from gpaw import PW
 from gpaw.new.ase_interface import GPAW as NewGPAW
 from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
@@ -14,11 +14,6 @@ from gpaw.mpi import world
      (False, NewGPAW),
      pytest.param(True, NewGPAW, marks=pytest.mark.gpu)])
 def test_pw_slab(gpu, GPAW):
-    if GPAW is NewGPAW and world.size > 1:
-        pytest.skip()
-    if gpu and SCIPY_VERSION < [1, 6]:
-        pytest.skip()
-
     a = 2.65
     slab = Atoms('Li2',
                  [(0, 0, 0), (0, 0, a)],
@@ -29,7 +24,7 @@ def test_pw_slab(gpu, GPAW):
     if gpu:
         parallel['gpu'] = True
     calc = GPAW(mode=PW(200),
-                eigensolver='rmm-diis',
+                eigensolver='dav' if GPAW is NewGPAW else 'rmm-diis',
                 parallel=parallel,
                 kpts=(k, k, 1))
     slab.calc = calc

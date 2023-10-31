@@ -8,7 +8,7 @@ from ase.units import Ha
 from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_centered_functions import AtomArrays
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
 from gpaw.new.calculation import DFTState
@@ -96,14 +96,15 @@ class Davidson(Eigensolver):
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR, state.potential.dedtaut_sR)
         ibzwfs = state.ibzwfs
-        error = 0.0
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
+        error = 0.0
         for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS_aii, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum_scalar(
+            float(error)) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
@@ -164,7 +165,7 @@ class Davidson(Eigensolver):
                 if weight_n is None:
                     error = np.inf
                 else:
-                    error = weight_n @ as_xp(residual_nX.norm2(), np)
+                    error = weight_n @ as_np(residual_nX.norm2())
                     if wfs.ncomponents == 4:
                         error = error.sum()
 
@@ -201,30 +202,30 @@ class Davidson(Eigensolver):
                 H_NN.data[:B, :B] = xp.diag(eig_N[:B])
                 S_NN.data[:B, :B] = xp.eye(B)
                 eig_N[:] = H_NN.eigh(S_NN)
-                wfs._eig_n = as_xp(eig_N[:B], np)
+                wfs._eig_n = as_np(eig_N[:B])
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[:B, :B]
-                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, opa='C', out=residual_nX)
-            M_nn.multiply(P_ani, opa='C', out=P3_ani)
+            M_nn.multiply(psit_nX, out=residual_nX)
+            M_nn.multiply(P_ani, out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[B:, :B]
-                    M0_nn.data[:] = H_NN.data[:B, B:].T
+                    M0_nn.data[:] = H_NN.data[:B, B:]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
-            M_nn.multiply(P2_ani, opa='C', beta=1.0, out=P3_ani)
+            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
+            M_nn.multiply(P2_ani, beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
             P_ani, P3_ani = P3_ani, P_ani
             wfs._P_ani = P_ani
@@ -247,7 +248,7 @@ def calculate_residuals(residual_nX: XArray,
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
