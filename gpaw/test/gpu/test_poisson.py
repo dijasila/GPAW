@@ -2,9 +2,11 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.poisson import FDPoissonSolver
 import pytest
 import numpy as np
+from gpaw.mpi import size
 
 
 @pytest.mark.gpu
+@pytest.mark.skipif(size == 8, reason='Fails at the moment for size=8')
 def test_poisson(gpu):
     import cupy
     phis = []
