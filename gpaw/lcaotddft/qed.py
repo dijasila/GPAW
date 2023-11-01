@@ -442,7 +442,9 @@ class RRemission(object):
                           str(self.cutofffrequency * Hartree),
                           str(self.cutoff_lower * Hartree))
 
-                    print("CAREFUL, it could be that the cutoffs break Kramers-Kroenig and lead to false imaginary components in D.")
+                    print("CAREFUL, it could be that the cutoffs break",
+                          "Kramers-Kroenig and lead to false imaginary",
+                          "components in D.")
 
                 Gw0[:, ii * shiftfac] = (GG_pj(omegafft) * window_Gw0 *
                                          window_Gw0_L *
@@ -508,65 +510,46 @@ class RRemission(object):
                       self.cavity_volume)
                 # alpha_ij is the polarizablity (local response)
                 alpha_ij = np.zeros((len(omegafft),9),dtype=complex)
+                for ii in range(9):
+                    pol_interp = interpolate.interp1d(omegafftdm,
+                                                      pol_matrix[ii, :],
+                                                      kind="cubic",
+                                                      fill_value="extrapolate")
+                    alpha_ij[:,ii]=(pol_interp(omegafft)
+                                    * deltat / (timedm[1] - timedm[0])
+                                    * window_Gw0)
+                print("Increase in frequency resolution",
+                      len(omegafft) / len(omegafftdm))
+
                 if self.claussius == 1:
-                    for ii in range(9):
-                        pol_interp = interpolate.interp1d(omegafftdm,
-                                                          pol_matrix[ii, :],
-                                                          kind="cubic",
-                                                          fill_value="extrapolate")
-                        alpha_ij[:,ii]=(pol_interp(omegafft)
-                                        * deltat / (timedm[1] - timedm[0])
-                                        * window_Gw0)
+                    print('Using Claussius-Mossotti for Xw')
                     for el in range(len(omegafft)):
                         if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
-                            Xw[ww, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) / (4. * np.pi * self.ensemble_number / self.cavity_volume) + 1. / 3. * np.eye(3)), (-1, ))
+                            Xw[el, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) / (4. * np.pi * self.ensemble_number / self.cavity_volume) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
-                    print('You are using Claussius-Mossoti for Xw')
 
-                else: # previous weak-field version
-                    for ii in range(9):
-                        pol_interp = interpolate.interp1d(omegafftdm,
-                                                          pol_matrix[ii, :],
-                                                          kind="cubic",
-                                                          fill_value="extrapolate")
-                        # fill_value=(0,0),
-                        # bounds_error=False)
-                        # fill_value="extrapolate")
-                        alpha_ij[:, ii] = ((pol_interp(omegafft)
-                                            * deltat / (timedm[1] - timedm[0]))
-                                           * window_Gw0)
-                        """
-                        The factor deltat/(t_1-t_0) accounts for the difference
-                        in normalization for the FFTs in both spaces. This ensures
-                        that the back-FFT will result in the correct magnitude of
-                        the combined system.
-                        """
-
-                    print("Increase in frequency resolution",
-                          len(omegafft) / len(omegafftdm))
-                    """
-                    THE PROBLEM WITH THE OVERTONES IS PROBABLY A CONSEQUENCE
-                    OF THE FITTING WHICH results in negative imaginary components
-                    (see pictures) The original dipole moments have this feature
-                    only without additonal dmping. MAJOR PROBLEM: The fitted Xw
-                    is giving a constant real-part which does not go to 0.
-                    Simplest solution maybe: dmpen to 0 or decrease dt such
-                    that omega max increases.
-                    """
                 for ii in range(9):
                     plt.figure()
                     if self.claussius == 1:
                         plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
                         plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
                     else:
-                        plt.plot(omegafft * Hartree, np.real(alpha_ij[:, ii]))
-                        plt.plot(omegafft * Hartree, np.imag(alpha_ij[:, ii]))
+                        plt.plot(omegafft * Hartree,
+                                 (4. * np.pi
+                                  * self.ensemble_number / self.cavity_volume
+                                  * np.real(alpha_ij[:, ii])))
+                        plt.plot(omegafft * Hartree,
+                                 (4. * np.pi
+                                  * self.ensemble_number / self.cavity_volume
+                                  * np.imag(alpha_ij[:, ii])))
                     plt.xlabel("Energy (eV)")
                     plt.ylabel(r"$\alpha_ij/\xi(\omega)$, i=" + str(ii)
                                + 'CM=' + str(self.claussius) )
                     if self.cutofffrequency is not None:
                         plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
+                    else:
+                        plt.xlim(0, 14)
                     plt.savefig('Xw_' + str(ii) + '.png')
                     plt.close()
             else:
@@ -593,6 +576,12 @@ class RRemission(object):
                                 )
                             )
                         )
+                if self.claussius == 1:
+                    print("CAREFUL: since g_omega was missing some minus, there is probably something off in the G0 and the dressing compared to the G1 that we load from the external python script.")
+                    for el in range(len(omegafft)):
+                        Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                                               np.reshape(Gw[el, :], (3, 3)) @ (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                                               ,(-1, ))
             else:
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
@@ -641,7 +630,7 @@ class RRemission(object):
                             Gw[el, :] = Gw0[el, :]
                 if bg_correction == True and self.cutofffrequency is not None:
                     """
-                        WORKINGHERE -- adding local field correction
+                        -- adding local field correction
                                        derived by Frieder
                     print("Setting up Gbar0 correction -- only ISO yet")
                     iso_eps = 1 + (Xw[:, 0] + Xw[:, 4] + Xw[:, 8])/3
@@ -715,6 +704,8 @@ class RRemission(object):
                 plt.ylabel(r"$G^{(1),no static}_i(\omega)$, i=" + str(ii))
                 if self.cutofffrequency is not None:
                     plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
+                else:
+                    plt.xlim(0, 14)
                 plt.legend(loc="upper right")
                 plt.savefig('Gw_' + str(ii) + '.png')
                 #plt.close()
