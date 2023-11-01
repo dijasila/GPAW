@@ -397,7 +397,7 @@ check-agts:
     - linux
   script:
     # - pip install --user git+https://gitlab.com/myqueue/myqueue.git@master
-    - pip install --user myqueue=23.4  # supports Python 3.7
+    - pip install --user myqueue==23.4  # supports Python 3.7
     - mq config --in-place
     - mq init
     - mq workflow -p agts.py -zT | tail -1 | tee task_count
