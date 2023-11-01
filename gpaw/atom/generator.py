@@ -600,6 +600,10 @@ class Generator(AllElectron):
                     ae = self.symbol + '.ae.ld.' + 'spdf'[l]
                     ps = self.symbol + '.ps.ld.' + 'spdf'[l]
                     with open(ae, 'w') as fae, open(ps, 'w') as fps:
+                        ld1 = 1000
+                        ld2 = 1000
+                        d1 = []
+                        d2 = []
                         for i, e in enumerate(self.elog):
                             # All-electron logarithmic derivative:
                             u[:] = 0.0
@@ -607,6 +611,9 @@ class Generator(AllElectron):
                                   c10, c2, self.scalarrel, gmax=gld)
                             dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                             ld = dudr / u[gld] - 1.0 / r[gld]
+                            if ld > ld1:
+                                d1.append(e)
+                            ld1 = ld
                             print(e, ld, file=fae)
                             self.logd[l][0][i] = ld
 
@@ -626,9 +633,14 @@ class Generator(AllElectron):
 
                             dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                             ld = dsdr / s[gld] - 1.0 / r[gld]
+                            if ld > ld2:
+                                d2.append(e)
+                            ld2 = ld
                             print(e, ld, file=fps)
                             self.logd[l][1][i] = ld
-
+                        for e1, e2 in zip(d1[::-1], d2[::-1]):
+                            print('LD-ERROR', e1 != e2,
+                                  self.symbol, l, e1, e2, e1 - e2)
             except KeyboardInterrupt:
                 pass
 
@@ -842,6 +854,7 @@ class Generator(AllElectron):
             H.ravel()[ng::ng + 1] -= 0.5 / h**2
             S.ravel()[::ng + 1] += 1.0
             e_n, _ = eigh(H, S)
+            print(l, e_n[:4])
             ePAW = e_n[0]
             if l <= self.lmax and self.n_ln[l][0] > 0:
                 eAE = self.e_ln[l][0]
@@ -912,14 +925,18 @@ if __name__ == '__main__':
     from gpaw.atom.configurations import parameters
 
     for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE', 'GLLBSC']:
+        if xcname != 'PBE':
+            continue
         for symbol, par in parameters.items():
+            # if symbol != 'Cr':
+            #     continue
             filename = symbol + '.' + xcname
-            if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
-                continue
+            # if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
+            #     continue
             g = Generator(symbol, xcname, scalarrel=True, nofiles=True)
-            g.run(exx=True, logderiv=False, **par)
+            g.run(exx=True, logderiv=not False, **par)
 
-            if xcname == 'PBE':
+            if 0:  # xcname == 'PBE':
                 bm = BasisMaker(g, name='dzp', run=False)
                 basis = bm.generate()
                 basis.write_xml()
