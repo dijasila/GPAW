@@ -291,7 +291,7 @@ class IBZWaveFunctions:
             wfs.force_contribution(potential, F_av)
         if self.xp is not np:
             synchronize()
-        self.kpt_comm.sum(F_av)
+        self.kpt_band_comm.sum(F_av)
         return F_av
 
     def write(self,
