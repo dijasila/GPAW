@@ -206,9 +206,8 @@ class DFTCalculation:
         mm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
-        if self.state.density.ncomponents == 4:
-            self.results['non_collinear_magmoms'] = mm_av
-            self.results['non_collinear_magmom'] = mm_v
+        self.results['non_collinear_magmoms'] = mm_av
+        self.results['non_collinear_magmom'] = mm_v
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
