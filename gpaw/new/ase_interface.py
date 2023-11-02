@@ -283,7 +283,7 @@ class ASECalculator:
 
     def get_non_collinear_magnetic_moments(self,
                                            atoms: Atoms | None = None
-                                           ) -> Array1D:
+                                           ) -> Array2D:
         return self.calculate_property(atoms, 'non_collinear_magmoms')
 
     def write(self, filename, mode=''):
