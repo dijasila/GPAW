@@ -128,6 +128,12 @@ def test_basics(in_tmp_dir, gpw_files):
     assert np.allclose(data['chiD_qw'], dipole)
 
 
+def test_off_diagonal_chi(in_tmp_dir, gpw_files):
+    df = dielectric(gpw_files['IBiTe_pw_monolayer'], 0.1, 0.5)
+    bb = BuildingBlock('IBiTe', df)
+    bb.calculate_building_block()
+    print('calculated bb')
+
 # test limited features that should work in parallel
 @pytest.mark.skipif(size == 1, reason='Features already tested '
                     'in serial in test_basics')

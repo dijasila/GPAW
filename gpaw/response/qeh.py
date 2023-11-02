@@ -429,8 +429,8 @@ class BuildingBlock:
                                      s=0)
             self.chiMD_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         else:
-            self.chiDM_qw = np.zeros((len(q_grid, len(w_grid))))
-            self.chiMD_qw = np.zeros((len(q_grid, len(w_grid))))
+            self.chiDM_qw = np.zeros((len(q_grid), len(w_grid)))
+            self.chiMD_qw = np.zeros((len(q_grid), len(w_grid)))
 
         # drho monopole
 
