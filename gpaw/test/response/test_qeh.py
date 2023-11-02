@@ -145,6 +145,7 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     assert np.allclose(chiMD_qw[10, 8], (-2.866099 - 1j * 15.053198) * 1e-3)
     assert np.allclose(chiMD_qw[9, 9], (-9.823681 - 1j * 36.350808) * 1e-6)
 
+
 # test limited features that should work in parallel
 @pytest.mark.skipif(size == 1, reason='Features already tested '
                     'in serial in test_basics')
