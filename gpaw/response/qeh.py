@@ -394,11 +394,11 @@ class BuildingBlock:
 
         self.chiM_qw = yr(q_grid, w_grid) + 1j * yi(q_grid, w_grid)
         if omit_q0:
-            yr = interp1d(self.wd.omega_w, chi0_w.real)
-            yi = interp1d(self.wd.omega_w, chi0_w.imag)
-            chi0_w = yr(w_grid) + 1j * yi(w_grid)
             q_abs[0] = q0_abs
             if np.isclose(q_grid[0], 0):
+                yr = interp1d(self.wd.omega_w, chi0_w.real)
+                yi = interp1d(self.wd.omega_w, chi0_w.imag)
+                chi0_w = yr(w_grid) + 1j * yi(w_grid)            
                 self.chiM_qw[0] = chi0_w
 
         # chi dipole
