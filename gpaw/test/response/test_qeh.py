@@ -73,6 +73,8 @@ def test_basics(in_tmp_dir, gpw_files):
     data2 = np.load('mos2_rs-chi.npz')
     assert np.allclose(data['chiM_qw'], data2['chiM_qw'])
 
+    assert np.array_equal(data['chiMD_qw'], np.zeros(data['chiMD_qw'].shape))
+    assert np.array_equal(data['chiDM_qw'], np.zeros(data['chiDM_qw'].shape))
     # Test building blocks are on different grids
     are_equal = check_building_blocks(['mos2', 'graphene'])
     assert not are_equal
@@ -133,6 +135,15 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     bb = BuildingBlock('IBiTe', df)
     bb.calculate_building_block()
     print('calculated bb')
+    can_load = bb.load_chi_file()
+    assert can_load
+    chiDM_qw = bb.chiDM_qw
+    chiMD_qw = bb.chiMD_qw
+    assert np.allclose(chiDM_qw[7, 4], 1.304586e-7 + 1j * 1.822468e-5)
+    assert np.allclose(chiDM_qw[0, 0], 0)
+    assert np.allclose(chiMD_qw[0, 0], 0)
+    assert np.allclose(chiMD_qw[10, 8], (-2.866099 - 1j * 15.053198) * 1e-3)
+    assert np.allclose(chiMD_qw[9, 9], (-9.823681 - 1j * 36.350808) * 1e-6)
 
 # test limited features that should work in parallel
 @pytest.mark.skipif(size == 1, reason='Features already tested '
