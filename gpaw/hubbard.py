@@ -43,6 +43,21 @@ class HubbardU:
         eU = 0.
         dHU_sii = np.zeros_like(D_sii)
         for l, U, scale in zip(self.l, self.U, self.scale):
+            nl = np.where(np.equal(setup.l_j, l))[0]
+            if len(nl) == 1:
+                # XXX Implementation to remove these asserts should be easy.
+                assert setup.n_j[nl[0]] == -1
+                assert scale == 0, ('DFT+U correction cannot be scaled if '
+                                    'there is no bounded partial wave.')
+            elif len(nl) == 2 and scale == 1:
+                assert setup.n_j[nl[-1]] == -1, (
+                    'DFT+U scaling has only been implemented for setups with '
+                    'one bounded and one unbounded radial partial wave.')
+            else:
+                raise NotImplementedError(
+                    f'Setup has {len(nl)} radial partial waves with angular '
+                    f'momentum quantum number {l}. Must be 1 or 2 for DFT+U.')
+
             eU1, dHU1_sii = hubbard(D_sii, U=U, l=l, l_j=setup.l_j,
                                     lq=setup.lq, scale=scale)
 
@@ -178,13 +193,6 @@ def aoom(D_ii: Array2D,
 
         return N_mm, dHU_ii
     elif len(nl) == 1:
-        # If there is only 1 partial wave with matching l, we assert that the
-        # partial wave is unbounded.
-        assert l_j[-1] == l
-
-        assert scale == 0, \
-            'DFT+U correction cannot be scaled if there is no bounded state.'
-
         N_mm = D_ii[i1, i1] * lq[-1]
         dHU_ii[i1, i1] = lq[-1]
         return N_mm, dHU_ii
