@@ -5,6 +5,7 @@ from math import pi, sqrt
 import numpy as np
 from numpy.linalg import solve, inv
 from scipy.linalg import eigh
+from ase.units import Ha
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
@@ -581,6 +582,7 @@ class Generator(AllElectron):
         if logderiv:
             ni = 300
             self.elog = np.linspace(-5.0, 1.0, ni)
+            delta = self.elog[1] - self.elog[0]
             # Calculate logarithmic derivatives:
             gld = gcutmax + 10
             self.rlog = r[gld]
@@ -600,10 +602,10 @@ class Generator(AllElectron):
                     ae = self.symbol + '.ae.ld.' + 'spdf'[l]
                     ps = self.symbol + '.ps.ld.' + 'spdf'[l]
                     with open(ae, 'w') as fae, open(ps, 'w') as fps:
-                        ld1 = 1000
-                        ld2 = 1000
-                        d1 = []
-                        d2 = []
+                        ld_ae = 1000
+                        ld_ps = 1000
+                        nodes_ae = []
+                        nodes_ps = []
                         for i, e in enumerate(self.elog):
                             # All-electron logarithmic derivative:
                             u[:] = 0.0
@@ -611,9 +613,9 @@ class Generator(AllElectron):
                                   c10, c2, self.scalarrel, gmax=gld)
                             dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                             ld = dudr / u[gld] - 1.0 / r[gld]
-                            if ld > ld1:
-                                d1.append(e)
-                            ld1 = ld
+                            if ld > ld_ae:
+                                nodes_ae.append(e)
+                            ld_ae = ld
                             print(e, ld, file=fae)
                             self.logd[l][0][i] = ld
 
@@ -633,14 +635,17 @@ class Generator(AllElectron):
 
                             dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                             ld = dsdr / s[gld] - 1.0 / r[gld]
-                            if ld > ld2:
-                                d2.append(e)
-                            ld2 = ld
+                            if ld > ld_ps:
+                                nodes_ps.append(e)
+                            ld_ps = ld
                             print(e, ld, file=fps)
                             self.logd[l][1][i] = ld
-                        for e1, e2 in zip(d1[::-1], d2[::-1]):
-                            print('LD-ERROR', e1 != e2,
-                                  self.symbol, l, e1, e2, e1 - e2)
+
+                        for e1, e2 in zip(nodes_ae[::-1], nodes_ps[::-1]):
+                            if abs(e1 - e2) > 1.5 * delta:
+                                print(f'{self.symbol}(l={l})-GHOST?',
+                                      f'AE={e1 * Ha:.3f} eV,',
+                                      f'PS={e2 * Ha:.3f} eV')
             except KeyboardInterrupt:
                 pass
 
@@ -854,7 +859,6 @@ class Generator(AllElectron):
             H.ravel()[ng::ng + 1] -= 0.5 / h**2
             S.ravel()[::ng + 1] += 1.0
             e_n, _ = eigh(H, S)
-            print(l, e_n[:4])
             ePAW = e_n[0]
             if l <= self.lmax and self.n_ln[l][0] > 0:
                 eAE = self.e_ln[l][0]
@@ -925,18 +929,14 @@ if __name__ == '__main__':
     from gpaw.atom.configurations import parameters
 
     for xcname in ['LDA', 'PBE', 'RPBE', 'revPBE', 'GLLBSC']:
-        if xcname != 'PBE':
-            continue
         for symbol, par in parameters.items():
-            # if symbol != 'Cr':
-            #     continue
             filename = symbol + '.' + xcname
-            # if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
-            #     continue
+            if os.path.isfile(filename) or os.path.isfile(filename + '.gz'):
+                continue
             g = Generator(symbol, xcname, scalarrel=True, nofiles=True)
-            g.run(exx=True, logderiv=not False, **par)
+            g.run(exx=True, logderiv=False, **par)
 
-            if 0:  # xcname == 'PBE':
+            if xcname == 'PBE':
                 bm = BasisMaker(g, name='dzp', run=False)
                 basis = bm.generate()
                 basis.write_xml()
