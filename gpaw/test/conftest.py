@@ -1615,7 +1615,6 @@ class GPWFiles:
         return IBiTe.calc
 
 
-
 # We add Si fixtures with various symmetries to the GPWFiles namespace
 for name, method in si_gpwfiles().items():
     setattr(GPWFiles, name, method)
