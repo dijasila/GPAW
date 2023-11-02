@@ -40,6 +40,7 @@ units = {'energy': Ha,
          'dipole': Bohr,
          'magmom': 1.0,
          'magmoms': 1.0,
+         'non_collinear_magmom': 1.0,
          'non_collinear_magmoms': 1.0}
 
 
@@ -194,6 +195,8 @@ class DFTCalculation:
         self.results['energy'] = total_extrapolated
 
     def dipole(self):
+        if 'dipole' in self.results:
+            return
         dipole_v = self.state.density.calculate_dipole_moment(self.fracpos_ac)
         x, y, z = dipole_v * Bohr
         self.log(f'dipole moment: [{x:.6f}, {y:.6f}, {z:.6f}]  # |e|*Ang\n')
@@ -204,6 +207,7 @@ class DFTCalculation:
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
         self.results['non_collinear_magmoms'] = mm_av
+        self.results['non_collinear_magmom'] = mm_v
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
@@ -219,6 +223,19 @@ class DFTCalculation:
 
     def forces(self, silent=False):
         """Calculate atomic forces."""
+        if 'forces' not in self.results or silent:
+            self._calculate_forces()
+
+        if not silent:
+            self.log('\nforces: [  # eV/Ang')
+            F_av = self.results['forces'] * (Ha / Bohr)
+            for a, setup in enumerate(self.setups):
+                x, y, z = F_av[a]
+                c = ',' if a < len(F_av) - 1 else ']'
+                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
+                         f'  # {setup.symbol:2} {a}')
+
+    def _calculate_forces(self):
         xc = self.pot_calc.xc
         assert not hasattr(xc.xc, 'setup_force_corrections')
 
@@ -254,20 +271,12 @@ class DFTCalculation:
         domain_comm.sum(F_av)
 
         F_av = self.state.ibzwfs.ibz.symmetries.symmetrize_forces(F_av)
-
-        if not silent:
-            self.log('\nforces: [  # eV/Ang')
-            s = Ha / Bohr
-            for a, setup in enumerate(self.setups):
-                x, y, z = F_av[a] * s
-                c = ',' if a < len(F_av) - 1 else ']'
-                self.log(f'  [{x:9.3f}, {y:9.3f}, {z:9.3f}]{c}'
-                         f'  # {setup.symbol:2} {a}')
-
         self.comm.broadcast(F_av, 0)
         self.results['forces'] = F_av
 
     def stress(self):
+        if 'stress' in self.results:
+            return
         stress_vv = self.pot_calc.stress(self.state)
         self.log('\nstress tensor: [  # eV/Ang^3')
         for (x, y, z), c in zips(stress_vv * (Ha / Bohr**3), ',,]'):
