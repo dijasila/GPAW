@@ -46,14 +46,16 @@ void add_to_density_gpu_launch_kernel(int nb,
                                       int nR,
                                       double* f_n,
                                       double complex* psit_nR,
-                                      double* rho_R);
+                                      double* rho_R,
+                                      int wfs_is_complex);
 
 
 void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
                                       int nI, npy_int32* ni_a, 
                                       double* dH_aii_dev, 
                                       gpuDoubleComplex* P_ani_dev,
-                                      gpuDoubleComplex* outP_ani_dev);
+                                      gpuDoubleComplex* outP_ani_dev,
+                                      int is_complex);
 
 void evaluate_pbe_launch_kernel(int nspin, int ng,
                                 double* n,
@@ -169,17 +171,21 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     if (!outP_ani_dev) 
     {
         PyErr_SetString(PyExc_RuntimeError, "Error in output outP_ani.");
-	return NULL;
+        return NULL;
     }
     npy_int32* ni_a = Array_DATA(ni_a_obj);
     if (!ni_a) 
     {
         PyErr_SetString(PyExc_RuntimeError, "Error in input ni_a.");
-	return NULL;
+        return NULL;
     }
 
-    assert(Array_ITEMSIZE(P_ani_obj) == 16);
-    assert(Array_ITEMSIZE(outP_ani_obj) == 16);
+    int is_complex = Array_ITEMSIZE(P_ani_obj) == 16;
+    if (Array_ITEMSIZE(P_ani_obj) != Array_ITEMSIZE(outP_ani_obj))
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Incompatible P_ani and outP_ani.");
+        return NULL;
+    }
     assert(Array_ITEMSIZE(dH_aii_obj) == 8);
     assert(Array_ITEMSIZE(ni_a_obj) == 4);
 
@@ -191,7 +197,7 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
+    dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev, is_complex);
     Py_RETURN_NONE;
 }
 
@@ -290,13 +296,12 @@ PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
     double* rho_R = Array_DATA(rho_R_obj);
     int nb = Array_SIZE(f_n_obj);
     int nR = Array_SIZE(psit_nR_obj) / nb;
-    assert(Array_ITEMSIZE(psit_nR_obj) == 16);
     assert(Array_ITEMSIZE(rho_R_obj) == 8);
     if (PyErr_Occurred())
     {
         return NULL;
     }
-    add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R);
+    add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R, Array_ITEMSIZE(psit_nR_obj)==16); 
     Py_RETURN_NONE;
 }
 
@@ -311,8 +316,12 @@ PyObject* calculate_residual_gpu(PyObject* self, PyObject* args)
     double* eps_n = Array_DATA(eps_n_obj);
     double *wf_nG = Array_DATA(wf_nG_obj);
     int nn = Array_DIM(residual_nG_obj, 0);
-    int nG = Array_DIM(residual_nG_obj, 1);
     bool is_complex = Array_ITEMSIZE(residual_nG_obj) == 16;
+    int nG = 1;
+    for (int d=1; d<Array_NDIM(residual_nG_obj); d++)
+    {
+        nG *= Array_DIM(residual_nG_obj, d);
+    }
     if (PyErr_Occurred())
     {
         return NULL;
