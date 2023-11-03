@@ -108,7 +108,7 @@ class FDPotentialCalculator(PotentialCalculator):
             vHt_r = grid2.zeros(xp=self.xp)
         self.poisson_solver.solve(vHt_r, charge_r)
         e_coulomb = 0.5 * vHt_r.integrate(charge_r)
-         
+
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)

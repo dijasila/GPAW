@@ -82,7 +82,8 @@ class DFTComponentsBuilder:
         self.spin_degeneracy = self.ncomponents % 2 + 1
 
         if isinstance(params.xc, (dict, str)):
-            self._xc = XC(params.xc, collinear=(self.ncomponents < 4), xp=self.xp)
+            self._xc = XC(params.xc, collinear=(self.ncomponents < 4),
+                          xp=self.xp)
         else:
             self._xc = params.xc
 
