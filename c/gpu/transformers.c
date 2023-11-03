@@ -105,6 +105,11 @@ static void _transformer_apply_gpu(TransformerObject* self,
     double* buf = transformer_buf_gpu;
     double* buf16 = transformer_buf16_gpu;
 
+    /* use stencil version, if no optimised kernel available */
+    if (self->k != 2) {
+        stencil = 1;
+    }
+
     for (int n = 0; n < nin; n += blocks) {
         const double* in2 = in + n * ng;
         double* out2 = out + n * out_ng;
