@@ -488,6 +488,8 @@ class RRemission(object):
                                   np.abs(dm_z[-1, :]))
                 dmp = np.ones(len(dm_x[:, 0]))
                 if lastsize > self.dmpval and self.dmpval !=0:
+                    # if  self.precomputedG is not None:
+                    #     self.dmpval / 2
                     # and self.precomputedG is not None:
                     print("Adding additional damping to smoothen Xw to ",
                           self.dmpval)
@@ -526,13 +528,16 @@ class RRemission(object):
 
                 if self.claussius == 1:
                     print('Using Claussius-Mossotti for Xw')
+                    skippedCM = False
                     for el in range(len(omegafft)):
                         if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
                             # Xw[el, :] = np.reshape((4. * np.pi * self.ensemble_number / self.cavity_volume) * np.reshape(alpha_ij[el, :], (3, 3)) @ (np.linalg.inv(np.eye(3)) - 1. / 3. * (4. * np.pi * self.ensemble_number / self.cavity_volume) * np.reshape(alpha_ij[el, :], (3, 3))) , (-1, ))
                             Xw[el, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) / (4. * np.pi * self.ensemble_number / self.cavity_volume) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
-                            print("Polarizability not invertible! Skipping CM-step")
+                            skippedCM = True
+                    if skippedCM == True:
+                        print("Polarizability was not invertible at some point! This might be due to the window-function, consider REMOVING the window from alpha_ij -- CHRISTIAN!")
 
                 for ii in range(9):
                     plt.figure()
@@ -626,8 +631,6 @@ class RRemission(object):
                     Gw=Gw0 and the singular case is also set to Gw=Gw0.
                     """
                     if self.claussius == 1:
-                        print("dressed G1 expression is wrong here")
-                        stop
                         if self.is_invertible(np.reshape(Gw0[el, :], (3, 3))):
                             Gw[el, :] = np.reshape((np.linalg.inv( (np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
                                                                     (np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) @ (np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3)))))
