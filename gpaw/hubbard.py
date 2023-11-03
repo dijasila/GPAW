@@ -44,6 +44,10 @@ class HubbardU:
         dHU_sii = np.zeros_like(D_sii)
         for l, U, scale in zip(self.l, self.U, self.scale):
             nl = np.where(np.equal(setup.l_j, l))[0]
+            assert len(nl) <= 2, (
+                f'Setup has {len(nl)} radial partial waves with angular '
+                f'momentum quantum number {l}. Must be 1 or 2 for DFT+U.')
+
             if len(nl) == 1 and scale == 1:
                 assert setup.n_j[nl[0]] != -1, (
                     'DFT+U correction cannot be scaled if '
@@ -52,10 +56,6 @@ class HubbardU:
                 assert setup.n_j[nl[-1]] == -1, (
                     'DFT+U scaling has only been implemented for setups with '
                     'one bounded and one unbounded radial partial wave.')
-            else:
-                raise NotImplementedError(
-                    f'Setup has {len(nl)} radial partial waves with angular '
-                    f'momentum quantum number {l}. Must be 1 or 2 for DFT+U.')
 
             eU1, dHU1_sii = hubbard(D_sii, U=U, l=l, l_j=setup.l_j,
                                     lq=setup.lq, scale=scale)
