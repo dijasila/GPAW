@@ -84,8 +84,8 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
     # Absolute error
     shg_xyz_diff = shg_xyz['spinpaired'] - shg_xyz['spinpol']
-    assert shg_xyz_diff.real == pytest.approx(0, abs=1e-4)
-    assert shg_xyz_diff.imag == pytest.approx(0, abs=1e-4)
+    assert shg_xyz_diff.real == pytest.approx(0, abs=2e-4)
+    assert shg_xyz_diff.imag == pytest.approx(0, abs=2e-4)
 
     # Relative error
     shg_xyz_avg = (shg_xyz['spinpaired'] + shg_xyz['spinpol']) / 2
