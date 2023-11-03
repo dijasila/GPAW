@@ -11,6 +11,7 @@ in the positive x direction.
 
 """
 
+import pytest
 import numpy as np
 from gpaw import GPAW
 
@@ -24,17 +25,9 @@ from gpaw.berryphase import get_polarization_phase
 from ase.units import Bohr
 from ase.build import bulk
 
-def test_born():
-    a = 5.42
-    si = bulk('Si', 'diamond', a)
+def test_born(gpw_files):
 
-    si.calc = GPAW(mode={'name': 'pw','ecut': 50},
-              xc='LDA',
-              kpts={'size': (1, 1, 1)})
-    si.get_potential_energy()
-    si.calc.write('relaxed.gpw')
-
-    calc = GPAW('relaxed.gpw')
+    calc = GPAW(gpw_files['si_pw'])
     borncharges_test(calc) 
 
 def get_wavefunctions_test(atoms, name, params):
@@ -109,7 +102,7 @@ def borncharges_test(calc, delta=0.01):
         Z_vv = dP_vv * vol / (2 * delta / Bohr)
         Z_avv.append(Z_vv)
 
-    ref_value = 0.0005363874420463138
+    ref_value = 0.00010643781178941813
 
     print('Ref value of Z_0xx', ref_value)
     print('Z_0xx this calculation', Z_avv[0][0][0])
