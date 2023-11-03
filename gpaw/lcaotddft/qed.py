@@ -95,6 +95,7 @@ class RRemission(object):
                 self.ensemble_occ_ratio = environmentens_in[1]
                 self.ensemble_resonance = (environmentens_in[2]
                                            / Hartree)
+                self.dmpval = environmentens_in[3]
                 self.ensemble_loss = (environmentens_in[3]
                                       * self.ensemble_resonance)
                 self.ensemble_omegap = (environmentens_in[4]
@@ -486,9 +487,11 @@ class RRemission(object):
                 lastsize = np.sum(np.abs(dm_x[-1, :]) + np.abs(dm_y[-1, :]) +
                                   np.abs(dm_z[-1, :]))
                 dmp = np.ones(len(dm_x[:, 0]))
-                if lastsize > 1e-5 and self.precomputedG is not None:
-                    print("Adding additional damping to smoothen Xw to 1e-5")
-                    decayrate = -np.log(1e-5) / len(dm_x[:, 0])
+                if lastsize > self.dmpval and self.dmpval !=0:
+                    # and self.precomputedG is not None:
+                    print("Adding additional damping to smoothen Xw to ",
+                          self.dmpval)
+                    decayrate = -np.log(self.dmpval) / len(dm_x[:, 0])
                     dmp = np.exp(-decayrate * np.arange(len(dm_x[:, 0])))
 
                 pol_matrix = np.array([np.fft.fft(dm_x[:, 0] * dmp),
@@ -525,9 +528,11 @@ class RRemission(object):
                     print('Using Claussius-Mossotti for Xw')
                     for el in range(len(omegafft)):
                         if self.is_invertible(np.reshape(alpha_ij[el, :], (3, 3))):
+                            # Xw[el, :] = np.reshape((4. * np.pi * self.ensemble_number / self.cavity_volume) * np.reshape(alpha_ij[el, :], (3, 3)) @ (np.linalg.inv(np.eye(3)) - 1. / 3. * (4. * np.pi * self.ensemble_number / self.cavity_volume) * np.reshape(alpha_ij[el, :], (3, 3))) , (-1, ))
                             Xw[el, :] = np.reshape(np.linalg.inv(np.linalg.inv(np.reshape(alpha_ij[el, :], (3, 3))) / (4. * np.pi * self.ensemble_number / self.cavity_volume) - 1. / 3. * np.eye(3)), (-1, ))
                         else:
                             Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
+                            print("Polarizability not invertible! Skipping CM-step")
 
                 for ii in range(9):
                     plt.figure()
@@ -544,7 +549,7 @@ class RRemission(object):
                                   * self.ensemble_number / self.cavity_volume
                                   * np.imag(alpha_ij[:, ii])))
                     plt.xlabel("Energy (eV)")
-                    plt.ylabel(r"$\alpha_ij/\xi(\omega)$, i=" + str(ii)
+                    plt.ylabel(r"$\chi(\omega)$, i=" + str(ii)
                                + 'CM=' + str(self.claussius) )
                     if self.cutofffrequency is not None:
                         plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
@@ -577,11 +582,26 @@ class RRemission(object):
                             )
                         )
                 if self.claussius == 1:
-                    print("CAREFUL: since g_omega was missing some minus, there is probably something off in the G0 and the dressing compared to the G1 that we load from the external python script.")
+                    Gwibar = np.zeros((len(omegafft), 9), dtype=complex)
+                    for ii in range(3):
+                        for jj in range(3):
+                            Gwibar[:, 3 * ii + jj] = (np.reciprocal(g_omega) *
+                                                      self.polarization_cavity[ii] *
+                                                      self.polarization_cavity[jj])
                     for el in range(len(omegafft)):
-                        Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
-                                               np.reshape(Gw[el, :], (3, 3)) @ (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                        if not self.is_invertible(np.reshape(Gwibar[el, :], (3, 3))- (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))):
+                            shift = 1e-8
+                        else:
+                            shift = 0
+                        Gw[el, :] = np.reshape((np.linalg.inv( (np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                                                                (np.reshape(Gwibar[el, :]+shift, (3, 3)) @ (np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3)))))
+                                                              - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3))))
+                                                @ np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)))
+                                                @ (np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)) @ np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3)))) )
                                                ,(-1, ))
+                        # Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                        #                        np.reshape(Gw[el, :], (3, 3)) @ (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                        #                        ,(-1, ))
             else:
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
@@ -606,12 +626,20 @@ class RRemission(object):
                     Gw=Gw0 and the singular case is also set to Gw=Gw0.
                     """
                     if self.claussius == 1:
+                        print("dressed G1 expression is wrong here")
+                        stop
                         if self.is_invertible(np.reshape(Gw0[el, :], (3, 3))):
-                            Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
-                                                   (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
-                                                    (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
-                                                    )
+                            Gw[el, :] = np.reshape((np.linalg.inv( (np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                                                                    (np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) @ (np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3)))))
+                                                                  - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3))))
+                                                    @ np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)))
+                                                    @ (np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)) @ np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3)))) )
                                                    ,(-1, ))
+                            # Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                            #                        (np.linalg.inv(np.linalg.inv(np.reshape(Gw0[el, :], (3, 3))) - (4 * np.pi * alpha**2 * omegafft[el]**2 * self.ensemble_number * np.reshape(alpha_ij[el, :], (3, 3)))) @
+                            #                         (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
+                            #                         )
+                            #                        ,(-1, ))
                         else:
                             Gw[el, :] = Gw0[el, :]
                     else:
