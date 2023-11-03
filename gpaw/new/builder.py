@@ -128,7 +128,7 @@ class DFTComponentsBuilder:
 
         self.dtype = params.dtype
         if self.dtype is None:
-            if self.ibz.bz.gamma_only:
+            if self.ibz.bz.gamma_only and self.ncomponents < 4:
                 self.dtype = float
             else:
                 self.dtype = complex
