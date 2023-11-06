@@ -65,6 +65,7 @@ def get_orbmag_from_calc(calc):
 
     return orbmag_av
 
+
 # Unused, could be deleted
 def get_orbmag_from_soc_eigs(soc):
     "Return orbital magnetic moment vectors calculated from nscf spinors."
@@ -79,6 +80,7 @@ def get_orbmag_from_soc_eigs(soc):
     soc.kpt_comm.sum(orbmag_av)
 
     return orbmag_av
+
 
 # Unused, could be deleted.
 # It does something unique though, so maybe this one should be kept.
