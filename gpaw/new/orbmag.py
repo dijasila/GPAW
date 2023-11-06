@@ -48,6 +48,7 @@ def get_orbmag_from_density(D_asii, n_aj, l_aj):
     return orbmag_av
 
 
+# Unused, could be deleted
 def get_orbmag_from_calc(calc):
     "Returns orbital magnetic moment vectors calculated from scf spinors."
     assert calc.wfs.bd.comm.size == 1 and calc.wfs.gd.comm.size == 1
@@ -64,7 +65,7 @@ def get_orbmag_from_calc(calc):
 
     return orbmag_av
 
-
+# Unused, could be deleted
 def get_orbmag_from_soc_eigs(soc):
     "Return orbital magnetic moment vectors calculated from nscf spinors."
     assert soc.bcomm.size == 1 and soc.domain_comm.size == 1
@@ -79,7 +80,8 @@ def get_orbmag_from_soc_eigs(soc):
 
     return orbmag_av
 
-
+# Unused, could be deleted.
+# It does something unique though, so maybe this one should be kept.
 def calculate_orbmag_1k(f_n, P_nsi, nl_j):
     """Calculate contribution to orbital magnetic moment for a single k-point.
 
