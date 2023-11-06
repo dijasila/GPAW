@@ -62,8 +62,22 @@ def add_cwd_to_setup_paths():
         del setup_paths[:1]
 
 
-response_band_cutoff = dict(
-)
+response_band_cutoff = {}
+
+
+@pytest.fixture(scope='session')
+def sessionscoped_monkeypatch():
+    # The standard monkeypatch fixture is function scoped
+    # so we need to roll our own
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        yield monkeypatch
+
+
+@pytest.fixture(autouse=True, scope='session')
+def monkeypatch_response_spline_points(sessionscoped_monkeypatch):
+    import gpaw.response.paw as paw
+    # https://gitlab.com/gpaw/gpaw/-/issues/984
+    sessionscoped_monkeypatch.setattr(paw, 'DEFAULT_RADIAL_POINTS', 2**10)
 
 
 def with_band_cutoff(*, gpw, band_cutoff):
@@ -816,8 +830,8 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    @gpwfile
-    def hbn_pw(self):
+    def _hbn_pw(self, symmetry):
+        tag = '_nopg' if symmetry else ''
         atoms = Graphene(symbol='B',
                          latticeconstant={'a': 2.5, 'c': 1.0},
                          size=(1, 1, 1))
@@ -828,11 +842,23 @@ class GPWFiles:
                           xc='LDA',
                           nbands=50,
                           occupations=FermiDirac(0.001),
+                          symmetry=symmetry,
                           parallel={'domain': 1},
                           convergence={'bands': 26},
+                          txt=self.path / f'hbn_pw{tag}.txt',
                           kpts={'size': (3, 3, 1), 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
+
+    @gpwfile
+    def hbn_pw_nopg(self):
+        symmetry = {'point_group': False}
+        return self._hbn_pw(symmetry)
+
+    @gpwfile
+    def hbn_pw(self):
+        symmetry = {}
+        return self._hbn_pw(symmetry)
 
     @gpwfile
     def graphene_pw(self):

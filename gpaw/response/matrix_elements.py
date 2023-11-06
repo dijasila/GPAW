@@ -460,7 +460,7 @@ class SiteMatrixElementCalculator(MatrixElementCalculator):
                 self.rshe_a, adata.sites.A_a,
                 adata.sites.rc_ap, adata.lambd_ap):
             # Calculate the PAW correction
-            pawdata = self.gs.pawdatasets[A]
+            pawdata = self.gs.pawdatasets.by_atom[A]
             F_apii.append(calculate_site_matrix_element_correction(
                 pawdata, rshe, rc_p, adata.drcut, lambd_p))
 

@@ -4,27 +4,28 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.response.integrators import Integrand, HilbertTetrahedron, Intraband
-from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.chi0_base import Chi0ComponentCalculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
 from gpaw.response.frequencies import FrequencyGridDescriptor
 
 
-class Chi0DrudeCalculator(Chi0Calculator):
+class Chi0DrudeCalculator(Chi0ComponentCalculator):
     """Class for calculating the plasma frequency contribution to Chi0,
     that is, the contribution from intraband transitions inside of metallic
     bands. This corresponds directly to the dielectric function in the Drude
     model."""
 
     def __init__(self, *args, **kwargs):
-        self.base_ini(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.task, self.wd = self.construct_integral_task_and_wd()
 
     @property
     def nblocks(self):
-        # The plasma frequencies aren't distributed in memory
-        # NB: There can be a mismatch with self.pair.nblocks, which seems
-        # dangerous XXX
+        # The plasma frequencies aren't distributed in memory, hence we
+        # overwrite nblocks.
+        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which
+        # seems a bit dangerous XXX
         return 1
 
     def calculate(self, wd, rate, spin='all'):
@@ -126,7 +127,7 @@ class PlasmaFrequencyIntegrand(Integrand):
 
     def _band_summation(self):
         # Intraband response needs only integrate partially unoccupied bands.
-        return self._drude.nocc1, self._drude.nocc2
+        return self._drude.gs.nocc1, self._drude.gs.nocc2
 
     def matrix_element(self, k_v, s):
         """NB: In dire need of documentation! XXX."""

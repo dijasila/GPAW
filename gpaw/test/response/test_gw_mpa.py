@@ -7,13 +7,14 @@ from gpaw.response.MPAinterpolation import mpa_cond1, pole_is_out
 
 @pytest.mark.response
 def test_mpa(in_tmp_dir, gpw_files, scalapack):
-    ref_result = np.asarray([[[11.30094393, 21.62842077],
-                              [5.33751513, 16.06905725],
-                              [8.75269938, 22.46579489]]])
+    ref_result = np.asarray([[[11.283458, 21.601906],
+                              [ 5.326717, 16.066114],
+                              [ 8.73869 , 22.457025]]])
+
     mpa_dict = {'npoles': 4, 'wrange': [1j * Ha, (2 + 1j) * Ha],
                 'wshift': [0.01 * Ha, 0.1 * Ha], 'alpha': 1}
 
-    gw = G0W0(gpw_files['bn_pw_wfs'],
+    gw = G0W0(gpw_files['bn_pw'],
               bands=(3, 5),
               nbands=9,
               nblocks=1,
@@ -27,7 +28,7 @@ def test_mpa(in_tmp_dir, gpw_files, scalapack):
 
 def test_mpa_conditions():
     c = mpa_cond1(0, complex(4.0, 0.1))[0]
-    assert c == complex(2.0001562194924314, -1e-8)
+    assert np.allclose(c, complex(2.0001562194924314, -1e-8), atol=1e-10)
     E = [complex(1, -0.11), complex(1.05, 0.1), complex(2, 0.2),
          complex(5, 1)]
     bools = [False, True, False, True]

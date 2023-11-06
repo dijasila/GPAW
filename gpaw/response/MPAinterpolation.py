@@ -43,7 +43,6 @@ def mpa_cond1(z, E):  # , PPcond_rate
     # real(SP),    intent(out)    :: PPcond_rate
 
     PPcond_rate = 0
-
     if abs(E) < null_pole_thr:  # need to check also NAN(abs(E))
         E = complex(abs(z[0]), -epsilon)
         PPcond_rate = 1
@@ -73,7 +72,6 @@ def mpa_E_1p_solver(z, x):
 
     E = (x[0] * z[0]**2 - x[1] * z[1]**2) / (x[0] - x[1])
     E, PPcond_rate = mpa_cond1(z, E)
-
     return E, PPcond_rate
 
 
@@ -159,6 +157,7 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
         A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
+    #print('A', A, 'b', b)
 
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
@@ -172,6 +171,32 @@ def residuals(R,A,x):
     return np.abs(np.dot(A,R.view(np.complex))-x.view(np.complex))
 """
 
+
+
+def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
+    npols = len(E_pGG)
+    nw = len(omega_w)
+    A_GGwp = np.zeros((*E_pGG.shape[1:], nw, npols), dtype=np.complex128)
+    b_GGw = np.zeros((*E_pGG.shape[1:], nw), dtype=np.complex128)
+    for w in range(nw):
+        A_GGwp[:, :, w, :] = (2 * E_pGG / (omega_w[w]**2 - E_pGG**2)).transpose((1, 2, 0))
+        b_GGw[:, :, w] = X_wGG[w, :, :]
+
+    for p in range(npols):
+        print((p>=npr_GG).shape)
+        A_GGwp[:, :, :, p][p >= npr_GG] = 0.0
+
+    temp_GGp = np.einsum('GHwp,GHw->GHp', A_GGwp.conj(), b_GGw)
+    XTX_GGpp = np.einsum('GHwp,GHwo->GHpo', A_GGwp.conj(), A_GGwp)
+    
+    if XTX_GGpp.shape[2] == 1:
+        # 1D matrix, invert the number
+        XTX_GGpp = 1 / XTX_GGpp
+    else:
+        XYX_GGpp = np.linalg.pinv(XYX_GGpp)
+
+    R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+    return R_GGp
 
 def mpa_R_fit(npols, npr, w, x, E):
     # integer,     intent(in)  :: np, npr
@@ -298,6 +323,78 @@ def mpa_E_solver_Pade(npols, z, x):
 
     return E, npr, PPcond
 
+class Solver:
+    def __init__(self, omega_w):
+        assert len(omega_w) % 2 == 0
+        self.omega_w = omega_w
+
+    def solve(self, X_wG):
+        raise NotImplementedError
+
+class SinglePoleSolver(Solver):
+    def __init__(self, omega_w):
+        Solver.__init__(self, omega_w)
+        self.threshold = 1e-5
+        self.epsilon = 1e-8
+
+    def solve(self, X_wGG):
+        assert len(X_wGG) == 2
+        omega_w = self.omega_w
+        E_GG = (X_wGG[0,:, :] * omega_w[0]**2 - X_wGG[1, :, :] * omega_w[1]**2) / (X_wGG[0,:, :] - X_wGG[1,:, :])
+        def branch_sqrt_inplace(E_GG):
+            E_GG.real = np.abs(E_GG.real)
+            E_GG[:] = np.emath.sqrt(E_GG)
+
+        branch_sqrt_inplace(E_GG)
+        absE_GG = np.abs(E_GG)
+        mask = absE_GG < self.threshold
+        E_GG[mask] = np.abs(omega_w[0]) - 1j * self.epsilon 
+        E_GG *= np.sign(E_GG)
+        mask = E_GG.imag > self.epsilon
+        E_GG[mask] = E_GG[mask].real - 1j * epsilon
+
+        R_GG = fit_residue(1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
+        """
+        A_GGwp = np.zeros((*E_GG.shape, 2, 1), dtype=np.complex128)
+        b_GGw = np.zeros((*E_GG.shape, 2), dtype=np.complex128)
+        for w in range(2):
+            A_GGwp[:, :, w, 0] = 2 * E_GG / (omega_w[w]**2 - E_GG**2)
+            b_GGw[:, :, w] = X_wGG[w, :, :]
+
+        temp_GGp = np.einsum('GHwp,GHw->GHp', A_GGwp.conj(), b_GGw)
+        XTX_GGpp = np.einsum('GHwp,GHwo->GHpo', A_GGwp.conj(), A_GGwp)
+        
+        if XTX_GGpp.shape[2] == 1:
+            # 1D matrix, invert the number
+            XTX_GGpp = 1 / XTX_GGpp
+        else:
+            raise NotImplementedError
+
+        R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+        """
+
+        return E_GG, R_GG
+
+
+"""
+class MultipoleSolver(Solver):
+    def __init__(self, omega_w):
+        self.npoles = npoles
+        self.omega_w = omega_w
+    
+    def solve(self, X_G):
+        pass
+"""
+
+def RESolver(omega_w):
+    assert len(omega_w) % 2 == 0
+    npoles = len(omega_w) / 2
+    assert npoles > 0
+    if npoles == 1:
+        return SinglePoleSolver(omega_w)
+    else:
+        raise NotImplementedError
+
 
 def mpa_RE_solver(npols, w, x):
     # integer,      intent(in)   :: np
@@ -321,6 +418,10 @@ def mpa_RE_solver(npols, w, x):
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
 
+        Rnew = fit_residue(np.array([[[npols]]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+        print(R, Rnew)
+        assert np.allclose(R, Rnew)
+
         # if(npr < npols): MPred = True
 
         # PPcond_rate = 0.
@@ -334,3 +435,47 @@ def mpa_RE_solver(npols, w, x):
     # for later: MP_err = err_func_X(np, R, E, w, x)
 
     return R, E, MPred, PPcond_rate  # , MP_err
+
+
+def test_mpa():
+    NG = 20
+    nw = 4
+    X_wGG = 2*(np.random.rand(nw, NG, NG) - 0.5) + 1j * (np.random.rand(nw, NG, NG) - 0.5)*2
+    omega_w = np.array([0, 1j, 2.33, 2.33+1j])
+    for i in range(NG):
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(nw // 2, omega_w, X_wGG[:, i, j])
+
+
+def test_ppa():
+    NG = 120
+    X_wGG = 2*(np.random.rand(2, NG, NG) - 0.5) + 1j * (np.random.rand(2, NG, NG) - 0.5)*2
+    omega_w = np.array([0, 2j])
+    from time import time
+    start = time()
+    E_GG, R_GG = RESolver(omega_w).solve(X_wGG)
+    stop = time()
+    fail = False
+    for i in range(NG):
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wGG[:, i, j])
+            assert np.allclose(E, E_GG[i, j])
+            if not np.allclose(R, R_GG[i, j]):
+                print(R, R_GG[i,j], 'ratio:', R_GG[i,j] / R, 'mismatch')
+                fail = True
+    assert not fail
+    vectorized_time = stop - start
+    print('Vectorized', vectorized_time)
+    start = time()
+    for i in range(NG):
+        for j in range(NG):
+            R, E, MPres, PPcond_rate = mpa_RE_solver(1, omega_w, X_wGG[:, i, j])
+        #assert np.allclose(E, E_G[i])
+        #print('old', E, 'new', E_G[i])
+    stop = time()
+    serial_time = stop - start
+    print('Not vectorized', serial_time)
+    print('speedup', serial_time / vectorized_time)
+
+
+test_mpa()
