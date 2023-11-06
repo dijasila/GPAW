@@ -35,7 +35,7 @@ params = dict(mode={'name': 'pw', 'ecut': 350},
 
 @pytest.mark.soc
 @pytest.mark.skipif(size > 2, reason='May not work in parallel')
-def test_soc_self_consistent(gpaw_new):
+def test_soc_self_consistent(gpaw_new, in_tmp_dir):
     """Self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
