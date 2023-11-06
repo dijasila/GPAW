@@ -537,11 +537,11 @@ class G0W0Calculator:
             self.context.print('  Fitting energy: i*E0, E0 = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[1].imag)
         elif self.mpa:
+            omega_w = self.chi0calc.wd.omega_w
             self.context.print('Using multipole approximation:')
-            self.context.print('  Number of poles: %i'
-                               % len(self.chi0calc.wd.omega_w) / 2)
-            self.context.print('  Energy range: Re(E[-1]) = %.3f Hartee'
-                               % self.chi0calc.wd.omega_w[-1].real)
+            self.context.print('  Number of poles: {len(omega_w) // 2}')
+            self.context.print(
+                '  Energy range: Re(E[-1]) = {omega_w[-1].real:.3f} Hartee')
             self.context.print('  Imaginary range: Im(E[-1]) = %.3f Hartee'
                                % self.chi0calc.wd.omega_w[-1].imag)
             self.context.print('  Imaginary shift: Im(E[1]) = %.3f Hartee'
