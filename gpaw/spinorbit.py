@@ -272,9 +272,12 @@ class BZWaveFunctions:
 
     def get_atomic_density_matrices(self):
         """Return atomic density matrix for each atom."""
+        assert self.domain_comm.size == 1 
+        assert self.bcomm.size == 1 
+
         D_asii = {}
-        for a, _ in enumerate(self.n_aj):
-            ni = self.wfs[0].projections[a].shape[2]
+        for a, l_j in enumerate(self.l_aj):
+            ni = (2 * np.array(l_j) + 1).sum()
             D_sii = np.zeros([4, ni, ni], dtype=complex)
             for wfs, weight in zip(self.wfs.values(), self.weights()):
                 f_n = wfs.f_m * weight
@@ -286,6 +289,7 @@ class BZWaveFunctions:
                 D_sii[1] += D_ssii[0, 1] + D_ssii[1, 0]
                 D_sii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
                 D_sii[3] += D_ssii[0, 0] - D_ssii[1, 1]
+            self.kpt_comm.sum(D_sii)
             D_asii[a] = D_sii
 
         return D_asii
