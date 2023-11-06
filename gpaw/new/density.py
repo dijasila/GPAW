@@ -35,6 +35,7 @@ class Density:
                    [xp.asarray(setup.Delta_iiL) for setup in setups],
                    [setup.Delta0 for setup in setups],
                    [unpack(setup.N0_p) for setup in setups],
+                   [setup.n_j for setup in setups],
                    [setup.l_j for setup in setups],
                    nct_aX,
                    tauct_aX)
@@ -93,6 +94,7 @@ class Density:
                  delta_aiiL: list[Array3D],
                  delta0_a: list[float],
                  N0_aii,
+                 n_aj: list[list[int]],
                  l_aj: list[list[int]],
                  nct_aX: AtomCenteredFunctions,
                  tauct_aX: AtomCenteredFunctions):
@@ -102,6 +104,7 @@ class Density:
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.N0_aii = N0_aii
+        self.n_aj = n_aj
         self.l_aj = l_aj
         self.charge = charge
         self.nct_aX = nct_aX
@@ -167,6 +170,7 @@ class Density:
             self.delta_aiiL,
             self.delta0_a,
             self.N0_aii,
+            self.n_aj,
             self.l_aj,
             self.nct_aX,
             self.tauct_aX)
@@ -283,6 +287,7 @@ class Density:
             self.delta_aiiL,
             self.delta0_a,
             self.N0_aii,
+            self.n_aj,
             self.l_aj,
             nct_aX=self.nct_aX.new(xdesc, atomdist),
             tauct_aX=self.tauct_aX.new(xdesc, atomdist))
@@ -334,6 +339,17 @@ class Density:
             magmom_v += self.nt_sR.integrate()[1:]
 
         return magmom_v, magmom_av
+
+    def calculate_orbital_magnetic_moments(self):
+        if not self.ncomponents == 4:
+            raise AssertionError(
+                'Collinear calculations require spin-orbit '
+                'coupling for nonzero orbital magnetic moments.')
+        assert self.nt_sR.desc.comm.size == 1  # Does this even matter?
+        assert self.D_asii.comm.size == 1
+
+        from gpaw.new.orbmag import get_orbmag_from_density
+        return get_orbmag_from_density(self.D_asii, self.n_aj, self.l_aj)
 
     def write(self, writer):
         D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()

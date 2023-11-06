@@ -26,16 +26,30 @@ from gpaw.spinorbit import get_L_vlmm
 L_vlmm = get_L_vlmm()
 
 
+def get_orbmag_from_density(D_asii, n_aj, l_aj):
+    "Returns orbital magnetic moment vectors calculated from scf spinors."
+
+    orbmag_av = np.zeros([len(n_aj), 3])
+    for (a, D_sii), n_j, l_j in zips(D_asii.items(), n_aj, l_aj):
+        D_ii = D_sii[0]  # Only the electron density
+
+        Ni = 0
+        for n, l in zips(n_j, l_j):
+            Nm = 2 * l + 1
+            if n < 0:
+                Ni += Nm
+                continue
+            for v in range(3):
+                orbmag_av[a, v] += np.einsum('ij,ij->',
+                                             D_ii[Ni:Ni + Nm, Ni:Ni + Nm],
+                                             L_vlmm[v][l]).real
+            Ni += Nm
+
+    return orbmag_av
+
+
 def get_orbmag_from_calc(calc):
-    "Return orbital magnetic moment vectors calculated from scf spinors."
-    if not calc.density.ncomponents == 4:
-        raise AssertionError('Collinear calculations require spin-orbit '
-                             'coupling for nonzero orbital magnetic moments.')
-    if not calc.params.soc:
-        import warnings
-        warnings.warn('Non-collinear calculation was performed without spin'
-                      '-orbit coupling. Orbital magnetic moments may not be '
-                      'accurate.')
+    "Returns orbital magnetic moment vectors calculated from scf spinors."
     assert calc.wfs.bd.comm.size == 1 and calc.wfs.gd.comm.size == 1
 
     orbmag_av = np.zeros([len(calc.atoms), 3])
