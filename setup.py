@@ -18,7 +18,7 @@ from setuptools.command.install import install as _install
 from config import (build_gpu, build_interpreter, check_dependencies,
                     write_configuration)
 
-assert sys.version_info >= (3, 7)
+assert sys.version_info >= (3, 8)
 
 
 def warn_deprecated(msg):
@@ -410,7 +410,6 @@ setup(name='gpaw',
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
