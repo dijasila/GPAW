@@ -43,6 +43,13 @@ def disable_dry_run():
     dry_run = size
 
 
+def get_scipy_version():
+    import scipy
+    # This is in a function because we don't like to have the scipy
+    # import at module level
+    return [int(x) for x in scipy.__version__.split('.')[:2]]
+
+
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
