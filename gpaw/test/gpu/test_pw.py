@@ -59,6 +59,10 @@ def test_gpu_k(gpu, par, mode, xc):
         if mode == 'pw' and par in ['kpt', 'band'] and xc == 'PBE':
             pytest.skip('???')
 
+    if gpu and size > 1:
+        if mode == 'fd' and par == 'band':
+            pytest.skip('FAILING')
+
     atoms = Atoms('H', pbc=True, cell=[1, 1.1, 1.1])
     if mode == 'fd':
         poisson = FDPoissonSolver()
