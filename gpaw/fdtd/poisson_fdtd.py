@@ -107,7 +107,8 @@ class QSFDTD:
 
     def ground_state(self, filename, **kwargs):
         # GPAW calculator for the ground state
-        self.gs_calc = GPAW(gpts=self.gpts,
+        self.gs_calc = GPAW(mode='fd',
+                            gpts=self.gpts,
                             poissonsolver=self.poissonsolver,
                             **kwargs)
         self.atoms.calc = self.gs_calc

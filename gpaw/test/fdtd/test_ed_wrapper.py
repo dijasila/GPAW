@@ -48,7 +48,6 @@ def test_fdtd_ed_wrapper(in_tmp_dir):
                         eigensolver='cg',
                         nbands=-1,
                         convergence={'energy': energy_eps},
-                        experimental={'niter_fixdensity': 2},
                         symmetry={'point_group': False})
     equal(qsfdtd.energy, -0.631881,
           energy_eps * qsfdtd.gs_calc.get_number_of_electrons())

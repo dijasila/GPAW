@@ -617,7 +617,6 @@ class GPWFiles:
             nbands=10,
             h=0.2,
             setups={"O": "h2o_xas_hch1s"},
-            experimental={"niter_fixdensity": 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True),
         )
         H2O.calc = calc
@@ -627,7 +626,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_ibz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k),
                        txt=self.path / 'si_fd_ibz.txt')
         si.get_potential_energy()
@@ -636,7 +635,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_bz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k,),
                        symmetry={'point_group': False,
                                  'time_reversal': False},
