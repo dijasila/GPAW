@@ -252,7 +252,6 @@ test:
     - gpaw info
     - >
       OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
     # This is the only test which uses OpenMP.
     # We may want to identify a limited set of tests that must work
@@ -262,7 +261,6 @@ test:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
       -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 
 test-latest:
@@ -292,7 +290,6 @@ test-latest:
     - >
       OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
       -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
   artifacts:
     paths:
@@ -326,7 +323,6 @@ test-minimal:
     - gpaw info
     - >
       pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
 test-cuda:
   image: $IMAGE_PATH/cuda:11
