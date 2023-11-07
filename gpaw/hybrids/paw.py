@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import NamedTuple, Dict, List, Union
+from typing import NamedTuple, Dict, List
 
 import numpy as np
 
