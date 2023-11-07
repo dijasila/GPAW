@@ -363,9 +363,10 @@ test-cuda-mpi:
   script:
     - nvidia-smi
     - gpaw info
+    - mpirun -np 2 pytest -v -m gpu
+    - mpirun -np 4 pytest -v -m gpu
     - mpirun -np 2 gpaw-python -m pytest -v -m gpu
     - mpirun -np 4 gpaw-python -m pytest -v -m gpu
-
 
 test-hip-cuda:
   image: $IMAGE_CUDA
