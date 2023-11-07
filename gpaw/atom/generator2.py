@@ -315,8 +315,8 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
-        self.exxcc_w: dict[float, float] = {}
-        self.exxcv_wii: dict[float, Array2D] = {}
+        self.exxcc_w: Dict[float, float] = {}
+        self.exxcv_wii: Dict[float, Array2D] = {}
         self.omega = omega
         self.ecut = ecut
 
