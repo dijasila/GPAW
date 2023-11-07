@@ -251,7 +251,7 @@ test-oldest:
   script:
     - gpaw info
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci -We gpaw/test/
+      OMP_NUM_THREADS=2 pytest -v -m ci -We
 
     # This is the only test which uses OpenMP.
     # We may want to identify a limited set of tests that must work
@@ -302,7 +302,7 @@ test-latest-new:
     - linux
   script:
     - gpaw info
-    - GPAW_NEW=1 pytest -v -m "ci and not later" gpaw/test/
+    - GPAW_NEW=1 pytest -v -m "ci and not later"
 
 
 test-minimal:
@@ -316,7 +316,7 @@ test-minimal:
   script:
     - gpaw info
     - >
-      pytest -v -m ci -We gpaw/test
+      pytest -v -m ci -We
 
 test-cuda:
   image: $IMAGE_PATH/cuda:11
