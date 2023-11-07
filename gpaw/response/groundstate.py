@@ -310,6 +310,8 @@ class ResponsePAWDataset:
                 nc_corehole_g=setup.xc_correction.nc_corehole_g,
                 B_pqL=setup.xc_correction.B_pqL,
                 e_xc0=setup.xc_correction.e_xc0)
+            self.is_pseudo = False
         else:
             self.xc_correction = None
+            self.is_pseudo = True
         self.hubbard_u = setup.hubbard_u

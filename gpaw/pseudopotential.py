@@ -212,6 +212,8 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
+    is_pseudo = True
+
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
