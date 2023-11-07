@@ -319,7 +319,7 @@ class UPFSetupData:
 
         self.rcgauss = 0.0  # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
-        self.nabla_iiv = np.zeros((self.ni,self.ni,3))
+        self.nabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         self.fingerprint = None  # XXX hexdigest the file?
         self.lq = None  # XXX

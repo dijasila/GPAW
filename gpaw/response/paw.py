@@ -88,7 +88,8 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
-    if pawdata.xc_correction is None: return Qbar_Gii
+    if pawdata.xc_correction is None:
+        return Qbar_Gii
 
     # K-vector norm
     k_G = np.linalg.norm(qG_Gv, axis=1)

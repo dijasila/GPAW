@@ -37,8 +37,10 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
     VC_aii = {}
     for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
-        if data.X_p is None: VC_aii[a] = None
-        else: VC_aii[a] = unpack(data.X_p)
+        if data.X_p is None:
+            VC_aii[a] = None
+        else:
+            VC_aii[a] = unpack(data.X_p)
 
     return [PAWThings(VC_aii, VV_aii, Delta_aiiL)
             for VV_aii in VV_saii]
