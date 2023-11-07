@@ -195,7 +195,7 @@ lazyimport('scipy.linalg')
 
 class BroadcastImports:
     def __enter__(self):
-        from gpaw.broadcast_imports import broadcast_imports
+        from gpaw._broadcast_imports import broadcast_imports
         self._context = broadcast_imports
         return self._context.__enter__()
 
