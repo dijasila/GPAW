@@ -493,6 +493,9 @@ gpwfiles:
       - .pytest_cache/
     expire_in: 30 mins
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: manual
+      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
 
@@ -516,6 +519,9 @@ gpwfiles:
       gpaw -P $GPAW_MPI_NPROCS python -m
       pytest --instafail -r s --durations 30
   rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: manual
+      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule"
   #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
