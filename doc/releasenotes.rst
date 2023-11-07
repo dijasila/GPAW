@@ -13,6 +13,8 @@ Git master branch
 * Functionality has been added to calculate various local properties of the
   magnetic sites of a crystal, see :ref:`sites`.
 
+* Python 3.8 or later is required now.
+
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
 
