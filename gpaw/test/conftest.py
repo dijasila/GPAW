@@ -1085,13 +1085,13 @@ class GPWFiles:
     def _bi2i6(self, *, band_cutoff, symmetry=None):
         if symmetry is None:
             symmetry = {}
-        positions = [[ 4.13843656, 2.38932746, 9.36037077],
-                     [ 0.00000000, 4.77865492, 9.36034750],
-                     [ 3.89827619, 0.00000000, 7.33713295],
-                     [ 2.18929748, 3.79197674, 7.33713295],
+        positions = [[4.13843656, 2.38932746, 9.36037077],
+                     [0.00000000, 4.77865492, 9.36034750],
+                     [3.89827619, 0.00000000, 7.33713295],
+                     [2.18929748, 3.79197674, 7.33713295],
                      [-1.94913711, 3.37600678, 7.33713295],
-                     [ 3.89827619, 0.00000000, 11.3835853],
-                     [ 2.18929961, 3.79197551, 11.3835853],
+                     [3.89827619, 0.00000000, 11.3835853],
+                     [2.18929961, 3.79197551, 11.3835853],
                      [-1.94913924, 3.37600555, 11.3835853]]
         cell = [[8.276873113486648, 0.0, 0.0],
                 [-4.138436556743325, 7.167982380179831, 0.0],
@@ -1102,20 +1102,20 @@ class GPWFiles:
                       cell=cell,
                       pbc=pbc)
 
-        ecut=150
-        nkpts=4
+        ecut = 150
+        nkpts = 4
         conv = {'bands': band_cutoff + 1,
                 'density': 1.e-8}
         print(conv)
         tag = '_nosym' if symmetry == 'off' else ''
-        atoms.calc=GPAW(mode=PW(ecut),
-                        xc='LDA',
-                        kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
-                        occupations=FermiDirac(0.01),
-                        convergence=conv,
-                        nbands=band_cutoff+9,
-                        txt=self.path / f'bi2i6_pw{tag}.txt',
-                        symmetry=symmetry)
+        atoms.calc = GPAW(mode=PW(ecut),
+                         xc='LDA',
+                         kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                         occupations=FermiDirac(0.01),
+                         convergence=conv,
+                         nbands=band_cutoff+9,
+                         txt=self.path / f'bi2i6_pw{tag}.txt',
+                         symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
@@ -1155,7 +1155,6 @@ class GPWFiles:
     @gpwfile
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
-
 
     @with_band_cutoff(gpw='p4_pw',
                       band_cutoff=40)
