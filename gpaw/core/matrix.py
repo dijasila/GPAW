@@ -8,7 +8,8 @@ import numpy as np
 import scipy.linalg as sla
 
 import gpaw.utilities.blas as blas
-from gpaw import debug, SCIPY_VERSION
+from gpaw import debug
+from gpaw.fluff import SCIPY_VERSION
 from gpaw.gpu import cupy as cp, cupy_eigh
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D

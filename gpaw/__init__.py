@@ -47,10 +47,6 @@ if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
 
-import scipy
-SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
-
-
 class ConvergenceError(Exception):
     pass
 

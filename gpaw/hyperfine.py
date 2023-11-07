@@ -20,7 +20,7 @@ import ase.units as units
 import numpy as np
 from scipy.integrate import simpson
 
-from gpaw import SCIPY_VERSION
+from gpaw.fluff import SCIPY_VERSION
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
