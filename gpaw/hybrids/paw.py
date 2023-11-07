@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import NamedTuple, Dict, List, Union
 
 import numpy as np
@@ -8,7 +9,7 @@ from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
 
 
 class PAWThings(NamedTuple):
-    VC_aii: Dict[int, Union[np.ndarray, None]]
+    VC_aii: Dict[int, np.ndarray | None]
     VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
 
@@ -34,7 +35,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
-    VC_aii: Dict[int, Union[np.ndarray, None]] = {}
+    VC_aii: Dict[int, np.ndarray | None] = {}
     for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
         if data.X_p is None:
