@@ -1,5 +1,4 @@
 import pytest
-#from ase.lattice.cubic import BodyCenteredCubic
 from ase.atoms import Atoms
 
 from gpaw import GPAW, PW
