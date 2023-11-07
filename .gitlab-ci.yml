@@ -345,6 +345,7 @@ test-cuda:
   script:
     - nvidia-smi
     - gpaw info
+    - python -c 'import cupy; import cupyx; from cupy.cuda import runtime'
     - pytest -v -m gpu
 
     - gpaw-python -m gpaw info
