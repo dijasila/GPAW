@@ -524,7 +524,8 @@ class FDPoissonSolver(BasePoissonSolver):
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum_scalar(
-                float(self.xp.dot(residual.ravel(), residual.ravel()))) * self.gd.dv
+                float(self.xp.dot(residual.ravel(),
+                                  residual.ravel()))) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
