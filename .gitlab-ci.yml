@@ -144,6 +144,9 @@ build-cuda:
       gpu_compile_args = ['-O3',
                           '-g']
       libraries += ['cudart', 'cublas']
+
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      extra_compile_args += ['-Wno-deprecated-declarations']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
