@@ -34,7 +34,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
-    VC_aii = {}
+    VC_aii: Dict[int, Union[np.ndarray, None]] = {}
     for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
         if data.X_p is None:
