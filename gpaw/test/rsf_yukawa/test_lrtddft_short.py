@@ -39,7 +39,6 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     o_plus.get_potential_energy()
 
     calc_plus = calc_plus.new(xc='LCY-PBE:omega=0.83:unocc=True',
-                              experimental={'niter_fixdensity': 2},
                               txt='Be_plus_LCY_PBE_083.log')
     o_plus.calc = calc_plus
     o_plus.get_potential_energy()
