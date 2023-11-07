@@ -10,3 +10,6 @@ include c/gpu/*.c
 include c/gpu/kernels/*.cpp
 include c/bmgs/*.h
 include c/bmgs/*.c
+
+include pytest.ini
+include gpaw/test/pytest.ini
