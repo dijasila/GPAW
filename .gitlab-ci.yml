@@ -283,13 +283,11 @@ test-latest:
 
     - >
       pytest -v -m ci -m gpu
-      -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
 
     - gpaw-python -m gpaw info
     - >
       gpaw-python -m pytest -v -m ci
-      -We -Wi::ImportWarning
 
   artifacts:
     paths:
