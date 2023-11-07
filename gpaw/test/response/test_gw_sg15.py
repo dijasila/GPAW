@@ -15,8 +15,8 @@ def test_gw_sg15(in_tmp_dir, add_cwd_to_setup_paths):
     sys.center(vacuum=2.5)
 
     calc = GPAW(setups='sg15',
-            xc='PBE', mode=PW(ecut=300), convergence={'bands':40},
-                              nbands=50, kpts=(2, 2, 2))
+                xc='PBE', mode=PW(ecut=300), convergence={'bands': 40},
+                nbands=50, kpts=(2, 2, 2))
     sys.calc = calc
     sys.get_potential_energy()
     calc.write('gs.gpw', mode='all')
