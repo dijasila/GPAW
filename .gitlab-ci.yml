@@ -288,7 +288,7 @@ test-latest:
 
     - gpaw-python -m gpaw info
     - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
+      gpaw-python -m pytest -v -m ci
       -We -Wi::ImportWarning
 
   artifacts:
