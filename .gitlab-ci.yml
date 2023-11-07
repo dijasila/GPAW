@@ -1,7 +1,7 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
-  IMAGE_MAIN_OLDEST: "$IMAGE_PATH/main:oldest"
+  IMAGE_MAIN_OLDEST: "$IMAGE_PATH/main:oldest-staging"
   OMP_NUM_THREADS: "1"
 
 default:
