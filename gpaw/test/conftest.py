@@ -617,7 +617,6 @@ class GPWFiles:
             nbands=10,
             h=0.2,
             setups={"O": "h2o_xas_hch1s"},
-            experimental={"niter_fixdensity": 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True),
         )
         H2O.calc = calc
