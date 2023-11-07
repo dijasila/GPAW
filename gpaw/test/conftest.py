@@ -1109,13 +1109,13 @@ class GPWFiles:
         print(conv)
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(mode=PW(ecut),
-                         xc='LDA',
-                         kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
-                         occupations=FermiDirac(0.01),
-                         convergence=conv,
-                         nbands=band_cutoff+9,
-                         txt=self.path / f'bi2i6_pw{tag}.txt',
-                         symmetry=symmetry)
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          convergence=conv,
+                          nbands=band_cutoff+9,
+                          txt=self.path / f'bi2i6_pw{tag}.txt',
+                          symmetry=symmetry)
 
         atoms.get_potential_energy()
         return atoms.calc
