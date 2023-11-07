@@ -30,7 +30,6 @@ DEFAULT_RADIAL_POINTS = 2**12
 
 
 def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
-    print(pawdata)
     r"""Calculate the atom-centered PAW correction to the pair density.
                                                       ˍ
     The atom-centered pair density correction tensor, Q_aii', is defined as the
