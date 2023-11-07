@@ -1,6 +1,7 @@
 variables:
   PYTHONUSERBASE: ".local"
   IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
+  IMAGE_MAIN_OLDEST: "$IMAGE_PATH/main:oldest"
   OMP_NUM_THREADS: "1"
 
 default:
@@ -73,7 +74,7 @@ stages:
 
 
 build:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends: .build
   tags:
     - linux
@@ -175,7 +176,7 @@ build-hip-cuda:
 
 
 build-minimal:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends: .build
   tags:
     - linux
@@ -192,7 +193,7 @@ build-minimal:
 
 
 prepare-libxc:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   stage: build
   tags:
     - linux
@@ -220,7 +221,7 @@ prepare-libxc:
 
 
 build-libxc:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends:
     - .build
   needs:
@@ -241,7 +242,7 @@ build-libxc:
 
 
 test:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends:
     - .test
   needs:
@@ -315,7 +316,7 @@ test-latest-new:
 
 
 test-minimal:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends:
     - .test
   needs:
@@ -377,7 +378,7 @@ test-hip-cuda:
 
 
 test-libxc:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   extends:
     - .test
   needs:
@@ -389,7 +390,7 @@ test-libxc:
     - pytest -v -m libxc
 
 check-agts:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   stage: test
   needs:
     - build
@@ -456,7 +457,7 @@ typecheck:
 
 
 docs:
-  image: $IMAGE_PATH/main:oldest
+  image: $IMAGE_MAIN_OLDEST
   stage: test
   needs:
     - build
