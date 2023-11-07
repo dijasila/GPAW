@@ -5,7 +5,7 @@ from math import pi
 import numpy as np
 from numpy.linalg import eigh
 from scipy.special import gamma
-# from scipy.linalg import solve_banded
+from scipy.linalg import solve_banded
 import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import seterr
@@ -257,22 +257,23 @@ class Channel:
                 a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
             a1 = a0
 
+        b_g[1] += cm1_g[1] * a0 + c0_g[1] * a1
+        b_g[2] += cm1_g[2] * a1
+        C_g = np.array([cp1_g[:g0+1],
+                        np.append(c0_g[1:g0+1], np.empty(1)),
+                        np.append(cm1_g[2:g0+1], np.empty(2))])
+
+        A_g = solve_banded((2, 0), C_g, -b_g[:g0+1],
+                           overwrite_ab=True, overwrite_b=True)
+        A_g[0] = a1
+
         u_g[0] = 0.0
-        g = 1
-        agm1 = a0
-        ag = a1
-        while True:
-            u_g[g] = ag * r_g[g]**(l + x)
-            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g] + b_g[g]) / cp1_g[g]
-            if g == g0:
-                break
-            g += 1
-            agm1 = ag
-            ag = agp1
+        u_g[1:g0+1] = A_g[:-1] * r_g[1:g0+1]**(l + x)
 
         r = r_g[g0]
         dr = rgd.dr_g[g0]
-        da = 0.5 * (agp1 - agm1)
+        ag = A_g[-2]
+        da = 0.5 * (A_g[-1] - A_g[-3])
         dudr = (l + x) * r**(l + x - 1) * ag + r**(l + x) * da / dr
 
         if l - 1 + x < 0:
