@@ -193,6 +193,19 @@ PW = lazyimport('gpaw.wavefunctions.pw', 'PW')
 lazyimport('scipy.linalg')
 
 
+class BroadcastImports:
+    def __enter__(self):
+        from gpaw.broadcast_imports import broadcast_imports
+        self._context = broadcast_imports
+        return self._context.__enter__()
+
+    def __exit__(self, *args):
+        self._context.__exit__(*args)
+
+
+broadcast_imports = BroadcastImports()
+
+
 def main():
     with broadcast_imports:
         import runpy
