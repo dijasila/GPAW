@@ -18,7 +18,9 @@ from setuptools.command.install import install as _install
 from config import (build_gpu, build_interpreter, check_dependencies,
                     write_configuration)
 
-assert sys.version_info >= (3, 8)
+python_min_version = (3, 8)
+assert sys.version_info >= python_min_version, sys.version_info
+python_requires = '>=' + '.'.join(str(num) for num in python_min_version)
 
 
 def warn_deprecated(msg):
@@ -392,6 +394,7 @@ setup(name='gpaw',
       entry_points={
           'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
+      python_requires=python_requires,
       install_requires=[f'ase>={ase_version_required}',
                         'scipy>=1.6.0',
                         'pyyaml'],
