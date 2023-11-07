@@ -2,6 +2,7 @@ from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.response.g0w0 import G0W0
 from gpaw.mpi import world
+import pytest
 
 
 def test_gw_sg15(in_tmp_dir, add_cwd_to_setup_paths):
@@ -24,5 +25,7 @@ def test_gw_sg15(in_tmp_dir, add_cwd_to_setup_paths):
               ecut=20,
               nblocksmax=True,
               filename='H2_g0w0_b11-15')
-    gw.calculate()
-    # todo: add an assert of some kind
+    results = gw.calculate()
+    refs = pytest.approx([1.58177132, 3.33595453, 3.87312694, 4.95358262,
+                         6.09555254])
+    assert results['qp'][0][0] == refs
