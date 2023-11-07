@@ -65,6 +65,9 @@ class RRemission(object):
         self.krondelta = np.array([1, 0, 0, 0, 1, 0, 0, 0, 1])
         self.Ggbamp = 1.
         self.precomputedG = None
+        self.dyadic = None
+        self.dyadic_st = None
+        self.restarting = False
         if environmentcavity_in is None:
             self.environment = 0
         else:
@@ -114,6 +117,8 @@ class RRemission(object):
         writer.write(rr_qplane_in=self.rr_quantization_plane
                      * Bohr**2)
         writer.write(pol_cavity_in=self.polarization_cavity)
+        writer.write(dyadic=self.dyadic)
+        writer.write(dyadic_st=self.dyadic_st)
         if self.environment == 0:
             writer.write(environmentcavity_in=None)
         else:
@@ -146,6 +151,8 @@ class RRemission(object):
         self.dipolexyz_time = reader.DelDipole_time / Bohr
         self.dipole_projected = reader.dipole_projected / Bohr
         self.dipole_time = reader.Dipole_time / Bohr
+        self.dyadic = reader.dyadic
+        self.dyadic_st = reader.dyadic_st
 
     def initialize(self, paw):
         if self.dipolexyz is None:
@@ -157,8 +164,10 @@ class RRemission(object):
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
         self.dipolexyz_previous = self.density.calculate_dipole_moment()
-        if self.environment == 1:
-            self.dyadic = None
+        self.starting = True
+        # if self.environment == 1 and self.itert != 0: # this is not very elegant, in combination with the version below, its basically ensuring that you only calculate and attach dyadic stuff for the first iteration, afterwards its skipped and the previous self.dyadic is used. The problem is that this clashes now with a restart option.
+        #     self.dyadic = None
+        #     stop
 
     def savelast(self, PC_dip):
         self.itert += 1
@@ -167,13 +176,20 @@ class RRemission(object):
                                       self.dipolexyz_previous))
 
     def vradiationreaction(self, kpt, time):
-        if self.environment == 1 and self.dyadic is None:
-            [self.dyadic, self.dyadic_st] = self.dyadicGt(self.deltat,
-                                                          self.maxtimesteps)
-            static = True
-            if static == False:
-                self.dyadic_st = self.dyadic_st * 0
-                print("You remove the static component from the dyadic.")
+        if self.itert == 0 or self.starting == True:
+            self.starting = False
+            if self.environment == 1: # and self.dyadic is None: # there is a problem with the restart from the read-in dyadic. If you just recalculate then there is no problem, but that's not very efficient. I should check why the dimensions do not fit, maybe has something to do with the kick-step or so
+            # just_do_new = True
+            # if ((self.environment == 1 and self.dyadic is None)
+            #     or (self.maxtimesteps <= len(self.dyadic[:,0]))
+            #     or just_do_new == True):
+                [self.dyadic, self.dyadic_st] = self.dyadicGt(self.deltat,
+                                                              self.maxtimesteps)
+                static = True
+                if static == False:
+                    self.dyadic_st = self.dyadic_st * 0
+                    print("You remove the static component from the dyadic.")
+
             if not hasattr(self, 'dipole_projected'):
                 self.dipole_projected = np.zeros(self.maxtimesteps)
                 self.dipolexyz_time = np.zeros((self.maxtimesteps, 3))
@@ -342,13 +358,16 @@ class RRemission(object):
         return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
 
     def dyadicGt(self, deltat, maxtimesteps):
-        if os.path.isfile('dyadicD.npz') and maxtimesteps > 1000:
-            dyadicD = np.load('dyadicD.npz')
-            Dt = dyadicD['Dt']
-            Gst = dyadicD['Gst']
-            if maxtimesteps <= len(Dt[:, 0]):
-                print("You are using the previous Dyadic dyadicD.npz")
-                return Dt[:maxtimesteps, :], Gst
+        ### REMOVE HERE STUFF Later
+        # if Dt is not None and maxtimesteps <= len(Dt[:, 0]):
+        #     return Dt[:maxtimesteps, :], Gst
+        # if os.path.isfile('dyadicD.npz') and maxtimesteps > 1000:
+        #     dyadicD = np.load('dyadicD.npz')
+        #     Dt = dyadicD['Dt']
+        #     Gst = dyadicD['Gst']
+        #     if maxtimesteps <= len(Dt[:, 0]):
+        #         print("You are using the previous Dyadic dyadicD.npz")
+        #         return Dt[:maxtimesteps, :], Gst
 
         if self.itert > 0:
             self.frequ_resolution_ampl = (float(self.frequ_resolution_ampl) *
