@@ -78,8 +78,6 @@ def get_libraries():
     return libraries
 
 
-libraries = get_libraries()
-
 def parse_arguments(argv):
     from argparse import (ArgumentParser, REMAINDER,
                           RawDescriptionHelpFormatter)
