@@ -1,4 +1,4 @@
-from typing import NamedTuple, Dict, List
+from typing import NamedTuple, Dict, List, Union
 
 import numpy as np
 
@@ -8,7 +8,7 @@ from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
 
 
 class PAWThings(NamedTuple):
-    VC_aii: Dict[int, np.ndarray | None]
+    VC_aii: Dict[int, Union[np.ndarray, None]]
     VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
 
