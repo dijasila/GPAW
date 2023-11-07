@@ -8,7 +8,7 @@ from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
 
 
 class PAWThings(NamedTuple):
-    VC_aii: Dict[int, np.ndarray]
+    VC_aii: Dict[int, np.ndarray | None]
     VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
 
