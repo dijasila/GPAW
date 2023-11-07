@@ -9,7 +9,7 @@ try:
 except ImportError:
     sphinxcontrib = None
 
-assert sys.version_info >= (3, 6)
+assert sys.version_info >= (3, 8)
 
 sys.path.append('.')
 

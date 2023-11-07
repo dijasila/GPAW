@@ -8,7 +8,6 @@ import pytest
 from ase import Atoms, Atom
 from ase.build import bulk
 from ase.lattice.hexagonal import Graphene
-from ase.io import read
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.poisson import FDPoissonSolver
 from gpaw.cli.info import info
@@ -546,8 +545,7 @@ class GPWFiles:
         co.get_potential_energy()
         return co.calc
 
-    @gpwfile
-    def c2h4_pw_nosym(self):
+    def _c2h4(self):
         d = 1.54
         h = 1.1
         x = d * (2 / 3)**0.5
@@ -562,6 +560,10 @@ class GPWFiles:
                    cell=[2 * x, 0, 0],
                    pbc=(1, 0, 0))
         pe.center(vacuum=2.0, axis=(1, 2))
+        return pe
+
+    def c2h4_pw_nosym(self):
+        pe = self._c2h4()
         pe.calc = GPAW(mode='pw',
                        kpts=(3, 1, 1),
                        symmetry='off',
@@ -571,7 +573,7 @@ class GPWFiles:
 
     @gpwfile
     def c6h12_pw(self):
-        pe = read(self['c2h4_pw_nosym'])
+        pe = self._c2h4()
         pe = pe.repeat((3, 1, 1))
         pe.calc = GPAW(mode='pw', txt=self.path / 'c6h12_pw.txt')
         pe.get_potential_energy()
@@ -615,7 +617,6 @@ class GPWFiles:
             nbands=10,
             h=0.2,
             setups={"O": "h2o_xas_hch1s"},
-            experimental={"niter_fixdensity": 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True),
         )
         H2O.calc = calc
@@ -625,7 +626,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_ibz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k),
                        txt=self.path / 'si_fd_ibz.txt')
         si.get_potential_energy()
@@ -634,7 +635,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_bz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k,),
                        symmetry={'point_group': False,
                                  'time_reversal': False},
@@ -1077,6 +1078,54 @@ class GPWFiles:
 
         atoms.get_potential_energy()
         return atoms.calc
+
+    @with_band_cutoff(gpw='bi2i6_pw',
+                      band_cutoff=36)
+    def _bi2i6(self, *, band_cutoff, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
+        positions = [[4.13843656, 2.38932746, 9.36037077],
+                     [0.00000000, 4.77865492, 9.36034750],
+                     [3.89827619, 0.00000000, 7.33713295],
+                     [2.18929748, 3.79197674, 7.33713295],
+                     [-1.94913711, 3.37600678, 7.33713295],
+                     [3.89827619, 0.00000000, 11.3835853],
+                     [2.18929961, 3.79197551, 11.3835853],
+                     [-1.94913924, 3.37600555, 11.3835853]]
+        cell = [[8.276873113486648, 0.0, 0.0],
+                [-4.138436556743325, 7.167982380179831, 0.0],
+                [0.0, 0.0, 18.720718261172827]]
+        pbc = [True, True, False]
+        atoms = Atoms('Bi2I6',
+                      positions=positions,
+                      cell=cell,
+                      pbc=pbc)
+
+        ecut = 150
+        nkpts = 4
+        conv = {'bands': band_cutoff + 1,
+                'density': 1.e-8}
+        print(conv)
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(mode=PW(ecut),
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          convergence=conv,
+                          nbands=band_cutoff + 9,
+                          txt=self.path / f'bi2i6_pw{tag}.txt',
+                          symmetry=symmetry)
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def bi2i6_pw(self):
+        return self._bi2i6()
+
+    @gpwfile
+    def bi2i6_pw_nosym(self):
+        return self._bi2i6(symmetry='off')
 
     def _mos2(self, symmetry=None):
         if symmetry is None:
@@ -1659,36 +1708,6 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    for line in [
-        'ci: test included in CI',
-        'do: Direct optimization',
-        'dscf: Delta-SCF',
-        'elph: Electron-phonon',
-        'fast: fast test',
-        'generate_gpw_files: Dummy test to trigger gpw file precalculation',
-        'gllb: GLLBSC tests',
-        'gpu: GPU test',
-        'hybrids: Hybrid functionals',
-        'intel: fails on INTEL toolchain',
-        'kspair: tests of kspair in the response code',
-        'later: know failure for new refactored GPAW',
-        'legacy: Old stuff that will be removed later',
-        'libxc: LibXC requirered',
-        'lrtddft: Linear-response TDDFT',
-        'mgga: MGGA test',
-        'mom: MOM',
-        'ofdft: Orbital-free DFT',
-        'response: tests of the response code',
-        'rpa: tests of RPA',
-        'rttddft: Real-time TDDFT',
-        'serial: run in serial only',
-        'sic: PZ-SIC',
-        'slow: slow test',
-        'soc: Spin-orbit coupling',
-        'stress: Calculation of stress tensor',
-        'wannier: Wannier functions',
-        'pipekmezey : PipekMezey wannier functions']:
-        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):

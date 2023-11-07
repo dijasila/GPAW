@@ -8,7 +8,8 @@ from gpaw.test.conftest import response_band_cutoff
 
 @pytest.mark.later
 @pytest.mark.serial
-@pytest.mark.parametrize('gs', ['fancy_si_pw',
+@pytest.mark.parametrize('gs', ['bi2i6_pw',
+                                'fancy_si_pw',
                                 'al_pw',
                                 'fe_pw',
                                 'co_pw',
