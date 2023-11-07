@@ -300,7 +300,9 @@ class PseudoPotential(BaseSetup):
         self.rcore = None
 
         self.N0_p = np.zeros(_np)  # not really implemented
-        self.nabla_iiv = data.nabla_iiv
+        if hasattr(data, 'nabla_iiv'):
+            self.nabla_iiv = data.nabla_iiv
+        else: self.nabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd
