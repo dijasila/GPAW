@@ -144,7 +144,6 @@ build-cuda:
       gpu_compile_args = ['-O3',
                           '-g']
       libraries += ['cudart', 'cublas']
-      undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
