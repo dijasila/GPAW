@@ -240,7 +240,7 @@ build-libxc:
     - gpaw -P 1 info
 
 
-test:
+test-oldest:
   image: $IMAGE_PATH/main:oldest
   extends:
     - .test
