@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 
 
 class HilbertTransform:
@@ -78,7 +78,7 @@ class HilbertTransform:
         for x in range(0, nx, self.blocksize):
             b_wx = B_wx[:, x:x + self.blocksize]
             c_wx = tmp_wx[:, :b_wx.shape[1]]
-            gemm(1.0, b_wx, self.H_ww, 0.0, c_wx)
+            mmm(1.0, self.H_ww, 'N', b_wx, 'N', 0.0, c_wx)
             b_wx[:] = c_wx
 
 
@@ -97,5 +97,6 @@ class GWHilbertTransforms:
         H_xw = self._stacked_H_nww.reshape(-1, nw)
         A_wy = A_wGG.reshape(nw, -1)
         tmp_xy = np.zeros((H_xw.shape[0], A_wy.shape[1]), complex)
-        gemm(1.0, A_wy, H_xw, 0.0, tmp_xy)
+        # gemm(1.0, A_wy, H_xw, 0.0, tmp_xy)
+        mmm(1.0, H_xw, 'N', A_wy, 'N', 0.0, tmp_xy)
         return tmp_xy.reshape((2, *A_wGG.shape))

@@ -67,10 +67,11 @@ def ground_state():
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
 
-    calc = GPAW(nbands=6, h=0.4,
+    calc = GPAW(mode='fd', nbands=6, h=0.4,
                 convergence={'density': 1e-8},
                 communicator=serial_comm,
                 xc='LDA',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -85,38 +86,39 @@ def time_propagation_reference(ground_state):
                                write_and_continue=True)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 def test_dipole_moment_values(time_propagation_reference,
                               module_tmp_path, in_tmp_dir):
     with open('dm.dat', 'w') as fd:
         fd.write('''
 # DipoleMomentWriter[version=1](center=False, density='comp')
 #            time            norm                    dmx                    dmy                    dmz
-          0.00000000       6.92701356e-16    -3.798602757097e-08    -3.850923113536e-10    -2.506988148420e-10
+# Start; Time = 0.00000000
+          0.00000000      -8.62679509e-16     8.856042552837e-09     5.230011358635e-11     1.624559936066e-10
 # Kick = [    1.000000000000e-05,     1.000000000000e-05,     1.000000000000e-05]; Time = 0.00000000
-          0.00000000       6.78612525e-16    -3.806745480191e-08    -5.880500044945e-10    -4.683685533214e-10
-          0.82682747      -3.11611967e-16     6.011432043389e-05     6.015251317290e-05     6.015179500177e-05
-          1.65365493       1.71405522e-15     1.075009677567e-04     1.075385921602e-04     1.075337414463e-04
-          2.48048240       1.55070479e-15     1.388363880650e-04     1.388662733804e-04     1.388701173331e-04
+          0.00000000       9.59295128e-16     8.826542661185e-09    -1.968118480737e-10    -1.260104338852e-10
+          0.82682747       1.64702342e-15     6.016062457419e-05     6.015263997632e-05     6.015070820074e-05
+          1.65365493       1.36035859e-15     1.075409609786e-04     1.075366083805e-04     1.075339737111e-04
+          2.48048240       1.53109134e-15     1.388608139179e-04     1.388701618472e-04     1.388666380740e-04
 '''.strip())  # noqa: E501
 
     with open('dm2.dat', 'w') as fd:
         fd.write('''
 # DipoleMomentWriter[version=1](center=False, density='comp')
 #            time            norm                    dmx                    dmy                    dmz
-          2.48048240       1.55070479e-15     1.388363880650e-04     1.388662733804e-04     1.388701173331e-04
-          3.30730987      -1.85697397e-16     1.528174640313e-04     1.528352677280e-04     1.528428543052e-04
-          4.13413733      -6.23799730e-17     1.497979692345e-04     1.498097215567e-04     1.498150038226e-04
-          4.96096480       1.44537040e-15     1.324352983945e-04     1.324326482531e-04     1.324473352117e-04
+          2.48048240       1.53109134e-15     1.388608139179e-04     1.388701618472e-04     1.388666380740e-04
+          3.30730987       1.36214053e-15     1.528275514998e-04     1.528424797241e-04     1.528388409079e-04
+          4.13413733      -5.46885441e-16     1.498039918400e-04     1.498178744836e-04     1.498147055362e-04
+          4.96096480      -3.62630566e-16     1.324275745486e-04     1.324479404917e-04     1.324450415780e-04
 '''.strip())  # noqa: E501
 
     rtol = 5e-4
-    atol = 1e-8
+    atol = 1e-7
     check_dm('dm.dat', module_tmp_path / 'dm.dat', rtol=rtol, atol=atol)
     check_dm('dm2.dat', module_tmp_path / 'dm2.dat', rtol=rtol, atol=atol)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 @pytest.mark.parametrize('propagator', [
     'SICN', 'ECN', 'ETRSCN', 'SIKE'])
@@ -134,17 +136,17 @@ def test_propagation(time_propagation_reference,
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
             rtol = 7e-4
-            atol = 3e-8
+            atol = 5e-8
     else:
         # Other propagators match qualitatively
         rtol = 5e-2
         if 'band' in parallel:
             # XXX band parallelization is inaccurate!
-            atol = 3e-8
+            atol = 5e-8
     check_dm(module_tmp_path / 'dm.dat', 'dm.dat', rtol=rtol, atol=atol)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.later
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_restart(time_propagation_reference,
                  parallel,

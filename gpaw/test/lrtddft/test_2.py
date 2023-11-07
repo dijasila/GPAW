@@ -1,9 +1,11 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.spectrum import spectrum
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_2(in_tmp_dir):
     txt = '-'
     txt = None
@@ -17,7 +19,8 @@ def test_lrtddft_2(in_tmp_dir):
                 (a / 2, a / 2, (c + R) / 2)],
                cell=(a, a, c))
 
-    calc = GPAW(xc=xc,
+    calc = GPAW(mode='fd',
+                xc=xc,
                 nbands=2,
                 spinpol=False,
                 eigensolver='rmm-diis',

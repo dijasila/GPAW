@@ -9,12 +9,12 @@ from gpaw.utilities.tools import tri2full
 # from gpaw import debug
 # from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.utilities.blas import gemm, gemmdot
+from gpaw.utilities.blas import mmm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
-from gpaw.directmin.etdm import ETDM
+from gpaw.directmin.etdm_lcao import LCAOETDM
 
 
 class LCAO(Mode):
@@ -32,7 +32,7 @@ class LCAO(Mode):
                                  **kwargs)
 
     def __repr__(self):
-        return 'LCAO({})'.format(self.todict())
+        return f'LCAO({self.todict()})'
 
     def todict(self):
         dct = Mode.todict(self)
@@ -117,7 +117,7 @@ class LCAOWaveFunctions(WaveFunctions):
             self.tciexpansions = TCIExpansions.new_from_setups(setups)
 
         self.basis_functions = BasisFunctions(gd,
-                                              [setup.phit_j
+                                              [setup.basis_functions_J
                                                for setup in setups],
                                               kd,
                                               dtype=dtype,
@@ -162,7 +162,7 @@ class LCAOWaveFunctions(WaveFunctions):
     def set_eigensolver(self, eigensolver):
         WaveFunctions.set_eigensolver(self, eigensolver)
         if eigensolver:
-            if isinstance(eigensolver, ETDM):
+            if isinstance(eigensolver, LCAOETDM):
                 eigensolver.initialize(self.gd, self.dtype, self.bd.nbands,
                                        self.kd.nibzkpts, self.setups.nao,
                                        self.ksl.using_blacs,
@@ -331,7 +331,7 @@ class LCAOWaveFunctions(WaveFunctions):
             # that also conforms better to the usual conventions in literature
             Cf_Mn = C_nM.T.conj() * f_n
             self.timer.start('gemm')
-            gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+            mmm(1.0, Cf_Mn, 'N', C_nM, 'N', 0.0, rho_MM)
             self.timer.stop('gemm')
             self.timer.start('band comm sum')
             self.bd.comm.sum(rho_MM)
@@ -396,8 +396,8 @@ class LCAOWaveFunctions(WaveFunctions):
                                     self.basis_functions, self.newtci,
                                     self.P_aqMi, self.setups,
                                     self.manytci, hamiltonian,
-                                    self.spos_ac, self.timer,
-                                    Fref_av)
+                                    self, self.spos_ac,
+                                    self.timer, Fref_av)
 
         F_av[:, :] = self.forcecalc.get_forces_sum_GS()
         self.timer.stop('LCAO forces')
@@ -469,7 +469,7 @@ class LCAOWaveFunctions(WaveFunctions):
 class LCAOforces:
 
     def __init__(self, ksl, dtype, gd, bd, kd, kpt_u, nspins, bfs, newtci,
-                 P_aqMi, setups, manytci, hamiltonian, spos_ac,
+                 P_aqMi, setups, manytci, hamiltonian, wfs, spos_ac,
                  timer, Fref_av):
         """ Object which calculates LCAO forces """
 
@@ -491,6 +491,7 @@ class LCAOforces:
         self.Mstop = ksl.Mstop
         self.setups = setups
         self.hamiltonian = hamiltonian
+        self.wfs = wfs
         self.timer = timer
         self.Fref_av = Fref_av
         self.my_atom_indices = bfs.my_atom_indices
@@ -521,10 +522,8 @@ class LCAOforces:
             Ftheta_av = self.get_den_mat_term()
             Frho_av = self.get_den_mat_paw_term()
             Fatom_av = self.get_atomic_density_term()
-
             F_av += Fkin_av + Fpot_av + Ftheta_av + Frho_av + Fatom_av
-
-        if self.isblacs:
+        else:
             F_av = np.zeros_like(self.Fref_av)
             Fpot_av = self.get_pot_term_blacs()
             Fkin_av, Ftheta_av = self.get_kin_and_den_term_blacs()
@@ -593,8 +592,8 @@ class LCAOforces:
             rhoT_uMM = []
             ET_uMM = []
             for kpt in self.kpt_u:
-                H_MM = self.eigensolver.calculate_hamiltonian_matrix(
-                    self.hamiltonian, self, kpt)
+                H_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
+                    self.hamiltonian, self.wfs, kpt)
                 tri2full(H_MM)
                 S_MM = kpt.S_MM.copy()
                 tri2full(S_MM)
@@ -709,11 +708,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM = (work_MM * self.ET_uMM[u]).real
                     for a, M1, M2 in self.slices():
                         dE = 2 * ZE_MM[M1:M2].sum()
@@ -767,11 +768,13 @@ class LCAOforces:
                 setup = self.setups[b]
                 dO_ii = np.asarray(setup.dO_ii, self.dtype)
                 dOP_iM = np.zeros((setup.ni, self.nao), self.dtype)
-                gemm(1.0, self.P_aqMi[b][kpt.q], dO_ii, 0.0, dOP_iM, 'c')
+                mmm(1.0, dO_ii, 'N', self.P_aqMi[b][kpt.q], 'C', 0.0, dOP_iM)
                 for v in range(3):
-                    gemm(1.0, dOP_iM,
-                         self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
-                         0.0, work_MM, 'n')
+                    mmm(1.0,
+                        self.dPdR_aqvMi[b][kpt.q][v][self.Mstart:self.Mstop],
+                        'N',
+                        dOP_iM, 'N',
+                        0.0, work_MM)
                     ZE_MM[u, b, v, :, :] = (work_MM * self.ET_uMM[u]).real
         self.timer.stop('get paw correction')
         return ZE_MM
@@ -799,6 +802,10 @@ class LCAOforces:
         for u, kpt in enumerate(self.kpt_u):
             for b in self.my_atom_indices:
                 H_ii = np.asarray(unpack(self.dH_asp[b][kpt.s]), self.dtype)
+                if len(H_ii) == 0:
+                    # gemmdot does not like empty matrices!
+                    # (has been fixed in the new code)
+                    continue
                 HP_iM = gemmdot(H_ii, np.ascontiguousarray(
                                 self.P_aqMi[b][kpt.q].T.conj()))
                 for v in range(3):

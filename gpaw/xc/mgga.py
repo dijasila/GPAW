@@ -18,10 +18,11 @@ class MGGA(XCFunctional):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
-        self.stencil = stencil
+        self.stencil_range = stencil
+        self.fixed_ke = False
 
     def set_grid_descriptor(self, gd):
-        self.grad_v = get_gradient_ops(gd, self.stencil)
+        self.grad_v = get_gradient_ops(gd, self.stencil_range, np)
         XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):
@@ -31,15 +32,36 @@ class MGGA(XCFunctional):
     # kind of problem when refactoring MGGAs one day.
     def get_description(self):
         return ('{} with {} nearest neighbor stencil'
-                .format(self.name, self.stencil))
+                .format(self.name, self.stencil_range))
 
     def initialize(self, density, hamiltonian, wfs):
         self.wfs = wfs
         self.tauct = density.get_pseudo_core_kinetic_energy_density_lfc()
         self.tauct_G = None
         self.dedtaut_sG = None
-        self.restrict_and_collect = hamiltonian.restrict_and_collect
-        self.distribute_and_interpolate = density.distribute_and_interpolate
+        if ((not hasattr(hamiltonian, 'xc_redistributor'))
+                or (hamiltonian.xc_redistributor is None)):
+            self.restrict_and_collect = hamiltonian.restrict_and_collect
+            self.distribute_and_interpolate = \
+                density.distribute_and_interpolate
+        else:
+            def _distribute_and_interpolate(in_xR, out_xR=None):
+                tmp_xR = density.interpolate(in_xR)
+                if hamiltonian.xc_redistributor.enabled:
+                    out_xR = hamiltonian.xc_redistributor.distribute(tmp_xR,
+                                                                     out_xR)
+                elif out_xR is None:
+                    out_xR = tmp_xR
+                else:
+                    out_xR[:] = tmp_xR
+                return out_xR
+
+            def _restrict_and_collect(in_xR, out_xR=None):
+                if hamiltonian.xc_redistributor.enabled:
+                    in_xR = hamiltonian.xc_redistributor.collect(in_xR)
+                return hamiltonian.restrict(in_xR, out_xR)
+            self.restrict_and_collect = _restrict_and_collect
+            self.distribute_and_interpolate = _distribute_and_interpolate
 
     def set_positions(self, spos_ac):
         self.tauct.set_positions(spos_ac, self.wfs.atom_partition)
@@ -54,8 +76,21 @@ class MGGA(XCFunctional):
         add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                 dedsigma_xg, v_sg)
 
+    def fix_kinetic_energy_density(self, taut_sG):
+        self.fixed_ke = True
+        self._taut_gradv_init = False
+        self._fixed_taut_sG = taut_sG.copy()
+
     def process_mgga(self, e_g, nt_sg, v_sg, sigma_xg, dedsigma_xg):
-        taut_sG = self.wfs.calculate_kinetic_energy_density()
+        if self.fixed_ke:
+            taut_sG = self._fixed_taut_sG
+            if not self._taut_gradv_init:
+                self._taut_gradv_init = True
+                # ensure initialization for calculation potential
+                self.wfs.calculate_kinetic_energy_density()
+        else:
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
@@ -98,6 +133,64 @@ class MGGA(XCFunctional):
                 self.dedtaut_sG[s] * (taut_sG[s] -
                                       self.tauct_G / self.wfs.nspins))
 
+    def stress_tensor_contribution(self, n_sg):
+        sigma_xg, dedsigma_xg, gradn_svg = gga_vars(self.gd, self.grad_v, n_sg)
+        taut_sG = self.wfs.calculate_kinetic_energy_density()
+        if taut_sG is None:
+            taut_sG = self.wfs.gd.zeros(len(n_sg))
+        taut_sg = np.empty_like(n_sg)
+        for taut_G, taut_g in zip(taut_sG, taut_sg):
+            taut_G += 1.0 / self.wfs.nspins * self.tauct_G
+            self.distribute_and_interpolate(taut_G, taut_g)
+
+        nspins = len(n_sg)
+        dedtaut_sg = np.empty_like(n_sg)
+        v_sg = self.gd.zeros(nspins)
+        e_g = self.gd.empty()
+        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
+                              taut_sg, dedtaut_sg)
+
+        def integrate(a1_g, a2_g=None):
+            return self.gd.integrate(a1_g, a2_g, global_integral=False)
+
+        P = integrate(e_g)
+        for v_g, n_g in zip(v_sg, n_sg):
+            P -= integrate(v_g, n_g)
+        for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
+            P -= 2 * integrate(sigma_g, dedsigma_g)
+        for taut_g, dedtaut_g in zip(taut_sg, dedtaut_sg):
+            P -= integrate(taut_g, dedtaut_g)
+
+        tau_svvG = self.wfs.calculate_kinetic_energy_density_crossterms()
+
+        stress_vv = P * np.eye(3)
+        for v1 in range(3):
+            for v2 in range(3):
+                stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                               gradn_svg[0, v2],
+                                               dedsigma_xg[0]) * 2
+                if nspins == 2:
+                    stress_vv[v1, v2] -= integrate(gradn_svg[0, v1] *
+                                                   gradn_svg[1, v2],
+                                                   dedsigma_xg[1]) * 2
+                    stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
+                                                   gradn_svg[1, v2],
+                                                   dedsigma_xg[2]) * 2
+        tau_cross_g = self.gd.empty()
+        for s in range(nspins):
+            for v1 in range(3):
+                for v2 in range(3):
+                    self.distribute_and_interpolate(
+                        tau_svvG[s, v1, v2], tau_cross_g)
+                    stress_vv[v1, v2] -= integrate(tau_cross_g, dedtaut_sg[s])
+
+        self.dedtaut_sG = self.wfs.gd.empty(self.wfs.nspins)
+        for s in range(self.wfs.nspins):
+            self.restrict_and_collect(dedtaut_sg[s], self.dedtaut_sG[s])
+
+        self.gd.comm.sum(stress_vv)
+        return stress_vv
+
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG, dH_asp=None):
         self.wfs.apply_mgga_orbital_dependent_hamiltonian(
@@ -114,7 +207,7 @@ class MGGA(XCFunctional):
         self.xcc = setup.xc_correction
         self.dEdD_sp = dEdD_sp
 
-        if self.xcc.tau_npg is None:
+        if self.xcc is not None and self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
                 self.xcc)
 
@@ -331,12 +424,12 @@ def LegendreFx2(n, rs, sigma, tau,
     C2 = 0.26053088059892404
     s2 = sigma * (C2 * np.divide(rs, n))**2.
     x_i = transformation(s2, trans_i)
-    assert(x_i.all() >= -1.0 and x_i.all() <= 1.0)
+    assert x_i.all() >= -1.0 and x_i.all() <= 1.0
 
     # kinetic energy density parameter alpha in transformation t2(s)
     alpha = get_alpha(n, sigma, tau)
     x_j = transformation(alpha, trans_j)
-    assert(x_j.all() >= -1.0 and x_j.all() <= 1.0)
+    assert x_j.all() >= -1.0 and x_j.all() <= 1.0
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
@@ -367,13 +460,13 @@ def get_alpha(n, sigma, tau):
     # von Weisaecker
     ind = (n != 0.).nonzero()
     gdms = np.maximum(sigma, 1e-40)  # |nabla rho|^2
-    tau_w = np.zeros((np.shape(n)))
+    tau_w = np.zeros(np.shape(n))
     tau_w[ind] = np.maximum(np.divide(gdms[ind], 8.0 * n[ind]), 1e-40)
 
     # z and alpha
     tau_ = np.maximum(tau_w, tau)
     alpha = np.divide(tau_ - tau_w, tau_lsda)
-    assert(alpha.all() >= 0.0)
+    assert alpha.all() >= 0.0
     return alpha
 
 

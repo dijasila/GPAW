@@ -1,11 +1,13 @@
+import pytest
 from ase import Atoms
 
-from gpaw.mpi import size, rank
 from gpaw import GPAW, FermiDirac
 from gpaw.analyse.simple_stm import SimpleStm
+from gpaw.mpi import rank, size
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_utilities_simple_stm(in_tmp_dir):
     load = False
     txt = '/dev/null'
@@ -45,7 +47,7 @@ def test_utilities_simple_stm(in_tmp_dir):
     fname = 'BH-nospin_wfs.gpw'
     if not load:
         BH.set_pbc(False)
-        cf = GPAW(nbands=3, h=.3, txt=txt)
+        cf = GPAW(mode='fd', nbands=3, h=.3, txt=txt)
         BH.calc = cf
         e1 = BH.get_potential_energy()
         cf.write(fname, 'all')
@@ -58,7 +60,8 @@ def test_utilities_simple_stm(in_tmp_dir):
     BH.set_initial_magnetic_moments([1, 1])
     if not load:
         BH.set_pbc(False)
-        cf = GPAW(occupations=FermiDirac(0.1, fixmagmom=True),
+        cf = GPAW(mode='fd',
+                  occupations=FermiDirac(0.1, fixmagmom=True),
                   nbands=5,
                   h=0.3,
                   txt=txt)
@@ -72,7 +75,7 @@ def test_utilities_simple_stm(in_tmp_dir):
     # periodic system
     if not load:
         BH.set_pbc(True)
-        cp = GPAW(spinpol=True, nbands=3, h=.3,
+        cp = GPAW(mode='fd', spinpol=True, nbands=3, h=.3,
                   kpts=(2, 1, 1), txt=txt, symmetry='off')
         BH.calc = cp
         e3 = BH.get_potential_energy()

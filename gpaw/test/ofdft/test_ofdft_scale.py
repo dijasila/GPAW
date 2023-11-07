@@ -7,6 +7,7 @@ from gpaw.test import gen
 from gpaw.eigensolvers import CG
 
 
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft_scale(in_tmp_dir):
     h = 0.18
@@ -32,7 +33,8 @@ def test_ofdft_ofdft_scale(in_tmp_dir):
 
         mixer = Mixer(0.3, 5, 1)
         eigensolver = CG(tw_coeff=lambda_coeff)
-        calc = GPAW(h=h,
+        calc = GPAW(mode='fd',
+                    h=h,
                     xc=xcname,
                     setups=setups,
                     maxiter=240,

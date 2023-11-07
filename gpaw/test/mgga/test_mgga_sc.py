@@ -10,14 +10,16 @@ def test_mgga_mgga_sc():
     n.center(vacuum=2.5)
 
     def getkwargs():
-        return dict(eigensolver=Davidson(4), mixer=MixerSum(0.5, 5, 10.0))
+        return dict(mode='fd',
+                    eigensolver=Davidson(4),
+                    mixer=MixerSum(0.5, 5, 10.0))
 
     n.calc = GPAW(xc='TPSS', **getkwargs())
     e1 = n.get_potential_energy()
 
     n.calc = GPAW(xc='PBE', **getkwargs())
     n.get_potential_energy()
-    n.calc.set(xc='TPSS')
+    n.calc = n.calc.new(xc='TPSS')
     e2 = n.get_potential_energy()
     err = abs(e2 - e1)
     print('Energy difference', err)

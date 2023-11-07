@@ -21,6 +21,7 @@ if do_print_values:
         i += 1
 
 
+@pytest.mark.later
 @pytest.mark.ci
 def test_inducedfield_td(in_tmp_dir):
     poisson_eps = 1e-12
@@ -36,10 +37,11 @@ def test_inducedfield_td(in_tmp_dir):
     atoms.center(vacuum=3.0)
 
     # Standard ground state calculation
-    calc = GPAW(nbands=2,
+    calc = GPAW(mode='fd', nbands=2,
                 h=0.6,
                 setups={'Na': '1'},
                 poissonsolver=poissonsolver,
+                symmetry={'point_group': False},
                 convergence={'density': density_eps})
     atoms.calc = calc
     _ = atoms.get_potential_energy()

@@ -22,7 +22,7 @@ def print_cell(gd, pbc_c, log):
     log('  Angles:  {:10.6f} {:10.6f} {:10.6f}\n'.format(*par[3:]))
 
     h_eff = gd.dv**(1.0 / 3.0) * Bohr
-    log('Effective grid spacing dv^(1/3) = {:.4f}'.format(h_eff))
+    log(f'Effective grid spacing dv^(1/3) = {h_eff:.4f}')
     log()
 
 
@@ -66,7 +66,7 @@ def print_parallelization_details(wfs, ham, log):
         log('Parallelization over states: %d' % wfs.bd.comm.size)
 
     if get_num_threads() > 1:  # OpenMP threading
-        log('OpenMP threads: {}'.format(get_num_threads()))
+        log(f'OpenMP threads: {get_num_threads()}')
     log()
 
 
@@ -98,8 +98,8 @@ def plot(atoms: Atoms) -> str:
     numbers = atoms.get_atomic_numbers()
 
     s = 1.3
-    nx, ny, nz = n = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
-    sx, sy, sz = n / cell
+    nx, ny, nz = nxyz = (s * cell * (1.0, 0.25, 0.5) + 0.5).astype(int)
+    sx, sy, sz = nxyz / cell
     grid = Grid(nx + ny + 4, nz + ny + 1)
     positions = (positions % cell + cell) % cell
     ij = np.dot(positions, [(sx, 0), (sy, sy), (0, sz)])

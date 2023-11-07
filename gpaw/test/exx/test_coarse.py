@@ -10,6 +10,7 @@ from gpaw.xc.hybrid import HybridXC
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_coarse(in_tmp_dir):
     timer = Timer()
 
@@ -30,22 +31,22 @@ def test_exx_coarse(in_tmp_dir):
         else:
             tstr = 'Exx on coarse grid'
         timer.start(tstr)
-        calc = GPAW(h=0.3,
-                    eigensolver='rmm-diis',
-                    xc=dict(name='PBE', stencil=1),
-                    poissonsolver={'name': 'fd'},
-                    nbands=4,
-                    convergence={'eigenstates': 1e-4},
-                    charge=-1)
-        loa.calc = calc
+        loa.calc = GPAW(mode='fd',
+                        h=0.3,
+                        eigensolver='rmm-diis',
+                        xc=dict(name='PBE', stencil=1),
+                        poissonsolver={'name': 'fd'},
+                        nbands=4,
+                        convergence={'eigenstates': 1e-4},
+                        charge=-1)
         E[fg] = loa.get_potential_energy()
-        calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
+        loa.calc = loa.calc.new(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
         E[fg] = loa.get_potential_energy()
-        niter[fg] = calc.get_number_of_iterations()
+        niter[fg] = loa.calc.get_number_of_iterations()
         timer.stop(tstr)
         if not fg:
             fname = 'exx_load.gpw'
-            calc.write(fname)
+            loa.calc.write(fname)
             calcl = GPAW(fname)
             func = calcl.parameters.xc
 

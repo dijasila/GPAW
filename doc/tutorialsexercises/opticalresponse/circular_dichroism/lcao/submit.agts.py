@@ -10,7 +10,7 @@ def workflow():
             # Simple calculation
             td_jobs = []
             for kick in 'xyz':
-                td = run(script='td.py', args=['--kick', kick],
+                td = run(script='td.py', args=['--', '--kick', kick],
                          cores=4, tmax='1h')
                 td_jobs.append(td)
             spec = run(script='spec.py', deps=td_jobs)
@@ -19,7 +19,7 @@ def workflow():
             # Different origins
             td_jobs = []
             for kick in 'xyz':
-                td = run(script='td_origins.py', args=['--kick', kick],
+                td = run(script='td_origins.py', args=['--', '--kick', kick],
                          cores=4, tmax='1h')
                 td_jobs.append(td)
             spec = run(script='spec_origins.py', deps=td_jobs)
@@ -29,7 +29,7 @@ def workflow():
     with run(script='gs.py', cores=4, folder='dzp'):
         td_jobs = []
         for kick in 'xyz':
-            td = run(script='td.py', args=['--kick', kick],
+            td = run(script='td.py', args=['--', '--kick', kick],
                      cores=4, tmax='1h', folder='dzp')
             td_jobs.append(td)
         spec = run(script='spec.py', deps=td_jobs, folder='dzp')

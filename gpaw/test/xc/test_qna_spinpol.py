@@ -1,8 +1,11 @@
-from gpaw import GPAW, PW
+import pytest
 from ase.lattice.cubic import BodyCenteredCubic
+
+from gpaw import GPAW, PW
 from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_xc_qna_spinpol(in_tmp_dir):
     QNA = {'alpha': 2.0,
            'name': 'QNA',

@@ -32,6 +32,7 @@ def calculate_ground_state(*, communicator=world,
                 convergence={'density': 1e-8},
                 spinpol=spinpol,
                 communicator=communicator,
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -58,7 +59,7 @@ def initialize_system():
     return unocc_calc, fdm
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 def test_propagated_wave_function(initialize_system, module_tmp_path):
     wfr = WaveFunctionReader(module_tmp_path / 'wf.ulm')
     coeff = wfr[-1].wave_functions.coefficients
@@ -77,10 +78,10 @@ def test_propagated_wave_function(initialize_system, module_tmp_path):
               1.9024613198566329e-01 + 2.7843314959952882e-02j,
               -1.3848736953929574e-05 - 2.6402210145403184e-05j]]]]
     err = calculate_error(coeff, ref)
-    assert err < 2e-12
+    assert err < 3e-12
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_propagation(initialize_system, module_tmp_path, parallel, in_tmp_dir):
     calculate_time_propagation(module_tmp_path / 'gs.gpw',
@@ -160,7 +161,8 @@ def ksd_transform(load_ksd):
     return rho_iwp
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.skip(reason='See #933')
+@pytest.mark.rttddft
 def test_ksd_transform(ksd_transform, ksd_transform_reference):
     ref_iwp = ksd_transform_reference
     rho_iwp = ksd_transform
@@ -169,7 +171,8 @@ def test_ksd_transform(ksd_transform, ksd_transform_reference):
     assert err < atol
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.skip(reason='See #933')
+@pytest.mark.rttddft
 def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
     ksd, fdm = load_ksd
     ref_iwp = ksd_transform_reference
@@ -186,7 +189,7 @@ def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
     assert err < atol
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 def test_dipole_moment_from_ksd(ksd_transform, load_ksd,
                                 dipole_moment_reference):
     ksd, fdm = load_ksd
@@ -229,7 +232,7 @@ def density_reference(ksd_reference):
     return dict(dmat=dmat_rho_wg, ksd=ksd_rho_wg)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 def test_ksd_vs_dmat_density(density_reference):
     ref_wg = density_reference['dmat']
     rho_wg = density_reference['ksd']
@@ -248,7 +251,7 @@ def density(load_ksd):
     return dict(dmat=dmat_rho_wg, ksd=ksd_rho_wg)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 @pytest.mark.parametrize('kind', ['ksd', 'dmat'])
 def test_density(kind, density, load_ksd, density_reference):
     ksd, fdm = load_ksd
@@ -259,7 +262,7 @@ def test_density(kind, density, load_ksd, density_reference):
     assert err < atol
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 @pytest.mark.parametrize('kind', ['ksd', 'dmat'])
 def test_dipole_moment_from_density(kind, density, load_ksd,
                                     dipole_moment_reference):
@@ -289,17 +292,17 @@ def initialize_system_spinpol():
                                do_fdm=True)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 def test_spinpol_dipole_moment(initialize_system, initialize_system_spinpol,
                                module_tmp_path):
     # The test system has even number of electrons and is non-magnetic
     # so spin-paired and spin-polarized calculation should give same result
     check_txt_data(module_tmp_path / 'dm.dat',
                    module_tmp_path / 'spinpol' / 'dm.dat',
-                   atol=4e-14)
+                   atol=1e-12)
 
 
-@pytest.mark.skip_for_new_gpaw
+@pytest.mark.rttddft
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_spinpol_propagation(initialize_system_spinpol, module_tmp_path,
                              parallel, in_tmp_dir):

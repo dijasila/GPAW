@@ -6,8 +6,10 @@ from gpaw.cluster import Cluster
 from gpaw.analyse.hirshfeld import HirshfeldDensity, HirshfeldPartitioning
 from gpaw.analyse.wignerseitz import WignerSeitz
 from gpaw.test import equal
+import pytest
 
 
+@pytest.mark.later
 def test_utilities_partitioning(in_tmp_dir):
     h = 0.4
     gpwname = 'H2O' + str(h) + '.gpw'
@@ -68,7 +70,8 @@ def test_utilities_partitioning(in_tmp_dir):
     # calculate
     if 1:
         parprint('### fresh:')
-        calc = GPAW(nbands=6,
+        calc = GPAW(mode='fd',
+                    nbands=6,
                     h=h,
                     txt=None)
     if 1:

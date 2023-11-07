@@ -1,7 +1,8 @@
 import ase.io
 from ase.units import Pascal, m
 from ase.optimize import BFGS
-from ase.neb import interpolate, DyNEB
+from ase.neb import interpolate
+from ase.mep import DyNEB
 
 from gpaw.solvation.sjm import SJM, SJMPower12Potential
 from gpaw.solvation import (
@@ -28,6 +29,7 @@ def make_calculator(index):
     interactions = [SurfaceInteraction(surface_tension=gamma)]
     calc = SJM(
         # General GPAW parameters.
+        mode='fd',
         txt=f'gpaw-{index:d}.txt',
         gpts=(16, 16, 136),
         kpts=(9, 9, 1),

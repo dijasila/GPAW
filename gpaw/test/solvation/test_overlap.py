@@ -20,10 +20,11 @@ def test_solvation_overlap():
     H2 = Cluster(molecule('H2'))
     H2.minimal_box(box, h)
 
-    c1 = GPAW(h=h, txt=None, nbands=nbands)
+    c1 = GPAW(mode='fd', h=h, txt=None, nbands=nbands)
     c1.calculate(H2)
 
-    c2 = solv.SolvationGPAW(h=h,
+    c2 = solv.SolvationGPAW(mode='fd',
+                            h=h,
                             txt=None,
                             nbands=nbands + 1,
                             **solv.get_HW14_water_kwargs())

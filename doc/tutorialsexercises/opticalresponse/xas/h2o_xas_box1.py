@@ -10,7 +10,8 @@ h = 0.2
 for L in np.arange(4, 14, 2) * 8 * h:
     atoms.set_cell((L, L, L))
     atoms.center()
-    calc = GPAW(xc='PBE',
+    calc = GPAW(mode='fd',
+                xc='PBE',
                 h=h,
                 nbands=-40,
                 eigensolver='cg',

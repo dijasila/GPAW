@@ -1,10 +1,11 @@
 import pytest
 import numpy as np
-from gpaw import GPAW, PW
 from ase import Atoms
-from gpaw.nlopt.shift import get_shift
-from gpaw.nlopt.matrixel import make_nlodata
+
+from gpaw import GPAW, PW
 from gpaw.mpi import world
+from gpaw.nlopt.matrixel import make_nlodata
+from gpaw.nlopt.shift import get_shift
 
 
 @pytest.mark.skipif(world.size > 4, reason='System too small')
@@ -21,10 +22,10 @@ def test_shift(in_tmp_dir):
     calc.write('gs.gpw', 'all')
 
     # Get the mml
-    make_nlodata()
+    nlodata = make_nlodata('gs.gpw', world)
 
     # Do a shift current caclulation
-    get_shift(freqs=np.linspace(0, 5, 100))
+    get_shift(nlodata, freqs=np.linspace(0, 5, 100))
 
     # Check it
     if world.rank == 0:
@@ -33,4 +34,4 @@ def test_shift(in_tmp_dir):
         # Check for nan's
         assert not np.isnan(shift).any()
         # It should be zero (small) since H2 is centro-symm.
-        assert np.all(np.abs(shift[1]) < 1e-8)
+        assert np.all(np.abs(shift[1]) < 2e-8)

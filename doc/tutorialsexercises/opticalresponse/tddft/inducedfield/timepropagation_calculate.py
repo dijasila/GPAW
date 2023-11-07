@@ -10,7 +10,8 @@ atoms = Atoms(symbols='Na2',
 atoms.center(vacuum=6.0)
 
 # Standard ground state calculation
-calc = GPAW(nbands=2, h=0.4, setups={'Na': '1'})
+calc = GPAW(mode='fd', nbands=2, h=0.4, setups={'Na': '1'},
+            symmetry={'point_group': False})
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('na2_gs.gpw', mode='all')

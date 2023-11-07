@@ -22,27 +22,26 @@ def test_symmetry_fractional_translations_med():
                 kpts=(3, 3, 3),
                 nbands=42,
                 symmetry={'symmorphic': False},
-                gpts=(20, 20, 24),
+                gpts=(24, 24, 27),
                 eigensolver='rmm-diis')
-
     atoms.calc = calc
     energy_fractrans = atoms.get_potential_energy()
 
-    assert(len(calc.wfs.kd.ibzk_kc) == 7)
-    assert(len(calc.wfs.kd.symmetry.op_scc) == 6)
+    assert len(calc.wfs.kd.ibzk_kc) == 7
+    assert len(calc.wfs.kd.symmetry.op_scc) == 6
 
     # without fractional translations
     calc = GPAW(mode=PW(),
                 xc='LDA',
                 kpts=(3, 3, 3),
                 nbands=42,
-                gpts=(20, 20, 24),
+                gpts=(24, 24, 27),
                 eigensolver='rmm-diis')
 
     atoms.calc = calc
     energy_no_fractrans = atoms.get_potential_energy()
 
-    assert(len(calc.wfs.kd.ibzk_kc) == 10)
-    assert(len(calc.wfs.kd.symmetry.op_scc) == 2)
+    assert len(calc.wfs.kd.ibzk_kc) == 10
+    assert len(calc.wfs.kd.symmetry.op_scc) == 2
 
     equal(energy_fractrans, energy_no_fractrans, 1e-3)

@@ -42,8 +42,7 @@ def test_graphene_EELS():
         parallel['band'] = 2
     calc = GPAW(gpwname,
                 txt=None,
-                parallel=parallel,
-                idiotproof=False)
+                parallel=parallel)
     pp('after restart')
 
     q = np.array([1.0 / nkpts, 0., 0.])

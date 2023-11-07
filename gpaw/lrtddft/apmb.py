@@ -15,7 +15,7 @@ import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
 from gpaw.helmholtz import HelmholtzSolver
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 
 
 class ApmB(OmegaMatrix):
@@ -315,9 +315,9 @@ class ApmB(OmegaMatrix):
 
             # get Omega matrix
             M = np.zeros(ApB.shape)
-            gemm(1.0, ApB, S, 0.0, M)
+            mmm(1.0, S, 'N', ApB, 'N', 0.0, M)
             self.eigenvectors = np.zeros(ApB.shape)
-            gemm(1.0, S, M, 0.0, self.eigenvectors)
+            mmm(1.0, M, 'N', S, 'N', 0.0, self.eigenvectors)
 
             self.eigenvalues, self.eigenvectors.T[:] = eigh(self.eigenvectors)
 
@@ -411,5 +411,5 @@ def sqrt_matrix(a, preserve=False):
     c = Z * np.sqrt(D)
 
     # sqrt(b) = c * Z^T
-    gemm(1., ZT, np.ascontiguousarray(c), 0., b)
+    mmm(1.0, np.ascontiguousarray(c), 'N', ZT, 'N', 0.0, b)
     return b

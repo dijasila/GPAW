@@ -93,7 +93,7 @@ Extra exercise: Vibrational energy
 
 The notebook ``vibrations.ipynb`` will guide you through how to calculate the
 vibrations of the adsorbate in the initial and final state and use the
-Thermochamistry module to calculate the reaction free energy. The final part
+Thermochemistry module to calculate the reaction free energy. The final part
 of the exercise shows what happens when you calculate the vibrations of a
 well-converged NEB transition state.
 

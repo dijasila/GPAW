@@ -1,18 +1,16 @@
 import numpy as np
-
+import pytest
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
-from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.lrtddft2 import LrTDDFT2
 from gpaw.mpi import world
-
+from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.test import equal
 
-# Atoms
 
-
+@pytest.mark.rttddft
 def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -21,6 +19,7 @@ def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='sz(dzp)', mode='lcao', xc='oldLDA',
                 convergence={'density': 1e-8},
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

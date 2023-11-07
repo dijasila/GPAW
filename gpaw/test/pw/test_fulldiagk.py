@@ -1,6 +1,7 @@
 from ase import Atoms
+
 from gpaw import GPAW
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import serial_comm, world
 
 
 def test_pw_fulldiagk(in_tmp_dir, scalapack):
@@ -32,7 +33,9 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
     w2 = a.calc.get_pseudo_wave_function(0, 1)
     e2 = a.calc.get_eigenvalues(1)
 
-    calc = GPAW('H.gpw', txt=None, parallel={'domain': 1})
+    calc = GPAW('H.gpw',
+                txt=None,
+                parallel={'domain': 1})
     calc.diagonalize_full_hamiltonian(nbands=100, scalapack=scalapack)
     w3 = calc.get_pseudo_wave_function(0, 1)
     e3 = calc.get_eigenvalues(1)
@@ -45,6 +48,7 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
 
     for w in [w2, w3, w4]:
         err = abs(abs(w[1, 2, 3]) - abs(w1[1, 2, 3]))
+        print(err)
         assert err < 1e-7, err
 
     for e in [e2, e3, e4]:
@@ -64,3 +68,7 @@ def test_pw_fulldiagk(in_tmp_dir, scalapack):
     de = e5 - calc.get_eigenvalues(0)[:4]
     cbm = calc.get_fermi_level()
     assert abs(de[e5 < cbm + 10]).max() < 0.001
+
+
+if __name__ == '__main__':
+    test_pw_fulldiagk(1, 2)

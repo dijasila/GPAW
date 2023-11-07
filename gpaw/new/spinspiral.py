@@ -1,11 +1,11 @@
 from math import pi
-from gpaw.core.plane_waves import PlaneWaves
-from gpaw.core.pwacf import PlaneWaveAtomCenteredFunctions
+from gpaw.core.plane_waves import PWDesc
+from gpaw.core.pwacf import PWAtomCenteredFunctions
 
 
-class QPW:
+class SpiralPWDesc:
     def __init__(self,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  qspiral_v):
         self.pw = pw
         self.qspiral_v = qspiral_v
@@ -16,19 +16,21 @@ class QPW:
         self.G_plus_k_Gv = pw.G_plus_k_Gv + qspiral_v
         self.ekin_G = 0.5 * (self.G_plus_k_Gv**2).sum(1)
         self.kpt = pw.kpt_c + pw.cell_cv @ qspiral_v / (2 * pi)
+        self.kpt_c = self.kpt
         self.cell = pw.cell
         self.dv = pw.dv
 
 
-class SpiralPWAFC:
+class SpiralPWACF:
     def __init__(self, functions, positions, pw,
                  atomdist,
                  qspiral_v):
         self.pt_saiG = [
-            PlaneWaveAtomCenteredFunctions(functions,
-                                           positions,
-                                           QPW(pw, 0.5 * sign * qspiral_v),
-                                           atomdist=atomdist)
+            PWAtomCenteredFunctions(
+                functions,
+                positions,
+                SpiralPWDesc(pw, 0.5 * sign * qspiral_v),
+                atomdist=atomdist)
             for sign in [1, -1]]
 
     def empty(self, dims, comm):

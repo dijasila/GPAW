@@ -32,6 +32,15 @@ class SolvationGPAW(GPAW):
 
         GPAW.__init__(self, restart, **gpaw_kwargs)
 
+        self.log('Implicit solvation parameters:')
+        for stuff in self.stuff_for_hamiltonian:
+            if isinstance(stuff, list):
+                for instuff in stuff:
+                    self.log(instuff)
+            else:
+                self.log(stuff)
+        self.log()
+
     def read(self, filename):
         """Read yourself from a file"""
         self.reader = reader = Reader(filename)
@@ -57,7 +66,7 @@ class SolvationGPAW(GPAW):
                         atomic_radii=atomic_radii,
                         u0=efpot.u0)
                 else:
-                    raise IOError('Reading the given effective potential '
+                    raise OSError('Reading the given effective potential '
                                   'is not implemented yet')
 
             if 'name' in impl_in.cavity.surface_calculator:
@@ -66,7 +75,7 @@ class SolvationGPAW(GPAW):
                     from gpaw.solvation.cavity import GradientSurface
                     surface_calculator = GradientSurface(suca.nn)
                 else:
-                    raise IOError('Reading in the given used surface '
+                    raise OSError('Reading in the given used surface '
                                   'calculator is not implemented')
 
             T = impl_in.cavity.temperature

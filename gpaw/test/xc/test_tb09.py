@@ -5,7 +5,9 @@ from ase.build import bulk
 from gpaw import GPAW, PW, Mixer
 
 
+@pytest.mark.later
 @pytest.mark.libxc
+@pytest.mark.mgga
 def test_xc_tb09(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
@@ -23,6 +25,6 @@ def test_xc_tb09(in_tmp_dir):
     c = atoms.calc.hamiltonian.xc.c
     print(gap, kv, kc)
     print('c:', c)
-    assert abs(gap - 1.226) < 0.01
-    assert kv == 0 and kc == 24
-    assert abs(c - 1.136) < 0.01
+    assert abs(gap - 1.246) < 0.01
+    assert kv == 0 and kc == 12
+    assert abs(c - 1.135) < 0.01

@@ -7,16 +7,23 @@ Python wrapper for FFTW3 library
 """
 from __future__ import annotations
 
+import weakref
+from types import ModuleType
+
 import numpy as np
 from scipy.fft import fftn, ifftn, irfftn, rfftn
+import warnings
 
 import _gpaw
-from gpaw.typing import Array3D, DTypeLike, IntVector
+from gpaw import SCIPY_VERSION
+from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
 MEASURE = 0
 PATIENT = 32
 EXHAUSTIVE = 8
+
+_plan_cache: dict[tuple, weakref.ReferenceType] = {}
 
 
 def have_fftw() -> bool:
@@ -70,22 +77,39 @@ def empty(shape, dtype=float):
 
 def create_plans(size_c: IntVector,
                  dtype: DTypeLike,
-                 flags: int = MEASURE) -> FFTPlans:
+                 flags: int = MEASURE,
+                 xp: ModuleType = np) -> FFTPlans:
     """Create plan-objects for FFT and inverse FFT."""
-    if have_fftw():
-        return FFTWPlans(size_c, dtype, flags)
-    return NumpyFFTPlans(size_c, dtype)
+    key = (tuple(size_c), dtype, flags, xp)
+    # Look up weakref to plan:
+    if key in _plan_cache:
+        plan = _plan_cache[key]()
+        # Check if plan is still "alive":
+        if plan is not None:
+            return plan
+    # Create new plan:
+    if xp is not np:
+        plan = CuPyFFTPlans(size_c, dtype)
+    elif have_fftw():
+        plan = FFTWPlans(size_c, dtype, flags)
+    else:
+        plan = NumpyFFTPlans(size_c, dtype)
+    _plan_cache[key] = weakref.ref(plan)
+    return plan
 
 
 class FFTPlans:
     def __init__(self,
                  size_c: IntVector,
-                 dtype: DTypeLike):
+                 dtype: DTypeLike,
+                 empty=empty):
+        self.shape: tuple[int, ...]
         if dtype == float:
-            rsize_c = (size_c[0], size_c[1], size_c[2] // 2 + 1)
-            self.tmp_Q = empty(rsize_c, complex)
+            self.shape = (size_c[0], size_c[1], size_c[2] // 2 + 1)
+            self.tmp_Q = empty(self.shape, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :size_c[2]]
         else:
+            self.shape = tuple(size_c)
             self.tmp_Q = empty(size_c, complex)
             self.tmp_R = self.tmp_Q
 
@@ -110,6 +134,27 @@ class FFTPlans:
         array([ 0.+1.j, -1.+0.j,  0.-1.j,  1.+0.j])
         """
         raise NotImplementedError
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        if coef_G is None:
+            out_R.scatter_from(None)
+            return
+        pw.paste(coef_G, self.tmp_Q)
+        if pw.dtype == float:
+            t = self.tmp_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+        self.ifft()
+        out_R.scatter_from(self.tmp_R)
+
+    def fft_sphere(self, in_R, pw):
+        self.tmp_R[:] = in_R.data
+        self.fft()
+        coefs = pw.cut(self.tmp_Q) * (1 / self.tmp_R.size)
+        return coefs
 
 
 class FFTWPlans(FFTPlans):
@@ -147,6 +192,107 @@ class NumpyFFTPlans(FFTPlans):
         else:
             self.tmp_R[:] = ifftn(self.tmp_Q, self.tmp_R.shape,
                                   norm='forward', overwrite_x=True)
+
+
+def rfftn_patch(tmp_R):
+    from gpaw.gpu import cupyx
+    warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {tmp_R.shape}.'
+                  f'reverting to using just fftn. This is a bug in ROCM cupy.')
+    return cupyx.scipy.fft.fftn(tmp_R)[:, :, :tmp_R.shape[-1] // 2 + 1]
+
+
+class CuPyFFTPlans(FFTPlans):
+    def __init__(self,
+                 size_c: IntVector,
+                 dtype: DTypeLike):
+        from gpaw.core import PWDesc
+        from gpaw.gpu import cupy as cp
+        self.dtype = dtype
+        super().__init__(size_c, dtype, empty=cp.empty)
+        self.Q_G_cache: dict[PWDesc, Array1D] = {}
+
+    def fft(self):
+        from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
+        if self.tmp_R.dtype == float:
+            try:
+                self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+            except cp.cuda.cufft.CuFFTError:
+                self.tmp_Q[:] = rfftn_patch(self.tmp_R)
+        else:
+            self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
+
+    def ifft(self):
+        from gpaw.gpu import cupyx
+        if self.tmp_R.dtype == float:
+            self.tmp_R[:] = cupyx.scipy.fft.irfftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+        else:
+            self.tmp_R[:] = cupyx.scipy.fft.ifftn(
+                self.tmp_Q, self.tmp_R.shape,
+                norm='forward',
+                overwrite_x=True)
+
+    def indices(self, pw):
+        from gpaw.gpu import cupy as cp
+        Q_G = self.Q_G_cache.get(pw)
+        if Q_G is None:
+            Q_G = cp.asarray(pw.indices(self.shape))
+            self.Q_G_cache[pw] = Q_G
+        return Q_G
+
+    def ifft_sphere(self, coef_G, pw, out_R):
+        from gpaw.gpu import cupyx
+
+        if coef_G is None:
+            out_R.scatter_from(None)
+            return
+
+        if out_R.desc.comm.size == 1:
+            array_R = out_R.data
+        else:
+            array_R = self.tmp_R
+        array_Q = self.tmp_Q
+
+        array_Q[:] = 0.0
+        Q_G = self.indices(pw)
+        array_Q.ravel()[Q_G] = coef_G
+
+        assert SCIPY_VERSION >= [1, 6]
+        if self.dtype == complex:
+            array_R[:] = cupyx.scipy.fft.ifftn(
+                array_Q, array_Q.shape,
+                norm='forward', overwrite_x=True)
+        else:
+            # We need a GPU kernel for this stuff:
+            t = array_Q[:, :, 0]
+            n, m = (s // 2 - 1 for s in out_R.desc.size_c[:2])
+            t[0, -m:] = t[0, m:0:-1].conj()
+            t[n:0:-1, -m:] = t[-n:, m:0:-1].conj()
+            t[-n:, -m:] = t[n:0:-1, m:0:-1].conj()
+            t[-n:, 0] = t[n:0:-1, 0].conj()
+            array_R[:] = cupyx.scipy.fft.irfftn(
+                array_Q, out_R.desc.global_shape(),
+                norm='forward', overwrite_x=True)
+
+        if out_R.desc.comm.size > 1:
+            out_R.scatter_from(array_R)
+
+    def fft_sphere(self, in_R, pw):
+        from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
+        if self.dtype == complex:
+            out_Q = cupyx.scipy.fft.fftn(in_R)
+        else:
+            try:
+                out_Q = cupyx.scipy.fft.rfftn(in_R)
+            except cp.cuda.cufft.CuFFTError:
+                out_Q = rfftn_patch(in_R)
+        Q_G = self.indices(pw)
+        coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
+        return coef_G
 
 
 # The rest of this file will be removed in the future ...

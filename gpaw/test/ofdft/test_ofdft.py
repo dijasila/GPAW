@@ -6,6 +6,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft(in_tmp_dir):
     a = 6.0
@@ -33,7 +34,8 @@ def test_ofdft_ofdft(in_tmp_dir):
                      cell=(a, a, a))
 
         mixer = Mixer(0.3, 5, 1)
-        calc = GPAW(gpts=(32, 32, 32),
+        calc = GPAW(mode='fd',
+                    gpts=(32, 32, 32),
                     txt='-',
                     xc=xcname,
                     setups=setups,

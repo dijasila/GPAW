@@ -33,7 +33,7 @@ class Overlap:
             u_kij =  \int dx mypsitilde_ki^*(x) otherpsitilde_kj(x)
         """
         nbo, nko, _ = self.number_of_states(other)
-        assert(self.nk == nko)  # XXX allow for different number of k-points ?
+        assert self.nk == nko  # XXX allow for different number of k-points ?
 
         overlap_knn = []
         for k in range(self.nk):
@@ -91,7 +91,7 @@ class Overlap:
                 for n0, mP_i in enumerate(mP_ni):
                     for n1, oP_i in enumerate(oP_ni):
                         ni = len(mP_i)
-                        assert(len(oP_i) == ni)
+                        assert len(oP_i) == ni
                         for i, mP in enumerate(mP_i):
                             for j, oP in enumerate(oP_i):
                                 ij = packed_index(i, j, ni)

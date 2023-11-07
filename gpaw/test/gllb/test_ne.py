@@ -19,14 +19,14 @@ def test_gllb_ne(in_tmp_dir, add_cwd_to_setup_paths):
             eps = g.e_j[-1]
         else:
             eps = 0.0
-        eps = world.sum(eps)
+        eps = world.sum_scalar(eps)
         world.barrier()
 
         a = 5
         Ne = Atoms([Atom(atom, (0, 0, 0))],
                    cell=(a, a, a), pbc=False)
         Ne.center()
-        calc = GPAW(nbands=7, h=0.25, xc=xcname)
+        calc = GPAW(mode='fd', nbands=7, h=0.25, xc=xcname)
         Ne.calc = calc
         e = Ne.get_potential_energy()
         # Calculate the discontinuity

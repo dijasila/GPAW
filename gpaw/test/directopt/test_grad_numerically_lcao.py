@@ -5,6 +5,7 @@ from gpaw.directmin.derivatives import Derivatives
 from ase import Atoms
 
 
+@pytest.mark.do
 def test_gradient_numerically_lcao(in_tmp_dir):
     """
     test exponential transformation
@@ -13,7 +14,6 @@ def test_gradient_numerically_lcao(in_tmp_dir):
     :return:
     """
 
-    # Water molecule:
     atoms = Atoms('H3', positions=[(0, 0, 0),
                                    (0.59, 0, 0),
                                    (1.1, 0, 0)])
@@ -27,7 +27,7 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                              'density': 10.0,
                              'energy': 10.0},
                 occupations={'name': 'fixed-uniform'},
-                eigensolver={'name': 'etdm',
+                eigensolver={'name': 'etdm-lcao',
                              'matrix_exp': 'egdecomp'},
                 mixer={'backend': 'no-mixing'},
                 nbands='nao',
@@ -35,23 +35,23 @@ def test_gradient_numerically_lcao(in_tmp_dir):
                 txt=None
                 )
     atoms.calc = calc
-   
-    params = [{'name': 'etdm',
+
+    params = [{'name': 'etdm-lcao',
                'representation': 'full',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'full',
                'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'sparse',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'sparse',
                'matrix_exp': 'pade-approx'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'u-invar',
                'matrix_exp': 'egdecomp'},
-              {'name': 'etdm',
+              {'name': 'etdm-lcao',
                'representation': 'u-invar',
                'matrix_exp': 'egdecomp-u-invar'}
               ]
@@ -59,7 +59,8 @@ def test_gradient_numerically_lcao(in_tmp_dir):
     for eigsolver in params:
         print('IN PROGRESS: ', eigsolver)
 
-        calc.set(eigensolver=eigsolver)
+        calc = calc.new(eigensolver=eigsolver)
+        atoms.calc = calc
         if eigsolver['representation'] == 'u-invar':
             with pytest.warns(UserWarning,
                               match="Use representation == 'sparse'"):
@@ -70,17 +71,13 @@ def test_gradient_numerically_lcao(in_tmp_dir):
         wfs = calc.wfs
         dens = calc.density
 
-        if eigsolver['matrix_exp'] == 'egdecomp':
-            update_c_ref = False
-        else:
-            update_c_ref = True
+        numder = Derivatives(
+            wfs.eigensolver, wfs, random_amat=True, update_c_ref=True)
 
-        numder = Derivatives(wfs.eigensolver, wfs, random_amat=True,
-                             update_c_ref=update_c_ref)
-
-        g_a = numder.get_analytical_derivatives(wfs.eigensolver, ham, wfs,
-                                                dens)
-        g_n = numder.get_numerical_derivatives(wfs.eigensolver, ham, wfs, dens)
+        g_a = numder.get_analytical_derivatives(
+            wfs.eigensolver, ham, wfs, dens)
+        g_n = numder.get_numerical_derivatives(
+            wfs.eigensolver, ham, wfs, dens)
 
         for x, y in zip(g_a[0], g_n[0]):
             assert x.real == pytest.approx(y.real, abs=1.0e-2)

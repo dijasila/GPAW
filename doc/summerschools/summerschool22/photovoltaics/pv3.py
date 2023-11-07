@@ -28,14 +28,14 @@ plt.tight_layout()
 plt.axis([0.0, 10.0, None, None])
 plt.legend()
 
-plt.show() 
+plt.show()
 
 
 # %%
 """
-Now open the saved figure and inspect the absorption spectra. Does it look as you expected? Can you guess the band gap from the absorption spectra and which of the band gaps calculated on day 2 does it match? 
+Now open the saved figure and inspect the absorption spectra. Does it look as you expected? Can you guess the band gap from the absorption spectra and which of the band gaps calculated on day 2 does it match?
 
-Now plot the absorption spectra for the other k-point meshes you calculated and compare. You could for instance modify the script above to plot, in different colors, all spectra in the same plot for comparison. Would you say that the calculation is converged? 
+Now plot the absorption spectra for the other k-point meshes you calculated and compare. You could for instance modify the script above to plot, in different colors, all spectra in the same plot for comparison. Would you say that the calculation is converged?
 
 Finally, talk with the other groups and compare your absorption spectra with their absorption spectra. Is the same number of k-points needed to obtain same degree of convergence for the different materials? Is there any difference for the 2D material (Boron-Nitride)?
 

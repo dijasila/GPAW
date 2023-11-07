@@ -21,5 +21,4 @@ def test_generic_si_primitive(in_tmp_dir):
     calc.write('si_primitive.gpw', 'all')
     calc = GPAW('si_primitive.gpw',
                 parallel={'domain': 1, 'band': 1},
-                idiotproof=False,
                 txt=None)

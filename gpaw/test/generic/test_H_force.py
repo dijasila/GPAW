@@ -11,7 +11,8 @@ def test_generic_H_force():
                   positions=[[1.234, 2.345, 3.456]],
                   cell=(a, a, a),
                   pbc=True)
-    calc = GPAW(nbands=1,
+    calc = GPAW(mode='fd',
+                nbands=1,
                 gpts=(n, n, n),
                 txt=None,
                 eigensolver=Davidson(4),

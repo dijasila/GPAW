@@ -19,7 +19,6 @@ class CLICommand:
     def add_arguments(parser):
         add = parser.add_argument
         add('gpw', metavar='gpw-file')
-        add('csv', nargs='?', metavar='csv-file')
         add('-p', '--plot', action='store_true',
             help='Plot the DOS.')
         add('-i', '--integrated', action='store_true',
@@ -47,10 +46,16 @@ class CLICommand:
             emax = None
         else:
             emin, emax = (float(e) for e in args.range)
-        dos(args.gpw, args.plot, args.csv, args.width, args.integrated,
-            args.atom,
-            args.soc,
-            emin, emax, args.points, args.total)
+        dos(args.gpw,
+            plot=args.plot,
+            width=args.width,
+            integrated=args.integrated,
+            projection=args.atom,
+            soc=args.soc,
+            emin=emin,
+            emax=emax,
+            npoints=args.points,
+            show_total=args.total)
 
 
 def parse_projection_string(projection: str,
@@ -125,8 +130,8 @@ def parse_lm_string(s: str) -> List[Tuple[int, Union[None, int]]]:
 
 
 def dos(filename: Union[Path, str],
+        *,
         plot=False,
-        output='dos.json',
         width=0.1,
         integrated=False,
         projection=None,
@@ -141,8 +146,6 @@ def dos(filename: Union[Path, str],
         Name of restart-file.
     plot: bool
         Show a plot.
-    output: str
-        Name of CSV output file.
     width: float
         Width of Gaussians.
     integrated: bool
@@ -159,10 +162,13 @@ def dos(filename: Union[Path, str],
 
     dosobjs = GridDOSCollection([], energies)
 
+    # Note: ignoring wrong GridDOSCollection.__add__ hint below.
+
     if projection is None or show_total:
         for spin, label in zip(spins, spinlabels):
             dos = doscalc.raw_dos(energies, spin=spin, width=width)
-            dosobjs += GridDOSData(energies, dos, {'label': 'DOS' + label})
+            dosobjs += GridDOSData(energies, dos,  # type: ignore
+                                   {'label': 'DOS' + label})
 
     if projection is not None:
         symbols = calc.atoms.get_chemical_symbols()
@@ -173,8 +179,10 @@ def dos(filename: Union[Path, str],
                 dos = np.zeros_like(energies)
                 for a, l, m in contributions:
                     dos += doscalc.raw_pdos(energies,
-                                            a, l, m, spin=spin, width=width)
-                dosobjs += GridDOSData(energies, dos,
+                                            a, l, m,
+                                            spin=spin,
+                                            width=width)
+                dosobjs += GridDOSData(energies, dos,  # type: ignore
                                        {'label': label + spinlabel})
 
     if integrated:
@@ -188,9 +196,6 @@ def dos(filename: Union[Path, str],
         ylabel = 'iDOS [electrons]'
     else:
         ylabel = 'DOS [electrons/eV]'
-
-    if output:
-        dosobjs.write(output)
 
     if plot:
         ax = dosobjs.plot()

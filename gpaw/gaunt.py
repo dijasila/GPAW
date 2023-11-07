@@ -4,10 +4,11 @@ from typing import Dict
 
 import numpy as np
 
-from gpaw.typing import Array3D
+from gpaw.typing import Array3D, Array4D
 
 _gaunt: Dict[int, np.ndarray] = {}
 _nabla: Dict[int, np.ndarray] = {}
+_super_gaunt: Dict[int, np.ndarray] = {}
 
 
 def gaunt(lmax: int = 2) -> Array3D:
@@ -46,7 +47,7 @@ def gaunt(lmax: int = 2) -> Array3D:
 
 
 def nabla(lmax: int = 2) -> Array3D:
-    """Create the array of derivative intergrals.
+    """Create the array of derivative integrals.
 
     :::
 
@@ -81,3 +82,36 @@ def nabla(lmax: int = 2) -> Array3D:
                 Y_LLv[L1, L2, v] = r
     _nabla[lmax] = Y_LLv
     return Y_LLv
+
+
+def super_gaunt(lmax: int = 2) -> Array4D:
+    r"""Product of two Gaunt coefficients.
+
+    This gives the coefficients to contractions of three spherical harmonics:
+                        __
+       ˰     ˰     ˰    \   L       ˰
+    Y (r) Y (r) Y (r) = /  G      Y (r)
+     L     L     L      ‾‾  L L L  L
+      1     2     3     L    1 2 3
+
+    where:
+              __
+     L        \   L'    L
+    G       = /  G     G
+     L L L    ‾‾  L L   L' L
+      1 2 3   L'   1 2      3
+    """
+    if lmax in _super_gaunt:
+        return _super_gaunt[lmax]
+
+    G1_LLL = gaunt(lmax)
+    G2_LLL = gaunt(2 * lmax)
+
+    Lmax1 = G1_LLL.shape[0]  # l=0 to l=lmax
+    Lmax2 = G2_LLL.shape[0]  # l=0 to l=2*lmax
+    G_LLLL = np.einsum('ijk,klm->ijlm',
+                       G1_LLL[:, :Lmax1],
+                       G2_LLL[:, :Lmax2])
+
+    _super_gaunt[lmax] = G_LLLL
+    return G_LLLL

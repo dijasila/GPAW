@@ -4,7 +4,8 @@ from gpaw.mpi import serial_comm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
-from .kpts import PWKPoint, RSKPoint, to_real_space
+from gpaw.hybrids.kpts import PWKPoint, RSKPoint, to_real_space
+from gpaw.utilities.blas import mmm
 
 
 def apply1(kpt, Htpsit_xG, wfs, coulomb, sym, paw):
@@ -99,7 +100,10 @@ def calculate(kpts, wfs, paw, sym, coulomb):
                      kpt.weight)
         wfs.pt.add(w_nG, v1_ani, kpt.psit.kpt)
 
-    return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
+    return (comm.sum_scalar(exxvv),
+            comm.sum_scalar(exxvc),
+            comm.sum_scalar(ekin),
+            w_knG)
 
 
 def calculate_exx_for_pair(k1,
@@ -148,6 +152,8 @@ def calculate_exx_for_pair(k1,
     rho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
     vrho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
 
+    f_GI = ghat.expand()
+
     for n1, u1_R in enumerate(k1.u_nR):
         if k1 is k2:
             B = (N1 - n1 + size - 1) // size
@@ -163,9 +169,10 @@ def calculate_exx_for_pair(k1,
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
-        ghat.add(rho_nG[:n2b - n2a],
-                 {a: Q_nnL[n1, n2a:n2b]
-                  for a, Q_nnL in enumerate(Q_annL)})
+        add(ghat, rho_nG[:n2b - n2a],
+            {a: Q_nnL[n1, n2a:n2b]
+             for a, Q_nnL in enumerate(Q_annL)},
+            f_GI)
 
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             vrho_G = v_G * rho_G
@@ -198,7 +205,7 @@ def calculate_exx_for_pair(k1,
                         local=True)
 
         if v1_nG is not None and v2_nG is None:
-            for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
+            for a, v_nL in integrate(ghat, vrho_nG[:n2b - n2a], f_GI):
                 v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
                 v1_ani[a][n1] -= np.einsum('ijn, nj, n -> i',
                                            v_iin,
@@ -213,7 +220,7 @@ def calculate_exx_for_pair(k1,
                 x1 *= 2
                 x2 *= 2
 
-            for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
+            for a, v_nL in integrate(ghat, vrho_nG[:n2b - n2a], f_GI):
                 if k1 is k2 and n2a <= n1 < n2b:
                     v_nL[n1 - n2a] *= 0.5
                 v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
@@ -233,6 +240,39 @@ def calculate_exx_for_pair(k1,
                 v2_ani[a][n20 + n2a:n20 + n2b] -= v_ni * f1_n[n1] * x2
 
     return e_nn * factor
+
+
+def add(ghat, a_xG, c_axi, f_GI):
+    c_xI = np.empty(a_xG.shape[:-1] + (ghat.nI,), ghat.pd.dtype)
+    for a, I1, I2 in ghat.my_indices:
+        c_xI[..., I1:I2] = c_axi[a] * ghat.eikR_qa[0][a].conj()
+    nx = np.prod(c_xI.shape[:-1], dtype=int)
+    c_xI = c_xI.reshape((nx, ghat.nI))
+    a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(ghat.pd.dtype)
+    mmm(1.0 / ghat.pd.gd.dv, c_xI, 'N', f_GI, 'T', 1.0, a_xG)
+
+
+def integrate(ghat, a_xG, f_GI):
+    c_xI = np.zeros(a_xG.shape[:-1] + (ghat.nI,), ghat.pd.dtype)
+
+    nx = np.prod(c_xI.shape[:-1], dtype=int)
+    b_xI = c_xI.reshape((nx, ghat.nI))
+    a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
+
+    alpha = 1.0 / ghat.pd.gd.N_c.prod()
+    if ghat.pd.dtype == float:
+        alpha *= 2
+        a_xG = a_xG.view(float)
+        f_GI[0] *= 0.5
+    else:
+        f_GI.imag[:] = -f_GI.imag
+    mmm(alpha, a_xG, 'N', f_GI, 'N', 0.0, b_xI)
+    if ghat.pd.dtype == complex:
+        f_GI.imag[:] = -f_GI.imag
+    else:
+        f_GI[0] *= 2.0
+    for a, I1, I2 in ghat.my_indices:
+        yield a, ghat.eikR_qa[0][a] * c_xI[..., I1:I2]
 
 
 def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):

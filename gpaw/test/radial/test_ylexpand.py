@@ -25,7 +25,7 @@ def test_radial_ylexpand(in_tmp_dir):
                     (a / 2, a / 2, (c + R) / 2)],
                    cell=(a, a, c),
                    pbc=True)
-        calc = GPAW(gpts=(12, 12, 16), nbands=2, kpts=(1, 1, 2),
+        calc = GPAW(mode='fd', gpts=(12, 12, 16), nbands=2, kpts=(1, 1, 2),
                     convergence={'eigenstates': 1.e-6},
                     txt=None,
                     )
@@ -69,7 +69,7 @@ def test_radial_ylexpand(in_tmp_dir):
         # gl, w = yl.expand(calc.get_pseudo_wave_function(band=n))
         gl, w = yl.expand(calc.wfs.kpt_u[0].psit_nG[n])
         parprint('max_index(gl), n=', max_index(gl), n)
-        assert(max_index(gl) == n)
+        assert max_index(gl) == n
 
     # io
     fname = 'expandyl.dat'

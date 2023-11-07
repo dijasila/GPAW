@@ -8,7 +8,7 @@
 In this exercise we are going to calculate the absorption spectra of the material you have considered so far.
 In general, the absorption spectrum is given by the imaginary part of the macroscopic dielectric function. This means that our computational task is to calculate the macroscopic dielectric function for our material, and then plot the imaginary part. For more information about the dielectric function please consult:
 
-https://wiki.fysik.dtu.dk/gpaw/tutorials/dielectric_response/dielectric_response.html#df-tutorial
+https://wiki.fysik.dtu.dk/gpaw/tutorialsexercises/opticalresponse/dielectric_response/dielectric_response.html
 
 To calculate the dielectric function, we will use the Random Phase Approximation (RPA) correlation energy (so we say we calculate the absorption spectrum within the random phase approximation).
 (Details about RPA to calculate the total energy can be found here: https://wiki.fysik.dtu.dk/gpaw/documentation/xc/rpa.html#rpa)
@@ -51,7 +51,7 @@ Now that we have obtained the ground state, it is time to calculate the dielectr
 
 These calculations are both time-wise and memory-wise heavier than what you previously encountered. Therefore we will need to submit these calculations to the databar so they can run over night. Open a new SSH terminal, edit and copy the below code into a script format (.py file), and submit the calculations from the terminal using the following command:
 
-qsub.py -t 15 -p 8 script.py
+mq submit -R 8:15h script.py
 
 This will submit the script with the name "script.py" to 8 cores with a maximum time of 15 hours.
 """
@@ -71,14 +71,15 @@ nval = calc_old.wfs.nvalence
 #Note: For a 2D material (here BN) we use an additional keyword in the parameters below: 'truncation': '2D'
 #This truncates the Coulomb interaction in the lateral direction to avoid non-physical periodic interactions.
 
-kwargs = {'eta': 0.05,                  #Broadening parameter
-          'domega0': 0.01,              #Define spacing of frequency grid
-          'intraband': False,           #Here we do not include intraband transitions for calculating the absorption spectrum
-          'nblocks': 8,                 #Number of blocks used for parallelization
-          'ecut': 50,                   #Plane wave cutoff in eV
-          'nbands': 3*nval,             #Number of bands included in rpa calculation
-          'name': 'chi_CdTe'}           #Name of density response function .pckl file # student: 'name' : ''}
-
+kwargs = {
+    'frequencies': {
+        'type': 'nonlinear',
+        'domega0': 0.01},  # Define spacing of frequency grid
+    'eta': 0.05,           # Broadening parameter
+    'intraband': False,    # Here we do not include intraband transitions for calculating the absorption spectrum
+    'nblocks': 8,          # Number of blocks used for parallelization
+    'ecut': 50,            # Plane wave cutoff in eV
+    'nbands': 3 * nval}    # Number of bands included in rpa calculation
 
 #Calculate dielectric function. Takes ground state calculation and defined parameters in "kwargs" as input:
 df = DielectricFunction('CdTe_12x12x4.gpw', **kwargs) # student: df = DielectricFunction('.gpw', **kwargs)

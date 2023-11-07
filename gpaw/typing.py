@@ -1,9 +1,25 @@
 from typing import Any, Union, Sequence
 import numpy as np
 
-if [int(x) for x in np.__version__.split('.')] >= [1, 20]:
+try:
+    # New in Python-3.11
+    from typing_extension import Self
+except ImportError:
+    Self = Any  # type: ignore
+
+try:
+    # New in Python-3.8
+    from typing import Literal
+except ImportError:
+    class _Literal:
+        def __getitem__(self, index):
+            return Any
+    Literal = _Literal()  # type: ignore
+
+try:
+    # Needs numpy-1.20:
     from numpy.typing import ArrayLike, DTypeLike
-else:
+except ImportError:
     ArrayLike = Any  # type: ignore
     DTypeLike = Any  # type: ignore
 

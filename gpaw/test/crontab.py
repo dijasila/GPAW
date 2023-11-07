@@ -18,9 +18,9 @@ cd gpaw
 pip install -e .
 coverage run -m pytest > test-1.out
 coverage html
-gpaw -P 2 python -m pytest -- -x > test-2.out
-gpaw -P 4 python -m pytest -- -x > test-4.out
-gpaw -P 8 python -m pytest -- -x > test-8.out"""
+gpaw -P 2 python -m pytest -x > test-2.out
+gpaw -P 4 python -m pytest -x > test-4.out
+gpaw -P 8 python -m pytest -x > test-8.out"""
 
 
 def run_tests():

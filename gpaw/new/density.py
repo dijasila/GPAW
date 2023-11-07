@@ -1,50 +1,122 @@
 from __future__ import annotations
-from math import sqrt, pi
+
+from math import pi, sqrt
+
 import numpy as np
-from ase.units import Bohr
-from gpaw.typing import ArrayLike1D
-from gpaw.core.atom_centered_functions import AtomArraysLayout
-from gpaw.utilities import unpack2, unpack
-from typing import Union
-from gpaw.core.atom_arrays import AtomArrays
-
-
-def magmoms2dims(magmoms: np.ndarray | None) -> tuple[int, int]:
-    """Convert magmoms input to number of density and magnetization components.
-
-    >>> magmoms2dims(None)
-    (1, 0)
-    """
-    if magmoms is None:
-        return 1, 0
-    if magmoms.ndim == 1:
-        return 2, 0
-    return 1, 3
+from ase.units import Bohr, Ha
+from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
+from gpaw.core.atom_centered_functions import (AtomArraysLayout,
+                                               AtomCenteredFunctions)
+from gpaw.core.plane_waves import PWDesc
+from gpaw.core.uniform_grid import UGArray, UGDesc
+from gpaw.gpu import as_np
+from gpaw.mpi import MPIComm
+from gpaw.new import zips
+from gpaw.typing import Array3D, Vector
+from gpaw.utilities import unpack, unpack2
+from gpaw.new.symmetry import SymmetrizationPlan
 
 
 class Density:
+    @classmethod
+    def from_data_and_setups(cls,
+                             nt_sR,
+                             taut_sR,
+                             D_asii,
+                             charge,
+                             setups,
+                             nct_aX,
+                             tauct_aX):
+        xp = nt_sR.xp
+        return cls(nt_sR,
+                   taut_sR,
+                   D_asii,
+                   charge,
+                   [xp.asarray(setup.Delta_iiL) for setup in setups],
+                   [setup.Delta0 for setup in setups],
+                   [unpack(setup.N0_p) for setup in setups],
+                   [setup.l_j for setup in setups],
+                   nct_aX,
+                   tauct_aX)
+
+    @classmethod
+    def from_superposition(cls,
+                           *,
+                           grid,
+                           nct_aX,
+                           tauct_aX,
+                           atomdist,
+                           setups,
+                           basis_set,
+                           magmom_av,
+                           ncomponents,
+                           charge=0.0,
+                           hund=False,
+                           mgga=False):
+        nt_sR = grid.zeros(ncomponents)
+        atom_array_layout = AtomArraysLayout(
+            [(setup.ni, setup.ni) for setup in setups],
+            atomdist=atomdist, dtype=float if ncomponents < 4 else complex)
+        D_asii = atom_array_layout.empty(ncomponents)
+        f_asi = {a: atomic_occupation_numbers(setup,
+                                              magmom_v,
+                                              ncomponents,
+                                              hund,
+                                              charge / len(setups))
+                 for a, (setup, magmom_v)
+                 in enumerate(zips(setups, magmom_av))}
+        basis_set.add_to_density(nt_sR.data, f_asi)
+        for a, D_sii in D_asii.items():
+            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
+
+        xp = nct_aX.xp
+        nt_sR = nt_sR.to_xp(xp)
+        density = cls.from_data_and_setups(nt_sR,
+                                           None,
+                                           D_asii.to_xp(xp),
+                                           charge,
+                                           setups,
+                                           nct_aX,
+                                           tauct_aX)
+        ndensities = ncomponents % 3
+        density.nt_sR.data[:ndensities] += density.nct_R.data
+        if mgga:
+            density.taut_sR = nt_sR.new()
+            density.taut_sR.data[:] = density.tauct_R.data
+        return density
+
     def __init__(self,
-                 nt_sR,
-                 D_asii,
-                 charge,
-                 delta_aiiL,
-                 delta0_a,
+                 nt_sR: UGArray,
+                 taut_sR: UGArray | None,
+                 D_asii: AtomArrays,
+                 charge: float,
+                 delta_aiiL: list[Array3D],
+                 delta0_a: list[float],
                  N0_aii,
-                 l_aj):
+                 l_aj: list[list[int]],
+                 nct_aX: AtomCenteredFunctions,
+                 tauct_aX: AtomCenteredFunctions):
         self.nt_sR = nt_sR
+        self.taut_sR = taut_sR
         self.D_asii = D_asii
         self.delta_aiiL = delta_aiiL
         self.delta0_a = delta0_a
         self.N0_aii = N0_aii
         self.l_aj = l_aj
         self.charge = charge
+        self.nct_aX = nct_aX
+        self.tauct_aX = tauct_aX
 
+        self.grid = nt_sR.desc
         self.ncomponents = nt_sR.dims[0]
-        self.ndensities = {1: 1,
-                           2: 2,
-                           4: 1}[self.ncomponents]
+        self.ndensities = self.ncomponents % 3
         self.collinear = self.ncomponents != 4
         self.natoms = len(delta0_a)
+
+        self._nct_R = None
+        self._tauct_R = None
+
+        self.symplan = None
 
     def __repr__(self):
         return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
@@ -55,126 +127,180 @@ class Density:
                 f'  grid points: {self.nt_sR.desc.size}\n'
                 f'  charge: {self.charge}  # |e|\n')
 
+    @property
+    def nct_R(self):
+        if self._nct_R is None:
+            self._nct_R = self.grid.empty(xp=self.nt_sR.xp)
+            self.nct_aX.to_uniform_grid(out=self._nct_R,
+                                        scale=1.0 / (self.ncomponents % 3))
+        return self._nct_R
+
+    @property
+    def tauct_R(self):
+        if self._tauct_R is None:
+            self._tauct_R = self.grid.empty(xp=self.nt_sR.xp)
+            self.tauct_aX.to_uniform_grid(out=self._tauct_R,
+                                          scale=1.0 / (self.ncomponents % 3))
+        return self._tauct_R
+
+    def new(self, new_grid, pw, fracpos_ac, atomdist):
+        self.move(fracpos_ac, atomdist)
+        new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
+                        cell=new_grid.cell,
+                        comm=new_grid.comm)
+        old_grid = self.nt_sR.desc
+        old_pw = PWDesc(ecut=0.99 * old_grid.ecut_max(),
+                        cell=old_grid.cell,
+                        comm=new_grid.comm)
+        new_nt_sR = new_grid.empty(self.ncomponents, xp=self.nt_sR.xp)
+        for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
+            old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
+
+        self.nct_aX.change_cell(pw)
+        self.tauct_aX.change_cell(pw)
+
+        return Density(
+            new_nt_sR,
+            None if self.taut_sR is None else new_nt_sR.new(zeroed=True),
+            self.D_asii,
+            self.charge,
+            self.delta_aiiL,
+            self.delta0_a,
+            self.N0_aii,
+            self.l_aj,
+            self.nct_aX,
+            self.tauct_aX)
+
     def calculate_compensation_charge_coefficients(self) -> AtomArrays:
+        xp = self.D_asii.layout.xp
         ccc_aL = AtomArraysLayout(
             [delta_iiL.shape[2] for delta_iiL in self.delta_aiiL],
-            atomdist=self.D_asii.layout.atomdist).empty()
+            atomdist=self.D_asii.layout.atomdist,
+            xp=xp).empty()
 
         for a, D_sii in self.D_asii.items():
-            Q_L = np.einsum('sij, ijL -> L',
-                            D_sii[:self.ndensities], self.delta_aiiL[a])
+            Q_L = xp.einsum('sij, ijL -> L',
+                            D_sii[:self.ndensities].real, self.delta_aiiL[a])
             Q_L[0] += self.delta0_a[a]
             ccc_aL[a] = Q_L
 
         return ccc_aL
 
     def normalize(self):
-        comp_charge = self.charge
+        comp_charge = 0.0
+        xp = self.D_asii.layout.xp
         for a, D_sii in self.D_asii.items():
-            comp_charge += np.einsum('sij, ij ->',
-                                     D_sii[:self.ndensities],
+            comp_charge += xp.einsum('sij, ij ->',
+                                     D_sii[:self.ndensities].real,
                                      self.delta_aiiL[a][:, :, 0])
             comp_charge += self.delta0_a[a]
-        comp_charge = self.nt_sR.desc.comm.sum(comp_charge * sqrt(4 * pi))
+        # comp_charge could be cupy.ndarray:
+        comp_charge = float(comp_charge) * sqrt(4 * pi)
+        comp_charge = self.nt_sR.desc.comm.sum_scalar(comp_charge)
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
-        x = -charge / pseudo_charge
-        self.nt_sR.data *= x
+        if pseudo_charge != 0.0:
+            x = -charge / pseudo_charge
+            self.nt_sR.data *= x
 
-    def update(self, nct_R, ibzwfs):
+    def update(self, ibzwfs, ked=False):
         self.nt_sR.data[:] = 0.0
         self.D_asii.data[:] = 0.0
         ibzwfs.add_to_density(self.nt_sR, self.D_asii)
-        self.nt_sR.data[:self.ndensities] += nct_R.data
+        self.nt_sR.data[:self.ndensities] += self.nct_R.data
+
+        if ked:
+            self.update_ked(ibzwfs, symmetrize=False)
+
         self.symmetrize(ibzwfs.ibz.symmetries)
+
+    def update_ked(self, ibzwfs, symmetrize=True):
+        if self.taut_sR is None:
+            self.taut_sR = self.nt_sR.new(zeroed=True)
+        else:
+            self.taut_sR.data[:] = 0.0
+        ibzwfs.add_to_ked(self.taut_sR)
+        self.taut_sR.data[:self.ndensities] += self.tauct_R.data
+        if symmetrize:
+            symmetries = ibzwfs.ibz.symmetries
+            self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                    symmetries.translation_sc)
 
     def symmetrize(self, symmetries):
         self.nt_sR.symmetrize(symmetries.rotation_scc,
                               symmetries.translation_sc)
+        if self.taut_sR is not None:
+            self.taut_sR.symmetrize(symmetries.rotation_scc,
+                                    symmetries.translation_sc)
 
-        D_asii = self.D_asii.gather(broadcast=True, copy=True)
-        for a1, D_sii in self.D_asii.items():
-            D_sii[:] = 0.0
-            for a2, rotation_ii in zip(symmetries.a_sa[:, a1],
-                                       symmetries.rotations(self.l_aj[a1])):
-                D_sii += np.einsum('ij, sjk, lk -> sil',
-                                   rotation_ii, D_asii[a2], rotation_ii)
-        self.D_asii.data *= 1.0 / len(symmetries)
+        xp = self.nt_sR.xp
+        if xp is np:
+            D_asii = self.D_asii.gather(broadcast=True, copy=True)
+            for a1, D_sii in self.D_asii.items():
+                D_sii[:] = 0.0
+                rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
+                for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
+                                            rotation_sii):
+                    D_sii += xp.einsum('ij, sjk, lk -> sil',
+                                       rotation_ii, D_asii[a2], rotation_ii)
+            self.D_asii.data *= 1.0 / len(symmetries)
+        else:
+            # GPU version does all the work in rank 0 for now
+            D_asii = self.D_asii.gather(copy=True)
+            if self.D_asii.layout.atomdist.comm.rank == 0:
+                if self.symplan is None:
+                    self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
+                                                      symmetries.a_sa,
+                                                      self.l_aj,
+                                                      D_asii.layout)
 
-    def xxxxx_overlap_correction(self,
-                                 P_ani: AtomArrays,
-                                 out: AtomArrays) -> AtomArrays:
-        x = (4 * np.pi)**0.5
-        for a, I1, I2 in P_ani.layout.myindices:
-            ds = self.delta_aiiL[a][:, :, 0] * x
-            # use mmm ?????
-            out.data[..., I1:I2] = P_ani.data[..., I1:I2] @ ds
-        return out
+                self.symplan.apply(D_asii.data, D_asii.data)
 
-    def move(self, delta_nct_R):
-        self.nt_sR.data[:self.ndensities] += delta_nct_R.data
+            self.D_asii.scatter_from(D_asii)
 
-    @classmethod
-    def from_superposition(cls,
-                           grid,
-                           nct_R,
-                           atomdist,
-                           setups,
-                           basis_set,
-                           magmoms=None,
-                           charge=0.0,
-                           hund=False):
-        # density and magnitization components:
-        ndens, nmag = magmoms2dims(magmoms)
+    def move(self, fracpos_ac, atomdist):
+        self.nt_sR.data[:self.ndensities] -= self.nct_R.data
+        self.nct_aX.move(fracpos_ac, atomdist)
+        self.tauct_aX.move(fracpos_ac, atomdist)
+        self._nct_R = None
+        self._tauct_R = None
+        self.nt_sR.data[:self.ndensities] += self.nct_R.data
+        self.D_asii = self.D_asii.moved(atomdist)
 
-        if magmoms is None:
-            magmoms = [None] * len(setups)
-
-        f_asi = {a: atomic_occupation_numbers(setup, magmom, hund,
-                                              charge / len(setups))
-                 for a, (setup, magmom) in enumerate(zip(setups, magmoms))}
-
-        nt_sR = nct_R.desc.zeros(ndens + nmag)
-        basis_set.add_to_density(nt_sR.data, f_asi)
-        nt_sR.data[:ndens] += nct_R.data
-
-        atom_array_layout = AtomArraysLayout([(setup.ni, setup.ni)
-                                              for setup in setups],
-                                             atomdist=atomdist)
-        D_asii = atom_array_layout.empty(ndens + nmag)
-        for a, D_sii in D_asii.items():
-            D_sii[:] = unpack2(setups[a].initialize_density_matrix(f_asi[a]))
-
-        return cls.from_data_and_setups(nt_sR,
-                                        D_asii,
-                                        charge,
-                                        setups)
-
-    @classmethod
-    def from_data_and_setups(cls,
-                             nt_sR,
-                             D_asii,
-                             charge,
-                             setups):
-        return cls(nt_sR,
-                   D_asii,
-                   charge,
-                   [setup.Delta_iiL for setup in setups],
-                   [setup.Delta0 for setup in setups],
-                   [unpack(setup.N0_p) for setup in setups],
-                   [setup.l_j for setup in setups])
+    def redist(self,
+               grid: UGDesc,
+               xdesc,
+               atomdist: AtomDistribution,
+               comm1: MPIComm,
+               comm2: MPIComm) -> Density:
+        return Density(
+            self.nt_sR.redist(grid, comm1, comm2),
+            None
+            if self.taut_sR is None else
+            self.taut_sR.redist(grid, comm1, comm2),
+            self.D_asii.redist(atomdist, comm1, comm2),
+            self.charge,
+            self.delta_aiiL,
+            self.delta0_a,
+            self.N0_aii,
+            self.l_aj,
+            nct_aX=self.nct_aX.new(xdesc, atomdist),
+            tauct_aX=self.tauct_aX.new(xdesc, atomdist))
 
     def calculate_dipole_moment(self, fracpos_ac):
         dip_v = np.zeros(3)
         ccc_aL = self.calculate_compensation_charge_coefficients()
+        ccc_aL = ccc_aL.to_cpu()
         pos_av = fracpos_ac @ self.nt_sR.desc.cell_cv
         for a, ccc_L in ccc_aL.items():
-            c, y, z, x = ccc_L[:4]
+            c = ccc_L[0]
             dip_v -= c * (4 * pi)**0.5 * pos_av[a]
-            dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
+            if len(ccc_L) > 1:
+                y, z, x = ccc_L[1:4]
+                dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
         self.nt_sR.desc.comm.sum(dip_v)
         for nt_R in self.nt_sR:
-            dip_v -= nt_R.moment()
+            dip_v -= as_np(nt_R.moment())
         return dip_v
 
     def calculate_magnetic_moments(self):
@@ -184,10 +310,10 @@ class Density:
 
         if self.ncomponents == 2:
             for a, D_sii in self.D_asii.items():
-                M_ii = D_sii[0] - D_sii[1]
+                M_ii = as_np(D_sii[0] - D_sii[1])
                 magmom_av[a, 2] = np.einsum('ij, ij ->', M_ii, self.N0_aii[a])
-                magmom_v[2] += (np.einsum('ij, ij ->', M_ii,
-                                          self.delta_aiiL[a][:, :, 0]) *
+                delta_ii = as_np(self.delta_aiiL[a][:, :, 0])
+                magmom_v[2] += (np.einsum('ij, ij ->', M_ii, delta_ii) *
                                 sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)
@@ -197,7 +323,7 @@ class Density:
 
         elif self.ncomponents == 4:
             for a, D_sii in self.D_asii.items():
-                M_vii = D_sii[1:4]
+                M_vii = D_sii[1:4].real
                 magmom_av[a] = np.einsum('vij, ij -> v',
                                          M_vii, self.N0_aii[a])
                 magmom_v += (np.einsum('vij, ij -> v', M_vii,
@@ -210,37 +336,33 @@ class Density:
         return magmom_v, magmom_av
 
     def write(self, writer):
-        D_asp = self.D_asii.to_lower_triangle().gather()
-        nt_sR = self.nt_sR.gather()
+        D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()
+        nt_sR = self.nt_sR.to_xp(np).gather()
+        if self.taut_sR is not None:
+            taut_sR = self.taut_sR.to_xp(np).gather()
         if D_asp is None:
-            return
-
+            return  # let master do the writing
         writer.write(
             density=nt_sR.data * Bohr**-3,
             atomic_density_matrices=D_asp.data)
+        if self.taut_sR is not None:
+            writer.write(ked=taut_sR.data * (Ha * Bohr**-3))
 
 
 def atomic_occupation_numbers(setup,
-                              magmom: Union[float, ArrayLike1D] = None,
+                              magmom_v: Vector,
+                              ncomponents: int,
                               hund: bool = False,
                               charge: float = 0.0):
-    if magmom is None:
-        M = 0.0
-        nspins = 1
-    elif isinstance(magmom, float):
-        M = abs(magmom)
-        nspins = 2
-    else:
-        M = np.linalg.norm(magmom)  # type: ignore
-        nspins = 2
-
+    M = np.linalg.norm(magmom_v)
+    nspins = min(ncomponents, 2)
     f_si = setup.calculate_initial_occupation_numbers(
         M, hund, charge=charge, nspins=nspins)
 
-    if magmom is None:
+    if ncomponents == 1:
         pass
-    elif isinstance(magmom, float):
-        if magmom < 0:
+    elif ncomponents == 2:
+        if magmom_v[2] < 0:
             f_si = f_si[::-1].copy()
     else:
         f_i = f_si.sum(0)
@@ -248,6 +370,6 @@ def atomic_occupation_numbers(setup,
         f_si = np.zeros((4, len(f_i)))
         f_si[0] = f_i
         if M > 0:
-            f_si[1:] = np.asarray(magmom)[:, np.newaxis] / M * fm_i
+            f_si[1:] = np.asarray(magmom_v)[:, np.newaxis] / M * fm_i
 
     return f_si

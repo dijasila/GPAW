@@ -2,8 +2,6 @@ import pickle
 import numpy as np
 from math import pi
 import ase.units
-from ase.parallel import world
-import sys
 import os
 
 Hartree = ase.units.Hartree
@@ -23,7 +21,7 @@ class BuildingBlock:
     building block of 2D material with GPAW"""
 
     def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 direction='x', qmax=None, txt=sys.stdout):
+                 direction='x', qmax=None, txt='-'):
         """Creates a BuildingBlock object.
 
         filename: str
@@ -32,7 +30,7 @@ class BuildingBlock:
             Determines how linear response calculation is performed
         isotropic_q: bool
             If True, only q-points along one direction (1 0 0) in the
-            2D BZ is included, thus asuming an isotropic material
+            2D BZ is included, thus assuming an isotropic material
         direction: 'x' or 'y'
             Direction used for isotropic q sampling.
         qmax: float
@@ -40,7 +38,7 @@ class BuildingBlock:
             irreducible BZ. Only works for isotropic q-sampling.
         nq_inf: int
             number of extra q points in the limit q->0 along each direction,
-            extrapolated from q=0, assumung that the head of chi0_wGG goes
+            extrapolated from q=0, assuming that the head of chi0_wGG goes
             as q^2 and the wings as q.
             Note that this does not hold for (semi)metals!
 
@@ -63,21 +61,15 @@ class BuildingBlock:
         self.direction = direction
 
         self.df = df  # dielectric function object
-        self.df.truncation = '2D'  # in case you forgot!
-        self.wd = self.df.chi0.wd
-        self.world = self.df.chi0.world
+        assert self.df.coulomb.truncation == '2D'
+        self.wd = self.df.wd
 
-        if self.world.rank != 0:
-            from gpaw.utilities import devnull
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w', 1)
-        self.fd = txt
+        self.context = self.df.context.with_txt(txt)
 
-        calc = self.df.chi0.calc
-        kd = calc.wfs.kd
+        gs = self.df.gs
+        kd = gs.kd
         self.kd = kd
-        r = calc.wfs.gd.get_grid_point_coordinates()
+        r = gs.gd.get_grid_point_coordinates()
         self.z = r[2, 0, 0, :]
 
         nw = len(self.wd)
@@ -92,9 +84,9 @@ class BuildingBlock:
         offset_c = 0.5 * ((kd.N_c + 1) % 2) / kd.N_c
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
-        qd.set_symmetry(calc.atoms, kd.symmetry)
+        qd.set_symmetry(gs.atoms, kd.symmetry)
         q_cs = qd.ibzk_kc
-        rcell_cv = 2 * pi * np.linalg.inv(calc.wfs.gd.cell_cv).T
+        rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
         if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
@@ -146,31 +138,32 @@ class BuildingBlock:
         self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
         self.q_infs = q_infs
         self.complete = False
-        self.nq = 0
+        self.last_q_idx = 0
         if self.load_chi_file():
             if self.complete:
-                print('Building block loaded from file', file=self.fd)
-        world.barrier()
+                self.context.print('Building block loaded from file')
+        self.context.comm.barrier()
 
     def calculate_building_block(self, add_intraband=False):
         if self.complete:
             return
         Nq = self.q_cs.shape[0]
-        for nq in range(self.nq, Nq):
-            self.nq = nq
-            self.save_chi_file()
-            q_c = self.q_cs[nq]
-            q_inf = self.q_infs[nq]
+        for current_q_idx in range(self.last_q_idx, Nq):
+            self.save_chi_file(q_idx=current_q_idx)
+            self.last_q_idx = current_q_idx
+            q_c = self.q_cs[current_q_idx]
+            q_inf = self.q_infs[current_q_idx]
             if np.allclose(q_inf, 0):
                 q_inf = None
 
             qcstr = '(' + ', '.join(['%.3f' % x for x in q_c]) + ')'
-            print('Calculating contribution from q-point #%d/%d, q_c=%s'
-                  % (nq + 1, Nq, qcstr), file=self.fd)
+            self.context.print(
+                'Calculating contribution from q-point #%d/%d, q_c=%s' % (
+                    current_q_idx + 1, Nq, qcstr), flush=False)
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
-                print('    and q_inf=%s' % qstr, file=self.fd)
-            pd, chi0_wGG, \
+                self.context.print('    and q_inf=%s' % qstr, flush=False)
+            qpd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
                     calculate_chi=True,
@@ -178,29 +171,27 @@ class BuildingBlock:
                     q_v=q_inf,
                     direction=self.direction,
                     add_intraband=add_intraband)
-            print('calculated chi!', file=self.fd)
+            self.context.print('calculated chi!')
 
             nw = len(self.wd)
-            world = self.df.chi0.world
-            w1 = min(self.df.blocks1d.blocksize * world.rank, nw)
+            comm = self.context.comm
+            w1 = min(self.df.blocks1d.blocksize * comm.rank, nw)
 
-            _, _, chiM_qw, chiD_qw, _, drhoM_qz, drhoD_qz = \
-                get_chi_2D(self.wd.omega_w, pd, chi_wGG)
-
-            chiM_w = chiM_qw[0]
-            chiD_w = chiD_qw[0]
+            chiM_w, chiD_w, drhoM_z, drhoD_z = \
+                self.get_chi_2D(qpd, chi_wGG)
             chiM_w = self.collect(chiM_w)
             chiD_w = self.collect(chiD_w)
 
-            if self.world.rank == 0:
+            if self.context.comm.rank == 0:
                 assert w1 == 0  # drhoM and drhoD in static limit
                 self.update_building_block(chiM_w[np.newaxis, :],
                                            chiD_w[np.newaxis, :],
-                                           drhoM_qz, drhoD_qz)
+                                           drhoM_z[np.newaxis, :],
+                                           drhoD_z[np.newaxis, :])
 
-        # Induced densities are not probably described in q-> 0 limit-
+        # Induced densities are not properly described in q-> 0 limit-
         # replace with finite q result:
-        if self.world.rank == 0:
+        if self.context.comm.rank == 0:
             for n in range(Nq):
                 if np.allclose(self.q_cs[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
@@ -219,10 +210,80 @@ class BuildingBlock:
         self.drhoM_qz = np.append(self.drhoM_qz, drhoM_qz, axis=0)
         self.drhoD_qz = np.append(self.drhoD_qz, drhoD_qz, axis=0)
 
-    def save_chi_file(self, filename=None):
+    def get_chi_2D(self, qpd, chi_wGG):
+        r"""Calculate the monopole and dipole contribution to the
+        2D susceptibility chi_2D for single q-point q, defined as
+
+        ::
+
+          \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
+                              = L \chi_{G=G'=0}(q, \omega)
+          \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
+                               = 1/L sum_{G_z,G_z'} z_factor(G_z)
+                               chi_{G_z,G_z'} z_factor(G_z'),
+          Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
+          (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
+
+        qpd: Single q-point descriptor
+        chi_wGG: Susceptibility in PW basis
+          """
+
+        nw = chi_wGG.shape[0]
+        z = self.z
+        L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
+
+        # XXX This seems like a bit dangerous assumption
+        z0 = L / 2.  # position of layer
+        chiM_w = np.zeros([nw], dtype=complex)
+        chiD_w = np.zeros([nw], dtype=complex)
+        drhoM_z = np.zeros([len(z)], dtype=complex)  # induced density
+        drhoD_z = np.zeros([len(z)], dtype=complex)  # induced dipole density
+
+        npw = chi_wGG.shape[1]
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)
+
+        Glist = []
+        for iG in range(npw):  # List of G with Gx,Gy = 0
+            if G_Gv[iG, 0] == 0 and G_Gv[iG, 1] == 0:
+                Glist.append(iG)
+
+        # If node lacks frequency points due to block parallelization then
+        # return empty arrays
+        if nw == 0:
+            return chiM_w, chiD_w, drhoM_z, drhoD_z
+        chiM_w = L * chi_wGG[:, 0, 0]
+        drhoM_z += chi_wGG[0, 0, 0]
+        for iG in Glist[1:]:
+            G_z = G_Gv[iG, 2]
+            qGr_R = np.inner(G_z, z.T).T
+            # Fourier transform to get induced density at \omega=0
+            drhoM_z += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
+            for iG1 in Glist[1:]:
+                G_z1 = G_Gv[iG1, 2]
+                # integrate with z along both coordinates
+                factor = z_factor(z0, L, G_z)
+                factor1 = z_factor(z0, L, G_z1, sign=-1)
+                chiD_w[:] += 1. / L * factor * chi_wGG[:, iG, iG1] * \
+                    factor1
+                # induced dipole density due to V_ext = z
+                drhoD_z[:] += 1. / L * np.exp(1j * qGr_R) * \
+                    chi_wGG[0, iG, iG1] * factor1
+        # Normalize induced densities with chi
+        if nw != 0:
+            drhoM_z /= chiM_w[0]
+            drhoD_z /= chiD_w[0]
+
+        """ Returns chi2D monopole and dipole, induced
+        densities and z array (all in Bohr)
+        """
+        return chiM_w, chiD_w, drhoM_z, drhoD_z
+
+    def save_chi_file(self, filename=None, q_idx=None):
+        if q_idx is None:
+            q_idx = self.last_q_idx
         if filename is None:
             filename = self.filename
-        data = {'last_q': self.nq,
+        data = {'last_q': q_idx,
                 'complete': self.complete,
                 'isotropic_q': self.isotropic_q,
                 'q_cs': self.q_cs,
@@ -235,20 +296,20 @@ class BuildingBlock:
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
 
-        if self.world.rank == 0:
+        if self.context.comm.rank == 0:
             np.savez_compressed(filename + '-chi.npz',
                                 **data)
-        world.barrier()
+        self.context.comm.barrier()
 
     def load_chi_file(self):
         try:
             data = np.load(self.filename + '-chi.npz')
-        except IOError:
+        except OSError:
             return False
         if (np.all(data['omega_w'] == self.wd.omega_w) and
             np.all(data['q_cs'] == self.q_cs) and
             np.all(data['z'] == self.z)):
-            self.nq = data['last_q']
+            self.last_q_idx = data['last_q']
             self.complete = data['complete']
             self.chiM_qw = data['chiM_qw']
             self.chiD_qw = data['chiD_qw']
@@ -342,19 +403,19 @@ class BuildingBlock:
         self.save_chi_file(filename=self.filename + '_int')
 
     def collect(self, a_w):
-        world = self.df.chi0.world
+        comm = self.context.comm
         mynw = self.df.blocks1d.blocksize
         b_w = np.zeros(mynw, a_w.dtype)
         b_w[:self.df.blocks1d.nlocal] = a_w
         nw = len(self.wd)
-        A_w = np.empty(world.size * mynw, a_w.dtype)
-        world.all_gather(b_w, A_w)
+        A_w = np.empty(comm.size * mynw, a_w.dtype)
+        comm.all_gather(b_w, A_w)
         return A_w[:nw]
 
     def clear_temp_files(self):
         if not self.savechi0:
-            world = self.df.chi0.world
-            if world.rank == 0:
+            comm = self.context.comm
+            if comm.rank == 0:
                 while len(self.temp_files) > 0:
                     filename = self.temp_files.pop()
                     os.remove(filename)
@@ -386,102 +447,6 @@ def check_building_blocks(BBfiles=None):
                   (data['omega_w'] == w).all()):
             return False
     return True
-
-
-def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
-               filenames=None, name=None):
-    r"""Calculate the monopole and dipole contribution to the
-    2D susceptibillity chi_2D, defined as
-
-    ::
-
-      \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
-                          = L \chi_{G=G'=0}(q, \omega)
-      \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
-                           = 1/L sum_{G_z,G_z'} z_factor(G_z)
-                           chi_{G_z,G_z'} z_factor(G_z'),
-      Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
-      (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
-
-    input parameters:
-
-    filenames: list of str
-        list of chi_wGG.pckl files for different q calculated with
-        the DielectricFunction module in GPAW
-    name: str
-        name writing output files
-    """
-
-    q_list_abs = []
-    if chi_wGG is None and filenames is not None:
-        omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[0])
-        nq = len(filenames)
-    elif chi_wGG is not None:
-        nq = 1
-    nw = chi_wGG.shape[0]
-    r = pd.gd.get_grid_point_coordinates()
-    z = r[2, 0, 0, :]
-    L = pd.gd.cell_cv[2, 2]  # Length of cell in Bohr
-    z0 = L / 2.  # position of layer
-    chiM_qw = np.zeros([nq, nw], dtype=complex)
-    chiD_qw = np.zeros([nq, nw], dtype=complex)
-    drhoM_qz = np.zeros([nq, len(z)], dtype=complex)  # induced density
-    drhoD_qz = np.zeros([nq, len(z)], dtype=complex)  # induced dipole density
-    for iq in range(nq):
-        if iq != 0:
-            omega_w, pd, chi_wGG, q0 = read_chi_wGG(filenames[iq])
-        if q0 is not None:
-            q = q0
-        else:
-            q = pd.K_qv
-        npw = chi_wGG.shape[1]
-        Gvec = pd.get_reciprocal_vectors(add_q=False)
-
-        Glist = []
-        for iG in range(npw):  # List of G with Gx,Gy = 0
-            if Gvec[iG, 0] == 0 and Gvec[iG, 1] == 0:
-                Glist.append(iG)
-
-        chiM_qw[iq] = L * chi_wGG[:, 0, 0]
-        drhoM_qz[iq] += chi_wGG[0, 0, 0]
-        q_abs = np.linalg.norm(q)
-        q_list_abs.append(q_abs)
-        for iG in Glist[1:]:
-            G_z = Gvec[iG, 2]
-            qGr_R = np.inner(G_z, z.T).T
-            # Fourier transform to get induced density at \omega=0
-            drhoM_qz[iq] += np.exp(1j * qGr_R) * chi_wGG[0, iG, 0]
-            for iG1 in Glist[1:]:
-                G_z1 = Gvec[iG1, 2]
-                # integrate with z along both coordinates
-                factor = z_factor(z0, L, G_z)
-                factor1 = z_factor(z0, L, G_z1, sign=-1)
-                chiD_qw[iq, :] += 1. / L * factor * chi_wGG[:, iG, iG1] * \
-                    factor1
-                # induced dipole density due to V_ext = z
-                drhoD_qz[iq, :] += 1. / L * np.exp(1j * qGr_R) * \
-                    chi_wGG[0, iG, iG1] * factor1
-    # Normalize induced densities with chi
-    drhoM_qz /= np.repeat(chiM_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                          axis=1)
-    drhoD_qz /= np.repeat(chiD_qw[:, 0, np.newaxis], drhoM_qz.shape[1],
-                          axis=1)
-
-    """ Returns q array, frequency array, chi2D monopole and dipole, induced
-    densities and z array (all in Bohr)
-    """
-    if name is not None:
-        arrays = [np.array(q_list_abs), omega_w, chiM_qw, chiD_qw,
-                  z, drhoM_qz, drhoD_qz]
-        names = ['q_abs', 'omega_w', 'z',
-                 'chiM_qw', 'chiD_qw',
-                 'drhoM_qz', 'drhoD_qz']
-        data = {}
-        for array, name in zip(arrays, names):
-            data[name] = array
-        np.save(name + '-chi.npz', **data)
-    return np.array(q_list_abs) / Bohr, omega_w * Hartree, chiM_qw, \
-        chiD_qw, z, drhoM_qz, drhoD_qz
 
 
 def z_factor(z0, d, G, sign=1):
@@ -518,10 +483,10 @@ def read_chi_wGG(name):
     Returns frequency grid, gpaw.wavefunctions object, chi_wGG
     """
     fd = open(name, 'rb')
-    omega_w, pd, chi_wGG, q0, chi0_wvv = load(fd)
+    omega_w, qpd, chi_wGG, q0, chi0_wvv = load(fd)
     nw = len(omega_w)
-    nG = pd.ngmax
+    nG = qpd.ngmax
     chi_wGG = np.empty((nw, nG, nG), complex)
     for chi_GG in chi_wGG:
         chi_GG[:] = load(fd)
-    return omega_w, pd, chi_wGG, q0
+    return omega_w, qpd, chi_wGG, q0

@@ -1,3 +1,4 @@
+import pytest
 from gpaw import GPAW, FermiDirac
 from gpaw.mpi import world, size, rank
 from gpaw.lrtddft2 import LrTDDFT2
@@ -6,6 +7,7 @@ from gpaw.test import equal
 from ase.atoms import Atoms
 
 
+@pytest.mark.lrtddft
 def test_lrtddft2_Al2(in_tmp_dir):
     debug = False
     restart_file = 'Al2_gs.gpw'
@@ -14,7 +16,7 @@ def test_lrtddft2_Al2(in_tmp_dir):
     atoms = Atoms('Al2', positions=((0, 0, 0),
                                     (0, 0, d)))
     atoms.center(4.0)
-    calc = GPAW(h=0.24, eigensolver='cg', basis='dzp',
+    calc = GPAW(mode='fd', h=0.24, eigensolver='cg', basis='dzp',
                 occupations=FermiDirac(width=0.01),
                 convergence={'eigenstates': 4.0e-5,
                              'density': 1.0e-2,

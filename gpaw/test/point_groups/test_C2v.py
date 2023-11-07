@@ -5,7 +5,7 @@ from gpaw.point_groups import SymmetryChecker, PointGroup
 
 @pytest.mark.serial
 def test_c2v(gpw_files):
-    calc = GPAW(gpw_files['h2o_lcao_wfs'])
+    calc = GPAW(gpw_files['h2o_lcao'])
     C = calc.atoms.positions[0]
     pg = PointGroup('C2v')
     sc = SymmetryChecker(pg, C, 2.0)

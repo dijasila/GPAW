@@ -1,51 +1,59 @@
-
 import numpy as np
 from ase.units import Bohr, _hbar, _e, _me
 from ase.utils.timing import Timer
 from ase.parallel import parprint
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data
 from gpaw.nlopt.matrixel import get_rml, get_derivative
 from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_shift(
+        nlodata,
         freqs=[1.0],
         eta=0.05,
         pol='yyy',
         eshift=0.0,
         ftol=1e-4, Etol=1e-6,
         band_n=None,
-        out_name='shift.npy',
-        mml_name='mml.npz'):
-    """
-    Calculate RPA shift current for nonmagnetic semiconductors
+        out_name='shift.npy'):
+    """Calculate RPA shift current for nonmagnetic semiconductors.
 
-    Input:
-        freqs           Excitation frequency array (a numpy array or list)
-        eta             Broadening, a number or an array (default 0.05 eV)
-        pol             Tensor element (default 'yyy')
-        Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        band_n          List of bands in the sum (default 0 to nb)
-        out_name        Output filename (default 'shift.npy')
-        mml_name        The momentum filename (default 'mml.npz')
-    Output:
-        shift.npy       Numpy array containing the spectrum and frequencies
+    Parameters
+    ==========
+    nlodata:
+        Data object of class NLOData.
+    freqs:
+        Excitation frequency array (a numpy array or list).
+    eta:
+        Broadening, a number or an array (default 0.05 eV).
+    pol:
+        Tensor element (default 'yyy').
+    Etol, ftol:
+        Tolerance in energy and fermi to consider degeneracy.
+    band_n:
+        List of bands in the sum (default 0 to nb).
+    out_name:
+        Output filename (default 'shift.npy').
+
+    Returns
+    =======
+    np.ndarray
+        Numpy array containing the spectrum and frequencies.
     """
 
     # Start a timer
     timer = Timer()
-    parprint('Calculating shift current (in {:d} cores).'.format(world.size))
+    parprint(f'Calculating shift current (in {world.size:d} cores).')
 
     # Useful variables
     pol_v = ['xyz'.index(ii) for ii in pol]
     w_l = np.array(freqs)
     nw = len(freqs)
-    parprint('Calculation for element {}.'.format(pol))
+    parprint(f'Calculation for element {pol}.')
 
     # Load the required data
     with timer('Load and distribute the data'):
-        k_info = load_data(mml_name=mml_name)
+        k_info = nlodata.distribute()
         if k_info:
             tmp = list(k_info.values())[0]
             nb = len(tmp[1])
@@ -87,7 +95,7 @@ def get_shift(
 
     if world.rank == 0:
         pb.finish()
-        
+
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 
@@ -159,4 +167,4 @@ def shift_current(
 
                 sum2_l += fnm * tmp
 
-    return sum2_l
+    return 2 * np.pi * sum2_l

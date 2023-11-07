@@ -5,8 +5,10 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial
     PolarizableEllipsoid, PolarizableRod, \
     PolarizableTetrahedron
 from gpaw.test import equal
+import pytest
 
 
+@pytest.mark.later
 def test_fdtd_ed_shapes(in_tmp_dir):
     # Whole simulation cell (Angstroms)
     cell = [40, 40, 20]
@@ -45,7 +47,11 @@ def test_fdtd_ed_shapes(in_tmp_dir):
                     remove_moments     = (1, 1))
 
     # Run
-    energy = qsfdtd.ground_state('gs.gpw', eigensolver = 'cg', nbands = -1)
+    energy = qsfdtd.ground_state('gs.gpw',
+                                 mode='fd',
+                                 eigensolver='cg',
+                                 nbands=-1,
+                                 symmetry={'point_group': False})
     qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dmCl.dat')
 
     # Restart and run

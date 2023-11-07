@@ -122,6 +122,15 @@ This very simple case is highly symmetric. To better illustrate how the NEB meth
 """
 
 # %%
+for image in images[0:7]:
+    calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc='LDA', txt=None, symmetry={'point_group': False})
+    image.set_calculator(calc)
+    image.set_constraint(FixAtoms(mask=[atom.symbol == 'C' for atom in image]))
+
+images[3].rattle(stdev=0.05, seed=42)
+
+
+# %%
 """
 Start by calculating the energy and forces of the first (`initial`) and last (`final`) images as this is not done during the actual NEB calculation.
 
@@ -129,9 +138,21 @@ Note, that this can take a while if you opt to do it inside the notebook.
 """
 
 # %%
+images[0].get_potential_energy()
+images[0].get_forces()
+images[6].get_potential_energy()
+images[6].get_forces()
+
+
+# %%
 """
 You can run the NEB calculation by running an optimization on the NEB object the same way you would on an atoms object. Note the `fmax` is larger for this tutorial example than you would normally use.
 """
+
+# %%
+optimizer = BFGS(neb, trajectory='neb.traj', logfile='neb.log' )
+optimizer.run(fmax=0.10)
+
 
 # %%
 """

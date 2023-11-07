@@ -8,6 +8,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
+@pytest.mark.later
 def test_sic_nscfsic(in_tmp_dir):
     atoms = ['He', 'Be']  # ,'Ne'] # Ne deviates already 2.5 eV
     EE = []
@@ -16,13 +17,13 @@ def test_sic_nscfsic(in_tmp_dir):
     for a in atoms:
         s = Atoms(a)
         s.center(vacuum=4.0)
-        calc = GPAW(h=0.15, txt=a + '.txt')
+        calc = GPAW(mode='fd', h=0.15, txt=a + '.txt')
         s.calc = calc
         s.get_potential_energy()
         EE.append(NSCFSIC(calc).calculate())
 
     print("Difference to table VI of Phys. Rev. B 23, 5048 in eV")
-    # http://prola.aps.org/abstract/PRB/v23/i10/p5048_1
+    # https://journals.aps.org/prb/abstract/10.1103/PhysRevB.23.5048
     print("%10s%10s%10s%10s" % ("atom", "ref.", "gpaw", "diff"))
     for a, er, e in zip(atoms, EREF, EE):
         print("%10s%10.2f%10.2f%10.2f" % (a, er, e, er - e))

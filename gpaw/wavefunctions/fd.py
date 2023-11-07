@@ -52,6 +52,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
 
         self.taugrad_v = None  # initialized by MGGA functional
+        self.read_from_file_init_wfs_dm = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array)
@@ -129,6 +130,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     axpy(0.5 * f, abs(dpsit_G)**2, taut_sG[kpt.s])
 
         self.kptband_comm.sum(taut_sG)
+        for taut_G in taut_sG:
+            self.kd.symmetry.symmetrize(taut_G, self.gd)
         return taut_sG
 
     def apply_mgga_orbital_dependent_hamiltonian(self, kpt, psit_xG,
@@ -259,6 +262,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             # Read to memory:
             for kpt in self.kpt_u:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def initialize_from_lcao_coefficients(self, basis_functions):
         for kpt in self.kpt_u:

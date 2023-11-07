@@ -8,6 +8,7 @@ from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 
 
+@pytest.mark.wannier
 @pytest.mark.skip(reason='TODO')
 def test_wannierk_lcao():
     si = bulk('Si', 'diamond', a=5.43)
@@ -15,14 +16,8 @@ def test_wannierk_lcao():
     k = 2
     if 1:
         si.calc = GPAW(kpts=(k, k, k), mode='lcao', txt='Si-ibz.txt')
-        # si.calc = GPAW(kpts=(k, k, k), mode='lcao')
         _ = si.get_potential_energy()
         si.calc.write('Si-ibz', mode='all')
-        # si.calc.set(symmetry='off', txt='Si-bz.txt')
-        # si.calc.set(symmetry='off')
-        # e2 = si.get_potential_energy()
-        # si.calc.write('Si-bz', mode='all')
-        # print e1, e2
 
     def wan(calc):
         centers = [([0.125, 0.125, 0.125], 0, 1.5),

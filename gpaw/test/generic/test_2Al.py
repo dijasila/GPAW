@@ -11,19 +11,21 @@ def test_generic_2Al():
                  cell=(4 * d, 4 * d, 2 * d),
                  pbc=1)
     n = 16
-    calc = GPAW(gpts=(2 * n, 2 * n, 1 * n),
+    calc = GPAW(mode='fd',
+                gpts=(2 * n, 2 * n, 1 * n),
                 nbands=1 * 8,
                 kpts=(1, 1, 4),
-                convergence={'eigenstates': 2.3e-9},
-                xc='LDA')
+                convergence={'eigenstates': 2.3e-9})
     bulk.calc = calc
     e2 = bulk.get_potential_energy()
 
     bulk = bulk.repeat((1, 1, 2))
+    calc = GPAW(mode='fd',
+                gpts=(2 * n, 2 * n, 2 * n),
+                nbands=16,
+                kpts=(1, 1, 2),
+                convergence={'eigenstates': 2.3e-9})
     bulk.calc = calc
-    calc.set(nbands=16,
-             kpts=(1, 1, 2),
-             gpts=(2 * n, 2 * n, 2 * n))
     e4 = bulk.get_potential_energy()
 
     # checks

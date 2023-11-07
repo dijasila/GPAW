@@ -36,7 +36,8 @@ for symbol in elements:
                      positions=[(c, c, c)],
                      cell=(a, a, a))
 
-    calc = GPAW(h=h,
+    calc = GPAW(mode='fd',
+                h=h,
                 xc=xcname,
                 maxiter=240,
                 eigensolver=eigensolver,

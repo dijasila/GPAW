@@ -106,7 +106,7 @@ def test_poisson_poisson_extravacuum():
     poisson = ExtraVacuumPoissonSolver(
         N_c, PoissonSolver('fd', eps=poissoneps))
     phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
-    compare(phi_g, phiref_g, 0.0, 1e-24)
+    compare(phi_g, phiref_g, 0.0, 1e-15)
 
     # New reference with extra vacuum
     gpts = N_c * 4

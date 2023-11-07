@@ -8,6 +8,7 @@ from gpaw.xc.hybrid import HybridXC
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_unocc():
 
     loa = Atoms('Be2',
@@ -22,16 +23,18 @@ def test_exx_unocc():
     unocc = True
     load = False
 
+    base_params = dict(
+        mode='fd',
+        h=0.3,
+        eigensolver='rmm-diis',
+        nbands=nbands,
+        convergence={'eigenstates': 1e-4},
+        txt=txt)
     # usual calculation
     fname = 'Be2.gpw'
     if not load:
         xco = HybridXC(xc)
-        cocc = GPAW(h=0.3,
-                    eigensolver='rmm-diis',
-                    xc=xco,
-                    nbands=nbands,
-                    convergence={'eigenstates': 1e-4},
-                    txt=txt)
+        cocc = GPAW(**base_params, xc=xco)
         cocc.calculate(loa)
     else:
         cocc = GPAW(fname)
@@ -42,12 +45,7 @@ def test_exx_unocc():
     if unocc:
         # apply Fock opeartor also to unoccupied orbitals
         xcu = HybridXC(xc, unocc=True)
-        cunocc = GPAW(h=0.3,
-                      eigensolver='rmm-diis',
-                      xc=xcu,
-                      nbands=nbands,
-                      convergence={'eigenstates': 1e-4},
-                      txt=txt)
+        cunocc = GPAW(**base_params, xc=xcu)
         cunocc.calculate(loa)
 
         parprint('     HF occ          HF unocc      diff')

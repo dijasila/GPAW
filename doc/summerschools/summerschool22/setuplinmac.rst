@@ -24,7 +24,7 @@ Go to https://www.xquartz.org/ and download the newest version of
 XQuartz.  It is an open-source port of the X11 windows system for
 macOS, it used to be part of macOS until version 10.7, but was then
 removed.  Although it is no longer an official part of macOS, it is
-still Apple developpers that maintain the project.
+still Apple developers that maintain the project.
 
 After installing it, you will have to log out of your Mac and log in
 again.

@@ -3,9 +3,10 @@ import sys
 import numpy as np
 from scipy.optimize import leastsq
 
-from gpaw.pw.descriptor import PWDescriptor
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.response.pair import PairDensity
+from ase.units import Ha
+import gpaw.mpi as mpi
+from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 
 
 def check_degenerate_bands(filename, etol):
@@ -30,7 +31,7 @@ def check_degenerate_bands(filename, etol):
 def get_orbitals(calc):
     """Get LCAO orbitals on 3D grid by lcao_to_grid method."""
 
-    bfs_a = [setup.phit_j for setup in calc.wfs.setups]
+    bfs_a = [setup.basis_functions_J for setup in calc.wfs.setups]
 
     from gpaw.lfc import BasisFunctions
     bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kd.comm, cut=True)
@@ -44,14 +45,6 @@ def get_orbitals(calc):
     return orb_MG
 
 
-def get_pw_descriptor(q_c, calc, ecut, gammacentered=False):
-    """Get the planewave descriptor of q_c."""
-    qd = KPointDescriptor([q_c])
-    pd = PWDescriptor(ecut, calc.wfs.gd,
-                      complex, qd, gammacentered=gammacentered)
-    return pd
-
-
 def get_bz_transitions(filename, q_c, bzk_kc,
                        spins='all',
                        ecut=50, txt=sys.stdout):
@@ -60,16 +53,20 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     contributing to the linear response at wave vector q_c.
     """
 
-    pair = PairDensity(filename, ecut=ecut, txt=txt)
-    pd = get_pw_descriptor(q_c, pair.calc, pair.ecut)
+    ecut /= Ha
 
-    bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+    gs, context = get_gs_and_context(filename, txt=txt, world=mpi.world,
+                                     timer=None)
+
+    kptpair_factory = KPointPairFactory(gs=gs, context=context)
+    qpd = SingleQPWDescriptor.from_q(q_c, ecut, gs.gd)
+    bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
 
     if spins == 'all':
-        spins = range(pair.calc.wfs.nspins)
+        spins = range(kptpair_factory.gs.nspins)
     else:
         for spin in spins:
-            assert spin in range(pair.calc.wfs.nspins)
+            assert spin in range(kptpair_factory.gs.nspins)
 
     domain_dl = (bzk_kv, spins)
     domainsize_d = [len(domain_l) for domain_l in domain_dl]
@@ -82,27 +79,40 @@ def get_bz_transitions(filename, q_c, bzk_kc,
             arg.append(domain_l[index])
         domainarg_td.append(tuple(arg))
 
-    return pair, pd, domainarg_td
+    return kptpair_factory, qpd, domainarg_td
 
 
-def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
+def get_chi0_integrand(kptpair_factory, qpd, n_n, m_m, k_v, s):
     """
     Calculates the pair densities, occupational differences
     and energy differences of transitions from certain kpoint
     and spin.
     """
+    optical_limit = qpd.optical_limit
+    k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-    k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+    pair_calc = kptpair_factory.pair_calculator()
+    kptpair = kptpair_factory.get_kpoint_pair(
+        qpd, s, k_c, n_n[0], n_n[-1] + 1,
+        m_m[0], m_m[-1] + 1)
 
-    kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
-                                   m_m[0], m_m[-1] + 1)
+    pairden_paw_corr = pair_calc.gs.pair_density_paw_corrections
+    pawcorr = pairden_paw_corr(qpd)
 
-    n_nmG = pair.get_pair_density(pd, kptpair, n_n, m_m)
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
     eps_n = kptpair.kpt1.eps_n
     eps_m = kptpair.kpt2.eps_n
 
-    return n_nmG, df_nm, eps_n, eps_m
+    if optical_limit:
+        n_nmP = pair_calc.get_optical_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
+
+        return n_nmP, df_nm, eps_n, eps_m
+    else:
+        n_nmG = pair_calc.get_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
+
+        return n_nmG, df_nm, eps_n, eps_m
 
 
 def get_degeneracy_matrix(eps_n, tol=1.e-3):

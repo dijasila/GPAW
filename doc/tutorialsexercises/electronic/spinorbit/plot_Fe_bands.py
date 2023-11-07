@@ -35,7 +35,6 @@ for i in range(len(X))[1:-1]:
 
 pl.scatter(np.tile(x, len(e_nk)), e_nk.reshape(-1),
            c=s_nk.reshape(-1),
-           edgecolor=pl.get_cmap('jet')(s_nk.reshape(-1)),
            s=5,
            marker='+')
 pl.plot([0, x[-1]], 2 * [0.0], '-', c='0.5')

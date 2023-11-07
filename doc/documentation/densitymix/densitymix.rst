@@ -120,7 +120,7 @@ Specifying the mixing scheme and metric is done using the ``mixer``
 keyword of the GPAW calculator::
 
   from gpaw import GPAW, Mixer
-  calc = GPAW(mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0))
+  calc = GPAW(..., mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0), ...)
 
 which is the recommended value if the default fails to converge.
 

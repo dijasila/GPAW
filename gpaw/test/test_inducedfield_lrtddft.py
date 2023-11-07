@@ -10,6 +10,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.ci
+@pytest.mark.later
 def test_inducedfield_lrtddft(in_tmp_dir):
     do_print_values = False  # Use this for printing the reference values
     poisson_eps = 1e-12
@@ -24,7 +25,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
                   pbc=False)
     atoms.center(vacuum=3.0)
 
-    calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'},
+    calc = GPAW(mode='fd', nbands=20, h=0.6, setups={'Na': '1'},
                 poissonsolver=poissonsolver,
                 experimental={'niter_fixdensity': 2},
                 convergence={'density': density_eps})

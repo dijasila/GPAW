@@ -21,7 +21,8 @@ from gpaw.xc.pawcorrection import PAWXCCorrection
 
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
-    def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
+    def __init__(self, symbol, xcsetupname,
+                 name='paw', readxml=True,
                  zero_reference=False, world=None,
                  generator_version=None):
         self.symbol = symbol
@@ -46,7 +47,7 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
-        self.l_orb_j = self.l_j  # pointer to same list!
+        self.l_orb_J = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
@@ -90,8 +91,10 @@ class SetupData:
 
         # Optional quantities, normally not used
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
@@ -110,10 +113,10 @@ class SetupData:
 
         self.orbital_free = False  # orbital-free DFT
 
+        self.version = None
+
         if readxml:
             self.read_xml(world=world)
-
-        self.version: str
 
     def __repr__(self):
         return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
@@ -152,11 +155,10 @@ class SetupData:
         else:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
-        if setup.HubU is not None:
-            for U, l, scale in zip(setup.HubU, setup.Hubl, setup.Hubs):
-                text(f'  Hubbard: {{U: {U * Ha},  # eV\n'
-                     f'            l: {l},\n'
-                     f'            scale: {bool(scale)}}}')
+        if setup.hubbard_u is not None:
+            description = ''.join([f'  {line}' for line
+                                   in setup.hubbard_u.descriptions()])
+            text(description)
         text('  file:', self.filename)
         sf = self.shape_function
         text(f'  compensation charges: {{type: {sf["type"]},\n'
@@ -173,7 +175,7 @@ class SetupData:
                 text('    - %d%s%-5s %9.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Ha, self.rcut_j[j] * Bohr))
             else:
-                text('    -  %s       %9.3f   %5.3f' % (
+                text('    -  {}       {:9.3f}   {:5.3f}'.format(
                     'spdf'[l], eps * Ha, self.rcut_j[j] * Bohr))
             j += 1
         text()
@@ -232,8 +234,11 @@ class SetupData:
 
         return xc_correction
 
-    def write_xml(self) -> None:
-        with open(self.stdfilename, 'w') as fd:
+    def write_xml(self, path=None) -> None:
+        if path is None:
+            path = self.stdfilename
+
+        with open(path, 'w') as fd:
             self._write_xml(fd)
 
     def _write_xml(self, xml: IO[str]) -> None:
@@ -365,6 +370,14 @@ class SetupData:
             print('\n  </exact_exchange_X_matrix>', file=xml)
 
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
+            for omega, Ecc in self.ExxC_w.items():
+                print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',
+                      file=xml)
+                print(f'  <erfc_exchange_X_matrix omega="{omega}" X_p="',
+                      end=' ', file=xml)
+                for x in self.X_wp[omega]:
+                    print(f'{x!r}', end=' ', file=xml)
+                print('"/>', file=xml)
 
         if self.X_pg is not None:
             print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
@@ -531,8 +544,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'projector_function':
             self.id = attrs['state']
             self.data = []
+        elif name == 'erfc_exchange':
+            setup.ExxC_w[float(attrs['omega'])] = float(attrs['core-core'])
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
+        elif name == 'erfc_exchange_X_matrix':
+            X_p = np.array([float(x) for x in ''.join(attrs['X_p']).split()])
+            setup.X_wp[float(attrs['omega'])] = X_p
         elif name == 'yukawa_exchange':
             setup.X_gamma = float(attrs['gamma'])
         elif name == 'core_hole_state':

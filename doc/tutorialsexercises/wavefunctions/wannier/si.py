@@ -13,7 +13,8 @@ si = Atoms(symbols='Si4',
 si += si
 si.positions[4:] += a / 4
 
-calc = GPAW(nbands=16,
+calc = GPAW(mode='fd',
+            nbands=16,
             h=0.25,
             txt='si.txt')
 

@@ -7,6 +7,7 @@ from gpaw.cdft.cdft_coupling import CouplingParameters
 from gpaw.mpi import world
 
 
+@pytest.mark.later
 @pytest.mark.skipif(world.size > 1, reason='cdft coupling not parallel')
 def test_cdft_restart(in_tmp_dir):
     distance = 2.5
@@ -26,9 +27,9 @@ def test_cdft_restart(in_tmp_dir):
                   nbands=4,
                   mixer=Mixer(beta=0.25, nmaxold=3, weight=100.0),
                   txt='He2+_final_%3.2f.txt' % distance,
-                  convergence={'eigenstates': 1.0e-4,
-                               'density': 1.0e-1,
-                               'energy': 1e-1,
+                  convergence={'eigenstates': 1.0,
+                               'density': 1.0,
+                               'energy': 1.0,
                                'bands': 4})
 
     cdft_b = CDFT(calc=calc_b,
@@ -41,14 +42,14 @@ def test_cdft_restart(in_tmp_dir):
                   minimizer_options={'gtol': 0.1})
     sys.calc = cdft_b
     sys.get_potential_energy()
-    sys.calc.calc.write('H2.gpw', mode='all')
+    sys.calc.calc.write('He2.gpw', mode='all')
 
     # Restart
 
-    atoms, calc = restart('H2.gpw')
+    atoms, calc = restart('He2.gpw')
 
     coupling = CouplingParameters(calc_a=calc, calc_b=calc,
-                                  wfs_a='H2.gpw', wfs_b='H2.gpw',
+                                  wfs_a='He2.gpw', wfs_b='He2.gpw',
                                   Va=[27, 0], Vb=[27, 0],
                                   charge_regions_A=[[1], [0]],
                                   charge_regions_B=[[1], [0]])

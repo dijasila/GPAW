@@ -1,7 +1,9 @@
 from time import time
 
-import pytest
 import numpy as np
+import pytest
+
+from gpaw.utilities.blas import mmm
 
 
 @pytest.mark.ci
@@ -11,10 +13,9 @@ def test_linalg_gemm():
     a1 += 0.0001
     a2 = 2 * a1
 
-    from gpaw.utilities.blas import gemm
     b = np.zeros((n, n))
     t0 = time()
-    gemm(1.0, a1, a2, 0.0, b)
+    mmm(1.0, a1, 'N', a2, 'N', 0.0, b)
     tgpaw = time() - t0
     print('gpaw.gemm  ', tgpaw)
 

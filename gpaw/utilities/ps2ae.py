@@ -121,7 +121,7 @@ class PS2AE:
             psi(r)=exp(ikr)u(r).
         """
         u_r = self.calc.get_pseudo_wave_function(n, k, s,
-                                                 pad=True, periodic=True)
+                                                 periodic=True)
         u_R = self.interpolator.interpolate(u_r * Bohr**1.5)
 
         k_c = self.calc.wfs.kd.ibzk_kc[k]

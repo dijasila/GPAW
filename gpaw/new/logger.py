@@ -13,19 +13,19 @@ from gpaw.yml import obj2yaml as o2y
 class Logger:
     def __init__(self,
                  filename: str | Path | IO[str] | None = '-',
-                 comm: MPIComm = None):
-        comm = comm or world
+                 comm: MPIComm | None = None):
+        self.comm = comm or world
 
         self.fd: IO[str]
 
-        if comm.rank > 0 or filename is None:
-            self.fd = open(os.devnull, 'w')
+        if self.comm.rank > 0 or filename is None:
+            self.fd = open(os.devnull, 'w', encoding='utf-8')
             self.close_fd = True
         elif filename == '-':
             self.fd = sys.stdout
             self.close_fd = False
         elif isinstance(filename, (str, Path)):
-            self.fd = open(filename, 'w')
+            self.fd = open(filename, 'w', encoding='utf-8')
             self.close_fd = True
         else:
             self.fd = filename
@@ -56,7 +56,7 @@ class Logger:
             if kwargs:
                 for kw, arg in kwargs.items():
                     assert kw not in ['end', 'sep', 'flush', 'file'], kw
-                    print(f'{i}{kw}: {o2y(arg, i)}',
+                    print(f'{i}{kw}: {o2y(arg, i + "  ")}',
                           file=self.fd)
             else:
                 text = ' '.join(str(arg) for arg in args)

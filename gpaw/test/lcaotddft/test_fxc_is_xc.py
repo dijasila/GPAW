@@ -1,16 +1,15 @@
 import numpy as np
-
+import pytest
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.mpi import world
-
 from gpaw.test import equal
 
-# Atoms
 
-
+@pytest.mark.rttddft
 def test_lcaotddft_fxc_is_xc(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -20,6 +19,7 @@ def test_lcaotddft_fxc_is_xc(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
                 xc='LDA',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

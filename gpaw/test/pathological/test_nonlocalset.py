@@ -17,34 +17,39 @@ from gpaw.test import equal
 
 
 @pytest.mark.libxc
+@pytest.mark.legacy
 def test_pathological_nonlocalset():
     atoms = Atoms('HF', positions=[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0)])
     atoms.set_pbc((True, True, True))
-    atoms.set_cell((2.0, 2.0, 2.0))
+    atoms.set_cell((2.01, 2.01, 2.01))  # make sure we get 12 gpts and not 8
+
+    base_params = dict(
+        mode='fd',
+        mixer=Mixer(0.5, 5, 50.0),
+        eigensolver='cg',
+        convergence={'density': 1e-8})
 
     def MGGA_fail():
-        calc = GPAW(xc='TPSS',
-                    mixer=Mixer(0.5, 5, 50.0),
-                    eigensolver='cg',
-                    kpts=(1, 2, 1),
-                    convergence={'density': 1e-8})
+        calc = GPAW(**base_params,
+                    xc='TPSS',
+                    kpts=(1, 2, 1))
         atoms.calc = calc
         atoms.get_potential_energy()
         calc.set(kpts=(4, 1, 1))
         return atoms.get_potential_energy()
 
     def MGGA_work():
-        calc = GPAW(xc='TPSS', mixer=Mixer(0.5, 5, 50.0),
-                    eigensolver='cg', kpts=(4, 1, 1),
-                    convergence={'density': 1e-8})
+        calc = GPAW(**base_params,
+                    xc='TPSS',
+                    kpts=(4, 1, 1))
 
         atoms.calc = calc
         return atoms.get_potential_energy()
 
     def GLLBSC_fail():
-        calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0),
-                    eigensolver='cg', kpts=(1, 2, 1),
-                    convergence={'density': 1e-8})
+        calc = GPAW(**base_params,
+                    xc='GLLBSC',
+                    kpts=(1, 2, 1))
 
         atoms.calc = calc
         atoms.get_potential_energy()
@@ -52,9 +57,9 @@ def test_pathological_nonlocalset():
         return atoms.get_potential_energy()
 
     def GLLBSC_work():
-        calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0),
-                    eigensolver='cg', kpts=(4, 1, 1),
-                    convergence={'density': 1e-8})
+        calc = GPAW(**base_params,
+                    xc='GLLBSC',
+                    kpts=(4, 1, 1))
 
         atoms.calc = calc
         return atoms.get_potential_energy()

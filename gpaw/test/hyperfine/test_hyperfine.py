@@ -7,7 +7,7 @@ import ase.units as units
 
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate, alpha, g_factor_e, core_contribution)
+                            integrate, alpha, G_FACTOR_E, core_contribution)
 from gpaw import GPAW
 from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -83,17 +83,17 @@ def things():
 @pytest.mark.serial
 def test_gaussian(things):
     gd, lfc, setup, spos_ac = things
-    spin_denisty_R = gd.zeros()
-    lfc.add(spin_denisty_R, {0: np.array([1.0, 0, 0, 0])})
-    spin_denisty_R *= spin_denisty_R
+    spin_density_R = gd.zeros()
+    lfc.add(spin_density_R, {0: np.array([1.0, 0, 0, 0])})
+    spin_density_R *= spin_density_R
 
-    W_avv = smooth_part(spin_denisty_R, gd, spos_ac)
+    W_avv = smooth_part(spin_density_R, gd, spos_ac)
     print(W_avv)
     assert abs(W_avv[0] - np.eye(3) * W_avv[0, 0, 0]).max() < 1e-7
 
-    denisty_sii = np.zeros((2, 4, 4))
-    denisty_sii[0, 0, 0] = 1.0
-    W1_vv = paw_correction(denisty_sii, setup)
+    density_sii = np.zeros((2, 4, 4))
+    density_sii[0, 0, 0] = 1.0
+    W1_vv = paw_correction(density_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-7
 
@@ -101,36 +101,36 @@ def test_gaussian(things):
 @pytest.mark.serial
 def test_gaussian2(things):
     gd, lfc, setup, spos_ac = things
-    spin_denisty_R = gd.zeros()
-    lfc.add(spin_denisty_R, {0: np.array([0, 0, 1.0, 0])})
-    spin_denisty2_R = gd.zeros()
-    lfc.add(spin_denisty2_R, {0: np.array([0, 1.0, 0, 0])})
-    spin_denisty_R = spin_denisty_R * spin_denisty2_R
+    spin_density_R = gd.zeros()
+    lfc.add(spin_density_R, {0: np.array([0, 0, 1.0, 0])})
+    spin_density2_R = gd.zeros()
+    lfc.add(spin_density2_R, {0: np.array([0, 1.0, 0, 0])})
+    spin_density_R = spin_density_R * spin_density2_R
 
-    W_avv = smooth_part(spin_denisty_R, gd, spos_ac)
+    W_avv = smooth_part(spin_density_R, gd, spos_ac)
     print(W_avv)
     assert abs(W_avv[0] - np.array([[0, 0, 0],
                                     [0, 0, 1],
                                     [0, 1, 0]]) * W_avv[0, 1, 2]).max() < 1e-7
 
-    denisty_sii = np.zeros((2, 4, 4))
-    denisty_sii[0, 2, 1] = 1.0
-    W1_vv = paw_correction(denisty_sii, setup)
+    density_sii = np.zeros((2, 4, 4))
+    density_sii[0, 2, 1] = 1.0
+    W1_vv = paw_correction(density_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 
 
-g_factor_proton = 5.586
+G_FACTOR_PROTON = 5.586
 
 
 @pytest.mark.serial
 def test_h(gpw_files):
     calc = GPAW(gpw_files['h_pw'])
-    A_vv = hyperfine_parameters(calc)[0] * g_factor_proton
+    A_vv = hyperfine_parameters(calc)[0] * G_FACTOR_PROTON
     print(A_vv)
 
     energy = (2 / 3 * alpha**2 * units.Ha * units._me / units._mp *
-              g_factor_e * g_factor_proton)  # in eV
+              G_FACTOR_E * G_FACTOR_PROTON)  # in eV
     frequency = energy * units._e / units._hplanck  # Hz
     wavelength = units._c / frequency  # meters
     assert wavelength == pytest.approx(0.211, abs=0.001)

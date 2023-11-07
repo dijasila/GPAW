@@ -12,7 +12,7 @@ from gpaw.fdtd.potential_couplers import (RefinerPotentialCoupler,
                                           MultipolesPotentialCoupler)
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, serial_comm
-from gpaw.poisson import PoissonSolver, FDPoissonSolver
+from gpaw.poisson import PoissonSolver
 from gpaw.poisson_moment import MomentCorrectionPoissonSolver
 from gpaw.tddft import TDDFT, DipoleMomentWriter, RestartFileWriter
 from gpaw.transformers import Transformer
@@ -143,8 +143,8 @@ class QSFDTD:
 
 # This helps in telling the classical quantities from the quantum ones
 class PoissonOrganizer:
-    def __init__(self, poisson_solver=None):
-        self.poisson_solver = poisson_solver
+    def __init__(self):
+        self.poisson_solver = None
         self.gd = None
         self.density = None
         self.cell = None
@@ -209,7 +209,7 @@ class FDTDPoissonSolver:
         self.cl.extrapolated_qm_phi = None
         self.cl.dcomm = communicator
         self.cl.dparsize = None
-        self.qm = PoissonOrganizer(FDPoissonSolver)  # Default solver
+        self.qm = PoissonOrganizer()
         self.qm.spacing_def = qm_spacing * np.ones(3) / Bohr
         self.qm.cell = np.array(cell) / Bohr
 
@@ -426,11 +426,11 @@ class FDTDPoissonSolver:
         self.shift_indices_2 = self.shift_indices_1 + self.num_indices
 
         # Sanity checks
-        assert(all([self.shift_indices_1[w] >= 0 and
-                    self.shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.shift_indices_1[w] >= 0 and
+                     self.shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.corner1 = self.shift_indices_1 * self.cl.spacing
@@ -587,11 +587,11 @@ class FDTDPoissonSolver:
         #     % (self.cl.gd.N_c[0], self.cl.gd.N_c[1], self.cl.gd.N_c[2]))
 
         # Sanity checks
-        assert(all([self.extended_shift_indices_1[w] >= 0 and
-                    self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
-                    for w in range(3)])), \
-            "Could not find appropriate quantum grid. " + \
-            "Move it further away from the boundary."
+        assert (all([self.extended_shift_indices_1[w] >= 0 and
+                     self.extended_shift_indices_2[w] <= self.cl.gd.N_c[w]
+                     for w in range(3)])), (
+            'Could not find appropriate quantum grid. '
+            'Move it further away from the boundary.')
 
         # Corner coordinates
         self.qm.extended_corner1 = \

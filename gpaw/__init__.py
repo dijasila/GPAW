@@ -7,18 +7,18 @@ import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
 
-from gpaw.broadcast_imports import broadcast_imports  # noqa
 
-__version__ = '22.1.1b1'
-__ase_version_required__ = '3.23.0b1'
+__version__ = '23.9.2b1'
+__ase_version_required__ = '3.22.1'
+
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
+           'MixerFull',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton', 'MarzariVanderbilt',
            'PW', 'LCAO', 'FD',
            'restart']
-
 
 setup_paths: List[Union[str, Path]] = []
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
@@ -45,6 +45,10 @@ def disable_dry_run():
 
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
+
+
+import scipy
+SCIPY_VERSION = [int(x) for x in scipy.__version__.split('.')[:2]]
 
 
 class ConvergenceError(Exception):
@@ -78,6 +82,8 @@ def get_libraries():
     return libraries
 
 
+libraries = get_libraries()
+
 def parse_arguments(argv):
     from argparse import (ArgumentParser, REMAINDER,
                           RawDescriptionHelpFormatter)
@@ -91,6 +97,11 @@ def parse_arguments(argv):
 
     if is_gpaw_python:
         sys.setdlopenflags(old_dlopen_flags)
+
+    import _gpaw
+
+    if getattr(_gpaw, 'version', 0) != 4:
+        raise ImportError('Please recompile GPAW''s C-extensions!')
 
     version = sys.version.replace('\n', '')
     p = ArgumentParser(usage='%(prog)s [OPTION ...] [-c | -m] SCRIPT'
@@ -159,14 +170,18 @@ def lazyimport(module, attr=None):
     return importwrapper
 
 
+OldGPAW = lazyimport('gpaw.calculator', 'GPAW')
 Mixer = lazyimport('gpaw.mixer', 'Mixer')
 MixerSum = lazyimport('gpaw.mixer', 'MixerSum')
 MixerDif = lazyimport('gpaw.mixer', 'MixerDif')
 MixerSum2 = lazyimport('gpaw.mixer', 'MixerSum2')
+MixerFull = lazyimport('gpaw.mixer', 'MixerFull')
+
 Davidson = lazyimport('gpaw.eigensolvers', 'Davidson')
 RMMDIIS = lazyimport('gpaw.eigensolvers', 'RMMDIIS')
 CG = lazyimport('gpaw.eigensolvers', 'CG')
 DirectLCAO = lazyimport('gpaw.eigensolvers', 'DirectLCAO')
+
 PoissonSolver = lazyimport('gpaw.poisson', 'PoissonSolver')
 FermiDirac = lazyimport('gpaw.occupations', 'FermiDirac')
 MethfesselPaxton = lazyimport('gpaw.occupations', 'MethfesselPaxton')
@@ -211,7 +226,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-1000000)
+            a.fill(42)
         return a
 
     def empty_like(*args, **kwargs):
@@ -219,7 +234,7 @@ if debug:
         try:
             a.fill(np.nan)
         except ValueError:
-            a.fill(-2000000)
+            a.fill(-42)
         return a
 
     np.empty = empty

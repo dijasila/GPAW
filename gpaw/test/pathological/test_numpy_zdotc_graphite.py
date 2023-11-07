@@ -1,15 +1,18 @@
 """gpaw-python Segmentation faults
 when gpaw-python and numpy are linked to different blas"""
 from math import sqrt
+
+import pytest
 from ase import Atoms
-from gpaw import GPAW
-from gpaw import ConvergenceError
+
+from gpaw import GPAW, ConvergenceError
 
 kpts = (2, 1, 1)
 a = 1.42
 c = 3.355
 
 
+@pytest.mark.legacy
 def test_pathological_numpy_zdotc_graphite():
     # AB stack
     atoms = Atoms('C4',
@@ -24,7 +27,7 @@ def test_pathological_numpy_zdotc_graphite():
                     (0, 0, 2 * c)],
                    scale_atoms=True)
 
-    calc = GPAW(gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
+    calc = GPAW(mode='fd', gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
 
     atoms.calc = calc
 

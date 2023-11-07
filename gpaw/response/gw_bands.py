@@ -2,7 +2,6 @@ import pickle
 
 import numpy as np
 from ase.utils import gcd
-from ase.units import Ha
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from gpaw import GPAW
@@ -34,8 +33,6 @@ class GWBands:
 
         self.acell_cv = self.gd.cell_cv
         self.bcell_cv = 2 * np.pi * self.gd.icell_cv
-        self.vol = self.gd.volume
-        self.BZvol = (2 * np.pi)**3 / self.vol
 
     def find_k_along_path(self, plot_BZ=True):
         """Finds the k-points along the bandpath present in the
@@ -122,7 +119,7 @@ class GWBands:
         return vHt_z[0]
 
     def get_spinorbit_corrections(self, return_spin=True, return_wfs=False,
-                                  bands=None, gwqeh_file=None, dft=False,
+                                  bands=None, dft=False,
                                   eig_file=None):
         """Gets the spinorbit corrections to the eigenvalues"""
         calc = self.calc
@@ -151,25 +148,13 @@ class GWBands:
         return e_kn
 
     def get_gw_bands(self, nk_Int=50, interpolate=False, SO=False,
-                     gwqeh_file=None, dft=False, eig_file=None, vac=False):
+                     dft=False, eig_file=None, vac=False):
         """Getting Eigenvalues along the path"""
         kd = self.kd
         if SO:
             e_kn = self.get_spinorbit_corrections(return_wfs=True,
                                                   dft=dft,
                                                   eig_file=eig_file)
-            if gwqeh_file is not None:
-                gwqeh_file = pickle.load(open(gwqeh_file))
-                eqeh_noSO_kn = gwqeh_file['qp_sin'][0] * Ha
-                eqeh_kn = np.zeros_like(e_kn)
-                eqeh_kn[:, ::2] = eqeh_noSO_kn
-                eqeh_kn[:, 1::2] = eqeh_noSO_kn
-
-                e_kn += eqeh_kn
-
-        elif gwqeh_file is not None:
-            gwqeh_file = pickle.load(open(gwqeh_file))
-            e_kn = gwqeh_file['Qp_sin'][0] * Ha
         elif eig_file is not None:
             e_kn = pickle.load(open(eig_file))[0]
         else:

@@ -86,7 +86,7 @@ def methfessel_paxton(eig: np.ndarray,
 
 
 def coff_function(n):
-    return (-1)**n / (np.product(np.arange(1, n + 1)) *
+    return (-1)**n / (np.prod(np.arange(1, n + 1)) *
                       4**n * np.sqrt(np.pi))
 
 
@@ -279,8 +279,8 @@ class SmoothDistribution(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess):
-
-        if np.isnan(fermi_level_guess) or self._width == 0.0:
+        # Guess can be nan or inf:
+        if not np.isfinite(fermi_level_guess) or self._width == 0.0:
             zero = ZeroWidth(self.parallel_layout)
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn)
@@ -370,6 +370,9 @@ def findroot(func: Callable[[float], Tuple[float, float]],
     >>> x, _ = findroot(lambda x: (x, 1.0), 1.0)
     >>> assert abs(x) < 1e-10
     """
+
+    assert np.isfinite(x), x
+
     xmin = -np.inf
     xmax = np.inf
 

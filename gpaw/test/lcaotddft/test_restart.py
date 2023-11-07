@@ -15,6 +15,7 @@ from gpaw.test import equal
 
 @pytest.mark.gllb
 @pytest.mark.libxc
+@pytest.mark.rttddft
 def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
@@ -24,6 +25,7 @@ def test_lcaotddft_restart(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     _ = atoms.get_potential_energy()

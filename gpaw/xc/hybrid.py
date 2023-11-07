@@ -15,7 +15,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.helmholtz import HelmholtzSolver
 from gpaw.transformers import Transformer
 from gpaw.utilities import hartree, pack, pack2, unpack, unpack2, packed_index
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmm
 from gpaw.utilities.tools import symmetrize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
@@ -151,7 +151,7 @@ class HybridXC(HybridXCBase):
                 singlet: excitations to singlets
                 triplet: excitations to triplets
                 average: average between singlets and tripletts
-                see f.e. http://dx.doi.org/10.1021/acs.jctc.8b00238
+                see f.e. https://doi.org/10.1021/acs.jctc.8b00238
         excited: number
             Band to excite from - counted from HOMO downwards
 
@@ -223,8 +223,8 @@ class HybridXC(HybridXCBase):
         # Note that the quantities passed are on the
         # density/Hamiltonian grids!
         # They may be distributed differently from own quantities.
-        self.ekin = self.kpt_comm.sum(self.ekin_s.sum())
-        return exc + self.kpt_comm.sum(self.exx_s.sum())
+        self.ekin = self.kpt_comm.sum_scalar(self.ekin_s.sum())
+        return exc + self.kpt_comm.sum_scalar(self.exx_s.sum())
 
     def calculate_exx(self):
         for kpt in self.kpt_u:
@@ -459,8 +459,8 @@ class HybridXC(HybridXCBase):
                         else:
                             exx += hybrid * setup.ExxC
 
-        self.exx_s[kpt.s] = self.gd.comm.sum(exx)
-        self.ekin_s[kpt.s] = self.gd.comm.sum(ekin)
+        self.exx_s[kpt.s] = self.gd.comm.sum_scalar(exx)
+        self.ekin_s[kpt.s] = self.gd.comm.sum_scalar(ekin)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         if not hasattr(kpt, 'vxx_ani'):
@@ -530,11 +530,18 @@ class HybridXC(HybridXCBase):
         nocc = self.nocc_s[kpt.s]
         if len(kpt.vt_nG) == nocc:
             U_nn = U_nn[:nocc, :nocc]
-        gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
+        # gemm(1.0, kpt.vt_nG.copy(), U_nn, 0.0, kpt.vt_nG)
+        n, G1, G2, G3 = kpt.vt_nG.shape
+        vt_nG = kpt.vt_nG.reshape((n, G1 * G2 * G3))
+        mmm(1.0, U_nn, 'N', vt_nG.copy(), 'N', 0.0, vt_nG)
         for v_ni in kpt.vxx_ani.values():
-            gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
+            # gemm(1.0, v_ni.copy(), U_nn, 0.0, v_ni)
+            mmm(1.0, U_nn, 'N', v_ni.copy(), 'N', 0.0, v_ni)
         for v_nii in kpt.vxx_anii.values():
-            gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
+            # gemm(1.0, v_nii.copy(), U_nn, 0.0, v_nii)
+            n, i, i = v_nii.shape
+            v_nii = v_nii.reshape((n, i**2))
+            mmm(1.0, U_nn, 'N', v_nii.copy(), 'N', 0.0, v_nii)
 
 
 def atomic_exact_exchange(atom, type='all'):

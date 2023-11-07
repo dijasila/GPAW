@@ -1,3 +1,4 @@
+import pytest
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
@@ -8,11 +9,13 @@ from gpaw.lcaotddft.qed import RRemission
 from . import check_txt_data
 
 
+@pytest.mark.rttddft
 def test_rremission(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
     calc = GPAW(mode='lcao', h=0.4, basis='dzp',
                 setups={'Na': '1'},
+                symmetry={'point_group': False},
                 convergence={'density': 1e-12})
     atoms.calc = calc
     atoms.get_potential_energy()

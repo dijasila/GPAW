@@ -5,25 +5,21 @@ viz.view = lambda atoms, repeat=None: None
 
 # %%
 """
-# Non-collinear magnetism - VI$_2$
 
-Having looked at the ferromagnetic compound CrI$_3$, we now move on to a bit
-more complicated material. We will stay in the framework of 2D materials, but
-now move on to anti-ferromagnetic exchange coupling. We will still have the
-Hamiltonian
+# Noncollinear magnetism - VI$_2$
 
-$$H = -\frac{1}{2}\sum_{ij}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j+A\sum_i(S_i^z)^2$$
+For this part of the project, we will move on to a magnetic monolayer in which the dominant exchange coupling is antiferromagnetic, namely VI$_2$. We will still use the localized spin Hamiltonian
 
-in mind, but now with $J<0$. Go to the 2D database at
-https://cmrdb.fysik.dtu.dk/?project=c2db and search for VI$_2$ in the CdI$_2$
-prototype. Click on the *ferromagnetic* structure and download the .xyz file.
-Since we will need to do LDA calculations later on, we start by relaxing the
-structure with the LDA functional. We will be interested in the anti-
-ferromagnetic state later, but perform the relaxation in the ferromagnetic
-state, which has a smaller unit cell. Fill in the missing pieces and run the
-cell below. V has the electronic configuration [Ar]3d$^3$4s$^2$, which can be
-used to guess the initial magnetic moments. The calculation takes about 17
-minutes.
+$$H = -\frac{1}{2}\sum_{i,j}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j+A\sum_i(S_i^z)^2$$
+
+but here in the antiferromagnetic case, $J<0$.
+
+## Optimizing the atomic structure
+
+Since we will need to do LDA calculations later on, we will start of this part of the project by relaxing the atomic structure of VI$_2$ using the LDA functional. Usually, the difference in crystal structure between different magnetically ordered states is small, so we will perform the relaxation in the ferromagnetic state, which has a smaller unit cell.
+
+1.   First you should download the relaxed PBE crystal structure. Either, browse the C2DB at https://cmrdb.fysik.dtu.dk/c2db and download the `.xyz` file for VI$_2$ or dowload it directly from the summer school tutorial website [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool22/magnetism/magnetism.html)
+2.   Fill in the expected ionic value for the V spins `S` below and run the cell to relax the crystal structure. The calculation takes about 17 minutes. (Hint: V has the electronic configuration [Ar]3d$^3$4s$^2$)
 
 """
 
@@ -54,16 +50,14 @@ calc.write('VI2_relaxed.gpw')
 
 # %%
 """
-### Magnetic anisotropy
+## Magnetic anisotropy
 
-Note that we switch off symmetry in the end of the script and do a last
-calculations with all $k$-points in the Brillouin zone. This is because
-spinors transform in a non-trivial way and the spin-orbit coupling can be
-obtained from the irreducible $k$-points without transforming the
-wavefunctions at symmetry related $k$-points. Evaluate the magnetic
-anisotropy in the cell below in a manner similar to the case of CrI$_3$. Is
-the easy-axis in plane or out of plane? Do you expect to find a finite
-critical temperature based on this?
+In the cell above, we not only performed a structural optimization, but we also took the relaxed structure, switched off the $k$-point symmetries and did a final DFT calculation with all the $k$-points in the Brillouin zone. We did this in order to be able to evaluate the the magnetic anisotropy arising from the spin-orbit coupling.
+
+1.   Adapt the code you used for CrI$_3$ to calculate the magnetic anisotropy in the cell below.
+2.   Is the easy-axis in-plane or out-of-plane?
+3.   Do you expect to the VI$_2$ to exhibit magnetic order at finite temperatures?
+
 """
 
 # %%
@@ -78,16 +72,18 @@ de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'dE_zx = {de_zx * 1000:1.3f} meV')
 print(f'dE_zy = {de_zy * 1000:1.3f} meV')
-A = de_zx
+A = (de_zx + de_zy) / 2 / S**2
+print(f'A = {A * 1000:1.3f} meV')
 
 # %%
 """
-### Anti-ferromagnetic state
+## DFT calculations in a repeated cell
 
-We can do an anti-ferromagnetic calculation by repeating the structure we
-just relaxed and setting the initial magnetic moments accordingly. Fill in
-the missing values in the cell below and run it. The calculation takes about
-7 minutes.
+To realize that VI$_2$ is in fact an antiferromagnetic material, we need to do a calculation starting from an antiferromagnetic alignment of the spins. To do so, we need more than a single V atom in the unit cell. In the cell below, the atomic structure is repeated once to obtain two V atoms in the unit cell and it is shown how do a DFT calculation for the antiferromagnetic state.
+
+1.   Fill in the `kpts` for the repeated unit cell.
+2.   Replace the `...` with code to calculate the ferromagnetic state.
+3.   When you have finalzed the code for the ferromagnetic state, run the cell. The calculation takes about 7 minutes.
 
 """
 
@@ -114,38 +110,39 @@ calc.write('V2I4_fm.gpw')
 
 # %%
 """
-### Calculating J
+## Calculating J
 
-Is the total energy of anti-ferromagnetic state smaller than the
-ferromagnetic one? It should be. But since we are running with rather low
-parameters for $k$-point sampling and plane wave cutoff, we better perform a
-ferromagnetic calculation with exactly the same parameters to make sure. Run
-the cell above with in a ferromagnetic spin state and compare the resulting
-energies.
+Finally, we are in a position to calculate the nearest neighbour Heisenberg exchange coupling $J$. Before doing so, please compare the output of the antiferromagnetic and ferromagnetic calculations from the cell above.
 
-The anti-ferromagnetic state we constructed appears to have a lower energy,
-but can we really be sure that this is the magnetic ground state? The
-exchange coupling must be negative, which indicates that spins prefer to be
-anti-aligned. Draw the magnetic configuration of the lattice on a piece of
-paper and convince yourself that all spins cannot be anti-aligned on the
-hexagonal lattice. The anti-ferromagnetic structure we obtained must thus be
-frustrated and possibly not the true ground state.
+1.   Which state has the lowest energy?
+2.   What will the sign of $J$ be?
 
-Let us put that aside for the moment and try to calculate $J$. Use the
-Heisenberg model with classical spins, nearest neighbor interaction only, and
-$A=0$ to derive that the energy per site of the two configurations can be
-written as
+You should find that the antiferromagnetic state has a lower energy than the ferromagnetic one, but does this also mean that the calculated configuration is the correct magnetic ground state? Rather, it implies that the spins prefer to be antialigned, i.e. that the exchange coupling $J$ is negative.
 
-$$E_{\mathrm{FM}} = E_0 - \frac{1}{2}6S^2J$$
+3.   Draw the structural arrangement of the V atoms on a piece of paper. Which type of magnetic lattice do they form?
+4.   Fill in the spin configuration of the magnetic lattice and convince yourself that all spins cannot be antialigned to their nearest neighbours.
+
+The latter finding means that the antiferromagnetic system is frustrated and the antiferromagnetic configuration we have computed will not be the true ground state of the system.
+
+Leaving the magnetic frustration aside for the moment, we will first calculate $J$, which we can still do even though that we have not found the ground state yet.
+
+5.   Use the classical Heisenberg model with nearest neighbor interaction only (and $A=0$) to derive the energy per magnetic site of the ferromagnetic and antiferromagnetic configurations respectively.
+
+You should obtain the following:
+
+$$E_{\mathrm{FM}} = E_0 - 3JS^2$$
 
 and
 
-$$E_{\mathrm{AFM}} = E_0 + \frac{1}{2}2S^2J$$
+$$E_{\mathrm{AFM}} = E_0 + JS^2$$
 
-per site, where $E_0$ is some reference energy. Use these expressions to
-eliminate $E_0$ and express $J$ in terms of the energy difference. Use the
-energies obtained with DFT to calculate $J$. You should get -1.4 meV. Do it
-with python in the cell below.
+where $E_0$ is some reference energy.
+
+6.   Use these expressions to eliminate $E_0$ and express $J$ in terms of the energy difference per magnetic site of the two configurations.
+7.   Write code to extract `E_fm` and `E_afm` in the cell below.
+8.   Fill in the formula for `J` and evaluate the cell to calculate it.
+
+You should get a value for $J$ around -1.4 meV.
 """
 
 # %%
@@ -157,22 +154,24 @@ print(f'J = {J * 1000:1.2f} meV')
 
 # %%
 """
-### Non-collinear configuration
+## Noncollinear configuration
 
-As it turn out the optimal spin structure of a hexagonal lattice with anti-
-ferromagntice coupling is taking all spins at 120$^\circ$ angles with respect
-to each other. Draw this structure and convince yourself that it can be done.
+As it turn out, the optimal spin structure on a trigonal lattice with antiferromagntice exchange coupling is to place all spins at 120$^\circ$ angles with respect its neighbors.
 
-1. What is the minimal number of magnetic atoms required in the magnetic unit cell
-2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be
+1.   Draw this structure and convince yourself that it is indeed possible to put every spin at a 120$^\circ$ angle with respect to its neighbors.
+2.   What is the minimal number of magnetic atoms required in the magnetic unit cell to represent such a state?
+3.   Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration than in the antialigned structure calculated above.
 
-$$E_{\mathrm{NC}}=E_0+\frac{3}{2}S^2J.$$
+You should obtain the following energy for the 120$^\circ$ noncolinnear configuration:
 
-We will now check if LDA can verify this prediction. To do that we need to
-perform a calculation with non-collinear spin. This is done in the cell
-below. Assert that the the total energy per site is lower than what we
-obtained with the collinear anti-ferromagnetic configuration above. Also
-check the local magnetic moments printet at the end of the calculation.
+$$E_{\mathrm{NC}}=E_0+\frac{3}{2}JS^2.$$
+
+We will now check if we can verify this prediction within the LSDA. To do that we need to perform a noncollinear DFT calculation, which is done in the cell below.
+
+4.   Read and try to understand the code to perform a noncollinear LSDA calculation in the 120$^\circ$ noncolinnear configuration.
+5.   Replace the `...` with code to make a noncolinnear LSDA calculation for the ferromagnetic state as well (we will need this for a late comparison).
+
+Run the cell and verify that the energy per magnetic atom is lower in the 120$^\circ$ noncolinnear configuration compared to both of the previous calculated states.
 """
 
 # %%
@@ -206,6 +205,7 @@ layer_nc.calc = calc
 layer_nc.get_potential_energy()
 calc.write('nc_nosoc.gpw')
 
+...
 # teacher:
 magmoms = np.zeros((len(layer_nc), 3), float)
 magmoms[0] = [m, 0, 0]
@@ -224,23 +224,16 @@ calc.write('fm_nosoc.gpw')
 
 # %%
 """
-### Anisotropy and exhange coupling from the non-collinear configuration
+## Anisotropy and exchange coupling from noncollinear DFT
 
-In the cell above we could have set 'soc'=True' to include spin-orbit
-coupling in the self-consistent non-collinear solution. However, it is more
-convenient for us to exclude it such that we can explicitly obtain the
-anisotropy based on this calculation.
+In the cell above we could have included spin-orbit coupling in a self-consistent way by setting 'soc'=True'. However, it is more convenient for us to exclude it such that we can explicitly compute the single-ion anisotropy parameter $A$ afterwards. If the localized spin Hamiltonian with nearest neighbor exchange interactions is a good model, we should be able to obtain both $J$ and $A$ from the noncollinear calculation as well.
 
-If the Heisenberg Hamiltonian with nearest neighbor interactions is a good
-model we should be able to obtain both $J$ and $A$ from the non-collinear
-calculation as well. Write some python code in the cell below that return $J$
-and $A$ based on the non-collinear calculation. The calculation of $J$
-requires two spin configurations and we could use the ferromagnetic
-calculation in the simple unit cell obtained at the top of the notebook as
-one of them. But, since the energy differences are rather small it is much
-better if you can obtain a ferromagnetic state with the same unit cell and
-parameters as we used for the non-collinear calculation. You may thus run the
-cell above once more, but with ferromagnetic alignment.
+1.   Fill in the cell below with code to compute the nearest neighbour exchange coupling $J$ based on the noncollinear calculations performed above.
+2.   Fill in code that computes the spin-orbit coupling corrected energies of the ferromagnetic state from the noncollinear calculation with spins directed along the $x$, $y$ and $z$ directions (Hint: the anisotropy is calculated by rotating the entire initial spin configuration first by $\theta$ and then by $\varphi$).
+3.   Repeat point 2, but for the 120$^\circ$ noncolinnear configuration. In this case, you cannot align all spins to one direction, but takes as a reference the first V atom.
+
+With the above code in place, please evaluate the cell. You should obtain a nearest neighbour exchange coupling of about -1.9 meV.
+
 """
 
 # %%
@@ -250,7 +243,7 @@ calc = GPAW('nc_nosoc.gpw', txt=None)
 E_nc = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(90, 0), (90, 90), (0, 0)])
+    for theta, phi in [(0, 0), (0, 90), (90, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'NC: A_zx = {de_zx * 1000:1.3f} meV')
@@ -261,7 +254,7 @@ calc = GPAW('fm_nosoc.gpw', txt=None)
 E_fm = calc.get_potential_energy() / 3
 e_x, e_y, e_z = (
     soc_eigenstates(calc, theta=theta, phi=phi).calculate_band_energy() / 3
-    for theta, phi in [(90, 0), (90, 90), (0, 0)])
+    for theta, phi in [(0, 0), (0, 90), (90, 0)])
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print(f'FM: A_zx = {de_zx * 1000:1.3f} meV')
@@ -281,28 +274,19 @@ print(f'J = {J * 1000:1.2f} meV')
 
 # %%
 """
-### Critical temperature?
-Now answer the following questions:
+## Critical temperature?
 
-1. What is the easy axis? (Hint: the anisotropy is calculated by rotating
-   the initial spin configuration first by $\theta$ and then by $\varphi$).
-   Does it agree with waht you found above for the simple ferromagnetic state?
+Based on the noncollinear calculations above:
 
-2. Is there any rotational freedom left in the non-collinear ground state if
-   we assume in plane isotropy?
+1.   What is the easy axis of the system?
+2.   Does the easy axis agree with your initial findings for the simple ferromagnetic state?
 
-You might be able to convince yourself that some degree of in-plane
-anisotropy is required as well to obtain a finite critical temperature for
-magnetic order.
+You should find that the energy of the 120$^\circ$ noncolinnear configuration does not depend strongly on whether the first V atom is aligned to the $x$ or the $y$ direction.
 
-Clearly the non-collinear spin state of VI$_2$ is more difficult to describe
-than the ferromagnetic state in CrI$_3$ and we do not yet have a simple
-theoretical expression fot the critical temperature as a function of
-anisotropy and exchange coupling constants. However, with the rapid
-development of excperimental techniques to synthesize and characterize 2D
-materials it does seem plausible that such a non-collinear 2D material may be
-observed in the near future.
+3.   If we assume full in-plane isotropy is there any rotational freedom left in the noncollinear ground state?
+4.   What implications does this have for the critical temperature of the monolayer?
 
-Again, bear in mind that all the calculations in the present notebook ought
-to be properly converged with respect to $k$-points, plane wave cutoff etc.
+You might be able to convince yourself that some degree of in-plane anisotropy is required to obtain a finite critical temperature for the 120$^\circ$ noncolinnear magnetic order. Again, bear in mind that all the calculations in the present notebook ought to be properly converged with respect to $k$-points, plane wave cutoff etc. to achieve an accurate estimate of e.g. the in-plane anisotropy.
+
+Clearly the noncollinear spin state of VI$_2$ is more difficult to describe than the ferromagnetic state in CrI$_3$ and we do not yet have a simple theoretical expression for the critical temperature as a function of anisotropy and exchange coupling constants. However, with the rapid development of experimental techniques to synthesize and characterize 2D materials it does seem plausible that such a noncollinear 2D material may be observed in the future.
 """

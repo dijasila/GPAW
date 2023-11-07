@@ -42,6 +42,7 @@ def main():
 
     if run_old_gs:
         old_calc = old_GPAW(mode=LCAO(), basis='sz(dzp)', xc='LDA',
+                            symmetry={'point_group': False},
                             txt='old.out', convergence={'density': 1e-12})
         atoms.calc = old_calc
         atoms.get_potential_energy()

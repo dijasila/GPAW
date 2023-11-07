@@ -214,8 +214,8 @@ def code():
 
     # scf.svg:
     nodes = create_nodes(
-        fd.calculation.pot_calc.nct_aR,
-        pw.calculation.pot_calc.nct_ag,
+        fd.calculation.state.density.nct_aX,
+        pw.calculation.state.density.nct_aX,
         include=lambda obj: obj.__class__.__name__.startswith('Atom'))
     plot_graph('acf', nodes, {'AtomCenteredFunctions': '#ddffff'})
 

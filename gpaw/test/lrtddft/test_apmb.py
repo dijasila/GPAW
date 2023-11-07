@@ -7,6 +7,7 @@ from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.lrtddft
 @pytest.mark.libxc
 def test_lrtddft_apmb():
     txt = '-'
@@ -21,7 +22,7 @@ def test_lrtddft_apmb():
         H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                     Atom('H', (a / 2, a / 2, (c + R) / 2))],
                    cell=(a, a, c))
-        calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
+        calc = GPAW(mode='fd', xc='PBE', nbands=2, spinpol=False, txt=txt)
         H2.calc = calc
         H2.get_potential_energy()
     else:
@@ -46,7 +47,7 @@ def test_lrtddft_apmb():
     parprint('------ with spin')
 
     if not load:
-        c_spin = GPAW(xc='PBE', nbands=2,
+        c_spin = GPAW(mode='fd', xc='PBE', nbands=2,
                       spinpol=True, parallel={'domain': mpi.world.size},
                       txt=txt)
         H2.calc = c_spin

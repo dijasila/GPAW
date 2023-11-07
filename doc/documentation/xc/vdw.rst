@@ -10,7 +10,7 @@ Note that these use different kernels and hence will yield slightly different
 results.
 
 Several vdW-DF [#vdW-DF1a]_ type XC functionals
-are implemented selfconsistently
+are implemented self-consistently
 in GPAW, and also the BEEF-vdW [#BEEF-vdW]_ density functional.
 The vdW-DF variants include vdW-DF [#vdW-DF1a]_, [#vdW-DF1b]_,
 vdW-DF2 [#vdW-DF2]_,
@@ -22,21 +22,21 @@ Of these, vdW-DF-cx is available only through libvdwxc.
 The spin-polarized generalization of the vdW-DF functionals, [#svdW-DF]_, is
 also only available with libvdwxc.
 
-The selfconsistent implementation uses the Perez-Soler [#soler]_ FFT
+The self-consistent implementation uses the Perez-Soler [#soler]_ FFT
 algorithm to evaluate the total energy and potential of the
 Rutgers-Chalmers nonlocal correlation, which is originally a
-six dimensional integral in real space. However, a non-selfconsistent
+six dimensional integral in real space. However, a non self-consistent
 method which directly sums up the real-space integral is also available.
 
 
 Doing a vdW-DF calculation
 ==================================
 
-The selfconsistent FFT method is highly recommended over the real-space method.
+The self-consistent FFT method is highly recommended over the real-space method.
 Often, the vdW-DF electron density will be very similar to an ordinary GGA
-density, so non-selfconsistent evaluations of a vdW-DF type total energy
+density, so non self-consistent evaluations of a vdW-DF type total energy
 using the FFT method is often ok. However, vdW-DF forces obviously require
-a selfconsistent potential.
+a self-consistent potential.
 
 As the examples below illustrate, FFT-based vdW-DF calculations
 are most easily done by setting e.g. "xc='vdW-DF'"
@@ -62,7 +62,7 @@ Selfconsistent vdW-DF calculations
 >>> e = atoms.get_potential_energy()
 
 
-Perturbative vdW-DF calculations (non-selfconsistent)
+Perturbative vdW-DF calculations (non self-consistent)
 --------------------------------------------------------
 
 >>> from gpaw import GPAW
@@ -76,7 +76,7 @@ In the above examples, other vdW-DF type functionals can be used
 by substituting 'vdW-DF2', 'vdW-DF-cx' (if GPAW is compiled with libvdwxc),
 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW' for 'vdW-DF'.
 To explicitly use the faster libvdwxc backend, use e.g.
-`xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}`.
+``xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}``.
 t libvdwxc uses a different kernel parametrization,
 which will slightly affect calculated values.
 
@@ -104,7 +104,7 @@ Real-space method vdW-DF
 ------------------------------------
 
 It is also possible to use the much slower real-space method
-for non-selfconsistent evaluations of the nonlocal correlation energy,
+for non self-consistent evaluations of the nonlocal correlation energy,
 which might make sense for (very) small systems.
 To use the real-space method one must import a class and set a few parameters:
 
@@ -123,8 +123,8 @@ The BEEF-vdW density functional uses the vdW-DF2 nonlocal correlation
 energy and potential. It is implemented selfconistently in GPAW.
 Furthermore, the BEEF-vdW constructions allows the user to calculate
 an estimate of the error to be expected on the quantity calculated
-selfconsistently with BEEF-vdW (i.e. an error estimate on relative energies,
-not on total energies). This estimate stems from non-selfconsistently
+self-consistently with BEEF-vdW (i.e. an error estimate on relative energies,
+not on total energies). This estimate stems from non self-consistently
 applying an ensemble of XC functionals to BEEF-vdW electron densities.
 The ensemble error estimate is then computed from the variance
 of the ensemble predictions of the quantity of interest.
@@ -140,7 +140,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> h2 = Atoms('H2',[[0.,0.,0.],[0.,0.,0.75]])
 >>> h2.center(vacuum=3)
 >>> cell = h2.get_cell()
->>> calc = GPAW(xc=xc)
+>>> calc = GPAW(mode='fd', xc=xc)
 >>> h2.calc = calc
 >>> e_h2 = h2.get_potential_energy()
 >>> ens = BEEFEnsemble(calc)
@@ -149,7 +149,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> h = Atoms('H')
 >>> h.set_cell(cell)
 >>> h.center()
->>> calc = GPAW(xc=xc)
+>>> calc = GPAW(mode='fd', xc=xc)
 >>> h.calc = calc
 >>> e_h = h.get_potential_energy()
 >>> ens = BEEFEnsemble(calc)

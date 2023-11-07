@@ -5,6 +5,7 @@ from math import pi, sqrt
 import numpy as np
 from numpy.linalg import solve, inv
 from scipy.linalg import eigh
+from ase.units import Ha
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
@@ -247,7 +248,7 @@ class Generator(AllElectron):
 
         t('Cutoffs:')
         for rc, s in zip(rcut_l, 'spdf'):
-            t('rc(%s)=%.3f' % (s, rc))
+            t(f'rc({s})={rc:.3f}')
         t('rc(vbar)=%.3f' % rcutvbar)
         t('rc(comp)=%.3f' % rcutcomp)
         t('rc(nct)=%.3f' % rcutmax)
@@ -359,7 +360,7 @@ class Generator(AllElectron):
 
                 coefs.append(a)
                 if nodeless:
-                    if not np.alltrue(s[1:gc] > 0.0):
+                    if not (s[1:gc] > 0.0).all():
                         raise RuntimeError(
                             'Error: The %d%s pseudo wave has a node!' %
                             (n_ln[l][0], 'spdf'[l]))
@@ -574,13 +575,14 @@ class Generator(AllElectron):
                         n_n[n], 'spdf'[l], f, e_n[n],
                         np.dot(s_ln[l][n]**2, dr)))
                 else:
-                    t('*%s    : %12.6f' % ('spdf'[l], e_n[n]))
+                    t('*{}    : {:12.6f}'.format('spdf'[l], e_n[n]))
         t('--------------------------------')
 
         self.logd = {}
         if logderiv:
             ni = 300
             self.elog = np.linspace(-5.0, 1.0, ni)
+            delta = self.elog[1] - self.elog[0]
             # Calculate logarithmic derivatives:
             gld = gcutmax + 10
             self.rlog = r[gld]
@@ -600,6 +602,10 @@ class Generator(AllElectron):
                     ae = self.symbol + '.ae.ld.' + 'spdf'[l]
                     ps = self.symbol + '.ps.ld.' + 'spdf'[l]
                     with open(ae, 'w') as fae, open(ps, 'w') as fps:
+                        ld_ae = 1000
+                        ld_ps = 1000
+                        nodes_ae = []
+                        nodes_ps = []
                         for i, e in enumerate(self.elog):
                             # All-electron logarithmic derivative:
                             u[:] = 0.0
@@ -607,6 +613,9 @@ class Generator(AllElectron):
                                   c10, c2, self.scalarrel, gmax=gld)
                             dudr = 0.5 * (u[gld + 1] - u[gld - 1]) / dr[gld]
                             ld = dudr / u[gld] - 1.0 / r[gld]
+                            if ld > ld_ae:
+                                nodes_ae.append(e)
+                            ld_ae = ld
                             print(e, ld, file=fae)
                             self.logd[l][0][i] = ld
 
@@ -626,9 +635,17 @@ class Generator(AllElectron):
 
                             dsdr = 0.5 * (s[gld + 1] - s[gld - 1]) / dr[gld]
                             ld = dsdr / s[gld] - 1.0 / r[gld]
+                            if ld > ld_ps:
+                                nodes_ps.append(e)
+                            ld_ps = ld
                             print(e, ld, file=fps)
                             self.logd[l][1][i] = ld
 
+                        for e1, e2 in zip(nodes_ae[::-1], nodes_ps[::-1]):
+                            if abs(e1 - e2) > 1.5 * delta:
+                                print(f'{self.symbol}(l={l})-GHOST?',
+                                      f'AE={e1 * Ha:.3f} eV,',
+                                      f'PS={e2 * Ha:.3f} eV')
             except KeyboardInterrupt:
                 pass
 
@@ -728,7 +745,7 @@ class Generator(AllElectron):
             return [divide_by_r(x_g, l) for x_g, l in zip(x_jg, vl_j)]
 
         setup.l_j = vl_j
-        setup.l_orb_j = vl_j
+        setup.l_orb_J = vl_j
         setup.n_j = vn_j
         setup.f_j = vf_j
         setup.eps_j = ve_j
@@ -853,7 +870,8 @@ class Generator(AllElectron):
                 else:
                     t()
             else:
-                t('*%s:                %12.6f' % ('spdf'[l], ePAW), end='')
+                t('*{}:                {:12.6f}'.format('spdf'[l], ePAW),
+                  end='')
                 if ePAW < self.emax:
                     t('  GHOST-STATE!')
                     self.ghost = True

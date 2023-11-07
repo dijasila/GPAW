@@ -7,6 +7,7 @@ from gpaw import GPAW, Mixer
 from gpaw.test import equal
 
 
+@pytest.mark.later
 @pytest.mark.libxc
 def test_jellium(in_tmp_dir):
     rs = 5.0 * Bohr  # Wigner-Seitz radius
@@ -23,7 +24,8 @@ def test_jellium(in_tmp_dir):
 
     surf = Atoms(pbc=(True, True, False),
                  cell=(a, a, v + L + v))
-    surf.calc = GPAW(background_charge=bc,
+    surf.calc = GPAW(mode='fd',
+                     background_charge=bc,
                      poissonsolver={'dipolelayer': 'xy'},
                      xc='LDA_X+LDA_C_WIGNER',
                      eigensolver='dav',

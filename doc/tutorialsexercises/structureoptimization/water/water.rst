@@ -66,7 +66,7 @@ that only one process writes.  ASE provides the handy
 Apply the above modifications to the script and run it in parallel
 e.g. on four CPUs::
 
-    $ mpiexec -np 4 python3 script.py
+    $ mpiexec -np 4 gpaw python script.py
 
 Verify by checking the log file that GPAW is actually using multiple
 CPUs.  The log file should reveal that the :mol:`H_2O` calculation

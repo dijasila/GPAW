@@ -1,5 +1,4 @@
 from math import pi
-from typing import Dict, Tuple
 from collections import defaultdict
 
 import numpy as np
@@ -73,7 +72,7 @@ class Symmetry:
         for a, id in enumerate(wfs.setups.id_a):
             b = self.kd.symmetry.a_sa[s, a]
             S_c = np.dot(wfs.spos_ac[a], U_cc) - wfs.spos_ac[b]
-            U_ii = wfs.setups[a].R_sii[s].T
+            U_ii = wfs.setups.atomrotations.get_by_a(a).R_sii[s].T
             T_a.append((b, S_c, U_ii))
 
         return T, T_a, time_reversal
@@ -110,7 +109,7 @@ class Symmetry:
             b = self.kd.symmetry.a_sa[s, a]
             S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
             x = np.exp(2j * pi * np.dot(k1_c, S_c))
-            U_ii = wfs.setups[a].R_sii[s].T * x
+            U_ii = wfs.setups.atomrotations.get_by_a(a).R_sii[s].T * x
             proj2[a][:] = proj1[b].dot(U_ii)
 
         if time_reversal:
@@ -132,7 +131,7 @@ class Symmetry:
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
 
-        pairs: Dict[Tuple[int, int, int], int]
+        # pairs: Dict[Tuple[int, int, int], int]
 
         pairs1 = defaultdict(int)
         for i1 in range(kd.nibzkpts):

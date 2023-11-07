@@ -10,7 +10,7 @@ atoms = Atoms(symbols='Be',
 atoms.center(vacuum=4.0)
 
 # Create GPAW calculator
-calc = GPAW(nbands=10, h=0.3)
+calc = GPAW(mode='fd', nbands=10, h=0.3)
 # Attach calculator to atoms
 atoms.calc = calc
 

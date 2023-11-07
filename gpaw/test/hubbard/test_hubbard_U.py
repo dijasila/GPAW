@@ -1,6 +1,8 @@
 from math import sqrt
+
 from ase import Atoms
 from ase.dft.bandgap import bandgap
+
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 

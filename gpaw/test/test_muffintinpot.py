@@ -9,11 +9,13 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
+@pytest.mark.later
 def test_muffintinpot(in_tmp_dir):
     if 1:
         be = Atoms(symbols='Be', positions=[(0, 0, 0)])
         be.center(vacuum=5)
-        calc = GPAW(gpts=(64, 64, 64),
+        calc = GPAW(mode='fd',
+                    gpts=(64, 64, 64),
                     xc='LDA',
                     nbands=1)  # 0.1 required for accuracy
         be.calc = calc

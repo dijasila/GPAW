@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
 from gpaw.response.g0w0 import G0W0
-from os.path import exists
 from gpaw.mpi import world
 
 
@@ -16,30 +15,28 @@ class FragileG0W0(G0W0):
 
 
 @pytest.mark.response
-def test_restart_file(in_tmp_dir, gpw_files):
+def test_restart_file(in_tmp_dir, gpw_files, needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     kwargs = dict(bands=(3, 5),
                   nbands=9,
                   nblocks=world.size,
                   ecut=40,
-                  kpts=[0, 1],
-                  restartfile='restartfile')
-    gw = FragileG0W0(gpw_files['bn_pw_wfs'], **kwargs)
+                  kpts=[0, 1])
+    gw = FragileG0W0(gpw_files['bn_pw'], **kwargs)
     with pytest.raises(ValueError, match='Cthulhu*'):
         gw.calculate()
 
     assert gw.doom == 12
 
-    assert exists('restartfile.sigma.pckl')
-
     # Use FragileG0W0 also in the restart.
     # The FragileG0W0 cannot by itself calculate the full thing because
     # calculate_q is called 16 times in total. Thus, it must be that
     # it was helped by the previous calculation.
-    gw = FragileG0W0(gpw_files['bn_pw_wfs'], **kwargs)
+    gw = FragileG0W0(gpw_files['bn_pw'], **kwargs)
     results = gw.calculate()
 
-    kwargs.pop('restartfile')
-    gw = G0W0(gpw_files['bn_pw_wfs'], **kwargs)
+    gw = G0W0(gpw_files['bn_pw'], filename='referencecalc', **kwargs)
     results2 = gw.calculate()
 
     assert np.allclose(results['qp'], results2['qp'])

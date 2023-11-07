@@ -6,7 +6,8 @@ import gpaw.dscf as dscf
 
 filename = 'homo'
 
-c_mol = GPAW(nbands=9,
+c_mol = GPAW(mode='fd',
+             nbands=9,
              h=0.2,
              xc='RPBE',
              kpts=(8, 6, 1),
@@ -17,7 +18,8 @@ c_mol = GPAW(nbands=9,
                           'bands': 'occupied'},
              txt='CO_homo.txt')
 
-calc = GPAW(nbands=80,
+calc = GPAW(mode='fd',
+            nbands=80,
             h=0.2,
             xc='RPBE',
             kpts=(8, 6, 1),

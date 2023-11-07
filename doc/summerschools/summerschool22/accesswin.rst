@@ -4,7 +4,7 @@
 Starting and accessing a Jupyter Notebook (Windows)
 ===================================================
 
-To run a Jyputer Notebook in the DTU databar while displaying it output in your browser requires three steps.
+To run a Jupyter Notebook in the DTU databar while displaying it output in your browser requires three steps.
 
 * Starting the notebook on an interactive compute node.
 

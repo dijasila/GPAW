@@ -35,19 +35,21 @@ def test_response_na_plasmons(in_tmp_dir, scalapack):
     df1 = DielectricFunction('gs_Na.gpw',
                              nblocks=1,
                              ecut=40,
+                             rate=0.001,
                              txt='1block.txt')
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    
+
     df2 = DielectricFunction('gs_Na.gpw',
                              nblocks=4,
                              ecut=40,
+                             rate=0.001,
                              txt='4block.txt')
 
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.chi0.wd.omega_w
+    w_w = df1.wd.omega_w
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     equal(w1, w2, 1e-2)

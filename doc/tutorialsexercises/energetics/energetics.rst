@@ -13,4 +13,3 @@ Energetics
    rpa_tut/rpa_tut
    rpa_ex/rpa
    fxc_correlation/rapbe_tut
-   rangerpa/rangerpa_tut

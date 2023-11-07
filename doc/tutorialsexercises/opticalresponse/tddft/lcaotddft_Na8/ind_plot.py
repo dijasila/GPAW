@@ -3,6 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from ase.io import read
+from gpaw.mpi import world
+
+assert world.size == 1, 'This script should be run in serial mode.'
 
 
 def do(freq):
@@ -27,7 +30,8 @@ def do(freq):
     dmax = max(d_yx.min(), d_yx.max())
     vmax = 0.9 * dmax
     vmin = -vmax
-    plt.pcolormesh(X, Y, d_yx.T, cmap='RdBu_r', vmin=vmin, vmax=vmax)
+    plt.pcolormesh(X, Y, d_yx.T, cmap='RdBu_r', vmin=vmin, vmax=vmax,
+                   shading='auto')
     contours = np.sort(np.outer([-1, 1], [0.02]).ravel() * dmax)
     plt.contour(X, Y, d_yx.T, contours, cmap='RdBu_r', vmin=-1e-10, vmax=1e-10)
     for atom in atoms:

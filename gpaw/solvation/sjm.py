@@ -27,6 +27,7 @@ from gpaw.solvation.cavity import Power12Potential, get_pbc_positions
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
+from gpaw.io.logger import indent
 
 
 class SJM(SolvationGPAW):
@@ -39,7 +40,7 @@ class SJM(SolvationGPAW):
     neutral periodic slab systems. Cell neutrality is achieved by adding a
     background charge in the solvent region above the slab
 
-    Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    Further details are given in https://doi.org/10.1021/acs.jpcc.8b02465
     If you use this method, we appreciate it if you cite that work.
 
     The method can be run in two modes:
@@ -231,9 +232,17 @@ class SJM(SolvationGPAW):
                         ', '.join(self.default_parameters['sj'])))
         p.update(sj_changes)
         background_charge = kwargs.pop('background_charge', None)
-        parent_changed = True if len(kwargs) > 0 else False
 
         SolvationGPAW.set(self, **kwargs)
+
+        # parent_changed checks if GPAW needs to be reinitialized
+        # The following key do not need reinitialization
+        parent_changed = False
+        for key in kwargs:
+            if key not in ['mixer', 'verbose', 'txt', 'hund', 'random',
+                           'eigensolver', 'convergence', 'fixdensity',
+                           'maxiter']:
+                parent_changed = True
 
         if len(sj_changes):
             if self.wfs is None:
@@ -303,11 +312,11 @@ class SJM(SolvationGPAW):
                 if parent_changed:
                     self.density = None
                 else:
-                    self._quick_reinitialization()
                     if self.density.background_charge:
                         self.density.background_charge = background_charge
                         self.density.background_charge.set_grid_descriptor(
                             self.density.finegd)
+                    self._quick_reinitialization()
 
                 self.wfs.nvalence = self.setups.nvalence + p.excess_electrons
                 self.log('Number of valence electrons is now {:.5f}'
@@ -347,7 +356,7 @@ class SJM(SolvationGPAW):
 
         p = self.parameters['sj']
 
-        if not p.target_potential:
+        if p.target_potential is None:
             self.log('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.excess_electrons))
             # Background charge is set here, not earlier, because atoms needed.
@@ -423,7 +432,7 @@ class SJM(SolvationGPAW):
                    f'{p.excess_electrons:+.5f} excess electrons, attempt '
                    f'{iteration:d}/{p.max_iters:d}')
             msg += ' rerun).' if rerun else ').'
-            self.log(msg)
+            self.log(msg, flush=True)
 
             # Check if we took too big of a step.
             try:
@@ -451,15 +460,15 @@ class SJM(SolvationGPAW):
             rerun = False
 
             # Store attempt and calculate slope.
-            previous_electrons += [p.excess_electrons]
-            previous_potentials += [true_potential]
+            previous_electrons.append(float(p.excess_electrons))
+            previous_potentials.append(float(true_potential))
             if len(previous_electrons) > 1:
                 slope = _calculate_slope(previous_electrons,
                                          previous_potentials)
                 self.log('Slope regressed from last {:d} attempts is '
                          '{:.4f} V/electron,'
                          .format(len(previous_electrons[-4:]), slope))
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 capacitance = -1.6022 * 1e3 / (area * slope)
                 self.log(f'or apparent capacitance of {capacitance:.4f} '
                          'muF/cm^2')
@@ -469,6 +478,7 @@ class SJM(SolvationGPAW):
                              f'{p.slope:.4f} V/electron.')
                 else:
                     p.slope = slope
+                self.log.flush()
 
             # Check if we're equilibrated and exit if always_adjust is False.
             if abs(true_potential - p.target_potential) < p.tol:
@@ -480,7 +490,7 @@ class SJM(SolvationGPAW):
 
             # Guess slope if we don't have enough information yet.
             if p.slope is None:
-                area = np.product(np.diag(atoms.cell[:2, :2]))
+                area = np.prod(np.diag(atoms.cell[:2, :2]))
                 p.slope = -1.6022e3 / (area * 10.)
                 self.log('No slope provided, guessing a slope of '
                          f'{p.slope:.4f} corresponding\nto an apparent '
@@ -505,14 +515,14 @@ class SJM(SolvationGPAW):
                'plotting them could give you insight into the problem.')
         msg = textwrap.fill(msg) + '\n'
         for n, p in zip(previous_electrons, previous_potentials):
-            msg += '{:+.6f} {:.6f}\n'.format(n, p)
-        self.log(msg)
+            msg += f'{n:+.6f} {p:.6f}\n'
+        self.log(msg, flush=True)
         raise PotentialConvergenceError(msg)
 
     def write_sjm_traces(self, path='sjm_traces', style='z',
                          props=('potential', 'cavity', 'background_charge')):
-        """Write traces of quantities in `props` to file on disk; traces will be
-        stored within specified path. Default is to save as vertical traces
+        """Write traces of quantities in `props` to file on disk; traces will
+        be stored within specified path. Default is to save as vertical traces
         (style 'z'), but can also save as cube (specify `style='cube'`)."""
         grid = self.density.finegd
         data = {'cavity': self.hamiltonian.cavity.g_g,
@@ -744,7 +754,7 @@ def _write_trace_in_z(grid, property, name, dir):
     property_z = property.mean(0).mean(0)
     with paropen(os.path.join(dir, name), 'w') as f:
         for i, val in enumerate(property_z):
-            f.write('%f %1.8f\n' % ((i + 1) * grid.h_cv[2][2] * Bohr, val))
+            f.write(f'{(i + 1) * grid.h_cv[2][2] * Bohr:f} {val:1.8f}\n')
 
 
 def _write_property_on_grid(grid, property, atoms, name, dir):
@@ -807,6 +817,12 @@ class SJMPower12Potential(Power12Potential):
         super().__init__(atomic_radii, u0, pbc_cutoff, tiny)
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
+
+    def __str__(self):
+        s = Power12Potential.__str__(self)
+        s += indent(f'  H2O layer: {self.H2O_layer}\n')
+        s += indent(f'  Only solvate front side: {self.unsolv_backside}\n')
+        return s
 
     def write(self, writer):
         writer.write(

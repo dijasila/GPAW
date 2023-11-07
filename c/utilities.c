@@ -305,6 +305,7 @@ double distance(double *a, double *b)
 }
 
 
+PyObject* add_to_density_gpu(PyObject* self, PyObject* args);
 // Equivalent to:
 //
 //     nt_R += f * abs(psit_R)**2
@@ -316,26 +317,40 @@ PyObject* add_to_density(PyObject *self, PyObject *args)
     PyArrayObject* nt_R_obj;
     if (!PyArg_ParseTuple(args, "dOO", &f, &psit_R_obj, &nt_R_obj))
         return NULL;
-    const double* psit_R = PyArray_DATA(psit_R_obj);
-    double* nt_R = PyArray_DATA(nt_R_obj);
-    int n = PyArray_SIZE(nt_R_obj);
-    if (PyArray_ITEMSIZE(psit_R_obj) == 8) {
-        // Real wave functions
-        // psit_R can be a view of a larger array (psit_R = tmp[:, :, :dim2])
-        int stride2 = PyArray_STRIDE(psit_R_obj, 1) / 8;
-        int dim2 = PyArray_DIM(psit_R_obj, 2);
-        int j = 0;
-        for (int i = 0; i < n;) {
-            for (int k = 0; k < dim2; i++, j++, k++)
-                nt_R[i] += f * psit_R[j] * psit_R[j];
-            j += stride2 - dim2;
+
+    if (PyArray_Check(psit_R_obj))
+    {
+        const double* psit_R = PyArray_DATA(psit_R_obj);
+        double* nt_R = PyArray_DATA(nt_R_obj);
+        int n = PyArray_SIZE(nt_R_obj);
+        if (PyArray_ITEMSIZE(psit_R_obj) == 8) {
+            // Real wave functions
+            // psit_R can be a view of a larger array (psit_R = tmp[:, :, :dim2])
+            int stride2 = PyArray_STRIDE(psit_R_obj, 1) / 8;
+            int dim2 = PyArray_DIM(psit_R_obj, 2);
+            int j = 0;
+            for (int i = 0; i < n;) {
+                for (int k = 0; k < dim2; i++, j++, k++)
+                    nt_R[i] += f * psit_R[j] * psit_R[j];
+                j += stride2 - dim2;
+            }
         }
+        else
+            // Complex wave functions
+            for (int i = 0; i < n; i++)
+                nt_R[i] += f * (psit_R[2 * i] * psit_R[2 * i] +
+                                psit_R[2 * i + 1] * psit_R[2 * i + 1]);
     }
     else
-        // Complex wave functions
-        for (int i = 0; i < n; i++)
-            nt_R[i] += f * (psit_R[2 * i] * psit_R[2 * i] +
-                            psit_R[2 * i + 1] * psit_R[2 * i + 1]);
+    {
+        // Must be cupy
+        #ifdef GPAW_GPU
+        add_to_density_gpu(self, args);
+        #else
+        PyErr_SetString(PyExc_RuntimeError, "Unknown array type to add_to_density.");
+        return NULL;
+        #endif        
+    }
     Py_RETURN_NONE;
 }
 
@@ -708,6 +723,29 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
               Y_m[10] = 0.50456490072872417 * (11*y*y*y*y*z*z-66*x*x*y*y*z*z-x*x*x*x*r2+6*x*x*y*y*r2+11*x*x*x*x*z*z-y*y*y*y*r2);
               Y_m[11] = 2.3666191622317521 * (5*x*y*y*y*y*z+x*x*x*x*x*z-10*x*x*x*y*y*z);
               Y_m[12] = 0.6831841051919143 * (x*x*x*x*x*x+15*x*x*y*y*y*y-15*x*x*x*x*y*y-y*y*y*y*y*y);
+            }
+          else if (l == 7)
+            {
+              Y_m[0] = -0.707162732524596 * y*y*y*y*y*y*y + 14.8504173830165 * x*x*y*y*y*y*y + -24.7506956383609 * x*x*x*x*y*y*y + 4.95013912767217 * x*x*x*x*x*x*y;
+              Y_m[1] = 15.8757639708114 * x*y*y*y*y*y*z + -52.919213236038 * x*x*x*y*y*y*z + 15.8757639708114 * x*x*x*x*x*y*z;
+              Y_m[2] = 4.67024020848234 * x*x*y*y*y*y*y + -0.51891557872026 * y*y*y*y*y*y*y + 6.22698694464312 * y*y*y*y*y*z*z + 2.5945778936013 * x*x*x*x*y*y*y + -62.2698694464312 * x*x*y*y*y*z*z + -2.5945778936013 * x*x*x*x*x*x*y + 31.1349347232156 * x*x*x*x*y*z*z;
+              Y_m[3] = 12.4539738892862 * x*y*y*y*y*y*z + -41.5132462976208 * x*y*y*y*z*z*z + -12.4539738892862 * x*x*x*x*x*y*z + 41.5132462976208 * x*x*x*y*z*z*z;
+              Y_m[4] = 2.34688400793441 * x*x*x*x*y*y*y + 0.469376801586882 * x*x*y*y*y*y*y + -18.7750720634753 * x*x*y*y*y*z*z + -0.469376801586882 * y*y*y*y*y*y*y + 9.38753603173764 * y*y*y*y*y*z*z + -12.5167147089835 * y*y*y*z*z*z*z + 1.40813040476065 * x*x*x*x*x*x*y + -28.1626080952129 * x*x*x*x*y*z*z + 37.5501441269506 * x*x*y*z*z*z*z;
+              Y_m[5] = 6.63799038667474 * x*x*x*x*x*y*z + 13.2759807733495 * x*x*x*y*y*y*z + -35.4026153955986 * x*x*x*y*z*z*z + 6.63799038667474 * x*y*y*y*y*y*z + -35.4026153955986 * x*y*y*y*z*z*z + 21.2415692373592 * x*y*z*z*z*z*z;
+              Y_m[6] = -0.451658037912587 * x*x*x*x*x*x*y + -1.35497411373776 * x*x*x*x*y*y*y + 10.8397929099021 * x*x*x*x*y*z*z + -1.35497411373776 * x*x*y*y*y*y*y + 21.6795858198042 * x*x*y*y*y*z*z + -21.6795858198042 * x*x*y*z*z*z*z + -0.451658037912587 * y*y*y*y*y*y*y + 10.8397929099021 * y*y*y*y*y*z*z + -21.6795858198042 * y*y*y*z*z*z*z + 5.78122288528111 * y*z*z*z*z*z*z;
+              Y_m[7] = -2.38994969192017 * x*x*x*x*x*x*z + -7.16984907576052 * x*x*x*x*y*y*z + 14.339698151521 * x*x*x*x*z*z*z + -7.16984907576052 * x*x*y*y*y*y*z + 28.6793963030421 * x*x*y*y*z*z*z + -11.4717585212168 * x*x*z*z*z*z*z + -2.38994969192017 * y*y*y*y*y*y*z + 14.339698151521 * y*y*y*y*z*z*z + -11.4717585212168 * y*y*z*z*z*z*z + 1.09254843059208 * z*z*z*z*z*z*z;
+              Y_m[8] = -0.451658037912587 * x*x*x*x*x*x*x + -1.35497411373776 * x*x*x*x*x*y*y + 10.8397929099021 * x*x*x*x*x*z*z + -1.35497411373776 * x*x*x*y*y*y*y + 21.6795858198042 * x*x*x*y*y*z*z + -21.6795858198042 * x*x*x*z*z*z*z + -0.451658037912587 * x*y*y*y*y*y*y + 10.8397929099021 * x*y*y*y*y*z*z + -21.6795858198042 * x*y*y*z*z*z*z + 5.78122288528111 * x*z*z*z*z*z*z;
+              Y_m[9] = -3.31899519333737 * x*x*y*y*y*y*z + -3.31899519333737 * y*y*y*y*y*y*z + 17.7013076977993 * y*y*y*y*z*z*z + -10.6207846186796 * y*y*z*z*z*z*z + 3.31899519333737 * x*x*x*x*x*x*z + 3.31899519333737 * x*x*x*x*y*y*z + -17.7013076977993 * x*x*x*x*z*z*z + 10.6207846186796 * x*x*z*z*z*z*z;
+              Y_m[10] = -0.469376801586882 * x*x*x*x*x*y*y + -2.34688400793441 * x*x*x*y*y*y*y + 18.7750720634753 * x*x*x*y*y*z*z + -1.40813040476065 * x*y*y*y*y*y*y + 28.1626080952129 * x*y*y*y*y*z*z + -37.5501441269506 * x*y*y*z*z*z*z + 0.469376801586882 * x*x*x*x*x*x*x + -9.38753603173764 * x*x*x*x*x*z*z + 12.5167147089835 * x*x*x*z*z*z*z;
+              Y_m[11] = 15.5674673616078 * x*x*y*y*y*y*z + -3.11349347232156 * y*y*y*y*y*y*z + 10.3783115744052 * y*y*y*y*z*z*z + 15.5674673616078 * x*x*x*x*y*y*z + -62.2698694464312 * x*x*y*y*z*z*z + -3.11349347232156 * x*x*x*x*x*x*z + 10.3783115744052 * x*x*x*x*z*z*z;
+              Y_m[12] = 2.5945778936013 * x*x*x*y*y*y*y + -2.5945778936013 * x*y*y*y*y*y*y + 31.1349347232156 * x*y*y*y*y*z*z + 4.67024020848234 * x*x*x*x*x*y*y + -62.2698694464312 * x*x*x*y*y*z*z + -0.51891557872026 * x*x*x*x*x*x*x + 6.22698694464312 * x*x*x*x*x*z*z;
+              Y_m[13] = -2.6459606618019 * y*y*y*y*y*y*z + 39.6894099270285 * x*x*y*y*y*y*z + -39.6894099270285 * x*x*x*x*y*y*z + 2.6459606618019 * x*x*x*x*x*x*z;
+              Y_m[14] = -4.95013912767217 * x*y*y*y*y*y*y + 24.7506956383609 * x*x*x*y*y*y*y + -14.8504173830165 * x*x*x*x*x*y*y + 0.707162732524596 * x*x*x*x*x*x*x;
+            }
+          else
+            {
+              PyErr_SetString(PyExc_RuntimeError, "l>7 not implemented");
+              return NULL;
             }
         }
     }

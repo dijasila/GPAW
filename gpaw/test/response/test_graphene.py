@@ -66,6 +66,7 @@ def test_response_graphene(in_tmp_dir):
                                                  'domega0': 0.2},
                                     eta=0.2,
                                     ecut=15.0,
+                                    rate=0.001,
                                     **kwargs)
             df1, df2 = DF.get_dielectric_function()
             if world.rank == 0:

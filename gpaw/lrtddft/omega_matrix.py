@@ -320,7 +320,7 @@ class OmegaMatrix:
                         # use pack as I_sp used pack2
                         P_p = pack(P_ii)
                         Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
-                    Om_xc[ij, kq] += weight * self.gd.comm.sum(Exc)
+                    Om_xc[ij, kq] += weight * self.gd.comm.sum_scalar(Exc)
                     timer2.stop()
 
                 elif self.derivativeLevel == 2:
@@ -395,7 +395,7 @@ class OmegaMatrix:
             #   ----    ip  jr prst ks qt
             #   prst
             Ia += 2.0 * np.dot(Dkq_p, np.dot(C_pp, Dij_p))
-        I += self.gd.comm.sum(Ia)
+        I += self.gd.comm.sum_scalar(Ia)
         if timer:
             timer.stop()
 
@@ -479,8 +479,8 @@ class OmegaMatrix:
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
 
-        assert(self.fullkss.npspins == 2)
-        assert(self.fullkss.nvspins == 1)
+        assert self.fullkss.npspins == 2
+        assert self.fullkss.nvspins == 1
 
         # strip kss from down spins
         skss = KSSingles()
@@ -582,7 +582,7 @@ class OmegaMatrix:
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij, kq] = self.full[map[ij], map[kq]]
-        assert(len(evec) > 0)
+        assert len(evec) > 0
 
         self.eigenvalues, v = eigh(evec)
         self.eigenvectors = v.T
@@ -602,7 +602,7 @@ class OmegaMatrix:
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
-            f = open(filename, 'r')
+            f = open(filename)
         else:
             f = fh
 
