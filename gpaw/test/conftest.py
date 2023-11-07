@@ -1113,7 +1113,7 @@ class GPWFiles:
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
                           convergence=conv,
-                          nbands=band_cutoff+9,
+                          nbands=band_cutoff + 9,
                           txt=self.path / f'bi2i6_pw{tag}.txt',
                           symmetry=symmetry)
 
