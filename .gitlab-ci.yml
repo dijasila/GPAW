@@ -259,8 +259,8 @@ test-oldest:
 
     - gpaw-python -m gpaw info
     - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -We test_fuzz.py -k 0-pw
-      gpaw/test/
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -We -k 0-pw
+      gpaw/test/test_fuzz.py
 
 
 test-latest:
@@ -316,7 +316,7 @@ test-minimal:
   script:
     - gpaw info
     - >
-      pytest -v -m ci -We
+      pytest -v -m ci -We gpaw/test
 
 test-cuda:
   image: $IMAGE_PATH/cuda:11
