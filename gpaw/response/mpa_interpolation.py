@@ -29,6 +29,10 @@ import numpy as np
 from numpy.linalg import eigvals
 
 
+null_pole_thr = 1e-5
+pole_resolution = 1e-5
+epsilon = 1e-8  # SP
+
 #-------------------------------------------------------------
 # New restructured code
 #-------------------------------------------------------------
@@ -119,13 +123,21 @@ def Pade_solver(X_wGG, z_w):
             companion_GGmm[i,j] = np.polynomial.polynomial.polycompanion(b_GGm[i,j, :npols + 1])
 
     E_GGm = eigvals(companion_GGmm)
-
+    Esqr_GGm = E_GGm.copy()
     npr_GG = np.zeros((nG1, nG2), dtype=np.int32)
     for i in range(nG1):
         for j in range(nG2):
             E_GGm[i,j], npr_GG[i,j], PPcond = mpa_cond(npols, z_w, E_GGm[i,j])
 
-    return E_GGm, npr_GG, PPcond
+    E2_GGm, npr2_GG = mpa_cond_vectorized(npols, z_w, Esqr_GGm)
+    print('E and E2', E_GGm, E2_GGm)
+    assert np.allclose(npr2_GG, npr_GG)
+    for i in range(nG1):
+        for j in range(nG2):
+            print('GG',i,j,E_GGm[i,j,:npr_GG[i,j]], E2_GGm[i,j,:npr_GG[i,j]])
+            assert np.allclose(sorted(E_GGm[i,j,:npr_GG[i,j]]), E2_GGm[i,j,:npr_GG[i,j]])
+
+    return E2_GGm, npr2_GG, PPcond
 
 
 class MultipoleSolver(Solver):
@@ -154,10 +166,6 @@ def RESolver(omega_w):
 #-------------------------------------------------------------
 # Old reference code
 #-------------------------------------------------------------
-
-null_pole_thr = 1e-5
-pole_resolution = 1e-5
-epsilon = 1e-8  # SP
 
 # ####### 1 pole: ########################
 
@@ -277,6 +285,53 @@ def mpa_cond(npols, z, E):
         PPcond[npr:npols] = True
 
     return E, npr, PPcond
+
+
+def mpa_cond_vectorized(npols, z_w, E_GGp):
+    npr = npols
+    wmax = np.max(np.real(np.emath.sqrt(z_w))) * 1.5
+    
+    E_GGp = np.emath.sqrt(E_GGp)
+    args = np.abs(E_GGp.real), np.abs(E_GGp.imag) 
+    E_GGp = np.maximum(*args) -1j * np.minimum(*args)
+
+    # Sort according to real part
+    E_GGp.sort(axis=2)
+
+    for i in range(npols):
+        for j in range(i+1, npols):
+            diff = E_GGp[:, :, j].real - E_GGp[:, :, i].real
+            equal_poles_GG = diff < pole_resolution
+            if np.sum(equal_poles_GG.ravel()):
+                break
+            E_GGp[:, :, i] = np.where(equal_poles_GG, (E_GGp[:,:,j].real +  E_GGp[:,:,i].real)/2 + 1j * np.maximum(E_GGp[:,:,j].imag, E_GGp[:,:,i].imag), E_GGp[:,:,i])
+            E_GGp[:, :, j] += equal_poles_GG * 2 * wmax
+
+    # Sort according to real part
+    E_GGp.sort(axis=2)
+
+    npr_GG = np.sum(E_GGp.real < wmax, axis=2)
+    """i = 0
+    while i < npr:
+        Eaux[i] = max(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i]))) - 1j * \
+            min(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i])))
+        is_out = pole_is_out(i, wmax, pole_resolution, Eaux)
+
+        if is_out:
+            Eaux[i] = np.emath.sqrt(E[npr - 1])
+            Eaux[i] = max(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i]))) - 1j \
+                * min(abs(np.real(Eaux[i])), abs(np.imag(Eaux[i])))
+            PPcond[npr - 1] = True
+            npr = npr - 1
+        else:
+            i = i + 1
+
+    E[:npr] = Eaux[:npr]
+    if npr < npols:
+        E[npr:npols] = complex(1, -epsilon)
+        PPcond[npr:npols] = True
+    """
+    return E_GGp, npr_GG
 
 
 def mpa_R_1p_fit(npols, npr, w, x, E):
