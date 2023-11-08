@@ -752,12 +752,14 @@ PyObject* spherical_harmonics(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+
 PyObject* integrate_inwards(PyObject *self, PyObject *args)
 {
     int g1, g0;
     PyArrayObject* c0_g_obj;
     PyArrayObject* cp1_g_obj;
     PyArrayObject* a_g_obj;
+
     if (!PyArg_ParseTuple(args,
                           "iiOOO",
                           &g1, &g0, &c0_g_obj, &cp1_g_obj, &a_g_obj))
@@ -766,10 +768,12 @@ PyObject* integrate_inwards(PyObject *self, PyObject *args)
     const double* c0_g = DOUBLEP(c0_g_obj);
     const double* cp1_g = DOUBLEP(cp1_g_obj);
     double* a_g = DOUBLEP(a_g_obj);
+    const int ng = PyArray_DIM(a_g_obj, 0);
+
     for (int g = g1; g >= g0; g--) {
         double ag = a_g[g];
         if (ag > 1e50) {
-            for (int gg = g; gg <= g1; gg++)
+            for (int gg = g; gg < ng; gg++)
                 a_g[gg] = a_g[gg] / 1e50;
             ag = ag / 1e50;
         }

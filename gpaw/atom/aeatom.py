@@ -307,7 +307,7 @@ class Channel:
             except FloatingPointError:
                 ag = 2e50
 
-        if 0:
+        if 1:
             while True:
                 u_g[g] = ag * r_g[g]**(l + x)
                 if ag > 1e50:
@@ -324,10 +324,11 @@ class Channel:
             a_g = np.zeros_like(u_g)
             a_g[g:g + 2] = (ag, agp1)
             _gpaw.integrate_inwards(g, g0, c0_g, cp1_g, a_g)
-            u_g[g0:g + 1] = a_g[g0:g + 1] * r_g[g0:g + 1]**(l + x)
+            u_g[g0:g + 2] = a_g[g0:g + 2] * r_g[g0:g + 2]**(l + x)
             g = g0
             agm1, ag, agp1 = a_g[g - 1:g + 2]
 
+        # print(agm1, ag, agp1, u_g[g - 1:]);asdfg
         r = r_g[g]
         dr = rgd.dr_g[g]
         da = 0.5 * (agp1 - agm1)
