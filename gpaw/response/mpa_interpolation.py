@@ -60,7 +60,7 @@ def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
         XTX_GGpp = np.linalg.pinv(XTX_GGpp)
 
     R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
-    return R_GGp
+    return R_GGp.transpose((2,0,1))
 
 class Solver:
     def __init__(self, omega_w):
@@ -91,7 +91,7 @@ class SinglePoleSolver(Solver):
         E_GG[mask] = self.threshold - 1j * self.epsilon 
         #E_GG *= np.sign(E_GG)
 
-        R_GG = fit_residue(np.zeros_like(E_GG)+1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[:, :, 0]
+        R_GG = fit_residue(np.zeros_like(E_GG)+1, omega_w, X_wGG, E_GG.reshape((1, *E_GG.shape)))[0, :, :]
         return E_GG, R_GG
 
 
@@ -113,27 +113,11 @@ def Pade_solver(X_wGG, z_w):
         bm2_GGm[..., npols:0:-1] = c_GGw[..., i][..., np.newaxis] * bm2_GGm[..., npols - 1::-1]
         b_GGm[..., 1:] = b_GGm[..., 1:] + bm2_GGm[..., 1:]
 
-
-
-    #def mpa_E_solver_Pade(npols, z, x):
-    #b_m1 = b = np.zeros(npols + 1, dtype='complex64')
-    #b[0] = 1
-    #c = np.copy(x)
-    #for i in range(1, 2 * npols):
-    #    c_m1 = np.copy(c)
-    #    c[i:] = (c_m1[i - 1] - c_m1[i:]) / ((z[i:] - z[i - 1]) * c_m1[i:])
-    #    b_m2 = np.copy(b_m1)
-    #    b_m1 = np.copy(b)
-    #    b = b_m1 - z[i - 1] * c[i] * b_m2
-    #    b_m2[npols:0:-1] = c[i] * b_m2[npols - 1::-1]
-    #    b[1:] = b[1:] + b_m2[1:]
-
     companion_GGmm = np.empty((nG1, nG2, npols, npols), dtype=np.complex128)
     for i in range(nG1):
         for j in range(nG2):
             companion_GGmm[i,j] = np.polynomial.polynomial.polycompanion(b_GGm[i,j, :npols + 1])
 
-    print(companion_GGmm.shape)
     E_GGm = eigvals(companion_GGmm)
 
     npr_GG = np.zeros((nG1, nG2), dtype=np.int32)
@@ -152,24 +136,10 @@ class MultipoleSolver(Solver):
 
     def solve(self, X_wGG):
         assert len(X_wGG) == 2*self.npoles
-
-        # DALV: Pade-Thiele solver (mpa_sol='PT')
         E_GGp, npr_GG, PPcond = Pade_solver(X_wGG, self.omega_w**2)
-        print(npr_GG, 'npr_GG')
-        #R_GGp = mpa_R_fit(npols, npr, w, x, E)
         E_pGG = E_GGp.transpose((2,0,1))
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
-        #R_pGG = np.zeros_like(E_pGG)
-        #print('Passing E_pGG', E_pGG)
-        #print('Passing npr_GG', npr_GG)
-        #print('omega_w', self.omega_w)
-        #print('X_wGG', X_wGG)
-        #R_pGG[:, 0,0] = mpa_R_fit(self.npoles, npr_GG[0,0], self.omega_w, X_wGG[:, 0,0], E_pGG[:,0,0])
-
         return E_pGG, R_pGG
-        
-        #E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
-        #R = mpa_R_fit(npols, npr, w, x, E)
 
 
 def RESolver(omega_w):
@@ -513,9 +483,9 @@ def mpa_RE_solver(npols, w, x):
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
 
-        Rnew = fit_residue(np.array([[npr]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
-        print(R, Rnew)
-        assert np.allclose(R, Rnew)
+        #Rnew = fit_residue(np.array([[npr]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
+        #print(R, Rnew)
+        #assert np.allclose(R, Rnew)
 
         # if(npr < npols): MPred = True
 

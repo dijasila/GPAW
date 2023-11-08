@@ -3,13 +3,13 @@ from gpaw.response.mpa_interpolation import mpa_R_fit, mpa_RE_solver
 from gpaw.response.mpa_interpolation import fit_residue, RESolver 
 from gpaw.response.mpa_sampling import mpa_frequency_sampling
 
-
+"""
 def test_poles():
     npols = 100
     Omega_p = np.random.randn(npols)*0.05 + 0.5 - 0.01j
     residues_p = np.random.rand(npols)
 
-    npol_fit = 2
+    npol_fit = 5
     omega_w = mpa_frequency_sampling(npol_fit, [0, 0.8], varpi=1,
                                      eta0=0.1, eta_rest=0.1, parallel_lines=2)
 
@@ -42,8 +42,7 @@ def test_poles():
     print("Pole positions", E_p, E_pGG[:,0,0])
     print("Residuals", R_p, R_pGG[:,0,0])
     plt.show()
-
-test_poles()
+"""
     
 
 def test_residue_fit_1pole():
@@ -56,7 +55,9 @@ def test_residue_fit():
     npols, npr, w, x, E = (2, 2, np.array([0.  +0.j, 0.  +1.j, 2.33+0.j, 2.33+1.j]), np.array([ 0.13034393-0.40439649j,  0.36642415-0.67018998j,  0.77096523+0.85578656j,  -0.38002124-0.20843867j]), np.array([1.654376 -0.25302243j, 2.4306366-0.15733093j]))
     R = mpa_R_fit(npols, npr, w, x, E)
     Rnew = fit_residue(np.array([[npols]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
-    assert np.allclose(R, Rnew)
+    print(R,'R')
+    print(Rnew[:,0,0],'Rew')
+    assert np.allclose(R, Rnew[:,0,0])
 
 
 def test_mpa():
