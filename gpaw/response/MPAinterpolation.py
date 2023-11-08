@@ -376,15 +376,55 @@ class SinglePoleSolver(Solver):
         return E_GG, R_GG
 
 
-"""
+def Pade_solver(X_wGG, z_w):
+    M = npols + 1
+    b_GGm = np.zeros((nG1, nG2, M), dtype=np.complex128)
+    bm1_GGm = b_GGm
+    b_GGm[..., 0] = 1.0
+    c_GGw = X_wGG.transpose((1,2,0))
+
+    for i in range(1, 2 * npols):
+        cm1_GGw = np.copy(c_GGw)
+        c_GGw[..., i:] = (cm1_GGw[..., i - 1] - cm1_GGw[..., i:]) / ((z_w[i:] - z_w[i - 1]) * cm1_GGw[i:])
+        bm2_GGw = np.copy(bm1_GGw)
+        bm1_GGw = np.copy(b_GGw)
+        b_GGw = bm1_GGw - z_w[i - 1] * c_GGw[..., i] * bm2_GGw
+        bm2_GGw[..., npols:0:-1] = c_GGw[..., i] * bm2_GGw[..., npols - 1::-1]
+        b_GGw[..., 1:] = b_GGw[..., 1:] + bm2_GGw[..., 1:]
+
+
+
+    #def mpa_E_solver_Pade(npols, z, x):
+    b_m1 = b = np.zeros(npols + 1, dtype='complex64')
+    b[0] = 1
+    c = np.copy(x)
+    for i in range(1, 2 * npols):
+        c_m1 = np.copy(c)
+        c[i:] = (c_m1[i - 1] - c_m1[i:]) / ((z[i:] - z[i - 1]) * c_m1[i:])
+        b_m2 = np.copy(b_m1)
+        b_m1 = np.copy(b)
+        b = b_m1 - z[i - 1] * c[i] * b_m2
+        b_m2[npols:0:-1] = c[i] * b_m2[npols - 1::-1]
+        b[1:] = b[1:] + b_m2[1:]
+
+    companion_GGww = np.empty(  XXXX )
+    Companion = np.polynomial.polynomial.polycompanion(b[:npols + 1])
+    E = eigvals(Companion)
+    E, npr, PPcond = mpa_cond(npols, z, E)
+    return E, npr, PPcond
+
+
+
+
 class MultipoleSolver(Solver):
     def __init__(self, omega_w):
-        self.npoles = npoles
         self.omega_w = omega_w
     
-    def solve(self, X_G):
-        pass
-"""
+    def solve(self, X_wGG):
+        E_pGG, npr_GG = Pade_solver(X_wGG, self.omega_w)
+        R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
+        return E_pGG, R_pGG
+
 
 def RESolver(omega_w):
     assert len(omega_w) % 2 == 0
@@ -393,7 +433,7 @@ def RESolver(omega_w):
     if npoles == 1:
         return SinglePoleSolver(omega_w)
     else:
-        raise NotImplementedError
+        raise MultipoleSolver(omega_w)
 
 
 def mpa_RE_solver(npols, w, x):
