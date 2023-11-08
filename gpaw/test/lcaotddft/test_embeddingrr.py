@@ -241,12 +241,11 @@ def test_embeddingrr(in_tmp_dir, write_inputs):
     td_calc.propagate(dt, int(nt * 0.5))
     td_calc.write('td_split0.gpw', mode='all')
 
-    td_calc_restart = LCAOTDDFT('td_split0.gpw',
-                                propagator={'name': 'scpc', 'tolerance': 1e-0})
+    td_calc_restart = LCAOTDDFT('td_split0.gpw')
     DipoleMomentWriter(td_calc_restart, 'dm_split.dat')
     td_calc_restart.propagate(dt, int(nt * 0.5))
     td_calc_restart.write('td_split1.gpw', mode='all')
-    
+
     """
     Compare only the last 40 elements because the restart adds
     an additional step that is not properly removed.

@@ -1,11 +1,12 @@
 import pytest
+import numpy as np
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.qed import RRemission
-
+from gpaw.tddft.spectrum import read_td_file_data
 from . import check_txt_data
 
 
@@ -56,3 +57,22 @@ def test_rremission(in_tmp_dir):
 '''.strip())  # noqa: E501
 
     check_txt_data('dm.dat', 'dm_ref.dat', atol=1e-8)
+
+    """
+    Restart check for rremission. Does restarting change the outcome?
+    """
+
+    td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(0.5, [0, 0, 1]),
+                        propagator={'name': 'scpc', 'tolerance': 1e-0})
+    DipoleMomentWriter(td_calc, 'dm_rrsplit.dat')
+    td_calc.absorption_kick([0.0, 0.0, 1e-5])
+    td_calc.propagate(40, 10)
+    td_calc.write('td_rrsplit0.gpw', mode='all')
+
+    td_calc_restart = LCAOTDDFT('td_rrsplit0.gpw')
+    DipoleMomentWriter(td_calc_restart, 'dm_rrsplit.dat')
+    td_calc_restart.propagate(40, 10)
+
+    dipole_full = read_td_file_data('dm.dat')[1][-10:]
+    dipole_restart = read_td_file_data('dm_rrsplit.dat',)[1][-10:]
+    assert np.allclose(dipole_full, dipole_restart)

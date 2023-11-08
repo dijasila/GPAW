@@ -122,6 +122,7 @@ class RRemission(object):
         writer.write(dyadic_st=self.dyadic_st)
         if self.environment == 0:
             writer.write(environmentcavity_in=None)
+            writer.write(environmentens_in=None)
         else:
             writer.write(environmentcavity_in=[self.cavity_resonance[0]
                                                * Hartree,
