@@ -29,7 +29,10 @@ We will start by calculating the emission spectrum in z-direction for a single s
 The polarization of the electric field in the waveguide is aligned with the z-axis, exerting
 a recoil-force on the electronic coordinates that oscillate in this direction.
 As a result, the electronic motion is damped as energy is emitted into the waveguide, in line 
-with Newtons third law. 
+with Newtons third law. Notice, that we specify the scpc propagator, which is currently
+the only propagator that correctly exchanges information about the physical time-step
+with the radiation-reaction potential since the derivative of the dipole requires
+information from previous times.
 
 Let us next add a second dimer parallel to the first one and orthorgonal to the chain-axis 
 (H-aggregate configuration). For reasons that will become clear in the following, we can get
@@ -70,5 +73,5 @@ References
 
 .. [#Schaefer2021]
    | C. Schaefer, and G. Johansson,
-   | :doi:`A Shortcut to Self-Consistent Light-Matter Interaction and Realistic Spectra from First-Principles <https://arxiv.org/abs/2109.09839>`
-   | 	arXiv:2109.09839 (2021)
+   | :doi:`Shortcut to Self-Consistent Light-Matter Interaction and Realistic Spectra from First Principles <https://doi.org/10.1103/PhysRevLett.128.156402>`
+   | 	Phys. Rev. Letters 128, 156402 (2022)

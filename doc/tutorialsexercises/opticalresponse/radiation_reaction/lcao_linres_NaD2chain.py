@@ -24,7 +24,8 @@ calc.write('gs.gpw', mode='all')
 
 # Time-propagation calculation
 # Read converged ground-state file
-td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(35.05, [0, 0, 1]))
+td_calc = LCAOTDDFT('gs.gpw', rremission=RRemission(35.05, [0, 0, 1]),
+                    propagator={'name': 'scpc', 'tolerance': 1e-0})
 # Attach any data recording or analysis tools
 DipoleMomentWriter(td_calc, 'dm_nad2.dat')
 # Kick
