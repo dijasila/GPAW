@@ -10,8 +10,8 @@ import subprocess
 from pathlib import Path
 from sys import version_info, exit
 
-if version_info < (3, 7):
-    raise ValueError('Please use Python-3.7 or later')
+if version_info < (3, 8):
+    raise ValueError('Please use Python-3.8 or later')
 
 # Python version in the venv that we are creating
 version = '3.11'
@@ -136,7 +136,7 @@ def fix_installed_scripts(venvdir: Path, rootdir: str, pythonroot: str) -> None:
     assert rootdir is not None
     assert pythonroot is not None
     bindir = rootdir / Path('bin')
-    print(f'Patching binaries from {bindir} to {venvdir}/bin')
+    print(f'Patching executable scripts from {bindir} to {venvdir}/bin')
     assert '+' not in str(pythonroot) and '+' not in str(venvdir), 'Script will fail with "+" in folder names!'
     sedscript = f's+{pythonroot}+{venvdir}+g'
     #print('sed script:', sedscript)
@@ -194,16 +194,6 @@ def main():
     # Sanity checks
     if args.toolchain not in ('foss', 'intel'):
         raise ValueError(f'Unsupported toolchain "{args.toolchain}"')
-    if args.toolchain == 'intel' and not args.piponly:
-        # Temporarily not possible!
-        print("""
-ERROR:
-Currently the intel/2023a toolchain does not contain pre-built numpy
-and scipy modules.  You can still use the Intel toolchain but need to
-specify the --piponly option as well, to install numpy and scipy with
-pip.  This will reduce the performance gain from util Intel compilers.
-""")
-        exit(1)
 
     module_cmds = module_cmds_all.format(**toolchains[args.toolchain])
     if not args.piponly:

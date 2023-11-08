@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -64,7 +65,7 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw, context):
+    def from_gpw_file(cls, gpw, context) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -301,10 +302,16 @@ class ResponsePAWDataset:
         self.nabla_iiv = setup.nabla_iiv
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)
-        self.xc_correction = SimpleNamespace(
-            rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
-            n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
-            nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
-            nc_corehole_g=setup.xc_correction.nc_corehole_g,
-            B_pqL=setup.xc_correction.B_pqL, e_xc0=setup.xc_correction.e_xc0)
+        if setup.xc_correction is not None:
+            self.xc_correction = SimpleNamespace(
+                rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
+                n_qg=setup.xc_correction.n_qg, nt_qg=setup.xc_correction.nt_qg,
+                nc_g=setup.xc_correction.nc_g, nct_g=setup.xc_correction.nct_g,
+                nc_corehole_g=setup.xc_correction.nc_corehole_g,
+                B_pqL=setup.xc_correction.B_pqL,
+                e_xc0=setup.xc_correction.e_xc0)
+            self.is_pseudo = False
+        else:
+            self.xc_correction = None
+            self.is_pseudo = True
         self.hubbard_u = setup.hubbard_u
