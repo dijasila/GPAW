@@ -10,6 +10,7 @@ import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import seterr
 
+import _gpaw
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
 from gpaw.atom.configurations import configurations
@@ -259,16 +260,16 @@ class Channel:
 
         b_g[1] += cm1_g[1] * a0 + c0_g[1] * a1
         b_g[2] += cm1_g[2] * a1
-        C_g = np.array([cp1_g[:g0+1],
-                        np.append(c0_g[1:g0+1], np.empty(1)),
-                        np.append(cm1_g[2:g0+1], np.empty(2))])
+        C_g = np.array([cp1_g[:g0 + 1],
+                        np.append(c0_g[1:g0 + 1], np.empty(1)),
+                        np.append(cm1_g[2:g0 + 1], np.empty(2))])
 
-        A_g = solve_banded((2, 0), C_g, -b_g[:g0+1],
+        A_g = solve_banded((2, 0), C_g, -b_g[:g0 + 1],
                            overwrite_ab=True, overwrite_b=True)
         A_g[0] = a1
 
         u_g[0] = 0.0
-        u_g[1:g0+1] = A_g[:-1] * r_g[1:g0+1]**(l + x)
+        u_g[1:g0 + 1] = A_g[:-1] * r_g[1:g0 + 1]**(l + x)
 
         r = r_g[g0]
         dr = rgd.dr_g[g0]
@@ -306,18 +307,26 @@ class Channel:
             except FloatingPointError:
                 ag = 2e50
 
-        while True:
-            u_g[g] = ag * r_g[g]**(l + x)
-            if ag > 1e50:
-                u_g[g:] /= 1e50
-                ag = ag / 1e50
-                agp1 = agp1 / 1e50
-            agm1 = agp1 * cp1_g[g] + ag * c0_g[g]
-            if g == g0:
-                break
-            g -= 1
-            agp1 = ag
-            ag = agm1
+        if 0:
+            while True:
+                u_g[g] = ag * r_g[g]**(l + x)
+                if ag > 1e50:
+                    u_g[g:] /= 1e50
+                    ag = ag / 1e50
+                    agp1 = agp1 / 1e50
+                agm1 = agp1 * cp1_g[g] + ag * c0_g[g]
+                if g == g0:
+                    break
+                g -= 1
+                agp1 = ag
+                ag = agm1
+        else:
+            a_g = np.zeros_like(u_g)
+            a_g[g:g + 2] = (ag, agp1)
+            _gpaw.integrate_inwards(g, g0, c0_g, cp1_g, a_g)
+            u_g[g0:g + 1] = a_g[g0:g + 1] * r_g[g0:g + 1]**(l + x)
+            g = g0
+            agm1, ag, agp1 = a_g[g - 1:g + 2]
 
         r = r_g[g]
         dr = rgd.dr_g[g]
