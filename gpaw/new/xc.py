@@ -140,6 +140,33 @@ class GGAFunctional(LDAFunctional):
                   taut_sr: UGArray | None = None) -> tuple[float,
                                                            UGArray,
                                                            UGArray | None]:
+        if len(nt_sr) == 4:
+            print(nt_sr.data[:, 0, 0, 0])
+            ntdata_sr, u_gss, vh_gss = self.to_col(nt_sr.data)
+            ntnew_sr = nt_sr.desc.from_data(ntdata_sr)
+            print(ntnew_sr.data[:, 0, 0, 0])
+            if taut_sr is None:
+                tautnew_sr = ntnew_sr.new(zeroed=True)
+            else:
+                tautnew_sr = taut_sr
+            exc, vxctnew_sr, _ = self._calculate(ntnew_sr, tautnew_sr)
+
+            vxct_sr = nt_sr.new(zeroed=True)
+            vxct_sr.data += self.to_ncol(vxctnew_sr.data, u_gss, vh_gss)
+            print(vxctnew_sr.data[:, 0, 0, 0])
+            print(vxct_sr.data[:, 0, 0, 0])
+            return exc, vxct_sr, None
+        else:
+            print(nt_sr.data[:, 0, 0, 0])
+            exc, vxct_sr, _ =  self._calculate(nt_sr, taut_sr)
+            print(vxct_sr.data[:, 0, 0, 0])
+            return exc, vxct_sr, None
+
+    def _calculate(self,
+                   nt_sr: UGArray,
+                   taut_sr: UGArray | None = None) -> tuple[float,
+                                                            UGArray,
+                                                            UGArray | None]:
         gradn_svr, sigma_xr = gradient_and_sigma(self.grad_v, nt_sr)
 
         vxct_sr = nt_sr.new(zeroed=True)
@@ -166,6 +193,29 @@ class GGAFunctional(LDAFunctional):
                                 dedsigma_xr.data, vxct_sr.data)
         exc = e_r.integrate()
         return exc, vxct_sr, None
+
+    def to_col(self, n_sg):
+        # Construct complex magnetization density
+        rho_gss = np.array([[n_sg[0] + n_sg[3], n_sg[1] - n_sg[2]],
+                            [n_sg[1] + n_sg[2], n_sg[0] - n_sg[3]]])\
+                    .transpose((2, 3, 4, 0, 1))
+        rho_gss *= 0.5
+
+        # Diagonalize magnetization density using singular value decomposition
+        u_gss, rholoc_gs, vh_gss = np.linalg.svd(rho_gss)
+        
+        rholoc_sg = rholoc_gs.transpose(3, 0, 1, 2)
+        rholoc_sg = np.ascontiguousarray(rholoc_sg)
+        return rholoc_sg, u_gss, vh_gss
+
+    def to_ncol(self, vnew_sg, u_gss, vh_gss):
+        vnew_gs = vnew_sg.transpose((1, 2, 3, 0))
+        v_gss = np.matmul((u_gss * vnew_gs[..., None, :]), vh_gss)
+        v_sg = np.array([0.5 * (v_gss[:, :, :, 1, 1] + v_gss[:, :, :, 0, 0]),
+                         0.5 * (v_gss[:, :, :, 0, 1] + v_gss[:, :, :, 1, 0]),
+                         0.5 * (v_gss[:, :, :, 0, 1] - v_gss[:, :, :, 1, 0]),
+                         0.5 * (v_gss[:, :, :, 1, 1] - v_gss[:, :, :, 0, 0])])
+        return v_sg
 
     def _args(self,
               state: DFTState,

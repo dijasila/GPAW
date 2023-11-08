@@ -1,7 +1,7 @@
 import numpy as np
 from gpaw import libraries
 from gpaw.xc.functional import XCFunctional
-from gpaw.xc.gga import GGA
+from gpaw.xc.gga import GGA, NonCollinearGGA
 from gpaw.xc.lda import LDA
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.mgga import MGGA
@@ -144,6 +144,8 @@ def XC(kernel,
         return LDA(kernel, **kwargs)
 
     elif kernel.type == 'GGA':
+        if not collinear:
+            return NonCollinearGGA(kernel, **kwargs)
         return GGA(kernel, xp=xp, **kwargs)
     else:
         return MGGA(kernel, **kwargs)

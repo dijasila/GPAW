@@ -72,13 +72,19 @@ class PotentialCalculator:
                   ) -> tuple[Potential, AtomArrays]:
         energies, vt_sR, dedtaut_sr, vHt_x = self.calculate_pseudo_potential(
             density, ibzwfs, vHt_x)
-
+        if 1:
+            print('Initial')
+            for key, e in energies.items():
+                print(f'{key:10} {energies[key]:15.9f}')
         e_kinetic = 0.0
+        #import matplotlib.pyplot as plt
+        cs = 'krgb'
         for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
+            #plt.plot(nt_R.data[4, 4, :], c=cs[spin], ls='--')
+            #plt.plot(vt_R.data[4, 4, :], c=cs[spin])
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(density.nct_R)
-
         if dedtaut_sr is not None:
             dedtaut_sR = self.restrict(dedtaut_sr)
             for dedtaut_R, taut_R in zips(dedtaut_sR,
@@ -87,8 +93,8 @@ class PotentialCalculator:
                 e_kinetic += dedtaut_R.integrate(density.tauct_R)
         else:
             dedtaut_sR = None
-
-        energies['kinetic'] = e_kinetic
+        plt.show()
+        #energies['kinetic'] = e_kinetic
 
         if kpt_band_comm is None:
             if ibzwfs is None:
@@ -99,8 +105,11 @@ class PotentialCalculator:
         dH_asii, corrections = calculate_non_local_potential(
             self.setups, density, self.xc, Q_aL, self.soc, kpt_band_comm)
 
+        prin = 1
+        if prin:
+            print('final energies:')
         for key, e in corrections.items():
-            if 0:
+            if prin:
                 print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
             energies[key] += e
 
@@ -177,8 +186,9 @@ def calculate_non_local_potential1(setup: Setup,
         dH_sp += dHU_sp
 
     dH_sii = unpack(dH_sp)
+    # print(D_sii[:, 0, 0], dH_sii[:, 0, 0])
     e_kinetic -= (D_sii * dH_sii).sum().real
-
+    # print({'kinetic': e_kinetic, 'coulomb': e_coulomb, 'zero': e_zero, 'xc': e_xc, 'external': e_external})
     return dH_sii, {'kinetic': e_kinetic,
                     'coulomb': e_coulomb,
                     'zero': e_zero,

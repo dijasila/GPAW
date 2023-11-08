@@ -11,14 +11,18 @@ from gpaw.xc.functional import XCFunctional
 
 
 class GGARadialExpansion:
-    def __init__(self, rcalc, *args):
+    def __init__(self, rcalc, collinear=True, *args):
         self.rcalc = rcalc
         self.args = args
+        self.collinear = collinear
 
     def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
         n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
-
+        # if self.collinear:
+        #     n_sLg[:, 0] += nc0_sg
+        # else:
+        #     n_sLg[0, 0] += 4 * nc0_sg[0]
+            
         dndr_sLg = np.empty_like(n_sLg)
         for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
             for n_g, dndr_g in zip(n_Lg, dndr_Lg):
@@ -201,8 +205,9 @@ class GGA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
+        collinear = not isinstance(self, NonCollinearGGA)
         rcalc = GGARadialCalculator(self.kernel)
-        expansion = GGARadialExpansion(rcalc)
+        expansion = GGARadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,
                                         setup, D_sp, dEdD_sp,
                                         addcoredensity, a)
@@ -256,6 +261,115 @@ class GGA(XCFunctional):
                                 np.zeros((1, 3)), n=None)[:2]
         v_sg[:] = dedn_sg
         return rgd.integrate(e_g)
+
+
+class NonCollinearGGA(GGA):
+    def __init__(self, kernel, stencil=2, xp=np):
+        super().__init__(kernel, stencil, xp=xp)
+
+
+    def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        nnew_sg, u_gss, vh_gss = self.to_col(n_sg)
+        nnew_sg = np.ascontiguousarray(nnew_sg)
+        vnew_sg = np.zeros_like(nnew_sg)
+        super().calculate_impl(gd, nnew_sg, vnew_sg, e_g)
+        v_sg += self.to_ncol(vnew_sg, u_gss, vh_gss)
+
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
+                                 addcoredensity=True, a=None):
+        Dnew_sp, u_pss, vh_pss = self.D_to_col(D_sp)
+        dEdDnew_sp = self.H_to_col(dEdD_sp, u_pss, vh_pss)
+        output = super().calculate_paw_correction(setup, Dnew_sp, dEdDnew_sp,
+                                                  addcoredensity, a)
+        if dEdD_sp is not None:
+            dEdD_sp[:] = self.H_to_ncol(dEdDnew_sp, u_pss, vh_pss)
+        return output
+
+
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
+        nnew_sg, u_gss, vh_gss = self.to_col(n_sg)
+        super().stress_tensor_contribution(nnew_sg, skip_sum)
+
+
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
+        nnew_sg, u_gss, vh_gss = self.to_col(n_sg)
+        vnew_sg = np.zeros_like(nnew_sg)
+        return super().calculate_spherical(rgd, nnew_sg, vnew_sg, e_g)
+
+
+    def to_col(self, n_sg):
+        # Construct complex magnetization density
+        rho_gss = np.array([[n_sg[0] + n_sg[3], n_sg[1] - n_sg[2]],
+                            [n_sg[1] + n_sg[2], n_sg[0] - n_sg[3]]])\
+                    .transpose((2, 3, 4, 0, 1))
+        rho_gss *= 0.5
+        # Diagonalize magnetization density using singular value decomposition
+        u_gss, rholoc_gs, vh_gss = np.linalg.svd(rho_gss)
+        
+        rholoc_sg = rholoc_gs.transpose(3, 0, 1, 2)
+        rholoc_sg = np.ascontiguousarray(rholoc_sg)
+        return rholoc_sg, u_gss, vh_gss
+
+        
+    def to_ncol(self, vnew_sg, u_gss, vh_gss):
+        vnew_gs = vnew_sg.transpose((1, 2, 3, 0))
+        v_gss = np.matmul((u_gss * vnew_gs[..., None, :]), vh_gss)
+        v_sg = np.array([0.5 * (v_gss[:, :, :, 1, 1] + v_gss[:, :, :, 0, 0]),
+                         0.5 * (v_gss[:, :, :, 0, 1] + v_gss[:, :, :, 1, 0]),
+                         0.5 * (v_gss[:, :, :, 0, 1] - v_gss[:, :, :, 1, 0]),
+                         0.5 * (v_gss[:, :, :, 1, 1] - v_gss[:, :, :, 0, 0])])
+        return v_sg
+
+    def D_to_col(self, D_sp):
+        # Construct complex magnetization density
+        D_pss = np.array([[D_sp[0] + D_sp[3], D_sp[1] - D_sp[2]],
+                          [D_sp[1] + D_sp[2], D_sp[0] - D_sp[3]]])\
+                  .transpose((2, 0, 1))
+        D_pss *= 0.5
+
+        # Diagonalize magnetization density using singular value decomposition
+        u_pss, D_ps, vh_pss = np.linalg.svd(D_pss)
+        return D_ps.T, u_pss, vh_pss
+
+    def H_to_col(self, dEdD_sp, u_pss, vh_pss):
+        # Construct complex magnetization density
+        # dEdD_pss = np.array([[dEdD_sp[0] + dEdD_sp[3], dEdD_sp[1] - dEdD_sp[2]],
+        #                      [dEdD_sp[1] + dEdD_sp[2], dEdD_sp[0] - dEdD_sp[3]]])\
+        #              .transpose((2, 0, 1))
+        # # dEdD_pss *= 0.5
+        # # Diagonalize magnetization density using singular value decomposition
+
+        # uh_pss = u_pss.transpose((0, 2, 1))
+        # v_pss = vh_pss.transpose((0, 2, 1))
+
+        # dEdDnew_pss = np.matmul((uh_pss * dEdD_pss), v_pss)
+        # #print('In Matrix:', dEdDnew_pss[0])
+        # dEdDnew_sp = np.zeros_like(dEdD_sp)[:2]
+        # dEdDnew_sp[0] = dEdDnew_pss[:, 0, 0]
+        # dEdDnew_sp[1] = dEdDnew_pss[:, 1, 1]
+        dEdDnew_sp = np.array([dEdD_sp[0], dEdD_sp[1]])
+        return dEdDnew_sp
+
+    def H_to_ncol(self, dEdDnew_sp, u_pss, vh_pss):
+        uh_pss = u_pss.transpose((0, 2, 1))
+        v_pss = vh_pss.transpose((0, 2, 1))
+        # dEdDnew_ps = np.array([dEdDnew_sp[0] + dEdDnew_sp[1],
+        #                        dEdDnew_sp[0] - dEdDnew_sp[1]]).T
+
+        
+        dEdDnew_ps = dEdDnew_sp.T
+        dEdDnew_pss = np.matmul((u_pss * dEdDnew_ps[..., None, :]), vh_pss)
+        # print('Out Matrix:', dEdDnew_pss[0])
+
+        # dEdD_sp = np.array([dEdDnew_pss[:, 0, 0], dEdDnew_pss[:, 1, 1]])
+        dEdD_sp = np.array([0.5 * (dEdDnew_pss[:, 1, 1] + dEdDnew_pss[:, 0, 0]),
+                            0.5 * (dEdDnew_pss[:, 0, 1] + dEdDnew_pss[:, 1, 0]),
+                            0.5 * (dEdDnew_pss[:, 0, 1] - dEdDnew_pss[:, 1, 0]),
+                            0.5 * (dEdDnew_pss[:, 0, 0] - dEdDnew_pss[:, 1, 1])])
+
+        # print('output', dEdD_sp[:, 0])
+        return dEdD_sp
 
 
 class PurePythonGGAKernel:
