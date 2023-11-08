@@ -307,7 +307,7 @@ class Channel:
             except FloatingPointError:
                 ag = 2e50
 
-        if 1:
+        if 0:
             while True:
                 u_g[g] = ag * r_g[g]**(l + x)
                 if ag > 1e50:
