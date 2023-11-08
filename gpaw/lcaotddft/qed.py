@@ -361,17 +361,6 @@ class RRemission(object):
         return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
 
     def dyadicGt(self, deltat, maxtimesteps):
-        ### REMOVE HERE STUFF Later
-        # if Dt is not None and maxtimesteps <= len(Dt[:, 0]):
-        #     return Dt[:maxtimesteps, :], Gst
-        # if os.path.isfile('dyadicD.npz') and maxtimesteps > 1000:
-        #     dyadicD = np.load('dyadicD.npz')
-        #     Dt = dyadicD['Dt']
-        #     Gst = dyadicD['Gst']
-        #     if maxtimesteps <= len(Dt[:, 0]):
-        #         print("You are using the previous Dyadic dyadicD.npz")
-        #         return Dt[:maxtimesteps, :], Gst
-
         if self.itert > 0:
             self.frequ_resolution_ampl = (float(self.frequ_resolution_ampl) *
                                           float(self.itert) /
@@ -510,9 +499,6 @@ class RRemission(object):
                                   np.abs(dm_z[-1, :]))
                 dmp = np.ones(len(dm_x[:, 0]))
                 if lastsize > self.dmpval and self.dmpval !=0:
-                    # if  self.precomputedG is not None:
-                    #     self.dmpval / 2
-                    # and self.precomputedG is not None:
                     print("Adding additional damping to smoothen Xw to ",
                           self.dmpval)
                     decayrate = -np.log(self.dmpval) / len(dm_x[:, 0])
@@ -761,7 +747,6 @@ class RRemission(object):
                     plt.xlim(0, 14)
                 plt.legend(loc="upper right")
                 plt.savefig('Gw_' + str(ii) + '.png')
-                #plt.close()
                 plt.figure()
                 plt.plot(range(maxtimesteps), np.real(Dt[:maxtimesteps, ii]),
                          label='Real Dt Element: ' + str(ii))
@@ -780,7 +765,7 @@ class RRemission(object):
                  energy=omegafft[:int(len(omegafft)/2)] * Hartree,
                  Gw=Gw[:int(len(omegafft)/2), :],
                  Gst=Gst)
-        return [Dt[:maxtimesteps, :], Gst]
+        return [Dt, Gst]
 
     def selffield(self, deltat):
         # While this is not the most efficient way to write the convolution,
