@@ -950,7 +950,7 @@ class BSEBackend:
 
 
 class BSE(BSEBackend):
-    def __init__(self, calc=None, txt='-', **kwargs):
+    def __init__(self, calc=None, timer=None, txt='-', **kwargs):
         """Creates the BSE object
 
         calc: str or calculator object
@@ -990,7 +990,7 @@ class BSE(BSEBackend):
             If True, write eigenvalues and eigenstates to v_TS.ulm
         """
         gs, context = get_gs_and_context(
-            calc, txt, world=world, timer=None)
+            calc, txt, world=world, timer=timer)
 
         super().__init__(gs=gs, context=context, **kwargs)
 
