@@ -44,6 +44,12 @@ stages:
                             ]
       extra_link_args = ['-fopenmp']
 
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      import sys
+      if sys.version_info >= (3, 11):
+          extra_compile_args += ['-Wno-deprecated-declarations']
+      # end TODO
+
       libraries += ['blas']
 
       fftw = True
@@ -97,8 +103,6 @@ build-latest:
       cat << EOF >> siteconfig.py
       define_macros += [('NDEBUG', None)]
       undef_macros = []
-      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
-      extra_compile_args += ['-Wno-deprecated-declarations']
 
       from pathlib import Path
       libvdwxc = True
@@ -144,9 +148,6 @@ build-cuda:
       gpu_compile_args = ['-O3',
                           '-g']
       libraries += ['cudart', 'cublas']
-
-      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
-      extra_compile_args += ['-Wno-deprecated-declarations']
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
