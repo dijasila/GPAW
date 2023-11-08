@@ -174,6 +174,7 @@ class BSEBackend:
         bands_sn = np.atleast_2d(bands_sn)
         return bands_sn
 
+    @timer('BSE calculate')
     def calculate(self, optical=True):
 
         if self.spinors:
@@ -202,7 +203,7 @@ class BSEBackend:
 
         self.kptpair_factory = KPointPairFactory(
             gs=self.gs,
-            context=ResponseContext(txt='pair.txt', timer=None,
+            context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
@@ -331,10 +332,11 @@ class BSEBackend:
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
-
+                        self.context.timer.start('H_ksmnKsmn')
                         H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
                             'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
                             optimize='optimal')
+                        self.context.timer.stop('H_ksmnKsmn')
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
