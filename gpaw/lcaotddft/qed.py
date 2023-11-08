@@ -110,6 +110,7 @@ class RRemission(object):
     def write(self, writer):
         writer.write(itert=self.itert)
         writer.write(DelDipole=self.dipolexyz * Bohr)
+        writer.write(Dipoleprev=self.dipolexyz_previous * Bohr)
         writer.write(DelDipole_time=self.dipolexyz_time[:self.itert, :] * Bohr)
         writer.write(Dipole_time=self.dipole_time * Bohr)
         writer.write(dipole_projected=self.dipole_projected[:self.itert]
@@ -148,6 +149,7 @@ class RRemission(object):
     def read(self, reader):
         self.itert = reader.itert
         self.dipolexyz = reader.DelDipole / Bohr
+        self.dipolexyz_previous = reader.Dipoleprev / Bohr
         self.dipolexyz_time = reader.DelDipole_time / Bohr
         self.dipole_projected = reader.dipole_projected / Bohr
         self.dipole_time = reader.Dipole_time / Bohr
@@ -163,11 +165,9 @@ class RRemission(object):
         self.density = paw.density
         self.wfs = paw.wfs
         self.hamiltonian = paw.hamiltonian
-        self.dipolexyz_previous = self.density.calculate_dipole_moment()
+        if not hasattr(self, 'dipolexyz_previous'):
+            self.dipolexyz_previous = self.density.calculate_dipole_moment()
         self.starting = True
-        # if self.environment == 1 and self.itert != 0: # this is not very elegant, in combination with the version below, its basically ensuring that you only calculate and attach dyadic stuff for the first iteration, afterwards its skipped and the previous self.dyadic is used. The problem is that this clashes now with a restart option.
-        #     self.dyadic = None
-        #     stop
 
     def savelast(self, PC_dip):
         self.itert += 1
@@ -178,23 +178,26 @@ class RRemission(object):
     def vradiationreaction(self, kpt, time):
         if self.itert == 0 or self.starting == True:
             self.starting = False
-            if self.environment == 1: # and self.dyadic is None: # there is a problem with the restart from the read-in dyadic. If you just recalculate then there is no problem, but that's not very efficient. I should check why the dimensions do not fit, maybe has something to do with the kick-step or so
-            # just_do_new = True
-            # if ((self.environment == 1 and self.dyadic is None)
-            #     or (self.maxtimesteps <= len(self.dyadic[:,0]))
-            #     or just_do_new == True):
+            if self.dyadic is not None:
+                # If dyadic is too short, then recalculate
+                checkdyadlen = (len(self.dyadic[:,0]) < self.maxtimesteps)
+            else:
+                checkdyadlen = False
+            if ((self.environment == 1 and self.dyadic is None)
+                or (checkdyadlen == True)):
                 [self.dyadic, self.dyadic_st] = self.dyadicGt(self.deltat,
                                                               self.maxtimesteps)
                 static = True
                 if static == False:
                     self.dyadic_st = self.dyadic_st * 0
                     print("You remove the static component from the dyadic.")
-
             if not hasattr(self, 'dipole_projected'):
                 self.dipole_projected = np.zeros(self.maxtimesteps)
                 self.dipolexyz_time = np.zeros((self.maxtimesteps, 3))
                 self.dipole_time = np.zeros((1,3))
             else:
+                # This adds a bunch of never used 0th at the end since
+                # len = len_Tfirstrun + len_Tfullrun. Does not matter.
                 self.dipole_projected = \
                     np.concatenate([self.dipole_projected,
                                     np.zeros(self.maxtimesteps)])
