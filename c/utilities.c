@@ -769,10 +769,9 @@ PyObject* integrate_inwards(PyObject *self, PyObject *args)
     for (int g = g1; g >= g0; g--) {
         double ag = a_g[g];
         if (ag > 1e50) {
-            for (int gg = g; g <= g1; g++)
+            for (int gg = g; gg <= g1; gg++)
                 a_g[gg] = a_g[gg] / 1e50;
             ag = ag / 1e50;
-            agp1 = agp1 / 1e50;
         }
         a_g[g - 1] = a_g[g + 1] * cp1_g[g] + ag * c0_g[g];
     }
