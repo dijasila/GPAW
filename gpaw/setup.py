@@ -491,10 +491,10 @@ class BaseSetup:
         wg_lg = [func(self, self.g_lg[l], l)
                  for l in range(self.lmax + 1)]
         wn_lqg = [np.array([func(self, self.local_corr.n_qg[q], l)
-                            for q in range(self.local_corr.nq)])
+                            for q in range(self.nq)])
                   for l in range(2 * self.local_corr.lcut + 1)]
         wnt_lqg = [np.array([func(self, self.local_corr.nt_qg[q], l)
-                             for q in range(self.local_corr.nq)])
+                             for q in range(self.nq)])
                    for l in range(2 * self.local_corr.lcut + 1)]
         wnc_g = func(self, self.local_corr.nc_g, l=0)
         wnct_g = func(self, self.local_corr.nct_g, l=0)
@@ -750,6 +750,7 @@ class Setup(BaseSetup):
         self.f_j = data.f_j
         self.eps_j = data.eps_j
         nj = self.nj = len(l_j)
+        nq = self.nq = nj * (nj + 1) // 2
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
@@ -785,12 +786,20 @@ class Setup(BaseSetup):
         gcut2 = rgd.ceil(rcut2)
         self.gcut2 = gcut2
 
-        self.gcutmin = rgd.ceil(min(rcut_j))
+        gcut_q = np.zeros(nq, dtype=int)
+        q = 0  # q: common index for j1, j2
+        for j1 in range(self.nj):
+            for j2 in range(j1, self.nj):
+                gcut_q[q] = rgd.ceil(min(rcut_j[j1], rcut_j[j2]))
+                q += 1
+
+        self.gcut_q = gcut_q
+        self.gcutmin = min(gcut_q)
 
         vbar_g = data.vbar_g
 
         if float(data.version) < 0.7 and data.generator_version < 2:
-            # Old-style Fourier-filtered datatsets.
+            # Old-style Fourier-filtered datasets.
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
 
@@ -834,7 +843,6 @@ class Setup(BaseSetup):
         self.ni = ni
 
         _np = ni * (ni + 1) // 2
-        self.local_corr.nq = nj * (nj + 1) // 2
 
         lcut = max(l_j)
         if 2 * lcut < lmax:
@@ -1003,7 +1011,7 @@ class Setup(BaseSetup):
         Lcut = (2 * lcut + 1)**2
         G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
         LGcut = G_LLL.shape[2]
-        T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
+        T_Lqp = np.zeros((Lcut, self.nq, _np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -1040,22 +1048,31 @@ class Setup(BaseSetup):
     def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
-        nq = self.local_corr.nq
+        gcut_q = self.gcut_q
+        nq = self.nq
+
+        r_g = self.local_corr.rgd2.r_g
+        dr_g = self.local_corr.rgd2.dr_g
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
 
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
+        Rr2R_q = np.zeros(nq)
         q = 0  # q: common index for j1, j2
         for j1 in range(self.nj):
             for j2 in range(j1, self.nj):
                 n_qg[q] = phi_jg[j1] * phi_jg[j2]
                 nt_qg[q] = phit_jg[j1] * phit_jg[j2]
+
+                gcut = gcut_q[q]
+                Rr2R_q[q] = sum(n_qg[q, :gcut] * (r_g[:gcut]**2 * dr_g[:gcut]))
+
                 q += 1
 
+        self.Rr2R_q = Rr2R_q
+
         gcutmin = self.gcutmin
-        r_g = self.local_corr.rgd2.r_g
-        dr_g = self.local_corr.rgd2.dr_g
         self.lq = np.dot(n_qg[:, :gcutmin], r_g[:gcutmin]**2 * dr_g[:gcutmin])
 
         Delta_lq = np.zeros((lmax + 1, nq))
