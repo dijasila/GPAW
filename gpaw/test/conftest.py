@@ -1,4 +1,5 @@
 import os
+from math import sqrt
 from contextlib import contextmanager
 from pathlib import Path
 import functools
@@ -978,6 +979,47 @@ class GPWFiles:
         atoms.get_potential_energy()
 
         return gs_calc
+
+    @gpwfile
+    def na3_pw_restart(self):
+        params = dict(mode=PW(200), convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_restart(self):
+        params = dict(mode="fd", h=0.30, convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_kp_restart(self):
+        params = dict(mode="fd", h=0.30, kpts=(1, 1, 3), convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_density_restart(self):
+        params = dict(mode="fd", h=0.30, convergence={
+            "eigenstates": 1.e-3, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    def _na3_restart(self, params):
+        d = 3.0
+        atoms = Atoms("Na3",
+                      positions=[(0, 0, 0),
+                                 (0, 0, d),
+                                 (0, d * sqrt(3 / 4), d / 2)],
+                      magmoms=[1.0, 1.0, 1.0],
+                      cell=(3.5, 3.5, 4 + 2 / 3),
+                      pbc=True)
+
+        atoms.calc = GPAW(nbands=3,
+                          setups={"Na": "1"},
+                          **params)
+        atoms.get_potential_energy()
+
+        return atoms.calc
 
     @gpwfile
     def sih4_xc_gllbsc(self):
