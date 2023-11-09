@@ -361,7 +361,7 @@ class RRemission(object):
     def is_invertible(self, a):
         return a.shape[0] == a.shape[1] and np.linalg.matrix_rank(a) == a.shape[0]
 
-    def dyadicGt(self, deltat, maxtimesteps):
+    def dyadicGt(self, deltat, maxtimesteps, print_output=False):
         if self.itert > 0:
             self.frequ_resolution_ampl = (float(self.frequ_resolution_ampl) *
                                           float(self.itert) /
@@ -523,7 +523,7 @@ class RRemission(object):
                       'and volume of',
                       self.cavity_volume)
                 # alpha_ij is the polarizablity (local response)
-                alpha_ij = np.zeros((len(omegafft),9),dtype=complex)
+                alpha_ij = np.zeros((len(omegafft),9), dtype=complex)
                 for ii in range(9):
                     pol_interp = interpolate.interp1d(omegafftdm,
                                                       pol_matrix[ii, :],
@@ -548,29 +548,32 @@ class RRemission(object):
                     if skippedCM == True:
                         print("Polarizability was not invertible at some point! This might be due to the window-function, consider REMOVING the window from alpha_ij -- CHRISTIAN!")
 
-                for ii in range(9):
-                    plt.figure()
-                    if self.claussius == 1:
-                        plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
-                        plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
-                    else:
-                        plt.plot(omegafft * Hartree,
-                                 (4. * np.pi
-                                  * self.ensemble_number / self.cavity_volume
-                                  * np.real(alpha_ij[:, ii])))
-                        plt.plot(omegafft * Hartree,
-                                 (4. * np.pi
-                                  * self.ensemble_number / self.cavity_volume
-                                  * np.imag(alpha_ij[:, ii])))
-                    plt.xlabel("Energy (eV)")
-                    plt.ylabel(r"$\chi(\omega)$, i=" + str(ii)
-                               + 'CM=' + str(self.claussius) )
-                    if self.cutofffrequency is not None:
-                        plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
-                    else:
-                        plt.xlim(0, 14)
-                    plt.savefig('Xw_' + str(ii) + '.png')
-                    plt.close()
+                if print_output == True:
+                    for ii in range(9):
+                        plt.figure()
+                        if self.claussius == 1:
+                            plt.plot(omegafft * Hartree, np.real(Xw[:, ii]))
+                            plt.plot(omegafft * Hartree, np.imag(Xw[:, ii]))
+                        else:
+                            plt.plot(omegafft * Hartree,
+                                     (4. * np.pi
+                                      * self.ensemble_number
+                                      / self.cavity_volume
+                                      * np.real(alpha_ij[:, ii])))
+                            plt.plot(omegafft * Hartree,
+                                     (4. * np.pi
+                                      * self.ensemble_number
+                                      / self.cavity_volume
+                                      * np.imag(alpha_ij[:, ii])))
+                        plt.xlabel("Energy (eV)")
+                        plt.ylabel(r"$\chi(\omega)$, i=" + str(ii)
+                                   + 'CM=' + str(self.claussius) )
+                        if self.cutofffrequency is not None:
+                            plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
+                        else:
+                            plt.xlim(0, 14)
+                        plt.savefig('Xw_' + str(ii) + '.png')
+                        plt.close()
             else:
                 print('Drude-Lorentz model for polarizablity')
                 for ii in range(3):
@@ -730,42 +733,44 @@ class RRemission(object):
             # NOTE - I moved the sign back because there seem to be minor
             # numerical deviations otherwise -- check that again later
             # Dt[:,ii] = np.fft.ifft(1j * omegafft * Gw[:,ii].flatten())
-            if ii==8:
-                plt.figure()
-                plt.plot(omegafft * Hartree, np.real(Gw[:, ii]), 'k-',
-                         label='Real Gw-scatter Element: ' + str(ii))
-                plt.plot(omegafft * Hartree, np.imag(Gw[:, ii]), 'r-',
-                         label='Imag Gw-scatter Element: ' + str(ii))
-                plt.plot(omegafft * Hartree, np.real(Gw0[:, ii]), 'k:',
-                         label='Real Gw0 Element: ' + str(ii))
-                plt.plot(omegafft * Hartree, np.imag(Gw0[:, ii]), 'r:',
-                         label='Imag Gw0 Element: ' + str(ii))
-                plt.xlabel("Energy (eV)")
-                plt.ylabel(r"$G^{(1),no static}_i(\omega)$, i=" + str(ii))
-                if self.cutofffrequency is not None:
-                    plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
-                else:
-                    plt.xlim(0, 14)
-                plt.legend(loc="upper right")
-                plt.savefig('Gw_' + str(ii) + '.png')
-                plt.figure()
-                plt.plot(range(maxtimesteps), np.real(Dt[:maxtimesteps, ii]),
-                         label='Real Dt Element: ' + str(ii))
-                plt.plot(range(maxtimesteps), np.imag(Dt[:maxtimesteps, ii]),
-                         label='Imag Dt Element: ' + str(ii))
-                plt.xlabel("time step")
-                plt.ylabel(r"$D^{(1),no static}_i(t)$, i=" + str(ii))
-                plt.legend(loc="upper right")
-                plt.savefig('Dt_' + str(ii) + '.png')
-        np.savez("Xw",
-                 energy=omegafft[:int(len(omegafft)/2)] * Hartree,
-                 alpha_ij=alpha_ij[:int(len(omegafft)/2), :],
-                 Xw=Xw[:int(len(omegafft)/2), :])
-        np.savez("dyadicD",
-                 Dt=Dt[:int(len(omegafft)/2), :],
-                 energy=omegafft[:int(len(omegafft)/2)] * Hartree,
-                 Gw=Gw[:int(len(omegafft)/2), :],
-                 Gst=Gst)
+            if print_output == True:
+                if ii==8:
+                    plt.figure()
+                    plt.plot(omegafft * Hartree, np.real(Gw[:, ii]), 'k-',
+                             label='Real Gw-scatter Element: ' + str(ii))
+                    plt.plot(omegafft * Hartree, np.imag(Gw[:, ii]), 'r-',
+                             label='Imag Gw-scatter Element: ' + str(ii))
+                    plt.plot(omegafft * Hartree, np.real(Gw0[:, ii]), 'k:',
+                             label='Real Gw0 Element: ' + str(ii))
+                    plt.plot(omegafft * Hartree, np.imag(Gw0[:, ii]), 'r:',
+                             label='Imag Gw0 Element: ' + str(ii))
+                    plt.xlabel("Energy (eV)")
+                    plt.ylabel(r"$G^{(1),no static}_i(\omega)$, i=" + str(ii))
+                    if self.cutofffrequency is not None:
+                        plt.xlim(0, self.cutofffrequency * 1.5 * Hartree)
+                    else:
+                        plt.xlim(0, 14)
+                    plt.legend(loc="upper right")
+                    plt.savefig('Gw_' + str(ii) + '.png')
+                    plt.figure()
+                    plt.plot(range(maxtimesteps), np.real(Dt[:maxtimesteps, ii]),
+                             label='Real Dt Element: ' + str(ii))
+                    plt.plot(range(maxtimesteps), np.imag(Dt[:maxtimesteps, ii]),
+                             label='Imag Dt Element: ' + str(ii))
+                    plt.xlabel("time step")
+                    plt.ylabel(r"$D^{(1),no static}_i(t)$, i=" + str(ii))
+                    plt.legend(loc="upper right")
+                    plt.savefig('Dt_' + str(ii) + '.png')
+                if self.ensemble_number is not None:
+                    np.savez("Xw",
+                             energy=omegafft[:int(len(omegafft)/2)] * Hartree,
+                             alpha_ij=alpha_ij[:int(len(omegafft)/2), :],
+                             Xw=Xw[:int(len(omegafft)/2), :])
+                    np.savez("dyadicD",
+                             Dt=Dt[:int(len(omegafft)/2), :],
+                             energy=omegafft[:int(len(omegafft)/2)] * Hartree,
+                             Gw=Gw[:int(len(omegafft)/2), :],
+                             Gst=Gst)
         return [Dt, Gst]
 
     def selffield(self, deltat):
