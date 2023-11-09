@@ -51,6 +51,7 @@ PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
+PyObject* integrate_outwards(PyObject *self, PyObject *args);
 PyObject* integrate_inwards(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
@@ -223,6 +224,7 @@ static PyMethodDef functions[] = {
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
     {"hartree", hartree, METH_VARARGS, 0},
+    {"integrate_outwards", integrate_inwards, METH_VARARGS, 0},
     {"integrate_inwards", integrate_inwards, METH_VARARGS, 0},
     {"localize", localize, METH_VARARGS, 0},
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
