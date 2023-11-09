@@ -5,7 +5,6 @@ from math import pi
 import numpy as np
 from numpy.linalg import eigh
 from scipy.special import gamma
-from scipy.linalg import solve_banded
 import ase.units as units
 from ase.data import atomic_numbers, atomic_names, chemical_symbols
 from ase.utils import seterr
@@ -258,18 +257,26 @@ class Channel:
                 a0 = pt_g[1] / r_g[1]**l / (vr_g[1] / r_g[1] - e)
             a1 = a0
 
-        u_g[0] = 0.0
-        g = 1
-        agm1 = a0
-        ag = a1
-        while True:
-            u_g[g] = ag * r_g[g]**(l + x)
-            agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g] + b_g[g]) / cp1_g[g]
-            if g == g0:
-                break
-            g += 1
-            agm1 = ag
-            ag = agp1
+        if 0:
+            u_g[0] = 0.0
+            g = 1
+            agm1 = a0
+            ag = a1
+            while True:
+                u_g[g] = ag * r_g[g]**(l + x)
+                agp1 = -(agm1 * cm1_g[g] + ag * c0_g[g] + b_g[g]) / cp1_g[g]
+                if g == g0:
+                    break
+                g += 1
+                agm1 = ag
+                ag = agp1
+        else:
+            a_g = np.zeros_like(u_g)
+            a_g[:2] = (a0, a1)
+            _gpaw.integrate_outwards(g0, cm1_g, c0_g, cp1_g, b_g, a_g)
+            u_g[:g0 + 1] = a_g[:g0 + 1] * r_g[:g0 + 1]**(l + x)
+            g = g0
+            agm1, ag, agp1 = a_g[g - 1:g + 2]
 
         r = r_g[g0]
         dr = rgd.dr_g[g0]
