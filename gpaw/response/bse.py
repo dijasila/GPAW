@@ -222,6 +222,7 @@ class BSEBackend:
                 pawcorr = pairden_paw_corr(qpd0)
 
         # Calculate pair densities, eigenvalues and occupations
+        self.context.timer.start('Pair densities')
         so = self.spinors + 1
         Nv, Nc = so * self.nv, so * self.nc
         Ns = self.spins
@@ -310,11 +311,13 @@ class BSEBackend:
         world.sum(rhoex_KsmnG)
 
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
             return
 
         # Calculate Hamiltonian
+        self.context.timer.start('Calculate Hamiltonian')
         t0 = time()
         self.context.print('Calculating {} matrix elements at q_c = {}'.format(
             self.mode, self.q_c))
@@ -333,11 +336,11 @@ class BSEBackend:
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
-                        self.context.timer.start('H_ksmnKsmn')
+                        self.context.timer.start('Coulomb')
                         H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
                             'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
                             optimize='optimal')
-                        self.context.timer.stop('H_ksmnKsmn')
+                        self.context.timer.stop('Coulomb')
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
@@ -369,6 +372,7 @@ class BSEBackend:
                                                   np.dot(vec3_mn, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
+                            self.context.timer.start('Screened exchange')
                             W_mnmn = np.einsum('ijk,km,pqm->ipjq',
                                                rho3_mmG.conj(),
                                                self.W_qGG[iq],
@@ -376,6 +380,7 @@ class BSEBackend:
                                                optimize='optimal')
                             W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
+                            self.context.timer.stop('Screened exchange')
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -388,6 +393,7 @@ class BSEBackend:
         #     del self.Q_qaGii, self.W_qGG, self.qpd_q
 
         H_ksmnKsmn /= self.gs.volume
+        self.context.timer.stop('Calculate Hamiltonian')
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
