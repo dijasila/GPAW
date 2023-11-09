@@ -270,35 +270,12 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
-    def get_atomic_density_matrices(self):
-        """Return atomic density matrix for each atom."""
-        assert self.domain_comm.size == 1
-        assert self.bcomm.size == 1
-
-        D_asii = {}
-        for a, l_j in enumerate(self.l_aj):
-            ni = (2 * np.array(l_j) + 1).sum()
-            D_sii = np.zeros([4, ni, ni], dtype=complex)
-            for wfs, weight in zip(self.wfs.values(), self.weights()):
-                f_n = wfs.f_m * weight
-                P_nsi = wfs.projections[a]
-
-                D_ssii = np.einsum('nsi, n, nzj -> szij',
-                                   P_nsi.conj(), f_n, P_nsi)
-                D_sii[0] += D_ssii[0, 0] + D_ssii[1, 1]
-                D_sii[1] += D_ssii[0, 1] + D_ssii[1, 0]
-                D_sii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
-                D_sii[3] += D_ssii[0, 0] - D_ssii[1, 1]
-            self.kpt_comm.sum(D_sii)
-            D_asii[a] = D_sii
-
-        return D_asii
 
     def get_orbital_magnetic_moments(self):
         """Return the orbital magnetic moment vector for each atom."""
-        from gpaw.new.orbmag import get_orbmag_from_density
-        D_asii = self.get_atomic_density_matrices()
-        return get_orbmag_from_density(D_asii, self.n_aj, self.l_aj)
+        from gpaw.new.orbmag import get_orbmag_from_soc_eigs
+        return get_orbmag_from_soc_eigs(self)
+
 
     def pdos_weights(self,
                      a: int,
@@ -560,10 +537,11 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     else:
         occcalc = None
 
-    n_aj = [setup.n_j for setup in calc.wfs.setups]
-    l_aj = [setup.l_j for setup in calc.wfs.setups]
+    nl_aj = {}
+    for a, setup in enumerate(calc.wfs.setups):
+        nl_aj[a] = list(zip(setup.n_j, setup.l_j))
 
-    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, n_aj, l_aj)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:

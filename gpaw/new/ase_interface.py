@@ -455,17 +455,9 @@ class ASECalculator:
         return state.ibzwfs.ibz.kpt_kc.copy()
 
     def get_orbital_magnetic_moments(self):
-        """Returns the orbital magnetic moment vector for each atom."""
-        state = self.calculation.state
-        if not state.density.ncomponents == 4:
-            raise AssertionError(
-                'Collinear calculations require spin-orbit '
-                'coupling for nonzero orbital magnetic moments.')
-        if not self.params.soc:
-            warnings.warn('Non-collinear calculation was performed without '
-                          'spin-orbit coupling. Orbital magnetic moments may '
-                          'not be accurate.')
-        return state.density.calculate_orbital_magnetic_moments()
+        """Return the orbital magnetic moment vector for each atom."""
+        from gpaw.new.orbmag import get_orbmag_from_calc
+        return get_orbmag_from_calc(self)
 
     def calculate(self, atoms, properties=None, system_changes=None):
         if properties is None:

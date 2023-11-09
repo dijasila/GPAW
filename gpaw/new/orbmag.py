@@ -26,31 +26,17 @@ from gpaw.spinorbit import get_L_vlmm
 L_vlmm = get_L_vlmm()
 
 
-def get_orbmag_from_density(D_asii, n_aj, l_aj):
-    "Returns orbital magnetic moment vectors calculated from scf spinors."
-
-    orbmag_av = np.zeros([len(n_aj), 3])
-    for (a, D_sii), n_j, l_j in zips(D_asii.items(), n_aj, l_aj):
-        D_ii = D_sii[0]  # Only the electron density
-
-        Ni = 0
-        for n, l in zips(n_j, l_j):
-            Nm = 2 * l + 1
-            if n < 0:
-                Ni += Nm
-                continue
-            for v in range(3):
-                orbmag_av[a, v] += np.einsum('ij,ij->',
-                                             D_ii[Ni:Ni + Nm, Ni:Ni + Nm],
-                                             L_vlmm[v][l]).real
-            Ni += Nm
-
-    return orbmag_av
-
-
-# Unused, could be deleted
 def get_orbmag_from_calc(calc):
-    "Returns orbital magnetic moment vectors calculated from scf spinors."
+    "Return orbital magnetic moment vectors calculated from scf spinors."
+    if not calc.density.ncomponents == 4:
+        raise AssertionError('Collinear calculations require spin-orbit '
+                             'coupling for nonzero orbital magnetic moments.')
+    if not calc.params.soc:
+        import warnings
+        warnings.warn('Non-collinear calculation was performed without spin'
+                      '-orbit coupling. Orbital magnetic moments may not be '
+                      'accurate.')
+
     assert calc.wfs.bd.comm.size == 1 and calc.wfs.gd.comm.size == 1
 
     orbmag_av = np.zeros([len(calc.atoms), 3])
@@ -66,7 +52,6 @@ def get_orbmag_from_calc(calc):
     return orbmag_av
 
 
-# Unused, could be deleted
 def get_orbmag_from_soc_eigs(soc):
     "Return orbital magnetic moment vectors calculated from nscf spinors."
     assert soc.bcomm.size == 1 and soc.domain_comm.size == 1
@@ -82,8 +67,6 @@ def get_orbmag_from_soc_eigs(soc):
     return orbmag_av
 
 
-# Unused, could be deleted.
-# It does something unique though, so maybe this one should be kept.
 def calculate_orbmag_1k(f_n, P_nsi, nl_j):
     """Calculate contribution to orbital magnetic moment for a single k-point.
 
