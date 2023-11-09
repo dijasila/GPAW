@@ -18,6 +18,7 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.context import timer
 
 
 class BSEBackend:
@@ -412,6 +413,7 @@ class BSEBackend:
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
+    @timer('get_density_matrix')
     def get_density_matrix(self, kpt1, kpt2):
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
@@ -427,6 +429,7 @@ class BSEBackend:
                                  self.pair_calc)
         return rho_mnG, iq
 
+    @timer('get_screened_potential')
     def get_screened_potential(self):
 
         if hasattr(self, 'W_qGG'):
@@ -479,6 +482,7 @@ class BSEBackend:
 
         self.blockcomm = self._chi0calc.chi0_body_calc.integrator.blockcomm
 
+    @timer('calculate_screened_potential')
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
@@ -516,6 +520,7 @@ class BSEBackend:
                         iq + 1, timedelta(seconds=round(dt)), timedelta(
                             seconds=round(tleft))))
 
+    @timer('diagonalize')
     def diagonalize(self):
 
         self.context.print('Diagonalizing Hamiltonian')
@@ -573,6 +578,7 @@ class BSEBackend:
 
         return
 
+    @timer('get_bse_matrix')
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
                        readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
@@ -597,6 +603,7 @@ class BSEBackend:
 
         return
 
+    @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, readfile=None, optical=True,
                  write_eig=None):
