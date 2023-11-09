@@ -150,7 +150,7 @@ build-cuda:
       libraries += ['cudart', 'cublas']
       EOF
     - cat siteconfig.py
-    - pip install --user --log build.log --editable .
+    - pip install -v --user --log build.log --editable .
 
 
 build-hip-cuda:
@@ -177,7 +177,7 @@ build-hip-cuda:
       undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
-    - pip install --user --log build.log --editable .
+    - pip install -v --user --log build.log --editable .
 
 
 build-minimal:
