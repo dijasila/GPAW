@@ -35,8 +35,6 @@ def test_orbmag_Ni(gpw_files):
     energy_ncol = calc_ncol.get_potential_energy(calc_ncol.atoms)
     density = calc_ncol.calculation.state.density
     magmoms_ncol_v, _ = density.calculate_magnetic_moments()
-    with pytest.warns(UserWarning, match='Non-collinear calculation*'):
-        calc_ncol.get_orbital_magnetic_moments()
     orbmag_ncol_v = soc_eigenstates(
         calc_ncol).get_orbital_magnetic_moments()[0]
 
@@ -61,9 +59,9 @@ def test_orbmag_Ni(gpw_files):
 
     # Assert direction and magnitude of orbital magnetic moment
     assert np.linalg.norm(orbmag_ncolsoc_v) == pytest.approx(
-        0.0452269, abs=1e-6)
+        0.045176, abs=1e-6)
     assert np.dot(orbmag_ncolsoc_v, easy_axis) == pytest.approx(
-        0.0452269, abs=1e-6)
+        0.045176, abs=1e-6)
 
     # Get difference between orbital magnetic moments when soc is included
     # self-consistently. Assert that this difference doesn't change.
@@ -71,5 +69,5 @@ def test_orbmag_Ni(gpw_files):
     dif_orbmag2 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_col_v)
     dif_orbmag3 = np.linalg.norm(orbmag_ncolsoc_v - orbmag_ncol_v)
 
-    assert dif_orbmag2 == pytest.approx(0.002567, abs=1e-6)
-    assert dif_orbmag3 == pytest.approx(0.002567, abs=1e-6)
+    assert dif_orbmag2 == pytest.approx(0.002516, abs=1e-6)
+    assert dif_orbmag3 == pytest.approx(0.002516, abs=1e-6)

@@ -36,7 +36,6 @@ def get_orbmag_from_calc(calc):
         warnings.warn('Non-collinear calculation was performed without spin'
                       '-orbit coupling. Orbital magnetic moments may not be '
                       'accurate.')
-
     assert calc.wfs.bd.comm.size == 1 and calc.wfs.gd.comm.size == 1
 
     orbmag_av = np.zeros([len(calc.atoms), 3])

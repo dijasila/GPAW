@@ -283,7 +283,6 @@ class Density:
             self.delta_aiiL,
             self.delta0_a,
             self.N0_aii,
-            self.n_aj,
             self.l_aj,
             nct_aX=self.nct_aX.new(xdesc, atomdist),
             tauct_aX=self.tauct_aX.new(xdesc, atomdist))
@@ -335,7 +334,6 @@ class Density:
             magmom_v += self.nt_sR.integrate()[1:]
 
         return magmom_v, magmom_av
-
 
     def write(self, writer):
         D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()
