@@ -1760,7 +1760,8 @@ def pytest_runtest_setup(item):
     * they depend on libxc and GPAW is not compiled with libxc
     * they are before $PYTEST_START_AFTER
     """
-    from gpaw import libraries
+    from gpaw import get_libraries
+    libraries = get_libraries()
 
     if world.size > 1:
         for mark in item.iter_markers():

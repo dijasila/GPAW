@@ -18,7 +18,7 @@ from ase.parallel import world as aseworld
 
 import gpaw
 
-from .broadcast_imports import world as _world
+from ._broadcast_imports import world as _world
 
 MASTER = 0
 
