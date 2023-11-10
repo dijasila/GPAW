@@ -32,5 +32,5 @@ def test_xc_nonselfconsistentLDA(in_tmp_dir):
     assert de21 == pytest.approx(de21b, abs=9e-8)
 
     energy_tolerance = 0.0007
-    equal(e1, -0.0961003634812, energy_tolerance)
-    equal(e2, -0.0790249564625, energy_tolerance)
+    assert e1 == pytest.approx(-0.0961003634812, abs=energy_tolerance)
+    assert e2 == pytest.approx(-0.0790249564625, abs=energy_tolerance)

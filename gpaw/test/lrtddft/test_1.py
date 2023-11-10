@@ -85,7 +85,7 @@ def test_singlet_triplet(lr_vspin, lr_spin):
     precision = 1.e-5
     singlet.diagonalize()
     assert singlet[0].get_energy() == pytest.approx(lr_spin[1].get_energy(), abs=precision)
-    equal(singlet[0].get_oscillator_strength()[0], lr_spin[1].get_oscillator_strength()[0], precision)
+    assert singlet[0].get_oscillator_strength()[0] == pytest.approx(lr_spin[1].get_oscillator_strength()[0], abs=precision)
     triplet.diagonalize()
     equal(triplet[0].get_oscillator_strength()[0], 0)
     assert triplet[0].get_energy() == pytest.approx(lr_spin[0].get_energy(), abs=precision)

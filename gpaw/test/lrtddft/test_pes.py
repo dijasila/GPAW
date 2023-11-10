@@ -52,7 +52,7 @@ def test_lrtddft_pes(in_tmp_dir):
     for be, f in zip(be_n, f_n):
         if f > 0.1 and be < BE_HOMO:
             BE_HOMO = be
-    equal(BE_HOMO, VDE, 0.0)
+    assert BE_HOMO == pytest.approx(VDE, abs=0.0)
 
     lr = LrTDDFT(calc_plus, xc=xc)
 

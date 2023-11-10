@@ -33,5 +33,5 @@ def test_xc_revPBE_Li():
 
     print(e, erev)
     energy_tolerance = 0.002
-    equal(e, -204.381098849, energy_tolerance)
-    equal(erev, -205.012303379, energy_tolerance)
+    assert e == pytest.approx(-204.381098849, abs=energy_tolerance)
+    assert erev == pytest.approx(-205.012303379, abs=energy_tolerance)
