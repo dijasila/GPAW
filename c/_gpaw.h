@@ -224,7 +224,7 @@ static PyMethodDef functions[] = {
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
     {"hartree", hartree, METH_VARARGS, 0},
-    {"integrate_outwards", integrate_inwards, METH_VARARGS, 0},
+    {"integrate_outwards", integrate_outwards, METH_VARARGS, 0},
     {"integrate_inwards", integrate_inwards, METH_VARARGS, 0},
     {"localize", localize, METH_VARARGS, 0},
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
