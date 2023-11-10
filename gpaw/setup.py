@@ -548,7 +548,7 @@ class LeanSetup(BaseSetup):
         # This needs cleaning.
         self.hubbard_u = hubbard_u
 
-        self.lq = s.lq  # Required for LDA+U I think.
+        self.N0_q = s.N0_q  # Required for LDA+U.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
         self.filename = s.filename
@@ -784,8 +784,7 @@ class Setup(BaseSetup):
 
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
-        gcut2 = rgd.ceil(rcut2)
-        self.gcut2 = gcut2
+        gcut2 = self.gcut2 = rgd.ceil(rcut2)
 
         gcut_q = np.zeros(nq, dtype=int)
         q = 0  # q: common index for j1, j2
@@ -795,7 +794,6 @@ class Setup(BaseSetup):
                 q += 1
 
         self.gcut_q = gcut_q
-        self.gcutmin = min(gcut_q)
 
         vbar_g = data.vbar_g
 
@@ -1059,7 +1057,7 @@ class Setup(BaseSetup):
 
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
-        Rr2R_q = np.zeros(nq)
+        N0_q = np.zeros(nq)
         q = 0  # q: common index for j1, j2
         for j1 in range(self.nj):
             for j2 in range(j1, self.nj):
@@ -1067,14 +1065,11 @@ class Setup(BaseSetup):
                 nt_qg[q] = phit_jg[j1] * phit_jg[j2]
 
                 gcut = gcut_q[q]
-                Rr2R_q[q] = sum(n_qg[q, :gcut] * (r_g[:gcut]**2 * dr_g[:gcut]))
+                N0_q[q] = sum(n_qg[q, :gcut] * (r_g[:gcut]**2 * dr_g[:gcut]))
 
                 q += 1
 
-        self.Rr2R_q = Rr2R_q
-
-        gcutmin = self.gcutmin
-        self.lq = np.dot(n_qg[:, :gcutmin], r_g[:gcutmin]**2 * dr_g[:gcutmin])
+        self.N0_q = N0_q
 
         Delta_lq = np.zeros((lmax + 1, nq))
         for l in range(lmax + 1):
@@ -1093,10 +1088,7 @@ class Setup(BaseSetup):
 
         # Electron density inside augmentation sphere.  Used for estimating
         # atomic magnetic moment:
-        rcutmax = max(self.rcut_j)
-        gcutmax = self.rgd.round(rcutmax)
-        N0_q = np.dot(n_qg[:, :gcutmax], (r_g**2 * dr_g)[:gcutmax])
-        N0_p = np.dot(N0_q, T_Lqp[0]) * sqrt(4 * pi)
+        N0_p = sqrt(4 * pi) * N0_q @ T_Lqp[0]
 
         return (g_lg[:, :gcut2].copy(), n_qg, nt_qg,
                 Delta_lq, Lmax, Delta_pL, Delta0, N0_p)

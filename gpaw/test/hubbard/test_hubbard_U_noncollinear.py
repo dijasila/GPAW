@@ -23,13 +23,13 @@ def test_hubbard_U_noncollinear():
     U = 4  # eV
 
     # Generate inner products for the p-orbitals
-    lq = np.zeros(len(l_j) * (len(l_j) + 1) // 2)
-    lq[4] = 0.9  # Bounded-bounded
-    lq[6] = 1.1  # Bounded-unbounded
-    lq[9] = 1.2  # Unbounded-unbounded
+    N0_q = np.zeros(len(l_j) * (len(l_j) + 1) // 2)
+    N0_q[4] = 0.9  # Bounded-bounded
+    N0_q[6] = 1.1  # Bounded-unbounded
+    N0_q[9] = 1.2  # Unbounded-unbounded
 
-    eU, _ = hubbard(D_sii, U / Ha, l, l_j, lq, scale=True)
-    eU_onlyreal, _ = hubbard(D_sii.real, U / Ha, l, l_j, lq, scale=True)
+    eU, _ = hubbard(D_sii, U / Ha, l, l_j, N0_q, scale=True)
+    eU_onlyreal, _ = hubbard(D_sii.real, U / Ha, l, l_j, N0_q, scale=True)
 
     # Assert that disregarding the complex values will alter the energy
     assert eU == pytest.approx(-7.825104, abs=1.e-2)

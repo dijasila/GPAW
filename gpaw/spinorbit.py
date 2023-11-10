@@ -166,13 +166,11 @@ class BZWaveFunctions:
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 n_aj: List[List[int]],
-                 l_aj: List[List[int]]):
+                 nl_aj: Dict[int, List[Tuple[int, int]]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
-        self.n_aj = n_aj
-        self.l_aj = l_aj
+        self.nl_aj = nl_aj
 
         self.nbzkpts = kd.nbzkpts
 
@@ -270,12 +268,10 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
-
     def get_orbital_magnetic_moments(self):
         """Return the orbital magnetic moment vector for each atom."""
         from gpaw.new.orbmag import get_orbmag_from_soc_eigs
         return get_orbmag_from_soc_eigs(self)
-
 
     def pdos_weights(self,
                      a: int,

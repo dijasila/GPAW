@@ -322,7 +322,7 @@ class UPFSetupData:
         self.nabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         self.fingerprint = None  # XXX hexdigest the file?
-        self.lq = None  # XXX
+        self.N0_q = None  # XXX
 
         if valence_states is None:
             valence_states = data['states']
