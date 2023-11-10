@@ -39,9 +39,11 @@ def test_utilities_partitioning(in_tmp_dir):
                     if gridrefinement < 4:
                         # The highest level of gridrefinement gets wrong
                         # electron numbers
-                        assert gd.integrate(full) == pytest.approx(result, abs=1.e-8)
+                        assert gd.integrate(full) == pytest.approx(result,
+                                                                   abs=1.e-8)
                     else:
-                        assert gd.integrate(full) == pytest.approx(result, abs=1.e-4)
+                        assert gd.integrate(full) == pytest.approx(result,
+                                                                   abs=1.e-4)
 
             hp = HirshfeldPartitioning(calc)
             vr = hp.get_effective_volume_ratios()

@@ -12,11 +12,12 @@ def test_spectrum():
     width = 0.5
     x = 1.5
 
-    assert Gauss(width).get(x) == pytest.approx(exp(- x**2 / 2 / width**2) / sqrt(2 * pi) / width, abs=1.e-15)
-    assert Gauss(width).fwhm == pytest.approx(width * np.sqrt(8 * np.log(2)), abs=1.e-15)
-    equal(Lorentz(width).get(x),
-          width / (x**2 + width**2) / pi,
-          1.e-15)
+    assert Gauss(width).get(x) == pytest.approx(
+        exp(- x**2 / 2 / width**2) / sqrt(2 * pi) / width, abs=1.e-15)
+    assert Gauss(width).fwhm == pytest.approx(
+        width * np.sqrt(8 * np.log(2)), abs=1.e-15)
+    assert Lorentz(width).get(x) == pytest.approx(
+        width / (x**2 + width**2) / pi, abs=1.e-15)
     assert Lorentz(width).fwhm == pytest.approx(width * 2, abs=1.e-15)
 
     # folder function

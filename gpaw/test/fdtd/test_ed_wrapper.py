@@ -48,7 +48,8 @@ def test_fdtd_ed_wrapper(in_tmp_dir):
                         nbands=-1,
                         convergence={'energy': energy_eps},
                         symmetry={'point_group': False})
-    assert qsfdtd.energy == pytest.approx(-0.631881, abs=energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
+    assert qsfdtd.energy == pytest.approx(
+        -0.631881, abs=energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
     qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001],
                             time_step=10, iterations=5,
                             dipole_moment_file='dm.dat', restart_file='td.gpw')
@@ -60,5 +61,7 @@ def test_fdtd_ed_wrapper(in_tmp_dir):
     ref_qm_dipole_moment = [1.78620337e-11, -1.57782578e-11, 5.21368300e-01]
 
     tol = 1e-4
-    assert qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment() == pytest.approx(ref_cl_dipole_moment, abs=tol)
-    assert qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment() == pytest.approx(ref_qm_dipole_moment, abs=tol)
+    cl_dm = qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment()
+    qm_dm = qsfdtd.td_calc.hamiltonian.poisson.get_quantum_dipole_moment()
+    assert cl_dm == pytest.approx(ref_cl_dipole_moment, abs=tol)
+    assert qm_dm == pytest.approx(ref_qm_dipole_moment, abs=tol)

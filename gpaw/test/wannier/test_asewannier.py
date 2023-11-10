@@ -24,24 +24,30 @@ def test_ase_features_asewannier(in_tmp_dir):
 
     wan = Wannier(nwannier=2, calc=calc, initialwannier='bloch')
     assert wan.get_functional_value() == pytest.approx(2.964, abs=1e-3)
-    assert np.linalg.norm(wan.get_centers() - [com, com]) == pytest.approx(0, abs=1e-4)
+    assert np.linalg.norm(wan.get_centers() - [com, com]) == pytest.approx(
+        0, abs=1e-4)
 
     wan = Wannier(nwannier=2, calc=calc, initialwannier='projectors')
     assert wan.get_functional_value() == pytest.approx(3.100, abs=2e-3)
-    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(0, abs=1e-3)
+    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(
+        0, abs=1e-3)
 
     wan = Wannier(nwannier=2,
                   calc=calc,
                   initialwannier=[[0, 0, .5], [1, 0, .5]])
     assert wan.get_functional_value() == pytest.approx(3.100, abs=2e-3)
-    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(0, abs=1e-3)
+    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(
+        0, abs=1e-3)
 
     wan.localize()
     assert wan.get_functional_value() == pytest.approx(3.100, abs=2e-3)
-    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(0, abs=1e-3)
-    assert np.linalg.norm(wan.get_radii() - 1.2393) == pytest.approx(0, abs=2e-3)
+    assert np.linalg.norm(wan.get_centers() - pos) == pytest.approx(
+        0, abs=1e-3)
+    assert np.linalg.norm(wan.get_radii() - 1.2393) == pytest.approx(
+        0, abs=2e-3)
     eig = np.sort(np.linalg.eigvals(wan.get_hamiltonian(k=0).real))
-    assert np.linalg.norm(eig - calc.get_eigenvalues()[:2]) == pytest.approx(0, abs=1e-4)
+    assert np.linalg.norm(eig - calc.get_eigenvalues()[:2]) == pytest.approx(
+        0, abs=1e-4)
 
     wan.write_cube(0, 'H2.cube')
 

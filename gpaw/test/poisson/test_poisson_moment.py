@@ -8,7 +8,6 @@ from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
 from gpaw.grid_descriptor import GridDescriptor
 
 
-
 @pytest.mark.parametrize('moment_corrections, expected_len', [
     (None, 0),
     ([], 0),
@@ -194,7 +193,8 @@ def compare(gd, tolerance, cmp_begin):
             if slice is not None:
                 big_phi1_g = big_phi1_g[slice]
                 big_phi2_g = big_phi2_g[slice]
-            assert np.max(np.absolute(big_phi1_g - big_phi2_g)) == pytest.approx(0.0, abs=tolerance)
+            assert np.max(np.absolute(big_phi1_g - big_phi2_g)) == (
+                pytest.approx(0.0, abs=tolerance))
 
     return _compare
 

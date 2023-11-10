@@ -72,7 +72,8 @@ def test_lcaotddft_restart(in_tmp_dir):
     with ulm.open('fdm_final_ref.ulm') as fdm_ref:
         with ulm.open('fdm_final_check.ulm') as fdm_check:
             for key in ['FReDrho_wuMM', 'FImDrho_wuMM', 'rho0_uMM', 'time']:
-                assert fdm_ref.get(key) == pytest.approx(fdm_check.get(key), abs=tol)
+                assert fdm_ref.get(key) == pytest.approx(fdm_check.get(key),
+                                                         abs=tol)
 
     # Test the absolute values
     data = np.loadtxt('dm.dat')[:8].ravel()

@@ -54,6 +54,7 @@ def test_coulomb():
         assert res['real'][0] == pytest.approx(analytic, abs=6e-3)
         assert res['recip_gauss'][0] == pytest.approx(analytic, abs=6e-3)
         assert res['recip_ewald'][0] == pytest.approx(analytic, abs=2e-2)
-        assert res['dual density'][0] == pytest.approx(res['recip_gauss'][0], abs=1e-9)
+        assert res['dual density'][0] == pytest.approx(res['recip_gauss'][0],
+                                                       abs=1e-9)
 
     # mpirun -np 2 python coulomb.py --gpaw-parallel --gpaw-debug

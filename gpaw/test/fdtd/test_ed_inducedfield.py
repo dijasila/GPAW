@@ -74,8 +74,10 @@ def test_fdtd_ed_inducedfield(in_tmp_dir, gpw_files):
     ref_qm_dipole_moment = [1.78620337e-11, -1.57782578e-11, 5.21368300e-01]
 
     tol = 1e-4
-    assert td_calc.hamiltonian.poisson.get_classical_dipole_moment() == pytest.approx(ref_cl_dipole_moment, abs=tol)
-    assert td_calc.hamiltonian.poisson.get_quantum_dipole_moment() == pytest.approx(ref_qm_dipole_moment, abs=tol)
+    assert td_calc.hamiltonian.poisson.get_classical_dipole_moment() == (
+        pytest.approx(ref_cl_dipole_moment, abs=tol))
+    assert td_calc.hamiltonian.poisson.get_quantum_dipole_moment() == (
+        pytest.approx(ref_qm_dipole_moment, abs=tol))
 
     # Calculate induced fields
     td_calc = TDDFT('td.gpw')

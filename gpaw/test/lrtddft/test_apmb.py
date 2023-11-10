@@ -40,7 +40,8 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(), abs=5.e-9)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-9)
 
     # with spin
     parprint('------ with spin')
@@ -60,8 +61,10 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(), abs=5.e-8)
-    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(), abs=5.e-8)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-8)
+    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(),
+                                               abs=5.e-8)
 
     # with spin virtual
     parprint('------ with virtual spin')
@@ -74,8 +77,10 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(), abs=5.e-8)
-    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(), abs=5.e-8)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-8)
+    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(),
+                                               abs=5.e-8)
 
     # with HF exchange
 
@@ -90,5 +95,7 @@ def test_lrtddft_apmb():
     lr = LrTDDFT(calc, xc=xc, nspins=2)
     lr.diagonalize()
     parprint('lr=', lr)
-    assert lr[0].get_energy() == pytest.approx(lr_spin[0].get_energy(), abs=3.8e-6)
-    assert lr[1].get_energy() == pytest.approx(lr_spin[1].get_energy(), abs=3.4e-6)
+    assert lr[0].get_energy() == pytest.approx(lr_spin[0].get_energy(),
+                                               abs=3.8e-6)
+    assert lr[1].get_energy() == pytest.approx(lr_spin[1].get_energy(),
+                                               abs=3.4e-6)

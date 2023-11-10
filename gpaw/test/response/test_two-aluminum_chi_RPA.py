@@ -83,7 +83,8 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     assert np.linalg.norm(G11_Gc[0]) == pytest.approx(0., abs=1e-6)
     assert np.linalg.norm(G21_Gc[0]) == pytest.approx(0., abs=1e-6)
     assert np.linalg.norm(G12_Gc[0]) == pytest.approx(0., abs=1e-6)
-    assert np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])) == pytest.approx(0., abs=1e-6)
+    assert np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])) == pytest.approx(
+        0., abs=1e-6)
 
     # Check plasmon peaks remain the same
     wpeak11, Ipeak11 = findpeak(w11_w, -chi11_wGG[:, 0, 0].imag)

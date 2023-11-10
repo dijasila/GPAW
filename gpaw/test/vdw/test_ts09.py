@@ -49,7 +49,8 @@ def test_vdw_ts09(in_tmp_dir):
         accuracy = 1.e-5
         for fname in [out_traj, out_txt]:
             s_out = ase.io.read(fname)
-            assert s_out.get_potential_energy() == pytest.approx(E, abs=accuracy)
+            assert s_out.get_potential_energy() == pytest.approx(E,
+                                                                 abs=accuracy)
             for fi, fo in zip(F_ac, s_out.get_forces()):
                 assert fi == pytest.approx(fo, abs=accuracy)
 

@@ -91,7 +91,8 @@ def test_lrtddft_3(in_tmp_dir):
     Eanalyse = float(match[0][0])
     oszanalyse = float(match[0][1])
     print('From analyse           :', Eanalyse, oszanalyse)
-    equal(E, Eanalyse, 1e-3)            # Written precision in analyse
+    assert E == pytest.approx(Eanalyse,
+                              abs=1e-3)  # Written precision in analyse
     assert osz[0] == pytest.approx(oszanalyse, abs=1e-3)
 
     E2 = lr2[n].get_energy() * Hartree
@@ -118,5 +119,6 @@ def test_lrtddft_3(in_tmp_dir):
 
     print('Values from spectrum   :', Espec, oszspec)
     # Compare calculated values with values written to file
-    equal(E, Espec, 1e-2)           # The spectrum has a low sampling
+    assert E == pytest.approx(Espec,
+                              abs=1e-2)  # The spectrum has a low sampling
     assert osz[0] == pytest.approx(oszspec, abs=1e-2)

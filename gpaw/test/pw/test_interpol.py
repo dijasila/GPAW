@@ -48,13 +48,15 @@ def test_pw_interpol(rng):
             d2 = pd1.interpolate(a1 * 1.0j, pd2)[0]
             assert abs(c2.imag).max() == pytest.approx(0, abs=1e-14)
             assert abs(d2.real).max() == pytest.approx(0, abs=1e-14)
-            assert gd1.integrate(a1) == pytest.approx(gd2.integrate(a2), abs=1e-13)
+            assert gd1.integrate(a1) == pytest.approx(gd2.integrate(a2),
+                                                      abs=1e-13)
             assert abs(c2 - a2).max() == pytest.approx(0, abs=1e-14)
             assert abs(d2 - a2 * 1.0j).max() == pytest.approx(0, abs=1e-14)
 
             a1 = pd2r.restrict(a2, pd1r)[0]
             c1 = pd2.restrict(a2 + 0.0j, pd1)[0]
             d1 = pd2.restrict(a2 * 1.0j, pd1)[0]
-            assert gd1.integrate(a1) == pytest.approx(gd2.integrate(a2), abs=1e-13)
+            assert gd1.integrate(a1) == pytest.approx(gd2.integrate(a2),
+                                                      abs=1e-13)
             assert abs(c1 - a1).max() == pytest.approx(0, abs=1e-14)
             assert abs(d1 - a1 * 1.0j).max() == pytest.approx(0, abs=1e-14)
