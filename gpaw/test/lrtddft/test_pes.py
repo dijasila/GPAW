@@ -3,7 +3,6 @@ from ase import Atom, Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW, mpi
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.poisson import FDPoissonSolver
 from gpaw.pes.dos import DOSPES
@@ -64,8 +63,8 @@ def test_lrtddft_pes(in_tmp_dir):
     pes.save_folded_pes(filename=None, folding=None)
 
     energy_tolerance = 0.001
-    equal(e_H2, -3.90059, energy_tolerance)
-    equal(e_H2_plus, 10.5659703, energy_tolerance)
+    assert e_H2 == pytest.approx(-3.90059, abs=energy_tolerance)
+    assert e_H2_plus == pytest.approx(10.5659703, abs=energy_tolerance)
 
     # io
     out = 'lrpes.dat.gz'

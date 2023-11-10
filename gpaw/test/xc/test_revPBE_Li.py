@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.units import Hartree
 from gpaw import GPAW, PoissonSolver, FermiDirac, Davidson, MixerSum
-from gpaw.test import equal
+import pytest
 
 
 def test_xc_revPBE_Li():
@@ -22,14 +22,14 @@ def test_xc_revPBE_Li():
 
     li.calc = GPAW(**params)
     e = li.get_potential_energy() + li.calc.get_reference_energy()
-    equal(e, -7.462 * Hartree, 1.4)
+    assert e == pytest.approx(-7.462 * Hartree, abs=1.4)
 
     params['xc'] = dict(name='revPBE', stencil=1)
     li.calc = GPAW(**params)
     erev = li.get_potential_energy() + li.calc.get_reference_energy()
 
-    equal(erev, -7.487 * Hartree, 1.3)
-    equal(e - erev, 0.025 * Hartree, 0.002 * Hartree)
+    assert erev == pytest.approx(-7.487 * Hartree, abs=1.3)
+    assert e - erev == pytest.approx(0.025 * Hartree, abs=0.002 * Hartree)
 
     print(e, erev)
     energy_tolerance = 0.002

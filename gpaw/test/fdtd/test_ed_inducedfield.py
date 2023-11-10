@@ -6,7 +6,6 @@ from gpaw.inducedfield.inducedfield_fdtd import (
     FDTDInducedField, calculate_hybrid_induced_field)
 from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.tddft import TDDFT, DipoleMomentWriter
-from gpaw.test import equal
 
 
 @pytest.mark.later
@@ -23,11 +22,11 @@ def test_fdtd_ed_inducedfield(in_tmp_dir, gpw_files):
     energy = gs_calc.get_potential_energy()
 
     # Test ground state
-    equal(energy, -0.631881, energy_eps * gs_calc.get_number_of_electrons())
+    assert energy == pytest.approx(-0.631881, abs=energy_eps * gs_calc.get_number_of_electrons())
 
     # Test floating point arithmetic errors
-    equal(gs_calc.hamiltonian.poisson.shift_indices_1, [4, 4, 10], 0)
-    equal(gs_calc.hamiltonian.poisson.shift_indices_2, [8, 8, 16], 0)
+    assert gs_calc.hamiltonian.poisson.shift_indices_1, [4, 4 == pytest.approx(10], abs=0)
+    assert gs_calc.hamiltonian.poisson.shift_indices_2, [8, 8 == pytest.approx(16], abs=0)
 
     # Initialize TDDFT and FDTD
     kick = [0.0, 0.0, 1.0e-3]
@@ -129,7 +128,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir, gpw_files):
             print('tol = %.12f' % tol)
         for w in range(len(frequencies)):
             val = ind.fieldgd.integrate(ind.Ffe_wg[w])
-            equal(val, ref_values.pop(0), tol)
+            assert val == pytest.approx(ref_values.pop(0), abs=tol)
             for v in range(3):
                 val = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[w][v]))
-                equal(val, ref_values.pop(0), tol)
+                assert val == pytest.approx(ref_values.pop(0), abs=tol)

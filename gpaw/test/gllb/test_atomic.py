@@ -1,6 +1,5 @@
 import pytest
 from gpaw.atom.all_electron import AllElectron
-from gpaw.test import equal
 
 
 @pytest.mark.gllb
@@ -38,9 +37,9 @@ def test_gllb_atomic():
                 GLLB.e_j[-1],
                 'Ha')
             if xcname == 'GLLB':
-                equal(GLLB.ETotal, ETotal[atom], tolerance=1e-2)
-                equal(GLLB.Exc, EX[atom], tolerance=1e-2)
-                equal(GLLB.e_j[-1], EHOMO[atom], tolerance=1e-2)
+                assert GLLB.ETotal == pytest.approx(ETotal[atom], abs=tolerance=1e-2)
+                assert GLLB.Exc == pytest.approx(EX[atom], abs=tolerance=1e-2)
+                assert GLLB.e_j[-1] == pytest.approx(EHOMO[atom], abs=tolerance=1e-2)
 
         print('             Quanity        Method    Symbol     Ref[1]'
               '         GPAW      Unit  ')

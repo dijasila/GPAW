@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, FermiDirac, PoissonSolver
-from gpaw.test import equal
+import pytest
 from gpaw.xc.tools import vxc
 
 
@@ -36,7 +36,7 @@ def test_generic_8Si():
 
     f2 = numeric_force(bulk, 0, 2)
     print((f1, f2, f1 - f2))
-    equal(f1, f2, 0.005)
+    assert f1 == pytest.approx(f2, abs=0.005)
 
     # Volume per atom:
     vol = a**3 / 8

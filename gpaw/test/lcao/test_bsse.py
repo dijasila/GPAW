@@ -55,7 +55,7 @@ def test_lcao_bsse():
 
     energy_tolerance = 0.002
     niter_tolerance = 3
-    equal(e_bsse, 0.02914, energy_tolerance)  # svnversion 5252
-    equal(niter_bsse, 7, niter_tolerance)  # svnversion 5252
-    equal(e0, 0.03038, energy_tolerance)  # svnversion 5252
-    equal(niter0, 6, niter_tolerance)  # svnversion 5252
+    equal(e_bsse, 0.02914, energy_tolerance)
+    equal(niter_bsse, 7, niter_tolerance)
+    equal(e0, 0.03038, energy_tolerance)
+    equal(niter0, 6, niter_tolerance)

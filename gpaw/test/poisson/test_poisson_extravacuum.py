@@ -96,7 +96,7 @@ def test_poisson_poisson_extravacuum():
             diff = 0.0
         diff = np.array([diff])
         gd.comm.broadcast(diff, 0)
-        equal(diff[0], val, eps)
+        assert diff[0] == pytest.approx(val, abs=eps)
 
     # Get reference from default poissonsolver
     poisson = PoissonSolver('fd', eps=poissoneps)

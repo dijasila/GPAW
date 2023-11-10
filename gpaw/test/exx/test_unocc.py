@@ -3,7 +3,6 @@ from ase import Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
@@ -65,4 +64,4 @@ def test_exx_unocc():
             parprint('%8.4f %5.2f   %8.4f %5.2f  %8.4f' %
                      (eo, fo, eu, fu, eu - eo))
             if fo > 0.01:
-                equal(eo, eu, 3.5e-4)
+                assert eo == pytest.approx(eu, abs=3.5e-4)

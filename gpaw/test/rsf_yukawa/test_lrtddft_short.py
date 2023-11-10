@@ -10,7 +10,6 @@ from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
 from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
-from gpaw.test import equal
 
 
 @pytest.mark.hybrids
@@ -55,4 +54,4 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
         lr2.diagonalize()
         equal(lr2.xc.omega, 0.83)
         ion_i = lr2[0].get_energy() * Hartree + e_ion
-        equal(ion_i, ip_i, 0.3)
+        assert ion_i == pytest.approx(ip_i, abs=0.3)

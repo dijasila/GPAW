@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from gpaw import GPAW, PW
-from gpaw.test import equal, findpeak
+from gpaw.test import findpeak
 from gpaw.response.df import DielectricFunction
 from ase.build import bulk
 from ase.units import Bohr, Hartree
@@ -122,35 +122,35 @@ def test_chi0_intraband(in_tmp_dir):
     # w_x equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
     w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
-    equal(w1, w3, 1e-2)
-    equal(I1, I3, 1e-1)
+    assert w1 == pytest.approx(w3, abs=1e-2)
+    assert I1 == pytest.approx(I3, abs=1e-1)
 
     # w_x equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCx).imag)
-    equal(w2, w4, 1e-2)
-    equal(I2, I4, 1e-1)
+    assert w2 == pytest.approx(w4, abs=1e-2)
+    assert I2 == pytest.approx(I4, abs=1e-1)
 
     # w_y equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
     w3, I3 = findpeak(w_w, -(1. / df3LFCy).imag)
-    equal(w1, w3, 1e-2)
-    equal(I1, I3, 1e-1)
+    assert w1 == pytest.approx(w3, abs=1e-2)
+    assert I1 == pytest.approx(I3, abs=1e-1)
 
     # w_y equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCy).imag)
-    equal(w2, w4, 1e-2)
-    equal(I2, I4, 1e-1)
+    assert w2 == pytest.approx(w4, abs=1e-2)
+    assert I2 == pytest.approx(I4, abs=1e-1)
 
     # w_z equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
     w3, I3 = findpeak(w_w, -(1. / df3LFCz).imag)
-    equal(w1, w3, 1e-2)
-    equal(I1, I3, 1e-1)
+    assert w1 == pytest.approx(w3, abs=1e-2)
+    assert I1 == pytest.approx(I3, abs=1e-1)
 
     # w_z equal for paired & polarized none
     w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
     w4, I4 = findpeak(w_w, -(1. / df4LFCz).imag)
-    equal(w2, w4, 1e-2)
-    equal(I2, I4, 1e-1)
+    assert w2 == pytest.approx(w4, abs=1e-2)
+    assert I2 == pytest.approx(I4, abs=1e-1)

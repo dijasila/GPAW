@@ -7,7 +7,6 @@ from ase.units import Hartree
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
 
@@ -55,7 +54,7 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             # all s->p transitions at the same energy [Ha] and
             # oscillator_strength
             for ks in kss:
-                equal(ks.get_energy(), kss[0].get_energy(), 5.e-3)
+                assert ks.get_energy() == pytest.approx(kss[0].get_energy(), abs=5.e-3)
                 equal(ks.get_oscillator_strength()[0],
                       kss[0].get_oscillator_strength()[0], 5.e-3)
                 equal(ks.get_oscillator_strength()[0],
@@ -80,5 +79,5 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             assert len(kss1) == calc.wfs.kd.nibzkpts * calc.wfs.nspins
 
         # periodic and non-periodic should be roughly equal
-        equal(energy['zero_bc'], energy['periodic'], 5.e-2)
-        equal(osz['zero_bc'], osz['periodic'], 2.e-2)
+        assert energy['zero_bc'] == pytest.approx(energy['periodic'], abs=5.e-2)
+        assert osz['zero_bc'] == pytest.approx(osz['periodic'], abs=2.e-2)
