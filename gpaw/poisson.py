@@ -600,6 +600,7 @@ class FFTPoissonSolver(BasePoissonSolver):
             N_c[c] = 1  # Will be serial in that direction
             parsize_c = decompose_domain(N_c, gd.comm.size)
             self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
+        self._initialized = False
 
     def _init(self):
         if self._initialized:
