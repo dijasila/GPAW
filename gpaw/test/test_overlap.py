@@ -47,8 +47,8 @@ def test_overlap(in_tmp_dir):
     parprint('pseudo(not normalized):\n', ov)
     ov = Overlap(c1).full(c1)
     parprint('full:\n', ov)
-    assert ov[0], np.eye(ov[0].shape[0] == pytest.approx(dtype=ov.dtype),
-                         abs=1e-10)
+    assert ov[0] == pytest.approx(np.eye(ov[0].shape[0], dtype=ov.dtype),
+                                  abs=1e-10)
 
     def show(c2):
         c2.calculate(H2)
