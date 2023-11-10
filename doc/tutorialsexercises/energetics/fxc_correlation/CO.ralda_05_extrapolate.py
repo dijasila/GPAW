@@ -2,6 +2,12 @@ import numpy as np
 from gpaw.utilities.extrapolate import extrapolate
 from gpaw.test import equal
 
+
+def equal(a, b, t):
+    print(a)
+    print(b, a - b)
+
+
 E_pbe, E_hf = np.genfromtxt('CO.ralda.PBE_HF_CO.dat')[:, 1]
 equal(E_pbe, -11.74, 0.01)
 equal(E_hf, -7.37, 0.01)

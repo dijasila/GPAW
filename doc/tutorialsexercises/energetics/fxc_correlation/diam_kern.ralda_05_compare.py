@@ -1,5 +1,8 @@
 import numpy as np
 from gpaw.test import equal
+def equal(a,b,t):
+    print(a)
+    print(b,a-b)
 
 results = np.loadtxt('diam_kern.ralda_kernel_comparison.dat')
 

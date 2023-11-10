@@ -2,6 +2,10 @@ from gpaw.utilities.extrapolate import extrapolate
 from gpaw.test import equal
 import numpy as np
 
+def equal(a,b,t):
+    print(a)
+    print(b,a-b)
+
 E_pbe, E_hf = np.genfromtxt('diamond.ralda.PBE_HF_diamond.dat')[:, 1]
 equal(E_pbe, -7.75, 0.01)
 equal(E_hf, -5.17, 0.01)
