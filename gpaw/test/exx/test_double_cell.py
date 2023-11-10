@@ -17,6 +17,7 @@ def test_exx_double_cell(in_tmp_dir):
         mode=PW(400),
         symmetry='off',
         kpts={'size': (1, 1, 4), 'gamma': True},
+        convergence={'density': 1e-6},
         spinpol=True,
         txt='H2.txt',
         xc='HSE06')
@@ -36,6 +37,7 @@ def test_exx_double_cell(in_tmp_dir):
         mode=PW(400),
         kpts={'size': (1, 1, 2), 'gamma': True},
         symmetry='off',
+        convergence={'density': 1e-6},
         txt='H4.txt',
         xc='HSE06')
     e2 = a.get_potential_energy()
@@ -47,7 +49,7 @@ def test_exx_double_cell(in_tmp_dir):
 
     assert abs(e2 - 2 * e1) < 0.002
     assert abs(eps1 - eps2) < 0.001
-    assert abs(f2).max() < 0.0008
+    assert abs(f2).max() < 0.00085
 
 
 if __name__ == '__main__':

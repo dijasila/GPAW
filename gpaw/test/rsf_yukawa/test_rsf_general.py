@@ -32,7 +32,7 @@ def test_rsf_yukawa_rsf_general(in_tmp_dir, add_cwd_to_setup_paths):
     xc = HybridXC('LCY-PBE', omega=0.83)
     fname = 'Be_rsf.gpw'
 
-    calc = GPAW(txt='Be.txt', xc=xc, convergence=c,
+    calc = GPAW(mode='fd', txt='Be.txt', xc=xc, convergence=c,
                 eigensolver=RMMDIIS(), h=h,
                 occupations=FermiDirac(width=0.0), spinpol=False)
     be.calc = calc

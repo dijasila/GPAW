@@ -13,7 +13,7 @@ def test_solvation_nan_radius():
         return [np.nan]
 
     kwargs['cavity'].effective_potential.atomic_radii = rfun
-    atoms.calc = solv.SolvationGPAW(xc='LDA', h=0.24, **kwargs)
+    atoms.calc = solv.SolvationGPAW(mode='fd', xc='LDA', h=0.24, **kwargs)
     try:
         atoms.get_potential_energy()
     except ValueError as error:

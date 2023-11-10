@@ -22,9 +22,8 @@ def test_symmetry_fractional_translations_med():
                 kpts=(3, 3, 3),
                 nbands=42,
                 symmetry={'symmorphic': False},
-                gpts=(20, 20, 24),
+                gpts=(24, 24, 27),
                 eigensolver='rmm-diis')
-
     atoms.calc = calc
     energy_fractrans = atoms.get_potential_energy()
 
@@ -36,7 +35,7 @@ def test_symmetry_fractional_translations_med():
                 xc='LDA',
                 kpts=(3, 3, 3),
                 nbands=42,
-                gpts=(20, 20, 24),
+                gpts=(24, 24, 27),
                 eigensolver='rmm-diis')
 
     atoms.calc = calc

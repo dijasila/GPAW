@@ -14,7 +14,7 @@ def test_spin_spin_contamination_B():
     s.minimal_box(box, h=h)
     s.set_initial_magnetic_moments([-1])
 
-    c = GPAW(xc='LDA', nbands=-3,
+    c = GPAW(mode='fd', xc='LDA', nbands=-3,
              basis='dzp',
              hund=True,
              h=h,
@@ -37,7 +37,7 @@ def test_spin_spin_contamination_H2():
     s.minimal_box(box, h=h)
     s.set_initial_magnetic_moments([-1, 1])
 
-    c = GPAW(xc='LDA',
+    c = GPAW(mode='fd', xc='LDA',
              nbands=-3,
              h=h,
              convergence={'eigenstates': 0.078,

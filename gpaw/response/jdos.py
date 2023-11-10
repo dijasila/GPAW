@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.response import ResponseContext
 from gpaw.response.pair_integrator import PairFunctionIntegrator
 from gpaw.response.pair_functions import PairFunction
-from gpaw.response.chiks import get_spin_rotation, get_temporal_part
+from gpaw.response.chiks import get_temporal_part
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 
 
@@ -11,10 +11,8 @@ class JDOS(PairFunction):
 
     def __init__(self, spincomponent, qpd, zd):
         self.spincomponent = spincomponent
-        self.zd = zd
+        super().__init__(qpd, zd)
 
-        super().__init__(qpd)
-    
     def zeros(self):
         nz = len(self.zd)
         return np.zeros(nz, float)
@@ -82,12 +80,10 @@ class JDOSCalculator(PairFunctionIntegrator):
         assert isinstance(zd, ComplexFrequencyDescriptor)
         assert zd.upper_half_plane
 
-        # Analyze the requested spin component
-        spinrot = get_spin_rotation(spincomponent)
-
         # Prepare to sum over bands and spins
         transitions = self.get_band_and_spin_transitions(
-            spinrot, nbands=self.nbands, bandsummation=self.bandsummation)
+            spincomponent, nbands=self.nbands,
+            bandsummation=self.bandsummation)
 
         self.context.print(self.get_info_string(
             q_c, len(zd), spincomponent, self.nbands, len(transitions)))
@@ -139,21 +135,12 @@ class JDOSCalculator(PairFunctionIntegrator):
 
     def get_info_string(self, q_c, nz, spincomponent, nbands, nt):
         """Get information about the joint density of states calculation"""
-        s = '\n'
-
-        s += 'Calculating the joint density of states with:\n'
-        s += '    q_c: [%f, %f, %f]\n' % (q_c[0], q_c[1], q_c[2])
-        s += '    Number of frequency points: %d\n' % nz
-        s += '    Spin component: %s\n' % spincomponent
-        if nbands is None:
-            s += '    Bands included: All\n'
-        else:
-            s += '    Number of bands included: %d\n' % nbands
-        s += 'Resulting in:\n'
-        s += '    A total number of band and spin transitions of: %d\n' % nt
-        s += '\n'
-
-        s += self.get_basic_info_string()
-
-        return s
-        
+        info_list = ['',
+                     'Calculating the joint density of states with:',
+                     f'    q_c: [{q_c[0]}, {q_c[1]}, {q_c[2]}]',
+                     f'    Number of frequency points: {nz}',
+                     f'    Spin component: {spincomponent}',
+                     self.get_band_and_transitions_info_string(nbands, nt),
+                     '',
+                     self.get_basic_info_string()]
+        return '\n'.join(info_list)

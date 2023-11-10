@@ -136,6 +136,7 @@ PyObject* rk(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
 PyObject* r2k(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -175,4 +176,5 @@ PyObject* r2k(PyObject *self, PyObject *args)
 
   Py_RETURN_NONE;
 }
+
 #endif

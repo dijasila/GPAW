@@ -8,7 +8,6 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
-import _gpaw
 import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
@@ -353,7 +352,7 @@ class LrTDDFT(ExcitationList):
 
             if len(self):
                 f.write('# Eigenvalues\n')
-                f.write('{0}\n'.format(len(self)))
+                f.write(f'{len(self)}\n')
                 for ex in self:
                     f.write(ex.outstring())
                 f.write('# Eigenvectors\n')
@@ -411,23 +410,6 @@ class LrTDDFT(ExcitationList):
             self.timer.write(self.log.fd)
         except AttributeError:
             pass
-
-
-def d2Excdnsdnt(dup, ddn):
-    """Second derivative of Exc polarised"""
-    res = [[0, 0], [0, 0]]
-    for ispin in range(2):
-        for jspin in range(2):
-            res[ispin][jspin] = np.zeros(dup.shape)
-            _gpaw.d2Excdnsdnt(dup, ddn, ispin, jspin, res[ispin][jspin])
-    return res
-
-
-def d2Excdn2(den):
-    """Second derivative of Exc unpolarised"""
-    res = np.zeros(den.shape)
-    _gpaw.d2Excdn2(den, res)
-    return res
 
 
 class LrTDDFTExcitation(Excitation):

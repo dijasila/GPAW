@@ -20,7 +20,8 @@ def test_lcao_fd2lcao_restart(in_tmp_dir):
         atoms.center(vacuum=3.5)
         atoms.center(vacuum=a / 2, axis=0)
 
-        calc = GPAW(nbands=-3,
+        calc = GPAW(mode='fd',
+                    nbands=-3,
                     h=0.3,
                     setups={'Na': '1'},
                     xc={'name': 'PBE', 'stencil': 1},

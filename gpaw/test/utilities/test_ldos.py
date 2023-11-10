@@ -1,5 +1,3 @@
-import os
-
 import numpy as np
 from ase import Atom, Atoms
 
@@ -9,7 +7,7 @@ from gpaw.test import equal
 from gpaw.utilities.dos import RawLDOS, raw_orbital_LDOS, raw_wignerseitz_LDOS
 
 
-def test_utilities_ldos(in_tmp_dir):
+def test_utilities_ldos(in_tmp_dir, gpaw_new):
     comms = [mpi.world.new_communicator(np.array([r]))
              for r in range(mpi.size)]
     comm = comms[mpi.rank]
@@ -26,13 +24,14 @@ def test_utilities_ldos(in_tmp_dir):
     # architecture-independent results:
     LiH.translate(0.003234)
 
-    calc = GPAW(gpts=(24, 24, 24), communicator=comm)
+    calc = GPAW(mode='fd', gpts=(24, 24, 24), communicator=comm)
     Hnospin.calc = calc
     e_Hnospin = Hnospin.get_potential_energy()
     energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
     energies, pdfweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='pdf')
 
-    calc = GPAW(gpts=(24, 24, 24),
+    calc = GPAW(mode='fd',
+                gpts=(24, 24, 24),
                 occupations=FermiDirac(width=0, fixmagmom=True),
                 poissonsolver=PoissonSolver('fd'),
                 hund=True,
@@ -41,7 +40,7 @@ def test_utilities_ldos(in_tmp_dir):
     e_Hspin = Hspin.get_potential_energy()
     energies, sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
-    calc = GPAW(gpts=(32, 32, 40), nbands=2,
+    calc = GPAW(mode='fd', gpts=(32, 32, 40), nbands=2,
                 poissonsolver=PoissonSolver('fd'),
                 communicator=comm)
     LiH.calc = calc
@@ -53,7 +52,7 @@ def test_utilities_ldos(in_tmp_dir):
     energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
     energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
 
-    if not os.environ.get('GPAW_NEW'):
+    if not gpaw_new:
         n_a = calc.get_wigner_seitz_densities(spin=0)
         print(n_a)
         equal(n_a.sum(), 0.0, 1e-5)

@@ -2,7 +2,7 @@ import numpy as np
 from ase.units import Ha
 
 from gpaw.xc import XC
-from gpaw.utilities import unpack
+from gpaw.utilities import pack2, unpack, unpack2
 
 
 def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
@@ -39,10 +39,10 @@ def vxc(gs, xc=None, coredensity=True, n1=0, n2=0):
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
 
-        pawdata = gs.pawdatasets[a]
+        pawdata = gs.pawdatasets.by_atom[a]
         if pawdata.hubbard_u is not None:
-            _, dHU_sp = pawdata.hubbard_u.calculate(pawdata, D_sp)
-            dvxc_sp += dHU_sp
+            _, dHU_sii = pawdata.hubbard_u.calculate(pawdata, unpack2(D_sp))
+            dvxc_sp += pack2(dHU_sii)
         xc.calculate_paw_correction(pawdata, D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
 

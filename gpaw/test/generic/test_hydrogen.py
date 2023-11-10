@@ -18,7 +18,8 @@ def test_generic_hydrogen(in_tmp_dir):
                      [(a / 2, a / 2, a / 2)],
                      cell=(a, a, a))
 
-    params = dict(h=h,
+    params = dict(mode='fd',
+                  h=h,
                   nbands=1,
                   convergence={'energy': 1e-7})
     hydrogen.calc = GPAW(**params,

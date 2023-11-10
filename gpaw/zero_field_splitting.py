@@ -177,7 +177,7 @@ def convert_tensor(D_vv: Array2D,
     """Convert 3x3 tensor to D, E and easy axis.
 
     Input tensor must be in eV and the result can be returned in
-    eV, μeV, MHz or 1/cm acording to the value uf *unit*
+    eV, μeV, MHz or 1/cm according to the value of *unit*
     (must be one of "eV", "ueV", "MHz", "1/cm").
 
     >>> D_vv = np.diag([1, 2, 3])

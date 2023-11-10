@@ -120,7 +120,7 @@ class HGHSetupData:
         if not hghdata.v_l:
             # No projectors.  But the remaining code assumes that everything
             # has projectors!  We'll just add the zero function then
-            hghdata.v_l = [VNonLocal(0, 0.01, [[0.]])]
+            hghdata.v_l = [VNonLocal(0, 0.01, [0.])]
 
         n_j = []
         l_j = []
@@ -554,7 +554,7 @@ def plot(symbol, extension=None):
         return
     s.plot()
     if extension is not None:
-        plt.savefig('hgh.%s.%s' % (symbol, extension))
+        plt.savefig(f'hgh.{symbol}.{extension}')
 
 
 def plot_many(*symbols):

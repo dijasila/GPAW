@@ -73,19 +73,19 @@ The computationally heavy RPA/rALDA/rAPBE parts can be parallelized efficiently 
 After running the scripts the LDA and PBE correlation energies may be found in the file ``H.ralda.DFT_corr_energies.txt``.
 Note that a rather small unit cell is used and the results may not be completely converged with respect
 to cutoff and unit cell. Also note that the correlation energy is calculated at different cutoff energies up to
-300 eV and the values based on two-point extrapolation is printed at the end (see :ref:`rpa_tut` and :ref:`rpa` for a
+300 eV and the values based on two-point extrapolation are printed at the end (see :ref:`rpa_tut` and :ref:`rpa` for a
 discussion on extrapolation). The results in eV are summarized below.
 
 =====   =======   ======
  LDA    RPA       rALDA
 =====   =======   ======
--0.56    -0.55    -0.029
+-0.56    -0.56    -0.032
 =====   =======   ======
 
 =====   =======    ======
 PBE     RPA        rAPBE
 =====   =======    ======
--0.16    -0.55     -0.007
+-0.15    -0.56     -0.009
 =====   =======    ======
 
 The fact that RPA gives such a dramatic underestimation of the correlation energy is a general problem with the method,
@@ -105,9 +105,10 @@ First we set up a ground state calculation with lots of unoccupied bands. This i
 .. literalinclude:: CO.ralda_01_pbe_exx.py
 
 which takes on the order of 6-7 CPU hours. The script generates three gpw files containing the wavefunctions,
-which are the input to the rAPBE calculation. The PBE and non-selfconsistent Hartree-Fock atomization energies
-are also calculated and written to the file ``CO.ralda.PBE_HF_CO.dat``.
-Next we calculate the RPA and rAPBE energies for CO with the script
+which are the input to the rAPBE calculation. The PBE and non self-consistent Hartree-Fock atomization energies
+are also calculated and written to the file ``CO.ralda.PBE_HF_CO.dat``. Be aware that using symmetries (i. e.
+not using ``symmetry='off'`` in the calculator) may cause problems if you want to calculate non self-consistent
+HF energies for atoms and molecules. Next we calculate the RPA and rAPBE energies for CO with the script
 
 .. literalinclude:: CO.ralda_02_CO_rapbe.py
 
@@ -125,7 +126,7 @@ If pylab is installed, the plot=False can be change to plot=True to visualize th
 ======   =====   =====   ======       ============
 PBE      HF      RPA     rAPBE        Experimental
 ======   =====   =====   ======       ============
-11.71    7.36    10.60    11.31         11.23
+11.74    7.37    10.64   10.88        11.23
 ======   =====   =====   ======       ============
 
 Example 3: Cohesive energy of diamond
@@ -155,7 +156,7 @@ The results are summarized below
 ====   ====   ====   ======       ============
 PBE     HF     RPA    rAPBE       Experimental
 ====   ====   ====   ======       ============
-7.75   5.17   7.04     7.61             7.55
+7.75   5.17   7.06   6.65         7.55
 ====   ====   ====   ======       ============
 
 As anticipated, RPA severely underestimates the cohesive energy, while PBE performs much better, and rAPBE comes very close to the experimental value.
@@ -186,7 +187,7 @@ Using this averaging scheme opens a few more possible choices for the kernel.
 
 For further comparison we include an RPA calculation as well.
 
-.. literalinclude:: diam_kern.ralda_08_rpa.py
+.. literalinclude:: diam_kern.ralda_04_rpa.py
 
 Here we summarize the above calculations and show the correlation energy/electron (in eV),
 obtained at an (unconverged) cutoff of 131 eV:
@@ -194,7 +195,7 @@ obtained at an (unconverged) cutoff of 131 eV:
 =================  ================   ======
 rALDA (dens. av.)  rALDA (wave. av)   RPA
 =================  ================   ======
--1.161              -1.134            -1.396
+-1.16              -1.13              -1.40
 =================  ================   ======
 
 Incidentally, a fully converged RPA calculation gives a correlation energy

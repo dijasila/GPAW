@@ -18,6 +18,21 @@ def test_dscf_forces():
     E1 = []
     d0 = 1.4
     delta = 0.05
+
+    calc_params = dict(
+        mode='fd',
+        h=0.2,
+        nbands=-5,
+        xc=xc,
+        eigensolver=eigensolver,
+        spinpol=True,
+        txt=None,
+        mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
+        convergence={'energy': 100,
+                     'density': 100,
+                     'eigenstates': 1.0e-9,
+                     'bands': -1})
+
     for i in range(3):
         d = d0 + (i - 1) * delta
         atoms = Atoms('N2',
@@ -25,36 +40,15 @@ def test_dscf_forces():
                        [0.5 * L, 0.5 * L, 0.5 * L + 0.5 * d]])
         atoms.set_cell([L, L, L])
 
-        calc_gs = GPAW(h=0.2,
-                       nbands=-5,
-                       xc=xc,
-                       occupations={'name': 'fermi-dirac', 'width': 0.05},
-                       eigensolver=eigensolver,
-                       spinpol=True,
-                       txt=None,
-                       mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
-                       convergence={'energy': 100,
-                                    'density': 100,
-                                    'eigenstates': 1.0e-9,
-                                    'bands': -1})
+        calc_gs = GPAW(**calc_params,
+                       occupations={'name': 'fermi-dirac', 'width': 0.05})
         atoms.calc = calc_gs
 
         E0.append(atoms.get_potential_energy())
         if i == 1:
             F0 = atoms.get_forces()
 
-        calc_es = GPAW(h=0.2,
-                       nbands=-5,
-                       xc=xc,
-                       width=0.05,
-                       eigensolver=eigensolver,
-                       spinpol=True,
-                       txt=None,
-                       mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
-                       convergence={'energy': 100,
-                                    'density': 100,
-                                    'eigenstates': 1.0e-9,
-                                    'bands': -1})
+        calc_es = GPAW(**calc_params, width=0.05)
 
         n = 5  # LUMO
         molecule = [0, 1]

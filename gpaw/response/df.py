@@ -9,17 +9,17 @@ import gpaw.mpi as mpi
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, PairDensityCalculator
+from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, truncation):
+    def __init__(self, wd, chi0calc, truncation):
         from gpaw.response.pw_parallelization import Blocks1D
+        self.wd = wd
         self.chi0calc = chi0calc
 
-        self.coulomb = CoulombKernel(truncation=truncation, gs=self.gs)
+        self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context = chi0calc.context
-        self.wd = chi0calc.wd
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
         self._chi0cache = {}
@@ -28,17 +28,13 @@ class DielectricFunctionCalculator:
     def gs(self):
         return self.chi0calc.gs
 
-    def calculate_chi0(self, q_c, spin='all'):
+    def calculate_chi0(self, q_c):
         """Calculates the response function.
 
         Calculate the response function for a specific momentum.
 
         q_c: [float, float, float]
             The momentum wavevector.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
         """
 
         # We cache the computed data since chi0 may otherwise be redundantly
@@ -49,13 +45,7 @@ class DielectricFunctionCalculator:
         # We do this by rounding and converting to string with fixed
         # precision (so not very elegant).
         q_key = [f'{q:.10f}' for q in q_c]
-        key = (spin, *q_key)
-
-        # Spin='all' is a terrible cache key since it's inconsistent
-        # with specifying spins one integer at the time.
-        # We might as well change it to do the caching by spin index,
-        # or maybe we can work around the caching entirely with a more
-        # explicit API design.
+        key = tuple(q_key)
 
         if key not in self._chi0cache:
             # We assume that the caller will trigger this multiple
@@ -72,8 +62,8 @@ class DielectricFunctionCalculator:
             # In conclusion, delete the cache now:
             self._chi0cache.clear()
 
-            chi0 = self.chi0calc.calculate(q_c, spin)
-            chi0_wGG = chi0.get_distributed_frequencies_array()
+            chi0 = self.chi0calc.calculate(q_c)
+            chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
@@ -83,24 +73,23 @@ class DielectricFunctionCalculator:
                        for thing in more_things])
 
     def collect(self, a_w):
-        return self.blocks1d.collect(a_w)
+        return self.blocks1d.all_gather(a_w)
 
     def get_frequencies(self):
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0],
                 direction='x', return_VchiV=True, q_v=None,
                 rshelmax=-1, rshewmin=None):
-        """ Returns v^1/2 chi v^1/2 for the density response and chi for the
-        spin response. The truncated Coulomb interaction is included as
+        """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
+
+        The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
 
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
+        Parameters
+        ----------
         rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
@@ -113,9 +102,9 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
+        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
-        coulomb_bare = CoulombKernel(truncation=None, gs=self.gs)
+        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
         Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
         sqrtV_G = Kbare_G**0.5
 
@@ -463,8 +452,6 @@ class DielectricFunctionCalculator:
 
         spectrum: np.ndarray
             Input spectrum
-
-        Note: not tested for spin response
         """
 
         assert (self.wd.omega_w[1:] - self.wd.omega_w[:-1]).ptp() < 1e-10
@@ -495,7 +482,7 @@ class DielectricFunction(DielectricFunctionCalculator):
                  omegamax=None,  # deprecated
                  ecut=50,
                  hilbert=True,
-                 nbands=None, eta=0.2, threshold=1,
+                 nbands=None, eta=0.2,
                  intraband=True, nblocks=1, world=mpi.world, txt=sys.stdout,
                  truncation=None, disable_point_group=False,
                  disable_time_reversal=False,
@@ -519,9 +506,6 @@ class DielectricFunction(DielectricFunctionCalculator):
             Number of bands from calculation.
         eta: float
             Broadening parameter.
-        threshold: float
-            Threshold for matrix elements in optical response perturbation
-            theory.
         intraband: bool
             Include intraband transitions.
         world: comm
@@ -546,12 +530,12 @@ class DielectricFunction(DielectricFunctionCalculator):
                                       domega0=domega0,
                                       omega2=omega2, omegamax=omegamax)
 
-        pair = PairDensityCalculator(
-            gs=gs, context=context, threshold=threshold, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(
+            gs=gs, context=context, nblocks=nblocks)
 
         chi0calc = Chi0Calculator(
             wd=wd,
-            pair=pair,
+            kptpair_factory=kptpair_factory,
             ecut=ecut, nbands=nbands, eta=eta,
             hilbert=hilbert,
             intraband=intraband,
@@ -561,7 +545,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc, truncation=truncation)
+        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
@@ -572,7 +556,7 @@ def write_response_function(filename, omega_w, rf0_w, rf_w):
                       (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                       file=fd)
             else:
-                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+                print(f'{omega:.6f}, {rf0:.6f}, {rf:.6f}', file=fd)
 
 
 def read_response_function(filename):

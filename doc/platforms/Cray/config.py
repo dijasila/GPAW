@@ -1,6 +1,6 @@
 config = {
     'scheduler': 'slurm',
-    'extra_args': ['--account=project_462000135', '--mem=0'],
+    'extra_args': ['--account=project_4xxxxxxxx', '--mem=0'],
     'mpiexec': 'srun',
     'parallel_python': 'gpaw python',
     'nodes': [

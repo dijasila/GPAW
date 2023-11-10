@@ -19,7 +19,8 @@ def test_generic_8Si():
                  pbc=True)
     bulk.set_cell((a, a, a), scale_atoms=True)
     n = 20
-    calc = GPAW(gpts=(n, n, n),
+    calc = GPAW(mode='fd',
+                gpts=(n, n, n),
                 nbands='150%',
                 occupations=FermiDirac(width=0.01),
                 poissonsolver=PoissonSolver('fd', nn='M', relax='J'),

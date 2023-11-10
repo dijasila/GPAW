@@ -211,7 +211,7 @@ b = np.dot(a, a.T)
 print(b)
 # in a more READABLE way one can use @ to dot matrices together
 c = a @ a.T
-print('is c equal to b:', np.alltrue(c == b))
+print('is c equal to b:', (c == b).all())
 
 # %%
 # Elementwise multiplication
@@ -220,8 +220,10 @@ print(d)
 
 # %%
 # Random Hermitian matrix
-rand = np.random.rand
-H = rand(6, 6) + 1j * rand(6, 6)  # 1j = sqrt(-1)
+seed = 12345678
+rng = np.random.default_rng(seed)
+rand = rng.random
+H = rand((6, 6)) + 1j * rand((6, 6))  # 1j = sqrt(-1)
 H = H + H.T.conj()
 
 # Eigenvalues and eigenvectors

@@ -14,7 +14,7 @@ def test_spin_spinFe3plus():
 
     # use Hunds rules
 
-    c = GPAW(charge=q, h=h, nbands=5,
+    c = GPAW(mode='fd', charge=q, h=h, nbands=5,
              hund=True,
              eigensolver='rmm-diis',
              occupations=FermiDirac(width=0.1),
@@ -26,7 +26,7 @@ def test_spin_spinFe3plus():
 
     mm = [5]
     s.set_initial_magnetic_moments(mm)
-    c = GPAW(charge=q, h=h, nbands=5,
+    c = GPAW(mode='fd', charge=q, h=h, nbands=5,
              occupations=FermiDirac(width=0.1, fixmagmom=True),
              convergence=convergence)
     s.calc = c

@@ -10,10 +10,10 @@ def test_generic_IP_oxygen():
               magmoms=[2],
               pbc=False,
               cell=(a, a + 1, a))
-    O.calc = GPAW(gpts=(32, 36, 32), nbands=4)
+    O.calc = GPAW(mode='fd', gpts=(32, 36, 32), nbands=4)
     e0 = O.get_potential_energy()
 
-    O.calc = GPAW(gpts=(32, 36, 32), nbands=4, charge=1)
+    O.calc = GPAW(mode='fd', gpts=(32, 36, 32), nbands=4, charge=1)
 
     e1 = O.get_potential_energy()
 

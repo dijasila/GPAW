@@ -1,5 +1,7 @@
-from gpaw import GPAW
+from gpaw import GPAW, setup_paths
 from gpaw.xas import RecursionMethod
+
+setup_paths.insert(0, '.')
 
 name = 'diamond333_hch'
 

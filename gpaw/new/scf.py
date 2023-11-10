@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import warnings
+from math import inf
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -11,13 +12,14 @@ from gpaw.convergence_criteria import (Criterion, check_convergence,
 from gpaw.scf import write_iteration
 from gpaw.typing import Array2D
 from gpaw.yml import indent
+from gpaw import KohnShamConvergenceError
 
 if TYPE_CHECKING:
     from gpaw.new.calculation import DFTState
 
 
-class SCFConvergenceError(Exception):
-    ...
+class TooFewBandsError(KohnShamConvergenceError):
+    """Not enough bands for CBM+x convergence cfriterium."""
 
 
 class SCFLoop:
@@ -26,14 +28,14 @@ class SCFLoop:
                  occ_calc,
                  eigensolver,
                  mixer,
-                 world,
+                 comm,
                  convergence,
                  maxiter):
         self.hamiltonian = hamiltonian
         self.eigensolver = eigensolver
         self.mixer = mixer
         self.occ_calc = occ_calc
-        self.world = world
+        self.comm = comm
         self.convergence = convergence
         self.maxiter = maxiter
         self.niter = 0
@@ -79,16 +81,17 @@ class SCFLoop:
                 fixed_fermi_level=not self.update_density_and_potential)
 
             ctx = SCFContext(
-                state, self.niter,
+                log, self.niter,
+                state,
                 wfs_error, dens_error,
-                self.world, calculate_forces,
+                self.comm, calculate_forces,
                 pot_calc)
 
             yield ctx
 
             converged, converged_items, entries = check_convergence(cc, ctx)
-            nconverged = self.world.sum(int(converged))
-            assert nconverged in [0, self.world.size], converged_items
+            nconverged = self.comm.sum_scalar(int(converged))
+            assert nconverged in [0, self.comm.size], converged_items
 
             if log:
                 with log.comment():
@@ -96,33 +99,40 @@ class SCFLoop:
             if converged:
                 break
             if self.niter == maxiter:
-                raise SCFConvergenceError
+                if wfs_error < inf:
+                    raise KohnShamConvergenceError
+                raise TooFewBandsError
 
             if self.update_density_and_potential:
-                state.density.update(pot_calc.nct_R, state.ibzwfs)
+                state.density.update(state.ibzwfs,
+                                     ked=pot_calc.xc.type == 'MGGA')
                 dens_error = self.mixer.mix(state.density)
-                state.potential, state.vHt_x, _ = pot_calc.calculate(
-                    state.density, state.vHt_x)
+                state.potential, _ = pot_calc.calculate(
+                    state.density, state.ibzwfs, state.potential.vHt_x)
 
 
 class SCFContext:
     def __init__(self,
-                 state: DFTState,
+                 log,
                  niter: int,
+                 state: DFTState,
                  wfs_error: float,
                  dens_error: float,
-                 world,
+                 comm,
                  calculate_forces: Callable[[], Array2D],
                  pot_calc):
-        self.state = state
+        self.log = log
         self.niter = niter
-        energy = np.array([sum(state.potential.energies.values()) +
+        self.state = state
+        energy = np.array([sum(e
+                               for name, e in state.potential.energies.items()
+                               if name != 'stress') +
                            sum(state.ibzwfs.energies.values())])
-        world.broadcast(energy, 0)
+        comm.broadcast(energy, 0)
         self.ham = SimpleNamespace(e_total_extrapolated=energy[0],
                                    get_workfunctions=self._get_workfunctions)
         self.wfs = SimpleNamespace(nvalence=state.ibzwfs.nelectrons,
-                                   world=world,
+                                   world=comm,
                                    eigensolver=SimpleNamespace(
                                        error=wfs_error),
                                    nspins=state.density.ndensities,

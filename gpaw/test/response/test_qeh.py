@@ -20,7 +20,7 @@ xxx isotropic_q = False is temporarily turned off. However,
 
 class FragileBB(BuildingBlock):
     def update_building_block(self, *args, **kwargs):
-        if not hasattr(self, 'doom') and self.nq == 0:
+        if not hasattr(self, 'doom') and self.last_q_idx == 0:
             self.doom = 0
         self.doom += 1  # Advance doom
         print('doom', self.doom)
@@ -49,8 +49,8 @@ def test_basics(in_tmp_dir, gpw_files):
     interpolate_building_blocks = qeh.interpolate_building_blocks
     Heterostructure = qeh.Heterostructure
 
-    df = dielectric(gpw_files['graphene_pw_wfs'], 0.2, 0.6, rate=0.001)
-    df2 = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
+    df = dielectric(gpw_files['graphene_pw'], 0.2, 0.6, rate=0.001)
+    df2 = dielectric(gpw_files['mos2_pw'], 0.1, 0.5)
 
     # Testing to compute building block
     bb1 = BuildingBlock('graphene', df)
@@ -135,7 +135,7 @@ def test_basics(in_tmp_dir, gpw_files):
                     'small test-system broken for many cores')
 @pytest.mark.response
 def test_bb_parallel(in_tmp_dir, gpw_files):
-    df = dielectric(gpw_files['mos2_pw_wfs'], 0.1, 0.5)
+    df = dielectric(gpw_files['mos2_pw'], 0.1, 0.5)
     bb1 = BuildingBlock('mos2', df)
     bb1.calculate_building_block()
     # Make sure that calculation is finished before loading data file

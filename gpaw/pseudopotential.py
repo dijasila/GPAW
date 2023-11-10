@@ -212,10 +212,11 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
+    is_pseudo = True
+
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.R_sii = None
         self.lq = None
 
         self.filename = None
@@ -301,7 +302,10 @@ class PseudoPotential(BaseSetup):
         self.rcore = None
 
         self.N0_p = np.zeros(_np)  # not really implemented
-        self.nabla_iiv = None
+        if hasattr(data, 'nabla_iiv'):
+            self.nabla_iiv = data.nabla_iiv
+        else:
+            self.nabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd

@@ -12,7 +12,7 @@ def test_xc_nonselfconsistent(in_tmp_dir):
     a = 7.5 * Bohr
     n = 16
     atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
-    params = dict(gpts=(n, n, n), nbands=1)
+    params = dict(mode='fd', gpts=(n, n, n), nbands=1)
     atoms.calc = GPAW(**params, xc=xc('PBE'))
     e1 = atoms.get_potential_energy()
     e1ref = atoms.calc.get_reference_energy()

@@ -1,19 +1,21 @@
+from __future__ import annotations
+
 import numbers
 from math import pi
-
-import numpy as np
-from ase.units import Bohr, Ha
-from ase.utils.timing import timer
 
 import _gpaw
 import gpaw
 import gpaw.fftw as fftw
+import numpy as np
+from ase.units import Bohr, Ha
+from ase.utils.timing import timer
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
+from gpaw.typing import Array2D
 from gpaw.utilities import unpack
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.progressbar import ProgressBar
@@ -25,20 +27,30 @@ from gpaw.wavefunctions.mode import Mode
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
-                 gammacentered=False,
-                 pulay_stress=None, dedecut=None,
-                 force_complex_dtype=False):
+    def __init__(self,
+                 ecut: float = 340,
+                 *,
+                 fftwflags: int = fftw.MEASURE,
+                 cell: Array2D | None = None,
+                 gammacentered=False,  # Deprecated
+                 pulay_stress: float | None = None,
+                 dedecut: float | str | None = None,
+                 force_complex_dtype: bool = False,
+                 interpolation: str | int = 'fft'):
         """Plane-wave basis mode.
 
+        Only one of ``dedecut`` and ``pulay_stress`` can be used.
+
+        Parameters
+        ==========
         ecut: float
             Plane-wave cutoff in eV.
         gammacentered: bool
             Center the grid of chosen plane waves around the
             gamma point or q/k-vector
-        dedecut: float or None or 'estimate'
+        dedecut:
             Estimate of derivative of total energy with respect to
-            plane-wave cutoff.  Used to calculate pulay_stress.
+            plane-wave cutoff.  Used to calculate the Pulay-stress.
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
@@ -47,10 +59,12 @@ class PW(Mode):
 
                 from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
 
-        cell: 3x3 ndarray
-            Use this unit cell to chose the planewaves.
-
-        Only one of dedecut and pulay_stress can be used.
+        cell: np.ndarray
+            Use this unit cell to chose the plane-waves.
+        interpolation : str or int
+            Interpolation scheme to construct the density on the fine grid.
+            Default is ``'fft'`` and alternatively a stencil (integer) can
+            be given to perform an explicit real-space interpolation.
         """
 
         assert not gammacentered
@@ -58,6 +72,7 @@ class PW(Mode):
         # Don't do expensive planning in dry-run mode:
         self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
+        self.interpolation = interpolation
         self.pulay_stress = (None
                              if pulay_stress is None
                              else pulay_stress * Bohr**3 / Ha)
@@ -105,6 +120,8 @@ class PW(Mode):
             dct['pulay_stress'] = self.pulay_stress * Ha / Bohr**3
         if self.dedecut is not None:
             dct['dedecut'] = self.dedecut
+        if self.interpolation != 'fft':
+            dct['interpolation'] = self.interpolation
         return dct
 
 
@@ -174,6 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
+        self.read_from_file_init_wfs_dm = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):
@@ -444,7 +462,11 @@ class PWWaveFunctions(FDPWWaveFunctions):
         psit_G = kpt.psit_nG[n]
 
         if realspace:
-            psit_R = self.pd.ifft(psit_G, kpt.q)
+            if psit_G.ndim == 2:
+                psit_R = np.array([self.pd.ifft(psits_G, kpt.q)
+                                   for psits_G in psit_G])
+            else:
+                psit_R = self.pd.ifft(psit_G, kpt.q)
             if self.kd.gamma or periodic:
                 return psit_R
 
@@ -584,6 +606,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             # Read to memory:
             for kpt in self.kpt_u:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -621,7 +644,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                      (-0.5) * 1j * G_Gv[:, v] *
                                      self.pd.fft(ham.xc.dedtaut_sG[s] *
                                                  a_R, q))
-                             
+
         S_GG.ravel()[G1::npw + 1] = self.pd.gd.dv / N
 
         f_GI = self.pt.expand(q)
@@ -678,7 +701,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
         self.occupations.bd = bd
 
-        log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
+        log(f'Diagonalizing full Hamiltonian ({nbands} lowest bands)')
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
                                                     self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / S / 1024**2
@@ -700,7 +723,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = S // nprow
                 b = 64
-            log('ScaLapack grid: {}x{},'.format(nprow, npcol),
+            log(f'ScaLapack grid: {nprow}x{npcol},',
                 'block-size:', b)
             bg = BlacsGrid(bd.comm, S, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)

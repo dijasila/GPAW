@@ -13,14 +13,15 @@ def test_He():
     atoms = Atoms('He', positions=[(a, a, a)],
                   cell=(2 * a, 2 * a, b))
 
-    c00 = GPAW(charge=1)
+    c00 = GPAW(mode='fd', charge=1)
     atoms.calc = c00
     atoms.get_potential_energy()
 
     # apply potential where the atom is
     constant = -5
-    c10 = GPAW(charge=1, external=StepPotentialz(b / 2,
-                                                 value_left=constant))
+    c10 = GPAW(mode='fd',
+               charge=1,
+               external=StepPotentialz(b / 2, value_left=constant))
     atoms.calc = c10
     atoms.get_potential_energy()
 
@@ -29,8 +30,9 @@ def test_He():
         c10.get_potential_energy() + constant, 1e-4)
 
     # apply potential where there is no atom
-    c01 = GPAW(charge=1, external=StepPotentialz(b / 2,
-                                                 value_right=constant))
+    c01 = GPAW(mode='fd',
+               charge=1,
+               external=StepPotentialz(b / 2, value_right=constant))
     atoms.calc = c01
     atoms.get_potential_energy()
 

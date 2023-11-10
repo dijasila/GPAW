@@ -20,7 +20,7 @@ def test_corehole_h2o_recursion(in_tmp_dir):
                  Atom('H', (d * cos(t), d * sin(t), 0))],
                 cell=(a, a, a), pbc=False)
     H2O.center()
-    calc = GPAW(nbands=10, h=0.2, setups={'O': s},
+    calc = GPAW(mode='fd', nbands=10, h=0.2, setups={'O': s},
                 eigensolver=Davidson(4),
                 mixer=Mixer(0.5),
                 xc='oldLDA',

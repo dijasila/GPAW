@@ -188,6 +188,11 @@ def get_pw_lda(rs):
 
 
 def get_pbe_fxc(pbe_rho, pbe_s2_g):
+    return get_pbe_fxc_and_intermediate_derivatives(pbe_rho, pbe_s2_g)[0]
+
+
+def get_pbe_fxc_and_intermediate_derivatives(pbe_rho, pbe_s2_g):
+    # The intermediate derivatives are only used for testing.
     pbe_kappa = 0.804
     pbe_mu = 0.2195149727645171
 
@@ -203,4 +208,4 @@ def get_pbe_fxc(pbe_rho, pbe_s2_g):
     f_g = 1.0 / 3.0 * v_g / pbe_rho
 
     pbe_f_g = f_g * F_g + 2.0 * v_g * Fn_g + e_g * Fnn_g
-    return pbe_f_g
+    return pbe_f_g, F_g, Fn_g, Fnn_g

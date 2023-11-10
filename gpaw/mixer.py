@@ -55,6 +55,7 @@ class BaseMixer:
         self.beta = beta
         self.nmaxold = nmaxold
         self.weight = weight
+        self.world = None
 
     def initialize_metric(self, gd):
         self.gd = gd
@@ -147,8 +148,8 @@ class BaseMixer:
             i2 = iold - 1
 
             for i1, R_1sG in enumerate(R_isG):
-                a = self.gd.comm.sum(self.dotprod(R_1sG, mR_sG, dD_iasp[i1],
-                                                  dD_iasp[-1]))
+                a = self.gd.comm.sum_scalar(
+                    self.dotprod(R_1sG, mR_sG, dD_iasp[i1], dD_iasp[-1]))
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
             A_ii[:i2, :i2] = self.A_ii[-i2:, -i2:]
@@ -161,6 +162,9 @@ class BaseMixer:
             except (ZeroDivisionError, np.linalg.LinAlgError):
                 alpha_i = np.zeros(iold)
                 alpha_i[-1] = 1.0
+
+            if self.world:
+                self.world.broadcast(alpha_i, 0)
 
             # Calculate new input density:
             nt_sG[:] = 0.0
@@ -242,35 +246,37 @@ class FFTBaseMixer(BaseMixer):
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
             k2_Q, _ = construct_reciprocal(self.gd1)
             self.metric = ReciprocalMetric(self.weight, k2_Q)
-            self.mR_sG = self.gd1.empty(1, dtype=complex)
+            self.mR_sG = self.gd1.empty(2, dtype=complex)
         else:
             self.metric = lambda R_Q, mR_Q: None
-            self.mR_sG = np.empty((1, 0, 0, 0), dtype=complex)
+            self.mR_sG = np.empty((2, 0, 0, 0), dtype=complex)
 
     def calculate_charge_sloshing(self, R_sQ):
         if self.gd.comm.rank == 0:
-            assert R_sQ.ndim == 4 and len(R_sQ) == 1
-            cs = self.gd1.integrate(np.fabs(ifftn(R_sQ[0]).real))
+            assert R_sQ.ndim == 4  # and len(R_sQ) == 1
+            cs = sum(self.gd1.integrate(np.fabs(ifftn(R_Q).real))
+                     for R_Q in R_sQ)
         else:
             cs = 0.0
-        return self.gd.comm.sum(cs)
+        return self.gd.comm.sum_scalar(cs)
 
-    def mix_density(self, nt_sG, D_asp):
+    def mix_density(self, nt_sR, D_asp, g_ss=None):
         # Transform real-space density to Fourier space
-        nt_G, = nt_sG
-        nt1_G = self.gd.collect(nt_G)
+        nt1_sR = [self.gd.collect(nt_R) for nt_R in nt_sR]
         if self.gd.comm.rank == 0:
-            nt_Q = np.ascontiguousarray(fftn(nt1_G))
+            nt1_sG = np.ascontiguousarray([fftn(nt_R) for nt_R in nt1_sR])
         else:
-            nt_Q = np.empty((0, 0, 0), dtype=complex)
+            nt1_sG = np.empty((len(nt_sR), 0, 0, 0), dtype=complex)
 
-        dNt = BaseMixer.mix_density(self, nt_Q[np.newaxis],
-                                    [D_1p[0] for D_1p in D_asp])
+        dNt = BaseMixer.mix_density(self, nt1_sG, D_asp)
 
         # Return density in real space
-        if self.gd.comm.rank == 0:
-            nt1_G = ifftn(nt_Q).real
-        self.gd.distribute(nt1_G, nt_G)
+        for nt_G, nt_R in zip(nt1_sG, nt_sR):
+            if self.gd.comm.rank == 0:
+                nt1_R = ifftn(nt_G).real
+            else:
+                nt1_R = None
+            self.gd.distribute(nt1_R, nt_R)
 
         return dNt
 
@@ -709,7 +715,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
 
 # This is the only object which will be used by Density, sod the others
 class MixerWrapper:
-    def __init__(self, driver, nspins, gd):
+    def __init__(self, driver, nspins, gd, world=None):
         self.driver = driver
 
         self.beta = driver.beta
@@ -720,6 +726,7 @@ class MixerWrapper:
         self.basemixers = self.driver.get_basemixers(nspins)
         for basemixer in self.basemixers:
             basemixer.initialize_metric(gd)
+            basemixer.world = world
 
     def mix(self, nt_sR, D_asp=None):
         if D_asp is not None:
@@ -784,6 +791,7 @@ FFTMixer = _definemixerfunc('separate', 'fft')
 FFTMixerSum = _definemixerfunc('sum', 'fft')
 FFTMixerSum2 = _definemixerfunc('sum2', 'fft')
 FFTMixerDif = _definemixerfunc('difference', 'fft')
+FFTMixerFull = _definemixerfunc('fullspin', 'fft')
 BroydenMixer = _definemixerfunc('separate', 'broyden')
 BroydenMixerSum = _definemixerfunc('sum', 'broyden')
 BroydenMixerSum2 = _definemixerfunc('sum2', 'broyden')

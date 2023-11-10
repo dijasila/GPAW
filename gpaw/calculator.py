@@ -6,6 +6,8 @@ The central object that glues everything together.
 import warnings
 from typing import Any, Dict
 
+import gpaw
+import gpaw.mpi as mpi
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import Calculator, kpts2ndarray
@@ -13,9 +15,6 @@ from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-
-import gpaw
-import gpaw.mpi as mpi
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
@@ -38,7 +37,7 @@ from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
-from gpaw.scf import SCFLoop
+from gpaw.scf import SCFLoop, SCFEvent
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
@@ -62,7 +61,7 @@ class GPAW(Calculator):
                               'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
-        'mode': 'fd',
+        'mode': None,  # issue #897: start deprecating reliance on default mode
         'xc': 'LDA',
         'occupations': None,
         'poissonsolver': None,
@@ -330,15 +329,18 @@ class GPAW(Calculator):
     def _set_atoms(self, atoms):
         check_atoms_too_close(atoms)
         self.atoms = atoms
+        mpi.synchronize_atoms(self.atoms, self.world)
+
         # GPAW works in terms of the scaled positions.  We want to
         # extract the scaled positions in only one place, and that is
         # here.  No other place may recalculate them, or we might end up
         # with rounding errors and inconsistencies.
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        self.spos_ac = np.ascontiguousarray(atoms.get_scaled_positions() % 1.0)
+        self.world.broadcast(self.spos_ac, 0)
 
     def read(self, filename):
         from ase.io.trajectory import read_atoms
-        self.log('Reading from {}'.format(filename))
+        self.log(f'Reading from {filename}')
 
         self.reader = reader = Reader(filename)
         assert reader.version <= 3, 'Can\'t read new GPW-files'
@@ -347,7 +349,7 @@ class GPAW(Calculator):
         self._set_atoms(atoms)
 
         res = reader.results
-        self.results = dict((key, res.get(key)) for key in res.keys())
+        self.results = {key: res.get(key) for key in res.keys()}
         if self.results:
             self.log('Read {}'.format(', '.join(sorted(self.results))))
 
@@ -439,7 +441,7 @@ class GPAW(Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
-        yield
+        yield SCFEvent(self.density, self.hamiltonian, self.wfs, 0, self.log)
 
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
@@ -478,6 +480,12 @@ class GPAW(Calculator):
             else:
                 self.results['magmom'] = 0.0
                 self.results['magmoms'] = np.zeros(len(self.atoms))
+
+            occ_name = getattr(self.wfs.occupations, "name", None)
+            if occ_name == 'mom' and self.wfs.occupations.update_numbers:
+                if isinstance(self.parameters.occupations, dict):
+                    for s, numbers in enumerate(self.wfs.occupations.numbers):
+                        self.parameters['occupations']['numbers'][s] = numbers
 
             self.summary()
 
@@ -526,7 +534,7 @@ class GPAW(Calculator):
         # Verify that keys are consistent with default ones.
         for key in kwargs:
             if key != 'txt' and key not in self.default_parameters:
-                raise TypeError('Unknown GPAW parameter: {}'.format(key))
+                raise TypeError(f'Unknown GPAW parameter: {key}')
 
             if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
@@ -545,7 +553,8 @@ class GPAW(Calculator):
 
         if 'idiotproof' in kwargs:
             del kwargs['idiotproof']
-            warnings.warn('Ignoring deprecated keyword "idiotproof"')
+            warnings.warn('Ignoring deprecated keyword "idiotproof"',
+                          DeprecatedParameterWarning)
 
         changed_parameters = Calculator.set(self, **kwargs)
 
@@ -554,8 +563,9 @@ class GPAW(Calculator):
                 dct = changed_parameters[key]
                 if isinstance(dct, dict) and None in dct:
                     dct['default'] = dct.pop(None)
-                    warnings.warn('Please use {key}={dct}'
-                                  .format(key=key, dct=dct))
+                    warnings.warn(
+                        f'Please use {key}={dct}',
+                        DeprecatedParameterWarning)
 
         if not changed_parameters:
             return {}
@@ -621,8 +631,6 @@ class GPAW(Calculator):
         else:
             atoms = atoms.copy()
             self._set_atoms(atoms)
-
-        mpi.synchronize_atoms(atoms, self.world)
 
         rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
@@ -700,22 +708,31 @@ class GPAW(Calculator):
 
         if par.fixdensity:
             warnings.warn(
-                'The fixdensity keyword has been deprecated. '
-                'Please use the GPAW.fixed_density() method instead.',
-                DeprecationWarning)
+                ('The fixdensity keyword has been deprecated. '
+                 'Please use the GPAW.fixed_density() method instead.'),
+                DeprecatedParameterWarning)
             if self.hamiltonian.xc.type == 'MGGA':
                 raise ValueError('MGGA does not support deprecated '
                                  'fixdensity option.')
 
         mode = par.mode
+        if mode is None:
+            warnings.warn(
+                ('Finite-difference mode implicitly chosen; '
+                 'it will be an error to not specify a mode in the future'),
+                DeprecatedParameterWarning)
+            mode = 'fd'
+            par.mode = 'fd'
         if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
-            warnings.warn('Use mode={}(..., force_complex_dtype=True) '
-                          'instead of dtype=complex'.format(mode.name.upper()))
+            warnings.warn(
+                ('Use mode={}(..., force_complex_dtype=True) '
+                 'instead of dtype=complex').format(mode.name.upper()),
+                DeprecatedParameterWarning)
             mode.force_complex_dtype = True
             del par['dtype']
             par.mode = mode
@@ -724,7 +741,7 @@ class GPAW(Calculator):
             raise ValueError('LCAO mode does not support '
                              'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
+        realspace = mode.interpolation != 'fft'
 
         self.create_setups(mode, xc)
 
@@ -751,7 +768,7 @@ class GPAW(Calculator):
 
             if spinpol:
                 self.log('Spin-polarized calculation.')
-                self.log('Magnetic moment: {:.6f}\n'.format(magmom_av.sum()))
+                self.log(f'Magnetic moment: {magmom_av.sum():.6f}\n')
             else:
                 self.log('Spin-paired calculation\n')
         else:
@@ -818,7 +835,7 @@ class GPAW(Calculator):
             # Number of bound partial waves:
             nbandsmax = sum(setup.get_default_nbands()
                             for setup in self.setups)
-            nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+            nbands = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
             if nbands > nbandsmax:
                 nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:
@@ -953,6 +970,19 @@ class GPAW(Calculator):
         n = par.convergence.get('bands', 'occupied')
         if isinstance(n, int) and n < 0:
             n += self.wfs.bd.nbands
+
+        solver_name = getattr(self.wfs.eigensolver, "name", None)
+        if solver_name == 'etdm-fdpw':
+            if not self.wfs.eigensolver.converge_unocc:
+                if n == 'all' or (isinstance(n, int)
+                                  and n > self.wfs.nvalence / 2):
+                    warnings.warn(
+                        'Please, use eigensolver=FDPWETDM(..., '
+                        'converge_unocc=True) to converge unoccupied bands')
+                    n = 'occupied'
+            else:
+                n = 'all'
+
         self.log('Bands to converge:', n)
 
         self.log(flush=True)
@@ -1073,7 +1103,8 @@ class GPAW(Calculator):
                 if reading:
                     self.log(info)
                 else:
-                    warnings.warn(info + ' Please remove it.')
+                    warnings.warn(info + ' Please remove it.',
+                                  DeprecatedParameterWarning)
 
         if self.parameters.external is not None:
             symm = symm.copy()
@@ -2149,3 +2180,7 @@ class GPAW(Calculator):
         # This method can be removed once we finish that process.
         from gpaw.response.groundstate import ResponseGroundStateAdapter
         return ResponseGroundStateAdapter(self)
+
+
+class DeprecatedParameterWarning(FutureWarning):
+    """Warning class for when a parameter or its value is deprecated."""

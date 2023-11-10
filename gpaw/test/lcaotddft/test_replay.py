@@ -19,6 +19,7 @@ def test_lcaotddft_replay(in_tmp_dir):
     calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     _ = atoms.get_potential_energy()

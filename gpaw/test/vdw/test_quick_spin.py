@@ -7,13 +7,15 @@ from gpaw import GPAW, FermiDirac
 def test_vdw_quick_spin(in_tmp_dir):
     L = 2.5
     a = Atoms('H', cell=(L, L, L), pbc=True)
-    calc = GPAW(xc='vdW-DF',
+    calc = GPAW(mode='fd',
+                xc='vdW-DF',
                 occupations=FermiDirac(width=0.001),
                 txt='H.vdW-DF.txt')
     a.calc = calc
     e1 = a.get_potential_energy()
 
-    calc = GPAW(xc='vdW-DF',
+    calc = GPAW(mode='fd',
+                xc='vdW-DF',
                 txt='H.vdW-DF.spinpol.txt',
                 spinpol=True,
                 occupations=FermiDirac(width=0.001, fixmagmom=True))

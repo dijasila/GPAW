@@ -186,9 +186,13 @@ class Davidson(Eigensolver):
                     H_NN[np.triu_indices(2 * B, 1)] = 42.0
                     S_NN[np.triu_indices(2 * B, 1)] = 42.0
 
-                self.diagonalizer_backend.diagonalize(
-                    H_NN, S_NN, eps_N, is_master=is_gridband_master,
-                    debug=debug)
+                try:
+                    self.diagonalizer_backend.diagonalize(
+                        H_NN, S_NN, eps_N, is_master=is_gridband_master,
+                        debug=debug)
+                except np.linalg.LinAlgError as ex:
+                    raise ValueError(
+                        'Too few plane waves or grid points') from ex
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
             comm.broadcast(kpt.eps_n, 0)
@@ -217,5 +221,5 @@ class Davidson(Eigensolver):
                 self.calculate_residuals(
                     kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
-        error = wfs.gd.comm.sum(error)
+        error = wfs.gd.comm.sum_scalar(error)
         return error

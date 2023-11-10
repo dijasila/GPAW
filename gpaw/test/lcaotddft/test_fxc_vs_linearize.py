@@ -20,6 +20,7 @@ def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     _ = atoms.get_potential_energy()

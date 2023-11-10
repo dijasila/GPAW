@@ -19,7 +19,8 @@ if len(argv) > 1:
 
 slab.set_constraint(FixAtoms(mask=slab.get_tags() >= 3))
 
-calc = GPAW(xc='PBE',
+calc = GPAW(mode='fd',
+            xc='PBE',
             h=0.2,
             mixer=Mixer(0.1, 5, weight=100.0),
             occupations=FermiDirac(width=0.1),
@@ -27,7 +28,7 @@ calc = GPAW(xc='PBE',
             eigensolver='cg',
             txt=tag + '.txt')
 slab.calc = calc
-  
+
 opt = LBFGS(slab, logfile=tag + '.log', trajectory=tag + '.traj')
 opt.run(fmax=0.05)
 calc.write(tag + '.gpw')

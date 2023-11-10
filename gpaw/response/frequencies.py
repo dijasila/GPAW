@@ -101,7 +101,7 @@ class ComplexFrequencyDescriptor:
     @property
     def omega_w(self):
         """Real part of the frequencies."""
-        assert self.horizontal_contour,\
+        assert self.horizontal_contour, \
             'It only makes sense to index the frequencies by their real part '\
             'if they reside on a horizontal contour.'
         return self.hz_z.real

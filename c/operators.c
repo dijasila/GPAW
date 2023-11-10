@@ -32,8 +32,21 @@
   #define GPAW_ASYNC2 1
 #endif
 
+#ifdef GPAW_GPU
+#include "gpu/gpu.h"
+PyObject* Operator_relax_gpu(OperatorObject *self, PyObject *args);
+PyObject* Operator_apply_gpu(OperatorObject *self, PyObject *args);
+#endif
+
 static void Operator_dealloc(OperatorObject *self)
 {
+
+#ifdef GPAW_GPU
+  if (self->use_gpu) {
+    operator_dealloc_gpu(0);
+    bc_dealloc_gpu(0);
+  }
+#endif
   free(self->bc);
   PyObject_DEL(self);
 }
@@ -132,6 +145,7 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
   free(buf);
   free(recvbuf);
   free(sendbuf);
+
 }
 
 // Double buffering async worker for central difference stencils
@@ -230,7 +244,7 @@ void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc,
   free(buf);
   free(recvbuf);
   free(sendbuf);
-  
+
 }
 
 static PyObject * Operator_apply(OperatorObject *self,
@@ -339,6 +353,12 @@ static PyMethodDef Operator_Methods[] = {
      (PyCFunction)Operator_apply, METH_VARARGS, NULL},
     {"relax",
      (PyCFunction)Operator_relax, METH_VARARGS, NULL},
+#ifdef GPAW_GPU
+    {"apply_gpu",
+     (PyCFunction)Operator_apply_gpu, METH_VARARGS, NULL},
+    {"relax_gpu",
+     (PyCFunction)Operator_relax_gpu, METH_VARARGS, NULL},
+#endif
     {"get_diagonal_element",
      (PyCFunction)Operator_get_diagonal_element, METH_VARARGS, NULL},
     {"get_async_sizes",
@@ -371,9 +391,11 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int cfd;
-  if (!PyArg_ParseTuple(args, "OOOiOiOi",
+  int use_gpu = 0;
+
+  if (!PyArg_ParseTuple(args, "OOOiOiOi|i",
                         &coefs, &offsets, &size, &range, &neighbors,
-                        &real, &comm_obj, &cfd))
+                        &real, &comm_obj, &cfd, &use_gpu))
     return NULL;
 
   OperatorObject *self = PyObject_NEW(OperatorObject, &OperatorType);
@@ -393,5 +415,11 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     comm = ((MPIObject*)comm_obj)->comm;
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
+#ifdef GPAW_GPU
+  self->use_gpu = use_gpu;
+  if (self->use_gpu) {
+    operator_init_gpu(self);
+  }
+#endif
   return (PyObject*)self;
 }

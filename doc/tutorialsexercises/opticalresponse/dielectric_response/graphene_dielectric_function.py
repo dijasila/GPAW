@@ -10,6 +10,8 @@ from gpaw import PW
 from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 from gpaw.bztools import find_high_symmetry_monkhorst_pack
+from scipy.ndimage import gaussian_filter1d
+
 
 a = 2.5
 c = 3.22
@@ -52,20 +54,28 @@ df = DielectricFunction('gsresponse.gpw',
                         frequencies={'type': 'nonlinear',
                                      'domega0': 0.01},
                         integrationmode='tetrahedron integration')
-df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0])
+df1tetra, df2tetra = df.get_dielectric_function(q_c=[0, 0, 0],
+                                                filename='df_tetra.csv')
 
 df = DielectricFunction('gsresponse.gpw',
                         frequencies={'type': 'nonlinear',
                                      'domega0': 0.01},
                         eta=25e-3,
                         rate='eta')
-df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0])
+df1, df2 = df.get_dielectric_function(q_c=[0, 0, 0],
+                                      filename='df_point.csv')
 omega_w = df.get_frequencies()
+
 
 if world.rank == 0:
     plt.figure(figsize=(6, 6))
     plt.plot(omega_w, df2.imag * 2, label='Point sampling')
     plt.plot(omega_w, df2tetra.imag * 2, label='Tetrahedron')
+
+    # convolve with gaussian to smooth the curve
+    df2_wimag = gaussian_filter1d(df2.imag, 7)
+    plt.plot(omega_w, df2_wimag * 2, 'magenta', label='Smoothed')
+
     # Analytical result for graphene
     sigmainter = 1 / 4.  # The surface conductivity of graphene
     with seterr(divide='ignore', invalid='ignore'):

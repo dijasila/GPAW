@@ -77,7 +77,8 @@ def test_ext_potential_point_charge(in_tmp_dir):
     pos = lih.cell.sum(axis=0)
     print(pos)
     pc = PointChargePotential([-1.0], [pos])
-    lih.calc = GPAW(external=pc,
+    lih.calc = GPAW(mode='fd',
+                    external=pc,
                     mixer=Mixer(0.8, 5, 20.0),
                     xc='oldLDA',
                     poissonsolver=PoissonSolver(),

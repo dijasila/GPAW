@@ -163,6 +163,7 @@ class DOSCalculator:
         filename: str
             Name of restart-file or GPAW calculator object.
         """
+        from gpaw.calculator import GPAW
         if not isinstance(filename, (str, Path)):
             calc = filename
         else:
@@ -194,7 +195,7 @@ class DOSCalculator:
 
     def raw_dos(self,
                 energies: Sequence[float],
-                spin: Union[int, None] = None,
+                spin: Optional[int] = None,
                 width: float = 0.1) -> Array1D:
         """Calculate density of states.
 
@@ -216,7 +217,7 @@ class DOSCalculator:
                  a: int,
                  l: int,
                  m: Optional[int] = None,
-                 spin: int = None,
+                 spin: Optional[int] = None,
                  width: float = 0.1) -> Array1D:
         """Calculate projected density of states.
 

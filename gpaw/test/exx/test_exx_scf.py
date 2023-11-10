@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
+@pytest.mark.later
 def test_exx_exx_scf(in_tmp_dir, add_cwd_to_setup_paths):
     h = 0.3
 
@@ -26,7 +27,8 @@ def test_exx_exx_scf(in_tmp_dir, add_cwd_to_setup_paths):
         work_atom.minimal_box(4, h=h)
         work_atom.translate([0.01, 0.02, 0.03])
         work_atom.set_initial_magnetic_moments([2.0])
-        calculator = GPAW(convergence={'energy': 0.01,
+        calculator = GPAW(mode='fd',
+                          convergence={'energy': 0.01,
                                        'eigenstates': 3,
                                        'density': 3},
                           eigensolver=RMMDIIS(),

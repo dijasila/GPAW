@@ -8,7 +8,7 @@ from gpaw.utilities.dipole import main
     'mode',
     ['pw', 'lcao', 'fd'])
 def test_dipole(gpw_files, mode, capsys):
-    args = [str(gpw_files[f'h2_{mode}_wfs'])]
+    args = [str(gpw_files[f'h2_{mode}'])]
     main(args)
     out = capsys.readouterr().out
     lines = [line.split() for line in out.splitlines()]

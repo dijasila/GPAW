@@ -77,7 +77,7 @@ Generalized Poisson equation
 
 In net, the SJ method is manifested as two changes to the generalized Poisson equation,
 
-.. math:: \nabla \Big(\epsilon(\br) \nabla \Phi(\br)\Big) = -4\pi \Big[ \rho_\mathrm{explicit}(\br) + \rho_\mathrm{jellium} (\br) \Big],
+.. math:: \vec{\nabla} \cdot \Big(\epsilon(\br) \vec{\nabla} \phi(\br)\Big) = -4\pi \Big[ \rho_\mathrm{explicit}(\br) + \rho_\mathrm{jellium} (\br) \Big],
 
 where `\epsilon(\br)` accounts for the solvation; that is, the dielectric constant is spatially variant, and the spatially-resolved charge density is modified by the presence of the `\rho_\mathrm{jellium}(\br)` term, which contains the smeared-out counter charge in a region away from all of the atoms (and electronic density) of the system.
 `\rho_\mathrm{explicit} (\br)` contains the standard charge density of the system; that is, due to the electrons and nuclei.
@@ -102,7 +102,7 @@ Legendre-transformed energy
 The energy used in the analysis of electrode reactions is the grand-potential
 energy
 
-.. math:: \Omega \equiv E_\mathrm{tot} + \Phi_\mathrm{e} N_\mathrm{e} .
+.. math:: \Omega \equiv E_\mathrm{tot} +  N_\mathrm{e}e \phi_\mathrm{e} .
 
 Whereas :math:`E_\mathrm{tot}` is consistent with the forces in traditional
 electronic structure calculations, the grand-potential energy :math:`\Omega`

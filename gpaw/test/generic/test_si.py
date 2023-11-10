@@ -17,7 +17,8 @@ def test_generic_si(in_tmp_dir):
                                    (0.75, 0.75, 0.25)],
                  pbc=True, cell=(a, a, a))
     n = 20
-    calc = GPAW(gpts=(n, n, n),
+    calc = GPAW(mode='fd',
+                gpts=(n, n, n),
                 nbands=8 * 3,
                 occupations=FermiDirac(width=0.01),
                 kpts=(1, 1, 1))

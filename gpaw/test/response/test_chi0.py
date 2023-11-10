@@ -43,7 +43,7 @@ def test_response_chi0(in_tmp_dir):
         chi = Chi0(calc, frequencies=np.array([0, 1.0, 2.0]), hilbert=False,
                    ecut=100, txt=name + '.log')
         chi0 = chi.calculate(q_c)
-        assert chi0.blockdist.blockcomm.size == 1
+        assert chi0.body.blockdist.blockcomm.size == 1
         chi0_wGG = chi0.chi0_WgG  # no block distribution
 
         # sym and center: False
@@ -58,7 +58,7 @@ def test_response_chi0(in_tmp_dir):
             assert abs(chi0_wGG - chi00_wGG).max() < 2e-5
 
         chi0 = chi.calculate([0, 0, 0])
-        assert chi0.blockdist.blockcomm.size == 1
+        assert chi0.body.blockdist.blockcomm.size == 1
         chi0_wGG = chi0.chi0_WgG  # no block distribution
 
         if not sym and not center:

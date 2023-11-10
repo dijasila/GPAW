@@ -38,7 +38,7 @@ def test_solvation_forces_symmetry():
     atoms.set_cell((xy_cell, xy_cell, z_cell))
 
     atoms.calc = SolvationGPAW(
-        xc='PBE', h=h, setups={'Na': '1'},
+        mode='fd', xc='PBE', h=h, setups={'Na': '1'},
         cavity=EffectivePotentialCavity(
             effective_potential=Power12Potential(atomic_radii, u0),
             temperature=T,

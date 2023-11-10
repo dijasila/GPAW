@@ -1,16 +1,10 @@
 """Test the Heisenberg model based methodology of the response code."""
 
-# General modules
+import numpy as np
 import pytest
 
-import numpy as np
-
-# Script modules
-from gpaw.response.heisenberg import calculate_single_site_magnon_energies,\
-    calculate_fm_magnon_energies
-
-
-# ---------- Actual tests ---------- #
+from gpaw.response.heisenberg import (calculate_fm_magnon_energies,
+                                      calculate_single_site_magnon_energies)
 
 
 @pytest.mark.ci
@@ -157,7 +151,7 @@ def test_fm_vectorized_magnons():
     J_qabxy[:] = np.tensordot(J_qab, Jscale_y,
                               axes=((), ()))[..., np.newaxis, :]
     mm_axy = np.moveaxis(np.tile(mm_ax, (nJscales, 1, 1)), 0, -1)
-    
+
     # ---------- Script ---------- #
 
     # Calculate magnon energies

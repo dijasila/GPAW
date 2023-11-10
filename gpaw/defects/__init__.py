@@ -7,6 +7,7 @@ from ase.parallel import parprint
 import scipy.integrate as integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
 from ase.units import Hartree as Ha
+from ase.units import Bohr
 
 
 class ElectrostaticCorrections():
@@ -38,15 +39,13 @@ class ElectrostaticCorrections():
         self.pd = self.calc.wfs.pd
         self.L = self.pd.gd.cell_cv[2, 2]
         if r0 is not None:
-            self.r0 = r0
+            self.r0 = np.array(r0) / Bohr
         elif dimensionality == '2d':
             self.r0 = np.array([0, 0, self.L / 2])
         else:
             self.r0 = np.array([0, 0, 0])
         self.z0 = self.r0[2]
-
-        self.G_Gv = self.pd.get_reciprocal_vectors(q=0,
-                                                   add_q=False)  # G in Bohr^-1
+        self.G_Gv = self.pd.get_reciprocal_vectors(q=0, add_q=False)
         self.G2_G = self.pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
         self.rho_G = self.calculate_gaussian_density()
         self.Omega = abs(np.linalg.det(self.calc.density.gd.cell_cv))
@@ -67,7 +66,7 @@ class ElectrostaticCorrections():
         self.z_g = fine_z
         self.density_z = coarse_z
 
-        self.G_z = find_G_z(self.pd)
+        self.G_z = find_G_z(self.G_Gv)
         self.G_parallel = np.unique(self.G_Gv[:, :2], axis=0)
         self.GG = np.outer(self.G_z, self.G_z)  # G * Gprime
 
@@ -226,7 +225,7 @@ class ElectrostaticCorrections():
             if np.allclose(vector, 0):
                 parprint('Skipping G^2=0 contribution to Elp')
                 V_G[0] = 0
-            Elp += (rho_G * V_G).sum()
+            Elp += (rho_G * V_G).sum().real
 
         Elp *= 2.0 * np.pi * Ha / self.Omega
 
@@ -261,7 +260,7 @@ class ElectrostaticCorrections():
             K_inv_GG = np.diag(K_inv_G)
             D_GG = L * (K_inv_GG + dE_GG_perp * self.GG + dE_GG_par * k ** 2)
             return (k * np.exp(-k ** 2 * self.sigma ** 2) *
-                    (prefactor * np.linalg.inv(D_GG)).sum())
+                    (prefactor * np.linalg.inv(D_GG)).sum()).real
 
         I = integrate.quad(integrand, 0, np.inf, limit=500)
         Eli = self.q * self.q * I[0] * Ha
@@ -301,15 +300,16 @@ class ElectrostaticCorrections():
             V_G = np.linalg.solve(A_GG,
                                   phase * np.array([0] + list(rho_Gz)))[1:]
         elif self.dimensionality == '3d':
-            V_G = rho_Gz / self.eb[1] / G_z ** 2
+            phase = np.exp(1j * (G_z * self.z0))
+            V_G = phase * rho_Gz / self.eb[1] / G_z ** 2
 
         for z in self.z_g:
             phase_G = np.exp(1j * (G_z * z))
-            V = (np.sum(phase_G * V_G)
+            V = (np.sum(phase_G * V_G).real
                  * Ha * 4.0 * np.pi / (self.Omega))
             Vs.append(V)
 
-        V = (np.sum(V_G) * Ha * 4.0 * np.pi / (self.Omega))
+        V = (np.sum(V_G.real) * Ha * 4.0 * np.pi / (self.Omega))
         zs = list(self.z_g) + [vox3[2]]
         Vs.append(V)
         return np.array(zs), np.array(Vs)
@@ -317,7 +317,8 @@ class ElectrostaticCorrections():
     def average(self, V, z):
         N = len(V)
         if self.dimensionality == '3d':
-            middle = N // 2
+            middle = np.argmin(np.abs(z - self.z0)) + N // 2
+            middle = middle % len(z)
             points = range(middle - N // 8, middle + N // 8 + 1)
             restricted = V[points]
         elif self.dimensionality == '2d':
@@ -329,8 +330,8 @@ class ElectrostaticCorrections():
     def calculate_corrected_formation_energy(self):
         E_0 = self.pristine.get_potential_energy()
         E_X = self.charged.get_potential_energy()
-        Eli = self.calculate_isolated_correction().real
-        Elp = self.calculate_periodic_correction().real
+        Eli = self.calculate_isolated_correction()
+        Elp = self.calculate_periodic_correction()
         Delta_V = self.calculate_potential_alignment()
         return E_X - E_0 - (Elp - Eli) + Delta_V * self.q
 
@@ -352,19 +353,16 @@ class ElectrostaticCorrections():
                 'D_V_mean': self.calculate_potential_alignment(),
                 'V_model': self.V_model,
                 'D_V': (self.V_model
-                        - V_neutral
-                        + V_charged)}
+                        + V_neutral
+                        - V_charged)}
         self.data = data
         return data
 
 
-def find_G_z(pd):
-    # NB: There may be a bug here. It seems that q should not have been
-    # added? XXX
-    qG_Gv = pd.get_reciprocal_vectors(q=0, add_q=True)
-    mask = (qG_Gv[:, 0] == 0) & (qG_Gv[:, 1] == 0)
-    qG_z = qG_Gv[mask][:, 2]  # qG_z vectors in Bohr^{-1}
-    return qG_z
+def find_G_z(G_Gv):
+    mask = (G_Gv[:, 0] == 0) & (G_Gv[:, 1] == 0)
+    G_z = G_Gv[mask][:, 2]  # qG_z vectors in Bohr^{-1}
+    return G_z
 
 
 def find_z(gd):

@@ -80,6 +80,8 @@ for name in names:
     if mode == 'lcao':
         kwargs.update({'mode': 'lcao'})
         kwargs.update({'basis': 'dzp'})
+    if mode == 'fd':
+        kwargs.update({'mode': 'fd'})
     if name in ['He', 'Ne', 'Ar', 'Kr', 'Xe', 'Rn', 'Ca', 'Sr', 'Ba', 'Be']:
         # results wrong / scf slow with minimal basis
         kwargs.update({'basis': 'dzp'})
@@ -96,14 +98,14 @@ for name in names:
         # perform EOS step
         atoms.set_cell(cell * x, scale_atoms=True)
         # set calculator
-        atoms.calc = GPAW(
+        base_kwargs = dict(
             txt=name + '_' + code + '_' + str(n) + '.txt',
             xc='PBE',
             kpts=kpts,
             occupations=FermiDirac(width),
             parallel={'band': 1},
             maxiter=777)
-        atoms.calc = atoms.calc.new(**kwargs)  # remaining calc keywords
+        atoms.calc = GPAW(**dict(base_kwargs, **kwargs))
         t = time.time()
         atoms.get_potential_energy()
         c.write(atoms,

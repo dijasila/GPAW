@@ -10,17 +10,19 @@ differentt uniform 3D grids.
 import numpy as np
 
 from gpaw import debug
+from gpaw.gpu import cupy_is_fake
 from gpaw.utilities import is_contiguous
 import _gpaw
 
 
 class _Transformer:
-    def __init__(self, gdin, gdout, nn=1, dtype=float):
+    def __init__(self, gdin, gdout, nn=1, dtype=float, xp=np):
         self.gdin = gdin
         self.gdout = gdout
         self.nn = nn
         assert 1 <= nn <= 4
         self.dtype = dtype
+        self.xp = xp
 
         pad_cd = np.empty((3, 2), int)
         neighborpad_cd = np.empty((3, 2), int)
@@ -52,7 +54,7 @@ class _Transformer:
                 raise ValueError('Cannot construct interpolator.  Grid %s '
                                  'may be too small' % points)
 
-        assert np.alltrue(pad_cd.ravel() >= 0)
+        assert (pad_cd.ravel() >= 0).all()
         self.ngpin = tuple(gdin.n_c)
         self.ngpout = tuple(gdout.n_c)
         assert dtype in [float, complex]
@@ -71,12 +73,21 @@ class _Transformer:
                                              neighborpad_cd, skip_cd,
                                              gdin.neighbor_cd,
                                              dtype == float, comm,
-                                             self.interpolate)
+                                             self.interpolate,
+                                             xp is not np)
 
     def apply(self, input, output=None, phases=None):
         if output is None:
-            output = self.gdout.empty(input.shape[:-3], dtype=self.dtype)
-        self.transformer.apply(input, output, phases)
+            output = self.gdout.empty(input.shape[:-3], dtype=self.dtype,
+                                      xp=self.xp)
+        if self.xp is np:
+            self.transformer.apply(input, output, phases)
+        elif cupy_is_fake:
+            self.transformer.apply(input._data, output._data, phases)
+        else:
+            self.transformer.apply_gpu(input.data.ptr,
+                                       output.data.ptr,
+                                       input.shape, input.dtype, phases)
         return output
 
     def get_async_sizes(self):
@@ -107,9 +118,9 @@ class TransformerWrapper:
         return self.transformer.get_async_sizes()
 
 
-def Transformer(gdin, gdout, nn=1, dtype=float):
+def Transformer(gdin, gdout, nn=1, dtype=float, xp=np):
     if nn != 9:
-        t = _Transformer(gdin, gdout, nn, dtype)
+        t = _Transformer(gdin, gdout, nn, dtype, xp)
         if debug:
             t = TransformerWrapper(t)
         return t

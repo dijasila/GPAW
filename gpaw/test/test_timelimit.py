@@ -17,6 +17,7 @@ def test_timelimit(in_tmp_dir):
     maxiter = 10
     calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1', nbands=1,
                 convergence={'density': 1e-100},
+                symmetry={'point_group': False},
                 maxiter=maxiter)
     atoms.calc = calc
 
@@ -40,7 +41,8 @@ def test_timelimit(in_tmp_dir):
     # Test mode='fd'
 
     # Prepare ground state
-    calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1)
+    calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1,
+                symmetry={'point_group': False})
     atoms.calc = calc
     try:
         atoms.get_potential_energy()

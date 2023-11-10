@@ -1,70 +1,69 @@
+"""PW-mode stress tensor calculation."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.gpu import synchronize, as_xp
+from gpaw.gpu import synchronize, as_np
 from gpaw.new.calculation import DFTState
 from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array2D
-
+from gpaw.core import PWArray
 if TYPE_CHECKING:
     from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 
 
 def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
                      state: DFTState,
-                     vt_g,
-                     nt_g) -> Array2D:
-    assert state.ibzwfs.domain_comm.size == 1
-    assert state.ibzwfs.band_comm.size == 1
-    world = state.ibzwfs.kpt_comm
+                     vt_g: PWArray,
+                     nt_g: PWArray,
+                     dedtaut_g: PWArray | None) -> Array2D:
+    """Calculate symmetrized stress tensor."""
+    ibzwfs = state.ibzwfs
+    density = state.density
+    potential = state.potential
+    comm = ibzwfs.comm
+    xp = density.nt_sR.xp
+    dom = density.nt_sR.desc
 
-    xc = pot_calc.xc
+    ibzwfs.make_sure_wfs_are_read_from_gpw_file()
+    s_vv = get_wfs_stress(ibzwfs, potential.dH_asii)
+    s_vv += pot_calc.xc.stress_contribution(state, pot_calc.interpolate)
 
-    if xc.xc.orbital_dependent and xc.type != 'MGGA':
-        raise NotImplementedError('Calculation of stress tensor is not ' +
-                                  'implemented for orbital-dependent ' +
-                                  'XC functionals such as ' + xc.name)
-    assert xc.type != 'MGGA'
-    assert not xc.no_forces
+    if state.ibzwfs.kpt_comm.rank == 0 and state.ibzwfs.band_comm.rank == 0:
+        vHt_h = potential.vHt_x
+        assert vHt_h is not None
+        pw = vHt_h.desc
+        G_Gv = xp.asarray(pw.G_plus_k_Gv)
+        vHt2_hz = vHt_h.data.view(float).reshape((len(G_Gv), 2))**2
+        s_vv += (xp.einsum('Gz, Gv, Gw -> vw', vHt2_hz, G_Gv, G_Gv) *
+                 pw.dv / (2 * np.pi))
+        Q_aL = density.calculate_compensation_charge_coefficients()
+        s_vv += pot_calc.ghat_aLh.stress_contribution(vHt_h, Q_aL)
+        if state.ibzwfs.domain_comm.rank == 0:
+            s_vv -= xp.eye(3) * potential.energies['stress']
+        s_vv += pot_calc.vbar_ag.stress_contribution(nt_g)
+        s_vv += density.nct_aX.stress_contribution(vt_g)
 
-    s_vv = get_wfs_stress(state.ibzwfs, state.potential.dH_asii)
+        if dedtaut_g is not None:
+            s_vv += density.tauct_aX.stress_contribution(dedtaut_g)
 
-    nt_sr = pot_calc._interpolate_density(state.density.nt_sR)[0]
-    xp = nt_sr.xp
-    s_vv += as_xp(
-        pot_calc.xc.xc.stress_tensor_contribution(as_xp(nt_sr.data, np)), xp)
+    s_vv = as_np(s_vv)
 
-    vHt_h = state.vHt_x
-    assert vHt_h is not None
-    pw = vHt_h.desc
-    G_Gv = xp.asarray(pw.G_plus_k_Gv)
-    vHt2_hz = vHt_h.data.view(float).reshape((len(G_Gv), 2))**2
-    s_vv += (xp.einsum('Gz, Gv, Gw -> vw', vHt2_hz, G_Gv, G_Gv) *
-             pw.dv / (2 * np.pi))
+    if xp is not np:
+        synchronize()
+    comm.sum(s_vv, 0)
 
-    Q_aL = state.density.calculate_compensation_charge_coefficients()
-    s_vv += pot_calc.ghat_aLh.stress_tensor_contribution(vHt_h, Q_aL)
-
-    s_vv -= xp.eye(3) * pot_calc.e_stress
-    s_vv += pot_calc.vbar_ag.stress_tensor_contribution(nt_g)
-    s_vv += pot_calc.nct_ag.stress_tensor_contribution(vt_g)
-
-    # s_vv += wfs.dedepsilon * np.eye(3)
-
-    s_vv = as_xp(s_vv, np)
-
-    vol = pw.volume
+    vol = dom.volume
     s_vv = 0.5 / vol * (s_vv + s_vv.T)
 
     # Symmetrize:
     sigma_vv = np.zeros((3, 3))
-    cell_cv = pw.cell_cv
-    icell_cv = pw.icell
-    rotation_scc = state.ibzwfs.ibz.symmetries.rotation_scc
+    cell_cv = dom.cell_cv
+    icell_cv = dom.icell
+    rotation_scc = ibzwfs.ibz.symmetries.rotation_scc
     for U_cc in rotation_scc:
         M_vv = (icell_cv.T @ (U_cc @ cell_cv)).T
         sigma_vv += M_vv.T @ s_vv @ M_vv
@@ -73,7 +72,7 @@ def calculate_stress(pot_calc: PlaneWavePotentialCalculator,
     # Make sure all agree on the result (redundant calculation on
     # different cores involving BLAS might give slightly different
     # results):
-    world.broadcast(sigma_vv, 0)
+    comm.broadcast(sigma_vv, 0)
     return sigma_vv
 
 
@@ -86,8 +85,6 @@ def get_wfs_stress(ibzwfs: IBZWaveFunctions,
         occ_n = xp.asarray(wfs.weight * wfs.spin_degeneracy * wfs.myocc_n)
         sigma_vv += get_kinetic_stress(wfs, occ_n)
         sigma_vv += get_paw_stress(wfs, dH_asii, occ_n)
-    synchronize()
-    ibzwfs.kpt_comm.sum(sigma_vv)
     return sigma_vv
 
 
@@ -110,15 +107,15 @@ def get_paw_stress(wfs: PWFDWaveFunctions,
                    dH_asii: AtomArrays,
                    occ_n) -> Array2D:
     xp = wfs.xp
-    eig_n1 = xp.asarray(wfs.eig_n[:, None])
+    eig_n1 = xp.asarray(wfs.myeig_n[:, None])
     a_ani = {}
     s = 0.0
     for a, P_ni in wfs.P_ani.items():
         Pf_ni = P_ni * occ_n[:, None]
         dH_ii = dH_asii[a][wfs.spin]
         dS_ii = xp.asarray(wfs.setups[a].dO_ii)
-        a_ni = (Pf_ni @ dH_ii - Pf_ni * eig_n1 @ dS_ii)
+        a_ni = Pf_ni @ dH_ii - Pf_ni * eig_n1 @ dS_ii
         s += xp.vdot(P_ni, a_ni)
         a_ani[a] = 2 * a_ni.conj()
-    s_vv = wfs.pt_aiX.stress_tensor_contribution(wfs.psit_nX, a_ani)
+    s_vv = wfs.pt_aiX.stress_contribution(wfs.psit_nX, a_ani)
     return s_vv - float(s.real) * xp.eye(3)

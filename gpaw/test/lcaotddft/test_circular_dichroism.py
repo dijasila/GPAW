@@ -39,6 +39,7 @@ def initialize_system():
                 mode='lcao',
                 convergence={'density': 1e-12},
                 communicator=comm,
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -122,7 +123,7 @@ def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
 
 
 @only_on_master(world)
-def test_spectrum(in_tmp_dir):
+def test_spectrum(in_tmp_dir, rng):
     from gpaw.utilities.folder import Folder
 
     # Parameters for test data
@@ -138,7 +139,7 @@ def test_spectrum(in_tmp_dir):
         data_tv = np.zeros((len(time_t), 4))
         data_tv[:, 0] = time_t
         # Fill unused columns with random values
-        data_tv[:, 1:] = np.random.rand(len(time_t), 3)
+        data_tv[:, 1:] = rng.random((len(time_t), 3))
         # Diagonal column has the data used for spectrum
         data_tv[:, v + 1] = (kick_strength * strength_v[v]
                              * np.cos(frequency_v[v] * time_t))

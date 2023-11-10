@@ -1,12 +1,15 @@
 import numbers
-from math import pi, factorial as fac
-
 from abc import ABC, abstractmethod
-import numpy as np
-from scipy.interpolate import make_interp_spline, splder
+from math import factorial as fac
+from math import pi
+from typing import Tuple
 
+import numpy as np
+from gpaw.sphere.integrate import integrate_radial_grid
 from gpaw.spline import Spline
-from gpaw.utilities import hartree, divrl
+from gpaw.typing import Array1D
+from gpaw.utilities import divrl, hartree
+from scipy.interpolate import make_interp_spline, splder
 
 
 def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
@@ -93,6 +96,9 @@ class RadialGridDescriptor(ABC):
         assert n >= -2
         return np.dot(a_xg[..., 1:],
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
+
+    def integrate_trapz(self, a_xg, rcut=None):
+        return integrate_radial_grid(a_xg, self.r_g, rcut=rcut)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
         r"""Calculates the radial grid yukawa integral.
@@ -349,13 +355,42 @@ class RadialGridDescriptor(ABC):
         norm = self.integrate(a_g**2)
 
         def f(x):
-            b_g[gc0] = x
+            b_g[gc0] = x[0]
             c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
             b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
             return self.integrate(b_g**2) - norm
 
         from scipy.optimize import fsolve
         fsolve(f, x0)
+        return b_g, c_x[-1]
+
+    def pseudize_smooth(self,
+                        a_g: Array1D,
+                        gc: int,
+                        l: int = 0,
+                        points: int = 3,
+                        Gcut: float = 6.0) -> Tuple[Array1D, float]:
+        """Minimize Fourier components above Gcut."""
+        b_g, _ = self.pseudize(a_g, gc, l, points)
+        c_x = np.empty(points + 1)
+        gc0 = gc // 2
+        x0 = b_g[gc0]
+        i = [gc0] + list(range(gc, gc + points))
+        r_g = self.r_g
+        r_i = r_g[i]
+
+        def f(x):
+            b_g[gc0] = x[0]
+            c_x[:] = np.polyfit(r_i**2, b_g[i] / r_i**l, points)
+            b_g[:gc] = np.polyval(c_x, r_g[:gc]**2) * r_g[:gc]**l
+            g_k, b_k = self.fft(b_g * r_g, l)
+            kc = int(Gcut / g_k[1])
+            f_k = g_k[kc:] * b_k[kc:]
+            return f_k @ f_k
+
+        from scipy.optimize import minimize
+        minimize(f, x0)
+
         return b_g, c_x[-1]
 
     def jpseudize(self, a_g, gc, l=0, points=4):
@@ -370,8 +405,8 @@ class RadialGridDescriptor(ABC):
         for g < gc+P, where.
         """
 
-        from scipy.special import sph_jn
         from scipy.optimize import brentq
+        from scipy.special import sph_jn
 
         if a_g[gc] == 0:
             return self.zeros(), 0.0
@@ -440,23 +475,28 @@ class RadialGridDescriptor(ABC):
         return np.ceil(self.r2g(r)).astype(int)
 
     def spline(self, a_g, rcut=None, l=0, points=None):
+        """Create spline representation of a radial function f(r).
+
+        The spline represents a rescaled version of the function, f(r) / r^l.
+        """
         if points is None:
             points = self.default_spline_points
 
         if rcut is None:
+            # Calculate rcut for the input function, i.e. a value rcut which
+            # satisfies f(r) = 0 ∀ r ≥ rcut
             g = len(a_g) - 1
             while a_g[g] == 0.0:
                 g -= 1
             rcut = self.r_g[g + 1]
 
-        b_g = a_g.copy()
-        N = len(b_g)
-        if l > 0:
-            b_g = divrl(b_g, l, self.r_g[:N])
+        # Rescale f(r) -> f(r) / r^l
+        N = len(a_g)
+        b_g = divrl(a_g, l, self.r_g[:N])
 
+        # Interpolate to a uniform radial grid (for the spline representation)
         r_i = np.linspace(0, rcut, points + 1)
         g_i = np.clip((self.r2g(r_i) + 0.5).astype(int), 1, N - 2)
-
         r1_i = self.r_g[g_i - 1]
         r2_i = self.r_g[g_i]
         r3_i = self.r_g[g_i + 1]
@@ -467,6 +507,7 @@ class RadialGridDescriptor(ABC):
         b2_i = b_g[g_i]
         b3_i = b_g[g_i + 1]
         b_i = b1_i * x1_i + b2_i * x2_i + b3_i * x3_i
+
         return Spline(l, rcut, b_i)
 
     def get_cutoff(self, f_g):
@@ -475,12 +516,12 @@ class RadialGridDescriptor(ABC):
             g -= 1
         gcut = g + 1
         return gcut
-   
+
     @abstractmethod
     def r2g(self, r):
         """Inverse continuous map from a real space distance (r)
            to a floating point grid index (g).
-        
+
            Used by methods floor, round, and ceil, which manipulate this
            floating point to an integer accordingly.
         """
@@ -501,8 +542,8 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
     def xml(self, id='grid1'):
         assert self.r_g[0] == 0.0
-        return ('<radial_grid eq="r=d*i" d="{0!r}" '
-                'istart="0" iend="{1}" id="{2}"/>\n'
+        return ('<radial_grid eq="r=d*i" d="{!r}" '
+                'istart="0" iend="{}" id="{}"/>\n'
                 .format(self.r_g[1], len(self.r_g) - 1, id))
 
     def spline(self, a_g, rcut=None, l=0, points=None):
@@ -529,6 +570,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         r_g = self.a * g / (1 - self.b * g)
         dr_g = (self.b * r_g + self.a)**2 / self.a
         RadialGridDescriptor.__init__(self, r_g, dr_g, default_spline_points)
+        self._d2gdr2 = -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
 
     def r2g(self, r):
         # return r / (r * self.b + self.a)
@@ -550,7 +592,7 @@ class AERadialGridDescriptor(RadialGridDescriptor):
                 (self.a, self.b, self.N, self.N - 1, id))
 
     def d2gdr2(self):
-        return -2 * self.a * self.b / (self.b * self.r_g + self.a)**3
+        return self._d2gdr2
 
 
 class AbinitRadialGridDescriptor(RadialGridDescriptor):

@@ -11,6 +11,7 @@ def test_poisson_metallic_poisson(in_tmp_dir):
 
     for electrode in electrodes:
         slab.calc = GPAW(
+            mode='fd',
             xc='LDA', h=0.22,
             txt='metallic.txt',
             charge=charge,

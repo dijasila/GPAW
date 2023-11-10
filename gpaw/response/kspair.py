@@ -4,8 +4,8 @@ import numpy as np
 
 from ase.utils import lazyproperty
 
+from gpaw.projections import Projections, serial_comm
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
-from gpaw.response.symmetry import KPointFinder
 from gpaw.response.pw_parallelization import Blocks1D
 
 
@@ -70,7 +70,7 @@ class KohnShamKPointPair:
 
     def get_all(self, in_mytx):
         """Get a certain data array with all transitions"""
-        return self.tblocks.collect(in_mytx)
+        return self.tblocks.all_gather(in_mytx)
 
     @property
     def deps_t(self):
@@ -81,6 +81,12 @@ class KohnShamKPointPair:
     def df_t(self):
         return self.get_all(self.ikpt2.f_myt) \
             - self.get_all(self.ikpt1.f_myt)
+
+    def get_local_spin_indices(self):
+        s1_t, s2_t = self.transitions.get_spin_indices()
+        s1_myt = s1_t[self.tblocks.myslice]
+        s2_myt = s2_t[self.tblocks.myslice]
+        return s1_myt, s2_myt
 
 
 class KohnShamKPointPairExtractor:
@@ -112,10 +118,6 @@ class KohnShamKPointPairExtractor:
         # Prepare to distribute transitions
         self.tblocks = None
 
-        # Prepare to find k-point data from vector
-        kd = self.gs.kd
-        self.kptfinder = KPointFinder(kd.bzk_kc)
-
         # Prepare to redistribute kptdata
         self.rrequests = []
         self.srequests = []
@@ -144,12 +146,12 @@ class KohnShamKPointPairExtractor:
         nocc2 = int(nocc2)
 
         # Collect nocc for all k-points
-        nocc1 = self.gs.kd.comm.min(nocc1)
-        nocc2 = self.gs.kd.comm.max(nocc2)
+        nocc1 = self.gs.kd.comm.min_scalar(nocc1)
+        nocc2 = self.gs.kd.comm.max_scalar(nocc2)
 
         # Sum over band distribution
-        nocc1 = self.gs.bd.comm.sum(nocc1)
-        nocc2 = self.gs.bd.comm.sum(nocc2)
+        nocc1 = self.gs.bd.comm.sum_scalar(nocc1)
+        nocc2 = self.gs.bd.comm.sum_scalar(nocc2)
 
         self.nocc1 = int(nocc1)
         self.nocc2 = int(nocc2)
@@ -297,7 +299,7 @@ class KohnShamKPointPairExtractor:
         t_t = np.arange(nt)
         nh = 0
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
-            K = self.kptfinder.find(k_c)
+            K = self.gs.kpoints.kptfinder.find(k_c)
             ik = self.gs.kd.bz2ibz_k[K]
             for r2 in range(p * self.tblocks.blockcomm.size,
                             min((p + 1) * self.tblocks.blockcomm.size,
@@ -547,17 +549,24 @@ class KohnShamKPointPairExtractor:
                         eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
         """From the extracted data, collect the IrreducibleKPoint data arrays
         """
+        kpt0 = self.gs.kpt_u[0]
         # Allocate data arrays
         maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
         if maxh_r1:
             nh = max(maxh_r1) + 1
+            Ph = kpt0.projections.new(nbands=nh, bcomm=None)
         else:  # Carry around empty array
             assert self.tblocks.a == self.tblocks.b
-            nh = 1
+            nh = 0
+            # We have to initialize the projections by hand, because
+            # Projections.new() interprets nbands == 0 to imply that it should
+            # inherit the preexisting number of bands...
+            proj = kpt0.projections
+            Ph = Projections(nh, proj.nproj_a, proj.atom_partition,
+                             serial_comm, proj.collinear, proj.spin,
+                             proj.matrix.dtype)
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
-        kpt0 = self.gs.kpt_u[0]
-        Ph = kpt0.projections.new(nbands=nh, bcomm=None)
         assert self.gs.dtype == kpt0.psit.array.dtype
         psit_hG = np.empty((nh, self.gs.global_pd.ng_q[myik]), self.gs.dtype)
 
@@ -588,7 +597,7 @@ class KohnShamKPointPairExtractor:
 
         # Find k-point indeces
         k_c = k_pc[self.kpts_blockcomm.rank]
-        K = self.kptfinder.find(k_c)
+        K = self.gs.kpoints.kptfinder.find(k_c)
         ik = gs.kd.bz2ibz_k[K]
 
         (myu_eu, myn_eurn, nh,

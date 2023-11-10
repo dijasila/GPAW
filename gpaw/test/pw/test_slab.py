@@ -8,13 +8,12 @@ from gpaw.calculator import GPAW as OldGPAW
 from gpaw.mpi import world
 
 
-@pytest.mark.parametrize('gpu, GPAW',
-                         [(False, OldGPAW),
-                          (False, NewGPAW),
-                          pytest.param(True, NewGPAW, marks=pytest.mark.gpu)])
+@pytest.mark.parametrize(
+    'gpu, GPAW',
+    [(False, OldGPAW),
+     (False, NewGPAW),
+     pytest.param(True, NewGPAW, marks=pytest.mark.gpu)])
 def test_pw_slab(gpu, GPAW):
-    if GPAW is NewGPAW and world.size > 1:
-        pytest.skip()
     a = 2.65
     slab = Atoms('Li2',
                  [(0, 0, 0), (0, 0, a)],
@@ -25,7 +24,7 @@ def test_pw_slab(gpu, GPAW):
     if gpu:
         parallel['gpu'] = True
     calc = GPAW(mode=PW(200),
-                eigensolver='rmm-diis',
+                eigensolver='dav' if GPAW is NewGPAW else 'rmm-diis',
                 parallel=parallel,
                 kpts=(k, k, 1))
     slab.calc = calc

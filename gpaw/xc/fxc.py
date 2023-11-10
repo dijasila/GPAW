@@ -40,7 +40,8 @@ def get_chi0v_foreach_spin(chi0_sGG, G_G):
 
 
 class FXCCache:
-    def __init__(self, tag, xc, ecut):
+    def __init__(self, comm, tag, xc, ecut):
+        self.comm = comm
         self.tag = tag
         self.xc = xc
         self.ecut = ecut
@@ -57,19 +58,47 @@ class Handle:
     def __init__(self, cache, iq):
         self.cache = cache
         self.iq = iq
+        self.comm = cache.comm
 
     @property
     def _path(self):
         return Path(f'fhxc_{self.cache.prefix}_{self.iq}.ulm')
 
     def exists(self):
-        return self._path.exists()
+        if self.comm.rank == 0:
+            exists = int(self._path.exists())
+        else:
+            exists = 0
+        exists = self.comm.sum_scalar(exists)
+        return bool(exists)
 
     def read(self):
+        from gpaw.mpi import broadcast
+        if self.comm.rank == 0:
+            array = self._read_master()
+            assert array is not None
+        else:
+            array = None
+
+        # The shape of the array is only known on rank0,
+        # so we cannot use the in-place broadcast.  Therefore
+        # we use the standalone function.
+        array = broadcast(array, root=0, comm=self.comm)
+        assert array is not None
+        return array
+
+    def write(self, array):
+        if self.comm.rank == 0:
+            assert array is not None
+            self._write_master(array)
+        self.comm.barrier()
+
+    def _read_master(self):
         with ulm.open(self._path) as reader:
             return reader.array
 
-    def write(self, array):
+    def _write_master(self, array):
+        assert array is not None
         with ulm.open(self._path, 'w') as writer:
             writer.write(array=array)
 
@@ -125,7 +154,7 @@ class FXCCorrelation:
             if self.avg_scheme is not None:
                 tag += '_' + self.avg_scheme
 
-        self.cache = FXCCache(tag, self.xc, self.ecut_max)
+        self.cache = FXCCache(self.context.comm, tag, self.xc, self.ecut_max)
 
         self.omega_w = self.rpa.omega_w
         self.ibzq_qc = self.rpa.ibzq_qc
@@ -175,8 +204,7 @@ class FXCCorrelation:
         for iq, fhxc_GG in kernel.calculate_fhxc():
             if self.context.comm.rank == 0:
                 assert isinstance(fhxc_GG, np.ndarray), str(fhxc_GG)
-                self.cache.handle(iq).write(fhxc_GG)
-            self.context.comm.barrier()
+            self.cache.handle(iq).write(fhxc_GG)
 
     @timer('FXC')
     def calculate(self, *, nbands=None):
@@ -201,7 +229,7 @@ class FXCCorrelation:
         nG = qpd.ngmax
         chi0_swGG = np.empty((nspins, mynw, nG, nG), complex)
         for chi0_wGG, chi0 in zip(chi0_swGG, chi0_s):
-            chi0_wGG[:] = chi0.copy_array_with_distribution('wGG')
+            chi0_wGG[:] = chi0.body.copy_array_with_distribution('wGG')
         if self.nblocks > 1:
             chi0_swGG = np.swapaxes(chi0_swGG, 2, 3)
 
@@ -676,7 +704,14 @@ class KernelDens(KernelIntegrator):
         n_g = self.n_g  # density on rough grid
 
         fx_g = ns * self.get_fxc_g(n_g)  # local exchange kernel
-        qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
+        try:
+            qc_g = (-4 * np.pi * ns / fx_g)**0.5  # cutoff functional
+        except FloatingPointError as err:
+            msg = (
+                'Kernel is negative yet we want its square root.  '
+                'You probably should not rely on this feature at all.  ',
+                'See discussion https://gitlab.com/gpaw/gpaw/-/issues/723')
+            raise RuntimeError(msg) from err
         flocal_g = qc_g**3 * fx_g / (6 * np.pi**2)  # ren. x-kernel for r=r'
         Vlocal_g = 2 * qc_g / np.pi  # ren. Hartree kernel for r=r'
 
@@ -928,22 +963,8 @@ class KernelDens(KernelIntegrator):
             axpy(1.0, gradn_vg[v]**2, s2_g)
         s2_g /= 4 * kf_g**2 * n_g**2
 
-        e_g = self.A_x * n_g**(4 / 3.)
-        v_g = (4 / 3.) * e_g / n_g
-        f_g = (1 / 3.) * v_g / n_g
-
-        kappa = 0.804
-        mu = 0.2195149727645171
-
-        denom_g = (1 + mu * s2_g / kappa)
-        F_g = 1. + kappa - kappa / denom_g
-        Fn_g = -mu / denom_g**2 * 8 * s2_g / (3 * n_g)
-        Fnn_g = -11 * Fn_g / (3 * n_g) - 2 * Fn_g**2 / kappa
-
-        fxc_g = f_g * F_g
-        fxc_g += 2 * v_g * Fn_g
-        fxc_g += e_g * Fnn_g
-        return fxc_g
+        from gpaw.xc.fxc_kernels import get_pbe_fxc
+        return get_pbe_fxc(n_g, s2_g)
 
 
 class XCFlags:

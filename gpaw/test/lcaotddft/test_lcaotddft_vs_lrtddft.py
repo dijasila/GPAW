@@ -29,6 +29,7 @@ def ground_state_calculation():
                 basis='sz(dzp)', mode='lcao', xc='oldLDA',
                 convergence={'density': 1e-8},
                 communicator=serial_comm,
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

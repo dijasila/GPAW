@@ -14,29 +14,60 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, in_myix):
-        """Collect full array where the first dimension is block distributed.
+    def all_gather(self, in_myix):
+        """All-gather array where the first dimension is block distributed.
 
         Here, myi is understood as the distributed index, whereas x are the
         remaining (global) dimensions."""
-        xshape = in_myix.shape[1:]
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        buf_ix = self.global_communication_buffer(in_myix)
 
-        # Local communication buffer
-        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
-            buf_myix = in_myix  # Use input array as communication buffer
-        else:
-            assert in_myix.shape[0] == self.nlocal
-            buf_myix = np.empty((self.blocksize,) + xshape, in_myix.dtype)
-            buf_myix[:self.nlocal] = in_myix
-
-        # Global communication buffer
-        buf_ix = np.empty((self.blockcomm.size * self.blocksize,) + xshape,
-                          dtype=in_myix.dtype)
-
+        # Excecute all-gather
         self.blockcomm.all_gather(buf_myix, buf_ix)
         out_ix = buf_ix[:self.N]
 
         return out_ix
+
+    def gather(self, in_myix, root=0):
+        """Gather array to root where the first dimension is block distributed.
+        """
+        assert root in range(self.blockcomm.size)
+
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        if self.blockcomm.rank == root:
+            buf_ix = self.global_communication_buffer(in_myix)
+        else:
+            buf_ix = None
+
+        # Excecute gather
+        self.blockcomm.gather(buf_myix, root, buf_ix)
+        if self.blockcomm.rank == root:
+            out_ix = buf_ix[:self.N]
+        else:
+            out_ix = None
+
+        return out_ix
+
+    def local_communication_buffer(self, in_myix):
+        """Set up local communication buffer."""
+        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
+            buf_myix = in_myix  # Use input array as communication buffer
+        else:
+            assert in_myix.shape[0] == self.nlocal
+            buf_myix = np.empty(
+                (self.blocksize,) + in_myix.shape[1:], in_myix.dtype)
+            buf_myix[:self.nlocal] = in_myix
+
+        return buf_myix
+
+    def global_communication_buffer(self, in_myix):
+        """Set up global communication buffer."""
+        buf_ix = np.empty(
+            (self.blockcomm.size * self.blocksize,) + in_myix.shape[1:],
+            dtype=in_myix.dtype)
+        return buf_ix
 
     def find_global_index(self, i):
         """Find rank and local index of the global index i"""
@@ -62,7 +93,7 @@ def block_partition(comm, nblocks):
     |     |     |     |     |     |     |     |     | |
     | 16  | 17  | 18  | 19  | 20  | 21  | 22  | 23  | |
     |_____|_____|_____|_____|_____|_____|_____|_____| ⋁
-    
+
     """
     if nblocks == 'max':
         # Maximize the number of blocks
@@ -172,53 +203,45 @@ class PlaneWaveBlockDistributor:
 
         return out_wGG
 
-    def check_distribution(self, in_wGG, nw, dist_type):
-        """ Checks if array in_wGG is distributed as dist_type. """
-        if dist_type != 'wGG' and dist_type != 'WgG':
-            raise ValueError('Invalid dist_type.')
-        comm = self.blockcomm
-        nG = in_wGG.shape[2]
-        if comm.size == 1:
-            return nw, nG, True  # All distributions are equivalent
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
+    def has_distribution(self, array, nw, distribution):
+        """Check if array 'array' has distribution 'distribution'."""
+        if distribution not in ['wGG', 'WgG', 'zGG', 'ZgG']:
+            raise ValueError(f'Invalid dist_type: {distribution}')
 
-        # At the moment on wGG and WgG distribution possible
-        if in_wGG.shape[1] < in_wGG.shape[2]:
-            assert in_wGG.shape[0] == nw
-            mydist = 'WgG'
+        comm = self.blockcomm
+        if comm.size == 1:
+            # In serial, all distributions are equivalent
+            return True
+
+        # At the moment, only wGG and WgG distributions are supported. zGG and
+        # ZgG are complex frequency aliases for wGG and WgG respectively
+        assert len(array.shape) == 3
+        nG = array.shape[2]
+        if array.shape[1] < array.shape[2]:
+            # Looks like array is WgG/ZgG distributed
+            gblocks = Blocks1D(comm, nG)
+            assert array.shape == (nw, gblocks.nlocal, nG)
+            return distribution in ['WgG', 'ZgG']
         else:
-            assert in_wGG.shape[1] == in_wGG.shape[2]
-            mydist = 'wGG'
-        return mynw, mynG, mydist == dist_type
-        
-    def distribute_as(self, in_wGG, nw, out_dist):
+            # Looks like array is wGG/zGG distributed
+            wblocks = Blocks1D(comm, nw)
+            assert array.shape == (wblocks.nlocal, nG, nG)
+            return distribution in ['wGG', 'zGG']
+
+    def distribute_as(self, array, nw, distribution):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
 
-        1) parallel over G-vectors (second dimension of in_wGG, out_dist = WgG)
-        2) parallel over frequency (first dimension of in_wGG, out_dist = wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
+        1) parallel over G-vectors (distribution in ['WgG', 'ZgG'])
+        2) parallel over frequency (distribution in ['wGG', 'zGG'])
         """
-        # check so that out_dist is valid
-        if out_dist != 'wGG' and out_dist != 'WgG':
-            raise ValueError('Invalid out_dist')
-        
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-        
-        # Check distribution and redistribute if necessary
-        mynw, mynG, same_dist = self.check_distribution(in_wGG, nw, out_dist)
-
-        if same_dist:
-            return in_wGG
+        if self.has_distribution(array, nw, distribution):
+            # If the array already has the requested distribution, do nothing
+            return array
         else:
-            return self._redistribute(in_wGG, nw)
-    
+            return self._redistribute(array, nw)
+
     def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
 

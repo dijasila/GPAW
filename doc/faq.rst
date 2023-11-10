@@ -94,6 +94,13 @@ Please also cite those of the following that are relevant to you work:
     Plasmonic Excitations <10.1021/acs.jctc.7b00589>`,
     J. Chem. Theory Comput. **13**, 4779 (2017)
 
+* :ref:`sjm`:
+
+    *G. Kastlunger, P. Lindgren, A.A. Peterson*,
+    :doi:`Controlled-potential simulation of elementary electrochemical
+    reactions: proton discharge on metal surfaces <10.1021/acs.jpcc.8b02465>`,
+    J. Phys. Chem. C **122**, 12771 (2018)
+
 
 Citations of the GPAW method papers
 -----------------------------------

@@ -1,10 +1,15 @@
+from __future__ import annotations
+import subprocess
+import sys
 from pathlib import Path
-from typing import Union
 
 import numpy as np
+from ase.io import write
+from ase.units import Bohr
+from gpaw.new.ase_interface import GPAW
 
 
-def read_bader_charges(filename: Union[str, Path] = 'ACF.dat') -> np.ndarray:
+def read_bader_charges(filename: str | Path = 'ACF.dat') -> np.ndarray:
     path = Path(filename)
     charges = []
     with path.open() as fd:
@@ -15,14 +20,8 @@ def read_bader_charges(filename: Union[str, Path] = 'ACF.dat') -> np.ndarray:
     return np.array(charges)
 
 
-if __name__ == '__main__':
-    import subprocess
-    import sys
-    from ase.io import write
-    from ase.units import Bohr
-    from gpaw.new.ase_interface import GPAW
-
-    calc = GPAW(sys.argv[1])
+def main(gpw_file_name: str):
+    calc = GPAW(gpw_file_name)
     dens = calc.calculation.densities()
     n_sR = dens.all_electron_densities(grid_spacing=0.05)
     # NOTE: Ignoring ASE's hint for **kwargs in write() because it is wrong:
@@ -35,3 +34,7 @@ if __name__ == '__main__':
     charges = calc.atoms.numbers - read_bader_charges()
     for symbol, charge in zip(calc.atoms.symbols, charges):
         print(f'{symbol:2} {charge:10.6f} |e|')
+
+
+if __name__ == '__main__':
+    main(sys.argv[1])

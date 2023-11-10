@@ -55,7 +55,7 @@ class ZerothOrder1(State):
             self.vt_G = np.where(hamiltonian.vt_sG[0] > 0,
                                  0.0, hamiltonian.vt_sG[0])
         self.intvt = self.gd.integrate(self.vt_G)
-        print('# int(vt_G)=', self.intvt, np.sometrue(self.vt_G > 0))
+        print('# int(vt_G)=', self.intvt, (self.vt_G > 0).any())
 
         self.solve()
 
@@ -72,7 +72,7 @@ class ZerothOrder1(State):
                 print('# R  v(R)    psi(R)', file=fd)
                 for r, psi, v in zip(r_R, psi_R, v_R):
                     print(r, psi, v, file=fd)
-            
+
             self.written = True
 
         return self.pw.get_grid(k_c, r0) - 1e6 * self.corrt_G

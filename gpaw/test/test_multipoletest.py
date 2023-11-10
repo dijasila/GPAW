@@ -39,7 +39,7 @@ def test_multipole():
                     Q1_m[(m + 1) % 3] -= 1.0
                 print(soft, l, m, Q0, Q1_m)
                 assert abs(Q0) < 2e-6
-                assert np.alltrue(abs(Q1_m) < 3e-5)
+                assert (abs(Q1_m) < 3e-5).all()
         b_Lg = np.reshape(a_Lg, (9, -1))
         S_LL = np.inner(b_Lg, b_Lg)
         gd.comm.sum(S_LL)

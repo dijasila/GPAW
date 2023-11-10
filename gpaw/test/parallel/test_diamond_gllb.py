@@ -5,6 +5,7 @@ from ase.build import bulk
 from gpaw import GPAW, Mixer
 
 
+@pytest.mark.gllb
 @pytest.mark.skipif(world.size < 4,
                     reason='world.size < 4')
 def test_parallel_diamond_gllb(in_tmp_dir):
@@ -21,7 +22,8 @@ def test_parallel_diamond_gllb(in_tmp_dir):
     for band in [1, 2, 4]:
         # Calculate ground state
         atoms = bulk('C', 'diamond', a=3.567)
-        calc = GPAW(h=0.15,
+        calc = GPAW(mode='fd',
+                    h=0.15,
                     kpts=(4, 4, 4),
                     xc=xc,
                     nbands=8,

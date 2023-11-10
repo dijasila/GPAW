@@ -14,6 +14,8 @@ from gpaw.response import ResponseGroundStateAdapter
 from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.dyson import HXCKernel
+from gpaw.response.pair_functions import read_pair_function
 
 
 @pytest.mark.kspair
@@ -59,20 +61,17 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs, ecut=50)
     chi_factory = ChiFactory(chiks_calc)
-    chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
+    chiks, chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
     chi.write_macroscopic_component('Si_chi2.csv')
     chi_factory.context.write_timer()
     chi_factory.context.set_timer(Timer())
 
     t4 = time.time()
-    
-    # Calculate also the ALDA susceptibility, using the cached chiks
-    chiks_buffer = chi_factory._chiks
-    chi = chi_factory('00', q, w + 1.j * eta, fxc='ALDA')
-    assert chi_factory._chiks is chiks_buffer,\
-        'Two subsequent calls to the ChiFactory with the same spincomponent,'\
-        'q_c and complex frequencies, should reuse the chiks buffer, not '\
-        'update it'
+
+    # Calculate also the ALDA susceptibility manually
+    hxc_kernel = HXCKernel(chi_factory.get_hartree_kernel('00', chiks.qpd),
+                           chi_factory.get_xc_kernel('ALDA', '00', chiks.qpd))
+    chi = chi_factory.dyson_solver(chiks, hxc_kernel)
     chi.write_macroscopic_component('Si_chi3.csv')
     chi_factory.context.write_timer()
 
@@ -86,11 +85,11 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     parprint('For excited state calc 2, it took', (t4 - t3) / 60, 'minutes')
     parprint('For excited state calc 3, it took', (t5 - t4) / 60, 'minutes')
 
-    w1_w, chiks1_w, chi1_w = read_response_function('Si_chi1.csv')
+    w1_w, _, chi1_w = read_response_function('Si_chi1.csv')
     wpeak1, Ipeak1 = findpeak(w1_w, -chi1_w.imag)
-    w2_w, chiks2_w, chi2_w = read_response_function('Si_chi2.csv')
+    w2_w, chi2_w = read_pair_function('Si_chi2.csv')
     wpeak2, Ipeak2 = findpeak(w2_w, -chi2_w.imag)
-    w3_w, chiks3_w, chi3_w = read_response_function('Si_chi3.csv')
+    w3_w, chi3_w = read_pair_function('Si_chi3.csv')
     wpeak3, Ipeak3 = findpeak(w3_w, -chi3_w.imag)
 
     # The two response codes should hold identical results

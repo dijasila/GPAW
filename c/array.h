@@ -50,7 +50,9 @@
 #define CHK_ARRAY_RO(a) // TODO
 #define CHK_ARRAYS(a,b,n) // TODO
 
-static int Array_NDIM(PyObject* obj)
+#include <stdio.h>
+
+static inline int Array_NDIM(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -66,7 +68,7 @@ static int Array_NDIM(PyObject* obj)
     return PyTuple_Size(shape);
 }
 
-static int Array_DIM(PyObject* obj, int dim)
+static inline int Array_DIM(PyObject* obj, int dim)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -84,7 +86,7 @@ static int Array_DIM(PyObject* obj, int dim)
     return value;
 }
 
-static char* Array_BYTES(PyObject* obj)
+static inline char* Array_BYTES(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -105,7 +107,7 @@ static char* Array_BYTES(PyObject* obj)
 
 #define Array_DATA(a) ((void*) Array_BYTES(a))
 
-static int Array_SIZE(PyObject* obj)
+static inline int Array_SIZE(PyObject* obj)
 {
     PyObject* size = PyObject_GetAttrString(obj, "size");
     int arraysize = (int) PyLong_AS_LONG(size);
@@ -113,7 +115,7 @@ static int Array_SIZE(PyObject* obj)
     return arraysize;
 }
 
-static int Array_TYPE(PyObject* obj)
+static inline int Array_TYPE(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -134,7 +136,7 @@ static int Array_TYPE(PyObject* obj)
     return value;
 }
 
-static int Array_ITEMSIZE(PyObject* obj)
+static inline int Array_ITEMSIZE(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -153,7 +155,7 @@ static int Array_ITEMSIZE(PyObject* obj)
 }
 
 
-static long Array_NBYTES(PyObject* obj)
+static inline long Array_NBYTES(PyObject* obj)
 {
     #ifndef GPAW_ARRAY_DISABLE_NUMPY
     if (PyArray_Check(obj))
@@ -167,11 +169,40 @@ static long Array_NBYTES(PyObject* obj)
     return nbytesvalue;
 }
 
-static int Array_ISCOMPLEX(PyObject* obj)
+static inline int Array_ISCOMPLEX(PyObject* obj)
 {
     int result = PyTypeNum_ISCOMPLEX(Array_TYPE(obj));
     return result;
 }
+
+static inline void print_array_info(PyObject* obj)
+{
+    if (PyArray_Check(obj))
+    {
+        printf("numpy ");
+    }
+    if (Array_ISCOMPLEX(obj))
+    {
+        printf("complex ");
+    }
+    printf("itemsize: %d", Array_ITEMSIZE(obj));
+    printf("typenum %d", Array_TYPE(obj));
+    printf("shape: [");
+    for (int i=0; i<Array_NDIM(obj); i++)
+    {
+        printf("%d", Array_DIM(obj, i));
+        if (i != Array_NDIM(obj) - 1)
+        {
+            printf(", ");
+        }
+        else
+        {
+            printf("]");
+        }
+    printf("\n");
+    }
+}
+
 
 #endif
 

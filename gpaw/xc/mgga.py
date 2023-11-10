@@ -18,11 +18,11 @@ class MGGA(XCFunctional):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
-        self.stencil = stencil
+        self.stencil_range = stencil
         self.fixed_ke = False
 
     def set_grid_descriptor(self, gd):
-        self.grad_v = get_gradient_ops(gd, self.stencil)
+        self.grad_v = get_gradient_ops(gd, self.stencil_range, np)
         XCFunctional.set_grid_descriptor(self, gd)
 
     def get_setup_name(self):
@@ -32,7 +32,7 @@ class MGGA(XCFunctional):
     # kind of problem when refactoring MGGAs one day.
     def get_description(self):
         return ('{} with {} nearest neighbor stencil'
-                .format(self.name, self.stencil))
+                .format(self.name, self.stencil_range))
 
     def initialize(self, density, hamiltonian, wfs):
         self.wfs = wfs
@@ -90,7 +90,7 @@ class MGGA(XCFunctional):
                 self.wfs.calculate_kinetic_energy_density()
         else:
             taut_sG = self.wfs.calculate_kinetic_energy_density()
-        
+
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
@@ -207,7 +207,7 @@ class MGGA(XCFunctional):
         self.xcc = setup.xc_correction
         self.dEdD_sp = dEdD_sp
 
-        if self.xcc.tau_npg is None:
+        if self.xcc is not None and self.xcc.tau_npg is None:
             self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
                 self.xcc)
 
@@ -460,7 +460,7 @@ def get_alpha(n, sigma, tau):
     # von Weisaecker
     ind = (n != 0.).nonzero()
     gdms = np.maximum(sigma, 1e-40)  # |nabla rho|^2
-    tau_w = np.zeros((np.shape(n)))
+    tau_w = np.zeros(np.shape(n))
     tau_w[ind] = np.maximum(np.divide(gdms[ind], 8.0 * n[ind]), 1e-40)
 
     # z and alpha

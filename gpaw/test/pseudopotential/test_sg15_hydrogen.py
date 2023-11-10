@@ -10,7 +10,8 @@ def test_pseudopotential_sg15_hydrogen(sg15_hydrogen):
     system.center(vacuum=2.5)
 
     def getkwargs():
-        return dict(eigensolver=Davidson(4),
+        return dict(mode='fd',
+                    eigensolver=Davidson(4),
                     mixer=Mixer(0.8, 5, 10.0),
                     xc='oldPBE')
 

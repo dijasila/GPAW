@@ -16,6 +16,24 @@ typedef struct
   int W;               // volume number
 } LFVolume;
 
+#ifdef GPAW_GPU
+#include "gpu/gpu-align.h"
+#include "gpu/gpu-complex.h"
+
+typedef struct ALIGN(16)
+{
+  double *A_gm;
+  int len_A_gm;
+  int nm;              // number of functions (2*l+1)
+  int M;               // global number of first function
+  int W;               // volume number
+
+  int nB;
+  int *GB1;
+  int *nGBcum;
+  gpuDoubleComplex *phase_k;
+} LFVolume_gpu;
+#endif
 
 typedef struct 
 {
@@ -34,6 +52,27 @@ typedef struct
   bool bloch_boundary_conditions;  // Gamma-point calculation?
   complex double* phase_kW;  // phase factors: exp(ik.R)
   complex double* phase_i;   // phase factors for current volumes
+
+#ifdef GPAW_GPU
+  int use_gpu;
+  LFVolume_gpu *volume_W_gpu;
+  LFVolume_gpu *volume_W_gpu_host;
+  int nB_gpu;                    // number of boundary points
+  int* G_B1_gpu;                  // boundary grid points
+  int* G_B2_gpu;                  // boundary grid points
+  int max_len_A_gm;
+  int max_nG;
+  gpuDoubleComplex *phase_i_gpu;
+  int max_k;
+  LFVolume_gpu **volume_i_gpu;
+  int *A_gm_i_gpu;
+  int *ni_gpu;
+
+  int Mcount;
+  int *volume_WMi_gpu;
+  int *WMi_gpu;
+  int WMimax;
+#endif
 } LFCObject;
 
 

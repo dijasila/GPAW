@@ -25,9 +25,8 @@ def test_inducedfield_lrtddft(in_tmp_dir):
                   pbc=False)
     atoms.center(vacuum=3.0)
 
-    calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'},
+    calc = GPAW(mode='fd', nbands=20, h=0.6, setups={'Na': '1'},
                 poissonsolver=poissonsolver,
-                experimental={'niter_fixdensity': 2},
                 convergence={'density': density_eps})
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -80,11 +79,11 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     val7 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][1]))
     val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
 
-    equal(val1, 3175.732161495840, tol)
-    equal(val2, 1700.727018909886, tol)
-    equal(val3, 1187.130921347186, tol)
-    equal(val4, 1187.130921347852, tol)
-    equal(val5, 10957.059193705705, tol)
-    equal(val6, 6575.777519299762, tol)
-    equal(val7, 4589.111152993442, tol)
-    equal(val8, 4589.111152996577, tol)
+    equal(val1, 3175.73307601948, tol)
+    equal(val2, 1700.88549123764, tol)
+    equal(val3, 1187.07316974877, tol)
+    equal(val4, 1187.07316974844, tol)
+    equal(val5, 10957.7042391289, tol)
+    equal(val6, 6576.73616797380, tol)
+    equal(val7, 4589.04913402763, tol)
+    equal(val8, 4589.04913402650, tol)

@@ -19,7 +19,7 @@ h2o_plus.minimal_box(3.0, h=0.35)
 def get_paw(**kwargs):
     """Return calculator object."""
     c = {'energy': 0.001, 'eigenstates': 0.001, 'density': 0.001}
-    return GPAW(convergence=c, eigensolver=RMMDIIS(),
+    return GPAW(mode='fd', convergence=c, eigensolver=RMMDIIS(),
                 xc='LCY-PBE:omega=0.83:unocc=True',
                 parallel={'domain': world.size}, h=0.35,
                 occupations=FermiDirac(width=0.0, fixmagmom=True),

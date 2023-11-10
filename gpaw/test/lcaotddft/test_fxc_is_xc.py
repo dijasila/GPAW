@@ -19,6 +19,7 @@ def test_lcaotddft_fxc_is_xc(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
                 xc='LDA',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()

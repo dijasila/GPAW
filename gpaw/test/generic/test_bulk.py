@@ -8,7 +8,7 @@ def test_generic_bulk():
     bulk = Atoms([Atom('Li')], pbc=True)
     k = 4
     g = 8
-    calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2)
+    calc = GPAW(mode='fd', gpts=(g, g, g), kpts=(k, k, k), nbands=2)
     bulk.calc = calc
     a = np.linspace(2.6, 2.8, 5)
     e = []

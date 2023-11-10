@@ -43,9 +43,12 @@ def test_fdtd_ed_wrapper(in_tmp_dir):
                     communicator=world)
 
     # Run
-    qsfdtd.ground_state('gs.gpw', eigensolver='cg', nbands=-1,
+    qsfdtd.ground_state('gs.gpw',
+                        mode='fd',
+                        eigensolver='cg',
+                        nbands=-1,
                         convergence={'energy': energy_eps},
-                        experimental={'niter_fixdensity': 2})
+                        symmetry={'point_group': False})
     equal(qsfdtd.energy, -0.631881,
           energy_eps * qsfdtd.gs_calc.get_number_of_electrons())
     qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001],

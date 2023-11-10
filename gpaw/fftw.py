@@ -12,6 +12,7 @@ from types import ModuleType
 
 import numpy as np
 from scipy.fft import fftn, ifftn, irfftn, rfftn
+import warnings
 
 import _gpaw
 from gpaw import SCIPY_VERSION
@@ -193,20 +194,31 @@ class NumpyFFTPlans(FFTPlans):
                                   norm='forward', overwrite_x=True)
 
 
+def rfftn_patch(tmp_R):
+    from gpaw.gpu import cupyx
+    warnings.warn(f'CuFFTError for cupyx.scipy.fft.rfftn {tmp_R.shape}.'
+                  f'reverting to using just fftn. This is a bug in ROCM cupy.')
+    return cupyx.scipy.fft.fftn(tmp_R)[:, :, :tmp_R.shape[-1] // 2 + 1]
+
+
 class CuPyFFTPlans(FFTPlans):
     def __init__(self,
                  size_c: IntVector,
                  dtype: DTypeLike):
-        from gpaw.core.plane_waves import PlaneWaves
+        from gpaw.core import PWDesc
         from gpaw.gpu import cupy as cp
         self.dtype = dtype
         super().__init__(size_c, dtype, empty=cp.empty)
-        self.Q_G_cache: dict[PlaneWaves, Array1D] = {}
+        self.Q_G_cache: dict[PWDesc, Array1D] = {}
 
     def fft(self):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.tmp_R.dtype == float:
-            self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+            try:
+                self.tmp_Q[:] = cupyx.scipy.fft.rfftn(self.tmp_R)
+            except cp.cuda.cufft.CuFFTError:
+                self.tmp_Q[:] = rfftn_patch(self.tmp_R)
         else:
             self.tmp_Q[:] = cupyx.scipy.fft.fftn(self.tmp_R)
 
@@ -270,10 +282,14 @@ class CuPyFFTPlans(FFTPlans):
 
     def fft_sphere(self, in_R, pw):
         from gpaw.gpu import cupyx
+        from gpaw.gpu import cupy as cp
         if self.dtype == complex:
             out_Q = cupyx.scipy.fft.fftn(in_R)
         else:
-            out_Q = cupyx.scipy.fft.rfftn(in_R)
+            try:
+                out_Q = cupyx.scipy.fft.rfftn(in_R)
+            except cp.cuda.cufft.CuFFTError:
+                out_Q = rfftn_patch(in_R)
         Q_G = self.indices(pw)
         coef_G = out_Q.ravel()[Q_G] * (1 / in_R.size)
         return coef_G

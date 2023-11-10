@@ -20,9 +20,9 @@ def test_vdw_H_Hirshfeld():
 
     volumes = []
     for spinpol in [False, True]:
-        calc = GPAW(h=h,
+        calc = GPAW(mode='fd',
+                    h=h,
                     occupations=FermiDirac(0.1, fixmagmom=spinpol),
-                    experimental={'niter_fixdensity': 2},
                     spinpol=spinpol)
         calc.calculate(atoms)
         vol = HirshfeldPartitioning(calc).get_effective_volume_ratios()

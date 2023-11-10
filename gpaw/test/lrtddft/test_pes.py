@@ -25,14 +25,14 @@ def test_lrtddft_pes(in_tmp_dir):
                     cell=(a, a, c))
 
     xc = 'LDA'
-    calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1,
+    calc = GPAW(mode='fd', gpts=(12, 12, 12), xc=xc, nbands=1,
                 poissonsolver=FDPoissonSolver(),
                 parallel={'domain': mpi.world.size},
                 spinpol=True, txt=txt)
     H2.calc = calc
     e_H2 = H2.get_potential_energy()
 
-    calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2,
+    calc_plus = GPAW(mode='fd', gpts=(12, 12, 12), xc=xc, nbands=2,
                      poissonsolver=FDPoissonSolver(),
                      parallel={'domain': mpi.world.size},
                      spinpol=True, txt=txt)

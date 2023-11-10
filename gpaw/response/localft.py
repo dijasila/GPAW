@@ -3,8 +3,6 @@ functions of the electon (spin-)density."""
 
 from abc import ABC, abstractmethod
 
-from functools import partial
-
 import numpy as np
 from scipy.special import spherical_jn
 
@@ -13,7 +11,7 @@ from ase.units import Bohr
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
 
 from gpaw.spherical_harmonics import Yarr
-from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.sphere.rshe import calculate_reduced_rshe
 from gpaw.xc import XC
 from gpaw.xc.libxc import LibXC
 
@@ -225,62 +223,8 @@ class LocalPAWFTCalculator(LocalFTCalculator):
         in order to calculate PAW corrections. Most of the information is
         bundled as a list of MicroSetups for each atom."""
         R_av = self.gs.atoms.positions / Bohr
-
-        micro_setups = [self.extract_micro_setup(a)
-                        for a in range(len(self.gs.atoms))]
-
+        micro_setups = self.gs.micro_setups
         return R_av, micro_setups
-
-    def extract_micro_setup(self, a):
-        """Extract the all-electron and pseudo spin-densities inside
-        augmentation sphere a as well as the relevant radial and angular grid
-        data.
-
-        Returns
-        -------
-        micro_setup : MicroSetup
-        """
-        pawdata = self.gs.pawdatasets[a]
-        # Radial grid descriptor:
-        rgd = pawdata.xc_correction.rgd
-        # Spherical harmonics on the Lebedev quadrature:
-        Y_nL = pawdata.xc_correction.Y_nL
-
-        D_sp = self.gs.D_asp[a]  # atomic density matrix
-        n_sLg, nt_sLg = self.calculate_atom_centered_densities(pawdata, D_sp)
-
-        return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
-
-    @staticmethod
-    def calculate_atom_centered_densities(pawdata, D_sp):
-        """Calculate the all-electron and pseudo densities inside the
-        augmentation sphere.
-
-        Returns
-        -------
-        n_sLg : nd.array
-            all-electron density
-        nt_sLg : nd.array
-            pseudo density
-        (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
-        """
-        n_qg = pawdata.xc_correction.n_qg
-        nt_qg = pawdata.xc_correction.nt_qg
-        nc_g = pawdata.xc_correction.nc_g
-        nct_g = pawdata.xc_correction.nct_g
-
-        B_pqL = pawdata.xc_correction.B_pqL
-        D_sLq = np.inner(D_sp, B_pqL.T)
-        nspins = len(D_sp)
-
-        n_sLg = np.dot(D_sLq, n_qg)
-        nt_sLg = np.dot(D_sLq, nt_qg)
-
-        # Add core density
-        n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-        nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-        return n_sLg, nt_sLg
 
 
 class MicroSetup:
@@ -291,23 +235,101 @@ class MicroSetup:
         self.n_sLg = n_sLg
         self.nt_sLg = nt_sLg
 
+    def evaluate_function(self, add_f):
+        """Evaluate a given function f(r) on the angular and radial grids."""
+        f_ng = np.array([self.rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            n_sg = Y_L @ self.n_sLg
+            add_f(self.rgd, n_sg, f_ng[n])
+        return f_ng
+
+    def evaluate_paw_correction(self, add_f):
+        r"""Evaluate Δf_a[n_a,ñ_a](r) for a given function f(r).
+
+        Returns
+        -------
+        df_ng : nd.array
+            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
+        """
+        rgd = self.rgd
+        f_g = rgd.zeros()
+        ft_g = rgd.zeros()
+        df_ng = np.array([rgd.zeros() for n in range(self.Y_nL.shape[0])])
+        for n, Y_L in enumerate(self.Y_nL):
+            f_g[:] = 0.
+            n_sg = Y_L @ self.n_sLg
+            add_f(rgd, n_sg, f_g)
+
+            ft_g[:] = 0.
+            nt_sg = Y_L @ self.nt_sLg
+            add_f(rgd, nt_sg, ft_g)
+
+            df_ng[n, :] = f_g - ft_g
+
+        return df_ng
+
+    def expand_function(self, add_f, **kwargs):
+        f_ng = self.evaluate_function(add_f)
+        return self.expand(f_ng, **kwargs)
+
+    def expand_paw_correction(self, add_f, **kwargs):
+        df_ng = self.evaluate_paw_correction(add_f)
+        return self.expand(df_ng, **kwargs)
+
+    def expand(self, f_ng, **kwargs):
+        """Expand into real spherical harmonics."""
+        return calculate_reduced_rshe(self.rgd, f_ng, self.Y_nL, **kwargs)
+
+
+def extract_micro_setup(pawdata, D_sp) -> MicroSetup:
+    """Extract the a.e. and pseudo (spin-)densities as a MicroSetup."""
+    # Radial grid descriptor:
+    rgd = pawdata.xc_correction.rgd
+    # Spherical harmonics on the Lebedev quadrature:
+    Y_nL = pawdata.xc_correction.Y_nL
+    n_sLg, nt_sLg = calculate_atom_centered_densities(pawdata,
+                                                      # atomic density matrix
+                                                      D_sp)
+    return MicroSetup(rgd, Y_nL, n_sLg, nt_sLg)
+
+
+def calculate_atom_centered_densities(pawdata, D_sp):
+    """Calculate the AE and pseudo densities inside the augmentation sphere.
+
+    Returns
+    -------
+    n_sLg : nd.array
+        all-electron density
+    nt_sLg : nd.array
+        pseudo density
+    (s=spin, L=(l,m) spherical harmonic index, g=radial grid index)
+    """
+    n_qg = pawdata.xc_correction.n_qg
+    nt_qg = pawdata.xc_correction.nt_qg
+    nc_g = pawdata.xc_correction.nc_g
+    nct_g = pawdata.xc_correction.nct_g
+
+    B_pqL = pawdata.xc_correction.B_pqL
+    D_sLq = np.inner(D_sp, B_pqL.T)
+    nspins = len(D_sp)
+
+    n_sLg = D_sLq @ n_qg
+    nt_sLg = D_sLq @ nt_qg
+
+    # Add core density
+    n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+    nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+
+    return n_sLg, nt_sLg
+
 
 class LocalPAWFTEngine:
 
     def __init__(self, context, rshelmax=-1, rshewmin=None):
         """Construct the engine."""
         self.context = context
-
-        # Perform rshe up to l<=lmax(<=5)
-        if rshelmax == -1:
-            self.rshelmax = 5
-        else:
-            assert isinstance(rshelmax, int)
-            assert rshelmax in range(6)
-            self.rshelmax = rshelmax
-
-        self.rshewmin = rshewmin if rshewmin is not None else 0.
-        self.dfmask_g = None
+        self.rshelmax = rshelmax
+        self.rshewmin = rshewmin
 
         self._add_f = None
 
@@ -412,37 +434,28 @@ class LocalPAWFTEngine:
                               l m=-l            0
 
         The calculated atomic correction is then added to the output array."""
-        # Radial and angular grid information
-        rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
+        rgd = micro_setup.rgd
 
-        # Calculate df on Lebedev quadrature (angular grid) and radial grid
-        df_ng = self._calculate_df(micro_setup)
-
-        # Calculate the surface norm square of df
-        dfSns_g = self._ang_int(df_ng ** 2)
-        # Reduce radial grid by excluding points where dfSns_g = 0
-        df_ng, r_g, dv_g = self._reduce_radial_grid(df_ng, rgd, dfSns_g)
-
-        # Expand correction in real spherical harmonics
-        df_gL = self._perform_rshe(df_ng, Y_nL)
-        # Reduce expansion by removing coefficients that contribute less than
-        # rshewmin on average
-        df_gM, L_M, l_M = self._reduce_rshe(a, df_gL, dfSns_g)
+        # Expand Δf_a[n_a,ñ_a](r) in real spherical harmonics
+        rshe, info_string = micro_setup.expand_paw_correction(
+            self._add_f, lmax=self.rshelmax, wmin=self.rshewmin)
+        self.print_rshe_info(a, info_string)
 
         # Expand the plane waves in real spherical harmonics (and spherical
         # Bessel functions)
         (ii_MmyG,
          j_gMmyG,
-         Y_MmyG) = self._expand_plane_waves(G_myGv, r_g, L_M, l_M)
+         Y_MmyG) = self._expand_plane_waves(
+             G_myGv, rgd.r_g, rshe.L_M, rshe.l_M)
 
         # Calculate the PAW correction as an integral over the radial grid
         # and rshe coefficients
         with self.context.timer('Integrate PAW correction'):
             angular_coef_MmyG = ii_MmyG * Y_MmyG
             # Radial integral, dv = 4πr^2
-            radial_coef_MmyG = np.tensordot(j_gMmyG * df_gL[:, L_M,
-                                                            np.newaxis],
-                                            dv_g, axes=([0, 0]))
+            df_gM = rshe.f_gM
+            radial_coef_MmyG = np.tensordot(j_gMmyG * df_gM[..., np.newaxis],
+                                            rgd.dv_g, axes=([0, 0]))
             # Angular integral (sum over l,m)
             atomic_corr_myG = np.sum(angular_coef_MmyG * radial_coef_MmyG,
                                      axis=0)
@@ -452,171 +465,11 @@ class LocalPAWFTEngine:
             # Add to output array
             fPAW_G[G_myG] += position_prefactor_myG * atomic_corr_myG
 
-    @timer('Calculate PAW correction inside augmentation spheres')
-    def _calculate_df(self, micro_setup):
-        r"""Calculate Δf_a[n_a,ñ_a](r).
-
-        Returns
-        -------
-        df_ng : nd.array
-            (f_ng - ft_ng) where (n=Lebedev index, g=radial grid index)
-        """
-        rgd, Y_nL = micro_setup.rgd, micro_setup.Y_nL
-
-        f_g = rgd.zeros()
-        ft_g = rgd.zeros()
-        df_ng = np.array([rgd.zeros() for n in range(len(R_nv))])
-        for n, Y_L in enumerate(Y_nL):
-            f_g[:] = 0.
-            n_sg = np.dot(Y_L, micro_setup.n_sLg)
-            self._add_f(rgd, n_sg, f_g)
-
-            ft_g[:] = 0.
-            nt_sg = np.dot(Y_L, micro_setup.nt_sLg)
-            self._add_f(rgd, nt_sg, ft_g)
-
-            df_ng[n, :] = f_g - ft_g
-
-        return df_ng
-
-    @staticmethod
-    def _ang_int(f_nx):
-        """Perform the angular (spherical) surface integral of a function f(r)
-        using the Lebedev quadrature (indexed by n)."""
-        f_x = 4. * np.pi * np.tensordot(weight_n, f_nx, axes=([0], [0]))
-
-        return f_x
-
-    def _reduce_radial_grid(self, df_ng, rgd, dfSns_g):
-        """Reduce the radial grid, by excluding points where dfSns_g = 0,
-        in order to avoid excess computation. Only points after the outermost
-        point where dfSns_g is non-zero will be excluded.
-
-        Returns
-        -------
-        df_ng : nd.array
-            df_ng on reduced radial grid
-        r_g : nd.array
-            radius of each point on the reduced radial grid
-        dv_g : nd.array
-            volume element of each point on the reduced radial grid
-        """
-        # Find PAW correction range
-        self.dfmask_g = np.where(dfSns_g > 0.)
-        ng = np.max(self.dfmask_g) + 1
-
-        # Integrate only r-values inside augmentation sphere
-        df_ng = df_ng[:, :ng]
-
-        r_g = rgd.r_g[:ng]
-        dv_g = rgd.dv_g[:ng]
-
-        return df_ng, r_g, dv_g
-
-    @timer('Expand PAW correction in real spherical harmonics')
-    def _perform_rshe(self, df_ng, Y_nL):
-        r"""Expand the angular dependence of Δf_a[n_a,ñ_a](r) in real spherical
-        harmonics.
-
-          a      / ^    ^                ^
-        Δf (r) = |dr Y (r) Δf_a[n_a,ñ_a](rr)
-          lm     /    lm
-
-        Note that the Lebedev quadrature, which is used to perform the angular
-        integral above, is exact up to polynomial order l=11. This implies that
-        corrections containing angular components l<=5 can be expanded exactly.
-
-        Returns
-        -------
-        df_gL : nd.array
-            df in g=radial grid index, L=(l,m) spherical harmonic index
-        """
-        lmax = min(int(np.sqrt(Y_nL.shape[1])) - 1, 36)
-        nL = (lmax + 1)**2
-        L_L = np.arange(nL)
-
-        # Perform the real spherical harmonics expansion
-        df_ngL = np.repeat(df_ng, nL, axis=1).reshape((*df_ng.shape, nL))
-        Y_ngL = np.repeat(Y_nL[:, L_L], df_ng.shape[1],
-                          axis=0).reshape((*df_ng.shape, nL))
-        df_gL = self._ang_int(Y_ngL * df_ngL)
-
-        return df_gL
-
-    def _reduce_rshe(self, a, df_gL, dfSns_g):
-        """Reduce the composite index L=(l,m) to M, which indexes coefficients
-        contributing with a weight larger than rshewmin to the surface norm
-        square on average.
-
-        Returns
-        -------
-        df_gM : nd.array
-            PAW correction in reduced rsh index
-        L_M : nd.array
-            L=(l,m) spherical harmonics indices in reduced rsh index
-        l_M : list
-            l spherical harmonics indices in reduced rsh index
-        """
-        # Create L_L and l_L array
-        lmax = min(self.rshelmax, int(np.sqrt(df_gL.shape[1])) - 1)
-        nL = (lmax + 1)**2
-        L_L = np.arange(nL)
-        l_L = []
-        for l in range(lmax + 1):
-            l_L += [l] * (2 * l + 1)
-
-        # Filter away (l,m)-coefficients based on their average weight in
-        # completing the surface norm square of df
-        dfSw_gL = self._calculate_ns_weights(nL, df_gL, dfSns_g)
-        rshew_L = np.average(dfSw_gL, axis=0)  # Average over the radial grid
-        # Do the actual filtering
-        L_M = np.where(rshew_L[L_L] > self.rshewmin)[0]
-        l_M = [l_L[L] for L in L_M]
-        df_gM = df_gL[:, L_M]
-
-        # Print information about the final (reduced) expansion at atom a
-        self.print_reduced_rshe_info(a, nL, dfSw_gL, rshew_L)
-
-        return df_gM, L_M, l_M
-
-    def _calculate_ns_weights(self, nL, df_gL, dfSns_g):
-        """Calculate the weighted contribution of each rsh coefficient to the
-        surface norm square of df as a function of radial grid index g."""
-        nallL = df_gL.shape[1]
-        dfSns_gL = np.repeat(dfSns_g, nallL).reshape(dfSns_g.shape[0], nallL)
-        dfSw_gL = df_gL[self.dfmask_g] ** 2 / dfSns_gL[self.dfmask_g]
-
-        return dfSw_gL
-
-    def print_reduced_rshe_info(self, a, nL, dfSw_gL, rshew_L):
-        """Print information about the reduced expansion in real spherical
-        harmonics at atom (augmentation sphere) a."""
-        p = partial(self.context.print, flush=False)
-        p('    RSHE of atom', a)
-        p('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
-                                                      'max weight',
-                                                      'avg weight',
-                                                      'included'))
-        for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
-            self.print_rshe_coef_info(L, nL, dfSw_g, rshew)
-
-        tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
-        avg_cov = np.average(np.sum(dfSw_gL[:, :nL]
-                                    [:, rshew_L[:nL] > self.rshewmin], axis=1))
-        p(f'      In total: {avg_cov} of the dfSns is covered on average')
-        p(f'      In total: {tot_avg_cov} of the dfSns could be covered on'
-          ' average')
-        self.context.print('')
-
-    def print_rshe_coef_info(self, L, nL, dfSw_g, rshew):
-        """Print information about a specific rshe coefficient"""
-        l = int(np.sqrt(L))
-        m = L - l**2 - l
-        included = 'yes' if (rshew > self.rshewmin and L < nL) else 'no'
-        info = '      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
-                                                               np.max(dfSw_g),
-                                                               rshew, included)
-        self.context.print(info, flush=False)
+    def print_rshe_info(self, a, info_string):
+        """Print information about the expansion at atom a."""
+        info_string = f'    RSHE of atom {a}\n' + info_string
+        self.context.print(
+            info_string.replace('\n', '\n      ') + '\n')
 
     @timer('Expand plane waves in real spherical harmonics')
     def _expand_plane_waves(self, G_myGv, r_g, L_M, l_M):
@@ -645,9 +498,9 @@ class LocalPAWFTEngine:
         # Setup arrays to fully vectorize computations
         nM = len(L_M)
         (r_gMmyG, l_gMmyG,
-         Gnorm_gMmyG) = [a.reshape(len(r_g), nM, nmyG)
+         Gnorm_gMmyG) = (a.reshape(len(r_g), nM, nmyG)
                          for a in np.meshgrid(r_g, l_M, Gnorm_myG,
-                                              indexing='ij')]
+                                              indexing='ij'))
 
         with self.context.timer('Compute spherical bessel functions'):
             # Slow step
@@ -699,17 +552,26 @@ def add_total_density(gd, n_sR, n_R):
     n_R += np.sum(n_sR, axis=0)
 
 
-def add_magnetization(gd, n_sR, m_R):
-    m_R += n_sR[0] - n_sR[1]
+def add_spin_polarization(gd, n_sR, nz_R):
+    nz_R += calculate_spin_polarization(n_sR)
 
 
-def add_LSDA_Bxc(gd, n_sR, Bxc_R):
-    """Calculate B^(xc) in the local spin-density approximation for a collinear
-    system and add it to the output array Bxc_R:
+def calculate_spin_polarization(n_sR):
+    return n_sR[0] - n_sR[1]
 
-                δE_xc[n,m]   1
-    B^(xc)(r) = ‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
-                  δm(r)      2
+
+def add_LSDA_Wxc(gd, n_sR, Wxc_R):
+    Wxc_R += calculate_LSDA_Wxc(gd, n_sR)
+
+
+def calculate_LSDA_Wxc(gd, n_sR):
+    """Calculate W_xc^z in the local spin-density approximation.
+
+    For a collinear system:
+
+                δE_xc[n,n^z]   1
+    W_xc^z(r) = ‾‾‾‾‾‾‾‾‾‾‾‾ = ‾ [V_LSDA^↑(r) - V_LSDA^↓(r)]
+                   δn^z(r)     2
     """
     # Allocate an array for the spin-dependent xc potential on the real
     # space grid
@@ -719,8 +581,17 @@ def add_LSDA_Bxc(gd, n_sR, Bxc_R):
     xc = XC('LDA')
     xc.calculate(gd, n_sR, v_sg=v_sR)
 
-    # Add B^(xc) in real space to the output array
-    Bxc_R += (v_sR[0] - v_sR[1]) / 2
+    return (v_sR[0] - v_sR[1]) / 2
+
+
+def add_LSDA_zeeman_energy(gd, n_sR, EZ_R):
+    """Calculate and add the LSDA Zeeman energy to the output array.
+
+    The Zeeman energy is defined as:
+
+    E_Z(r) = - B^(xc)(r) m(r) = - W_xc^z n^z(r).
+    """
+    EZ_R += - calculate_LSDA_Wxc(gd, n_sR) * calculate_spin_polarization(n_sR)
 
 
 def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
@@ -732,9 +603,9 @@ def add_LDA_dens_fxc(gd, n_sR, fxc_R, *, fxc):
     f_LDA^(00)(r) = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾ |
                          ∂n^2       |n=n(r),m=m(r)
     """
-    assert len(n_sR) == 1,\
+    assert len(n_sR) == 1, \
         'The density kernel is untested for spin-polarized systems'
-    
+
     if fxc == 'ALDA_x':
         fxc_R += -1. / 3. * (3. / np.pi)**(1. / 3.) * n_sR[0]**(-2. / 3.)
     else:
@@ -751,20 +622,24 @@ def add_LSDA_trans_fxc(gd, n_sR, fxc_R, *, fxc):
 
     The transverse LDA kernel is given by:
 
-                    2 ∂[ϵ_xc(n,m)n] |                V_LSDA^↑(r) - V_LSDA^↓(r)
-    f_LDA^(+-)(r) = ‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾ |              = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                    m      ∂m       |n=n(r),m=m(r)              m(r)
+                     2  ∂[ϵ_xc(n,n^z)n] |
+    f_LDA^(+-)(r) = ‾‾‾ ‾‾‾‾‾‾‾‾‾‾‾‾‾‾  |
+                    n^z      ∂n^z       |n=n(r),n^z=n^z(r)
+
+                    V_LSDA^↑(r) - V_LSDA^↓(r)
+                  = ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                              n^z(r)
     """
     assert len(n_sR) == 2  # nspins
-    m_R = n_sR[0] - n_sR[1]
+    nz_R = n_sR[0] - n_sR[1]
 
     if fxc == 'ALDA_x':
         fxc_R += - (6. / np.pi)**(1. / 3.) \
-            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / m_R
+            * (n_sR[0]**(1. / 3.) - n_sR[1]**(1. / 3.)) / nz_R
     else:
         assert fxc in ['ALDA_X', 'ALDA']
         v_sR = np.zeros(np.shape(n_sR))
         xc = XC(fxc[1:])
         xc.calculate(gd, n_sR, v_sg=v_sR)
 
-        fxc_R += (v_sR[0] - v_sR[1]) / m_R
+        fxc_R += (v_sR[0] - v_sR[1]) / nz_R

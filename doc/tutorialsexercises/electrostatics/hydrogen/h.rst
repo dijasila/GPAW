@@ -26,7 +26,7 @@ You can look at the energy convergence with this command::
 Let's do the same calculation with a PAW setup.  Replace the ``h.calc
 =`` line with this::
 
-    h.calc = GPAW(txt='H.paw.txt')
+    h.calc = GPAW(mode='fd', txt='H.paw.txt')
 
 Now the energy is converged much quicker:
 

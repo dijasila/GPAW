@@ -1,188 +1,46 @@
-import pickle
+from __future__ import annotations
 
 import numpy as np
 
 from ase.units import Hartree
-from ase.utils import lazyproperty
 
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
-from gpaw.response.chiks import ChiKS, ChiKSCalculator
+from gpaw.response.pw_parallelization import Blocks1D
+from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
+                                          get_pw_coordinates)
+from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
-from gpaw.response.localft import LocalPAWFTCalculator
-from gpaw.response.fxc_kernels import AdiabaticFXCCalculator, FXCKernel
-from gpaw.response.dyson import DysonSolver
-
-
-class Chi:
-    """Many-body susceptibility in a plane-wave basis."""
-
-    def __init__(self, context,
-                 chiks: ChiKS,
-                 Vbare_G,
-                 fxc_kernel: FXCKernel,
-                 fxc_scaling=None):
-        """Construct the many-body susceptibility based on its ingredients."""
-        assert chiks.distribution == 'zGG' and\
-            chiks.blockdist.fully_block_distributed,\
-            "Chi assumes that chiks's frequencies are distributed over world"
-        self.context = context
-        self.dyson_solver = DysonSolver(context)
-        
-        self.chiks = chiks
-        self.world = chiks.blockdist.world
-
-        self.Vbare_G = Vbare_G
-        self.fxc_kernel = fxc_kernel
-        self.fxc_scaling = fxc_scaling
-
-    def write_macroscopic_component(self, filename):
-        """Calculate the spatially averaged (macroscopic) component of the
-        susceptibility and write it to a file together with the Kohn-Sham
-        susceptibility and the frequency grid."""
-        from gpaw.response.df import write_response_function
-
-        omega_w, chiks_w, chi_w = self.get_macroscopic_component()
-        if self.world.rank == 0:
-            write_response_function(filename, omega_w, chiks_w, chi_w)
-
-    def get_macroscopic_component(self):
-        """Get the macroscopic (G=0) component data, collected on all ranks"""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
-
-        # Macroscopic component
-        chiks_w = chiks_wGG[:, 0, 0]
-        chi_w = chi_wGG[:, 0, 0]
-
-        # Collect all frequencies from world
-        chiks_w = self.collect(chiks_w)
-        chi_w = self.collect(chi_w)
-
-        return omega_w, chiks_w, chi_w
-
-    def write_reduced_arrays(self, filename, *, reduced_ecut):
-        """Calculate the many-body susceptibility and write it to a file along
-        with the Kohn-Sham susceptibility and frequency grid within a reduced
-        plane-wave basis."""
-        omega_w, G_Gc, chiks_wGG, chi_wGG = self.get_reduced_arrays(
-            reduced_ecut=reduced_ecut)
-
-        if self.world.rank == 0:
-            write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename)
-
-    def get_reduced_arrays(self, *, reduced_ecut):
-        """Get data arrays with a reduced ecut, gathered on root."""
-        omega_w, chiks_wGG, chi_wGG = self.get_distributed_arrays()
-
-        # Map the susceptibilities to a reduced plane-wave representation
-        qpd = self.chiks.qpd
-        mask_G = get_pw_reduction_map(qpd, reduced_ecut)
-        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
-        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
-
-        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(qpd)[mask_G]
-
-        # Gather all frequencies from world to root
-        chiks_wGG = self.gather(chiks_wGG)
-        chi_wGG = self.gather(chi_wGG)
-
-        return omega_w, G_Gc, chiks_wGG, chi_wGG
-
-    def get_distributed_arrays(self):
-        """Get data arrays, frequency distributed over world."""
-        # For now, we assume that eta is fixed -> z index == w index
-        omega_w = self.chiks.zd.omega_w * Hartree
-        chiks_wGG = self.chiks.array
-        chi_wGG = self.chi_zGG
-
-        return omega_w, chiks_wGG, chi_wGG
-
-    @lazyproperty
-    def chi_zGG(self):
-        return self.dyson_solver.invert_dyson(self.chiks.array,
-                                              self.get_Khxc_GG())
-
-    def get_Khxc_GG(self):
-        """Hartree-exchange-correlation kernel."""
-        # Allocate array
-        nG = self.chiks.array.shape[2]
-        Khxc_GG = np.zeros((nG, nG), dtype=complex)
-
-        if self.Vbare_G is not None:  # Add the Hartree kernel
-            Khxc_GG.flat[::nG + 1] += self.Vbare_G
-
-        if self.fxc_kernel is not None:  # Add the xc kernel
-            Khxc_GG += self.get_Kxc_GG()
-        else:
-            assert self.fxc_scaling is None,\
-                'Cannot apply an fxc scaling if no fxc kernel is supplied'
-
-        return Khxc_GG
-
-    def get_Kxc_GG(self):
-        """Construct the (scaled) xc kernel matrix Kxc(G,G')."""
-        # Unfold the fxc kernel into the Kxc kernel matrix
-        Kxc_GG = self.fxc_kernel.get_Kxc_GG()
-
-        # Apply a flat scaling to the kernel, if specified
-        fxc_scaling = self.fxc_scaling
-        if fxc_scaling is not None:
-            if not fxc_scaling.has_scaling:
-                fxc_scaling.calculate_scaling(self.chiks, Kxc_GG)
-            lambd = fxc_scaling.get_scaling()
-            self.context.print(r'Rescaling the xc kernel by a factor of '
-                               f'λ={lambd}')
-            Kxc_GG *= lambd
-
-        return Kxc_GG
-
-    def collect(self, x_z):
-        """Collect all frequencies."""
-        return self.chiks.blocks1d.collect(x_z)
-
-    def gather(self, X_zGG):
-        """Gather a full susceptibility array to root."""
-        # Allocate arrays to gather (all need to be the same shape)
-        blocks1d = self.chiks.blocks1d
-        shape = (blocks1d.blocksize,) + X_zGG.shape[1:]
-        tmp_zGG = np.empty(shape, dtype=X_zGG.dtype)
-        tmp_zGG[:blocks1d.nlocal] = X_zGG
-
-        # Allocate array for the gathered data
-        if self.world.rank == 0:
-            # Make room for all frequencies
-            Npadded = blocks1d.blocksize * blocks1d.blockcomm.size
-            shape = (Npadded,) + X_zGG.shape[1:]
-            allX_zGG = np.empty(shape, dtype=X_zGG.dtype)
-        else:
-            allX_zGG = None
-
-        self.world.gather(tmp_zGG, 0, allX_zGG)
-
-        # Return array for w indeces on frequency grid
-        if allX_zGG is not None:
-            allX_zGG = allX_zGG[:len(self.chiks.zd), :, :]
-
-        return allX_zGG
+from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
+from gpaw.response.dyson import DysonSolver, HXCKernel
 
 
 class ChiFactory:
     r"""User interface to calculate individual elements of the four-component
     susceptibility tensor χ^μν, see [PRB 103, 245110 (2021)]."""
 
-    def __init__(self, chiks_calc: ChiKSCalculator):
+    def __init__(self,
+                 chiks_calc: ChiKSCalculator,
+                 fxc_calculator: AdiabaticFXCCalculator | None = None):
         """Contruct a many-body susceptibility factory."""
         self.chiks_calc = chiks_calc
-
         self.gs = chiks_calc.gs
         self.context = chiks_calc.context
+        self.dyson_solver = DysonSolver(self.context)
 
-        # Prepare a buffer for chiks
-        self._chiks = None
+        # If no fxc_calculator is supplied, fall back to default
+        if fxc_calculator is None:
+            fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
+                self.gs, self.context)
+        else:
+            assert fxc_calculator.gs is chiks_calc.gs
+            assert fxc_calculator.context is chiks_calc.context
+        self.fxc_calculator = fxc_calculator
+
+        # Prepare a buffer for the fxc kernels
+        self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc_kernel=None, fxc=None, localft_calc=None,
-                 fxc_scaling=None, txt=None) -> Chi:
+                 fxc=None, hxc_scaling=None, txt=None) -> tuple[Chi, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -198,24 +56,19 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc_kernel : FXCKernel
-            Exchange-correlation kernel (calculated elsewhere). Use this input
-            carefully! The plane-wave representation in the supplied kernel has
-            to match the representation of chiks.
-            If no kernel is supplied, the ChiFactory will calculate one itself
-            according to keywords fxc and localft_calc.
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
-            Choices: ALDA, ALDA_X, ALDA_x
-        localft_calc : LocalFTCalculator or None
-            Calculator used to Fourier transform the fxc kernel into plane-wave
-            components. If None, the default LocalPAWFTCalculator is used.
-        fxc_scaling : None or FXCScaling
-            Supply an FXCScaling object to scale the xc kernel.
+            Choices: RPA, ALDA, ALDA_X, ALDA_x
+        hxc_scaling : None or HXCScaling
+            Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
+        # Fall back to ALDA per default
+        if fxc is None:
+            fxc = 'ALDA'
+
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -226,165 +79,439 @@ class ChiFactory:
                            f'{spincomponent} with q_c={q_c}', flush=False)
         self.context.print('---------------')
 
-        # Calculate chiks (or get it from the buffer)
-        chiks = self.get_chiks(spincomponent, q_c, complex_frequencies)
+        # Calculate chiks
+        chiks = self.calculate_chiks(spincomponent, q_c, complex_frequencies)
 
-        # Calculate the Coulomb kernel
+        # Construct the hxc kernel
+        hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
+        xc_kernel = self.get_xc_kernel(fxc, spincomponent, chiks.qpd)
+        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel, scaling=hxc_scaling)
+
+        # Solve dyson equation
+        chi = self.dyson_solver(chiks, hxc_kernel)
+
+        return chiks, chi
+
+    def get_hartree_kernel(self, spincomponent, qpd):
         if spincomponent in ['+-', '-+']:
-            assert fxc != 'RPA'
             # No Hartree term in Dyson equation
-            Vbare_G = None
+            return None
         else:
-            Vbare_G = get_coulomb_kernel(chiks.qpd, self.gs.kd.N_c)
+            return get_coulomb_kernel(qpd, self.gs.kd.N_c,
+                                      pbc_c=self.gs.atoms.get_pbc())
 
-        # Calculate the xc kernel, if it has not been supplied by the user
-        if fxc_kernel is None:
-            # Use ALDA as the default fxc
-            if fxc is None:
-                fxc = 'ALDA'
-            # In RPA, we neglect the xc-kernel
-            if fxc == 'RPA':
-                assert localft_calc is None,\
-                    "With fxc='RPA', there is no xc kernel to be calculated,"\
-                    "rendering the localft_calc input irrelevant"
-            else:
-                # If no localft_calc is supplied, fall back to the default
-                if localft_calc is None:
-                    localft_calc = LocalPAWFTCalculator(self.gs, self.context)
+    def get_xc_kernel(self,
+                      fxc: str,
+                      spincomponent: str,
+                      qpd: SingleQPWDescriptor):
+        """Get the requested xc-kernel object."""
+        if fxc == 'RPA':
+            # No xc-kernel
+            return None
 
-                # Perform an actual kernel calculation
-                fxc_calculator = AdiabaticFXCCalculator(localft_calc)
-                fxc_kernel = fxc_calculator(
-                    fxc, chiks.spincomponent, chiks.qpd)
+        if qpd.gammacentered:
+            # When using a gamma-centered plane-wave basis, we can reuse the
+            # fxc kernel for all q-vectors. Thus, we keep a cache of calculated
+            # kernels
+            key = f'{fxc},{spincomponent}'
+            if key not in self.fxc_kernel_cache:
+                self.fxc_kernel_cache[key] = self.fxc_calculator(
+                    fxc, spincomponent, qpd)
+            fxc_kernel = self.fxc_kernel_cache[key]
         else:
-            assert fxc is None and localft_calc is None,\
-                'Supplying an xc kernel overwrites any specification of how'\
-                'to calculate the kernel'
+            # Always compute the kernel
+            fxc_kernel = self.fxc_calculator(fxc, spincomponent, qpd)
 
-        return Chi(self.context, chiks, Vbare_G, fxc_kernel,
-                   fxc_scaling=fxc_scaling)
+        return fxc_kernel
 
-    def get_chiks(self, spincomponent, q_c, complex_frequencies):
-        """Get chiks from buffer."""
+    def calculate_chiks(self, spincomponent, q_c, complex_frequencies):
+        """Calculate the Kohn-Sham susceptibility."""
         q_c = np.asarray(q_c)
         if isinstance(complex_frequencies, ComplexFrequencyDescriptor):
             zd = complex_frequencies
         else:
             zd = ComplexFrequencyDescriptor.from_array(complex_frequencies)
 
-        if self._chiks is None or\
-            not (spincomponent == self._chiks.spincomponent and
-                 np.allclose(q_c, self._chiks.q_c) and
-                 zd.almost_eq(self._chiks.zd)):
-            # Calculate new chiks, if buffer is empty or if we are
-            # considering a new set of spincomponent, q-vector and frequencies
-            chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
-            # Distribute frequencies over world
-            chiks = chiks.copy_with_global_frequency_distribution()
+        # Perform actual calculation
+        chiks = self.chiks_calc.calculate(spincomponent, q_c, zd)
+        # Distribute frequencies over world
+        chiks = chiks.copy_with_global_frequency_distribution()
 
-            # Fill buffer
-            self._chiks = chiks
-
-        return self._chiks
+        return chiks
 
 
-def get_pw_reduction_map(qpd, ecut):
-    """Get a mask to reduce the plane wave representation.
+def spectral_decomposition(chi, pos_eigs=1, neg_eigs=0):
+    """Decompose the susceptibility in terms of spectral functions.
 
-    Please remark, that the response code currently works with one q-vector
-    at a time, at thus only a single plane wave representation at a time.
-
-    Returns
-    -------
-    mask_G : nd.array (dtype=bool)
-        Mask which reduces the representation
+    The full spectrum of induced excitations is extracted and separated into
+    contributions corresponding to the pos_eigs and neg_eigs largest positive
+    and negative eigenvalues respectively.
     """
-    assert ecut is not None
-    ecut /= Hartree
-    assert ecut <= qpd.ecut
+    # Initiate an EigendecomposedSpectrum object with the full spectrum
+    full_spectrum = EigendecomposedSpectrum.from_chi(chi)
 
-    # List of all plane waves
-    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
+    # Separate the positive and negative eigenvalues for each frequency
+    Apos = full_spectrum.get_positive_eigenvalue_spectrum()
+    Aneg = full_spectrum.get_negative_eigenvalue_spectrum()
 
-    if qpd.gammacentered:
-        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
-    else:
-        mask_G = (((G_Gv + qpd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+    # Keep only a fixed number of eigenvalues
+    Apos = Apos.reduce_number_of_eigenvalues(pos_eigs)
+    Aneg = Aneg.reduce_number_of_eigenvalues(neg_eigs)
 
-    return mask_G
-
-
-def get_pw_coordinates(qpd):
-    """Get the reciprocal lattice vector coordinates corresponding to a
-    givne plane wave basis.
-
-    Please remark, that the response code currently works with one q-vector
-    at a time, at thus only a single plane wave representation at a time.
-
-    Returns
-    -------
-    G_Gc : nd.array (dtype=int)
-        Coordinates on the reciprocal lattice
-    """
-    # List of all plane waves
-    G_Gv = np.array([qpd.G_Qv[Q] for Q in qpd.Q_qG[0]])
-
-    # Use cell to get coordinates
-    B_cv = 2.0 * np.pi * qpd.gd.icell_cv
-    return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
+    return Apos, Aneg
 
 
-def get_inverted_pw_mapping(qpd1, qpd2):
-    """Get the planewave coefficients mapping GG' of qpd1 into -G-G' of qpd2"""
-    G1_Gc = get_pw_coordinates(qpd1)
-    G2_Gc = get_pw_coordinates(qpd2)
+class EigendecomposedSpectrum:
+    """Data object for eigendecomposed susceptibility spectra."""
 
-    mG2_G1 = []
-    for G1_c in G1_Gc:
-        found_match = False
-        for G2, G2_c in enumerate(G2_Gc):
-            if np.all(G2_c == -G1_c):
-                mG2_G1.append(G2)
-                found_match = True
-                break
-        if not found_match:
-            raise ValueError('Could not match qpd1 and qpd2')
+    def __init__(self, omega_w, G_Gc, s_we, v_wGe, A_w=None,
+                 wblocks: Blocks1D | None = None):
+        """Construct the EigendecomposedSpectrum.
 
-    # Set up mapping from GG' to -G-G'
-    invmap_GG = tuple(np.meshgrid(mG2_G1, mG2_G1, indexing='ij'))
+        Parameters
+        ----------
+        omega_w : np.array
+            Global array of frequencies in eV.
+        G_Gc : np.array
+            Reciprocal lattice vectors in relative coordinates.
+        s_we : np.array
+            Sorted eigenvalues (in decreasing order) at all frequencies.
+            Here, e is the eigenvalue index.
+        v_wGe : np.array
+            Eigenvectors for corresponding to the (sorted) eigenvalues. With
+            all eigenvalues present in the representation, v_Ge should
+            constitute the unitary transformation matrix between the eigenbasis
+            and the plane-wave representation.
+        A_w : np.array or None
+            Full spectral weight as a function of frequency. If given as None,
+            A_w will be calculated as the sum of all eigenvalues (equal to the
+            trace of the spectrum, if no eigenvalues have been discarded).
+        wblocks : Blocks1D
+            Frequency block parallelization, if any.
+        """
+        self.omega_w = omega_w
+        self.G_Gc = G_Gc
 
-    return invmap_GG
+        self.s_we = s_we
+        self.v_wGe = v_wGe
+
+        self._A_w = A_w
+        if wblocks is None:
+            # Create a serial Blocks1D instance
+            from gpaw.mpi import serial_comm
+            wblocks = Blocks1D(serial_comm, len(omega_w))
+        self.wblocks = wblocks
+
+    @classmethod
+    def from_chi(cls, chi):
+        """Construct the eigendecomposed spectrum of a given susceptibility.
+
+        The spectrum of induced excitations, S_GG'^(μν)(q,ω), which are encoded
+        in a given susceptibility, can be extracted directly from its the
+        dissipative part:
+
+                            1
+        S_GG'^(μν)(q,ω) = - ‾ χ_GG'^(μν")(q,ω)
+                            π
+        """
+        assert chi.distribution == 'zGG'
+
+        # Extract the spectrum of induced excitations
+        chid = chi.copy_dissipative_part()
+        S_wGG = - chid.array / np.pi
+
+        # Extract frequencies (in eV) and reciprocal lattice vectors
+        omega_w = chid.zd.omega_w * Hartree
+        G_Gc = get_pw_coordinates(chid.qpd)
+
+        return cls.from_spectrum(omega_w, G_Gc, S_wGG, wblocks=chid.blocks1d)
+
+    @classmethod
+    def from_spectrum(cls, omega_w, G_Gc, S_wGG, wblocks=None):
+        """Perform an eigenvalue decomposition of a given spectrum."""
+        # Find eigenvalues and eigenvectors of the spectrum
+        s_wK, v_wGK = np.linalg.eigh(S_wGG)
+
+        # Sort by spectral intensity (eigenvalues in descending order)
+        sorted_indices_wK = np.argsort(-s_wK)
+        s_we = np.take_along_axis(s_wK, sorted_indices_wK, axis=1)
+        v_wGe = np.take_along_axis(
+            v_wGK, sorted_indices_wK[:, np.newaxis, :], axis=2)
+
+        return cls(omega_w, G_Gc, s_we, v_wGe, wblocks=wblocks)
+
+    @classmethod
+    def from_file(cls, filename):
+        """Construct the eigendecomposed spectrum from a .pckl file."""
+        import pickle
+        assert isinstance(filename, str) and filename[-5:] == '.pckl'
+        with open(filename, 'rb') as fd:
+            omega_w, G_Gc, s_we, v_wGe, A_w = pickle.load(fd)
+        return cls(omega_w, G_Gc, s_we, v_wGe, A_w=A_w)
+
+    def write(self, filename):
+        """Write the eigendecomposed spectrum as a .pckl file."""
+        import pickle
+        assert isinstance(filename, str) and filename[-5:] == '.pckl'
+
+        # Gather data from the different blocks of frequencies to root
+        s_we = self.wblocks.gather(self.s_we)
+        v_wGe = self.wblocks.gather(self.v_wGe)
+        A_w = self.wblocks.gather(self.A_w)
+
+        # Let root write the spectrum to a pickle file
+        if self.wblocks.blockcomm.rank == 0:
+            with open(filename, 'wb') as fd:
+                pickle.dump((self.omega_w, self.G_Gc, s_we, v_wGe, A_w), fd)
+
+    @property
+    def nG(self):
+        return self.G_Gc.shape[0]
+
+    @property
+    def neigs(self):
+        return self.s_we.shape[1]
+
+    @property
+    def A_w(self):
+        if self._A_w is None:
+            self._A_w = np.nansum(self.s_we, axis=1)
+        return self._A_w
+
+    @property
+    def A_wGG(self):
+        """Generate the spectrum from the eigenvalues and eigenvectors."""
+        A_wGG = np.empty((self.wblocks.nlocal, self.nG, self.nG),
+                         dtype=complex)
+        for w, (s_e, v_Ge) in enumerate(zip(self.s_we, self.v_wGe)):
+            emask = ~np.isnan(s_e)
+            svinv_eG = s_e[emask][:, np.newaxis] * np.conj(v_Ge.T[emask])
+            A_wGG[w] = v_Ge[:, emask] @ svinv_eG
+        return A_wGG
+
+    def new_nan_arrays(self, neigs):
+        """Allocate new eigenvalue and eigenvector arrays filled with np.nan.
+        """
+        s_we = np.empty((self.wblocks.nlocal, neigs), dtype=self.s_we.dtype)
+        v_wGe = np.empty((self.wblocks.nlocal, self.nG, neigs),
+                         dtype=self.v_wGe.dtype)
+        s_we[:] = np.nan
+        v_wGe[:] = np.nan
+        return s_we, v_wGe
+
+    def get_positive_eigenvalue_spectrum(self):
+        """Create a new EigendecomposedSpectrum from the positive eigenvalues.
+
+        This is especially useful in order to separate the full spectrum of
+        induced excitations, see [PRB 103, 245110 (2021)],
+
+        S_GG'^μν(q,ω) = A_GG'^μν(q,ω) - A_(-G'-G)^νμ(-q,-ω)
+
+        into the ν and μ components of the spectrum. Since the spectral
+        function A_GG'^μν(q,ω) is positive definite or zero (in regions without
+        excitations), A_GG'^μν(q,ω) simply corresponds to the positive
+        eigenvalue contribution to the full spectrum S_GG'^μν(q,ω).
+        """
+        # Find the maximum number of positive eigenvalues across the entire
+        # frequency range
+        if self.wblocks.nlocal > 0:
+            pos_we = self.s_we > 0.
+            npos_max = int(np.max(np.sum(pos_we, axis=1)))
+        else:
+            npos_max = 0
+        npos_max = self.wblocks.blockcomm.max_scalar(npos_max)
+
+        # Allocate new arrays, using np.nan for padding (the number of positive
+        # eigenvalues might vary with frequency)
+        s_we, v_wGe = self.new_nan_arrays(npos_max)
+
+        # Fill arrays with the positive eigenvalue data
+        for w, (s_e, v_Ge) in enumerate(zip(self.s_we, self.v_wGe)):
+            pos_e = s_e > 0.
+            npos = np.sum(pos_e)
+            s_we[w, :npos] = s_e[pos_e]
+            v_wGe[w, :, :npos] = v_Ge[:, pos_e]
+
+        return EigendecomposedSpectrum(self.omega_w, self.G_Gc, s_we, v_wGe,
+                                       wblocks=self.wblocks)
+
+    def get_negative_eigenvalue_spectrum(self):
+        """Create a new EigendecomposedSpectrum from the negative eigenvalues.
+
+        The spectrum is created by reversing and negating the spectrum,
+
+        -S_GG'^μν(q,-ω) = -A_GG'^μν(q,-ω) + A_(-G'-G)^νμ(-q,ω),
+
+        from which the spectral function A_GG'^νμ(q,ω) can be extracted as the
+        positive eigenvalue contribution, thanks to the reciprocity relation
+
+                                  ˍˍ
+        χ_GG'^μν(q,ω) = χ_(-G'-G)^νμ(-q,ω),
+                   ˍ
+        in which n^μ(r) denotes the hermitian conjugate [n^μ(r)]^†, and which
+        is valid for μν ∊ {00,0z,zz,+-} in collinear systems without spin-orbit
+        coupling.
+        """
+        # Negate the spectral function, its frequencies and reverse the order
+        # of eigenvalues
+        omega_w = - self.omega_w
+        s_we = - self.s_we[:, ::-1]
+        v_wGe = self.v_wGe[..., ::-1]
+        inverted_spectrum = EigendecomposedSpectrum(omega_w, self.G_Gc,
+                                                    s_we, v_wGe,
+                                                    wblocks=self.wblocks)
+
+        return inverted_spectrum.get_positive_eigenvalue_spectrum()
+
+    def reduce_number_of_eigenvalues(self, neigs):
+        """Create a new spectrum with only the neigs largest eigenvalues.
+
+        The returned EigendecomposedSpectrum is constructed to retain knowledge
+        of the full spectral weight of the unreduced spectrum through the A_w
+        attribute.
+        """
+        assert self.nG >= neigs
+        # Check that the available eigenvalues are in descending order
+        assert all([np.all(np.logical_not(s_e[1:] - s_e[:-1] > 0.))
+                    for s_e in self.s_we]), \
+            'Eigenvalues needs to be sorted in descending order!'
+
+        # Create new output arrays with the requested number of eigenvalues,
+        # using np.nan for padding
+        s_we, v_wGe = self.new_nan_arrays(neigs)
+        # In reality, there may be less actual eigenvalues than requested,
+        # since the user usually does not know how many e.g. negative
+        # eigenvalues persist on the positive frequency axis (or vice-versa).
+        # Fill in available eigenvalues up to the requested number.
+        neigs = min(neigs, self.neigs)
+        s_we[:, :neigs] = self.s_we[:, :neigs]
+        v_wGe[..., :neigs] = self.v_wGe[..., :neigs]
+
+        return EigendecomposedSpectrum(self.omega_w, self.G_Gc, s_we, v_wGe,
+                                       # Keep the full spectral weight
+                                       A_w=self.A_w,
+                                       wblocks=self.wblocks)
+
+    def get_eigenmode_lineshapes(self, nmodes=1):
+        """Extract the spectral lineshapes of the eigenmodes.
+
+        The spectral lineshape is calculated as the inner product
 
 
-def symmetrize_reciprocity(qpd, X_wGG):
-    """In collinear systems without spin-orbit coupling, the plane wave
-    susceptibility is reciprocal in the sense that e.g.
+        a^μν_n(q,ω) = <v^μν_n(q)| A^μν(q,ω) |v^μν_n(q)>
 
-    χ_(GG')^(+-)(q, ω) = χ_(-G'-G)^(+-)(-q, ω)
+        where the eigenvectors |v^μν_n> diagonalize the full spectral function
+        at an appropriately chosen frequency ω_m:
 
-    This method symmetrizes A_wGG in the case where q=0.
-    """
-    from gpaw.test.response.test_chiks import get_inverted_pw_mapping
+        S^μν(q,ω_m) |v^μν_n(q)> = s^μν_n(q,ω_m) |v^μν_n(q)>
+        """
+        wm = self.get_eigenmode_frequency(nmodes=nmodes)
+        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+        return self._get_eigenmode_lineshapes(v_Gm)
 
-    q_c = qpd.q_c
-    if np.allclose(q_c, 0.):
-        invmap_GG = get_inverted_pw_mapping(qpd, qpd)
-        for X_GG in X_wGG:
-            # Symmetrize [χ_(GG')(q, ω) + χ_(-G'-G)(-q, ω)] / 2
-            X_GG[:] = (X_GG + X_GG[invmap_GG].T) / 2.
+    def get_eigenmode_frequency(self, nmodes=1):
+        """Get the frequency at which to extract the eigenmodes.
+
+        Generally, we chose the frequency ω_m to maximize the minimum
+        eigenvalue difference
+
+        ω_m(q) = maxmin_ωn[s^μν_n(q,ω) - s^μν_n+1(q,ω)]
+
+        where n only runs over the desired number of modes (and the eigenvalues
+        are sorted in descending order).
+
+        However, in the case where only a single mode is extracted, we use the
+        frequency at which the eigenvalue is maximal.
+        """
+        assert nmodes <= self.neigs
+        wblocks = self.wblocks
+        if nmodes == 1:
+            # Find frequency where the eigenvalue is maximal
+            s_w = wblocks.all_gather(self.s_we[:, 0])
+            wm = np.nanargmax(s_w)  # skip np.nan padding
+        else:
+            # Find frequency with maximum minimal difference between size of
+            # eigenvalues
+            ds_we = np.array([self.s_we[:, e] - self.s_we[:, e + 1]
+                              for e in range(nmodes - 1)]).T
+            dsmin_w = np.min(ds_we, axis=1)
+            dsmin_w = wblocks.all_gather(dsmin_w)
+            wm = np.nanargmax(dsmin_w)  # skip np.nan padding
+
+        return wm
+
+    def get_eigenvectors_at_frequency(self, wm, nmodes=1):
+        """Extract the eigenvectors a specific frequency index."""
+        wblocks = self.wblocks
+        root, wmlocal = wblocks.find_global_index(wm)
+        if wblocks.blockcomm.rank == root:
+            v_Ge = self.v_wGe[wmlocal]
+            v_Gm = np.ascontiguousarray(v_Ge[:, :nmodes])
+        else:
+            v_Gm = np.empty((self.nG, nmodes), dtype=complex)
+        wblocks.blockcomm.broadcast(v_Gm, root)
+
+        return v_Gm
+
+    def _get_eigenmode_lineshapes(self, v_Gm):
+        """Extract the eigenmode lineshape based on the mode eigenvectors."""
+        wblocks = self.wblocks
+        A_wGG = self.A_wGG
+        a_wm = np.empty((wblocks.nlocal, v_Gm.shape[1]), dtype=float)
+        for m, v_G in enumerate(v_Gm.T):
+            a_w = np.conj(v_G) @ A_wGG @ v_G
+            assert np.allclose(a_w.imag, 0.)
+            a_wm[:, m] = a_w.real
+        a_wm = wblocks.all_gather(a_wm)
+
+        return a_wm
+
+    def write_full_spectral_weight(self, filename):
+        A_w = self.wblocks.gather(self.A_w)
+        if self.wblocks.blockcomm.rank == 0:
+            write_full_spectral_weight(filename, self.omega_w, A_w)
+
+    def write_eigenmode_lineshapes(self, filename, nmodes=1):
+        a_wm = self.get_eigenmode_lineshapes(nmodes=nmodes)
+        if self.wblocks.blockcomm.rank == 0:
+            write_eigenmode_lineshapes(filename, self.omega_w, a_wm)
 
 
-def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename):
-    """Write the dynamic susceptibility as a pickle file."""
-    assert isinstance(filename, str)
-    with open(filename, 'wb') as fd:
-        pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+def write_full_spectral_weight(filename, omega_w, A_w):
+    """Write the sum of spectral weights A(ω) to a file."""
+    with open(filename, 'w') as fd:
+        print('# {:>11}, {:>11}'.format('omega [eV]', 'A(w)'), file=fd)
+        for omega, A in zip(omega_w, A_w):
+            print(f'  {omega:11.6f}, {A:11.6f}', file=fd)
 
 
-def read_component(filename):
-    """Read a stored susceptibility component file"""
-    assert isinstance(filename, str)
-    with open(filename, 'rb') as fd:
-        omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
+def read_full_spectral_weight(filename):
+    """Read a stored full spectral weight file."""
+    data = np.loadtxt(filename, delimiter=',')
+    omega_w = np.array(data[:, 0], float)
+    A_w = np.array(data[:, 1], float)
+    return omega_w, A_w
 
-    return omega_w, G_Gc, chiks_wGG, chi_wGG
+
+def write_eigenmode_lineshapes(filename, omega_w, a_wm):
+    """Write the eigenmode lineshapes a^μν_n(ω) to a file."""
+    with open(filename, 'w') as fd:
+        # Print header
+        header = '# {:>11}'.format('omega [eV]')
+        for m in range(a_wm.shape[1]):
+            header += ', {:>11}'.format(f'a_{m}(w)')
+        print(header, file=fd)
+        # Print data
+        for omega, a_m in zip(omega_w, a_wm):
+            data = f'  {omega:11.6f}'
+            for a in a_m:
+                data += f', {a:11.6f}'
+            print(data, file=fd)
+
+
+def read_eigenmode_lineshapes(filename):
+    """Read a stored eigenmode lineshapes file."""
+    data = np.loadtxt(filename, delimiter=',')
+    omega_w = np.array(data[:, 0], float)
+    a_wm = np.array(data[:, 1:], float)
+    return omega_w, a_wm

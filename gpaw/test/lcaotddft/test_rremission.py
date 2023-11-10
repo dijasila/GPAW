@@ -15,6 +15,7 @@ def test_rremission(in_tmp_dir):
     atoms.center(vacuum=4.0)
     calc = GPAW(mode='lcao', h=0.4, basis='dzp',
                 setups={'Na': '1'},
+                symmetry={'point_group': False},
                 convergence={'density': 1e-12})
     atoms.calc = calc
     atoms.get_potential_energy()

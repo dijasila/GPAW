@@ -11,7 +11,7 @@ from gpaw.typing import (Array2D, ArrayLike, ArrayLike1D, ArrayLike2D,
                          DTypeLike, Vector)
 
 if TYPE_CHECKING:
-    from gpaw.core import UniformGrid
+    from gpaw.core import UGDesc
     from gpaw.core.arrays import DistributedArrays
 
 
@@ -37,9 +37,9 @@ class Domain:
     def __init__(self,
                  cell: ArrayLike1D | ArrayLike2D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,
+                 kpt: Vector | None = None,
                  comm: MPIComm = serial_comm,
-                 dtype: DTypeLike = None):
+                 dtype: DTypeLike | None = None):
         """"""
         if isinstance(pbc, int):
             pbc = (pbc,) * 3
@@ -134,17 +134,17 @@ class Domain:
                                        grid_spacing: float,
                                        n: int = 1,
                                        factors: Sequence[int] = (2, 3, 5, 7)
-                                       ) -> UniformGrid:
-        from gpaw.core import UniformGrid
+                                       ) -> UGDesc:
+        from gpaw.core import UGDesc
 
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
         size_c = np.maximum(n, (L_c / grid_spacing / n + 0.5).astype(int) * n)
         if factors:
             size_c = np.array([get_efficient_fft_size(N, n, factors)
                                for N in size_c])
-        return UniformGrid(size=size_c,
-                           cell=self.cell_cv,
-                           pbc=self.pbc_c,
-                           kpt=self.kpt_c,
-                           dtype=self.dtype,
-                           comm=self.comm)
+        return UGDesc(size=size_c,
+                      cell=self.cell_cv,
+                      pbc=self.pbc_c,
+                      kpt=self.kpt_c,
+                      dtype=self.dtype,
+                      comm=self.comm)

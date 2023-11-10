@@ -7,14 +7,16 @@ from gpaw.mpi import world
 
 
 @pytest.mark.response
-def test_gw_spinpol(in_tmp_dir, gpw_files):
+def test_gw_spinpol(in_tmp_dir, gpw_files, needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
 
     if world.size > 1:
         nblocks = 2
     else:
         nblocks = 1
 
-    gw = G0W0(gpw_files['h2_bcc_afm_wfs'],
+    gw = G0W0(gpw_files['h2_bcc_afm'],
               nbands=4,  # keep consistent with gpw nbands
               ecut=100,
               kpts=[(0, 0, 0)],

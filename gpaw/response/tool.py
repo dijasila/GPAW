@@ -6,7 +6,7 @@ from scipy.optimize import leastsq
 from ase.units import Ha
 import gpaw.mpi as mpi
 from gpaw.response.pair_functions import SingleQPWDescriptor
-from gpaw.response.pair import PairDensityCalculator, get_gs_and_context
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 
 
 def check_degenerate_bands(filename, etol):
@@ -58,15 +58,15 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     gs, context = get_gs_and_context(filename, txt=txt, world=mpi.world,
                                      timer=None)
 
-    pair = PairDensityCalculator(gs=gs, context=context)
+    kptpair_factory = KPointPairFactory(gs=gs, context=context)
     qpd = SingleQPWDescriptor.from_q(q_c, ecut, gs.gd)
     bzk_kv = np.dot(bzk_kc, qpd.gd.icell_cv) * 2 * np.pi
 
     if spins == 'all':
-        spins = range(pair.gs.nspins)
+        spins = range(kptpair_factory.gs.nspins)
     else:
         for spin in spins:
-            assert spin in range(pair.gs.nspins)
+            assert spin in range(kptpair_factory.gs.nspins)
 
     domain_dl = (bzk_kv, spins)
     domainsize_d = [len(domain_l) for domain_l in domain_dl]
@@ -79,10 +79,10 @@ def get_bz_transitions(filename, q_c, bzk_kc,
             arg.append(domain_l[index])
         domainarg_td.append(tuple(arg))
 
-    return pair, qpd, domainarg_td
+    return kptpair_factory, qpd, domainarg_td
 
 
-def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
+def get_chi0_integrand(kptpair_factory, qpd, n_n, m_m, k_v, s):
     """
     Calculates the pair densities, occupational differences
     and energy differences of transitions from certain kpoint
@@ -91,10 +91,12 @@ def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     optical_limit = qpd.optical_limit
     k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
 
-    kptpair = pair.get_kpoint_pair(qpd, s, k_c, n_n[0], n_n[-1] + 1,
-                                   m_m[0], m_m[-1] + 1)
+    pair_calc = kptpair_factory.pair_calculator()
+    kptpair = kptpair_factory.get_kpoint_pair(
+        qpd, s, k_c, n_n[0], n_n[-1] + 1,
+        m_m[0], m_m[-1] + 1)
 
-    pairden_paw_corr = pair.gs.pair_density_paw_corrections
+    pairden_paw_corr = pair_calc.gs.pair_density_paw_corrections
     pawcorr = pairden_paw_corr(qpd)
 
     df_nm = kptpair.get_occupation_differences(n_n, m_m)
@@ -102,13 +104,13 @@ def get_chi0_integrand(pair, qpd, n_n, m_m, k_v, s):
     eps_m = kptpair.kpt2.eps_n
 
     if optical_limit:
-        n_nmP = pair.get_optical_pair_density(qpd, kptpair, n_n, m_m,
-                                              pawcorr=pawcorr)
+        n_nmP = pair_calc.get_optical_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
         return n_nmP, df_nm, eps_n, eps_m
     else:
-        n_nmG = pair.get_pair_density(qpd, kptpair, n_n, m_m,
-                                      pawcorr=pawcorr)
+        n_nmG = pair_calc.get_pair_density(
+            qpd, kptpair, n_n, m_m, pawcorr=pawcorr)
 
         return n_nmG, df_nm, eps_n, eps_m
 

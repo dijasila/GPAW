@@ -39,9 +39,11 @@ This is done with the script:
 .. literalinclude:: gs_N2.py
 
 which takes on the order of 3-4 CPU hours. The script generates N.gpw and
-N2.gpw which are the input to the RPA calculation. The PBE and non-
-selfconsistent Hartree-Fock energy is also calculated and written to the
-file PBE_HF.dat.
+N2.gpw which are the input to the RPA calculation. The PBE and
+non self-consistent Hartree-Fock energy is also calculated and written to the
+file PBE_HF.dat. Be aware that using symmetries (i. e. not using ``symmetry='off'``
+in the calculator) may cause problems if you want to calculate non self-consistent
+HF energies for atoms and molecules.
 
 Converging the frequency integration
 -------------------------------------
@@ -108,6 +110,7 @@ done by specifying ``nblocks=N``. The result is written to
 rpa_N2.dat and can be visualized with the script:
 
 .. literalinclude:: extrapolate.py
+   :end-before: assert
 
 The figure is shown below
 
@@ -118,14 +121,11 @@ Note that the extrapolate function can also be used to visualize the result
 by setting plot=True. The power law scaling is seen to be very good at the
 last three points and the extrapolated results is obtained using linear
 regression on the last three points (reg=3). We find an extrapolated value
-of -4.94 eV for the correlation part of the atomization energy. The results
+of -4.91 eV for the correlation part of the atomization energy. The results
 are summarized below (all values in eV)
 
-======   =====   =====   ======       ============
-PBE      HF      RPA     HF+RPA       Experimental
-======   =====   =====   ======       ============
-10.61    4.84    4.94    9.78           9.89
-======   =====   =====   ======       ============
+.. csv-table::
+    :file: N2-data.csv
 
 It should be noted that in general, the accuracy of RPA is comparable to (or
 worse) that of PBE calculations and N2 is just a special case where RPA

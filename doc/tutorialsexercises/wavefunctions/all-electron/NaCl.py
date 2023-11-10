@@ -15,7 +15,8 @@ for formula in ('Na', 'Cl', 'NaCl',):
         hund = True
     else:
         hund = False
-    calc = GPAW(xc='PBE',
+    calc = GPAW(mode='fd',
+                xc='PBE',
                 h=0.18,
                 hund=hund,
                 convergence={'eigenstates': 1e-8},

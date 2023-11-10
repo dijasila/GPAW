@@ -22,7 +22,7 @@ else:
 
 # Open different files depending on rank
 output = '%d.txt' % rank
-calc = GPAW(communicator=[rank], txt=output, xc='PBE')
+calc = GPAW(mode='fd', communicator=[rank], txt=output, xc='PBE')
 system.calc = calc
 energy = system.get_potential_energy()
 

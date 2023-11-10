@@ -42,16 +42,16 @@ on the lower-level ones.
 
 """
 
-from math import pi, factorial as fac
+from math import pi
 
 import numpy as np
-from numpy.fft import ifft
 
 from ase.neighborlist import PrimitiveNeighborList
 from ase.data import covalent_radii
 from ase.units import Bohr
 
 import _gpaw
+from gpaw.ffbt import ffbt, FourierBesselTransformer
 from gpaw.gaunt import gaunt
 from gpaw.spherical_harmonics import Yl, nablarlYL
 from gpaw.spline import Spline
@@ -61,41 +61,6 @@ from gpaw.utilities.timing import nulltimer
 timer = nulltimer  # XXX global timer object, only for hacking
 
 UL = 'L'
-
-# Generate the coefficients for the Fourier-Bessel transform
-C = []
-a = 0.0 + 0.0j
-LMAX = 7
-for n in range(LMAX):
-    c = np.zeros(n + 1, complex)
-    for s in range(n + 1):
-        a = (1.0j)**s * fac(n + s) / (fac(s) * 2**s * fac(n - s))
-        a *= (-1.0j)**(n + 1)
-        c[s] = a
-    C.append(c)
-
-
-def fbt(l, f, r, k):
-    """Fast Bessel transform.
-
-    The following integral is calculated using l+1 FFTs::
-
-                    oo
-                   /
-              l+1 |  2           l
-      g(k) = k    | r dr j (kr) r f (r)
-                  |       l
-                 /
-                  0
-    """
-
-    dr = r[1]
-    m = len(k)
-    g = np.zeros(m)
-    for n in range(l + 1):
-        g += (dr * 2 * m * k**(l - n) *
-              ifft(C[l][n] * f * r**(1 + l - n), 2 * m)[:m].real)
-    return g
 
 
 class BaseOverlapExpansionSet:
@@ -347,24 +312,7 @@ class OppositeDirection(PairFilter):
             yield a2, a1, -R_c, -offset
 
 
-class FourierTransformer:
-    def __init__(self, rcmax, ng):
-        self.ng = ng
-        self.rcmax = rcmax
-        self.dr = rcmax / self.ng
-        self.r_g = np.arange(self.ng) * self.dr
-        self.Q = 4 * self.ng
-        self.dk = 2 * pi / self.Q / self.dr
-        self.k_q = np.arange(self.Q // 2) * self.dk
-
-    def transform(self, spline):
-        assert spline.get_cutoff() <= self.rcmax, (spline.get_cutoff(),
-                                                   self.rcmax)
-        l = spline.get_angular_momentum_number()
-        f_g = spline.map(self.r_g)
-        f_q = fbt(l, f_g, self.r_g, self.k_q)
-        return f_q
-
+class FourierTransformer(FourierBesselTransformer):
     def calculate_overlap_expansion(self, phit1phit2_q, l1, l2):
         """Calculate list of splines for one overlap integral.
 
@@ -380,14 +328,14 @@ class FourierTransformer:
         """
         lmax = l1 + l2
         splines = []
-        R = np.arange(self.Q // 2) * self.dr
+        R = np.arange(self.Q) * self.dr
         R1 = R.copy()
         R1[0] = 1.0
         k1 = self.k_q.copy()
         k1[0] = 1.0
         a_q = phit1phit2_q
         for l in range(lmax % 2, lmax + 1, 2):
-            a_g = (8 * fbt(l, a_q * k1**(-2 - lmax - l), self.k_q, R) /
+            a_g = (8 * ffbt(l, a_q * k1**(-2 - lmax - l), self.k_q, R) /
                    R1**(2 * l + 1))
             if l == 0:
                 a_g[0] = 8 * np.sum(a_q * k1**(-lmax)) * self.dk
@@ -395,7 +343,7 @@ class FourierTransformer:
                 a_g[0] = a_g[1]  # XXXX
             a_g *= (-1)**((l1 - l2 - l) // 2)
             n = len(a_g) // 256
-            s = Spline(l, 2 * self.rcmax, np.concatenate((a_g[::n], [0.0])))
+            s = Spline(l, 2 * self.rcut, np.concatenate((a_g[::n], [0.0])))
             splines.append(s)
         return OverlapExpansion(l1, l2, splines)
 
@@ -660,10 +608,8 @@ class NewTwoCenterIntegrals:
                           for s in setups]
         self.atoms_close = NeighborPairs(cutoff_close_a, cell_cv, pbc_c, False)
 
-        rcmax = max(cutoff_I + [0.001])
-
-        ng = 2**10
-        transformer = FourierTransformer(rcmax, ng)
+        rcut = max(cutoff_I + [0.001])
+        transformer = FourierTransformer(rcut, N=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         self.msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         self.calculate_expansions()

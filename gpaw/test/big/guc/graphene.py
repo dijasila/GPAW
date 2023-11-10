@@ -14,7 +14,7 @@ del atoms[[1, -1]]
 atoms.center(axis=0)
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)
 kpts_c[~atoms.get_pbc()] = 1
-calc = GPAW(h=0.15, xc='LDA', nbands=-4, kpts=kpts_c, txt='-',
+calc = GPAW(mode='fd', h=0.15, xc='LDA', nbands=-4, kpts=kpts_c, txt='-',
             basis='dzp', convergence={'energy': 1e-5, 'density': 1e-5})
 atoms.calc = calc
 eppa1 = atoms.get_potential_energy() / len(atoms)

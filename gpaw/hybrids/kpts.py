@@ -95,7 +95,7 @@ def get_kpt(wfs, k, spin, n1, n2):
                            dtype=wfs.dtype,
                            data=P_nI)
 
-        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
+        rank_a = np.linspace(0, wfs.world.size, len(wfs.setups),
                              endpoint=False).astype(int)
         atom_partition = AtomPartition(wfs.world, rank_a)
         proj = proj.redist(atom_partition)

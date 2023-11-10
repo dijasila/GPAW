@@ -42,7 +42,8 @@ def test_scf_criterion(in_tmp_dir):
                   cell=(5., 5., 9.),
                   pbc=(True, True, False))
     atoms.center()
-    atoms.calc = GPAW(h=0.3,
+    atoms.calc = GPAW(mode='fd',
+                      h=0.3,
                       nbands=-1,
                       convergence=convergence,
                       txt=None,
@@ -107,7 +108,8 @@ def test_scf_custom_criterion(in_tmp_dir):
                   pbc=(True, True, False))
     atoms.center()
     atoms.rattle()
-    calc = GPAW(h=0.3,
+    calc = GPAW(mode='fd',
+                h=0.3,
                 nbands=-1,
                 convergence=convergence,
                 txt='out.txt',

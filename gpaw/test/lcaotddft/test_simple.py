@@ -20,7 +20,8 @@ def test_lcaotddft_simple(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 poissonsolver=PoissonSolver('fd', eps=1e-16),
                 convergence={'density': 1e-8},
-                txt='gs.out')
+                txt='gs.out',
+                symmetry={'point_group': False})
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
@@ -95,3 +96,24 @@ def test_lcaotddft_simple(in_tmp_dir):
 
     tol = 1e-7
     equal(data_i, ref_i, tol)
+
+
+@pytest.mark.rttddft
+def test_lcaotddft_fail_with_symmetry(in_tmp_dir):
+    atoms = molecule('Na2')
+    atoms.center(vacuum=4.0)
+
+    # Ground-state calculation with point group symmetries
+    calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
+                basis='dzp', mode='lcao',
+                poissonsolver=PoissonSolver('fd', eps=1e-16),
+                convergence={'density': 1e-8},
+                txt='gs.out')
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write('gs.gpw', mode='all')
+
+    # Time-propagation calculation
+    # should not be allowed with symmetries
+    with pytest.raises(ValueError):
+        LCAOTDDFT('gs.gpw', txt='td.out')

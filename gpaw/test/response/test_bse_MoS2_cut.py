@@ -33,6 +33,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     pos[1][2] = pos[0][2] + 3.172 / 2
     pos[2][2] = pos[0][2] - 3.172 / 2
     layer.set_positions(pos)
+    layer.set_pbc([True, True, False])
     layer.center(axis=2)
     layer.calc = calc
     layer.get_potential_energy()

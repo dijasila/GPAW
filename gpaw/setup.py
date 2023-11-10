@@ -10,13 +10,13 @@ from gpaw import debug
 from gpaw.basis_data import Basis
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
-from gpaw.rotation import rotation
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.spline import Spline
 from gpaw.utilities import pack, unpack
 from gpaw.xc import XC
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.xc.ri.spherical_hse_kernel import RadialHSE
+from gpaw.core.atom_arrays import AtomArraysLayout
 
 
 class WrongMagmomForHundsRuleError(ValueError):
@@ -67,7 +67,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             try:
                 upfpath, source = search_for_file(upfname, world=world)
             except RuntimeError:
-                raise IOError('Could not find pseudopotential file %s '
+                raise OSError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
                               'e.g., "gpaw install-data".' % upfname)
@@ -139,6 +139,7 @@ class BaseSetup:
 
     orbital_free = False
     hubbard_u = None  # XXX remove me
+    is_pseudo = False
 
     def print_info(self, text):
         self.data.print_info(text, self)
@@ -160,8 +161,8 @@ class BaseSetup:
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
         partial_waves_j = []
-        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j,
-                           strict=False):
+        for n, phit in zips(self.n_j, self.pseudo_partial_waves_j,
+                            strict=False):
             if n > 0:
                 partial_waves_j.append(phit)
         return partial_waves_j
@@ -199,7 +200,7 @@ class BaseSetup:
         # 3) eigenvalues (e)
 
         states = []
-        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j, strict=False)):
+        for j, (f, d, e) in enumerate(zips(f_j, deg_j, eps_j, strict=False)):
             if e < 0.0:
                 states.append((f == 0, d - f, e, j))
         states.sort()
@@ -314,23 +315,6 @@ class BaseSetup:
             D_sp[s] = pack(D_sii[s])
         return D_sp
 
-    def symmetrize(self, a, D_aii, map_sa):
-        D_ii = np.zeros((self.ni, self.ni))
-        for s, R_ii in enumerate(self.R_sii):
-            D_ii += np.dot(R_ii, np.dot(D_aii[map_sa[s][a]],
-                                        np.transpose(R_ii)))
-        return D_ii / len(map_sa)
-
-    def calculate_rotations(self, R_slmm):
-        nsym = len(R_slmm)
-        self.R_sii = np.zeros((nsym, self.ni, self.ni))
-        i1 = 0
-        for l in self.l_j:
-            i2 = i1 + 2 * l + 1
-            for s, R_lmm in enumerate(R_slmm):
-                self.R_sii[s, i1:i2, i1:i2] = R_lmm[l]
-            i1 = i2
-
     def get_partial_waves(self):
         """Return spline representation of partial waves and densities."""
 
@@ -356,7 +340,7 @@ class BaseSetup:
         tauct = self.rgd.spline(tauct_g, rcut2, points=1000)
         phi_j = []
         phit_j = []
-        for j, (phi_g, phit_g) in enumerate(zip(data.phi_jg, data.phit_jg)):
+        for j, (phi_g, phit_g) in enumerate(zips(data.phi_jg, data.phit_jg)):
             l = l_j[j]
             phi_g = phi_g.copy()
             phit_g = phit_g.copy()
@@ -448,7 +432,7 @@ class BaseSetup:
 
     def get_default_nbands(self):
         assert len(self.l_orb_J) == len(self.n_j), (self.l_orb_J, self.n_j)
-        return sum([2 * l + 1 for (l, n) in zip(self.l_orb_J, self.n_j)
+        return sum([2 * l + 1 for (l, n) in zips(self.l_orb_J, self.n_j)
                     if n > 0])
 
     def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
@@ -564,8 +548,6 @@ class LeanSetup(BaseSetup):
         # This needs cleaning.
         self.hubbard_u = hubbard_u
 
-        # R_sii can be changed dynamically (which is ugly)
-        self.R_sii = None  # rotations, initialized when doing sym. reductions
         self.lq = s.lq  # Required for LDA+U I think.
         self.type = s.type  # required for writing to file
         self.fingerprint = s.fingerprint  # also req. for writing
@@ -819,7 +801,7 @@ class Setup(BaseSetup):
             filter(rgd, rc, vbar_g)
 
             pt_jg = [pt_g.copy() for pt_g in pt_jg]
-            for l, pt_g in zip(l_j, pt_jg):
+            for l, pt_g in zips(l_j, pt_jg):
                 filter(rgd, rc, pt_g, l)
 
             for l in range(max(l_j) + 1):
@@ -844,7 +826,7 @@ class Setup(BaseSetup):
         i = 0
         j = 0
         jlL_i = []
-        for l, n in zip(l_j, n_j):
+        for l, n in zips(l_j, n_j):
             for m in range(2 * l + 1):
                 jlL_i.append((j, l, l**2 + m))
                 i += 1
@@ -1351,7 +1333,7 @@ class Setups(list):
         natoms = {}
         Mcumulative = 0
         self.M_a = []
-        self.id_a = list(zip(Z_a, type_a, basis_a))
+        self.id_a = list(zips(Z_a, type_a, basis_a))
         for id in self.id_a:
             setup = self.setups.get(id)
             if setup is None:
@@ -1411,14 +1393,10 @@ class Setups(list):
 
     def set_symmetry(self, symmetry):
         """Find rotation matrices for spherical harmonics."""
-        R_slmm = []
-        for op_cc in symmetry.op_scc:
-            op_vv = np.dot(np.linalg.inv(symmetry.cell_cv),
-                           np.dot(op_cc, symmetry.cell_cv))
-            R_slmm.append([rotation(l, op_vv) for l in range(4)])
-
-        for setup in self.setups.values():
-            setup.calculate_rotations(R_slmm)
+        # XXX It is ugly that we set self.atomrotations from here;
+        # it would be better to return it to the caller.
+        from gpaw.atomrotations import AtomRotations
+        self.atomrotations = AtomRotations(self.setups, self.id_a, symmetry)
 
     def empty_atomic_matrix(self, ns, atom_partition, dtype=float):
         Dshapes_a = [(ns, setup.ni * (setup.ni + 1) // 2)
@@ -1442,7 +1420,7 @@ class Setups(list):
     def projector_indices(self):
         return FunctionIndices([setup.pt_j for setup in self])
 
-    def create_pseudo_core_densities(self, layout, positions, atomdist,
+    def create_pseudo_core_densities(self, domain, positions, atomdist,
                                      xp=np):
         spline_aj = []
         for setup in self:
@@ -1450,41 +1428,47 @@ class Setups(list):
                 spline_aj.append([])
             else:
                 spline_aj.append([setup.nct])
-        return layout.atom_centered_functions(
+        return domain.atom_centered_functions(
             spline_aj, positions,
             atomdist=atomdist,
             integral=[setup.Nct for setup in self],
             cut=True, xp=xp)
 
-    def create_local_potentials(self, layout, positions, atomdist, xp=np):
-        return layout.atom_centered_functions(
-            [[setup.vbar] for setup in self], positions,
-            atomdist=atomdist, xp=xp)
+    def create_pseudo_core_ked(self,
+                               domain,
+                               positions,
+                               atomdist):
+        return domain.atom_centered_functions(
+            [[setup.tauct] for setup in self],
+            positions,
+            atomdist=atomdist,
+            cut=True)
 
-    def create_compensation_charges(self, layout, positions, atomdist,
+    def create_local_potentials(self, domain, positions, atomdist, xp=np):
+        return domain.atom_centered_functions(
+            [[setup.vbar] for setup in self],
+            positions,
+            atomdist=atomdist,
+            xp=xp)
+
+    def create_compensation_charges(self, domain, positions, atomdist,
                                     xp=np):
-        return layout.atom_centered_functions(
+        return domain.atom_centered_functions(
             [setup.ghat_l for setup in self], positions,
             atomdist=atomdist,
             integral=sqrt(4 * pi),
             xp=xp)
 
-    def overlap_correction(self, P_ani, out_ani):
-        xp = P_ani.layout.xp
-
-        if len(P_ani.dims) == 2:  # (band, spinor)
-            subscripts = 'nsi, ij -> nsj'
-        else:
-            subscripts = 'ni, ij -> nj'
-        if xp is np:
-            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
-                dS_ii = self[a].dO_ii
-                xp.einsum(subscripts, P_ni, dS_ii, out=out_ni)
-        else:
-            # GRR. Cupy einsum doesn't have an out argument.
-            for (a, P_ni), out_ni in zip(P_ani.items(), out_ani.values()):
-                dS_ii = xp.asarray(self[a].dO_ii)
-                out_ni[:] = xp.einsum(subscripts, P_ni, dS_ii)
+    def get_overlap_corrections(self, atomdist, xp):
+        if atomdist is getattr(self, '_atomdist', None):
+            return self.dS_aii
+        self._atomdist = atomdist
+        dS_aii = AtomArraysLayout([setup.dO_ii.shape for setup in self],
+                                  atomdist=atomdist).empty()
+        for a, dS_ii in dS_aii.items():
+            dS_ii[:] = self[a].dO_ii
+        self.dS_aii = dS_aii.to_xp(xp)
+        return self.dS_aii
 
     def partial_wave_corrections(self) -> list[list[Spline]]:
         splines: dict[Setup, list[Spline]] = {}
@@ -1495,9 +1479,9 @@ class Setups(list):
                 rcut = max(setup.rcut_j) * 1.1
                 gcut = setup.rgd.ceil(rcut)
                 dphi_j = []
-                for l, phi_g, phit_g in zip(setup.l_j,
-                                            setup.data.phi_jg,
-                                            setup.data.phit_jg):
+                for l, phi_g, phit_g in zips(setup.l_j,
+                                             setup.data.phi_jg,
+                                             setup.data.phit_jg):
                     dphi_g = (phi_g - phit_g)[:gcut]
                     dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
                                                    points=200))

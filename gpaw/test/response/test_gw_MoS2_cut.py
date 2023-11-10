@@ -3,6 +3,7 @@ from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
 from gpaw.response.g0w0 import G0W0
+from gpaw.mpi import world
 
 
 @pytest.fixture
@@ -10,7 +11,6 @@ def gpwfile(in_tmp_dir):
     calc = GPAW(
         mode='pw',
         xc='PBE',
-        experimental={'niter_fixdensity': 2},
         nbands=16,
         convergence={'bands': 15},
         setups={'Mo': '6'},
@@ -22,10 +22,10 @@ def gpwfile(in_tmp_dir):
 
     cell = Hexagonal(symbol='Mo',
                      latticeconstant={'a': a, 'c': c}).get_cell()
-    layer = Atoms(symbols='MoS2', cell=cell, pbc=True,
-                  scaled_positions=[(0, 0, 0),
-                                    (2 / 3, 1 / 3, 0.3),
-                                    (2 / 3, 1 / 3, -0.3)])
+    layer = Atoms(symbols='MoS2', cell=cell, pbc=[True, True, False],
+                  scaled_positions=[(0, 0, 0.5),
+                                    (2 / 3, 1 / 3, 0.3 + 0.5),
+                                    (2 / 3, 1 / 3, -0.3 + 0.5)])
 
     pos = layer.get_positions()
     pos[1][2] = pos[0][2] + 3.172 / 2
@@ -39,7 +39,9 @@ def gpwfile(in_tmp_dir):
 
 
 @pytest.mark.response
-def test_response_gw_MoS2_cut(scalapack, gpwfile):
+def test_response_gw_MoS2_cut(scalapack, gpwfile, needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     gw = G0W0(gpwfile,
               'gw-test',
               nbands=15,

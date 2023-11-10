@@ -3,14 +3,22 @@
 GPU
 ===
 
-Ground-state calculations on a GPU is an experimental feature at the moment:
+Ground-state calculations on a GPU is an experimental feature at the moment with
+some limitations:
 
 * only PW-mode
 * it has only been implemented in the new GPAW
 * only parallelization over **k**-points
-* no forces
 
-See :git:`gpaw/test/gpu/pw_test.py` for an example.
+See :git:`gpaw/test/gpu/test_pw.py` for an example.
+
+.. tip::
+
+   >>> import numpy as np
+   >>> from gpaw.gpu import cupy as cp
+   >>> a_cpu = np.zeros(...)
+   >>> a_gpu = cp.asarray(a_cpu)  # from CPU to GPU
+   >>> b_cpu = a_gpu.get()  # from GPU to CPU
 
 
 The gpaw.gpu module
@@ -28,6 +36,7 @@ The gpaw.gpu module
 
 .. autodata:: cupy_is_fake
 .. autodata:: is_hip
+.. autofunction:: as_np
 .. autofunction:: as_xp
 .. autofunction:: cupy_eigh
 
@@ -56,8 +65,8 @@ CuPy enabled container objects
 
 The following objects:
 
-* :class:`~gpaw.core.uniform_grid.UniformGridFunctions`
-* :class:`~gpaw.core.plane_waves.PlaneWaveExpansions`
+* :class:`~gpaw.core.UGArray`
+* :class:`~gpaw.core.PWArray`
 * :class:`~gpaw.core.atom_arrays.AtomArrays`
 * :class:`~gpaw.core.matrix.Matrix`
 

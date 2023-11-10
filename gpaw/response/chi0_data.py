@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 
 from ase.units import Ha
@@ -9,113 +11,49 @@ from gpaw.response.pw_parallelization import (Blocks1D,
 from gpaw.response.frequencies import (FrequencyDescriptor,
                                        ComplexFrequencyDescriptor)
 from gpaw.response.pair_functions import (SingleQPWDescriptor,
-                                          map_WgG_array_to_reduced_pd)
+                                          map_ZgG_array_to_reduced_pd)
 
 
-class Chi0Descriptors:
-    """Descriptor collection for Chi0Data."""
+class Chi0RelatedData:
+    """Base class for chi0 related data objects.
 
-    def __init__(self, wd, qpd):
-        """Construct the descriptor collection
+    Right now, all we do is to limit boiler plate code..."""
 
-        Parameters
-        ----------
-        wd : FrequencyDescriptor
-        qpd : SingleQPWDescriptor
-        """
+    def __init__(self,
+                 wd: FrequencyDescriptor,
+                 qpd: SingleQPWDescriptor):
         self.wd = wd
         self.qpd = qpd
-
-        # Extract optical limit
         self.q_c = qpd.q_c
-        self.optical_limit = qpd.optical_limit
 
         # Basis set size
         self.nG = qpd.ngmax
-
-    @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves):
-        """Contruct a Chi0Descriptors, with wd and qpd constructed on the fly.
-        """
-        # Construct wd
-        if isinstance(frequencies, FrequencyDescriptor):
-            wd = frequencies
-        else:
-            wd = frequencies.from_array_or_dict(frequencies)
-
-        # Construct qpd
-        if isinstance(plane_waves, SingleQPWDescriptor):
-            qpd = plane_waves
-        else:
-            assert isinstance(plane_waves, tuple)
-            assert len(plane_waves) == 3
-            qpd = SingleQPWDescriptor.from_q(*plane_waves)
-
-        return Chi0Descriptors(wd, qpd)
+        self.nw = len(wd)
 
 
-def make_blockdist(parallelization):
-    # Construct blockdist
-    if isinstance(parallelization, PlaneWaveBlockDistributor):
-        blockdist = parallelization
-    else:
-        assert isinstance(parallelization, tuple)
-        assert len(parallelization) == 3
-        blockdist = PlaneWaveBlockDistributor(*parallelization)
-    return blockdist
-
-
-class BodyData:
+class Chi0BodyData(Chi0RelatedData):
     """Data object containing the response body data arrays
     for a single q-point, while holding also the corresponding
     basis descriptors and block distributor."""
 
-    def __init__(self, descriptors, blockdist):
-        """Construct the BodyData object from Chi0Descriptors object.
-
-        Parameters
-        ----------
-        descriptors: Chi0Descriptors
-        blockdist : PlaneWaveBlockDistributor
-            Distributor for the block parallelization
-        """
-        self.descriptors = descriptors
-        self.wd = descriptors.wd
-        self.qpd = descriptors.qpd
-        self.blockdist = blockdist
+    def __init__(self, wd, qpd,
+                 blockdist: PlaneWaveBlockDistributor):
+        super().__init__(wd, qpd)
 
         # Initialize block distibution of plane wave basis
-        nG = self.qpd.ngmax
-        self.blocks1d = Blocks1D(blockdist.blockcomm, nG)
+        self.blockdist = blockdist
+        self.blocks1d = Blocks1D(blockdist.blockcomm, self.nG)
 
-        # Data arrays
+        # Data array
         self.data_WgG = self.zeros()
-
-    @classmethod
-    def from_descriptor_arguments(cls, frequencies, plane_waves,
-                                  parallelization):
-        """Contruct the necesarry descriptors and initialize the BodyData
-        object."""
-        descriptors = Chi0Descriptors.from_descriptor_arguments(
-            frequencies, plane_waves)
-        blockdist = make_blockdist(parallelization)
-        return cls(descriptors, blockdist)
 
     def zeros(self):
         return np.zeros(self.WgG_shape, complex)
-        
-    @property
-    def nw(self):
-        return len(self.wd)
-
-    @property
-    def nG(self):
-        return self.blocks1d.N
 
     @property
     def mynG(self):
         return self.blocks1d.nlocal
-    
+
     @property
     def WgG_shape(self):
         return (self.nw, self.mynG, self.nG)
@@ -148,6 +86,16 @@ class BodyData:
             data_x = self.data_WgG.copy()
 
         return data_x
+
+    def copy_with_reduced_pd(self, qpd):
+        """Make a copy corresponding to a new plane-wave description."""
+        new_chi0_body = Chi0BodyData(self.wd, qpd, self.blockdist)
+
+        # Map data to reduced plane-wave representation
+        new_chi0_body.data_WgG[:] = map_ZgG_array_to_reduced_pd(
+            self.qpd, qpd, self.blockdist, self.data_WgG)
+
+        return new_chi0_body
 
 
 class Chi0DrudeData:
@@ -182,35 +130,16 @@ class Chi0DrudeData:
         return (self.nz,) + self.vv_shape
 
 
-class OpticalExtensionData:
-    def __init__(self, descriptors):
-        assert descriptors.optical_limit
-        self.wd = descriptors.wd
-        self.qpd = descriptors.qpd
+class Chi0OpticalExtensionData(Chi0RelatedData):
+    def __init__(self, wd, qpd):
+        assert qpd.optical_limit
+        super().__init__(wd, qpd)
 
         self.head_Wvv, self.wings_WxvG = self.zeros()
-        
+
     def zeros(self):
         return (np.zeros(self.Wvv_shape, complex),  # head
                 np.zeros(self.WxvG_shape, complex))  # wings
-
-    @staticmethod
-    def from_descriptor_arguments(frequencies, plane_waves):
-        """Contruct the necesarry descriptors and initialize the
-        OpticalExtensionData object"""
-
-        descriptors = Chi0Descriptors.from_descriptor_arguments(
-            frequencies, plane_waves)
-
-        return OpticalExtensionData(descriptors)
-        
-    @property
-    def nw(self):
-        return len(self.wd)
-
-    @property
-    def nG(self):
-        return self.qpd.ngmax
 
     @property
     def Wvv_shape(self):
@@ -220,65 +149,67 @@ class OpticalExtensionData:
     def WxvG_shape(self):
         return (self.nw, 2, 3, self.nG)
 
-
-class AugmentedBodyData(BodyData):
-    """Data object containing the body data along with the optical extension
-    data, if the data concerns the optical limit."""
-
-    def __init__(self, descriptors, blockdist):
-        super().__init__(descriptors, blockdist)
-
-        if self.optical_limit:
-            self.optical_extension = OpticalExtensionData(self.descriptors)
-
-    @property
-    def optical_limit(self):
-        return self.descriptors.optical_limit
-
-    @property
-    def Wvv_shape(self):
-        if self.optical_limit:
-            return self.optical_extension.Wvv_shape
-
-    @property
-    def WxvG_shape(self):
-        if self.optical_limit:
-            return self.optical_extension.WxvG_shape
-
     def copy_with_reduced_pd(self, qpd):
-        """Provide a copy of the object within a reduced plane-wave basis.
-        """
-        descriptors = Chi0Descriptors(self.wd, qpd)
-        # Create a new AugmentedBodyData object
-        new_abd = self._new(descriptors, self.blockdist)
+        """Make a copy corresponding to a new plane-wave description."""
+        new_chi0_optical_extension = Chi0OpticalExtensionData(self.wd, qpd)
 
-        new_abd.data_WgG[:] = map_WgG_array_to_reduced_pd(self.qpd, qpd,
-                                                          self.blockdist,
-                                                          self.data_WgG)
-        if self.optical_limit:
-            new_abd.optical_extension.head_Wvv[:] \
-                = self.optical_extension.head_Wvv
+        # Copy the head (present in any plane-wave representation)
+        new_chi0_optical_extension.head_Wvv[:] = self.head_Wvv
 
-            # Map the wings to the reduced plane-wave description
-            G2_G1 = PWMapping(qpd, self.qpd).G2_G1
-            new_abd.optical_extension.wings_WxvG[:] \
-                = self.optical_extension.wings_WxvG[..., G2_G1]
+        # Map the wings to the reduced plane-wave description
+        G2_G1 = PWMapping(qpd, self.qpd).G2_G1
+        new_chi0_optical_extension.wings_WxvG[:] \
+            = self.wings_WxvG[..., G2_G1]
 
-        return new_abd
-
-    @classmethod
-    def _new(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
+        return new_chi0_optical_extension
 
 
-class Chi0Data(AugmentedBodyData):
-    """Data object containing the chi0 data arrays for a single q-point,
+class Chi0Data(Chi0RelatedData):
+    """Container object for the chi0 data objects for a single q-point,
     while holding also the corresponding basis descriptors and block
     distributor."""
 
+    def __init__(self,
+                 chi0_body: Chi0BodyData,
+                 chi0_opt_ext: Chi0OpticalExtensionData | None = None):
+        super().__init__(chi0_body.wd, chi0_body.qpd)
+        self.body = chi0_body
+
+        self.optical_limit = self.qpd.optical_limit
+        if self.optical_limit:
+            assert isinstance(chi0_opt_ext, Chi0OpticalExtensionData)
+            assert chi0_opt_ext.wd is self.wd
+            assert chi0_opt_ext.qpd is self.qpd
+        else:
+            assert chi0_opt_ext is None
+        self.optical_extension = chi0_opt_ext
+
+    @staticmethod
+    def from_chi0_body_data(chi0_body):
+        """Construct the container from a chi0 body data instance."""
+        qpd = chi0_body.qpd
+        if qpd.optical_limit:
+            wd = chi0_body.wd
+            chi0_optical_extension = Chi0OpticalExtensionData(wd, qpd)
+        else:
+            chi0_optical_extension = None
+
+        return Chi0Data(chi0_body, chi0_optical_extension)
+
+    def copy_with_reduced_pd(self, qpd):
+        """Make a copy of the data object, reducing the plane wave basis."""
+        new_body = self.body.copy_with_reduced_pd(qpd)
+        if self.optical_limit:
+            new_optical_extension = \
+                self.optical_extension.copy_with_reduced_pd(qpd)
+        else:
+            new_optical_extension = None
+
+        return Chi0Data(new_body, new_optical_extension)
+
     @property
     def chi0_WgG(self):
-        return self.data_WgG
+        return self.body.data_WgG
 
     @property
     def chi0_Wvv(self):

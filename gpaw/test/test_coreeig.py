@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 @pytest.mark.later
 def test_coreeig(in_tmp_dir):
     a = 7.0
-    calc = GPAW(h=0.1)
+    calc = GPAW(mode='fd', h=0.1)
     system = Atoms('Ne', calculator=calc)
     system.center(vacuum=a / 2)
     e0 = system.get_potential_energy()

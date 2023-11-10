@@ -4,9 +4,9 @@ from types import ModuleType
 
 import numpy as np
 from gpaw.core.atom_arrays import AtomArrays, AtomDistribution
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import zip
+from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
@@ -29,6 +29,7 @@ class WaveFunctions:
                  weight: float = 1.0,
                  ncomponents: int = 1,
                  dtype=float,
+                 qspiral_v=None,
                  domain_comm: MPIComm = serial_comm,
                  band_comm: MPIComm = serial_comm):
         """"""
@@ -47,6 +48,7 @@ class WaveFunctions:
         self.domain_comm = domain_comm
         self.band_comm = band_comm
         self.nbands = nbands
+        self.qspiral_v = qspiral_v
 
         assert domain_comm.size == atomdist.comm.size
 
@@ -57,6 +59,10 @@ class WaveFunctions:
 
         self._eig_n: Array1D | None = None
         self._occ_n: Array1D | None = None
+
+        mynbands = (nbands + band_comm.size - 1) // band_comm.size
+        self.n1 = min(band_comm.rank * mynbands, nbands)
+        self.n2 = min((band_comm.rank + 1) * mynbands, nbands)
 
     def __repr__(self):
         dc = f'{self.domain_comm.rank}/{self.domain_comm.size}'
@@ -71,8 +77,12 @@ class WaveFunctions:
         raise NotImplementedError
 
     def add_to_density(self,
-                       nt_sR: UniformGridFunctions,
+                       nt_sR: UGArray,
                        D_asii: AtomArrays) -> None:
+        raise NotImplementedError
+
+    def add_to_ked(self,
+                   taut_sR: UGArray) -> None:
         raise NotImplementedError
 
     def orthonormalize(self, work_array_nX: ArrayND = None):
@@ -97,13 +107,11 @@ class WaveFunctions:
 
     @property
     def myeig_n(self):
-        assert self.band_comm.size == 1
-        return self.eig_n
+        return self.eig_n[self.n1:self.n2]
 
     @property
     def myocc_n(self):
-        assert self.band_comm.size == 1
-        return self.occ_n
+        return self.occ_n[self.n1:self.n2]
 
     @property
     def P_ani(self) -> AtomArrays:
@@ -117,17 +125,17 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            for D_sii, P_ni in zip(D_asii.values(), P_ani.values()):
+            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
                 D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
                                               P_ni.conj(), occ_n, P_ni).real
         else:
-            for D_xii, P_nsi in zip(D_asii.values(), self.P_ani.values()):
+            for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 D_ssii = xp.einsum('nsi, n, nzj -> szij',
                                    P_nsi.conj(), occ_n, P_nsi)
-                D_xii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
-                D_xii[1] += 2 * D_ssii[0, 1].real
-                D_xii[2] += 2 * D_ssii[0, 1].imag
-                D_xii[3] += (D_ssii[0, 0] - D_ssii[1, 1]).real
+                D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]
+                D_xii[1] += D_ssii[0, 1] + D_ssii[1, 0]
+                D_xii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
+                D_xii[3] += D_ssii[0, 0] - D_ssii[1, 1]
 
     def send(self, kpt_comm, rank):
         raise NotImplementedError

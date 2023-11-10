@@ -108,6 +108,9 @@ You can write your own custom convergence criteria if you structure them like th
 
       def __call__(self, context):
           ...  # your code here
+               # 'context' is an object containing references to the current
+               # state of the calculation, such as the hamiltonian and wave
+               # functions
           converged = ...  # True or False if your criterion is met
           entry = ...  # a string with up to 5 characters to print in SCF table
           return converged, entry

@@ -18,6 +18,7 @@ from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
 from gpaw.test.response.test_chiks import (generate_system_s,
                                            generate_qrel_q, get_q_c)
+from gpaw.test.conftest import response_band_cutoff
 
 
 @pytest.mark.response
@@ -28,7 +29,7 @@ def test_jdos(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
     # What material, spin-component and q-vector to calculate the jdos for
-    wfs, spincomponent, _, _, _ = system
+    wfs, spincomponent = system
     q_c = get_q_c(wfs, qrel)
 
     # Where to evaluate the jdos
@@ -44,7 +45,7 @@ def test_jdos(in_tmp_dir, gpw_files, system, qrel):
 
     # Set up the ground state adapter based on the fixture
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
+    nbands = response_band_cutoff[wfs]
     gs = ResponseGroundStateAdapter(calc)
 
     # Calculate the jdos manually
@@ -103,7 +104,7 @@ class MyManualJDOS:
         eta = eta / Hartree
         # Allocate array
         jdos_w = np.zeros_like(omega_w)
-        
+
         for K1, k1_c in enumerate(self.kd.bzk_kc):
             # de = e2 - e1, df = f2 - f1
             de_t, df_t = self.get_transitions(K1, k1_c, q_c,
@@ -175,4 +176,3 @@ class MyManualJDOS:
         df_t = np.array(df_t)
 
         return de_t, df_t
-        

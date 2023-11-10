@@ -20,14 +20,21 @@
 #include "transformers.h"
 #undef __TRANSFORMERS_C
 
-#ifdef GPAW_ASYNC
-  #define GPAW_ASYNC_D 3
-#else
-  #define GPAW_ASYNC_D 1
+#ifdef GPAW_GPU
+#include "gpu/gpu.h"
+#include "gpu/bmgs.h"
+
+PyObject* Transformer_apply_gpu(TransformerObject *self, PyObject *args);
 #endif
 
 static void Transformer_dealloc(TransformerObject *self)
 {
+#ifdef GPAW_GPU
+  if (self->use_gpu) {
+    transformer_dealloc_gpu(0);
+    bc_dealloc_gpu(0);
+  }
+#endif
   free(self->bc);
   PyObject_DEL(self);
 }
@@ -170,6 +177,10 @@ static PyObject * Transformer_get_async_sizes(TransformerObject *self, PyObject 
 
 static PyMethodDef Transformer_Methods[] = {
     {"apply", (PyCFunction)Transformer_apply, METH_VARARGS, NULL},
+#ifdef GPAW_GPU
+    {"apply_gpu", (PyCFunction)Transformer_apply_gpu,
+        METH_VARARGS, NULL},
+#endif
     {"get_async_sizes",
      (PyCFunction)Transformer_get_async_sizes, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
@@ -200,10 +211,11 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
   int real;
   PyObject* comm_obj;
   int interpolate;
-  if (!PyArg_ParseTuple(args, "OOiOOOOiOi",
+  int use_gpu = 0;
+  if (!PyArg_ParseTuple(args, "OOiOOOOiOi|i",
                         &size_in, &size_out, &k, &paddings, &npaddings, &skip,
                         &neighbors, &real, &comm_obj,
-                        &interpolate))
+                        &interpolate, &use_gpu))
     return NULL;
 
   TransformerObject* self = PyObject_NEW(TransformerObject, &TransformerType);
@@ -230,5 +242,11 @@ PyObject * NewTransformerObject(PyObject *obj, PyObject *args)
     for (int d = 0; d < 2; d++)
       self->skip[c][d] = (int)skp[c][d];
 
+#ifdef GPAW_GPU
+  self->use_gpu = use_gpu;
+  if (self->use_gpu) {
+    transformer_init_gpu(self);
+  }
+#endif
   return (PyObject*)self;
 }

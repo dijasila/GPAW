@@ -16,7 +16,7 @@ from gpaw.response.site_kernels import (SphericalSiteKernels,
                                         spherical_geometry_factor,
                                         cylindrical_geometry_factor,
                                         parallelepipedic_geometry_factor)
-from gpaw.response.susceptibility import get_pw_coordinates
+from gpaw.response.pair_functions import get_pw_coordinates
 
 
 # ---------- Actual tests ---------- #
@@ -26,7 +26,7 @@ pytestmark = pytest.mark.kspair
 
 
 @pytest.mark.ci
-def test_spherical_kernel():
+def test_spherical_kernel(rng):
     """Check the numerics of the spherical kernel"""
     # ---------- Inputs ---------- #
 
@@ -43,11 +43,11 @@ def test_spherical_kernel():
 
     # Spherical radii to check
     nr = 5
-    rc_r = np.random.rand(nr)
+    rc_r = rng.random(nr)
 
     # Wave vector directions to check
     nd = 41
-    Q_dv = 2. * np.random.rand(nd, 3) - 1.
+    Q_dv = 2. * rng.random((nd, 3)) - 1.
     Q_dv /= np.linalg.norm(Q_dv, axis=1)[:, np.newaxis]  # normalize
 
     # ---------- Script ---------- #
@@ -63,7 +63,7 @@ def test_spherical_kernel():
 
 
 @pytest.mark.ci
-def test_cylindrical_kernel():
+def test_cylindrical_kernel(rng):
     """Check the numerics of the spherical kernel"""
     # ---------- Inputs ---------- #
 
@@ -79,7 +79,7 @@ def test_cylindrical_kernel():
     Vcylinder = 2. * np.pi
     nQ2 = 13  # Choose random Q_z r_z
     test_Krho_Q1 = np.array([1., 0., 0., 0., 0.])
-    Qzrand_Q2 = 10. * np.random.rand(nQ2)
+    Qzrand_Q2 = 10. * rng.random(nQ2)
     sinc_zrand_Q2 = np.sin(Qzrand_Q2) / Qzrand_Q2
     test_Krho_Q1Q2 = Vcylinder * test_Krho_Q1[:, np.newaxis]\
         * sinc_zrand_Q2[np.newaxis, :]
@@ -89,28 +89,28 @@ def test_cylindrical_kernel():
     test_Kz_Q2 = [1., 0., 0., 0., 0.]  # Nodes in sinc(Q_z h_c)
     test_Kz_Q2 += list(np.array([1., -1., 1., -1.]) / Qzrel_Q2[5:])  # Extrema
     test_Kz_Q2 = np.array(test_Kz_Q2)
-    Qrhorand_Q1 = 10. * np.random.rand(nQ1)
+    Qrhorand_Q1 = 10. * rng.random(nQ1)
     J1term_rhorand_Q1 = 2. * sc.jv(1, Qrhorand_Q1) / Qrhorand_Q1
     test_Kz_Q1Q2 = Vcylinder * J1term_rhorand_Q1[:, np.newaxis]\
         * test_Kz_Q2[np.newaxis, :]
 
     # Cylinder radii to check
     nr = 5
-    rc_r = 3. * np.random.rand(nr)
+    rc_r = 3. * rng.random(nr)
 
     # Cylinder height to check
     nh = 3
-    hc_h = 4. * np.random.rand(nh)
+    hc_h = 4. * rng.random(nh)
 
     # Cylindrical axes to check
     nc = 7
-    ez_cv = 2. * np.random.rand(nc, 3) - 1.
+    ez_cv = 2. * rng.random((nc, 3)) - 1.
     ez_cv /= np.linalg.norm(ez_cv, axis=1)[:, np.newaxis]
 
     # Wave vector directions in-plane to check. Generated through the cross
     # product of a random direction with the cylindrical axis
     nd = 11
-    Qrho_dv = 2. * np.random.rand(nd, 3) - 1.
+    Qrho_dv = 2. * rng.random((nd, 3)) - 1.
     Qrho_cdv = np.cross(Qrho_dv[np.newaxis, ...], ez_cv[:, np.newaxis, :])
     Qrho_cdv /= np.linalg.norm(Qrho_cdv, axis=-1)[..., np.newaxis]  # normalize
 
@@ -153,7 +153,7 @@ def test_cylindrical_kernel():
 
 
 @pytest.mark.ci
-def test_parallelepipedic_kernel():
+def test_parallelepipedic_kernel(rng):
     """Check the numerics of the parallelepipedic site kernel."""
     # ---------- Inputs ---------- #
 
@@ -163,7 +163,7 @@ def test_parallelepipedic_kernel():
 
     # Random parallelepipedic cell vectors to check
     nC = 9
-    cell_Ccv = 2. * np.random.rand(nC, 3, 3) - 1.
+    cell_Ccv = 2. * rng.random((nC, 3, 3)) - 1.
     volume_C = np.abs(np.linalg.det(cell_Ccv))
     # Normalize the cell volume
     cell_Ccv /= (volume_C**(1 / 3))[:, np.newaxis, np.newaxis]
@@ -174,13 +174,13 @@ def test_parallelepipedic_kernel():
     v0_C = np.linalg.norm(v0_Cv, axis=-1)  # Length of primary vector
     v0n_Cv = v0_Cv / v0_C[:, np.newaxis]  # Normalize
     nd = 11
-    Q_dv = 2. * np.random.rand(nd, 3) - 1.
+    Q_dv = 2. * rng.random((nd, 3)) - 1.
     Q_dv[0, :] = np.array([0., 0., 0.])  # Check also parallel Q-vector
     Q_Cdv = np.cross(Q_dv[np.newaxis, ...], v0_Cv[:, np.newaxis, :])
 
     # Volumes to test
     nV = 7
-    Vparlp_V = 10. * np.random.rand(nV)
+    Vparlp_V = 10. * rng.random(nV)
 
     # ---------- Script ---------- #
 
@@ -392,7 +392,7 @@ def test_Co_hcp_site_kernels():
     Kall_pm_qpaGG = [np.array([K_aGG for K_aGG in
                                all_sitekernels_app.calculate(qpd)])
                      for qpd in qpd_q]
-    
+
     # Part 4: Check the calculated kernels
 
     # Check geometry shapes of basic arrays

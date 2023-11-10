@@ -5,8 +5,9 @@ import numpy as np
 import gpaw.gpu.cpupy.cublas as cublas
 import gpaw.gpu.cpupy.fft as fft
 import gpaw.gpu.cpupy.linalg as linalg
+import gpaw.gpu.cpupy.random as random
 
-__all__ = ['linalg', 'cublas', 'fft']
+__all__ = ['linalg', 'cublas', 'fft', 'random']
 
 
 def empty(*args, **kwargs):
@@ -38,8 +39,12 @@ def asarray(a):
     return ndarray(np.array(a))
 
 
-def array(a):
-    return ndarray(np.array(a))
+def array(a, dtype=None):
+    return ndarray(np.array(a, dtype))
+
+
+def dot(a, b):
+    return ndarray(np.dot(a._data, b._data))
 
 
 def multiply(a, b, c):
@@ -76,6 +81,10 @@ def eye(n):
 def triu_indices(n, k=0, m=None):
     i, j = np.triu_indices(n, k, m)
     return ndarray(i), ndarray(j)
+
+
+def tri(n, k=0, dtype=float):
+    return ndarray(np.tri(n, k=k, dtype=dtype))
 
 
 def moveaxis(a, source, destination):
@@ -135,8 +144,13 @@ class ndarray:
     def all(self):
         return ndarray(self._data.all())
 
-    def sum(self, **kwargs):
-        return ndarray(self._data.sum(**kwargs))
+    def sum(self, out=None, **kwargs):
+        if out is not None:
+            out = out._data
+        return ndarray(self._data.sum(out=out, **kwargs))
+
+    def __repr__(self):
+        return 'cp.' + np.array_repr(self._data)
 
     def __len__(self):
         return len(self._data)
@@ -177,7 +191,12 @@ class ndarray:
         return ndarray(self._data[index])
 
     def __eq__(self, other):
+        if isinstance(other, (float, complex, int)):
+            return self._data == other
         return ndarray(self._data == other._data)
+
+    def __neg__(self):
+        return ndarray(-self._data)
 
     def __mul__(self, f):
         if isinstance(f, (float, complex)):
@@ -229,7 +248,10 @@ class ndarray:
         return self
 
     def __isub__(self, other):
-        self._data -= other._data
+        if isinstance(other, float):
+            self._data -= other
+        else:
+            self._data -= other._data
         return self
 
     def __matmul__(self, other):
@@ -252,3 +274,6 @@ class ndarray:
 
     def trace(self, offset, axis1, axis2):
         return ndarray(self._data.trace(offset, axis1, axis2))
+
+    def fill(self, val):
+        self._data.fill(val)
