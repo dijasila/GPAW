@@ -18,6 +18,7 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
+from gpaw.response.context import timer
 
 
 import ctypes
@@ -179,6 +180,7 @@ class BSEBackend:
         bands_sn = np.atleast_2d(bands_sn)
         return bands_sn
 
+    @timer('BSE calculate')
     def calculate(self, optical=True, hybrid = False, get_chi0 = False):
 
         if self.spinors:
@@ -213,7 +215,7 @@ class BSEBackend:
 
         self.kptpair_factory = KPointPairFactory(
             gs=self.gs,
-            context=ResponseContext(txt='pair.txt', timer=None,
+            context=ResponseContext(txt='pair.txt', timer=self.context.timer,
                                     comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
@@ -231,6 +233,7 @@ class BSEBackend:
                 pawcorr = pairden_paw_corr(qpd0)
 
         # Calculate pair densities, eigenvalues and occupations
+        self.context.timer.start('Pair densities')
         so = self.spinors + 1
         Nv, Nc = so * self.nv, so * self.nc
         Ns = self.spins
@@ -317,7 +320,6 @@ class BSEBackend:
 
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
-        
        # rhoex_KsmnG = np.linalg.inv(rhoex_KsmnG)
         rhoG0_S1 = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
         #self.rhoG0_S = np.reshape(rhoex_KsmnG, -1
@@ -325,11 +327,13 @@ class BSEBackend:
        # self.rhoG0_S = (rhoex_KsmnG.reshape((-2, len(v_G
        # self.rhoG0_S = (rhoex_KsmnG.reshape((-2,len(v_G)))).T
         self.rhoG0_S = np.reshape(rhoex_KsmnG, (len(rhoG0_S1),-1))
+        self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
             return
 
         # Calculate Hamiltonian
+        self.context.timer.start('Calculate Hamiltonian')
         t0 = time()
         self.context.print('Calculating {} matrix elements at q_c = {}'.format(
             self.mode, self.q_c))
@@ -348,10 +352,11 @@ class BSEBackend:
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
-
+                        self.context.timer.start('Coulomb')
                         H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
                             'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
                             optimize='optimal')
+                        self.context.timer.stop('Coulomb')
 
                         if not self.mode == 'RPA' and get_chi0!=True and s1 == s2:
                             ikq = ikq_k[iK2]
@@ -383,6 +388,7 @@ class BSEBackend:
                                                   np.dot(vec3_mn, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
+                            self.context.timer.start('Screened exchange')
                             W_mnmn = np.einsum('ijk,km,pqm->ipjq',
                                                rho3_mmG.conj(),
                                                self.W_qGG[iq],
@@ -390,6 +396,7 @@ class BSEBackend:
                                                optimize='optimal')
                             W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
+                            self.context.timer.stop('Screened exchange')
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
@@ -402,6 +409,7 @@ class BSEBackend:
         #     del self.Q_qaGii, self.W_qGG, self.qpd_q
 
         H_ksmnKsmn /= self.gs.volume
+        self.context.timer.stop('Calculate Hamiltonian')
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
@@ -429,21 +437,25 @@ class BSEBackend:
         if self.write_h:
             self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
+    @timer('get_density_matrix')
     def get_density_matrix(self, kpt1, kpt2):
+        self.context.timer.start('Symop')
         from gpaw.response.g0w0 import QSymmetryOp, get_nmG
         symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
                                                      kpt1, kpt2)
         qpd = self.qpd_q[iq]
         nG = qpd.ngmax
         pawcorr, I_G = symop.apply_symop_q(qpd, self.pawcorr_q[iq], kpt1, kpt2)
+        self.context.timer.stop('Symop')
 
         rho_mnG = np.zeros((len(kpt1.eps_n), len(kpt2.eps_n), nG),
                            complex)
         for m in range(len(rho_mnG)):
             rho_mnG[m] = get_nmG(kpt1, kpt2, pawcorr, m, qpd, I_G,
-                                 self.pair_calc)
+                                 self.pair_calc, timer=self.context.timer)
         return rho_mnG, iq
 
+    @timer('get_screened_potential')
     def get_screened_potential(self):
 
         if hasattr(self, 'W_qGG'):
@@ -496,6 +508,7 @@ class BSEBackend:
 
         self.blockcomm = self._chi0calc.chi0_body_calc.integrator.blockcomm
 
+    @timer('calculate_screened_potential')
     def calculate_screened_potential(self):
         """Calculate W_GG(q)"""
 
@@ -533,6 +546,7 @@ class BSEBackend:
                         iq + 1, timedelta(seconds=round(dt)), timedelta(
                             seconds=round(tleft))))
 
+    @timer('diagonalize')
     def diagonalize(self):
 
         self.context.print('Diagonalizing Hamiltonian')
@@ -593,6 +607,7 @@ class BSEBackend:
 
         return
 
+    @timer('get_bse_matrix')
     def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
                        readfile=None, optical=True, hybrid = False, get_chi0=False):
         """Calculate and diagonalize BSE matrix"""
@@ -652,6 +667,7 @@ class BSEBackend:
             return C_TGG 
 
     
+    @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, readfile=None, optical=True,
                  write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
@@ -1069,7 +1085,7 @@ class BSEBackend:
 
 
 class BSE(BSEBackend):
-    def __init__(self, calc=None, txt='-', **kwargs):
+    def __init__(self, calc=None, timer=None, txt='-', **kwargs):
         """Creates the BSE object
 
         calc: str or calculator object
@@ -1109,7 +1125,7 @@ class BSE(BSEBackend):
             If True, write eigenvalues and eigenstates to v_TS.ulm
         """
         gs, context = get_gs_and_context(
-            calc, txt, world=world, timer=None)
+            calc, txt, world=world, timer=timer)
 
         super().__init__(gs=gs, context=context, **kwargs)
 
