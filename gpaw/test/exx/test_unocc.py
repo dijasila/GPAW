@@ -53,8 +53,7 @@ def test_exx_unocc():
                   cunocc.get_potential_energy(),
                   cocc.get_potential_energy() - cunocc.get_potential_energy()
                   ))
-        equal(cocc.get_potential_energy(),
-              cunocc.get_potential_energy(), 1.e-4)
+        equal(cocc.get_potential_energy(), cunocc.get_potential_energy(), 1.e-4)
 
         fu_n = cunocc.get_occupation_numbers()
         eu_n = cunocc.get_eigenvalues()

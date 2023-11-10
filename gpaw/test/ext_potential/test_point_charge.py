@@ -66,7 +66,7 @@ def test_ext_potential_point_charge(in_tmp_dir):
             em = f(rc)
             R_pv[0, v] += eps
             F = -(ep - em) / (2 * eps) * h**3
-            assert F, -F_pv[0 == pytest.approx(v], abs=1e-9)
+            assert F == pytest.approx(-F_pv[0, v], abs=1e-9)
 
     # High-level test:
     lih = Atoms('LiH')

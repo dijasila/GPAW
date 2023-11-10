@@ -46,7 +46,7 @@ def test_hyd_chain_response(in_tmp_dir):
 
         # Test for consistency
         if not np.isnan(opeak_old):
-            assert opeak == pytest.approx(opeak_old, abs=tolerance=1e-3)
-            assert peak == pytest.approx(peak_old, abs=tolerance=1e-3)
+            assert opeak == pytest.approx(opeak_old, abs=1e-3)
+            assert peak == pytest.approx(peak_old, abs=1e-3)
         opeak_old = opeak
         peak_old = peak

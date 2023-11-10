@@ -47,5 +47,5 @@ def test_generic_8Si():
     print((e1, f1, niter1))
     energy_tolerance = 0.0025
     force_tolerance = 0.01
-    equal(e1, -46.6628, energy_tolerance)  # svnversion 5252
-    equal(f1, -1.38242356123, force_tolerance)  # svnversion 5252
+    equal(e1, -46.6628, energy_tolerance)
+    equal(f1, -1.38242356123, force_tolerance)

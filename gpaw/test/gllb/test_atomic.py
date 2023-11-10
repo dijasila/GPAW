@@ -37,9 +37,9 @@ def test_gllb_atomic():
                 GLLB.e_j[-1],
                 'Ha')
             if xcname == 'GLLB':
-                assert GLLB.ETotal == pytest.approx(ETotal[atom], abs=tolerance=1e-2)
-                assert GLLB.Exc == pytest.approx(EX[atom], abs=tolerance=1e-2)
-                assert GLLB.e_j[-1] == pytest.approx(EHOMO[atom], abs=tolerance=1e-2)
+                assert GLLB.ETotal == pytest.approx(ETotal[atom], abs=1e-2)
+                assert GLLB.Exc == pytest.approx(EX[atom], abs=1e-2)
+                assert GLLB.e_j[-1] == pytest.approx(EHOMO[atom], abs=1e-2)
 
         print('             Quanity        Method    Symbol     Ref[1]'
               '         GPAW      Unit  ')

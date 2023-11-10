@@ -33,5 +33,5 @@ def test_xc_revPBE_Li():
 
     print(e, erev)
     energy_tolerance = 0.002
-    equal(e, -204.381098849, energy_tolerance)  # svnversion 5252
-    equal(erev, -205.012303379, energy_tolerance)  # svnversion 5252
+    equal(e, -204.381098849, energy_tolerance)
+    equal(erev, -205.012303379, energy_tolerance)

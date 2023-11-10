@@ -65,4 +65,4 @@ def test_solvation_vacuum():
     Ftest = atoms.get_forces()
     assert Etest == pytest.approx(Eref, abs=energy_eps * atoms.calc.get_number_of_electrons())
     assert Ftest == pytest.approx(Fref, abs=forces_eps)
-    equal(Eeltest, Etest)
+    equal(Eeltest, Etest, 0.0)

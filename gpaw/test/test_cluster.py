@@ -25,8 +25,8 @@ def test_cluster(in_tmp_dir):
     CO.rotate(p[1] - p[0], (1, 1, 1))
     q = CO.positions.copy()
     for c in range(3):
-        assert q[0, c], p[0 == pytest.approx(0] / sqrt(3), abs=1e-10)
-        assert q[1, c], p[1 == pytest.approx(0] / sqrt(3), abs=1e-10)
+        assert q[0, c] == pytest.approx(p[0, 0] / sqrt(3), abs=1e-10)
+        assert q[1, c] == pytest.approx(p[1, 0] / sqrt(3), abs=1e-10)
 
     # minimal box
     b = 4.0

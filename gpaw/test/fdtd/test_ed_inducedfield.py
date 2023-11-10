@@ -22,11 +22,15 @@ def test_fdtd_ed_inducedfield(in_tmp_dir, gpw_files):
     energy = gs_calc.get_potential_energy()
 
     # Test ground state
-    assert energy == pytest.approx(-0.631881, abs=energy_eps * gs_calc.get_number_of_electrons())
+    assert energy == pytest.approx(
+        -0.631881,
+        abs=energy_eps * gs_calc.get_number_of_electrons())
 
     # Test floating point arithmetic errors
-    assert gs_calc.hamiltonian.poisson.shift_indices_1, [4, 4 == pytest.approx(10], abs=0)
-    assert gs_calc.hamiltonian.poisson.shift_indices_2, [8, 8 == pytest.approx(16], abs=0)
+    assert gs_calc.hamiltonian.poisson.shift_indices_1 == pytest.approx(
+        [4, 4, 10], abs=0)
+    assert gs_calc.hamiltonian.poisson.shift_indices_2 == pytest.approx(
+        [8, 8, 16], abs=0)
 
     # Initialize TDDFT and FDTD
     kick = [0.0, 0.0, 1.0e-3]
@@ -70,10 +74,8 @@ def test_fdtd_ed_inducedfield(in_tmp_dir, gpw_files):
     ref_qm_dipole_moment = [1.78620337e-11, -1.57782578e-11, 5.21368300e-01]
 
     tol = 1e-4
-    equal(td_calc.hamiltonian.poisson.get_classical_dipole_moment(),
-          ref_cl_dipole_moment, tol)
-    equal(td_calc.hamiltonian.poisson.get_quantum_dipole_moment(),
-          ref_qm_dipole_moment, tol)
+    equal(td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
+    equal(td_calc.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
 
     # Calculate induced fields
     td_calc = TDDFT('td.gpw')

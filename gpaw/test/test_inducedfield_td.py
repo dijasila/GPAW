@@ -9,17 +9,6 @@ from gpaw.inducedfield.inducedfield_tddft import TDDFTInducedField
 from gpaw.poisson import PoissonSolver
 
 
-do_print_values = False  # Use this for printing the reference values
-
-if do_print_values:
-    i = 1
-
-    def equal(x, y, tol):  # noqa
-        global i
-        print("assert val%d, %20.12f == pytest.approx(tol)" % (i, abs=x))
-        i += 1
-
-
 @pytest.mark.later
 @pytest.mark.ci
 def test_inducedfield_td(in_tmp_dir):
@@ -105,8 +94,7 @@ def test_inducedfield_td(in_tmp_dir):
     tol = (iterations * ind.fieldgd.integrate(ind.fieldgd.zeros() + 1.0) *
            max(density_eps, np.sqrt(poisson_eps)))
     # tol = 0.038905993684
-    if do_print_values:
-        print('tol = %.12f' % tol)
+    # print('tol = %.12f' % tol)
 
     # Test
     val1 = ind.fieldgd.integrate(ind.Ffe_wg[0])

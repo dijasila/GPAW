@@ -112,12 +112,18 @@ def test_chi0_intraband(in_tmp_dir):
     # From https://doi.org/10.1021/jp810808h
     wpref = 5.71 / Hartree
 
-    equal(wp1, wp3, 1e-2)  # spin paired matches spin polar - tetra
-    equal(wp2, wp4, 1e-2)  # spin paired matches spin polar - none
-    equal(wp1, wp, 0.5)  # Use larger margin when comparing to Drude
-    equal(wp2, wp, 0.5)  # Use larger margin when comparing to Drude
-    equal(wp1, wpref, 0.1)  # paired tetra match paper
-    equal(wp2, wpref, 0.1)  # paired none match paper
+    # spin paired matches spin polar - tetra
+    equal(wp1, wp3, 1e-2)
+    # spin paired matches spin polar - none
+    equal(wp2, wp4, 1e-2)
+    # Use larger margin when comparing to Drude
+    equal(wp1, wp, 0.5)
+    # Use larger margin when comparing to Drude
+    equal(wp2, wp, 0.5)
+    # paired tetra match paper
+    equal(wp1, wpref, 0.1)
+    # paired none match paper
+    equal(wp2, wpref, 0.1)
 
     # w_x equal for paired & polarized tetra
     w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)

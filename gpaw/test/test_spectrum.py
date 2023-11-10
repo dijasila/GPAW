@@ -12,9 +12,7 @@ def test_spectrum():
     width = 0.5
     x = 1.5
 
-    equal(Gauss(width).get(x),
-          exp(- x**2 / 2 / width**2) / sqrt(2 * pi) / width,
-          1.e-15)
+    equal(Gauss(width).get(x), exp(- x**2 / 2 / width**2) / sqrt(2 * pi) / width, 1.e-15)
     assert Gauss(width).fwhm == pytest.approx(width * np.sqrt(8 * np.log(2)), abs=1.e-15)
     equal(Lorentz(width).get(x),
           width / (x**2 + width**2) / pi,

@@ -55,13 +55,10 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             # oscillator_strength
             for ks in kss:
                 assert ks.get_energy() == pytest.approx(kss[0].get_energy(), abs=5.e-3)
-                equal(ks.get_oscillator_strength()[0],
-                      kss[0].get_oscillator_strength()[0], 5.e-3)
-                equal(ks.get_oscillator_strength()[0],
-                      ks.get_oscillator_strength()[1:].sum() / 3, 1.e-15)
+                equal(ks.get_oscillator_strength()[0], kss[0].get_oscillator_strength()[0], 5.e-3)
+                equal(ks.get_oscillator_strength()[0], ks.get_oscillator_strength()[1:].sum() / 3, 1.e-15)
                 for c in range(3):
-                    equal(ks.get_oscillator_strength()[1 + c],
-                          ks.get_dipole_tensor()[c, c], 1.e-15)
+                    equal(ks.get_oscillator_strength()[1 + c], ks.get_dipole_tensor()[c, c], 1.e-15)
             energy[name] = np.array(
                 [ks.get_energy() * Hartree for ks in kss]).mean()
             osz[name] = np.array(
