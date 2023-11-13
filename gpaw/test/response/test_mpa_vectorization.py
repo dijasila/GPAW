@@ -43,4 +43,4 @@ def test_residues():
     plt.plot(omega_w, X_fortran_fit.imag,ls=':')
     plt.show()
 
-    #assert np.allclose(R_GGp,R_fortran_GGp, atol=1e-6)
+    assert np.allclose(R_GGp,R_fortran_GGp, atol=1e-6)
