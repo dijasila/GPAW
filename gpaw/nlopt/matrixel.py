@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional
 
 from ase.parallel import parprint
 from ase.units import Ha
@@ -19,7 +18,7 @@ def get_mml(gs: GSInfo,
             spin: int,
             ni: int,
             nf: int,
-            timer: Optional[Timer] = None) -> ArrayND:
+            timer: Timer | None = None) -> ArrayND:
     """
     Compute momentum matrix elements.
 
@@ -122,8 +121,8 @@ def get_mml(gs: GSInfo,
 def make_nlodata(calc: ASECalculator | str | Path,
                  comm: MPIComm,
                  spin_string: str = 'all',
-                 ni: Optional[int] = None,
-                 nf: Optional[int] = None) -> NLOData:
+                 ni: int | None = None,
+                 nf: int | None = None) -> NLOData:
     """
     This function calculates and returns all required
     NLO data: w_sk, f_skn, E_skn, p_skvnn.

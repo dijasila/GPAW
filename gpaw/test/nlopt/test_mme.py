@@ -6,6 +6,7 @@ from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
 
 
+@pytest.mark.skipif(world.size > 1, reason='Only serial')
 def test_mme_Ni(gpw_files):
 
     # Collinear calculation
