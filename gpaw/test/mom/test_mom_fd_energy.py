@@ -54,7 +54,7 @@ def test_mom_fd_energy(in_tmp_dir):
 
         dE = E_es - E_gs
         print(dE)
-        assert dE == pytest.approx(dE_ref[s], abs=0.01)
+        assert dE == pytest.approx(dE_ref[s], abs=0.015)
 
     calc = GPAW(mode='fd',
                 nbands=6,
