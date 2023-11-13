@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 
 from gpaw.mpi import MPIComm
@@ -28,12 +30,13 @@ class GSInfo:
         state = calculation.state
         ibzwfs = state.ibzwfs
         self.ibzwfs = ibzwfs
-        assert ((ibzwfs.band_comm.size == 1) and
-                (ibzwfs.domain_comm.size == 1) and
-                (ibzwfs.kpt_comm.size == 1) and
-                (ibzwfs.kpt_band_comm.size == 1)), \
-            ('You must initialise the calculator '
-             'with "communicator = serial_comm".')
+        if not (ibzwfs.band_comm.size == 1 and ibzwfs.domain_comm.size == 1 and
+                ibzwfs.kpt_comm.size == 1 and ibzwfs.kpt_band_comm.size == 1):
+            raise ValueError('Calculator must be initialised with '
+                             '"communicator = serial_comm".')
+        if isinstance(ibzwfs.wfs_qs[0][0].psit_nX, SimpleNamespace):
+            raise ValueError('Calculator is missing wfs data. If loading from '
+                             'a .gpw file, please recalculate wave functions.')
 
         density = state.density
         self.collinear = density.collinear
