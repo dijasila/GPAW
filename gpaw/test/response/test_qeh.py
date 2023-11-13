@@ -143,6 +143,19 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     assert np.allclose(chiMD_qw[0, 0], 0)
     assert np.allclose(chiMD_qw[10, 8], (-2.866099 - 1j * 15.053198) * 1e-3)
     assert np.allclose(chiMD_qw[9, 9], (-9.823681 - 1j * 36.350808) * 1e-6)
+    q_grid_s = np.linspace(0, 0.5, 6)
+    w_grid_w = bb.wd.omega_w
+    bb.interpolate_to_grid(q_grid_s, w_grid_w)
+    data = np.load('IBiTe_int-chi.npz')
+    assert np.allclose(data['omega_w'], w_grid_w)
+    assert data['chiMD_qw'][-1, 0] == pytest.approx(- 0.0231700430
+                                                    - 0.0524473566j)
+    print(data['chiMD_qw'][0, 0])
+    assert data['chiMD_qw'][0, 0].real == pytest.approx(0.)
+    assert data['chiMD_qw'][0, 0].imag == pytest.approx(0., abs=1e-8)
+
+    assert data['chiDM_qw'][1, 2] == pytest.approx(- 6.80931501e-08
+                                                   + 2.12589773e-05j)
 
 
 # test limited features that should work in parallel
