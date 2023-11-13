@@ -7,7 +7,7 @@ from ase.utils.timing import Timer
 import numpy as np
 
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new.ase_interface import GPAW
+from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.nlopt.adapters import GSInfo
 from gpaw.nlopt.basic import NLOData
 from gpaw.typing import ArrayND
@@ -118,7 +118,7 @@ def get_mml(gs: GSInfo,
         return np.array([], dtype=complex)
 
 
-def make_nlodata(gs_name: str,
+def make_nlodata(calc: str | ASECalculator,
                  comm: MPIComm,
                  spin: str = 'all',
                  ni: Optional[int] = None,
@@ -147,12 +147,15 @@ def make_nlodata(gs_name: str,
 
     """
 
-    assert path.exists(gs_name), \
-        f'The gs file: {gs_name} does not exist!'
-    calc = GPAW(gs_name, txt=None, communicator=serial_comm)
-
+    if isinstance(calc, str):
+        assert path.exists(calc), \
+            f'The gs file: {calc} does not exist!'
+        calc = GPAW(calc, txt=None, communicator=serial_comm)
+    print(type(calc))
+    assert isinstance(calc, ASECalculator), \
+        'Input must be a calculator or a string pointing to a calculator.'
     assert not calc.symmetry.point_group, \
-        'Point group symmtery should be off.'
+        'Point group symmetry should be off.'
 
     gs: GSInfo
     if calc.calculation.state.density.collinear:
@@ -184,7 +187,7 @@ def make_nlodata(gs_name: str,
 
 
 def _make_nlodata(gs: GSInfo,
-                  spins: list,
+                  spins: list[int],
                   ni: int,
                   nf: int) -> NLOData:
 

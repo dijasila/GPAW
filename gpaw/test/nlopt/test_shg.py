@@ -1,11 +1,11 @@
-import pytest
-import numpy as np
 from ase import Atoms
+import numpy as np
+import pytest
 
-from gpaw import GPAW, PW
-from gpaw.nlopt.shg import get_shg
+from gpaw.mpi import serial_comm, world
+from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.matrixel import make_nlodata
-from gpaw.mpi import world
+from gpaw.nlopt.shg import get_shg
 
 
 @pytest.mark.skipif(world.size > 4, reason='System too small')
@@ -14,12 +14,14 @@ def test_shg(in_tmp_dir):
     atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
 
     # Do a GS and save it
-    calc = GPAW(
-        mode=PW(600), symmetry={'point_group': False},
-        kpts={'size': (2, 2, 2)}, nbands=5, txt=None)
+    calc = GPAW(mode={'name': 'pw', 'ecut': 600},
+                symmetry={'point_group': False},
+                kpts={'size': (2, 2, 2)},
+                nbands=5,
+                txt=None)
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('gs.gpw', 'all')
+    calc.write('gs.gpw', mode='all')
 
     # Get the mml
     nlodata = make_nlodata('gs.gpw', comm=world)
@@ -61,7 +63,8 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
         # Get nlodata from pre-calculated SiC fixtures
-        calc = gpw_files[f'sic_pw{tag}']
+        calc = GPAW(gpw_files[f'sic_pw{tag}'], txt=None,
+                    communicator=serial_comm)
         nlodata = make_nlodata(calc, ni=0, nf=8, comm=world)
 
         # Calculate 'xyz' tensor element of SHG spectra
