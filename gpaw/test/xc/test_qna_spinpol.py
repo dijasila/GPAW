@@ -2,7 +2,6 @@ import pytest
 from ase.atoms import Atoms
 
 from gpaw import GPAW, PW
-from gpaw.test import equal
 
 
 @pytest.mark.later
@@ -28,4 +27,4 @@ def test_xc_qna_spinpol(in_tmp_dir):
     magmoms = atoms.get_magnetic_moments()
 
     tol = 0.003
-    equal(0.25374, magmoms[0], tol)
+    assert 0.25374 == pytest.approx(magmoms[0], abs=tol)
