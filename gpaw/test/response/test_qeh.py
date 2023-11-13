@@ -134,7 +134,6 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     df = dielectric(gpw_files['IBiTe_pw_monolayer'], 0.1, 0.5)
     bb = BuildingBlock('IBiTe', df)
     bb.calculate_building_block()
-    print('calculated bb')
     can_load = bb.load_chi_file()
     assert can_load
     chiDM_qw = bb.chiDM_qw

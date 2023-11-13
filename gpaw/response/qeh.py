@@ -82,6 +82,10 @@ class BuildingBlock:
 
         point_group_symmetries_scc = list(kd.symmetry.op_scc)
         z_inversion_matrix = np.diag([1, 1, -1])
+
+        # If the material has z inversion symmetry, the off-diagonal elements
+        # chiMD and chiDM are necessarily zero. In this case, it is not
+        # necessary to calculate them.
         self.has_z_inversion_symmetry =\
             any(np.array_equal(z_inversion_matrix, sym)
                 for sym in point_group_symmetries_scc)
@@ -210,7 +214,7 @@ class BuildingBlock:
 
         self.complete = True
         self.save_chi_file()
-8
+
         return
 
     def update_building_block(self, chiM_qw, chiD_qw, chiDM_qw, chiMD_qw,
@@ -237,7 +241,7 @@ class BuildingBlock:
           \chi^DM_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega,r,r')
                                 = sum_{G_z != 0} z_factor(G_z) chi_{G_z,G'=0}
           \chi^MD_2D(q, \omega) = \int\int dr dr' \chi(q, \omega,r,r') z'
-                                = sum_{G_z' != 0}  chi_{G=0, G_z'} z_factor(G_z')^*
+                            = sum_{G_z' != 0} chi_{0, G_z'} z_factor(G_z')^*
           Where z_factor(G_z) =  - i e^{i*G_z*z0}
           (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
 
