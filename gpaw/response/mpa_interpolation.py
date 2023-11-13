@@ -57,10 +57,10 @@ def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
     if XTX_GGpp.shape[2] == 1:
         # 1D matrix, invert the number
         XTX_GGpp = 1 / XTX_GGpp
+        R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
     else:
-        XTX_GGpp = np.linalg.pinv(XTX_GGpp)
+        R_GGp = np.linalg.solve(XTX_GGpp, temp_GGp)
 
-    R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
     return R_GGp.transpose((2,0,1))
 
 class Solver:
