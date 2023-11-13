@@ -863,7 +863,7 @@ class GPWFiles:
                         setups={'Na': '1'})
         blk.get_potential_energy()
         blk.calc.diagonalize_full_hamiltonian(nbands=520)
-        return bl.calc
+        return blk.calc
 
     @gpwfile
     def na2_fd(self):
