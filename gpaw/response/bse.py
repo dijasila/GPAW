@@ -21,6 +21,30 @@ from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import timer
 
 
+"""
+For each band, find degenerate shells eps_d
+For each band pair, construct differences D_p = eps_d1 - eps_d2
+"""
+
+"""
+   
+
+For q in k1-k2:
+     <psi_k1 psi_k1+q| hat W(q) | psi_k2 \psi_k2+q>
+     = <n_k1k2G | W_GG(q) | n_k1+q n_k2+q >
+
+     <n_k1k2G | W_GG(q) | n_k1+q n_k2+q>
+
+
+    W_k1k2k3k4_n1n2n3n4 = \int \int psi_k1n1(r) \psi^*_k2n2(r') W(r,r') psi^*_k3(r) \psi_k4(r')
+
+    W_k1k2k3k4_n1n2n3n4 = \int \int psi_k1n1(r) \psi^*_k2n2(r') W(r,r') psi^*_k3(r) \psi_k4(r')
+
+    O(W_k1k1+qk2k2+q_n1m1n1m2) = W_O(k1)O(k1+q)O(k2)O(k2+q)_n1n2n3n4 A_n1n2n3n4_n1'n2'n3'n4'(O)
+
+"""
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -35,10 +59,11 @@ class BSEBackend:
                  mode='BSE',
                  wfile=None,
                  write_h=False,
-                 write_v=False):
+                 write_v=False,
+                 blocked=False):
         self.gs = gs
         self.context = context
-
+        self.blocked = False 
         self.spinors = spinors
         self.scale = scale
 
@@ -175,8 +200,179 @@ class BSEBackend:
         bands_sn = np.atleast_2d(bands_sn)
         return bands_sn
 
+    @timer('BSE calculate blocked')
+    def calculate_blocked(self, optical=True, skip_rpa=True):
+        assert skip_rpa
+        # Total number of k-points
+        nK = self.kd.nbzkpts
+        myKrange, myKsize, mySsize = self.parallelisation_sizes()
+        comm = world
+
+        # Parallelization stuff
+        nK = self.kd.nbzkpts
+
+        self.kptpair_factory = KPointPairFactory(
+            gs=self.gs,
+            context=ResponseContext(txt='pair.txt', timer=self.context.timer,
+                                    comm=serial_comm))
+
+        # Calculate direct (screened) interaction and PAW corrections
+        assert self.mode != 'RPA'
+        self.get_screened_potential()
+        if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
+            iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
+                                                      self.qd.bzk_kc)]
+            pawcorr = self.pawcorr_q[iq0]  # Q_qaGii[iq0]
+        else:
+            pairden_paw_corr = self.gs.pair_density_paw_corrections
+            pawcorr = pairden_paw_corr(qpd0)
+
+        # Calculate pair densities, eigenvalues and occupations
+        self.context.timer.start('Pair densities')
+        so = self.spinors + 1
+        Nv, Nc = so * self.nv, so * self.nc
+        Ns = self.spins
+        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
+        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
+
+        optical_limit = np.allclose(self.q_c, 0.0)
+
+        get_pair = self.kptpair_factory.get_kpoint_pair
+        get_pair_density = self.pair_calc.get_pair_density
+        vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
+        ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
+        for ik, iK in enumerate(myKrange):
+            for s in range(Ns):
+                pair = get_pair(qpd0, s, iK,
+                                vi_s[s], vf_s[s], ci_s[s], cf_s[s])
+                m_m = np.arange(vi_s[s], vf_s[s])
+                n_n = np.arange(ci_s[s], cf_s[s])
+                if self.gw_skn is not None:
+                    iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
+                    epsv_m = self.gw_skn[s, iK, :self.nv]
+                    epsc_n = self.gw_skn[s, iKq, self.nv:]
+                    deps_ksmn[ik] = -(epsv_m[:, np.newaxis] - epsc_n)
+                elif self.spinors:
+                    iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
+                    epsv_m = e_mk[mvi:mvf, iK]
+                    epsc_n = e_mk[mci:mcf, iKq]
+                    deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
+                else:
+                    deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
+
+                df_mn = pair.get_occupation_differences(self.val_sn[s],
+                                                        self.con_sn[s])
+                rho_mnG = get_pair_density(qpd0, pair, m_m, n_n,
+                                           pawcorr=pawcorr)
+                if optical_limit:
+                    n_mnv = self.pair_calc.get_optical_pair_density_head(
+                        qpd0, pair, m_m, n_n)
+                    rho_mnG[:, :, 0] = n_mnv[:, :, self.direction]
+                df_Ksmn[iK, s] = pair.get_occupation_differences(m_m, n_n)
+                rhoex_KsmnG[iK, s] = rho_mnG
+
+        if self.eshift is not None:
+            deps_ksmn[np.where(df_Ksmn[myKrange] > 1.0e-3)] += self.eshift
+            deps_ksmn[np.where(df_Ksmn[myKrange] < -1.0e-3)] -= self.eshift
+
+        world.sum(df_Ksmn)
+        world.sum(rhoex_KsmnG)
+
+        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        self.context.timer.stop('Pair densities')
+
+        if hasattr(self, 'H_sS'):
+            return
+
+        # Calculate Hamiltonian
+        self.context.timer.start('Calculate Hamiltonian')
+        t0 = time()
+        self.context.print('Calculating {} matrix elements at q_c = {}'.format(
+            self.mode, self.q_c))
+        H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
+        for ik1, iK1 in enumerate(myKrange):
+            for s1 in range(Ns):
+                kptv1 = self.kptpair_factory.get_k_point(
+                    s1, iK1, vi_s[s1], vf_s[s1])
+                kptc1 = self.kptpair_factory.get_k_point(
+                    s1, ikq_k[iK1], ci_s[s1], cf_s[s1])
+                rho1_mnG = rhoex_KsmnG[iK1, s1]
+
+                # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
+                rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
+                for s2 in range(Ns):
+                    for Q_c in self.qd.bzk_kc:
+                        iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
+                        rho2_mnG = rhoex_KsmnG[iK2, s2]
+                        self.context.timer.start('Coulomb')
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
+                            'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
+                            optimize='optimal')
+                        self.context.timer.stop('Coulomb')
+
+                        if not self.mode == 'RPA' and s1 == s2:
+                            ikq = ikq_k[iK2]
+                            kptv2 = self.kptpair_factory.get_k_point(
+                                s1, iK2, vi_s[s1], vf_s[s1])
+                            kptc2 = self.kptpair_factory.get_k_point(
+                                s1, ikq, ci_s[s1], cf_s[s1])
+                            rho3_mmG, iq = self.get_density_matrix(kptv1,
+                                                                   kptv2)
+                            rho4_nnG, iq = self.get_density_matrix(kptc1,
+                                                                   kptc2)
+
+                            self.context.timer.start('Screened exchange')
+                            W_mnmn = np.einsum('ijk,km,pqm->ipjq',
+                                               rho3_mmG.conj(),
+                                               self.W_qGG[iq],
+                                               rho4_nnG,
+                                               optimize='optimal')
+                            W_mnmn *= Ns * so
+                            H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
+                            self.context.timer.stop('Screened exchange')
+            if iK1 % (myKsize // 5 + 1) == 0:
+                dt = time() - t0
+                tleft = dt * myKsize / (iK1 + 1) - dt
+                self.context.print(
+                    '  Finished %s pair orbitals in %s - Estimated %s left'
+                    % ((iK1 + 1) * Nv * Nc * Ns * world.size, timedelta(
+                        seconds=round(dt)), timedelta(seconds=round(tleft))))
+
+        # if self.mode == 'BSE':
+        #     del self.Q_qaGii, self.W_qGG, self.qpd_q
+
+        H_ksmnKsmn /= self.gs.volume
+        self.context.timer.stop('Calculate Hamiltonian')
+
+        mySsize = myKsize * Nv * Nc * Ns
+        if myKsize > 0:
+            iS0 = myKrange[0] * Nv * Nc * Ns
+
+        # world.sum(rhoG0_Ksmn)
+        # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
+        self.df_S = np.reshape(df_Ksmn, -1)
+        if not self.td:
+            self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
+        # multiply by 2 when spin-paired and no SOC
+        self.df_S *= 2.0 / nK / Ns / so
+        self.deps_s = np.reshape(deps_ksmn, -1)
+        H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
+        for iS in range(mySsize):
+            # Multiply by occupations and adiabatic coupling
+            H_sS[iS] *= self.df_S[iS0 + iS]
+            # add bare transition energies
+            H_sS[iS, iS0 + iS] += self.deps_s[iS]
+
+        self.H_sS = H_sS
+
+        if self.write_h:
+            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
+
+
     @timer('BSE calculate')
-    def calculate(self, optical=True):
+    def calculate(self, optical=True, blocked=False, skip_rpa=False):
+        if blocked:
+            return self.calculate_blocked(optical=optical, skip_rpa=skip_rpa)
 
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
@@ -469,7 +665,8 @@ class BSEBackend:
                              pd=self.qpd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential()
-
+        from code import interact
+        interact(local=locals())
     def initialize_chi0_calculator(self):
         """Initialize the Chi0 object to compute the static
         susceptibility."""

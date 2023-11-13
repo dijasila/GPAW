@@ -10,7 +10,7 @@ from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator)
-from gpaw.response.symmetry import PWSymmetryAnalyzer
+from gpaw.response.symmetry import PWSymmetryAnalyzer, CharacterTableBuilder
 
 
 class Chi0Integrand(Integrand):
@@ -253,8 +253,10 @@ class Chi0ComponentCalculator:
         """Get the integration domain."""
         analyzer = PWSymmetryAnalyzer(
             self.gs.kpoints, qpd, self.context,
-            disable_point_group=self.disable_point_group,
-            disable_time_reversal=self.disable_time_reversal)
+            disable_point_group=False, #self.disable_point_group,
+            disable_time_reversal=False) #self.disable_time_reversal)
+        analyzer.print_symmetries()
+        CharacterTableBuilder.from_PWSymmetryAnalyzer(analyzer)
 
         if integrationmode is None:
             K_gK = analyzer.group_kpoints()

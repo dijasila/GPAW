@@ -8,6 +8,260 @@ from _gpaw import GG_shuffle
 from gpaw.response import timer
 
 
+class CharacterTableBuilder:
+    def __init__(self, ops_occ, verbose=True):
+        print('Number of symmetries', len(ops_occ))
+        self.verbose = verbose
+        self.ops_occ = ops_occ
+        #self.ops_occ = np.einsum('odc,cv,dw->owv', ops_occ, cell_cv, np.linalg.inv(cell_cv.T))
+        #self.ops_occ = np.einsum('cv,odc,dw->owv', cell_cv, ops_occ, np.linalg.inv(cell_cv.T))
+        print(self.ops_occ)
+        self._build_multiplication_table()
+        self._find_conjugacy_classes()
+        self._build_character_table()
+        self._detect_conjugacy_classes()
+        self._detect_irreps()
+        self.print_character_table()
+        print(self.character_ig)
+
+    def _class_id(self, classname):
+        try:
+            return self.names_g.index(classname)
+        except ValueError:
+            return None
+
+    def _detect_irrep(self, signature):
+        h = signature[ self._class_id("E") ]
+
+        #rotations = [ self.class_id(name) for name in self.names_g if ("C" in name) ]
+        rotations = self._class_id("6C2")
+        print(self._class_id("i"))
+        if self._class_id("i"):
+            ug = "g" if signature[ self._class_id("i") ] > 0 else "u"
+        else:
+            ug = ""
+        C = "?"
+        N = "?"
+        if self._class_id("6C4"):
+            if signature[self._class_id("6C4")]>0:
+                N = "1"
+            else:
+                N = "2"
+        if h == 1:
+            C = "A"
+        if h == 2:
+            C = "E"
+            N = ""
+        if h == 3:
+            C="T"
+
+        return C+N+ug+str(np.random.randint(0,19))
+
+    def _detect_irreps(self):
+        self.names_i = [self._detect_irrep(self.character_ig[i, :]) for i in range(self.character_ig.shape[0])]
+
+    def _detect_conjugacy_class(self, ops_occ):
+        det_o = np.array([np.linalg.det(op_cc) for op_cc in ops_occ])
+        eigs_o = np.array([np.sort(np.linalg.eig(op_cc)[0]) for op_cc in ops_occ])
+        if len(det_o) == 1 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
+            return "C2"
+        if len(det_o) == 1 and np.all(np.isclose(eigs_o, [-1, -1, -1])):
+            return "i"  # Inversion flips all axes, -x, -y, -z
+        if len(det_o) == 1 and np.all(np.isclose(eigs_o, [1, 1, 1])):
+            return "E"  # Identity leaves all axes intact x, y, z
+        if len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
+            return "3C2"  # C2 rotation along z is -x, -y, z
+        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
+            return "6C2"
+        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1j, 1j])):
+            return "6S4"  # -1j and 1j corresponds to 90 rotation. Determinant is -1 thus, improper.
+        if len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
+            return "3sh"  # Horizontal mirror operation flips one of the coordinates
+        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
+            return "6sd"
+        if len(det_o) == 8 and np.all(np.isclose(eigs_o, [-1, np.exp(-1j * 2 * np.pi / 6), np.exp(1j * 2 * np.pi / 6)])):
+            return "8S6"
+        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1j, 1j, 1])):
+            return "6C4"
+        if len(det_o) == 8 and np.all(np.isclose(eigs_o, [np.exp(-1j * np.pi * 2 / 3), np.exp(1j * np.pi * 2 / 3), 1])):
+            return "8C3"
+        return "bug?"
+
+
+    @classmethod
+    def from_PWSymmetryAnalyzer(cls, pwsym):
+        """
+           Symmetry operator including translation
+
+          [ U_11 U_12 U_13  X   ] [ a ]
+          [ U_21 U_22 U_23  Y   ] [ b ]
+          [ U_31 U_32 U_33  Z   ] [ c ]
+          [ 0    0    0     1   ] [ 1 ]
+
+        """
+        cell_cv = pwsym.qpd.gd.cell_cv
+
+        print(pwsym.qpd.q_c,'q_c', np.linalg.inv(cell_cv.T) @ pwsym.qpd.q_c)
+        ops = [pwsym.get_symmetry_operator(pwsym.s_s[s]) 
+               for s in range(pwsym.how_many_symmetries())]
+        ops_ozz = []
+        for op in ops:
+            op_zz = np.zeros((4,4))
+            op_cc = np.einsum('cv,dc,dw->wv', cell_cv, op[1]*op[0], np.linalg.inv(cell_cv.T))
+            #print('opcc', op_cc)
+            #op2_cc = np.einsum('cv,dc,dw->wv', np.linalg.inv(cell_cv.T), np.linalg.inv(op[1]*op[0]), cell_cv)
+            #print('op2cc', op2_cc)
+            op_zz[:3, :3] = op_cc
+            op_zz[3,3] = 1.0
+            assert np.all(op[4] == 0)
+            ops_ozz.append(op_zz[:3,:3])
+        
+
+        
+        return cls(np.array(ops_ozz))
+
+    def get_symmetry_operator(self, s):
+        """Return symmetry operator s."""
+        U_scc = self.kd.symmetry.op_scc
+        ft_sc = self.kd.symmetry.op_scc
+
+        reds = s % self.nU
+        if self.timereversal(s):
+            TR = np.conj
+            sign = -1
+        else:
+            sign = 1
+
+            def TR(x):
+                return x
+
+        return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
+    
+    def get_op_id(self, op_cc):
+        for o1, op1_cc in enumerate(self.ops_occ):
+            if np.linalg.norm(op_cc - op1_cc) < 1e-8:
+                return o1
+        raise ValueError("Unknown operation: %s." % str(op_cc))
+
+    def _build_multiplication_table(self):
+        ops_occ = self.ops_occ
+        N = len(ops_occ)
+        mul_oo = np.zeros((N, N), dtype=int)
+        inv_oo = np.zeros((N, N), dtype=int)
+        for o1, op1_cc in enumerate(ops_occ):
+            for o2, op2_cc in enumerate(ops_occ):
+                #print(op1_cc,'*', op2_cc, '=', np.dot(op1_cc, op2_cc))
+                o3 = self.get_op_id(np.dot(op1_cc, op2_cc))
+                mul_oo[o1, o2] = o3
+                inv_oo[o1, o3] = o2
+        self.mul_oo, self.inv_oo = mul_oo, inv_oo
+
+    def _find_conjugacy_classes(self):
+        ops_occ = self.ops_occ
+        N = len(ops_occ)
+        op_pool = range(N)
+        self.ops_g = []
+
+        self.g_o = np.zeros((N,), int)  # Conjugacy class index for each op
+        iteration = 0
+        while True:
+            iteration += 1
+            if iteration > 1000:
+                raise RuntimeError("Cannot find conjugacy classes: remaining "+str(op_pool))
+            # Loop until all operations are assigned a class
+            if len(op_pool) == 0:
+                break
+            # Take an element from operation pool...
+            op1 = op_pool[0]
+            op1_cc = ops_occ[op1]
+            # ...conjugate it with all possible operations, see the result, and remove any duplicates
+            conjugacy_class = np.unique([self.get_op_id(np.dot(op2_cc, np.dot(op1_cc, op2_cc.T))) for o2, op2_cc in enumerate(ops_occ)])
+
+            # Fill g_o array that maps ops to class
+            for op in conjugacy_class:
+                self.g_o[op] = len(self.ops_g)
+            self.ops_g.append(conjugacy_class)
+            # Remove all operations already assigned a class from the pool
+            op_pool = list(set(op_pool) - set(conjugacy_class))
+
+        if self.verbose:
+            print("Found %d conjugacy classes" % len(self.ops_g))
+    
+    def diagonalize_and_group(self, H_oo):
+        eps, psi = np.linalg.eigh(H_oo)
+        groups = np.unique(abs(eps[:, None] - eps[None, :]) < 1e-6, axis=0)
+        if self.verbose:
+            print("Found %d irreducible representations." % len(groups))
+
+        # Add eigenvales to lists
+        groups_i = [[] for i in range(len(groups))]
+        for irrep, eig_idx in zip(*np.where(groups)):
+            groups_i[irrep].append(psi[:, eig_idx])
+
+        return [np.array(x) for x in groups_i]
+
+    def _build_character_table(self):
+        ops_occ = self.ops_occ
+        N = len(ops_occ)
+
+        # Diagonalize arbitrary Hamiltonian (the form 1/(1+g) is irrelevant)
+        # to numerically build the character table. The degenerate eigenspaces
+        # describe the irreducible representations.
+        # There might be an accidental degeneracy, in which case the a representation
+        # might end up being a direct product of two representations.
+        H_oo = 1 / (self.g_o[self.inv_oo] + 1)
+        groups_i = self.diagonalize_and_group(1 / (self.g_o[self.inv_oo] + 1.321))
+        self.groups_i = groups_i
+        character_ig = np.zeros((len(groups_i), len(self.ops_g)), dtype=int)
+
+        # For each group...
+        for i, psi_no in enumerate(groups_i):
+            # For each conjugacy class...
+            for g, ops in enumerate(self.ops_g):
+                # It is not necessary to loop over all group operations. However, it will be a good sanity check.
+                # Calculate the trace of this irrep under operation o
+                traces_o = np.array([np.trace(np.dot(psi_no[:, self.mul_oo[:, o]], psi_no.T.conjugate())) for o in ops])
+                h = len(psi_no)**0.5
+                assert(np.all(abs(traces_o - traces_o[0]) < 1e-10))
+                character_ig[i, g] = int(np.round(traces_o[0] / h))
+
+        self.character_ig = character_ig
+    
+    def _detect_conjugacy_classes(self):
+        self.names_g = [self._detect_conjugacy_class([self.ops_occ[o] for o in classops]) for classops in self.ops_g]
+        print(self.names_g)
+
+    def class_id(self, classname):
+        try:
+            return self.names_g.index(classname)
+        except ValueError:
+            return None
+
+    def _detect_irreps(self):
+        self.names_i = [self._detect_irrep(self.character_ig[i, :]) for i in range(self.character_ig.shape[0])]
+
+    def print_character_table(self, class_order=None, irrep_order=None):
+        try:
+            print("%-20s" % "irreps/classes", end="")
+            if class_order is None:
+                class_order = self.names_g
+            if irrep_order is None:
+                irrep_order = self.names_i
+
+            for name in class_order:
+                print("%-5s" % name, end="")
+            print()
+            for iname in irrep_order:
+                i = self.names_i.index(iname)
+                print("%-20s" % self.names_i[i], end="")
+                for gname in class_order:
+                    g = self.names_g.index(gname)
+                    print("%-5s" % ("%+02d" % self.character_ig[i, g]), end="")
+                print()
+        except ValueError:
+            print('...')
+
+
 class KPointFinder:
     def __init__(self, bzk_kc):
         self.kdtree = cKDTree(self._round(bzk_kc))
@@ -32,6 +286,7 @@ class PWSymmetryAnalyzer:
     def __init__(self, kpoints, qpd, context,
                  disable_point_group=False,
                  disable_time_reversal=False):
+        print(disable_time_reversal)
         """Creates a PWSymmetryAnalyzer object.
 
         Determines which of the symmetries of the atomic structure
@@ -129,6 +384,7 @@ class PWSymmetryAnalyzer:
                 isl.append(''.join(tisl))
             isl.append('\n')
         self.context.print(''.join(isl))  # flush output
+        print(''.join(isl))  # flush output
 
     @timer('Analyze')
     def analyze_kpoints(self):
@@ -194,7 +450,10 @@ class PWSymmetryAnalyzer:
 
         # You are not allowed to use non-symmorphic syms, sorry. So we remove
         # the option and always filter those symmetries out.
+        before = len(s_s)
         s_s = list(filter(self.is_not_non_symmorphic, s_s))
+        after = len(s_s)
+        print('Before', before, 'After', after)
 
 #        stmp_s = []
 #        for s in s_s:
@@ -341,6 +600,16 @@ class PWSymmetryAnalyzer:
         shift_c = shift_c.round().astype(int)
 
         return shift_c
+    
+    @timer('apply symop')
+    def apply_symop(self, s, a_MG):
+        if len(a_MG) == 0:
+            return []
+        
+        G_G, sign, shift_c = self.G_sG[s]
+        U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+
+        return TR(a_MG[..., G_G])
 
     @timer('map_G')
     def map_G(self, K1, K2, a_MG):
@@ -499,7 +768,7 @@ class PWSymmetryAnalyzer:
     def get_symmetry_operator(self, s):
         """Return symmetry operator s."""
         U_scc = self.kd.symmetry.op_scc
-        ft_sc = self.kd.symmetry.op_scc
+        ft_sc = self.kd.symmetry.ft_sc
 
         reds = s % self.nU
         if self.timereversal(s):
