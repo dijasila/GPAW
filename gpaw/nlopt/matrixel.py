@@ -1,10 +1,10 @@
 from __future__ import annotations
-from os import path
 from typing import Optional
 
 from ase.parallel import parprint
 from ase.units import Ha
 from ase.utils.timing import Timer
+from pathlib import Path
 import numpy as np
 
 from gpaw.mpi import MPIComm, serial_comm
@@ -119,9 +119,9 @@ def get_mml(gs: GSInfo,
         return np.array([], dtype=complex)
 
 
-def make_nlodata(calc: str | ASECalculator,
+def make_nlodata(calc: ASECalculator | str | Path,
                  comm: MPIComm,
-                 spin: str = 'all',
+                 spin_string: str = 'all',
                  ni: Optional[int] = None,
                  nf: Optional[int] = None) -> NLOData:
     """
@@ -134,7 +134,7 @@ def make_nlodata(calc: str | ASECalculator,
         Ground state file name
     comm
         Communicator for parallelisation.
-    spin
+    spin_string
         Spin channels to include ('all', 's0' , 's1').
     ni
         First band to compute the mml.
@@ -148,13 +148,11 @@ def make_nlodata(calc: str | ASECalculator,
 
     """
 
-    if isinstance(calc, str):
-        assert path.exists(calc), \
-            f'The gs file: {calc} does not exist!'
+    if not isinstance(calc, ASECalculator):
+        if not (isinstance(calc, str) or isinstance(calc, Path)):
+            raise TypeError('Input must be a calculator or a string '
+                            'pointing to a calculator.')
         calc = GPAW(calc, txt=None, communicator=serial_comm)
-    print(type(calc))
-    assert isinstance(calc, ASECalculator), \
-        'Input must be a calculator or a string pointing to a calculator.'
     assert not calc.symmetry.point_group, \
         'Point group symmetry should be off.'
 
@@ -166,13 +164,13 @@ def make_nlodata(calc: str | ASECalculator,
         from gpaw.nlopt.adapters import NoncollinearGSInfo
         gs = NoncollinearGSInfo(calc, comm)
 
-    # Parse spin input
+    # Parse spin string
     ns = gs.ns
-    if spin == 'all':
+    if spin_string == 'all':
         spins = list(range(ns))
-    elif spin == 's0':
+    elif spin_string == 's0':
         spins = [0]
-    elif spin == 's1':
+    elif spin_string == 's1':
         spins = [1]
         assert spins[0] < ns, 'Wrong spin input'
     else:
@@ -183,14 +181,6 @@ def make_nlodata(calc: str | ASECalculator,
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb_full
     nf = nb_full + nf if (nf <= 0) else nf
-
-    return _make_nlodata(gs=gs, spins=spins, ni=ni, nf=nf)
-
-
-def _make_nlodata(gs: GSInfo,
-                  spins: list[int],
-                  ni: int,
-                  nf: int) -> NLOData:
 
     # Start the timer
     timer = Timer()

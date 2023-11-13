@@ -30,8 +30,7 @@ class GSInfo:
         state = calculation.state
         ibzwfs = state.ibzwfs
         self.ibzwfs = ibzwfs
-        if not (ibzwfs.band_comm.size == 1 and ibzwfs.domain_comm.size == 1 and
-                ibzwfs.kpt_comm.size == 1 and ibzwfs.kpt_band_comm.size == 1):
+        if not ibzwfs.comm.size == 1:
             raise ValueError('Calculator must be initialised with '
                              '"communicator = serial_comm".')
         if isinstance(ibzwfs.wfs_qs[0][0].psit_nX, SimpleNamespace):

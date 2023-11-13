@@ -15,16 +15,16 @@ def test_shg(in_tmp_dir):
 
     # Do a GS and save it
     calc = GPAW(mode={'name': 'pw', 'ecut': 600},
+                communicator=serial_comm,
                 symmetry={'point_group': False},
                 kpts={'size': (2, 2, 2)},
                 nbands=5,
                 txt=None)
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('gs.gpw', mode='all')
 
     # Get the mml
-    nlodata = make_nlodata('gs.gpw', comm=world)
+    nlodata = make_nlodata(calc, comm=world)
 
     # Do a SHG
     freqs = np.linspace(0, 5, 101)
@@ -63,9 +63,8 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
         # Get nlodata from pre-calculated SiC fixtures
-        calc = GPAW(gpw_files[f'sic_pw{tag}'], txt=None,
-                    communicator=serial_comm)
-        nlodata = make_nlodata(calc, ni=0, nf=8, comm=world)
+        nlodata = make_nlodata(gpw_files[f'sic_pw{tag}'],
+                               ni=0, nf=8, comm=world)
 
         # Calculate 'xyz' tensor element of SHG spectra
         get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
