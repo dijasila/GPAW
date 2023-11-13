@@ -426,7 +426,7 @@ The screened interaction kernel `W` is given by
          n_3 \mathbf{k}_3 \end{array}} (\mathbf{G})
     \ \frac{4\pi \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{k}_3 - \mathbf{k}_1; \omega=0) }{| \mathbf{k}_3 - \mathbf{k}_1 + \mathbf{G}|^2}
     \ \rho_{\begin{array}{l} n_2 \mathbf{k}_1 + \mathbf{q} \\
-         n_4 \mathbf{k}_4 + \mathbf{q}  \end{array}} (\mathbf{G}^{\prime})
+         n_4 \mathbf{k}_3 + \mathbf{q}  \end{array}} (\mathbf{G}^{\prime})
 
 
 2. Diagonalize `\mathcal{H}_{SS^{\prime}}` with the eigenvalues `E_{\lambda}` and eigenvectors `A_{\lambda}` given by
