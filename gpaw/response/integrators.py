@@ -50,6 +50,10 @@ class Integrator:
 
     def mydomain(self, domain):
         from gpaw.response.pw_parallelization import Blocks1D
+        # This function does the same as distribute_domain
+        # but on a flat list and without all the fluff.
+        #
+        # In progress: Getting rid of distribute_domain(),
         blocks = Blocks1D(self.kncomm, len(domain))
         return [domain[i] for i in range(blocks.a, blocks.b)]
 
