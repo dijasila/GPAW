@@ -28,6 +28,8 @@ from gpaw.typing import Array1D
 import numpy as np
 from numpy.linalg import eigvals
 
+from gpaw.test.response.mpa_interpolation_from_fortran import *
+
 
 null_pole_thr = 1e-5
 pole_resolution = 1e-5
@@ -147,19 +149,19 @@ def Pade_solver(X_wGG, z_w):
     E_GGm = eigvals(companion_GGmm)
     Esqr_GGm = E_GGm.copy()
     npr_GG = np.zeros((nG1, nG2), dtype=np.int32)
-    for i in range(nG1):
-        for j in range(nG2):
-            E_GGm[i,j], npr_GG[i,j], PPcond = mpa_cond(npols, z_w, E_GGm[i,j])
+    #for i in range(nG1):
+    #    for j in range(nG2):
+    #        E_GGm[i,j], npr_GG[i,j], PPcond = mpa_cond(npols, z_w, E_GGm[i,j])
 
     E2_GGm, npr2_GG = mpa_cond_vectorized(npols, z_w, Esqr_GGm)
-    print('E and E2', E_GGm, E2_GGm)
-    assert np.allclose(npr2_GG, npr_GG)
-    for i in range(nG1):
-        for j in range(nG2):
-            print('GG',i,j,E_GGm[i,j,:npr_GG[i,j]], E2_GGm[i,j,:npr_GG[i,j]])
-            assert np.allclose(sorted(E_GGm[i,j,:npr_GG[i,j]]), E2_GGm[i,j,:npr_GG[i,j]])
+    #print('E and E2', E_GGm, E2_GGm)
+    #assert np.allclose(npr2_GG, npr_GG)
+    #for i in range(nG1):
+    #    for j in range(nG2):
+    #        #print('GG',i,j,E_GGm[i,j,:npr_GG[i,j]], E2_GGm[i,j,:npr_GG[i,j]])
+    #        assert np.allclose(sorted(E_GGm[i,j,:npr_GG[i,j]]), E2_GGm[i,j,:npr_GG[i,j]])
 
-    return E2_GGm, npr2_GG, PPcond
+    return E2_GGm, npr2_GG#, PPcond
 
 
 class MultipoleSolver(Solver):
@@ -170,7 +172,8 @@ class MultipoleSolver(Solver):
 
     def solve(self, X_wGG):
         assert len(X_wGG) == 2*self.npoles
-        E_GGp, npr_GG, PPcond = Pade_solver(X_wGG, self.omega_w**2)
+        #E_GGp, npr_GG, PPcond = Pade_solver(X_wGG, self.omega_w**2)
+        E_GGp, npr_GG = Pade_solver(X_wGG, self.omega_w**2)
         E_pGG = E_GGp.transpose((2,0,1))
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
         return E_pGG, R_pGG

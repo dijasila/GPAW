@@ -3,6 +3,13 @@ from gpaw.typing import Array1D
 import numpy as np
 from numpy.linalg import eigvals
 
+from gpaw.test.response.mpa_interpolation_from_fortran import *
+
+
+null_pole_thr = 1e-5
+pole_resolution = 1e-5
+epsilon = 1e-8  # SP
+
 #-------------------------------------------------------------
 # Old reference code
 #-------------------------------------------------------------
@@ -210,7 +217,7 @@ def mpa_R_fit(npols, npr, w, x, E):
             A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
             A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
 
-    print('A matrix old', A)
+    #print('A matrix old', A)
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
     R = np.zeros(npols, dtype='complex64')
