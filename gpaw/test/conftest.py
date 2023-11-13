@@ -856,18 +856,14 @@ class GPWFiles:
         blk.calc = GPAW(mode=PW(ecut),
                         basis='dzp',
                         kpts={'size': (4, 4, 4), 'gamma': True},
-                        parallel={'domain': 1},
-                        txt=self.path / 'temp.txt',
+                        parallel={'domain': 1, 'band': 1},
+                        txt=self.path / 'na_pw.txt',
                         nbands=4,
                         occupations=FermiDirac(0.01),
                         setups={'Na': '1'})
         blk.get_potential_energy()
-        blk.calc.write('gs_occ_pw.gpw')
-
-        calc = GPAW('gs_occ_pw.gpw', txt=self.path / 'na_pw.txt',
-                    parallel={'band': 1})
-        calc.diagonalize_full_hamiltonian(nbands=520)
-        return calc
+        blk.calc.diagonalize_full_hamiltonian(nbands=520)
+        return bl.calc
 
     @gpwfile
     def na2_fd(self):
