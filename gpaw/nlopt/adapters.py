@@ -1,4 +1,9 @@
+from types import SimpleNamespace
+
 import numpy as np
+
+from gpaw.mpi import MPIComm
+from gpaw.new.ase_interface import ASECalculator
 
 
 class GSInfo:
@@ -12,7 +17,9 @@ class GSInfo:
     These subclasses are necessary due to the different ways which the spin
     index is handled in collinear and noncollinear ground state calculations.
     """
-    def __init__(self, calc, comm):
+    def __init__(self,
+                 calc: ASECalculator,
+                 comm: MPIComm):
         self.comm = comm  # This will eventually just become kptcomm from calc
         assert calc.params.mode['name'] == 'pw', \
             'Calculator must be in plane wave mode.'
@@ -21,7 +28,14 @@ class GSInfo:
         self.nabla_aiiv = [setup.nabla_iiv for setup in calculation.setups]
 
         state = calculation.state
-        self.ibzwfs = state.ibzwfs
+        ibzwfs = state.ibzwfs
+        self.ibzwfs = ibzwfs
+        if not ibzwfs.comm.size == 1:
+            raise ValueError('Calculator must be initialised with '
+                             '"communicator = serial_comm".')
+        if isinstance(ibzwfs.wfs_qs[0][0].psit_nX, SimpleNamespace):
+            raise ValueError('Calculator is missing wfs data. If loading from '
+                             'a .gpw file, please recalculate wave functions.')
 
         density = state.density
         self.collinear = density.collinear
@@ -31,7 +45,7 @@ class GSInfo:
         self.ucvol = np.abs(np.linalg.det(grid.cell))
         self.bzvol = np.abs(np.linalg.det(2 * np.pi * grid.icell))
 
-        self.ns = None
+        self.ns: int
 
     def get_plane_wave_coefficients(self, wfs, bands, spin):
         """
