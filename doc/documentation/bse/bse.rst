@@ -319,7 +319,7 @@ where `\Omega` is the volume of the unit cell,
    = \sum_{\mathbf{G}  \mathbf{G}^{\prime}}
     \rho^{\ast}_{\begin{array}{l} n_1 \mathbf{k}_1 \\
          n_5 \mathbf{k}_5 \end{array}} (\mathbf{G})
-    \ \frac{4\pi \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{q}; \omega=0) }{| \mathbf{q} + \mathbf{G}|^2}
+    \ \frac{4\pi \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{k}_5-\mathbf{k}_1; \omega=0) }{| \mathbf{k}_5-\mathbf{k}_1 + \mathbf{G}|^2}
     \ \rho_{\begin{array}{l} n_2 \mathbf{k}_1 + \mathbf{q} \\
          n_6 \mathbf{k}_5 + \mathbf{q}  \end{array}} (\mathbf{G}^{\prime})
 
