@@ -65,10 +65,10 @@ The above equation also applies for the non interacting density response functio
       \frac{1}{| \mathbf{r}_5 -  \mathbf{r}_7|}
        \chi(\mathbf{r}_7, \mathbf{r}^{\prime}; \omega) \\
      &+ \int d \mathbf{r}_5 d \mathbf{r}_6 d \mathbf{r}^{\prime \prime}
-      \chi^0(\mathbf{r}, \mathbf{r}_5,  \mathbf{r}_6; \omega)
+      \chi^0(\mathbf{r},\mathbf{r}, \mathbf{r}_5,  \mathbf{r}_6; \omega)
         \frac{\epsilon^{-1}( \mathbf{r}_5,  \mathbf{r}^{\prime \prime}; \omega )}
       {| \mathbf{r}^{\prime \prime} -  \mathbf{r}_6|}
-      \chi(\mathbf{r}_5, \mathbf{r}_6, \mathbf{r}^{\prime}; \omega)
+      \chi(\mathbf{r}_5, \mathbf{r}_6, \mathbf{r}^{\prime}, \mathbf{r}^{\prime}; \omega)
 
 Transform using electron-hole pair basis
 ========================================
