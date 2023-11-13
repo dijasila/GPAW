@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.random as ra
-from gpaw.test import equal
+import pytest
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
@@ -73,4 +73,4 @@ def test_xc_gga_atom():
               + s.xc_correction.e_xc0)
 
         print(name, E1, E2, E1 - E2)
-        equal(E1, E2, 0.0013)
+        assert E1 == pytest.approx(E2, abs=0.0013)

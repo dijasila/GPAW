@@ -15,7 +15,6 @@ from scipy.fft import fftn, ifftn, irfftn, rfftn
 import warnings
 
 import _gpaw
-from gpaw import SCIPY_VERSION
 from gpaw.typing import Array1D, Array3D, DTypeLike, IntVector
 
 ESTIMATE = 64
@@ -260,7 +259,6 @@ class CuPyFFTPlans(FFTPlans):
         Q_G = self.indices(pw)
         array_Q.ravel()[Q_G] = coef_G
 
-        assert SCIPY_VERSION >= [1, 6]
         if self.dtype == complex:
             array_R[:] = cupyx.scipy.fft.ifftn(
                 array_Q, array_Q.shape,
