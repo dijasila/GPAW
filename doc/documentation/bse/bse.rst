@@ -296,7 +296,7 @@ Employing Fourier transform
    \int d \mathbf{r}^{\prime \prime}\frac{\epsilon^{-1}(\mathbf{r},\mathbf{r}^{\prime \prime}) }{| \mathbf{r}^{\prime \prime}-\mathbf{r}^{\prime} |}
    = \frac{1}{\Omega} \sum_{\mathbf{q} \mathbf{G} \mathbf{G}^{\prime} }
       e^{i ( \mathbf{q} + \mathbf{G}) \cdot   \mathbf{r} }
-     \frac{4\pi  \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{q}) }{ | \mathbf{q} + \mathbf{G'}|^2 }
+     \frac{4\pi  \epsilon^{-1}_{\mathbf{G}  \mathbf{G}^{\prime}} (\mathbf{q}) }{ | \mathbf{q} + \mathbf{G}^{\prime}|^2 }
      e^{-i ( \mathbf{q} + \mathbf{G}^{\prime}) \cdot \mathbf{r}^{\prime}   }
 
 where `\Omega` is the volume of the unit cell,
