@@ -210,7 +210,7 @@ class BuildingBlock:
 
         self.complete = True
         self.save_chi_file()
-
+8
         return
 
     def update_building_block(self, chiM_qw, chiD_qw, chiDM_qw, chiMD_qw,
@@ -232,9 +232,13 @@ class BuildingBlock:
           \chi^M_2D(q, \omega) = \int\int dr dr' \chi(q, \omega, r,r') \\
                               = L \chi_{G=G'=0}(q, \omega)
           \chi^D_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega, r,r') z'
-                               = 1/L sum_{G_z,G_z'} z_factor(G_z)
+                               = 1/L sum_{G_z!=0, G_z'!=0} z_factor(G_z)
                                chi_{G_z,G_z'} z_factor(G_z'),
-          Where z_factor(G_z) =  +/- i e^{+/- i*G_z*z0}
+          \chi^DM_2D(q, \omega) = \int\int dr dr' z \chi(q, \omega,r,r')
+                                = sum_{G_z != 0} z_factor(G_z) chi_{G_z,G'=0}
+          \chi^MD_2D(q, \omega) = \int\int dr dr' \chi(q, \omega,r,r') z'
+                                = sum_{G_z' != 0}  chi_{G=0, G_z'} z_factor(G_z')^*
+          Where z_factor(G_z) =  - i e^{i*G_z*z0}
           (L G_z cos(G_z L/2)-2 sin(G_z L/2))/G_z^2
 
         qpd: Single q-point descriptor
