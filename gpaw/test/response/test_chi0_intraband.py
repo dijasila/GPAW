@@ -78,23 +78,23 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
 
     # Analytical Drude result
     n = 1 / (calc1.df.gs.volume * Bohr**-3)
-    wp = np.sqrt(4 * np.pi * n)
+    drude_wp = np.sqrt(4 * np.pi * n)
 
     # From https://doi.org/10.1021/jp810808h
-    wpref = 5.71 / Hartree
+    ref_wp = 5.71 / Hartree
 
     # spin paired matches spin polar - tetra
     assert calc1.wp == pytest.approx(calc3.wp, abs=1e-2)
     # spin paired matches spin polar - none
     assert calc2.wp == pytest.approx(calc4.wp, abs=1e-2)
     # Use larger margin when comparing to Drude
-    assert calc1.wp == pytest.approx(wp, abs=0.5)
+    assert calc1.wp == pytest.approx(drude_wp, abs=0.5)
     # Use larger margin when comparing to Drude
-    assert calc2.wp == pytest.approx(wp, abs=0.5)
+    assert calc2.wp == pytest.approx(drude_wp, abs=0.5)
     # paired tetra match paper
-    assert calc1.wp == pytest.approx(wpref, abs=0.1)
+    assert calc1.wp == pytest.approx(ref_wp, abs=0.1)
     # paired none match paper
-    assert calc2.wp == pytest.approx(wpref, abs=0.1)
+    assert calc2.wp == pytest.approx(ref_wp, abs=0.1)
 
     # w_x, w_y and w_z equal for paired & polarized tetra
     calc1.compare_peaks(calc3)
