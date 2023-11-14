@@ -1697,8 +1697,8 @@ class GPWFiles:
                          [-2.211, 3.829, 0.0],
                          [0.0, 0.0, 19.5]])
         IBiTe.cell = cell
-        calc = GPAW(mode=PW(300),
-                    xc='PBE',
+        calc = GPAW(mode=PW(200),
+                    xc='LDA',
                     occupations=FermiDirac(0.01),
                     kpts={'size': (6, 6, 1), 'gamma': True},
                     txt=None)

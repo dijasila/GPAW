@@ -138,27 +138,33 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     assert can_load
     chiDM_qw = bb.chiDM_qw
     chiMD_qw = bb.chiMD_qw
-    assert np.allclose(chiDM_qw[7, 4], 1.304586e-7 + 1j * 1.822468e-5)
-    assert np.allclose(chiDM_qw[0, 0], 0)
-    assert np.allclose(chiMD_qw[0, 0], 0)
-    assert np.allclose(chiMD_qw[10, 8], (-2.866099 - 1j * 15.053198) * 1e-3)
-    assert np.allclose(chiMD_qw[9, 9], (-9.823681 - 1j * 36.350808) * 1e-6)
+    assert np.allclose(chiDM_qw[7, 4],
+                       (2.5777773675441436e-07 + 1.781539139774827e-05j))
+    assert np.allclose(chiDM_qw[0, 0],
+                       (-1.6543612251060553e-24 + 8.878999940492681e-09j))
+    assert np.allclose(chiMD_qw[0, 0],
+                       (-4.756288522179909e-24 - 8.878999940492663e-09j))
+    assert np.allclose(chiMD_qw[10, 8],
+                       (-0.0013460322867027315 - 0.013654438136419339j))
+    assert np.allclose(chiMD_qw[9, 9],
+                       (-2.02536793708031e-05 - 4.2061568393935735e-05j))
     q_grid_s = np.linspace(0, 0.5, 6)
     w_grid_w = bb.wd.omega_w
     bb.interpolate_to_grid(q_grid_s, w_grid_w)
     data = np.load('IBiTe_int-chi.npz')
     assert np.allclose(data['omega_w'], w_grid_w)
-    assert data['chiMD_qw'][-1, 0] == pytest.approx(- 0.0231700430
-                                                    - 0.0524473566j)
-    print(data['chiMD_qw'][0, 0])
-    assert data['chiMD_qw'][0, 0].real == pytest.approx(0.)
-    assert data['chiMD_qw'][0, 0].imag == pytest.approx(0., abs=1e-8)
-
-    assert data['chiDM_qw'][1, 2] == pytest.approx(- 6.80931501e-08
-                                                   + 2.12589773e-05j)
-
+    assert np.allclose(data['chiMD_qw'][-1, 0],
+                       (-0.01828975765460967 - 0.05522009764695865j))
+    assert np.allclose(data['chiMD_qw'][0, 0].real,
+                       -5.055812485865182e-24)
+    assert np.allclose(data['chiMD_qw'][0, 0].imag,
+                       -8.878999940492832e-09)
+    assert np.allclose(data['chiDM_qw'][1, 2],
+                       (1.5400690020024133e-07 + 2.052790098516586e-05j))
 
 # test limited features that should work in parallel
+
+
 @pytest.mark.skipif(size == 1, reason='Features already tested '
                     'in serial in test_basics')
 @pytest.mark.skipif(size > 6, reason='Parallelization for '
