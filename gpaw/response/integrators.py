@@ -434,12 +434,7 @@ class TetrahedronIntegrator(Integrator):
             for k in range(nk):
                 pts_k[k] = np.array(pts_k[k], int)
 
-        with self.context.timer('neighbours'):
-            # Nearest neighbours
-            neighbours_k = [None for n in range(nk)]
-
-            for k in range(nk):
-                neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
+        neighbours_k = [np.unique(td.simplices[pts_k[k]]) for k in range(nk)]
 
         class Point:
             def __init__(self, K, spin):
