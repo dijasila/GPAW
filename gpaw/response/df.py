@@ -1,3 +1,4 @@
+from __future__ import annotations
 import sys
 from math import pi
 
@@ -11,24 +12,36 @@ from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gpaw.response.frequencies import FrequencyDescriptor
+
 
 class DielectricFunctionCalculator:
-    def __init__(self, wd, chi0calc, truncation):
+    def __init__(self, wd: FrequencyDescriptor,
+                 chi0calc: Chi0Calculator, truncation: str | None):
         from gpaw.response.pw_parallelization import Blocks1D
         self.wd = wd
         self.chi0calc = chi0calc
 
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
+
+        # context: ResponseContext object from gpaw.response.context
         self.context = chi0calc.context
+
+        # context.comm : _Communicator object from gpaw.mpi
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
-        self._chi0cache = {}
+        self._chi0cache: dict = {}
 
     @property
     def gs(self):
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
+        # chi0calc: Chi0Calculator from gpaw.response.chi0
         return self.chi0calc.gs
 
-    def calculate_chi0(self, q_c):
+    def calculate_chi0(self, q_c: list | np.ndarray):
         """Calculates the response function.
 
         Calculate the response function for a specific momentum.
@@ -62,12 +75,17 @@ class DielectricFunctionCalculator:
             # In conclusion, delete the cache now:
             self._chi0cache.clear()
 
+            # chi0: Chi0Data from gpaw.response.chi0_data
             chi0 = self.chi0calc.calculate(q_c)
+
+            # chi0.body: Chi0BodyData from from gpaw.response.chi0_data
+            # chi0_wGG: np.ndarray
             chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
 
+        # qpd: SingleQPWDescriptor from gpaw.response.pair_functions
         qpd, *more_things = self._chi0cache[key]
         return (qpd, *[thing.copy() if thing is not None else thing
                        for thing in more_things])
