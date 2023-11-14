@@ -23,7 +23,7 @@ Notes:
   then RQ_solver should be called for each G, G' and q.
 """
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, no_type_check
 from gpaw.typing import Array1D, Array2D, Array3D
 import numpy as np
 from numpy.linalg import eigvals
@@ -59,7 +59,7 @@ def fit_residue(
     else:
         try:
             R_GGp = np.linalg.solve(XTX_GGpp, temp_GGp)
-        except:
+        except np.linalg.LinAlgError:
             XTX_GGpp = np.linalg.pinv(XTX_GGpp)
             R_GGp = np.einsum('GHpo,GHo->GHp',
                               XTX_GGpp, temp_GGp)
@@ -168,6 +168,7 @@ def mpa_cond_vectorized(
     return E_GGp, npr_GG
 
 
+@no_type_check
 def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
     nw, nG1, nG2 = X_wGG.shape
     npols = nw // 2
