@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence, Self, Literal
+from typing import TYPE_CHECKING, Sequence, Literal
 
 import numpy as np
 from ase.geometry.cell import cellpar_to_cell
@@ -8,7 +8,7 @@ from ase.geometry.cell import cellpar_to_cell
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.typing import (Array2D, ArrayLike, ArrayLike1D, ArrayLike2D,
-                         DTypeLike, Vector)
+                         DTypeLike, Vector, Self)
 
 if TYPE_CHECKING:
     from gpaw.core import UGDesc
