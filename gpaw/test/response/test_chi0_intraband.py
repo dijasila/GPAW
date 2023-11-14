@@ -47,8 +47,8 @@ class Helper:
         # w_x equal for paired & polarized tetra
         w1, I1 = findpeak(self.w_w, -(1. / df1LFCx).imag)
         w2, I2 = findpeak(self.w_w, -(1. / df2LFCx).imag)
-        assert w1 == pytest.approx(w2, abs=1e-2)
-        assert I1 == pytest.approx(I2, abs=1e-1)
+        assert w1 == pytest.approx(w2, abs=1e-3)
+        assert I1 == pytest.approx(I2, abs=0.1)
 
     def compare_peaks(self, calc):
         for axis in 'xyz':
