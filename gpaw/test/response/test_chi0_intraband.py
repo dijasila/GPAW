@@ -53,8 +53,8 @@ class Helper:
             self._compare_peak(calc, axis)
 
 
+@pytest.mark.tetrahedron
 @pytest.mark.response
-@pytest.mark.slow
 def test_chi0_intraband(in_tmp_dir, gpw_files):
     """Comparing the plasmon peaks found in bulk sodium for two different
     atomic structures. Testing for idential plasmon peaks. Not using
