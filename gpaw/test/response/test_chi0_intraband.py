@@ -36,6 +36,10 @@ class Helper:
             self.df.wd, 0.1)
         return chi0_drude.plasmafreq_vv[0, 0]**0.5
 
+    @cached_property
+    def w_w(self):
+        return self.df.wd.omega_w
+
 
 @pytest.mark.response
 @pytest.mark.slow
@@ -75,14 +79,11 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
     df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
-    w_w = df1.wd.omega_w
+    w_w = calc1.w_w
+
     # frequency grids must be the same
-    w_w2 = df2.wd.omega_w
-    w_w3 = df3.wd.omega_w
-    w_w4 = df4.wd.omega_w
-    assert np.allclose(w_w, w_w2, atol=1e-5, rtol=1e-4)
-    assert np.allclose(w_w2, w_w3, atol=1e-5, rtol=1e-4)
-    assert np.allclose(w_w3, w_w4, atol=1e-5, rtol=1e-4)
+    for calc in [calc1, calc2, calc3]:
+        assert np.allclose(calc.w_w, w_w, atol=1e-5, rtol=1e-4)
 
     # Analytical Drude result
     n = 1 / (df1.gs.volume * Bohr**-3)
