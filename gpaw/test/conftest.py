@@ -465,6 +465,25 @@ class GPWFiles:
         return h2.calc
 
     @gpwfile
+    def na_chain(self):
+        a = 3
+        atom = Atoms('Na',
+                     cell=[a, 0, 0],
+                     pbc=[1, 1, 1])
+        atom.center(vacuum=1 * a, axis=(1, 2))
+        atom.center()
+        atoms = atom.repeat((2, 1, 1))
+
+        calc = GPAW(mode=PW(200),
+                    nbands=4,
+                    setups={'Na': '1'},
+                    kpts=(16, 2, 2))
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
+
+    @gpwfile
     def n2_pw(self):
         from ase.build import molecule
         N2 = molecule('N2')
