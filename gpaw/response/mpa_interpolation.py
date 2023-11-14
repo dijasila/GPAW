@@ -37,9 +37,8 @@ def fit_residue(
     A_GGwp = np.zeros((*E_pGG.shape[1:], nw, npols), dtype=np.complex128)
     b_GGw = np.zeros((*E_pGG.shape[1:], nw), dtype=np.complex128)
     for w in range(nw):
-        A_GGwp[:, :, w, :] = (2 * E_pGG / (omega_w[w] ** 2 - E_pGG**2)).transpose(
-            (1, 2, 0)
-        )
+        A_GGwp[:, :, w, :] = (
+            2 * E_pGG / (omega_w[w] ** 2 - E_pGG**2)).transpose((1, 2, 0))
         b_GGw[:, :, w] = X_wGG[w, :, :]
 
     for p in range(npols):
@@ -87,9 +86,10 @@ class SinglePoleSolver(Solver):
         assert len(X_wGG) == 2
 
         omega_w = self.omega_w
-        E_GG = (X_wGG[0, :, :] * omega_w[0] ** 2 - X_wGG[1, :, :] * omega_w[1] ** 2) / (
-            X_wGG[0, :, :] - X_wGG[1, :, :]
-        )
+        E_GG = ((X_wGG[0, :, :] * omega_w[0]**2 -
+                 X_wGG[1, :, :] * omega_w[1]**2) /
+                (X_wGG[0, :, :] - X_wGG[1, :, :])
+                )
 
         def branch_sqrt_inplace(E_GG: Array2D):
             E_GG.real = np.abs(E_GG.real)  # physical pole
@@ -104,8 +104,7 @@ class SinglePoleSolver(Solver):
             npr_GG=np.zeros_like(E_GG) + 1,
             omega_w=omega_w,
             X_wGG=X_wGG,
-            E_pGG=E_GG.reshape((1, *E_GG.shape)),
-        )[0, :, :]
+            E_pGG=E_GG.reshape((1, *E_GG.shape)))[0, :, :]
 
         return E_GG, R_GG
 
@@ -179,18 +178,20 @@ def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
 
     for i in range(1, 2 * npols):
         cm1_GGw = np.copy(c_GGw)
-        c_GGw[..., i:] = (cm1_GGw[..., i - 1][..., np.newaxis] - cm1_GGw[..., i:]) / (
-            (z_w[i:] - z_w[i - 1]) * cm1_GGw[..., i:]
+        c_GGw[..., i:] = (
+            (cm1_GGw[..., i - 1][..., np.newaxis] - cm1_GGw[..., i:]) /
+            ((z_w[i:] - z_w[i - 1]) * cm1_GGw[..., i:])
         )
         bm2_GGm = np.copy(bm1_GGm)
         bm1_GGm = np.copy(b_GGm)
         b_GGm = bm1_GGm - z_w[i - 1] * c_GGw[..., i][..., np.newaxis] * bm2_GGm
         bm2_GGm[..., npols:0:-1] = (
-            c_GGw[..., i][..., np.newaxis] * bm2_GGm[..., npols - 1 :: -1]
+            c_GGw[..., i][..., np.newaxis] * bm2_GGm[..., npols - 1::-1]
         )
         b_GGm[..., 1:] = b_GGm[..., 1:] + bm2_GGm[..., 1:]
 
-    companion_GGmm = np.empty((nG1, nG2, npols, npols), dtype=np.complex128)
+    companion_GGmm = np.empty((nG1, nG2, npols, npols),
+                              dtype=np.complex128)
     for i in range(nG1):
         for j in range(nG2):
             companion_GGmm[i, j] = np.polynomial.polynomial.polycompanion(
@@ -199,6 +200,8 @@ def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
     E_GGm = eigvals(companion_GGmm)
     Esqr_GGm = E_GGm.copy()
 
-    E2_GGm, npr2_GG = mpa_cond_vectorized(npols, z_w, Esqr_GGm)
+    E2_GGm, npr2_GG = mpa_cond_vectorized(npols=npols,
+                                          z_w=z_w,
+                                          E_GGp=Esqr_GGm)
 
     return E2_GGm, npr2_GG
