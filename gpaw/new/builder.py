@@ -147,10 +147,15 @@ class DFTComponentsBuilder:
 
         self.interpolation_desc: Domain
         self.electrostatic_potential_desc: Domain
-        self.atomdist: AtomDistribution
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.atoms}, {self.params})'
+
+    @cached_property
+    def atomdist(self) -> AtomDistribution:
+        return AtomDistribution(
+            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
+            self.grid.comm)
 
     def create_uniform_grids(self):
         raise NotImplementedError

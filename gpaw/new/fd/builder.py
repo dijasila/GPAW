@@ -31,12 +31,6 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         self.electrostatic_potential_desc = self.fine_grid
         self.interpolation_desc = self.fine_grid
 
-    @cached_property
-    def atomdist(self) -> AtomDistribution:
-        return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
-            self.grid.comm)
-
     def create_uniform_grids(self):
         grid = create_uniform_grid(
             self.mode,

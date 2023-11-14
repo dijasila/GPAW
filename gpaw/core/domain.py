@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Sequence, Self, Literal
 
 import numpy as np
 from ase.geometry.cell import cellpar_to_cell
@@ -71,6 +71,14 @@ class Domain:
         self.dtype = np.dtype(dtype)  # type: ignore
 
         self.myshape: tuple[int, ...]
+
+    def new(self,
+            *,
+            kpt=None,
+            dtype=None,
+            comm: MPIComm | Literal['inherit'] | None = 'inherit'
+            ) -> Self:
+        raise NotImplementedError
 
     def __repr__(self):
         comm = self.comm

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from math import pi
-from typing import Sequence
+from typing import Sequence, Literal
 import numpy as np
 
 import gpaw.fftw as fftw
@@ -106,12 +106,13 @@ class UGDesc(Domain):
                       self.kpt_c[:, np.newaxis])
 
     def new(self,
+            *,
+            kpt=None,
+            dtype=None,
+            comm: MPIComm | Literal['inherit'] | None = 'inherit',
             size=None,
             pbc=None,
-            kpt=None,
-            comm='inherit',
-            decomp=None,
-            dtype=None) -> UGDesc:
+            decomp=None) -> UGDesc:
         """Create new uniform grid description."""
         if decomp is None and comm == 'inherit':
             if size is None and pbc is None:
