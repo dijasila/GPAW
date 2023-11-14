@@ -386,10 +386,9 @@ class Domains:
                      self.spins[num % nspins])
 
 
-class Tesselation:
-    def __init__(self, vertices):
-        self._td = Delaunay(vertices)
-        #self._td.volumes_s = None
+class KPointTesselation:
+    def __init__(self, kpts):
+        self._td = Delaunay(kpts)
 
     @cached_property
     def simplex_volumes(self):
@@ -401,16 +400,46 @@ class Tesselation:
             volumes_s[s] = volume
         return volumes_s
 
-    def tetrahedron_weight(self, K, deps_k, pts_k, omega_w):
-        # Find appropriate index range
-        simplices_s = pts_k[K]
+    def tetrahedron_weight(self, K, deps_k, omega_w):
+        simplices_s = self.pts_k[K]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.simplex_volumes[simplices_s]
-        _gpaw.tetrahedron_weight(deps_k, self._td.simplices, K,
-                                 simplices_s,
-                                 W_w, omega_w, vol_s)
-
+        _gpaw.tetrahedron_weight(
+            deps_k, self._td.simplices, K, simplices_s, W_w, omega_w, vol_s)
         return W_w
+
+    @cached_property
+    def pts_k(self):
+        pts_k = [[] for n in range(self.nk)]
+        for s, K_k in enumerate(self._td.simplices):
+            A_kv = np.append(self._td.points[K_k],
+                             np.ones(4)[:, np.newaxis], axis=1)
+
+            D_kv = np.append((A_kv[:, :-1]**2).sum(1)[:, np.newaxis],
+                             A_kv, axis=1)
+            a = np.linalg.det(D_kv[:, np.arange(5) != 0])
+
+            if np.abs(a) < 1e-10:
+                continue
+
+            for K in K_k:
+                pts_k[K].append(s)
+
+        # Change to numpy arrays:
+        for k in range(self.nk):
+            pts_k[k] = np.array(pts_k[k], int)
+
+        return pts_k
+
+    @property
+    def nk(self):
+        return self._td.npoints
+
+    @cached_property
+    def neighbours_k(self):
+        return [np.unique(self._td.simplices[self.pts_k[k]])
+                for k in range(self.nk)]
+
 
 class TetrahedronIntegrator(Integrator):
     """Integrate brillouin zone using tetrahedron integration.
@@ -432,35 +461,15 @@ class TetrahedronIntegrator(Integrator):
         _kpts, spins = domain
         nspins = len(spins)
 
-        tesselation = Tesselation(_kpts)
+        tesselation = KPointTesselation(_kpts)
         td = tesselation._td
 
         # Relevant quantities
         bzk_kc = td.points
         nk = len(bzk_kc)
 
-        with self.context.timer('pts'):
-            # Point to simplex
-            pts_k = [[] for n in range(nk)]
-            for s, K_k in enumerate(td.simplices):
-                A_kv = np.append(td.points[K_k],
-                                 np.ones(4)[:, np.newaxis], axis=1)
-
-                D_kv = np.append((A_kv[:, :-1]**2).sum(1)[:, np.newaxis],
-                                 A_kv, axis=1)
-                a = np.linalg.det(D_kv[:, np.arange(5) != 0])
-
-                if np.abs(a) < 1e-10:
-                    continue
-
-                for K in K_k:
-                    pts_k[K].append(s)
-
-            # Change to numpy arrays:
-            for k in range(nk):
-                pts_k[k] = np.array(pts_k[k], int)
-
-        neighbours_k = [np.unique(td.simplices[pts_k[k]]) for k in range(nk)]
+        #with self.context.timer('pts'):
+        #    pts_k = tesselation.points()
 
         alldomains = Domains(range(nk), spins)
         mydomain = self.mydomain(alldomains)
@@ -479,7 +488,7 @@ class TetrahedronIntegrator(Integrator):
         pb = ProgressBar(self.context.fd)
         for _, point in pb.enumerate(mydomain):
             deps_Mk = deps_tMk[point.spin]
-            teteps_Mk = deps_Mk[:, neighbours_k[point.K]]
+            teteps_Mk = deps_Mk[:, tesselation.neighbours_k[point.K]]
             n_MG = integrand.matrix_element(bzk_kc[point.K], point.spin)
 
             # Generate frequency weights
@@ -489,7 +498,7 @@ class TetrahedronIntegrator(Integrator):
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                 with self.context.timer('tetrahedron weight'):
                     W_w = tesselation.tetrahedron_weight(
-                        point.K, deps_k, pts_k, wd.omega_w[i0:i1])
+                        point.K, deps_k, wd.omega_w[i0:i1])
                 W_Mw.append(W_w)
 
             task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
