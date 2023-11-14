@@ -51,6 +51,7 @@ def builder(atoms: Atoms,
 
     mode = params.mode.copy()
     name = mode.pop('name')
+    mode.pop('force_complex_dtype', False)
     assert name in {'pw', 'lcao', 'fd', 'tb', 'atom'}
     mod = importlib.import_module(f'gpaw.new.{name}.builder')
     name = name.title() if name == 'atom' else name.upper()
