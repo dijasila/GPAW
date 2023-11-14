@@ -238,20 +238,6 @@ def mpa_E_solver_Pade(npols, z, x):
 
 
 def mpa_RE_solver(npols, w, x):
-<<<<<<< HEAD
-    # integer,      intent(in)   :: np
-    # complex(SP),  intent(in)   :: w(2*np), x(2*np)
-    # character(2), intent(in)   :: mpa_sol
-    # complex(SP),  intent(out)  :: R(np), E(np)
-    # logical,      intent(out)  :: MPred
-    # real(SP),     intent(out)  :: PPcond_rate,MP_err
-
-    # integer  :: i,npr
-    # logical  :: PPcond(np)
-    # real(SP) :: cond_num(2) #DALV: only LA solver
-=======
->>>>>>> 87d21d8aa49e4c3227f50a02d7afb804f249c644
-
     if npols == 1:  # DALV: we could particularize the solution for 2-3 poles
         E, PPcond_rate = mpa_E_1p_solver(w, x)
         R = mpa_R_1p_fit(1, 1, w, x, E)
