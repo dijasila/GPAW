@@ -1,13 +1,13 @@
-from os import path
-from typing import Optional
+from __future__ import annotations
 
 from ase.parallel import parprint
 from ase.units import Ha
 from ase.utils.timing import Timer
+from pathlib import Path
 import numpy as np
 
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new.ase_interface import GPAW
+from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.nlopt.adapters import GSInfo
 from gpaw.nlopt.basic import NLOData
 from gpaw.typing import ArrayND
@@ -18,7 +18,7 @@ def get_mml(gs: GSInfo,
             spin: int,
             ni: int,
             nf: int,
-            timer: Optional[Timer] = None) -> ArrayND:
+            timer: Timer | None = None) -> ArrayND:
     """
     Compute momentum matrix elements.
 
@@ -118,11 +118,11 @@ def get_mml(gs: GSInfo,
         return np.array([], dtype=complex)
 
 
-def make_nlodata(gs_name: str,
+def make_nlodata(calc: ASECalculator | str | Path,
                  comm: MPIComm,
-                 spin: str = 'all',
-                 ni: Optional[int] = None,
-                 nf: Optional[int] = None) -> NLOData:
+                 spin_string: str = 'all',
+                 ni: int | None = None,
+                 nf: int | None = None) -> NLOData:
     """
     This function calculates and returns all required
     NLO data: w_sk, f_skn, E_skn, p_skvnn.
@@ -133,7 +133,7 @@ def make_nlodata(gs_name: str,
         Ground state file name
     comm
         Communicator for parallelisation.
-    spin
+    spin_string
         Spin channels to include ('all', 's0' , 's1').
     ni
         First band to compute the mml.
@@ -147,12 +147,13 @@ def make_nlodata(gs_name: str,
 
     """
 
-    assert path.exists(gs_name), \
-        f'The gs file: {gs_name} does not exist!'
-    calc = GPAW(gs_name, txt=None, communicator=serial_comm)
-
+    if not isinstance(calc, ASECalculator):
+        if not (isinstance(calc, str) or isinstance(calc, Path)):
+            raise TypeError('Input must be a calculator or a string '
+                            'pointing to a calculator.')
+        calc = GPAW(calc, txt=None, communicator=serial_comm)
     assert not calc.symmetry.point_group, \
-        'Point group symmtery should be off.'
+        'Point group symmetry should be off.'
 
     gs: GSInfo
     if calc.calculation.state.density.collinear:
@@ -162,13 +163,13 @@ def make_nlodata(gs_name: str,
         from gpaw.nlopt.adapters import NoncollinearGSInfo
         gs = NoncollinearGSInfo(calc, comm)
 
-    # Parse spin input
+    # Parse spin string
     ns = gs.ns
-    if spin == 'all':
+    if spin_string == 'all':
         spins = list(range(ns))
-    elif spin == 's0':
+    elif spin_string == 's0':
         spins = [0]
-    elif spin == 's1':
+    elif spin_string == 's1':
         spins = [1]
         assert spins[0] < ns, 'Wrong spin input'
     else:
@@ -179,14 +180,6 @@ def make_nlodata(gs_name: str,
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb_full
     nf = nb_full + nf if (nf <= 0) else nf
-
-    return _make_nlodata(gs=gs, spins=spins, ni=ni, nf=nf)
-
-
-def _make_nlodata(gs: GSInfo,
-                  spins: list,
-                  ni: int,
-                  nf: int) -> NLOData:
 
     # Start the timer
     timer = Timer()
