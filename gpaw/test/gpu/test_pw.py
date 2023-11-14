@@ -25,8 +25,8 @@ def test_gpu(dtype, gpu, mode):
         h = None
     dft = DFTCalculation.from_parameters(
         atoms,
-        dict(mode={'name': mode},
-             dtype=dtype,
+        dict(mode={'name': mode,
+                   'force_complex_dtype': dtype == complex},
              poissonsolver=poisson,
              h=h,
              convergence={'density': 1e-8},
