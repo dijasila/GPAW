@@ -22,29 +22,18 @@ def mpa_cond1(z: tuple[complex, complex] | Array1D,
     # complex(SP), intent(in)     :: z(2)
     # complex(SP), intent(inout)  :: E
     # real(SP),    intent(out)    :: PPcond_rate
-
      
     PPcond_rate = 0
     if abs(E2) < null_pole_thr:  # need to check also NAN(abs(E))
-        #E = complex(abs(z[0]), -epsilon)
         PPcond_rate = 1
     elif np.real(E2) > 0.:
         pass
-        #E = np.emath.sqrt(E)
     else:
-        #E = np.emath.sqrt(-np.conj(E2))  # note: PPA uses E = 1._SP
         PPcond_rate = 1
 
     # DALV: since MPA uses complex poles we need to guarantee the time ordering
-    #if np.real(E) < 0.:
-    #    E = -E
-    
-    
     E2 = complex(abs(E2.real), -abs(E2.imag))
     E = np.emath.sqrt(E2)
-
-    #if np.imag(E) > -epsilon:
-    #    E = np.conj(E) # complex(np.real(E), -epsilon)
 
     return E, PPcond_rate
 
@@ -154,13 +143,6 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
     return R
 
 
-"""
-def residuals(R,A,x):
-    return np.abs(np.dot(A,R.view(np.complex))-x.view(np.complex))
-"""
-
-
-
 def mpa_R_fit(npols, npr, w, x, E):
     # integer,     intent(in)  :: np, npr
     # complex(SP), intent(in)  :: w(2*np)
@@ -182,22 +164,6 @@ def mpa_R_fit(npols, npr, w, x, E):
       for i in range(npr):
         A[k][i] = 2.*E[i]/(w[k]**2 -E[i]**2)
     """
-
-#    rcond = -1._SP
-# #ifdef _DOUBLE
-#      call zgelsd(2*np,npr,1,A,2*np,B,2*np,S,rcond,rank,work,-1,rwork,iwork,
-#                  info)
-#      lwork=min(lwmax,int(work(1)))
-#      call zgelsd(2*np,npr,1,A,2*np,B,2*np,S,rcond,rank,work,lwork,rwork,
-#                  iwork,info)
-# #else
-#      call cgelsd(2*np,npr,1,A,2*np,B,2*np,S,rcond,rank,work,-1,rwork,iwork,
-#                  info)
-#      lwork=min(lwmax,int(work(1)))
-#      call cgelsd(2*np,npr,1,A,2*np,B,2*np,S,rcond,rank,work,lwork,rwork,
-#                   iwork,info)
-# #endif
-
     # Failed attempts to do a linear least square with complex numbers:
     """
     R = np.linalg.lstsq(A, x, rcond='warn')[0]
@@ -225,34 +191,6 @@ def mpa_R_fit(npols, npr, w, x, E):
 
     return R
 
-def mpa_E_solver_Pade_new(npols,
-                          omega_w, # used to be z
-                          X_wGG):  # used to be x
-    b = np.zeros(npols + 1, dtype=np.complex128) 
-
-    #b_m1 = b = np.zeros(npols + 1, dtype='complex64')
-    #b_m1[0] = b[0] = 1
-    #c = np.copy(x)
-
-    X_GGw = X_wGG.transpose((2,0,1))
-
-    for i in range(1, 2 * npols):
-        #c_m1 = np.copy(c)
-        c[i:] = (X_GGw[:, :, i-1] - X_GGw[:, :, i:]) / ((z[i:] - z[i - 1]) * c_m1[i:])
-
-        b_m2 = np.copy(b_m1)
-        b_m1 = np.copy(b)
-
-        b = b_m1 - z[i - 1] * c[i] * b_m2
-
-        b_m2[npols:0:-1] = c[i] * b_m2[npols - 1::-1]
-
-        b[1:] = b[1:] + b_m2[1:]
-
-    Companion = np.polynomial.polynomial.polycompanion(b[:npols + 1])
-    E = eigvals(Companion)
-    E, npr, PPcond = mpa_cond(npols, z, E)
-    return E, npr, PPcond
 
 def mpa_E_solver_Pade(npols, z, x):
     # integer,     intent(in)   :: np
@@ -281,33 +219,14 @@ def mpa_E_solver_Pade(npols, z, x):
         b_m2 = np.copy(b_m1)
         b_m1 = np.copy(b)
 
-        # for j in range(npols+1):
-        #   b[j] = b_m1[j]-z[i-1]*c[i]*b_m2[j]
         b = b_m1 - z[i - 1] * c[i] * b_m2
-
-        # for j in range(npols):
-        #   b_m2[npols-j] = c[i]*b_m2[npols-1-j]
         b_m2[npols:0:-1] = c[i] * b_m2[npols - 1::-1]
-
-        # for j in range(1,npols+1):
-        #   b[j] = b[j] + b_m2[j]
         b[1:] = b[1:] + b_m2[1:]
 
     Companion = np.polynomial.polynomial.polycompanion(b[:npols + 1])
     # DALV: /b[npols] it is carried inside
 
-# #ifdef _DOUBLE
-#      call zgeev( 'N', 'N', np, Companion, np, E, VL, 1, VR, 1, work, 2*np,
-#                rwork, info )
-# #else
-#      call cgeev( 'N', 'N', np, Companion, np, E, VL, 1, VR, 1, work, 2*np,
-#                rwork, info )
-# #endif
-
-    # E = np.linalg.eigvals(Companion) #DALV: the companion matrix isn't normal
     E = eigvals(Companion)
-    # E = np.roots(np.flip(b[:npols+1])) #/b[npols] it is carried inside
-    # E = zgeev(Companion)[0] #with low level lapack
 
     # DALV: here we need to force real(E) to be positive.
     # This is because of the way the residue integral is performed, later.
@@ -317,16 +236,6 @@ def mpa_E_solver_Pade(npols, z, x):
 
 
 def mpa_RE_solver(npols, w, x):
-    # integer,      intent(in)   :: np
-    # complex(SP),  intent(in)   :: w(2*np), x(2*np)
-    # complex(SP),  intent(out)  :: R(np), E(np)
-    # character(2), intent(in)   :: mpa_sol
-    # logical,      intent(out)  :: MPred
-    # real(SP),     intent(out)  :: PPcond_rate,MP_err
-
-    # integer  :: i,npr
-    # logical  :: PPcond(np)
-    # real(SP) :: cond_num(2) #DALV: only LA solver
 
     if npols == 1:  # DALV: we could particularize the solution for 2-3 poles
         E, PPcond_rate = mpa_E_1p_solver(w, x)
@@ -337,10 +246,6 @@ def mpa_RE_solver(npols, w, x):
         # DALV: Pade-Thiele solver (mpa_sol='PT')
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
-
-        #Rnew = fit_residue(np.array([[npr]]), w, x.reshape((-1, 1, 1)), E.reshape((-1, 1, 1)))
-        #print(R, Rnew)
-        #assert np.allclose(R, Rnew)
 
         # if(npr < npols): MPred = True
 
