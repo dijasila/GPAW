@@ -491,12 +491,12 @@ class TetrahedronIntegrator(Integrator):
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
-            W_Mw = []
-            for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
-                with self.context.timer('tetrahedron weight'):
+            with self.context.timer('tetrahedron weight'):
+                W_Mw = []
+                for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                     W_w = tesselation.tetrahedron_weight(
                         point.K, deps_k, wd.omega_w[i0:i1])
-                W_Mw.append(W_w)
+                    W_Mw.append(W_w)
 
             task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
 
