@@ -2,10 +2,8 @@ from functools import cached_property
 import numpy as np
 import pytest
 
-from gpaw import GPAW, PW
 from gpaw.test import findpeak
 from gpaw.response.df import DielectricFunction
-from ase.build import bulk
 from ase.units import Bohr, Hartree
 
 
