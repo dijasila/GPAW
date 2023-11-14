@@ -11,10 +11,10 @@ from gpaw.response import ResponseContext
 
 
 class MyIntegrand(Integrand):
-    def matrix_element(self, x_c):
+    def matrix_element(self, x_c, s):
         return np.array([[1.]], complex)
 
-    def eigenvalues(self, x_c):
+    def eigenvalues(self, x_c, s):
         return np.array([(x_c**2).sum()**0.5], float)
 
 
@@ -26,7 +26,12 @@ def test_tetrahedron_integrator():
     x_g = np.linspace(-1, 1, 30)
     x_gc = np.array([comb for comb in product(*([x_g] * 3))])
 
-    domain = (x_gc,)
+    # XXX we now hardcode "spins" as [0] but the previous API
+    # could do any extra *args.
+    #
+    # After refactoring it should again be possible to do any args,
+    # so this test isn't forced to specify the "spins"
+    domain = (x_gc, [0])
     out_wxx = np.zeros((1, 1, 1), complex)
     integrator.integrate(task=HilbertTetrahedron(integrator.blockcomm),
                          domain=domain,

@@ -48,6 +48,15 @@ class Integrator:
         self.blockcomm, self.kncomm = block_partition(self.context.comm,
                                                       nblocks)
 
+    def mydomain(self, domain):
+        from gpaw.response.pw_parallelization import Blocks1D
+        # This function does the same as distribute_domain
+        # but on a flat list and without all the fluff.
+        #
+        # In progress: Getting rid of distribute_domain(),
+        blocks = Blocks1D(self.kncomm, len(domain))
+        return [domain[i] for i in range(blocks.a, blocks.b)]
+
     def distribute_domain(self, domain_dl):
         """Distribute integration domain. """
         domainsize = [len(domain_l) for domain_l in domain_dl]
@@ -396,8 +405,9 @@ class TetrahedronIntegrator(Integrator):
         and do a point summation using these weights."""
 
         # Input domain
-        td = self.tesselate(domain[0])
-        args = domain[1:]
+        _kpts, spins = domain
+        nspins = len(spins)
+        td = self.tesselate(_kpts)
 
         # Relevant quantities
         bzk_kc = td.points
@@ -431,49 +441,50 @@ class TetrahedronIntegrator(Integrator):
             for k in range(nk):
                 neighbours_k[k] = np.unique(td.simplices[pts_k[k]])
 
-        # Distribute everything
-        myterms_t = self.distribute_domain(list(args) +
-                                           [list(range(nk))])
+        class Point:
+            def __init__(self, K, spin):
+                self.K = K
+                self.spin = spin
+
+        class Domains:
+            def __init__(self, kpts, spins):
+                self.kpts = kpts
+                self.spins = spins
+
+            def __len__(self):
+                return len(self.kpts) * len(self.spins)
+
+            def __getitem__(self, num) -> Point:
+                nspins = len(self.spins)
+                return Point(self.kpts[num // nspins],
+                             self.spins[num % nspins])
+
+        alldomains = Domains(range(nk), spins)
+        mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
-            # Store eigenvalues
             deps_tMk = None  # t for term
-            shape = [len(domain_l) for domain_l in args]
-            nterms = int(np.prod(shape))
 
-            for t in range(nterms):
-                if len(shape) == 0:
-                    arguments = ()
-                else:
-                    arguments = np.unravel_index(t, shape)
-                for K in range(nk):
-                    k_c = bzk_kc[K]
-                    deps_M = -integrand.eigenvalues(k_c, *arguments)
-                    if deps_tMk is None:
-                        deps_tMk = np.zeros([nterms] +
-                                            list(deps_M.shape) +
-                                            [nk], float)
-                    deps_tMk[t, :, K] = deps_M
+            for domain in alldomains:
+                k_c = bzk_kc[domain.K]
+                deps_M = -integrand.eigenvalues(k_c, domain.spin)
+                if deps_tMk is None:
+                    deps_tMk = np.zeros([nspins, *deps_M.shape, nk], float)
+                deps_tMk[domain.spin, :, domain.K] = deps_M
 
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
-        for _, arguments in pb.enumerate(myterms_t):
-            K = arguments[-1]
-            if len(shape) == 0:
-                t = 0
-            else:
-                t = np.ravel_multi_index(arguments[:-1], shape)
-            deps_Mk = deps_tMk[t]
-            teteps_Mk = deps_Mk[:, neighbours_k[K]]
-            n_MG = integrand.matrix_element(bzk_kc[K],
-                                            *arguments[:-1])
+        for _, point in pb.enumerate(mydomain):
+            deps_Mk = deps_tMk[point.spin]
+            teteps_Mk = deps_Mk[:, neighbours_k[point.K]]
+            n_MG = integrand.matrix_element(bzk_kc[point.K], point.spin)
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(
                 teteps_Mk.min(1), teteps_Mk.max(1))
             W_Mw = []
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
-                W_w = self.get_kpoint_weight(K, deps_k,
+                W_w = self.get_kpoint_weight(point.K, deps_k,
                                              pts_k, wd.omega_w[i0:i1],
                                              td)
                 W_Mw.append(W_w)
