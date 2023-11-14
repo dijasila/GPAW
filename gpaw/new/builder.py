@@ -126,15 +126,13 @@ class DFTComponentsBuilder:
         if self.ncomponents == 4:
             self.nbands *= 2
 
-        self.dtype = params.dtype
-        if self.dtype is None:
+        if self.mode.get('force_complex_dtype', False):
+            self.dtype = complex
+        else:
             if self.ibz.bz.gamma_only and self.ncomponents < 4:
                 self.dtype = float
             else:
                 self.dtype = complex
-        elif not self.ibz.bz.gamma_only and self.dtype != complex:
-            raise ValueError('Can not use dtype=float for non gamma-point '
-                             'calculation')
 
         self.grid, self.fine_grid = self.create_uniform_grids()
 
