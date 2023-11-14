@@ -32,7 +32,7 @@ def get_chi_tensor(
 
     Returns
     -------
-    chi_vvl
+    np.ndarray:
         Full linear susceptibility tensor (3, 3, nw).
 
     """
