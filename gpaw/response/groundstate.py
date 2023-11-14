@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
-
+from typing import TYPE_CHECKING
 import numpy as np
 
 from ase.units import Ha, Bohr
@@ -10,9 +10,15 @@ from ase.utils import lazyproperty
 import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
 
+if TYPE_CHECKING:
+    from gpaw.new.ase_interface import ASECalculator
+    from gpaw.calculator import GPAW
+    from gpaw.setup import Setups, LeanSetup
+    from gpaw.response.context import ResponseContext
+
 
 class PAWDatasetCollection:
-    def __init__(self, setups):
+    def __init__(self, setups: Setups):
         by_species = {}
         by_atom = []
         id_by_atom = []
@@ -30,25 +36,30 @@ class PAWDatasetCollection:
 
 
 class ResponseGroundStateAdapter:
-    def __init__(self, calc):
-        wfs = calc.wfs
+    def __init__(self, calc: ASECalculator | GPAW):
+        wfs = calc.wfs  # object representing wave functions
 
         self.atoms = calc.atoms
-        self.kd = wfs.kd
-        self.world = calc.world
+        self.kd = wfs.kd  # KPointDescriptor object from gpaw.kpt_descriptor.
+        self.world = calc.world  # _Communicator object from gpaw.mpi
+
+        # GridDescriptor from gpaw.grid_descriptor.
+        # Describes a grid in real space
         self.gd = wfs.gd
+
+        # Also a GridDescriptor, with a finer grid...
         self.finegd = calc.density.finegd
-        self.bd = wfs.bd
-        self.nspins = wfs.nspins
-        self.dtype = wfs.dtype
+        self.bd = wfs.bd  # BandDescriptor from gpaw.band_descriptor
+        self.nspins = wfs.nspins  # number of spins: int
+        self.dtype = wfs.dtype  # data type of wavefunctions, real or complex
 
-        self.spos_ac = calc.spos_ac
+        self.spos_ac = calc.spos_ac  # scaled position vector: np.ndarray
 
-        self.kpt_u = wfs.kpt_u
-        self.kpt_qs = wfs.kpt_qs
+        self.kpt_u = wfs.kpt_u  # kpoints: list of Kpoint from gpaw.kpoint
+        self.kpt_qs = wfs.kpt_qs  # kpoints: list of Kpoint from gpaw.kpoint
 
-        self.fermi_level = wfs.fermi_level
-        self.atoms = calc.atoms
+        self.fermi_level = wfs.fermi_level  # float
+        self.atoms = calc.atoms  # ASE Atoms object
         self.pawdatasets = PAWDatasetCollection(calc.setups)
 
         self.pbc = self.atoms.pbc
@@ -65,7 +76,8 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw, context) -> ResponseGroundStateAdapter:
+    def from_gpw_file(cls, gpw: Path | str,
+                      context: ResponseContext) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
         assert Path(gpw).is_file()
@@ -293,7 +305,7 @@ class ResponseGroundStateAdapter:
 # Contains all the relevant information
 # from Setups class for response calculators
 class ResponsePAWDataset:
-    def __init__(self, setup):
+    def __init__(self, setup: LeanSetup):
         self.ni = setup.ni
         self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
@@ -302,6 +314,7 @@ class ResponsePAWDataset:
         self.nabla_iiv = setup.nabla_iiv
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)
+        self.xc_correction: SimpleNamespace | None
         if setup.xc_correction is not None:
             self.xc_correction = SimpleNamespace(
                 rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
