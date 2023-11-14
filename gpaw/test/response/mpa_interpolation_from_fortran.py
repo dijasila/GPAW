@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import List, Tuple
 from gpaw.typing import Array1D
 import numpy as np
 from numpy.linalg import eigvals
@@ -94,7 +95,8 @@ def pole_is_out(i, wmax, thr, E):  # we need to modify E inside the function
     return is_out
 
 
-def mpa_cond(npols, z, E):
+def mpa_cond(npols: int, z: List[complex], E) -> Tuple[int, List[bool],
+List[complex]]:
     # integer,     intent(in)     :: np
     # integer,     intent(out)    :: npr
     # logical,     intent(out)    :: PPcond(np)
@@ -319,8 +321,8 @@ def mpa_E_solver_Pade(npols, z, x):
 def mpa_RE_solver(npols, w, x):
     # integer,      intent(in)   :: np
     # complex(SP),  intent(in)   :: w(2*np), x(2*np)
-    # complex(SP),  intent(out)  :: R(np), E(np)
     # character(2), intent(in)   :: mpa_sol
+    # complex(SP),  intent(out)  :: R(np), E(np)
     # logical,      intent(out)  :: MPred
     # real(SP),     intent(out)  :: PPcond_rate,MP_err
 
