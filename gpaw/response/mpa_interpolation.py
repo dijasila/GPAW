@@ -184,15 +184,15 @@ def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
         bm1_GGm = np.copy(b_GGm)
 
         c_GGw[..., i:] = (
-            (cm1_GGw[..., i - 1][..., np.newaxis] - cm1_GGw[..., i:]) /
+            (cm1_GGw[..., i - 1, np.newaxis] - cm1_GGw[..., i:]) /
             ((z_w[i:] - z_w[i - 1]) * cm1_GGw[..., i:])
         )
 
-        b_GGm = bm1_GGm - z_w[i - 1] * c_GGw[..., i][..., np.newaxis] * bm2_GGm
+        b_GGm = bm1_GGm - z_w[i - 1] * c_GGw[..., i, np.newaxis] * bm2_GGm
         bm2_GGm[..., npols:0:-1] = (
-            c_GGw[..., i][..., np.newaxis] * bm2_GGm[..., npols - 1::-1]
+            c_GGw[..., i, np.newaxis] * bm2_GGm[..., npols - 1::-1]
         )
-        b_GGm[..., 1:] = b_GGm[..., 1:] + bm2_GGm[..., 1:]
+        b_GGm[..., 1:] += bm2_GGm[..., 1:]
 
     companion_GGmm = np.empty((nG1, nG2, npols, npols),
                               dtype=np.complex128)
