@@ -128,7 +128,7 @@ def mpa_cond(npols, z, E):
 
     E[:npr] = Eaux[:npr]
     if npr < npols:
-        E[npr:npols] = complex(1, -epsilon)
+        E[npr:npols] = E[npr:npols] + complex(2 * wmax, -epsilon)
         PPcond[npr:npols] = True
 
     return E, npr, PPcond

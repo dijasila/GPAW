@@ -59,7 +59,11 @@ def fit_residue(npr_GG, omega_w, X_wGG, E_pGG):
         XTX_GGpp = 1 / XTX_GGpp
         R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
     else:
-        R_GGp = np.linalg.solve(XTX_GGpp, temp_GGp)
+        try:
+            R_GGp = np.linalg.solve(XTX_GGpp, temp_GGp)
+        except:
+            XTX_GGpp = np.linalg.pinv(XTX_GGpp)
+            R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
 
     return R_GGp.transpose((2,0,1))
 
