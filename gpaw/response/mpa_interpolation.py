@@ -146,18 +146,20 @@ def mpa_cond_vectorized(
     E_GGp.sort(axis=2)
 
     for i in range(npols):
+        out_poles_GG = E_GGp[:, :, i].real > wmax
+        E_GGp[out_poles_GG, i] =  (2 * wmax - 0.01j)
         for j in range(i + 1, npols):
             diff = E_GGp[:, :, j].real - E_GGp[:, :, i].real
-            equal_poles_GG = diff < pole_resolution
+            equal_poles_GG = diff < pole_resolution            
             if np.sum(equal_poles_GG.ravel()):
                 break
-            E_GGp[:, :, i] = np.where(
+            E_GGp[:, :, j] = np.where(
                 equal_poles_GG,
                 (E_GGp[:, :, j].real + E_GGp[:, :, i].real) / 2
-                + 1j * np.maximum(E_GGp[:, :, j].imag, E_GGp[:, :, i].imag),
-                E_GGp[:, :, i],
+                + 1j * np.maximum(E_GGp[:, :, i].imag, E_GGp[:, :, j].imag),
+                E_GGp[:, :, j],
             )
-            E_GGp[:, :, j] += equal_poles_GG * 2 * wmax
+            E_GGp[equal_poles_GG, i] =  (2 * wmax - 0.01j)
 
     # Sort according to real part
     E_GGp.sort(axis=2)

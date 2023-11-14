@@ -98,8 +98,7 @@ List[complex]]:
 
     PPcond = np.full(npols, False)
     npr = npols
-    wr = np.real(np.emath.sqrt(z))
-    wmax = np.max(wr) * 1.5  # DALV: we use 1.5* the extreme of the interval
+    wmax = np.max(np.real(np.emath.sqrt(z))) * 1.5
     Eaux = np.emath.sqrt(E)
 
     i = 0
@@ -119,7 +118,7 @@ List[complex]]:
 
     E[:npr] = Eaux[:npr]
     if npr < npols:
-        E[npr:npols] = E[npr:npols] + complex(2 * wmax, -epsilon)
+        E[npr:npols] = 2 * wmax - 0.01j
         PPcond[npr:npols] = True
 
     return E, npr, PPcond
@@ -238,20 +237,6 @@ def mpa_E_solver_Pade(npols, z, x):
 
 
 def mpa_RE_solver(npols, w, x):
-<<<<<<< HEAD
-    # integer,      intent(in)   :: np
-    # complex(SP),  intent(in)   :: w(2*np), x(2*np)
-    # character(2), intent(in)   :: mpa_sol
-    # complex(SP),  intent(out)  :: R(np), E(np)
-    # logical,      intent(out)  :: MPred
-    # real(SP),     intent(out)  :: PPcond_rate,MP_err
-
-    # integer  :: i,npr
-    # logical  :: PPcond(np)
-    # real(SP) :: cond_num(2) #DALV: only LA solver
-=======
->>>>>>> 87d21d8aa49e4c3227f50a02d7afb804f249c644
-
     if npols == 1:  # DALV: we could particularize the solution for 2-3 poles
         E, PPcond_rate = mpa_E_1p_solver(w, x)
         R = mpa_R_1p_fit(1, 1, w, x, E)
