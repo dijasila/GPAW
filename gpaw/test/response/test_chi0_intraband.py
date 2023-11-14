@@ -8,6 +8,7 @@ from ase.build import bulk
 from ase.units import Bohr, Hartree
 
 
+@pytest.mark.tetrahedron
 @pytest.mark.response
 @pytest.mark.slow
 def test_chi0_intraband(in_tmp_dir):
