@@ -401,20 +401,20 @@ def get_simplex_volume(td, S):
     return get_simplex_volume(td, S)
 
 
+def tesselate(vertices):
+    """Get tesselation descriptor."""
+    td = Delaunay(vertices)
+
+    td.volumes_s = None
+    return td
+
+
 class TetrahedronIntegrator(Integrator):
     """Integrate brillouin zone using tetrahedron integration.
 
     Tetrahedron integration uses linear interpolation of
     the eigenenergies and of the matrix elements
     between the vertices of the tetrahedron."""
-
-    @timer('Tesselate')
-    def tesselate(self, vertices):
-        """Get tesselation descriptor."""
-        td = Delaunay(vertices)
-
-        td.volumes_s = None
-        return td
 
     @timer('Spectral function integration')
     def integrate(self, *, domain, integrand, wd, out_wxx, task):
@@ -428,7 +428,7 @@ class TetrahedronIntegrator(Integrator):
         # Input domain
         _kpts, spins = domain
         nspins = len(spins)
-        td = self.tesselate(_kpts)
+        td = tesselate(_kpts)
 
         # Relevant quantities
         bzk_kc = td.points
@@ -482,9 +482,9 @@ class TetrahedronIntegrator(Integrator):
                 teteps_Mk.min(1), teteps_Mk.max(1))
             W_Mw = []
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
-                W_w = self.get_kpoint_weight(point.K, deps_k,
-                                             pts_k, wd.omega_w[i0:i1],
-                                             td)
+                with self.context.timer('tetrahedron weight'):
+                    W_w = tetrahedron_kpoint_weight(
+                        point.K, deps_k, pts_k, wd.omega_w[i0:i1], td)
                 W_Mw.append(W_w)
 
             task.run(n_MG, deps_Mk, W_Mw, i0_M, i1_M, out_wxx)
@@ -499,19 +499,18 @@ class TetrahedronIntegrator(Integrator):
             for out_xx in out_wxx:
                 out_xx[il] = out_xx[iu].conj()
 
-    @timer('Get kpoint weight')
-    def get_kpoint_weight(self, K, deps_k, pts_k,
-                          omega_w, td):
-        # Find appropriate index range
-        simplices_s = pts_k[K]
-        W_w = np.zeros(len(omega_w), float)
-        vol_s = get_simplex_volume(td, simplices_s)
-        with self.context.timer('Tetrahedron weight'):
-            _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
-                                     simplices_s,
-                                     W_w, omega_w, vol_s)
 
-        return W_w
+def tetrahedron_kpoint_weight(K, deps_k, pts_k,
+                              omega_w, td):
+    # Find appropriate index range
+    simplices_s = pts_k[K]
+    W_w = np.zeros(len(omega_w), float)
+    vol_s = get_simplex_volume(td, simplices_s)
+    _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
+                             simplices_s,
+                             W_w, omega_w, vol_s)
+
+    return W_w
 
 
 class HilbertTetrahedron:
