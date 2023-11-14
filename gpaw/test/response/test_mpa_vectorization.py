@@ -1,15 +1,17 @@
 import numpy as np
 from gpaw.response.mpa_interpolation import fit_residue, RESolver
-from .mpa_interpolation_from_fortran import mpa_R_fit as fit_residue_fortran, mpa_RE_solver
+from .mpa_interpolation_from_fortran import (mpa_R_fit as fit_residue_fortran,
+                                             mpa_RE_solver)
 
 
 def Xeval(Omega_GGp, residues_GGp, omega_w):
     X_GGpw = (
         residues_GGp[..., :, np.newaxis] * 2 * Omega_GGp[..., :, np.newaxis] /
         (omega_w[None, None, None, :]**2 - Omega_GGp[..., :, np.newaxis]**2)
-        )
+    )
 
     return np.sum(X_GGpw, axis=2)
+
 
 def test_residues():
     nG = 5
@@ -69,7 +71,7 @@ def test_poles():
     omega_p = np.linspace(0, wmax, npols_mpa)
     omega_w = np.concatenate((omega_p + 0.1j, omega_p + 1.j))
 
-    X_GGw = np.empty((nG, nG, 2*npols_mpa), dtype=np.complex128)
+    X_GGw = np.empty((nG, nG, 2 * npols_mpa), dtype=np.complex128)
     E_GGp = np.empty((nG, nG, npols_mpa), dtype=np.complex128)
     R_GGp = np.empty((nG, nG, npols_mpa), dtype=np.complex128)
     E_fortran_GGp = np.empty((nG, nG, npols_mpa), dtype=np.complex128)
@@ -80,10 +82,11 @@ def test_poles():
         for g2 in range(nG):
             Omega_GGp[g1, g2] = rng.normal(1, 0.5, npols) - 0.05j
             residues_GGp[g1, g2] = 0.1 + rng.random(npols)
-            X_GGw[g1, g2] = Xeval(Omega_GGp[g1,g2], residues_GGp[g1,g2],
+            X_GGw[g1, g2] = Xeval(Omega_GGp[g1, g2],
+                                  residues_GGp[g1, g2],
                                   omega_w)
 
-            R_fortran_GGp[g1, g2], E_fortran_GGp[g1,g2], _, _ = (
+            R_fortran_GGp[g1, g2], E_fortran_GGp[g1, g2], _, _ = (
                 mpa_RE_solver(npols_mpa, omega_w, X_GGw[g1, g2]))
             ind = np.argsort(E_fortran_GGp[g1, g2].real)
             E_fortran_GGp[g1, g2] = E_fortran_GGp[g1, g2, ind]
@@ -96,13 +99,15 @@ def test_poles():
 
     assert np.allclose(E_GGp, E_fortran_GGp, rtol=1e-4, atol=1e-6)
 
-    if 0: # asserting R or X fails due to ill conditioning in np.linalg.solve 
+    if 0:  # asserting R or X fails due to ill conditioning in np.linalg.solve
         from matplotlib import pyplot as plt
-        omega_grid = np.linspace(0., wmax, 100)  + 0.01j
+
+        omega_grid = np.linspace(0., wmax, 100) + 0.01j
         X_fit_GGw = Xeval(E_GGp, R_GGp, omega_grid)
         X_fortran_fit_GGw = Xeval(E_fortran_GGp, R_fortran_GGp, omega_grid)
         a = np.allclose(X_fit_GGw, X_fortran_fit_GGw, rtol=1e-4, atol=1e-6)
-        print('assert X',a)
+        print('assert X', a)
+
         X_num_GGw = Xeval(Omega_GGp, residues_GGp, omega_grid)
         g1, g2 = 0, 0
         plt.plot(omega_grid.real, X_num_GGw[g1, g2].real, 'k', ls='--')
