@@ -390,6 +390,10 @@ class KPointTesselation:
     def __init__(self, kpts):
         self._td = Delaunay(kpts)
 
+    @property
+    def bzk_kc(self):
+        return self._td.points
+
     @cached_property
     def simplex_volumes(self):
         volumes_s = np.zeros(self._td.nsimplex, float)
@@ -410,7 +414,7 @@ class KPointTesselation:
 
     @cached_property
     def pts_k(self):
-        pts_k = [[] for n in range(self.nk)]
+        pts_k = [[] for n in range(self.nkpts)]
         for s, K_k in enumerate(self._td.simplices):
             A_kv = np.append(self._td.points[K_k],
                              np.ones(4)[:, np.newaxis], axis=1)
@@ -426,19 +430,19 @@ class KPointTesselation:
                 pts_k[K].append(s)
 
         # Change to numpy arrays:
-        for k in range(self.nk):
+        for k in range(self.nkpts):
             pts_k[k] = np.array(pts_k[k], int)
 
         return pts_k
 
     @property
-    def nk(self):
+    def nkpts(self):
         return self._td.npoints
 
     @cached_property
     def neighbours_k(self):
         return [np.unique(self._td.simplices[self.pts_k[k]])
-                for k in range(self.nk)]
+                for k in range(self.nkpts)]
 
 
 class TetrahedronIntegrator(Integrator):
@@ -462,26 +466,19 @@ class TetrahedronIntegrator(Integrator):
         nspins = len(spins)
 
         tesselation = KPointTesselation(_kpts)
-        td = tesselation._td
 
-        # Relevant quantities
-        bzk_kc = td.points
-        nk = len(bzk_kc)
-
-        #with self.context.timer('pts'):
-        #    pts_k = tesselation.points()
-
-        alldomains = Domains(range(nk), spins)
+        alldomains = Domains(range(tesselation.nkpts), spins)
         mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
             deps_tMk = None  # t for term
 
             for domain in alldomains:
-                k_c = bzk_kc[domain.K]
+                k_c = tesselation.bzk_kc[domain.K]
                 deps_M = -integrand.eigenvalues(k_c, domain.spin)
                 if deps_tMk is None:
-                    deps_tMk = np.zeros([nspins, *deps_M.shape, nk], float)
+                    deps_tMk = np.zeros([nspins, *deps_M.shape,
+                                         tesselation.nkpts], float)
                 deps_tMk[domain.spin, :, domain.K] = deps_M
 
         # Calculate integrations weight
@@ -489,11 +486,11 @@ class TetrahedronIntegrator(Integrator):
         for _, point in pb.enumerate(mydomain):
             deps_Mk = deps_tMk[point.spin]
             teteps_Mk = deps_Mk[:, tesselation.neighbours_k[point.K]]
-            n_MG = integrand.matrix_element(bzk_kc[point.K], point.spin)
+            n_MG = integrand.matrix_element(tesselation.bzk_kc[point.K],
+                                            point.spin)
 
             # Generate frequency weights
-            i0_M, i1_M = wd.get_index_range(
-                teteps_Mk.min(1), teteps_Mk.max(1))
+            i0_M, i1_M = wd.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))
             W_Mw = []
             for deps_k, i0, i1 in zip(deps_Mk, i0_M, i1_M):
                 with self.context.timer('tetrahedron weight'):
@@ -512,7 +509,6 @@ class TetrahedronIntegrator(Integrator):
             iu = il[::-1]
             for out_xx in out_wxx:
                 out_xx[il] = out_xx[iu].conj()
-
 
 
 class HilbertTetrahedron:
