@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
+from functools import cached_property
 from types import ModuleType, SimpleNamespace
 from typing import Any, Union
 
@@ -18,7 +19,7 @@ from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mixer import MixerWrapper, get_mixer_from_keywords
 from gpaw.mpi import (MPIComm, Parallelization, serial_comm, synchronize_atoms,
                       world)
-from gpaw.new import cached_property, prod
+from gpaw.new import prod
 from gpaw.new.basis import create_basis
 from gpaw.new.brillouin import BZPoints, MonkhorstPackKPoints
 from gpaw.new.density import Density

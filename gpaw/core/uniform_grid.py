@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from functools import cached_property
 from math import pi
 from typing import Sequence
-
 import numpy as np
 
 import gpaw.fftw as fftw
@@ -12,7 +12,7 @@ from gpaw.core.domain import Domain
 from gpaw.gpu import as_np, cupy_is_fake
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
 from gpaw.new.c import add_to_density, add_to_density_gpu, symmetrize_ft

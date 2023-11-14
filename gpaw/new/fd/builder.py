@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import cached_property
 import numpy as np
 
 from gpaw.core import UGDesc
@@ -6,7 +7,7 @@ from gpaw.core.arrays import DistributedArrays as XArray
 from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.uniform_grid import UGArray
 from gpaw.fd_operators import Gradient, Laplace
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian

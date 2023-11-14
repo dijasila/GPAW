@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from functools import cached_property
 from pathlib import Path
 from types import SimpleNamespace
 from typing import IO, Any, Union
@@ -12,7 +13,7 @@ from gpaw import __version__
 from gpaw.core import UGArray
 from gpaw.dos import DOSCalculator
 from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
-from gpaw.new import Timer, cached_property
+from gpaw.new import Timer
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
                                   ReuseWaveFunctionsError, units)

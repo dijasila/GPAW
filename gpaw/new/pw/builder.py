@@ -1,10 +1,11 @@
+from functools import cached_property
 from ase.units import Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PWArray
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
