@@ -1,9 +1,16 @@
+from __future__ import annotations
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import numpy as np
 
-from gpaw.mpi import MPIComm
-from gpaw.new.ase_interface import ASECalculator
+if TYPE_CHECKING:
+    from gpaw.core.atom_arrays import AtomArrays
+    from gpaw.core.plane_waves import PWArray
+    from gpaw.mpi import MPIComm
+    from gpaw.new.ase_interface import ASECalculator
+    from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
+    from gpaw.typing import ArrayND
 
 
 class GSInfo:
@@ -45,9 +52,10 @@ class GSInfo:
         self.ucvol = np.abs(np.linalg.det(grid.cell))
         self.bzvol = np.abs(np.linalg.det(2 * np.pi * grid.icell))
 
-        self.ns: int
-
-    def get_plane_wave_coefficients(self, wfs, bands, spin):
+    def get_plane_wave_coefficients(self,
+                                    wfs: PWFDWaveFunctions,
+                                    bands: slice,
+                                    spin: int) -> tuple[ArrayND, ArrayND]:
         """
         Returns the plane wave coefficients and reciprocal vectors.
 
@@ -57,7 +65,10 @@ class GSInfo:
         G_plus_k_Gv = psit_nG.desc.G_plus_k_Gv
         return G_plus_k_Gv, self._pw_data(psit_nG, spin)
 
-    def get_wave_function_projections(self, wfs, bands, spin):
+    def get_wave_function_projections(self,
+                                      wfs: PWFDWaveFunctions,
+                                      bands: slice,
+                                      spin: int):
         """
         Returns the projections of the pseudo wfs onto the partial waves.
 
@@ -66,41 +77,66 @@ class GSInfo:
         """
         return self._proj_data(wfs.P_ani, bands, spin)
 
-    def get_wfs(self, k_ind, spin):
+    def get_wfs(self,
+                k_ind: int,
+                spin: int) -> PWFDWaveFunctions:
         raise NotImplementedError
 
-    def _pw_data(self, psit, spin):
+    @staticmethod
+    def _pw_data(psit: PWArray,
+                 spin: int) -> ArrayND:
         raise NotImplementedError
 
-    def _proj_data(self, P, bands, spin):
+    @staticmethod
+    def _proj_data(P: AtomArrays,
+                   bands: slice,
+                   spin: int) -> dict[int, ArrayND]:
         raise NotImplementedError
 
 
 class CollinearGSInfo(GSInfo):
-    def __init__(self, calc, comm):
+    def __init__(self,
+                 calc: ASECalculator,
+                 comm: MPIComm):
         super().__init__(calc, comm)
         self.ns = self.ndensities
 
-    def get_wfs(self, k_ind, spin):
+    def get_wfs(self,
+                k_ind: int,
+                spin: int) -> PWFDWaveFunctions:
         return self.ibzwfs.wfs_qs[k_ind][spin]
 
-    def _pw_data(self, psit_nG, _=None):
+    @staticmethod
+    def _pw_data(psit_nG: PWArray,
+                 _: int | None = None) -> ArrayND:
         return psit_nG.data
 
-    def _proj_data(self, P_ani, bands, _=None):
+    @staticmethod
+    def _proj_data(P_ani: AtomArrays,
+                   bands: slice,
+                   _: int | None = None) -> dict[int, ArrayND]:
         return {a: P_ni[bands] for a, P_ni in P_ani.items()}
 
 
 class NoncollinearGSInfo(GSInfo):
-    def __init__(self, calc, comm):
+    def __init__(self,
+                 calc: ASECalculator,
+                 comm: MPIComm):
         super().__init__(calc, comm)
         self.ns = 2
 
-    def get_wfs(self, k_ind, _=None):
+    def get_wfs(self,
+                k_ind: int,
+                _: int | None = None) -> PWFDWaveFunctions:
         return self.ibzwfs.wfs_qs[k_ind][0]
 
-    def _pw_data(self, psit_nsG, spin):
+    @staticmethod
+    def _pw_data(psit_nsG: PWArray,
+                 spin: int) -> ArrayND:
         return psit_nsG.data[:, spin]
 
-    def _proj_data(self, P_ansi, bands, spin):
+    @staticmethod
+    def _proj_data(P_ansi: AtomArrays,
+                   bands: slice,
+                   spin: int) -> dict[int, ArrayND]:
         return {a: P_nsi[bands, spin] for a, P_nsi in P_ansi.items()}
