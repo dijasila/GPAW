@@ -27,7 +27,8 @@ class Helper:
 
     @cached_property
     def lfc(self):
-        return {axis: df1.get_dielectric_function(direction=axis)
+        # lfc == local field corrections (?)
+        return {axis: self.df.get_dielectric_function(direction=axis)[1]
                 for axis in 'xyz'}
 
     @cached_property
@@ -39,6 +40,19 @@ class Helper:
     @cached_property
     def w_w(self):
         return self.df.wd.omega_w
+
+    def _compare_peak(self, calc, axis):
+        df1LFCx = self.lfc[axis]
+        df2LFCx = calc.lfc[axis]
+        # w_x equal for paired & polarized tetra
+        w1, I1 = findpeak(self.w_w, -(1. / df1LFCx).imag)
+        w2, I2 = findpeak(self.w_w, -(1. / df2LFCx).imag)
+        assert w1 == pytest.approx(w2, abs=1e-2)
+        assert I1 == pytest.approx(I2, abs=1e-1)
+
+    def compare_peaks(self, calc):
+        for axis in 'xyz':
+            self._compare_peak(calc, axis)
 
 
 @pytest.mark.response
@@ -105,38 +119,8 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
     # paired none match paper
     assert calc2.wp == pytest.approx(wpref, abs=0.1)
 
-    # w_x equal for paired & polarized tetra
-    w1, I1 = findpeak(w_w, -(1. / df1LFCx).imag)
-    w3, I3 = findpeak(w_w, -(1. / df3LFCx).imag)
-    assert w1 == pytest.approx(w3, abs=1e-2)
-    assert I1 == pytest.approx(I3, abs=1e-1)
+    # w_x, w_y and w_z equal for paired & polarized tetra
+    calc1.compare_peaks(calc3)
 
-    # w_x equal for paired & polarized none
-    w2, I2 = findpeak(w_w, -(1. / df2LFCx).imag)
-    w4, I4 = findpeak(w_w, -(1. / df4LFCx).imag)
-    assert w2 == pytest.approx(w4, abs=1e-2)
-    assert I2 == pytest.approx(I4, abs=1e-1)
-
-    # w_y equal for paired & polarized tetra
-    w1, I1 = findpeak(w_w, -(1. / df1LFCy).imag)
-    w3, I3 = findpeak(w_w, -(1. / df3LFCy).imag)
-    assert w1 == pytest.approx(w3, abs=1e-2)
-    assert I1 == pytest.approx(I3, abs=1e-1)
-
-    # w_y equal for paired & polarized none
-    w2, I2 = findpeak(w_w, -(1. / df2LFCy).imag)
-    w4, I4 = findpeak(w_w, -(1. / df4LFCy).imag)
-    assert w2 == pytest.approx(w4, abs=1e-2)
-    assert I2 == pytest.approx(I4, abs=1e-1)
-
-    # w_z equal for paired & polarized tetra
-    w1, I1 = findpeak(w_w, -(1. / df1LFCz).imag)
-    w3, I3 = findpeak(w_w, -(1. / df3LFCz).imag)
-    assert w1 == pytest.approx(w3, abs=1e-2)
-    assert I1 == pytest.approx(I3, abs=1e-1)
-
-    # w_z equal for paired & polarized none
-    w2, I2 = findpeak(w_w, -(1. / df2LFCz).imag)
-    w4, I4 = findpeak(w_w, -(1. / df4LFCz).imag)
-    assert w2 == pytest.approx(w4, abs=1e-2)
-    assert I2 == pytest.approx(I4, abs=1e-1)
+    # w_x, w_y and w_z equal for paired & polarized none
+    calc2.compare_peaks(calc4)
