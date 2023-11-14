@@ -1,29 +1,37 @@
 from __future__ import annotations
-from typing import List, Tuple
-from gpaw.typing import Array1D
 import numpy as np
 from numpy.linalg import eigvals
-
-from gpaw.test.response.mpa_interpolation_from_fortran import *
+from typing import List, Tuple
+from gpaw.typing import Array1D, Array2D
 
 
 null_pole_thr = 1e-5
 pole_resolution = 1e-5
 epsilon = 1e-8  # SP
 
-#-------------------------------------------------------------
-# Old reference code
-#-------------------------------------------------------------
+#  -------------------------------------------------------------
+#  Old reference code
+#  -------------------------------------------------------------
 
 # ####### 1 pole: ########################
 
 
+def Xeval(Omega_GGp, residues_GGp, omega_w):
+    X_GGpw = (
+        residues_GGp[..., :, np.newaxis] * 2 * Omega_GGp[..., :, np.newaxis] /
+        (omega_w[None, None, None, :]**2 - Omega_GGp[..., :, np.newaxis]**2)
+    )
+
+    return np.sum(X_GGpw, axis=2)
+
+
 def mpa_cond1(z: tuple[complex, complex] | Array1D,
-              E2: tuple[complex] | Array1D) -> tuple[[complex], [float]] | Array2D:  
+              E2: tuple[complex] | Array1D) -> \
+        tuple[[complex], [float]] | Array2D:
     # complex(SP), intent(in)     :: z(2)
     # complex(SP), intent(inout)  :: E
     # real(SP),    intent(out)    :: PPcond_rate
-     
+
     PPcond_rate = 0
     if abs(E2) < null_pole_thr:  # need to check also NAN(abs(E))
         PPcond_rate = 1
@@ -84,8 +92,8 @@ def pole_is_out(i, wmax, thr, E):  # we need to modify E inside the function
     return is_out
 
 
-def mpa_cond(npols: int, z: List[complex], E) -> Tuple[int, List[bool],
-List[complex]]:
+def mpa_cond(npols: int, z: List[complex], E) ->\
+        Tuple[int, List[bool], List[complex]]:
     # integer,     intent(in)     :: np
     # integer,     intent(out)    :: npr
     # logical,     intent(out)    :: PPcond(np)
@@ -135,7 +143,7 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
         A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
-    #print('A', A, 'b', b)
+    # print('A', A, 'b', b)
 
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
@@ -184,7 +192,7 @@ def mpa_R_fit(npols, npr, w, x, E):
             A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
             A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
 
-    #print('A matrix old', A)
+    # print('A matrix old', A)
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
 
     R = np.zeros(npols, dtype='complex64')

@@ -1,19 +1,10 @@
 import numpy as np
 from gpaw.response.mpa_interpolation import fit_residue, RESolver
 from .mpa_interpolation_from_fortran import (mpa_R_fit as fit_residue_fortran,
-                                             mpa_RE_solver)
+                                             mpa_RE_solver, Xeval)
 
 
-def Xeval(Omega_GGp, residues_GGp, omega_w):
-    X_GGpw = (
-        residues_GGp[..., :, np.newaxis] * 2 * Omega_GGp[..., :, np.newaxis] /
-        (omega_w[None, None, None, :]**2 - Omega_GGp[..., :, np.newaxis]**2)
-    )
-
-    return np.sum(X_GGpw, axis=2)
-
-
-def test_residues():
+def test_residues(in_tmp_dir):
     nG = 5
     npols = 10
     Omega_GGp = np.empty((nG, nG, npols), dtype=np.complex128)
@@ -60,7 +51,7 @@ def test_residues():
         plt.show()
 
 
-def test_poles():
+def test_poles(in_tmp_dir):
     nG = 5
     npols = 100
     wmax = 2
