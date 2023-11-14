@@ -10,7 +10,7 @@ from ase.units import Bohr, Hartree
 
 @pytest.mark.response
 @pytest.mark.slow
-def test_chi0_intraband(in_tmp_dir):
+def test_chi0_intraband(in_tmp_dir, gpw_files):
     """Comparing the plasmon peaks found in bulk sodium for two different
     atomic structures. Testing for idential plasmon peaks. Not using
     physical sodium cell."""
@@ -35,13 +35,16 @@ def test_chi0_intraband(in_tmp_dir):
     a1.calc.write('intraband_spinpaired.gpw', 'all')
     a2.calc.write('intraband_spinpolarized.gpw', 'all')
 
-    df1 = DielectricFunction('intraband_spinpaired.gpw',
+    intraband_spinpaired = gpw_files['intraband_spinpaired_fulldiag']
+    intraband_spinpolarized = gpw_files['intraband_spinpolarized_fulldiag']
+
+    df1 = DielectricFunction(intraband_spinpaired,
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             txt='intraband_spinpaired_df.txt')
+                             txt=None)
 
     df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
     df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
@@ -50,13 +53,13 @@ def test_chi0_intraband(in_tmp_dir):
         df1.wd, 0.1)
     wp1 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
-    df2 = DielectricFunction('intraband_spinpaired.gpw',
+    df2 = DielectricFunction(intraband_spinpaired,
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode=None,
-                             txt='intraband_spinpaired_df_im.txt')
+                             txt=None)
     df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
     df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
     df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
@@ -64,13 +67,13 @@ def test_chi0_intraband(in_tmp_dir):
         df2.wd, 0.1)
     wp2 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
-    df3 = DielectricFunction('intraband_spinpolarized.gpw',
+    df3 = DielectricFunction(intraband_spinpolarized,
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode='tetrahedron integration',
-                             txt='intraband_spinpolarized_df.txt')
+                             txt=None)
 
     df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
     df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
@@ -79,13 +82,13 @@ def test_chi0_intraband(in_tmp_dir):
         df3.wd, 0.1)
     wp3 = chi0_drude.plasmafreq_vv[0, 0]**0.5
 
-    df4 = DielectricFunction('intraband_spinpolarized.gpw',
+    df4 = DielectricFunction(intraband_spinpolarized,
                              frequencies={'type': 'nonlinear',
                                           'domega0': 0.03},
                              ecut=10,
                              rate=0.1,
                              integrationmode=None,
-                             txt='intraband_spinpolarized_df_im.txt')
+                             txt=None)
 
     df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
     df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')

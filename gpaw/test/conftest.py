@@ -1684,6 +1684,26 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
+    def _intraband(self, spinpol: bool):
+        atoms = bulk('Na')
+        if spinpol:
+            atoms.set_initial_magnetic_moments([[0.1]])
+        atoms.calc = GPAW(mode=PW(300),
+                          kpts={'size': (8, 8, 8), 'gamma': True},
+                          parallel={'band': 1},
+                          txt=None)
+        atoms.get_potential_energy()
+        atoms.calc.diagonalize_full_hamiltonian(nbands=20)
+        return atoms.calc
+
+    @gpwfile
+    def intraband_spinpaired_fulldiag(self):
+        return self._intraband(False)
+
+    @gpwfile
+    def intraband_spinpolarized_fulldiag(self):
+        return self._intraband(True)
+
 
 # We add Si fixtures with various symmetries to the GPWFiles namespace
 for name, method in si_gpwfiles().items():
