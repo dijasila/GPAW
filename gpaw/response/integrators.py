@@ -365,6 +365,42 @@ class HilbertOpticalLimit(IntegralTask):
             chi0_wxvG[w + 1, 1, :, :] += p2 * x_vG.conj()
 
 
+class Point:
+    def __init__(self, K, spin):
+        self.K = K
+        self.spin = spin
+
+
+class Domains:
+    def __init__(self, kpts, spins):
+        self.kpts = kpts
+        self.spins = spins
+
+    def __len__(self):
+        return len(self.kpts) * len(self.spins)
+
+    def __getitem__(self, num) -> Point:
+        nspins = len(self.spins)
+        return Point(self.kpts[num // nspins],
+                     self.spins[num % nspins])
+
+
+def get_simplex_volume(td, S):
+    """Get volume of simplex S"""
+
+    if td.volumes_s is not None:
+        return td.volumes_s[S]
+
+    td.volumes_s = np.zeros(td.nsimplex, float)
+    for s in range(td.nsimplex):
+        K_k = td.simplices[s]
+        k_kc = td.points[K_k]
+        volume = np.abs(np.linalg.det(k_kc[1:] - k_kc[0])) / 6.
+        td.volumes_s[s] = volume
+
+    return get_simplex_volume(td, S)
+
+
 class TetrahedronIntegrator(Integrator):
     """Integrate brillouin zone using tetrahedron integration.
 
@@ -379,21 +415,6 @@ class TetrahedronIntegrator(Integrator):
 
         td.volumes_s = None
         return td
-
-    def get_simplex_volume(self, td, S):
-        """Get volume of simplex S"""
-
-        if td.volumes_s is not None:
-            return td.volumes_s[S]
-
-        td.volumes_s = np.zeros(td.nsimplex, float)
-        for s in range(td.nsimplex):
-            K_k = td.simplices[s]
-            k_kc = td.points[K_k]
-            volume = np.abs(np.linalg.det(k_kc[1:] - k_kc[0])) / 6.
-            td.volumes_s[s] = volume
-
-        return self.get_simplex_volume(td, S)
 
     @timer('Spectral function integration')
     def integrate(self, *, domain, integrand, wd, out_wxx, task):
@@ -435,24 +456,6 @@ class TetrahedronIntegrator(Integrator):
                 pts_k[k] = np.array(pts_k[k], int)
 
         neighbours_k = [np.unique(td.simplices[pts_k[k]]) for k in range(nk)]
-
-        class Point:
-            def __init__(self, K, spin):
-                self.K = K
-                self.spin = spin
-
-        class Domains:
-            def __init__(self, kpts, spins):
-                self.kpts = kpts
-                self.spins = spins
-
-            def __len__(self):
-                return len(self.kpts) * len(self.spins)
-
-            def __getitem__(self, num) -> Point:
-                nspins = len(self.spins)
-                return Point(self.kpts[num // nspins],
-                             self.spins[num % nspins])
 
         alldomains = Domains(range(nk), spins)
         mydomain = self.mydomain(alldomains)
@@ -502,7 +505,7 @@ class TetrahedronIntegrator(Integrator):
         # Find appropriate index range
         simplices_s = pts_k[K]
         W_w = np.zeros(len(omega_w), float)
-        vol_s = self.get_simplex_volume(td, simplices_s)
+        vol_s = get_simplex_volume(td, simplices_s)
         with self.context.timer('Tetrahedron weight'):
             _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
                                      simplices_s,
