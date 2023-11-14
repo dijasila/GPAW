@@ -65,42 +65,19 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
     intraband_spinpolarized = gpw_files['intraband_spinpolarized_fulldiag']
 
     calc1 = Helper(intraband_spinpaired, 'tetrahedron integration')
-
-    df1 = calc1.df
-
-    df1NLFCx, df1LFCx = df1.get_dielectric_function(direction='x')
-    df1NLFCy, df1LFCy = df1.get_dielectric_function(direction='y')
-    df1NLFCz, df1LFCz = df1.get_dielectric_function(direction='z')
-
     calc2 = Helper(intraband_spinpaired, None)
-    df2 = calc2.df
-    df2NLFCx, df2LFCx = df2.get_dielectric_function(direction='x')
-    df2NLFCy, df2LFCy = df2.get_dielectric_function(direction='y')
-    df2NLFCz, df2LFCz = df2.get_dielectric_function(direction='z')
-
     calc3 = Helper(intraband_spinpolarized, 'tetrahedron integration')
-    df3 = calc3.df
-
-    df3NLFCx, df3LFCx = df3.get_dielectric_function(direction='x')
-    df3NLFCy, df3LFCy = df3.get_dielectric_function(direction='y')
-    df3NLFCz, df3LFCz = df3.get_dielectric_function(direction='z')
-
     calc4 = Helper(intraband_spinpolarized, None)
-
-    df4 = calc4.df
-    df4NLFCx, df4LFCx = df4.get_dielectric_function(direction='x')
-    df4NLFCy, df4LFCy = df4.get_dielectric_function(direction='y')
-    df4NLFCz, df4LFCz = df4.get_dielectric_function(direction='z')
 
     # Compare plasmon frequencies and intensities
     w_w = calc1.w_w
 
     # frequency grids must be the same
-    for calc in [calc1, calc2, calc3]:
+    for calc in [calc1, calc2, calc3, calc4]:
         assert np.allclose(calc.w_w, w_w, atol=1e-5, rtol=1e-4)
 
     # Analytical Drude result
-    n = 1 / (df1.gs.volume * Bohr**-3)
+    n = 1 / (calc1.df.gs.volume * Bohr**-3)
     wp = np.sqrt(4 * np.pi * n)
 
     # From https://doi.org/10.1021/jp810808h
