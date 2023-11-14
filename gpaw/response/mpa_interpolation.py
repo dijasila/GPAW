@@ -117,7 +117,7 @@ class MultipoleSolver(Solver):
     def solve(self, X_wGG: Array3D) -> Tuple[Array3D, Array3D]:
         assert len(X_wGG) == 2 * self.npoles
 
-        E_GGp, npr_GG = Pade_solver(X_wGG, self.omega_w**2)
+        E_GGp, npr_GG = pade_solve(X_wGG, self.omega_w**2)
         E_pGG = E_GGp.transpose((2, 0, 1))
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
         return E_pGG, R_pGG
@@ -169,13 +169,13 @@ def mpa_cond_vectorized(
 
 
 @no_type_check
-def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
-    nw, nG1, nG2 = X_wGG.shape
+def pade_solve(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
+    nw, nG, _ = X_wGG.shape
     npols = nw // 2
 
-    b_GGm = np.zeros((nG1, nG2, npols + 1), dtype=np.complex128)
-    bm1_GGm = b_GGm
+    b_GGm = np.zeros((nG, nG, npols + 1), dtype=np.complex128)
     b_GGm[..., 0] = 1.0
+    bm1_GGm = b_GGm
     c_GGw = X_wGG.transpose((1, 2, 0)).copy()
 
     for i in range(1, 2 * npols):
@@ -194,11 +194,11 @@ def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
         bm2_GGm[..., 1:] = c_GGw[..., i, np.newaxis] * bm2_GGm[..., :-1]
         b_GGm[..., 1:] += bm2_GGm[..., 1:]
 
-    companion_GGmm = np.empty((nG1, nG2, npols, npols),
+    companion_GGmm = np.empty((nG, nG, npols, npols),
                               dtype=np.complex128)
 
-    for i in range(nG1):
-        for j in range(nG2):
+    for i in range(nG):
+        for j in range(nG):
             companion_GGmm[i, j] = poly.polycompanion(b_GGm[i, j, :npols + 1])
 
     E_GGm = eigvals(companion_GGmm)
