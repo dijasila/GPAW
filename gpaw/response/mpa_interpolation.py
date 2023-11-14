@@ -46,21 +46,25 @@ def fit_residue(
         for w in range(A_GGwp.shape[2]):
             A_GGwp[:, :, w, p][p >= npr_GG] = 0.0
 
-    temp_GGp = np.einsum("GHwp,GHw->GHp", A_GGwp.conj(), b_GGw)
-    XTX_GGpp = np.einsum("GHwp,GHwo->GHpo", A_GGwp.conj(), A_GGwp)
+    temp_GGp = np.einsum('GHwp,GHw->GHp',
+                         A_GGwp.conj(), b_GGw)
+    XTX_GGpp = np.einsum('GHwp,GHwo->GHpo',
+                         A_GGwp.conj(), A_GGwp)
 
     if XTX_GGpp.shape[2] == 1:
         # 1D matrix, invert the number
         XTX_GGpp = 1 / XTX_GGpp
-        R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+        R_GGp = np.einsum('GHpo,GHo->GHp',
+                          XTX_GGpp, temp_GGp)
     else:
         try:
             R_GGp = np.linalg.solve(XTX_GGpp, temp_GGp)
         except:
             XTX_GGpp = np.linalg.pinv(XTX_GGpp)
-            R_GGp = np.einsum('GHpo,GHo->GHp', XTX_GGpp, temp_GGp)
+            R_GGp = np.einsum('GHpo,GHo->GHp',
+                              XTX_GGpp, temp_GGp)
 
-    return R_GGp.transpose((2,0,1))
+    return R_GGp.transpose((2, 0, 1))
 
 
 class Solver:
@@ -117,6 +121,16 @@ class MultipoleSolver(Solver):
         E_pGG = E_GGp.transpose((2, 0, 1))
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
         return E_pGG, R_pGG
+
+
+def RESolver(omega_w):
+    assert len(omega_w) % 2 == 0
+    npoles = len(omega_w) / 2
+    assert npoles > 0
+    if npoles == 1:
+        return SinglePoleSolver(omega_w)
+    else:
+        return MultipoleSolver(omega_w)
 
 
 def mpa_cond_vectorized(
@@ -186,13 +200,3 @@ def Pade_solver(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
     E2_GGm, npr2_GG = mpa_cond_vectorized(npols, z_w, Esqr_GGm)
 
     return E2_GGm, npr2_GG
-
-
-def RESolver(omega_w):
-    assert len(omega_w) % 2 == 0
-    npoles = len(omega_w) / 2
-    assert npoles > 0
-    if npoles == 1:
-        return SinglePoleSolver(omega_w)
-    else:
-        return MultipoleSolver(omega_w)
