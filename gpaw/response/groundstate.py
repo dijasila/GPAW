@@ -11,9 +11,6 @@ import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
 
 if TYPE_CHECKING:
-    # This allows one to use mypy to check that all variables
-    # have consistent types.
-    # It does nothing in regular use.
     from gpaw.new.ase_interface import ASECalculator
     from gpaw.calculator import GPAW
     from gpaw.setup import Setups, LeanSetup
