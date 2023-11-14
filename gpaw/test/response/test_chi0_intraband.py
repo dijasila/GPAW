@@ -14,27 +14,6 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
     """Comparing the plasmon peaks found in bulk sodium for two different
     atomic structures. Testing for idential plasmon peaks. Not using
     physical sodium cell."""
-    a1 = bulk('Na')
-    a2 = bulk('Na')
-    a2.set_initial_magnetic_moments([[0.1, ]])
-    a1.calc = GPAW(mode=PW(300),
-                   kpts={'size': (8, 8, 8), 'gamma': True},
-                   parallel={'band': 1},
-                   txt='na_spinpaired.txt')
-    a2.calc = GPAW(mode=PW(300),
-                   kpts={'size': (8, 8, 8), 'gamma': True},
-                   parallel={'band': 1},
-                   txt='na_spinpol.txt')
-    a1.get_potential_energy()
-    a2.get_potential_energy()
-
-    # Use twice as many bands for expanded structure
-    a1.calc.diagonalize_full_hamiltonian(nbands=20)
-    a2.calc.diagonalize_full_hamiltonian(nbands=20)
-
-    a1.calc.write('intraband_spinpaired.gpw', 'all')
-    a2.calc.write('intraband_spinpolarized.gpw', 'all')
-
     intraband_spinpaired = gpw_files['intraband_spinpaired_fulldiag']
     intraband_spinpolarized = gpw_files['intraband_spinpolarized_fulldiag']
 
@@ -108,7 +87,7 @@ def test_chi0_intraband(in_tmp_dir, gpw_files):
     assert np.allclose(w_w3, w_w4, atol=1e-5, rtol=1e-4)
 
     # Analytical Drude result
-    n = 1 / (a1.get_volume() * Bohr**-3)
+    n = 1 / (df1.gs.volume * Bohr**-3)
 
     wp = np.sqrt(4 * np.pi * n)
 
