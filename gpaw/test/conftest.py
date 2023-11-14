@@ -1684,6 +1684,28 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
+    @gpwfile
+    def IBiTe_pw_monolayer(self):
+        # janus material. material parameters obtained from c2db.
+        from ase.atoms import Atoms
+        IBiTe_positions = np.array([[0, 2.552, 7.802],
+                                    [0, 0, 9.872],
+                                    [2.210, 1.276, 11.575]])
+        IBiTe = Atoms('IBiTe', positions=IBiTe_positions)
+        IBiTe.pbc = [True, True, False]
+        cell = np.array([[4.4219, 0, 0.0, ],
+                         [-2.211, 3.829, 0.0],
+                         [0.0, 0.0, 19.5]])
+        IBiTe.cell = cell
+        calc = GPAW(mode=PW(200),
+                    xc='LDA',
+                    occupations=FermiDirac(0.01),
+                    kpts={'size': (6, 6, 1), 'gamma': True},
+                    txt=None)
+        IBiTe.calc = calc
+        IBiTe.get_potential_energy()
+        return IBiTe.calc
+
     def _intraband(self, spinpol: bool):
         atoms = bulk('Na')
         if spinpol:
