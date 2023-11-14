@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from ase.parallel import parprint
 from ase.units import Ha
@@ -6,15 +7,18 @@ from ase.utils.timing import Timer
 from pathlib import Path
 import numpy as np
 
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new.ase_interface import ASECalculator, GPAW
-from gpaw.nlopt.adapters import GSInfo
+from gpaw.mpi import serial_comm
+from gpaw.new.ase_interface import ASECalculator
 from gpaw.nlopt.basic import NLOData
-from gpaw.typing import ArrayND
 from gpaw.utilities.progressbar import ProgressBar
 
+if TYPE_CHECKING:
+    from gpaw.nlopt.adapters import CollinearGSInfo, NoncollinearGSInfo
+    from gpaw.mpi import MPIComm
+    from gpaw.typing import ArrayND
 
-def get_mml(gs: GSInfo,
+
+def get_mml(gs: CollinearGSInfo | NoncollinearGSInfo,
             spin: int,
             ni: int,
             nf: int,
@@ -129,12 +133,12 @@ def make_nlodata(calc: ASECalculator | str | Path,
 
     Parameters
     ----------
-    gs_name
-        Ground state file name
+    calc
+        Calculator or string/path pointing to a .gpw file.
     comm
         Communicator for parallelisation.
     spin_string
-        Spin channels to include ('all', 's0' , 's1').
+        String denoting which spin channels to include ('all', 's0' , 's1').
     ni
         First band to compute the mml.
     nf
@@ -149,13 +153,14 @@ def make_nlodata(calc: ASECalculator | str | Path,
 
     if not isinstance(calc, ASECalculator):
         if not (isinstance(calc, str) or isinstance(calc, Path)):
-            raise TypeError('Input must be a calculator or a string '
+            raise TypeError('Input must be a calculator or a string / path'
                             'pointing to a calculator.')
+        from gpaw.new.ase_interface import GPAW
         calc = GPAW(calc, txt=None, communicator=serial_comm)
     assert not calc.symmetry.point_group, \
         'Point group symmetry should be off.'
 
-    gs: GSInfo
+    gs: CollinearGSInfo | NoncollinearGSInfo
     if calc.calculation.state.density.collinear:
         from gpaw.nlopt.adapters import CollinearGSInfo
         gs = CollinearGSInfo(calc, comm)
