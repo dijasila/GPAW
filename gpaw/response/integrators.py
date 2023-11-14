@@ -429,11 +429,7 @@ class KPointTesselation:
             for K in K_k:
                 pts_k[K].append(s)
 
-        # Change to numpy arrays:
-        for k in range(self.nkpts):
-            pts_k[k] = np.array(pts_k[k], int)
-
-        return pts_k
+        return [np.array(pts_k[k], int) for k in range(self.nkpts)]
 
     @property
     def nkpts(self):
