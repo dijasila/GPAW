@@ -52,8 +52,6 @@ class GSInfo:
         self.ucvol = np.abs(np.linalg.det(grid.cell))
         self.bzvol = np.abs(np.linalg.det(2 * np.pi * grid.icell))
 
-        self.ns: int
-
     def get_plane_wave_coefficients(self,
                                     wfs: PWFDWaveFunctions,
                                     bands: slice,
