@@ -76,7 +76,7 @@ class ResponseGroundStateAdapter:
         self._calc = calc
 
     @classmethod
-    def from_gpw_file(cls, gpw: str,
+    def from_gpw_file(cls, gpw: Path | str,
                       context: ResponseContext) -> ResponseGroundStateAdapter:
         """Initiate the ground state adapter directly from a .gpw file."""
         from gpaw import GPAW, disable_dry_run
