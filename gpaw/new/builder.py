@@ -29,7 +29,7 @@ from gpaw.new.smearing import OccupationNumberCalculator
 from gpaw.new.symmetry import create_symmetries_object
 from gpaw.new.xc import create_functional
 from gpaw.setup import Setups
-from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D
+from gpaw.typing import Array2D, ArrayLike1D, ArrayLike2D, DTypeLike
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.xc import XC
 from gpaw.new.c import GPU_AWARE_MPI
@@ -126,7 +126,8 @@ class DFTComponentsBuilder:
         if self.ncomponents == 4:
             self.nbands *= 2
 
-        if self.mode.get('force_complex_dtype', False):
+        self.dtype: DTypeLike
+        if self.params.mode.get('force_complex_dtype', False):
             self.dtype = complex
         else:
             if self.ibz.bz.gamma_only and self.ncomponents < 4:
