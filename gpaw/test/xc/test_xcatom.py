@@ -2,7 +2,7 @@ import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
 from gpaw.xc import XC
-from gpaw.test import equal
+import pytest
 
 
 def test_xc_xcatom():
@@ -26,11 +26,11 @@ def test_xc_xcatom():
         D_p -= 2 * dD_p
         Em = xc.calculate_paw_correction(s, D_p.reshape(1, -1))
         print(dE, dE - 0.5 * (Ep - Em) / x)
-        equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
+        assert dE == pytest.approx(0.5 * (Ep - Em) / x, abs=1e-6)
 
         Ems = xc.calculate_paw_correction(s, np.array([0.5 * D_p, 0.5 * D_p]))
         print(Em - Ems)
-        equal(Em, Ems, 1.0e-12)
+        assert Em == pytest.approx(Ems, abs=1.0e-12)
 
         D_sp = 0.1 * ra.random((2, nii)) + 0.2
         H_sp = np.zeros((2, nii))
@@ -43,4 +43,4 @@ def test_xc_xcatom():
         D_sp -= 2 * dD_sp
         Em = xc.calculate_paw_correction(s, D_sp)
         print(dE, dE - 0.5 * (Ep - Em) / x)
-        equal(dE, 0.5 * (Ep - Em) / x, 1e-6)
+        assert dE == pytest.approx(0.5 * (Ep - Em) / x, abs=1e-6)

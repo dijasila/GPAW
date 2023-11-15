@@ -42,6 +42,7 @@ qsfdtd = QSFDTD(classical_material=classical_material,
                 remove_moments=(1, 1))
 
 energy = qsfdtd.ground_state('gs.gpw',
+                             mode='fd',
                              nbands=1,
                              symmetry='off')
 
