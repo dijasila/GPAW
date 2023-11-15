@@ -22,6 +22,24 @@ from gpaw.response.context import timer
 
 
 """
+// PE(i , j)
+k := (i + j) mod N;
+a := a[i][k];
+b := b[k][j];
+c[i][j] := 0;
+for (l := 0; l < N; l++) {
+    c[i][j] := c[i][j] + a * b;
+        concurrently {
+            send a to PE(i, (j + N − 1) mod N);
+            send b to PE((i + N − 1) mod N, j);
+        } with {
+            receive a' from PE(i, (j + 1) mod N);
+            receive b' from PE((i + 1) mod N, j );
+        }
+    a := a';
+    b := b';
+}
+
 For each band, find degenerate shells eps_d
 For each band pair, construct differences D_p = eps_d1 - eps_d2
 """
@@ -44,6 +62,40 @@ For q in k1-k2:
 
 """
 
+class BandAnalysis:
+    def 
+
+class BSEMadeSimple:
+    def __init__(self, calc, nvalence=None, nconduction=None, screening_cutoff=None):
+        """
+           nvalence 
+               Number of valence bands to include (starting from VBM)
+           nconduction 
+               Number of conduction bands to include (starting from CBM)
+           screening_cutoff
+               Cut off for screened exchange (in eV)
+        """
+        for k in range(ibz_k):
+            print(k, k_c)
+            print(
+
+        for k1 in range(bz_k):
+            for k2 in range(bz_k):
+                q = k2 - k1
+        # Build a symmetry transformation
+    def get_W_nnnn(self, k1, k2, k3, k4):
+        # Find operation, which reduces q=k2-k1 to IBZ
+        # Map k1, k2, k3, k4 according to this operation
+        # Find little group which keeps q intact
+        # Map k1 to as low number as possible using the little group
+
+        W_nnnn = get_W_nnn_reduced(self, k1, k2, k3, k4)
+        # Transform W_nnnn with operations
+        W_nnnn = np.einsum(O_ccnnnnnnnn, W_nnnn)
+
+    def get_W_nnnn_reduced(self, k1, k2, k3, k4):
+        # Return W_nnnn from cache, or calculate it
+            
 
 class BSEBackend:
     def __init__(self, *, gs, context,

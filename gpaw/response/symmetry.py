@@ -13,6 +13,8 @@ class CharacterTableBuilder:
         print('Number of symmetries', len(ops_occ))
         self.verbose = verbose
         self.ops_occ = ops_occ
+        self.unknown_cc=0
+        self.unknown_ir=0
         #self.ops_occ = np.einsum('odc,cv,dw->owv', ops_occ, cell_cv, np.linalg.inv(cell_cv.T))
         #self.ops_occ = np.einsum('cv,odc,dw->owv', cell_cv, ops_occ, np.linalg.inv(cell_cv.T))
         print(self.ops_occ)
@@ -32,7 +34,7 @@ class CharacterTableBuilder:
 
     def _detect_irrep(self, signature):
         h = signature[ self._class_id("E") ]
-
+        print(h)
         #rotations = [ self.class_id(name) for name in self.names_g if ("C" in name) ]
         rotations = self._class_id("6C2")
         print(self._class_id("i"))
@@ -55,7 +57,9 @@ class CharacterTableBuilder:
         if h == 3:
             C="T"
 
-        return C+N+ug+str(np.random.randint(0,19))
+        s = str(self.unknown_ir)+" "+C+N+ug
+        self.unknown_ir += 1
+        return s
 
     def _detect_irreps(self):
         self.names_i = [self._detect_irrep(self.character_ig[i, :]) for i in range(self.character_ig.shape[0])]
@@ -64,28 +68,34 @@ class CharacterTableBuilder:
         det_o = np.array([np.linalg.det(op_cc) for op_cc in ops_occ])
         eigs_o = np.array([np.sort(np.linalg.eig(op_cc)[0]) for op_cc in ops_occ])
         if len(det_o) == 1 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
-            return "C2"
-        if len(det_o) == 1 and np.all(np.isclose(eigs_o, [-1, -1, -1])):
-            return "i"  # Inversion flips all axes, -x, -y, -z
-        if len(det_o) == 1 and np.all(np.isclose(eigs_o, [1, 1, 1])):
-            return "E"  # Identity leaves all axes intact x, y, z
-        if len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
-            return "3C2"  # C2 rotation along z is -x, -y, z
-        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
-            return "6C2"
-        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1j, 1j])):
-            return "6S4"  # -1j and 1j corresponds to 90 rotation. Determinant is -1 thus, improper.
-        if len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
-            return "3sh"  # Horizontal mirror operation flips one of the coordinates
-        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
-            return "6sd"
-        if len(det_o) == 8 and np.all(np.isclose(eigs_o, [-1, np.exp(-1j * 2 * np.pi / 6), np.exp(1j * 2 * np.pi / 6)])):
-            return "8S6"
-        if len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1j, 1j, 1])):
-            return "6C4"
-        if len(det_o) == 8 and np.all(np.isclose(eigs_o, [np.exp(-1j * np.pi * 2 / 3), np.exp(1j * np.pi * 2 / 3), 1])):
-            return "8C3"
-        return "bug?"
+            s="C2"
+        elif len(det_o) == 1 and np.all(np.isclose(eigs_o, [-1, -1, -1])):
+            s= "i"  # Inversion flips all axes, -x, -y, -z
+        elif len(det_o) == 1 and np.all(np.isclose(eigs_o, [1, 1, 1])):
+            s= "E"  # Identity leaves all axes intact x, y, z
+        elif len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
+            s= "3C2"  # C2 rotation along z is -x, -y, z
+        elif len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1, 1])):
+            s= "6C2"
+        elif len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, -1j, 1j])):
+            s= "6S4"  # -1j and 1j corresponds to 90 rotation. Determinant is -1 thus, improper.
+        elif len(det_o) == 3 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
+            s= "3sh"  # Horizontal mirror operation flips one of the coordinates
+        elif len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1, 1, 1])):
+            s= "6sd"
+        elif len(det_o) == 8 and np.all(np.isclose(eigs_o, [-1, np.exp(-1j * 2 * np.pi / 6), np.exp(1j * 2 * np.pi / 6)])):
+            s= "8S6"
+        elif len(det_o) == 6 and np.all(np.isclose(eigs_o, [-1j, 1j, 1])):
+            s= "6C4"
+        elif len(det_o) == 8 and np.all(np.isclose(eigs_o, [np.exp(-1j * np.pi * 2 / 3), np.exp(1j * np.pi * 2 / 3), 1])):
+            s= "8C3"
+        else:
+            s = "?"
+
+        if s == "?":
+            s = s+str(self.unknown_cc)
+            self.unknown_cc += 1
+        return s
 
 
     @classmethod
@@ -107,7 +117,8 @@ class CharacterTableBuilder:
         ops_ozz = []
         for op in ops:
             op_zz = np.zeros((4,4))
-            op_cc = np.einsum('cv,dc,dw->wv', cell_cv, op[1]*op[0], np.linalg.inv(cell_cv.T))
+            #op_cc = np.einsum('cv,dc,dw->wv', cell_cv, op[1]*op[0], np.linalg.inv(cell_cv.T))
+            op_cc = op[1]*op[0]
             #print('opcc', op_cc)
             #op2_cc = np.einsum('cv,dc,dw->wv', np.linalg.inv(cell_cv.T), np.linalg.inv(op[1]*op[0]), cell_cv)
             #print('op2cc', op2_cc)
@@ -115,8 +126,6 @@ class CharacterTableBuilder:
             op_zz[3,3] = 1.0
             assert np.all(op[4] == 0)
             ops_ozz.append(op_zz[:3,:3])
-        
-
         
         return cls(np.array(ops_ozz))
 
@@ -175,7 +184,7 @@ class CharacterTableBuilder:
             op1 = op_pool[0]
             op1_cc = ops_occ[op1]
             # ...conjugate it with all possible operations, see the result, and remove any duplicates
-            conjugacy_class = np.unique([self.get_op_id(np.dot(op2_cc, np.dot(op1_cc, op2_cc.T))) for o2, op2_cc in enumerate(ops_occ)])
+            conjugacy_class = np.unique([self.get_op_id(np.dot(op2_cc, np.dot(op1_cc, np.linalg.inv(op2_cc)))) for o2, op2_cc in enumerate(ops_occ)])
 
             # Fill g_o array that maps ops to class
             for op in conjugacy_class:
