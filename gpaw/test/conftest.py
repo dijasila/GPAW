@@ -1,4 +1,5 @@
 import os
+from math import sqrt
 from contextlib import contextmanager
 from pathlib import Path
 import functools
@@ -336,17 +337,17 @@ class GPWFiles:
 
     @gpwfile
     def fcc_Ni_col(self):
-        return self.fcc_Ni('col')
+        return self._fcc_Ni('col')
 
     @gpwfile
     def fcc_Ni_ncol(self):
-        return self.fcc_Ni('ncol')
+        return self._fcc_Ni('ncol')
 
     @gpwfile
     def fcc_Ni_ncolsoc(self):
-        return self.fcc_Ni('ncolsoc')
+        return self._fcc_Ni('ncolsoc')
 
-    def fcc_Ni(self, calc_type):
+    def _fcc_Ni(self, calc_type):
         Ni = bulk('Ni', 'fcc', 3.48)
         Ni.center()
 
@@ -354,7 +355,7 @@ class GPWFiles:
         easy_axis = 1 / np.sqrt(3) * np.ones(3)
         Ni.set_initial_magnetic_moments([mm])
 
-        symmetry = {'point_group': True, 'time_reversal': True} if \
+        symmetry = {'point_group': False, 'time_reversal': True} if \
             calc_type == 'col' else 'off'
         magmoms = None if calc_type == 'col' else [mm * easy_axis]
         soc = True if calc_type == 'ncolsoc' else False
@@ -364,6 +365,7 @@ class GPWFiles:
                           parallel={'domain': 1, 'band': 1},
                           symmetry=symmetry,
                           occupations={'name': 'fermi-dirac', 'width': 0.05},
+                          convergence={'density': 1e-6},
                           magmoms=magmoms, soc=soc,
                           txt=self.path / f'fcc_Ni_{calc_type}.txt')
         Ni.get_potential_energy()
@@ -617,7 +619,6 @@ class GPWFiles:
             nbands=10,
             h=0.2,
             setups={"O": "h2o_xas_hch1s"},
-            experimental={"niter_fixdensity": 2},
             poissonsolver=FDPoissonSolver(use_charge_center=True),
         )
         H2O.calc = calc
@@ -627,7 +628,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_ibz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k),
                        txt=self.path / 'si_fd_ibz.txt')
         si.get_potential_energy()
@@ -636,7 +637,7 @@ class GPWFiles:
     @gpwfile
     def si_fd_bz(self):
         si = bulk('Si', 'diamond', a=5.43)
-        k = 4
+        k = 3
         si.calc = GPAW(mode='fd', kpts=(k, k, k,),
                        symmetry={'point_group': False,
                                  'time_reversal': False},
@@ -855,18 +856,14 @@ class GPWFiles:
         blk.calc = GPAW(mode=PW(ecut),
                         basis='dzp',
                         kpts={'size': (4, 4, 4), 'gamma': True},
-                        parallel={'domain': 1},
-                        txt=self.path / 'temp.txt',
+                        parallel={'domain': 1, 'band': 1},
+                        txt=self.path / 'na_pw.txt',
                         nbands=4,
                         occupations=FermiDirac(0.01),
                         setups={'Na': '1'})
         blk.get_potential_energy()
-        blk.calc.write('gs_occ_pw.gpw')
-
-        calc = GPAW('gs_occ_pw.gpw', txt=self.path / 'na_pw.txt',
-                    parallel={'band': 1})
-        calc.diagonalize_full_hamiltonian(nbands=520)
-        return calc
+        blk.calc.diagonalize_full_hamiltonian(nbands=520)
+        return blk.calc
 
     @gpwfile
     def na2_fd(self):
@@ -981,6 +978,47 @@ class GPWFiles:
         return gs_calc
 
     @gpwfile
+    def na3_pw_restart(self):
+        params = dict(mode=PW(200), convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_restart(self):
+        params = dict(mode="fd", h=0.30, convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_kp_restart(self):
+        params = dict(mode="fd", h=0.30, kpts=(1, 1, 3), convergence={
+            "eigenstates": 1.24, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    @gpwfile
+    def na3_fd_density_restart(self):
+        params = dict(mode="fd", h=0.30, convergence={
+            "eigenstates": 1.e-3, "energy": 2e-1, "density": 1e-1})
+        return self._na3_restart(params=params)
+
+    def _na3_restart(self, params):
+        d = 3.0
+        atoms = Atoms("Na3",
+                      positions=[(0, 0, 0),
+                                 (0, 0, d),
+                                 (0, d * sqrt(3 / 4), d / 2)],
+                      magmoms=[1.0, 1.0, 1.0],
+                      cell=(3.5, 3.5, 4 + 2 / 3),
+                      pbc=True)
+
+        atoms.calc = GPAW(nbands=3,
+                          setups={"Na": "1"},
+                          **params)
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    @gpwfile
     def sih4_xc_gllbsc(self):
         from ase.build import molecule
         atoms = molecule('SiH4')
@@ -1079,6 +1117,54 @@ class GPWFiles:
 
         atoms.get_potential_energy()
         return atoms.calc
+
+    @with_band_cutoff(gpw='bi2i6_pw',
+                      band_cutoff=36)
+    def _bi2i6(self, *, band_cutoff, symmetry=None):
+        if symmetry is None:
+            symmetry = {}
+        positions = [[4.13843656, 2.38932746, 9.36037077],
+                     [0.00000000, 4.77865492, 9.36034750],
+                     [3.89827619, 0.00000000, 7.33713295],
+                     [2.18929748, 3.79197674, 7.33713295],
+                     [-1.94913711, 3.37600678, 7.33713295],
+                     [3.89827619, 0.00000000, 11.3835853],
+                     [2.18929961, 3.79197551, 11.3835853],
+                     [-1.94913924, 3.37600555, 11.3835853]]
+        cell = [[8.276873113486648, 0.0, 0.0],
+                [-4.138436556743325, 7.167982380179831, 0.0],
+                [0.0, 0.0, 18.720718261172827]]
+        pbc = [True, True, False]
+        atoms = Atoms('Bi2I6',
+                      positions=positions,
+                      cell=cell,
+                      pbc=pbc)
+
+        ecut = 150
+        nkpts = 4
+        conv = {'bands': band_cutoff + 1,
+                'density': 1.e-8}
+        print(conv)
+        tag = '_nosym' if symmetry == 'off' else ''
+        atoms.calc = GPAW(mode=PW(ecut),
+                          xc='LDA',
+                          kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
+                          occupations=FermiDirac(0.01),
+                          convergence=conv,
+                          nbands=band_cutoff + 9,
+                          txt=self.path / f'bi2i6_pw{tag}.txt',
+                          symmetry=symmetry)
+
+        atoms.get_potential_energy()
+        return atoms.calc
+
+    @gpwfile
+    def bi2i6_pw(self):
+        return self._bi2i6()
+
+    @gpwfile
+    def bi2i6_pw_nosym(self):
+        return self._bi2i6(symmetry='off')
 
     def _mos2(self, symmetry=None):
         if symmetry is None:
@@ -1594,6 +1680,48 @@ class GPWFiles:
         si.get_potential_energy()
         return si.calc
 
+    @gpwfile
+    def IBiTe_pw_monolayer(self):
+        # janus material. material parameters obtained from c2db.
+        from ase.atoms import Atoms
+        IBiTe_positions = np.array([[0, 2.552, 7.802],
+                                    [0, 0, 9.872],
+                                    [2.210, 1.276, 11.575]])
+        IBiTe = Atoms('IBiTe', positions=IBiTe_positions)
+        IBiTe.pbc = [True, True, False]
+        cell = np.array([[4.4219, 0, 0.0, ],
+                         [-2.211, 3.829, 0.0],
+                         [0.0, 0.0, 19.5]])
+        IBiTe.cell = cell
+        calc = GPAW(mode=PW(200),
+                    xc='LDA',
+                    occupations=FermiDirac(0.01),
+                    kpts={'size': (6, 6, 1), 'gamma': True},
+                    txt=None)
+        IBiTe.calc = calc
+        IBiTe.get_potential_energy()
+        return IBiTe.calc
+
+    def _intraband(self, spinpol: bool):
+        atoms = bulk('Na')
+        if spinpol:
+            atoms.set_initial_magnetic_moments([[0.1]])
+        atoms.calc = GPAW(mode=PW(300),
+                          kpts={'size': (8, 8, 8), 'gamma': True},
+                          parallel={'band': 1},
+                          txt=None)
+        atoms.get_potential_energy()
+        atoms.calc.diagonalize_full_hamiltonian(nbands=20)
+        return atoms.calc
+
+    @gpwfile
+    def intraband_spinpaired_fulldiag(self):
+        return self._intraband(False)
+
+    @gpwfile
+    def intraband_spinpolarized_fulldiag(self):
+        return self._intraband(True)
+
 
 # We add Si fixtures with various symmetries to the GPWFiles namespace
 for name, method in si_gpwfiles().items():
@@ -1661,36 +1789,6 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    for line in [
-        'ci: test included in CI',
-        'do: Direct optimization',
-        'dscf: Delta-SCF',
-        'elph: Electron-phonon',
-        'fast: fast test',
-        'generate_gpw_files: Dummy test to trigger gpw file precalculation',
-        'gllb: GLLBSC tests',
-        'gpu: GPU test',
-        'hybrids: Hybrid functionals',
-        'intel: fails on INTEL toolchain',
-        'kspair: tests of kspair in the response code',
-        'later: know failure for new refactored GPAW',
-        'legacy: Old stuff that will be removed later',
-        'libxc: LibXC requirered',
-        'lrtddft: Linear-response TDDFT',
-        'mgga: MGGA test',
-        'mom: MOM',
-        'ofdft: Orbital-free DFT',
-        'response: tests of the response code',
-        'rpa: tests of RPA',
-        'rttddft: Real-time TDDFT',
-        'serial: run in serial only',
-        'sic: PZ-SIC',
-        'slow: slow test',
-        'soc: Spin-orbit coupling',
-        'stress: Calculation of stress tensor',
-        'wannier: Wannier functions',
-        'pipekmezey : PipekMezey wannier functions']:
-        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):
@@ -1701,7 +1799,8 @@ def pytest_runtest_setup(item):
     * they depend on libxc and GPAW is not compiled with libxc
     * they are before $PYTEST_START_AFTER
     """
-    from gpaw import libraries
+    from gpaw import get_libraries
+    libraries = get_libraries()
 
     if world.size > 1:
         for mark in item.iter_markers():
