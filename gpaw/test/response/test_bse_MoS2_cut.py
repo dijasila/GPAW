@@ -7,6 +7,7 @@ from gpaw.mpi import world
 from gpaw.test import findpeak
 from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
+from ase.units import Bohr
 
 
 @pytest.mark.response
@@ -71,3 +72,81 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     assert I0 == pytest.approx(38.8, abs=0.35)
     assert w1 == pytest.approx(2.22, abs=0.01)
     assert I1 == pytest.approx(6.3, abs=0.35)
+
+    #################################################################
+    # Absorption and EELS spectra for 2D materials should be identical
+    # for q=0.
+    #################################################################
+
+    # Since a lot of hidden stuff is saved to self one has to create a
+    # new BSE object for every calculation. THIS IS EXTREMELY DANGEROUS
+    # BEHAVIOUR AND IS REPORTED IN ISSUE #1015
+    bse = BSE('MoS2.gpw',
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+
+    outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
+
+    bse = BSE('MoS2.gpw',
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+
+    pbc_c = bse.gs.pbc
+    V = bse.gs.nonpbc_cell_product()
+    factor = V * Bohr**(sum(~pbc_c)) / (4 * np.pi)
+    outw_w, pol = bse.get_polarizability(w_w=w_w)
+    assert np.allclose(pol.imag / factor, eels)
+
+    #####################################################################
+    # Absorption and EELS spectra for 2D materials should NOT be identical
+    # for finite q.
+    #####################################################################
+    bse = BSE('MoS2.gpw',
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+
+    outw_w, eels = bse.get_eels_spectrum(w_w=w_w, q_c=[0.2, 0.2, 0.0])
+
+    bse = BSE('MoS2.gpw',
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+
+    outw_w, pol = bse.get_polarizability(w_w, q_c=[0.2, 0.2, 0.0])
+
+    assert not np.allclose(pol.imag / factor, eels)
