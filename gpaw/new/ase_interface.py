@@ -151,23 +151,15 @@ class ASECalculator:
                         atoms.set_initial_magnetic_moments(magmom_a)
 
                 if changes & {'numbers', 'pbc'}:
-                    # Start from scratch:
-                    self.calculation = None
+                    self.calculation = None  # start from scratch
                 else:
-                    ibzwfs = self.calculation.state.ibzwfs
-                    kpt_parallel_only = (ibzwfs.band_comm.size == 1 and
-                                         ibzwfs.domain_comm.size == 1)
-                    if kpt_parallel_only:
-                        try:
-                            self.create_new_calculation_from_old(atoms)
-                        except ReuseWaveFunctionsError:
-                            self.calculation = None
-                        else:
-                            self.converge()
-                            changes = set()
+                    try:
+                        self.create_new_calculation_from_old(atoms)
+                    except ReuseWaveFunctionsError:
+                        self.calculation = None  # start from scratch
                     else:
-                        # Not implemented: just start from scratch
-                        self.calculation = None
+                        self.converge()
+                        changes = set()
 
         if self.calculation is None:
             self.create_new_calculation(atoms)
