@@ -477,6 +477,7 @@ class GPWFiles:
         calc = GPAW(mode=PW(200),
                     nbands=4,
                     setups={'Na': '1'},
+                    txt=self.path / 'na_chain.txt',
                     kpts=(16, 2, 2))
 
         atoms.calc = calc
