@@ -309,6 +309,10 @@ class DFTCalculation:
         if params.mode['name'] != 'pw':
             raise ReuseWaveFunctionsError
 
+        ibzwfs = self.state.ibzwfs
+        if ibzwfs.domain_comm.size != 1:
+            raise ReuseWaveFunctionsError
+
         if not self.state.density.nt_sR.desc.pbc_c.all():
             raise ReuseWaveFunctionsError
 
@@ -318,7 +322,7 @@ class DFTCalculation:
         builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
-        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
+        old_kpt_kc = ibzwfs.ibz.kpt_kc
         if len(kpt_kc) != len(old_kpt_kc):
             raise ReuseWaveFunctionsError
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
@@ -343,7 +347,7 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, _ = pot_calc.calculate(density)
 
-        old_ibzwfs = self.state.ibzwfs
+        old_ibzwfs = ibzwfs
 
         def create_wfs(spin, q, k, kpt_c, weight):
             wfs = old_ibzwfs.wfs_qs[q][spin]
