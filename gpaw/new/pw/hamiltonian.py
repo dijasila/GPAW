@@ -14,7 +14,7 @@ from gpaw.new.c import pw_precond
 
 class PWHamiltonian(Hamiltonian):
     def __init__(self, grid, pw, xp):
-        self.plan = grid.new(dtype=pw.dtype).fft_plans(xp=xp)
+        self.plan = grid.new(comm=None, dtype=pw.dtype).fft_plans(xp=xp)
         self.pw_cache = {}
 
     def apply_local_potential(self,
@@ -44,16 +44,20 @@ class PWHamiltonian(Hamiltonian):
         domain_comm = psit_nG.desc.comm
         mynbands = psit_nG.mydims[0]
         vtpsit_G = pw_local.empty(xp=xp)
+        from time import time
+        t = time()
         for n1 in range(0, mynbands, domain_comm.size):
             n2 = min(n1 + domain_comm.size, mynbands)
             psit_nG[n1:n2].gather_all(psit_G)
+            print(time() - t, n1, n2, domain_comm.rank)
             if domain_comm.rank < n2 - n1:
-                psit_G.ifft(out=tmp_R)
+                psit_G.ifft(out=tmp_R, plan=self.plan)
                 tmp_R.data *= vt_R.data
-                tmp_R.fft(out=vtpsit_G)
+                tmp_R.fft(out=vtpsit_G, plan=self.plan)
                 psit_G.data *= e_kin_G
                 vtpsit_G.data += psit_G.data
             out_nG[n1:n2].scatter_from_all(vtpsit_G)
+        lkjh
 
     def apply_mgga(self,
                    dedtaut_R: UGArray,
