@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Any, Union
 
 import numpy as np
@@ -11,7 +12,7 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float, world
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters

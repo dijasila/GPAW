@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Generator
 
 import numpy as np
@@ -9,7 +10,7 @@ from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize, as_np
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.potential import Potential
