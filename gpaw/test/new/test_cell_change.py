@@ -1,11 +1,10 @@
 import pytest
 from ase import Atoms
 from gpaw.new.ase_interface import GPAW
-from gpaw.mpi import size, broadcast_string
+from gpaw.mpi import broadcast_string
 from io import StringIO
 
 
-@pytest.mark.skipif(size > 2, reason='Not implemented')
 @pytest.mark.parametrize('gpu', [False, True])
 def test_new_cell(gpu):
     a = 2.1
@@ -17,7 +16,7 @@ def test_new_cell(gpu):
         xc='PBE',
         mode={'name': 'pw'},
         kpts=(2, 2, 1),
-        parallel={'gpu': gpu},
+        parallel={'gpu': gpu, 'domain': 1},
         txt=output)
     e0 = atoms.get_potential_energy()
     s0 = atoms.get_stress()

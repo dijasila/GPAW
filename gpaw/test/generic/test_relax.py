@@ -7,7 +7,6 @@ from ase.optimize import BFGS
 
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.test import equal
 
 
 @pytest.mark.later
@@ -104,6 +103,6 @@ def test_generic_relax(in_tmp_dir):
     assert abs(f - f0).max() < 5e-6  # 5 digits in txt file
 
     energy_tolerance = 0.002
-    equal(e1, -6.287873, energy_tolerance)
-    equal(e2, -6.290744, energy_tolerance)
-    equal(e2q, -6.290744, energy_tolerance)
+    assert e1 == pytest.approx(-6.287873, abs=energy_tolerance)
+    assert e2 == pytest.approx(-6.290744, abs=energy_tolerance)
+    assert e2q == pytest.approx(-6.290744, abs=energy_tolerance)
