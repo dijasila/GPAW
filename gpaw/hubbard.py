@@ -182,8 +182,8 @@ def aoom(D_ii: Array2D,
         i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)
 
         # Scale and add the four submatrices to get the occupation matrix
-        N_mm = (D_ii[i1, i1] * N1 + D_ii[i1, i2] * N12
-                + D_ii[i2, i1] * N12 + D_ii[i2, i2] * N2)
+        N_mm = D_ii[i1, i1] * N1 + D_ii[i2, i2] * N2 + (D_ii[i1, i2]
+                                                        + D_ii[i2, i1]) * N12
 
         dHU_ii[i1, i1] = N1
         dHU_ii[i1, i2] = N12

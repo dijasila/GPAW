@@ -786,15 +786,6 @@ class Setup(BaseSetup):
         rcut2 = 2 * rcutmax
         gcut2 = self.gcut2 = rgd.ceil(rcut2)
 
-        gcut_q = np.zeros(nq, dtype=int)
-        q = 0  # q: common index for j1, j2
-        for j1 in range(self.nj):
-            for j2 in range(j1, self.nj):
-                gcut_q[q] = rgd.ceil(min(rcut_j[j1], rcut_j[j2]))
-                q += 1
-
-        self.gcut_q = gcut_q
-
         vbar_g = data.vbar_g
 
         if float(data.version) < 0.7 and data.generator_version < 2:
@@ -1047,16 +1038,18 @@ class Setup(BaseSetup):
     def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
-        gcut_q = self.gcut_q
+        rcut_j = self.rcut_j
         nq = self.nq
 
-        r_g = self.local_corr.rgd2.r_g
-        dr_g = self.local_corr.rgd2.dr_g
+        rgd = self.local_corr.rgd2
+        r_g = rgd.r_g
+        dr_g = rgd.dr_g
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
 
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
+        gcut_q = np.zeros(nq, dtype=int)
         N0_q = np.zeros(nq)
         q = 0  # q: common index for j1, j2
         for j1 in range(self.nj):
@@ -1064,11 +1057,13 @@ class Setup(BaseSetup):
                 n_qg[q] = phi_jg[j1] * phi_jg[j2]
                 nt_qg[q] = phit_jg[j1] * phit_jg[j2]
 
-                gcut = gcut_q[q]
-                N0_q[q] = sum(n_qg[q, :gcut] * (r_g[:gcut]**2 * dr_g[:gcut]))
+                gcut = rgd.ceil(min(rcut_j[j1], rcut_j[j2]))
+                N0_q[q] = sum(n_qg[q, :gcut] * r_g[:gcut]**2 * dr_g[:gcut])
+                gcut_q[q] = gcut
 
                 q += 1
 
+        self.gcut_q = gcut_q
         self.N0_q = N0_q
 
         Delta_lq = np.zeros((lmax + 1, nq))
