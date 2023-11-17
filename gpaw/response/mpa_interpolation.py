@@ -1,26 +1,13 @@
 """
-Authors (see AUTHORS file for details): DALV
+This file contains several routines to do the non linear
+interpolation of poles and residues of respose fuctions
+corresponding to the Multipole Approximation (MPA)
+developed in the Ref. [1].
 
-Multipole interpolation:
-                        - analytical solution for 1-3 poles
-                        - Linear solver for n poles*
-                        - Pade-Thiele solver for n poles*
+The implemented solver is the one based on Pade-Thiele 
+formula (See App. A of Ref. [1]).
 
-Failure condition for the position of the poles*
-
-*DA. Leon et al, PRB 104, 115157 (2021)
-
-Notes:
-
-  1) X(w) is approximated as a sum of poles
-  2) Form of one pole: -P/(w**2-Q) = 2*E*R/(w**2-E**2)
-  3) The input are two w and X(w) for each pole
-  4) The output are E and R coefficients
-  5) Use real(R), imaginary(I) or complex(C) w
-
-**The module works for scalar polarizabilities, so if
-  one wants the solution for matrix element X(G,G',q)
-  then RQ_solver should be called for each G, G' and q.
+[1] DA. Leon et al, PRB 104, 115157 (2021)
 """
 from __future__ import annotations
 from typing import Tuple, no_type_check
@@ -68,14 +55,34 @@ def fit_residue(
 
 
 class Solver:
-    def __init__(self, omega_w: Array1D):
+    """
+    X(w) is approximated as a sum of poles
+    Form of one pole: 2*E*R/(w**2-E**2)
+    The input are two w and X(w) for each pole
+    The output are E and R coefficients
+    """
+    def __init__(self, omega_w: Array1D, threshold=1e-5, epsilon=1e-8):
+        """
+        Parameters
+        ----------
+        omega_w : Array of complex frequencies set in
+                  mpa sampling. The length corresponds
+                  to twice the number of poles
+        threshold: threshold for small and too close poles
+        epsilon: precision for positive zero imaginary part
+        """"
         assert len(omega_w) % 2 == 0
         self.omega_w = omega_w
         self.npoles = len(omega_w) // 2
-        self.threshold = 1e-5
-        self.epsilon = 1e-8
+        self.threshold = threshold
+        self.epsilon = epsilon
 
-    def solve(self, X_wG):
+    def solve(self, X_wGG):
+        """
+        X_wGG is any response function evaluated at omega_w
+        it returns a tuple of poles and residues (E_pGG, R_pGG)
+        where p is the pole index
+        """
         raise NotImplementedError
 
 
@@ -84,13 +91,16 @@ class SinglePoleSolver(Solver):
         Solver.__init__(self, omega_w=omega_w)
 
     def solve(self, X_wGG: Array3D) -> Tuple[Array2D, Array2D]:
+        """
+        This interpolates X_wGG using a single pole (E_GG, R_GG)
+        """
         assert len(X_wGG) == 2
 
         omega_w = self.omega_w
         E_GG = ((X_wGG[0, :, :] * omega_w[0]**2 -
                  X_wGG[1, :, :] * omega_w[1]**2) /
                 (X_wGG[0, :, :] - X_wGG[1, :, :])
-                )
+                )  # analytical solution
 
         def branch_sqrt_inplace(E_GG: Array2D):
             E_GG.real = np.abs(E_GG.real)  # physical pole
@@ -115,10 +125,16 @@ class MultipoleSolver(Solver):
         Solver.__init__(self, omega_w=omega_w)
 
     def solve(self, X_wGG: Array3D) -> Tuple[Array3D, Array3D]:
+        """
+        This interpolates X_wGG using a sveral poles (E_pGG, R_pGG)
+        """
         assert len(X_wGG) == 2 * self.npoles
 
+        # First the poles are obtained (non linear part of the problem)
         E_GGp, npr_GG = pade_solve(X_wGG, self.omega_w**2)
         E_pGG = E_GGp.transpose((2, 0, 1))
+        # The residues are obtained in a linear least square problem with 
+        # complex variables
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
         return E_pGG, R_pGG
 
