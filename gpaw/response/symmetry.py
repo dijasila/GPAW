@@ -10,21 +10,19 @@ from gpaw.response import timer
 
 class CharacterTableBuilder:
     def __init__(self, ops_occ, verbose=True):
-        print('Number of symmetries', len(ops_occ))
+        print('Order of little group:', len(ops_occ))
         self.verbose = verbose
         self.ops_occ = ops_occ
         self.unknown_cc=0
         self.unknown_ir=0
         #self.ops_occ = np.einsum('odc,cv,dw->owv', ops_occ, cell_cv, np.linalg.inv(cell_cv.T))
         #self.ops_occ = np.einsum('cv,odc,dw->owv', cell_cv, ops_occ, np.linalg.inv(cell_cv.T))
-        print(self.ops_occ)
         self._build_multiplication_table()
         self._find_conjugacy_classes()
         self._build_character_table()
         self._detect_conjugacy_classes()
         self._detect_irreps()
         self.print_character_table()
-        print(self.character_ig)
 
     def _class_id(self, classname):
         try:
@@ -34,10 +32,8 @@ class CharacterTableBuilder:
 
     def _detect_irrep(self, signature):
         h = signature[ self._class_id("E") ]
-        print(h)
         #rotations = [ self.class_id(name) for name in self.names_g if ("C" in name) ]
         rotations = self._class_id("6C2")
-        print(self._class_id("i"))
         if self._class_id("i"):
             ug = "g" if signature[ self._class_id("i") ] > 0 else "u"
         else:
@@ -111,14 +107,14 @@ class CharacterTableBuilder:
         """
         cell_cv = pwsym.qpd.gd.cell_cv
 
-        print(pwsym.qpd.q_c,'q_c', np.linalg.inv(cell_cv.T) @ pwsym.qpd.q_c)
+        #print(pwsym.qpd.q_c,'q_c', np.linalg.inv(cell_cv.T) @ pwsym.qpd.q_c)
         ops = [pwsym.get_symmetry_operator(pwsym.s_s[s]) 
                for s in range(pwsym.how_many_symmetries())]
         ops_ozz = []
         for op in ops:
             op_zz = np.zeros((4,4))
             #op_cc = np.einsum('cv,dc,dw->wv', cell_cv, op[1]*op[0], np.linalg.inv(cell_cv.T))
-            op_cc = op[1]*op[0]
+            op_cc = op[0] * op[1]
             #print('opcc', op_cc)
             #op2_cc = np.einsum('cv,dc,dw->wv', np.linalg.inv(cell_cv.T), np.linalg.inv(op[1]*op[0]), cell_cv)
             #print('op2cc', op2_cc)
@@ -144,7 +140,7 @@ class CharacterTableBuilder:
             def TR(x):
                 return x
 
-        return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
+        return sign*U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
     
     def get_op_id(self, op_cc):
         for o1, op1_cc in enumerate(self.ops_occ):
@@ -238,7 +234,7 @@ class CharacterTableBuilder:
     
     def _detect_conjugacy_classes(self):
         self.names_g = [self._detect_conjugacy_class([self.ops_occ[o] for o in classops]) for classops in self.ops_g]
-        print(self.names_g)
+        #print(self.names_g)
 
     def class_id(self, classname):
         try:
@@ -455,14 +451,17 @@ class PWSymmetryAnalyzer:
             s_s = list(filter(self.is_not_point_group, s_s))
 
         if self.disable_time_reversal:
+            before = len(s_s)
             s_s = list(filter(self.is_not_time_reversal, s_s))
+            after = len(s_s)
+            print('Time reversal: Before', before, 'After', after)
 
         # You are not allowed to use non-symmorphic syms, sorry. So we remove
         # the option and always filter those symmetries out.
         before = len(s_s)
         s_s = list(filter(self.is_not_non_symmorphic, s_s))
         after = len(s_s)
-        print('Before', before, 'After', after)
+        print('Non symmorphic: Before', before, 'After', after)
 
 #        stmp_s = []
 #        for s in s_s:
@@ -611,12 +610,14 @@ class PWSymmetryAnalyzer:
         return shift_c
     
     @timer('apply symop')
-    def apply_symop(self, s, a_MG):
+    def apply_symop(self, s, a_MG, ignore_TR=False):
         if len(a_MG) == 0:
             return []
-        
-        G_G, sign, shift_c = self.G_sG[s]
-        U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(s)
+        G_G, sign, shift_c = self.G_sG[self.s_s[s]]
+        U_cc, _, TR, shift_c, ft_c = self.get_symmetry_operator(self.s_s[s])
+
+        if ignore_TR:
+            return a_MG[..., G_G]
 
         return TR(a_MG[..., G_G])
 

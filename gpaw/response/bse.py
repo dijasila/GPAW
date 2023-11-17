@@ -45,8 +45,6 @@ For each band pair, construct differences D_p = eps_d1 - eps_d2
 """
 
 """
-   
-
 For q in k1-k2:
      <psi_k1 psi_k1+q| hat W(q) | psi_k2 \psi_k2+q>
      = <n_k1k2G | W_GG(q) | n_k1+q n_k2+q >
@@ -59,11 +57,8 @@ For q in k1-k2:
     W_k1k2k3k4_n1n2n3n4 = \int \int psi_k1n1(r) \psi^*_k2n2(r') W(r,r') psi^*_k3(r) \psi_k4(r')
 
     O(W_k1k1+qk2k2+q_n1m1n1m2) = W_O(k1)O(k1+q)O(k2)O(k2+q)_n1n2n3n4 A_n1n2n3n4_n1'n2'n3'n4'(O)
-
 """
 
-class BandAnalysis:
-    def 
 
 class BSEMadeSimple:
     def __init__(self, calc, nvalence=None, nconduction=None, screening_cutoff=None):
@@ -75,7 +70,8 @@ class BSEMadeSimple:
            screening_cutoff
                Cut off for screened exchange (in eV)
         """
-        for k in range(ibz_k):
+        for kpt in calc.wfs.kpt_u:
+            symmetry_analyze_kpt(
             print(k, k_c)
             print(
 
