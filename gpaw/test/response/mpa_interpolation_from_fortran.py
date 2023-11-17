@@ -48,29 +48,12 @@ def mpa_cond1(z: tuple[complex, complex] | Array1D,
 
 
 def mpa_E_1p_solver(z, x):
-    #
-    # DALV: analytical form of the E position of the 1 pole solution
-    #
-    # complex(SP), intent(in)   :: z(2)
-    # complex(SP), intent(in)   :: x(2)
-    # complex(SP), intent(out)  :: E
-    # real(SP),    intent(out)  :: PPcond_rate
-
     E2 = (x[0] * z[0]**2 - x[1] * z[1]**2) / (x[0] - x[1])
     E, PPcond_rate = mpa_cond1(z, E2)
     return E, PPcond_rate
 
 
-# ######### any number of poles #############################################
-
-def pole_is_out(i, wmax, thr, E):  # we need to modify E inside the function
-    # integer ,    intent(in)     :: i
-    # real(SP),    intent(in)     :: wmax, thr
-    # complex(SP), intent(inout)  :: E(:)
-
-    # integer     :: j
-    # logical     :: pole_is_out
-
+def pole_is_out(i, wmax, thr, E):
     is_out = False
 
     if np.real(E[i]) > wmax:
@@ -94,16 +77,6 @@ def pole_is_out(i, wmax, thr, E):  # we need to modify E inside the function
 
 def mpa_cond(npols: int, z: List[complex], E) ->\
         Tuple[int, List[bool], List[complex]]:
-    # integer,     intent(in)     :: np
-    # integer,     intent(out)    :: npr
-    # logical,     intent(out)    :: PPcond(np)
-    # complex(SP), intent(in)     :: z(2*np)
-    # complex(SP), intent(inout)  :: E(np)
-
-    # integer     :: i, j
-    # complex(SP) :: Eaux(np)
-    # real(SP)    :: wmax, thr=0.00001_SP
-
     PPcond = np.full(npols, False)
     npr = npols
     wmax = np.max(np.real(np.emath.sqrt(z))) * 1.5
@@ -143,43 +116,13 @@ def mpa_R_1p_fit(npols, npr, w, x, E):
         A[2 * k][1] = -2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][0] = 2. * np.imag(E / (w[k]**2 - E**2))
         A[2 * k + 1][1] = 2. * np.real(E / (w[k]**2 - E**2))
-    # print('A', A, 'b', b)
 
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
-
     R = Rri[0] + 1j * Rri[1]
-
     return R
 
 
 def mpa_R_fit(npols, npr, w, x, E):
-    # integer,     intent(in)  :: np, npr
-    # complex(SP), intent(in)  :: w(2*np)
-    # complex(SP), intent(in)  :: x(2*np), E(np)
-    # complex(SP), intent(out) :: R(np)
-
-    # complex()            :: A(2*np,npr), B(2*np)
-    # integer              :: i, k, info, rank, lwork, lwmax
-    # parameter            (lwmax=1000)
-    # real(SP)             :: rcond
-    # integer              :: iwork(3*npr*0+11*npr)
-    # real(SP)             :: S(npr), rwork(10*npr+2*npr*25+8*npr*0+3*25+26*26)
-    # complex(SP)          :: work(lwmax)
-
-    """
-    A = np.zeros((2*npols,npr),dtype='complex64')
-    for k in range(2*npols):
-      #B[k] = x[k]
-      for i in range(npr):
-        A[k][i] = 2.*E[i]/(w[k]**2 -E[i]**2)
-    """
-    # Failed attempts to do a linear least square with complex numbers:
-    """
-    R = np.linalg.lstsq(A, x, rcond='warn')[0]
-    init = np.zeros(len(x))
-    R = leastsq(residuals,init,args=(A, x))[0]
-    """
-
     # Transforming the problem into a 2* larger least square with real numbers:
     A = np.zeros((2 * npols * 2, npr * 2), dtype='complex64')
     b = np.zeros((2 * npols * 2), dtype='complex64')
@@ -192,30 +135,13 @@ def mpa_R_fit(npols, npr, w, x, E):
             A[2 * k + 1][2 * i] = 2. * np.imag(E[i] / (w[k]**2 - E[i]**2))
             A[2 * k + 1][2 * i + 1] = 2. * np.real(E[i] / (w[k]**2 - E[i]**2))
 
-    # print('A matrix old', A)
     Rri = np.linalg.lstsq(A, b, rcond=None)[0]
-
     R = np.zeros(npols, dtype='complex64')
     R[:npr] = Rri[::2] + 1j * Rri[1::2]
-
     return R
 
 
 def mpa_E_solver_Pade(npols, z, x):
-    # integer,     intent(in)   :: np
-    # integer,     intent(out)  :: npr
-    # complex(SP), intent(in)   :: z(2*np)
-    # complex(SP), intent(in)   :: X(2*np)
-    # complex(SP), intent(out)  :: E(np)
-    # logical,     intent(out)  :: PPcond(np)
-
-    # complex(SP) :: c(2*np), b(np+1), Companion(np,np)
-    # complex(SP) :: c_m1(2*np), b_m1(np+1), b_m2(np+1)
-    # complex(SP) :: rwork(2*np),work(2*np),VR(np),VL(np)
-    # integer     :: i, j, info
-    # real(SP)    :: rcond, anorm, Wm
-
-    # PPcond[:] = True
     b_m1 = b = np.zeros(npols + 1, dtype='complex64')
     b_m1[0] = b[0] = 1
     c = np.copy(x)
