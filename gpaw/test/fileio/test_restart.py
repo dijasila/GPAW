@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 
 from gpaw import GPAW, restart
-from gpaw.test import equal
 
 
 def get_restart_test_values(calc):
@@ -43,21 +42,21 @@ def test_fileio_restart(in_tmp_dir, gpwfile):
 
     # compare that the values are absolutely equal
     print(e0, e1)
-    equal(e0, e1, 1e-10)
+    assert e0 == pytest.approx(e1, abs=1e-10)
     print(f0, f1)
     for ff0, ff1 in zip(f0, f1):
         err = np.linalg.norm(ff0 - ff1)
         assert err <= 1e-10
     print(m0, m1)
     for mm0, mm1 in zip(m0, m1):
-        equal(mm0, mm1, 1e-10)
+        assert mm0 == pytest.approx(mm1, abs=1e-10)
     print("A", eig00, eig10)
     for eig0, eig1 in zip(eig00, eig10):
-        equal(eig0, eig1, 1e-10)
+        assert eig0 == pytest.approx(eig1, abs=1e-10)
     print("B", eig01, eig11)
     for eig0, eig1 in zip(eig01, eig11):
-        equal(eig0, eig1, 1e-10)
-    equal(abs(wf1 - wf0).max(), 0, 1e-14)
+        assert eig0 == pytest.approx(eig1, abs=1e-10)
+    assert abs(wf1 - wf0).max() == pytest.approx(0, abs=1e-14)
 
     # Check that after restart, everything is writable
     calc.write("tmp3.gpw")

@@ -4,7 +4,7 @@ from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac, PW
 from gpaw.mpi import world
-from gpaw.test import findpeak, equal
+from gpaw.test import findpeak
 from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
 
@@ -67,7 +67,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     w1, I1 = findpeak(w_w[1100:1300], alphaimag_w[1100:1300])
     w1 += 1.1
 
-    equal(w0, 0.58, 0.01)
-    equal(I0, 38.8, 0.35)
-    equal(w1, 2.22, 0.01)
-    equal(I1, 6.3, 0.35)
+    assert w0 == pytest.approx(0.58, abs=0.01)
+    assert I0 == pytest.approx(38.8, abs=0.35)
+    assert w1 == pytest.approx(2.22, abs=0.01)
+    assert I1 == pytest.approx(6.3, abs=0.35)
