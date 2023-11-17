@@ -416,17 +416,6 @@ class MPACalculator(WBaseCalculator):
 
         nG1 = einv_WgG.shape[1]
         nG2 = einv_WgG.shape[2]
-        #R_nGG = np.zeros((self.mpa['npoles'], nG1, nG2), dtype=complex)
-        #omegat_nGG = np.ones((self.mpa['npoles'], nG1, nG2), dtype=complex)
-        """for i in range(nG1):
-            for j in range(nG2):
-                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(
-                    self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
-                omegat_n -= (0.1j / 27.21)   # XXX
-                omegat_nGG[:, i, j] = omegat_n
-                R_nGG[:, i, j] = R_n
-        """
-        print(chi0.wd.omega_w,'omega_w at code')
         E_pGG, R_pGG = RESolver(chi0.wd.omega_w).solve(einv_WgG)
 
         if 0:
@@ -434,16 +423,12 @@ class MPACalculator(WBaseCalculator):
             from gpaw.test.response.mpa_interpolation_scalar import Xeval
             fig, axs = plt.subplots(2)
             fig.suptitle('Vertically stacked subplots')
-            print('E', E_pGG[:,1,1])
-            print('R', R_pGG[:,1,1])
             w_w = np.linspace(0., 2., 1000) + 0.1j
             axs[0].plot(chi0.wd.omega_w.real[:20], einv_WgG[:20, 1, 1].imag,'x')
-            print(E_pGG[:, 1:2,1:2].shape)
             axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
             w_w = np.linspace(0., 2., 1000) + 1j
             axs[1].plot(chi0.wd.omega_w.real[20:], einv_WgG[20:, 1, 1].imag,'x')
             axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
-            #axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2], R_pGG[:, 1:2, 1:2], w_w)[0,0].imag)
             plt.show()
 
 
@@ -462,15 +447,10 @@ class MPACalculator(WBaseCalculator):
             from matplotlib import pyplot as plt
             from gpaw.test.response.mpa_interpolation_scalar import Xeval
             fig, axs = plt.subplots(2)
-            fig.suptitle('Vertically stacked subplots')
-            print('E', E_pGG[:,1,1])
-            print('R', R_pGG[:,1,1])
             w_w = np.linspace(0., 2., 1000) + 0.1j
-            print(E_pGG[:, 1:2,1:2].shape)
             axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
             w_w = np.linspace(0., 2., 1000) + 1j
             axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
-            #axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2], R_pGG[:, 1:2, 1:2], w_w)[0,0].imag)
             plt.show()
 
         W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
