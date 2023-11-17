@@ -6,6 +6,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
+from gpaw.response.mpa_interpolation import RESolver
 
 
 class QPointDescriptor(KPointDescriptor):
@@ -25,7 +26,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False, E0=Ha, eta=None,
+                            ppa=False, mpa=None, E0=Ha, eta=None,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -46,15 +47,20 @@ def initialize_w_calculator(chi0calc, context, *,
                           gs=gs, qd=qd,
                           context=context)
 
+    kwargs = dict()
     if ppa:
         wcalc_cls = PPACalculator
+        assert mpa is None
+    elif mpa:
+        wcalc_cls = MPACalculator
+        kwargs.update(mpa=mpa)
     else:
         wcalc_cls = WCalculator
 
     return wcalc_cls(gs, context, qd=qd,
                      coulomb=coulomb, xckernel=xckernel,
                      integrate_gamma=integrate_gamma, eta=eta,
-                     q0_correction=q0_correction)
+                     q0_correction=q0_correction, **kwargs)
 
 
 class WBaseCalculator():
@@ -146,12 +152,19 @@ class WCalculator(WBaseCalculator):
         W_wGG = self.calculate_W_WgG(chi0,
                                      fxc_mode=fxc_mode,
                                      only_correlation=True)
+        if 0:
+            from matplotlib import pyplot as plt
+            plt.plot(chi0.wd.omega_w.real, W_wGG[:, 1, 1].imag)
+            plt.show()
         # HT used to calculate convulution between time-ordered G and W
         hilbert_transform = GWHilbertTransforms(chi0.wd.omega_w, self.eta)
         with self.context.timer('Hilbert'):
             W_xwGG = hilbert_transform(W_wGG)
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+
+
+
         return FullFrequencyHWModel(chi0.wd, W_xwGG, factor)
 
     def calculate_W_WgG(self, chi0,
@@ -266,13 +279,11 @@ class HWModel:
         Hilbert Transformed W Model.
     """
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, f):
         """
             Get Hilbert transformed W at frequency omega.
 
-            The fsign is utilize to select which type of Hilbert transform
-            is selected, as is detailed in Sigma expectation value evaluation
-            where this model is used.
+            f: The occupation number for the orbital of the Greens function.
         """
         raise NotImplementedError
 
@@ -283,7 +294,8 @@ class FullFrequencyHWModel(HWModel):
         self.HW_swGG = HW_swGG
         self.factor = factor
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, f):
+        fsign = np.sign(2 * f - 1)
         # For more information about how fsign, and wsign works, see
         # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
         # eq. 2.2 endind up to eq. 2.11
@@ -324,7 +336,8 @@ class PPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign):
+    def get_HW(self, omega, f):
+        sign = np.sign(2 * f - 1)        
         omegat_GG = self.omegat_GG
         W_GG = self.W_GG
 
@@ -335,8 +348,141 @@ class PPAHWModel(HWModel):
         x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
         dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
                                        x3_GG**2 + x4_GG**2)
+        return x_GG.T.conj(), dx_GG.T.conj() # Why do we transpose and conjugate here, at PPA?
         return x_GG, dx_GG
 
+
+class MPAHWModel(HWModel):
+    def __init__(self, W_nGG, omegat_nGG, eta, factor):
+        self.W_nGG = W_nGG
+        self.omegat_nGG = omegat_nGG
+        self.eta = eta
+        self.factor = factor
+
+    def get_HW(self, omega, f, derivative=True):
+        omegat_nGG = self.omegat_nGG
+        W_nGG = self.W_nGG
+        x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
+        x2_nGG = (1.0 - f) / (omega - omegat_nGG + 1j * self.eta)
+
+        x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
+                                          axis=0)  # Why 2 here
+
+        if not derivative:
+            return x_GG.conj()
+
+        eps = 0.05
+        xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
+        xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
+        xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
+        xm_nGG += (1.0 - f) / (omega - eps - omegat_nGG + 1j * self.eta)
+        dx_GG = 2 * self.factor * np.sum(W_nGG * (xp_nGG - xm_nGG) / (2 * eps),
+                                         axis=0)  # Why 2 here
+
+        return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
+
+
+
+
+class MPACalculator(WBaseCalculator):
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel,
+                 integrate_gamma, q0_correction, eta, mpa):
+        super().__init__(gs, context, qd=qd, coulomb=coulomb,
+                         xckernel=xckernel,
+                         integrate_gamma=integrate_gamma,
+                         q0_correction=q0_correction)
+        self.eta = eta
+        self.mpa = mpa
+
+    def get_HW_model(self, chi0,
+                     fxc_mode='GW'):
+        """Calculate the PPA parametrization of screened interaction.
+        """
+        # assert len(chi0.wd.omega_w) == 2
+        # E0 directly related to frequency mesh for chi0
+        # E0 = chi0.wd.omega_w[1].imag  # DALV: we are not using this line
+
+        dfc = DielectricFunctionCalculator(chi0,
+                                           self.coulomb,
+                                           self.xckernel,
+                                           fxc_mode)
+
+        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
+        self.context.timer.start('Dyson eq.')
+        einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+        
+        einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
+
+        nG1 = einv_WgG.shape[1]
+        nG2 = einv_WgG.shape[2]
+        #R_nGG = np.zeros((self.mpa['npoles'], nG1, nG2), dtype=complex)
+        #omegat_nGG = np.ones((self.mpa['npoles'], nG1, nG2), dtype=complex)
+        """for i in range(nG1):
+            for j in range(nG2):
+                R_n, omegat_n, MPred, PPcond_rate = mpa_RE_solver(
+                    self.mpa['npoles'], chi0.wd.omega_w, einv_WgG[:, i, j])
+                omegat_n -= (0.1j / 27.21)   # XXX
+                omegat_nGG[:, i, j] = omegat_n
+                R_nGG[:, i, j] = R_n
+        """
+        print(chi0.wd.omega_w,'omega_w at code')
+        E_pGG, R_pGG = RESolver(chi0.wd.omega_w).solve(einv_WgG)
+
+        if 0:
+            from matplotlib import pyplot as plt
+            from gpaw.test.response.mpa_interpolation_scalar import Xeval
+            fig, axs = plt.subplots(2)
+            fig.suptitle('Vertically stacked subplots')
+            print('E', E_pGG[:,1,1])
+            print('R', R_pGG[:,1,1])
+            w_w = np.linspace(0., 2., 1000) + 0.1j
+            axs[0].plot(chi0.wd.omega_w.real[:20], einv_WgG[:20, 1, 1].imag,'x')
+            print(E_pGG[:, 1:2,1:2].shape)
+            axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            w_w = np.linspace(0., 2., 1000) + 1j
+            axs[1].plot(chi0.wd.omega_w.real[20:], einv_WgG[20:, 1, 1].imag,'x')
+            axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            #axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2], R_pGG[:, 1:2, 1:2], w_w)[0,0].imag)
+            plt.show()
+
+
+        R_pGG = chi0.body.blockdist.distribute_as(R_pGG, self.mpa['npoles'], 'wGG')
+        E_pGG = chi0.body.blockdist.distribute_as(E_pGG, self.mpa['npoles'], 'wGG')
+
+        W_pGG = pi * R_pGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
+            * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
+        
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            for W_GG, R_GG in zip(W_pGG, R_pGG):
+                self.apply_gamma_correction(W_GG, pi * R_GG,
+                                            V0, sqrtV0,
+                                            dfc.sqrtV_G)
+        if 0:
+            from matplotlib import pyplot as plt
+            from gpaw.test.response.mpa_interpolation_scalar import Xeval
+            fig, axs = plt.subplots(2)
+            fig.suptitle('Vertically stacked subplots')
+            print('E', E_pGG[:,1,1])
+            print('R', R_pGG[:,1,1])
+            w_w = np.linspace(0., 2., 1000) + 0.1j
+            print(E_pGG[:, 1:2,1:2].shape)
+            axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            w_w = np.linspace(0., 2., 1000) + 1j
+            axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            #axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2], R_pGG[:, 1:2, 1:2], w_w)[0,0].imag)
+            plt.show()
+
+        W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
+        E_pGG = np.transpose(E_pGG, axes=(0, 2, 1))
+
+        W_pGG = chi0.body.blockdist.distribute_as(W_pGG, self.mpa['npoles'], 'WgG')
+        E_pGG = chi0.body.blockdist.distribute_as(E_pGG, self.mpa['npoles'], 'WgG')
+
+        self.context.timer.stop('Dyson eq.')
+
+        factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+        return MPAHWModel(W_pGG, E_pGG, self.eta, factor)
 
 class PPACalculator(WBaseCalculator):
     def get_HW_model(self, chi0,
