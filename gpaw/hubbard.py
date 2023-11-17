@@ -43,23 +43,18 @@ class HubbardU:
         eU = 0.
         dHU_sii = np.zeros_like(D_sii)
         for l, U, scale in zip(self.l, self.U, self.scale):
-            nl = np.where(np.equal(setup.l_j, l))[0]
-            assert len(nl) <= 2, (
+            nl = np.argwhere(np.equal(setup.l_j, l))
+            assert len(nl) == 1 or len(nl) == 2, (
                 f'Setup has {len(nl)} radial partial waves with angular '
                 f'momentum quantum number {l}. Must be 1 or 2 for DFT+U.')
+            assert len(nl) != len(np.argwhere(np.equal(np.array(setup.n_j)[nl],
+                                                       -1))), (
+                'DFT+U correction cannot be scaled if '
+                'there is no bounded partial wave.')
 
-            if len(nl) == 1 and scale == 1:
-                assert setup.n_j[nl[0]] != -1, (
-                    'DFT+U correction cannot be scaled if '
-                    'there is no bounded partial wave.')
-            elif len(nl) == 2 and scale == 1:
-                assert setup.n_j[nl[-1]] == -1, (
-                    'DFT+U scaling has only been implemented for setups with '
-                    'one bounded and one unbounded radial partial wave.')
-
-            eU1, dHU1_sii = hubbard(D_sii, U=U, l=l, l_j=setup.l_j,
+            eU1, dHU1_sii = hubbard(D_sii, U=U, l=l,
+                                    l_j=setup.l_j, n_j=setup.n_j,
                                     N0_q=setup.N0_q, scale=scale)
-
             eU += eU1
             dHU_sii += dHU1_sii
         return eU, dHU_sii
@@ -75,6 +70,7 @@ def hubbard(D_sii: Array3D,
             U: float,
             l: int,
             l_j: List[int],
+            n_j: List[int],
             N0_q: Array1D,
             scale: bool) -> Tuple[float, ArrayLike2D]:
     nspins = len(D_sii)
@@ -92,7 +88,7 @@ def hubbard(D_sii: Array3D,
     dHU_sii = np.zeros_like(D_sii)
 
     for s, D_ii in enumerate(D_sii):
-        N_mm, dHU_ii = aoom(D_ii, l, l_j, N0_q, scale)
+        N_mm, dHU_ii = aoom(D_ii, l, l_j, n_j, N0_q, scale)
         N_mm = N_mm / 2 * nspins
 
         if nspins == 4:
@@ -136,6 +132,7 @@ def hubbard(D_sii: Array3D,
 def aoom(D_ii: Array2D,
          l: int,
          l_j: List[int],
+         n_j: List[int],
          N0_q: Array1D,
          scale: bool = True) -> Tuple[Array2D, Array2D]:
     """
@@ -170,13 +167,18 @@ def aoom(D_ii: Array2D,
         # will be divided by the inner product of the bounded partial wave,
         # increasing the value of these inner products since 0 < N0_q[q1] < 1
         if scale:
-            N1 = 1
-            N12 = N0_q[q12] / N0_q[q1]
-            N2 = N0_q[q2] / N0_q[q1]
+            if n_j[nl[1]] == -1:
+                N1 = 1
+                N2 = N0_q[q2] / N0_q[q1]
+                N12 = N0_q[q12] / N0_q[q1]
+            else:
+                N1 = 1
+                N2 = 1
+                N12 = N0_q[q12] / np.sqrt(N0_q[q1] * N0_q[q2])
         else:
             N1 = N0_q[q1]
-            N12 = N0_q[q12]
             N2 = N0_q[q2]
+            N12 = N0_q[q12]
 
         # Get the entries in the density matrix of the unbounded partial waves
         i2 = slice(nm_j[:nl[1]].sum(), nm_j[:nl[1]].sum() + nm)

@@ -16,6 +16,7 @@ def test_hubbard_U_noncollinear():
              + 1j * rng.random([4, 8, 8], dtype=np.float64))
     # Make Hermitian
     D_sii = (D_sii + np.transpose(D_sii.conj(), (0, 2, 1))) / 2
+    n_j = [2, 2, -1, -1]
     l_j = [0, 1, 0, 1]
 
     # Hubbard correction on the p orbitals
@@ -28,8 +29,8 @@ def test_hubbard_U_noncollinear():
     N0_q[6] = 1.1  # Bounded-unbounded
     N0_q[9] = 1.2  # Unbounded-unbounded
 
-    eU, _ = hubbard(D_sii, U / Ha, l, l_j, N0_q, scale=True)
-    eU_onlyreal, _ = hubbard(D_sii.real, U / Ha, l, l_j, N0_q, scale=True)
+    eU, _ = hubbard(D_sii, U / Ha, l, l_j, n_j, N0_q, scale=True)
+    eU_onlyreal, _ = hubbard(D_sii.real, U / Ha, l, l_j, n_j, N0_q, scale=True)
 
     # Assert that disregarding the complex values will alter the energy
     assert eU == pytest.approx(-7.825104, abs=1.e-2)
