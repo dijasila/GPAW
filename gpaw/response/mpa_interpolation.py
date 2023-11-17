@@ -4,7 +4,7 @@ interpolation of poles and residues of respose fuctions
 corresponding to the Multipole Approximation (MPA)
 developed in the Ref. [1].
 
-The implemented solver is the one based on Pade-Thiele 
+The implemented solver is the one based on Pade-Thiele
 formula (See App. A of Ref. [1]).
 
 [1] DA. Leon et al, PRB 104, 115157 (2021)
@@ -14,7 +14,6 @@ from typing import Tuple, no_type_check
 from gpaw.typing import Array1D, Array2D, Array3D
 import numpy as np
 from numpy.linalg import eigvals
-from numpy.polynomial import polynomial as poly
 
 
 def fit_residue(
@@ -133,7 +132,7 @@ class MultipoleSolver(Solver):
         # First the poles are obtained (non linear part of the problem)
         E_GGp, npr_GG = pade_solve(X_wGG, self.omega_w**2)
         E_pGG = E_GGp.transpose((2, 0, 1))
-        # The residues are obtained in a linear least square problem with 
+        # The residues are obtained in a linear least square problem with
         # complex variables
         R_pGG = fit_residue(npr_GG, self.omega_w, X_wGG, E_pGG)
         return E_pGG, R_pGG
@@ -218,10 +217,10 @@ def pade_solve(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
     # for i in range(nG):
     #     for j in range(nG):
     #         companion_GGpp[i, j] = poly.polycompanion(b_GGm[i, j])
-    b_GGm /= b_GGm[:,:,-1][..., None]
-    companion_GGpp.reshape((nG, nG, -1))[:, :, npols::npols+1] = 1
+    b_GGm /= b_GGm[:, :, -1][..., None]
+    companion_GGpp.reshape((nG, nG, -1))[:, :, npols::npols + 1] = 1
     companion_GGpp[:, :, :, -1] = -b_GGm[:, :, :npols]
-    
+
     E_GGp = eigvals(companion_GGpp)
     E_GGp, npr_GG = mpa_cond_vectorized(npols=npols, z_w=z_w, E_GGp=E_GGp)
     return E_GGp, npr_GG
