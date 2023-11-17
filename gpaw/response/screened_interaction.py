@@ -162,9 +162,6 @@ class WCalculator(WBaseCalculator):
             W_xwGG = hilbert_transform(W_wGG)
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
-
-
-
         return FullFrequencyHWModel(chi0.wd, W_xwGG, factor)
 
     def calculate_W_WgG(self, chi0,
@@ -337,7 +334,7 @@ class PPAHWModel(HWModel):
         self.factor = factor
 
     def get_HW(self, omega, f):
-        sign = np.sign(2 * f - 1)        
+        sign = np.sign(2 * f - 1)
         omegat_GG = self.omegat_GG
         W_GG = self.W_GG
 
@@ -348,8 +345,9 @@ class PPAHWModel(HWModel):
         x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
         dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
                                        x3_GG**2 + x4_GG**2)
-        return x_GG.T.conj(), dx_GG.T.conj() # Why do we transpose and conjugate here, at PPA?
-        return x_GG, dx_GG
+        # Why do we transpose and conjugate here, at PPA?
+        return x_GG.T.conj(), dx_GG.T.conj()
+        # return x_GG, dx_GG
 
 
 class MPAHWModel(HWModel):
@@ -382,8 +380,6 @@ class MPAHWModel(HWModel):
         return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
 
 
-
-
 class MPACalculator(WBaseCalculator):
     def __init__(self, gs, context, *, qd,
                  coulomb, xckernel,
@@ -411,11 +407,8 @@ class MPACalculator(WBaseCalculator):
         V0, sqrtV0 = self.get_V0sqrtV0(chi0)
         self.context.timer.start('Dyson eq.')
         einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
-        
         einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
 
-        nG1 = einv_WgG.shape[1]
-        nG2 = einv_WgG.shape[2]
         E_pGG, R_pGG = RESolver(chi0.wd.omega_w).solve(einv_WgG)
 
         if 0:
@@ -424,20 +417,27 @@ class MPACalculator(WBaseCalculator):
             fig, axs = plt.subplots(2)
             fig.suptitle('Vertically stacked subplots')
             w_w = np.linspace(0., 2., 1000) + 0.1j
-            axs[0].plot(chi0.wd.omega_w.real[:20], einv_WgG[:20, 1, 1].imag,'x')
-            axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            axs[0].plot(chi0.wd.omega_w.real[:20],
+                        einv_WgG[:20, 1, 1].imag, 'x')
+            axs[0].plot(w_w.real,
+                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              R_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              w_w)[0, 0, :].imag)
             w_w = np.linspace(0., 2., 1000) + 1j
-            axs[1].plot(chi0.wd.omega_w.real[20:], einv_WgG[20:, 1, 1].imag,'x')
-            axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), R_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            axs[1].plot(chi0.wd.omega_w.real[20:],
+                        einv_WgG[20:, 1, 1].imag, 'x')
+            axs[1].plot(w_w.real,
+                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              R_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              w_w)[0, 0, :].imag)
             plt.show()
 
-
-        R_pGG = chi0.body.blockdist.distribute_as(R_pGG, self.mpa['npoles'], 'wGG')
-        E_pGG = chi0.body.blockdist.distribute_as(E_pGG, self.mpa['npoles'], 'wGG')
+        dist = chi0.body.blockdist.distribute_as
+        R_pGG = dist(R_pGG, self.mpa['npoles'], 'wGG')
+        E_pGG = dist(E_pGG, self.mpa['npoles'], 'wGG')
 
         W_pGG = pi * R_pGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
             * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
-        
         if chi0.optical_limit or self.integrate_gamma != 0:
             for W_GG, R_GG in zip(W_pGG, R_pGG):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
@@ -448,21 +448,28 @@ class MPACalculator(WBaseCalculator):
             from gpaw.test.response.mpa_interpolation_scalar import Xeval
             fig, axs = plt.subplots(2)
             w_w = np.linspace(0., 2., 1000) + 0.1j
-            axs[0].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
-            w_w = np.linspace(0., 2., 1000) + 1j
-            axs[1].plot(w_w.real,Xeval(E_pGG[:, 1:2,1:2].transpose((1,2,0)), W_pGG[:, 1:2, 1:2].transpose((1,2,0)), w_w)[0,0,:].imag)
+            axs[0].plot(w_w.real,
+                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              W_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              w_w)[0, 0, :].imag)
+            w_w = np.linspace(0, 2, 1000) + 1j
+            axs[1].plot(w_w.real,
+                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              W_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
+                              w_w)[0, 0, :].imag)
             plt.show()
 
         W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
         E_pGG = np.transpose(E_pGG, axes=(0, 2, 1))
 
-        W_pGG = chi0.body.blockdist.distribute_as(W_pGG, self.mpa['npoles'], 'WgG')
-        E_pGG = chi0.body.blockdist.distribute_as(E_pGG, self.mpa['npoles'], 'WgG')
+        W_pGG = dist(W_pGG, self.mpa['npoles'], 'WgG')
+        E_pGG = dist(E_pGG, self.mpa['npoles'], 'WgG')
 
         self.context.timer.stop('Dyson eq.')
 
         factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
         return MPAHWModel(W_pGG, E_pGG, self.eta, factor)
+
 
 class PPACalculator(WBaseCalculator):
     def get_HW_model(self, chi0,
