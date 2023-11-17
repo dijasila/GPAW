@@ -9,8 +9,8 @@ from gpaw import GPAW, PW
 @pytest.mark.response
 def test_mpa(in_tmp_dir, gpw_files, scalapack):
     atoms = bulk('Si')
-    calc = GPAW(mode=PW(ecut=400), kpts={'size': (2, 2, 2), 'gamma': True},
-                nbands=40, convergence={'bands': 20}, occupations={'width': 0})
+    calc = GPAW(mode=PW(ecut=200), kpts={'size': (2, 2, 2), 'gamma': True},
+                nbands=60, convergence={'bands': 40}, occupations={'width': 0})
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('bands.gpw', mode='all')
@@ -24,7 +24,7 @@ def test_mpa(in_tmp_dir, gpw_files, scalapack):
 
     gw = G0W0('bands.gpw', 'ff',
               bands=(3, 5),
-              nbands=20,
+              nbands=40,
               nblocks=1,
               evaluate_sigma=w_w,
               ecut=50)
@@ -32,7 +32,7 @@ def test_mpa(in_tmp_dir, gpw_files, scalapack):
     results = gw.calculate()
     gw = G0W0('bands.gpw', 'mpa',
               bands=(3, 5),
-              nbands=20,
+              nbands=40,
               nblocks=1,
               ecut=50,
               evaluate_sigma=w_w,
@@ -41,5 +41,9 @@ def test_mpa(in_tmp_dir, gpw_files, scalapack):
 
     results2 = gw.calculate()
 
+    for value in ['qp', 'sigma_eskn', 'dsigma_eskn']:
+        assert np.allclose(results[value], results2[value], rtol=0.01, atol=0.03)
+
     print(results)
-    print(results2)
+    print(results['sigma_eskwn'])
+    
