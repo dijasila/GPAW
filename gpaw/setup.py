@@ -751,7 +751,7 @@ class Setup(BaseSetup):
         self.f_j = data.f_j
         self.eps_j = data.eps_j
         nj = self.nj = len(l_j)
-        nq = self.nq = nj * (nj + 1) // 2
+        self.nq = nj * (nj + 1) // 2
         rcut_j = self.rcut_j = data.rcut_j
 
         self.ExxC = data.ExxC
