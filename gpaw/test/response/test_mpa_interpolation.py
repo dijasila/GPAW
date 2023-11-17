@@ -4,7 +4,7 @@ from time import time
 from gpaw.response.mpa_sampling import mpa_frequency_sampling
 from gpaw.response.mpa_interpolation import RESolver, fit_residue
 
-from .mpa_interpolation_from_fortran import mpa_RE_solver, mpa_R_fit, Xeval
+from .mpa_interpolation_scalar import mpa_RE_solver, mpa_R_fit, Xeval
 
 
 def test_pole_reduction(in_tmp_dir):

@@ -1,7 +1,7 @@
 import numpy as np
 from gpaw.response.mpa_interpolation import fit_residue, RESolver
-from .mpa_interpolation_from_fortran import (mpa_R_fit as fit_residue_fortran,
-                                             mpa_RE_solver, Xeval)
+from .mpa_interpolation_scalar import (mpa_R_fit as fit_residue_fortran,
+                                       mpa_RE_solver, Xeval)
 
 
 def test_residues(in_tmp_dir):
