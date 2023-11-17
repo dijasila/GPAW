@@ -7,13 +7,13 @@ from gpaw.typing import Array1D, Array2D
 
 null_pole_thr = 1e-5
 pole_resolution = 1e-5
-epsilon = 1e-8  # SP
+epsilon = 1e-8
 
 #  -------------------------------------------------------------
 #  Old reference code
 #  -------------------------------------------------------------
 
-# ####### 1 pole: ########################
+# 1 pole
 
 
 def Xeval(Omega_GGp, residues_GGp, omega_w):
@@ -28,10 +28,6 @@ def Xeval(Omega_GGp, residues_GGp, omega_w):
 def mpa_cond1(z: tuple[complex, complex] | Array1D,
               E2: tuple[complex] | Array1D) -> \
         tuple[[complex], [float]] | Array2D:
-    # complex(SP), intent(in)     :: z(2)
-    # complex(SP), intent(inout)  :: E
-    # real(SP),    intent(out)    :: PPcond_rate
-
     PPcond_rate = 0
     if abs(E2) < null_pole_thr:  # need to check also NAN(abs(E))
         PPcond_rate = 1
@@ -181,13 +177,6 @@ def mpa_RE_solver(npols, w, x):
         E, npr, PPcond = mpa_E_solver_Pade(npols, w**2, x)
         R = mpa_R_fit(npols, npr, w, x, E)
 
-        # if(npr < npols): MPred = True
-
-        # PPcond_rate = 0.
-        # for i in range(npols):
-        #  if(not PPcond[i]): PPcond_rate = PPcond_rate+abs(R[i])
-
-        # PPcond_rate = PPcond_rate/sum(abs(R))
         PPcond_rate = 1
         MPred = 1
 
