@@ -70,7 +70,7 @@ class Solver:
                   to twice the number of poles
         threshold: threshold for small and too close poles
         epsilon: precision for positive zero imaginary part
-        """"
+        """
         assert len(omega_w) % 2 == 0
         self.omega_w = omega_w
         self.npoles = len(omega_w) // 2
@@ -188,8 +188,8 @@ def mpa_cond_vectorized(
 def pade_solve(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
     nw, nG, _ = X_wGG.shape
     npols = nw // 2
-
-    b_GGm = np.zeros((nG, nG, npols + 1), dtype=np.complex128)
+    nm = npols + 1
+    b_GGm = np.zeros((nG, nG, nm), dtype=np.complex128)
     b_GGm[..., 0] = 1.0
     bm1_GGm = b_GGm
     c_GGw = X_wGG.transpose((1, 2, 0)).copy()
@@ -210,16 +210,18 @@ def pade_solve(X_wGG: Array3D, z_w: Array1D) -> Tuple[Array3D, Array2D]:
         bm2_GGm[..., 1:] = c_GGw[..., i, np.newaxis] * bm2_GGm[..., :-1]
         b_GGm[..., 1:] += bm2_GGm[..., 1:]
 
-    companion_GGmm = np.empty((nG, nG, npols, npols),
+    companion_GGpp = np.zeros((nG, nG, npols, npols),
                               dtype=np.complex128)
 
-    for i in range(nG):
-        for j in range(nG):
-            companion_GGmm[i, j] = poly.polycompanion(b_GGm[i, j, :npols + 1])
-
-    E_GGm = eigvals(companion_GGmm)
-    Esqr_GGm = E_GGm.copy()
-
-    E2_GGm, npr2_GG = mpa_cond_vectorized(npols=npols, z_w=z_w, E_GGp=Esqr_GGm)
-
-    return E2_GGm, npr2_GG
+    # Create a poly companion matrix in vectorized form
+    # Equal to following serial code
+    # for i in range(nG):
+    #     for j in range(nG):
+    #         companion_GGpp[i, j] = poly.polycompanion(b_GGm[i, j])
+    b_GGm /= b_GGm[:,:,-1][..., None]
+    companion_GGpp.reshape((nG, nG, -1))[:, :, npols::npols+1] = 1
+    companion_GGpp[:, :, :, -1] = -b_GGm[:, :, :npols]
+    
+    E_GGp = eigvals(companion_GGpp)
+    E_GGp, npr_GG = mpa_cond_vectorized(npols=npols, z_w=z_w, E_GGp=E_GGp)
+    return E_GGp, npr_GG
