@@ -22,7 +22,7 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
-from gpaw.response.mpa_sampling import mpa_frequency_sampling    
+from gpaw.response.mpa_sampling import mpa_frequency_sampling
 
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
@@ -706,7 +706,7 @@ class G0W0Calculator:
                 for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
                     nc_G = n_G.conj()
                     myn_G = n_G[blocks1d.myslice]
- 
+
                     if self.evaluate_sigma is not None:
                         for w, omega in enumerate(self.evaluate_sigma):
                             S_GG, _ = Wmodel.get_HW(deps - eps1 + omega, f)
@@ -970,7 +970,7 @@ class G0W0Calculator:
 
         return G0W0Outputs(sigma_eskn=sigma.sigma_eskn,
                            dsigma_eskn=sigma.dsigma_eskn,
-                           sigma_eskwn=sigma.sigma_eskwn,                           
+                           sigma_eskwn=sigma.sigma_eskwn,
                            **kwargs)
 
 
@@ -1139,19 +1139,15 @@ class G0W0(G0W0Calculator):
                           'timeordered': False}
         elif mpa:
             assert not ppa
-            frequencies = mpa_frequency_sampling(mpa['npoles'], wrange=mpa['wrange'],
-                                                 varpi=mpa['varpi'],
-                                                 eta0=mpa['eta0'],
-                                                 eta_rest=mpa['eta_rest'],
-                                                 parallel_lines=mpa['parallel_lines'],
-                                                 alpha=mpa['alpha'])
-            print('mpa', mpa)
-            print('freq', frequencies)
-
+            mfs = mpa_frequency_sampling
+            frequencies = mfs(mpa['npoles'], wrange=mpa['wrange'],
+                              varpi=mpa['varpi'], eta0=mpa['eta0'],
+                              eta_rest=mpa['eta_rest'],
+                              parallel_lines=mpa['parallel_lines'],
+                              alpha=mpa['alpha'])
             parameters = {'eta': 0.000001,
                           'hilbert': False,
                           'timeordered': False}
-
         else:
             # frequencies = self.frequencies
             parameters = {'eta': eta,
