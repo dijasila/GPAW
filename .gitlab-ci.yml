@@ -425,6 +425,7 @@ lint:
       --doctests
       --extend-ignore E402,E501
       doc/summerschools/summerschool22/catalysis
+      doc/platforms/Linux/Niflheim
     - echo "interrogate"
     - pip install interrogate
     - interrogate --version
