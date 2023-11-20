@@ -10,6 +10,7 @@ from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
 from gpaw.typing import Array1D, Literal, Self, ArrayND
+from gpaw.gpu import cupy as cp
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
@@ -77,6 +78,16 @@ class DistributedArrays(Generic[DomainType]):
 
     def copy(self):
         return self.new(data=self.data.copy())
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        assert self.xp is np
+        del state['xp']
+        return state
+
+    def __setstate__(self, state):
+        state['xp'] = np
+        self.__dict__.update(state)
 
     def __getitem__(self, index):
         raise NotImplementedError
