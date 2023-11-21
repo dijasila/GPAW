@@ -14,7 +14,6 @@ from gpaw.response.tool import (get_bz_transitions,
                                 get_chi0_integrand,
                                 get_degeneracy_matrix,
                                 get_individual_transition_strengths)
-from gpaw.test import equal
 
 
 @pytest.mark.response
@@ -111,12 +110,12 @@ def test_response_pdens_tool(in_tmp_dir):
                 degM_m = m_m[np.where(degmat_Mm[M])]
 
                 for testn, n in zip(testNM_ibN[i][0], degN_n):
-                    equal(testn, n, 0.5)
+                    assert testn == pytest.approx(n, abs=0.5)
                 for testm, m in zip(testNM_ibN[i][1], degM_m):
-                    equal(testm, m, 0.5)
+                    assert testm == pytest.approx(m, abs=0.5)
 
                 for testts, ts in zip(testts_iG[i], ts_G):
                     print(ts)
-                    equal(testts, ts, 0.01)
+                    assert testts == pytest.approx(ts, abs=0.01)
 
                 i += 1

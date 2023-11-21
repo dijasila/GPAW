@@ -13,7 +13,6 @@ from gpaw.elph.electronphonon import ElectronPhononCoupling
 
 
 @pytest.mark.elph
-@pytest.mark.skipif(world.size >= 4, reason='Flaky test: #1014')
 def test_elph_li(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)
@@ -78,6 +77,7 @@ def test_elph_li(in_tmp_dir):
                     assert (abs(np.max(abs(elph.g_xsNNMM[x, s, 0, 0])) -
                                 np.max(abs(elph.g_xsNNMM[0, 0, 0, 0]))) < 5e-5)
         # remove json cache
+        world.barrier()
         elph.clean()
 
     if world.rank == 0:
