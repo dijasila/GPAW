@@ -499,7 +499,7 @@ class PWSymmetryAnalyzer:
     def get_symmetry_operator(self, s):
         """Return symmetry operator s."""
         U_scc = self.kd.symmetry.op_scc
-        ft_sc = self.kd.symmetry.op_scc
+        ft_sc = self.kd.symmetry.ft_sc
 
         reds = s % self.nU
         if self.timereversal(s):

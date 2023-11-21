@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Generator
 
 import numpy as np
@@ -9,7 +10,7 @@ from ase.units import Bohr, Ha
 from gpaw.gpu import synchronize, as_np
 from gpaw.gpu.mpi import CuPyMPI
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.brillouin import IBZ
 from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.potential import Potential
@@ -286,12 +287,13 @@ class IBZWaveFunctions:
         return eig_skn, occ_skn
 
     def forces(self, potential: Potential) -> Array2D:
+        self.make_sure_wfs_are_read_from_gpw_file()
         F_av = self.xp.zeros((potential.dH_asii.natoms, 3))
         for wfs in self:
             wfs.force_contribution(potential, F_av)
         if self.xp is not np:
             synchronize()
-        self.kpt_comm.sum(F_av)
+        self.kpt_band_comm.sum(F_av)
         return F_av
 
     def write(self,

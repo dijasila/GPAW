@@ -46,10 +46,8 @@ def write_gpw(filename: str,
 
         write_atoms(writer.child('atoms'), atoms)
 
-        # Note that 'non_collinear_magmoms' is not an ASE standard name!
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()
-                   if key != 'non_collinear_magmoms'}
+                   for key, value in calculation.results.items()}
         writer.child('results').write(**results)
 
         p = {k: v for k, v in params.items() if k not in ['txt', 'parallel']}
@@ -158,8 +156,8 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     else:
         nt_sR_array = None
         vt_sR_array = None
-        taut_sR = None
-        dedtaut_sR = None
+        taut_sR_array = None
+        dedtaut_sR_array = None
         D_sap_array = None
         dH_sap_array = None
         shape = None
@@ -265,9 +263,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     calculation.results = results
 
-    if builder.mode in ['pw', 'fd']:  # fd = finite difference
+    if builder.mode in ['pw', 'fd']:  # fd = finite-difference
         data = ibzwfs.wfs_qs[0][0].psit_nX.data
-        if not hasattr(data, 'fd'):  # fd = file descriptor
+        if not hasattr(data, 'fd'):  # fd = file-descriptor
             reader.close()
     else:
         reader.close()
