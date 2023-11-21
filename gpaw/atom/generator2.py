@@ -392,7 +392,6 @@ class PAWWaves:
 
         # calculate the reference overlap matrix
         Sref = rgd.integrate(phi_ng[:, None] * phi_ng)
-        print(Sref)
 
         def nlc1():
             norm = 0
@@ -430,7 +429,7 @@ class PAWWaves:
 
         print("=" * 100)
         xmin = fmin(
-            f, x0_init, ftol=1.0e-16, maxiter=500000, maxfun=10000
+            f, x0_init, ftol=1.0e-16, maxiter=5000, maxfun=5000
         )
         assert (
             f(xmin, False) < 5.0e-8
