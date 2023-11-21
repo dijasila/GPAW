@@ -47,6 +47,16 @@ class AtomCenteredFunctions:
         return (f'{self.__class__.__name__}'
                 f'(functions={funcs}, atomdist={self.atomdist})')
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        assert self.xp is np
+        del state['xp']
+        return state
+
+    def __setstate__(self, state):
+        state['xp'] = np
+        self.__dict__.update(state)
+
     def new(self, desc, atomdist):
         raise NotImplementedError
 

@@ -1220,19 +1220,6 @@ class Setup(BaseSetup):
         a_g = 4 * x**3 * (1 - 0.75 * x)
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
-        class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_J):
-                Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self._basis_functions_J = phit_J
-
-            def tosplines(self):
-                return self._basis_functions_J
-
-            def get_description(self):
-                template = 'Using partial waves for %s as LCAO basis'
-                string = template % self.symbol
-                return string
-
         basis_functions_J = []
         for j, phit_g in enumerate(phit_jg):
             if self.n_j[j] > 0:
@@ -1267,6 +1254,20 @@ class Setup(BaseSetup):
             else:
                 i += 2 * l + 1
         assert i == self.ni
+
+
+class PartialWaveBasis(Basis):  # yuckkk
+    def __init__(self, symbol, phit_J):
+        Basis.__init__(self, symbol, 'partial-waves', readxml=False)
+        self._basis_functions_J = phit_J
+
+    def tosplines(self):
+        return self._basis_functions_J
+
+    def get_description(self):
+        template = 'Using partial waves for %s as LCAO basis'
+        string = template % self.symbol
+        return string
 
 
 class Setups(list):

@@ -138,6 +138,16 @@ class Matrix:
                       data=data,
                       xp=self.xp)
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        assert self.xp is np
+        del state['xp']
+        return state
+
+    def __setstate__(self, state):
+        state['xp'] = np
+        self.__dict__.update(state)
+
     def copy(self) -> Matrix:
         """Create a copy."""
         M = self.new()

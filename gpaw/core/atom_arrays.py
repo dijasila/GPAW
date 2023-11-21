@@ -59,6 +59,16 @@ class AtomArraysLayout:
                                 dtype or self.dtype,
                                 xp or self.xp)
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        assert self.xp is np
+        del state['xp']
+        return state
+
+    def __setstate__(self, state):
+        state['xp'] = np
+        self.__dict__.update(state)
+
     def empty(self,
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm) -> AtomArrays:
