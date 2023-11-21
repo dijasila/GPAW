@@ -619,6 +619,26 @@ class RRemission(object):
                         # Gw[el, :] = np.reshape(np.linalg.inv(np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
                         #                        np.reshape(Gw[el, :], (3, 3)) @ (np.eye(3) + 1. / 3. * np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)) )
                         #                        ,(-1, ))
+                elif self.claussius == -1:
+                    Gwibar = np.zeros((len(omegafft), 9), dtype=complex)
+                    for ii in range(3):
+                        for jj in range(3):
+                            Gwibar[:, 3 * ii + jj] = (np.reciprocal(g_omega) *
+                                                      self.polarization_cavity[ii] *
+                                                      self.polarization_cavity[jj])
+                    for el in range(len(omegafft)):
+                        Xw[el, :] = 4. * np.pi * self.ensemble_number / self.cavity_volume * alpha_ij[el, :]
+                        if not self.is_invertible(np.reshape(Gwibar[el, :], (3, 3))- (alpha**2 * omegafft[el]**2 * self.cavity_volume * np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3)))):
+                            shift = 1e-8
+                        else:
+                            shift = 0
+                        Gw[el, :] = np.reshape((np.linalg.inv( (np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @
+                                                                (np.reshape(Gwibar[el, :]+shift, (3, 3)) @ (np.eye(3) - 1. / 3. * np.reshape(Xw[el, :], (3, 3)))))
+                                                              - (alpha**2 * omegafft[el]**2 * self.cavity_volume *
+                                                                 np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3))) @ np.reshape(Xw[el, :], (3, 3))))
+                                                @ np.linalg.inv(np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)))
+                                                @ (np.eye(3) + 1. / 3. * np.reshape(Xw[el, :], (3, 3)) @ np.linalg.inv(np.eye(3) + np.reshape(Xw[el, :], (3, 3)))) )
+                                               ,(-1, ))
             else:
                 print("Dressing G using the provided Gw0,",
                       "this may take a few minutes.")
