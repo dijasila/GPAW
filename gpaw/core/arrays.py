@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import ModuleType
 from typing import TYPE_CHECKING, Generic, TypeVar, Callable
 
 import gpaw.fftw as fftw
@@ -10,7 +9,7 @@ from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
 from gpaw.typing import Array1D, Literal, Self, ArrayND
-from gpaw.gpu import cupy as cp
+from gpaw.gpu import XP
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
@@ -20,7 +19,7 @@ from gpaw.new import prod
 DomainType = TypeVar('DomainType', bound=Domain)
 
 
-class DistributedArrays(Generic[DomainType]):
+class DistributedArrays(Generic[DomainType], XP):
     desc: DomainType
 
     def __init__(self,
@@ -65,12 +64,12 @@ class DistributedArrays(Generic[DomainType]):
             data = (xp or np).empty(fullshape, dtype)
 
         self.data = data
-        self.xp: ModuleType
         if isinstance(data, (np.ndarray, NDArrayReader)):
-            self.xp = np
+            xp = np
         else:
             from gpaw.gpu import cupy as cp
-            self.xp = cp
+            xp = cp
+        XP.__init__(self, xp)
         self._matrix: Matrix | None = None
 
     def new(self, data=None) -> DistributedArrays:
@@ -78,16 +77,6 @@ class DistributedArrays(Generic[DomainType]):
 
     def copy(self):
         return self.new(data=self.data.copy())
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        assert self.xp is np
-        del state['xp']
-        return state
-
-    def __setstate__(self, state):
-        state['xp'] = np
-        self.__dict__.update(state)
 
     def __getitem__(self, index):
         raise NotImplementedError

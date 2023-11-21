@@ -5,14 +5,14 @@ from typing import Sequence, overload
 
 import numpy as np
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import cupy as cp
+from gpaw.gpu import cupy as cp, XP
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
 from gpaw.new.c import dH_aii_times_P_ani_gpu
 
 
-class AtomArraysLayout:
+class AtomArraysLayout(XP):
     def __init__(self,
                  shapes: Sequence[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
@@ -35,7 +35,7 @@ class AtomArraysLayout:
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
-        self.xp = xp or np
+        XP.__init__(self, xp or np)
 
         self.size = sum(prod(shape) for shape in self.shape_a)
 
@@ -58,16 +58,6 @@ class AtomArraysLayout:
                                 atomdist or self.atomdist,
                                 dtype or self.dtype,
                                 xp or self.xp)
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        assert self.xp is np
-        del state['xp']
-        return state
-
-    def __setstate__(self, state):
-        state['xp'] = np
-        self.__dict__.update(state)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
