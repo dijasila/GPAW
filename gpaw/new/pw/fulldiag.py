@@ -152,7 +152,9 @@ def diagonalize(potential: Potential,
                 dist=(band_comm, band_comm.size, 1, maxmynbands, 1))
             H_GG.redist(C_nG)
             if pw.dtype == float:
-                indices = sample_float_pw(pw_complex=pw.new(dtype=complex), pw_float=pw)
+                indices = sample_float_pw(
+                    pw_complex=pw.new(dtype=complex), pw_float=pw
+                )
                 psit_nG.data[:] = C_nG.data[:mynbands, indices]
             else:
                 psit_nG.data[:] = C_nG.data[:mynbands]
