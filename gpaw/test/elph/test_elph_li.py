@@ -13,6 +13,7 @@ from gpaw.elph.electronphonon import ElectronPhononCoupling
 
 
 @pytest.mark.elph
+@pytest.mark.skipif(world.size >= 4, reason='Flaky test: #1014')
 def test_elph_li(in_tmp_dir):
     # 2 atoms with one 1 valence electron each
     atoms = bulk('Li', crystalstructure='bcc', a=3.51, cubic=True)

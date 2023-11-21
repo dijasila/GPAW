@@ -48,6 +48,88 @@ void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
                                       gpuDoubleComplex* P_ani_dev,
                                       gpuDoubleComplex* outP_ani_dev);
 
+void evaluate_pbe_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e,
+                                double* sigma,
+                                double* dedsigma);
+
+void evaluate_lda_launch_kernel(int nspin, int ng,
+                                double* n,
+                                double* v,
+                                double* e);
+
+PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* n_obj;
+    PyObject* v_obj;
+    PyObject* e_obj; 
+    if (!PyArg_ParseTuple(args, "OOO",
+                          &n_obj, &v_obj, &e_obj))
+        return NULL;
+    int nspin = Array_DIM(n_obj, 0);
+    if ((nspin != 1) && (nspin != 2))
+    {
+        PyErr_Format(PyExc_RuntimeError, "Expected 1 or 2 spins. Got %d.", nspin);
+        return NULL;
+    }
+    int ng = 1;
+    for (int d=1; d<Array_NDIM(n_obj); d++)
+    {
+        ng *= Array_DIM(n_obj, d);
+    }
+    double* n_ptr = Array_DATA(n_obj);
+    double* v_ptr = Array_DATA(v_obj);
+    double* e_ptr = Array_DATA(e_obj);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+    evaluate_lda_launch_kernel(nspin, ng,
+                               n_ptr, v_ptr, e_ptr);
+    Py_RETURN_NONE;
+}
+
+PyObject* evaluate_pbe_gpu(PyObject* self, PyObject* args)
+{
+    PyObject* n_obj;
+    PyObject* v_obj;
+    PyObject* sigma_obj;
+    PyObject* dedsigma_obj;
+    PyObject* e_obj; 
+    if (!PyArg_ParseTuple(args, "OOOOO",
+                          &n_obj, &v_obj, &e_obj, &sigma_obj, &dedsigma_obj))
+        return NULL;
+    int nspin = Array_DIM(n_obj, 0);
+    if ((nspin != 1) && (nspin != 2))
+    {
+        PyErr_Format(PyExc_RuntimeError, "Expected 1 or 2 spins. Got %d.", nspin);
+        return NULL;
+    }
+    int ng = 1;
+    for (int d=1; d<Array_NDIM(n_obj); d++)
+    {
+        ng *= Array_DIM(n_obj, d);
+    }
+    double* n_ptr = Array_DATA(n_obj);
+    double* v_ptr = Array_DATA(v_obj);
+    double* e_ptr = Array_DATA(e_obj);
+    double* sigma_ptr = Array_DATA(sigma_obj);
+    double* dedsigma_ptr = Array_DATA(dedsigma_obj);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
+    evaluate_pbe_launch_kernel(nspin, ng, 
+                               n_ptr,
+                               v_ptr,
+                               e_ptr,
+                               sigma_ptr,
+                               dedsigma_ptr);
+    Py_RETURN_NONE;
+}
+
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
 {
     PyObject* dH_aii_obj;
@@ -65,29 +147,42 @@ PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args)
     }
 
     double* dH_aii_dev = Array_DATA(dH_aii_obj);
-    if (!dH_aii_dev) return NULL;
+    if (!dH_aii_dev) 
+    {
+	PyErr_SetString(PyExc_RuntimeError, "Error in input dH_aii.");
+        return NULL;
+    }
     gpuDoubleComplex* P_ani_dev = Array_DATA(P_ani_obj);
-    if (!P_ani_dev) return NULL;
+    if (!P_ani_dev)
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input P_ani.");
+        return NULL;
+    }
     gpuDoubleComplex* outP_ani_dev = Array_DATA(outP_ani_obj);
-    if (!outP_ani_dev) return NULL;
+    if (!outP_ani_dev) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in output outP_ani.");
+	return NULL;
+    }
     npy_int32* ni_a = Array_DATA(ni_a_obj);
-    if (!ni_a) return NULL;
+    if (!ni_a) 
+    {
+        PyErr_SetString(PyExc_RuntimeError, "Error in input ni_a.");
+	return NULL;
+    }
 
     assert(Array_ITEMSIZE(P_ani_obj) == 16);
     assert(Array_ITEMSIZE(outP_ani_obj) == 16);
     assert(Array_ITEMSIZE(dH_aii_obj) == 8);
     assert(Array_ITEMSIZE(ni_a_obj) == 4);
 
-    //printf("ni_a"); print_array_info(ni_a_obj);
-    //printf("dH_aii"); print_array_info(dH_aii_obj);
-    //printf("P_ani"); print_array_info(P_ani_obj);
-    //printf("outP_ani"); print_array_info(outP_ani_obj);
-    
     int nA = Array_DIM(ni_a_obj, 0);
     int nn = Array_DIM(P_ani_obj, 0);
     int nI = Array_DIM(P_ani_obj, 1);
-    //printf("nA = %d nn = %d nI = %d\n", nA, nn, nI);
-    //fflush(stdout);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
 
     dH_aii_times_P_ani_launch_kernel(nA, nn, nI, ni_a, dH_aii_dev, P_ani_dev, outP_ani_dev);
     Py_RETURN_NONE;
@@ -126,9 +221,12 @@ PyObject* pwlfc_expand_gpu(PyObject* self, PyObject* args)
     int nsplines = Array_DIM(f_Gs_obj, 1);
     gpuDoubleComplex* emiGR_Ga = (gpuDoubleComplex*)Array_DATA(emiGR_Ga_obj);
     int itemsize = Array_ITEMSIZE(f_GI_obj);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
     pwlfc_expand_gpu_launch_kernel(itemsize, f_Gs, emiGR_Ga, Y_GL, l_s, a_J, s_J, f_GI,
                                    I_J, nG, nJ, nL, nI, natoms, nsplines, cc);
-    gpuDeviceSynchronize(); // Is needed?
     Py_RETURN_NONE;
 }
 
@@ -160,6 +258,10 @@ PyObject* pw_insert_gpu(PyObject* self, PyObject* args)
         nb = Array_DIM(c_nG_obj, 0);
         nQ = Array_DIM(tmp_nQ_obj, 1);
     }
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
 
     pw_insert_gpu_launch_kernel(nb, nG, nQ,
                                 (double*)c_nG,
@@ -184,6 +286,10 @@ PyObject* add_to_density_gpu(PyObject* self, PyObject* args)
     int nR = Array_SIZE(psit_nR_obj) / nb;
     assert(Array_ITEMSIZE(psit_nR_obj) == 16);
     assert(Array_ITEMSIZE(rho_R_obj) == 8);
+    if (PyErr_Occurred())
+    {
+        return NULL;
+    }
     add_to_density_gpu_launch_kernel(nb, nR, f_n, psit_nR, rho_R);
     Py_RETURN_NONE;
 }

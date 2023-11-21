@@ -144,7 +144,7 @@ class AtomDistribution:
         array([0, 0, 0])
         """
         if natoms is None:
-            natoms = comm.max(max(atom_indices)) + 1
+            natoms = comm.max_scalar(max(atom_indices)) + 1
         rank_a = np.zeros(natoms, int)  # type: ignore
         rank_a[atom_indices] = comm.rank
         comm.sum(rank_a)
@@ -328,16 +328,17 @@ class AtomArrays:
 
         if comm.rank == 0:
             size_ra, size_r = self.layout.sizes()
-            shape = self.mydims + (size_r.max(),)
-            buffer = self.layout.xp.empty(shape, self.layout.dtype)
+            n = prod(self.mydims)
+            m = size_r.max()
+            buffer = self.layout.xp.empty(n * m, self.layout.dtype)
             for rank in range(1, comm.size):
-                buf = buffer[..., :size_r[rank]]
+                buf = buffer[:n * size_r[rank]].reshape((n, size_r[rank]))
                 comm.receive(buf, rank)
                 b1 = 0
                 for a, size in size_ra[rank].items():
                     b2 = b1 + size
                     A = aa[a]
-                    A[:] = buf[..., b1:b2].reshape(A.shape)
+                    A[:] = buf[:, b1:b2].reshape(A.shape)
                     b1 = b2
             for a, array in self._arrays.items():
                 aa[a] = array
@@ -354,6 +355,7 @@ class AtomArrays:
         if isinstance(data, AtomArrays):
             data = data.data
         comm = self.layout.atomdist.comm
+        xp = self.layout.xp
         if comm.size == 1:
             self.data[:] = data
             return
@@ -368,7 +370,7 @@ class AtomArrays:
         requests = []
         for rank, (totsize, size_a) in enumerate(zips(size_r, size_ra)):
             if rank != 0:
-                buf = np.empty(self.mydims + (totsize,), self.layout.dtype)
+                buf = xp.empty(self.mydims + (totsize,), self.layout.dtype)
                 b1 = 0
                 for a, size in size_a.items():
                     b2 = b1 + size
@@ -511,5 +513,6 @@ class AtomArrays:
         data = block_diag_matrix_axii.data
         if index is not None:
             data = data[index]
-        dH_aii_times_P_ani_gpu(data, ni_a,
-                               self.data, out_ani.data)
+        if self.data.size > 0:
+            dH_aii_times_P_ani_gpu(data, ni_a,
+                                   self.data, out_ani.data)

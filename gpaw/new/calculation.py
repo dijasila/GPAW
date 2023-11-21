@@ -9,7 +9,7 @@ from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float, world
 from gpaw.new import cached_property, zips
 from gpaw.new.density import Density
@@ -116,7 +116,8 @@ class DFTCalculation:
         scf_loop = builder.create_scf_loop()
 
         pot_calc = builder.create_potential_calculator()
-        potential, _ = pot_calc.calculate(density)
+        potential, _ = pot_calc.calculate(
+            density, kpt_band_comm=builder.communicators['D'])
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
         state = DFTState(ibzwfs, density, potential)
@@ -152,13 +153,12 @@ class DFTCalculation:
 
     def iconverge(self, convergence=None, maxiter=None, calculate_forces=None):
         self.state.ibzwfs.make_sure_wfs_are_read_from_gpw_file()
-        for ctx in self.scf_loop.iterate(self.state,
+        yield from self.scf_loop.iterate(self.state,
                                          self.pot_calc,
                                          convergence,
                                          maxiter,
                                          calculate_forces,
-                                         log=self.log):
-            yield ctx
+                                         log=self.log)
 
     def converge(self,
                  convergence=None,
@@ -248,7 +248,7 @@ class DFTCalculation:
         for a, dF_v in Fvbar_av.items():
             F_av[a] += dF_v[:, 0]
 
-        F_av = as_xp(F_av, np)
+        F_av = as_np(F_av)
 
         domain_comm = ccc_aL.layout.atomdist.comm
         domain_comm.sum(F_av)

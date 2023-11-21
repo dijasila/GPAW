@@ -96,7 +96,7 @@ class FDPotentialCalculator(PotentialCalculator):
         # Normalize: (LCAO basis functions may extend outside box)
         comp_charge = (4 * pi)**0.5 * sum(ccc_L[0]
                                           for ccc_L in ccc_aL.values())
-        comp_charge = ccc_aL.layout.atomdist.comm.sum(comp_charge)
+        comp_charge = ccc_aL.layout.atomdist.comm.sum_scalar(comp_charge)
         pseudo_charge = charge_r.integrate()
         charge_r.data *= -(comp_charge + density.charge) / pseudo_charge
 

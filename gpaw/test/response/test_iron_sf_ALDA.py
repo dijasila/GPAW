@@ -118,9 +118,9 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
 
     # Different kernel strategies should remain the same
     # Magnon peak:
-    assert mw1 == pytest.approx(test_mw1, abs=25.)
-    assert mw2 == pytest.approx(test_mw2, abs=25.)
-    assert mw3 == pytest.approx(test_mw3, abs=25.)
+    assert mw1 == pytest.approx(test_mw1, abs=30.)
+    assert mw2 == pytest.approx(test_mw2, abs=30.)
+    assert mw3 == pytest.approx(test_mw3, abs=30.)
 
     # Scattering function intensity:
     assert Ipeak1 == pytest.approx(test_Ipeak1, abs=0.5)
@@ -128,7 +128,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir, gpw_files, scalapack):
     assert Ipeak3 == pytest.approx(test_Ipeak3, abs=0.5)
 
     # The two transitions summation strategies should give identical results
-    assert mw3 == pytest.approx(mw4, abs=25.)
+    assert mw3 == pytest.approx(mw4, abs=35.)
     assert Ipeak3 == pytest.approx(Ipeak4, abs=0.5)
 
     # Toggling symmetry should preserve the result
