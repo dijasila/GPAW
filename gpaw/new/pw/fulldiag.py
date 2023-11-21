@@ -44,6 +44,10 @@ def pw_matrix(pw: PWDesc,
                     ---  i         ij  j
                     aij
     """
+    if pw.dtype == float:
+        pw = pw.new(dtype=complex)
+        pt_aiG = pt_aiG.new(pw, pt_aiG.atomdist)
+
     assert pw.dtype == complex
     npw = pw.shape[0]
     dist = create_distribution(npw, npw, comm, -1, 1)
@@ -125,6 +129,9 @@ def diagonalize(potential: Potential,
             assert isinstance(wfs, PWFDWaveFunctions)
             assert isinstance(wfs.pt_aiX, PWAtomCenteredFunctions)
             pw = wfs.psit_nX.desc
+            if pw.dtype == float:
+                assert band_comm.size == 1
+
             H_GG, S_GG = pw_matrix(pw,
                                    wfs.pt_aiX,
                                    dH_asii[:, wfs.spin],
@@ -142,7 +149,11 @@ def diagonalize(potential: Potential,
             C_nG = H_GG.new(
                 dist=(band_comm, band_comm.size, 1, maxmynbands, 1))
             H_GG.redist(C_nG)
-            psit_nG.data[:] = C_nG.data[:mynbands]
+            if pw.dtype == float:
+                indices = sample_float_pw(pw_complex=pw.new(dtype=complex), pw_float=pw)
+                psit_nG.data[:] = C_nG.data[:mynbands, indices]
+            else:
+                psit_nG.data[:] = C_nG.data[:mynbands]
             new_wfs = PWFDWaveFunctions.from_wfs(wfs, psit_nX=psit_nG)
             new_wfs._eig_n = eig_n
             wfs_qs[-1].append(new_wfs)
@@ -159,3 +170,22 @@ def diagonalize(potential: Potential,
     new_ibzwfs.calculate_occs(occ_calc)
 
     return new_ibzwfs
+
+
+def sample_float_pw(pw_complex, pw_float):
+    assert pw_complex.comm.size == 1
+    assert pw_float.comm.size == 1
+
+    dict_float = {}
+    for j, cG in enumerate(pw_float.indices_cG.T):
+        dict_float[tuple(cG)] = j
+
+    dict_complex = {}
+    for j, cG in enumerate(pw_complex.indices_cG.T):
+        dict_complex[tuple(cG)] = j
+
+    indices = []
+    for df in dict_float:
+        indices.append(dict_complex[df])
+
+    return indices
