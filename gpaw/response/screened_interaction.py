@@ -362,7 +362,7 @@ class MPAHWModel(HWModel):
             x_nGG = f / (omega + omegat_nGG + 1j * self.eta)
         else:
             x_nGG = 0.0
-        if  f < 1.0 - tol:
+        if f < 1.0 - tol:
             x_nGG += (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)
 
         x_GG = (2 * self.factor) * np.sum(W_nGG * x_nGG,
@@ -375,7 +375,7 @@ class MPAHWModel(HWModel):
             dxdw_nGG = -f / (omega + omegat_nGG + 1j * self.eta)**2
         else:
             dxdw_nGG = 0.0
-        if f < 1-tol:
+        if f < 1 - tol:
             dxdw_nGG -= (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)**2
 
         # Why the factor of 2?
