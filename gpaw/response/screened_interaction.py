@@ -154,7 +154,7 @@ class WCalculator(WBaseCalculator):
                                      only_correlation=True)
         if 0:
             from matplotlib import pyplot as plt
-            plt.plot(chi0.wd.omega_w.real, W_wGG[:, 1, 1].imag)
+            plt.plot(chi0.wd.omega_w.real, W_wGG[:, 1, 0].imag)
             plt.show()
         # HT used to calculate convulution between time-ordered G and W
         hilbert_transform = GWHilbertTransforms(chi0.wd.omega_w, self.eta)
@@ -345,9 +345,7 @@ class PPAHWModel(HWModel):
         x_GG = self.factor * W_GG * (sign * (x1_GG - x2_GG) + x3_GG + x4_GG)
         dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
                                        x3_GG**2 + x4_GG**2)
-        # Why do we transpose and conjugate here, at PPA?
-        return x_GG.T.conj(), dx_GG.T.conj()
-        # return x_GG, dx_GG
+        return x_GG, dx_GG
 
 
 class MPAHWModel(HWModel):
@@ -357,27 +355,33 @@ class MPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, f, derivative=True):
-        omegat_nGG = self.omegat_nGG
+    def get_HW(self, omega, f, derivative=True, tol=1e-8):
+        omegat_nGG = self.omegat_nGG.copy().conj()
         W_nGG = self.W_nGG
-        x1_nGG = f / (omega + omegat_nGG - 1j * self.eta)
-        x2_nGG = (1.0 - f) / (omega - omegat_nGG + 1j * self.eta)
+        if f > tol:
+            x_nGG = f / (omega + omegat_nGG + 1j * self.eta)
+        else:
+            x_nGG = 0.0
+        if  f < 1.0 - tol:
+            x_nGG += (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)
 
-        x_GG = (2 * self.factor) * np.sum(W_nGG * (x1_nGG + x2_nGG),
-                                          axis=0)  # Why 2 here
+        x_GG = (2 * self.factor) * np.sum(W_nGG * x_nGG,
+                                          axis=0)
 
         if not derivative:
-            return x_GG.conj()
+            return x_GG
 
-        eps = 0.05
-        xp_nGG = f / (omega + eps + omegat_nGG - 1j * self.eta)
-        xp_nGG += (1.0 - f) / (omega + eps - omegat_nGG + 1j * self.eta)
-        xm_nGG = f / (omega - eps + omegat_nGG - 1j * self.eta)
-        xm_nGG += (1.0 - f) / (omega - eps - omegat_nGG + 1j * self.eta)
-        dx_GG = 2 * self.factor * np.sum(W_nGG * (xp_nGG - xm_nGG) / (2 * eps),
-                                         axis=0)  # Why 2 here
+        if f > tol:
+            dxdw_nGG = -f / (omega + omegat_nGG + 1j * self.eta)**2
+        else:
+            dxdw_nGG = 0.0
+        if f < 1-tol:
+            dxdw_nGG -= (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)**2
 
-        return x_GG.conj(), dx_GG.conj()  # Why do we have to do a conjugate
+        # Why the factor of 2?
+        dxdw_GG = (2 * self.factor) * np.sum(W_nGG * dxdw_nGG,
+                                             axis=0)
+        return x_GG, dxdw_GG
 
 
 class MPACalculator(WBaseCalculator):
@@ -418,18 +422,18 @@ class MPACalculator(WBaseCalculator):
             fig.suptitle('Vertically stacked subplots')
             w_w = np.linspace(0., 2., 1000) + 0.1j
             axs[0].plot(chi0.wd.omega_w.real[:20],
-                        einv_WgG[:20, 1, 1].imag, 'x')
+                        einv_WgG[:8, 1, 1].imag, 'x')
             axs[0].plot(w_w.real,
-                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              R_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              w_w)[0, 0, :].imag)
+                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              R_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              w_w)[1, 0, :].imag)
             w_w = np.linspace(0., 2., 1000) + 1j
             axs[1].plot(chi0.wd.omega_w.real[20:],
-                        einv_WgG[20:, 1, 1].imag, 'x')
+                        einv_WgG[8:, 1, 1].imag, 'x')
             axs[1].plot(w_w.real,
-                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              R_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              w_w)[0, 0, :].imag)
+                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              R_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              w_w)[1, 0, :].imag)
             plt.show()
 
         dist = chi0.body.blockdist.distribute_as
@@ -449,18 +453,15 @@ class MPACalculator(WBaseCalculator):
             fig, axs = plt.subplots(2)
             w_w = np.linspace(0., 2., 1000) + 0.1j
             axs[0].plot(w_w.real,
-                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              W_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              w_w)[0, 0, :].imag)
+                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              W_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              w_w)[1, 0, :].imag)
             w_w = np.linspace(0, 2, 1000) + 1j
             axs[1].plot(w_w.real,
-                        Xeval(E_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              W_pGG[:, 1:2, 1:2].transpose((1, 2, 0)),
-                              w_w)[0, 0, :].imag)
+                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              W_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
+                              w_w)[1, 0, :].imag)
             plt.show()
-
-        W_pGG = np.transpose(W_pGG, axes=(0, 2, 1))  # Why the transpose
-        E_pGG = np.transpose(E_pGG, axes=(0, 2, 1))
 
         W_pGG = dist(W_pGG, self.mpa['npoles'], 'WgG')
         E_pGG = dist(E_pGG, self.mpa['npoles'], 'WgG')
