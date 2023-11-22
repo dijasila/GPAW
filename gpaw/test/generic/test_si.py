@@ -1,6 +1,6 @@
 from gpaw import GPAW, FermiDirac
 from ase import Atoms
-from gpaw.test import equal
+import pytest
 import numpy as np
 
 
@@ -34,4 +34,4 @@ def test_generic_si(in_tmp_dir):
     print('Difference', eigs2 - eigs)
 
     assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
-    equal(e1, -36.767, 0.003)
+    assert e1 == pytest.approx(-36.767, abs=0.003)

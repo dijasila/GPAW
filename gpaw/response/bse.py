@@ -505,7 +505,7 @@ class BSEBackend:
                     iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
                     epsv_m = self.gw_skn[s, iK, :self.nv]
                     epsc_n = self.gw_skn[s, iKq, self.nv:]
-                    deps_ksmn[ik] = -(epsv_m[:, np.newaxis] - epsc_n)
+                    deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
                 elif self.spinors:
                     iKq = self.gs.kd.find_k_plus_q(self.q_c, [iK])[0]
                     epsv_m = e_mk[mvi:mvf, iK]
