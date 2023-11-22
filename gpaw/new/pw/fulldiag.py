@@ -180,16 +180,12 @@ def sample_float_pw(pw_complex, pw_float):
     assert pw_complex.comm.size == 1
     assert pw_float.comm.size == 1
 
-    dict_float = {}
-    for j, cG in enumerate(pw_float.indices_cG.T):
-        dict_float[tuple(cG)] = j
-
     dict_complex = {}
     for j, cG in enumerate(pw_complex.indices_cG.T):
         dict_complex[tuple(cG)] = j
 
     indices = []
-    for df in dict_float:
-        indices.append(dict_complex[df])
+    for cG in pw_float.indices_cG.T:
+        indices.append(dict_complex[tuple(cG)])
 
     return indices
