@@ -41,10 +41,7 @@ qsfdtd = QSFDTD(classical_material=classical_material,
                 spacings=[2.0, 0.5],
                 remove_moments=(1, 1))
 
-energy = qsfdtd.ground_state('gs.gpw',
-                             mode='fd',
-                             nbands=1,
-                             symmetry='off')
+energy = qsfdtd.ground_state('gs.gpw', mode='fd', nbands=1, symmetry='off')
 
 qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
@@ -67,7 +64,7 @@ qsfdtd = QSFDTD(classical_material=classical_material,
                 spacings=[2.0, 0.5],
                 remove_moments=(1, 1))
 
-energy = qsfdtd.ground_state('gs.gpw', nbands=-1, symmetry='off')
+energy = qsfdtd.ground_state('gs.gpw', mode='fd', nbands=-1, symmetry='off')
 
 qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
@@ -89,7 +86,7 @@ qsfdtd = QSFDTD(classical_material=classical_material,
                 spacings=[2.0, 0.5],
                 remove_moments=(1, 1))
 
-energy = qsfdtd.ground_state('gs.gpw', nbands=-1, symmetry='off')
+energy = qsfdtd.ground_state('gs.gpw', mode='fd', nbands=-1, symmetry='off')
 
 qsfdtd.time_propagation('gs.gpw',
                         kick_strength=[0.001, 0.000, 0.000],
