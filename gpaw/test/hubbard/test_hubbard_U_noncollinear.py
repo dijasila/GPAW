@@ -36,7 +36,7 @@ def test_hubbard_U_noncollinear():
     assert eU == pytest.approx(-7.825104, abs=1.e-2)
     assert eU_onlyreal == pytest.approx(-7.546553, abs=1.e-2)
 
-    # Now, we check that the Hubbard Hamiltonian is calculated correctly by 
+    # Now, we check that the Hubbard Hamiltonian is calculated correctly by
     # comparing it with an energy derivative w.r.t. a density matrix element
     # calculated through finite difference.
 
