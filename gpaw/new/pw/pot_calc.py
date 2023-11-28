@@ -19,6 +19,7 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xc,
                  poisson_solver,
                  *,
+                 external_potential,
                  fracpos_ac,
                  atomdist,
                  soc=False,
@@ -27,6 +28,8 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
         super().__init__(xc, poisson_solver, setups,
                          fracpos_ac=fracpos_ac,
                          soc=soc)
+
+        self.external_potential = external_potential
 
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)
@@ -155,12 +158,12 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
             vt_sR.data[1] = vt_sR.data[0]
         vt_sR.data[density.ndensities:] = 0.0
 
+        e_external = self.external_potential.update_potential(vt_sR, density)
+
         vtmp_R = vt_sR.desc.empty(xp=self.xp)
         for spin, (vt_R, vxct_r) in enumerate(zips(vt_sR, vxct_sr)):
             self.restrict(vxct_r, vtmp_R)
             vt_R.data += vtmp_R.data
-
-        e_external = 0.0
 
         self._reset()
 

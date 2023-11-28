@@ -5,7 +5,6 @@ from gpaw import GPAW
 from gpaw.bfield import BField
 
 
-@pytest.mark.later
 @pytest.mark.serial
 def test_b_field():
     """Hydrogen atom in a magnetic field."""
@@ -19,7 +18,9 @@ def test_b_field():
 
     # Collinear:
     atom.calc = GPAW(mode='pw',
-                     external=BField((0, 0, B)))
+                     external=dict(name='BField', field=(0, 0, B)),
+                     # external=BField((0, 0, B))
+                     )
     E2 = atom.get_potential_energy()
     a2, b2 = (atom.calc.get_eigenvalues(spin=s)[0] for s in [0, 1])
 
