@@ -26,10 +26,9 @@ class PlaneWavePotentialCalculator(PotentialCalculator):
                  xp=np):
         self.xp = xp
         super().__init__(xc, poisson_solver, setups,
+                         external_potential = external_potential,
                          fracpos_ac=fracpos_ac,
                          soc=soc)
-
-        self.external_potential = external_potential
 
         self.vbar_ag = setups.create_local_potentials(
             pw, fracpos_ac, atomdist, xp)

@@ -28,6 +28,7 @@ from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.external_potential import ExternalPotential
 
 
 class PotentialCalculator:
@@ -37,10 +38,12 @@ class PotentialCalculator:
                  setups: list[Setup],
                  *,
                  fracpos_ac: Array2D,
+                 external_potential: ExternalPotential | None = None,
                  soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
+        self.external_potential = external_potential or ExternalPotential()
         self.fracpos_ac = fracpos_ac
         self.soc = soc
 
