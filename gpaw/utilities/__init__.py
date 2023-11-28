@@ -21,6 +21,8 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
 
+from scipy.integrate import cumulative_trapezoid, simpson
+
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
 # workaround.  The projector is assigned a certain, small size.  If
@@ -157,6 +159,81 @@ def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     assert len(r.shape) == 1
     assert len(r) >= len(vr)
     return _gpaw.hartree(l, nrdr, r, vr)
+
+
+def py_radial_hartree(
+    l: int, n_g: np.ndarray, r_g: np.ndarray
+) -> np.ndarray:
+    r"""
+    Pure python implementation of radial part of Hartree potential
+    :math:`u(r) =
+    \frac{4\pi}{2l + 1}
+    \left(
+    \frac{1}{r^{l+1}}\int_0^{r} n(x) x^{l + 2} dx  +
+    r^{l} \int_{r}^{\infty} n(x) x^{1-l} dx
+    \right)`.
+
+    Instead of integrating to infinity, we integrate up to a last element in `r_g`.
+
+    Parameters
+    ----------
+    l : int
+        Angular momentum
+    n_g : ndarray
+        Input array to integrate (radial part of the density).
+        It can have more than one dimension. Integration carried out along last axis.
+    r_g : ndarray
+        Sample points corresponding to n_g values.
+        Assume it starts from 0.
+
+    Returns
+    -------
+    u_g : ndarray
+        the result of integration, `u_g` has the same shape as `n_g`.
+
+    Notes
+    -----
+    One needs to take spacial care at :math:`r=0`.
+
+    For any l, the first integral is zero if n(x) if is finite at zero.
+    One can just expand n(x) around zero and can see the integral goes to zero as r^2
+
+    Thus, the potential is defined by a second integral at r=0
+
+    If l = 0 then :math:`u(0) = 4\pi \int_{0}^{\infty} n(x) x dx`
+    If l > 0 then second integral
+    :math:`I_2 = \epsilon^l \int_{\epsilon}^{\infty} n(x) x^{1-l}dx =
+    \epsilon^{l} C - n(\epsilon)\epsilon^2 F(l) + O(\epsilon^3)`
+    which goes to 0.
+    where F(1)=1 and F(l) = -1 + BesselI[-2+l, 2] Gamma[-1+l] for l>1.
+    thus  :math:`u(0) = 0` for l >=1 given that n(0) is finite
+
+
+    References
+    ----------
+    .. [1] See Eq.75 here https://arxiv.org/abs/0910.1921
+
+    """
+    c = simpson(n_g * r_g, r_g, axis=n_g.ndim - 1)
+
+    u1 = cumulative_trapezoid(
+        n_g * r_g ** (l + 2), r_g, initial=0, axis=n_g.ndim - 1
+    )
+    u2 = -cumulative_trapezoid(
+        np.flip(n_g[..., 1:] * r_g[1:] ** (1 - l), axis=n_g.ndim - 1),
+        r_g[1:][::-1],
+        initial=0,
+        axis=n_g.ndim - 1,
+    )
+    u2 = np.flip(u2, axis=n_g.ndim - 1)
+    u_g = np.empty_like(n_g)
+    u_g[..., 1:] = u1[..., 1:] / r_g[1:] ** (l + 1) + u2 * r_g[1:] ** l
+    if l == 0:
+        u_g[..., 0] = simpson(n_g * r_g, r_g, axis=n_g.ndim - 1)
+    else:
+        u_g[..., 0] = 0
+    u_g *= np.pi * 4 / (2 * l + 1)
+    return u_g
 
 
 def packed_index(i1, i2, ni):
