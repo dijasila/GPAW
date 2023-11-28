@@ -27,7 +27,8 @@ def test_b_field(gpaw_new):
     assert b2 - b1 == pytest.approx(B, abs=1e-6)
 
     # Non-collinear:
-    params = ({'magmoms': [(0.5, 0.5, 0)]} if gpaw_new else
+    params = ({'magmoms': [(0.5, 0.5, 0)]}
+              if gpaw_new else
               {'experimental': {'magmoms': [(0.5, 0.5, 0)]}})
     atom.calc = GPAW(mode='pw',
                      symmetry='off',
