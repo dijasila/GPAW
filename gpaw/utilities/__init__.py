@@ -173,7 +173,8 @@ def py_radial_hartree(
     r^{l} \int_{r}^{\infty} n(x) x^{1-l} dx
     \right)`.
 
-    Instead of integrating to infinity, we integrate up to a last element in `r_g`.
+    Instead of integrating to infinity,
+    we integrate up to a last element in `r_g`.
 
     Parameters
     ----------
@@ -181,7 +182,8 @@ def py_radial_hartree(
         Angular momentum
     n_g : ndarray
         Input array to integrate (radial part of the density).
-        It can have more than one dimension. Integration carried out along last axis.
+        It can have more than one dimension.
+        Integration carried out along last axis.
     r_g : ndarray
         Sample points corresponding to n_g values.
         Assume it starts from 0.
@@ -196,7 +198,8 @@ def py_radial_hartree(
     One needs to take spacial care at :math:`r=0`.
 
     For any l, the first integral is zero if n(x) if is finite at zero.
-    One can just expand n(x) around zero and can see the integral goes to zero as r^2
+    One can just expand n(x) around zero and
+    can see the integral goes to zero as r^2
 
     Thus, the potential is defined by a second integral at r=0
 
@@ -214,7 +217,6 @@ def py_radial_hartree(
     .. [1] See Eq.75 here https://arxiv.org/abs/0910.1921
 
     """
-    c = simpson(n_g * r_g, r_g, axis=n_g.ndim - 1)
 
     u1 = cumulative_trapezoid(
         n_g * r_g ** (l + 2), r_g, initial=0, axis=n_g.ndim - 1
