@@ -39,7 +39,6 @@ class BField(ExternalPotential):
                          vt_sR: UGArray,
                          density: Density) -> float:
         magmom_v, _ = density.calculate_magnetic_moments()
-        print(magmom_v)
         eext = -self.field_v @ magmom_v
         ncomponents = len(vt_sR)
         if ncomponents == 2:
