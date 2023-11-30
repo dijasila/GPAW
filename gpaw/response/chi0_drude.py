@@ -59,7 +59,9 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
 
         # The plasma frequency integral is special in the way that only
         # the spectral part is needed
-        integrand = PlasmaFrequencyIntegrand(self, qpd, analyzer)
+        integrand = PlasmaFrequencyIntegrand(self, qpd,
+                                             analyzer,
+                                             crpa_weight=self.crpa_weight)
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
@@ -115,10 +117,11 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
 
 
 class PlasmaFrequencyIntegrand(Integrand):
-    def __init__(self, chi0drudecalc, qpd, analyzer):
+    def __init__(self, chi0drudecalc, qpd, analyzer, crpa_weight=None):
         self._drude = chi0drudecalc
         self.qpd = qpd
         self.analyzer = analyzer
+        self.crpa_weight = crpa_weight
 
     def _band_summation(self):
         # Intraband response needs only integrate partially unoccupied bands.
@@ -142,11 +145,16 @@ class PlasmaFrequencyIntegrand(Integrand):
                 dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:
                 dfde_n = np.zeros_like(f_n)
+
             vel_nv *= np.sqrt(-dfde_n[:, np.newaxis])
             weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
                              self.analyzer.how_many_symmetries())
             vel_nv *= weight
-
+        # additional cRPA weights
+        if self.crpa_weight is not None:
+            crpa_weight = self.crpa_weight.get_drude_weight_n(n_n, kpt1.K)
+            # XXX should it be sqrt here?
+            vel_nv *= np.sqrt(crpa_weight[:, np.newaxis])
         return vel_nv
 
     def eigenvalues(self, k_v, s):

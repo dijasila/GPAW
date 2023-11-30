@@ -14,7 +14,8 @@ from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+    def __init__(self, chi0calc, optical, qpd, analyzer,
+                 m1, m2, crpa_weight=None):
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
@@ -33,6 +34,7 @@ class Chi0Integrand(Integrand):
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
+        self.crpa_weight = crpa_weight
 
     @timer('Get matrix element')
     def matrix_element(self, k_v, s):
@@ -103,9 +105,15 @@ class Chi0Integrand(Integrand):
             n_nmG *= weight
 
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
+        # additional cRPA weights
+        if self.crpa_weight is not None:
+            # XXX squared or not squared. That is the question...
+            df_nm *= self.crpa_weight.get_weight_nm(n_n, m_m,
+                                                    kptpair.kpt1.K,
+                                                    kptpair.kpt2.K)
         df_nm[df_nm <= 1e-20] = 0.0
         n_nmG *= df_nm[..., np.newaxis]**0.5
-
+        
         return n_nmG
 
     @timer('Get eigenvalues')
@@ -143,7 +151,8 @@ class Chi0ComponentCalculator:
                  context=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
-                 integrationmode=None):
+                 integrationmode=None,
+                 crpa_weight=None):
         """Set up attributes common to all chi0 related calculators."""
         self.kptpair_factory = kptpair_factory
         self.gs = kptpair_factory.gs
@@ -159,6 +168,7 @@ class Chi0ComponentCalculator:
         # Set up integrator
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
+        self.crpa_weight = crpa_weight
 
     @property
     def nblocks(self):

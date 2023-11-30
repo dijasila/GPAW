@@ -47,6 +47,7 @@ class Chi0Calculator:
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
+                 crpa_weight=None,
                  **kwargs):
         self.kptpair_factory = kptpair_factory
         self.gs = kptpair_factory.gs
@@ -56,10 +57,12 @@ class Chi0Calculator:
 
         self.chi0_body_calc = Chi0BodyCalculator(
             kptpair_factory, context=context,
-            eshift=eshift, **kwargs)
+            eshift=eshift, crpa_weight=crpa_weight,
+            **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             kptpair_factory, context=context,
-            intraband=intraband, rate=rate, **kwargs)
+            intraband=intraband, rate=rate,
+            crpa_weight=crpa_weight, **kwargs)
 
     @property
     def pair_calc(self):
@@ -202,7 +205,8 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=False, m1=m1, m2=m2)
+                                  optical=False, m1=m1, m2=m2,
+                                  crpa_weight=self.crpa_weight)
 
         chi0_body.data_WgG[:] /= prefactor
         if self.hilbert:
@@ -294,7 +298,6 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                  rate=0.0,
                  **kwargs):
         super().__init__(*args, **kwargs)
-
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
         # transitions to the head of the chi0 wings. This is handled by a
@@ -308,7 +311,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                 self.kptpair_factory,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
-                integrationmode=self.integrationmode)
+                integrationmode=self.integrationmode,
+                crpa_weight=self.crpa_weight)
         else:
             self.drude_calc = None
             self.rate = None
@@ -366,7 +370,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
 
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
-                                  optical=True, m1=m1, m2=m2)
+                                  optical=True, m1=m1, m2=m2,
+                                  crpa_weight=self.crpa_weight)
 
         # We integrate the head and wings together, using the combined index P
         # index v = (x, y, z)
