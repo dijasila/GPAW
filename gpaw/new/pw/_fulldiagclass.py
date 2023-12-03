@@ -228,3 +228,97 @@ class FullDiagonalizerComplex(FullDiagonalizer):
         S_GG.data += (f_GI[G1:G2].conj() @ dS_II) @ f_GI.T
 
         return H_GG, S_GG
+
+
+class FullDiagonalizerFloat(FullDiagonalizer):
+    def _calc_eigfunc_and_eigvals(
+        self,
+        pw: PWDesc,
+        wfs: PWFDWaveFunctions,
+        dH_asii: AtomArrays,
+        dS_aii: list[Array2D],
+        vt_sR: UGArray,
+        dedtaut_sR: UGArray | None,
+        nbands: int,
+        band_comm,
+    ) -> Tuple[PWFDWaveFunctions, np.ndarray]:
+
+        H_GG, S_GG = self._pw_matrix(
+            pw,
+            wfs.pt_aiX,
+            dH_asii[:, wfs.spin],
+            dS_aii,
+            vt_sR[wfs.spin],
+            dedtaut_sR[wfs.spin],
+            band_comm,
+        )
+
+        eig_n, V = eigh(H_GG, S_GG)
+        V = V.T
+        psit_nG = pw.empty(nbands, comm=band_comm)
+        mynbands, nG = psit_nG.data.shape
+
+        psit_nG.data[:nbands, :] = V[:nbands, :nG] * 0.5
+        psit_nG.data[:nbands, 1:] += V[:nbands, nG:] * 0.5j
+        psit_nG.data[:nbands, 0] = V[:nbands, 0]
+
+        new_wfs = PWFDWaveFunctions.from_wfs(wfs, psit_nX=psit_nG)
+
+        return new_wfs, eig_n
+
+    @staticmethod
+    def _pw_matrix(
+        pw: PWDesc,
+        pt_aiG: PWAtomCenteredFunctions,
+        dH_aii: AtomArrays,
+        dS_aii: list[Array2D],
+        vt_R: UGArray,
+        dedtaut_R: UGArray | None,
+        comm,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        assert dedtaut_R is None
+        assert pw.dtype == float
+
+        npw = pw.shape[0]
+        H_GG = np.zeros(shape=(2 * npw - 1, 2 * npw - 1))
+
+        x_G = pw.empty()
+        assert isinstance(x_G, PWArray)  # Fix this!
+        x_R = vt_R.desc.new(dtype=float).zeros()
+        assert isinstance(x_R, UGArray)  # Fix this!
+
+        dv = pw.dv
+
+        for G in range(0, 2 * npw - 1):
+            x_G.data[:] = 0.0
+            if G == 0:
+                x_G.data[G] = 1 / np.sqrt(
+                    2
+                )  # so that it normalized to dv * 0.5
+            elif G >= npw:
+                x_G.data[G - npw + 1] = 0.5j  # this will be the sin
+                # print(x_G.integrate(x_G) / (dv * 0.5)) <- equals to 1
+                # ek = pw.empty()
+                # ek.data = pw.ekin_G * x_G.data
+                # print(x_G.integrate(ek), pw.ekin_G[G + 1 - npw] * 0.5 * dv)
+            else:
+                x_G.data[G] = 0.5  # this will be the cos
+
+            x_G.ifft(out=x_R)
+            x_R.data *= vt_R.data
+            x_R.fft(out=x_G)
+            H_GG[G, :npw] = dv * x_G.data.real  # coscos (G>= npw+1 cossin)
+            H_GG[G, npw:] = (
+                dv * x_G.data[1:].imag
+            )  # sincos or (G>= npw+1 sinsin)
+
+        S_GG = np.zeros(shape=(2 * npw - 1, 2 * npw - 1))
+        for i in range(2 * npw - 1):
+            if i >= npw:
+                H_GG[i, i] += dv * pw.ekin_G[i - npw + 1] * 0.5
+                S_GG[i, i] += dv * 0.5
+            else:
+                H_GG[i, i] += dv * pw.ekin_G[i] * 0.5
+                S_GG[i, i] += dv * 0.5
+
+        return H_GG, S_GG
