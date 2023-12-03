@@ -13,6 +13,7 @@ from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.new.potential import Potential
 from gpaw.new.smearing import OccupationNumberCalculator
+from scipy.linalg import eigh
 
 
 class FullDiagonalizer(ABC):
@@ -22,7 +23,6 @@ class FullDiagonalizer(ABC):
         ibzwfs: IBZWaveFunctions,
         occ_calc: OccupationNumberCalculator,
         nbands: int | None,
-        xc,
     ) -> IBZWaveFunctions:
         """Diagonalize hamiltonian in plane-wave basis."""
         vt_sR = potential.vt_sR
@@ -48,7 +48,7 @@ class FullDiagonalizer(ABC):
                 assert isinstance(wfs.pt_aiX, PWAtomCenteredFunctions)
                 pw = wfs.psit_nX.desc
 
-                new_wfs, eig_n = self.calc_eigfunc_and_eigvals(
+                new_wfs, eig_n = self._calc_eigfunc_and_eigvals(
                     pw,
                     wfs,
                     dH_asii,
@@ -76,7 +76,7 @@ class FullDiagonalizer(ABC):
         return new_ibzwfs
 
     @abstractmethod
-    def calc_eigfunc_and_eigvals(
+    def _calc_eigfunc_and_eigvals(
         self,
         pw: PWDesc,
         wfs: PWFDWaveFunctions,
@@ -91,7 +91,7 @@ class FullDiagonalizer(ABC):
 
     @staticmethod
     @abstractmethod
-    def pw_matrix(
+    def _pw_matrix(
         pw: PWDesc,
         pt_aiG: PWAtomCenteredFunctions,
         dH_aii: AtomArrays,
@@ -104,7 +104,7 @@ class FullDiagonalizer(ABC):
 
 
 class FullDiagonalizerComplex(FullDiagonalizer):
-    def calc_eigfunc_and_eigvals(
+    def _calc_eigfunc_and_eigvals(
         self,
         pw: PWDesc,
         wfs: PWFDWaveFunctions,
@@ -116,7 +116,7 @@ class FullDiagonalizerComplex(FullDiagonalizer):
         band_comm,
     ) -> Tuple[PWFDWaveFunctions, np.ndarray]:
 
-        H_GG, S_GG = self.pw_matrix(
+        H_GG, S_GG = self._pw_matrix(
             pw,
             wfs.pt_aiX,
             dH_asii[:, wfs.spin],
@@ -141,7 +141,7 @@ class FullDiagonalizerComplex(FullDiagonalizer):
         return new_wfs, eig_n
 
     @staticmethod
-    def pw_matrix(
+    def _pw_matrix(
         pw: PWDesc,
         pt_aiG: PWAtomCenteredFunctions,
         dH_aii: AtomArrays,
