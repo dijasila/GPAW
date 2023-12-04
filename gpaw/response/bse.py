@@ -564,6 +564,7 @@ class BSEBackend:
             world.broadcast(self.w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+            self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
             # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
         # Here the eigenvectors are returned as complex conjugated rows
         else:
@@ -745,10 +746,10 @@ class BSEBackend:
                 B_GT = rho_SG.T * df_S[np.newaxis] @ self.v_ST
                 tmp = self.v_ST.conj().T @ self.v_ST
                 overlap_tt = np.linalg.inv(tmp)
-                C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] /2 
-                C_TGG1 = (A_GT).T.conj()[...,np.newaxis] * (B_GT@overlap_tt).T[:,np.newaxis] /2
-
-            C_T = C_TGG
+                C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] / 2 
+                C_TGG1 = (A_GT).T.conj()[...,np.newaxis] * (B_GT@overlap_tt).T[:,np.newaxis] / 2
+            else:
+                return
         else:
             A_Gt = rho_SG.T @ self.v_St
             B_Gt = (rho_SG.T * df_S[np.newaxis]) @ self.v_St
@@ -774,15 +775,13 @@ class BSEBackend:
                 C_TGG1 = self.collect_C_TGG(C_tGG1)
                 if grid.comm.rank != 0:
                     return
-            C_T = C_TGG 
 
 
         eta /= Hartree
 
         tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta) 
         n_tmp_Tw = - 1 / (w_w[None :] / Hartree + w_T[:, None] + 1j * eta)
-        n_C_TGG  = C_TGG1 
-        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) + np.einsum('Tw,TAB->wAB', n_tmp_Tw , n_C_TGG)
+        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) + np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
         vchi_w *= 1 / self.gs.volume
            
         """Check f-sum rule."""
