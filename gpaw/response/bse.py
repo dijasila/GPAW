@@ -33,8 +33,8 @@ class BSEBackend:
                  truncation=None,
                  integrate_gamma=1,
                  mode='BSE',
-                 q_c = [0.0, 0.0, 0.0],
-                 direction = 0,
+                 q_c=[0.0, 0.0, 0.0],
+                 direction=0,
                  wfile=None,
                  write_h=False,
                  write_v=False):
