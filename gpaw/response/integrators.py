@@ -74,10 +74,9 @@ class PointIntegrator(Integrator):
 
         self.context.print('Integral kind:', task.kind)
 
-        origdomains = Domain(domain[0], domain[1])
-        mydomain = self.mydomain(origdomains)
+        mydomain = self.mydomain(domain)
 
-        prefactor = (2 * np.pi)**3 / self.vol / origdomains.nkpts
+        prefactor = (2 * np.pi)**3 / self.vol / domain.nkpts
         out_wxx /= prefactor
 
         # Sum kpoints
@@ -443,10 +442,7 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        _kpts, spins = domain
-
-        origdomains = Domain(domain[0], domain[1])
-        tesselation, alldomains = origdomains.tesselation()
+        tesselation, alldomains = domain.tesselation()
         mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
