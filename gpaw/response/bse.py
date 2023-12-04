@@ -321,8 +321,9 @@ class BSEBackend:
 
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
-        rhoG0_S1 = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
-        self.rhoG0_S = np.reshape(rhoex_KsmnG, (len(rhoG0_S1),-1))
+        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        if hybrid:
+            self.rho_SG = np.reshape(rhoex_KsmnG, (len(self.rhoG0_S), -1))
         self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
@@ -626,8 +627,7 @@ class BSEBackend:
         Nc = self.nc * (self.spinors + 1)
         Ns = self.spins
         nS = self.nS
-        rho_GS = self.rhoG0_S
-        nG = rho_GS.shape[-1]
+        nG = C_tGG.shape[1]
         ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
 
         if world.rank == 0:
@@ -732,18 +732,17 @@ class BSEBackend:
         self.get_bse_matrix(readfile=readfile, optical=optical, hybrid = hybrid)
     
         w_T = self.w_T
-        rhoG0_S = self.rhoG0_S
-        rho_GS = self.rhoG0_S
+        rho_SG = self.rho_SG
         df_S = self.df_S
-        nG = rho_GS.shape[-1]
+        nG = rho_SG.shape[-1]
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
-        vchi_w = np.zeros((len(w_w),nG, nG), dtype=complex)
+        vchi_w = np.zeros((len(w_w), nG, nG), dtype=complex)
         
         if not self.td:
             if world.rank == 0:
-                A_GT = rho_GS.T @ self.v_ST
-                B_GT = rho_GS.T * df_S[np.newaxis] @ self.v_ST
+                A_GT = rho_SG.T @ self.v_ST
+                B_GT = rho_SG.T * df_S[np.newaxis] @ self.v_ST
                 tmp = self.v_ST.conj().T @ self.v_ST
                 overlap_tt = np.linalg.inv(tmp)
                 C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] /2 
@@ -751,8 +750,8 @@ class BSEBackend:
 
             C_T = C_TGG
         else:
-            A_Gt = rho_GS.T @ self.v_St
-            B_Gt = (rho_GS.T * df_S[np.newaxis]) @ self.v_St
+            A_Gt = rho_SG.T @ self.v_St
+            B_Gt = (rho_SG.T * df_S[np.newaxis]) @ self.v_St
             if world.size == 1:
                 C_TGG1 =  A_Gt.T.conj()[...,np.newaxis] * B_Gt.T[:,np.newaxis]
                 C_TGG = B_Gt.T.conj()[..., np.newaxis] * A_Gt.T[:, np.newaxis] 
@@ -897,9 +896,9 @@ class BSEBackend:
 
         optical = (self.coulomb.truncation is None)
 
-        vchi_w, rhoG = self.get_vchi(w_w=w_w, eta=eta,
-                                     readfile=readfile, optical=optical,
-                                     write_eig=write_eig)
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta,
+                               readfile=readfile, optical=optical,
+                               write_eig=write_eig)
         alpha_w = -V * vchi_w / (4 * np.pi)
         alpha_w *= Bohr**(sum(~pbc_c))
 
@@ -909,7 +908,7 @@ class BSEBackend:
         self.context.print('Calculation completed at:', ctime(), flush=False)
         self.context.print('')
 
-        return w_w, alpha_w, rhoG 
+        return w_w, alpha_w
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
