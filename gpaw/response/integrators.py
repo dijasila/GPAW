@@ -75,10 +75,9 @@ class PointIntegrator(Integrator):
         self.context.print('Integral kind:', task.kind)
 
         origdomains = Domain(domain[0], domain[1])
-        nbz = len(origdomains.kpts_kc)
         mydomain = self.mydomain(origdomains)
 
-        prefactor = (2 * np.pi)**3 / self.vol / nbz
+        prefactor = (2 * np.pi)**3 / self.vol / origdomains.nkpts
         out_wxx /= prefactor
 
         # Sum kpoints
@@ -351,14 +350,21 @@ class Domain:
         self.kpts_kc = kpts_kc
         self.spins = spins
 
+    @property
+    def nkpts(self):
+        return len(self.kpts_kc)
+
+    @property
+    def nspins(self):
+        return len(self.spins)
+
     def __len__(self):
-        return len(self.kpts_kc) * len(self.spins)
+        return self.nkpts * self.nspins
 
     def __getitem__(self, num) -> Point:
-        nspins = len(self.spins)
-        K = num // nspins
+        K = num // self.nspins
         return Point(self.kpts_kc[K], K,
-                     self.spins[num % nspins])
+                     self.spins[num % self.nspins])
 
     def tesselation(self):
         tesselation = KPointTesselation(self.kpts_kc)
@@ -438,7 +444,6 @@ class TetrahedronIntegrator(Integrator):
         and do a point summation using these weights."""
 
         _kpts, spins = domain
-        nspins = len(spins)
 
         origdomains = Domain(domain[0], domain[1])
         tesselation, alldomains = origdomains.tesselation()
@@ -450,7 +455,7 @@ class TetrahedronIntegrator(Integrator):
             for point in alldomains:
                 deps_M = -integrand.eigenvalues(point.kpt_c, point.spin)
                 if deps_tMk is None:
-                    deps_tMk = np.zeros([nspins, *deps_M.shape,
+                    deps_tMk = np.zeros([alldomains.nspins, *deps_M.shape,
                                          tesselation.nkpts], float)
                 deps_tMk[point.spin, :, point.K] = deps_M
 
