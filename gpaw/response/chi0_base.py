@@ -35,7 +35,7 @@ class Chi0Integrand(Integrand):
         self.optical = optical
 
     @timer('Get matrix element')
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         """Return pair density matrix element for integration.
 
         A pair density is defined as::
@@ -72,7 +72,8 @@ class Chi0Integrand(Integrand):
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
-            k_v, s, block=not self.optical,
+            point.kpt_c,  # <--- fix discrepancy kpt_c vs kpt_v
+            point.spin, block=not self.optical,
             target_method=target_method,
         ).reshape(-1, out_ngmax)
 
@@ -109,7 +110,7 @@ class Chi0Integrand(Integrand):
         return n_nmG
 
     @timer('Get eigenvalues')
-    def eigenvalues(self, k_v, s):
+    def eigenvalues(self, point):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
@@ -121,6 +122,8 @@ class Chi0Integrand(Integrand):
         gs = self.gs
         kd = gs.kd
 
+        k_v = point.kpt_c  # XXX c/v discrepancy
+
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
         kptfinder = self.gs.kpoints.kptfinder
         K1 = kptfinder.find(k_c)
@@ -128,9 +131,9 @@ class Chi0Integrand(Integrand):
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = gs.kpt_qs[ik1][s]
+        kpt1 = gs.kpt_qs[ik1][point.spin]
         assert kd.comm.size == 1
-        kpt2 = gs.kpt_qs[ik2][s]
+        kpt2 = gs.kpt_qs[ik2][point.spin]
         deps_nm = np.subtract(kpt1.eps_n[self.n1:self.n2][:, np.newaxis],
                               kpt2.eps_n[self.m1:self.m2])
         return deps_nm.reshape(-1)
