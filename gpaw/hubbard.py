@@ -44,18 +44,19 @@ class HubbardU:
         dHU_sii = np.zeros_like(D_sii)
         for l, U, scale in zip(self.l, self.U, self.scale):
             nl = np.argwhere(np.equal(setup.l_j, l))
-            assert len(nl) == 1 or len(nl) == 2, (
-                f'Setup has {len(nl)} radial partial waves with angular '
-                f'momentum quantum number {l}. Must be 1 or 2 for DFT+U.')
-            assert len(nl) != len(np.argwhere(np.equal(np.array(setup.n_j)[nl],
-                                                       -1))), (
-                'DFT+U correction cannot be scaled if '
-                'there is no bounded partial wave.')
+            if not (len(nl) == 1 or len(nl) == 2):
+                raise RuntimeError(f'Setup has {len(nl)} radial partial waves '
+                                   f'with angular momentum quantum number {l}.'
+                                   ' Must be 1 or 2 for DFT+U.')
+            if (len(nl) == len(np.argwhere(np.equal(np.array(setup.n_j)[nl],
+                                                    -1))) and scale == 1):
+                raise RuntimeError('DFT+U correction cannot be scaled if '
+                                   'there is no bounded partial waves.')
 
             eU1, dHU1_sii = hubbard(D_sii, U=U, l=l,
                                     l_j=setup.l_j, n_j=setup.n_j,
                                     N0_q=setup.N0_q, scale=scale)
-            eU += eU1
+            eU += eU1.real
             dHU_sii += dHU1_sii
         return eU, dHU_sii
 
@@ -94,14 +95,14 @@ def hubbard(D_sii: Array3D,
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
+                eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace()
 
-                dHU_mm = U / 2. * (np.eye(nm) - N_mm)
+                dHU_mm = U / 2. * (np.eye(nm) - N_mm.T)
 
             else:
-                eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
+                eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace()
 
-                dHU_mm = -U / 2. * N_mm
+                dHU_mm = -U / 2. * N_mm.T
         else:
             eU1 = U / 2. * (N_mm - N_mm @ N_mm).trace()
 

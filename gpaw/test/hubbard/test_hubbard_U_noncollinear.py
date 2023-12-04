@@ -29,9 +29,31 @@ def test_hubbard_U_noncollinear():
     N0_q[6] = 1.1  # Bounded-unbounded
     N0_q[9] = 1.2  # Unbounded-unbounded
 
-    eU, _ = hubbard(D_sii, U / Ha, l, l_j, n_j, N0_q, scale=True)
+    eU, V_sii = hubbard(D_sii, U / Ha, l, l_j, n_j, N0_q, scale=True)
     eU_onlyreal, _ = hubbard(D_sii.real, U / Ha, l, l_j, n_j, N0_q, scale=True)
+    assert eU.imag == pytest.approx(0, abs=1e-10)
 
     # Assert that disregarding the complex values will alter the energy
     assert eU == pytest.approx(-7.825104, abs=1.e-2)
     assert eU_onlyreal == pytest.approx(-7.546553, abs=1.e-2)
+
+    # Now, we check that the Hubbard Hamiltonian is calculated correctly by
+    # comparing it with an energy derivative w.r.t. a density matrix element
+    # calculated through finite difference.
+
+    diff = 1e-5
+
+    D1_sii = D_sii.copy()
+    D1_sii[0, 1, 2] += diff / 2
+
+    eU1, _ = hubbard(D1_sii, U / Ha, l, l_j, n_j, N0_q, scale=True)
+
+    D2_sii = D_sii.copy()
+    D2_sii[0, 1, 2] -= diff / 2
+
+    eU2, _ = hubbard(D2_sii, U / Ha, l, l_j, n_j, N0_q, scale=True)
+
+    # print(eU1)
+    # print(eU2)
+    # print(V_sii[0, 1:4, 1:4])
+    assert (eU1 - eU2) / diff == pytest.approx(V_sii[0, 1, 2], abs=1e-8)
