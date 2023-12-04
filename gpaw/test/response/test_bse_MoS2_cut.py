@@ -9,7 +9,8 @@ from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
 from ase.units import Bohr
 
-def create_bse(q_c=[0,0,0]):
+
+def create_bse(q_c=[0, 0, 0]):
     bse = BSE('MoS2.gpw',
               q_c=q_c,
               spinors=True,
@@ -24,6 +25,7 @@ def create_bse(q_c=[0,0,0]):
               mode='BSE',
               truncation='2D')
     return bse
+
 
 @pytest.mark.response
 def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
@@ -83,11 +85,9 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     #################################################################
 
     bse = create_bse()
-    
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
 
     bse = create_bse()
-
     pbc_c = bse.gs.pbc
     V = bse.gs.nonpbc_cell_product()
     factor = V * Bohr**(sum(~pbc_c)) / (4 * np.pi)
