@@ -13,7 +13,7 @@ from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 class Integrand(ABC):
     @abstractmethod
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         ...
 
     @abstractmethod
@@ -83,7 +83,7 @@ class PointIntegrator(Integrator):
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, point in pb.enumerate(mydomain):
-            n_MG = integrand.matrix_element(point.kpt_c, point.spin)
+            n_MG = integrand.matrix_element(point)
             if n_MG is None:
                 continue
             deps_M = integrand.eigenvalues(point.kpt_c, point.spin)
@@ -460,8 +460,7 @@ class TetrahedronIntegrator(Integrator):
         for _, point in pb.enumerate(mydomain):
             deps_Mk = deps_tMk[point.spin]
             teteps_Mk = deps_Mk[:, tesselation.neighbours_k[point.K]]
-            n_MG = integrand.matrix_element(point.kpt_c,
-                                            point.spin)
+            n_MG = integrand.matrix_element(point)
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))

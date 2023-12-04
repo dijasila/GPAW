@@ -35,7 +35,7 @@ class Chi0Integrand(Integrand):
         self.optical = optical
 
     @timer('Get matrix element')
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         """Return pair density matrix element for integration.
 
         A pair density is defined as::
@@ -72,7 +72,8 @@ class Chi0Integrand(Integrand):
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
-            k_v, s, block=not self.optical,
+            point.kpt_c,  # <--- fix discrepancy kpt_c vs kpt_v
+            point.spin, block=not self.optical,
             target_method=target_method,
         ).reshape(-1, out_ngmax)
 

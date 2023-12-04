@@ -124,12 +124,13 @@ class PlasmaFrequencyIntegrand(Integrand):
         # Intraband response needs only integrate partially unoccupied bands.
         return self._drude.gs.nocc1, self._drude.gs.nocc2
 
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         """NB: In dire need of documentation! XXX."""
+        k_v = point.kpt_c  # XXX _v vs _c discrepancy
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
         kptpair_factory = self._drude.kptpair_factory
-        kpt1 = kptpair_factory.get_k_point(s, k_c, n1, n2)
+        kpt1 = kptpair_factory.get_k_point(point.spin, k_c, n1, n2)
         n_n = range(n1, n2)
 
         vel_nv = kptpair_factory.pair_calculator().intraband_pair_density(
