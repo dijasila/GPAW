@@ -18,6 +18,7 @@ from gpaw.mpi import world
 from gpaw.berryphase import get_polarization_phase
 from ase.units import Bohr
 
+
 def test_born(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['si_pw'])
     borncharges_test(calc)
@@ -60,7 +61,7 @@ def borncharges_test(calc, delta=0.01):
 
     for a in indices:
         phase_scv = np.zeros((2, 3, 3), float)
-        for v in range(1):                          # test only computes displacements in one dir
+        for v in range(1):              # computes disps in one dir
             for s, sign in enumerate([-1, 1]):
                 if world.rank == 0:
                     print(sym_a[a], a, v, s)
