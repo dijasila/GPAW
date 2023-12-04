@@ -37,7 +37,7 @@ class FullDiagonalizer(ABC):
             nbands: int = min(
                 wfs.array_shape(global_shape=True)[0] for wfs in ibzwfs
             )
-            nbands: int = ibzwfs.kpt_comm.min_scalar(nbands)
+            nbands = ibzwfs.kpt_comm.min_scalar(nbands)
 
         band_comm = ibzwfs.band_comm
 
