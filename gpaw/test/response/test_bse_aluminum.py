@@ -5,8 +5,8 @@ from gpaw.response.df import DielectricFunction
 from gpaw.response.bse import BSE, read_spectrum
 from gpaw.test import findpeak
 
-pytestmark = pytest.mark.skipif(world.size < 4,
-                                reason='world.size < 4')
+#pytestmark = pytest.mark.skipif(world.size < 4,
+#                                reason='world.size < 4')
 
 
 @pytest.mark.response
@@ -25,12 +25,12 @@ def test_response_bse_aluminum(in_tmp_dir, gpw_files):
                   conduction_bands=range(4),
                   mode='RPA',
                   nbands=4,
-                  ecut=ecut,
+                  q_c=q_c,
+                  ecut=ecut, 
                   write_h=False,
                   write_v=False,
                   )
         bse.get_eels_spectrum(filename='bse_eels.csv',
-                              q_c=q_c,
                               w_w=w_w,
                               eta=eta)
         omega_w, bse_w = read_spectrum('bse_eels.csv')
