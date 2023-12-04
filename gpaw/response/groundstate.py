@@ -1,11 +1,11 @@
 from __future__ import annotations
 from pathlib import Path
+from functools import cached_property
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 import numpy as np
 
 from ase.units import Ha, Bohr
-from ase.utils import lazyproperty
 
 import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
@@ -97,7 +97,7 @@ class ResponseGroundStateAdapter:
         # code, and that includes places that are also compatible with FD.
         return self._wfs.pd
 
-    @lazyproperty
+    @cached_property
     def global_pd(self):
         """Get a PWDescriptor that includes all k-points.
 
@@ -145,12 +145,12 @@ class ResponseGroundStateAdapter:
             self._density.interpolate_pseudo_density()
         return self._density.nt_sg
 
-    @lazyproperty
+    @cached_property
     def n_sR(self):
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=1)[0]
 
-    @lazyproperty
+    @cached_property
     def n_sr(self):
         return self._density.get_all_electron_density(
             atoms=self.atoms, gridrefinement=2)[0]
@@ -284,7 +284,7 @@ class ResponseGroundStateAdapter:
         return np.array([max(pawdata.rcut_j)
                          for pawdata in self.pawdatasets.by_atom])
 
-    @lazyproperty
+    @cached_property
     def micro_setups(self):
         from gpaw.response.localft import extract_micro_setup
         micro_setups = []
@@ -296,7 +296,7 @@ class ResponseGroundStateAdapter:
     def atomrotations(self):
         return self._wfs.setups.atomrotations
 
-    @lazyproperty
+    @cached_property
     def kpoints(self):
         from gpaw.response.kpoints import ResponseKPointGrid
         return ResponseKPointGrid(self.kd, self.gd.icell_cv, self.kd.bzk_kc)

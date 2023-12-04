@@ -28,6 +28,7 @@ from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import pack, pack2, unpack
 from gpaw.yml import indent
 from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new.external_potential import ExternalPotential
 
 
 class PotentialCalculator:
@@ -37,10 +38,12 @@ class PotentialCalculator:
                  setups: list[Setup],
                  *,
                  fracpos_ac: Array2D,
+                 external_potential: ExternalPotential | None = None,
                  soc: bool = False):
         self.poisson_solver = poisson_solver
         self.xc = xc
         self.setups = setups
+        self.external_potential = external_potential or ExternalPotential()
         self.fracpos_ac = fracpos_ac
         self.soc = soc
 
@@ -97,7 +100,13 @@ class PotentialCalculator:
                 kpt_band_comm = ibzwfs.kpt_band_comm
         Q_aL = self.calculate_charges(vHt_x)
         dH_asii, corrections = calculate_non_local_potential(
-            self.setups, density, self.xc, Q_aL, self.soc, kpt_band_comm)
+            self.setups,
+            density,
+            self.xc,
+            self.external_potential,
+            Q_aL,
+            self.soc,
+            kpt_band_comm)
 
         for key, e in corrections.items():
             if 0:
@@ -110,6 +119,7 @@ class PotentialCalculator:
 def calculate_non_local_potential(setups,
                                   density,
                                   xc,
+                                  ext_pot,
                                   Q_aL,
                                   soc: bool,
                                   kpt_band_comm: MPIComm
@@ -126,7 +136,7 @@ def calculate_non_local_potential(setups,
             Q_L = Q_aL[a]
             setup = setups[a]
             dH_sii, corrections = calculate_non_local_potential1(
-                setup, xc, D_sii, Q_L, soc)
+                setup, xc, ext_pot, D_sii, Q_L, soc)
             dH_asii[a][:] = dH_sii
             for key, e in corrections.items():
                 energy_corrections[key] += e
@@ -148,6 +158,7 @@ def calculate_non_local_potential(setups,
 
 def calculate_non_local_potential1(setup: Setup,
                                    xc: Functional,
+                                   ext_pot,
                                    D_sii: Array3D,
                                    Q_L: Array1D,
                                    soc: bool) -> tuple[Array3D,
@@ -170,7 +181,8 @@ def calculate_non_local_potential1(setup: Setup,
         dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
     dH_sp[:ndensities] = dH_p
     e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
-    e_external = 0.0
+
+    e_external = ext_pot.add_paw_correction(setup.Delta_pL[:, 0], dH_sp)
 
     dH_sii = unpack(dH_sp)
     if setup.hubbard_u is not None:

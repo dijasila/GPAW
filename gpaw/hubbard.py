@@ -100,12 +100,12 @@ def hubbard(D_sii: Array3D,
             if s == 0:
                 eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
 
-                dHU_mm = U / 2. * (np.eye(nm) - N_mm)
+                dHU_mm = U / 2. * (np.eye(nm) - N_mm.T)
 
             else:
                 eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
 
-                dHU_mm = -U / 2. * N_mm
+                dHU_mm = -U / 2. * N_mm.T
         else:
             eU1 = U / 2. * (N_mm - N_mm @ N_mm).trace()
 
