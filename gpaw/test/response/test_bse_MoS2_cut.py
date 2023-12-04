@@ -9,6 +9,20 @@ from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
 from ase.units import Bohr
 
+def create_bse():
+    bse = BSE('MoS2.gpw',
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+    return bse
 
 @pytest.mark.response
 def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
@@ -40,18 +54,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     layer.get_potential_energy()
     calc.write('MoS2.gpw', mode='all')
 
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
+    bse = create_bse()
 
     outw_w, outalpha_w = bse.get_polarizability(write_eig=None,
                                                 eta=0.02,
@@ -81,33 +84,11 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # Since a lot of hidden stuff is saved to self one has to create a
     # new BSE object for every calculation. THIS IS EXTREMELY DANGEROUS
     # BEHAVIOUR AND IS REPORTED IN ISSUE #1015
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
-
+    bse = create_bse()
+    
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
 
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
+    bse = create_bse()
 
     pbc_c = bse.gs.pbc
     V = bse.gs.nonpbc_cell_product()
@@ -119,33 +100,11 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # Absorption and EELS spectra for 2D materials should NOT be identical
     # for finite q.
     #####################################################################
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
+    bse = create_bse()
 
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w, q_c=[0.2, 0.2, 0.0])
 
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
+    bse = create_bse()
 
     outw_w, pol = bse.get_polarizability(w_w, q_c=[0.2, 0.2, 0.0])
 
