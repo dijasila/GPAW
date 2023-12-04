@@ -15,6 +15,8 @@ from gpaw.new.potential import Potential
 from gpaw.new.smearing import OccupationNumberCalculator
 from scipy.linalg import eigh
 
+from typing_extensions import override
+
 
 class FullDiagonalizer(ABC):
     def diagonalize(
@@ -267,6 +269,7 @@ class FullDiagonalizerFloat(FullDiagonalizer):
         return new_wfs, eig_n
 
     @staticmethod
+    @override
     def _pw_matrix(
         pw: PWDesc,
         pt_aiG: PWAtomCenteredFunctions,
