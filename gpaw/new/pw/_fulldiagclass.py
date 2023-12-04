@@ -288,18 +288,14 @@ class FullDiagonalizerFloat(FullDiagonalizer):
         assert isinstance(x_R, UGArray)  # Fix this!
 
         dv = pw.dv
-
         for G in range(0, 2 * npw - 1):
             x_G.data[:] = 0.0
             if G == 0:
                 x_G.data[G] = 1  # it normalizes to dv
-                # print(x_G.integrate(x_G) / (dv), flush=True) #  <- equals to 1
             elif G >= npw:
-                x_G.data[G - npw + 1] = 0.5j  # this will be the sin, normalizes to dv*0.5
-                # print(x_G.integrate(x_G) / (dv * 0.5)) <- equals to 1
-                # ek = pw.empty()
-                # ek.data = pw.ekin_G * x_G.data
-                # print(x_G.integrate(ek), pw.ekin_G[G + 1 - npw] * 0.5 * dv)
+                x_G.data[
+                    G - npw + 1
+                ] = 0.5j  # this will be the sin, normalizes to dv*0.5
             else:
                 x_G.data[G] = 0.5  # this will be the sin, normalizes to dv*0.5
 
