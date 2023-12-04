@@ -666,11 +666,86 @@ class BSEBackend:
         if world.rank == 0:
             return C_TGG 
 
-    
     @timer('get_vchi')
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, readfile=None, optical=True,
-                 write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
+    def get_vchi(self, w_w=None, eta=0.1,
+                 readfile=None, optical=True,
+                 write_eig=None):
+        """Returns v * chi where v is the bare Coulomb interaction"""
+
+        self.get_bse_matrix(readfile=readfile, optical=optical)
+
+        w_T = self.w_T
+        rhoG0_S = self.rhoG0_S
+        df_S = self.df_S
+
+        self.context.print('Calculating response function at %s frequency '
+                           'points' % len(w_w))
+        vchi_w = np.zeros(len(w_w), dtype=complex)
+
+        if not self.td:
+            C_T = np.zeros(self.nS - len(self.excludef_S), complex)
+            if world.rank == 0:
+                A_T = np.dot(rhoG0_S, self.v_ST)
+                B_T = np.dot(rhoG0_S * df_S, self.v_ST)
+                tmp = np.dot(self.v_ST.conj().T, self.v_ST)
+                overlap_tt = np.linalg.inv(tmp)
+                C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
+            world.broadcast(C_T, 0)
+        else:
+            A_t = np.dot(rhoG0_S, self.v_St)
+            B_t = np.dot(rhoG0_S * df_S, self.v_St)
+            if world.size == 1:
+                C_T = B_t.conj() * A_t
+            else:
+                Nv = self.nv * (self.spinors + 1)
+                Nc = self.nc * (self.spinors + 1)
+                Ns = self.spins
+                nS = self.nS
+                ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+                grid = BlacsGrid(world, world.size, 1)
+                desc = grid.new_descriptor(nS, 1, ns, 1)
+                C_t = desc.empty(dtype=complex)
+                C_t[:, 0] = B_t.conj() * A_t
+                C_T = desc.collect_on_master(C_t)[:, 0]
+                if world.rank != 0:
+                    C_T = np.empty(nS, dtype=complex)
+                world.broadcast(C_T, 0)
+
+        eta /= Hartree
+        for iw, w in enumerate(w_w / Hartree):
+            tmp_T = 1. / (w - w_T + 1j * eta)
+            vchi_w[iw] += np.dot(tmp_T, C_T)
+        vchi_w *= 4 * np.pi / self.gs.volume
+
+        if not np.allclose(self.q_c, 0.0):
+            cell_cv = self.gs.gd.cell_cv
+            B_cv = 2 * np.pi * np.linalg.inv(cell_cv).T
+            q_v = np.dot(self.q_c, B_cv)
+            vchi_w /= np.dot(q_v, q_v)
+
+        """Check f-sum rule."""
+        nv = self.gs.nvalence
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
+        self.context.print('', flush=False)
+        self.context.print('Checking f-sum rule:', flush=False)
+        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
+        self.context.print('')
+
+        if write_eig is not None:
+            assert isinstance(write_eig, str)
+            filename = write_eig
+            if world.rank == 0:
+                write_bse_eigenvalues(filename, self.mode,
+                                      self.w_T * Hartree, C_T)
+
+        return vchi_w
+
+    @timer('get_chi_GG')
+    def get_chi_GG(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                   direction=0, readfile=None, optical=True,
+                   write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         if recalculate == True:
