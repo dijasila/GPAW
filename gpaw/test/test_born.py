@@ -6,29 +6,22 @@ Relaxed .gpw file does not have symmetry.
 
 The borncharges script implements symmetry = off, displaces the atoms
 in some direction and then computes the polarization from the Berry phases
-Note that for the test, we only displace one atom relative to the other 
+Note that for the test, we only displace one atom relative to the other
 in the positive x direction.
 
 """
 
-import pytest
 import numpy as np
 from gpaw import GPAW
-
-from os.path import splitext, isfile
-from os import remove
-from glob import glob
-
+from os.path import splitext
 from gpaw.mpi import world
 from gpaw.berryphase import get_polarization_phase
-
 from ase.units import Bohr
-from ase.build import bulk
 
 def test_born(in_tmp_dir, gpw_files):
-
     calc = GPAW(gpw_files['si_pw'])
     borncharges_test(calc)
+
 
 def get_wavefunctions_test(atoms, name, params):
     params['symmetry'] = {'point_group': False,
@@ -39,6 +32,7 @@ def get_wavefunctions_test(atoms, name, params):
     atoms.calc.write(name, 'all')
     return atoms.calc
 
+
 def borncharges_test(calc, delta=0.01):
 
     params = calc.parameters
@@ -48,7 +42,7 @@ def borncharges_test(calc, delta=0.01):
     sym_a = atoms.get_chemical_symbols()
 
     # List for atomic indices
-    indices = [0]          #test only computes one atom
+    indices = [0]          # test only computes one atom
 
     pos_av = atoms.get_positions()
     avg_v = np.sum(pos_av, axis=0) / len(pos_av)
@@ -66,7 +60,7 @@ def borncharges_test(calc, delta=0.01):
 
     for a in indices:
         phase_scv = np.zeros((2, 3, 3), float)
-        for v in range(1):                            #test only computes displacements in one dir
+        for v in range(1):                          # test only computes displacements in one dir
             for s, sign in enumerate([-1, 1]):
                 if world.rank == 0:
                     print(sym_a[a], a, v, s)
@@ -76,12 +70,7 @@ def borncharges_test(calc, delta=0.01):
                 name = f'{prefix}.gpw'
 
                 calc = get_wavefunctions_test(atoms, name, params)
-                try:
-                    phase_c = get_polarization_phase(name)
-                except ValueError:
-                    calc = get_wavefunctions_test(atoms, name, params)
-                    phase_c = get_polarization_phase(name)
-
+                phase_c = get_polarization_phase(name)
                 phase_scv[s, :, v] = phase_c
 
         dphase_cv = (phase_scv[1] - phase_scv[0])
