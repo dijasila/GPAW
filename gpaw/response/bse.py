@@ -69,9 +69,6 @@ class BSEBackend:
             self.context.print('***WARNING*** Symmetries may not be right. '
                                'Use gamma-centered grid to be sure')
         offset_c = 0.5 * ((self.kd.N_c + 1) % 2) / self.kd.N_c
-        print('this is offset')
-        with open("output.txt", "a") as offset_cc:
-             print(offset_c, file=offset_cc)
         bzq_qc = monkhorst_pack(self.kd.N_c) + offset_c
         self.qd = KPointDescriptor(bzq_qc)
         self.qd.set_symmetry(self.gs.atoms, self.kd.symmetry)
@@ -324,12 +321,7 @@ class BSEBackend:
 
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
-       # rhoex_KsmnG = np.linalg.inv(rhoex_KsmnG)
         rhoG0_S1 = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
-        #self.rhoG0_S = np.reshape(rhoex_KsmnG, -1
-        #self.rhoG0_S = rhoex_KsmnG.reshape((len(v_G), -2))
-       # self.rhoG0_S = (rhoex_KsmnG.reshape((-2, len(v_G
-       # self.rhoG0_S = (rhoex_KsmnG.reshape((-2,len(v_G)))).T
         self.rhoG0_S = np.reshape(rhoex_KsmnG, (len(rhoG0_S1),-1))
         self.context.timer.stop('Pair densities')
 
@@ -421,9 +413,7 @@ class BSEBackend:
 
         # world.sum(rhoG0_Ksmn)
         # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
-        print(np.shape(df_Ksmn))
         self.df_S = np.reshape(df_Ksmn, -1)
-        print(np.shape(self.df_S))
         if not self.td:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         # multiply by 2 when spin-paired and no SOC
@@ -571,8 +561,6 @@ class BSEBackend:
           #      self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
                 self.w_T, self.v_ST = np.linalg.eig(self.H_SS)
             world.broadcast(self.w_T, 0)
-            print(np.shape(self.excludef_S))
-            print(self.excludef_S)
            # self.df_S = np.delete(self.df_S, self.excludef_S)
            # self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
            # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
@@ -739,20 +727,10 @@ class BSEBackend:
     @timer('get_chi_GG')
     def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
                    write_eig=None, return_vchi = True, hybrid = False):
-        """Returns v * chi where v is the bare Coulomb interaction"""
+        """Returns chi_GG'"""
 
-        print("Calculating BSE matrix", flush=True) 
         self.get_bse_matrix(readfile=readfile, optical=optical, hybrid = hybrid)
-        print("Done calculating BSE matrix", flush=True)
     
-        import psutil
-        available_memory = psutil.virtual_memory().available
-        max_tensor_dim_n = int((available_memory / 8)**(1/3))
-        print('this is max tensor dim n:', flush=True)
-        print(max_tensor_dim_n, flush=True)
-        max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
-        print('this is max tensor dim m:', flush=True)
-        print(max_tensor_dim_m, flush=True)
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
         rho_GS = self.rhoG0_S
@@ -761,7 +739,7 @@ class BSEBackend:
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros((len(w_w),nG, nG), dtype=complex)
-        print("Initilizing the k-point parallized part", flush=True)
+        
         if not self.td:
             if world.rank == 0:
                 A_GT = rho_GS.T @ self.v_ST
@@ -772,7 +750,6 @@ class BSEBackend:
                 C_TGG1 = (A_GT).T.conj()[...,np.newaxis] * (B_GT@overlap_tt).T[:,np.newaxis] /2
 
             C_T = C_TGG
-           # C_TGG1 = np.swapaxes(C_TGG.conj(), -1, -2)
         else:
             A_Gt = rho_GS.T @ self.v_St
             B_Gt = (rho_GS.T * df_S[np.newaxis]) @ self.v_St
@@ -787,58 +764,31 @@ class BSEBackend:
                 ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
                 assert self.kd.nbzkpts % world.size == 0
                 grid = BlacsGrid(world, world.size, 1)
-                print("Made 1", flush=True) 
                 desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
                 C_tGG = desc.empty(dtype=complex)
-                print('Made 1 _ 1', flush = True)
                 np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
-                print('Made 1 _ 2', flush = True)
-                available_memory = psutil.virtual_memory().available
-                max_tensor_dim_n = int((available_memory / 8)**(1/3))
-                print('this is max tensor dim n:', flush=True)
-                print(max_tensor_dim_n, flush=True)
-                max_tensor_dim_m = available_memory // (8 * max_tensor_dim_n**2)
-                print('this is max tensor dim m:', flush=True)
-                print(max_tensor_dim_m, flush=True)
                 C_TGG = self.collect_C_TGG(C_tGG)
-               # C_TGG = desc.collect_on_master(C_tGG).reshape((-1, nG, nG))
-                print(np.shape(C_TGG))
-                print("Made 2", flush=True)
                 desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
-                print('made disc1', flush = True)
                 C_tGG1 = desc1.empty(dtype=complex)
-                print('made CtGG1', flush = True)
                 np.einsum('Gt,Ht->tGH', A_Gt.conj() , B_Gt, out=C_tGG1.reshape((-1, nG, nG)))
-                print('made the einsum', flush = True)
                 C_TGG1 = self.collect_C_TGG(C_tGG1)
-                #C_TGG1 = desc1.collect_on_master(C_tGG1).reshape((-1, nG, nG))
-                print("Made 3", flush=True)
                 if grid.comm.rank != 0:
                     return
             C_T = C_TGG 
 
-        print("Made the k-point parallelized part", flush=True)
 
         eta /= Hartree
 
         tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta) 
         n_tmp_Tw = - 1 / (w_w[None :] / Hartree + w_T[:, None] + 1j * eta)
-        n_C_TGG  = C_TGG1  #np.swapaxes(C_TGG.conj(), -1, -2)
+        n_C_TGG  = C_TGG1 
         vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) + np.einsum('Tw,TAB->wAB', n_tmp_Tw , n_C_TGG)
-       # vchi_w = np.einsum('Tw,TAB->wAB', n_tmp_Tw , n_C_TGG)
-        """for iw, w in enumerate(w_w / Hartree):
-		    tmp_T = 1. / (w - w_T + 1j * eta)
-		   # print(np.shape(tmp_T))
-		   # vchi_w[iw] += np.dot(tmp_T, C_T)
-	           vchi_w[iw] += np.dot(C_T.T[:], tmp_T).T 
-	"""
         vchi_w *= 1 / self.gs.volume
            
         """Check f-sum rule."""
         nv = self.gs.nvalence
         dw_w = (w_w[1:] - w_w[:-1]) / Hartree
         wchi_w = (w_w[1:] * vchi_w[:,0,0][1:] + w_w[:-1] * vchi_w[:,0,0][:-1]) / Hartree / 2
-       # wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
         N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
         self.context.print('', flush=False)
         self.context.print('Checking f-sum rule:', flush=False)
@@ -851,10 +801,7 @@ class BSEBackend:
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
                                       self.w_T * Hartree, C_TGG[:,0,0])
-      #  from gpaw.response.g0w0 import QSymmetryOp, get_nmG
-      #  symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
-     #                                                kpt1, kpt2)
-        return np.swapaxes(vchi_w, -1, -2) #, self.qpd_q[iq] 
+        return np.swapaxes(vchi_w, -1, -2) 
 
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
