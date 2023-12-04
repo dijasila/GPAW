@@ -74,9 +74,8 @@ class PointIntegrator(Integrator):
 
         self.context.print('Integral kind:', task.kind)
 
-        nbz = len(domain[0])
-
-        origdomains = Domain(domain[0], range(len(domain[0])), domain[1])
+        origdomains = Domain(domain[0], domain[1])
+        nbz = len(origdomains.kpts_kc)
         mydomain = self.mydomain(origdomains)
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
@@ -348,24 +347,22 @@ class Point:
 
 
 class Domain:
-    def __init__(self, kpts_kc, kpts, spins):
+    def __init__(self, kpts_kc, spins):
         self.kpts_kc = kpts_kc
-        self.kpts = kpts
         self.spins = spins
 
     def __len__(self):
-        return len(self.kpts) * len(self.spins)
+        return len(self.kpts_kc) * len(self.spins)
 
     def __getitem__(self, num) -> Point:
         nspins = len(self.spins)
-        K = self.kpts[num // nspins]
+        K = num // nspins
         return Point(self.kpts_kc[K], K,
                      self.spins[num % nspins])
 
     def tesselation(self):
         tesselation = KPointTesselation(self.kpts_kc)
-        tesselated_domains = Domain(tesselation.bzk_kc,
-                                    range(tesselation.nkpts), self.spins)
+        tesselated_domains = Domain(tesselation.bzk_kc, self.spins)
         return tesselation, tesselated_domains
 
 
@@ -443,7 +440,7 @@ class TetrahedronIntegrator(Integrator):
         _kpts, spins = domain
         nspins = len(spins)
 
-        origdomains = Domain(domain[0], range(len(domain[0])), domain[1])
+        origdomains = Domain(domain[0], domain[1])
         tesselation, alldomains = origdomains.tesselation()
         mydomain = self.mydomain(alldomains)
 
