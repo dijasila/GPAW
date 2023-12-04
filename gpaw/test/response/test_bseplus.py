@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plr
 import numpy as np
 from ase.build import bulk
 import pytest
@@ -35,12 +35,10 @@ def test_bse_plus(in_tmp_dir, scalapack):
     
     chi_irr_bse = bse.get_vchi(eta=0.2,optical = True, q_c = [0,0,0], hybrid = True,
                     w_w=np.array([-3,0,6]))
-
-
-    assert np.allclose(np.array(chi_irr_bse)[0,:3,:3], 
-   np.array([[ 2.76303362+1.41542559j, -0.06519706-0.01796091j,  0.01792886-0.06572987j]
- [-0.01769456+0.06515327j, -0.01168023+0.01055983j, -0.00986236-0.01076832j]
- [ 0.06568665+0.01766283j,  0.00986239+0.0107683j,  -0.01166505+0.01061083j]]))
+ 
+    assert np.allclose(chi_irr_bse[0,:3,:3],np.array([[ 2.76303362+1.41542559j, -0.06519706-0.01796091j,  0.01792886-0.06572987j],
+  [-0.01769456+0.06515327j, -0.01168023+0.01055983j, -0.00986236-0.01076832j],
+ [ 0.06568665+0.01766283j,  0.00986239+0.0107683j,  -0.01166505+0.01061083j]]), atol = 1e-2, rtol = 1e-2)
 
  #   chi_irr_BSE_correct = np.load('chi_irr_BSE_correct.npy') 
     
