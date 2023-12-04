@@ -9,8 +9,9 @@ from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
 from ase.units import Bohr
 
-def create_bse():
+def create_bse(q_c=[0,0,0]):
     bse = BSE('MoS2.gpw',
+              q_c=q_c,
               spinors=True,
               ecut=10,
               valence_bands=[8],
@@ -81,9 +82,6 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # for q=0.
     #################################################################
 
-    # Since a lot of hidden stuff is saved to self one has to create a
-    # new BSE object for every calculation. THIS IS EXTREMELY DANGEROUS
-    # BEHAVIOUR AND IS REPORTED IN ISSUE #1015
     bse = create_bse()
     
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
@@ -100,12 +98,9 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # Absorption and EELS spectra for 2D materials should NOT be identical
     # for finite q.
     #####################################################################
-    bse = create_bse()
-
-    outw_w, eels = bse.get_eels_spectrum(w_w=w_w, q_c=[0.2, 0.2, 0.0])
-
-    bse = create_bse()
-
-    outw_w, pol = bse.get_polarizability(w_w, q_c=[0.2, 0.2, 0.0])
+    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
+    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    outw_w, pol = bse.get_polarizability(w_w)
 
     assert not np.allclose(pol.imag / factor, eels)
