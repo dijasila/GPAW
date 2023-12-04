@@ -1680,6 +1680,30 @@ class GPWFiles:
         return fe.calc
 
     @gpwfile
+    def si8_fd(self):
+        a = 5.404
+        bulk = Atoms(symbols='Si8',
+                     scaled_positions=[(0, 0, 0),
+                                       (0, 0.5, 0.5),
+                                       (0.5, 0, 0.5),
+                                       (0.5, 0.5, 0),
+                                       (0.25, 0.25, 0.25),
+                                       (0.25, 0.75, 0.75),
+                                       (0.75, 0.25, 0.75),
+                                       (0.75, 0.75, 0.25)],
+                     pbc=True, cell=(a, a, a))
+        n = 20
+        calc = GPAW(mode='fd',
+                    gpts=(n, n, n),
+                    nbands=8 * 3,
+                    occupations=FermiDirac(width=0.01),
+                    kpts=(1, 1, 1))
+        bulk.calc = calc
+        bulk.get_potential_energy()
+
+        return bulk.calc
+
+    @gpwfile
     def si_pw_distorted(self):
         xc = 'TPSS'
         si = bulk('Si')
