@@ -90,10 +90,11 @@ class DielectricFunctionCalculator:
         return (qpd, *[thing.copy() if thing is not None else thing
                        for thing in more_things])
 
-    def collect(self, a_w):
+    def collect(self, a_w: np.ndarray) -> np.ndarray:
+        # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def get_frequencies(self):
+    def get_frequencies(self) -> np.ndarray:
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
@@ -123,7 +124,7 @@ class DielectricFunctionCalculator:
         qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
+        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
         sqrtV_G = Kbare_G**0.5
 
         nG = len(sqrtV_G)
@@ -135,6 +136,7 @@ class DielectricFunctionCalculator:
         else:
             K_GG = np.diag(Ktrunc_G / Kbare_G)
 
+        # kd: KPointDescriptor object from gpaw.kpt_descriptor
         if qpd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
@@ -143,7 +145,8 @@ class DielectricFunctionCalculator:
             else:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice
+            W = self.blocksd1.myslice  # slice object for this process.
+            #  used to distribute the calculation when run in parallel.
             chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
@@ -410,7 +413,11 @@ class DielectricFunctionCalculator:
         dimension of alpha is \AA to the power of non-periodic directions
         """
 
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
+        # gd: GridDescriptor object from gpaw.grid_descriptor
         cell_cv = self.gs.gd.cell_cv
+
+        # pbc_c: np.ndarray of type bool. Describes periodic directions.
         pbc_c = self.gs.pbc
 
         if pbc_c.all():
