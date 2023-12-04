@@ -129,7 +129,7 @@ class KPointPairFactory:
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, block=False):
+    def get_k_point(self, s, K, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -144,14 +144,6 @@ class KPointPairFactory:
 
         gs = self.gs
         kd = gs.kd
-
-        # Parse kpoint: is k_c an index or a vector
-        if not isinstance(k_c, numbers.Integral):
-            # xxxxxx remove this case
-            K = self.gs.kpoints.kptfinder.find(k_c)
-        else:
-            # Fall back to index
-            K = k_c
 
         if block:
             nblocks = self.blockcomm.size
