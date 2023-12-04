@@ -9,7 +9,7 @@ from gpaw.response import timer
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.integrators import (
-    Integrand, PointIntegrator, TetrahedronIntegrator)
+    Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
@@ -223,8 +223,8 @@ class Chi0ComponentCalculator:
         # of the little group of q.
         kpoints, analyzer = self.get_kpoints(
             qpd, integrationmode=self.integrationmode)
-        bzk_kv = kpoints.bzk_kv
-        domain = (bzk_kv, spins)
+
+        domain = Domain(kpoints.bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
             # If there are non-periodic directions it is possible that the
@@ -233,7 +233,7 @@ class Chi0ComponentCalculator:
             # integrated. We normalize by vol(BZ) / vol(domain) to make
             # sure that to fix this.
             domainvol = convex_hull_volume(
-                bzk_kv) * analyzer.how_many_symmetries()
+                kpoints.bzk_kv) * analyzer.how_many_symmetries()
             bzvol = (2 * np.pi)**3 / self.gs.volume
             factor = bzvol / domainvol
         else:
@@ -244,7 +244,7 @@ class Chi0ComponentCalculator:
 
         if self.integrationmode is None:
             nbzkpts = self.gs.kd.nbzkpts
-            prefactor *= len(bzk_kv) / nbzkpts
+            prefactor *= len(kpoints.bzk_kv) / nbzkpts
 
         return domain, analyzer, prefactor
 

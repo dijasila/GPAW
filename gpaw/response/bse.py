@@ -36,10 +36,14 @@ class BSEBackend:
                  truncation=None,
                  integrate_gamma=1,
                  mode='BSE',
+                 q_c=[0.0, 0.0, 0.0],
+                 direction=0,
                  wfile=None,
                  write_h=False,
                  write_v=False):
         self.gs = gs
+        self.q_c = q_c
+        self.direction = direction
         self.context = context
         self.spinors = spinors
         self.scale = scale
@@ -608,12 +612,8 @@ class BSEBackend:
         return
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True, hybrid = False, get_chi0=False):
+    def get_bse_matrix(self, readfile=None, optical=True, hybrid = False, get_chi0=False):
         """Calculate and diagonalize BSE matrix"""
-
-        self.q_c = q_c
-        self.direction = direction
 
         if readfile is None:
             self.calculate(optical=optical, hybrid = hybrid, get_chi0=get_chi0)
@@ -882,7 +882,6 @@ class BSEBackend:
 
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
-                                q_c=[0.0, 0.0, 0.0], direction=0,
                                 filename='df_bse.csv', readfile=None,
                                write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
@@ -892,11 +891,6 @@ class BSEBackend:
             Dielectric function is calculated at these frequencies
         eta: float
             Lorentzian broadening of the spectrum (eV)
-        q_c: list of three floats
-            Wavevector in reduced units on which the response is calculated
-        direction: int
-            if q_c = [0, 0, 0] this gives the direction in cartesian
-            coordinates - 0=x, 1=y, 2=z
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
@@ -908,8 +902,7 @@ class BSEBackend:
             File on which the BSE eigenvalues are written
         """
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
-                                   direction=direction,
+        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta,
                                    readfile=readfile, optical=True,
                                    write_eig=write_eig)
         epsilon_w += 1.0
@@ -925,7 +918,6 @@ class BSEBackend:
         return w_w, epsilon_w
 
     def get_eels_spectrum(self, w_w=None, eta=0.1,
-                          q_c=[0.0, 0.0, 0.0], direction=0,
                           filename='df_bse.csv', readfile=None,
                           write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
@@ -935,11 +927,6 @@ class BSEBackend:
             Dielectric function is calculated at these frequencies
         eta: float
             Lorentzian broadening of the spectrum (eV)
-        q_c: list of three floats
-            Wavevector in reduced units on which the response is calculated
-        direction: int
-            if q_c = [0, 0, 0] this gives the direction in cartesian
-            coordinates - 0=x, 1=y, 2=z
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
@@ -951,7 +938,7 @@ class BSEBackend:
             File on which the BSE eigenvalues are written
         """
 
-        eels_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
+        eels_w = -self.get_vchi(w_w=w_w, eta=eta,
                                 readfile=readfile, optical=False,
                                 write_eig=write_eig).imag
 
@@ -965,7 +952,6 @@ class BSEBackend:
         return w_w, eels_w
 
     def get_polarizability(self, w_w=None, eta=0.1,
-                           q_c=[0.0, 0.0, 0.0], direction=0,
                            filename='pol_bse.csv', readfile=None,
                            write_eig='eig.dat'):
         r"""Calculate the polarizability alpha.
@@ -988,9 +974,9 @@ class BSEBackend:
 
         optical = (self.coulomb.truncation is None)
 
-        vchi_w, rhoG = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                               readfile=readfile, optical=optical,
-                               write_eig=write_eig)
+        vchi_w, rhoG = self.get_vchi(w_w=w_w, eta=eta,
+                                     readfile=readfile, optical=optical,
+                                     write_eig=write_eig)
         alpha_w = -V * vchi_w / (4 * np.pi)
         alpha_w *= Bohr**(sum(~pbc_c))
 
@@ -1175,6 +1161,11 @@ class BSE(BSEBackend):
             Conduction bands used in the BSE Hamiltonian
         eshift: float
             Scissors operator opening the gap (eV)
+         q_c: list of three floats
+-            Wavevector in reduced units on which the response is calculated
+        direction: int
+            if q_c = [0, 0, 0] this gives the direction in cartesian
+            coordinates - 0=x, 1=y, 2=z
         gw_skn: list / array
             List or array defining the gw quasiparticle energies used in
             the BSE Hamiltonian. Should match spin, k-points and
