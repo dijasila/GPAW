@@ -228,6 +228,9 @@ class Chi0BodyCalculator(Chi0ComponentPWCalculator):
 
         self.context.print('Integrating chi0 body.')
 
+
+        # domain: Domain from from gpaw.response.integrators
+        # analyzer: PWSymmetryAnalyzer from gpaw.response.symmetry
         domain, analyzer, prefactor = self.get_integration_domain(qpd, spins)
         integrand = Chi0Integrand(self, qpd=qpd, analyzer=analyzer,
                                   optical=False, m1=m1, m2=m2)
@@ -350,11 +353,14 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         return 1
 
     def calculate(self,
-                  qpd: SingleQPWDescriptor | None = None):
+                  qpd: SingleQPWDescriptor | None = None
+                  ) -> Chi0OpticalExtensionData:
         """Calculate the chi0 head and wings."""
         # Create data object
         if qpd is None:
             qpd = self.get_pw_descriptor(q_c=[0., 0., 0.])
+
+        # wd: FrequencyDescriptor from gpaw.response.frequencies
         chi0_opt_ext = Chi0OpticalExtensionData(self.wd, qpd)
 
         self.print_info(qpd)
@@ -368,6 +374,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
 
         if self.drude_calc is not None:
             # Add intraband contribution
+            # drude_calc: Chi0DrudeCalculator from gpaw.response.chi0_drude
+            # chi0_drude: Chi0DrudeData from gpaw.response.chi0_data
             chi0_drude = self.drude_calc.calculate(self.wd, self.rate)
             chi0_opt_ext.head_Wvv[:] += chi0_drude.chi_Zvv
 
@@ -376,7 +384,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
     def update_chi0_optical_extension(
             self,
             chi0_optical_extension: Chi0OpticalExtensionData,
-            m1, m2, spins):
+            m1: int, m2: int,
+            spins: list | range):
         """In-place calculation of the chi0 head and wings.
 
         Parameters
