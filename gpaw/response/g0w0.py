@@ -278,10 +278,12 @@ class QSymmetryOp:
 
 
 def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc, timer=None):
-    timer and timer.start('utcc and pawcorr multiply')
+    if timer:
+        timer.start('utcc and pawcorr multiply')
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-    timer and timer.stop('utcc and pawcorr multiply')
+    if timer:
+        timer.stop('utcc and pawcorr multiply')
     n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG

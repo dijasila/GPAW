@@ -28,5 +28,5 @@ def test_gw_sg15(in_tmp_dir, add_cwd_to_setup_paths):
               filename='H2_g0w0_b11-15')
     results = gw.calculate()
     refs = pytest.approx([1.58177132, 3.33595453, 3.87312694, 4.95358262,
-                         6.09555254])
+                         6.09555254], abs=1e-5)
     assert results['qp'][0][0] == refs

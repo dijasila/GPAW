@@ -47,6 +47,9 @@ Git master branch
   :ref:`MOM <mom>` (available for all modes) or with
   :ref:`generalized mode following <do-gmf>` (available only for LCAO).
 
+* A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
+  :issue:`828`.
+
 
 Version 23.9.1
 ==============
