@@ -266,7 +266,7 @@ class FullDiagonalizerFloat(FullDiagonalizer):
 
         new_wfs = PWFDWaveFunctions.from_wfs(wfs, psit_nX=psit_nG)
 
-        return new_wfs, eig_n
+        return new_wfs, eig_n[:nbands]
 
     @staticmethod
     @override
