@@ -7,6 +7,24 @@ from gpaw.mpi import world
 from gpaw.test import findpeak
 from gpaw.response.bse import BSE
 from gpaw.response.df import read_response_function
+from ase.units import Bohr
+
+
+def create_bse(q_c=(0, 0, 0)):
+    bse = BSE('MoS2.gpw',
+              q_c=q_c,
+              spinors=True,
+              ecut=10,
+              valence_bands=[8],
+              conduction_bands=[9],
+              eshift=0.8,
+              nbands=15,
+              write_h=False,
+              write_v=False,
+              wfile=None,
+              mode='BSE',
+              truncation='2D')
+    return bse
 
 
 @pytest.mark.response
@@ -39,18 +57,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     layer.get_potential_energy()
     calc.write('MoS2.gpw', mode='all')
 
-    bse = BSE('MoS2.gpw',
-              spinors=True,
-              ecut=10,
-              valence_bands=[8],
-              conduction_bands=[9],
-              eshift=0.8,
-              nbands=15,
-              write_h=False,
-              write_v=False,
-              wfile=None,
-              mode='BSE',
-              truncation='2D')
+    bse = create_bse()
 
     outw_w, outalpha_w = bse.get_polarizability(write_eig=None,
                                                 eta=0.02,
@@ -71,3 +78,29 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     assert I0 == pytest.approx(38.8, abs=0.35)
     assert w1 == pytest.approx(2.22, abs=0.01)
     assert I1 == pytest.approx(6.3, abs=0.35)
+
+    #################################################################
+    # Absorption and EELS spectra for 2D materials should be identical
+    # for q=0.
+    #################################################################
+
+    bse = create_bse()
+    outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
+
+    bse = create_bse()
+    pbc_c = bse.gs.pbc
+    V = bse.gs.nonpbc_cell_product()
+    factor = V * Bohr**(sum(~pbc_c)) / (4 * np.pi)
+    outw_w, pol = bse.get_polarizability(w_w=w_w)
+    assert np.allclose(pol.imag / factor, eels)
+
+    #####################################################################
+    # Absorption and EELS spectra for 2D materials should NOT be identical
+    # for finite q.
+    #####################################################################
+    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
+    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    outw_w, pol = bse.get_polarizability(w_w)
+
+    assert not np.allclose(pol.imag / factor, eels)

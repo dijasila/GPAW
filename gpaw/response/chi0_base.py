@@ -8,7 +8,7 @@ from gpaw.response import timer
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.integrators import (
-    Integrand, PointIntegrator, TetrahedronIntegrator)
+    Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
@@ -34,7 +34,7 @@ class Chi0Integrand(Integrand):
         self.optical = optical
 
     @timer('Get matrix element')
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         """Return pair density matrix element for integration.
 
         A pair density is defined as::
@@ -71,7 +71,8 @@ class Chi0Integrand(Integrand):
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
-            k_v, s, block=not self.optical,
+            point.kpt_c,  # <--- fix discrepancy kpt_c vs kpt_v
+            point.spin, block=not self.optical,
             target_method=target_method,
         ).reshape(-1, out_ngmax)
 
@@ -108,7 +109,7 @@ class Chi0Integrand(Integrand):
         return n_nmG
 
     @timer('Get eigenvalues')
-    def eigenvalues(self, k_v, s):
+    def eigenvalues(self, point):
         """A function that can return the eigenvalues.
 
         A simple function describing the integrand of
@@ -120,6 +121,8 @@ class Chi0Integrand(Integrand):
         gs = self.gs
         kd = gs.kd
 
+        k_v = point.kpt_c  # XXX c/v discrepancy
+
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
         kptfinder = self.gs.kpoints.kptfinder
         K1 = kptfinder.find(k_c)
@@ -127,9 +130,9 @@ class Chi0Integrand(Integrand):
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = gs.kpt_qs[ik1][s]
+        kpt1 = gs.kpt_qs[ik1][point.spin]
         assert kd.comm.size == 1
-        kpt2 = gs.kpt_qs[ik2][s]
+        kpt2 = gs.kpt_qs[ik2][point.spin]
         deps_nm = np.subtract(kpt1.eps_n[self.n1:self.n2][:, np.newaxis],
                               kpt2.eps_n[self.m1:self.m2])
         return deps_nm.reshape(-1)
@@ -222,8 +225,8 @@ class Chi0ComponentCalculator:
         # of the little group of q.
         kpoints, analyzer = self.get_kpoints(
             qpd, integrationmode=self.integrationmode)
-        bzk_kv = kpoints.bzk_kv
-        domain = (bzk_kv, spins)
+
+        domain = Domain(kpoints.bzk_kv, spins)
 
         if self.integrationmode == 'tetrahedron integration':
             # If there are non-periodic directions it is possible that the
@@ -232,7 +235,7 @@ class Chi0ComponentCalculator:
             # integrated. We normalize by vol(BZ) / vol(domain) to make
             # sure that to fix this.
             domainvol = convex_hull_volume(
-                bzk_kv) * analyzer.how_many_symmetries()
+                kpoints.bzk_kv) * analyzer.how_many_symmetries()
             bzvol = (2 * np.pi)**3 / self.gs.volume
             factor = bzvol / domainvol
         else:
@@ -243,7 +246,7 @@ class Chi0ComponentCalculator:
 
         if self.integrationmode is None:
             nbzkpts = self.gs.kd.nbzkpts
-            prefactor *= len(bzk_kv) / nbzkpts
+            prefactor *= len(kpoints.bzk_kv) / nbzkpts
 
         return domain, analyzer, prefactor
 
