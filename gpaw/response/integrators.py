@@ -367,13 +367,15 @@ class HilbertOpticalLimit(IntegralTask):
 
 
 class Point:
-    def __init__(self, K, spin):
+    def __init__(self, kpt_c, K, spin):
+        self.kpt_c = kpt_c
         self.K = K
         self.spin = spin
 
 
 class Domains:
-    def __init__(self, kpts, spins):
+    def __init__(self, kpts_kc, kpts, spins):
+        self.kpts_kc = kpts_kc
         self.kpts = kpts
         self.spins = spins
 
@@ -382,7 +384,8 @@ class Domains:
 
     def __getitem__(self, num) -> Point:
         nspins = len(self.spins)
-        return Point(self.kpts[num // nspins],
+        K = self.kpts[num // nspins]
+        return Point(self.kpts_kc[K], K,
                      self.spins[num % nspins])
 
 
@@ -463,7 +466,8 @@ class TetrahedronIntegrator(Integrator):
 
         tesselation = KPointTesselation(_kpts)
 
-        alldomains = Domains(range(tesselation.nkpts), spins)
+        alldomains = Domains(tesselation.bzk_kc,
+                             range(tesselation.nkpts), spins)
         mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
