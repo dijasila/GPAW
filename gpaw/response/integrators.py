@@ -105,7 +105,8 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
 
-        # mydomain = self.mydomain(alldomains)
+        origdomains = Domain(domain[0], range(len(domain[0])), domain[1])
+        mydomain = self.mydomain(origdomains)
 
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
@@ -113,11 +114,11 @@ class PointIntegrator(Integrator):
         # Sum kpoints
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
-        for _, arguments in pb.enumerate(mydomain_t):
-            n_MG = integrand.matrix_element(*arguments)
+        for _, point in pb.enumerate(mydomain):
+            n_MG = integrand.matrix_element(point.kpt_c, point.spin)
             if n_MG is None:
                 continue
-            deps_M = integrand.eigenvalues(*arguments)
+            deps_M = integrand.eigenvalues(point.kpt_c, point.spin)
 
             task.run(wd, n_MG, deps_M, out_wxx)
 
