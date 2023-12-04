@@ -25,10 +25,10 @@ from gpaw.berryphase import get_polarization_phase
 from ase.units import Bohr
 from ase.build import bulk
 
-def test_born(gpw_files):
+def test_born(in_tmp_dir, gpw_files):
 
     calc = GPAW(gpw_files['si_pw'])
-    borncharges_test(calc) 
+    borncharges_test(calc)
 
 def get_wavefunctions_test(atoms, name, params):
     params['symmetry'] = {'point_group': False,
@@ -47,17 +47,8 @@ def borncharges_test(calc, delta=0.01):
     vol = abs(np.linalg.det(cell_cv))
     sym_a = atoms.get_chemical_symbols()
 
-    Z_a = []
-    for num in calc.atoms.get_atomic_numbers():
-        for ida, setup in zip(calc.wfs.setups.id_a,
-                              calc.wfs.setups):
-            if abs(ida[0] - num) < 1e-5:
-                break
-        Z_a.append(setup.Nv)
-    Z_a = np.array(Z_a)
-
     # List for atomic indices
-    indices = [list(range(len(sym_a)))[0]]          #test only computes one atom
+    indices = [0]          #test only computes one atom
 
     pos_av = atoms.get_positions()
     avg_v = np.sum(pos_av, axis=0) / len(pos_av)
@@ -81,11 +72,9 @@ def borncharges_test(calc, delta=0.01):
                     print(sym_a[a], a, v, s)
                 atoms.positions = pos_av
                 atoms.positions[a, v] = pos_av[a, v] + sign * delta
-                prefix = 'born-{}-{}{}{}'.format(delta, a,
-                                                 'xyz'[v],
-                                                 ' +-'[sign])
-                name = prefix + '.gpw'
-               
+                prefix = f'born-{delta}-{a}{"xyz"[v]}{" +-"[sign]}'
+                name = f'{prefix}.gpw'
+
                 calc = get_wavefunctions_test(atoms, name, params)
                 try:
                     phase_c = get_polarization_phase(name)
@@ -110,12 +99,3 @@ def borncharges_test(calc, delta=0.01):
     err1 = abs(Z_avv[0][0][0] - ref_value)
     print('Error', err1)
     assert err1 < 1e-5, err1
-
-    world.barrier()
-    rmext = ['.gpw','.json','.txt']
-    if world.rank == 0:
-        for ext in rmext:
-            files = glob(f'*{ext}')
-            for f in files:
-                if isfile(f):
-                   remove(f)
