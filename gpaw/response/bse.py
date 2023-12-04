@@ -185,7 +185,7 @@ class BSEBackend:
         return bands_sn
 
     @timer('BSE calculate')
-    def calculate(self, optical=True, hybrid = False, get_chi0 = False):
+    def calculate(self, optical=True, hybrid = False):
 
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
@@ -223,7 +223,7 @@ class BSEBackend:
                                     comm=serial_comm))
 
         # Calculate direct (screened) interaction and PAW corrections
-        if self.mode == 'RPA' or get_chi0 == True:
+        if self.mode == 'RPA':
             pairden_paw_corr = self.gs.pair_density_paw_corrections
             pawcorr = pairden_paw_corr(qpd0)
         else:
@@ -362,7 +362,7 @@ class BSEBackend:
                             optimize='optimal')
                         self.context.timer.stop('Coulomb')
 
-                        if not self.mode == 'RPA' and get_chi0!=True and s1 == s2:
+                        if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
                             kptv2 = self.kptpair_factory.get_k_point(
                                 s1, iK2, vi_s[s1], vf_s[s1])
@@ -612,11 +612,11 @@ class BSEBackend:
         return
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, readfile=None, optical=True, hybrid = False, get_chi0=False):
+    def get_bse_matrix(self, readfile=None, optical=True, hybrid = False):
         """Calculate and diagonalize BSE matrix"""
 
         if readfile is None:
-            self.calculate(optical=optical, hybrid = hybrid, get_chi0=get_chi0)
+            self.calculate(optical=optical, hybrid = hybrid)
             if hasattr(self, 'w_T'):
                 return
             self.diagonalize()
@@ -631,12 +631,6 @@ class BSEBackend:
             raise ValueError('%s array not recognized' % readfile)
 
         return
-
-    def get_vG(self, q_c =[0.0,0.0,0.0], readfile=None, optical=True, direction=0):
-        self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical, hybrid=False)
-        vg = self.v_G
-        return np.array(vg)
 
 
     def collect_C_TGG(self, C_tGG):
@@ -743,21 +737,12 @@ class BSEBackend:
         return vchi_w
 
     @timer('get_chi_GG')
-    def get_chi_GG(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                   direction=0, readfile=None, optical=True,
-                   write_eig=None, return_vchi = True, hybrid = False, get_chi0=False, recalculate = False):
+    def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
+                   write_eig=None, return_vchi = True, hybrid = False):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        if recalculate == True:
-            try: 
-                del self.w_T
-                del self.H_sS
-                del self.w_qGG
-            except:
-                pass    
         print("Calculating BSE matrix", flush=True) 
-        self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical, hybrid = hybrid, get_chi0=get_chi0)
+        self.get_bse_matrix(readfile=readfile, optical=optical, hybrid = hybrid)
         print("Done calculating BSE matrix", flush=True)
     
         import psutil
@@ -869,16 +854,7 @@ class BSEBackend:
       #  from gpaw.response.g0w0 import QSymmetryOp, get_nmG
       #  symop, iq = QSymmetryOp.get_symop_from_kpair(self.kd, self.qd,
      #                                                kpt1, kpt2)
-        return np.swapaxes(vchi_w, -1, -2) #, self.qpd_q[iq]
-   
-    def get_chi0(self, w_w = None, eta = 0.1, q_c =[0.0,0.0,0.0], direction = 0, readfile = None, 
-                                      optical = True, write_eig = None, return_vchi = True):
-        
-        chi = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction, readfile=readfile, optical=optical,
-                 write_eig=write_eig, return_vchi = return_vchi, hybrid = True, get_chi0=False)
-        chi0 = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction, readfile=readfile, optical=optical,
-                 write_eig=write_eig, return_vchi = return_vchi, hybrid = True, get_chi0=True)
-        return chi0
+        return np.swapaxes(vchi_w, -1, -2) #, self.qpd_q[iq] 
 
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
