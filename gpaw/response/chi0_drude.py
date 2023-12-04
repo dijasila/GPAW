@@ -150,7 +150,7 @@ class PlasmaFrequencyIntegrand(Integrand):
 
         return vel_nv
 
-    def eigenvalues(self, k_v, s):
+    def eigenvalues(self, point):
         """A function that can return the intraband eigenvalues.
 
         A method describing the integrand of
@@ -160,10 +160,11 @@ class PlasmaFrequencyIntegrand(Integrand):
         n1, n2 = self._band_summation()
         gs = self._drude.gs
         kd = gs.kd
+        k_v = point.kpt_c  # XXX v/c discrepancy
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = gs.kpoints.kptfinder.find(k_c)
         ik = kd.bz2ibz_k[K1]
-        kpt1 = gs.kpt_qs[ik][s]
+        kpt1 = gs.kpt_qs[ik][point.spin]
         assert gs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]

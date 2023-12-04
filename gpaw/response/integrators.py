@@ -17,7 +17,7 @@ class Integrand(ABC):
         ...
 
     @abstractmethod
-    def eigenvalues(self, k_v, s):
+    def eigenvalues(self, point):
         ...
 
 
@@ -86,7 +86,7 @@ class PointIntegrator(Integrator):
             n_MG = integrand.matrix_element(point)
             if n_MG is None:
                 continue
-            deps_M = integrand.eigenvalues(point.kpt_c, point.spin)
+            deps_M = integrand.eigenvalues(point)
 
             task.run(wd, n_MG, deps_M, out_wxx)
 
@@ -449,7 +449,7 @@ class TetrahedronIntegrator(Integrator):
             deps_tMk = None  # t for term
 
             for point in alldomains:
-                deps_M = -integrand.eigenvalues(point.kpt_c, point.spin)
+                deps_M = -integrand.eigenvalues(point)
                 if deps_tMk is None:
                     deps_tMk = np.zeros([alldomains.nspins, *deps_M.shape,
                                          tesselation.nkpts], float)
