@@ -558,13 +558,13 @@ class BSEBackend:
             self.H_SS = self.collect_A_SS(self.H_sS)
             self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
-          #      self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
-          #      self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
+                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
+                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
                 self.w_T, self.v_ST = np.linalg.eig(self.H_SS)
             world.broadcast(self.w_T, 0)
-           # self.df_S = np.delete(self.df_S, self.excludef_S)
-           # self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
-           # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
+            self.df_S = np.delete(self.df_S, self.excludef_S)
+            self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+            # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
@@ -627,9 +627,9 @@ class BSEBackend:
         Nc = self.nc * (self.spinors + 1)
         Ns = self.spins
         nS = self.nS
-        nG = C_tGG.shape[1]
+        nG = self.rho_SG.shape[-1]
         ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
-
+        print(C_tGG.shape)
         if world.rank == 0:
             C_TGG = np.zeros((nS, nG, nG), dtype=complex)
             C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
@@ -766,6 +766,7 @@ class BSEBackend:
                 desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
                 C_tGG = desc.empty(dtype=complex)
                 np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
+                print(C_tGG.shape,'after einsum')
                 C_TGG = self.collect_C_TGG(C_tGG)
                 desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
                 C_tGG1 = desc1.empty(dtype=complex)

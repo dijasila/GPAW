@@ -39,5 +39,6 @@ def test_bse_plus(in_tmp_dir, scalapack):
     ref = [(-0.12319305784052169-0.005900101520066767j),
            (-3.519763508433997e-10-0.035759806607911705j),
            (3.031540803184087e-05-0.0004896329314266086j)]
-    for i, r in enumerate(ref):
-        assert np.allclose(chi_irr_bse[i,i,i+1], r)
+    if world.rank == 0:
+        for i, r in enumerate(ref):
+            assert np.allclose(chi_irr_bse[i,i,i+1], r)
