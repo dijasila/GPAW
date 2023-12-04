@@ -292,17 +292,16 @@ class FullDiagonalizerFloat(FullDiagonalizer):
         for G in range(0, 2 * npw - 1):
             x_G.data[:] = 0.0
             if G == 0:
-                x_G.data[G] = 1 / np.sqrt(
-                    2
-                )  # so that it normalized to dv * 0.5
+                x_G.data[G] = 1  # it normalizes to dv
+                # print(x_G.integrate(x_G) / (dv), flush=True) #  <- equals to 1
             elif G >= npw:
-                x_G.data[G - npw + 1] = 0.5j  # this will be the sin
+                x_G.data[G - npw + 1] = 0.5j  # this will be the sin, normalizes to dv*0.5
                 # print(x_G.integrate(x_G) / (dv * 0.5)) <- equals to 1
                 # ek = pw.empty()
                 # ek.data = pw.ekin_G * x_G.data
                 # print(x_G.integrate(ek), pw.ekin_G[G + 1 - npw] * 0.5 * dv)
             else:
-                x_G.data[G] = 0.5  # this will be the cos
+                x_G.data[G] = 0.5  # this will be the sin, normalizes to dv*0.5
 
             x_G.ifft(out=x_R)
             x_R.data *= vt_R.data
@@ -314,11 +313,43 @@ class FullDiagonalizerFloat(FullDiagonalizer):
 
         S_GG = np.zeros(shape=(2 * npw - 1, 2 * npw - 1))
         for i in range(2 * npw - 1):
-            if i >= npw:
+            if 0 < i < npw:
+                H_GG[i, i] += dv * pw.ekin_G[i] * 0.5
+                S_GG[i, i] += dv * 0.5
+            elif i >= npw:
                 H_GG[i, i] += dv * pw.ekin_G[i - npw + 1] * 0.5
                 S_GG[i, i] += dv * 0.5
             else:
-                H_GG[i, i] += dv * pw.ekin_G[i] * 0.5
-                S_GG[i, i] += dv * 0.5
+                H_GG[i, i] += dv * pw.ekin_G[i]
+                S_GG[i, i] += dv
 
+        # # now add paw correction
+        pt_aiG._lazy_init()
+        assert pt_aiG._lfc is not None
+        f_GI = pt_aiG._lfc.expand()
+        nI = f_GI.shape[1]
+        dH_II = np.zeros((nI, nI))
+        dS_II = np.zeros((nI, nI))
+        I1 = 0
+
+        for a, dH_ii in dH_aii.items():
+            dS_ii = dS_aii[a]
+            I2 = I1 + len(dS_ii)
+            dH_II[I1:I2, I1:I2] = dH_ii
+            dS_II[I1:I2, I1:I2] = dS_ii
+            I1 = I2
+
+        # cos cos
+        H_GG[:npw, :npw] += (f_GI[::2] @ dH_II) @ f_GI[::2].T
+        S_GG[:npw, :npw] += (f_GI[::2] @ dS_II) @ f_GI[::2].T
+        # sin sin
+        H_GG[npw:, npw:] += (f_GI[3::2] @ dH_II) @ f_GI[3::2].T
+        S_GG[npw:, npw:] += (f_GI[3::2] @ dS_II) @ f_GI[3::2].T
+        # cos sin
+        H_GG[:npw, npw:] += (f_GI[::2] @ dH_II) @ f_GI[3::2].T
+        S_GG[:npw, npw:] += (f_GI[::2] @ dS_II) @ f_GI[3::2].T
+        # sin cos
+        H_GG[npw:, :npw] += (f_GI[3::2] @ dH_II) @ f_GI[::2].T
+        S_GG[npw:, :npw] += (f_GI[3::2] @ dS_II) @ f_GI[::2].T
+        #
         return H_GG, S_GG
