@@ -32,10 +32,10 @@ class FullDiagonalizer(ABC):
             dedtaut_sR = potential.dedtaut_sR
 
         if nbands is None:
-            nbands = min(
+            nbands: int = min(
                 wfs.array_shape(global_shape=True)[0] for wfs in ibzwfs
             )
-            nbands = ibzwfs.kpt_comm.min_scalar(nbands)
+            nbands: int = ibzwfs.kpt_comm.min_scalar(nbands)
 
         band_comm = ibzwfs.band_comm
 
@@ -83,7 +83,7 @@ class FullDiagonalizer(ABC):
         dH_asii: AtomArrays,
         dS_aii: list[Array2D],
         vt_sR: UGArray,
-        dedtaut_sR: UGArray | None,
+        dedtaut_sR: UGArray | list[None],
         nbands: int,
         band_comm,
     ) -> Tuple[PWFDWaveFunctions, np.ndarray]:
@@ -111,7 +111,7 @@ class FullDiagonalizerComplex(FullDiagonalizer):
         dH_asii: AtomArrays,
         dS_aii: list[Array2D],
         vt_sR: UGArray,
-        dedtaut_sR: UGArray | None,
+        dedtaut_sR: UGArray | list[None],
         nbands: int,
         band_comm,
     ) -> Tuple[PWFDWaveFunctions, np.ndarray]:
@@ -238,7 +238,7 @@ class FullDiagonalizerFloat(FullDiagonalizer):
         dH_asii: AtomArrays,
         dS_aii: list[Array2D],
         vt_sR: UGArray,
-        dedtaut_sR: UGArray | None,
+        dedtaut_sR: UGArray | list[None],
         nbands: int,
         band_comm,
     ) -> Tuple[PWFDWaveFunctions, np.ndarray]:
