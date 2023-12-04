@@ -778,7 +778,18 @@ class BSEBackend:
 
         V = self.gs.nonpbc_cell_product()
 
-        optical = (self.coulomb.truncation is None)
+        # Previously it was
+        # optical = (self.coulomb.truncation is None)
+        # I.e. if a truncated kernel is used optical = False.
+        # The reason it was set to False with Coulomb
+        # truncation is that for q=0 V(G=0) is already
+        # set to zero with the truncated coulomb Kernel.
+        # However for finite q V(G=0) is different from zero.
+        # Therefore the absorption spectra for 2D materials
+        # calculated with the previous code was only correct for q=0.
+        # See Issue #1055, the related MR and comments therein
+        # For simplicity we set it to true for all cases here.
+        optical = True
 
         vchi_w = self.get_vchi(w_w=w_w, eta=eta,
                                readfile=readfile, optical=optical,
