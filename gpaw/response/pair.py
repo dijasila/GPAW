@@ -204,6 +204,7 @@ class KPointPairFactory:
             # the index of the kpoint in the BZ
             k_c = self.gs.kd.bzk_kc[Kork_c]
         else:
+            # xxxxxxxx remove this case
             k_c = Kork_c
 
         q_c = qpd.q_c

@@ -72,15 +72,18 @@ class Chi0Integrand(Integrand):
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
-            point.kpt_c,  # <--- fix discrepancy kpt_c vs kpt_v
-            point.spin, block=not self.optical,
+            point, block=not self.optical,
             target_method=target_method,
         ).reshape(-1, out_ngmax)
 
-    def _get_any_matrix_element(self, k_v, s, block, target_method):
+    def _get_any_matrix_element(self, point, block, target_method):
         qpd = self.qpd
 
+        k_v = point.kpt_c  # XXX c/v discrepancy
+
         k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+        K = self.gs.kpoints.kptfinder.find(k_c)
+        # assert point.K == K, (point.K, K)
 
         weight = np.sqrt(self.analyzer.get_kpoint_weight(k_c) /
                          self.analyzer.how_many_symmetries())
@@ -91,7 +94,7 @@ class Chi0Integrand(Integrand):
             self._chi0calc.pawcorr = pairden_paw_corr(qpd)
 
         kptpair = self.kptpair_factory.get_kpoint_pair(
-            qpd, s, k_c, self.n1, self.n2,
+            qpd, point.spin, K, self.n1, self.n2,
             self.m1, self.m2, block=block)
 
         m_m = np.arange(self.m1, self.m2)
