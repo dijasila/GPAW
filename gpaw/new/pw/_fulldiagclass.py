@@ -34,7 +34,7 @@ class FullDiagonalizer(ABC):
             dedtaut_sR = potential.dedtaut_sR
 
         if nbands is None:
-            nbands: int = min(
+            nbands = min(
                 wfs.array_shape(global_shape=True)[0] for wfs in ibzwfs
             )
             nbands = ibzwfs.kpt_comm.min_scalar(nbands)
