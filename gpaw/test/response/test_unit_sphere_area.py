@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 
 from gpaw.response.integrators import (TetrahedronIntegrator, Integrand,
-                                       HilbertTetrahedron)
+                                       HilbertTetrahedron, Domain)
 from gpaw.response.frequencies import FrequencyGridDescriptor
 
 from gpaw.response import ResponseContext
@@ -32,7 +32,7 @@ def test_tetrahedron_integrator():
     #
     # After refactoring it should again be possible to do any args,
     # so this test isn't forced to specify the "spins"
-    domain = (x_gc, [0])
+    domain = Domain(x_gc, [0])
     out_wxx = np.zeros((1, 1, 1), complex)
     integrator.integrate(task=HilbertTetrahedron(integrator.blockcomm),
                          domain=domain,
