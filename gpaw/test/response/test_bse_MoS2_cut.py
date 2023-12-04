@@ -10,7 +10,7 @@ from gpaw.response.df import read_response_function
 from ase.units import Bohr
 
 
-def create_bse(q_c=[0, 0, 0]):
+def create_bse(q_c=(0, 0, 0)):
     bse = BSE('MoS2.gpw',
               q_c=q_c,
               spinors=True,
