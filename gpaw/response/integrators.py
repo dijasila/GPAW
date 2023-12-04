@@ -105,6 +105,8 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
 
+        # mydomain = self.mydomain(alldomains)
+
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
@@ -388,6 +390,12 @@ class Domains:
         return Point(self.kpts_kc[K], K,
                      self.spins[num % nspins])
 
+    def tesselation(self):
+        tesselation = KPointTesselation(self.kpts_kc)
+        tesselated_domains = Domains(tesselation.bzk_kc,
+                                     range(tesselation.nkpts), self.spins)
+        return tesselation, tesselated_domains
+
 
 class KPointTesselation:
     def __init__(self, kpts):
@@ -460,33 +468,29 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        # Input domain
         _kpts, spins = domain
         nspins = len(spins)
 
-        tesselation = KPointTesselation(_kpts)
-
-        alldomains = Domains(tesselation.bzk_kc,
-                             range(tesselation.nkpts), spins)
+        origdomains = Domains(domain[0], range(len(domain[0])), domain[1])
+        tesselation, alldomains = origdomains.tesselation()
         mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
             deps_tMk = None  # t for term
 
-            for domain in alldomains:
-                k_c = tesselation.bzk_kc[domain.K]
-                deps_M = -integrand.eigenvalues(k_c, domain.spin)
+            for point in alldomains:
+                deps_M = -integrand.eigenvalues(point.kpt_c, point.spin)
                 if deps_tMk is None:
                     deps_tMk = np.zeros([nspins, *deps_M.shape,
                                          tesselation.nkpts], float)
-                deps_tMk[domain.spin, :, domain.K] = deps_M
+                deps_tMk[point.spin, :, point.K] = deps_M
 
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, point in pb.enumerate(mydomain):
             deps_Mk = deps_tMk[point.spin]
             teteps_Mk = deps_Mk[:, tesselation.neighbours_k[point.K]]
-            n_MG = integrand.matrix_element(tesselation.bzk_kc[point.K],
+            n_MG = integrand.matrix_element(point.kpt_c,
                                             point.spin)
 
             # Generate frequency weights
