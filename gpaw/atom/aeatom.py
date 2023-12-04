@@ -700,9 +700,10 @@ class AllElectronAtom:
                          self.ekin + self.eH + self.eZ + self.exc)]:
             self.log(f' {text} {e:+13.6f}  {units.Hartree * e:+13.5f}')
 
-        self.calculate_exx()
-        self.log('\nExact exchange energy: %.6f Hartree, %.5f eV' %
-                 (self.exx, self.exx * units.Hartree))
+        if not self.dirac:
+            self.calculate_exx()
+            self.log(f'\nExact exchange energy: {self.exx:.6f} Hartree, '
+                     f'{self.exx * units.Hartree:.5f} eV')
 
     def get_channel(self, l=None, s=0, k=None):
         if self.dirac:

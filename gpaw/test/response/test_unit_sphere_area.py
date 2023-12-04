@@ -18,6 +18,7 @@ class MyIntegrand(Integrand):
         return np.array([(x_c**2).sum()**0.5], float)
 
 
+@pytest.mark.tetrahedron
 @pytest.mark.response
 def test_tetrahedron_integrator():
     cell_cv = np.eye(3)

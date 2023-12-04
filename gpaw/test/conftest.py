@@ -465,6 +465,26 @@ class GPWFiles:
         return h2.calc
 
     @gpwfile
+    def na_chain(self):
+        a = 3
+        atom = Atoms('Na',
+                     cell=[a, 0, 0],
+                     pbc=[1, 1, 1])
+        atom.center(vacuum=1 * a, axis=(1, 2))
+        atom.center()
+        atoms = atom.repeat((2, 1, 1))
+
+        calc = GPAW(mode=PW(200),
+                    nbands=4,
+                    setups={'Na': '1'},
+                    txt=self.path / 'na_chain.txt',
+                    kpts=(16, 2, 2))
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
+
+    @gpwfile
     def n2_pw(self):
         from ase.build import molecule
         N2 = molecule('N2')
@@ -856,18 +876,14 @@ class GPWFiles:
         blk.calc = GPAW(mode=PW(ecut),
                         basis='dzp',
                         kpts={'size': (4, 4, 4), 'gamma': True},
-                        parallel={'domain': 1},
-                        txt=self.path / 'temp.txt',
+                        parallel={'domain': 1, 'band': 1},
+                        txt=self.path / 'na_pw.txt',
                         nbands=4,
                         occupations=FermiDirac(0.01),
                         setups={'Na': '1'})
         blk.get_potential_energy()
-        blk.calc.write('gs_occ_pw.gpw')
-
-        calc = GPAW('gs_occ_pw.gpw', txt=self.path / 'na_pw.txt',
-                    parallel={'band': 1})
-        calc.diagonalize_full_hamiltonian(nbands=520)
-        return calc
+        blk.calc.diagonalize_full_hamiltonian(nbands=520)
+        return blk.calc
 
     @gpwfile
     def na2_fd(self):
@@ -1683,6 +1699,48 @@ class GPWFiles:
                     scale_atoms=True)
         si.get_potential_energy()
         return si.calc
+
+    @gpwfile
+    def IBiTe_pw_monolayer(self):
+        # janus material. material parameters obtained from c2db.
+        from ase.atoms import Atoms
+        IBiTe_positions = np.array([[0, 2.552, 7.802],
+                                    [0, 0, 9.872],
+                                    [2.210, 1.276, 11.575]])
+        IBiTe = Atoms('IBiTe', positions=IBiTe_positions)
+        IBiTe.pbc = [True, True, False]
+        cell = np.array([[4.4219, 0, 0.0, ],
+                         [-2.211, 3.829, 0.0],
+                         [0.0, 0.0, 19.5]])
+        IBiTe.cell = cell
+        calc = GPAW(mode=PW(200),
+                    xc='LDA',
+                    occupations=FermiDirac(0.01),
+                    kpts={'size': (6, 6, 1), 'gamma': True},
+                    txt=None)
+        IBiTe.calc = calc
+        IBiTe.get_potential_energy()
+        return IBiTe.calc
+
+    def _intraband(self, spinpol: bool):
+        atoms = bulk('Na')
+        if spinpol:
+            atoms.set_initial_magnetic_moments([[0.1]])
+        atoms.calc = GPAW(mode=PW(300),
+                          kpts={'size': (8, 8, 8), 'gamma': True},
+                          parallel={'band': 1},
+                          txt=None)
+        atoms.get_potential_energy()
+        atoms.calc.diagonalize_full_hamiltonian(nbands=20)
+        return atoms.calc
+
+    @gpwfile
+    def intraband_spinpaired_fulldiag(self):
+        return self._intraband(False)
+
+    @gpwfile
+    def intraband_spinpolarized_fulldiag(self):
+        return self._intraband(True)
 
 
 # We add Si fixtures with various symmetries to the GPWFiles namespace
