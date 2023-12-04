@@ -586,6 +586,7 @@ class PWArray(DistributedArrays[PWDesc]):
             for weight, a_G in zips(weights, a_nG):
                 if weight == 0.0:
                     continue
+                assert a_G.data[0].imag == 0.0
                 a_G.ifft(out=a_R)
                 if xp is np:
                     add_to_density(weight, a_R.data, out.data)
