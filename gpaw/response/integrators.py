@@ -375,7 +375,7 @@ class Point:
         self.spin = spin
 
 
-class Domains:
+class Domain:
     def __init__(self, kpts_kc, kpts, spins):
         self.kpts_kc = kpts_kc
         self.kpts = kpts
@@ -392,8 +392,8 @@ class Domains:
 
     def tesselation(self):
         tesselation = KPointTesselation(self.kpts_kc)
-        tesselated_domains = Domains(tesselation.bzk_kc,
-                                     range(tesselation.nkpts), self.spins)
+        tesselated_domains = Domain(tesselation.bzk_kc,
+                                    range(tesselation.nkpts), self.spins)
         return tesselation, tesselated_domains
 
 
@@ -471,7 +471,7 @@ class TetrahedronIntegrator(Integrator):
         _kpts, spins = domain
         nspins = len(spins)
 
-        origdomains = Domains(domain[0], range(len(domain[0])), domain[1])
+        origdomains = Domain(domain[0], range(len(domain[0])), domain[1])
         tesselation, alldomains = origdomains.tesselation()
         mydomain = self.mydomain(alldomains)
 
