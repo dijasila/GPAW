@@ -58,34 +58,6 @@ class Integrator:
         blocks = Blocks1D(self.kncomm, len(domain))
         return [domain[i] for i in range(blocks.a, blocks.b)]
 
-    def distribute_domain(self, domain_dl):
-        """Distribute integration domain. """
-        domainsize = [len(domain_l) for domain_l in domain_dl]
-        nterms = np.prod(domainsize)
-        size = self.kncomm.size
-        rank = self.kncomm.rank
-
-        n = (nterms + size - 1) // size
-        i1 = min(rank * n, nterms)
-        i2 = min(i1 + n, nterms)
-        assert i1 <= i2
-        mydomain = []
-        for i in range(i1, i2):
-            unravelled_d = np.unravel_index(i, domainsize)
-            arguments = []
-            for domain_l, index in zip(domain_dl, unravelled_d):
-                arguments.append(domain_l[index])
-            mydomain.append(tuple(arguments))
-
-        self.context.print(f'Distributing domain {domainsize}',
-                           'over %d process%s' %
-                           (self.kncomm.size,
-                            ['es', ''][self.kncomm.size == 1]),
-                           flush=False)
-        self.context.print('Number of blocks:', self.blockcomm.size)
-
-        return mydomain
-
     def integrate(self, **kwargs):
         raise NotImplementedError
 
@@ -102,7 +74,6 @@ class PointIntegrator(Integrator):
 
         self.context.print('Integral kind:', task.kind)
 
-        mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
 
         origdomains = Domain(domain[0], range(len(domain[0])), domain[1])
