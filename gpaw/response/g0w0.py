@@ -430,6 +430,11 @@ class G0W0Calculator:
             and self-energy
         """
         self.chi0calc = chi0calc
+
+        if self.chi0calc.gs.metallic:
+            raise NotImplementedError('Intraband screening is not implemented for metals')
+
+        
         self.wcalc = wcalc
         self.context = self.wcalc.context
         self.ppa = ppa
