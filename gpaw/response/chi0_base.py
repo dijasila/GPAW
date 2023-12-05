@@ -15,7 +15,7 @@ from gpaw.response.integrators import (
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 if TYPE_CHECKING:
-    from gpaw.response.pair import KPointPairFactory,\
+    from gpaw.response.pair import KPointPairFactory, \
         ActualPairDensityCalculator
 
 
