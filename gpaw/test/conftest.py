@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from ase import Atoms, Atom
 from ase.build import bulk
-from ase.lattice.hexagonal import Graphene
+from ase.lattice.hexagonal import Graphene, Hexagonal
 from gpaw import GPAW, PW, Davidson, FermiDirac, setup_paths
 from gpaw.poisson import FDPoissonSolver
 from gpaw.cli.info import info
@@ -139,6 +139,8 @@ def gpw_files(request):
       symmetries: ``i2sb2_pw_nosym``
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
+
+    * MoS2 with 5x5x1 k-points: ``mos2_5x5_pw``
 
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
 
@@ -1213,6 +1215,37 @@ class GPWFiles:
     @gpwfile
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
+
+    @gpwfile
+    def mos2_5x5_pw(self):
+        calc = GPAW(mode=PW(180),
+                    xc='PBE',
+                    nbands='nao',
+                    setups={'Mo': '6'},
+                    occupations=FermiDirac(0.001),
+                    convergence={'bands': -5},
+                    kpts=(5, 5, 1))
+
+        a = 3.1604
+        c = 10.0
+
+        cell = Hexagonal(symbol='Mo',
+                         latticeconstant={'a': a, 'c': c}).get_cell()
+        layer = Atoms(symbols='MoS2', cell=cell, pbc=(1, 1, 0),
+                      scaled_positions=[(0, 0, 0),
+                                        (2 / 3, 1 / 3, 0.3),
+                                        (2 / 3, 1 / 3, -0.3)])
+
+        pos = layer.get_positions()
+        pos[1][2] = pos[0][2] + 3.172 / 2
+        pos[2][2] = pos[0][2] - 3.172 / 2
+        layer.set_positions(pos)
+        layer.set_pbc([True, True, False])
+        layer.center(axis=2)
+        layer.calc = calc
+        layer.get_potential_energy()
+        return layer.calc
+
 
     @with_band_cutoff(gpw='p4_pw',
                       band_cutoff=40)
