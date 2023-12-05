@@ -2,10 +2,10 @@ import pytest
 from gpaw.response.g0w0 import G0W0
 import numpy as np
 from gpaw.mpi import world
-from ase.parallel import paropen
+
 
 @pytest.mark.response
-def test_gw_anisotropic(in_tmp_dir,gpw_files, needs_ase_master, gpaw_new):
+def test_gw_anisotropic(in_tmp_dir, gpw_files, needs_ase_master, gpaw_new):
     if gpaw_new and world.size > 1:
         pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     print(gpw_files)
@@ -17,7 +17,7 @@ def test_gw_anisotropic(in_tmp_dir,gpw_files, needs_ase_master, gpaw_new):
               eta=0.2,
               frequencies={'type': 'nonlinear', 'domega0': 0.3},
               truncation=None,
-              kpts=[(-0.125, 0.125, 0.125),(-0.125, -0.125, -0.125)],
+              kpts=[(-0.125, 0.125, 0.125), (-0.125, -0.125, -0.125)],
               bands=(3, 5))
 
     e_qp = gw.calculate()['qp']
