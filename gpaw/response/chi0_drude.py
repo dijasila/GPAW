@@ -130,7 +130,10 @@ class PlasmaFrequencyIntegrand(Integrand):
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
         kptpair_factory = self._drude.kptpair_factory
-        kpt1 = kptpair_factory.get_k_point(point.spin, k_c, n1, n2)
+
+        K0 = kptpair_factory.gs.kpoints.kptfinder.find(k_c)  # XXX
+
+        kpt1 = kptpair_factory.get_k_point(point.spin, K0, n1, n2)
         n_n = range(n1, n2)
 
         vel_nv = kptpair_factory.pair_calculator().intraband_pair_density(
