@@ -1,6 +1,9 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import numpy as np
+
+from typing import TYPE_CHECKING
 
 from ase.units import Ha
 from gpaw.bztools import convex_hull_volume
@@ -10,6 +13,9 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
+
+if TYPE_CHECKING:
+    from gpaw.response.pair import KPointPairFactory
 
 
 class Chi0Integrand(Integrand):
@@ -25,6 +31,8 @@ class Chi0Integrand(Integrand):
 
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
+
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         self.gs = chi0calc.gs
         self.n1 = 0
         self.n2 = self.gs.nocc2
@@ -32,7 +40,10 @@ class Chi0Integrand(Integrand):
         self.m1 = m1
         self.m2 = m2
 
+        # context: ResponseContext from gpaw.response.context
         self.context = chi0calc.context
+
+        # kptpair_factory: KPointPairFactory from gpaw.response.pair
         self.kptpair_factory = chi0calc.kptpair_factory
 
         self.qpd = qpd
@@ -71,6 +82,8 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
+
+            # pair_calc: ActualPairDensityCalculator from gpaw.response.pair
             target_method = self._chi0calc.pair_calc.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
         else:
@@ -314,7 +327,7 @@ class Chi0ComponentCalculator:
 class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
     """Base class for Chi0XXXCalculators, which utilize a plane-wave basis."""
 
-    def __init__(self, kptpair_factory,
+    def __init__(self, kptpair_factory: KPointPairFactory,
                  *,
                  wd,
                  hilbert=True,
@@ -352,6 +365,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
 
     @property
     def pair_calc(self):
+        # pair_calculator: ActualPairDensityCalculator from gpaw.response.pair
         return self.kptpair_factory.pair_calculator()
 
     def construct_integral_task(self):
