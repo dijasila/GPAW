@@ -645,6 +645,17 @@ class BSEBackend:
         if world.rank == 0:
             return C_TGG 
 
+    def check_fsum_rule(self, w_w, vchi_w):
+        """Check f-sum rule."""
+        nv = self.gs.nvalence
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
+        self.context.print('', flush=False)
+        self.context.print('Checking f-sum rule:', flush=False)
+        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
+        self.context.print('')
+
     @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1,
                  readfile=None, optical=True,
@@ -702,15 +713,7 @@ class BSEBackend:
             q_v = np.dot(self.q_c, B_cv)
             vchi_w /= np.dot(q_v, q_v)
 
-        """Check f-sum rule."""
-        nv = self.gs.nvalence
-        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
-        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
-        self.context.print('', flush=False)
-        self.context.print('Checking f-sum rule:', flush=False)
-        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
-        self.context.print('')
+        self.check_fsum_rule(w_w, vchi_w)
 
         if write_eig is not None:
             assert isinstance(write_eig, str)
@@ -733,7 +736,6 @@ class BSEBackend:
         nG = rho_SG.shape[-1]
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
-        vchi_w = np.zeros((len(w_w), nG, nG), dtype=complex)
         
         if not self.td:
             if world.rank == 0:
@@ -776,20 +778,12 @@ class BSEBackend:
         tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta) 
         n_tmp_Tw = - 1 / (w_w[None :] / Hartree + w_T[:, None] + 1j * eta)
         
-        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) 
-        if C_TGG1 is not None: vchi_w += np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
+        vchi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) 
+        if C_TGG1 is not None: vchi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
         
-        vchi_w *= 1 / self.gs.volume
+        vchi_wGG *= 1 / self.gs.volume
            
-        """Check f-sum rule."""
-        nv = self.gs.nvalence
-        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
-        wchi_w = (w_w[1:] * vchi_w[:,0,0][1:] + w_w[:-1] * vchi_w[:,0,0][:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
-        self.context.print('', flush=False)
-        self.context.print('Checking f-sum rule:', flush=False)
-        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
-        self.context.print('')
+        self.check_fsum_rule(w_w, vchi_wGG[:, 0, 0])
 
         if write_eig is not None:
             assert isinstance(write_eig, str)
@@ -797,7 +791,7 @@ class BSEBackend:
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
                                       self.w_T * Hartree, C_TGG[:,0,0])
-        return np.swapaxes(vchi_w, -1, -2) 
+        return np.swapaxes(vchi_wGG, -1, -2) 
 
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
