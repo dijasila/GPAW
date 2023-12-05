@@ -23,6 +23,7 @@ class DielectricFunctionCalculator:
                  chi0calc: Chi0Calculator, truncation: str | None):
         from gpaw.response.pw_parallelization import Blocks1D
         self.wd = wd
+
         self.chi0calc = chi0calc
 
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
@@ -38,7 +39,6 @@ class DielectricFunctionCalculator:
     @property
     def gs(self):
         # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        # chi0calc: Chi0Calculator from gpaw.response.chi0
         return self.chi0calc.gs
 
     def calculate_chi0(self, q_c: list | np.ndarray):
