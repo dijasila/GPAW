@@ -1,5 +1,3 @@
-import numbers
-
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
