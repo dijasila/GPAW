@@ -1126,12 +1126,10 @@ class GPWFiles:
         from ase.build import mx2
 
         # Define input parameters
-        xc = 'LDA'
         kpts = 6
-        pw = 300
+        pw = 285
         occw = 0.01
-        conv = {'density': 1.e-8,
-                'forces': 1.e-8}
+        conv = {'density': 1.e-3}
 
         a = 3.502
         thickness = 2.617
@@ -1146,7 +1144,7 @@ class GPWFiles:
 
         # Set up calculator
         atoms.calc = GPAW(
-            xc=xc,
+            mixer={'beta': 0.75, 'nmaxold': 8, 'weight': 100.0},
             mode=PW(pw,
                     # Interpolate the density in real-space
                     interpolation=3),
@@ -1204,6 +1202,7 @@ class GPWFiles:
                     # Interpolate the density in real-space
                     interpolation=3),
             kpts={'size': (kpts, kpts // 2, 1), 'gamma': True},
+            mixer={'beta': 0.5},
             setups={'V': '5'},
             nbands=band_cutoff + 12,
             occupations=FermiDirac(occw),
