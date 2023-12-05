@@ -31,14 +31,10 @@ def test_kinetic_energy(gpw_files):
     Ekin_pseudo = - 0.5 * (laplacian_on_psit_n @ occ_n)
 
     D_p = pack(state.density.D_asii[0][0].real)
-
     Ekin_PAW = setup.K_p @ D_p + setup.Kc
 
     Ekin2 = Ekin_pseudo + Ekin_PAW
 
-    print(Ekin1)
-    print(Ekin2)
-
-    crash
-
-    crash
+    # print(Ekin1)
+    # print(Ekin2)
+    assert Ekin1 == pytest.approx(Ekin2, abs=1e-5)
