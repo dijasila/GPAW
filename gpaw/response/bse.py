@@ -38,7 +38,7 @@ class BSEBackend:
                  wfile=None,
                  write_h=False,
                  write_v=False,
-                 chi_GG=False, 
+                 chi_GG=False,
                  no_coulomb=False):
         self.gs = gs
         self.q_c = q_c
@@ -203,12 +203,11 @@ class BSEBackend:
         # Calculate exchange interaction
         qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
-        if self.no_coulomb: 
+        if self.no_coulomb:
             v_G = np.zeros(qpd0.NG)
-        else: 
-            v_G = self.coulomb.V(qpd=qpd0, q_v=None)  
+        else:
+            v_G = self.coulomb.V(qpd=qpd0, q_v=None)
 
- 
         if optical:
             v_G[0] = 0.0
 
@@ -620,7 +619,6 @@ class BSEBackend:
 
         return
 
-
     def collect_C_TGG(self, C_tGG):
         Nv = self.nv * (self.spinors + 1)
         Nc = self.nc * (self.spinors + 1)
@@ -632,18 +630,17 @@ class BSEBackend:
             C_TGG = np.zeros((nS, nG, nG), dtype=complex)
             C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
             Ntot = len(C_tGG)
-        
             for rank in range(1, world.size):
                 nkr, nk, ns = self.parallelisation_sizes(rank)
-                buf = np.empty((ns, nG, nG), dtype=complex)  # Adjusted buffer shape
+                buf = np.empty((ns, nG, nG), dtype=complex)
                 world.receive(buf, rank, tag=123)
                 C_TGG[Ntot:Ntot + ns] = buf
                 Ntot += ns
         else:
             world.send(C_tGG, 0, tag=123)
-    
+
         if world.rank == 0:
-            return C_TGG 
+            return C_TGG
 
     def check_fsum_rule(self, w_w, vchi_w):
         """Check f-sum rule."""
@@ -728,7 +725,7 @@ class BSEBackend:
     def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
                    write_eig=None):
         """Returns chi_GG'"""
-        
+
         self.get_bse_matrix(readfile=readfile, optical=optical)
         w_T = self.w_T
         rho_SG = self.rho_SG
@@ -736,14 +733,15 @@ class BSEBackend:
         nG = rho_SG.shape[-1]
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
-        
+
         if not self.td:
             if world.rank == 0:
                 A_GT = rho_SG.T @ self.v_ST
                 B_GT = rho_SG.T * df_S[np.newaxis] @ self.v_ST
                 tmp = self.v_ST.conj().T @ self.v_ST
                 overlap_tt = np.linalg.inv(tmp)
-                C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] 
+                C_TGG = ((B_GT.conj() @ overlap_tt.T).T)[..., np.newaxis] *\
+                    A_GT.T[:, np.newaxis]
                 C_TGG1 = None
             else:
                 return
@@ -751,8 +749,8 @@ class BSEBackend:
             A_Gt = rho_SG.T @ self.v_St
             B_Gt = (rho_SG.T * df_S[np.newaxis]) @ self.v_St
             if world.size == 1:
-                C_TGG1 =  A_Gt.T.conj()[...,np.newaxis] * B_Gt.T[:,np.newaxis]
-                C_TGG = B_Gt.T.conj()[..., np.newaxis] * A_Gt.T[:, np.newaxis] 
+                C_TGG1 = A_Gt.T.conj()[..., np.newaxis] * B_Gt.T[:, np.newaxis]
+                C_TGG = B_Gt.T.conj()[..., np.newaxis] * A_Gt.T[:, np.newaxis]
             else:
                 Nv = self.nv * (self.spinors + 1)
                 Nc = self.nc * (self.spinors + 1)
@@ -761,28 +759,30 @@ class BSEBackend:
                 ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
                 assert self.kd.nbzkpts % world.size == 0
                 grid = BlacsGrid(world, world.size, 1)
-                desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
+                desc = grid.new_descriptor(nS, nG * nG, ns, nG * nG)
                 C_tGG = desc.empty(dtype=complex)
-                np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
+                np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt,
+                          out=C_tGG.reshape((-1, nG, nG)))
                 C_TGG = self.collect_C_TGG(C_tGG)
-                desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
+                desc1 = grid.new_descriptor(nS, nG * nG, ns, nG * nG)
                 C_tGG1 = desc1.empty(dtype=complex)
-                np.einsum('Gt,Ht->tGH', A_Gt.conj() , B_Gt, out=C_tGG1.reshape((-1, nG, nG)))
+                np.einsum('Gt,Ht->tGH', A_Gt.conj(), B_Gt,
+                          out=C_tGG1.reshape((-1, nG, nG)))
                 C_TGG1 = self.collect_C_TGG(C_tGG1)
                 if grid.comm.rank != 0:
                     return
 
-
         eta /= Hartree
 
-        tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta) 
-        n_tmp_Tw = - 1 / (w_w[None :] / Hartree + w_T[:, None] + 1j * eta)
-        
-        vchi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) 
-        if C_TGG1 is not None: vchi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
-        
+        tmp_Tw = 1 / (w_w[None, :] / Hartree - w_T[:, None] + 1j * eta)
+        n_tmp_Tw = - 1 / (w_w[None, :] / Hartree + w_T[:, None] + 1j * eta)
+
+        vchi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG)
+        if C_TGG1 is not None:
+            vchi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw, C_TGG1)
+
         vchi_wGG *= 1 / self.gs.volume
-           
+
         self.check_fsum_rule(w_w, vchi_wGG[:, 0, 0])
 
         if write_eig is not None:
@@ -790,9 +790,8 @@ class BSEBackend:
             filename = write_eig
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
-                                      self.w_T * Hartree, C_TGG[:,0,0])
-        return np.swapaxes(vchi_wGG, -1, -2) 
-
+                                      self.w_T * Hartree, C_TGG[:, 0, 0])
+        return np.swapaxes(vchi_wGG, -1, -2)
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 filename='df_bse.csv', readfile=None,
