@@ -115,6 +115,8 @@ def gpw_files(request):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
+    * MoS2 with 5x5x1 k-points: ``mos2_5x5_pw``
+
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
 
     * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:

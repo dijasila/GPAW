@@ -37,7 +37,7 @@ class PAWDatasetCollection:
 
 class ResponseGroundStateAdapter:
     def __init__(self, calc: ASECalculator | GPAW):
-        wfs = calc.wfs  # object representing wave functions
+        wfs = calc.wfs  # wavefunction object from gpaw.wavefunctions
 
         self.atoms = calc.atoms
         self.kd = wfs.kd  # KPointDescriptor object from gpaw.kpt_descriptor.
