@@ -1327,6 +1327,24 @@ class GPWFiles:
     def nicl2_pw_evac(self):
         return self._nicl2_pw(vacuum=10.0, identifier='_evac')
 
+    @gpwfile
+    def Tl_box_pw(self):
+        Tl = Atoms('Tl',
+                   cell=[5, 5, 5],
+                   scaled_positions=[[0.5, 0.5, 0.5]],
+                   pbc=False)
+
+        Tl.calc = GPAWNew(mode={'name': 'pw', 'ecut': 300}, xc='LDA',
+                          kpts={'size': (1, 1, 1), 'gamma': True},
+                          parallel={'domain': 1, 'band': 1},
+                          symmetry='off',
+                          occupations={'name': 'fermi-dirac', 'width': 0.01},
+                          convergence={'density': 1e-6},
+                          magmoms=[[0, 0, 0.5]], soc=True,
+                          txt=self.path / f'Tl_box_pw.txt')
+        Tl.get_potential_energy()
+        return Tl.calc
+
     @with_band_cutoff(gpw='v2br4_pw',
                       band_cutoff=28)  # V(4s,3d) = 6, Br(4s,4p) = 4
     def _v2br4(self, *, band_cutoff, symmetry=None):
