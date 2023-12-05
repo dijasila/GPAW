@@ -17,6 +17,8 @@ from gpaw.response.symmetry import PWSymmetryAnalyzer
 if TYPE_CHECKING:
     from gpaw.response.pair import KPointPairFactory, \
         ActualPairDensityCalculator
+    from gpaw.response.context import ResponseContext
+    from gpaw.response.groundstate import ResponseGroundStateAdapter
 
 
 class Chi0Integrand(Integrand):
@@ -32,19 +34,15 @@ class Chi0Integrand(Integrand):
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
 
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        self.gs = chi0calc.gs
+        self.gs: ResponseGroundStateAdapter = chi0calc.gs
         self.n1 = 0
         self.n2 = self.gs.nocc2
         assert m1 <= m2
         self.m1 = m1
         self.m2 = m2
 
-        # context: ResponseContext from gpaw.response.context
-        self.context = chi0calc.context
-
-        # kptpair_factory: KPointPairFactory from gpaw.response.pair
-        self.kptpair_factory = chi0calc.kptpair_factory
+        self.context: ResponseContext = chi0calc.context
+        self.kptpair_factory: KPointPairFactory = chi0calc.kptpair_factory
 
         self.qpd = qpd
         self.analyzer = analyzer
@@ -207,7 +205,7 @@ class Chi0ComponentCalculator:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             self.context.print('Using integrator: TetrahedronIntegrator')
-            cls = TetrahedronIntegrator  # type: ignore
+            cls = TetrahedronIntegrator
             if not all([self.disable_point_group,
                         self.disable_time_reversal]):
                 self.check_high_symmetry_ibz_kpts()
