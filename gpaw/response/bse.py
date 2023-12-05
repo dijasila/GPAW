@@ -727,7 +727,7 @@ class BSEBackend:
 
     @timer('get_chi_GG')
     def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
-                   write_eig=None, return_vchi = True, hybrid = False):
+                   write_eig=None, hybrid = False):
         """Returns chi_GG'"""
 
         self.get_bse_matrix(readfile=readfile, optical=optical, hybrid = hybrid)
@@ -746,8 +746,8 @@ class BSEBackend:
                 B_GT = rho_SG.T * df_S[np.newaxis] @ self.v_ST
                 tmp = self.v_ST.conj().T @ self.v_ST
                 overlap_tt = np.linalg.inv(tmp)
-                C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] / 2 
-                C_TGG1 = (A_GT).T.conj()[...,np.newaxis] * (B_GT@overlap_tt).T[:,np.newaxis] / 2
+                C_TGG = ((B_GT.conj()@ overlap_tt.T).T)[...,np.newaxis] * A_GT.T[:,np.newaxis] 
+                C_TGG1 = None
             else:
                 return
         else:
@@ -781,7 +781,10 @@ class BSEBackend:
 
         tmp_Tw = 1 / (w_w[None :] / Hartree - w_T[:, None] + 1j * eta) 
         n_tmp_Tw = - 1 / (w_w[None :] / Hartree + w_T[:, None] + 1j * eta)
-        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) + np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
+        
+        vchi_w = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG) 
+        if C_TGG1 is not None: vchi_w += np.einsum('Tw,TAB->wAB', n_tmp_Tw , C_TGG1)
+        
         vchi_w *= 1 / self.gs.volume
            
         """Check f-sum rule."""
