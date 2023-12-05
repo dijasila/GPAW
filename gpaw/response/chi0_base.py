@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 from ase.units import Ha
-
 from gpaw.bztools import convex_hull_volume
 from gpaw.response import timer
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
@@ -174,7 +173,7 @@ class Chi0ComponentCalculator:
     def pbc(self):
         return self.gs.pbc
 
-    def construct_integrator(self):
+    def construct_integrator(self):  # -> Integrator or child of Integrator
         """Construct k-point integrator"""
         cls = self.get_integrator_cls()
         return cls(
@@ -182,7 +181,7 @@ class Chi0ComponentCalculator:
             context=self.context,
             nblocks=self.nblocks)
 
-    def get_integrator_cls(self):
+    def get_integrator_cls(self):  # -> Integrator or child of Integrator
         """Get the appointed k-point integrator class."""
         if self.integrationmode is None:
             self.context.print('Using integrator: PointIntegrator')
