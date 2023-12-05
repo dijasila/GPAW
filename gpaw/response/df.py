@@ -145,7 +145,7 @@ class DielectricFunctionCalculator:
             else:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocksd1.myslice  # slice object for this process.
+            W = self.blocks1d.myslice  # slice object for this process.
             #  used to distribute the calculation when run in parallel.
             chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
