@@ -1,6 +1,9 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import numpy as np
+
+from typing import TYPE_CHECKING
 
 from ase.units import Ha
 from gpaw.bztools import convex_hull_volume
@@ -11,22 +14,35 @@ from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
+if TYPE_CHECKING:
+    from gpaw.response.pair import KPointPairFactory, \
+        ActualPairDensityCalculator
+    from gpaw.response.context import ResponseContext
+    from gpaw.response.groundstate import ResponseGroundStateAdapter
+
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+    def __init__(self, chi0calc: Chi0ComponentPWCalculator,
+                 optical: bool,
+                 qpd: SingleQPWDescriptor,
+                 analyzer: PWSymmetryAnalyzer,
+                 m1: int,
+                 m2: int):
+
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
         # completely and partially unoccupied bands to range(m1, m2)
-        self.gs = chi0calc.gs
+
+        self.gs: ResponseGroundStateAdapter = chi0calc.gs
         self.n1 = 0
         self.n2 = self.gs.nocc2
         assert m1 <= m2
         self.m1 = m1
         self.m2 = m2
 
-        self.context = chi0calc.context
-        self.kptpair_factory = chi0calc.kptpair_factory
+        self.context: ResponseContext = chi0calc.context
+        self.kptpair_factory: KPointPairFactory = chi0calc.kptpair_factory
 
         self.qpd = qpd
         self.analyzer = analyzer
@@ -64,6 +80,7 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
+            # pair_calc: ActualPairDensityCalculator from gpaw.response.pair
             target_method = self._chi0calc.pair_calc.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
         else:
@@ -188,7 +205,7 @@ class Chi0ComponentCalculator:
             cls = PointIntegrator
         elif self.integrationmode == 'tetrahedron integration':
             self.context.print('Using integrator: TetrahedronIntegrator')
-            cls = TetrahedronIntegrator  # type: ignore
+            cls = TetrahedronIntegrator
             if not all([self.disable_point_group,
                         self.disable_time_reversal]):
                 self.check_high_symmetry_ibz_kpts()
@@ -307,7 +324,7 @@ class Chi0ComponentCalculator:
 class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
     """Base class for Chi0XXXCalculators, which utilize a plane-wave basis."""
 
-    def __init__(self, kptpair_factory,
+    def __init__(self, kptpair_factory: KPointPairFactory,
                  *,
                  wd,
                  hilbert=True,
@@ -344,7 +361,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
             raise ValueError('1-D not supported atm.')
 
     @property
-    def pair_calc(self):
+    def pair_calc(self) -> ActualPairDensityCalculator:
         return self.kptpair_factory.pair_calculator()
 
     def construct_integral_task(self):
