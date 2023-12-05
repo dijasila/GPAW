@@ -60,7 +60,7 @@ class HubbardU:
             eU1, dHU1_sii = hubbard(D_sii, U=U, l=l, l_j=setup.l_j,
                                     lq=setup.lq, scale=scale)
 
-            eU += eU1
+            eU += eU1.real
             dHU_sii += dHU1_sii
         return eU, dHU_sii
 
@@ -98,12 +98,12 @@ def hubbard(D_sii: Array3D,
         if nspins == 4:
             N_mm = N_mm / 2.0
             if s == 0:
-                eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace().real
+                eU1 = U / 2. * (N_mm - 0.5 * N_mm @ N_mm).trace()
 
                 dHU_mm = U / 2. * (np.eye(nm) - N_mm.T)
 
             else:
-                eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace().real
+                eU1 = -U / 2. * (0.5 * N_mm @ N_mm).trace()
 
                 dHU_mm = -U / 2. * N_mm.T
         else:

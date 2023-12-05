@@ -140,6 +140,8 @@ def gpw_files(request):
 
     * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
 
+    * MoS2 with 5x5x1 k-points: ``mos2_5x5_pw``
+
     * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
 
     * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
@@ -416,6 +418,27 @@ class GPWFiles:
                           kpts={'density': 2.0, 'gamma': True})
         atoms.get_potential_energy()
         return atoms.calc
+
+    @gpwfile
+    def silicon_pdens_tool(self):
+        # used by response code's pdens tool test
+        pw = 200
+        kpts = 3
+        nbands = 8
+
+        a = 5.431
+        atoms = bulk('Si', 'diamond', a=a)
+
+        calc = GPAW(mode=PW(pw),
+                    kpts=(kpts, kpts, kpts),
+                    nbands=nbands,
+                    convergence={'bands': -1},
+                    xc='LDA',
+                    occupations=FermiDirac(0.001))
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
 
     @gpwfile
     def h_pw(self):
@@ -1213,6 +1236,24 @@ class GPWFiles:
     @gpwfile
     def mos2_pw_nosym(self):
         return self._mos2(symmetry='off')
+
+    @gpwfile
+    def mos2_5x5_pw(self):
+        calc = GPAW(mode=PW(180),
+                    xc='PBE',
+                    nbands='nao',
+                    setups={'Mo': '6'},
+                    occupations=FermiDirac(0.001),
+                    convergence={'bands': -5},
+                    kpts=(5, 5, 1))
+
+        from ase.build import mx2
+        layer = mx2(formula='MoS2', kind='2H', a=3.1604, thickness=3.172,
+                    size=(1, 1, 1), vacuum=3.414)
+        layer.pbc = (1, 1, 0)
+        layer.calc = calc
+        layer.get_potential_energy()
+        return layer.calc
 
     @with_band_cutoff(gpw='p4_pw',
                       band_cutoff=40)

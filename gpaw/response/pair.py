@@ -1,5 +1,3 @@
-import numbers
-
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
@@ -129,7 +127,7 @@ class KPointPairFactory:
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, block=False):
+    def get_k_point(self, s, K, n1, n2, block=False):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -144,13 +142,6 @@ class KPointPairFactory:
 
         gs = self.gs
         kd = gs.kd
-
-        # Parse kpoint: is k_c an index or a vector
-        if not isinstance(k_c, numbers.Integral):
-            K = self.gs.kpoints.kptfinder.find(k_c)
-        else:
-            # Fall back to index
-            K = k_c
 
         if block:
             nblocks = self.blockcomm.size
@@ -203,13 +194,19 @@ class KPointPairFactory:
             # the index of the kpoint in the BZ
             k_c = self.gs.kd.bzk_kc[Kork_c]
         else:
+            # xxxxxxxx remove this case
             k_c = Kork_c
 
         q_c = qpd.q_c
+
+        kptfinder = self.gs.kpoints.kptfinder
+        K1 = kptfinder.find(k_c)
+        K2 = kptfinder.find(k_c + q_c)
+
         with self.context.timer('get k-points'):
-            kpt1 = self.get_k_point(s, k_c, n1, n2)
+            kpt1 = self.get_k_point(s, K1, n1, n2)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
+            kpt2 = self.get_k_point(s, K2, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
             Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
