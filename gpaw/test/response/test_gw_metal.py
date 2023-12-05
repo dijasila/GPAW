@@ -8,5 +8,7 @@ def test_gw_metal(gpw_files):
     with pytest.raises(NotImplementedError) as excinfo:
         _ = G0W0(gpwfile, nbands=15)
 
-    errormsg = 'Intraband screening is not implemented for metals'
+    errormsg = ('The current GW implementation cannot'
+                ' handle intraband screening and is'
+                ' therefore not applicable to metals')
     assert str(excinfo.value) == errormsg
