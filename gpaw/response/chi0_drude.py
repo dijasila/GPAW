@@ -1,5 +1,7 @@
+from __future__ import annotations
 from time import ctime
 
+from typing import TYPE_CHECKING
 import numpy as np
 from ase.units import Ha
 
@@ -8,6 +10,9 @@ from gpaw.response.chi0_base import Chi0ComponentCalculator
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0_data import Chi0DrudeData
 from gpaw.response.frequencies import FrequencyGridDescriptor
+
+if TYPE_CHECKING:
+    from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
 class Chi0DrudeCalculator(Chi0ComponentCalculator):
@@ -18,6 +23,9 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # task: IntegralTask from gpaw.response.integrators
+        # wd: FrequencyDescriptor from gpaw.response.frequencies
         self.task, self.wd = self.construct_integral_task_and_wd()
 
     @property
@@ -28,12 +36,12 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         # seems a bit dangerous XXX
         return 1
 
-    def calculate(self, wd, rate):
+    def calculate(self, wd, rate) -> Chi0DrudeData:
         """Calculate the Drude dielectric response.
 
         Parameters
         ----------
-        wd : FrequencyDescriptor
+        wd : FrequencyDescriptor from gpaw.response.frequencies
             Frequencies to evaluate the reponse function at.
         rate : float
             Plasma frequency decay rate (in eV), corresponding to the
@@ -52,8 +60,14 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         """
         # Create a dummy plane-wave descriptor. We need this for the symmetry
         # analysis -> see discussion in gpaw.response.jdos
+
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
+        # gd: GridDescriptor from gpaw.grid_descriptor
         qpd = SingleQPWDescriptor.from_q([0., 0., 0.],
                                          ecut=1e-3, gd=self.gs.gd)
+
+        # domain: Domain from from gpaw.response.integrators
+        # analyzer: PWSymmetryAnalyzer from gpaw.response.symmetry
         domain, analyzer, prefactor = self.get_integration_domain(
             qpd, spins=range(self.gs.nspins))
 
@@ -63,6 +77,8 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
 
         # Integrate using temporary array
         tmp_plasmafreq_wvv = np.zeros((1,) + chi0_drude.vv_shape, complex)
+
+        # integrator: Integrator from gpaw.response.integrators (or child)
         self.integrator.integrate(task=self.task,
                                   domain=domain,  # Integration domain
                                   integrand=integrand,
@@ -80,6 +96,8 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
         # Calculate the Drude dielectric response function from the
         # free-space plasma frequency
         # χ_D(ω+iη) = ω_p^2 / (ω+iη)^2
+
+        # zd: ComplexFrequencyDescriptor from gpaw.response.frequencies
         assert chi0_drude.zd.upper_half_plane
         chi0_drude.chi_Zvv += plasmafreq_vv[np.newaxis] \
             / chi0_drude.zd.hz_z[:, np.newaxis, np.newaxis]**2
@@ -111,17 +129,22 @@ class Chi0DrudeCalculator(Chi0ComponentCalculator):
                f'    Plasma frequency decay rate: {rate} eV',
                '',
                self.get_gs_info_string(tab='    ')]
+
+        # context: ResponseContext from gpaw.response.context
         self.context.print('\n'.join(isl))
 
 
 class PlasmaFrequencyIntegrand(Integrand):
-    def __init__(self, chi0drudecalc, qpd, analyzer):
+    def __init__(self, chi0drudecalc: Chi0DrudeCalculator,
+                 qpd: SingleQPWDescriptor,
+                 analyzer: PWSymmetryAnalyzer):
         self._drude = chi0drudecalc
         self.qpd = qpd
         self.analyzer = analyzer
 
     def _band_summation(self):
         # Intraband response needs only integrate partially unoccupied bands.
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         return self._drude.gs.nocc1, self._drude.gs.nocc2
 
     def matrix_element(self, point):
