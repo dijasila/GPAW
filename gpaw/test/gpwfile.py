@@ -4,7 +4,6 @@ from math import sqrt
 from pathlib import Path
 
 import numpy as np
-import pytest
 
 from ase import Atom, Atoms
 from ase.build import bulk
