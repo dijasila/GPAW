@@ -4,6 +4,7 @@ import pytest
 from gpaw.new.ase_interface import GPAW
 from gpaw.utilities import pack
 
+
 @pytest.mark.soc
 def test_kinetic_energy(gpw_files):
     calc = GPAW(gpw_files['Tl_box_pw'],
@@ -35,6 +36,6 @@ def test_kinetic_energy(gpw_files):
 
     Ekin2 = Ekin_pseudo + Ekin_PAW
 
-    # print(Ekin1)
-    # print(Ekin2)
+    print(Ekin1)
+    print(Ekin2)
     assert Ekin1 == pytest.approx(Ekin2, abs=1e-5)
