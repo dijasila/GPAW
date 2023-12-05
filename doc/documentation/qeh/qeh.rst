@@ -89,7 +89,7 @@ for simplicity, and we have then for e.g. `\chi_{DM}` that
     = \int  (-z) \chi(z,z') \mathrm{d}z \mathrm{d}z'
     = - \chi_{DM}
 
-where for the last inequality we made the substitution
+where for the last equality we made the substitution
 `z \rightarrow-z` and `z' \rightarrow- z'`. A similar result
 holds for `\chi_{MD}`. Therefore one only needs to calculate the off-diagonal elements for materials that do not have mirror symmetry. 
 
