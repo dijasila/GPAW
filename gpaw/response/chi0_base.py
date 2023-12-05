@@ -13,7 +13,14 @@ from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc, optical, qpd, analyzer, m1, m2):
+    def __init__(self, chi0calc,
+                 optical: bool,
+                 qpd: SingleQPWDescriptor,
+                 analyzer: PWSymmetryAnalyzer,
+                 m1: int,
+                 m2: int):
+
+        # chi0calc: Chi0ComponentPWCalculator (or child)
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
