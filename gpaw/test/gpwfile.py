@@ -1178,7 +1178,7 @@ class GPWFiles:
                           occupations={'name': 'fermi-dirac', 'width': 0.01},
                           convergence={'density': 1e-6},
                           magmoms=[[0, 0, 0.5]], soc=True,
-                          txt=self.path / f'Tl_box_pw.txt')
+                          txt=self.path / 'Tl_box_pw.txt')
         Tl.get_potential_energy()
         return Tl.calc
 
