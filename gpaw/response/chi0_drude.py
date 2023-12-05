@@ -152,6 +152,8 @@ class PlasmaFrequencyIntegrand(Integrand):
         k_v = point.kpt_c  # XXX _v vs _c discrepancy
         n1, n2 = self._band_summation()
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        # kptpair_factory: KPointPairFactory from gpaw.response.pair
         kptpair_factory = self._drude.kptpair_factory
 
         K0 = kptpair_factory.gs.kpoints.kptfinder.find(k_c)  # XXX
@@ -184,9 +186,12 @@ class PlasmaFrequencyIntegrand(Integrand):
         is compatible with the gpaw k-point integration
         routines."""
         n1, n2 = self._band_summation()
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         gs = self._drude.gs
+        # kd: KPointDescriptor object from gpaw.kpt_descriptor
         kd = gs.kd
         k_v = point.kpt_c  # XXX v/c discrepancy
+        # gd: GridDescriptor from gpaw.grid_descriptor
         k_c = np.dot(self.qpd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = gs.kpoints.kptfinder.find(k_c)
         ik = kd.bz2ibz_k[K1]
