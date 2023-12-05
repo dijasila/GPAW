@@ -3,7 +3,7 @@ import pytest
 from gpaw import GPAW
 from gpaw.ibz2bz import IBZ2BZMaps, get_overlap, get_overlap_coefficients
 import gpaw.mpi as mpi
-from gpaw.test.conftest import response_band_cutoff
+from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.later
