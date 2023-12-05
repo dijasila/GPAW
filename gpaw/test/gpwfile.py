@@ -972,23 +972,25 @@ class GPWFiles:
                      [-1.94913924, 3.37600555, 11.3835853]]
         cell = [[8.276873113486648, 0.0, 0.0],
                 [-4.138436556743325, 7.167982380179831, 0.0],
-                [0.0, 0.0, 18.720718261172827]]
+                [0.0, 0.0, 0.0]]
         pbc = [True, True, False]
         atoms = Atoms('Bi2I6',
                       positions=positions,
                       cell=cell,
                       pbc=pbc)
+        atoms.center(vacuum=3.0, axis=2)
 
-        ecut = 150
+        ecut = 100
         nkpts = 4
         conv = {'bands': band_cutoff + 1,
-                'density': 1.e-8}
-        print(conv)
+                'density': 1.e-4}
+
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(mode=PW(ecut),
                           xc='LDA',
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
+                          mixer={'beta': 0.5},
                           convergence=conv,
                           nbands=band_cutoff + 9,
                           txt=self.path / f'bi2i6_pw{tag}.txt',
