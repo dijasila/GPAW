@@ -1,8 +1,5 @@
 import pytest
 import numpy as np
-from ase import Atoms
-from ase.lattice.hexagonal import Hexagonal
-from gpaw import GPAW, FermiDirac, PW
 from gpaw.mpi import world
 from gpaw.test import findpeak
 from gpaw.response.bse import BSE
@@ -10,8 +7,8 @@ from gpaw.response.df import read_response_function
 from ase.units import Bohr
 
 
-def create_bse(q_c=(0, 0, 0)):
-    bse = BSE('MoS2.gpw',
+def create_bse(gpwfile, q_c=(0, 0, 0)):
+    bse = BSE(gpwfile,
               q_c=q_c,
               spinors=True,
               ecut=10,
@@ -28,36 +25,9 @@ def create_bse(q_c=(0, 0, 0)):
 
 
 @pytest.mark.response
-def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
-    calc = GPAW(mode=PW(180),
-                xc='PBE',
-                nbands='nao',
-                setups={'Mo': '6'},
-                occupations=FermiDirac(0.001),
-                convergence={'bands': -5},
-                kpts=(5, 5, 1))
-
-    a = 3.1604
-    c = 10.0
-
-    cell = Hexagonal(symbol='Mo',
-                     latticeconstant={'a': a, 'c': c}).get_cell()
-    layer = Atoms(symbols='MoS2', cell=cell, pbc=(1, 1, 0),
-                  scaled_positions=[(0, 0, 0),
-                                    (2 / 3, 1 / 3, 0.3),
-                                    (2 / 3, 1 / 3, -0.3)])
-
-    pos = layer.get_positions()
-    pos[1][2] = pos[0][2] + 3.172 / 2
-    pos[2][2] = pos[0][2] - 3.172 / 2
-    layer.set_positions(pos)
-    layer.set_pbc([True, True, False])
-    layer.center(axis=2)
-    layer.calc = calc
-    layer.get_potential_energy()
-    calc.write('MoS2.gpw', mode='all')
-
-    bse = create_bse()
+def test_response_bse_MoS2_cut(in_tmp_dir, scalapack, gpw_files):
+    gpwfile = gpw_files['mos2_5x5_pw']
+    bse = create_bse(gpwfile)
 
     outw_w, outalpha_w = bse.get_polarizability(write_eig=None,
                                                 eta=0.02,
@@ -84,10 +54,10 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # for q=0.
     #################################################################
 
-    bse = create_bse()
+    bse = create_bse(gpwfile)
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
 
-    bse = create_bse()
+    bse = create_bse(gpwfile)
     pbc_c = bse.gs.pbc
     V = bse.gs.nonpbc_cell_product()
     factor = V * Bohr**(sum(~pbc_c)) / (4 * np.pi)
@@ -98,9 +68,9 @@ def test_response_bse_MoS2_cut(in_tmp_dir, scalapack):
     # Absorption and EELS spectra for 2D materials should NOT be identical
     # for finite q.
     #####################################################################
-    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    bse = create_bse(gpwfile, q_c=[0.2, 0.2, 0.0])
     outw_w, eels = bse.get_eels_spectrum(w_w=w_w)
-    bse = create_bse(q_c=[0.2, 0.2, 0.0])
+    bse = create_bse(gpwfile, q_c=[0.2, 0.2, 0.0])
     outw_w, pol = bse.get_polarizability(w_w)
 
     assert not np.allclose(pol.imag / factor, eels)
