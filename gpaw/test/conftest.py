@@ -418,6 +418,27 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
+    def silicon_pdens_tool(self):
+        # used by response code's pdens tool test
+        pw = 200
+        kpts = 3
+        nbands = 8
+
+        a = 5.431
+        atoms = bulk('Si', 'diamond', a=a)
+
+        calc = GPAW(mode=PW(pw),
+                    kpts=(kpts, kpts, kpts),
+                    nbands=nbands,
+                    convergence={'bands': -1},
+                    xc='LDA',
+                    occupations=FermiDirac(0.001))
+
+        atoms.calc = calc
+        atoms.get_potential_energy()
+        return calc
+
+    @gpwfile
     def h_pw(self):
         h = Atoms('H', magmoms=[1])
         h.center(vacuum=4.0)
