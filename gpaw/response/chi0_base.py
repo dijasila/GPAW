@@ -15,18 +15,18 @@ from gpaw.response.integrators import (
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 if TYPE_CHECKING:
-    from gpaw.response.pair import KPointPairFactory
+    from gpaw.response.pair import KPointPairFactory,\
+        ActualPairDensityCalculator
 
 
 class Chi0Integrand(Integrand):
-    def __init__(self, chi0calc,
+    def __init__(self, chi0calc: Chi0ComponentPWCalculator,
                  optical: bool,
                  qpd: SingleQPWDescriptor,
                  analyzer: PWSymmetryAnalyzer,
                  m1: int,
                  m2: int):
 
-        # chi0calc: Chi0ComponentPWCalculator (or child)
         self._chi0calc = chi0calc
 
         # In a normal response calculation, we include transitions from all
@@ -82,7 +82,6 @@ class Chi0Integrand(Integrand):
         """
 
         if self.optical:
-
             # pair_calc: ActualPairDensityCalculator from gpaw.response.pair
             target_method = self._chi0calc.pair_calc.get_optical_pair_density
             out_ngmax = self.qpd.ngmax + 2
@@ -364,8 +363,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
             raise ValueError('1-D not supported atm.')
 
     @property
-    def pair_calc(self):
-        # pair_calculator: ActualPairDensityCalculator from gpaw.response.pair
+    def pair_calc(self) -> ActualPairDensityCalculator:
         return self.kptpair_factory.pair_calculator()
 
     def construct_integral_task(self):
