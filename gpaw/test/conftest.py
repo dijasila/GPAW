@@ -6,7 +6,7 @@ import pytest
 from gpaw import setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
-from gpaw.test.gpwfile import GPWFiles, all_gpw_files
+from gpaw.test.gpwfile import GPWFiles, _all_gpw_methodnames
 from gpaw.utilities import devnull
 
 
@@ -170,6 +170,33 @@ def gpw_files(request):
         yield gpwfiles
     finally:
         setup_paths.remove(gpwfiles.testing_setup_path)
+
+
+@pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))
+def all_gpw_files(request, gpw_files, pytestconfig):
+    """This fixture parametrizes a test over all gpw_files.
+
+    For example pytest test_generate_gpwfiles.py -n 16 is a way to quickly
+    generate all gpw files independently of the rest of the test suite."""
+
+    # Note: Parametrizing over _all_gpw_methodnames must happen *after*
+    # it is populated, i.e., further down in the file than
+    # the @gpwfile decorator.
+
+    import os
+    gpaw_new = os.environ.get('GPAW_NEW')
+
+    # TODO This xfail-information should probably live closer to the
+    # gpwfile definitions and not here in the fixture.
+    skip_if_new = {'Cu3Au_qna',
+                   'nicl2_pw', 'nicl2_pw_evac',
+                   'v2br4_pw', 'v2br4_pw_nosym',
+                   'sih4_xc_gllbsc', 'na2_isolated'}
+    if gpaw_new and request.param in skip_if_new:
+        pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
+
+    # Accessing each file via __getitem__ executes the calculation:
+    return gpw_files[request.param]
 
 
 class GPAWPlugin:
