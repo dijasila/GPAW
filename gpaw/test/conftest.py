@@ -6,7 +6,7 @@ import pytest
 from gpaw import setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
-from gpaw.test.gpwfile import GPWFiles
+from gpaw.test.gpwfile import GPWFiles, all_gpw_files
 from gpaw.utilities import devnull
 
 
