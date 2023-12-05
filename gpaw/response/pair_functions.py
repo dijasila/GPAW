@@ -21,6 +21,9 @@ class SingleQPWDescriptor(PWDescriptor):
         qd = KPointDescriptor([q_c])
         return SingleQPWDescriptor(ecut, gd, complex, qd,
                                    gammacentered=gammacentered)
+    @property 
+    def NG(self):
+        return self.ng_q[0]
 
     @property
     def q_c(self):

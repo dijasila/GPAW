@@ -21,9 +21,6 @@ from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import timer
 
 
-import ctypes
-
-
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -204,18 +201,16 @@ class BSEBackend:
         myKrange, myKsize, mySsize = self.parallelisation_sizes()
 
         # Calculate exchange interaction
-        self.qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
-        qpd0 = self.qpd0
+        qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
-        v_G = self.coulomb.V(qpd=qpd0, q_v=None)
         if self.no_coulomb: 
-            self.v_G = np.zeros(len(v_G))
+            v_G = np.zeros(qpd0.NG)
         else: 
-            self.v_G = v_G 
+            v_G = self.coulomb.V(qpd=qpd0, q_v=None)  
 
  
         if optical:
-            self.v_G[0] = 0.0
+            v_G[0] = 0.0
 
         self.kptpair_factory = KPointPairFactory(
             gs=self.gs,
@@ -241,7 +236,7 @@ class BSEBackend:
         so = self.spinors + 1
         Nv, Nc = so * self.nv, so * self.nc
         Ns = self.spins
-        rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(self.v_G)), complex)
+        rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
         # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
         df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
         deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
@@ -347,7 +342,7 @@ class BSEBackend:
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
                 # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
-                rho1ccV_mnG = rho1_mnG.conj()[:, :] * self.v_G
+                rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
@@ -569,7 +564,6 @@ class BSEBackend:
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
             if self.chi_GG:
                 self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
-            # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
@@ -634,7 +628,6 @@ class BSEBackend:
         nS = self.nS
         nG = self.rho_SG.shape[-1]
         ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
-        print(C_tGG.shape)
         if world.rank == 0:
             C_TGG = np.zeros((nS, nG, nG), dtype=complex)
             C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
@@ -649,7 +642,6 @@ class BSEBackend:
         else:
             world.send(C_tGG, 0, tag=123)
     
-        world.barrier()
         if world.rank == 0:
             return C_TGG 
 
@@ -770,7 +762,6 @@ class BSEBackend:
                 desc = grid.new_descriptor(nS, nG*nG, ns, nG*nG)  
                 C_tGG = desc.empty(dtype=complex)
                 np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt, out=C_tGG.reshape((-1, nG, nG)))
-                print(C_tGG.shape,'after einsum')
                 C_TGG = self.collect_C_TGG(C_tGG)
                 desc1 = grid.new_descriptor(nS, nG*nG, ns, nG*nG)
                 C_tGG1 = desc1.empty(dtype=complex)
@@ -811,7 +802,7 @@ class BSEBackend:
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 filename='df_bse.csv', readfile=None,
-                               write_eig='eig.dat'):
+                                write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
         function.
 
