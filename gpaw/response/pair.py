@@ -185,27 +185,22 @@ class KPointPairFactory:
                       ut_nR, eps_n, f_n, P_ani, k_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
+    def get_kpoint_pair(self, qpd, s, K, n1, n2, m1, m2, block=False):
         assert m1 <= m2
         assert n1 <= n2
 
-        if isinstance(Kork_c, int):
-            # If k_c is an integer then it refers to
-            # the index of the kpoint in the BZ
-            k_c = self.gs.kd.bzk_kc[Kork_c]
-        else:
-            # xxxxxxxx remove this case
-            k_c = Kork_c
-
-        q_c = qpd.q_c
-
         kptfinder = self.gs.kpoints.kptfinder
-        K1 = kptfinder.find(k_c)
-        K2 = kptfinder.find(k_c + q_c)
 
+        k_c = self.gs.kd.bzk_kc[K]
+        K1 = kptfinder.find(k_c)
+        K2 = kptfinder.find(k_c + qpd.q_c)
+
+        return self._get_kpoint_pair(
+            qpd, s, K1, K2, n1, n2, m1, m2, block)
+
+    def _get_kpoint_pair(self, qpd, s, K1, K2, n1, n2, m1, m2, block):
         with self.context.timer('get k-points'):
             kpt1 = self.get_k_point(s, K1, n1, n2)
-            # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
             kpt2 = self.get_k_point(s, K2, m1, m2, block=block)
 
         with self.context.timer('fft indices'):
