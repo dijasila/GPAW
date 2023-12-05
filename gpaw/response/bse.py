@@ -40,14 +40,17 @@ class BSEBackend:
                  direction=0,
                  wfile=None,
                  write_h=False,
-                 write_v=False):
+                 write_v=False,
+                 chi_GG=False, 
+                 no_coulomb=False):
         self.gs = gs
         self.q_c = q_c
         self.direction = direction
         self.context = context
         self.spinors = spinors
         self.scale = scale
-
+        self.chi_GG = chi_GG
+        self.no_coulomb = no_coulomb
         assert mode in ['RPA', 'TDHF', 'BSE']
 
         self.ecut = ecut / Hartree
@@ -182,7 +185,7 @@ class BSEBackend:
         return bands_sn
 
     @timer('BSE calculate')
-    def calculate(self, optical=True, hybrid = False):
+    def calculate(self, optical=True):
 
         if self.spinors:
             # Calculate spinors. Here m is index of eigenvalues with SOC
@@ -205,7 +208,7 @@ class BSEBackend:
         qpd0 = self.qpd0
         ikq_k = self.kd.find_k_plus_q(self.q_c)
         v_G = self.coulomb.V(qpd=qpd0, q_v=None)
-        if hybrid == True: 
+        if self.no_coulomb: 
             self.v_G = np.zeros(len(v_G))
         else: 
             self.v_G = v_G 
@@ -322,7 +325,7 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
-        if hybrid:
+        if self.chi_GG:
             self.rho_SG = np.reshape(rhoex_KsmnG, (len(self.rhoG0_S), -1))
         self.context.timer.stop('Pair densities')
 
@@ -564,7 +567,8 @@ class BSEBackend:
             world.broadcast(self.w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
-            self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
+            if self.chi_GG:
+                self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
             # self.rhoG0_S = np.reshape(self.rhoG0_S, (-1, nG))
         # Here the eigenvectors are returned as complex conjugated rows
         else:
@@ -602,11 +606,11 @@ class BSEBackend:
         return
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, readfile=None, optical=True, hybrid = False):
+    def get_bse_matrix(self, readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
 
         if readfile is None:
-            self.calculate(optical=optical, hybrid = hybrid)
+            self.calculate(optical=optical)
             if hasattr(self, 'w_T'):
                 return
             self.diagonalize()
@@ -727,11 +731,10 @@ class BSEBackend:
 
     @timer('get_chi_GG')
     def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
-                   write_eig=None, hybrid = False):
+                   write_eig=None):
         """Returns chi_GG'"""
-
-        self.get_bse_matrix(readfile=readfile, optical=optical, hybrid = hybrid)
-    
+        
+        self.get_bse_matrix(readfile=readfile, optical=optical)
         w_T = self.w_T
         rho_SG = self.rho_SG
         df_S = self.df_S
