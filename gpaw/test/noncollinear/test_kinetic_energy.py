@@ -7,7 +7,7 @@ from gpaw.utilities import pack
 
 
 @pytest.mark.soc
-@pytest.mark.skipif(world.size > 1, reason='Test was not parallelisation implemented.')
+@pytest.mark.skipif(world.size > 1, reason='Gamma-point calculation.')
 def test_kinetic_energy(gpw_files):
     # Test that we calculate the kinetic energy correctly in noncollinear mode.
     # We are mostly concerned with the contributions from the complex parts of
