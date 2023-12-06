@@ -11,11 +11,11 @@ from gpaw.response import ResponseContext
 
 
 class MyIntegrand(Integrand):
-    def matrix_element(self, x_c, s):
+    def matrix_element(self, point):
         return np.array([[1.]], complex)
 
-    def eigenvalues(self, x_c, s):
-        return np.array([(x_c**2).sum()**0.5], float)
+    def eigenvalues(self, point):
+        return np.array([(point.kpt_c**2).sum()**0.5], float)
 
 
 @pytest.mark.tetrahedron
