@@ -1172,10 +1172,8 @@ class GPWFiles:
                    pbc=False)
 
         Tl.calc = GPAWNew(mode={'name': 'pw', 'ecut': 300}, xc='LDA',
-                          kpts={'size': (1, 1, 1), 'gamma': True},
-                          parallel={'domain': 1, 'band': 1},
-                          symmetry='off',
                           occupations={'name': 'fermi-dirac', 'width': 0.01},
+                          symmetry='off',
                           convergence={'density': 1e-6},
                           magmoms=[[0, 0, 0.5]], soc=True,
                           txt=self.path / 'Tl_box_pw.txt')
