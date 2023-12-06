@@ -26,7 +26,7 @@ class BField(NoExternalPotential):
     def update_potential_pw(self,
                             ham: ReciprocalSpaceHamiltonian,
                             dens: Density) -> float:
-        magmom_v, _ = dens.estimate_magnetic_moments()
+        magmom_v, _, _ = dens.estimate_magnetic_moments()
         eext = -self.field_v.dot(magmom_v)
         if dens.collinear:
             ham.vt_sG[:] = ham.pd2.ifft(ham.vt_Q)

@@ -380,26 +380,34 @@ class Density:
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros_like(self.magmom_av)
         magmom_v = np.zeros(3)
+        absmagmom_v = np.zeros(3)
         if self.nspins == 2:
             for a, D_sp in self.D_asp.items():
                 M_p = D_sp[0] - D_sp[1]
                 magmom_av[a, 2] = np.dot(M_p, self.setups[a].N0_p)
-                magmom_v[2] += (np.dot(M_p, self.setups[a].Delta_pL[:, 0]) *
-                                sqrt(4 * pi))
+                this_mag = (np.dot(M_p, self.setups[a].Delta_pL[:, 0]) *
+                            sqrt(4 * pi))
+                magmom_v[2] += this_mag
+                absmagmom_v[2] += abs(thismag)
             self.gd.comm.sum(magmom_av)
             self.gd.comm.sum(magmom_v)
+            self.gd.comm.sum(absmagmom_v)
             magmom_v[2] += self.gd.integrate(self.nt_sG[0] - self.nt_sG[1])
+            absmagmom_v[2] += self.gd.integrate(np.abs(self.nt_sG[0] - self.nt_sG[1]))
         elif not self.collinear:
             for a, D_sp in self.D_asp.items():
                 magmom_av[a] = np.dot(D_sp[1:4], self.setups[a].N0_p)
-                magmom_v += (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
+                thismag_v = (np.dot(D_sp[1:4], self.setups[a].Delta_pL[:, 0]) *
                              sqrt(4 * pi))
+                magmom_v += thismag_v
+                absmagmom_v += np.abs(this_mag_v)
             # XXXX probably untested code
             self.gd.comm.sum(magmom_av)
             self.gd.comm.sum(magmom_v)
+            self.gd.comm.sum(absmagmom_v)
             magmom_v += self.gd.integrate(self.nt_vG)
-
-        return magmom_v, magmom_av
+            absmagmom_v += self.gd.integrate(np.abs(self.nt_vG))
+        return magmom_v, absmagmom_v, magmom_av
 
     estimate_magnetic_moments = calculate_magnetic_moments
 

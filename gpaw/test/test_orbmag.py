@@ -20,7 +20,7 @@ def test_orbmag_Ni(gpw_files):
 
     energy_col = calc_col.get_potential_energy(calc_col.atoms)
     density = calc_col.calculation.state.density
-    magmoms_col_v, _ = density.calculate_magnetic_moments()
+    magmoms_col_v, _, _ = density.calculate_magnetic_moments()
     with pytest.raises(AssertionError, match='Collinear calculations*'):
         calc_col.get_orbital_magnetic_moments()
     orbmag_col_v = soc_eigenstates(calc_col,
@@ -34,7 +34,7 @@ def test_orbmag_Ni(gpw_files):
 
     energy_ncol = calc_ncol.get_potential_energy(calc_ncol.atoms)
     density = calc_ncol.calculation.state.density
-    magmoms_ncol_v, _ = density.calculate_magnetic_moments()
+    magmoms_ncol_v, _, _ = density.calculate_magnetic_moments()
     orbmag_ncol_v = soc_eigenstates(
         calc_ncol).get_orbital_magnetic_moments()[0]
 

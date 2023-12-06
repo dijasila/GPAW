@@ -204,7 +204,7 @@ class DFTCalculation:
         self.results['dipole'] = dipole_v
 
     def magmoms(self) -> tuple[Array1D, Array2D]:
-        mm_v, mm_av = self.state.density.calculate_magnetic_moments()
+        mm_v, amm_v, mm_av = self.state.density.calculate_magnetic_moments()
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
         self.results['non_collinear_magmoms'] = mm_av
@@ -213,6 +213,8 @@ class DFTCalculation:
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
             self.log(f'total magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
+            x, y, z = amm_v
+            self.log(f'absolute magnetic moment: [{x:.6f}, {y:.6f}, {z:.6f}]\n')
             self.log('local magnetic moments: [')
             for a, (setup, m_v) in enumerate(zips(self.setups, mm_av)):
                 x, y, z = m_v

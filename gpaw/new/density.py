@@ -306,6 +306,7 @@ class Density:
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))
         magmom_v = np.zeros(3)
+        absmagmom_v = np.zeros(3)
         domain_comm = self.nt_sR.desc.comm
 
         if self.ncomponents == 2:
@@ -315,17 +316,23 @@ class Density:
                 delta_ii = as_np(self.delta_aiiL[a][:, :, 0])
                 magmom_v[2] += (np.einsum('ij, ij ->', M_ii, delta_ii) *
                                 sqrt(4 * pi))
+                absmagmom_v[2] += abs(np.einsum('ij, ij ->', M_ii, delta_ii) *
+                                      sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)
+            domain_comm.sum(absmagmom_v)
 
             M_s = self.nt_sR.integrate()
             magmom_v[2] += M_s[0] - M_s[1]
+            # nope this is wrong
+            absmagmom_v[2] += abs(M_s[0] - M_s[1])
 
         elif self.ncomponents == 4:
             for a, D_sii in self.D_asii.items():
                 M_vii = D_sii[1:4].real
                 magmom_av[a] = np.einsum('vij, ij -> v',
                                          M_vii, self.N0_aii[a])
+                # still need to do this
                 magmom_v += (np.einsum('vij, ij -> v', M_vii,
                                        self.delta_aiiL[a][:, :, 0]) *
                              sqrt(4 * pi))
@@ -333,7 +340,7 @@ class Density:
             domain_comm.sum(magmom_v)
             magmom_v += self.nt_sR.integrate()[1:]
 
-        return magmom_v, magmom_av
+        return magmom_v, absmagmom_v, magmom_av
 
     def write(self, writer):
         D_asp = self.D_asii.to_cpu().to_lower_triangle().gather()

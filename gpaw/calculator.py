@@ -466,9 +466,11 @@ class GPAW(Calculator):
             self.results['dipole'] = dipole_v
 
             if self.wfs.nspins == 2 or not self.density.collinear:
-                totmom_v, magmom_av = self.density.estimate_magnetic_moments()
+                totmom_v, absmom_v, magmom_av = self.density.estimate_magnetic_moments()
                 self.log('Total magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
                          .format(*totmom_v))
+                self.log('Absolute magnetic moment: ({:.6f}, {:.6f}, {:.6f})'
+                         .format(*absmom_v))
                 self.log('Local magnetic moments:')
                 symbols = self.atoms.get_chemical_symbols()
                 for a, mom_v in enumerate(magmom_av):

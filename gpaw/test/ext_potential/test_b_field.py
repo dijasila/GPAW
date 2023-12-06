@@ -41,9 +41,9 @@ def test_b_field(gpaw_new):
     assert a3 - a1 == pytest.approx(-B, abs=3e-5)
 
     if gpaw_new:
-        totmom_v, magmom_av = (
+        totmom_v, absmom_v, magmom_av = (
             atom.calc.calculation.state.density.calculate_magnetic_moments())
     else:
-        totmom_v, magmom_av = atom.calc.density.estimate_magnetic_moments()
+        totmom_v, absmom_v, magmom_av = atom.calc.density.estimate_magnetic_moments()
     assert totmom_v == pytest.approx([1, 0, 0], abs=1e-5)
     assert magmom_av[0] == pytest.approx([0.176, 0, 0], abs=1e-3)
