@@ -38,7 +38,6 @@ class BSEBackend:
                  wfile=None,
                  write_h=False,
                  write_v=False,
-                 chi_GG=False,
                  no_coulomb=False):
         self.gs = gs
         self.q_c = q_c
@@ -46,7 +45,6 @@ class BSEBackend:
         self.context = context
         self.spinors = spinors
         self.scale = scale
-        self.chi_GG = chi_GG
         self.no_coulomb = no_coulomb
         assert mode in ['RPA', 'TDHF', 'BSE']
 
@@ -319,8 +317,7 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
-        if self.chi_GG:
-            self.rho_SG = np.reshape(rhoex_KsmnG, (len(self.rhoG0_S), -1))
+        self.rho_SG = np.reshape(rhoex_KsmnG, (len(self.rhoG0_S), -1))
         self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
@@ -561,8 +558,7 @@ class BSEBackend:
             world.broadcast(self.w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
-            if self.chi_GG:
-                self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
+            self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
