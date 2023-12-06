@@ -7,19 +7,21 @@ from gpaw.utilities import pack
 
 
 @pytest.mark.soc
-@pytest.mark.skipif(world.size > 1, reason='No parallelisation implemented')
+@pytest.mark.skipif(world.size > 1, reason='Test was not parallelisation implemented.')
 def test_kinetic_energy(gpw_files):
     # Test that we calculate the kinetic energy correctly in noncollinear mode.
+    # We are mostly concerned with the contributions from the complex parts of
+    # the atomic density matrix and Hamiltonian (spin-orbit).
 
     # Thallium atom in a simulation box, we use a heavy atom with large SOC.
     calc = GPAW(gpw_files['Tl_box_pw'])
     state = calc.calculation.state
     setup = calc.calculation.setups[0]
 
-    # Kinetic energy calculated from sum of bands (the standard way)
+    # Kinetic energy calculated from sum of bands (the standard way):
     Ekin1 = state.ibzwfs.energies['band'] + state.potential.energies['kinetic']
 
-    # Kinetic energy calculated directly from second-order derivative
+    # Kinetic energy calculated directly from second-order derivative:
     wfs = state.ibzwfs.wfs_qs[0][0]
 
     psit = wfs.psit_nX
