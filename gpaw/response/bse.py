@@ -719,7 +719,7 @@ class BSEBackend:
 
     @timer('get_chi_wGG')
     def get_chi_wGG(self, w_w=None, eta=0.1, readfile=None, optical=True,
-                   write_eig=None):
+                    write_eig=None):
         """Returns chi_wGG'"""
 
         self.get_bse_matrix(readfile=readfile, optical=optical)
