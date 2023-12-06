@@ -721,10 +721,10 @@ class BSEBackend:
 
         return vchi_w
 
-    @timer('get_chi_GG')
-    def get_chi_GG(self, w_w=None, eta=0.1, readfile=None, optical=True,
+    @timer('get_chi_wGG')
+    def get_chi_wGG(self, w_w=None, eta=0.1, readfile=None, optical=True,
                    write_eig=None):
-        """Returns chi_GG'"""
+        """Returns chi_wGG'"""
 
         self.get_bse_matrix(readfile=readfile, optical=optical)
         w_T = self.w_T
@@ -777,13 +777,11 @@ class BSEBackend:
         tmp_Tw = 1 / (w_w[None, :] / Hartree - w_T[:, None] + 1j * eta)
         n_tmp_Tw = - 1 / (w_w[None, :] / Hartree + w_T[:, None] + 1j * eta)
 
-        vchi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG)
+        chi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG)
         if C_TGG1 is not None:
-            vchi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw, C_TGG1)
+            chi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw, C_TGG1)
 
-        vchi_wGG *= 1 / self.gs.volume
-
-        self.check_fsum_rule(w_w, vchi_wGG[:, 0, 0])
+        chi_wGG *= 1 / self.gs.volume
 
         if write_eig is not None:
             assert isinstance(write_eig, str)
@@ -791,7 +789,7 @@ class BSEBackend:
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
                                       self.w_T * Hartree, C_TGG[:, 0, 0])
-        return np.swapaxes(vchi_wGG, -1, -2)
+        return np.swapaxes(chi_wGG, -1, -2)
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 filename='df_bse.csv', readfile=None,
