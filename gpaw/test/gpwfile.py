@@ -1141,7 +1141,6 @@ class GPWFiles:
         # Use pbc to allow for real-space density interpolation
         atoms.pbc = True
 
-
         dct = dict(
             mixer={'beta': 0.75, 'nmaxold': 8, 'weight': 100.0},
             mode=PW(ecut,
