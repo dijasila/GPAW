@@ -195,10 +195,6 @@ class KPointPairFactory:
         K1 = kptfinder.find(k_c)
         K2 = kptfinder.find(k_c + qpd.q_c)
 
-        return self._get_kpoint_pair(
-            qpd, s, K1, K2, n1, n2, m1, m2, block)
-
-    def _get_kpoint_pair(self, qpd, s, K1, K2, n1, n2, m1, m2, block):
         with self.context.timer('get k-points'):
             kpt1 = self.get_k_point(s, K1, n1, n2)
             kpt2 = self.get_k_point(s, K2, m1, m2, block=block)
