@@ -204,6 +204,7 @@ class CDFT(Calculator):
         self.atoms = atoms
         self.gd = self.calc.density.finegd
 
+        # XXX: This DOESN'T LINE UP with the function signature????
         if promolecular_constraint:
             self.constraints = get_promolecular_constraints(
                 calc=self.calc,
@@ -244,7 +245,8 @@ class CDFT(Calculator):
                                  Rc=self.Rc,
                                  mu=self.mu)
 
-        self.calc.set(external=self.ext)
+        self.atoms.calc = self.calc = self.calc.new(external=self.ext,
+                                                    txt=self.calc.log.fd)
 
         self.w = self.ext.w_ig
 

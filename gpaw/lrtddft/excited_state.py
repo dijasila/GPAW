@@ -233,8 +233,9 @@ class ExcitedState(GPAW):
 
         # force hard reset
         self.calculator.reset()
-        self.calculator.set(
-            external=self.calculator.parameters['external'])
+        self.calculator = self.calculator.new(
+            external=self.calculator.parameters['external'],
+            txt=self.calculator.log.fd)
 
         for ranks in allranks:
             if self.world.rank in ranks:

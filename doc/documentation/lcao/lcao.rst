@@ -116,7 +116,7 @@ calculated using the localized basis set.
 It is possible to switch to the Finite Difference mode and further
 relax the structure simply by doing::
 
-  >>> calc.set(mode='fd')
+  >>> calc = mol.calc = calc.new(mode='fd')
   >>> dyn.run(fmax=0.05)
 
 

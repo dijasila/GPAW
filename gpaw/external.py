@@ -386,7 +386,7 @@ def static_polarizability(atoms, strength=0.01):
         Multiply with Bohr * Ha to get (Angstrom^3)
     """
     atoms.get_potential_energy()
-    calc = atoms.calc
+    orig_calc = calc = atoms.calc
     assert calc.parameters.external is None
     dipole_gs = calc.get_dipole_moment()
 
@@ -394,9 +394,11 @@ def static_polarizability(atoms, strength=0.01):
     for c in range(3):
         axes = np.zeros(3)
         axes[c] = 1
-        calc.set(external=ConstantElectricField(strength, axes))
-        calc.get_potential_energy()
+        calc = atoms.calc = calc.new(
+            external=ConstantElectricField(strength, axes),
+            txt=orig_calc.log.fd)
+        atoms.get_potential_energy()
         alpha[c] = (calc.get_dipole_moment() - dipole_gs) / strength
-    calc.set(external=None)
+    atoms.calc = orig_calc
 
     return alpha.T

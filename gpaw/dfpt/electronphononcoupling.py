@@ -112,7 +112,7 @@ class ElectronPhononCoupling:
             pass
         elif isinstance(kpts[0], int):
             # List of ints
-            self.calc.set(kpts=kpts)
+            self.calc = self.calc.new(kpts=kpts, txt=self.calc.log.fd)
             # assert not smaller than q-grid
         else:
             # Shifted k-point grid (should be possible to make it dense too)
@@ -122,17 +122,17 @@ class ElectronPhononCoupling:
             # Translate back into the first BZ
             kpts[np.where(kpts > 0.5)] -= 1.
             kpts[np.where(kpts <= -0.5)] += 1.
-            self.calc.set(kpts=kpts)
+            self.calc = self.calc.new(kpts=kpts, txt=self.calc.log.fd)
 
         # Do a single-shot calculation to get the required wave-functions
 
 
-#         self.calc.set(fixdensity=True,
-#                       nbands=10,
-#                       convergence=dict(nbands=8),
-#                       # basis='dzp',
-#                       eigensolver='cg',
-#                       symmetry='off')
+#         self.calc = self.calc.fixed_density(nbands=10,
+#                                             convergence=dict(nbands=8),
+#                                             # basis='dzp',
+#                                             eigensolver='cg',
+#                                             symmetry='off',
+#                                             txt=self.calc.log.fd)
 #         self.calc.get_potential_energy()
 
 # Electronic k-point descriptor
