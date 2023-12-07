@@ -981,7 +981,7 @@ class GPWFiles:
                       pbc=pbc)
         atoms.center(vacuum=3.0, axis=2)
 
-        ecut = 100
+        ecut = 120
         nkpts = 4
         conv = {'bands': band_cutoff + 1,
                 'density': 1.e-4}
