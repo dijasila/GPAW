@@ -12,6 +12,8 @@ def create_laser(name, **kwargs):
         return create_laser(**kwargs)
     elif name == 'GaussianPulse':
         return GaussianPulse(**kwargs)
+    elif name == 'SincPulse':
+        return SincPulse(**kwargs)
     elif name == 'SumLaser':
         return SumLaser(**kwargs)
     else:
@@ -186,6 +188,73 @@ class GaussianPulse(Laser):
         if self.sincos == 'sin':
             s *= 1.0j
         return s
+
+    def todict(self):
+        return self.dict
+
+
+class SincPulse(Laser):
+    r"""
+    Laser pulse with sinc envelope:
+
+    .. math::
+
+        g(t) = s_0 \frac{\sin(\pi \omega_{cut} (t - t_0))}
+        {\pi \omega_{cut} (t - t_0)}
+
+
+    Parameters
+    ----------
+    strength: float
+        value of :math:`s_0` in atomic units
+    time0: float
+        value of :math:`t_0` in attoseconds, or in units of
+        :math:`\omega_{cut} / 2` if relative_t0 is True
+    cutoff_freq: float
+        Cutoff frequency: value of :math:`\omega_{cut}` in eV
+    relative_t0:
+        Specify time0 in units relative to the cutoff frequency
+    """
+
+    def __init__(self,
+                 strength: float,
+                 time0: float,
+                 cutoff_freq: float,
+                 relative_t0: bool):
+        self.dict = dict(name='SincPulse',
+                         strength=strength,
+                         time0=time0,
+                         cutoff_freq=cutoff_freq,
+                         relative_t0=relative_t0)
+        self.s0 = strength
+        self.omega_cut = (cutoff_freq / np.pi) * eV_to_au
+        if relative_t0:
+            self.t0 = 2 * time0 / self.omega_cut
+        else:
+            self.t0 = time0 * as_to_au
+
+    def strength(self, t):
+        """
+        Return the value of the pulse :math:`g(t)`.
+
+        Parameters
+        ----------
+        t
+            time in atomic units
+
+        Returns
+        -------
+        The value of the pulse.
+        """
+        s = self.s0 * np.sinc(self.omega_cut * (t - self.t0))
+
+        return s
+
+    def derivative(self, t):
+        raise NotImplementedError
+
+    def fourier(self, omega):
+        raise NotImplementedError
 
     def todict(self):
         return self.dict
