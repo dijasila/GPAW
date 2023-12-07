@@ -1122,12 +1122,11 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def _nicl2_pw(self, vacuum=3.0, identifier=''):
+    def _nicl2_pw(self, vacuum=3.0, identifier='', ecut=285, **kwargs):
         from ase.build import mx2
 
         # Define input parameters
         kpts = 6
-        pw = 285
         occw = 0.01
         conv = {'density': 1.e-3}
 
@@ -1142,16 +1141,18 @@ class GPWFiles:
         # Use pbc to allow for real-space density interpolation
         atoms.pbc = True
 
-        # Set up calculator
-        atoms.calc = GPAW(
+
+        dct = dict(
             mixer={'beta': 0.75, 'nmaxold': 8, 'weight': 100.0},
-            mode=PW(pw,
+            mode=PW(ecut,
                     # Interpolate the density in real-space
                     interpolation=3),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'nicl2_pw{identifier}.txt')
+        dct.update(kwargs)
+        atoms.calc = GPAW(**dct)
 
         atoms.get_potential_energy()
 
@@ -1159,7 +1160,7 @@ class GPWFiles:
 
     @gpwfile
     def nicl2_pw(self):
-        return self._nicl2_pw(vacuum=3.0)
+        return self._nicl2_pw(vacuum=3.0, ecut=300.0)
 
     @gpwfile
     def nicl2_pw_evac(self):
