@@ -100,7 +100,7 @@ direction.  Use a loop structure like::
           ...
 
 
-The ``new`` method can be used to creating a new calculator based on
+The ``new`` method can be used to create a new calculator based on
 the settings of an existing one.  Make sure that the numbers of
 grid points are chosen to cover `0.15<h<0.25`.  While performing
 this convergence check, the other parameters do not need to be
