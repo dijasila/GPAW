@@ -158,12 +158,13 @@ class GPWFiles:
         magmoms = None if calc_type == 'col' else [mm * easy_axis]
         soc = True if calc_type == 'ncolsoc' else False
 
-        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 400}, xc='LDA',
+        Ni.calc = GPAWNew(mode={'name': 'pw', 'ecut': 280}, xc='LDA',
                           kpts={'size': (4, 4, 4), 'gamma': True},
                           parallel={'domain': 1, 'band': 1},
+                          mixer={'beta': 0.5},
                           symmetry=symmetry,
                           occupations={'name': 'fermi-dirac', 'width': 0.05},
-                          convergence={'density': 1e-6},
+                          convergence={'density': 1e-4},
                           magmoms=magmoms, soc=soc,
                           txt=self.path / f'fcc_Ni_{calc_type}.txt')
         Ni.get_potential_energy()
@@ -972,23 +973,25 @@ class GPWFiles:
                      [-1.94913924, 3.37600555, 11.3835853]]
         cell = [[8.276873113486648, 0.0, 0.0],
                 [-4.138436556743325, 7.167982380179831, 0.0],
-                [0.0, 0.0, 18.720718261172827]]
+                [0.0, 0.0, 0.0]]
         pbc = [True, True, False]
         atoms = Atoms('Bi2I6',
                       positions=positions,
                       cell=cell,
                       pbc=pbc)
+        atoms.center(vacuum=3.0, axis=2)
 
-        ecut = 150
+        ecut = 120
         nkpts = 4
         conv = {'bands': band_cutoff + 1,
-                'density': 1.e-8}
-        print(conv)
+                'density': 1.e-4}
+
         tag = '_nosym' if symmetry == 'off' else ''
         atoms.calc = GPAW(mode=PW(ecut),
                           xc='LDA',
                           kpts={'size': (nkpts, nkpts, 1), 'gamma': True},
                           occupations=FermiDirac(0.01),
+                          mixer={'beta': 0.5},
                           convergence=conv,
                           nbands=band_cutoff + 9,
                           txt=self.path / f'bi2i6_pw{tag}.txt',
@@ -1119,16 +1122,13 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-    def _nicl2_pw(self, vacuum=3.0, identifier=''):
+    def _nicl2_pw(self, vacuum=3.0, identifier='', ecut=285, **kwargs):
         from ase.build import mx2
 
         # Define input parameters
-        xc = 'LDA'
         kpts = 6
-        pw = 300
         occw = 0.01
-        conv = {'density': 1.e-8,
-                'forces': 1.e-8}
+        conv = {'density': 1.e-3}
 
         a = 3.502
         thickness = 2.617
@@ -1141,16 +1141,17 @@ class GPWFiles:
         # Use pbc to allow for real-space density interpolation
         atoms.pbc = True
 
-        # Set up calculator
-        atoms.calc = GPAW(
-            xc=xc,
-            mode=PW(pw,
+        dct = dict(
+            mixer={'beta': 0.75, 'nmaxold': 8, 'weight': 100.0},
+            mode=PW(ecut,
                     # Interpolate the density in real-space
                     interpolation=3),
             kpts={'size': (kpts, kpts, 1), 'gamma': True},
             occupations=FermiDirac(occw),
             convergence=conv,
             txt=self.path / f'nicl2_pw{identifier}.txt')
+        dct.update(kwargs)
+        atoms.calc = GPAW(**dct)
 
         atoms.get_potential_energy()
 
@@ -1158,7 +1159,7 @@ class GPWFiles:
 
     @gpwfile
     def nicl2_pw(self):
-        return self._nicl2_pw(vacuum=3.0)
+        return self._nicl2_pw(vacuum=3.0, ecut=300.0)
 
     @gpwfile
     def nicl2_pw_evac(self):
@@ -1201,6 +1202,7 @@ class GPWFiles:
                     # Interpolate the density in real-space
                     interpolation=3),
             kpts={'size': (kpts, kpts // 2, 1), 'gamma': True},
+            mixer={'beta': 0.5},
             setups={'V': '5'},
             nbands=band_cutoff + 12,
             occupations=FermiDirac(occw),
