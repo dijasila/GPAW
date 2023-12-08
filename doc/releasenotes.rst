@@ -14,15 +14,16 @@ Git master branch
 
    PW-mode `\Gamma`-point calculations could sometimes find a fake
    eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
-   expansion of the real valued wave functions:
+   expansion of the real-valued wave functions:
 
    .. math::
 
       \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{k}\cdot\mathbf{G}}
 
-   the `c_\mathbf{G}` coefficient should not have an imaginary
-   part for the `\mathbf{G}=(0,0,0)` term.  This was violated when
-   the initial guess of the wave functions come from random numbers.
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
 
    For systems with vacuum in the cell, the 0 eV state would be unoccupied,
    but for fully periodic systems, the 0 eV state could be occupied.
