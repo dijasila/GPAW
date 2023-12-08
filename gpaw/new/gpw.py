@@ -232,6 +232,11 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         builder.get_pseudo_core_ked())
     energies = {name: reader.hamiltonian.get(f'e_{name}', np.nan) / ha
                 for name in ENERGY_NAMES}
+    # try:
+    energies['soc'] = reader.hamiltonian.get(f'e_soc', np.nan) / ha
+    # except:
+    
+    crash
     penergies = {key: e for key, e in energies.items()
                  if not key.startswith('total')}
     e_band = penergies.pop('band', np.nan)
