@@ -18,7 +18,7 @@ Git master branch
 
    .. math::
 
-      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{k}\cdot\mathbf{G}}
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
 
    we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
    coefficient should not have an imaginary
