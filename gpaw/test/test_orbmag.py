@@ -6,6 +6,7 @@ from gpaw.new.ase_interface import GPAW
 from gpaw.spinorbit import soc_eigenstates
 
 
+@pytest.mark.soc
 def test_orbmag_Ni(gpw_files):
     # Parameters
 
@@ -53,7 +54,8 @@ def test_orbmag_Ni(gpw_files):
     calc_ncolsoc = GPAW(gpw_files['fcc_Ni_ncolsoc'],
                         parallel={'domain': 1, 'band': 1})
 
-    calc_ncolsoc.get_potential_energy(calc_ncolsoc.atoms)
+    energy_ncolsoc = calc_ncolsoc.get_potential_energy(calc_ncolsoc.atoms)
+    assert energy_ncolsoc == pytest.approx(-8.33016, abs=1.0e-5)
     orbmag_ncolsoc_v = calc_ncolsoc.get_orbital_magnetic_moments()[0]
 
     # Assert direction and magnitude of orbital magnetic moment
