@@ -150,47 +150,54 @@ def parse_arguments(argv):
     return args
 
 
-all_lazy_imports = []
+def __getattr__(attr: str) -> Any:
+    """
+    Implement the lazy importing of classes in submodules."""
+
+    import importlib
+
+    try:
+        import_target = all_lazy_imports[attr]
+    except KeyError:
+        raise AttributeError(
+            f'{__getattr__.__module__}: no attribute named `.{attr!r}`'
+        ) from None
+
+    module, sep, target = import_target.rpartition('.')
+    assert module and all(chunk.isidentifier() for chunk in module.split('.'))
+    assert sep
+    assert target.isidentifier()
+    return getattr(importlib.import_module(module), target)
 
 
-def lazyimport(module, attr=None):
-    def import_now():
-        import importlib
-        return importlib.import_module(module)
-
-    def importwrapper(*args, **kwargs):
-        mod = import_now()
-        if attr is None:
-            return mod
-
-        cls = getattr(mod, attr)
-        return cls(*args, **kwargs)
-
-    importwrapper.import_now = import_now
-    all_lazy_imports.append(importwrapper)
-    return importwrapper
+def __dir__() -> List[str]:
+    """
+    Get the normally-present module attributes and the lazily-imported objects.
+    """
+    return [*globals(), *all_lazy_imports]
 
 
-OldGPAW = lazyimport('gpaw.calculator', 'GPAW')
-Mixer = lazyimport('gpaw.mixer', 'Mixer')
-MixerSum = lazyimport('gpaw.mixer', 'MixerSum')
-MixerDif = lazyimport('gpaw.mixer', 'MixerDif')
-MixerSum2 = lazyimport('gpaw.mixer', 'MixerSum2')
-MixerFull = lazyimport('gpaw.mixer', 'MixerFull')
+all_lazy_imports = dict(
+    OldGPAW='gpaw.calculator.GPAW',
+    Mixer='gpaw.mixer.Mixer',
+    MixerSum='gpaw.mixer.MixerSum',
+    MixerDif='gpaw.mixer.MixerDif',
+    MixerSum2='gpaw.mixer.MixerSum2',
+    MixerFull='gpaw.mixer.MixerFull',
 
-Davidson = lazyimport('gpaw.eigensolvers', 'Davidson')
-RMMDIIS = lazyimport('gpaw.eigensolvers', 'RMMDIIS')
-CG = lazyimport('gpaw.eigensolvers', 'CG')
-DirectLCAO = lazyimport('gpaw.eigensolvers', 'DirectLCAO')
+    Davidson='gpaw.eigensolvers.Davidson',
+    RMMDIIS='gpaw.eigensolvers.RMMDIIS',
+    CG='gpaw.eigensolvers.CG',
+    DirectLCAO='gpaw.eigensolvers.DirectLCAO',
 
-PoissonSolver = lazyimport('gpaw.poisson', 'PoissonSolver')
-FermiDirac = lazyimport('gpaw.occupations', 'FermiDirac')
-MethfesselPaxton = lazyimport('gpaw.occupations', 'MethfesselPaxton')
-MarzariVanderbilt = lazyimport('gpaw.occupations', 'MarzariVanderbilt')
-FD = lazyimport('gpaw.wavefunctions.fd', 'FD')
-LCAO = lazyimport('gpaw.wavefunctions.lcao', 'LCAO')
-PW = lazyimport('gpaw.wavefunctions.pw', 'PW')
-lazyimport('scipy.linalg')
+    PoissonSolver='gpaw.poisson.PoissonSolver',
+    FermiDirac='gpaw.occupations.FermiDirac',
+    MethfesselPaxton='gpaw.occupations.MethfesselPaxton',
+    MarzariVanderbilt='gpaw.occupations.MarzariVanderbilt',
+    FD='gpaw.wavefunctions.fd.FD',
+    LCAO='gpaw.wavefunctions.lcao.LCAO',
+    PW='gpaw.wavefunctions.pw.PW',
+)
 
 
 class BroadcastImports:
@@ -210,8 +217,11 @@ def main():
     with broadcast_imports:
         import runpy
 
-        for importwrapper in all_lazy_imports:
-            importwrapper.import_now()
+        # Apparently we need the scipy.linalg import for compatibility?
+        import scipy.linalg  # noqa: F401
+
+        for attr in all_lazy_imports:
+            __getattr__(attr)
 
         gpaw_args = parse_arguments(sys.argv)
     # The normal Python interpreter puts . in sys.path, so we also do that:
@@ -300,5 +310,6 @@ initialize_data_paths()
 
 def RMM_DIIS(*args, **kwargs):
     import warnings
+    from gpaw import RMMDIIS
     warnings.warn('Please use RMMDIIS instead of RMM_DIIS')
     return RMMDIIS(*args, **kwargs)
