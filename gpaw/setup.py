@@ -1083,7 +1083,7 @@ class Setup(BaseSetup):
 
         # Electron density inside augmentation sphere.  Used for estimating
         # atomic magnetic moment:
-        N0_p = sqrt(4 * pi) * N0_q @ T_Lqp[0]
+        N0_p = N0_q @ T_Lqp[0] * sqrt(4 * pi)
 
         return (g_lg[:, :gcut2].copy(), n_qg, nt_qg,
                 Delta_lq, Lmax, Delta_pL, Delta0, N0_p)
