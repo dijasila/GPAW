@@ -183,11 +183,11 @@ class DFTCalculation:
         self.log('energies:  # eV')
         for name, e in energies.items():
             if not name.startswith('total') and name != 'stress':
-                self.log(f'  {name + ":":11}   {e * Ha:14.6f}')
+                self.log(f'  {name + ":":10}   {e * Ha:14.6f}')
         total_free = energies['total_free']
         total_extrapolated = energies['total_extrapolated']
-        self.log(f'  total:        {total_free * Ha:14.6f}')
-        self.log(f'  extrapolated: {total_extrapolated * Ha:14.6f}\n')
+        self.log(f'  total:       {total_free * Ha:14.6f}')
+        self.log(f'  extrapolated:{total_extrapolated * Ha:14.6f}\n')
 
         total_free = broadcast_float(total_free, self.comm)
         total_extrapolated = broadcast_float(total_extrapolated, self.comm)
