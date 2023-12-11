@@ -108,6 +108,7 @@ class PotentialCalculator:
             self.soc,
             kpt_band_comm)
 
+        energies['spinorbit'] = 0
         for key, e in corrections.items():
             if 0:
                 print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
@@ -147,7 +148,7 @@ def calculate_non_local_potential(setups,
     kpt_band_comm.sum(dH_asii.data)
 
     # Sum over domain:
-    names = ['kinetic', 'coulomb', 'zero', 'xc', 'external']
+    names = ['kinetic', 'coulomb', 'zero', 'xc', 'external', 'spinorbit']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
     kpt_band_comm.sum(energies)
@@ -177,14 +178,20 @@ def calculate_non_local_potential1(setup: Setup,
     e_coulomb = setup.M + D_p @ (setup.M_p + setup.M_pp @ D_p)
 
     dH_sp = np.zeros_like(D_sp, dtype=float if ncomponents < 4 else complex)
+
+    e_soc = 0.
     if soc:
-        dH_sp[1:4] = pack2(soc_terms(setup, xc.xc, D_sp))
+        dHsoc_sii = soc_terms(setup, xc.xc, D_sp)
+        e_soc += (D_sii[1:4] * dHsoc_sii).sum().real
+        dH_sp[1:4] = pack2(dHsoc_sii)
+
     dH_sp[:ndensities] = dH_p
     e_xc = xc.calculate_paw_correction(setup, D_sp, dH_sp)
 
     e_external = ext_pot.add_paw_correction(setup.Delta_pL[:, 0], dH_sp)
 
     dH_sii = unpack(dH_sp)
+
     if setup.hubbard_u is not None:
         eU, dHU_sii = setup.hubbard_u.calculate(setup, D_sii)
         e_xc += eU
@@ -196,4 +203,5 @@ def calculate_non_local_potential1(setup: Setup,
                     'coulomb': e_coulomb,
                     'zero': e_zero,
                     'xc': e_xc,
-                    'external': e_external}
+                    'external': e_external,
+                    'spinorbit': e_soc}
