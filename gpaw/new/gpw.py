@@ -21,7 +21,7 @@ from gpaw.typing import DTypeLike
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
-                'band', 'stress', 'soc']
+                'band', 'stress', 'spin–orbit']
 
 
 def write_gpw(filename: str,

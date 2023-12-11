@@ -108,7 +108,7 @@ class PotentialCalculator:
             self.soc,
             kpt_band_comm)
 
-        energies['soc'] = 0
+        energies['spin–orbit'] = 0
         for key, e in corrections.items():
             if 0:
                 print(f'{key:10} {energies[key]:15.9f} {e:15.9f}')
@@ -148,7 +148,7 @@ def calculate_non_local_potential(setups,
     kpt_band_comm.sum(dH_asii.data)
 
     # Sum over domain:
-    names = ['kinetic', 'coulomb', 'zero', 'xc', 'external', 'soc']
+    names = ['kinetic', 'coulomb', 'zero', 'xc', 'external', 'spin–orbit']
     energies = np.array([energy_corrections[name] for name in names])
     density.D_asii.layout.atomdist.comm.sum(energies)
     kpt_band_comm.sum(energies)
@@ -204,4 +204,4 @@ def calculate_non_local_potential1(setup: Setup,
                     'zero': e_zero,
                     'xc': e_xc,
                     'external': e_external,
-                    'soc': e_soc}
+                    'spin–orbit': e_soc}
