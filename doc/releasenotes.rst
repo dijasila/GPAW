@@ -10,8 +10,39 @@ Git master branch
 
 :git:`master <>`.
 
+.. warning::
+
+   PW-mode `\Gamma`-point calculations could sometimes find a fake
+   eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
+   expansion of the real-valued wave functions:
+
+   .. math::
+
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
+
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
+
+   For systems with vacuum in the cell, the 0 eV state would be unoccupied,
+   but for fully periodic systems, the 0 eV state could be occupied.
+   So, if you have done
+
+   * PW-mode calculations
+   * fully periodic systems
+   * only `\Gamma`-point sampling
+   * ``nbands`` set to a number large enough to trigger random
+     wave functions
+
+   then please check your results to see if you are affected by this bug.
+
+   Fixed in :mr:`2114`.
+
 * Functionality has been added to calculate various local properties of the
   magnetic sites of a crystal, see :ref:`sites`.
+
+* Python 3.8 or later is required now.
 
 * Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
   SciPy 1.6.0
@@ -44,6 +75,9 @@ Git master branch
   For excited state calculations, use direct optimization together with
   :ref:`MOM <mom>` (available for all modes) or with
   :ref:`generalized mode following <do-gmf>` (available only for LCAO).
+
+* A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
+  :issue:`828`.
 
 
 Version 23.9.1
