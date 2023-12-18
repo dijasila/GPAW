@@ -273,6 +273,81 @@ Features:
     for calculating the stress-tensor and for response function calculations.
 
 
+Features in FD, LCAO and PW modes
+`````````````````````````````````
+
+.. list-table::
+
+  * - mode
+    - FD
+    - LCAO
+    - PW
+  * - GPU ground state calculations
+    - (experimental)
+    -
+    - +
+  * - Time-propergation TDDFT
+    - +
+    - +
+    -
+  * - Linear-response TDDFT
+    -
+    -
+    - +
+  * - Hybrid functionals
+    -
+    -
+    - +
+  * - Stress tensor
+    -
+    -
+    - +
+  * - GW
+    -
+    -
+    - +
+  * - BSE
+    -
+    -
+    - +
+  * - direct orbital optimization (generalized mode following)
+    -
+    - +
+    -
+  * - elph
+    -
+    -
+    -
+  * - Raman
+    -
+    -
+    -
+  * - non-collinear
+    -
+    -
+    - +
+  * - solvent models
+    - +
+    -
+    -
+  * - MGGA
+    - +
+    -
+    - +
+  * - cDFT
+    - +
+    -
+    -
+  * - Ehrenfest
+    - +
+    -
+    -
+  * - Spin-sprals
+    -
+    -
+    - +
+
+
 .. _manual_nbands:
 
 Number of electronic bands
@@ -909,7 +984,7 @@ The last argument, ``eps``, is the convergence criterion.
 
 .. _manual_dipole_correction:
 
-The ``poissonsolver`` keyword can also be used to specify that a dipole
+The ``poissonsolver`` keyword can also be used to specify that a dipole-layer
 correction should be applied along a given axis.  The system should be
 non-periodic in that direction but periodic in the two other
 directions.
