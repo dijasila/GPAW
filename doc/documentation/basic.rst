@@ -290,12 +290,16 @@ Features in FD, LCAO and PW modes
     - +
     - +
     -
-  * - Linear-response TDDFT
+  * - Dielectric function
     -
     -
     - +
-  * - Hybrid functionals
+  * - Casida equation
+    - +
     -
+    -
+  * - Hybrid functionals
+    - (no forces, no **k**-points)
     -
     - +
   * - Stress tensor
@@ -310,23 +314,15 @@ Features in FD, LCAO and PW modes
     -
     -
     - +
-  * - direct orbital optimization (generalized mode following)
+  * - Direct orbital optimization (generalized mode following)
     -
     - +
     -
-  * - elph
-    -
-    -
-    -
-  * - Raman
-    -
-    -
-    -
-  * - non-collinear
+  * - Non-collinear spin
     -
     -
     - +
-  * - solvent models
+  * - Solvent models
     - +
     -
     -
@@ -334,7 +330,7 @@ Features in FD, LCAO and PW modes
     - +
     -
     - +
-  * - cDFT
+  * - Constrained DFT
     - +
     -
     -
