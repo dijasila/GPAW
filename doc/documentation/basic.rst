@@ -276,6 +276,9 @@ Features:
 Features in FD, LCAO and PW modes
 `````````````````````````````````
 
+Some features are not available in all modes.  Here is a
+(possibly incomplete) table of the features:
+
 .. list-table::
 
   * - mode
