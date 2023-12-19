@@ -421,14 +421,15 @@ class EigendecomposedSpectrum:
         However, in the case where only a single mode is extracted, we use the
         frequency at which the eigenvalue is maximal.
         """
-        # XXX To do XXX
-        # * Actually implement range
         assert nmodes <= self.neigs
+        # Use wmask to specify valid eigenmode frequencies
         wblocks = self.wblocks
+        if wmask is None:
+            wmask = np.ones(self.wblocks.N, dtype=bool)
         if nmodes == 1:
             # Find frequency where the eigenvalue is maximal
             s_w = wblocks.all_gather(self.s_we[:, 0])
-            wm = np.nanargmax(s_w)  # skip np.nan padding
+            wm = np.nanargmax(s_w * wmask)  # skip np.nan padding
         else:
             # Find frequency with maximum minimal difference between size of
             # eigenvalues
@@ -436,7 +437,7 @@ class EigendecomposedSpectrum:
                               for e in range(nmodes - 1)]).T
             dsmin_w = np.min(ds_we, axis=1)
             dsmin_w = wblocks.all_gather(dsmin_w)
-            wm = np.nanargmax(dsmin_w)  # skip np.nan padding
+            wm = np.nanargmax(dsmin_w * wmask)  # skip np.nan padding
 
         return wm
 
