@@ -35,8 +35,6 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     reduced_ecut = 100  # ecut for eigenmode analysis
     pos_eigs = 2  # majority modes
     neg_eigs = 0  # minority modes
-    omegamin = 0.  # eV
-    omegamax = 1.  # eV
     nblocks = 'max'
 
     # ---------- Script ---------- #
