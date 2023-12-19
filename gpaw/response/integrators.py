@@ -13,11 +13,11 @@ from gpaw.response.pw_parallelization import Blocks1D, block_partition
 
 class Integrand(ABC):
     @abstractmethod
-    def matrix_element(self, k_v, s):
+    def matrix_element(self, point):
         ...
 
     @abstractmethod
-    def eigenvalues(self, k_v, s):
+    def eigenvalues(self, point):
         ...
 
 
@@ -58,34 +58,6 @@ class Integrator:
         blocks = Blocks1D(self.kncomm, len(domain))
         return [domain[i] for i in range(blocks.a, blocks.b)]
 
-    def distribute_domain(self, domain_dl):
-        """Distribute integration domain. """
-        domainsize = [len(domain_l) for domain_l in domain_dl]
-        nterms = np.prod(domainsize)
-        size = self.kncomm.size
-        rank = self.kncomm.rank
-
-        n = (nterms + size - 1) // size
-        i1 = min(rank * n, nterms)
-        i2 = min(i1 + n, nterms)
-        assert i1 <= i2
-        mydomain = []
-        for i in range(i1, i2):
-            unravelled_d = np.unravel_index(i, domainsize)
-            arguments = []
-            for domain_l, index in zip(domain_dl, unravelled_d):
-                arguments.append(domain_l[index])
-            mydomain.append(tuple(arguments))
-
-        self.context.print(f'Distributing domain {domainsize}',
-                           'over %d process%s' %
-                           (self.kncomm.size,
-                            ['es', ''][self.kncomm.size == 1]),
-                           flush=False)
-        self.context.print('Number of blocks:', self.blockcomm.size)
-
-        return mydomain
-
     def integrate(self, **kwargs):
         raise NotImplementedError
 
@@ -102,20 +74,19 @@ class PointIntegrator(Integrator):
 
         self.context.print('Integral kind:', task.kind)
 
-        mydomain_t = self.distribute_domain(domain)
-        nbz = len(domain[0])
+        mydomain = self.mydomain(domain)
 
-        prefactor = (2 * np.pi)**3 / self.vol / nbz
+        prefactor = (2 * np.pi)**3 / self.vol / domain.nkpts
         out_wxx /= prefactor
 
         # Sum kpoints
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
-        for _, arguments in pb.enumerate(mydomain_t):
-            n_MG = integrand.matrix_element(*arguments)
+        for _, point in pb.enumerate(mydomain):
+            n_MG = integrand.matrix_element(point)
             if n_MG is None:
                 continue
-            deps_M = integrand.eigenvalues(*arguments)
+            deps_M = integrand.eigenvalues(point)
 
             task.run(wd, n_MG, deps_M, out_wxx)
 
@@ -367,23 +338,37 @@ class HilbertOpticalLimit(IntegralTask):
 
 
 class Point:
-    def __init__(self, K, spin):
+    def __init__(self, kpt_c, K, spin):
+        self.kpt_c = kpt_c
         self.K = K
         self.spin = spin
 
 
-class Domains:
-    def __init__(self, kpts, spins):
-        self.kpts = kpts
+class Domain:
+    def __init__(self, kpts_kc, spins):
+        self.kpts_kc = kpts_kc
         self.spins = spins
 
+    @property
+    def nkpts(self):
+        return len(self.kpts_kc)
+
+    @property
+    def nspins(self):
+        return len(self.spins)
+
     def __len__(self):
-        return len(self.kpts) * len(self.spins)
+        return self.nkpts * self.nspins
 
     def __getitem__(self, num) -> Point:
-        nspins = len(self.spins)
-        return Point(self.kpts[num // nspins],
-                     self.spins[num % nspins])
+        K = num // self.nspins
+        return Point(self.kpts_kc[K], K,
+                     self.spins[num % self.nspins])
+
+    def tesselation(self):
+        tesselation = KPointTesselation(self.kpts_kc)
+        tesselated_domains = Domain(tesselation.bzk_kc, self.spins)
+        return tesselation, tesselated_domains
 
 
 class KPointTesselation:
@@ -457,33 +442,25 @@ class TetrahedronIntegrator(Integrator):
         method it is possible calculate frequency dependent weights
         and do a point summation using these weights."""
 
-        # Input domain
-        _kpts, spins = domain
-        nspins = len(spins)
-
-        tesselation = KPointTesselation(_kpts)
-
-        alldomains = Domains(range(tesselation.nkpts), spins)
+        tesselation, alldomains = domain.tesselation()
         mydomain = self.mydomain(alldomains)
 
         with self.context.timer('eigenvalues'):
             deps_tMk = None  # t for term
 
-            for domain in alldomains:
-                k_c = tesselation.bzk_kc[domain.K]
-                deps_M = -integrand.eigenvalues(k_c, domain.spin)
+            for point in alldomains:
+                deps_M = -integrand.eigenvalues(point)
                 if deps_tMk is None:
-                    deps_tMk = np.zeros([nspins, *deps_M.shape,
+                    deps_tMk = np.zeros([alldomains.nspins, *deps_M.shape,
                                          tesselation.nkpts], float)
-                deps_tMk[domain.spin, :, domain.K] = deps_M
+                deps_tMk[point.spin, :, point.K] = deps_M
 
         # Calculate integrations weight
         pb = ProgressBar(self.context.fd)
         for _, point in pb.enumerate(mydomain):
             deps_Mk = deps_tMk[point.spin]
             teteps_Mk = deps_Mk[:, tesselation.neighbours_k[point.K]]
-            n_MG = integrand.matrix_element(tesselation.bzk_kc[point.K],
-                                            point.spin)
+            n_MG = integrand.matrix_element(point)
 
             # Generate frequency weights
             i0_M, i1_M = wd.get_index_range(teteps_Mk.min(1), teteps_Mk.max(1))

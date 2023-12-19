@@ -13,6 +13,7 @@ from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 # from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D
+from gpaw.new.external_potential import create_external_potential
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -100,6 +101,7 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             self.setups,
             self.xc,
             poisson_solver,
+            external_potential=create_external_potential(self.params.external),
             fracpos_ac=self.fracpos_ac,
             atomdist=self.atomdist,
             soc=self.soc,
