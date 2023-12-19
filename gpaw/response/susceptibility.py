@@ -392,24 +392,23 @@ class EigendecomposedSpectrum:
                                        A_w=self.A_w,
                                        wblocks=self.wblocks)
 
-    def get_eigenmode_lineshapes(self, nmodes=1):
+    def get_eigenmode_lineshapes(self, nmodes=1, omegamin=None, omegamax=None):
         """Extract the spectral lineshapes of the eigenmodes.
 
         The spectral lineshape is calculated as the inner product
 
-
         a^μν_n(q,ω) = <v^μν_n(q)| A^μν(q,ω) |v^μν_n(q)>
 
         where the eigenvectors |v^μν_n> diagonalize the full spectral function
-        at an appropriately chosen frequency ω_m:
+        at an appropriately chosen frequency ω_m∊[ω_min, ω_max]:
 
         S^μν(q,ω_m) |v^μν_n(q)> = s^μν_n(q,ω_m) |v^μν_n(q)>
         """
-        wm = self.get_eigenmode_frequency(nmodes=nmodes)
-        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
-        return self._get_eigenmode_lineshapes(v_Gm)
+        wm = self.get_eigenmode_frequency(nmodes=nmodes,
+                                          omegamin=omegamin, omegamax=omegamax)
+        return self.get_eigenmodes_at_frequency(wm, nmodes=nmodes)
 
-    def get_eigenmode_frequency(self, nmodes=1):
+    def get_eigenmode_frequency(self, nmodes=1, omegamin=None, omegamax=None):
         """Get the frequency at which to extract the eigenmodes.
 
         Generally, we chose the frequency ω_m to maximize the minimum
@@ -422,7 +421,13 @@ class EigendecomposedSpectrum:
 
         However, in the case where only a single mode is extracted, we use the
         frequency at which the eigenvalue is maximal.
+
+        Regardless, the optimization is carried out in the frequency interval
+        ω∊[ω_min, ω_max].
         """
+        # XXX To do XXX
+        # * Make sure test is sensitive towards this
+        # * Actually implement range
         assert nmodes <= self.neigs
         wblocks = self.wblocks
         if nmodes == 1:
@@ -440,8 +445,13 @@ class EigendecomposedSpectrum:
 
         return wm
 
+    def get_eigenmodes_at_frequency(self, wm, nmodes=1):
+        """Extract the eigenmodes at a specific frequency index wm."""
+        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+        return self._get_eigenmode_lineshapes(v_Gm)
+
     def get_eigenvectors_at_frequency(self, wm, nmodes=1):
-        """Extract the eigenvectors a specific frequency index."""
+        """Extract the eigenvectors at a specific frequency index wm."""
         wblocks = self.wblocks
         root, wmlocal = wblocks.find_global_index(wm)
         if wblocks.blockcomm.rank == root:
@@ -471,8 +481,8 @@ class EigendecomposedSpectrum:
         if self.wblocks.blockcomm.rank == 0:
             write_full_spectral_weight(filename, self.omega_w, A_w)
 
-    def write_eigenmode_lineshapes(self, filename, nmodes=1):
-        a_wm = self.get_eigenmode_lineshapes(nmodes=nmodes)
+    def write_eigenmode_lineshapes(self, filename, **kwargs):
+        a_wm = self.get_eigenmode_lineshapes(**kwargs)
         if self.wblocks.blockcomm.rank == 0:
             write_eigenmode_lineshapes(filename, self.omega_w, a_wm)
 
