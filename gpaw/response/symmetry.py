@@ -256,9 +256,9 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_bz(self.qpd.gd.cell_cv,
-                                         U_scc,
-                                         False)
+        bzk_kc, ibzk_kc, _ = get_reduced_bz(self.qpd.gd.cell_cv,
+                                            U_scc,
+                                            False)
 
         return bzk_kc
 
@@ -271,10 +271,10 @@ class PWSymmetryAnalyzer:
         U_scc = np.array(U_scc)
 
         # Determine the irreducible BZ
-        bzk_kc, ibzk_kc = get_reduced_bz(self.qpd.gd.cell_cv,
-                                         U_scc,
-                                         False,
-                                         pbc_c=pbc_c)
+        bzk_kc, ibzk_kc, _ = get_reduced_bz(self.qpd.gd.cell_cv,
+                                            U_scc,
+                                            False,
+                                            pbc_c=pbc_c)
 
         n = 3
         N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2

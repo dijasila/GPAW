@@ -425,6 +425,7 @@ lint:
       --doctests
       --extend-ignore E402,E501
       doc/summerschools/summerschool22/catalysis
+      doc/platforms/Linux/Niflheim
     - echo "interrogate"
     - pip install interrogate
     - interrogate --version
@@ -480,7 +481,7 @@ gpwfiles:
   before_script:
     - !reference [default, before_script]
   script:
-    - pytest -n 16 -m generate_gpw_files
+    - pytest -n 16 -m generate_gpw_files --durations 30 -v
   artifacts:
     paths:
       - .pytest_cache/

@@ -465,6 +465,13 @@ class G0W0Calculator:
 
         self.context.print(gw_logo)
 
+        if self.chi0calc.gs.metallic:
+            self.context.print('WARNING: \n'
+                               'The current GW implementation cannot'
+                               ' handle intraband screening. \n'
+                               'This results in poor k-point'
+                               ' convergence for metals')
+
         self.fxc_modes = fxc_modes
 
         if self.fxc_modes[0] != 'GW':

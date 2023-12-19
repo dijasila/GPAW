@@ -9,9 +9,15 @@ from gpaw import GPAW
 from gpaw.mpi import world
 
 
+def timer(func, *args, **kwargs):
+    t0 = time()
+    ret = func(*args, **kwargs)
+    return ret, time() - t0
+
+
 @pytest.mark.later
 def test_generic_relax(in_tmp_dir):
-    a = 4.0    # Size of unit cell (Angstrom)
+    a = 4.0  # Size of unit cell (Angstrom)
     c = a / 2
     d = 0.74  # Experimental bond length
     molecule = Atoms('H2',
@@ -32,11 +38,6 @@ def test_generic_relax(in_tmp_dir):
     molecule.get_forces()
     calc.write('H2f.gpw')
     calc.write('H2fa.gpw', mode='all')
-
-    def timer(func, *args, **kwargs):
-        t0 = time()
-        ret = func(*args, **kwargs)
-        return ret, time() - t0
 
     molecule = GPAW('H2.gpw', txt=None).get_atoms()
     f1, t1 = timer(molecule.get_forces)

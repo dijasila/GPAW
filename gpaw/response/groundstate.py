@@ -37,7 +37,7 @@ class PAWDatasetCollection:
 
 class ResponseGroundStateAdapter:
     def __init__(self, calc: ASECalculator | GPAW):
-        wfs = calc.wfs  # object representing wave functions
+        wfs = calc.wfs  # wavefunction object from gpaw.wavefunctions
 
         self.atoms = calc.atoms
         self.kd = wfs.kd  # KPointDescriptor object from gpaw.kpt_descriptor.
@@ -277,7 +277,7 @@ class ResponseGroundStateAdapter:
         from gpaw.bztools import get_bz
         # NB: We are ignoring the pbc_c keyword to get_bz() in order to mimic
         # find_high_symmetry_monkhorst_pack() in gpaw.bztools. XXX
-        _, ibz_vertices_kc = get_bz(self._calc)
+        _, ibz_vertices_kc, _ = get_bz(self._calc)
         return ibz_vertices_kc
 
     def get_aug_radii(self):
