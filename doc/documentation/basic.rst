@@ -341,7 +341,7 @@ Some features are not available in all modes.  Here is a
     - +
     -
     -
-  * - Spin-sprals
+  * - Spin-spirals
     -
     -
     - +
