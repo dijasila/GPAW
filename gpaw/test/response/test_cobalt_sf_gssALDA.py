@@ -119,12 +119,11 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wG[:, 1].imag)
 
     # Extract the eigenmodes from the eigendecomposed spectrum in the reduced
-    # plane-wave basis
-    wm0 = Amaj0.get_eigenmode_frequency(
-        nmodes=pos_eigs, omegamin=omegamin, omegamax=omegamax)
+    # plane-wave basis, restricting the frequencies to be non-negative
+    wmask = frq_w >= 0.
+    wm0 = Amaj0.get_eigenmode_frequency(nmodes=pos_eigs, wmask=wmask)
     ar0_wm = Amaj0.get_eigenmodes_at_frequency(wm0, nmodes=pos_eigs)
-    wm1 = Amaj1.get_eigenmode_frequency(
-        nmodes=pos_eigs, omegamin=omegamin, omegamax=omegamax)
+    wm1 = Amaj1.get_eigenmode_frequency(nmodes=pos_eigs, wmask=wmask)
     ar1_wm = Amaj1.get_eigenmodes_at_frequency(wm1, nmodes=pos_eigs)
 
     # Find peaks in eigenmodes (in full and reduced basis)
@@ -210,11 +209,9 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(Srpeak00, Srpeak01, Srpeak10, Srpeak11)
         print(enh0, enh1, min_enh0, min_enh1)
 
-    # Test that the mode extraction frequency falls into the desired range
-    omega0 = Amaj0.omega_w[wm0]
-    omega1 = Amaj1.omega_w[wm1]
-    assert omegamin <= omega0 <= omegamax
-    assert omegamin <= omega1 <= omegamax
+    # Test that the mode extraction frequency is indeed non-negative
+    assert Amaj0.omega_w[wm0] >= 0.
+    assert Amaj1.omega_w[wm1] >= 0.
 
     # Test kernel scaling
     assert hxc_scaling.lambd == pytest.approx(0.9675, abs=0.005)
