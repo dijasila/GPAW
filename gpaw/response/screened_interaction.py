@@ -152,10 +152,6 @@ class WCalculator(WBaseCalculator):
         W_wGG = self.calculate_W_WgG(chi0,
                                      fxc_mode=fxc_mode,
                                      only_correlation=True)
-        if 0:
-            from matplotlib import pyplot as plt
-            plt.plot(chi0.wd.omega_w.real, W_wGG[:, 1, 0].imag)
-            plt.show()
         # HT used to calculate convulution between time-ordered G and W
         hilbert_transform = GWHilbertTransforms(chi0.wd.omega_w, self.eta)
         with self.context.timer('Hilbert'):
@@ -415,27 +411,6 @@ class MPACalculator(WBaseCalculator):
 
         E_pGG, R_pGG = RESolver(chi0.wd.omega_w).solve(einv_WgG)
 
-        if 0:
-            from matplotlib import pyplot as plt
-            from gpaw.test.response.mpa_interpolation_scalar import Xeval
-            fig, axs = plt.subplots(2)
-            fig.suptitle('Vertically stacked subplots')
-            w_w = np.linspace(0., 2., 1000) + 0.1j
-            axs[0].plot(chi0.wd.omega_w.real[:20],
-                        einv_WgG[:8, 1, 1].imag, 'x')
-            axs[0].plot(w_w.real,
-                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              R_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              w_w)[1, 0, :].imag)
-            w_w = np.linspace(0., 2., 1000) + 1j
-            axs[1].plot(chi0.wd.omega_w.real[20:],
-                        einv_WgG[8:, 1, 1].imag, 'x')
-            axs[1].plot(w_w.real,
-                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              R_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              w_w)[1, 0, :].imag)
-            plt.show()
-
         dist = chi0.body.blockdist.distribute_as
         R_pGG = dist(R_pGG, self.mpa['npoles'], 'wGG')
         E_pGG = dist(E_pGG, self.mpa['npoles'], 'wGG')
@@ -447,21 +422,6 @@ class MPACalculator(WBaseCalculator):
                 self.apply_gamma_correction(W_GG, pi * R_GG,
                                             V0, sqrtV0,
                                             dfc.sqrtV_G)
-        if 0:
-            from matplotlib import pyplot as plt
-            from gpaw.test.response.mpa_interpolation_scalar import Xeval
-            fig, axs = plt.subplots(2)
-            w_w = np.linspace(0., 2., 1000) + 0.1j
-            axs[0].plot(w_w.real,
-                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              W_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              w_w)[1, 0, :].imag)
-            w_w = np.linspace(0, 2, 1000) + 1j
-            axs[1].plot(w_w.real,
-                        Xeval(E_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              W_pGG[:, 0:2, 0:2].transpose((1, 2, 0)),
-                              w_w)[1, 0, :].imag)
-            plt.show()
 
         W_pGG = dist(W_pGG, self.mpa['npoles'], 'WgG')
         E_pGG = dist(E_pGG, self.mpa['npoles'], 'WgG')
