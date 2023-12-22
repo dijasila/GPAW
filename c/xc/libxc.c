@@ -52,6 +52,15 @@ lxcXCFunctional_is_mgga(lxcXCFunctionalObject *self, PyObject *args)
 }
 
 static PyObject*
+lxcXCFunctional_needs_laplacian(lxcXCFunctionalObject *self, PyObject *args)
+{
+  int success = 0; /* assume functional is not MGGA */
+  // check family of most-complex functional
+  if (self->functional[0]->info->flags & XC_FLAGS_NEEDS_LAPLACIAN) success = XC_FLAGS_NEEDS_LAPLACIAN;
+  return Py_BuildValue("i", success);
+}
+
+static PyObject*
 lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 {
   int success = 0; /* Assume we don't use sfat */
@@ -586,6 +595,8 @@ static PyMethodDef lxcXCFunctional_Methods[] = {
    (PyCFunction)lxcXCFunctional_is_gga, METH_VARARGS, 0},
   {"is_mgga",
    (PyCFunction)lxcXCFunctional_is_mgga, METH_VARARGS, 0},
+  {"needs_laplacian",
+   (PyCFunction)lxcXCFunctional_needs_laplacian, METH_VARARGS, 0},
   {"set_omega",
    (PyCFunction)lxcXCFunctional_set_omega, METH_VARARGS, 0},
   {"calculate",

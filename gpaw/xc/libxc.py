@@ -1,4 +1,5 @@
 import _gpaw
+import warnings
 from gpaw.xc.kernel import XCKernel
 from gpaw import debug
 
@@ -61,6 +62,12 @@ class LibXC(XCKernel):
 
         if self.xc.is_mgga():
             self.type = 'MGGA'
+            warnings.warn('libxc should compiled with --disable-fhc' +
+                          ' otherwise SCF won\'t converge.')
+            if self.xc.needs_laplacian():
+                msg = 'Functional "%s" needs laplacian' % name
+                msg += ' (unsupported)'
+                raise ValueError(msg)
         elif self.xc.is_gga():
             self.type = 'GGA'
         else:
