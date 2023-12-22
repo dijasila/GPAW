@@ -7,6 +7,7 @@ from gpaw.cluster import Cluster
 vacuum = 4.0
 h = 0.3
 
+
 @pytest.mark.mgga
 @pytest.mark.libxc
 def test_mgga_lxc_fhc():
@@ -23,8 +24,8 @@ def test_mgga_lxc_fhc():
         cluster.get_potential_energy()
     except KohnShamConvergenceError:
         pass
-    
-    assert calc.scf.converged == True
+    assert calc.scf.converged
+
 
 if __name__ == '__main__':
     test_mgga_lxc_fhc()

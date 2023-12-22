@@ -7,6 +7,7 @@ from gpaw.cluster import Cluster
 vacuum = 4.0
 h = 0.3
 
+
 @pytest.mark.mgga
 @pytest.mark.libxc
 def test_mgga_lxc_laplacian():
@@ -24,7 +25,8 @@ def test_mgga_lxc_laplacian():
         cluster.get_potential_energy()
     except ValueError:
         laplacian_test = True
-    assert laplacian_test == True
+    assert laplacian_test
+
 
 if __name__ == '__main__':
     test_mgga_lxc_laplacian()
