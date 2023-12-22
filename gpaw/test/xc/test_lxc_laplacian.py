@@ -13,7 +13,7 @@ def test_mgga_lxc_laplacian():
     cluster = Cluster(molecule('CO'))
     cluster.minimal_box(border=vacuum, h=h)
     calc = GPAW(xc='MGGA_X_BR89+MGGA_C_TPSS', mode='fd',
-                h=h, maxiter=14, txt='try.log',
+                h=h, maxiter=14,
                 convergence={
                     'energy': 0.5,
                     'density': 1.0e-1,
