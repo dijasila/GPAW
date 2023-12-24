@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from functools import partial
 from math import exp, log, pi, sqrt
@@ -297,14 +299,14 @@ class PAWWaves:
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
 
-    def pseudize_orthonormal(self, params, vtr_g, rcmax):
+    def pseudize_orthonormal(self, params: tuple | dict, vtr_g, rcmax):
         """
         P will be the number of coefficients in the polynomial,
         polynomials are of even power with maxium of 2P
 
         Parameters
         ----------
-        params : tuple
+        params : tuple | dict
         vtr_g
         rcmax
 
@@ -313,10 +315,18 @@ class PAWWaves:
 
         """
 
-        nderiv = params[0]
-        Gcut = params[1]
-        extra_grid_pts = params[2]
-        init_guess = params[3]
+        if isinstance(params, dict):
+            l = self.l
+            nderiv = params[l][0]
+            Gcut = params[l][1]
+            extra_grid_pts = params[l][2]
+            init_guess = params[l][3]
+        else:
+            nderiv = params[0]
+            Gcut = params[1]
+            extra_grid_pts = params[2]
+            init_guess = params[3]
+
         nmvp = len(list(extra_grid_pts.values())[0])
 
         P = nderiv + nmvp
@@ -734,7 +744,7 @@ class PAWSetupGenerator:
             pseudizer = None
         for waves in self.waves_l:
             if type == 'orthonormal':
-                assert isinstance(nderiv, tuple)
+                assert isinstance(nderiv, tuple) or isinstance(nderiv, dict)
                 waves.pseudize_orthonormal(
                     nderiv, self.vtr_g, 2.0 * self.rcmax
                 )
