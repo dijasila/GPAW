@@ -61,8 +61,8 @@ def get_momentum_transitions(wfs, savetofile: bool = True) -> ArrayND:
     mom_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=complex)
 
     dThetadR_qvMM, _ = wfs.manytci.O_qMM_T_qMM(gd.comm, ksl.Mstart,
-                                                       ksl.Mstop, False,
-                                                       derivative=True)
+                                               ksl.Mstop, False,
+                                               derivative=True)
 
     mome_skvnm = np.zeros((nspins, nk, 3, nbands, nbands), dtype=dtype)
     momd_skv = np.zeros((nspins, nk, 3), dtype=dtype)
