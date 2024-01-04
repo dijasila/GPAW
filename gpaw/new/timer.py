@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from functools import wraps
 from io import StringIO
+from typing import Callable, TypeVar
 
 
 class GlobalTimer:
@@ -32,7 +33,10 @@ class GlobalTimer:
         return buf.getvalue()
 
 
-def trace(meth):
+T = TypeVar('T')
+
+
+def trace(meth: Callable[..., T]) -> Callable[..., T]:
     """Decorator for telling global timer to trace a function or method."""
 
     modname = meth.__module__
