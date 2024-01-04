@@ -10,7 +10,7 @@ from gpaw.core.atom_centered_functions import AtomArrays
 from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
-from gpaw.new import zips
+from gpaw.new import trace, zips
 from gpaw.new.c import calculate_residuals_gpu
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
@@ -77,6 +77,7 @@ class Davidson(Eigensolver):
                            dist=(band_comm, band_comm.size),
                            xp=xp)
 
+    @trace
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
         """Iterate on state given fixed hamiltonian.
 
@@ -112,6 +113,7 @@ class Davidson(Eigensolver):
         return ibzwfs.kpt_band_comm.sum_scalar(
             float(error)) * ibzwfs.spin_degeneracy
 
+    @trace
     def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
         S_NN = self.S_NN
@@ -247,6 +249,7 @@ class Davidson(Eigensolver):
         return error
 
 
+@trace
 def calculate_residuals(residual_nX: XArray,
                         dH: Callable[[AtomArrays, AtomArrays], AtomArrays],
                         dS_aii: AtomArrays,
