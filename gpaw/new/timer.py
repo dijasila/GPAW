@@ -1,6 +1,6 @@
 from contextlib import contextmanager
-from io import StringIO
 from functools import wraps
+from io import StringIO
 
 
 class GlobalTimer:
@@ -28,7 +28,9 @@ class GlobalTimer:
         return buf.getvalue()
 
 
-def timer(meth):
+def trace(meth):
+    """Decorator for telling global timer to trace a function or method."""
+
     modname = meth.__module__
     methname = meth.__qualname__
     name = f'{modname}.{methname}'
@@ -40,6 +42,7 @@ def timer(meth):
             return meth(*args, **kwargs)
         finally:
             global_timer.stop()
+
     return wrapper
 
 
