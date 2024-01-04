@@ -5,16 +5,20 @@ from io import StringIO
 
 class GlobalTimer:
     def __init__(self):
-        self._timers = []
+        from gpaw.utilities.timing import Timer
+        self._timers = [Timer()]
 
     @contextmanager
     def context(self, timer):
-        self._timers.append(timer)
-        yield
         # XXX We need to decide what "timer contexts" are,
         # at least that will be necessary if we want a default
         # behaviour which would then be in effect during runs of the
         # test suite.
+        self._timers.append(timer)
+        try:
+            yield
+        finally:
+            self._timers.pop()
 
     def start(self, name):
         self._timers[-1].start(name)

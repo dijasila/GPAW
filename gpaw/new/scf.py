@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import numpy as np
 from gpaw.convergence_criteria import (Criterion, check_convergence,
                                        dict2criterion)
-from gpaw.new import trace
 from gpaw.scf import write_iteration
 from gpaw.typing import Array2D
 from gpaw.yml import indent
