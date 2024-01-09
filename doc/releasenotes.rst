@@ -11,6 +11,8 @@ Git master branch
 :git:`master <>`.
 
 
+.. _bug0:
+
 Version 24.1.0
 ==============
 
