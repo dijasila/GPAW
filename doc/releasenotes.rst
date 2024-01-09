@@ -86,7 +86,7 @@ Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
   :issue:`828`.
 
 * A bug resulting in slight inaccuracies when calculating inner products
-  between radial partial waves was fixed. This bug affected the estimation
+  between radial partial waves was fixed. This bug affected the calculation
   of spin magnetic moments inside PAW spheres and the Hubbard correction when
   it was applied to p-states. See :issue:`1068`.
 
