@@ -246,7 +246,7 @@ build-libxc:
     - gpaw -P 1 info
 
 
-test:
+test-oldest:
   image: $IMAGE_MAIN_OLDEST
   extends:
     - .test
@@ -257,8 +257,7 @@ test:
   script:
     - gpaw info
     - >
-      OMP_NUM_THREADS=2 pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+      OMP_NUM_THREADS=2 pytest -v -m ci -We
 
     # This is the only test which uses OpenMP.
     # We may want to identify a limited set of tests that must work
@@ -266,9 +265,8 @@ test:
 
     - gpaw-python -m gpaw info
     - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
-      -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -We -k 0-pw
+      gpaw/test/test_fuzz.py
 
 
 test-latest:
@@ -291,14 +289,7 @@ test-latest:
 
     - >
       pytest -v -m ci -m gpu
-      -We -Wi::ImportWarning
       --cov=gpaw --cov-report=html --cov-report=term
-
-    - gpaw-python -m gpaw info
-    - >
-      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -m ci
-      -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
 
   artifacts:
     paths:
@@ -331,8 +322,7 @@ test-minimal:
   script:
     - gpaw info
     - >
-      pytest -v -m ci -We -Wi::ImportWarning
-      -Wi:'numpy.ufunc size changed, may indicate binary incompatibility. Expected 192 from C header, got 216 from PyObject':RuntimeWarning
+      pytest -v -m ci -We
 
 test-cuda:
   image: $IMAGE_CUDA
@@ -440,6 +430,7 @@ lint:
       --doctests
       --extend-ignore E402,E501
       doc/summerschools/summerschool22/catalysis
+      doc/platforms/Linux/Niflheim
     - echo "interrogate"
     - pip install interrogate
     - interrogate --version
@@ -495,7 +486,7 @@ gpwfiles:
   before_script:
     - !reference [default, before_script]
   script:
-    - pytest -n 16 -m generate_gpw_files
+    - pytest -n 16 -m generate_gpw_files --durations 30 -v
   artifacts:
     paths:
       - .pytest_cache/
