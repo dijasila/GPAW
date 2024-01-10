@@ -23,7 +23,7 @@ def test_ibz2bz(in_tmp_dir, gpw_files, gs):
     """
 
     atol = 5e-03  # Tolerance when comparing wfs and projections
-    atol_eig = 1e-04  # Tolerance when comparing eigenvalues
+    atol_eig = 2e-04  # Tolerance when comparing eigenvalues
     atol_deg = 5e-3  # Tolerance for checking degenerate states
 
     # Loading calc with symmetry

@@ -82,10 +82,11 @@ def get_chi0_integrand(kptpair_factory, qpd, n_n, m_m, point):
     k_v = point.kpt_c
     optical_limit = qpd.optical_limit
     k_c = np.dot(qpd.gd.cell_cv, k_v) / (2 * np.pi)
+    K = kptpair_factory.gs.kpoints.kptfinder.find(k_c)
 
     pair_calc = kptpair_factory.pair_calculator()
     kptpair = kptpair_factory.get_kpoint_pair(
-        qpd, point.spin, k_c, n_n[0], n_n[-1] + 1,
+        qpd, point.spin, K, n_n[0], n_n[-1] + 1,
         m_m[0], m_m[-1] + 1)
 
     pairden_paw_corr = pair_calc.gs.pair_density_paw_corrections
