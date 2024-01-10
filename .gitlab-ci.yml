@@ -44,6 +44,12 @@ stages:
                             ]
       extra_link_args = ['-fopenmp']
 
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      import sys
+      if sys.version_info >= (3, 11):
+          extra_compile_args += ['-Wno-deprecated-declarations']
+      # end TODO
+
       libraries += ['blas']
 
       fftw = True
@@ -97,8 +103,6 @@ build-latest:
       cat << EOF >> siteconfig.py
       define_macros += [('NDEBUG', None)]
       undef_macros = []
-      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
-      extra_compile_args += ['-Wno-deprecated-declarations']
 
       from pathlib import Path
       libvdwxc = True
@@ -144,10 +148,9 @@ build-cuda:
       gpu_compile_args = ['-O3',
                           '-g']
       libraries += ['cudart', 'cublas']
-      undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
-    - pip install --user --log build.log --editable .
+    - pip install -v --user --log build.log --editable .
 
 
 build-hip-cuda:
@@ -174,7 +177,7 @@ build-hip-cuda:
       undef_macros += ['GPAW_GPU_AWARE_MPI']
       EOF
     - cat siteconfig.py
-    - pip install --user --log build.log --editable .
+    - pip install -v --user --log build.log --editable .
 
 
 build-minimal:
@@ -333,6 +336,7 @@ test-cuda:
   script:
     - nvidia-smi
     - gpaw info
+    - python -c 'import cupy; import cupyx; from cupy.cuda import runtime'
     - pytest -v -m gpu
 
     - gpaw-python -m gpaw info
@@ -350,9 +354,10 @@ test-cuda-mpi:
   script:
     - nvidia-smi
     - gpaw info
-    - mpirun -np 2 gpaw-python -m pytest -v -m gpu
-    - mpirun -np 4 gpaw-python -m pytest -v -m gpu
-
+    - mpirun -np 2 pytest -v -m gpu
+    - mpirun -np 4 pytest -v -m gpu
+    # mpirun -np 2 gpaw-python doesn't work, see #1052
+    # - mpirun -np 2 gpaw-python -m pytest -v -m gpu
 
 test-hip-cuda:
   image: $IMAGE_CUDA
