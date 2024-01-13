@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Generator
+from typing import Generator, TypeVar, Generic
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -53,13 +53,16 @@ def create_ibz_wave_functions(*,
                             comm=comm)
 
 
-class IBZWaveFunctions:
+_Twfs_co = TypeVar("_Twfs_co", bound=WaveFunctions, covariant=True)
+
+
+class IBZWaveFunctions(Generic[_Twfs_co]):
     def __init__(self,
                  ibz: IBZ,
                  *,
                  nelectrons: float,
                  ncomponents: int,
-                 wfs_qs: list[list[WaveFunctions]],
+                 wfs_qs: list[list[_Twfs_co]],
                  kpt_comm: MPIComm = serial_comm,
                  kpt_band_comm: MPIComm = serial_comm,
                  comm: MPIComm = serial_comm):
@@ -76,7 +79,7 @@ class IBZWaveFunctions:
 
         self.rank_k = ibz.ranks(kpt_comm)
 
-        self.wfs_qs = wfs_qs
+        self.wfs_qs: list[list[_Twfs_co]] = wfs_qs
 
         self.q_k = {}  # IBZ-index to local index
         for wfs in self:
