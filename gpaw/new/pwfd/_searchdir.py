@@ -9,7 +9,9 @@ from gpaw.mpi import MPIComm, serial_comm
 if TYPE_CHECKING:
     from gpaw.new.pwfd import ArrayCollection
 
-_TArray = TypeVar("_TArray")
+from gpaw.core.arrays import DistributedArrays
+
+_TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
 
 class LBFGS:
@@ -35,8 +37,8 @@ class LBFGS:
         self.xp = xp
 
     def update(
-        self, grad_cur_qs: ArrayCollection[_TArray]
-    ) -> "ArrayCollection[_TArray]":
+        self, grad_cur_qs: ArrayCollection[_TArray_co]
+    ) -> "ArrayCollection[_TArray_co]":
 
         m = self._local_iter % self._memory
         # ds = a_cur - a_old, which is search dir
@@ -52,7 +54,12 @@ class LBFGS:
 
         if self.rho_m[m] < 0:
             # reset the optimizer
-            self.__init__(grad_cur_qs, self._memory)
+            self.grad_old_qs = grad_cur_qs.make_copy()
+            self.search_dir_qs = -grad_cur_qs
+            self.ds_mqs = [grad_cur_qs.empty()] * self._memory
+            self.dy_mqs = [grad_cur_qs.empty()] * self._memory
+            self.rho_m = [0] * self._memory
+            self._local_iter = 1
             return self.search_dir_qs
 
         q = grad_cur_qs.make_copy()
