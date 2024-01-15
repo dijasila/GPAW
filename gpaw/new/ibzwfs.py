@@ -148,7 +148,7 @@ class IBZWaveFunctions(Generic[_Twfs_co]):
                 f'    domain: {self.domain_comm.size}\n'
                 f'    band:   {self.band_comm.size}\n')
 
-    def __iter__(self) -> Generator[WaveFunctions, None, None]:
+    def __iter__(self) -> Generator[_Twfs_co, None, None]:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 
