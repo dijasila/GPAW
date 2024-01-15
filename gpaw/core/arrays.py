@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
 
 from gpaw.new import prod
+from typing_extensions import Self
 
 DomainType = TypeVar('DomainType', bound=Domain)
 
@@ -72,7 +73,7 @@ class DistributedArrays(Generic[DomainType]):
             self.xp = cp
         self._matrix: Matrix | None = None
 
-    def new(self, data=None) -> DistributedArrays:
+    def new(self, data=None) -> Self:
         raise NotImplementedError
 
     def copy(self):
@@ -214,7 +215,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def redist(self,
                domain,
-               comm1: MPIComm, comm2: MPIComm) -> DistributedArrays:
+               comm1: MPIComm, comm2: MPIComm) -> Self:
         result = domain.empty(self.dims)
         if comm1.rank == 0:
             a = self.gather()
