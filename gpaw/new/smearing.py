@@ -40,7 +40,11 @@ class OccupationNumberCalculator:
             fixed_magmom_value=magmom_v[2],
             rcell=rcell,
             monkhorst_pack_size=getattr(ibz.bz, 'size_c', None),
-            bz2ibzmap=ibz.bz2ibz_K)
+            bz2ibzmap=ibz.bz2ibz_K,
+            nbands=nbands,
+            nspins=ncomponents,
+            nkpts=len(ibz)
+        )
         self.extrapolate_factor = self.occ.extrapolate_factor
 
     def __str__(self):
