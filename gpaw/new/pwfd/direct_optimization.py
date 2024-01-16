@@ -24,7 +24,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
     ):
 
         self.searchdir_algo = LBFGS(memory)
-        self._maxstep = 0.25
+        self._maxstep = maxstep
         self.preconditioner: Optional[Callable] = None
         self.preconditioner_factory = preconditioner_factory
         self.blocksize = blocksize
