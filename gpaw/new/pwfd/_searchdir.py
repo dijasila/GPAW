@@ -7,6 +7,7 @@ import numpy as np
 from gpaw.mpi import MPIComm, serial_comm
 
 from gpaw.new.pwfd import ArrayCollection
+from gpaw.new import zips
 from gpaw.core.arrays import DistributedArrays
 
 _TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
@@ -21,6 +22,8 @@ class LBFGS:
         self.grad_old_u: ArrayCollection = ArrayCollection([])
         self.search_dir_u: ArrayCollection = ArrayCollection([])
 
+        # we should initialize it to zeros but cannot now. it's done
+        # in the 0ths iteration in update
         self.ds_mu: list[ArrayCollection] = [ArrayCollection([])] * memory
         self.dy_mu: list[ArrayCollection] = [ArrayCollection([])] * memory
         self.rho_m: list[float] = [0] * memory
@@ -29,7 +32,8 @@ class LBFGS:
         self._memory: int = memory
 
     def update(
-        self, grad_cur_u: ArrayCollection[_TArray_co],
+        self,
+        grad_cur_u: ArrayCollection[_TArray_co],
         kpt_comm: MPIComm = serial_comm,
         xp: ModuleType = np,
     ) -> "ArrayCollection[_TArray_co]":
@@ -37,9 +41,10 @@ class LBFGS:
         if self._local_iter == 0:
             self.grad_old_u = grad_cur_u.make_copy()
             self.search_dir_u = -grad_cur_u
-            self.ds_mu = [ArrayCollection([])] * self._memory
-            self.dy_mu = [ArrayCollection([])] * self._memory
+            self.ds_mu = [grad_cur_u.zeros()] * self._memory
+            self.dy_mu = [grad_cur_u.zeros()] * self._memory
             self.rho_m = [0] * self._memory
+            self._local_iter += 1
             return self.search_dir_u
 
         m = self._local_iter % self._memory
@@ -98,3 +103,12 @@ class LBFGS:
 
     def rescale_searchdir_vector(self, alpha: float) -> None:
         self.search_dir_u.multiply_by_number_in_place(alpha)
+
+    def project_searchdir_vector(self, ibzwfs, weight_un):
+        for wfs, p_nX, weight_n in zips(ibzwfs, self.search_dir_u, weight_un):
+            psc_nn = p_nX.integrate(wfs.psit_nX)
+            psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
+            psc_nn *= abs(
+                1 - weight_n[:, np.newaxis] - weight_n[np.newaxis, :]
+            )
+            p_nX.data -= ibzwfs.xp.tensordot(psc_nn, p_nX.data, axes=1)

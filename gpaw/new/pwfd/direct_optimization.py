@@ -1,135 +1,159 @@
+from functools import partial
+from typing import Generic, TypeVar, Callable, Optional
+
+import numpy as np
+
+from gpaw.core.arrays import DistributedArrays
+from gpaw.new import zips
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
+from gpaw.new.pwfd import LBFGS, ArrayCollection
+from gpaw.new.pwfd.davidson import calculate_weights
+
+_TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
 
-class DirectOptimizer(Eigensolver):
-    def __init__(self):
-        self.searchdir_algo = ...
-        self.iter = 0
-
-    def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
-        self.searchdir_algo.update(self.a_u, self.gradient)
-        self.move_wave_functions()
-        self.iter += 1
-
-        return self.error
-
-    def move_wave_functions(self):
-        ...
-
-    @property
-    def error(self) -> float:
-        return ...
-
-
-class ETDM:
-    """
-    Attributes
-    ----------
-    a_u : ndarray
-    """
-
+class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
     def __init__(
         self,
-        objfunc,
-        a_u_init: np.ndarray,
-        maxiter=100,
-        tolerance=5.0e-4,
-        update_ref=False,
+        preconditioner_factory,
+        blocksize=10,
+        memory: int = 2,
+        maxstep: float = 0.25,
     ):
+
+        self.searchdir_algo = LBFGS(memory)
+        self._maxstep = 0.25
+        self.preconditioner: Optional[Callable] = None
+        self.preconditioner_factory = preconditioner_factory
+        self.blocksize = blocksize
+        # blocksize and precond were copied from Davidson
+
+    def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
+        """In order to iterate, you need to get the weights and for this
+        you need to know occupation numbers which are not initialized until
+        we get the eigenvalues so the first iteration should be just
+        the calculations of eigenvalues
         """
 
-        Parameters
-        ----------
-        objfunc
-        maxiter
-        maxstepxst
-        g_tol
-        update_ref : bool
-            if True then the iterations are:
-                math:`C_{j+1} = C_{j} exp(A_j)`
-            otherwise:
-                math:`C_{j+1} = C_{0} exp(\sum_{0}^{j} A_j)`
-        """
+        kpt_comm = state.ibzwfs.kpt_comm
+        xp = state.ibzwfs.xp
 
-        self.objfunc = objfunc
-        self.searchdir_algo = LBFGS(
-            a_u_init.shape, objfunc.kpt_comm, objfunc._dtype
+        weight_un: list = calculate_weights("occupied", state.ibzwfs)
+        if weight_un[0] is None:
+            # it's first iteration, eigenvalues and occupation numbers
+            # are not available so just call grad_u to update eigenvalues
+            # but don't move the wfs
+            self.get_grad_u(state, hamiltonian, weight_un)
+            return 10**9
+
+        grad_u: ArrayCollection[_TArray_co] = self.get_grad_u(
+            state, hamiltonian, weight_un
         )
-        self.iter = 0
-        self._tolerance = tolerance
-        self._max_iter = maxiter
-        self._update_ref = update_ref
+        error: float = self.get_error()
 
-        self._a_u = a_u_init
-        self._energy = None
-        self._gradient = None
-        self._error = None
-        self._is_converged = False
+        if self.preconditioner is None:
+            # we also initialize precond here,
+            # don't know why this cannot be done in __init___
+            # (the same in davidson)
+            self.preconditioner = self.preconditioner_factory(
+                self.blocksize, xp=xp
+            )
+        for wfs, grad_nX in zips(state.ibzwfs, grad_u):
+            self.preconditioner(wfs.psit_nX, grad_nX, grad_nX)
+            # the implemented preconditioner reverse the gradient
+            # as well as it needs renormalization because of spin degeneracy
+            grad_nX.data *= -1 / (state.ibzwfs.spin_degeneracy * 2)
 
-    def optimize(self):
+        self.searchdir_algo.update(grad_u, kpt_comm, xp)
+        self.searchdir_algo.project_searchdir_vector(state.ibzwfs, weight_un)
+        alpha: float = self.calc_step_length(state.ibzwfs)
+        self.searchdir_algo.rescale_searchdir_vector(alpha)
+        self.move_wave_functions(state.ibzwfs)
 
-        print(self.iter, self.energy, self.error)
+        return error
 
-        while (not self.is_converged) and self.iter < self._max_iter:
-            self.searchdir_algo.update(self.a_u, self.gradient)
-            self.move()
-            self.iter += 1
-            print(self.iter, self.energy, self.error)
+    def move_wave_functions(self, ibzwfs):
+        for wfs, p_nG in zips(ibzwfs, self.searchdir_algo.search_dir_u):
+            wfs.psit_nX.data += p_nG.data
+            # wfs.pt_aiX.integrate(wfs.psit_nX, out=wfs._P_ani)
+            wfs._P_ani = None
+            wfs.orthonormalized = False
+            wfs.orthonormalize()
 
-    def move(self):
-        p_u = self.searchdir_algo.search_dir
-        strength = np.sum(p_u.conj() * p_u)
-        strength = self.objfunc.kpt_comm.sum(strength.real) ** 0.5
-        alpha = np.minimum(0.25 / strength, 1.0)
-        # since we have a reference here we
-        # also modify self.searchdir_algo.search_dir and
-        # this is what we need
-        p_u[:] = alpha * p_u
-        if self._update_ref:
-            self.a_u = p_u
-        else:
-            self.a_u += p_u
+    def calc_step_length(self, ibzwfs) -> float:
+        norm = 0
+        for p_nG in self.searchdir_algo.search_dir_u:
+            for p_G in p_nG:
+                norm += p_G.integrate(p_G).real
 
-    @property
-    def a_u(self):
-        return self._a_u
+        norm = ibzwfs.kpt_comm.sum_scalar(norm)
+        norm = ibzwfs.band_comm.sum_scalar(norm)
+        norm = np.sqrt(norm)
+        a_star = self._maxstep / norm if norm > self._maxstep else 1.0
+        # print(a_star, norm)
+        return a_star
 
-    @a_u.setter
-    def a_u(self, x):
-        self._a_u = x
-        self._energy = None
-        self._gradient = None
-        self._error = None
-        self._is_converged = None
+    @staticmethod
+    def get_grad_u(
+        state, hamiltonian, weight_un
+    ) -> "ArrayCollection[_TArray_co]":
+        dH = state.potential.dH
+        Ht = partial(
+            hamiltonian.apply,
+            state.potential.vt_sR,
+            state.potential.dedtaut_sR,
+        )
+        ibzwfs = state.ibzwfs
+        wfs = ibzwfs.wfs_qs[0][0]
+        dS_aii = wfs.setups.get_overlap_corrections(
+            wfs.P_ani.layout.atomdist, wfs.xp
+        )
 
-    @property
-    def energy(self):
-        if self._energy is None:
-            self._energy, self._gradient = self._calc_energy_and_gradient()
-        return self._energy
+        data_u: list[_TArray_co] = []
+        for wfs, weight_n in zips(ibzwfs, weight_un):
+            wfs.orthonormalize()
 
-    @property
-    def gradient(self):
-        if self._gradient is None:
-            self._energy, self._gradient = self._calc_energy_and_gradient()
-        return self._gradient
+            # calc smooth part
+            xp = wfs.xp
+            Hpsi_nX = wfs.psit_nX.new(xp.empty_like(wfs.psit_nX.data))
+            Ht(wfs.psit_nX, Hpsi_nX, wfs.spin)
 
-    @property
-    def error(self):
-        if self._error is None:
-            self._error = np.max(np.abs(self.gradient))
-        return self._error
+            # calc paw part
+            tmp_ani = wfs.P_ani.new()
+            dH(wfs.P_ani, tmp_ani, wfs.spin)
+            wfs.pt_aiX.add_to(Hpsi_nX, tmp_ani)
 
-    @property
-    def is_converged(self):
-        if self.error < self._tolerance:
-            self._is_converged = True
-        else:
-            self._is_converged = False
-        return self._is_converged
+            # now need to project gradient on tangent plane
+            # first apply overlap to psi.
+            # we actually should apply overlap^-1 to Hpsi but when we do
+            # that we get numerical instabilities for some reasons...
+            wfs.P_ani.block_diag_multiply(dS_aii, out_ani=tmp_ani)
+            Spsi_nX = wfs.psit_nX.copy()
+            wfs.pt_aiX.add_to(Spsi_nX, tmp_ani)
+            # projector matrix, which is also lagrange matrix to diagonalize
+            # to get the eigenvalues
+            psc_nn = Hpsi_nX.integrate(wfs.psit_nX)
+            psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
+            wfs.domain_comm.sum(psc_nn, 0)
 
-    def _calc_energy_and_gradient(self):
-        self.objfunc.a_vec_u = self.a_u
-        return self.objfunc.energy, self.objfunc.gradient
+            eig_n = xp.linalg.eigvalsh(psc_nn)
+            wfs.domain_comm.broadcast(eig_n, 0)
+            wfs._eig_n = eig_n
+
+            if weight_n is not None:
+                psc_nn *= abs(
+                    1 - weight_n[:, np.newaxis] - weight_n[np.newaxis, :]
+                )
+            # project
+            Hpsi_nX.data -= xp.tensordot(psc_nn, Spsi_nX.data, axes=1)
+            if weight_n is not None:
+                Hpsi_nX.data *= weight_n[:, np.newaxis]
+
+            data_u.append(Hpsi_nX)
+
+        return ArrayCollection(data_u)
+
+    def get_error(self) -> float:
+        return 1.0e9

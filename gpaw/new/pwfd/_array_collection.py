@@ -57,9 +57,7 @@ class ArrayCollection(Generic[_TArray_co]):
         return ArrayCollection(new_array_u)
 
     def make_copy(self) -> "ArrayCollection[_TArray_co]":
-        new_array_u: list[_TArray_co] = [
-            array.copy() for array in self
-        ]
+        new_array_u: list[_TArray_co] = [array.copy() for array in self]
 
         return ArrayCollection(new_array_u)
 
@@ -76,7 +74,7 @@ class ArrayCollection(Generic[_TArray_co]):
             xp = a.xp
             if not isinstance(tmp_nn, complex):
                 xp.fill_diagonal(tmp_nn, tmp_nn.diagonal() * 2)
-                result += sum(tmp_nn).real
+                result += tmp_nn.sum().real
             else:
                 result += 2 * result.real
         return result
@@ -95,5 +93,11 @@ class ArrayCollection(Generic[_TArray_co]):
         new_array_u: list[_TArray_co] = [
             array.desc.empty(array.dims, array.comm, array.xp)
             for array in self
+        ]
+        return ArrayCollection(new_array_u)
+
+    def zeros(self) -> "ArrayCollection[_TArray_co]":
+        new_array_u: list[_TArray_co] = [
+            array.new(array.xp.zeros_like(array.data)) for array in self
         ]
         return ArrayCollection(new_array_u)

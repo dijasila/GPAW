@@ -13,7 +13,8 @@ class OccupationNumberCalculator:
                  comms,
                  magmom_v,
                  ncomponents,
-                 rcell):
+                 rcell,
+                 nelectrons_total):
         if dct is None:
             if pbc.any():
                 dct = {'name': 'fermi-dirac',
@@ -43,7 +44,8 @@ class OccupationNumberCalculator:
             bz2ibzmap=ibz.bz2ibz_K,
             nbands=nbands,
             nspins=ncomponents,
-            nkpts=len(ibz)
+            nkpts=len(ibz),
+            nelectrons=nelectrons_total
         )
         self.extrapolate_factor = self.occ.extrapolate_factor
 

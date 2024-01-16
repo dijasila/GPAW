@@ -227,7 +227,9 @@ class DFTComponentsBuilder:
             self.communicators,
             self.initial_magmom_av.sum(0),
             self.ncomponents,
-            np.linalg.inv(self.atoms.cell.complete()).T)
+            np.linalg.inv(self.atoms.cell.complete()).T,
+            self.nelectrons  # the total number of electrons, not per spin
+        )
 
     def create_hamiltonian_operator(self):
         raise NotImplementedError

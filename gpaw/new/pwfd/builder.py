@@ -9,6 +9,7 @@ from gpaw.new.ibzwfs import create_ibz_wave_functions as create_ibzwfs
 from gpaw.new.lcao.eigensolver import LCAOEigensolver
 from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.pwfd.davidson import Davidson
+from gpaw.new.pwfd.direct_optimization import DirectOptimizer
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
@@ -21,14 +22,19 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
     def create_eigensolver(self, hamiltonian):
         eigsolv_params = self.params.eigensolver.copy()
         name = eigsolv_params.pop('name', 'dav')
-        assert name == 'dav'
-        return Davidson(
-            self.nbands,
-            self.wf_desc,
-            self.communicators['b'],
-            hamiltonian.create_preconditioner,
-            converge_bands=self.params.convergence.get('bands', 'occupied'),
-            **eigsolv_params)
+        assert name == 'dav' or name == 'lbfgs'
+        if name == 'dav':
+            return Davidson(
+                self.nbands,
+                self.wf_desc,
+                self.communicators['b'],
+                hamiltonian.create_preconditioner,
+                converge_bands=self.params.convergence.get('bands', 'occupied'),
+                **eigsolv_params)
+        elif name == 'lbfgs':
+            return DirectOptimizer(hamiltonian.create_preconditioner, **eigsolv_params)
+        else:
+            raise ValueError("use dav or lbfgs")
 
     def read_ibz_wave_functions(self, reader):
         kpt_comm, band_comm, domain_comm = (self.communicators[x]
