@@ -9,7 +9,7 @@ from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D, Literal, Self, ArrayND
+from gpaw.typing import Array1D, Literal, ArrayND
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc

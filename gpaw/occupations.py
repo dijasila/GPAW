@@ -698,13 +698,31 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
                 return f_qn
 
             if self.nspins == 2:
-                f1_qn = get_f(self.nelectrons_total, self.magmom, self.nkpts, self.nbands, 1)
-                f2_qn = get_f(self.nelectrons_total, self.magmom, self.nkpts, self.nbands, -1)
+                f1_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    1,
+                )
+                f2_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    -1,
+                )
                 f_qn = []
                 for f1_n, f2_n in zip(f1_qn, f2_qn):
                     f_qn += [f1_n, f2_n]
             else:
-                f_qn = get_f(self.nelectrons_total, self.magmom, self.nkpts, self.nbands, 0)
+                f_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    0,
+                )
 
             self._f_sn = np.array(f_qn)
 

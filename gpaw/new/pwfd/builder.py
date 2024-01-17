@@ -29,7 +29,9 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 self.wf_desc,
                 self.communicators['b'],
                 hamiltonian.create_preconditioner,
-                converge_bands=self.params.convergence.get('bands', 'occupied'),
+                converge_bands=self.params.convergence.get(
+                    'bands', 'occupied'
+                ),
                 **eigsolv_params)
         elif name == 'lbfgs':
             return DirectOptimizer(

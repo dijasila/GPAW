@@ -5,7 +5,6 @@ from typing import Generic, TypeVar, Callable, Optional, Tuple
 
 import numpy as np
 
-from gpaw.core import PWArray
 from gpaw.core.arrays import DistributedArrays
 from gpaw.new import zips
 from gpaw.new.calculation import DFTState
