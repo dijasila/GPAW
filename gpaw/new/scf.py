@@ -68,6 +68,7 @@ class SCFLoop:
             log(f'maximum number of iterations: {self.maxiter}\n')
 
         self.mixer.reset()
+        self.eigensolver.reset()
 
         if self.update_density_and_potential:
             dens_error = self.mixer.mix(state.density)

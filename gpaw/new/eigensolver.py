@@ -10,3 +10,6 @@ class Eigensolver(ABC):
     @abstractmethod
     def iterate(self, state: DFTState, hamiltonian) -> float:
         pass
+
+    def reset(self) -> None:
+        pass

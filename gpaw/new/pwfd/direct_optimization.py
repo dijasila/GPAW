@@ -183,3 +183,11 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             float(error)) * ibzwfs.spin_degeneracy
 
         return ArrayCollection(data_u), error
+
+    def reset(self) -> None:
+        """ sometimes you need to erase memory from LBFGS,
+        for example when position of atoms moved. This is similar
+        to reset in density mixing
+        """
+        if self.searchdir_algo is not None:
+            self.searchdir_algo._local_iter = 0
