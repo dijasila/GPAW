@@ -40,6 +40,8 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         kpt_comm = state.ibzwfs.kpt_comm
         xp = state.ibzwfs.xp
 
+        assert state.ibzwfs.band_comm.size == 1, 'not implemented!'
+
         weight_un: list = calculate_weights("occupied", state.ibzwfs)
         if weight_un[0] is None:
             # it's first iteration, eigenvalues and occupation numbers
