@@ -78,7 +78,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         for wfs, p_nG in zips(ibzwfs, self.searchdir_algo.search_dir_u):
             wfs.psit_nX.data += p_nG.data
             # wfs.pt_aiX.integrate(wfs.psit_nX, out=wfs._P_ani)
-            wfs._P_ani = None
+            wfs._P_ani = None  # is this how we update the projectors?
             wfs.orthonormalized = False
             wfs.orthonormalize()
 
@@ -92,7 +92,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         norm = ibzwfs.band_comm.sum_scalar(norm)
         norm = np.sqrt(norm)
         a_star = self._maxstep / norm if norm > self._maxstep else 1.0
-        # print(a_star, norm)
+
         return a_star
 
     @staticmethod
@@ -148,8 +148,9 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
                 )
             # project
             Hpsi_nX.data -= xp.tensordot(psc_nn, Spsi_nX.data, axes=1)
-            if weight_n is not None:
-                Hpsi_nX.data *= weight_n[:, np.newaxis]
+
+            # if weight_n is not None:
+            #     Hpsi_nX.data *= weight_n[:, np.newaxis]
 
             data_u.append(Hpsi_nX)
 
