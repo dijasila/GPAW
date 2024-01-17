@@ -271,11 +271,11 @@ class BZWaveFunctions:
                              broadcast=broadcast)
 
     def get_atomic_density_matrices(self):
-        """Return atomic density matrix for each atom."""
+        """Returns atomic density matrices for each atom."""
         assert self.domain_comm.size == 1
         assert self.bcomm.size == 1
 
-        D_asii = {}
+        D_asii = {}  # Could also be an AtomArrays object
         for a, l_j in enumerate(self.l_aj):
             ni = (2 * np.array(l_j) + 1).sum()
             D_sii = np.zeros([4, ni, ni], dtype=complex)
@@ -295,9 +295,10 @@ class BZWaveFunctions:
         return D_asii
 
     def get_orbital_magnetic_moments(self):
-        """Return the orbital magnetic moment vector for each atom."""
-        from gpaw.new.orbmag import get_orbmag_from_density
+        """Returns the orbital magnetic moment vector for each atom a."""
         D_asii = self.get_atomic_density_matrices()
+
+        from gpaw.new.orbmag import get_orbmag_from_density
         return get_orbmag_from_density(D_asii, self.n_aj, self.l_aj)
 
     def pdos_weights(self,
