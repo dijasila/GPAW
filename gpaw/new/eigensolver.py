@@ -13,3 +13,10 @@ class Eigensolver(ABC):
 
     def reset(self) -> None:
         pass
+
+    def update_to_canonical_orbitals(
+        self,
+        state: DFTState,
+        hamiltonian
+    ) -> None:
+        pass

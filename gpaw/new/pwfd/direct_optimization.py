@@ -190,3 +190,10 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         """
         if self.searchdir_algo is not None:
             self.searchdir_algo._local_iter = 0
+
+    def update_to_canonical_orbitals(self, state, hamiltonian):
+        dH = state.potential.dH
+        Ht = partial(hamiltonian.apply,
+                     state.potential.vt_sR, state.potential.dedtaut_sR)
+        for wfs in state.ibzwfs:
+            wfs.subspace_diagonalize(Ht, dH)
