@@ -32,7 +32,12 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
                 converge_bands=self.params.convergence.get('bands', 'occupied'),
                 **eigsolv_params)
         elif name == 'lbfgs':
-            return DirectOptimizer(hamiltonian.create_preconditioner, **eigsolv_params)
+            return DirectOptimizer(
+                hamiltonian.create_preconditioner,
+                converge_bands=self.params.convergence.get(
+                    'bands', 'occupied'
+                ),
+                **eigsolv_params)
         else:
             raise ValueError("use dav or lbfgs")
 
