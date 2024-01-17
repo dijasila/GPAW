@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 from functools import partial
-from typing import Generic, TypeVar, Callable, Optional
+from typing import Generic, TypeVar, Callable, Optional, Tuple
 
 import numpy as np
 
+from gpaw.core import PWArray
 from gpaw.core.arrays import DistributedArrays
 from gpaw.new import zips
 from gpaw.new.calculation import DFTState
@@ -10,6 +13,7 @@ from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pwfd import LBFGS, ArrayCollection
 from gpaw.new.pwfd.davidson import calculate_weights
+from gpaw.gpu import as_np
 
 _TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
@@ -19,6 +23,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         self,
         preconditioner_factory,
         blocksize=10,
+        converge_bands='occupied',
         memory: int = 2,
         maxstep: float = 0.25,
     ):
@@ -28,6 +33,8 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         self.preconditioner: Optional[Callable] = None
         self.preconditioner_factory = preconditioner_factory
         self.blocksize = blocksize
+        self.converge_bands = converge_bands
+        assert converge_bands == 'occupied'
         # blocksize and precond were copied from Davidson
 
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
@@ -41,19 +48,19 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         xp = state.ibzwfs.xp
 
         assert state.ibzwfs.band_comm.size == 1, 'not implemented!'
-
+        grad_u: ArrayCollection[_TArray_co]
+        error: float
         weight_un: list = calculate_weights("occupied", state.ibzwfs)
         if weight_un[0] is None:
             # it's first iteration, eigenvalues and occupation numbers
             # are not available so just call grad_u to update eigenvalues
             # but don't move the wfs
-            self.get_grad_u(state, hamiltonian, weight_un)
-            return 10**9
+            _, error = self.get_grad_u(state, hamiltonian, weight_un)
+            return error
 
-        grad_u: ArrayCollection[_TArray_co] = self.get_grad_u(
+        grad_u, error = self.get_grad_u(
             state, hamiltonian, weight_un
         )
-        error: float = self.get_error()
 
         if self.preconditioner is None:
             # we also initialize precond here,
@@ -65,8 +72,12 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         for wfs, grad_nX in zips(state.ibzwfs, grad_u):
             self.preconditioner(wfs.psit_nX, grad_nX, grad_nX)
             # the implemented preconditioner reverse the gradient
-            # as well as it needs renormalization because of spin degeneracy
-            grad_nX.data *= -1 / (state.ibzwfs.spin_degeneracy * 2)
+            # as well as it needs renormalization for spin degeneracy * 2
+            # for plane-wave mode and just spin degeneracy for FD mode
+            renormal_factor = -1 / (state.ibzwfs.spin_degeneracy)
+            if isinstance(wfs.psit_nX, PWArray):
+                renormal_factor /= 2
+            grad_nX.data *= renormal_factor
 
         self.searchdir_algo.update(grad_u, kpt_comm, xp)
         self.searchdir_algo.project_searchdir_vector(state.ibzwfs, weight_un)
@@ -100,7 +111,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
     @staticmethod
     def get_grad_u(
         state, hamiltonian, weight_un
-    ) -> "ArrayCollection[_TArray_co]":
+    ) -> Tuple["ArrayCollection[_TArray_co]", float]:
         dH = state.potential.dH
         Ht = partial(
             hamiltonian.apply,
@@ -113,6 +124,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             wfs.P_ani.layout.atomdist, wfs.xp
         )
 
+        error = 0
         data_u: list[_TArray_co] = []
         for wfs, weight_n in zips(ibzwfs, weight_un):
             wfs.orthonormalize()
@@ -151,12 +163,26 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             # project
             Hpsi_nX.data -= xp.tensordot(psc_nn, Spsi_nX.data, axes=1)
 
-            # if weight_n is not None:
-            #     Hpsi_nX.data *= weight_n[:, np.newaxis]
+            # occupied only
+            if weight_n is not None:
+                Hpsi_nX.data *= weight_n[:, np.newaxis]
 
             data_u.append(Hpsi_nX)
 
-        return ArrayCollection(data_u)
+            if weight_n is not None:
+                tmp = weight_n @ as_np(Hpsi_nX.norm2())
+                if wfs.ncomponents == 4:
+                    tmp = tmp.sum()
+            else:
+                tmp = np.inf
+
+            tmp = wfs.weight * tmp
+            error += tmp
+
+        error = ibzwfs.kpt_band_comm.sum_scalar(
+            float(error)) * ibzwfs.spin_degeneracy
+
+        return ArrayCollection(data_u), error
 
     def get_error(self) -> float:
         return 1.0e9
