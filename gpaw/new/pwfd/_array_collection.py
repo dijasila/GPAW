@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from gpaw.new.ibzwfs import IBZWaveFunctions, PWFDWaveFunctions
 
 from gpaw.core.arrays import DistributedArrays
+from gpaw.new import zips
 
 _TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
@@ -29,7 +30,7 @@ class ArrayCollection(Generic[_TArray_co]):
     def __sub__(self, other: Self) -> "ArrayCollection[_TArray_co]":
 
         new_array_u: list[_TArray_co] = []
-        for a, b in zip(self, other):
+        for a, b in zips(self, other):
             new_array_u.append(a.new(a.data - b.data))
 
         return ArrayCollection(new_array_u)
@@ -37,7 +38,7 @@ class ArrayCollection(Generic[_TArray_co]):
     def __add__(self, other: Self) -> "ArrayCollection[_TArray_co]":
 
         new_array_u: list[_TArray_co] = []
-        for a, b in zip(self, other):
+        for a, b in zips(self, other):
             new_array_u.append(a.new(a.data + b.data))
 
         return ArrayCollection(new_array_u)
@@ -69,7 +70,7 @@ class ArrayCollection(Generic[_TArray_co]):
         unique products between arrays.
         """
         result = 0
-        for a, b in zip(self, other):
+        for a, b in zips(self, other):
             tmp_nn = a.integrate(b)
             xp = a.xp
             if not isinstance(tmp_nn, complex):
