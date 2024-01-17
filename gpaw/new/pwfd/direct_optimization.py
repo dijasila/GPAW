@@ -183,6 +183,3 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             float(error)) * ibzwfs.spin_degeneracy
 
         return ArrayCollection(data_u), error
-
-    def get_error(self) -> float:
-        return 1.0e9
