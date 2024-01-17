@@ -149,7 +149,6 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             # to get the eigenvalues
             psc_nn = Hpsi_nX.integrate(wfs.psit_nX)
             psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
-            wfs.domain_comm.sum(psc_nn, 0)
 
             eig_n = xp.linalg.eigvalsh(psc_nn)
             wfs.domain_comm.broadcast(eig_n, 0)
