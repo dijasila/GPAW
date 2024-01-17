@@ -47,6 +47,7 @@ class InputParameters:
     convergence: dict[str, Any]
     eigensolver: dict[str, Any]
     experimental: dict[str, Any]
+    external: dict[str, Any]
     gpts: None | Sequence[int]
     h: float | None
     hund: bool
@@ -151,6 +152,11 @@ def eigensolver(value=None) -> dict:
 
 @input_parameter
 def experimental(value=None):
+    return value
+
+
+@input_parameter
+def external(value=None):
     return value
 
 

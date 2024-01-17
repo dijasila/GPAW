@@ -172,8 +172,11 @@ class FFTWPlans(FFTPlans):
         _gpaw.FFTWExecute(self._ifftplan)
 
     def __del__(self):
-        _gpaw.FFTWDestroy(self._fftplan)
-        _gpaw.FFTWDestroy(self._ifftplan)
+        # Attributes will not exist if execution stops during FFTW planning
+        if hasattr(self, '_fftplan'):
+            _gpaw.FFTWDestroy(self._fftplan)
+        if hasattr(self, '_ifftplan'):
+            _gpaw.FFTWDestroy(self._ifftplan)
 
 
 class NumpyFFTPlans(FFTPlans):

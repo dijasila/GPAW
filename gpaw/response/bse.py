@@ -33,10 +33,14 @@ class BSEBackend:
                  truncation=None,
                  integrate_gamma=1,
                  mode='BSE',
+                 q_c=[0.0, 0.0, 0.0],
+                 direction=0,
                  wfile=None,
                  write_h=False,
                  write_v=False):
         self.gs = gs
+        self.q_c = q_c
+        self.direction = direction
         self.context = context
 
         self.spinors = spinors
@@ -587,12 +591,8 @@ class BSEBackend:
         return
 
     @timer('get_bse_matrix')
-    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0,
-                       readfile=None, optical=True):
+    def get_bse_matrix(self, readfile=None, optical=True):
         """Calculate and diagonalize BSE matrix"""
-
-        self.q_c = q_c
-        self.direction = direction
 
         if readfile is None:
             self.calculate(optical=optical)
@@ -612,13 +612,12 @@ class BSEBackend:
         return
 
     @timer('get_vchi')
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, readfile=None, optical=True,
+    def get_vchi(self, w_w=None, eta=0.1,
+                 readfile=None, optical=True,
                  write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
-        self.get_bse_matrix(q_c=q_c, direction=direction,
-                            readfile=readfile, optical=optical)
+        self.get_bse_matrix(readfile=readfile, optical=optical)
 
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
@@ -666,7 +665,7 @@ class BSEBackend:
         if not np.allclose(self.q_c, 0.0):
             cell_cv = self.gs.gd.cell_cv
             B_cv = 2 * np.pi * np.linalg.inv(cell_cv).T
-            q_v = np.dot(q_c, B_cv)
+            q_v = np.dot(self.q_c, B_cv)
             vchi_w /= np.dot(q_v, q_v)
 
         """Check f-sum rule."""
@@ -689,7 +688,6 @@ class BSEBackend:
         return vchi_w
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
-                                q_c=[0.0, 0.0, 0.0], direction=0,
                                 filename='df_bse.csv', readfile=None,
                                 write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
@@ -699,11 +697,6 @@ class BSEBackend:
             Dielectric function is calculated at these frequencies
         eta: float
             Lorentzian broadening of the spectrum (eV)
-        q_c: list of three floats
-            Wavevector in reduced units on which the response is calculated
-        direction: int
-            if q_c = [0, 0, 0] this gives the direction in cartesian
-            coordinates - 0=x, 1=y, 2=z
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
@@ -715,8 +708,7 @@ class BSEBackend:
             File on which the BSE eigenvalues are written
         """
 
-        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
-                                   direction=direction,
+        epsilon_w = -self.get_vchi(w_w=w_w, eta=eta,
                                    readfile=readfile, optical=True,
                                    write_eig=write_eig)
         epsilon_w += 1.0
@@ -732,7 +724,6 @@ class BSEBackend:
         return w_w, epsilon_w
 
     def get_eels_spectrum(self, w_w=None, eta=0.1,
-                          q_c=[0.0, 0.0, 0.0], direction=0,
                           filename='df_bse.csv', readfile=None,
                           write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
@@ -742,11 +733,6 @@ class BSEBackend:
             Dielectric function is calculated at these frequencies
         eta: float
             Lorentzian broadening of the spectrum (eV)
-        q_c: list of three floats
-            Wavevector in reduced units on which the response is calculated
-        direction: int
-            if q_c = [0, 0, 0] this gives the direction in cartesian
-            coordinates - 0=x, 1=y, 2=z
         filename: str
             data file on which frequencies, real and imaginary part of
             dielectric function is written
@@ -758,7 +744,7 @@ class BSEBackend:
             File on which the BSE eigenvalues are written
         """
 
-        eels_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
+        eels_w = -self.get_vchi(w_w=w_w, eta=eta,
                                 readfile=readfile, optical=False,
                                 write_eig=write_eig).imag
 
@@ -772,7 +758,6 @@ class BSEBackend:
         return w_w, eels_w
 
     def get_polarizability(self, w_w=None, eta=0.1,
-                           q_c=[0.0, 0.0, 0.0], direction=0,
                            filename='pol_bse.csv', readfile=None,
                            write_eig='eig.dat'):
         r"""Calculate the polarizability alpha.
@@ -793,9 +778,20 @@ class BSEBackend:
 
         V = self.gs.nonpbc_cell_product()
 
-        optical = (self.coulomb.truncation is None)
+        # Previously it was
+        # optical = (self.coulomb.truncation is None)
+        # I.e. if a truncated kernel is used optical = False.
+        # The reason it was set to False with Coulomb
+        # truncation is that for q=0 V(G=0) is already
+        # set to zero with the truncated coulomb Kernel.
+        # However for finite q V(G=0) is different from zero.
+        # Therefore the absorption spectra for 2D materials
+        # calculated with the previous code was only correct for q=0.
+        # See Issue #1055, the related MR and comments therein
+        # For simplicity we set it to true for all cases here.
+        optical = True
 
-        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta,
                                readfile=readfile, optical=optical,
                                write_eig=write_eig)
         alpha_w = -V * vchi_w / (4 * np.pi)
@@ -982,6 +978,11 @@ class BSE(BSEBackend):
             Conduction bands used in the BSE Hamiltonian
         eshift: float
             Scissors operator opening the gap (eV)
+         q_c: list of three floats
+-            Wavevector in reduced units on which the response is calculated
+        direction: int
+            if q_c = [0, 0, 0] this gives the direction in cartesian
+            coordinates - 0=x, 1=y, 2=z
         gw_skn: list / array
             List or array defining the gw quasiparticle energies used in
             the BSE Hamiltonian. Should match spin, k-points and
