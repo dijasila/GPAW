@@ -72,11 +72,10 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         for wfs, grad_nX in zips(state.ibzwfs, grad_u):
             self.preconditioner(wfs.psit_nX, grad_nX, grad_nX)
             # the implemented preconditioner reverse the gradient
-            # as well as it needs renormalization for spin degeneracy * 2
-            # for plane-wave mode and just spin degeneracy for FD mode
+            # as well as it needs renormalization for spin degeneracy
             renormal_factor = -1 / (state.ibzwfs.spin_degeneracy)
-            if isinstance(wfs.psit_nX, PWArray):
-                renormal_factor /= 2
+            # if isinstance(wfs.psit_nX, PWArray):
+            #     renormal_factor /= 2
             grad_nX.data *= renormal_factor
 
         self.searchdir_algo.update(grad_u, kpt_comm, xp)
@@ -158,14 +157,16 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
 
             if weight_n is not None:
                 psc_nn *= abs(
-                    1 - weight_n[:, np.newaxis] - weight_n[np.newaxis, :]
+                    1 -
+                    np.ceil(weight_n[:, np.newaxis]) -
+                    np.ceil(weight_n[np.newaxis, :])
                 )
             # project
             Hpsi_nX.data -= xp.tensordot(psc_nn, Spsi_nX.data, axes=1)
 
             # occupied only
             if weight_n is not None:
-                Hpsi_nX.data *= weight_n[:, np.newaxis]
+                Hpsi_nX.data *= np.ceil(weight_n[:, np.newaxis])
 
             data_u.append(Hpsi_nX)
 

@@ -109,6 +109,8 @@ class LBFGS:
             psc_nn = p_nX.integrate(wfs.psit_nX)
             psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
             psc_nn *= abs(
-                1 - weight_n[:, np.newaxis] - weight_n[np.newaxis, :]
+                1 -
+                np.ceil(weight_n[:, np.newaxis]) -
+                np.ceil(weight_n[np.newaxis, :])
             )
             p_nX.data -= ibzwfs.xp.tensordot(psc_nn, p_nX.data, axes=1)
