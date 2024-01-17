@@ -13,6 +13,8 @@ from gpaw.new.hamiltonian import Hamiltonian
 from gpaw.new.pwfd import LBFGS, ArrayCollection
 from gpaw.new.pwfd.davidson import calculate_weights
 from gpaw.gpu import as_np
+from gpaw.yml import obj2yaml as o2y
+
 
 _TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
@@ -35,6 +37,12 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         self.converge_bands = converge_bands
         assert converge_bands == 'occupied'
         # blocksize and precond were copied from Davidson
+
+    def __str__(self):
+        return o2y(dict(name='lbfgs',
+                        memory=self.searchdir_algo._memory,
+                        maxstep=self._maxstep,
+                        converge_bands=self.converge_bands))
 
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
         """In order to iterate, you need to get the weights and for this
