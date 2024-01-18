@@ -47,8 +47,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         assert state.ibzwfs.band_comm.size == 1, "not implemented!"
         grad_u: ArrayCollection[_TArray_co]
         error: float
-        weight_un: list = calculate_weights(self.converge_bands, state.ibzwfs)
-        if weight_un[0] is None:
+        if state.ibzwfs.wfs_qs[0][0]._occ_n is None:
             # it's first iteration, update eigenvalues and occupation numbers
             dH = state.potential.dH
             Ht = partial(
@@ -61,7 +60,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
 
             return np.inf
 
-        grad_u, error = self.get_grad_u(state, hamiltonian, weight_un)
+        grad_u, error = self.get_grad_u(state, hamiltonian)
 
         if self.preconditioner is None:
             # we also initialize precond here,
@@ -108,9 +107,8 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
 
         return a_star
 
-    @staticmethod
     def get_grad_u(
-        state, hamiltonian, weight_un
+        self, state, hamiltonian
     ) -> Tuple["ArrayCollection[_TArray_co]", float]:
         dH = state.potential.dH
         Ht = partial(
@@ -126,6 +124,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
 
         error = 0
         data_u: list[_TArray_co] = []
+        weight_un: list = calculate_weights(self.converge_bands, state.ibzwfs)
         weight_un_occupied: list = calculate_weights("occupied", state.ibzwfs)
 
         for wfs, weight_n, weight_n_occ in zips(
@@ -238,5 +237,5 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
                 wfs._eig_n[subspace] = eig_n
 
                 wfs.psit_nX.data[subspace] = U.T @ wfs.psit_nX.data[subspace]
-                wfs._P_ani = None
-                _ = wfs.P_ani
+            wfs._P_ani = None
+            _ = wfs.P_ani
