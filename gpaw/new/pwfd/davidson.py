@@ -12,15 +12,19 @@ from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
 from gpaw.new.c import calculate_residuals_gpu
-from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
-from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
 from gpaw import debug
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gpaw.new.ibzwfs import IBZWaveFunctions
+    from gpaw.new.calculation import DFTState
 
 
 class Davidson(Eigensolver):

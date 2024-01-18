@@ -4,11 +4,11 @@ from types import ModuleType
 from typing import TypeVar
 
 import numpy as np
-from gpaw.mpi import MPIComm, serial_comm
-
-from gpaw.new.pwfd import ArrayCollection
-from gpaw.new import zips
 from gpaw.core.arrays import DistributedArrays
+from gpaw.mpi import MPIComm, serial_comm
+from gpaw.new import zips
+from gpaw.new.pwfd import ArrayCollection
+from gpaw.new.pwfd.davidson import calculate_weights
 
 _TArray_co = TypeVar("_TArray_co", bound=DistributedArrays, covariant=True)
 
@@ -104,13 +104,17 @@ class LBFGS:
     def rescale_searchdir_vector(self, alpha: float) -> None:
         self.search_dir_u.multiply_by_number_in_place(alpha)
 
-    def project_searchdir_vector(self, ibzwfs, weight_un):
-        for wfs, p_nX, weight_n in zips(ibzwfs, self.search_dir_u, weight_un):
+    def project_searchdir_vector(self, ibzwfs):
+        weight_un_occupied = calculate_weights("occupied", ibzwfs)
+        for wfs, p_nX, weight_n in zips(
+            ibzwfs, self.search_dir_u, weight_un_occupied
+        ):
             psc_nn = p_nX.integrate(wfs.psit_nX)
             psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
+            # don't mix occupied and unoccupied
             psc_nn *= abs(
-                1 -
-                np.ceil(weight_n[:, np.newaxis]) -
-                np.ceil(weight_n[np.newaxis, :])
+                1
+                - weight_n[:, np.newaxis].astype(bool)
+                - weight_n[np.newaxis, :].astype(bool)
             )
             p_nX.data -= ibzwfs.xp.tensordot(psc_nn, p_nX.data, axes=1)

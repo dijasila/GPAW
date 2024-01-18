@@ -98,6 +98,10 @@ class SCFLoop:
                 with log.comment():
                     write_iteration(cc, converged_items, entries, ctx, log)
             if converged:
+                self.eigensolver.update_to_canonical_orbitals(
+                    state,
+                    self.hamiltonian
+                )
                 break
             if self.niter == maxiter:
                 if wfs_error < inf:
