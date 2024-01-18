@@ -678,6 +678,7 @@ class G0W0Calculator:
         self.context.comm.barrier()
         return paths
 
+    @timer('Evaluate Sigma')
     def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
                     *, symop, sigmas, blocks1d, pawcorr):
         """Calculates the contribution to the self-energy and its derivative
@@ -693,8 +694,10 @@ class G0W0Calculator:
 
         for n in range(kpt1.n2 - kpt1.n1):
             eps1 = kpt1.eps_n[n]
+            self.context.timer.start('get_nmG')
             n_mG = get_nmG(kpt1, kpt2, mypawcorr,
                            n, qpd, I_G, self.chi0calc.pair_calc)
+            self.context.timer.stop('get_nmG')
 
             if symop.sign == 1:
                 n_mG = n_mG.conj()
