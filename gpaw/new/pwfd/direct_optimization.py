@@ -22,7 +22,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         self,
         preconditioner_factory,
         blocksize=10,
-        converge_bands='occupied',
+        converge_bands="occupied",
         memory: int = 2,
         maxstep: float = 0.25,
     ):
@@ -33,7 +33,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         self.preconditioner_factory = preconditioner_factory
         self.blocksize = blocksize
         self.converge_bands = converge_bands
-        assert converge_bands == 'occupied'
+        assert converge_bands == "occupied"
         # blocksize and precond were copied from Davidson
 
     def iterate(self, state: DFTState, hamiltonian: Hamiltonian) -> float:
@@ -46,7 +46,7 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
         kpt_comm = state.ibzwfs.kpt_comm
         xp = state.ibzwfs.xp
 
-        assert state.ibzwfs.band_comm.size == 1, 'not implemented!'
+        assert state.ibzwfs.band_comm.size == 1, "not implemented!"
         grad_u: ArrayCollection[_TArray_co]
         error: float
         weight_un: list = calculate_weights("occupied", state.ibzwfs)
@@ -54,12 +54,20 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             # it's first iteration, eigenvalues and occupation numbers
             # are not available so just call grad_u to update eigenvalues
             # but don't move the wfs
-            _, error = self.get_grad_u(state, hamiltonian, weight_un)
-            return error
 
-        grad_u, error = self.get_grad_u(
-            state, hamiltonian, weight_un
-        )
+            dH = state.potential.dH
+            Ht = partial(
+                hamiltonian.apply,
+                state.potential.vt_sR,
+                state.potential.dedtaut_sR,
+            )
+            for wfs in state.ibzwfs:
+                wfs.subspace_diagonalize(Ht, dH)
+
+            # _, error = self.get_grad_u(state, hamiltonian, weight_un)
+            return np.inf
+
+        grad_u, error = self.get_grad_u(state, hamiltonian, weight_un)
 
         if self.preconditioner is None:
             # we also initialize precond here,
@@ -149,22 +157,32 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             psc_nn = Hpsi_nX.integrate(wfs.psit_nX)
             psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
 
-            eig_n = xp.linalg.eigvalsh(psc_nn)
-            wfs.domain_comm.broadcast(eig_n, 0)
-            wfs._eig_n = eig_n
+            if weight_n is None:
+                occupied_bool = np.array([True] * psc_nn.shape[0])
+            else:
+                occupied_bool = weight_n.astype(bool)
 
-            if weight_n is not None:
-                psc_nn *= abs(
-                    1 -
-                    np.ceil(weight_n[:, np.newaxis]) -
-                    np.ceil(weight_n[np.newaxis, :])
-                )
+            unoccupied_bool = ~occupied_bool
+            for subspace in [occupied_bool, unoccupied_bool]:
+                h_subspace_nn = psc_nn[
+                    subspace[:, np.newaxis] * subspace[np.newaxis, :]
+                ].reshape(sum(subspace), sum(subspace))
+                eig_n = xp.linalg.eigvalsh(h_subspace_nn)
+                wfs.domain_comm.broadcast(eig_n, 0)
+                wfs._eig_n[subspace] = eig_n
+
+            psc_nn *= (
+                occupied_bool[:, np.newaxis] * occupied_bool[np.newaxis, :]
+                + unoccupied_bool[:, np.newaxis]
+                * unoccupied_bool[np.newaxis, :]
+            )
             # project
             Hpsi_nX.data -= xp.tensordot(psc_nn, Spsi_nX.data, axes=1)
 
             # occupied only
+
             if weight_n is not None:
-                Hpsi_nX.data *= np.ceil(weight_n[:, np.newaxis])
+                Hpsi_nX.data *= occupied_bool[:, np.newaxis]
 
             data_u.append(Hpsi_nX)
 
@@ -178,13 +196,15 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             tmp = wfs.weight * tmp
             error += tmp
 
-        error = ibzwfs.kpt_band_comm.sum_scalar(
-            float(error)) * ibzwfs.spin_degeneracy
+        error = (
+            ibzwfs.kpt_band_comm.sum_scalar(float(error))
+            * ibzwfs.spin_degeneracy
+        )
 
         return ArrayCollection(data_u), error
 
     def reset(self) -> None:
-        """ sometimes you need to erase memory from LBFGS,
+        """sometimes you need to erase memory from LBFGS,
         for example when position of atoms moved. This is similar
         to reset in density mixing
         """
@@ -192,8 +212,44 @@ class DirectOptimizer(Eigensolver, Generic[_TArray_co]):
             self.searchdir_algo._local_iter = 0
 
     def update_to_canonical_orbitals(self, state, hamiltonian):
+
         dH = state.potential.dH
-        Ht = partial(hamiltonian.apply,
-                     state.potential.vt_sR, state.potential.dedtaut_sR)
-        for wfs in state.ibzwfs:
-            wfs.subspace_diagonalize(Ht, dH)
+        Ht = partial(
+            hamiltonian.apply,
+            state.potential.vt_sR,
+            state.potential.dedtaut_sR,
+        )
+        ibzwfs = state.ibzwfs
+
+        weight_un = calculate_weights("occupied", state.ibzwfs)
+        for wfs, weight_n in zips(ibzwfs, weight_un):
+            wfs.orthonormalize()
+            # calc smooth part
+            xp = wfs.xp
+            Hpsi_nX = wfs.psit_nX.new(xp.empty_like(wfs.psit_nX.data))
+            Ht(wfs.psit_nX, Hpsi_nX, wfs.spin)
+            # calc paw part
+            tmp_ani = wfs.P_ani.new()
+            dH(wfs.P_ani, tmp_ani, wfs.spin)
+            wfs.pt_aiX.add_to(Hpsi_nX, tmp_ani)
+            # projector matrix, which is also lagrange matrix to diagonalize
+            # to get the eigenvalues
+            psc_nn = Hpsi_nX.integrate(wfs.psit_nX)
+            psc_nn = 0.5 * (psc_nn.conj() + psc_nn.T)
+            occupied_bool = weight_n.astype(bool)
+            unoccupied_bool = ~occupied_bool
+            for subspace in [occupied_bool, unoccupied_bool]:
+                h_subspace_nn = psc_nn[
+                    subspace[:, np.newaxis] * subspace[np.newaxis, :]
+                ].reshape(sum(subspace), sum(subspace))
+                if h_subspace_nn.ndim == 1:
+                    eig_n, U = h_subspace_nn, np.array([1])
+                else:
+                    eig_n, U = xp.linalg.eigh(h_subspace_nn)
+                wfs.domain_comm.broadcast(eig_n, 0)
+                wfs.domain_comm.broadcast(U, 0)
+                wfs._eig_n[subspace] = eig_n
+
+                wfs.psit_nX.data[subspace] = U.T @ wfs.psit_nX.data[subspace]
+                wfs._P_ani = None
+                _ = wfs.P_ani
