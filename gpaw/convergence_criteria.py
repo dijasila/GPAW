@@ -7,8 +7,6 @@ from ase.units import Bohr, Ha
 
 from gpaw.mpi import broadcast_float
 
-from typing import Any, Dict
-
 
 def get_criterion(name):
     """Returns one of the pre-specified criteria by it's .name attribute,
@@ -414,25 +412,3 @@ class MaxIter(Criterion):
         converged = context.niter >= self.n
         entry = f'{context.niter:d}'
         return converged, entry
-
-
-from dataclasses import dataclass
-
-@dataclass
-class CriteriaCollection:
-    criteria: Dict[str, Criterion]
-
-    def __getitem__(self, key):
-        return self.criteria[key]
-
-
-@dataclass
-class ConvergenceHistory:
-    # TODO: Finalize the actual data structure we'd like for this
-    history: Dict[str, Any]
-
-    # def __getitem__:
-    #     pass
-    
-    # def __setitem__:
-    #     pass

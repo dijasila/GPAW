@@ -10,6 +10,14 @@ Git master branch
 
 :git:`master <>`.
 
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
 .. warning::
 
    PW-mode `\Gamma`-point calculations could sometimes find a fake
@@ -39,13 +47,13 @@ Git master branch
 
    Fixed in :mr:`2114`.
 
+* Minimum version requirements: Python 3.8, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
 * Functionality has been added to calculate various local properties of the
   magnetic sites of a crystal, see :ref:`sites`.
 
 * Python 3.8 or later is required now.
-
-* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
-  SciPy 1.6.0
 
 * Calculations of ground and excited states in FD and PW modes can now be
   done using direct orbital optimization (see :ref:`directmin`). Use
