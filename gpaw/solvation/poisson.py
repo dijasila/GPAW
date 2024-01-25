@@ -132,7 +132,7 @@ class PolarizationPoissonSolver(BasePoissonSolver):
                  remove_moment=None, use_charge_center=False,
                  gas_phase_poisson='fast', eta: float = 0.6):
         """
-        eta: mixing weight
+        eta: mixing weight for the polarization charge
         """
         self.nn = nn
         self.eps = eps
