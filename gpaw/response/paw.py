@@ -2,8 +2,10 @@ import numpy as np
 from scipy.special import spherical_jn
 
 from gpaw.ffbt import rescaled_fourier_bessel_transform
-from gpaw.gaunt import gaunt
+from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
+from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
+from gpaw.response.pw_parallelization import Blocks1D
 from types import SimpleNamespace
 
 
@@ -14,9 +16,21 @@ class Setuplet:
         self.l_j = l_j
         self.ni = np.sum([2 * l + 1 for l in l_j])
         self.rcut_j = rcut_j
+        self.is_pseudo = False
 
 
-def calculate_pair_density_correction(qG_Gv, *, pawdata):
+# Important note: The test suite monkeypatches this value to 2**10 so
+# you may get different results in tests and production until we
+# implementa a better solution.
+#
+# The motivation for lowering to 2**10 in tests is that many tests
+# take 3-4 times longer if we do not.
+#
+# See https://gitlab.com/gpaw/gpaw/-/issues/984
+DEFAULT_RADIAL_POINTS = 2**12
+
+
+def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     r"""Calculate the atom-centered PAW correction to the pair density.
                                                       ˍ
     The atom-centered pair density correction tensor, Q_aii', is defined as the
@@ -65,12 +79,18 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     phi_jg = pawdata.data.phi_jg
     phit_jg = pawdata.data.phit_jg
 
+    if radial_points is None:
+        # We assign this late due to monkeypatch in testing
+        radial_points = DEFAULT_RADIAL_POINTS
+
     # Grid cutoff to create spline representation
     gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
 
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
+    if pawdata.is_pseudo:
+        return Qbar_Gii
 
     # K-vector norm
     k_G = np.linalg.norm(qG_Gv, axis=1)
@@ -92,7 +112,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 # In order to do so, we make a spline representation of the
                 # radial partial wave correction rescaled with a factor of r^-l
-                spline = rgd.spline(dn_g[:gcut2], l=l, points=2**12)
+                spline = rgd.spline(dn_g[:gcut2], l=l, points=radial_points)
                 # This allows us to calculate a spline representation of the
                 # spherical Fourier-Bessel transform
                 #                 rc
@@ -100,7 +120,8 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
                 #             k^l /
                 #                 0
-                kspline = rescaled_fourier_bessel_transform(spline, N=2**14)
+                kspline = rescaled_fourier_bessel_transform(
+                    spline, N=4 * radial_points)
 
                 # Now, this implementation relies on a range of hardcoded
                 # values, which are not guaranteed to work for all cases.
@@ -170,12 +191,172 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     return Qbar_Gii
 
 
+def calculate_matrix_element_correction(qG_Gv, pawdata,
+                                        rshe: RealSphericalHarmonicsExpansion):
+    r"""Calculate the atom-centered correction to a generalized matrix element.
+
+    For matrix elements corresponding to the expectation value of a plane wave
+    coefficient e^-i(G+q)r and a known functional of the (spin-)density
+    f[n](r), the PAW correction tensor is given by
+
+    F_aii'(G+q) = <φ_ai| e^-i(G+q)r f[n](r) |φ_ai'>
+                     ˷                         ˷
+                  - <φ_ai| e^-i(G+q)r f[n](r) |φ_ai'>
+                                  ˍ
+                = e^(-i[G+q].R_a) F_aii'(G+q)
+          ˍ
+    where F_aii'(G+q) is the atom-centered PAW correction tensor.
+
+    Expanding the functional f[n](r) in the atom-centered frame in real
+    spherical harmonics (corresponding to the input rshe),
+
+                  l
+              __  __
+         →    \   \   m ˰   m
+    f[n](r) = /   /  Y (r) f (r)
+              ‾‾  ‾‾  l     l
+              l  m=-l
+
+    expansion of the plane-wave coefficient in real spherical harmonics and
+    spherical Bessel functions j_l(Kr) yields the following expression for the
+    atom-centered correction tensor [publication in preparation]:
+
+                       l        l'
+                   __  __   __  __
+    ˍ              \   \    \   \      l'  m'˰   m_i,m_i',m,m'
+    F_aii'(K) = 4π /   /    /   /  (-i)   Y (K) G
+                   ‾‾  ‾‾   ‾‾  ‾‾         l'    l_i,l_i',l,l'
+                   l  m=-l  l' m'=-l'
+
+                                rc
+                                /  2            a     a      ˷a    ˷a      m
+                              × | r dr j (Kr) [φ (r) φ (r) - φ (r) φ (r)] f (r)
+                                /       l'      j_i   j_i'    j_i   j_i'   l
+                                0
+
+    where K=G+q and G_LLLL denotes the super Gaunt coefficients, which yield
+    the integrals over four spherical harmonics.
+    """
+    rgd = rshe.rgd
+    assert rgd is pawdata.xc_correction.rgd
+    ni = pawdata.ni  # Number of partial waves
+    l_j = pawdata.l_j  # l-index for each radial function index j
+    lmax = max(l_j)
+    assert max(rshe.l_M) <= 2 * lmax
+    G_LLLL = super_gaunt(lmax)
+    # (Real) radial functions for the partial waves
+    phi_jg = pawdata.data.phi_jg
+    phit_jg = pawdata.data.phit_jg
+    # Truncate the radial functions to span only the radial grid coordinates
+    # which need correction
+    assert np.allclose(rgd.r_g, pawdata.rgd.r_g[:rgd.N])
+    phi_jg = np.array(phi_jg)[:, :rgd.N]
+    phit_jg = np.array(phit_jg)[:, :rgd.N]
+
+    # Initialize correction tensor
+    npw = qG_Gv.shape[0]
+    Fbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
+
+    # K-vector norm and direction
+    k_G = np.linalg.norm(qG_Gv, axis=1)
+    Kd_Gv = qG_Gv.copy()
+    Kd_Gv[k_G > 1e-10] /= k_G[k_G > 1e-10, np.newaxis]
+
+    # Loop of radial function indices for partial waves i and i'
+    i1_counter = 0
+    for j1, l1 in enumerate(l_j):
+        i2_counter = 0
+        for j2, l2 in enumerate(l_j):
+            # Calculate the radial partial wave correction
+            #                              ˷      ˷
+            # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+            dn_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+
+            # Loop through the angular components in the real spherical
+            # harmonics expansion of f[n](r)
+            for l, L, f_g in zip(rshe.l_M, rshe.L_M, rshe.f_gM.T):
+                dnf_g = dn_g * f_g
+                # Apply Gaunt coefficient selection rules to loop through
+                # the l' coefficients of the plane-wave expansion
+                lpmin = np.min(abs(
+                    np.arange(abs(l1 - l2), l1 + l2 + 1) - l))
+                for lp in range(lpmin, l1 + l2 + l + 1):
+                    if not (l1 + l2 + l + lp) % 2 == 0:
+                        continue
+                    # Calculate radial part of the correction
+                    dnf_G = parallel_fourier_bessel_transform(
+                        k_G, lp, rgd, dnf_g)
+
+                    # Calculate angular part of the correction
+                    x_G = 4 * np.pi * (-1j)**lp * dnf_G
+                    # Loop through available m-indices for the partial waves
+                    # and generate the composite L=(l,m) index as well as the
+                    # partial wave index i
+                    for m1 in range(2 * l1 + 1):
+                        L1 = l1**2 + m1
+                        i1 = i1_counter + m1
+                        for m2 in range(2 * l2 + 1):
+                            L2 = l2**2 + m2
+                            i2 = i2_counter + m2
+                            # Loop through m' indices of the plane-wave
+                            # expansion and generate the L' composite index
+                            for mp in range(2 * lp + 1):
+                                Lp = lp**2 + mp
+                                # If the angular integral (super gaunt
+                                # coefficient) is finite,
+                                coeff = G_LLLL[L1, L2, L, Lp]
+                                if abs(coeff) > 1e-10:
+                                    # Calculate spherical harmonic and add
+                                    # contribution to the PAW correction
+                                    Y_G = Y(Lp, *Kd_Gv.T)
+                                    Fbar_Gii[:, i1, i2] += coeff * Y_G * x_G
+
+            # Add to i and i' counters
+            i2_counter += 2 * l2 + 1
+        i1_counter += 2 * l1 + 1
+    return Fbar_Gii
+
+
+def parallel_fourier_bessel_transform(k_G, *args, comm=None):
+    """Distribute FBT plane-wave components over a given communicator."""
+    # NB: If we need to do something similar elsewhere, we can generalize this
+    # function to a decorator!
+    if comm is None:
+        from gpaw.mpi import world as comm
+    Gblocks = Blocks1D(comm, len(k_G))
+    f_myG = fourier_bessel_transform(k_G[Gblocks.myslice], *args)
+    return Gblocks.all_gather(f_myG)
+
+
+def fourier_bessel_transform(k_G, l, rgd, f_g):
+    """Perform a spherical Fourier-Bessel transform of a radial function f(r).
+
+    Computes the transform
+
+            max
+           r
+           ⌠  2
+    f(k) = ⎪ r dr j (kr) f(r)
+           ⌡       l
+           0
+
+    on the supplied radial grid.
+    """
+    # Vectorize calculation of spherical Bessel functions
+    l_Gg = l * np.ones((len(k_G), rgd.N), dtype=int)
+    kr_Gg = k_G[:, np.newaxis] * rgd.r_g[np.newaxis]
+    jl_Gg = spherical_jn(l_Gg, kr_Gg)  # so slow...
+    # Integrate the radial grid using linear interpolation
+    f_G = rgd.integrate_trapz(jl_Gg * f_g[np.newaxis])
+    return f_G
+
+
 class PWPAWCorrectionData:
     def __init__(self, Q_aGii, qpd, pawdatasets, pos_av, atomrotations):
         # Sometimes we loop over these in ways that are very dangerous.
         # It must be list, not dictionary.
         assert isinstance(Q_aGii, list)
-        assert len(Q_aGii) == len(pos_av) == len(pawdatasets)
+        assert len(Q_aGii) == len(pos_av) == len(pawdatasets.by_atom)
 
         self.Q_aGii = Q_aGii
 
@@ -250,15 +431,50 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     pos_av = spos_ac @ qpd.gd.cell_cv
 
     # Calculate pair density PAW correction tensor
-    Q_aGii = []
-    for pawdata, pos_v in zip(pawdatasets, pos_av):
+    Qbar_xGii = {}
+    for species_index, pawdata in pawdatasets.by_species.items():
         # Calculate atom-centered correction tensor
         Qbar_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
         # Add dependency on the atomic position (phase factor)
+        Qbar_xGii[species_index] = Qbar_Gii
+
+    Q_aGii = []
+    for a, (pos_v, pawdata) in enumerate(zip(pos_av, pawdatasets.by_atom)):
         x_G = np.exp(-1j * (qG_Gv @ pos_v))
+        species_index = pawdatasets.id_by_atom[a]
+        Qbar_Gii = Qbar_xGii[species_index]
         Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Qbar_Gii)
 
     return PWPAWCorrectionData(Q_aGii, qpd=qpd,
                                pawdatasets=pawdatasets,
                                pos_av=pos_av,
                                atomrotations=atomrotations)
+
+
+def get_matrix_element_paw_corrections(qpd, pawdata_a, rshe_a, spos_ac):
+    r"""Calculate the PAW correction to a generalized matrix element.
+
+    For a given functional of the electron (spin-)density f[n](r), the PAW
+    correction is given by
+                                  ˍ
+    F_aii'(G+q) = e^(-i[G+q].R_a) F_aii'(G+q)
+          ˍ
+    where F_aii'(G+q) is the atom-centered correction (see above).
+    """
+    qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+
+    F_aGii = []
+    for pawdata, rshe, spos_c in zip(pawdata_a.by_atom, rshe_a, spos_ac):
+        # Calculate atom-centered PAW correction
+        Fbar_Gii = calculate_matrix_element_correction(
+            qG_Gv, pawdata, rshe)
+
+        # XXX Can time be saved by doing some of the processing per species
+        # rather than per atom?
+
+        # Add dependency on the atomic position (phase factor)
+        pos_v = spos_c @ qpd.gd.cell_cv
+        x_G = np.exp(-1j * (qG_Gv @ pos_v))
+        F_aGii.append(x_G[:, np.newaxis, np.newaxis] * Fbar_Gii)
+
+    return F_aGii

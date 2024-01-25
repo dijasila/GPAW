@@ -47,6 +47,25 @@ Force: -0.639 eV/Å
 News
 ====
 
+* :ref:`GPAW version 24.1.0 <releasenotes>` released (Jan 4, 2024).
+
+* .. warning::
+
+    **IMPORTANT**: A bug was found in PW-mode `\Gamma`-point only calculations.
+    Please check :ref:`here <bug0>` if you have been afected by this.
+
+* :ref:`GPAW version 23.9.1 <releasenotes>` released (Sep 15, 2023).
+
+* :ref:`GPAW version 23.9.0 <releasenotes>` released (Sep 13, 2023).
+
+* Monthly *response code* two-day sprints will start on the last Monday
+  of the month and continue the next day (Aug 28. 2023).
+
+* Monthly *general maintenance* one-day sprints will start on the Tuesday
+  in the week after the monthly response sprints
+  (this will typically be the first Tuesday of the month, but it
+  can also be the second Tuesday) (Aug 28. 2023).
+
 * :ref:`GPAW version 23.6.1 <releasenotes>` released (Jul 5, 2023).
 
 * :ref:`GPAW version 23.6.0 <releasenotes>` released (Jun 9, 2023).

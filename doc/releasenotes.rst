@@ -10,18 +10,122 @@ Git master branch
 
 :git:`master <>`.
 
-* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
+.. warning::
+
+   PW-mode `\Gamma`-point calculations could sometimes find a fake
+   eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
+   expansion of the real-valued wave functions:
+
+   .. math::
+
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
+
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
+
+   For systems with vacuum in the cell, the 0 eV state would be unoccupied,
+   but for fully periodic systems, the 0 eV state could be occupied.
+   So, if you have done
+
+   * PW-mode calculations
+   * fully periodic systems
+   * only `\Gamma`-point sampling
+   * ``nbands`` set to a number large enough to trigger random
+     wave functions
+
+   then please check your results to see if you are affected by this bug.
+
+   Fixed in :mr:`2114`.
+
+* Minimum version requirements: Python 3.8, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Functionality has been added to calculate various local properties of the
+  magnetic sites of a crystal, see :ref:`sites`.
+
+* Python 3.8 or later is required now.
+
+* Calculations of ground and excited states in FD and PW modes can now be
+  done using direct orbital optimization (see :ref:`directmin`). Use
+  ``eigensolver='etdm-fdpw'`` (or import ``gpaw.directmin.etdm_fdpw.FDPWETDM``
+  ). The LCAO implementation of direct optimization available also in previous
+  versions can be used by specifying ``eigensolver='etdm-lcao'`` (or by
+  importing ``gpaw.directmin.etdm_lcao.LCAOETDM``).
+
+  Direct optimization can also be used to perform calculations with
+  Perdew-Zunger self-interaction correction (PZ-SIC) for both FD, PW and LCAO
+  modes. Use (FD and PW modes)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_fdpw import FDPWETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  or (LCAO mode)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_lcao import LCAOETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  For excited state calculations, use direct optimization together with
+  :ref:`MOM <mom>` (available for all modes) or with
+  :ref:`generalized mode following <do-gmf>` (available only for LCAO).
+
+* A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
+  :issue:`828`.
+
+
+Version 23.9.1
+==============
+
+Sep 15, 2023: :git:`23.9.1 <../23.9.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Include new GPU ``.c``, ``.h`` and ``.cpp`` files in :git:`MANIFEST.in`
+  (:issue:`975`).
+
+
+Version 23.9.0
+==============
+
+Sep 13, 2023: :git:`23.9.0 <../23.9.0>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
   SciPy 1.6.0
 
 * In the future, it will become an error to not specify a
   :ref:`mode <manual_mode>` parameter for a DFT calculation.
   For now, users will get a warning when finite-difference mode is
-  implicitly chosen.  Please change your scripts to avid this error/warning.
+  implicitly chosen.  Please change your scripts to avoid this error/warning.
 
 * Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 * :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
   now throw an error if the ground state contains point group symmetries
+
+* We are now using Pytest-cache for our :func:`gpaw.test.conftest.gpw_files`
+  fixture.
+
+* New
+  :meth:`~gpaw.new.ase_interface.ASECalculator.get_orbital_magnetic_moments`
+  method: calculates the orbital magnetic moment vector for each atom.
+
+* New experimental density mixer: ``MixerFull``.
 
 
 Version 23.6.1

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import sys
 from math import pi
 
@@ -11,34 +12,42 @@ from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gpaw.response.frequencies import FrequencyDescriptor
+
 
 class DielectricFunctionCalculator:
-    def __init__(self, chi0calc, truncation):
+    def __init__(self, wd: FrequencyDescriptor,
+                 chi0calc: Chi0Calculator, truncation: str | None):
         from gpaw.response.pw_parallelization import Blocks1D
+        self.wd = wd
+
         self.chi0calc = chi0calc
 
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
+
+        # context: ResponseContext object from gpaw.response.context
         self.context = chi0calc.context
-        self.wd = chi0calc.wd
+
+        # context.comm : _Communicator object from gpaw.mpi
         self.blocks1d = Blocks1D(self.context.comm, len(self.wd))
 
-        self._chi0cache = {}
+        self._chi0cache: dict = {}
 
     @property
     def gs(self):
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         return self.chi0calc.gs
 
-    def calculate_chi0(self, q_c, spin='all'):
+    def calculate_chi0(self, q_c: list | np.ndarray):
         """Calculates the response function.
 
         Calculate the response function for a specific momentum.
 
         q_c: [float, float, float]
             The momentum wavevector.
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
         """
 
         # We cache the computed data since chi0 may otherwise be redundantly
@@ -49,13 +58,7 @@ class DielectricFunctionCalculator:
         # We do this by rounding and converting to string with fixed
         # precision (so not very elegant).
         q_key = [f'{q:.10f}' for q in q_c]
-        key = (spin, *q_key)
-
-        # Spin='all' is a terrible cache key since it's inconsistent
-        # with specifying spins one integer at the time.
-        # We might as well change it to do the caching by spin index,
-        # or maybe we can work around the caching entirely with a more
-        # explicit API design.
+        key = tuple(q_key)
 
         if key not in self._chi0cache:
             # We assume that the caller will trigger this multiple
@@ -72,35 +75,40 @@ class DielectricFunctionCalculator:
             # In conclusion, delete the cache now:
             self._chi0cache.clear()
 
-            chi0 = self.chi0calc.calculate(q_c, spin)
+            # chi0: Chi0Data from gpaw.response.chi0_data
+            chi0 = self.chi0calc.calculate(q_c)
+
+            # chi0.body: Chi0BodyData from from gpaw.response.chi0_data
+            # chi0_wGG: np.ndarray
             chi0_wGG = chi0.body.get_distributed_frequencies_array()
             self.context.write_timer()
             things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
             self._chi0cache[key] = things
 
+        # qpd: SingleQPWDescriptor from gpaw.response.pair_functions
         qpd, *more_things = self._chi0cache[key]
         return (qpd, *[thing.copy() if thing is not None else thing
                        for thing in more_things])
 
-    def collect(self, a_w):
+    def collect(self, a_w: np.ndarray) -> np.ndarray:
+        # combines array from sub-processes into one.
         return self.blocks1d.all_gather(a_w)
 
-    def get_frequencies(self):
+    def get_frequencies(self) -> np.ndarray:
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0],
                 direction='x', return_VchiV=True, q_v=None,
                 rshelmax=-1, rshewmin=None):
-        """ Returns v^1/2 chi v^1/2 for the density response and chi for the
-        spin response. The truncated Coulomb interaction is included as
+        """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
+
+        The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
 
-        spin : str or int
-            If 'all' then include all spins.
-            If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
+        Parameters
+        ----------
         rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
@@ -113,10 +121,10 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c, spin)
+        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)
+        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
         sqrtV_G = Kbare_G**0.5
 
         nG = len(sqrtV_G)
@@ -128,6 +136,7 @@ class DielectricFunctionCalculator:
         else:
             K_GG = np.diag(Ktrunc_G / Kbare_G)
 
+        # kd: KPointDescriptor object from gpaw.kpt_descriptor
         if qpd.kd.gamma:
             if isinstance(direction, str):
                 d_v = {'x': [1, 0, 0],
@@ -136,7 +145,8 @@ class DielectricFunctionCalculator:
             else:
                 d_v = direction
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice
+            W = self.blocks1d.myslice  # slice object for this process.
+            #  used to distribute the calculation when run in parallel.
             chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
             chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
             chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
@@ -403,7 +413,11 @@ class DielectricFunctionCalculator:
         dimension of alpha is \AA to the power of non-periodic directions
         """
 
+        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
+        # gd: GridDescriptor object from gpaw.grid_descriptor
         cell_cv = self.gs.gd.cell_cv
+
+        # pbc_c: np.ndarray of type bool. Describes periodic directions.
         pbc_c = self.gs.pbc
 
         if pbc_c.all():
@@ -463,8 +477,6 @@ class DielectricFunctionCalculator:
 
         spectrum: np.ndarray
             Input spectrum
-
-        Note: not tested for spin response
         """
 
         assert (self.wd.omega_w[1:] - self.wd.omega_w[:-1]).ptp() < 1e-10
@@ -558,7 +570,7 @@ class DielectricFunction(DielectricFunctionCalculator):
             rate=rate, eshift=eshift
         )
 
-        super().__init__(chi0calc=chi0calc, truncation=truncation)
+        super().__init__(wd=wd, chi0calc=chi0calc, truncation=truncation)
 
 
 def write_response_function(filename, omega_w, rf0_w, rf_w):
@@ -569,7 +581,7 @@ def write_response_function(filename, omega_w, rf0_w, rf_w):
                       (omega, rf0.real, rf0.imag, rf.real, rf.imag),
                       file=fd)
             else:
-                print('%.6f, %.6f, %.6f' % (omega, rf0, rf), file=fd)
+                print(f'{omega:.6f}, {rf0:.6f}, {rf:.6f}', file=fd)
 
 
 def read_response_function(filename):

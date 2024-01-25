@@ -14,8 +14,9 @@ ref_phi_mos2_km = np.array(
      [4.84334561e-03, 2.42519044e+00, 4.43335136e+00, 5.75115262e+00],
      [2.72907676e-04, 2.99369724e+00, 4.51932187e+00, 5.94725651e+00],
      [3.75847658e-03, 2.67197983e+00, 4.36511629e+00, 5.60446187e+00]])
-    
 
+
+@pytest.mark.later
 def test_parallel_transport_mos2(in_tmp_dir, gpw_files):
     # Calculate the berry phases and spin projections
     gpw = gpw_files['mos2_pw_nosym']
@@ -30,6 +31,7 @@ def test_parallel_transport_mos2(in_tmp_dir, gpw_files):
     assert phi_km[:, ::7] == pytest.approx(ref_phi_mos2_km, abs=0.05)
 
 
+@pytest.mark.later
 def test_parallel_transport_i2sb2(in_tmp_dir, gpw_files):
     # Calculate the berry phases and spin projections
     calc = GPAW(gpw_files['i2sb2_pw_nosym'],

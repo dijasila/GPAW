@@ -10,8 +10,23 @@ from gpaw.utilities import hartree
 
 
 class NSCFSIC:
-    def __init__(self, paw):
+    r"""
+    Helper object for applying non-self-consistent self-interaction
+    corrections.
+
+    :param paw:
+        Converged GPAW calculator
+    :type paw: :class:`gpaw.calculator.GPAW`
+    :param \**sic_parameters:
+        Keyword arguments used to initialize the :class:`gpaw.xc.sic.SIC`
+        object, defaults to :py:attr:`~sic_defaults`
+    """
+    # NOTE: I'm only guessing what this part of the code does. Pls get someone
+    # more competent to review.
+
+    def __init__(self, paw, **sic_parameters):
         self.paw = paw
+        self.sic_parameters = dict(self.sic_defaults, **sic_parameters)
 
     def calculate(self):
         ESIC = 0
@@ -44,11 +59,13 @@ class NSCFSIC:
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)
                 hartree(0, na * g.r * g.dr, g.r, vHr)
                 EHa = 2 * pi * np.dot(vHr * na * g.r, g.dr)
-                print(('%10.2f%10.2f%10.2f' % (Exc * Hartree, EHa * Hartree,
-                                               -f * (EHa + Exc) * Hartree)))
+                print('{:10.2f}{:10.2f}{:10.2f}'.format(Exc * Hartree,
+                                                        EHa * Hartree,
+                                                        -f * (EHa +
+                                                              Exc) * Hartree))
                 ESIC += -f * (EHa + Exc)
 
-        sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
+        sic = SIC(**self.sic_parameters)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
         sic.set_positions(self.paw.spos_ac)
 
@@ -64,9 +81,9 @@ class NSCFSIC:
 
             n = 0
             for xc, c in zip(spin.exc_m, spin.ecoulomb_m):
-                print(('%10i%10i%10i%10.2f%10.2f%10.2f' %
-                       (s, 0, n, -xc * Hartree, -c * Hartree,
-                        2 * (xc + c) * Hartree)))
+                print('%10i%10i%10i%10.2f%10.2f%10.2f' %
+                      (s, 0, n, -xc * Hartree, -c * Hartree,
+                       2 * (xc + c) * Hartree))
                 n += 1
 
             ESIC += spin.esic
@@ -78,3 +95,7 @@ class NSCFSIC:
                  self.paw.get_reference_energy())
         print('%10.2f eV' % total)
         return total
+
+    sic_defaults = dict(finegrid=True,
+                        coulomb_factor=1,
+                        xc_factor=1)

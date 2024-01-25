@@ -2,13 +2,15 @@
 It takes ~10 s on one core"""
 
 import pytest
-from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
+from gpaw.mpi import world
 
 
 @pytest.mark.response
 def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files,
-                                     needs_ase_master):
+                                     needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     gw = G0W0(gpw_files['hbn_pw'],
               'gw-hBN',
               ecut=50,
@@ -26,5 +28,5 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files,
 
     ev = -1.7321
     ec = 3.1999
-    equal(e_qp[0], ev, 0.01)
-    equal(e_qp[1], ec, 0.01)
+    assert e_qp[0] == pytest.approx(ev, abs=0.01)
+    assert e_qp[1] == pytest.approx(ec, abs=0.01)

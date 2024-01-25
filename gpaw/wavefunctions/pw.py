@@ -191,6 +191,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
+        self.read_from_file_init_wfs_dm = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):
@@ -605,6 +606,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             # Read to memory:
             for kpt in self.kpt_u:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def hs(self, ham, q=-1, s=0, md=None):
         npw = len(self.pd.Q_qG[q])
@@ -699,7 +701,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
         self.occupations.bd = bd
 
-        log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
+        log(f'Diagonalizing full Hamiltonian ({nbands} lowest bands)')
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
                                                     self.pd.ngmax))
         mem = 3 * self.pd.ngmax**2 * 16 / S / 1024**2
@@ -721,7 +723,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                     nprow -= 1
                 npcol = S // nprow
                 b = 64
-            log('ScaLapack grid: {}x{},'.format(nprow, npcol),
+            log(f'ScaLapack grid: {nprow}x{npcol},',
                 'block-size:', b)
             bg = BlacsGrid(bd.comm, S, 1)
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
@@ -847,6 +849,8 @@ See issue #241 in GPAW. Creashing to prevent corrupted results."""
             weight_G = 1.0 / (1.0 + self.pd.G2_qG[kpt.q])
             array.real = rs.uniform(-1, 1, array.shape) * weight_G
             array.imag = rs.uniform(-1, 1, array.shape) * weight_G
+            if self.gd.comm.rank == 0:
+                array[:, 0].imag = 0.0
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)

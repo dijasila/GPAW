@@ -5,12 +5,13 @@ from typing import Callable
 
 import numpy as np
 from ase.units import Ha
-from gpaw.core.arrays import DistributedArrays as DA
-from gpaw.core.atom_centered_functions import AtomArrays as AA
+from gpaw.core.arrays import DistributedArrays as XArray
+from gpaw.core.atom_centered_functions import AtomArrays
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
+from gpaw.new.c import calculate_residuals_gpu
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -19,8 +20,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
-
-AAFunc = Callable[[AA, AA], AA]
+from gpaw import debug
 
 
 class Davidson(Eigensolver):
@@ -41,7 +41,9 @@ class Davidson(Eigensolver):
         self.M_nn = None
         self.work_arrays: np.ndarray | None = None
 
-        self.preconditioner = preconditioner_factory(blocksize)
+        self.preconditioner = None
+        self.preconditioner_factory = preconditioner_factory
+        self.blocksize = blocksize
 
     def __str__(self):
         return o2y(dict(name='Davidson',
@@ -53,6 +55,8 @@ class Davidson(Eigensolver):
         wfs = ibzwfs.wfs_qs[0][0]
         assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
+        self.preconditioner = self.preconditioner_factory(self.blocksize,
+                                                          xp=xp)
         B = ibzwfs.nbands
         b = max(wfs.n2 - wfs.n1 for wfs in ibzwfs)
         domain_comm = wfs.psit_nX.desc.comm
@@ -91,21 +95,24 @@ class Davidson(Eigensolver):
 
         assert self.M_nn is not None
 
-        dS = state.ibzwfs.wfs_qs[0][0].setups.overlap_correction
+        wfs = state.ibzwfs.wfs_qs[0][0]
+        dS_aii = wfs.setups.get_overlap_corrections(wfs.P_ani.layout.atomdist,
+                                                    wfs.xp)
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR, state.potential.dedtaut_sR)
         ibzwfs = state.ibzwfs
-        error = 0.0
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
+        error = 0.0
         for wfs, weight_n in zips(ibzwfs, weight_un):
-            e = self.iterate1(wfs, Ht, dH, dS, weight_n)
+            e = self.iterate1(wfs, Ht, dH, dS_aii, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum_scalar(
+            float(error)) * ibzwfs.spin_degeneracy
 
-    def iterate1(self, wfs, Ht, dH, dS, weight_n):
+    def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
         S_NN = self.S_NN
         M_nn = self.M_nn
@@ -149,7 +156,7 @@ class Davidson(Eigensolver):
         Ht = partial(Ht, out=residual_nX, spin=wfs.spin)
         dH = partial(dH, spin=wfs.spin)
 
-        calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
+        calculate_residuals(residual_nX, dH, dS_aii, wfs, P2_ani, P3_ani)
 
         def copy(C_nn: Array2D) -> None:
             domain_comm.sum(M_nn.data, 0)
@@ -164,7 +171,7 @@ class Davidson(Eigensolver):
                 if weight_n is None:
                     error = np.inf
                 else:
-                    error = weight_n @ as_xp(residual_nX.norm2(), np)
+                    error = weight_n @ as_np(residual_nX.norm2())
                     if wfs.ncomponents == 4:
                         error = error.sum()
 
@@ -187,7 +194,7 @@ class Davidson(Eigensolver):
 
             # <psi2 | S | psi2>
             me(psit2_nX, psit2_nX)
-            dS(P2_ani, out_ani=P3_ani)
+            P2_ani.block_diag_multiply(dS_aii, out_ani=P3_ani)
             P2_ani.matrix.multiply(P3_ani, opb='C', symmetric=True, beta=1,
                                    out=M_nn)
             copy(S_NN.data[B:, B:])
@@ -201,68 +208,72 @@ class Davidson(Eigensolver):
                 H_NN.data[:B, :B] = xp.diag(eig_N[:B])
                 S_NN.data[:B, :B] = xp.eye(B)
                 eig_N[:] = H_NN.eigh(S_NN)
-                wfs._eig_n = as_xp(eig_N[:B], np)
+                wfs._eig_n = as_np(eig_N[:B])
             if domain_comm.rank == 0:
                 band_comm.broadcast(wfs.eig_n, 0)
             domain_comm.broadcast(wfs.eig_n, 0)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[:B, :B]
-                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, opa='C', out=residual_nX)
-            M_nn.multiply(P_ani, opa='C', out=P3_ani)
+            M_nn.multiply(psit_nX, out=residual_nX)
+            M_nn.multiply(P_ani, out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[B:, :B]
-                    M0_nn.data[:] = H_NN.data[:B, B:].T
+                    M0_nn.data[:] = H_NN.data[:B, B:]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
-            M_nn.multiply(P2_ani, opa='C', beta=1.0, out=P3_ani)
+            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
+            M_nn.multiply(P2_ani, beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
             P_ani, P3_ani = P3_ani, P_ani
             wfs._P_ani = P_ani
 
             if i < self.niter - 1:
                 Ht(psit_nX)
-                calculate_residuals(residual_nX, dH, dS, wfs, P2_ani, P3_ani)
+                calculate_residuals(
+                    residual_nX, dH, dS_aii, wfs, P2_ani, P3_ani)
+
+        if debug:
+            psit_nX.sanity_check()
 
         return error
 
 
-def calculate_residuals(residual_nX: DA,
-                        dH: AAFunc,
-                        dS: AAFunc,
+def calculate_residuals(residual_nX: XArray,
+                        dH: Callable[[AtomArrays, AtomArrays], AtomArrays],
+                        dS_aii: AtomArrays,
                         wfs: PWFDWaveFunctions,
-                        P1_ani: AA,
-                        P2_ani: AA) -> None:
+                        P1_ani: AtomArrays,
+                        P2_ani: AtomArrays) -> None:
 
     eig_n = wfs.myeig_n
     xp = residual_nX.xp
     if xp is np:
-        for r, e, p in zips(residual_nX.data, wfs.myeig_n, wfs.psit_nX.data):
+        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
-            r -= p * e
+        calculate_residuals_gpu(residual_nX.data, eig_n, wfs.psit_nX.data)
 
     dH(wfs.P_ani, P1_ani)
+    wfs.P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)
+
     if wfs.ncomponents < 4:
         subscripts = 'nI, n -> nI'
     else:
         subscripts = 'nsI, n -> nsI'
     if xp is np:
-        np.einsum(subscripts, wfs.P_ani.data, eig_n, out=P2_ani.data)
+        np.einsum(subscripts, P2_ani.data, eig_n, out=P2_ani.data)
     else:
-        P2_ani.data[:] = xp.einsum(subscripts, wfs.P_ani.data, eig_n)
-    dS(P2_ani, P2_ani)
+        P2_ani.data[:] = xp.einsum(subscripts, P2_ani.data, eig_n)
     P1_ani.data -= P2_ani.data
     wfs.pt_aiX.add_to(residual_nX, P1_ani)
 

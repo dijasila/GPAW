@@ -9,11 +9,12 @@ from gpaw.core.atom_centered_functions import (AtomArraysLayout,
                                                AtomCenteredFunctions)
 from gpaw.core.plane_waves import PWDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
-from gpaw.gpu import as_xp
+from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack, unpack2
+from gpaw.new.symmetry import SymmetrizationPlan
 
 
 class Density:
@@ -115,6 +116,8 @@ class Density:
         self._nct_R = None
         self._tauct_R = None
 
+        self.symplan = None
+
     def __repr__(self):
         return f'Density({self.nt_sR}, {self.D_asii}, charge={self.charge})'
 
@@ -140,7 +143,7 @@ class Density:
                                           scale=1.0 / (self.ncomponents % 3))
         return self._tauct_R
 
-    def new(self, new_grid, fracpos_ac, atomdist):
+    def new(self, new_grid, pw, fracpos_ac, atomdist):
         self.move(fracpos_ac, atomdist)
         new_pw = PWDesc(ecut=0.99 * new_grid.ecut_max(),
                         cell=new_grid.cell,
@@ -153,8 +156,8 @@ class Density:
         for new_nt_R, old_nt_R in zips(new_nt_sR, self.nt_sR):
             old_nt_R.fft(pw=old_pw).morph(new_pw).ifft(out=new_nt_R)
 
-        self.nct_aX.change_cell(new_pw)
-        self.tauct_aX.change_cell(new_pw)
+        self.nct_aX.change_cell(pw)
+        self.tauct_aX.change_cell(pw)
 
         return Density(
             new_nt_sR,
@@ -193,7 +196,7 @@ class Density:
             comp_charge += self.delta0_a[a]
         # comp_charge could be cupy.ndarray:
         comp_charge = float(comp_charge) * sqrt(4 * pi)
-        comp_charge = self.nt_sR.desc.comm.sum(comp_charge)
+        comp_charge = self.nt_sR.desc.comm.sum_scalar(comp_charge)
         charge = comp_charge + self.charge
         pseudo_charge = self.nt_sR[:self.ndensities].integrate().sum()
         if pseudo_charge != 0.0:
@@ -231,15 +234,29 @@ class Density:
                                     symmetries.translation_sc)
 
         xp = self.nt_sR.xp
-        D_asii = self.D_asii.gather(broadcast=True, copy=True)
-        for a1, D_sii in self.D_asii.items():
-            D_sii[:] = 0.0
-            rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
-            for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
-                                        rotation_sii):
-                D_sii += xp.einsum('ij, sjk, lk -> sil',
-                                   rotation_ii, D_asii[a2], rotation_ii)
-        self.D_asii.data *= 1.0 / len(symmetries)
+        if xp is np:
+            D_asii = self.D_asii.gather(broadcast=True, copy=True)
+            for a1, D_sii in self.D_asii.items():
+                D_sii[:] = 0.0
+                rotation_sii = symmetries.rotations(self.l_aj[a1], xp)
+                for a2, rotation_ii in zips(symmetries.a_sa[:, a1],
+                                            rotation_sii):
+                    D_sii += xp.einsum('ij, sjk, lk -> sil',
+                                       rotation_ii, D_asii[a2], rotation_ii)
+            self.D_asii.data *= 1.0 / len(symmetries)
+        else:
+            # GPU version does all the work in rank 0 for now
+            D_asii = self.D_asii.gather(copy=True)
+            if self.D_asii.layout.atomdist.comm.rank == 0:
+                if self.symplan is None:
+                    self.symplan = SymmetrizationPlan(xp, symmetries.rotations,
+                                                      symmetries.a_sa,
+                                                      self.l_aj,
+                                                      D_asii.layout)
+
+                self.symplan.apply(D_asii.data, D_asii.data)
+
+            self.D_asii.scatter_from(D_asii)
 
     def move(self, fracpos_ac, atomdist):
         self.nt_sR.data[:self.ndensities] -= self.nct_R.data
@@ -283,7 +300,7 @@ class Density:
                 dip_v -= np.array([x, y, z]) * (4 * pi / 3)**0.5
         self.nt_sR.desc.comm.sum(dip_v)
         for nt_R in self.nt_sR:
-            dip_v -= as_xp(nt_R.moment(), np)
+            dip_v -= as_np(nt_R.moment())
         return dip_v
 
     def calculate_magnetic_moments(self):
@@ -293,10 +310,10 @@ class Density:
 
         if self.ncomponents == 2:
             for a, D_sii in self.D_asii.items():
-                M_ii = D_sii[0] - D_sii[1]
+                M_ii = as_np(D_sii[0] - D_sii[1])
                 magmom_av[a, 2] = np.einsum('ij, ij ->', M_ii, self.N0_aii[a])
-                magmom_v[2] += (np.einsum('ij, ij ->', M_ii,
-                                          self.delta_aiiL[a][:, :, 0]) *
+                delta_ii = as_np(self.delta_aiiL[a][:, :, 0])
+                magmom_v[2] += (np.einsum('ij, ij ->', M_ii, delta_ii) *
                                 sqrt(4 * pi))
             domain_comm.sum(magmom_av)
             domain_comm.sum(magmom_v)

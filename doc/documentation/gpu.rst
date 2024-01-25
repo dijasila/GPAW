@@ -3,11 +3,11 @@
 GPU
 ===
 
-Ground-state calculations on a GPU is an experimental feature at the moment with
+Ground-state calculations on a GPU is an new feature with
 some limitations:
 
 * only PW-mode
-* it has only been implemented in the new GPAW
+* it has only been implemented in the new GPAW code
 * only parallelization over **k**-points
 
 See :git:`gpaw/test/gpu/test_pw.py` for an example.
@@ -36,6 +36,7 @@ The gpaw.gpu module
 
 .. autodata:: cupy_is_fake
 .. autodata:: is_hip
+.. autofunction:: as_np
 .. autofunction:: as_xp
 .. autofunction:: cupy_eigh
 

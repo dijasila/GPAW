@@ -9,9 +9,6 @@ import gpaw.mpi as mpi
 
 @pytest.mark.later
 def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
-    # Generate setup for oxygen with half a core-hole:
-    gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
-
     # restart from file
     calc = GPAW(gpw_files['si_corehole_pw'])
     si = calc.atoms
@@ -56,8 +53,6 @@ def test_corehole_si(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
 @pytest.mark.later
 def test_si_nonortho(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
     # Generate setup for oxygen with half a core-hole:
-    gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
-
     # restart from file
     # code moved to fixtures: si_corehole_sym,
     # si_corehole_nosym_pw, si_corehole_sym_pw

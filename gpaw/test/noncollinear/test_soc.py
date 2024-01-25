@@ -10,6 +10,7 @@ from ase.build import mx2
 from gpaw import GPAW
 from gpaw.mpi import size
 from gpaw.spinorbit import soc_eigenstates
+from gpaw.berryphase import get_polarization_phase
 
 
 def check(E, hsplit, lsplit):
@@ -21,14 +22,20 @@ def check(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
+def check_pol(phi_c):
+    pol_c = (phi_c / (2 * np.pi)) % 1
+    assert abs(pol_c[0] - 2 / 3) < 0.01
+    assert abs(pol_c[1] - 1 / 3) < 0.01
+
+
 params = dict(mode={'name': 'pw', 'ecut': 350},
               kpts={'size': (3, 3, 1),
                     'gamma': True})
 
 
 @pytest.mark.soc
-@pytest.mark.skipif(size > 1, reason='Does not work in parallel')
-def test_soc_self_consistent(gpaw_new):
+@pytest.mark.skipif(size > 2, reason='May not work in parallel')
+def test_soc_self_consistent(gpaw_new, in_tmp_dir):
     """Self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
@@ -49,6 +56,13 @@ def test_soc_self_consistent(gpaw_new):
     a.get_potential_energy()
     eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
+
+    a.calc.write('mos2.gpw', 'all')
+    GPAW('mos2.gpw')
+
+    if size == 1:
+        phi_c = get_polarization_phase(a.calc)
+        check_pol(phi_c)
 
 
 @pytest.mark.soc

@@ -9,7 +9,7 @@ try:
 except ImportError:
     sphinxcontrib = None
 
-assert sys.version_info >= (3, 6)
+assert sys.version_info >= (3, 8)
 
 sys.path.append('.')
 
@@ -71,12 +71,13 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'Array2D'),
                   ('py:class', 'Array3D'),
                   ('py:class', 'MPIComm'),
+                  ('py:class', 'NLOData'),
                   ('py:class', 'numpy._typing._dtype_like._SupportsDType'),
                   ('py:class', 'numpy._typing._dtype_like._DTypeDict'),
                   ('py:class', 'DTypeLike'),
                   ('py:class', 'ModuleType'),
-                  ('py:class', 'IO')]
-
+                  ('py:class', 'IO'),
+                  ('py:class', 'gpaw.gpu.cpupy.ndarray')]
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_style = 'gpaw.css'

@@ -1,11 +1,11 @@
 from __future__ import annotations
+import numpy as np
 
 from gpaw.core import UGDesc
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.uniform_grid import UGArray
 from gpaw.fd_operators import Gradient, Laplace
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -28,12 +28,6 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         self.electrostatic_potential_desc = self.fine_grid
         self.interpolation_desc = self.fine_grid
-
-    @cached_property
-    def atomdist(self) -> AtomDistribution:
-        return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
-            self.grid.comm)
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -65,7 +59,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         return self._tauct_aR
 
     def create_poisson_solver(self) -> PoissonSolver:
-        solver = make_poisson_solver(**self.params.poissonsolver)
+        solver = make_poisson_solver(**self.params.poissonsolver, xp=self.xp)
         solver.set_grid_descriptor(self.fine_grid._gd)
         return PoissonSolverWrapper(solver)
 
@@ -78,7 +72,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize)
+        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize,
+                             xp=self.xp)
 
     def convert_wave_functions_from_uniform_grid(self,
                                                  C_nM,
@@ -89,7 +84,7 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         psit_nR = grid.zeros(self.nbands, self.communicators['b'])
         mynbands = len(C_nM.data)
         basis_set.lcao_to_grid(C_nM.data, psit_nR.data[:mynbands], q)
-        return psit_nR
+        return psit_nR.to_xp(self.xp)
 
     def read_ibz_wave_functions(self, reader):
         ibzwfs = super().read_ibz_wave_functions(reader)
@@ -130,11 +125,11 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
 
 class FDHamiltonian(Hamiltonian):
-    def __init__(self, grid, kin_stencil=3, blocksize=10):
+    def __init__(self, grid, kin_stencil=3, blocksize=10, xp=np):
         self.grid = grid
         self.blocksize = blocksize
         self._gd = grid._gd
-        self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype)
+        self.kin = Laplace(self._gd, -0.5, kin_stencil, grid.dtype, xp=xp)
 
         # For MGGA:
         self.grad_v = []
@@ -169,11 +164,11 @@ class FDHamiltonian(Hamiltonian):
                 tmp_R.data *= 0.5
                 out_R.data -= tmp_R.data
 
-    def create_preconditioner(self, blocksize):
+    def create_preconditioner(self, blocksize, xp=np):
         from types import SimpleNamespace
 
         from gpaw.preconditioner import Preconditioner as PC
-        pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize)
+        pc = PC(self._gd, self.kin, self.grid.dtype, self.blocksize, xp=xp)
 
         def apply(psit, residuals, out):
             kpt = SimpleNamespace(phase_cd=psit.desc.phase_factor_cd)

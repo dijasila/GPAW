@@ -22,18 +22,6 @@ def prod(iterable: Iterable[int]) -> int:
     return result
 
 
-def cached_property(method):
-    """Quick'n'dirty implementation of cached_property coming in Python 3.8."""
-    name = f'__{method.__name__}'
-
-    def new_method(self):
-        if not hasattr(self, name):
-            setattr(self, name, method(self))
-        return getattr(self, name)
-
-    return property(new_method)
-
-
 def zips(*iterables, strict=True):
     """From PEP 618."""
     if not iterables:
@@ -64,7 +52,7 @@ def zips(*iterables, strict=True):
 
 def spinsum(a_sX: UGArray, mean: bool = False) -> UGArray:
     if a_sX.dims[0] == 2:
-        a_X = a_sX.desc.empty()
+        a_X = a_sX.desc.empty(xp=a_sX.xp)
         a_sX.data[:2].sum(axis=0, out=a_X.data)
         if mean:
             a_X.data *= 0.5

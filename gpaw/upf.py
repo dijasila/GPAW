@@ -254,6 +254,9 @@ def read_sg15(fname):
 
 class UPFSetupData:
     def __init__(self, data, valence_states=None, filename=None):
+        self.phi_jg = []
+        self.phit_jg = []
+        self.xc_correction = None
         # data can be string (filename)
         # or dict (that's what we are looking for).
         # Maybe just a symbol would also be fine if we know the
@@ -316,6 +319,7 @@ class UPFSetupData:
 
         self.rcgauss = 0.0  # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
+        self.nabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         self.fingerprint = None  # XXX hexdigest the file?
         self.lq = None  # XXX
@@ -568,8 +572,8 @@ def upfplot(setup, show=True, calculate=False):
 
     import matplotlib.pyplot as plt
     fig = plt.figure()
-    fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
-                                                           setup.symbol))
+    fig.canvas.set_window_title('{} - UPF setup for {}'.format(pp['fname'],
+                                                               setup.symbol))
 
     vax = fig.add_subplot(221)
     pax = fig.add_subplot(222)

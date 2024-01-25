@@ -1,10 +1,13 @@
 from typing import TYPE_CHECKING
 
 from gpaw.typing import Array1D, ArrayND
+from gpaw.gpu import cupy as cp
+import _gpaw
 
 __all__ = ['GPU_AWARE_MPI']
 
-GPU_AWARE_MPI = False
+GPU_AWARE_MPI = getattr(_gpaw, 'gpu_aware_mpi', False)
+GPU_ENABLED = getattr(_gpaw, 'GPU_ENABLED', False)
 
 
 def add_to_density(f: float,
@@ -29,6 +32,14 @@ def pw_insert(coef_G: Array1D,
               array_Q: Array1D) -> None:
     array_Q[:] = 0.0
     array_Q.ravel()[Q_G] = x * coef_G
+
+
+def pw_insert_gpu(psit_nG,
+                  Q_G,
+                  scale,
+                  psit_bQ):
+    assert scale == 1.0
+    psit_bQ[:, Q_G] = psit_nG
 
 
 def pwlfc_expand(f_Gs, emiGR_Ga, Y_GL,
@@ -61,20 +72,51 @@ def pwlfc_expand_gpu(f_Gs, emiGR_Ga, Y_GL,
     raise NotImplementedError
 
 
+def dH_aii_times_P_ani_gpu(dH_aii, ni_a,
+                           P_nI, out_nI):
+    I1 = 0
+    J1 = 0
+    for ni in ni_a._data:
+        I2 = I1 + ni
+        J2 = J1 + ni**2
+        dH_ii = dH_aii[J1:J2].reshape((ni, ni))
+        out_nI[:, I1:I2] = P_nI[:, I1:I2] @ dH_ii
+        I1 = I2
+        J1 = J2
+
+
+def calculate_residuals_gpu(residual_nG, eps_n, wfs_nG):
+    for residual_G, eps, wfs_G in zip(residual_nG, eps_n, wfs_nG):
+        residual_G -= eps * wfs_G
+
+
+def add_to_density_gpu(weight_n, psit_nR, nt_R):
+    for weight, psit_R in zip(weight_n, psit_nR):
+        nt_R += float(weight) * cp.abs(psit_R)**2
+
+
 def symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c):
     raise NotImplementedError
 
 
+def evaluate_lda_gpu(nt_sr, vxct_sr, e_r) -> None:
+    from gpaw.xc.kernel import XCKernel
+    XCKernel('LDA').calculate(e_r._data, nt_sr._data, vxct_sr._data)
+
+
+def evaluate_pbe_gpu(nt_sr, vxct_sr, e_r, sigma_xr, dedsigma_xr) -> None:
+    from gpaw.xc.kernel import XCKernel
+    XCKernel('PBE').calculate(e_r._data, nt_sr._data, vxct_sr._data,
+                              sigma_xr._data, dedsigma_xr._data)
+
+
 if not TYPE_CHECKING:
-    try:
-        from _gpaw import add_to_density, pw_precond, pw_insert, pwlfc_expand, symmetrize_ft  # noqa
-    except ImportError:
-        pass
-    try:
-        from _gpaw import gpu_aware_mpi as GPU_AWARE_MPI
-    except ImportError:
-        pass
-    try:
-        from _gpaw import pwlfc_expand_gpu  # noqa
-    except ImportError:
-        pass
+    from _gpaw import (  # noqa
+        add_to_density, pw_precond, pw_insert,
+        pwlfc_expand, symmetrize_ft)
+
+    if GPU_ENABLED:
+        from _gpaw import (  # noqa
+            pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
+            dH_aii_times_P_ani_gpu, evaluate_lda_gpu, evaluate_pbe_gpu,
+            calculate_residuals_gpu)

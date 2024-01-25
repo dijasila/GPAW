@@ -175,7 +175,7 @@ class SetupData:
                 text('    - %d%s%-5s %9.3f   %5.3f' % (
                     n, 'spdf'[l], f, eps * Ha, self.rcut_j[j] * Bohr))
             else:
-                text('    -  %s       %9.3f   %5.3f' % (
+                text('    -  {}       {:9.3f}   {:5.3f}'.format(
                     'spdf'[l], eps * Ha, self.rcut_j[j] * Bohr))
             j += 1
         text()
@@ -234,8 +234,11 @@ class SetupData:
 
         return xc_correction
 
-    def write_xml(self) -> None:
-        with open(self.stdfilename, 'w') as fd:
+    def write_xml(self, path=None) -> None:
+        if path is None:
+            path = self.stdfilename
+
+        with open(path, 'w') as fd:
             self._write_xml(fd)
 
     def _write_xml(self, xml: IO[str]) -> None:

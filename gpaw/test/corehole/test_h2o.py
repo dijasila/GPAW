@@ -3,19 +3,12 @@ import pytest
 
 import gpaw.mpi as mpi
 from gpaw import GPAW
-from gpaw.atom.generator2 import generate
-from gpaw.test import equal
 from gpaw.xas import XAS
 
 
 @pytest.mark.later
 def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
     # Generate setup for oxygen with half a core-hole:
-    gen = generate('O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
-                   core_hole='1s,0.5')
-    setup = gen.make_paw_setup('hch1s')
-    setup.write_xml()
-
     calc = GPAW(gpw_files['h2o_xas'])
     if mpi.size == 1:
         xas = XAS(calc)
@@ -33,8 +26,8 @@ def test_corehole_h2o(in_tmp_dir, add_cwd_to_setup_paths, gpw_files):
         w_n = np.sum(xas.sigma_cn.real**2, axis=0)
         de2 = e2_n[1] - e2_n[0]
 
-        equal(de2, 2.064, 0.005)
-        equal(w_n[1] / w_n[0], 2.22, 0.01)
+        assert de2 == pytest.approx(2.064, abs=0.005)
+        assert w_n[1] / w_n[0] == pytest.approx(2.22, abs=0.01)
 
         assert de1 == de2
 
