@@ -140,7 +140,7 @@ class PolarizationPoissonSolver(BasePoissonSolver):
         self.eta = eta
 
         self.gas_phase_poisson = PoissonSolver(
-            name=gas_phase_poisson, nn=nn, eps=eps,
+            name=gas_phase_poisson, nn=nn,
             remove_moment=remove_moment,
             use_charge_center=use_charge_center)
 
