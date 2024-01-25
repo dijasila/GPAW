@@ -11,9 +11,9 @@ from gpaw.transformers import Transformer
 def test_fd_ops_transformations():
     n = 20
     gd = GridDescriptor((n, n, n))
-    np.random.seed(8)
+    rng = np.random.RandomState(8)
     a = gd.empty()
-    a[:] = np.random.random(a.shape)
+    a[:] = rng.random(a.shape)
 
     gd2 = gd.refine()
     b = gd2.zeros()
@@ -31,8 +31,8 @@ def test_fd_ops_transformations():
 
     # complex versions
     a = gd.empty(dtype=complex)
-    a.real = np.random.random(a.shape)
-    a.imag = np.random.random(a.shape)
+    a.real = rng.random(a.shape)
+    a.imag = rng.random(a.shape)
 
     phase = np.ones((3, 2), complex)
 

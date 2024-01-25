@@ -12,9 +12,9 @@ Al_density = calc.get_pseudo_density()
 # Remove Al atoms and do a calculation for Au only:
 slab, calc = restart('ontop.gpw', txt=None)
 del slab[:-1]
-calc.set(kpts=None)
+slab.calc = calc.new(kpts=None)
 slab.get_potential_energy()
-Au_density = calc.get_pseudo_density()
+Au_density = slab.calc.get_pseudo_density()
 
 diff = AuAl_density - Au_density - Al_density
 np.save('densitydiff.npy', diff)

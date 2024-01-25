@@ -1,21 +1,23 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Callable
 
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
 from gpaw.core.matrix import Matrix
-from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property
+from gpaw.mpi import MPIComm, receive, send, serial_comm
+from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D
-from gpaw.new.potential import Potential
 
 
 class LCAOWaveFunctions(WaveFunctions):
+    xp = np
+
     def __init__(self,
                  *,
                  setups: Setups,
@@ -24,7 +26,7 @@ class LCAOWaveFunctions(WaveFunctions):
                  basis,
                  C_nM: Matrix,
                  S_MM: Matrix,
-                 T_MM: Array2D,
+                 T_MM: Matrix,
                  P_aMi,
                  fracpos_ac: Array2D,
                  atomdist: AtomDistribution,
@@ -56,6 +58,9 @@ class LCAOWaveFunctions(WaveFunctions):
         self.S_MM = S_MM
         self.P_aMi = P_aMi
 
+        self.bytes_per_band = (self.array_shape(global_shape=True)[0] *
+                               C_nM.data.itemsize)
+
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
 
@@ -71,6 +76,9 @@ class LCAOWaveFunctions(WaveFunctions):
         L_sMsM.data[:M, :M] = S_MM.data
         L_sMsM.data[M:, M:] = S_MM.data
         return L_sMsM
+
+    def _short_string(self, global_shape):
+        return f'basis functions: {global_shape[0]}'
 
     def array_shape(self, global_shape=False):
         if global_shape:
@@ -90,7 +98,8 @@ class LCAOWaveFunctions(WaveFunctions):
             self._P_ani = layout.empty(self.nbands,
                                        comm=self.C_nM.dist.comm)
             for a, P_Mi in self.P_aMi.items():
-                self._P_ani[a][:] = (self.C_nM.data @ P_Mi)
+                self._P_ani[a][:] = self.C_nM.data @ P_Mi
+
         return self._P_ani
 
     def add_to_density(self,
@@ -133,7 +142,7 @@ class LCAOWaveFunctions(WaveFunctions):
             rho_MM = (C_nM.T.conj() * f_n) @ C_nM
             self.band_comm.sum(rho_MM)
         else:
-            rho_MM = np.empty_like(self.T_MM)
+            rho_MM = np.empty_like(self.T_MM.data)
         self.domain_comm.broadcast(rho_MM, 0)
 
         return rho_MM
@@ -145,16 +154,7 @@ class LCAOWaveFunctions(WaveFunctions):
         psit_nR = grid.zeros(self.nbands, self.band_comm)
         basis.lcao_to_grid(self.C_nM.data, psit_nR.data, self.q)
 
-        return PWFDWaveFunctions(
-            psit_nR,
-            self.spin,
-            self.q,
-            self.k,
-            self.setups,
-            self.fracpos_ac,
-            self.atomdist,
-            self.weight,
-            self.ncomponents)
+        return PWFDWaveFunctions.from_wfs(self, psit_nR)
 
     def collect(self,
                 n1: int = 0,
@@ -184,7 +184,41 @@ class LCAOWaveFunctions(WaveFunctions):
             weight=self.weight,
             ncomponents=self.ncomponents)
 
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        1 / 0
+
     def force_contribution(self, potential: Potential, F_av: Array2D):
         from gpaw.new.lcao.forces import add_force_contributions
         add_force_contributions(self, potential, F_av)
         return F_av
+
+    def send(self, rank, comm):
+        stuff = (self.kpt_c,
+                 self.C_nM.data,
+                 self.spin,
+                 self.q,
+                 self.k,
+                 self.weight,
+                 self.ncomponents)
+        send(stuff, rank, comm)
+
+    def receive(self, rank, comm):
+        kpt_c, data, spin, q, k, weight, ncomponents = receive(rank, comm)
+        return LCAOWaveFunctions(setups=self.setups,
+                                 density_adder=self.density_adder,
+                                 tci_derivatives=self.tci_derivatives,
+                                 basis=self.basis,
+                                 C_nM=Matrix(*data.shape, data=data),
+                                 S_MM=None,
+                                 T_MM=None,
+                                 P_aMi=None,
+                                 fracpos_ac=self.fracpos_ac,
+                                 atomdist=self.atomdist,
+                                 kpt_c=kpt_c,
+                                 spin=spin,
+                                 q=q,
+                                 k=k,
+                                 weight=weight,
+                                 ncomponents=ncomponents)

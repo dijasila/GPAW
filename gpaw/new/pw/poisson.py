@@ -1,21 +1,22 @@
+from functools import cached_property
 from math import pi
 
 import numpy as np
 from ase.units import Bohr, Ha
-from gpaw.core import PlaneWaves, UniformGrid
-from gpaw.core.plane_waves import PlaneWaveExpansions
-from gpaw.new import cached_property
+from gpaw.core import PWDesc, UGDesc
+from gpaw.core.plane_waves import PWArray
 from gpaw.new.poisson import PoissonSolver
 from scipy.special import erf
 
 
-def make_poisson_solver(pw: PlaneWaves,
-                        grid: UniformGrid,
+def make_poisson_solver(pw: PWDesc,
+                        grid: UGDesc,
+                        pbc_c,
                         charge: float,
                         strength: float = 1.0,
                         dipolelayer: bool = False,
                         **kwargs) -> PoissonSolver:
-    if charge != 0.0 and not grid.pbc_c.any():
+    if charge != 0.0 and not pbc_c.any():
         return ChargedPWPoissonSolver(pw, grid, charge, strength, **kwargs)
 
     ps = PWPoissonSolver(pw, charge, strength)
@@ -28,7 +29,7 @@ def make_poisson_solver(pw: PlaneWaves,
 
 class PWPoissonSolver(PoissonSolver):
     def __init__(self,
-                 pw: PlaneWaves,
+                 pw: PWDesc,
                  charge: float = 0.0,
                  strength: float = 1.0):
         self.pw = pw
@@ -44,14 +45,14 @@ class PWPoissonSolver(PoissonSolver):
         txt = ('poisson solver:\n'
                f'  ecut: {self.pw.ecut * Ha}  # eV\n')
         if self.strength != 1.0:
-            txt += f'  strength: {self.strength}'
+            txt += f'  strength: {self.strength}\n'
         if self.charge != 0.0:
-            txt += f'  uniform background charge: {self.charge}  # electrons'
+            txt += f'  uniform background charge: {self.charge}  # electrons\n'
         return txt
 
     def solve(self,
-              vHt_g: PlaneWaveExpansions,
-              rhot_g: PlaneWaveExpansions) -> float:
+              vHt_g: PWArray,
+              rhot_g: PWArray) -> float:
         """Solve Poisson equeation.
 
         Places result in vHt_g ndarray.
@@ -66,6 +67,8 @@ class PWPoissonSolver(PoissonSolver):
         if self.pw.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
             vHt_g.data[0] = 0.0
+        if not isinstance(self.ekin_g, vHt_g.xp.ndarray):
+            self.ekin_g = vHt_g.xp.array(self.ekin_g)
         vHt_g.data /= self.ekin_g
         epot = 0.5 * vHt_g.integrate(rhot_g)
         return epot
@@ -73,8 +76,8 @@ class PWPoissonSolver(PoissonSolver):
 
 class ChargedPWPoissonSolver(PWPoissonSolver):
     def __init__(self,
-                 pw: PlaneWaves,
-                 grid: UniformGrid,
+                 pw: PWDesc,
+                 grid: UGDesc,
                  charge: float,
                  strength: float = 1.0,
                  alpha: float = None,
@@ -92,6 +95,23 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         * Correct energy to remove the artificial interaction with
           the compensation charge
+
+        Parameters
+        ----------
+        pw: PWDesc
+        grid: UGDesc
+        charge: float
+        strength: float
+        alpha: float
+        eps: float
+
+        Attributes
+        ----------
+        alpha : float
+        charge_g : np.ndarray
+            Guassian-shaped charge in reciprocal space
+        potential_g : PWArray
+             Potential in reciprocal space created by charge_g
         """
         super().__init__(pw, charge, strength)
 
@@ -113,14 +133,22 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 
         R_Rv = grid.xyz()
         d_R = ((R_Rv - center_v)**2).sum(axis=3)**0.5
-        potential_R = charge * erf(alpha**0.5 * d_R) / d_R
+        potential_R = grid.empty()
+
+        # avoid division by 0
+        zero_indx = d_R == 0
+        d_R[zero_indx] = 1
+        potential_R.data[:] = charge * erf(alpha**0.5 * d_R) / d_R
+        # at zero we should have:
+        # erf(alpha**0.5 * d_R) / d_R = alpha**0.5 * 2 / sqrt(pi)
+        potential_R.data[zero_indx] = charge * alpha**0.5 * 2 / np.sqrt(pi)
         self.potential_g = potential_R.fft(pw=pw)
 
     def __str__(self) -> str:
-        txt, x = str(super()).rsplit('\n', 1)
+        txt, x, _ = super().__str__().rsplit('\n', 2)
         assert x.startswith('  uniform background charge:')
         txt += (
-            '  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
+            '\n  # using Gaussian-shaped compensation charge: e^(-alpha r^2)\n'
             f'  alpha: {self.alpha}   # bohr^-2')
         return txt
 
@@ -148,7 +176,7 @@ class ChargedPWPoissonSolver(PWPoissonSolver):
 class DipoleLayerPWPoissonSolver(PoissonSolver):
     def __init__(self,
                  ps: PWPoissonSolver,
-                 grid: UniformGrid,
+                 grid: UGDesc,
                  width: float = 1.0):  # Ångström
         self.ps = ps
         self.grid = grid
@@ -156,8 +184,8 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         (self.axis,) = np.where(~grid.pbc_c)
 
     def solve(self,
-              vHt_g: PlaneWaveExpansions,
-              rhot_g: PlaneWaveExpansions) -> float:
+              vHt_g: PWArray,
+              rhot_g: PWArray) -> float:
         epot = self.ps.solve(vHt_g, rhot_g)
 
         dip_v = -rhot_g.moment()
@@ -169,7 +197,7 @@ class DipoleLayerPWPoissonSolver(PoissonSolver):
         return epot + 2 * np.pi * dip_v[c]**2 / self.grid.volume
 
     @cached_property
-    def sawtooth_g(self) -> PlaneWaveExpansions:
+    def sawtooth_g(self) -> PWArray:
         grid = self.grid
         if grid.comm.rank == 0:
             c = self.axis

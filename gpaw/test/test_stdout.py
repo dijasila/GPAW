@@ -16,7 +16,7 @@ def test_stdout():
 
         a = 5.0
         h = 0.2
-        calc = GPAW(h=h, nbands=1, kpts=(1, 1, 1),
+        calc = GPAW(mode='fd', h=h, nbands=1, kpts=(1, 1, 1),
                     occupations=FermiDirac(width=1e-9),
                     xc='PBE',
                     txt=None)

@@ -3,7 +3,7 @@ from ase.visualize import view
 from gpaw import GPAW
 from gpaw.wannier import calculate_overlaps
 
-calc = GPAW(nbands=5)
+calc = GPAW(mode='fd', nbands=5)
 atoms = molecule('CO')
 atoms.center(vacuum=3.)
 atoms.calc = calc

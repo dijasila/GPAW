@@ -8,7 +8,6 @@ from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.excited_state import ExcitedState
 
@@ -43,9 +42,10 @@ def get_H3(calculator=None):
     return H3
 
 
+@pytest.mark.lrtddft
 def test_split(in_tmp_dir):
     fname = 'exlst.out'
-    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=fname)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=3, txt=fname)
     exlst = LrTDDFT(calc, txt=fname)
     exst = ExcitedState(exlst, 0, txt=fname)
     H2 = get_H2(exst)
@@ -62,10 +62,11 @@ def test_split(in_tmp_dir):
             assert 'Total number of cores used: 1' in string
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_excited_state():
     txt = None
 
-    calc = GPAW(xc='PBE', h=0.25, nbands=3, spinpol=False, txt=txt)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=3, spinpol=False, txt=txt)
     H2 = get_H2(calc)
 
     xc = 'LDA'
@@ -81,9 +82,9 @@ def test_lrtddft_excited_state():
     forces = exst.get_forces(H2)
     parprint("time used:", time.time() - t0)
     for c in range(2):
-        equal(forces[0, c], 0.0, accuracy)
-        equal(forces[1, c], 0.0, accuracy)
-    equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
+        assert forces[0, c] == pytest.approx(0.0, abs=accuracy)
+        assert forces[1, c] == pytest.approx(0.0, abs=accuracy)
+    assert forces[0, 2] + forces[1, 2] == pytest.approx(0.0, abs=accuracy)
 
     parprint("########### second call to potential energy --> just return")
     t0 = time.time()
@@ -113,9 +114,10 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
+@pytest.mark.lrtddft
 def test_io(in_tmp_dir):
     """Test output and input from files"""
-    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
     exst = ExcitedState(exlst, 0, txt=None)
     H2 = get_H2(exst)
@@ -150,9 +152,10 @@ def test_io(in_tmp_dir):
     assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
 
+@pytest.mark.lrtddft
 def test_log(in_tmp_dir):
     fname = 'ex0_silent.out'
-    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
     exst = ExcitedState(exlst, 0, txt=fname)
@@ -169,7 +172,7 @@ def test_log(in_tmp_dir):
             assert 'Linear response TDDFT calculation' not in string
 
     fname = 'ex0_split.out'
-    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=fname)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=5, txt=fname)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, log=calc.log)
     exst = ExcitedState(exlst, 0, log=exlst.log, parallel=2)
@@ -194,9 +197,10 @@ def test_log(in_tmp_dir):
             assert string.count('Linear response TDDFT calculation') == n
 
 
+@pytest.mark.lrtddft
 def test_forces():
     """Test whether force calculation works"""
-    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
+    calc = GPAW(mode='fd', xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc)
     exst = ExcitedState(exlst, 0)
     H2 = get_H2(exst)
@@ -224,12 +228,13 @@ def test_forces():
         assert forcesp == pytest.approx(forces, abs=0.001)
 
 
+@pytest.mark.lrtddft
 def test_unequal_parralel_work():
     """Test whether parallel force calculation works for three atoms"""
     if world.size == 1:
         return
 
-    calc = GPAW(xc='PBE', charge=1, h=0.25, nbands=3, txt=None)
+    calc = GPAW(mode='fd', xc='PBE', charge=1, h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
     H3 = get_H3()
 

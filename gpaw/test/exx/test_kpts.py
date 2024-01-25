@@ -45,6 +45,7 @@ gaps = {'EXX': 21.45,
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 @pytest.mark.parametrize('xc', ['EXX', 'PBE0', 'HSE06'])
 def test_kpts(xc: str, atoms: Atoms) -> None:
     c = atoms.calc

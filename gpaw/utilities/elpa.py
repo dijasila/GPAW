@@ -5,7 +5,7 @@ import _gpaw
 
 def _elpaconstants():
     consts = _gpaw.pyelpa_constants()
-    assert consts[0] == 0, 'ELPA_OK is {}, expected 0'.format(consts[0])
+    assert consts[0] == 0, f'ELPA_OK is {consts[0]}, expected 0'
     return {'elpa_ok': consts[0],
             '1stage': consts[1],
             '2stage': consts[2]}
@@ -94,22 +94,6 @@ class LibElpa:
         _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
                                          is_already_decomposed)
 
-    def hermitian_multiply(self, A, B, C, desca, descb, descc,
-                           uplo_a='X', uplo_c='X'):
-        """Calculate C = A**T * B (real matrices) or C = A**H B (complex)."""
-        ROW = 1
-        COL = 0
-
-        ncb = descb.gshape[COL]
-        nrows_b = descb.shape[ROW]
-        ncols_b = descb.shape[COL]
-        nrows_c = descc.shape[ROW]
-        ncols_c = descc.shape[COL]
-        _gpaw.pyelpa_hermitian_multiply(self._ptr, uplo_a, uplo_c,
-                                        # XXXXXXXXXXX .T.copy()
-                                        ncb, A, B, nrows_b, ncols_b,
-                                        C, nrows_c, ncols_c)
-
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
             # print('pyelpa_set {}={}'.format(key, value))
@@ -117,7 +101,7 @@ class LibElpa:
             self._parameters[key] = value
 
     def __repr__(self):
-        return 'LibElpa({})'.format(self._parameters)
+        return f'LibElpa({self._parameters})'
 
     def __del__(self):
         if hasattr(self, '_ptr'):

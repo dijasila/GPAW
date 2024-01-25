@@ -47,10 +47,11 @@ def calculate(xc: str, d: float) -> float:
         slab.calc.write(f'{xc0}-{tag}.gpw', mode='all')
 
         rpa = RPACorrelation(f'{xc0}-{tag}.gpw',
+                             ecut=[200],
                              txt=f'RPAc-{tag}.txt',
                              skip_gamma=True,
                              frequency_scale=2.5)
-        e_rpac = rpa.calculate(ecut=[200])[0]
+        e_rpac = rpa.calculate()[0]
         e = e_hf + e_rpac
 
         if world.rank == 0:

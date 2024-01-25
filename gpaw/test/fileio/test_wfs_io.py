@@ -1,12 +1,15 @@
+import pytest
 from ase import Atoms
 from ase.units import Hartree
+
 from gpaw import GPAW
 
 
+@pytest.mark.later
 def test_fileio_wfs_io(in_tmp_dir):
     h2 = Atoms('H2', [(0, 0, 0), (0, 0, 1)])
     h2.center(vacuum=2.0)
-    calc = GPAW(nbands=2, convergence={'eigenstates': 1e-3})
+    calc = GPAW(mode='fd', nbands=2, convergence={'eigenstates': 1e-3})
     h2.calc = calc
     h2.get_potential_energy()
     r0 = calc.wfs.eigensolver.error * Hartree**2 / 2

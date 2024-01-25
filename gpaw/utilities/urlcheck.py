@@ -8,6 +8,7 @@ from urllib.request import urlopen, Request
 OK = {'https://doi.org/%s',
       'https://arxiv.org/abs/%s',
       'https://gitlab.com/gpaw/gpaw/-/merge_requests/%s',
+      'https://gitlab.com/gpaw/gpaw/-/issues/%s',
       'https://xkcd.com/%s',
       'https://gitlab.com/ase/ase.git@master',
       'https://gitlab.com/{name}/{name}.git',
@@ -15,7 +16,8 @@ OK = {'https://doi.org/%s',
       'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz',
       'https://wiki.fysik.dtu.dk/gpaw-files',
       'https://wiki.fysik.dtu.dk/gpaw-files/',
-      'https://wiki.fysik.dtu.dk/gpaw-files/things/'}
+      'https://wiki.fysik.dtu.dk/gpaw-files/things/',
+      'https://wiki.fysik.dtu.dk/gpaw/devel'}
 
 USERAGENT = 'Mozilla/5.0 (X11; U; Linux i686) Gecko/20071127 Firefox/2.0.0.11'
 

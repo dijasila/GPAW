@@ -1,31 +1,18 @@
 import pytest
 import numpy as np
-from ase.build import molecule
 
-from gpaw import GPAW
 from gpaw.tddft import TDDFT, DipoleMomentWriter
 from gpaw.mpi import world
-from gpaw.test import equal
 
 
+@pytest.mark.later
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_tddft_fxc_linearize(in_tmp_dir):
-    atoms = molecule('SiH4')
-    atoms.center(vacuum=4.0)
-
-    # Ground-state calculation
-    calc = GPAW(nbands=7, h=0.4,
-                convergence={'density': 1e-8},
-                xc='GLLBSC',
-                txt='gs.out')
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write('gs.gpw', mode='all')
+def test_tddft_fxc_linearize(in_tmp_dir, gpw_files):
 
     fxc = 'LDA'
     # Time-propagation calculation with linearize_to_fxc()
-    td_calc = TDDFT('gs.gpw', txt='td.out')
+    td_calc = TDDFT(gpw_files['sih4_xc_gllbsc'], txt='td.out')
     td_calc.linearize_to_xc(fxc)
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
@@ -70,4 +57,4 @@ def test_tddft_fxc_linearize(in_tmp_dir):
            1.423890659304e-04]
 
     tol = 1e-7
-    equal(data, ref, tol)
+    assert data == pytest.approx(ref, abs=tol)

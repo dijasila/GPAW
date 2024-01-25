@@ -110,7 +110,7 @@ class ConstantPotential(ExternalPotential):
         self.name = 'ConstantPotential'
 
     def __str__(self):
-        return 'Constant potential: {:.3f} V'.format(self.constant * Ha)
+        return f'Constant potential: {(self.constant * Ha):.3f} V'
 
     def calculate_potential(self, gd):
         self.vext_g = gd.zeros() + self.constant
@@ -195,7 +195,7 @@ class PointChargePotential(ExternalPotential):
         """Point-charge potential.
 
         charges: list of float
-            Charges.
+            Charges in units of `|e|`.
         positions: (N, 3)-shaped array-like of float
             Positions of charges in Angstrom.  Can be set later.
         rc: float
@@ -325,8 +325,8 @@ class StepPotentialz(ExternalPotential):
         self.zstep = zstep
 
     def __str__(self):
-        return 'Step potentialz: {0:.3f} V to {1:.3f} V at z={2}'.format(
-            self.value_left, self.value_right, self.zstep)
+        return f'Step potentialz: {self.value_left:.3f} V to '\
+               f'{self.value_right:.3f} V at z={self.zstep}'
 
     def calculate_potential(self, gd):
         r_vg = gd.get_grid_point_coordinates()

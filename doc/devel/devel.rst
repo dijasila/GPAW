@@ -43,6 +43,7 @@ version to become the next release.
    writing_documentation
    formulas
    debugging
+   turn_off_things
    profiling
    ase_optimize/ase_optimize
    bugs

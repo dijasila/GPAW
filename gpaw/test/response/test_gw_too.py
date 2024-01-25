@@ -2,39 +2,25 @@ import pytest
 from gpaw.mpi import world
 import numpy as np
 from gpaw.response.g0w0 import G0W0
-from gpaw import GPAW, PW
-from ase.build import bulk
 import pickle
 
 
 @pytest.mark.response
-def test_do_GW_too(in_tmp_dir, gpw_files, scalapack):
-    atoms = bulk('C')
-    atoms.center()
-    calc = GPAW(mode=PW(200),
-                convergence={'bands': 6},
-                nbands=12,
-                kpts={'gamma': True, 'size': (2, 2, 2)},
-                xc='LDA')
-
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write('gs-gw.wfs', 'all')
-
-    ecut_extrapolation = True
-    gw0 = G0W0('gs-gw.wfs', 'gw0',
+def test_do_GW_too(in_tmp_dir, gpw_files, scalapack,
+                   needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
+    gw0 = G0W0(gpw_files['c_pw'], 'gw0',
                bands=(3, 5),
                nblocks=1,
-               ecut_extrapolation=ecut_extrapolation,
+               ecut_extrapolation=True,
                ecut=40)
-
     results0 = gw0.calculate()
-
-    gw = G0W0('gs-gw.wfs', 'gwtoo',
+    gw = G0W0(gpw_files['c_pw'], 'gwtoo',
               bands=(3, 5),
               nblocks=1,
               xc='rALDA',
-              ecut_extrapolation=ecut_extrapolation,
+              ecut_extrapolation=True,
               ecut=40,
               fxc_mode='GWP',
               do_GW_too=True)

@@ -40,7 +40,7 @@ the two BLAS functions ``daxpy`` and ``zaxpy`` in Python::
    Py_RETURN_NONE;
  }
 
-In ``c/_gpaw.c``, we find::
+In ``c/_gpaw.h`` and ``c/_gpaw_so.c``, we find::
 
  static PyMethodDef functions[] = {
    {"axpy", axpy, METH_VARARGS, 0},
@@ -91,7 +91,7 @@ the function.
 Versioning of the C-code
 ========================
 
-Please update the version number in :git:`c/_gpaw.c` and
+Please update the version number in :git:`c/_gpaw.h` and
 :git:`gpaw/__init__.py` whenever changes are made that will make the Python
 code not work with the old C-code.
 

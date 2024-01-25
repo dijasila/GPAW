@@ -3,11 +3,13 @@ from __future__ import annotations
 from math import pi, sqrt
 from typing import TYPE_CHECKING
 
+import numpy as np
 from ase.units import Bohr, Ha
+
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_arrays import AtomArrays
-from gpaw.core.uniform_grid import UniformGridFunctions
+from gpaw.core.uniform_grid import UGArray
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, ArrayLike2D
 from gpaw.utilities import pack
@@ -33,14 +35,14 @@ class ElectrostaticPotential:
 
         # Caching of interpolated pseudo-potential:
         self._grid_spacing = -1.0
-        self._vHt_R: UniformGridFunctions | None = None
+        self._vHt_R: UGArray | None = None
 
     @classmethod
     def from_calculation(cls, calculation: DFTCalculation):
         density = calculation.state.density
-        potential, vHt_x, W_aL = calculation.pot_calc.calculate(density)
+        potential, W_aL = calculation.pot_calc.calculate(density)
         Q_aL = density.calculate_compensation_charge_coefficients()
-        return cls(vHt_x,
+        return cls(potential.vHt_x,
                    W_aL,
                    Q_aL,
                    density.D_asii,
@@ -48,24 +50,33 @@ class ElectrostaticPotential:
                    calculation.setups)
 
     def atomic_potentials(self) -> Array1D:
-        W_aL = self.W_aL.gather()
-        assert W_aL is not None
+        W_aL = self.W_aL.gather(broadcast=True)
         return W_aL.data[::9] * (Ha / (4 * pi)**0.5)
+
+    def atomic_corrections(self):
+        """Calculate PAW correction to average electrostatic potential."""
+        dEH_a = np.zeros(len(self.setups))
+        for a, D_sii in self.D_asii.items():
+            setup = self.setups[a]
+            D_p = pack(D_sii.sum(0))
+            dEH_a[a] = setup.dEH0 + setup.dEH_p @ D_p
+        self.D_asii.layout.atomdist.comm.sum(dEH_a)
+        return dEH_a * Ha * Bohr**3
 
     def pseudo_potential(self,
                          grid_spacing: float = 0.05,  # Ang
-                         ) -> UniformGridFunctions:
+                         ) -> UGArray:
         return self._pseudo_potential(grid_spacing / Bohr).scaled(Bohr, Ha)
 
     def _pseudo_potential(self,
                           grid_spacing: float,  # Bohr
-                          ) -> UniformGridFunctions:
+                          ) -> UGArray:
         if grid_spacing == self._grid_spacing:
             assert self._vHt_R is not None
             return self._vHt_R
 
         vHt_x = self.vHt_x
-        if isinstance(self.vHt_x, UniformGridFunctions):
+        if isinstance(self.vHt_x, UGArray):
             vHt_x = self.vHt_x.to_pbc_grid()
         grid = vHt_x.desc.uniform_grid_with_grid_spacing(grid_spacing / Bohr)
         self._vHt_R = vHt_x.interpolate(grid=grid)
@@ -75,7 +86,7 @@ class ElectrostaticPotential:
     def all_electron_potential(self,
                                grid_spacing: float = 0.05,  # Ang
                                rcgauss: float = 0.02,  # Ang
-                               npoints: int = 200) -> UniformGridFunctions:
+                               npoints: int = 200) -> UGArray:
         """Interpolate electrostatic potential.
 
         Return value in eV.

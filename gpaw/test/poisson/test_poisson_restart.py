@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
+@pytest.mark.later
 def test_poisson_poisson_restart(in_tmp_dir):
     name = 'Na2'
     gpts = np.array([16, 16, 24])
@@ -65,6 +66,7 @@ def test_poisson_poisson_restart(in_tmp_dir):
             calc = GPAW(nbands=2, gpts=gpts / 2, setups={'Na': '1'}, txt=None,
                         poissonsolver=poissonsolver,
                         mode=mode,
+                        symmetry={'point_group': False},
                         convergence={'energy': 1.0,
                                      'density': 1.0,
                                      'eigenstates': 1.0})

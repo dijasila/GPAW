@@ -1,31 +1,33 @@
 from __future__ import annotations
 
+from functools import cached_property
 from math import pi
-from typing import Sequence
-
-import _gpaw
-import gpaw.fftw as fftw
+from typing import Sequence, Literal
 import numpy as np
+
+import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
-from gpaw.core.atom_centered_functions import UniformGridAtomCenteredFunctions
+from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
+from gpaw.gpu import as_np, cupy_is_fake
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property
+from gpaw.new import zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new import zip
+from gpaw.new.c import add_to_density, add_to_density_gpu, symmetrize_ft
+from gpaw.fd_operators import Gradient
 
 
-class UniformGrid(Domain):
+class UGDesc(Domain):
     def __init__(self,
                  *,
-                 cell: ArrayLike1D | ArrayLike2D,
+                 cell: ArrayLike1D | ArrayLike2D,  # bohr
                  size: ArrayLike1D,
                  pbc=(True, True, True),
-                 kpt: Vector = None,
+                 kpt: Vector | None = None,  # in units of reciprocal cell
                  comm: MPIComm = serial_comm,
-                 decomp: Sequence[Sequence[int]] = None,
+                 decomp: Sequence[Sequence[int]] | None = None,
                  dtype=None):
         """Description of 3D uniform grid.
 
@@ -33,7 +35,8 @@ class UniformGrid(Domain):
         ----------
         cell:
             Unit cell given as three floats (orthorhombic grid), six floats
-            (three lengths and the angles in degrees) or a 3x3 matrix.
+            (three lengths and the angles in degrees) or a 3x3 matrix
+            (units: bohr).
         size:
             Number of grid points along axes.
         pbc:
@@ -60,16 +63,18 @@ class UniformGrid(Domain):
 
         self.start_c = np.array([d_p[p]
                                  for d_p, p
-                                 in zip(self.decomp_cp, self.mypos_c)])
+                                 in zips(self.decomp_cp, self.mypos_c)])
         self.end_c = np.array([d_p[p + 1]
                                for d_p, p
-                               in zip(self.decomp_cp, self.mypos_c)])
+                               in zips(self.decomp_cp, self.mypos_c)])
         self.mysize_c = self.end_c - self.start_c
 
         Domain.__init__(self, cell, pbc, kpt, comm, dtype)
         self.myshape = tuple(self.mysize_c)
 
         self.dv = self.volume / self.size_c.prod()
+
+        self.itemsize = 8 if self.dtype == float else 16
 
     @property
     def size(self):
@@ -83,46 +88,50 @@ class UniformGrid(Domain):
     def __repr__(self):
         return Domain.__repr__(self).replace(
             'Domain(',
-            f'UniformGrid(size={self.size_c.tolist()}, ')
+            f'UGDesc(size={self.size_c.tolist()}, ')
+
+    def _short_string(self, global_shape):
+        return f'uniform wave function grid shape: {global_shape}'
 
     @cached_property
-    def phase_factors_cd(self):
+    def phase_factor_cd(self):
         """Phase factor for block-boundary conditions."""
         delta_d = np.array([-1, 1])
         disp_cd = np.empty((3, 2))
-        for pos, pbc, size, disp_d in zip(self.mypos_c, self.pbc_c,
-                                          self.parsize_c, disp_cd):
+        for pos, pbc, size, disp_d in zips(self.mypos_c, self.pbc_c,
+                                           self.parsize_c, disp_cd):
             disp_d[:] = -((pos + delta_d) // size)
         return np.exp(2j * np.pi *
                       disp_cd *
                       self.kpt_c[:, np.newaxis])
 
     def new(self,
+            *,
+            kpt=None,
+            dtype=None,
+            comm: MPIComm | Literal['inherit'] | None = 'inherit',
             size=None,
             pbc=None,
-            kpt=None,
-            comm='inherit',
-            decomp=None,
-            dtype=None) -> UniformGrid:
+            decomp=None) -> UGDesc:
         """Create new uniform grid description."""
         if decomp is None and comm == 'inherit':
             if size is None and pbc is None:
                 decomp = self.decomp_cp
         comm = self.comm if comm == 'inherit' else comm
-        return UniformGrid(cell=self.cell_cv,
-                           size=self.size_c if size is None else size,
-                           pbc=self.pbc_c if pbc is None else pbc,
-                           kpt=(self.kpt_c if self.kpt_c.any() else None)
-                           if kpt is None else kpt,
-                           comm=comm or serial_comm,
-                           decomp=decomp,
-                           dtype=self.dtype if dtype is None else dtype)
+        return UGDesc(cell=self.cell_cv,
+                      size=self.size_c if size is None else size,
+                      pbc=self.pbc_c if pbc is None else pbc,
+                      kpt=(self.kpt_c if self.kpt_c.any() else None)
+                      if kpt is None else kpt,
+                      comm=comm or serial_comm,
+                      decomp=decomp,
+                      dtype=self.dtype if dtype is None else dtype)
 
     def empty(self,
               dims: int | tuple[int, ...] = (),
               comm: MPIComm = serial_comm,
-              xp=np) -> UniformGridFunctions:
-        """Create new UniformGridFunctions object.
+              xp=np) -> UGArray:
+        """Create new UGArray object.
 
         parameters
         ----------
@@ -131,7 +140,10 @@ class UniformGrid(Domain):
         comm:
             Distribute dimensions along this communicator.
         """
-        return UniformGridFunctions(self, dims, comm, xp=xp)
+        return UGArray(self, dims, comm, xp=xp)
+
+    def from_data(self, data):
+        return UGArray(self, data.shape[:-3], data=data)
 
     def blocks(self, data: np.ndarray):
         """Yield views of blocks of data."""
@@ -155,34 +167,40 @@ class UniformGrid(Domain):
                                 functions,
                                 positions,
                                 *,
+                                qspiral_v=None,
                                 atomdist=None,
                                 integral=None,
                                 cut=False,
                                 xp=None):
-        """Create UniformGridAtomCenteredFunctions object."""
-        return UniformGridAtomCenteredFunctions(functions, positions, self,
-                                                atomdist=atomdist,
-                                                integral=integral, cut=cut)
+        """Create UGAtomCenteredFunctions object."""
+        assert qspiral_v is None
+        return UGAtomCenteredFunctions(functions,
+                                       positions,
+                                       self,
+                                       atomdist=atomdist,
+                                       integral=integral,
+                                       cut=cut,
+                                       xp=xp)
 
-    def transformer(self, other: UniformGrid, stencil_range=3):
+    def transformer(self, other: UGDesc, stencil_range=3, xp=np):
         """Create transformer from one grid to another.
 
         (for interpolation and restriction).
         """
         from gpaw.transformers import Transformer
 
-        apply = Transformer(self._gd, other._gd, nn=stencil_range).apply
+        apply = Transformer(self._gd, other._gd, nn=stencil_range, xp=xp).apply
 
         def transform(functions, out=None):
             if out is None:
-                out = other.empty(functions.dims, functions.comm)
-            for input, output in zip(functions._arrays(), out._arrays()):
+                out = other.empty(functions.dims, functions.comm, xp=xp)
+            for input, output in zips(functions._arrays(), out._arrays()):
                 apply(input, output)
             return out
 
         return transform
 
-    def eikr(self, kpt_c: Vector = None) -> Array3D:
+    def eikr(self, kpt_c: Vector | None = None) -> Array3D:
         """Plane wave.
 
         :::
@@ -194,7 +212,7 @@ class UniformGrid(Domain):
         ----------
         kpt_c:
             k-point in units of the reciprocal cell.  Defaults to the
-            UniformGrid objects own k-point.
+            UGDesc objects own k-point.
         """
         if kpt_c is None:
             kpt_c = self.kpt_c
@@ -215,34 +233,37 @@ class UniformGrid(Domain):
 
     @classmethod
     def _from_gd_and_kpt_and_dtype(cls, gd, kpt, dtype):
-        return UniformGrid(cell=gd.cell_cv,
-                           size=gd.N_c,
-                           pbc=gd.pbc_c,
-                           comm=gd.comm,
-                           dtype=dtype,
-                           kpt=kpt,
-                           decomp=gd.n_cp)
+        return UGDesc(cell=gd.cell_cv,
+                      size=gd.N_c,
+                      pbc=gd.pbc_c,
+                      comm=gd.comm,
+                      dtype=dtype,
+                      kpt=kpt,
+                      decomp=gd.n_cp)
 
     @classmethod
     def from_cell_and_grid_spacing(cls,
                                    cell: ArrayLike1D | ArrayLike2D,
                                    grid_spacing: float,
                                    pbc=(True, True, True),
-                                   kpt: Vector = None,
+                                   kpt: Vector | None = None,
                                    comm: MPIComm = serial_comm,
-                                   dtype=None) -> UniformGrid:
-        """Create UniformGrid from grid-spacing."""
+                                   dtype=None) -> UGDesc:
+        """Create UGDesc from grid-spacing."""
         domain = Domain(cell, pbc, kpt, comm, dtype)
         return domain.uniform_grid_with_grid_spacing(grid_spacing)
 
     def fft_plans(self,
                   flags: int = fftw.MEASURE,
-                  xp=np) -> fftw.FFTPlans:
+                  xp=np,
+                  dtype=None) -> fftw.FFTPlans:
         """Create FFTW-plans."""
+        if dtype is None:
+            dtype = self.dtype
         if self.comm.rank == 0:
-            return fftw.create_plans(self.size_c, self.dtype, flags, xp)
+            return fftw.create_plans(self.size_c, dtype, flags, xp)
         else:
-            return fftw.FFTPlans([0, 0, 0], self.dtype)
+            return fftw.create_plans([0, 0, 0], dtype)
 
     def ranks_from_fractional_positions(self,
                                         fracpos_ac: Array2D) -> Array1D:
@@ -251,13 +272,17 @@ class UniformGrid(Domain):
             raise ValueError('Positions outside cell!')
         return np.ravel_multi_index(rank_ac.T, self.parsize_c)  # type: ignore
 
+    def ecut_max(self):
+        dv_cv = self.cell_cv / self.size_c[:, np.newaxis]
+        return 0.5 * np.pi**2 / (dv_cv**2).sum(1).max()  # or min ??????
 
-class UniformGridFunctions(DistributedArrays[UniformGrid]):
+
+class UGArray(DistributedArrays[UGDesc]):
     def __init__(self,
-                 grid: UniformGrid,
+                 grid: UGDesc,
                  dims: int | tuple[int, ...] = (),
                  comm: MPIComm = serial_comm,
-                 data: np.ndarray = None,
+                 data: np.ndarray | None = None,
                  xp=None):
         """Object for storing function(s) on a uniform grid.
 
@@ -278,14 +303,14 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         self.desc = grid
 
     def __repr__(self):
-        txt = f'UniformGridFunctions(grid={self.desc}, dims={self.dims}'
+        txt = f'UGArray(grid={self.desc}, dims={self.dims}'
         if self.comm.size > 1:
             txt += f', comm={self.comm.rank}/{self.comm.size}'
         if self.xp is not np:
             txt += ', xp=cp'
         return txt + ')'
 
-    def new(self, data=None):
+    def new(self, data=None, zeroed=False):
         """Create new UniforGridFunctions object of same kind.
 
         Parameters
@@ -294,30 +319,33 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             Array to use for storage.
         """
         if data is None:
-            data = np.empty_like(self.data)
-        return UniformGridFunctions(self.desc, self.dims, self.comm, data)
+            data = self.xp.empty_like(self.data)
+        f_xR = UGArray(self.desc, self.dims, self.comm, data)
+        if zeroed:
+            f_xR.data[:] = 0.0
+        return f_xR
 
     def __getitem__(self, index):
         data = self.data[index]
-        return UniformGridFunctions(data=data,
-                                    dims=data.shape[:-3],
-                                    grid=self.desc)
+        return UGArray(data=data,
+                       dims=data.shape[:-3],
+                       grid=self.desc)
 
     def __imul__(self,
-                 other: float | np.ndarray | UniformGridFunctions
-                 ) -> UniformGridFunctions:
+                 other: float | np.ndarray | UGArray
+                 ) -> UGArray:
         if isinstance(other, float):
             self.data *= other
             return self
-        if isinstance(other, UniformGridFunctions):
+        if isinstance(other, UGArray):
             other = other.data
         assert other.shape[-3:] == self.data.shape[-3:]
         self.data *= other
         return self
 
     def __mul__(self,
-                other: float | np.ndarray | UniformGridFunctions
-                ) -> UniformGridFunctions:
+                other: float | np.ndarray | UGArray
+                ) -> UGArray:
         result = self.new(data=self.data.copy())
         result *= other
         return result
@@ -341,11 +369,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid = self.desc
         dx = (grid.cell_cv[c]**2).sum()**0.5 / grid.size_c[c]
         x = np.arange(grid.start_c[c], grid.end_c[c]) * dx
-        return x, y
+        return x, as_np(y)
 
     def scatter_from(self, data=None):
         """Scatter data from rank-0 to all ranks."""
-        if isinstance(data, UniformGridFunctions):
+        if isinstance(data, UGArray):
             data = data.data
         comm = self.desc.comm
         if comm.size == 1:
@@ -380,11 +408,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         if broadcast or comm.rank == 0:
             grid = self.desc.new(comm=serial_comm)
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, comm=self.comm, xp=self.xp)
 
         if comm.rank != 0:
             # There can be several sends before the corresponding receives
-            # are posted, so use syncronous send here
+            # are posted, so use synchronous send here
             comm.ssend(self.data, 0, 301)
             if broadcast:
                 comm.broadcast(out.data, 0)
@@ -395,7 +423,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         # for the whole domain:
         for rank, block in enumerate(self.desc.blocks(out.data)):
             if rank != 0:
-                buf = np.empty_like(block)
+                buf = self.xp.empty_like(block)
                 comm.receive(buf, rank, 301)
                 block[:] = buf
             else:
@@ -447,13 +475,13 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         norm_x = []
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
-            norm_x.append(np.vdot(a_R, a_R).real * self.desc.dv)
-        result = np.array(norm_x).reshape(self.mydims)
+            norm_x.append(self.xp.vdot(a_R, a_R).real * self.desc.dv)
+        result = self.xp.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
-    def integrate(self, other=None):
-        """Integral of self or self time cc(other)."""
+    def integrate(self, other=None, skip_sum=False):
+        """Integral of self or self times cc(other)."""
         if other is not None:
             assert self.desc.dtype == other.desc.dtype
             a_xR = self._arrays()
@@ -462,13 +490,13 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b_yR = b_yR.reshape((len(b_yR), -1))
             result = (a_xR @ b_yR.T.conj()).reshape(self.dims + other.dims)
         else:
-            result = self.data.sum(axis=(-3, -2, -1))
+            # Make sure we have an array and not a scalar!
+            result = self.xp.asarray(self.data.sum(axis=(-3, -2, -1)))
 
-        if result.ndim == 0:
-            result = self.desc.comm.sum(result.item())
-        else:
+        if not skip_sum:
             self.desc.comm.sum(result)
-
+        if result.ndim == 0:
+            result = result.item()  # convert to scalar
         return result * self.desc.dv
 
     def to_pbc_grid(self):
@@ -478,11 +506,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid = self.desc.new(pbc=True)
         new = grid.empty(self.dims)
         new.data[:] = 0.0
-        i, j, k = self.desc.start_c
-        new.data[..., i:, j:, k:] = self.data
+        *_, i, j, k = self.data.shape
+        new.data[..., -i:, -j:, -k:] = self.data
         return new
 
-    def multiply_by_eikr(self, kpt_c: Vector = None) -> None:
+    def multiply_by_eikr(self, kpt_c: Vector | None = None) -> None:
         """Multiply by `exp(ik.r)`."""
         if kpt_c is None:
             kpt_c = self.desc.kpt_c
@@ -492,10 +520,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             self.data *= self.desc.eikr(kpt_c)
 
     def interpolate(self,
-                    plan1: fftw.FFTPlans = None,
-                    plan2: fftw.FFTPlans = None,
-                    grid: UniformGrid = None,
-                    out: UniformGridFunctions = None) -> UniformGridFunctions:
+                    plan1: fftw.FFTPlans | None = None,
+                    plan2: fftw.FFTPlans | None = None,
+                    grid: UGDesc | None = None,
+                    out: UGArray | None = None) -> UGArray:
         """Interpolate to finer grid.
 
         Parameters
@@ -507,19 +535,19 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid:
             Target grid.
         out:
-            Target UniformGridFunctions object.
+            Target UGArray object.
         """
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty(self.dims)
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -532,11 +560,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if (size2_c <= size1_c).any():
             raise ValueError('Too few points in target grid!')
 
-        plan1 = plan1 or self.desc.fft_plans()
-        plan2 = plan2 or out.desc.fft_plans()
+        plan1 = plan1 or self.desc.fft_plans(xp=self.xp)
+        plan2 = plan2 or out.desc.fft_plans(xp=self.xp)
 
         if self.dims:
-            for input, output in zip(self.flat(), out.flat()):
+            for input, output in zips(self.flat(), out.flat()):
                 input.interpolate(plan1, plan2, grid, output)
             return out
 
@@ -561,7 +589,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         b_Q[:] = 0.0
-        b_Q[a0:b0, a1:b1, a2:b2] = np.fft.fftshift(a_Q, axes=axes)
+        b_Q[a0:b0, a1:b1, a2:b2] = self.xp.fft.fftshift(a_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] *= 0.5
@@ -579,7 +607,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             if e2:
                 b_Q[a0:b0, a1:b1, b2 - 1] *= 0.5
 
-        b_Q[:] = np.fft.ifftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.ifftshift(b_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
@@ -587,10 +615,10 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         return out
 
     def fft_restrict(self,
-                     plan1: fftw.FFTPlans = None,
-                     plan2: fftw.FFTPlans = None,
-                     grid: UniformGrid = None,
-                     out: UniformGridFunctions = None) -> UniformGridFunctions:
+                     plan1: fftw.FFTPlans | None = None,
+                     plan2: fftw.FFTPlans | None = None,
+                     grid: UGDesc | None = None,
+                     out: UGArray | None = None) -> UGArray:
         """Restrict to coarser grid.
 
         Parameters
@@ -602,19 +630,19 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         grid:
             Target grid.
         out:
-            Target UniformGridFunctions object.
+            Target UGArray object.
         """
         if out is None:
             if grid is None:
                 raise ValueError('Please specify "grid" or "out".')
-            out = grid.empty()
+            out = grid.empty(self.dims, xp=self.xp)
 
         if not out.desc.pbc_c.all() or not self.desc.pbc_c.all():
             raise ValueError('Grids must have pbc=True!')
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.fft_restrict(plan1, plan2,
                                             out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -627,6 +655,11 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
         plan1 = plan1 or self.desc.fft_plans()
         plan2 = plan2 or out.desc.fft_plans()
+
+        if self.dims:
+            for input, output in zips(self.flat(), out.flat()):
+                input.fft_restrict(plan1, plan2, grid, output)
+            return out
 
         plan1.tmp_R[:] = self.data
         a_Q = plan2.tmp_Q
@@ -644,7 +677,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             axes = [0, 1, 2]
 
         plan1.fft()
-        b_Q[:] = np.fft.fftshift(b_Q, axes=axes)
+        b_Q[:] = self.xp.fft.fftshift(b_Q, axes=axes)
 
         if e0:
             b_Q[a0, a1:b1, a2:b2] += b_Q[b0 - 1, a1:b1, a2:b2]
@@ -660,7 +693,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
             b2 -= 1
 
         a_Q[:] = b_Q[a0:b0, a1:b1, a2:b2]
-        a_Q[:] = np.fft.ifftshift(a_Q, axes=axes)
+        a_Q[:] = self.xp.fft.ifftshift(a_Q, axes=axes)
         plan2.ifft()
         out.data[:] = plan2.tmp_R
         out.data *= (1.0 / self.data.size)
@@ -668,12 +701,18 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
 
     def abs_square(self,
                    weights: Array1D,
-                   out: UniformGridFunctions = None) -> None:
+                   out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        for f, psit_R in zip(weights, self.data):
-            # Same as out.data += f * abs(psit_R)**2, but much faster:
-            _gpaw.add_to_density(f, psit_R, out.data)
+
+        if self.xp is np:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R, out.data)
+        elif cupy_is_fake:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R._data, out.data._data)  # type: ignore
+        else:
+            add_to_density_gpu(self.xp.asarray(weights), self.data, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""
@@ -685,22 +724,26 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if a_xR is None:
             b_xR = None
         else:
+            if self.xp is not np:
+                a_xR = a_xR.to_xp(np)
             b_xR = a_xR.new()
             t_sc = (translation_sc * self.desc.size_c).round().astype(int)
             offset_c = 1 - self.desc.pbc_c
-            for a_R, b_R in zip(a_xR._arrays(), b_xR._arrays()):
+            for a_R, b_R in zips(a_xR._arrays(), b_xR._arrays()):
                 b_R[:] = 0.0
-                for r_cc, t_c in zip(rotation_scc, t_sc):
-                    _gpaw.symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
-
+                for r_cc, t_c in zips(rotation_scc, t_sc):
+                    symmetrize_ft(a_R, b_R, r_cc, t_c, offset_c)
+            if self.xp is not np:
+                b_xR = b_xR.to_xp(self.xp)
         self.scatter_from(b_xR)
 
         self.data *= 1.0 / len(rotation_scc)
 
-    def randomize(self) -> None:
+    def randomize(self, seed: int | None = None) -> None:
         """Insert random numbers between -0.5 and 0.5 into data."""
-        seed = [self.comm.rank, self.desc.comm.rank]
-        rng = np.random.default_rng(seed)
+        if seed is None:
+            seed = self.comm.rank + self.desc.comm.rank * self.comm.size
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
@@ -716,7 +759,7 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         if center_v is not None:
             frac_c = np.linalg.solve(ug.cell_cv.T, center_v)
             corner_c = (frac_c % 1 - 0.5) * ug.size_c
-            for index_r, corner, size in zip(index_cr, corner_c, ug.size_c):
+            for index_r, corner, size in zips(index_cr, corner_c, ug.size_c):
                 index_r -= corner
                 index_r %= size
                 index_r += corner
@@ -725,30 +768,43 @@ class UniformGridFunctions(DistributedArrays[UniformGrid]):
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+        if self.xp is not np:
+            rho_cr = [rho_r.get() for rho_r in rho_cr]
 
-        d_c = [index_r @ rho_r for index_r, rho_r in zip(index_cr, rho_cr)]
+        d_c = [index_r @ rho_r for index_r, rho_r in zips(index_cr, rho_cr)]
         d_v = (d_c / ug.size_c) @ ug.cell_cv * self.dv
         self.desc.comm.sum(d_v)
         return d_v
 
     def scaled(self, s: float, v: float = 1.0):
-        """Create new scaled UniformGridFunctions object.
+        """Create new scaled UGArray object.
 
         Unit cell axes are multiplied by `s` and data by `v`.
         """
         grid = self.desc
-        assert grid.comm.size == 1
-        grid = UniformGrid(cell=grid.cell_cv * s,
-                           size=grid.size_c,
-                           pbc=grid.pbc_c,
-                           kpt=(grid.kpt_c if grid.kpt_c.any() else None),
-                           dtype=grid.dtype)
-        return UniformGridFunctions(grid, self.dims, self.comm, self.data * v)
+        grid = UGDesc(cell=grid.cell_cv * s,
+                      size=grid.size_c,
+                      pbc=grid.pbc_c,
+                      kpt=(grid.kpt_c if grid.kpt_c.any() else None),
+                      dtype=grid.dtype,
+                      comm=grid.comm)
+        return UGArray(grid, self.dims, self.comm, self.data * v)
 
-    def to_xp(self, xp):
-        if xp is self.xp:
-            return self
-        if xp is np:
-            return self.new(data=xp.asnumpy(self.data))
-        else:
-            return self.new(data=xp.asarray(self.data))
+    def add_ked(self,
+                occ_n: Array1D,
+                taut_R: UGArray) -> None:
+        grad_v = [
+            Gradient(self.desc._gd, v, n=3, dtype=self.desc.dtype)
+            for v in range(3)]
+        tmp_R = self.desc.empty()
+        for f, psit_R in zips(occ_n, self):
+            for grad in grad_v:
+                grad(psit_R, tmp_R)
+                add_to_density(0.5 * f, tmp_R.data, taut_R.data)
+
+    def redist(self,
+               domain: UGDesc,
+               comm1: MPIComm, comm2: MPIComm) -> UGArray:
+        a = super().redist(domain, comm1, comm2)
+        assert isinstance(a, UGArray)
+        return a

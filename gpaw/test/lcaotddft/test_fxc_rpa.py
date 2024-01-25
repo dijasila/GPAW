@@ -1,17 +1,14 @@
 import numpy as np
-
+import pytest
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.mpi import world
-
-from gpaw.test import equal
-
-# Atoms
+from gpaw.poisson import PoissonSolver
 
 
+@pytest.mark.rttddft
 def test_lcaotddft_fxc_rpa(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -21,6 +18,7 @@ def test_lcaotddft_fxc_rpa(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 poissonsolver=PoissonSolver('fd', eps=1e-16),
                 convergence={'density': 1e-8},
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -56,4 +54,4 @@ def test_lcaotddft_fxc_rpa(in_tmp_dir):
            5.366663490365e-05]
 
     tol = 1e-9
-    equal(data, ref, tol)
+    assert data == pytest.approx(ref, abs=tol)

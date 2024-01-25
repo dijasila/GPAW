@@ -6,7 +6,6 @@ from ase.parallel import parprint
 from gpaw import GPAW, FermiDirac
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.cluster import Cluster
-from gpaw.test import equal
 
 
 @pytest.mark.later
@@ -20,12 +19,12 @@ def test_vdw_H_Hirshfeld():
 
     volumes = []
     for spinpol in [False, True]:
-        calc = GPAW(h=h,
+        calc = GPAW(mode='fd',
+                    h=h,
                     occupations=FermiDirac(0.1, fixmagmom=spinpol),
-                    experimental={'niter_fixdensity': 2},
                     spinpol=spinpol)
         calc.calculate(atoms)
         vol = HirshfeldPartitioning(calc).get_effective_volume_ratios()
         volumes.append(vol)
     parprint(volumes)
-    equal(volumes[0][0], volumes[1][0], 4e-9)
+    assert volumes[0][0] == pytest.approx(volumes[1][0], abs=4e-9)

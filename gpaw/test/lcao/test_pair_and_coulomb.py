@@ -6,12 +6,12 @@ from gpaw.lcao.tools import makeU, makeV
 from gpaw import GPAW, FermiDirac, restart
 from gpaw.lcao.pwf2 import LCAOwrap
 from gpaw.mpi import world, rank, serial_comm
-from gpaw.test import equal
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
+@pytest.mark.later
 def test_lcao_pair_and_coulomb(in_tmp_dir):
     atoms = molecule('H2')
     atoms.set_cell([6.4, 6.4, 6.4])
@@ -65,4 +65,4 @@ def test_lcao_pair_and_coulomb(in_tmp_dir):
          [11.12669608, 8.82280293, 8.82280293, 11.12669608],
          [11.12669608, 8.82280293, 8.82280293, 11.12669608],
          [12.82934563, 11.12669608, 11.12669608, 15.34450178]])
-    equal(abs(V_pp_ref - V_pp).max(), 0.0, 1.0e-5)
+    assert abs(V_pp_ref - V_pp).max() == pytest.approx(0.0, abs=1.0e-5)

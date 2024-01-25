@@ -3,6 +3,7 @@ from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, FermiDirac
 from gpaw.response.g0w0 import G0W0
+from gpaw.mpi import world
 
 
 @pytest.fixture
@@ -10,22 +11,21 @@ def gpwfile(in_tmp_dir):
     calc = GPAW(
         mode='pw',
         xc='PBE',
-        experimental={'niter_fixdensity': 2},
         nbands=16,
         convergence={'bands': 15},
         setups={'Mo': '6'},
         occupations=FermiDirac(0.001),
-        kpts={'size': (6, 6, 1), 'gamma': True})
+        kpts={'size': (3, 3, 1), 'gamma': True})
 
     a = 3.1604
     c = 10.0
 
     cell = Hexagonal(symbol='Mo',
                      latticeconstant={'a': a, 'c': c}).get_cell()
-    layer = Atoms(symbols='MoS2', cell=cell, pbc=True,
-                  scaled_positions=[(0, 0, 0),
-                                    (2 / 3, 1 / 3, 0.3),
-                                    (2 / 3, 1 / 3, -0.3)])
+    layer = Atoms(symbols='MoS2', cell=cell, pbc=[True, True, False],
+                  scaled_positions=[(0, 0, 0.5),
+                                    (2 / 3, 1 / 3, 0.3 + 0.5),
+                                    (2 / 3, 1 / 3, -0.3 + 0.5)])
 
     pos = layer.get_positions()
     pos[1][2] = pos[0][2] + 3.172 / 2
@@ -39,7 +39,9 @@ def gpwfile(in_tmp_dir):
 
 
 @pytest.mark.response
-def test_response_gw_MoS2_cut(scalapack, gpwfile):
+def test_response_gw_MoS2_cut(scalapack, gpwfile, needs_ase_master, gpaw_new):
+    if gpaw_new and world.size > 1:
+        pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     gw = G0W0(gpwfile,
               'gw-test',
               nbands=15,
@@ -56,7 +58,7 @@ def test_response_gw_MoS2_cut(scalapack, gpwfile):
     for path in paths.values():
         assert path.exists()
 
-    ev = 2.669
-    ec = 6.804
+    ev = 2.392
+    ec = 7.337
     assert e_qp[0] == pytest.approx(ev, abs=0.01)
     assert e_qp[1] == pytest.approx(ec, abs=0.01)

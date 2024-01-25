@@ -10,7 +10,7 @@ usage = """gpaw sbatch [-0] -- [sbatch options] script.py [script options]
 class CLICommand:
     """Submit a GPAW Python script via sbatch.
 
-    
+
    If a virtual environment is active when submitting, it will be activated for
    the job as well.
    """
@@ -58,5 +58,5 @@ class CLICommand:
             print('\nscript:')
             print(script, end='')
         else:
-            p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+            p = subprocess.Popen(cmd, stdin=subprocess.PIPE, env=os.environ)
             p.communicate(script.encode())

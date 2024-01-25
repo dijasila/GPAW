@@ -6,12 +6,13 @@ from ase.build import bulk
 from ase.parallel import parprint
 
 from gpaw import GPAW, PW
-from gpaw.test import findpeak, equal
+from gpaw.test import findpeak
 from gpaw.mpi import size, world
 
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.chiks import ChiKS
-from gpaw.response.susceptibility import ChiFactory, read_component
+from gpaw.response.chiks import ChiKSCalculator
+from gpaw.response.susceptibility import ChiFactory
+from gpaw.response.pair_functions import read_susceptibility_array
 
 
 @pytest.mark.kspair
@@ -73,26 +74,27 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
     # Check that results are consistent, when structure is simply repeated
 
     # Read results
-    w11_w, G11_Gc, chiks11_wGG, chi11_wGG = read_component('Al1_chiGG_q1.pckl')
-    w21_w, G21_Gc, chiks21_wGG, chi21_wGG = read_component('Al2_chiGG_q1.pckl')
-    w12_w, G12_Gc, chiks12_wGG, chi12_wGG = read_component('Al1_chiGG_q2.pckl')
-    w22_w, G22_Gc, chiks22_wGG, chi22_wGG = read_component('Al2_chiGG_q2.pckl')
+    w11_w, G11_Gc, chi11_wGG = read_susceptibility_array('Al1_chiGG_q1.pckl')
+    w21_w, G21_Gc, chi21_wGG = read_susceptibility_array('Al2_chiGG_q1.pckl')
+    w12_w, G12_Gc, chi12_wGG = read_susceptibility_array('Al1_chiGG_q2.pckl')
+    w22_w, G22_Gc, chi22_wGG = read_susceptibility_array('Al2_chiGG_q2.pckl')
 
     # Check that reciprocal lattice vectors remain as assumed in check below
-    equal(np.linalg.norm(G11_Gc[0]), 0., 1e-6)
-    equal(np.linalg.norm(G21_Gc[0]), 0., 1e-6)
-    equal(np.linalg.norm(G12_Gc[0]), 0., 1e-6)
-    equal(np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])), 0., 1e-6)
+    assert np.linalg.norm(G11_Gc[0]) == pytest.approx(0., abs=1e-6)
+    assert np.linalg.norm(G21_Gc[0]) == pytest.approx(0., abs=1e-6)
+    assert np.linalg.norm(G12_Gc[0]) == pytest.approx(0., abs=1e-6)
+    assert np.linalg.norm(G22_Gc[1] - np.array([1, 0, 0])) == pytest.approx(
+        0., abs=1e-6)
 
     # Check plasmon peaks remain the same
     wpeak11, Ipeak11 = findpeak(w11_w, -chi11_wGG[:, 0, 0].imag)
     wpeak21, Ipeak21 = findpeak(w21_w, -chi21_wGG[:, 0, 0].imag)
-    equal(wpeak11, wpeak21, 0.02)
-    equal(Ipeak11, Ipeak21, 1.0)
+    assert wpeak11 == pytest.approx(wpeak21, abs=0.02)
+    assert Ipeak11 == pytest.approx(Ipeak21, abs=1.0)
     wpeak12, Ipeak12 = findpeak(w12_w, -chi12_wGG[:, 0, 0].imag)
     wpeak22, Ipeak22 = findpeak(w22_w, -chi22_wGG[:, 1, 1].imag)
-    equal(wpeak12, wpeak22, 0.05)
-    equal(Ipeak12, Ipeak22, 1.0)
+    assert wpeak12 == pytest.approx(wpeak22, abs=0.05)
+    assert Ipeak12 == pytest.approx(Ipeak22, abs=1.0)
 
 
 def calculate_chi(calc, q_qc, w,
@@ -100,8 +102,8 @@ def calculate_chi(calc, q_qc, w,
                   spincomponent='00', fxc='RPA',
                   filename_prefix=None, reduced_ecut=25):
     gs = ResponseGroundStateAdapter(calc)
-    chiks = ChiKS(gs, eta=eta, ecut=ecut)
-    chi_factory = ChiFactory(chiks)
+    chiks_calc = ChiKSCalculator(gs, ecut=ecut)
+    chi_factory = ChiFactory(chiks_calc)
 
     if filename_prefix is None:
         filename = 'chiGG_qXXX.pckl'
@@ -110,6 +112,7 @@ def calculate_chi(calc, q_qc, w,
 
     for q, q_c in enumerate(q_qc):
         fname = filename.replace('XXX', str(q + 1))
-        chi = chi_factory(spincomponent, q_c, w, fxc=fxc)
-        chi.write_component_array(fname, reduced_ecut=reduced_ecut)
+        _, chi = chi_factory(spincomponent, q_c, w + 1.j * eta, fxc=fxc)
+        chi = chi.copy_with_reduced_ecut(reduced_ecut)
+        chi.write_array(fname)
         world.barrier()

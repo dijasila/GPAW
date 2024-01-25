@@ -52,6 +52,7 @@ def dscf_calculation(paw, orbitals, atoms):
     # is None
     if paw.wfs is None:
         paw.initialize(atoms)
+    assert paw.wfs.mode != 'pw'
     occ = paw.wfs.occupations
     if isinstance(occ, OccupationsDSCF):
         occ.orbitals = orbitals

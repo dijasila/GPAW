@@ -3,10 +3,15 @@
 import os
 import sys
 import re
-from sysconfig import get_config_vars, get_platform
-from glob import glob
+import shlex
+from sysconfig import get_config_var, get_platform
+from subprocess import run
 from pathlib import Path
 from stat import ST_MTIME
+
+
+def config_args(key):
+    return shlex.split(get_config_var(key))
 
 
 def mtime(path, name, mtimes):
@@ -58,9 +63,7 @@ def check_dependencies(sources):
 
 def write_configuration(define_macros, include_dirs, libraries, library_dirs,
                         extra_link_args, extra_compile_args,
-                        runtime_library_dirs, extra_objects, mpicompiler,
-                        mpi_libraries, mpi_library_dirs, mpi_include_dirs,
-                        mpi_runtime_library_dirs, mpi_define_macros):
+                        runtime_library_dirs, extra_objects, compiler):
 
     # Write the compilation configuration into a file
     try:
@@ -69,6 +72,7 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
         print(x)
         return
     print("Current configuration", file=out)
+    print("compiler", compiler, file=out)
     print("libraries", libraries, file=out)
     print("library_dirs", library_dirs, file=out)
     print("include_dirs", include_dirs, file=out)
@@ -77,133 +81,97 @@ def write_configuration(define_macros, include_dirs, libraries, library_dirs,
     print("extra_compile_args", extra_compile_args, file=out)
     print("runtime_library_dirs", runtime_library_dirs, file=out)
     print("extra_objects", extra_objects, file=out)
-    if mpicompiler is not None:
-        print(file=out)
-        print("Parallel configuration", file=out)
-        print("mpicompiler", mpicompiler, file=out)
-        print("mpi_libraries", mpi_libraries, file=out)
-        print("mpi_library_dirs", mpi_library_dirs, file=out)
-        print("mpi_include_dirs", mpi_include_dirs, file=out)
-        print("mpi_define_macros", mpi_define_macros, file=out)
-        print("mpi_runtime_library_dirs", mpi_runtime_library_dirs, file=out)
     out.close()
 
 
-def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
-                      extra_link_args, extra_compile_args,
-                      runtime_library_dirs, extra_objects, build_temp,
-                      mpicompiler, mpilinker, mpi_libraries, mpi_library_dirs,
-                      mpi_include_dirs, mpi_runtime_library_dirs,
-                      mpi_define_macros):
+def build_interpreter(
+        compiler, extension, extension_objects, *,
+        build_temp, build_bin, debug):
+    exename = compiler.executable_filename('gpaw-python')
+    print(f'building {repr(exename)} executable', flush=True)
 
-    # Build custom interpreter which is used for parallel calculations
+    macros = extension.define_macros.copy()
+    for undef in extension.undef_macros:
+        macros.append((undef,))
 
-    cfgDict = get_config_vars()
-    plat = get_platform() + '-{maj}.{min}'.format(maj=sys.version_info[0],
-                                                  min=sys.version_info[1])
+    # Compile the sources that define GPAW_INTERPRETER
+    sources = ['c/main.c']
+    objects = compiler.compile(
+        sources,
+        output_dir=str(build_temp),
+        macros=macros,
+        include_dirs=extension.include_dirs,
+        debug=debug,
+        extra_postargs=extension.extra_compile_args)
+    objects += extension_objects
 
-    cfiles = glob('c/[a-zA-Z_]*.c') + ['c/bmgs/bmgs.c']
-    cfiles += glob('c/xc/*.c')
-    # Make build process deterministic (for "reproducible build" in debian)
-    # XXX some of this is duplicated in setup.py!  Why do the same thing twice?
-    cfiles.sort()
-
-    sources = ['c/bc.c', 'c/mpi.c', 'c/_gpaw.c',
-               'c/operators.c', 'c/woperators.c', 'c/transformers.c',
-               'c/elpa.c',
-               'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
-    objects = ' '.join([os.path.join(build_temp ,x[:-1] + 'o')
-                        for x in cfiles])
-
-    if not os.path.isdir('build/bin.{}/'.format(plat)):
-        os.makedirs('build/bin.{}/'.format(plat))
-    exefile = 'build/bin.{}/gpaw-python'.format(plat)
-
-    libraries += mpi_libraries
-    library_dirs += mpi_library_dirs
-    define_macros += mpi_define_macros
-    include_dirs += mpi_include_dirs
-    runtime_library_dirs += mpi_runtime_library_dirs
-
-    define_macros.append(('PARALLEL', '1'))
-    define_macros.append(('GPAW_INTERPRETER', '1'))
-    macros = ' '.join(['-D%s=%s' % x for x in define_macros if x[0].strip()])
-
-    include_dirs.append(cfgDict['INCLUDEPY'])
-    include_dirs.append(cfgDict['CONFINCLUDEPY'])
-    includes = ' '.join(['-I' + incdir for incdir in include_dirs])
-
-    library_dirs.append(cfgDict['LIBPL'])
-    lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
-
-    libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    # LIBDIR/INSTSONAME will point at the static library if that is how
-    # Python was compiled:
-    lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
-    if lib.is_file():
-        libs += ' {}'.format(lib)
-    else:
-        libs += ' ' + cfgDict.get('BLDLIBRARY',
-                                  '-lpython{}'.format(cfgDict['VERSION']))
-    libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
-
-    # Hack taken from distutils to determine option for runtime_libary_dirs
-    if sys.platform[:6] == 'darwin':
-        # MacOSX's linker doesn't understand the -R flag at all
-        runtime_lib_option = '-L'
-    elif sys.platform[:5] == 'hp-ux':
-        runtime_lib_option = '+s -L'
-    elif os.popen('mpicc --showme 2> /dev/null', 'r').read()[:3] == 'gcc':
-        runtime_lib_option = '-Wl,-R'
-    elif os.popen('mpicc -show 2> /dev/null', 'r').read()[:3] == 'gcc':
-        runtime_lib_option = '-Wl,-R'
-    else:
-        runtime_lib_option = '-R'
-
-    runtime_libs = ' '.join([runtime_lib_option + lib
-                             for lib in runtime_library_dirs])
-
-    extra_link_args.append(cfgDict['LDFLAGS'])
-
-    if sys.platform in ['aix5', 'aix6']:
-        extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
-            'Modules', cfgDict['LIBPL']))
-    elif sys.platform == 'darwin':
-        # On a Mac, it is important to preserve the original compile args.
-        # This should probably always be done ?!?
-        extra_compile_args.append(cfgDict['CFLAGS'])
-        extra_link_args.append(cfgDict['LINKFORSHARED'])
-    else:
-        extra_link_args.append(cfgDict['LINKFORSHARED'])
-
-    extra_compile_args.append('-fPIC')
-
-    # Compile the parallel sources
-    for src in sources:
-        obj = os.path.join(build_temp, src[:-1] + 'o')
-        cmd = ('{} {} {} {} -o {} -c {} ').format(
-               mpicompiler,
-               macros,
-               ' '.join(extra_compile_args),
-               includes,
-               obj,
-               src)
-        print(cmd)
-        error = os.system(cmd)
-        if error != 0:
-            return error
+    # Note: LDFLAGS and LIBS go together, but depending on the platform,
+    # it might be unnecessary to include them
+    extra_preargs = config_args('LDFLAGS')
+    extra_postargs = (config_args('BLDLIBRARY')
+                      + config_args('LIBS')
+                      + config_args('LIBM')
+                      + extension.extra_link_args
+                      + config_args('LINKFORSHARED'))
 
     # Link the custom interpreter
-    cmd = ('{} -o {} {} {} {} {} {} {}').format(
-           mpilinker,
-           exefile,
-           objects,
-           ' '.join(extra_objects),
-           lib_dirs,
-           libs,
-           runtime_libs,
-           ' '.join(extra_link_args))
+    compiler.link_executable(
+        objects, exename,
+        output_dir=str(build_bin),
+        extra_preargs=extra_preargs,
+        libraries=extension.libraries,
+        library_dirs=extension.library_dirs,
+        runtime_library_dirs=extension.runtime_library_dirs,
+        extra_postargs=extra_postargs,
+        debug=debug,
+        target_lang=extension.language)
+    return build_bin / exename
 
-    print(cmd)
-    error = os.system(cmd)
-    return error
+
+def build_gpu(gpu_compiler, gpu_compile_args, gpu_include_dirs,
+              define_macros, undef_macros, build_temp):
+    print('building gpu kernels', flush=True)
+
+    kernels_dpath = Path('c/gpu/kernels')
+
+    # Create temp build directory
+    build_temp_kernels_dpath = build_temp / kernels_dpath
+    if not build_temp_kernels_dpath.exists():
+        print(f'creating {build_temp_kernels_dpath}', flush=True)
+        build_temp_kernels_dpath.mkdir(parents=True)
+
+    # Glob all kernel files, but remove those included by other kernels
+    kernels = sorted(kernels_dpath.glob('*.cpp'))
+    for name in ['interpolate-stencil.cpp',
+                 'lfc-reduce.cpp',
+                 'lfc-reduce-kernel.cpp',
+                 'reduce.cpp',
+                 'reduce-kernel.cpp',
+                 'restrict-stencil.cpp']:
+        kernels.remove(kernels_dpath / name)
+
+    # Compile GPU kernels
+    objects = []
+    for src in kernels:
+        obj = build_temp / src.with_suffix('.o')
+        objects.append(str(obj))
+        run_args = [gpu_compiler]
+        run_args += gpu_compile_args
+        for (name, value) in define_macros:
+            arg = f'-D{name}'
+            if value is not None:
+                arg += f'={value}'
+            run_args += [arg]
+        run_args += [f'-U{name}' for name in undef_macros]
+        run_args += [f'-I{dpath}' for dpath in gpu_include_dirs]
+        run_args += ['-c', str(src)]
+        run_args += ['-o', str(obj)]
+        print(shlex.join(run_args), flush=True)
+        p = run(run_args, check=False, shell=False)
+        if p.returncode != 0:
+            print(f'error: command {repr(gpu_compiler)} failed '
+                  f'with exit code {p.returncode}',
+                  file=sys.stderr, flush=True)
+            sys.exit(1)
+
+    return objects

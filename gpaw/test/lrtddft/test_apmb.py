@@ -2,11 +2,11 @@ import pytest
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
-from gpaw.test import equal
 from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.lrtddft
 @pytest.mark.libxc
 def test_lrtddft_apmb():
     txt = '-'
@@ -21,7 +21,7 @@ def test_lrtddft_apmb():
         H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                     Atom('H', (a / 2, a / 2, (c + R) / 2))],
                    cell=(a, a, c))
-        calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
+        calc = GPAW(mode='fd', xc='PBE', nbands=2, spinpol=False, txt=txt)
         H2.calc = calc
         H2.get_potential_energy()
     else:
@@ -40,13 +40,14 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-9)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-9)
 
     # with spin
     parprint('------ with spin')
 
     if not load:
-        c_spin = GPAW(xc='PBE', nbands=2,
+        c_spin = GPAW(mode='fd', xc='PBE', nbands=2,
                       spinpol=True, parallel={'domain': mpi.world.size},
                       txt=txt)
         H2.calc = c_spin
@@ -60,8 +61,10 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
-    equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-8)
+    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(),
+                                               abs=5.e-8)
 
     # with spin virtual
     parprint('------ with virtual spin')
@@ -74,8 +77,10 @@ def test_lrtddft_apmb():
     lr_ApmB.diagonalize()
     parprint('lr=', lr)
     parprint('ApmB=', lr_ApmB)
-    equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
-    equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
+    assert lr[0].get_energy() == pytest.approx(lr_ApmB[0].get_energy(),
+                                               abs=5.e-8)
+    assert lr[1].get_energy() == pytest.approx(lr_ApmB[1].get_energy(),
+                                               abs=5.e-8)
 
     # with HF exchange
 
@@ -90,5 +95,7 @@ def test_lrtddft_apmb():
     lr = LrTDDFT(calc, xc=xc, nspins=2)
     lr.diagonalize()
     parprint('lr=', lr)
-    equal(lr[0].get_energy(), lr_spin[0].get_energy(), 3.8e-6)
-    equal(lr[1].get_energy(), lr_spin[1].get_energy(), 3.4e-6)
+    assert lr[0].get_energy() == pytest.approx(lr_spin[0].get_energy(),
+                                               abs=3.8e-6)
+    assert lr[1].get_energy() == pytest.approx(lr_spin[1].get_energy(),
+                                               abs=3.4e-6)

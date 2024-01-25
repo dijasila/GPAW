@@ -16,8 +16,13 @@ ps = ExtraVacuumPoissonSolver(gpts=(512, 256, 256),
                               poissonsolver_small=PoissonSolver())
 
 # Ground-state calculation
-calc = GPAW(mode='lcao', h=0.3, basis='pvalence.dz', xc='LDA', nbands=6,
+calc = GPAW(mode='lcao',
+            h=0.3,
+            basis='pvalence.dz',
+            xc='LDA',
+            nbands=6,
             setups={'Na': '1'},
+            symmetry='off',
             poissonsolver=ps,
             convergence={'density': 1e-12},
             txt='gs.out')

@@ -98,68 +98,57 @@ def test_solvation_api():
         parprint(atoms.get_forces())
         parprint('')
 
+    def get_base_kwargs() -> dict:
+        return dict(
+            mode='fd', xc=xc, h=h,
+            dielectric=LinearDielectric(epsinf=epsinf),
+            interactions=[
+                SurfaceInteraction(surface_tension=gamma),
+                VolumeInteraction(pressure=p),
+                LeakedDensityInteraction(voltage=V_leak)])
+
     # Cavity from 1 / r ** 12 effective potential
     atoms.calc = SolvationGPAW(
-        xc=xc, h=h,
+        **get_base_kwargs(),
         cavity=EffectivePotentialCavity(
             effective_potential=Power12Potential(atomic_radii=atomic_radii,
                                                  u0=u0),
             temperature=T,
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume(compressibility=kappa_T,
-                                         temperature=T)),
-        dielectric=LinearDielectric(epsinf=epsinf),
-        interactions=[
-            SurfaceInteraction(surface_tension=gamma),
-            VolumeInteraction(pressure=p),
-            LeakedDensityInteraction(voltage=V_leak)])
+                                         temperature=T)))
     print_results(atoms)
 
     # Cavity from electron density a la ADM12
     atoms.calc = SolvationGPAW(
-        xc=xc, h=h,
+        **get_base_kwargs(),
         poissonsolver=ADM12PoissonSolver(),
         cavity=ADM12SmoothStepCavity(
             rhomin, rhomax, epsinf,
             density=ElDensity(),
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume(compressibility=kappa_T,
-                                         temperature=T)),
-        dielectric=LinearDielectric(epsinf=epsinf),
-        interactions=[
-            SurfaceInteraction(surface_tension=gamma),
-            VolumeInteraction(pressure=p),
-            LeakedDensityInteraction(voltage=V_leak)])
+                                         temperature=T)))
     print_results(atoms)
 
     # Cavity from electron density a la FG02
     atoms.calc = SolvationGPAW(
-        xc=xc, h=h,
+        **get_base_kwargs(),
         cavity=FG02SmoothStepCavity(
             rho0, beta,
             density=ElDensity(),
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume(compressibility=kappa_T,
-                                         temperature=T)),
-        dielectric=LinearDielectric(epsinf=epsinf),
-        interactions=[
-            SurfaceInteraction(surface_tension=gamma),
-            VolumeInteraction(pressure=p),
-            LeakedDensityInteraction(voltage=V_leak)])
+                                         temperature=T)))
     print_results(atoms)
 
     # Cavity from fake electron density a la SSS09
     atoms.calc = SolvationGPAW(
-        xc=xc, h=h,
+        **get_base_kwargs(),
         cavity=FG02SmoothStepCavity(
             rho0_fake, beta_fake,
             density=SSS09Density(atomic_radii=atomic_radii),
             surface_calculator=GradientSurface(),
             volume_calculator=KB51Volume(compressibility=kappa_T,
-                                         temperature=T)),
-        dielectric=LinearDielectric(epsinf=epsinf),
-        interactions=[
-            SurfaceInteraction(surface_tension=gamma),
-            VolumeInteraction(pressure=p),
-            LeakedDensityInteraction(voltage=V_leak)])
+                                         temperature=T)))
     print_results(atoms)

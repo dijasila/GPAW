@@ -16,7 +16,8 @@ def test_symmetry_usesymm2():
     atoms.pbc = True
 
     # Gamma-point calculation of graphene
-    calc = GPAW(h=0.2,
+    calc = GPAW(mode='fd',
+                h=0.2,
                 occupations=FermiDirac(width=0.15),
                 kpts=(1, 1, 1),
                 xc='LDA')

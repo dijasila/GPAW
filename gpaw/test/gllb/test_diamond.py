@@ -13,6 +13,7 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.mpi import world
+from gpaw.calculator import DeprecatedParameterWarning
 
 
 @pytest.mark.gllb
@@ -32,7 +33,8 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     atoms = bulk('C', 'diamond', a=3.567)
     # We want sufficiently many grid points that the calculator
     # can use wfs.world for the finegd, to test that part of the code.
-    calc = GPAW(h=0.2,
+    calc = GPAW(mode='fd',
+                h=0.2,
                 kpts=(4, 4, 4),
                 xc=xc,
                 nbands=8,
@@ -63,7 +65,7 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     assert QP_gap == pytest.approx(QP_gap_direct_ref, abs=1e-4)
 
     if deprecated_syntax:
-        with pytest.warns(DeprecationWarning):
+        with pytest.warns(DeprecatedParameterWarning):
             from gpaw import restart
 
             calc.write('gs.gpw')

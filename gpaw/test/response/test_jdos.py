@@ -13,46 +13,59 @@ from ase.units import Hartree
 from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.response import ResponseGroundStateAdapter
-from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.jdos import JDOSCalculator
 from gpaw.response.symmetry import KPointFinder
+from gpaw.test.response.test_chiks import (generate_system_s,
+                                           generate_qrel_q, get_q_c)
+from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.response
 @pytest.mark.kspair
-def test_iron_jdos(in_tmp_dir, gpw_files):
+@pytest.mark.parametrize('system,qrel',
+                         product(generate_system_s(), generate_qrel_q()))
+def test_jdos(in_tmp_dir, gpw_files, system, qrel):
     # ---------- Inputs ---------- #
 
-    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
-    wd = FrequencyDescriptor.from_array_or_dict(np.linspace(-10.0, 10.0, 321))
-    eta = 0.2
+    # What material, spin-component and q-vector to calculate the jdos for
+    wfs, spincomponent = system
+    q_c = get_q_c(wfs, qrel)
 
-    spincomponent_s = ['00', '+-']
+    # Where to evaluate the jdos
+    omega_w = np.linspace(-10.0, 10.0, 321)
+    eta = 0.2
+    zd = ComplexFrequencyDescriptor.from_array(omega_w + 1.j * eta)
+
+    # Calculation parameters (which should not affect the result)
+    disable_syms_s = [True, False]
     bandsummation_b = ['double', 'pairwise']
 
     # ---------- Script ---------- #
 
-    # Get the ground state calculator from the fixture
-    calc = GPAW(gpw_files['fe_pw_wfs'], parallel=dict(domain=1))
-    nbands = calc.parameters.convergence['bands']
-
-    # Set up the JDOSCalculator
+    # Set up the ground state adapter based on the fixture
+    calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
+    nbands = response_band_cutoff[wfs]
     gs = ResponseGroundStateAdapter(calc)
-    jdos_calc = JDOSCalculator(gs)
 
-    # Set up reference MyManualJDOS
-    serial_calc = GPAW(gpw_files['fe_pw_wfs'], communicator=mpi.serial_comm)
+    # Calculate the jdos manually
+    serial_calc = GPAW(gpw_files[wfs], communicator=mpi.serial_comm)
     jdos_refcalc = MyManualJDOS(serial_calc)
+    jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
+                                       omega_w,
+                                       eta=eta,
+                                       nbands=nbands)
 
-    for q_c, spincomponent in product(q_qc, spincomponent_s):
-        jdosref_w = jdos_refcalc.calculate(spincomponent, q_c,
-                                           wd.omega_w * Hartree,
-                                           eta=eta,
-                                           nbands=nbands)
+    # Calculate the jdos using the PairFunctionIntegrator module
+    for disable_syms in disable_syms_s:
         for bandsummation in bandsummation_b:
-            jdos_w = jdos_calc.calculate(spincomponent, q_c, wd,
-                                         eta=eta,
-                                         nbands=nbands)
+            jdos_calc = JDOSCalculator(gs,
+                                       nbands=nbands,
+                                       disable_time_reversal=disable_syms,
+                                       disable_point_group=disable_syms,
+                                       bandsummation=bandsummation)
+            jdos = jdos_calc.calculate(spincomponent, q_c, zd)
+            jdos_w = jdos.array
             assert jdos_w == pytest.approx(jdosref_w)
 
         # plt.subplot()
@@ -65,6 +78,7 @@ def test_iron_jdos(in_tmp_dir, gpw_files):
 class MyManualJDOS:
     def __init__(self, calc):
         self.calc = calc
+        self.nspins = calc.wfs.nspins
 
         kd = calc.wfs.kd
         gd = calc.wfs.gd
@@ -90,11 +104,14 @@ class MyManualJDOS:
         eta = eta / Hartree
         # Allocate array
         jdos_w = np.zeros_like(omega_w)
-        
+
         for K1, k1_c in enumerate(self.kd.bzk_kc):
             # de = e2 - e1, df = f2 - f1
             de_t, df_t = self.get_transitions(K1, k1_c, q_c,
                                               spincomponent, nbands)
+
+            if self.nspins == 1:
+                df_t *= 2
 
             # Set up jdos
             delta_wt = self.delta(omega_w, eta, de_t)
@@ -119,8 +136,12 @@ class MyManualJDOS:
     def get_transitions(self, K1, k1_c, q_c, spincomponent, nbands):
         assert isinstance(nbands, int)
         if spincomponent == '00':
-            s1_s = [0, 1]
-            s2_s = [0, 1]
+            if self.nspins == 1:
+                s1_s = [0]
+                s2_s = [0]
+            else:
+                s1_s = [0, 1]
+                s2_s = [0, 1]
         elif spincomponent == '+-':
             s1_s = [0]
             s2_s = [1]
@@ -136,8 +157,8 @@ class MyManualJDOS:
         calc = self.calc
         for s1, s2 in zip(s1_s, s2_s):
             # Get composite u=(s,k) indices and KPoint objects
-            u1 = kd.bz2ibz_k[K1] * 2 + s1  # nspins = 2
-            u2 = kd.bz2ibz_k[K2] * 2 + s2
+            u1 = kd.bz2ibz_k[K1] * self.nspins + s1
+            u2 = kd.bz2ibz_k[K2] * self.nspins + s2
             kpt1, kpt2 = calc.wfs.kpt_u[u1], calc.wfs.kpt_u[u2]
 
             # Extract eigenenergies and occupation numbers
@@ -155,4 +176,3 @@ class MyManualJDOS:
         df_t = np.array(df_t)
 
         return de_t, df_t
-        

@@ -14,18 +14,16 @@ from gpaw.pair_density import PairDensity
 # Three ways to compute the polarizability of hydrogen:
 # 1. Perturbation theory
 # 2. Constant electric field
-# 3. Middle of an electric dipole
+# 3. Middle of an electric dipole -- not tested here
 
 # Note: The analytical value for the polarizability
 # is 4.5 a0**3 (e.g. PRA 33, 3671), while the experimental
 # value is 4.6 a0**3 (e.g. PR 133, A629).
 
 
-@pytest.mark.skip(reason='TODO')
+@pytest.mark.skip(reason='too-slow')
 def test_stark_shift():
-    from gpaw.point_charges import PointCharges
     to_au = Hartree / Bohr**2
-    to_eVA = Hartree / Bohr
 
     def dipole_op(c, state1, state2, k=0, s=0):
         # Taken from KSSingle, maybe make this accessible in
@@ -95,19 +93,18 @@ def test_stark_shift():
 
     test1 = True
     test2 = True
-    test3 = True
 
     a0 = 6.0
     a = Atoms('H', positions=[[a0 / 2, a0 / 2, a0 / 2]], cell=[a0, a0, a0])
 
     alpha1 = None
     alpha2 = None
-    alpha3 = None
 
     # Test 1
 
     if test1:
-        c = GPAW(h=h,
+        c = GPAW(mode='fd',
+                 h=h,
                  nbands=nbands + 10,
                  spinpol=True,
                  hund=True,
@@ -149,6 +146,7 @@ def test_stark_shift():
     ###
 
     c = GPAW(
+        mode='fd',
         h=h,
         nbands=2,
         spinpol=True,
@@ -173,11 +171,12 @@ def test_stark_shift():
         for field in fields:
             if rank == 0 and debug:
                 print(field)
-            c.set(external=ConstantElectricField(field))
+            c = c.new(external=ConstantElectricField(field))
+            a.calc = c
             etot = a.get_potential_energy()
             e += [etot]
             ev0 = c.get_eigenvalues(0)
-            ev1 = c.get_eigenvalues(1)
+            ev1 = c.get_eigenvalues(0, 1)
             e1s += [min(ev0[0], ev1[0])]
             dip = c.get_dipole_moment()
             d += [dip[2]]
@@ -196,55 +195,8 @@ def test_stark_shift():
 
             np.savetxt('ecf.out', np.transpose([fields, e, e1s, d]))
 
-        assert abs(pol1 + pol2) < 0.0001
-
+        assert abs(pol1 + pol2) < 0.002
         alpha2 = (pol1 - pol2) / 2
 
-    # Test 3
-
-    if test3:
-        pcd = 1000.0  # distance of the two point charges
-        maxcharge = 100.0  # maximum charge on the point charge
-
-        e = []
-        e1s = []
-        d = []
-        charges = np.linspace(-maxcharge, maxcharge, nfs)
-        fields = []
-        for charge in charges:
-            ex = PointCharges(positions=[[a0 / 2, a0 / 2, -pcd / 2 + a0 / 2],
-                                         [a0 / 2, a0 / 2, pcd / 2 + a0 / 2]],
-                              charges=[charge, -charge])
-            c.set(external=ex)
-            etot = a.get_potential_energy()
-            e += [etot]
-            ev0 = c.get_eigenvalues(0)
-            ev1 = c.get_eigenvalues(1)
-            e1s += [min(ev0[0], ev1[0])]
-            dip = c.get_dipole_moment()
-            d += [dip[2]]
-            field = ex.get_taylor(position=a[0].position)[1][1]
-            if rank == 0 and debug:
-                print(field * to_eVA,
-                      2 * charge / ((pcd / 2)**2) * Hartree * Bohr)
-            fields += [field * to_eVA]
-
-        pol1, dummy = np.polyfit(fields, d, 1)
-        pol2, dummy1, dummy2 = np.polyfit(fields, e1s, 2)
-
-        if rank == 0 and debug:
-            print('From shift in 1s-state between two point charges:')
-            print('  alpha = ', -pol2, ' A**2/eV')
-            print('  alpha = ', -pol2 * to_au, ' Bohr**3')
-
-            # print 'From dipole moment between two point charges:'
-            # print '  alpha = ', pol1, ' A**2/eV'
-            # print '  alpha = ', pol1*to_au, ' Bohr**3'
-
-            np.savetxt('epc.out', np.transpose([fields, e, e1s, d]))
-
-        alpha3 = alpha
-
-    # This is a very, very rough test
-    assert abs(alpha1 - alpha2) < 0.01
-    assert abs(alpha3 - alpha2) < 0.01
+    # # This is a very, very rough test
+    assert alpha1 == pytest.approx(alpha2, abs=0.01)

@@ -96,7 +96,7 @@ class Criterion:
     # criteria have been met.
     calc_last = False
     override_others = False
-    description = None
+    description: str
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -124,24 +124,29 @@ class Energy(Criterion):
 
     Parameters:
 
-    tol : float
+    tol: float
         Tolerance for conversion; that is the maximum variation among the
-        last n_old values of the (extrapolated) total energy, normalized per
-        valence electron. [eV/(valence electron)]
-    n_old : int
+        last n_old values of the (extrapolated) total energy.
+    n_old: int
         Number of energy values to compare. I.e., if n_old is 3, then this
         compares the peak-to-peak difference among the current total energy
         and the two previous.
+    relative: bool
+        Use total energy [eV] or total energy relative to number of
+        valence electrons [eV/(valence electron)].
     """
     name = 'energy'
     tablename = 'energy'
 
-    def __init__(self, tol, n_old=3):
+    def __init__(self, tol: float, *, n_old: int = 3, relative: bool = True):
         self.tol = tol
         self.n_old = n_old
-        self.description = ('Maximum [total energy] change in last {:d} cyles:'
-                            ' {:g} eV / electron'
-                            .format(self.n_old, self.tol))
+        self.relative = relative
+        self.description = (
+            f'Maximum [total energy] change in last {self.n_old} cyles: '
+            f'{self.tol:g} eV')
+        if relative:
+            self.description += ' / valence electron'
 
     def reset(self):
         self._old = deque(maxlen=self.n_old)
@@ -156,7 +161,7 @@ class Energy(Criterion):
         # use e_total_extrapolated for both. (Should be a miniscule
         # difference, but more consistent.)
         total_energy = context.ham.e_total_extrapolated * Ha
-        if context.wfs.nvalence == 0:
+        if context.wfs.nvalence == 0 or not self.relative:
             energy = total_energy
         else:
             energy = total_energy / context.wfs.nvalence
@@ -167,7 +172,7 @@ class Energy(Criterion):
         converged = error < self.tol
         entry = ''
         if np.isfinite(energy):
-            entry = '{:11.6f}'.format(total_energy)
+            entry = f'{total_energy:11.6f}'
         return converged, entry
 
 
@@ -205,7 +210,7 @@ class Density(Criterion):
         if (error is None or np.isinf(error) or error == 0):
             entry = ''
         else:
-            entry = '{:+5.2f}'.format(np.log10(error))
+            entry = f'{np.log10(error):+5.2f}'
         return converged, entry
 
 
@@ -240,7 +245,7 @@ class Eigenstates(Criterion):
         if (context.wfs.nvalence == 0 or error == 0 or np.isinf(error)):
             entry = ''
         else:
-            entry = '{:+5.2f}'.format(np.log10(error))
+            entry = f'{np.log10(error):+6.2f}'
         return converged, entry
 
     def get_error(self, context):
@@ -253,11 +258,16 @@ class Forces(Criterion):
 
     Parameters:
 
-    tol : float
-        Tolerance for conversion; that is, the force on each atom is compared
-        with its force from the previous iteration, and the change in each
-        atom's force is calculated as an l2-norm (Euclidean distance). The
-        atom with the largest norm must be less than tol. [eV/Angstrom]
+    atol : float
+        Absolute tolerance for convergence; that is, the force on each atom
+        is compared with its force from the previous iteration, and the change
+        in each atom's force is calculated as an l2-norm
+        (Euclidean distance). The atom with the largest norm must be less
+        than tol. [eV/Angstrom]
+    rtol : float
+        Relative tolerance for convergence. The difference in the l2-norm of
+        force on each atom is calculated, and convergence is achieved when
+        the largest difference between two iterations is rtol * max force.
     calc_last : bool
         If True, calculates forces last; that is, it waits until all other
         convergence criteria are satisfied before checking to see if the
@@ -267,10 +277,13 @@ class Forces(Criterion):
     name = 'forces'
     tablename = 'force'
 
-    def __init__(self, tol, calc_last=True):
-        self.tol = tol
+    def __init__(self, atol, rtol=np.inf, calc_last=True):
+        self.atol = atol
+        self.rtol = rtol
         self.description = ('Maximum change in the atomic [forces] across '
-                            'last 2 cycles: {:g} eV/Ang'.format(self.tol))
+                            f'last 2 cycles: {self.atol} eV/Ang OR\n'
+                            'Maximum error relative to the maximum '
+                            f'force is below {self.rtol}')
         self.calc_last = calc_last
         self.reset()
 
@@ -278,19 +291,29 @@ class Forces(Criterion):
         """Should return (bool, entry), where bool is True if converged and
         False if not, and entry is a <=5 character string to be printed in
         the user log file."""
-        if np.isinf(self.tol):  # criterion is off; backwards compatibility
+
+        # criterion is off; backwards compatibility
+        if np.isinf(self.atol) and np.isinf(self.rtol):
             return True, ''
         F_av = context.calculate_forces()
         F_av *= Ha / Bohr
         error = np.inf
+        max_force = np.max(np.linalg.norm(F_av, axis=1))
         if self.old_F_av is not None:
             error = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
         self.old_F_av = F_av
-        converged = (error < self.tol)
+
+        if np.isfinite(self.rtol):
+            error_threshold = min(self.atol, self.rtol * max_force)
+        else:
+            # Avoid possible inf * 0.0:
+            error_threshold = self.atol
+        converged = error < error_threshold
+
         entry = ''
         if np.isfinite(error):
             if error:
-                entry = '{:+5.2f}'.format(np.log10(error))
+                entry = f'{np.log10(error):+5.2f}'
             else:
                 entry = '-inf'
         return converged, entry
@@ -338,7 +361,7 @@ class WorkFunction(Criterion):
             error = np.inf
         converged = (error < self.tol)
         if error < np.inf:
-            entry = '{:+5.2f}'.format(np.log10(error))
+            entry = f'{np.log10(error):+5.2f}'
         else:
             entry = ''
         return converged, entry
@@ -363,7 +386,7 @@ class MinIter(Criterion):
 
     def __call__(self, context):
         converged = context.niter >= self.n
-        entry = '{:d}'.format(context.niter)
+        entry = f'{context.niter:d}'
         return converged, entry
 
 
@@ -387,5 +410,5 @@ class MaxIter(Criterion):
 
     def __call__(self, context):
         converged = context.niter >= self.n
-        entry = '{:d}'.format(context.niter)
+        entry = f'{context.niter:d}'
         return converged, entry

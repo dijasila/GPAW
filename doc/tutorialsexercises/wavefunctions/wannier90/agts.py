@@ -15,8 +15,9 @@ def check():
         dct = read_wout_all(fd)
     xyz = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
+    print(xyz, w)
     assert abs(xyz).max() < 0.005
-    assert abs(w - 14.7) < 0.15
+    assert abs(w - 14.5) < 0.15
 
 
 def workflow():

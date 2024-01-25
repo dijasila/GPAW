@@ -53,20 +53,21 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 3.7 or later
-* NumPy_ 1.9 or later (base N-dimensional array package)
-* SciPy_ 0.14 or later (library for scientific computing)
-* ASE_ 3.18.0 or later (atomic simulation environment)
-* a C-compiler
-* LibXC_ 3.x, 4.x or 5.1+
-* BLAS_ library
+* Python_ 3.8 or later
+* ASE_
+* NumPy_
+* SciPy_
+* LibXC_
+* A C compiler
+* A BLAS_ library
 
-Optional, but highly recommended:
+Optional (highly recommended for increased performance):
 
-* an MPI_ library (required for parallel calculations)
-* FFTW_ (for increased performance)
-* BLACS_ and ScaLAPACK_
+* A MPI_ library (required for parallel calculations)
+* BLACS_ and ScaLAPACK_ libraries
+* FFTW_
 
+See :ref:`releasenotes` for version requirements.
 
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
@@ -146,18 +147,18 @@ can fix them (see :ref:`mail list`).
 Getting the source code
 =======================
 
-Sou can get the source from a tar-file or from Git:
+You can get the source from a tar-file or from Git:
 
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-22.8.0.tar.gz_) or the latest
+    latest stable release (gpaw-24.1.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-22.8.0.tar.gz
-        $ ln -s gpaw-22.8.0 gpaw
+        $ tar -xf gpaw-24.1.0.tar.gz
+        $ ln -s gpaw-24.1.0 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -166,7 +167,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 22.8.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 24.1.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -178,8 +179,8 @@ Sou can get the source from a tar-file or from Git:
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-22.8.0.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-22.8.0.tar.gz
+.. _gpaw-24.1.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-24.1.0.tar.gz
 
 
 .. _siteconfig:

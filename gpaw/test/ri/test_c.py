@@ -4,6 +4,7 @@ from gpaw.mpi import world
 from gpaw.atom.generator2 import generate
 
 
+@pytest.mark.hybrids
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_diamond(in_tmp_dir, add_cwd_to_setup_paths):
 

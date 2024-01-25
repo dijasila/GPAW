@@ -8,7 +8,7 @@ xc = 'PBE'
 atoms = Cluster('relaxed.traj')
 atoms.minimal_box(4., h=h)
 
-atoms.calc = GPAW(xc=xc, h=h, nbands=50,
+atoms.calc = GPAW(mode='fd', xc=xc, h=h, nbands=50,
                   occupations=FermiDirac(width=0.1),
                   eigensolver='cg', symmetry={'point_group': False},
                   convergence={'eigenstates': 1.e-5, 'bands': -10})

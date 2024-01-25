@@ -8,7 +8,7 @@ def test_parallel_compare():
     H = Atoms('H',
               cell=(a, a, a),
               pbc=True,
-              calculator=GPAW())
+              calculator=GPAW(mode='fd'))
     if size > 1:
         H.positions[0, 0] += 0.01 * rank
         try:

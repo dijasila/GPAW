@@ -1,9 +1,11 @@
 import numpy as np
+from functools import cached_property
 from ase import Atoms
 from ase.units import Bohr
+
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.new import cached_property, prod
+from gpaw.new import prod, zips
 from gpaw.new.calculation import DFTCalculation
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
@@ -30,9 +32,11 @@ class FakeWFS:
         self.occupations = calculation.scf_loop.occ_calc.occ
         self.nvalence = int(round(ibzwfs.nelectrons))
         assert self.nvalence == ibzwfs.nelectrons
-        self.world = calculation.scf_loop.world
+        self.world = calculation.comm
         if ibzwfs.fermi_levels is not None:
-            self.fermi_level, = ibzwfs.fermi_levels
+            self.fermi_levels = ibzwfs.fermi_levels
+            if len(self.fermi_levels) == 1:
+                self.fermi_level = self.fermi_levels[0]
         self.nspins = ibzwfs.nspins
         self.dtype = ibzwfs.dtype
         wfs = ibzwfs.wfs_qs[0][0]
@@ -40,16 +44,21 @@ class FakeWFS:
         if isinstance(wfs, PWFDWaveFunctions):
             if hasattr(wfs.psit_nX.desc, 'ecut'):
                 self.mode = 'pw'
-                self.pd = PWDescriptor(wfs.psit_nX.desc.ecut,
+                self.ecut = wfs.psit_nX.desc.ecut
+                self.pd = PWDescriptor(self.ecut,
                                        self.gd, self.dtype, self.kd)
                 self.pwgrid = grid.new(dtype=self.dtype)
             else:
                 self.mode = 'fd'
         else:
             self.mode = 'lcao'
+        self.collinear = wfs.ncomponents < 4
 
     def _get_wave_function_array(self, u, n, realspace):
-        return self.kpt_u[u].wfs.psit_nX[n].ifft(grid=self.pwgrid).data
+        psit_X = self.kpt_u[u].wfs.psit_nX[n]
+        if hasattr(psit_X, 'ifft'):
+            return psit_X.ifft(grid=self.pwgrid).data
+        return psit_X.data
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
         assert realspace
@@ -87,9 +96,17 @@ class KPT:
         self.ngpts = ngpts
         self.wfs = wfs
         self.pd = pd
+
+        I1 = 0
+        nproj_a = []
+        for a, shape in enumerate(wfs.P_ani.layout.shape_a):
+            I2 = I1 + prod(shape)
+            nproj_a.append(I2 - I1)
+            I1 = I2
+
         self.projections = Projections(
             wfs.nbands,
-            [I2 - I1 for (a, I1, I2) in wfs.P_ani.layout.myindices],
+            nproj_a,
             atom_partition,
             wfs.P_ani.comm,
             wfs.ncomponents < 4,
@@ -129,7 +146,6 @@ class FakeDensity:
         self.state = calculation.state
         self.D_asii = self.state.density.D_asii
         self.atom_partition = calculation._atom_partition
-        self.nt_sg = None
         self.interpolate = calculation.pot_calc._interpolate_density
         self.nt_sR = self.state.density.nt_sR
         self.nt_sG = self.nt_sR.data
@@ -138,17 +154,22 @@ class FakeDensity:
         self._densities = calculation.densities()
         self.ncomponents = len(self.nt_sG)
         self.nspins = self.ncomponents % 3
+        self.collinear = self.ncomponents < 4
 
     @cached_property
     def D_asp(self):
         D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                 self.atom_partition)
-        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii])
+        D_asp.update({a: np.array([pack(D_ii) for D_ii in D_sii.real])
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 
+    @cached_property
+    def nt_sg(self):
+        return self.interpolate(self.nt_sR)[0].data
+
     def interpolate_pseudo_density(self):
-        self.nt_sg = self.interpolate(self.nt_sR)[0].data
+        pass
 
     def get_all_electron_density(self, *, atoms, gridrefinement):
         n_sr = self._densities.all_electron_densities(
@@ -161,16 +182,16 @@ class FakeHamiltonian:
         self.pot_calc = calculation.pot_calc
         self.finegd = self.pot_calc.fine_grid._gd
         self.grid = calculation.state.potential.vt_sR.desc
-        self.e_total_free = calculation.results['free_energy']
+        self.e_total_free = calculation.results.get('free_energy')
         self.e_xc = calculation.state.potential.energies['xc']
-        # self.poisson = calculation.pot_calc.poisson_solver.solver
 
     def restrict_and_collect(self, vxct_sg):
         fine_grid = self.pot_calc.fine_grid
         vxct_sr = fine_grid.empty(len(vxct_sg))
         vxct_sr.data[:] = vxct_sg
-        vxct_sR = self.grid.zeros(vxct_sr.dims)
-        self.pot_calc._restrict(vxct_sr, vxct_sR)
+        vxct_sR = self.grid.empty(len(vxct_sg))
+        for vxct_r, vxct_R in zips(vxct_sr, vxct_sR):
+            self.pot_calc.restrict(vxct_r, vxct_R)
         return vxct_sR.data
 
     @property

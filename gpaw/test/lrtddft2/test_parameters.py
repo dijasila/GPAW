@@ -30,6 +30,7 @@ def ground_state():
     return gpw_fpath
 
 
+@pytest.mark.lrtddft
 @pytest.mark.parametrize('max_energy_diff, expectation', [
     (15, pytest.raises(RuntimeError, match=r'.* HOMO \(n=3\) .*')),
     (10, no_error())])
@@ -40,6 +41,7 @@ def test_max_energy_diff(ground_state, max_energy_diff, expectation,
         LrTDDFT2('lr2', calc, fxc='LDA', max_energy_diff=max_energy_diff)
 
 
+@pytest.mark.lrtddft
 @pytest.mark.parametrize('min_occ', [None, 0])
 @pytest.mark.parametrize('min_unocc', [None, 0])
 @pytest.mark.parametrize('max_occ', [None, 5])
@@ -60,6 +62,7 @@ def test_indices_with_max_energy_diff(ground_state, min_occ, min_unocc,
                  max_occ=max_occ, max_unocc=max_unocc)
 
 
+@pytest.mark.lrtddft
 @pytest.mark.parametrize('min_occ', [None, 0])
 @pytest.mark.parametrize('min_unocc', [None, 0])
 @pytest.mark.parametrize('max_occ', [None, 5])

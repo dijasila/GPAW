@@ -10,9 +10,11 @@ class Q0Correction:
         # Check that basic assumptions of cell and k-grid
         # for Q0Correction are fulfilled
         assert N_c[2] == 1  # z-axis is non periodic direction
-        assert (all(cell_cv[:2, 2] == 0) and all(cell_cv[2, :2] == 0)
-                and cell_cv[2, 2] > 0)
-        
+        eps = 1e-14
+        assert (abs(cell_cv[:2, 2]).max() < eps and
+                abs(cell_cv[2, :2]).max() < eps and
+                cell_cv[2, 2] > 0)
+
         # Hardcoded crap?
         x0density = 0.1  # ? 0.01
 
@@ -29,12 +31,13 @@ class Q0Correction:
         npts_c += (npts_c + 1) % 2
         self.npts_c = npts_c
 
-    def add_q0_correction(self, pd, W_GG, einv_GG, chi0_xvG, chi0_vv, sqrtV_G):
+    def add_q0_correction(self, qpd, W_GG, einv_GG,
+                          chi0_xvG, chi0_vv, sqrtV_G):
         from ase.dft import monkhorst_pack
         qpts_qc = self.bzk_kc
         pi = np.pi
         L = self.cell_cv[2, 2]
-        
+
         vc_G0 = sqrtV_G[1:]**2
 
         B_GG = einv_GG[1:, 1:]
@@ -49,7 +52,7 @@ class Q0Correction:
         L_vv = A_vv
 
         # Get necessary G vectors.
-        G_Gv = pd.get_reciprocal_vectors()[1:]
+        G_Gv = qpd.get_reciprocal_vectors(add_q=False)[1:]
         G_Gv += np.array([1e-14, 1e-14, 0])
         G2_G = np.sum(G_Gv**2, axis=1)
         Gpar_G = np.sum(G_Gv[:, 0:2]**2, axis=1)**0.5

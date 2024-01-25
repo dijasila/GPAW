@@ -1,4 +1,5 @@
 from typing import Any, Optional, Dict
+from collections.abc import Mapping
 
 import numpy as np
 
@@ -10,7 +11,7 @@ from gpaw.typing import Array2D, ArrayLike1D
 MPIComm = Any
 
 
-class Projections:
+class Projections(Mapping):
     def __init__(self,
                  nbands: int,
                  nproj_a: ArrayLike1D,
@@ -82,16 +83,15 @@ class Projections:
                            self.bcomm, self.collinear, self.spin,
                            self.matrix.dtype, self.matrix.array[n1:n2])
 
-    def items(self):
-        for a, I1, I2 in self.indices:
-            yield a, self.array[..., I1:I2]
-
     def __getitem__(self, a):
         I1, I2 = self.map[a]
         return self.array[..., I1:I2]
 
-    def __contains__(self, a):
-        return a in self.map
+    def __iter__(self):
+        return iter(self.map)
+
+    def __len__(self):
+        return len(self.map)
 
     def broadcast(self) -> 'Projections':
         ap = AtomPartition(serial_comm, np.zeros(len(self.nproj_a), int))
@@ -180,4 +180,5 @@ class Projections:
         for a, ni in enumerate(self.nproj_a):
             I2 = I1 + ni
             P_ani[a] = P_nI[n1:n2, I1:I2]
+            I1 = I2
         return P_ani

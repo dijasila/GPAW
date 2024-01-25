@@ -2,11 +2,10 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mixer import Mixer
-from gpaw.test import equal
 from gpaw.test import gen
 
 
-@pytest.mark.later
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft_pbc(in_tmp_dir):
     symbol = 'C'
@@ -20,7 +19,8 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
     atoms = bulk(symbol, 'diamond', a=a, cubic=True)   # Generate diamond
     mixer = Mixer(0.1, 5)
 
-    calc = GPAW(h=h,
+    calc = GPAW(mode='fd',
+                h=h,
                 xc=xcname,
                 setups={'C': g},
                 maxiter=120,
@@ -36,5 +36,5 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
     dv = atoms.get_volume() / calc.get_number_of_grid_points().prod()
     I = n.sum() * dv / 2**3
 
-    equal(I, electrons, 1.0e-6)
-    equal(e, result, 1.0e-2)
+    assert I == pytest.approx(electrons, abs=1.0e-6)
+    assert e == pytest.approx(result, abs=1.0e-2)

@@ -30,7 +30,7 @@ def test_si_update_consistency(in_tmp_dir):
     intermediate_m = 5
 
     # ---------- Script ---------- #
-    
+
     # Ground state calculation
     atoms = bulk('Si', 'diamond', a=a)
     atoms.center()
@@ -49,17 +49,18 @@ def test_si_update_consistency(in_tmp_dir):
     chi0 = Chi0('Si',
                 hilbert=True,
                 intraband=False)
+    gs = chi0.gs
 
     chi0_full = chi0.create_chi0(q_c)
     chi0_steps = chi0.create_chi0(q_c)
-    spins = range(chi0.gs.nspins)
+    spins = range(gs.nspins)
     # Add chi0 contribution from all the unoccupied bands
-    chi0.update_chi0(chi0_full, chi0.nocc1, chi0.nbands, spins)
+    chi0.update_chi0(chi0_full, gs.nocc1, nbands, spins)
     # Add chi0 contribution from *some* of the unoccupied bands
-    chi0.update_chi0(chi0_steps, chi0.nocc1, intermediate_m, spins)
+    chi0.update_chi0(chi0_steps, gs.nocc1, intermediate_m, spins)
     # Add chi0 contribution from the remaining unoccupied bands
-    chi0.update_chi0(chi0_steps, intermediate_m, chi0.nbands, spins)
+    chi0.update_chi0(chi0_steps, intermediate_m, nbands, spins)
 
     # Compare the output chi0 body
-    assert chi0_steps.chi0_wGG == pytest.approx(chi0_full.chi0_wGG,
+    assert chi0_steps.chi0_WgG == pytest.approx(chi0_full.chi0_WgG,
                                                 abs=1e-8, rel=1e-6)

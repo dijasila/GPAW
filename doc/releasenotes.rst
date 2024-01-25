@@ -10,7 +10,149 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.23.0b1
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
+.. warning::
+
+   PW-mode `\Gamma`-point calculations could sometimes find a fake
+   eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
+   expansion of the real-valued wave functions:
+
+   .. math::
+
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
+
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
+
+   For systems with vacuum in the cell, the 0 eV state would be unoccupied,
+   but for fully periodic systems, the 0 eV state could be occupied.
+   So, if you have done
+
+   * PW-mode calculations
+   * fully periodic systems
+   * only `\Gamma`-point sampling
+   * ``nbands`` set to a number large enough to trigger random
+     wave functions
+
+   then please check your results to see if you are affected by this bug.
+
+   Fixed in :mr:`2114`.
+
+* Minimum version requirements: Python 3.8, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Functionality has been added to calculate various local properties of the
+  magnetic sites of a crystal, see :ref:`sites`.
+
+* Python 3.8 or later is required now.
+
+* Calculations of ground and excited states in FD and PW modes can now be
+  done using direct orbital optimization (see :ref:`directmin`). Use
+  ``eigensolver='etdm-fdpw'`` (or import ``gpaw.directmin.etdm_fdpw.FDPWETDM``
+  ). The LCAO implementation of direct optimization available also in previous
+  versions can be used by specifying ``eigensolver='etdm-lcao'`` (or by
+  importing ``gpaw.directmin.etdm_lcao.LCAOETDM``).
+
+  Direct optimization can also be used to perform calculations with
+  Perdew-Zunger self-interaction correction (PZ-SIC) for both FD, PW and LCAO
+  modes. Use (FD and PW modes)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_fdpw import FDPWETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  or (LCAO mode)::
+
+      from gpaw import GPAW
+      from gpaw.directmin.etdm_lcao import LCAOETDM
+      calc = GPAW(eigensolver=LCAOETDM(localizationtype='PM_PZ',
+                                       functional={'name': 'PZ-SIC'}),
+                  ...)
+
+  For excited state calculations, use direct optimization together with
+  :ref:`MOM <mom>` (available for all modes) or with
+  :ref:`generalized mode following <do-gmf>` (available only for LCAO).
+
+* A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
+  :issue:`828`.
+
+
+Version 23.9.1
+==============
+
+Sep 15, 2023: :git:`23.9.1 <../23.9.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Include new GPU ``.c``, ``.h`` and ``.cpp`` files in :git:`MANIFEST.in`
+  (:issue:`975`).
+
+
+Version 23.9.0
+==============
+
+Sep 13, 2023: :git:`23.9.0 <../23.9.0>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* In the future, it will become an error to not specify a
+  :ref:`mode <manual_mode>` parameter for a DFT calculation.
+  For now, users will get a warning when finite-difference mode is
+  implicitly chosen.  Please change your scripts to avoid this error/warning.
+
+* Removed the utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
+
+* :class:`~gpaw.tddft.TDDFT` and :class:`~gpaw.lcaotddft.LCAOTDDFT` will
+  now throw an error if the ground state contains point group symmetries
+
+* We are now using Pytest-cache for our :func:`gpaw.test.conftest.gpw_files`
+  fixture.
+
+* New
+  :meth:`~gpaw.new.ase_interface.ASECalculator.get_orbital_magnetic_moments`
+  method: calculates the orbital magnetic moment vector for each atom.
+
+* New experimental density mixer: ``MixerFull``.
+
+
+Version 23.6.1
+==============
+
+Jul 5, 2023: :git:`23.6.1 <../23.6.1>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* Avoid deprecation warnings from Numpy-1.25 (:mr:`1770`, :mr:`1771`).
+
+
+Version 23.6.0
+==============
+
+Jun 9, 2023: :git:`23.6.0 <../23.6.0>`
+
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
+* New :meth:`~gpaw.calculator.GPAW.new()` method for creating new ``GPAW``
+  objects with tweaked input parameters.  This can often be used to replace
+  the use of the ``set`` method which we are planning to remove.
+
+* A bug was found (now fixed) in the :ref:`zfs` module.  Please redo
+  calculations done with versions 22.1 and 22.8.
 
 * A bug in the implementation of MGGA functionals was found: :issue:`674`.
   The kinetic-energy density was calculated from the irreducible part of
@@ -23,6 +165,18 @@ Git master branch
      in order to reduce number of **k**-points then you should redo those
      calculations.  Sorry!
 
+* Two other bugs affecting MGGA calculations were found (in the fix_density
+  and diagonalize_full_hamiltonian routines), which are fixed by
+  `!1417 <https://gitlab.com/gpaw/gpaw/-/merge_requests/1417>`_.
+
+  .. warning::
+
+     MGGA calculations using fix_density and/or diagonalize_full_hamiltonian
+     should be rerun with these fixes.
+
+* The stress tensor was implemented for MGGA functionals, and
+  parallelization of MGGAs for large systems was improved.
+
 * Local orbitals added in LCAO mode to construct effective
   tight-binding Hamiltonians: :ref:`los in lcao`, :ref:`los tutorial`.
 
@@ -33,7 +187,34 @@ Git master branch
 
 * New tutorial: :ref:`abinitiomd`.
 
-* Experimental support for PW-mode calculations using a GPU.
+* Added relative tolerance for force convergence. This is useful for geometry
+  optimizations to adaptively converge forces. See :ref:`custom_convergence`.
+
+* Experimental support for PW-mode calculations using a GPU: :ref:`gpu`.
+
+* One can now specify the total energy convergence criterium in eV instead
+  of eV / valence electron:
+  ``convergence={'energy': Energy(tol=..., relative=False)}``.
+  See the :class:`gpaw.convergence_criteria.Energy` class.
+
+* The PW-mode now includes an ``interpolation`` flag.  See
+  :class:`gpaw.wavefunctions.pw.PW` for details.
+
+* The LCAO implementation of direct optimization for variational calculations
+  of excited electronic states now includes
+  :ref:`constrained optimization <mom>`
+  useful for challenging charge transfer excited states.
+
+* The :ref:`direct optimization generalized mode following method <do-gmf>`
+  (DO-GMF) for variational calculations of excited electronic states was added.
+
+* Updated electron-phonon coupling and Raman implementations and
+  documentation. See :ref:`elphtheory` and :ref:`elphraman`.
+
+  .. warning::
+
+     Bugs in previous versions could have led to wrong relative intensities.
+     Please regenerate the Raman tensor.
 
 
 Version 22.8.0
@@ -41,7 +222,8 @@ Version 22.8.0
 
 Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0,
+  SciPy 1.2.0
 
 * Updated :ref:`WSL installation instructions <wsl>`.
 
@@ -59,7 +241,7 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   tutorial.
 
 * :ref:`spinspiral calculations`.  See also
-  :git:`~gpaw/test/spinspiral/h_chain_test.py`.
+  :git:`~gpaw/test/spinspiral/test_h_chain.py`.
 
 * :ref:`soc`.
 
@@ -73,8 +255,9 @@ Aug 18, 2022: :git:`22.8.0 <../22.8.0>`
   systems during SCF iterations.
   See `!854 <https://gitlab.com/gpaw/gpaw/-/merge_requests/854>`_ for details.
 
-* Functionality to compute magnon dispersions for ferromagnets in the classical
-  isotropic Heisenberg model has been added, see ``gpaw.response.heisenberg``
+* Functionality to compute magnon dispersions for ferromagnets in the
+  classical isotropic Heisenberg model has been added, see
+  ``gpaw.response.heisenberg``
 
 * A new module ``gpaw.response.mft``, see :ref:`mft`, has been added for the
   calculation of isotropic Heisenberg exchange parameters within a linear
@@ -102,7 +285,8 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
 
    * Fix for latest numpy-1.22.0.
 
-* Corresponding ASE release: ASE-3.22.1.
+* Minimum version requirements: Python 3.7, ASE 3.22.1, NumPy 1.15.0,
+  SciPy 1.2.0
 
 * Python 3.7 or later is required now.
 
@@ -131,8 +315,8 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
   See :class:`gpaw.bfield.BField` and this example:
   :git:`gpaw/test/ext_potential/test_b_field.py`.
 
-* :ref:`raman` calculations for extended systems using electron-phonon coupling
-  are now implemented in the LCAO mode.
+* :ref:`raman` calculations for extended systems using electron-phonon
+  coupling are now implemented in the LCAO mode.
 
   * An example can be found under :ref:`elphraman`.
 
@@ -140,7 +324,7 @@ Jan 12, 2022: :git:`22.1.0 <../22.1.0>`
     the whole supercell matrix into memory.
 
   * A routine to calculate dipole and nabla (momentum) matrix elements for
-    LCAO wave functions has been added: :git:`gpaw/raman/dipoletransition.py`
+    LCAO wave functions has been added: :git:`gpaw/lcao/dipoletransition.py`
 
 * You can now change all sorts of things about how the SCF cycle decides it
   is converged. You can specify new, non-default convergence keywords like
@@ -286,8 +470,9 @@ Oct 19, 2020: :git:`20.10.0 <../20.10.0>`
 
 * Corresponding ASE release: ASE-3.20.1.
 
-* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.  Angles are given in degrees (was radians before).
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles
+  parallelization and uses symmetry.  Angles are given in degrees
+  (was radians before).
 
 * The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
   :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
@@ -714,7 +899,7 @@ May 29, 2018: :git:`1.4.0 <../1.4.0>`
   ``dedecut='estimate'`` to use an estimate from the kinetic energy of an
   isolated atom.
 
-* New utility function: :func:`gpaw.utilities.ibz2bz.ibz2bz`.
+* New utility function: ``gpaw.utilities.ibz2bz.ibz2bz``.
 
 
 Version 1.3.0
@@ -899,8 +1084,7 @@ Mar 17, 2016: :git:`1.0.0 <../1.0.0>`.
 * New `f_{\text{xc}}` kernels for correlation energy calculations.  See this
   updated :ref:`tutorial <rapbe_tut>`.
 
-* Correlation energies within the range-separated RPA.  See this
-  :ref:`tutorial <rangerpa_tut>`.
+* Correlation energies within the range-separated RPA.
 
 * Experimental interface to the libvdwxc_ library
   for efficient van der Waals density functionals.
@@ -1044,8 +1228,8 @@ Apr 8, 2014: :git:`0.10.0 <../0.10.0>`.
 
        setups={'Ag': '11'}
 
-     See :ref:`manual_setups` and list the contents of :envvar:`GPAW_SETUP_PATH`
-     for available setups.
+     See :ref:`manual_setups` and list the contents of
+     :envvar:`GPAW_SETUP_PATH` for available setups.
 
 * new ``dzp`` basis set generated for all the new setups, see
   https://trac.fysik.dtu.dk/projects/gpaw/ticket/241

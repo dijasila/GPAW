@@ -15,13 +15,15 @@ atoms = Atoms('OH2',
               cell=(a, a, a))
 atoms.center()
 
-calc1 = GPAW(h=0.2,
+calc1 = GPAW(mode='fd',
+             h=0.2,
              txt='h2o_gs.txt',
              xc='PBE')
 atoms.calc = calc1
 e1 = atoms.get_potential_energy() + calc1.get_reference_energy()
 
-calc2 = GPAW(h=0.2,
+calc2 = GPAW(mode='fd',
+             h=0.2,
              txt='h2o_exc.txt',
              xc='PBE',
              charge=-1,

@@ -6,7 +6,6 @@ from ase.units import Bohr, Ha
 from gpaw import GPAW
 from gpaw.external import ExternalPotential, known_potentials
 from gpaw.poisson import NoInteractionPoissonSolver
-from gpaw.test import equal
 
 
 class HarmonicPotential(ExternalPotential):
@@ -19,12 +18,14 @@ class HarmonicPotential(ExternalPotential):
         return {'name': 'HarmonicPotential'}
 
 
+@pytest.mark.later
 def test_ext_potential_harmonic(in_tmp_dir):
-    """Test againts analytic result (no xc, no Coulomb)."""
+    """Test against the analytic result (no xc, no Coulomb)."""
     a = 4.0
     x = Atoms(cell=(a, a, a))  # no atoms
 
-    calc = GPAW(charge=-8,
+    calc = GPAW(mode='fd',
+                charge=-8,
                 nbands=4,
                 h=0.2,
                 xc={'name': 'null'},
@@ -36,8 +37,8 @@ def test_ext_potential_harmonic(in_tmp_dir):
     x.get_potential_energy()
 
     eigs = calc.get_eigenvalues()
-    equal(eigs[0], 1.5 * Ha, 0.002)
-    equal(abs(eigs[1:] - 2.5 * Ha).max(), 0, 0.003)
+    assert eigs[0] == pytest.approx(1.5 * Ha, abs=0.002)
+    assert abs(eigs[1:] - 2.5 * Ha).max() == pytest.approx(0, abs=0.003)
 
     # Check write + read:
     calc.write('harmonic.gpw')
@@ -62,6 +63,7 @@ class PöschlTellerPotential(ExternalPotential):
         return {'name': 'HarmonicPotential'}
 
 
+@pytest.mark.later
 def test_pt_potential():
     """Test againts analytic result (no xc, no Coulomb)."""
     d = 6.0

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import NamedTuple, Dict, List
 
 import numpy as np
@@ -8,7 +9,7 @@ from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
 
 
 class PAWThings(NamedTuple):
-    VC_aii: Dict[int, np.ndarray]
+    VC_aii: Dict[int, np.ndarray | None]
     VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
 
@@ -20,7 +21,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
         D_sP = pack_atomic_matrices(D_asp)
         D_sP = broadcast(D_sP if comm.rank == 0 else None, comm=comm)
         D_asp = unpack_atomic_matrices(D_sP, wfs.setups)
-        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
+        rank_a = np.linspace(0, wfs.world.size, len(wfs.setups),
                              endpoint=False).astype(int)
         D_asp = {a: D_sp for a, D_sp in D_asp.items()
                  if rank_a[a] == wfs.world.rank}
@@ -34,10 +35,13 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
-    VC_aii = {}
+    VC_aii: Dict[int, np.ndarray | None] = {}
     for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
-        VC_aii[a] = unpack(data.X_p)
+        if data.X_p is None:
+            VC_aii[a] = None
+        else:
+            VC_aii[a] = unpack(data.X_p)
 
     return [PAWThings(VC_aii, VV_aii, Delta_aiiL)
             for VV_aii in VV_saii]

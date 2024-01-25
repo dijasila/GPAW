@@ -207,50 +207,6 @@ PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args)
     return checkerr(err);
 }
 
-PyObject *pyelpa_hermitian_multiply(PyObject *self, PyObject *args)
-{
-    PyObject *handle_obj;
-    int ncb;
-
-    char *uplo_a, *uplo_c;
-    int nrows_b, ncols_b, nrows_c, ncols_c;
-
-    PyArrayObject *A_obj, *B_obj, *C_obj;
-
-    if(!PyArg_ParseTuple(args, "OssiOOiiOii",
-                         &handle_obj, &uplo_a, &uplo_c,
-                         &ncb, &A_obj, &B_obj, &nrows_b, &ncols_b,
-                         &C_obj, &nrows_c, &ncols_c)) {
-        return NULL;
-    }
-
-    elpa_t handle = unpack_handle(handle_obj);
-    int err;
-
-    double *A = (double *)PyArray_DATA(A_obj);
-    double *B = (double *)PyArray_DATA(B_obj);
-    double *C = (double *)PyArray_DATA(C_obj);
-
-    // The elpa_hermitian_multiply() has a typo, which means it will
-    // resolve as a compilation error in the precompiler.
-    // We shall have to call the _d function explicitly then.
-    if(PyArray_DESCR(A_obj)->type_num == NPY_DOUBLE) {
-        elpa_hermitian_multiply_d(handle, uplo_a[0], uplo_c[0], ncb,
-                                  A, B, nrows_b, ncols_b,
-                                  C, nrows_c, ncols_c,
-                                  &err);
-    } else {
-        elpa_hermitian_multiply_dc(handle, uplo_a[0], uplo_c[0], ncb,
-                                   (double complex *)A,
-                                   (double complex *)B,
-                                   nrows_b, ncols_b,
-                                   (double complex *)C,
-                                   nrows_c, ncols_c,
-                                   &err);
-    }
-    return checkerr(err);
-}
-
 PyObject *pyelpa_deallocate(PyObject *self, PyObject *args)
 {
     PyObject *handle_obj;

@@ -55,7 +55,7 @@ B_cv = 2.0 * np.pi * calc.atoms.cell.reciprocal()  # Coordinate transform
 q_qv = q_qc @ B_cv  # Transform into absolute reciprocal coordinates
 pathq_q = [0.]
 for q in range(1, len(q_qc)):
-    pathq_q.append(pathq_q[-1] + np.linalg.norm(q_qc[q] - q_qc[q - 1]))
+    pathq_q.append(pathq_q[-1] + np.linalg.norm(q_qv[q] - q_qv[q - 1]))
 pathq_q = np.array(pathq_q)
 
 # Define q-limits of plot

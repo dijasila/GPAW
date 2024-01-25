@@ -64,6 +64,9 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
         S2_MM[:M, :M] = S_MM
         S2_MM[M:, M:] = S_MM
 
+        # We are ignoring x and y here.
+        # See gpaw.new.lcao.hamiltonian.NonCollinearHamiltonianMatrixCalculator
+        # for the correct way!
         H2_MM[:M, :M] = H_xMM[0] + H_xMM[3]
         H2_MM[M:, M:] = H_xMM[0] - H_xMM[3]
 

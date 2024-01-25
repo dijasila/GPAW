@@ -12,9 +12,9 @@ n.calc = GPAW(mode='lcao',
 e1 = n.get_potential_energy()
 
 # Calculation with a correction U=6 eV normalized:
-n.calc.set(setups={'N': ':p,6.0'}, txt='normalized_u.txt')
+n.calc = n.calc.new(setups={'N': ':p,6.0'}, txt='normalized_u.txt')
 e2 = n.get_potential_energy()
 
 # Calculation with a correction U=6 eV not normalized:
-n.calc.set(setups={'N': ':p,6.0,0'}, txt='not_normalized_u.txt')
+n.calc = n.calc.new(setups={'N': ':p,6.0,0'}, txt='not_normalized_u.txt')
 e3 = n.get_potential_energy()

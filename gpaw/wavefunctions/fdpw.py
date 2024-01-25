@@ -45,7 +45,7 @@ class PseudoPartialWaveWfsMover:
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
                    for phit in setup.get_partial_waves_for_atomic_orbitals()]
-            # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+            # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_J?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
@@ -284,7 +284,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         if self.kpt_u[0].psit is None:
             basis_functions = BasisFunctions(self.gd,
-                                             [setup.phit_j
+                                             [setup.basis_functions_J
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
                                              cut=True)
@@ -325,6 +325,7 @@ class FDPWWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             if not kpt.psit.in_memory:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,

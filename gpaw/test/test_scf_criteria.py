@@ -29,6 +29,7 @@ class FourIterations(Criterion):
         self.iters = 0
 
 
+@pytest.mark.later
 def test_scf_criterion(in_tmp_dir):
     """Tests different ways of setting SCF convergence criteria,
     and that it behaves consistenly with regard to the work function."""
@@ -41,15 +42,16 @@ def test_scf_criterion(in_tmp_dir):
                   cell=(5., 5., 9.),
                   pbc=(True, True, False))
     atoms.center()
-    calc = GPAW(h=0.3,
-                nbands=-1,
-                convergence=convergence,
-                txt=None,
-                poissonsolver={'dipolelayer': 'xy'})
-    atoms.calc = calc
+    atoms.calc = GPAW(mode='fd',
+                      h=0.3,
+                      nbands=-1,
+                      convergence=convergence,
+                      txt=None,
+                      poissonsolver={'dipolelayer': 'xy'})
     atoms.get_potential_energy()
-    workfunctions1 = Ha * calc.hamiltonian.get_workfunctions(calc.wfs)
-    calc.write('scf-criterion.gpw')
+    workfunctions1 = Ha * atoms.calc.hamiltonian.get_workfunctions(
+        atoms.calc.wfs)
+    atoms.calc.write('scf-criterion.gpw')
 
     # Flip and use saved calculator; work functions should be opposite.
     atoms = Atoms('HF', [(0., 0.5, -0.5),
@@ -57,14 +59,14 @@ def test_scf_criterion(in_tmp_dir):
                   cell=(5., 5., 9.),
                   pbc=(True, True, False))
     atoms.center()
-    calc = GPAW('scf-criterion.gpw', txt=None)  # checks loading
-    atoms.calc = calc
+    atoms.calc = GPAW('scf-criterion.gpw', txt=None)  # checks loading
     atoms.get_potential_energy()
-    workfunctions2 = Ha * calc.hamiltonian.get_workfunctions(calc.wfs)
+    workfunctions2 = Ha * atoms.calc.hamiltonian.get_workfunctions(
+        atoms.calc.wfs)
 
     assert workfunctions1[0] == pytest.approx(workfunctions2[1])
     assert workfunctions1[1] == pytest.approx(workfunctions2[0])
-    assert calc.scf.criteria['work function'].tol == pytest.approx(1.0)
+    assert atoms.calc.scf.criteria['work function'].tol == pytest.approx(1.0)
 
     # Try import syntax, and verify it creates a new instance internally.
     workfunction = WorkFunction(0.5)
@@ -72,10 +74,10 @@ def test_scf_criterion(in_tmp_dir):
                    'density': 1.0,
                    'energy': 1.0,
                    'work function': workfunction}
-    calc.set(convergence=convergence)
+    atoms.calc = atoms.calc.new(convergence=convergence)
     atoms.get_potential_energy()
-    assert calc.scf.criteria['work function'] is not workfunction
-    assert calc.scf.criteria['work function'].tol == pytest.approx(0.5)
+    assert atoms.calc.scf.criteria['work function'] is not workfunction
+    assert atoms.calc.scf.criteria['work function'].tol == pytest.approx(0.5)
 
     # Switch to H2 for faster calcs.
     for atom in atoms:
@@ -85,11 +87,12 @@ def test_scf_criterion(in_tmp_dir):
     convergence = {'energy': Energy(2.0, n_old=4),
                    'density': np.inf,
                    'eigenstates': np.inf}
-    calc.set(convergence=convergence)
+    atoms.calc = atoms.calc.new(convergence=convergence)
     atoms.get_potential_energy()
-    assert calc.scf.criteria['energy'].n_old == 4
+    assert atoms.calc.scf.criteria['energy'].n_old == 4
 
 
+@pytest.mark.later
 def test_scf_custom_criterion(in_tmp_dir):
     """Simulate a user creating their own custom convergence criterion,
     saving the .gpw file, and re-loading it. It will warn the user at two
@@ -105,7 +108,8 @@ def test_scf_custom_criterion(in_tmp_dir):
                   pbc=(True, True, False))
     atoms.center()
     atoms.rattle()
-    calc = GPAW(h=0.3,
+    calc = GPAW(mode='fd',
+                h=0.3,
                 nbands=-1,
                 convergence=convergence,
                 txt='out.txt',

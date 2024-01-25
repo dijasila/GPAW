@@ -14,26 +14,112 @@ class Blocks1D:
 
         self.myslice = slice(self.a, self.b)
 
-    def collect(self, array_w):
-        b_w = np.zeros(self.blocksize, array_w.dtype)
-        b_w[:self.nlocal] = array_w
-        A_w = np.empty(self.blockcomm.size * self.blocksize, array_w.dtype)
-        self.blockcomm.all_gather(b_w, A_w)
-        return A_w[:self.N]
+    def all_gather(self, in_myix):
+        """All-gather array where the first dimension is block distributed.
+
+        Here, myi is understood as the distributed index, whereas x are the
+        remaining (global) dimensions."""
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        buf_ix = self.global_communication_buffer(in_myix)
+
+        # Excecute all-gather
+        self.blockcomm.all_gather(buf_myix, buf_ix)
+        out_ix = buf_ix[:self.N]
+
+        return out_ix
+
+    def gather(self, in_myix, root=0):
+        """Gather array to root where the first dimension is block distributed.
+        """
+        assert root in range(self.blockcomm.size)
+
+        # Set up buffers
+        buf_myix = self.local_communication_buffer(in_myix)
+        if self.blockcomm.rank == root:
+            buf_ix = self.global_communication_buffer(in_myix)
+        else:
+            buf_ix = None
+
+        # Excecute gather
+        self.blockcomm.gather(buf_myix, root, buf_ix)
+        if self.blockcomm.rank == root:
+            out_ix = buf_ix[:self.N]
+        else:
+            out_ix = None
+
+        return out_ix
+
+    def local_communication_buffer(self, in_myix):
+        """Set up local communication buffer."""
+        if in_myix.shape[0] == self.blocksize and in_myix.flags.contiguous:
+            buf_myix = in_myix  # Use input array as communication buffer
+        else:
+            assert in_myix.shape[0] == self.nlocal
+            buf_myix = np.empty(
+                (self.blocksize,) + in_myix.shape[1:], in_myix.dtype)
+            buf_myix[:self.nlocal] = in_myix
+
+        return buf_myix
+
+    def global_communication_buffer(self, in_myix):
+        """Set up global communication buffer."""
+        buf_ix = np.empty(
+            (self.blockcomm.size * self.blocksize,) + in_myix.shape[1:],
+            dtype=in_myix.dtype)
+        return buf_ix
+
+    def find_global_index(self, i):
+        """Find rank and local index of the global index i"""
+        rank = i // self.blocksize
+        li = i % self.blocksize
+
+        return rank, li
 
 
 def block_partition(comm, nblocks):
+    r"""Partition the communicator into a 2D array with horizontal
+    and vertical communication.
+
+         Communication between blocks (blockcomm)
+    <----------------------------------------------->
+     _______________________________________________
+    |     |     |     |     |     |     |     |     | ⋀
+    |  0  |  1  |  2  |  3  |  4  |  5  |  6  |  7  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| |
+    |     |     |     |     |     |     |     |     | | Communication inside
+    |  8  |  9  | 10  | 11  | 12  | 13  | 14  | 15  | | blocks
+    |_____|_____|_____|_____|_____|_____|_____|_____| | (intrablockcomm)
+    |     |     |     |     |     |     |     |     | |
+    | 16  | 17  | 18  | 19  | 20  | 21  | 22  | 23  | |
+    |_____|_____|_____|_____|_____|_____|_____|_____| ⋁
+
+    """
+    if nblocks == 'max':
+        # Maximize the number of blocks
+        nblocks = comm.size
+    assert isinstance(nblocks, int)
+    assert nblocks > 0 and nblocks <= comm.size, comm.size
     assert comm.size % nblocks == 0, comm.size
-    rank1 = comm.rank // nblocks * nblocks
-    rank2 = rank1 + nblocks
-    blockcomm = comm.new_communicator(range(rank1, rank2))
+
+    # Communicator between different blocks
+    if nblocks == comm.size:
+        blockcomm = comm
+    else:
+        rank1 = comm.rank // nblocks * nblocks
+        rank2 = rank1 + nblocks
+        blockcomm = comm.new_communicator(range(rank1, rank2))
+
+    # Communicator inside each block
     ranks = range(comm.rank % nblocks, comm.size, nblocks)
     if nblocks == 1:
         assert len(ranks) == comm.size
         intrablockcomm = comm
     else:
         intrablockcomm = comm.new_communicator(ranks)
+
     assert blockcomm.size * intrablockcomm.size == comm.size
+
     return blockcomm, intrablockcomm
 
 
@@ -45,6 +131,19 @@ class PlaneWaveBlockDistributor:
         self.world = world
         self.blockcomm = blockcomm
         self.intrablockcomm = intrablockcomm
+
+    @property
+    def fully_block_distributed(self):
+        return self.world.compare(self.blockcomm) == 'ident'
+
+    def new_distributor(self, *, nblocks):
+        """Set up a new PlaneWaveBlockDistributor."""
+        world = self.world
+        blockcomm, intrablockcomm = block_partition(comm=world,
+                                                    nblocks=nblocks)
+        blockdist = PlaneWaveBlockDistributor(world, blockcomm, intrablockcomm)
+
+        return blockdist
 
     def _redistribute(self, in_wGG, nw):
         """Redistribute array.
@@ -87,63 +186,62 @@ class PlaneWaveBlockDistributor:
         # (If it were not divisible, we would "lose" some numbers and the
         #  redistribution would be corrupted.)
 
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        out_wGG = np.empty(outshape, complex)
-
         inbuf = in_wGG.reshape(mdin.shape)
-        outbuf = out_wGG.reshape(mdout.shape)
+        # numpy.reshape does not *guarantee* that the reshaped view will
+        # be contiguous. To support redistribution of input arrays with an
+        # arbitrary allocation layout, we make sure that the corresponding
+        # input BLACS buffer in contiguous
+        inbuf = np.ascontiguousarray(inbuf)
+
+        outbuf = np.empty(mdout.shape, complex)
 
         r.redistribute(inbuf, outbuf)
 
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        out_wGG = outbuf.reshape(outshape)
+        assert out_wGG.flags.contiguous  # Since mdout.shape[1] % nG == 0
+
         return out_wGG
 
-    def check_distribution(self, in_wGG, nw, dist_type):
-        """ Checks if array in_wGG is distributed as dist_type. """
-        if dist_type != 'wGG' and dist_type != 'WgG':
-            raise ValueError('Invalid dist_type.')
-        comm = self.blockcomm
-        nG = in_wGG.shape[2]
-        if comm.size == 1:
-            return nw, nG, True  # All distributions are equivalent
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
+    def has_distribution(self, array, nw, distribution):
+        """Check if array 'array' has distribution 'distribution'."""
+        if distribution not in ['wGG', 'WgG', 'zGG', 'ZgG']:
+            raise ValueError(f'Invalid dist_type: {distribution}')
 
-        # At the moment on wGG and WgG distribution possible
-        if in_wGG.shape[1] < in_wGG.shape[2]:
-            assert in_wGG.shape[0] == nw
-            mydist = 'WgG'
+        comm = self.blockcomm
+        if comm.size == 1:
+            # In serial, all distributions are equivalent
+            return True
+
+        # At the moment, only wGG and WgG distributions are supported. zGG and
+        # ZgG are complex frequency aliases for wGG and WgG respectively
+        assert len(array.shape) == 3
+        nG = array.shape[2]
+        if array.shape[1] < array.shape[2]:
+            # Looks like array is WgG/ZgG distributed
+            gblocks = Blocks1D(comm, nG)
+            assert array.shape == (nw, gblocks.nlocal, nG)
+            return distribution in ['WgG', 'ZgG']
         else:
-            assert in_wGG.shape[1] == in_wGG.shape[2]
-            mydist = 'wGG'
-        return mynw, mynG, mydist == dist_type
-        
-    def distribute_as(self, in_wGG, nw, out_dist):
+            # Looks like array is wGG/zGG distributed
+            wblocks = Blocks1D(comm, nw)
+            assert array.shape == (wblocks.nlocal, nG, nG)
+            return distribution in ['wGG', 'zGG']
+
+    def distribute_as(self, array, nw, distribution):
         """Redistribute array.
 
         Switch between two kinds of parallel distributions:
 
-        1) parallel over G-vectors (second dimension of in_wGG, out_dist = WgG)
-        2) parallel over frequency (first dimension of in_wGG, out_dist = wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
+        1) parallel over G-vectors (distribution in ['WgG', 'ZgG'])
+        2) parallel over frequency (distribution in ['wGG', 'zGG'])
         """
-        # check so that out_dist is valid
-        if out_dist != 'wGG' and out_dist != 'WgG':
-            raise ValueError('Invalid out_dist')
-        
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-        
-        # Check distribution and redistribute if necessary
-        mynw, mynG, same_dist = self.check_distribution(in_wGG, nw, out_dist)
-
-        if same_dist:
-            return in_wGG
+        if self.has_distribution(array, nw, distribution):
+            # If the array already has the requested distribution, do nothing
+            return array
         else:
-            return self._redistribute(in_wGG, nw)
-    
+            return self._redistribute(array, nw)
+
     def distribute_frequencies(self, in_wGG, nw):
         """Distribute frequencies to all cores."""
 

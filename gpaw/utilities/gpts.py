@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+
 from ase.units import Bohr, Hartree
 
 from gpaw.fftw import get_efficient_fft_size

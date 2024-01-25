@@ -7,7 +7,7 @@ The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
 
 from gpaw import GPAW
 from gpaw.cluster import Cluster
-from gpaw.test import equal
+import pytest
 from ase.build import molecule
 from ase.units import mol, kcal, Pascal, m, Bohr
 from gpaw.solvation import (
@@ -45,7 +45,7 @@ def test_solvation_adm12():
     atoms.minimal_box(vac, h)
 
     if not SKIP_VAC_CALC:
-        atoms.calc = GPAW(xc='PBE', h=h, convergence=convergence)
+        atoms.calc = GPAW(mode='fd', xc='PBE', h=h, convergence=convergence)
         Evac = atoms.get_potential_energy()
         print(Evac)
     else:
@@ -58,6 +58,7 @@ def test_solvation_adm12():
         psolver = ADM12PoissonSolver()
 
     atoms.calc = SolvationGPAW(
+        mode='fd',
         xc='PBE', h=h, poissonsolver=psolver, convergence=convergence,
         cavity=ADM12SmoothStepCavity(
             rhomin=rhomin, rhomax=rhomax, epsinf=epsinf,
@@ -77,4 +78,4 @@ def test_solvation_adm12():
     DGSol = (Ewater - Evac) / (kcal / mol)
     print('Delta Gsol: %s kcal / mol' % DGSol)
 
-    equal(DGSol, -6.3, 2.)
+    assert DGSol == pytest.approx(-6.3, abs=2.)
