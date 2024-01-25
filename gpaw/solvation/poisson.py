@@ -127,9 +127,10 @@ class PolarizationPoissonSolver(BasePoissonSolver):
     with polarization charges.
     """
 
-    def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
+    def __init__(self, nn=3, relax='J', eps: float = 2e-10,
+                 maxiter: int = 1000,
                  remove_moment=None, use_charge_center=False,
-                 gas_phase_poisson='fast', eta=0.6):
+                 gas_phase_poisson='fast', eta: float = 0.6):
         """
         eta: mixing weight
         """
@@ -176,7 +177,7 @@ class PolarizationPoissonSolver(BasePoissonSolver):
 
         phi_old = phi.copy()
         epsr, _, _, _ = self.dielectric.eps_gradeps
-        rho_pol = self.polarization_charge(phi, rho)
+        rho_pol = self.polarization_charge(phi)
         while niter < self.maxiter:
             rho_mod = rho / epsr + rho_pol
             niter += self.gas_phase_poisson.solve(
@@ -188,14 +189,14 @@ class PolarizationPoissonSolver(BasePoissonSolver):
             if error < self.eps:
                 return niter
             rho_pol = ((1 - self.eta) * rho_pol +
-                       self.eta * self.polarization_charge(phi, rho))
+                       self.eta * self.polarization_charge(phi))
             phi_old = phi.copy()
 
         raise PoissonConvergenceError(
             'PolarizationPoisson solver did not converge in '
             + f'{niter} iterations!')
 
-    def polarization_charge(self, phi, rho):
+    def polarization_charge(self, phi):
         epsr, dx_epsr, dy_epsr, dz_epsr = self.dielectric.eps_gradeps
         dx_phi = self.gd.empty()
         dy_phi = self.gd.empty()
