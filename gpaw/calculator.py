@@ -1993,15 +1993,22 @@ class GPAW(Calculator):
 
         # Get pseudo part
         if self.wfs.mode == 'pw':
+            if nbands is None:
+                nbands = len(kpt_u[u].psit_nG)
+
             psit_nR = np.zeros(np.insert(self.wfs.gd.N_c, 0, nbands),
                                self.wfs.dtype)
             psit1_nR = psit_nR.copy()
-
+            for n in range(nbands):
+                psit_nR[n] = self.wfs._get_wave_function_array(u, n)
+                psit1_nR[n] = self.wfs._get_wave_function_array(u1, n)
+                print('calculated bands %d, array shape: ' % n, psit_nR.shape)
         else:
             psit_nR = kpt_u[u].psit_nG
             psit1_nR = kpt_u[u1].psit_nG
+        print('calculating Z_nn for u=', u, ' and u1 = ', u1)
         Z_nn = self.wfs.gd.wannier_matrix(psit_nR, psit1_nR, G_c, nbands)
-
+        print('done')
         # Add corrections
         self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
 
