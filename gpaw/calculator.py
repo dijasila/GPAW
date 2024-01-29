@@ -1945,6 +1945,7 @@ class GPAW(Calculator):
         Use initial guess for wannier orbitals to determine rotation
         matrices U and C.
         """
+
         from ase.dft.wannier import rotation_from_projection
         proj_knw = self.get_projections(initialwannier, spin)
         U_kww = []
@@ -2002,13 +2003,10 @@ class GPAW(Calculator):
             for n in range(nbands):
                 psit_nR[n] = self.wfs._get_wave_function_array(u, n)
                 psit1_nR[n] = self.wfs._get_wave_function_array(u1, n)
-                print('calculated bands %d, array shape: ' % n, psit_nR.shape)
         else:
             psit_nR = kpt_u[u].psit_nG
             psit1_nR = kpt_u[u1].psit_nG
-        print('calculating Z_nn for u=', u, ' and u1 = ', u1)
         Z_nn = self.wfs.gd.wannier_matrix(psit_nR, psit1_nR, G_c, nbands)
-        print('done')
         # Add corrections
         self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
 
@@ -2072,7 +2070,6 @@ class GPAW(Calculator):
         As a special case, locfun can be the string 'projectors', in which
         case the bound state projectors are used as localized functions.
         """
-
         wfs = self.wfs
 
         if locfun == 'projectors':
@@ -2116,21 +2113,27 @@ class GPAW(Calculator):
 
         lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
-
         assert wfs.gd.comm.size == 1
         k = 0
-        f_ani = lf.dict(wfs.bd.nbands)
-        for kpt in wfs.kpt_u:
+        nbands = wfs.bd.nbands
+        f_ani = lf.dict(nbands)
+        psit_nR = np.zeros(np.insert(self.wfs.gd.N_c, 0, nbands),
+                           self.wfs.dtype)
+        for u, kpt in enumerate(wfs.kpt_u):
             if kpt.s != spin:
                 continue
-            lf.integrate(kpt.psit_nG[:], f_ani, kpt.q)
+            if self.wfs.mode == 'pw':
+                for n in range(nbands):
+                    psit_nR[n] = self.wfs._get_wave_function_array(u, n)
+            else:
+                psit_nR = kpt.psit_nG[:]
+            lf.integrate(psit_nR, f_ani, kpt.q)
             i1 = 0
             for x, f_ni in f_ani.items():
                 i2 = i1 + f_ni.shape[1]
                 f_kni[k, :, i1:i2] = f_ni
                 i1 = i2
             k += 1
-
         return f_kni.conj()
 
     def get_number_of_grid_points(self):
