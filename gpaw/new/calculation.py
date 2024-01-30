@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import Any, Union
 
 import numpy as np
@@ -11,7 +12,7 @@ from gpaw.densities import Densities
 from gpaw.electrostatic_potential import ElectrostaticPotential
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float, world
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.density import Density
 from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
 from gpaw.new.input_parameters import InputParameters
@@ -40,6 +41,7 @@ units = {'energy': Ha,
          'dipole': Bohr,
          'magmom': 1.0,
          'magmoms': 1.0,
+         'non_collinear_magmom': 1.0,
          'non_collinear_magmoms': 1.0}
 
 
@@ -206,6 +208,7 @@ class DFTCalculation:
         self.results['magmom'] = mm_v[2]
         self.results['magmoms'] = mm_av[:, 2].copy()
         self.results['non_collinear_magmoms'] = mm_av
+        self.results['non_collinear_magmom'] = mm_v
 
         if self.state.density.ncomponents > 1:
             x, y, z = mm_v
@@ -307,6 +310,10 @@ class DFTCalculation:
         if params.mode['name'] != 'pw':
             raise ReuseWaveFunctionsError
 
+        ibzwfs = self.state.ibzwfs
+        if ibzwfs.domain_comm.size != 1:
+            raise ReuseWaveFunctionsError
+
         if not self.state.density.nt_sR.desc.pbc_c.all():
             raise ReuseWaveFunctionsError
 
@@ -316,7 +323,7 @@ class DFTCalculation:
         builder = create_builder(atoms, params, self.comm)
 
         kpt_kc = builder.ibz.kpt_kc
-        old_kpt_kc = self.state.ibzwfs.ibz.kpt_kc
+        old_kpt_kc = ibzwfs.ibz.kpt_kc
         if len(kpt_kc) != len(old_kpt_kc):
             raise ReuseWaveFunctionsError
         if abs(kpt_kc - old_kpt_kc).max() > 1e-9:
@@ -341,7 +348,7 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, _ = pot_calc.calculate(density)
 
-        old_ibzwfs = self.state.ibzwfs
+        old_ibzwfs = ibzwfs
 
         def create_wfs(spin, q, k, kpt_c, weight):
             wfs = old_ibzwfs.wfs_qs[q][spin]
