@@ -41,14 +41,14 @@ class Unfold:
 
         self.nb = self.calc.get_number_of_bands()
 
-        self.v_Kmsn = None
+        self.v_Kmn = None
         if spinorbit:
             if mpi.world.rank == 0:
                 print('Calculating spinorbit Corrections')
             self.nb = 2 * self.calc.get_number_of_bands()
             soc = soc_eigenstates(self.calc)
             self.e_mK = soc.eigenvalues().T
-            self.v_Kmsn = soc.eigenvectors()
+            self.v_Kmn = soc.eigenvectors()
             if mpi.world.rank == 0:
                 print('Done with the spinorbit Corrections')
 
@@ -103,7 +103,7 @@ class Unfold:
         dimension is added."""
 
         psi_mgrid = get_rs_wavefunctions_k(self.calc, iK, self.spinorbit,
-                                           self.v_Kmsn)
+                                           self.v_Kmn)
         if not self.spinorbit:
             psi_list_mG = []
             for i in range(len(psi_mgrid)):
@@ -271,7 +271,7 @@ def find_K_from_k(k, M):
     return KG, G
 
 
-def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmsn=None):
+def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmn=None):
     """Get the list of WaveFunction for a given iK. For spinors the number of
     bands is doubled and a spin dimension is added."""
 
@@ -290,9 +290,9 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmsn=None):
                                eikr_R for m in range(Nb)])
         return psit_mgrid
     else:
-        v_msn = v_Kmsn[iK]
-        v0_mn = v_msn[:, 0]
-        v1_mn = v_msn[:, 1]
+        v_mn = v_Kmn[iK]
+        v0_mn = v_mn[:, ::2]
+        v1_mn = v_mn[:, 1::2]
 
         u0_ngrid = np.array(
             [calc.wfs.get_wave_function_array(n, iK, 0) * eikr_R
@@ -314,7 +314,7 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmsn=None):
 
 
 def plot_spectral_function(filename, color='blue', eref=None,
-                           emin=None, emax=None):
+                           emin=None, emax=None, scale=1):
     """Function to plot spectral function corresponding to the bandstructure
     along the kpoints path."""
 
@@ -336,7 +336,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
         emax = e.max()
 
     A_ke /= np.max(A_ke)
-    A_ek = A_ke.T
+    A_ek = A_ke.T * scale
     A_ekc = np.reshape(A_ek, (A_ek.shape[0], A_ek.shape[1]))
 
     mycmap = make_colormap(color)
