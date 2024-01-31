@@ -213,7 +213,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
             nc = min(cs)  # CBM index
 
         # Precalculate f * (1-f) term
-        f_vc = np.outer(f_n[vs], 1. - f_n[cs]) * kpt.weight
+        f_vc = np.outer(f_n[vs], 1. - f_n[cs])
 
         # Precalculate E-E term
         E_vc = np.empty((len(vs), len(cs)), dtype=complex)
@@ -263,9 +263,9 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         # weight, or time_reversal only. In the later case r -> 2*Re(r)
         # because gdd-> (gdd)^* for k-> -k
         if add_time_reversed:
-            raman_lw += 2. * this_lw.real
+            raman_lw += 2. * this_lw.real  * kpt.weight
         else:
-            raman_lw += this_lw
+            raman_lw += this_lw  * kpt.weight
 
     # Collect parallel contributions
     kd.comm.sum(raman_lw)
