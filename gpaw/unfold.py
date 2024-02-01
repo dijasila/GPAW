@@ -130,7 +130,6 @@ class Unfold:
             u_mG = np.zeros((len(u0_mG),
                              2,
                              u0_mG.shape[1]), complex)
-            
             u_mG[:, 0] = u0_mG
             u_mG[:, 1] = u1_mG
 
