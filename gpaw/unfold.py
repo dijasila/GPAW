@@ -20,12 +20,17 @@ class Unfold:
                  name=None,
                  calc=None,
                  M=None,
-                 spinorbit=None):
+                 spin=0,
+                 spinorbit=None,
+                 theta=90,
+                 scale=1.0,
+                 phi=90):
 
         self.name = name
         self.calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
         self.M = np.array(M, dtype=float)
         self.spinorbit = spinorbit
+        self.spin = spin
 
         self.gd = self.calc.wfs.gd.new_descriptor()
 
@@ -46,7 +51,8 @@ class Unfold:
             if mpi.world.rank == 0:
                 print('Calculating spinorbit Corrections')
             self.nb = 2 * self.calc.get_number_of_bands()
-            soc = soc_eigenstates(self.calc)
+            soc = soc_eigenstates(self.calc,
+                                  scale=scale, theta=theta, phi=phi)
             self.e_mK = soc.eigenvalues().T
             self.v_Kmn = soc.eigenvectors()
             if mpi.world.rank == 0:
@@ -92,10 +98,10 @@ class Unfold:
         """Get the list of eigenvalues for a given iK."""
 
         if not self.spinorbit:
-            e_m = self.calc.get_eigenvalues(kpt=iK, spin=0) / Hartree
+            e_m = self.calc.get_eigenvalues(kpt=iK, spin=self.spin)
         else:
-            e_m = self.e_mK[:, iK] / Hartree
-        return np.array(e_m)
+            e_m = self.e_mK[:, iK]
+        return np.array(e_m) / Hartree
 
     def get_pw_wavefunctions_k(self, iK):
         """Get the list of Fourier coefficients of the WaveFunction for a
@@ -103,7 +109,7 @@ class Unfold:
         dimension is added."""
 
         psi_mgrid = get_rs_wavefunctions_k(self.calc, iK, self.spinorbit,
-                                           self.v_Kmn)
+                                           self.v_Kmn, spin=self.spin)
         if not self.spinorbit:
             psi_list_mG = []
             for i in range(len(psi_mgrid)):
@@ -124,9 +130,10 @@ class Unfold:
             u_mG = np.zeros((len(u0_mG),
                              2,
                              u0_mG.shape[1]), complex)
-
+            
             u_mG[:, 0] = u0_mG
             u_mG[:, 1] = u1_mG
+
             return u_mG
 
     def get_spectral_weights_k(self, k_t):
@@ -271,7 +278,7 @@ def find_K_from_k(k, M):
     return KG, G
 
 
-def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmn=None):
+def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmn=None, spin=0):
     """Get the list of WaveFunction for a given iK. For spinors the number of
     bands is doubled and a spin dimension is added."""
 
@@ -286,7 +293,7 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmn=None):
         calc.initialize_positions()
 
     if not spinorbit:
-        psit_mgrid = np.array([calc.wfs.get_wave_function_array(m, iK, 0) *
+        psit_mgrid = np.array([calc.wfs.get_wave_function_array(m, iK, spin) *
                                eikr_R for m in range(Nb)])
         return psit_mgrid
     else:
