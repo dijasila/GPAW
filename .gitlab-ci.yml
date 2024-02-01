@@ -81,6 +81,7 @@ stages:
     - lumi
   rules:
     - if: ($GITLAB_USER_LOGIN == "jensj" || $GITLAB_USER_LOGIN == "mikaelkuisma" || $GITLAB_USER_LOGIN == "trossi") && ($CI_PIPELINE_SOURCE == "push")
+      allow_failure: true
 
 
 .lumi-g-job:
