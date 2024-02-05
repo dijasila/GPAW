@@ -50,7 +50,12 @@ def si_gpwfiles():
                             ({'point_group': False}, 'tr'),
                             ({'time_reversal': False}, 'pg')]:
             name = f'si_gw_a{a}_{name1}'
-
+            """
+            In !2153, a bug related to late binding of local functions was
+            fixed, and the partial wrapper utilized here is a temporary fix.
+            Previously, the test would only test the last symmetry in the loop,
+            but four times.
+            """
             fun = partial(_si_gw, a=a, symm=symm, name=name)
             fun.__name__ = name
             gpw_file_dict[name] = gpwfile(fun)
