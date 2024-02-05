@@ -38,6 +38,30 @@ def run(gpw_filename, nblocks):
 
     return output
 
+def run_qpoints(gpw_filename, nblocks):
+    # This tests checks the actual numerical accuracy which is asserted below
+    calc = GPAW(gpw_filename)
+    e = calc.get_potential_energy()
+    qpts = calc.wfs.kd.nibzkpts
+    args = (gpw_filename, 'gw_None')
+    kwargs = dict(nbands=8, integrate_gamma=0,
+                  kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
+                  ecut=40, nblocks=nblocks,
+                  frequencies={'type': 'nonlinear',
+                               'domega0': 0.1, 'omegamax': None},
+                  eta=0.2, relbands=(-1, 2))
+    for iq in range(qpts):
+        gw = G0W0(*args, **kwargs, qpoints=[iq])
+        print(gw.calculate())
+
+    gw = G0W0(*args, **kwargs)
+    results = gw.calculate()
+    G, X = results['eps'][0]
+    output = [e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+    G, X = results['qp'][0]
+    output += [G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]]
+
+    return output
 
 reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
                            6.261, 3.570, 1.323, 0.001], abs=0.0035)
@@ -49,12 +73,14 @@ reference = pytest.approx([-9.253, 5.442, 2.389, 0.403, 0.000,
 @pytest.mark.parametrize('symm', ['all', 'no', 'tr', 'pg'])
 @pytest.mark.parametrize('nblocks',
                          [x for x in [1, 2, 4, 8] if x <= world.size])
-def test_response_gwsi(in_tmp_dir, si, symm, nblocks, scalapack,
+@pytest.mark.parametrize('qpoints', [True, False])
+def test_response_gwsi(in_tmp_dir, si, symm, nblocks, qpoints, scalapack,
                        needs_ase_master, gpw_files, gpaw_new):
     if gpaw_new and world.size > 1:
         pytest.skip('Hybrids not working in parallel with GPAW_NEW=1')
     filename = gpw_files[f'si_gw_a{si}_{symm}']
-    assert run(filename, nblocks) == reference
+    f = run if not qpoints else run_qpoints
+    assert f(filename, nblocks) == reference
 
 
 @pytest.mark.response

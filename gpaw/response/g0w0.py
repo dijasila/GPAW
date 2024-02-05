@@ -403,7 +403,8 @@ class G0W0Calculator:
                  qcache,
                  ppa=False,
                  mpa=None,
-                 evaluate_sigma=None):
+                 evaluate_sigma=None,
+                 qpoints=None):
         """G0W0 calculator, initialized through G0W0 object.
 
         The G0W0 calculator is used to calculate the quasi
@@ -447,6 +448,7 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.mpa = mpa
+        self.qpoints = qpoints
 
         if evaluate_sigma is None:
             evaluate_sigma = np.array([])
@@ -606,8 +608,16 @@ class G0W0Calculator:
         (spins, IBZ k-points, bands)."""
 
         # Loop over q in the IBZ:
-        self.context.print('Summing all q:')
+        if self.qpoints is None:
+            self.context.print('Summing all q:')
+        else:
+            qpt_str = ' '.join(map(str, self.qpoints))
+            self.context.print(f'Calculating following q-points: {qpt_str}')
+
         self.calculate_all_q_points()
+        
+        if self.qpoints is not None:
+            return f'A partial result of q-points: {qpt_str}'
         sigmas = self.read_sigmas()
         self.all_results = self.postprocess(sigmas)
         # Note: self.results is a pointer pointing to one of the results,
@@ -806,6 +816,10 @@ class G0W0Calculator:
 
         self.context.comm.barrier()
         for iq, q_c in enumerate(self.wcalc.qd.ibzk_kc):
+            # If a list of q-points is specified,
+            # skip the q-points not in the list
+            if (self.qpoints is not None) and (iq not in self.qpoints):
+                continue
             with ExitStack() as stack:
                 if self.context.comm.rank == 0:
                     qhandle = stack.enter_context(self.qcache.lock(str(iq)))
@@ -1022,6 +1036,7 @@ class G0W0(G0W0Calculator):
                  integrate_gamma=0,
                  q0_correction=False,
                  do_GW_too=False,
+                 qpoints=None,
                  **kwargs):
         """G0W0 calculator wrapper.
 
@@ -1097,6 +1112,12 @@ class G0W0(G0W0Calculator):
         nblocksmax: bool
             Cuts chi0 into as many blocks as possible to reduce memory
             requirements as much as possible.
+        qpoints: list[int] or None
+            Select which IBZ q-points to calculate from the full BZ-integral.
+            Since full integration is not performed in this calculation,
+            results are not provided, but only the q-point wise result
+            will be cached for future use.
+
         """
         # We pass a serial communicator because the parallel handling
         # is somewhat wonky, we'd rather do that ourselves:
@@ -1108,7 +1129,7 @@ class G0W0(G0W0Calculator):
                 'File cache requires ASE master '
                 'from September 20 2022 or newer.  '
                 'You may need to pull newest ASE.') from err
-        if world.rank == 0:
+        if world.rank == 0 and qpoints is None:
             qcache.strip_empties()
         mode = 'a' if qcache.filecount() > 1 else 'w'
 
@@ -1165,7 +1186,11 @@ class G0W0(G0W0Calculator):
                           'timeordered': True}
 
         from gpaw.response.chi0 import new_frequency_descriptor
-        wcontext = context.with_txt(filename + '.w.txt', mode=mode)
+        if qpoints is None:
+            txt = filename + '.w.txt'
+        else:
+            txt, mode = filename + f".w.q{'_'.join(map(str, qpoints))}.txt", 'w'
+        wcontext = context.with_txt(txt, mode=mode)
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
@@ -1212,6 +1237,7 @@ class G0W0(G0W0Calculator):
                          qcache=qcache,
                          ppa=ppa,
                          mpa=mpa,
+                         qpoints=qpoints,
                          **kwargs)
 
     @property
