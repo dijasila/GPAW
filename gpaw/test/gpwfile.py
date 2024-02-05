@@ -33,15 +33,18 @@ def with_band_cutoff(*, gpw, band_cutoff):
 def partial(fun, **kwargs):
     import copy
     kwargs = copy.deepcopy(kwargs)
+
     def f(self):
         return fun(self, **kwargs)
     return f
+
 
 def _si_gw(self, *, a, symm, name):
     atoms = self.generate_si_systems()[a]
     return self._si_gw(atoms=atoms,
                        symm=symm,
                        name=f'{name}.txt')
+
 
 def si_gpwfiles():
     gpw_file_dict = {}
