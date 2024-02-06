@@ -18,7 +18,7 @@ version = '3.11'
 fversion = 'cpython-311'
 
 # Niflheim login hosts, with the oldest architecture as the first
-nifllogin = ['thul', 'sylg', 'svol', 'surt']
+nifllogin = ['sylg', 'svol', 'surt']
 
 # Easybuild uses a hierarchy of toolchains for the main foss and intel
 # chains.  The order in the tuples before are
