@@ -5,8 +5,6 @@ import pytest
 from gpaw.response.g0w0 import G0W0
 from gpaw.mpi import world
 import numpy as np
-from ase.units import Bohr, Hartree
-from gpaw import GPAW
 
 
 @pytest.mark.response
@@ -35,8 +33,6 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files,
     assert e_qp[0] == pytest.approx(ev, abs=0.01)
     assert e_qp[1] == pytest.approx(ec, abs=0.01)
 
-    calc = GPAW(gpw_files['hbn_pw'])
-    volume = calc.atoms.cell.volume / (Bohr**3)
     for ie, ecut in enumerate([20, 25, 30]):
         gw = G0W0(gpw_files['hbn_pw'],
                   f'gw-hBN-separate-ecut{ecut}',
