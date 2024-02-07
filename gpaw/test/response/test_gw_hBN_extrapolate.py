@@ -38,13 +38,11 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir, scalapack, gpw_files,
     calc = GPAW(gpw_files['hbn_pw'])
     volume = calc.atoms.cell.volume / (Bohr**3)
     for ie, ecut in enumerate([20, 25, 30]):
-        m2 = int(volume * (ecut / Hartree)**1.5 * 2**0.5 / 3 / np.pi**2)
         gw = G0W0(gpw_files['hbn_pw'],
                   f'gw-hBN-separate-ecut{ecut}',
                   ecut=ecut,
-                  nbands=m2,
                   frequencies={'type': 'nonlinear',
-                               'omegamax': 43.2,
+                               'omegamax': 43.2,  # We need same grid as above
                                'domega0': 0.1},
                   eta=0.2,
                   truncation='2D',
