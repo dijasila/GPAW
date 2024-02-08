@@ -93,8 +93,8 @@ class PotentialCalculator:
                 e_kinetic += dedtaut_R.integrate(density.tauct_R)
         else:
             dedtaut_sR = None
-        plt.show()
-        #energies['kinetic'] = e_kinetic
+        # plt.show()
+        energies['kinetic'] = e_kinetic
 
         if kpt_band_comm is None:
             if ibzwfs is None:
