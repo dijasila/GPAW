@@ -45,7 +45,6 @@ def get_orbmag_from_density(D_asii, n_aj, l_aj):
                                              D_ii[Ni:Ni + Nm, Ni:Ni + Nm],
                                              L_vlmm[v][l]).real
             Ni += Nm
-
     return orbmag_av
 
 

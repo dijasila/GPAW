@@ -166,13 +166,11 @@ class BZWaveFunctions:
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 n_aj: List[List[int]],
-                 l_aj: List[List[int]]):
+                 nl_aj: Dict[int, List[Tuple[int, int]]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
-        self.n_aj = n_aj
-        self.l_aj = l_aj
+        self.nl_aj = nl_aj
 
         self.nbzkpts = kd.nbzkpts
 
@@ -561,10 +559,11 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     else:
         occcalc = None
 
-    n_aj = [setup.n_j for setup in calc.wfs.setups]
-    l_aj = [setup.l_j for setup in calc.wfs.setups]
+    nl_aj = {}
+    for a, setup in enumerate(calc.wfs.setups):
+        nl_aj[a] = list(zip(setup.n_j, setup.l_j))
 
-    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, n_aj, l_aj)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
