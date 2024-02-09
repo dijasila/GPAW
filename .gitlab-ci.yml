@@ -75,10 +75,35 @@ stages:
   before_script:
     - !reference [default, before_script]
 
+
 .gpu-job:
   rules:
     - if: $CI_COMMIT_BRANCH == "master"
     - if: $CI_COMMIT_BRANCH =~ "/^gpu-.*/"
+
+
+.lumi-job:
+  tags:
+    - lumi
+  rules:
+    - if: ($GITLAB_USER_LOGIN == "jensj" || $GITLAB_USER_LOGIN == "mikaelkuisma" || $GITLAB_USER_LOGIN == "trossi") && ($CI_PIPELINE_SOURCE == "push")
+      allow_failure: true
+
+
+.lumi-g-job:
+  extends: .lumi-job
+  variables:
+    SCHEDULER_PARAMETERS: "-A project_465000483 -N 1 --ntasks-per-node=1 --gpus-per-node=1 --mem=4G -t 00:10:00 -p small-g"
+  before_script:
+    - export EBU_USER_PREFIX=/scratch/project_465000483/EasyBuild
+    - module load LUMI/22.12 partition/G
+    - module load cpeGNU/22.12
+    - module load cray-fftw/3.3.10.1
+    - module load cray-python/3.9.13.1
+    - module load CuPy/12.2.0-cpeGNU-22.12  # from EBU_USER_PREFIX
+    - module load libxc/6.1.0-cpeGNU-22.12  # from EBU_USER_PREFIX
+    - export GPAW_SETUP_PATH=/projappl/project_465000483/gpaw-setups-0.9.20000
+    - !reference [default, before_script]
 
 
 build:
@@ -194,6 +219,53 @@ build-minimal:
       EOF
     - cat siteconfig.py
     - pip install --user --log build.log --editable .
+    - gpaw info
+
+
+build-lumi-g:
+  extends:
+    - .build
+    - .lumi-g-job
+  script:
+    - |
+      cat << EOF > siteconfig.py
+      parallel_python_interpreter = True
+      mpi = True
+      compiler = 'cc'
+      compiler_args = []
+      libraries = []
+      library_dirs = []
+      include_dirs = []
+      extra_compile_args = [
+          '-O3',
+          '-fopenmp',
+          '-fPIC',
+          '-Wall',
+          '-Wno-stringop-overflow',  # suppress warnings from MPI_STATUSES_IGNORE
+          '-Werror',
+          '-g',
+          ]
+      extra_link_args = ['-fopenmp']
+
+      fftw = True
+      libraries += ['fftw3']
+
+      scalapack = True
+
+      libraries += ['xc']
+
+      define_macros += [('GPAW_ASYNC', None)]
+
+      gpu = True
+      gpu_target = 'hip-amd'
+      gpu_compiler = 'hipcc'
+      gpu_include_dirs = []
+      gpu_compile_args = ['--offload-arch=gfx90a', '-O3', '-g']
+      libraries += ['amdhip64', 'hipblas']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --no-deps git+https://gitlab.com/ase/ase.git@master
+    - pip install --user --no-deps --log build.log --editable .
     - gpaw info
 
 
@@ -370,6 +442,18 @@ test-hip-cuda:
     - cuda
   script:
     - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
+
+
+test-lumi-g:
+  extends:
+    - .test
+    - .lumi-g-job
+  needs:
+    - build-lumi-g
+  script:
+    - rocm-smi || true  # rocm-smi yields non-zero return code
     - gpaw info
     - pytest -v -m gpu
 

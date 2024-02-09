@@ -2,7 +2,6 @@ import functools
 from contextlib import contextmanager
 from math import sqrt
 from pathlib import Path
-
 import numpy as np
 
 from ase import Atom, Atoms
@@ -31,6 +30,22 @@ def with_band_cutoff(*, gpw, band_cutoff):
     return decorator
 
 
+def partial(fun, **kwargs):
+    import copy
+    kwargs = copy.deepcopy(kwargs)
+
+    def f(self):
+        return fun(self, **kwargs)
+    return f
+
+
+def _si_gw(self, *, a, symm, name):
+    atoms = self.generate_si_systems()[a]
+    return self._si_gw(atoms=atoms,
+                       symm=symm,
+                       name=f'{name}.txt')
+
+
 def si_gpwfiles():
     gpw_file_dict = {}
     for a in [0, 1]:
@@ -38,14 +53,15 @@ def si_gpwfiles():
                             ({'point_group': False}, 'tr'),
                             ({'time_reversal': False}, 'pg')]:
             name = f'si_gw_a{a}_{name1}'
-
-            def _si_gw(self):
-                atoms = self.generate_si_systems()[a]
-                return self._si_gw(atoms=atoms,
-                                   symm=symm,
-                                   name=f'{name}.txt')
-            _si_gw.__name__ = name
-            gpw_file_dict[name] = gpwfile(_si_gw)
+            """
+            In !2153, a bug related to late binding of local functions was
+            fixed, and the partial wrapper utilized here is a temporary fix.
+            Previously, the test would only test the last symmetry in the loop,
+            but four times.
+            """
+            fun = partial(_si_gw, a=a, symm=symm, name=name)
+            fun.__name__ = name
+            gpw_file_dict[name] = gpwfile(fun)
 
     return gpw_file_dict
 

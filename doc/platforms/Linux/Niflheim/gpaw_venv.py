@@ -18,7 +18,7 @@ version = '3.11'
 fversion = 'cpython-311'
 
 # Niflheim login hosts, with the oldest architecture as the first
-nifllogin = ['thul', 'sylg', 'svol', 'surt']
+nifllogin = ['sylg', 'svol', 'surt']
 
 # Easybuild uses a hierarchy of toolchains for the main foss and intel
 # chains.  The order in the tuples before are
@@ -101,7 +101,7 @@ def run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
 
 
 def compile_gpaw_c_code(gpaw: Path, activate: Path) -> None:
-    """Compile for all architectures: xeon16, xeon24, xeon40, ..."""
+    """Compile for all architectures: xeon24, xeon40, ..."""
     # Remove targets:
     for path in gpaw.glob('build/lib.linux-x86_64-*/_gpaw.*.so'):
         path.unlink()
