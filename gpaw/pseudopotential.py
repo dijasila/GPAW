@@ -217,7 +217,7 @@ class PseudoPotential(BaseSetup):
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.lq = None
+        self.N0_q = None
 
         self.filename = None
         self.fingerprint = None
