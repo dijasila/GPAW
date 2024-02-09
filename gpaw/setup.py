@@ -789,7 +789,7 @@ class Setup(BaseSetup):
         vbar_g = data.vbar_g
 
         if float(data.version) < 0.7 and data.generator_version < 2:
-            # Old-style Fourier-filtered datatsets.
+            # Old-style Fourier-filtered datasets.
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
 
