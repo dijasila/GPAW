@@ -504,19 +504,14 @@ class BaseSetup:
 
     def calculate_yukawa_interaction(self, gamma):
         """Calculate and return the Yukawa based interaction."""
-        if self._Mg_pp is not None and gamma == self._gamma:
-            return self._Mg_pp  # Cached
 
         # Solves the radial screened poisson equation for density n_g
         def Yuk(self, n_g, l):
             """Solve radial screened poisson for density n_g."""
-            gamma = self._gamma
             return self.local_corr.rgd2.yukawa(n_g, l, gamma) * \
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
 
-        self._gamma = gamma
-        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
-        return self._Mg_pp
+        return self.calculate_vvx_interactions(Yuk)
 
     def calculate_erfc_interaction(self, omega):
         """Calculate and return erfc based valence valence
@@ -532,9 +527,8 @@ class BaseSetup:
            interaction."""
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
             self.calculate_integral_potentials(interaction)
-        self._Mg_pp = self.calculate_coulomb_corrections(
+        return self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
-        return self._Mg_pp
 
 
 class LeanSetup(BaseSetup):
