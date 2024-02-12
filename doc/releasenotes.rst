@@ -10,19 +10,28 @@ Git master branch
 
 :git:`master <>`.
 
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
 .. warning::
 
    PW-mode `\Gamma`-point calculations could sometimes find a fake
    eigenstate with eigenvalue equal to exactly 0 eV.  With a plane-wave
-   expansion of the real valued wave functions:
+   expansion of the real-valued wave functions:
 
    .. math::
 
-      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{k}\cdot\mathbf{G}}
+      \sum_\mathbf{G} c_\mathbf{G} e^{i\mathbf{G}\cdot\mathbf{r}}
 
-   the `c_\mathbf{G}` coefficient should not have an imaginary
-   part for the `\mathbf{G}=(0,0,0)` term.  This was violated when
-   the initial guess of the wave functions come from random numbers.
+   we must have `c_\mathbf{G}=c_\mathbf{-G}^*`, so the `c_\mathbf{G}`
+   coefficient should not have an imaginary
+   part for `\mathbf{G}=(0,0,0)`.  This was violated when
+   the initial guess of the wave functions came from random numbers.
 
    For systems with vacuum in the cell, the 0 eV state would be unoccupied,
    but for fully periodic systems, the 0 eV state could be occupied.
@@ -38,13 +47,13 @@ Git master branch
 
    Fixed in :mr:`2114`.
 
+* Minimum version requirements: Python 3.8, ASE 3.22.1, NumPy 1.17.0,
+  SciPy 1.6.0
+
 * Functionality has been added to calculate various local properties of the
   magnetic sites of a crystal, see :ref:`sites`.
 
 * Python 3.8 or later is required now.
-
-* Minimum version requirements: Python 3.7, ASE 3.23.0b1, NumPy 1.17.0,
-  SciPy 1.6.0
 
 * Calculations of ground and excited states in FD and PW modes can now be
   done using direct orbital optimization (see :ref:`directmin`). Use
@@ -78,6 +87,10 @@ Git master branch
 * A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
   :issue:`828`.
 
+* A bug resulting in slight inaccuracies when calculating inner products
+  between radial partial waves was fixed. This bug affected the calculation
+  of spin magnetic moments inside PAW spheres and the Hubbard correction when
+  it was applied to p-states. See :issue:`1068`.
 
 Version 23.9.1
 ==============
