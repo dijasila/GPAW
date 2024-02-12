@@ -309,6 +309,7 @@ class ResponsePAWDataset:
         self.ni = setup.ni
         self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
+        self.n_j = setup.n_j
         self.l_j = setup.l_j
         self.N0_q = setup.N0_q
         self.nabla_iiv = setup.nabla_iiv
