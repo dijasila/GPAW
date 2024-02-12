@@ -1510,6 +1510,18 @@ class FunctionIndices:
         return self.M_a[a], self.M_a[a + 1]
 
 
+class CachedYukawaInteractions:
+    def __init__(self, omega):
+        self.omega = omega
+        self._cache = {}
+
+    def get_Mg_pp(self, setup):
+        if setup not in self._cache:
+            Mg_pp = setup.calculate_yukawa_interaction(self.omega)
+            self._cache[setup] = Mg_pp
+        return self._cache[setup]
+
+
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.
 
