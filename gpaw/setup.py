@@ -597,6 +597,7 @@ class LeanSetup(BaseSetup):
         self.l_j = s.l_j
         self.l_orb_J = s.l_orb_J
         self.nj = len(s.l_j)
+        self.nq = s.nq
 
         self.data = s.data
 
