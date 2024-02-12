@@ -489,16 +489,16 @@ class BaseSetup:
 
     def calculate_integral_potentials(self, func):
         """Calculates a set of potentials using func."""
-        wg_lg = [func(self, self.g_lg[l], l)
+        wg_lg = [func(self.g_lg[l], l)
                  for l in range(self.lmax + 1)]
-        wn_lqg = [np.array([func(self, self.local_corr.n_qg[q], l)
+        wn_lqg = [np.array([func(self.local_corr.n_qg[q], l)
                             for q in range(self.nq)])
                   for l in range(2 * self.local_corr.lcut + 1)]
-        wnt_lqg = [np.array([func(self, self.local_corr.nt_qg[q], l)
+        wnt_lqg = [np.array([func(self.local_corr.nt_qg[q], l)
                              for q in range(self.nq)])
                    for l in range(2 * self.local_corr.lcut + 1)]
-        wnc_g = func(self, self.local_corr.nc_g, l=0)
-        wnct_g = func(self, self.local_corr.nct_g, l=0)
+        wnc_g = func(self.local_corr.nc_g, l=0)
+        wnct_g = func(self.local_corr.nct_g, l=0)
         wmct_g = wnct_g + self.Delta0 * wg_lg[0]
         return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
 
@@ -506,7 +506,7 @@ class BaseSetup:
         """Calculate and return the Yukawa based interaction."""
 
         # Solves the radial screened poisson equation for density n_g
-        def Yuk(self, n_g, l):
+        def Yuk(n_g, l):
             """Solve radial screened poisson for density n_g."""
             return self.local_corr.rgd2.yukawa(n_g, l, gamma) * \
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
@@ -518,7 +518,7 @@ class BaseSetup:
            exchange interactions."""
         hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
 
-        def erfc_interaction(_, n_g, l):
+        def erfc_interaction(n_g, l):
             return hse(n_g, l)
         return self.calculate_vvx_interactions(erfc_interaction)
 
@@ -905,7 +905,7 @@ class Setup(BaseSetup):
                                                     self.local_corr.T_Lqp)
 
         # Solves the radial poisson equation for density n_g
-        def H(self, n_g, l):
+        def H(n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
