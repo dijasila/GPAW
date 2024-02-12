@@ -9,9 +9,9 @@ from ase.build import bulk
 from ase.lattice.compounds import L1_2
 from ase.lattice.hexagonal import Graphene
 from gpaw import Davidson, FermiDirac, GPAW, Mixer, PW
-from gpaw.mpi import world
+from gpaw.mpi import world, serial_comm
 from gpaw.new.ase_interface import GPAW as GPAWNew
-from gpaw.poisson import FDPoissonSolver
+from gpaw.poisson import FDPoissonSolver, PoissonSolver
 
 response_band_cutoff = {}
 _all_gpw_methodnames = set()
@@ -438,6 +438,20 @@ class GPWFiles:
         return pe.calc
 
     @gpwfile
+    def h2_lcao_pair(self):
+        from ase.build import molecule
+        atoms = molecule('H2')
+        atoms.set_cell([6.4, 6.4, 6.4])
+        atoms.center()
+
+        atoms.calc = GPAW(mode='lcao', occupations=FermiDirac(0.1),
+                          poissonsolver={'name': 'fd'},
+                          txt=self.path / 'h2_lcao_pair.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
+
+    @gpwfile
     def h2o_lcao(self):
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
@@ -722,6 +736,36 @@ class GPWFiles:
         return blk.calc
 
     @gpwfile
+    def na2_tddft_poisson(self):
+        return self._na2_tddft(name='poisson', basis='dzp', xc='LDA')
+
+    @gpwfile
+    def na2_tddft_dzp(self):
+        return self._na2_tddft(name='dzp', basis='dzp', xc='LDA')
+
+    @gpwfile
+    def na2_tddft_sz(self):
+        return self._na2_tddft(name='sz', basis='sz(dzp)', xc='oldLDA')
+
+    def _na2_tddft(self, name, basis, xc):
+        poisson = PoissonSolver('fd', eps=1e-16) if name == 'poisson' \
+            else None
+        from ase.build import molecule
+        atoms = molecule('Na2')
+        atoms.center(vacuum=4.0)
+        calc = GPAW(nbands=2, h=0.4, setups=dict(Na='1'),
+                    basis=basis, mode='lcao', xc=xc,
+                    convergence={'density': 1e-8},
+                    poissonsolver=poisson,
+                    communicator=serial_comm if xc == 'oldLDA' else world,
+                    symmetry={'point_group': False},
+                    txt=self.path / f'na2_tddft_{name}.out')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+
+        return calc
+
+    @gpwfile
     def na2_fd(self):
         """Sodium dimer, Na2."""
         d = 1.5
@@ -875,17 +919,25 @@ class GPWFiles:
         return atoms.calc
 
     @gpwfile
-    def sih4_xc_gllbsc(self):
+    def sih4_xc_gllbsc_lcao(self):
+        return self._sih4_gllbsc(mode='lcao', basis='dzp')
+
+    @gpwfile
+    def sih4_xc_gllbsc_fd(self):
+        return self._sih4_gllbsc(mode='fd', basis=None)
+
+    def _sih4_gllbsc(self, mode, basis):
         from ase.build import molecule
         atoms = molecule('SiH4')
         atoms.center(vacuum=4.0)
 
         # Ground-state calculation
-        calc = GPAW(mode='fd', nbands=7, h=0.4,
+        calc = GPAW(mode=mode, nbands=7, h=0.4,
                     convergence={'density': 1e-8},
                     xc='GLLBSC',
+                    basis=basis,
                     symmetry={'point_group': False},
-                    txt=self.path / 'sih4_xc_gllbsc.txt')
+                    txt=self.path / f'sih4_xc_gllbsc_{mode}.txt')
         atoms.calc = calc
         atoms.get_potential_energy()
         return atoms.calc
