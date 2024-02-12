@@ -923,7 +923,7 @@ class GPWFiles:
 
     @gpwfile
     def sih4_xc_gllbsc_fd(self):
-        return self._sih4_gllbsc(mode='fd', basis=None)
+        return self._sih4_gllbsc(mode='fd', basis={})
 
     def _sih4_gllbsc(self, mode, basis):
         from ase.build import molecule
