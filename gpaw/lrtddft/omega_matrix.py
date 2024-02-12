@@ -380,9 +380,6 @@ class OmegaMatrix:
         Pij_ani = wfs.kpt_u[kss_ij.spin].P_ani
         Pkq_ani = wfs.kpt_u[kss_kq.spin].P_ani
 
-        if yukawa:
-            assert abs(self.yukawa_interactions.omega - self.xc.omega) < 1e-14
-
         # Add atomic corrections
         Ia = 0.0
         for a, Pij_ni in Pij_ani.items():
@@ -395,6 +392,8 @@ class OmegaMatrix:
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
             if yukawa:
+                assert abs(
+                    self.yukawa_interactions.omega - self.xc.omega) < 1e-14
                 C_pp = self.yukawa_interactions.get_Mg_pp(wfs.setups[a])
             else:
                 C_pp = wfs.setups[a].M_pp
