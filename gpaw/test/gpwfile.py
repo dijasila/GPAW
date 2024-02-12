@@ -450,7 +450,6 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
-
     @gpwfile
     def h2o_lcao(self):
         from ase.build import molecule

@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
 import pickle
-from ase.build import molecule
+
 from gpaw.lcao.tools import makeU, makeV
-from gpaw import GPAW, FermiDirac, restart
+from gpaw import restart
 from gpaw.lcao.pwf2 import LCAOwrap
 from gpaw.mpi import world, rank, serial_comm
 

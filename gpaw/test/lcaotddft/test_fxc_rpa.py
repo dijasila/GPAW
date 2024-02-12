@@ -9,7 +9,8 @@ from gpaw.mpi import world
 @pytest.mark.rttddft
 def test_lcaotddft_fxc_rpa(gpw_files, in_tmp_dir):
     # Time-propagation calculation with fxc
-    td_calc = LCAOTDDFT(gpw_files['na2_tddft_poisson'], fxc='RPA', txt='td.out')
+    td_calc = LCAOTDDFT(gpw_files['na2_tddft_poisson'], fxc='RPA',
+                        txt='td.out')
     DipoleMomentWriter(td_calc, 'dm.dat')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
     td_calc.propagate(20, 3)
