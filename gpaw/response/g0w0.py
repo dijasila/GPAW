@@ -559,7 +559,7 @@ class G0W0Calculator:
             for ec in self.ecut_e:
                 isl.append(f'  {ec * Ha:.3f} eV')
         isl.extend([f'Number of G bands: {self.nbands["G"]:d}',
-                    f'Number of Sigma bands: {self.nbands["S"]:d}',
+                    f'Number of W (chi0) bands: {self.nbands["W"]:d}',
                     f'Coulomb cutoff: {self.wcalc.coulomb.truncation}',
                     f'Broadening: {self.eta * Ha:g} eV',
                     '',
@@ -856,7 +856,7 @@ class G0W0Calculator:
             # First time calculation
             if ecut == chi0.qpd.ecut:
                 # Nothing to cut away:
-                m2 = self.nbands['S']
+                m2 = self.nbands['W']
             else:
                 m2 = int(self.wcalc.gs.volume * ecut**1.5
                          * 2**0.5 / 3 / pi**2)
@@ -1192,11 +1192,11 @@ class G0W0(G0W0Calculator):
         else:
             txt, mode = filename + f".w.q{'_'.join(map(str, qpoints))}.txt", 'w'
         wcontext = context.with_txt(txt, mode=mode)
-        wd = new_frequency_descriptor(gs, wcontext, nbands['S'], frequencies)
+        wd = new_frequency_descriptor(gs, wcontext, nbands['W'], frequencies)
 
         chi0calc = Chi0Calculator(
             wd=wd, kptpair_factory=kptpair_factory,
-            nbands=nbands['S'],
+            nbands=nbands['W'],
             ecut=ecut,
             intraband=False,
             context=wcontext,
