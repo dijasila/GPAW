@@ -616,6 +616,11 @@ class BSEBackend:
         return
 
     def collect_C_TGG(self, C_tGG):
+        """
+            Collect C_tGG to a rank 0 (as C_TGG) from all ranks.
+            T is global transition index, t is local transition index.
+            G is global planewave index.
+        """
         Nv = self.nv * (self.spinors + 1)
         Nc = self.nc * (self.spinors + 1)
         Ns = self.spins
