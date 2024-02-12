@@ -98,7 +98,7 @@ class OmegaMatrix:
         else:
             self.xc = None
 
-        if getattr(self.xc, 'omega', 0) > 0:
+        if getattr(self.xc, 'omega', 0):  # can be None or int
             self.yukawa_interactions = CachedYukawaInteractions(self.xc.omega)
         else:
             self.yukawa_interactions = None
