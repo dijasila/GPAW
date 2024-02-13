@@ -491,6 +491,25 @@ class GPWFiles:
         return calc
 
     @gpwfile
+    def h20_lr2_nbands8(self):
+        return self.h2o_nbands(
+            {'poissonsolver': {'name': 'fd'}, 'nbands': 8, 'basis': 'dzp'})
+    @gpwfile
+    def h20_lr2_nbands6(self):
+        return self.h2o_nbands({'nbands': 6, 'basis': 'sz(dzp)'})
+
+    def h2o_nbands(self, params):
+        atoms = molecule('H2O')
+        atoms.center(vacuum=4)
+
+        calc = GPAW(h=0.4, **params, xc='LDA', mode='lcao',
+                    txt=self.path / f'h2o_lr2_nbands{params["nbands"]}.out')
+        atoms.calc = calc
+        atoms.get_potential_energy()
+
+        return atoms.calc
+
+    @gpwfile
     def si_fd_ibz(self):
         si = bulk('Si', 'diamond', a=5.43)
         k = 3
