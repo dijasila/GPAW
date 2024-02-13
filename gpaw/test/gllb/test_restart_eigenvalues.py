@@ -2,7 +2,6 @@ import pytest
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW
-from ase.build import molecule
 
 
 refs = {'GLLBSC':
@@ -39,18 +38,14 @@ refs = {'GLLBSC':
                                 'GLLBSCM', 'GLLBSC:metallic=1:width=0.1',
                                 'GLLBSC:stencil=1'])
 def test_restart_eigenvalues(xc, in_tmp_dir):
-    test_kpts = [[0, 0, 0]]
-    atoms = molecule('H2')
-    atoms.center(vacuum=4)
-    atoms.set_pbc(True)
+    test_kpts = [[0, 0, 0], [1. / 3, 1. / 3, 1. / 3]]
 
-    #atoms = bulk('Si')
+    atoms = bulk('Si')
     calc = GPAW(mode='lcao',
-                basis='dzp',
-                h=0.4,
+                basis='sz(dzp)',
+                h=0.3,
                 nbands=8,
                 xc=xc,
-                parallel={'band':2, 'domain':2},
                 kpts={'size': (3, 3, 3), 'gamma': True},
                 txt='gs.out')
     atoms.calc = calc
@@ -59,7 +54,7 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     eref_s = calc.hamiltonian.xc.response.eref_s
     eref_source_s = calc.hamiltonian.xc.response.eref_source_s
 
-    kpt_i = [0]
+    kpt_i = [0, 3]
     calc_kpts = calc.get_ibz_k_points()[kpt_i]
     assert np.allclose(calc_kpts, test_kpts, rtol=0, atol=1e-8), \
         "Wrong kpt indices"
@@ -68,16 +63,13 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     calc.write('gs.gpw')
 
     # Check calculation against reference
-    #ref_eig_in = refs[xc]
-    #assert np.allclose(eig_in, ref_eig_in, rtol=0, atol=1e-6), \
-    #    "{} error = {}".format(xc, np.max(np.abs(eig_in - ref_eig_in)))
+    ref_eig_in = refs[xc]
+    assert np.allclose(eig_in, ref_eig_in, rtol=0, atol=1e-6), \
+        "{} error = {}".format(xc, np.max(np.abs(eig_in - ref_eig_in)))
 
     # Restart
     calc = GPAW('gs.gpw')
     calc = calc.fixed_density(kpts=test_kpts, txt='gs2.out')
-    calc.write('asd.gpw', mode='all')
-    #assert calc.hamiltonian.xc.response.D_asp.partition == calc.wfs.atom_partition  # Fails
-
     # Check that calculation was triggered
     scf = calc.scf
     assert scf is not None and scf.niter is not None and scf.niter > 0, \
