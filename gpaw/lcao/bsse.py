@@ -91,7 +91,6 @@ class GhostSetup(BaseSetup):
         self.X_pg = None
         self.ExxC = None
         self.ExxC_w = {}
-        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}

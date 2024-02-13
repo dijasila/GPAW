@@ -320,7 +320,6 @@ class PseudoPotential(BaseSetup):
         self.X_pg = None
         self.ExxC = None
         self.ExxC_w = {}
-        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)
         self.extra_xc_data = {}

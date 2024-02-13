@@ -639,7 +639,6 @@ class LeanSetup(BaseSetup):
 
         # Required by yukawa rsf
         self.X_pg = s.X_pg
-        self.X_gamma = s.X_gamma
 
         # Required by electrostatic correction
         self.dEH0 = s.dEH0
@@ -754,7 +753,6 @@ class Setup(BaseSetup):
         self.X_p = data.X_p
         self.X_wp = data.X_wp
 
-        self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
 
         self.orbital_free = data.orbital_free
