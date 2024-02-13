@@ -96,8 +96,6 @@ class GhostSetup(BaseSetup):
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
         self.local_corr = LocalCorrectionVar(None)
-        self._Mg_pp = None
-        self._gamma = None
 
 
 class GhostSetupData:

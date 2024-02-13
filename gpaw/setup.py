@@ -659,8 +659,6 @@ class LeanSetup(BaseSetup):
             self.local_corr = s.local_corr
         else:
             self.local_corr = LocalCorrectionVar(s)
-        self._Mg_pp = None
-        self._gamma = 0
 
 
 class Setup(BaseSetup):
@@ -772,8 +770,6 @@ class Setup(BaseSetup):
 
         self.lmax = lmax
 
-        self._Mg_pp = None  # Yukawa based corrections
-        self._gamma = 0
         # Attributes for run-time calculation of _Mg_pp
         self.local_corr = LocalCorrectionVar(data)
 
