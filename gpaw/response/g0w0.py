@@ -193,8 +193,6 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-
-
 gw_logo = """\
   ___  _ _ _
  |   || | | |
@@ -659,7 +657,6 @@ class G0W0Calculator:
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-
                     self.integrate_sigma(
                         ie, i, kpt1, kpt2, qpdi, Wdict,
                         symop=symop,
@@ -682,10 +679,11 @@ class G0W0Calculator:
             Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
             shift0_c = Q_c - symop.apply(qpd.q_c)
             self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
-        self.sigma_integrator.integrate_sigma(ie, k, kpt1, kpt2, qpd, Wdict,
-                symop=symop, sigmas=sigmas, blocks1d=blocks1d, pawcorr=pawcorr,
-                pair_calc=self.chi0calc.pair_calc, bands=self.bands, 
-                fxc_modes=self.fxc_modes)
+        self.sigma_integrator.integrate_sigma(
+            ie, k, kpt1, kpt2, qpd, Wdict,
+            symop=symop, sigmas=sigmas, blocks1d=blocks1d, pawcorr=pawcorr,
+            pair_calc=self.chi0calc.pair_calc, bands=self.bands,
+            fxc_modes=self.fxc_modes)
 
     def get_validation_inputs(self):
         return {'kpts': self.kpts,
