@@ -22,96 +22,12 @@ from gpaw.response.pw_parallelization import Blocks1D
 from gpaw.response.screened_interaction import initialize_w_calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response import timer
+from gpaw.response.sigma import Sigma, SigmaIntegrator
 
 
 from ase.utils.filecache import MultiFileJSONCache as FileCache
 from contextlib import ExitStack
 from ase.parallel import broadcast
-
-
-def compare_dicts(dict1, dict2, rel_tol=1e-14, abs_tol=1e-14):
-    """
-    Compare each key-value pair within dictionaries that contain nested data
-    structures of arbitrary depth. If a kvp contains floats, you may specify
-    the tolerance (abs or rel) to which the floats are compared. Individual
-    elements within lists are not compared to floating point precision.
-
-    :params dict1: Dictionary containing kvp to compare with other dictionary.
-    :params dict2: Second dictionary.
-    :params rel_tol: Maximum difference for being considered "close",
-    relative to the magnitude of the input values as defined by math.isclose().
-    :params abs_tol: Maximum difference for being considered "close",
-    regardless of the magnitude of the input values as defined by
-    math.isclose().
-
-    :returns: bool indicating kvp's don't match (False) or do match (True)
-    """
-    from math import isclose
-    if dict1.keys() != dict2.keys():
-        return False
-
-    for key in dict1.keys():
-        val1 = dict1[key]
-        val2 = dict2[key]
-
-        if isinstance(val1, dict) and isinstance(val2, dict):
-            # recursive func call to ensure nested structures are also compared
-            if not compare_dicts(val1, val2, rel_tol, abs_tol):
-                return False
-        elif isinstance(val1, float) and isinstance(val2, float):
-            if not isclose(val1, val2, rel_tol=rel_tol, abs_tol=abs_tol):
-                return False
-        else:
-            if val1 != val2:
-                return False
-
-    return True
-
-
-class Sigma:
-    def __init__(self, iq, q_c, fxc, esknshape, **inputs):
-        """Inputs are used for cache invalidation, and are stored for each
-           file.
-        """
-        self.iq = iq
-        self.q_c = q_c
-        self.fxc = fxc
-        self._buf = np.zeros((2, *esknshape))
-        # self-energies and derivatives:
-        self.sigma_eskn, self.dsigma_eskn = self._buf
-
-        self.inputs = inputs
-
-    def sum(self, comm):
-        comm.sum(self._buf)
-
-    def __iadd__(self, other):
-        self.validate_inputs(other.inputs)
-        self._buf += other._buf
-        return self
-
-    def validate_inputs(self, inputs):
-        equals = compare_dicts(inputs, self.inputs, rel_tol=1e-14,
-                               abs_tol=1e-14)
-        if not equals:
-            raise RuntimeError('There exists a cache with mismatching input '
-                               f'parameters: {inputs} != {self.inputs}.')
-
-    @classmethod
-    def fromdict(cls, dct):
-        instance = cls(dct['iq'], dct['q_c'], dct['fxc'],
-                       dct['sigma_eskn'].shape, **dct['inputs'])
-        instance.sigma_eskn[:] = dct['sigma_eskn']
-        instance.dsigma_eskn[:] = dct['dsigma_eskn']
-        return instance
-
-    def todict(self):
-        return {'iq': self.iq,
-                'q_c': self.q_c,
-                'fxc': self.fxc,
-                'sigma_eskn': self.sigma_eskn,
-                'dsigma_eskn': self.dsigma_eskn,
-                'inputs': self.inputs}
 
 
 class G0W0Outputs:
@@ -277,16 +193,6 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc, timer=None):
-    if timer:
-        timer.start('utcc and pawcorr multiply')
-    ut1cc_R = kpt1.ut_nR[n].conj()
-    C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
-    if timer:
-        timer.stop('utcc and pawcorr multiply')
-    n_mG = pair_calc.calculate_pair_density(
-        ut1cc_R, C1_aGi, kpt2, qpd, I_G)
-    return n_mG
 
 
 gw_logo = """\
@@ -393,6 +299,7 @@ class G0W0Calculator:
                  frequencies=None,
                  exx_vxc_calculator,
                  qcache,
+                 sigma_integrator,
                  ppa=False):
         """G0W0 calculator, initialized through G0W0 object.
 
@@ -437,6 +344,7 @@ class G0W0Calculator:
         self.context = self.wcalc.context
         self.ppa = ppa
         self.qcache = qcache
+        self.sigma_integrator = sigma_integrator
 
         # Note: self.wd should be our only representation of the frequencies.
         # We should therefore get rid of self.frequencies.
@@ -646,80 +554,6 @@ class G0W0Calculator:
         self.context.comm.barrier()
         return paths
 
-    def calculate_q(self, ie, k, kpt1, kpt2, qpd, Wdict,
-                    *, symop, sigmas, blocks1d, pawcorr):
-        """Calculates the contribution to the self-energy and its derivative
-        for a given set of k-points, kpt1 and kpt2."""
-        mypawcorr, I_G = symop.apply_symop_q(qpd, pawcorr, kpt1, kpt2)
-        if debug:
-            N_c = qpd.gd.N_c
-            i_cG = symop.apply(np.unravel_index(qpd.Q_qG[0], N_c))
-            bzk_kc = self.wcalc.gs.kd.bzk_kc
-            Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
-            shift0_c = Q_c - symop.apply(qpd.q_c)
-            self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
-
-        for n in range(kpt1.n2 - kpt1.n1):
-            eps1 = kpt1.eps_n[n]
-            n_mG = get_nmG(kpt1, kpt2, mypawcorr,
-                           n, qpd, I_G, self.chi0calc.pair_calc)
-
-            if symop.sign == 1:
-                n_mG = n_mG.conj()
-
-            f_m = kpt2.f_n
-            deps_m = eps1 - kpt2.eps_n
-
-            nn = kpt1.n1 + n - self.bands[0]
-
-            assert set(Wdict) == set(sigmas)
-            for fxc_mode in self.fxc_modes:
-                sigma = sigmas[fxc_mode]
-                Wmodel = Wdict[fxc_mode]
-                # m is band index of all (both unoccupied and occupied) wave
-                # functions in G
-                for m, (deps, f, n_G) in enumerate(zip(deps_m, f_m, n_mG)):
-                    # 2 * f - 1 will be used to select the branch of Hilbert
-                    # transform, see get_HW of screened_interaction.py
-                    # at FullFrequencyHWModel class.
-                    S_GG, dSdw_GG = Wmodel.get_HW(deps, 2 * f - 1)
-                    if S_GG is None:
-                        continue
-
-                    nc_G = n_G.conj()
-
-                    # ie: ecut index for extrapolation
-                    # kpt1.s: spin index of *
-                    # k: k-point index of *
-                    # nn: band index of *
-                    # * wave function, where the sigma expectation value is
-                    # evaluated
-                    slot = ie, kpt1.s, k, nn
-                    myn_G = n_G[blocks1d.myslice]
-                    sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
-                    sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
-
-    def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
-        # Can we delete this check? XXX
-        assert np.allclose(shift0_c.round(), shift0_c)
-        shift0_c = shift0_c.round().astype(int)
-        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
-        qpd = SingleQPWDescriptor.from_q(Q_c, self.ecut_e[ie],
-                                         self.wcalc.gs.gd)
-        G_I = np.empty(N_c.prod(), int)
-        G_I[:] = -1
-        I1_G = qpd.Q_qG[0]
-        G_I[I1_G] = np.arange(len(I0_G))
-        G_G = G_I[I0_G]
-        # This indexing magic should definitely be moved to a method.
-        # What on earth is it really?
-
-        assert len(I0_G) == len(I1_G)
-        assert (G_G >= 0).all()
-        pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
-        pawcorr_wcalc1 = pairden_paw_corr(qpd)
-        assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
-
     def calculate_all_q_points(self):
         """Main loop over irreducible Brillouin zone points.
         Handles restarts of individual qpoints using FileCache from ASE,
@@ -825,16 +659,33 @@ class G0W0Calculator:
                     k1 = self.wcalc.gs.kd.bz2ibz_k[kpt1.K]
                     i = self.kpts.index(k1)
 
-                    self.calculate_q(ie, i, kpt1, kpt2, qpdi, Wdict,
-                                     symop=symop,
-                                     sigmas=sigmas,
-                                     blocks1d=blocks1d,
-                                     pawcorr=pawcorr)
+
+                    self.integrate_sigma(
+                        ie, i, kpt1, kpt2, qpdi, Wdict,
+                        symop=symop,
+                        sigmas=sigmas,
+                        blocks1d=blocks1d,
+                        pawcorr=pawcorr)
 
         for sigma in sigmas.values():
             sigma.sum(self.context.comm)
 
         return sigmas
+
+    def integrate_sigma(self, ie, k, kpt1, kpt2, qpd, Wdict,
+                        *, symop, sigmas, blocks1d, pawcorr):
+        if debug:
+            mypawcorr, I_G = symop.apply_symop_q(qpd, pawcorr, kpt1, kpt2)
+            N_c = qpd.gd.N_c
+            i_cG = symop.apply(np.unravel_index(qpd.Q_qG[0], N_c))
+            bzk_kc = self.wcalc.gs.kd.bzk_kc
+            Q_c = bzk_kc[kpt2.K] - bzk_kc[kpt1.K]
+            shift0_c = Q_c - symop.apply(qpd.q_c)
+            self.check(ie, i_cG, shift0_c, N_c, Q_c, mypawcorr)
+        self.sigma_integrator.integrate_sigma(ie, k, kpt1, kpt2, qpd, Wdict,
+                symop=symop, sigmas=sigmas, blocks1d=blocks1d, pawcorr=pawcorr,
+                pair_calc=self.chi0calc.pair_calc, bands=self.bands, 
+                fxc_modes=self.fxc_modes)
 
     def get_validation_inputs(self):
         return {'kpts': self.kpts,
@@ -844,6 +695,27 @@ class G0W0Calculator:
                 'frequencies': self.frequencies,
                 'fxc_modes': self.fxc_modes,
                 'integrate_gamma': self.wcalc.integrate_gamma}
+
+    def check(self, ie, i_cG, shift0_c, N_c, Q_c, pawcorr):
+        # Can we delete this check? XXX
+        assert np.allclose(shift0_c.round(), shift0_c)
+        shift0_c = shift0_c.round().astype(int)
+        I0_G = np.ravel_multi_index(i_cG - shift0_c[:, None], N_c, 'wrap')
+        qpd = SingleQPWDescriptor.from_q(Q_c, self.ecut_e[ie],
+                                         self.wcalc.gs.gd)
+        G_I = np.empty(N_c.prod(), int)
+        G_I[:] = -1
+        I1_G = qpd.Q_qG[0]
+        G_I[I1_G] = np.arange(len(I0_G))
+        G_G = G_I[I0_G]
+        # This indexing magic should definitely be moved to a method.
+        # What on earth is it really?
+
+        assert len(I0_G) == len(I1_G)
+        assert (G_G >= 0).all()
+        pairden_paw_corr = self.wcalc.gs.pair_density_paw_corrections
+        pawcorr_wcalc1 = pairden_paw_corr(qpd)
+        assert pawcorr.almost_equal(pawcorr_wcalc1, G_G)
 
     @timer('calculate_w')
     def calculate_w(self, chi0calc, q_c, chi0,
@@ -1141,6 +1013,8 @@ class G0W0(G0W0Calculator):
             gpwfile,
             snapshotfile_prefix=filename)
 
+        sigma_integrator = SigmaIntegrator()
+
         super().__init__(filename=filename,
                          wd=wd,
                          chi0calc=chi0calc,
@@ -1149,6 +1023,7 @@ class G0W0(G0W0Calculator):
                          eta=eta,
                          fxc_modes=fxc_modes,
                          nbands=nbands,
+                         sigma_integrator=sigma_integrator,
                          bands=bands,
                          frequencies=frequencies,
                          kpts=kpts,
