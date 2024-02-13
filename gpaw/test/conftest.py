@@ -191,7 +191,8 @@ def all_gpw_files(request, gpw_files, pytestconfig):
     skip_if_new = {'Cu3Au_qna',
                    'nicl2_pw', 'nicl2_pw_evac',
                    'v2br4_pw', 'v2br4_pw_nosym',
-                   'sih4_xc_gllbsc', 'na2_isolated'}
+                   'sih4_xc_gllbsc_fd', 'sih4_xc_gllbsc_lcao',
+                   'na2_isolated'}
     if gpaw_new and request.param in skip_if_new:
         pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
 

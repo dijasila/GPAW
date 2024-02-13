@@ -10,6 +10,14 @@ Git master branch
 
 :git:`master <>`.
 
+
+.. _bug0:
+
+Version 24.1.0
+==============
+
+Jan 4, 2024: :git:`24.1.0 <../24.1.0>`
+
 .. warning::
 
    PW-mode `\Gamma`-point calculations could sometimes find a fake
@@ -79,6 +87,10 @@ Git master branch
 * A bug in spin polarized (ferromagnetic) GW+BSE calculations was fixed:
   :issue:`828`.
 
+* A bug resulting in slight inaccuracies when calculating inner products
+  between radial partial waves was fixed. This bug affected the calculation
+  of spin magnetic moments inside PAW spheres and the Hubbard correction when
+  it was applied to p-states. See :issue:`1068`.
 
 Version 23.9.1
 ==============

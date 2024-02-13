@@ -217,7 +217,7 @@ class PseudoPotential(BaseSetup):
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.lq = None
+        self.N0_q = None
 
         self.filename = None
         self.fingerprint = None
@@ -233,6 +233,7 @@ class PseudoPotential(BaseSetup):
         self.l_j = data.l_j
         self.l_orb_J = data.l_orb_J
         self.nj = len(data.l_j)
+        self.nq = self.nj * (self.nj + 1) // 2
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
         # self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
