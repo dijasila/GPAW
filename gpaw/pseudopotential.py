@@ -328,5 +328,3 @@ class PseudoPotential(BaseSetup):
         self.wg_lg = None
         self.g_lg = None
         self.local_corr = LocalCorrectionVar(None)
-        self._Mg_pp = None
-        self._gamma = None
