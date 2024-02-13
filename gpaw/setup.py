@@ -25,6 +25,27 @@ class WrongMagmomForHundsRuleError(ValueError):
     """
 
 
+class IntegralPotentials:
+    """Calculates a set of potentials using func."""
+
+    def __init__(self, setup, func):
+        self.wg_lg = [func(setup.g_lg[l], l)
+                      for l in range(setup.lmax + 1)]
+        self.wn_lqg = [np.array([func(setup.local_corr.n_qg[q], l)
+                                 for q in range(setup.nq)])
+                       for l in range(2 * setup.local_corr.lcut + 1)]
+        self.wnt_lqg = [np.array([func(setup.local_corr.nt_qg[q], l)
+                                  for q in range(setup.nq)])
+                        for l in range(2 * setup.local_corr.lcut + 1)]
+        self.wnc_g = func(setup.local_corr.nc_g, l=0)
+        self.wnct_g = func(setup.local_corr.nct_g, l=0)
+        self.wmct_g = self.wnct_g + setup.Delta0 * self.wg_lg[0]
+
+    def __iter__(self):
+        return iter([self.wg_lg, self.wn_lqg, self.wnt_lqg, self.wnc_g,
+                     self.wnct_g, self.wmct_g])
+
+
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
@@ -487,21 +508,6 @@ class BaseSetup:
 
         return M_p, M_pp
 
-    def calculate_integral_potentials(self, func):
-        """Calculates a set of potentials using func."""
-        wg_lg = [func(self.g_lg[l], l)
-                 for l in range(self.lmax + 1)]
-        wn_lqg = [np.array([func(self.local_corr.n_qg[q], l)
-                            for q in range(self.nq)])
-                  for l in range(2 * self.local_corr.lcut + 1)]
-        wnt_lqg = [np.array([func(self.local_corr.nt_qg[q], l)
-                             for q in range(self.nq)])
-                   for l in range(2 * self.local_corr.lcut + 1)]
-        wnc_g = func(self.local_corr.nc_g, l=0)
-        wnct_g = func(self.local_corr.nct_g, l=0)
-        wmct_g = wnct_g + self.Delta0 * wg_lg[0]
-        return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
-
     def calculate_yukawa_interaction(self, gamma):
         """Calculate and return the Yukawa based interaction."""
 
@@ -525,10 +531,10 @@ class BaseSetup:
     def calculate_vvx_interactions(self, interaction):
         """Calculate valence valence interactions for generic
            interaction."""
-        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
-            self.calculate_integral_potentials(interaction)
+
+        pot = IntegralPotentials(self, interaction)
         return self.calculate_coulomb_corrections(
-            wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+            pot.wn_lqg, pot.wnt_lqg, pot.wg_lg, pot.wnc_g, pot.wmct_g)[1]
 
 
 class LeanSetup(BaseSetup):
@@ -902,9 +908,9 @@ class Setup(BaseSetup):
         def H(n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
-        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
-            self.calculate_integral_potentials(H)
-        self.wg_lg = wg_lg
+        intpot = IntegralPotentials(self, H)
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = intpot
+        self.wg_lg = intpot.wg_lg
 
         rdr_g = r_g * dr_g
         dv_g = r_g * rdr_g
