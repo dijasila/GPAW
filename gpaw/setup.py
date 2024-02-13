@@ -944,19 +944,6 @@ class Setup(BaseSetup):
         for omega in self.ExxC_w:
             self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
 
-        if xc.type == 'GLLB':
-            if 'core_f' in self.extra_xc_data:
-                self.wnt_lqg = wnt_lqg
-                self.wn_lqg = wn_lqg
-                self.fc_j = self.extra_xc_data['core_f']
-                self.lc_j = self.extra_xc_data['core_l']
-                self.njcore = len(self.lc_j)
-                if self.njcore > 0:
-                    self.uc_jg = self.extra_xc_data['core_states'].reshape(
-                        (self.njcore, -1))
-                    self.uc_jg = self.uc_jg[:, :gcut2]
-                self.phi_jg = phi_jg
-
         self.Kc = data.e_kinetic_core - data.e_kinetic
         self.M -= data.e_electrostatic
         self.E = data.e_total
