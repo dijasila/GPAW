@@ -580,34 +580,6 @@ class C_Response(Contribution):
         x_g[0] = x_g[1]
         extra_data['core_response'] = x_g
 
-        # For debugging purposes
-        w_j = self.coefficients.get_coefficients_1d()
-        u2_j = safe_sqr(self.ae.u_j)
-        v_g = self.weight * np.dot(w_j, u2_j) / (
-            np.dot(self.ae.f_j, u2_j) + self.damp)
-        v_g[0] = v_g[1]
-        extra_data['all_electron_response'] = v_g
-
-        # Calculate Hardness of spherical atom, for debugging purposes
-        l = [np.where(f < 1e-3, e, 1000)
-             for f, e in zip(self.ae.f_j, self.ae.e_j)]
-        h = [np.where(f > 1e-3, e, -1000)
-             for f, e in zip(self.ae.f_j, self.ae.e_j)]
-        lumo_e = min(l)
-        homo_e = max(h)
-        if lumo_e < 999:  # If there is unoccpied orbital
-            w_j = self.coefficients.get_coefficients_1d_for_lumo_perturbation()
-            v_g = self.weight * np.dot(w_j, u2_j) / (
-                np.dot(self.ae.f_j, u2_j) + self.damp)
-            e2 = [e + np.dot(u2 * v_g, self.ae.dr)
-                  for u2, e in zip(u2_j, self.ae.e_j)]
-            lumo_2 = min([np.where(f < 1e-3, e, 1000)
-                          for f, e in zip(self.ae.f_j, e2)])
-            # print('New lumo eigenvalue:', lumo_2 * 27.2107)
-            self.hardness = lumo_2 - homo_e
-            # print('Hardness predicted: %10.3f eV' %
-            #       (self.hardness * 27.2107))
-
     def write(self, writer):
         """Writes response specific data."""
         wfs = self.wfs
