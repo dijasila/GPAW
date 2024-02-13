@@ -494,6 +494,7 @@ class GPWFiles:
     def h20_lr2_nbands8(self):
         return self.h2o_nbands(
             {'poissonsolver': {'name': 'fd'}, 'nbands': 8, 'basis': 'dzp'})
+
     @gpwfile
     def h20_lr2_nbands6(self):
         return self.h2o_nbands({'nbands': 6, 'basis': 'sz(dzp)'})
