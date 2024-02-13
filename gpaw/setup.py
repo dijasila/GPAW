@@ -1,5 +1,5 @@
 from __future__ import annotations
-import functools
+from functools import cached_property, partial
 from io import StringIO
 from math import pi, sqrt
 import ase.units as units
@@ -893,7 +893,7 @@ class Setup(BaseSetup):
 
         self.local_corr.T_Lqp = self.calculate_T_Lqp(lcut, _np, nj, jlL_i)
         #  set the attributes directly?
-        (self.g_lg, self.local_corr.n_qg, self.local_corr.nt_qg,
+        (self.local_corr.n_qg, self.local_corr.nt_qg,
          self.local_corr.Delta_lq, self.Lmax, self.Delta_pL, self.Delta0,
          self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
                                                     self.local_corr.T_Lqp)
@@ -1011,6 +1011,11 @@ class Setup(BaseSetup):
                 i1 += 1
         return B_ii
 
+    @cached_property
+    def g_lg(self):
+        g_lg = self.data.create_compensation_charge_functions(self.lmax)
+        return g_lg[:, :self.gcut2].copy()
+
     def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
@@ -1020,8 +1025,6 @@ class Setup(BaseSetup):
         rgd = self.local_corr.rgd2
         r_g = rgd.r_g
         dr_g = rgd.dr_g
-
-        g_lg = self.data.create_compensation_charge_functions(lmax)
 
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
@@ -1061,8 +1064,7 @@ class Setup(BaseSetup):
         # atomic magnetic moment:
         N0_p = N0_q @ T_Lqp[0] * sqrt(4 * pi)
 
-        return (g_lg[:, :gcut2].copy(), n_qg, nt_qg,
-                Delta_lq, Lmax, Delta_pL, Delta0, N0_p)
+        return n_qg, nt_qg, Delta_lq, Lmax, Delta_pL, Delta0, N0_p
 
     def get_derivative_integrals(self, rgd, phi_jg, phit_jg):
         """Calculate PAW-correction matrix elements of nabla.
@@ -1361,7 +1363,7 @@ class Setups(list):
             ids.add(id)
             setup = self.setups[id]
             output = StringIO()
-            setup.print_info(functools.partial(print, file=output))
+            setup.print_info(partial(print, file=output))
             txt = output.getvalue()
             txt += '  # ' + setup.get_basis_description().replace('\n',
                                                                   '\n  # ')
