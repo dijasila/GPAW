@@ -1,7 +1,7 @@
 import pytest
-from ase.build import molecule
+
 from ase.parallel import paropen
-from gpaw import GPAW
+
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.qed import RRemission

@@ -12,7 +12,8 @@ from gpaw.mpi import world
 def test_lcaotddft_fxc_vs_linearize(gpw_files, in_tmp_dir):
     fxc = 'LDA'
     # Time-propagation calculation with fxc
-    td_calc = LCAOTDDFT(gpw_files['sih4_xc_gllbsc_lcao'], fxc=fxc, txt='td_fxc.out')
+    td_calc = LCAOTDDFT(gpw_files['sih4_xc_gllbsc_lcao'],
+                        fxc=fxc, txt='td_fxc.out')
     DipoleMomentWriter(td_calc, 'dm_fxc.dat')
     td_calc.absorption_kick(np.ones(3) * 1e-5)
     td_calc.propagate(20, 4)
