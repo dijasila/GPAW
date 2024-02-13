@@ -5,12 +5,14 @@
 # difference check.
 
 import numpy as np
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
-from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_generic_guc_force():
     sibasis = BasisMaker('Si').generate(
         2, 1, energysplit=0.3, tailnorm=0.03**.5)
@@ -57,14 +59,14 @@ def test_generic_guc_force():
     # ASE uses dx = [+|-] 0.001 by default,
     # error should be around 2e-3.  In fact 4e-3 would probably be acceptable
 
-    equal(err, 0, 6e-3)
+    assert err == pytest.approx(0, abs=6e-3)
 
     # Set boolean to run new FD check
     fd = False
 
     if fd:
         from ase.calculators.test import numeric_force
-        calc.set(symmetry='off')
+        system.calc = calc.new(symmetry='off')
         F_ac_fd = [[numeric_force(system, a, i) for i in range(3)]
                    for a in range(2)]
         print('Self-consistent forces')

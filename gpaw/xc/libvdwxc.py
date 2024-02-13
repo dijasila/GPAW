@@ -57,7 +57,7 @@ _VDW_NUMERICAL_CODES = {'vdW-DF': 1,
                         'vdW-DF-cx': 3}
 
 
-class LibVDWXC(object):
+class LibVDWXC:
     """Minimum-tomfoolery object-oriented interface to libvdwxc."""
     def __init__(self, funcname, N_c, cell_cv, comm, mode='auto',
                  pfft_grid=None, nspins=1):
@@ -147,7 +147,7 @@ class LibVDWXC(object):
         else:
             assert self.mode == 'pfft'
             pardesc = 'pfft with %d x %d CPU grid' % self.pfft_grid
-        return '%s [libvdwxc/%s]' % (self.vdw_functional_name, pardesc)
+        return f'{self.vdw_functional_name} [libvdwxc/{pardesc}]'
 
     def tostring(self):
         return _gpaw.libvdwxc_tostring(self._ptr)
@@ -202,7 +202,7 @@ class RedistWrapper:
 class FFTDistribution:
     def __init__(self, gd, parsize_c):
         self.input_gd = gd
-        assert np.product(parsize_c) == gd.comm.size
+        assert np.prod(parsize_c) == gd.comm.size
         self.local_input_size_c = gd.n_c
         self.domains_in = Domains(gd.n_cp)
         N_c = gd.get_size_of_global_array(pad=True)
@@ -227,7 +227,7 @@ class FFTDistribution:
         self.aux_rank_to_parpos = aux_rank_to_parpos
         self.local_output_size_c = tuple(self.domains_out.get_box(parpos_c)[1])
 
-    def block_zeros(self, shape=(),):
+    def block_zeros(self, shape=()):
         return np.zeros(shape + self.local_output_size_c)
 
     def gd2block(self, a_xg, b_xg):
@@ -313,16 +313,16 @@ class VDWXC(XCFunctional):
     def __str__(self):
         tokens = [self._mode]
         if self._libvdwxc_name != self.name:
-            tokens.append('nonlocal-name={0}'.format(self._libvdwxc_name))
-            tokens.append('gga-kernel={0}'
+            tokens.append(f'nonlocal-name={self._libvdwxc_name}')
+            tokens.append('gga-kernel={}'
                           .format(self.semilocal_xc.kernel.name))
         if self._pfft_grid is not None:
-            tokens.append('pfft={0}'.format(self._pfft_grid))
+            tokens.append(f'pfft={self._pfft_grid}')
         if self._vdwcoef != 1.0:
-            tokens.append('vdwcoef={0}'.format(self._vdwcoef))
+            tokens.append(f'vdwcoef={self._vdwcoef}')
 
         qualifier = ', '.join(tokens)
-        return '{0} [libvdwxc/{1}]'.format(self.name, qualifier)
+        return f'{self.name} [libvdwxc/{qualifier}]'
 
     def todict(self):
         dct = dict(backend='libvdwxc',
@@ -342,36 +342,35 @@ class VDWXC(XCFunctional):
     def get_description(self):
         lines = []
         app = lines.append
-        app('{} with libvdwxc'.format(self.name))
+        app(f'{self.name} with libvdwxc')
         mode = self.libvdwxc.mode
         ncores = self.libvdwxc.comm.size
         cores = 'core' if ncores == 1 else 'cores'
         if mode == 'mpi':
-            mode = 'mpi with {} {}'.format(ncores, cores)
+            mode = f'mpi with {ncores} {cores}'
         elif mode == 'pfft':
             nx, ny = self.libvdwxc.pfft_grid
-            mode = 'pfft with {} x {} {}'.format(nx, ny, cores)
-        app('Mode: {}'.format(mode))
-        app('Semilocal: {}'.format(self.semilocal_xc.get_description()))
+            mode = f'pfft with {nx} x {ny} {cores}'
+        app(f'Mode: {mode}')
+        app(f'Semilocal: {self.semilocal_xc.get_description()}')
         if self.libvdwxc.vdw_functional_name != self.name:
             app('Corresponding non-local functional: {}'
                 .format(self.libvdwxc.vdw_functional_name))
         app('Local blocksize: {} x {} x {}'
             .format(*self.distribution.local_output_size_c))
-        app('PAW datasets: {}'.format(self.get_setup_name()))
+        app(f'PAW datasets: {self.get_setup_name()}')
         return '\n'.join(lines)
 
     def summary(self, log):
-        from ase.units import Hartree
-        enl = self.libvdwxc.comm.sum(self.last_nonlocal_energy)
-        esl = self.gd.comm.sum(self.last_semilocal_energy)
+        from ase.units import Hartree as Ha
+        enl = self.libvdwxc.comm.sum_scalar(self.last_nonlocal_energy)
+        esl = self.gd.comm.sum_scalar(self.last_semilocal_energy)
         # In the current implementation these communicators have the same
         # processes always:
         assert self.libvdwxc.comm.size == self.gd.comm.size
-        log('Non-local %s correlation energy: %.6f' % (self.name,
-                                                       enl * Hartree))
-        log('Semilocal %s energy: %.6f' % (self.semilocal_xc.kernel.name,
-                                           esl * Hartree))
+        log(f'Non-local {self.name} correlation energy: {(enl * Ha):.6f}')
+        log(f'Semilocal {self.semilocal_xc.kernel.name} '
+            f'energy: {esl * Ha:.6f}')
         log('(Not including atomic contributions)')
 
     def get_setup_name(self):
@@ -652,7 +651,7 @@ class CXGGAKernel:
 def test_derivatives():
     gen = np.random.RandomState(1)
     shape = (1, 20, 20, 20)
-    ngpts = np.product(shape)
+    ngpts = np.prod(shape)
     n_sg = gen.rand(*shape)
     sigma_xg = np.zeros(shape)
     sigma_xg[:] = gen.rand(*shape)
@@ -768,7 +767,7 @@ def test_selfconsistent():
         print('Our rpw86 must be identical to that of libxc. Err=%e' % err1)
         print('RPW86 interpolated with Langreth-Vosko stuff differs by %f'
               % (cx_gga_results['lv_rpw86'] - cx_gga_results['rpw86']))
-        print('Each vdwdf with vdwcoef zero must yield same result as gga'
+        print('Each vdwdf with vdwcoef zero must yield same result as gga '
               'kernel')
         err_df1 = vdw_coef0_results['VDWDF'] - libxc_results['GGA_X_PBE_R+'
                                                              'LDA_C_PW']

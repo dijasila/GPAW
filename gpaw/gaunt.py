@@ -1,14 +1,27 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
+from __future__ import annotations
+
 from typing import Dict
 
 import numpy as np
 
+from gpaw.typing import Array3D, Array4D
+
 _gaunt: Dict[int, np.ndarray] = {}
 _nabla: Dict[int, np.ndarray] = {}
+_super_gaunt: Dict[int, np.ndarray] = {}
 
 
-def gaunt(lmax=2):
+def gaunt(lmax: int = 2) -> Array3D:
+    r"""Gaunt coefficients
+
+    :::
+
+         ^      ^     -- L      ^
+      Y (r)  Y (r) =  > G    Y (r)
+       L      L       -- L L  L
+        1      2      L   1 2
+    """
+
     if lmax in _gaunt:
         return _gaunt[lmax]
 
@@ -33,15 +46,15 @@ def gaunt(lmax=2):
     return G_LLL
 
 
-def nabla(lmax=2):
-    """Create the array of derivative intergrals.
+def nabla(lmax: int = 2) -> Array3D:
+    """Create the array of derivative integrals.
 
-    ::
+    :::
 
-      /  ^     1-l' d   l'
-      | dr Y  r    ---(r Y  )
-      /     L      dr     L'
-                     v
+      /  ^    ^   1-l' d   l'    ^
+      | dr Y (r) r     --[r  Y  (r)]
+      /     L           _     L'
+                       dr
     """
 
     if lmax in _nabla:
@@ -69,3 +82,36 @@ def nabla(lmax=2):
                 Y_LLv[L1, L2, v] = r
     _nabla[lmax] = Y_LLv
     return Y_LLv
+
+
+def super_gaunt(lmax: int = 2) -> Array4D:
+    r"""Product of two Gaunt coefficients.
+
+    This gives the coefficients to contractions of three spherical harmonics:
+                        __
+       ˰     ˰     ˰    \   L       ˰
+    Y (r) Y (r) Y (r) = /  G      Y (r)
+     L     L     L      ‾‾  L L L  L
+      1     2     3     L    1 2 3
+
+    where:
+              __
+     L        \   L'    L
+    G       = /  G     G
+     L L L    ‾‾  L L   L' L
+      1 2 3   L'   1 2      3
+    """
+    if lmax in _super_gaunt:
+        return _super_gaunt[lmax]
+
+    G1_LLL = gaunt(lmax)
+    G2_LLL = gaunt(2 * lmax)
+
+    Lmax1 = G1_LLL.shape[0]  # l=0 to l=lmax
+    Lmax2 = G2_LLL.shape[0]  # l=0 to l=2*lmax
+    G_LLLL = np.einsum('ijk,klm->ijlm',
+                       G1_LLL[:, :Lmax1],
+                       G2_LLL[:, :Lmax2])
+
+    _super_gaunt[lmax] = G_LLLL
+    return G_LLLL

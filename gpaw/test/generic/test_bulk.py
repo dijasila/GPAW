@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 from gpaw import GPAW
-from gpaw.test import equal
+import pytest
 import numpy as np
 
 
@@ -8,7 +8,7 @@ def test_generic_bulk():
     bulk = Atoms([Atom('Li')], pbc=True)
     k = 4
     g = 8
-    calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2)
+    calc = GPAW(mode='fd', gpts=(g, g, g), kpts=(k, k, k), nbands=2)
     bulk.calc = calc
     a = np.linspace(2.6, 2.8, 5)
     e = []
@@ -21,8 +21,8 @@ def test_generic_bulk():
     a0 = np.roots(np.polyder(fit, 1))[0]
     e0 = np.polyval(fit, a0)
     print('a,e =', a0, e0)
-    equal(a0, 2.641, 0.001)
-    equal(e0, -1.98357, 0.0002)
+    assert a0 == pytest.approx(2.641, abs=0.001)
+    assert e0 == pytest.approx(-1.98357, abs=0.0002)
 
     energy_tolerance = 0.0002
-    equal(e1, -1.96157, energy_tolerance)
+    assert e1 == pytest.approx(-1.96157, abs=energy_tolerance)

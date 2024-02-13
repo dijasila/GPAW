@@ -1,14 +1,15 @@
+import pytest
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW, mpi
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.poisson import FDPoissonSolver
 from gpaw.pes.dos import DOSPES
 from gpaw.pes.tddft import TDDFTPES
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_pes(in_tmp_dir):
     txt = None
     R = 0.7  # approx. experimental bond length
@@ -23,18 +24,18 @@ def test_lrtddft_pes(in_tmp_dir):
                     cell=(a, a, c))
 
     xc = 'LDA'
-    calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1,
+    calc = GPAW(mode='fd', gpts=(12, 12, 12), xc=xc, nbands=1,
                 poissonsolver=FDPoissonSolver(),
                 parallel={'domain': mpi.world.size},
                 spinpol=True, txt=txt)
     H2.calc = calc
     e_H2 = H2.get_potential_energy()
 
-    calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2,
+    calc_plus = GPAW(mode='fd', gpts=(12, 12, 12), xc=xc, nbands=2,
                      poissonsolver=FDPoissonSolver(),
                      parallel={'domain': mpi.world.size},
                      spinpol=True, txt=txt)
-    calc_plus.set(charge=+1)
+    calc_plus = calc_plus.new(charge=+1)
     H2_plus.calc = calc_plus
     e_H2_plus = H2_plus.get_potential_energy()
 
@@ -51,7 +52,7 @@ def test_lrtddft_pes(in_tmp_dir):
     for be, f in zip(be_n, f_n):
         if f > 0.1 and be < BE_HOMO:
             BE_HOMO = be
-    equal(BE_HOMO, VDE)
+    assert BE_HOMO == pytest.approx(VDE, abs=0.0)
 
     lr = LrTDDFT(calc_plus, xc=xc)
 
@@ -62,8 +63,8 @@ def test_lrtddft_pes(in_tmp_dir):
     pes.save_folded_pes(filename=None, folding=None)
 
     energy_tolerance = 0.001
-    equal(e_H2, -3.90059, energy_tolerance)
-    equal(e_H2_plus, 10.5659703, energy_tolerance)
+    assert e_H2 == pytest.approx(-3.90059, abs=energy_tolerance)
+    assert e_H2_plus == pytest.approx(10.5659703, abs=energy_tolerance)
 
     # io
     out = 'lrpes.dat.gz'

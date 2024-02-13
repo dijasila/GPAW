@@ -4,16 +4,16 @@ import numpy as np
 from gpaw.utilities.gauss import gaussian_wave
 
 
-def test_gauss_wave():
+def test_gauss_wave(rng):
     sigma = 2.4
     C = 3
     G = 50
 
     t = time.time()
-    r_cG = np.random.normal(size=C * G**3).reshape((C, G, G, G))
-    r0_c = np.random.normal(size=C)
-    k_c = np.random.normal(size=C)
-    A = np.random.uniform() * np.exp(1j * np.random.uniform(0, 2 * np.pi))
+    r_cG = rng.normal(size=C * G**3).reshape((C, G, G, G))
+    r0_c = rng.normal(size=C)
+    k_c = rng.normal(size=C)
+    A = rng.uniform() * np.exp(1j * rng.uniform(0, 2 * np.pi))
     print('Allocation: %8.5f s' % (time.time() - t))
 
     # -------------------------------------------------------------------

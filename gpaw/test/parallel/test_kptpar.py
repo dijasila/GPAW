@@ -12,9 +12,9 @@ def test_parallel_kptpar(in_tmp_dir):
 
     energy_tolerance = 0.0006
 
+    base_params = dict(mode='fd', kpts=[6, 6, 1], spinpol=True)
     if world.size >= 3:
-        calc = GPAW(kpts=[6, 6, 1],
-                    spinpol=True,
+        calc = GPAW(**base_params,
                     parallel={'domain': world.size},
                     txt='H-a.txt')
         H.calc = calc
@@ -25,8 +25,7 @@ def test_parallel_kptpar(in_tmp_dir):
 
         if world.rank < 3:
             comm = world.new_communicator(np.array([0, 1, 2]))
-            H.calc = GPAW(kpts=[6, 6, 1],
-                          spinpol=True,
+            H.calc = GPAW(**base_params,
                           communicator=comm,
                           txt='H-b.txt')
             e2 = H.get_potential_energy()
@@ -34,8 +33,7 @@ def test_parallel_kptpar(in_tmp_dir):
             assert e2 == pytest.approx(e1, abs=5e-9)
         else:
             comm = world.new_communicator(np.array(range(3, world.size)))
-            H.calc = GPAW(kpts=[6, 6, 1],
-                          spinpol=True,
+            H.calc = GPAW(**base_params,
                           communicator=comm,
                           parallel={'kpt': comm.size},
                           txt='H-b2.txt')

@@ -13,6 +13,7 @@ Theory in order of abstraction.
    rmm-diis
    orthogonalization
    densitymix/densitymix
+   directmin/directmin
    eigenvalues_of_core_states
    pw_and_exx
    defects_theory
@@ -22,6 +23,9 @@ Theory in order of abstraction.
    bse/bse
    xas/xas
    ehrenfest/ehrenfest_theory
-   raman/raman
+   elph/elph
+   elph/raman
+   sjm/sjm
+   qeh/qeh
 
 

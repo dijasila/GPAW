@@ -1,72 +1,700 @@
-master:
-  image: python:3.9
+variables:
+  PYTHONUSERBASE: ".local"
+  IMAGE_PATH: "registry.gitlab.com/gpaw/gpaw-ci-containers"
+  IMAGE_MAIN_OLDEST: "$IMAGE_PATH/main:oldest"
+  IMAGE_MAIN_LATEST: "$IMAGE_PATH/main:latest"
+  IMAGE_CUDA: "$IMAGE_PATH/cuda:11"
+  OMP_NUM_THREADS: "1"
+
+default:
+  before_script:
+    - export PYTHONUSERBASE=`realpath $PYTHONUSERBASE`
+    - mkdir -p `python -m site --user-site`
+    - export PATH=$PYTHONUSERBASE/bin:$PATH
+    - export PYTEST_ADDOPTS="--color=yes"
+  interruptible: true
+
+
+stages:
+  - build
+  - precalculate
+  - test
+  - deploy
+
+.build:
+  stage: build
+  before_script:
+    - !reference [default, before_script]
+    - pip install --user --no-deps git+https://gitlab.com/ase/ase.git
+    - |
+      cat << EOF > siteconfig.py
+      parallel_python_interpreter = True
+      mpi = True
+      compiler = 'mpicc'
+      libraries = []
+      library_dirs = []
+      include_dirs = []
+
+      extra_compile_args = ['-fPIC',
+                            '-O3',
+                            '-g',
+                            '-fopenmp',
+                            '-Wall',
+                            '-Werror',
+                            ]
+      extra_link_args = ['-fopenmp']
+
+      # TODO: PySys_SetArgv() etc deprecated in Python 3.11
+      import sys
+      if sys.version_info >= (3, 11):
+          extra_compile_args += ['-Wno-deprecated-declarations']
+      # end TODO
+
+      libraries += ['blas']
+
+      fftw = True
+      libraries += ['fftw3']
+
+      scalapack = True
+      libraries += ['scalapack-openmpi']
+
+      libraries += ['xc']
+      EOF
+  artifacts:
+    when: always
+    paths:
+      - $PYTHONUSERBASE
+      - gpaw.egg-info
+      - _gpaw.*.so
+      - "*.log"
+    expire_in: 30 mins
+
+
+.test:
+  stage: test
+  before_script:
+    - !reference [default, before_script]
+
+
+.gpu-job:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~ "/^gpu-.*/"
+
+
+.lumi-job:
+  tags:
+    - lumi
+  rules:
+    - if: ($GITLAB_USER_LOGIN == "jensj" || $GITLAB_USER_LOGIN == "mikaelkuisma" || $GITLAB_USER_LOGIN == "trossi") && ($CI_PIPELINE_SOURCE == "push")
+      allow_failure: true
+
+
+.lumi-g-job:
+  extends: .lumi-job
+  variables:
+    SCHEDULER_PARAMETERS: "-A project_465000483 -N 1 --ntasks-per-node=1 --gpus-per-node=1 --mem=4G -t 00:10:00 -p small-g"
+  before_script:
+    - export EBU_USER_PREFIX=/scratch/project_465000483/EasyBuild
+    - module load LUMI/22.12 partition/G
+    - module load cpeGNU/22.12
+    - module load cray-fftw/3.3.10.1
+    - module load cray-python/3.9.13.1
+    - module load CuPy/12.2.0-cpeGNU-22.12  # from EBU_USER_PREFIX
+    - module load libxc/6.1.0-cpeGNU-22.12  # from EBU_USER_PREFIX
+    - export GPAW_SETUP_PATH=/projappl/project_465000483/gpaw-setups-0.9.20000
+    - !reference [default, before_script]
+
+
+build:
+  image: $IMAGE_MAIN_OLDEST
+  extends: .build
+  tags:
+    - linux
   script:
-    - apt-get update -qy
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+    - gpaw -P 1 info
+    - gpaw-python -m gpaw info
+
+
+build-latest:
+  image: $IMAGE_MAIN_LATEST
+  extends: .build
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      define_macros += [('NDEBUG', None)]
+      undef_macros = []
+
+      from pathlib import Path
+      libvdwxc = True
+      libraries += ['vdwxc']
+
+      libvdwxc_dir = Path('/install/libvdwxc')
+      libvdwxc_libdir = libvdwxc_dir / 'lib'
+      library_dirs += [libvdwxc_libdir]
+      extra_link_args += [f'-Wl,-rpath={libvdwxc_libdir}']
+      include_dirs += [libvdwxc_dir / 'include']
+
+      elpa = True
+      elpa_dir = Path('/install/elpa')
+      elpa_libdir = elpa_dir / 'lib'
+      # Maybe we should do a glob to avoid version dependence:
+      elpa_includedir = elpa_dir / 'include/elpa-2022.11.001'
+      libraries += ['elpa']
+      library_dirs += [f'{elpa_libdir}']
+      extra_link_args += [f'-Wl,-rpath={elpa_libdir}']
+      include_dirs += [f'{elpa_includedir}']
+
+      EOF
+    - cat siteconfig.py
+    - pip install --user --upgrade numpy scipy
+    - pip install --user --editable .
+    - gpaw -P 1 info
+    - gpaw-python -m gpaw info
+
+
+build-cuda:
+  image: $IMAGE_CUDA
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'cuda'
+      gpu_compiler = 'nvcc'
+      gpu_compile_args = ['-O3',
+                          '-g']
+      libraries += ['cudart', 'cublas']
+      EOF
+    - cat siteconfig.py
+    - pip install -v --user --log build.log --editable .
+
+
+build-hip-cuda:
+  image: $IMAGE_CUDA
+  extends:
+    - .build
+    - .gpu-job
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      gpu = True
+      gpu_target = 'hip-cuda'
+      gpu_compiler = 'hipcc'
+      gpu_compile_args = ['-O3',
+                          '-g']
+      libraries += ['cudart', 'hipblas']
+
+      # Suppress warnings from hip-cuda headers
+      extra_compile_args += ['-Wno-deprecated-declarations',
+                             '-Wno-implicit-int',
+                             ]
+      undef_macros += ['GPAW_GPU_AWARE_MPI']
+      EOF
+    - cat siteconfig.py
+    - pip install -v --user --log build.log --editable .
+
+
+build-minimal:
+  image: $IMAGE_MAIN_OLDEST
+  extends: .build
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF > siteconfig.py
+      mpi = False
+      noblas = True
+      nolibxc = True
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+    - gpaw info
+
+
+build-lumi-g:
+  extends:
+    - .build
+    - .lumi-g-job
+  script:
+    - |
+      cat << EOF > siteconfig.py
+      parallel_python_interpreter = True
+      mpi = True
+      compiler = 'cc'
+      compiler_args = []
+      libraries = []
+      library_dirs = []
+      include_dirs = []
+      extra_compile_args = [
+          '-O3',
+          '-fopenmp',
+          '-fPIC',
+          '-Wall',
+          '-Wno-stringop-overflow',  # suppress warnings from MPI_STATUSES_IGNORE
+          '-Werror',
+          '-g',
+          ]
+      extra_link_args = ['-fopenmp']
+
+      fftw = True
+      libraries += ['fftw3']
+
+      scalapack = True
+
+      libraries += ['xc']
+
+      define_macros += [('GPAW_ASYNC', None)]
+
+      gpu = True
+      gpu_target = 'hip-amd'
+      gpu_compiler = 'hipcc'
+      gpu_include_dirs = []
+      gpu_compile_args = ['--offload-arch=gfx90a', '-O3', '-g']
+      libraries += ['amdhip64', 'hipblas']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --no-deps git+https://gitlab.com/ase/ase.git@master
+    - pip install --user --no-deps --log build.log --editable .
+    - gpaw info
+
+
+prepare-libxc:
+  image: $IMAGE_MAIN_OLDEST
+  stage: build
+  tags:
+    - linux
+  variables:
+    PREFIX: $PYTHONUSERBASE
+  before_script:
+    - export PREFIX=`realpath $PREFIX`
+  script:
+    - git clone -b 6.2.2 https://gitlab.com/libxc/libxc.git
+    - cd libxc
+    - autoreconf -i
     - >
-      apt-get install -qy
-      libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - pip install flake8 mypy pytest interrogate
-    - pip -q install git+https://gitlab.com/ase/ase.git@master
-    - pip -q install git+https://gitlab.com/myqueue/myqueue.git@master
-    - mkdir ~/.gpaw
-    - echo "scalapack = True" > ~/.gpaw/siteconfig.py
-    - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
+      ./configure --enable-shared --disable-static --disable-fortran --prefix=$PREFIX
+      --disable-kxc
+      --disable-lxc
+      # Enable kxc, lxc, ... derivatives only if needed (affects compilation time)
+    - make | tee ../libxc-build.log
+    - make install
+  when: manual
+  artifacts:
+    paths:
+      - $PREFIX
+      - "*.log"
+    expire_in: 30 mins
+
+
+build-libxc:
+  image: $IMAGE_MAIN_OLDEST
+  extends:
+    - .build
+  needs:
+    - prepare-libxc
+  tags:
+    - linux
+  script:
+    - |
+      cat << EOF >> siteconfig.py
+      local = Path('.local').resolve()
+      include_dirs += [local / 'include']
+      library_dirs += [local / 'lib']
+      runtime_library_dirs += [local / 'lib']
+      EOF
+    - cat siteconfig.py
+    - pip install --user --log build.log --editable .
+    - gpaw -P 1 info
+
+
+test-oldest:
+  image: $IMAGE_MAIN_OLDEST
+  extends:
+    - .test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    - gpaw info
     - >
-      echo "extra_compile_args += ['-Werror', '-fopenmp']"
-      >> ~/.gpaw/siteconfig.py
-    - echo "extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
-    - python setup.py install > gpaw-install.output
-    - useradd -m user
-    - su user -c 'gpaw install-data --register gpaw-datasets'
-    - su user -c 'gpaw -P 1 info'
-    - su user -c 'gpaw test'
-    - su user -c 'OMP_NUM_THREADS=2 pytest -v -m ci -We'
-    - mypy -p gpaw
+      OMP_NUM_THREADS=2 pytest -v -m ci -We
+
+    # This is the only test which uses OpenMP.
+    # We may want to identify a limited set of tests that must work
+    # with OpenMP, but so far we just have it in this job.
+
+    - gpaw-python -m gpaw info
     - >
-      interrogate -m -i -f 35.2
-      -e gpaw/test
-      -e gpaw/point_groups/groups.py
-      gpaw
+      OMP_NUM_THREADS=2 gpaw-python -m pytest -v -We -k 0-pw
+      gpaw/test/test_fuzz.py
+
+
+test-latest:
+  image: $IMAGE_MAIN_LATEST
+  extends:
+    - .test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  script:
+    - gpaw info
+
+    # Create a .coveragerc file so we can get nicely printed coverage:
+    - |
+      cat << EOF >> .coveragerc
+      [report]
+      precision = 2
+      EOF
+
+    - >
+      pytest -v -m ci -m gpu
+      --cov=gpaw --cov-report=html --cov-report=term
+
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 1 week
+  coverage: '/TOTAL.+ ([0-9]+\.[0-9]+%)/'
+
+
+test-latest-new:
+  image: $IMAGE_MAIN_LATEST
+  extends:
+    - .test
+  needs:
+    - build-latest
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - GPAW_NEW=1 pytest -v -m "ci and not later"
+
+
+test-minimal:
+  image: $IMAGE_MAIN_OLDEST
+  extends:
+    - .test
+  needs:
+    - build-minimal
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - >
+      pytest -v -m ci -We
+
+test-cuda:
+  image: $IMAGE_CUDA
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - python -c 'import cupy; import cupyx; from cupy.cuda import runtime'
+    - pytest -v -m gpu
+
+    - gpaw-python -m gpaw info
+    - gpaw-python -m pytest -v -m gpu
+
+test-cuda-mpi:
+  image: $IMAGE_CUDA
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-cuda
+  tags:
+    - cuda-mpi
+  script:
+    - nvidia-smi
+    - gpaw info
+    - mpirun -np 2 pytest -v -m gpu
+    - mpirun -np 4 pytest -v -m gpu
+    # mpirun -np 2 gpaw-python doesn't work, see #1052
+    # - mpirun -np 2 gpaw-python -m pytest -v -m gpu
+
+test-hip-cuda:
+  image: $IMAGE_CUDA
+  extends:
+    - .test
+    - .gpu-job
+  needs:
+    - build-hip-cuda
+  tags:
+    - cuda
+  script:
+    - nvidia-smi
+    - gpaw info
+    - pytest -v -m gpu
+
+
+test-lumi-g:
+  extends:
+    - .test
+    - .lumi-g-job
+  needs:
+    - build-lumi-g
+  script:
+    - rocm-smi || true  # rocm-smi yields non-zero return code
+    - gpaw info
+    - pytest -v -m gpu
+
+
+test-libxc:
+  image: $IMAGE_MAIN_OLDEST
+  extends:
+    - .test
+  needs:
+    - build-libxc
+  tags:
+    - linux
+  script:
+    - gpaw info
+    - pytest -v -m libxc
+
+check-agts:
+  image: $IMAGE_MAIN_OLDEST
+  stage: test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    # - pip install --user git+https://gitlab.com/myqueue/myqueue.git@master
+    - pip install --user myqueue
+    - mq config --in-place
+    - mq init
+    - mq workflow -p agts.py -zT | tail -1 | tee task_count
+    - >
+      [[ `cut -d ' ' -f1 < task_count` -ge 501 ]] || (echo "Too few agts tasks"; exit 1)
+
+
+lint:
+  image: $IMAGE_MAIN_LATEST
+  stage: build
+  tags:
+    - linux
+  script:
+    - echo "png check"
+    - >
+      [[ `find . -name '*.png' | wc -l` -le 5 ]] || (echo "Too many png files in git"; exit 1)
+    - echo "compileall"
+    - python --version
+    - python -We:invalid -m compileall -f -q gpaw/
+    - echo "flake8"
+    - pip install flake8
+    - flake8 --version
     - flake8 --doctests gpaw
     - >
       flake8
       --doctests
-      --exclude "doc/platforms/*,doc/*/summerschool18/*/*"
+      --exclude "doc/platforms/*,doc/*/summerschool22/*/"
       --extend-ignore E402
       doc
-    - python -We:invalid -m compileall -f -q gpaw/
-    - echo "parallel_python_interpreter = True" >> ~/.gpaw/siteconfig.py
-    - echo "libraries += ['blas']" >> ~/.gpaw/siteconfig.py
-    - python setup.py install > gpaw-python-install.output
-    - su user -c 'gpaw-python -m gpaw info'
-    - mq config --in-place
-    - mq init
-    - mq workflow -p agts.py -zT | tail -1 | tee count
-    - python -c "assert int(open('count').read().split()[0]) >= 387"
-    - python -c "import pathlib; assert len(list(pathlib.Path().glob('**/*.png'))) <= 6"
-
-libxc:
-  image: python:3.6
-  script:
-    - git clone https://gitlab.com/libxc/libxc.git
-    - cd libxc
-    - git checkout 5.1.5
-    - autoreconf -i
-    - ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc
-    - make > libxc-install.out
-    - make install
-    - cd ..
-    - pip install pytest ase
     - >
-      echo "noblas = True;
-      libraries = ['xc'];
-      xc = Path.home() / 'libxc';
-      lib = xc / 'lib';
-      library_dirs = [lib];
-      include_dirs = [xc / 'include'];
-      extra_link_args = [f'-Wl,-rpath={lib}']
-      " > siteconfig.py
-    - pip install -e .
-    - gpaw install-data --register gpaw-datasets
-    - pytest -m libxc -x
+      flake8
+      --doctests
+      --extend-ignore E402,E501
+      doc/summerschools/summerschool22/catalysis
+      doc/platforms/Linux/Niflheim
+    - echo "interrogate"
+    - pip install interrogate
+    - interrogate --version
+    - >
+      interrogate -m -i
+      -f 33.1
+      -e gpaw/test
+      -e gpaw/point_groups/groups.py
+      gpaw
+
+
+typecheck:
+  image: $IMAGE_MAIN_LATEST
+  stage: build
+  tags:
+    - linux
+  script:
+    - pip install mypy types-PyYAML
+    - python --version
+    - mypy --version
+    - mypy --pretty
+
+
+docs:
+  image: $IMAGE_MAIN_OLDEST
+  stage: test
+  needs:
+    - build
+  tags:
+    - linux
+  script:
+    - cd doc
+    - make
+    - make doctest
+    - cd ..
+    - python -c "from gpaw.utilities.urlcheck import test; test()"
   when: manual
+  artifacts:
+    paths:
+      - doc/build/html
+    expire_in: 1 week
+
+
+gpwfiles:
+  image: $IMAGE_MAIN_LATEST
+  extends:
+    - .test
+  needs:
+    - build-latest
+  stage: precalculate
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+  script:
+    - pytest -n 16 -m generate_gpw_files --durations 30 -v
+  artifacts:
+    paths:
+      - .pytest_cache/
+    expire_in: 30 mins
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+
+.nightly:
+  image: $IMAGE_MAIN_LATEST
+  variables:
+    GPAW_MPI_NPROCS: "1"
+  extends:
+    - .test
+  stage: test
+  needs:
+    - build-latest
+    - gpwfiles
+  tags:
+    - xeon24
+  before_script:
+    - !reference [default, before_script]
+    - pip install pytest-instafail pytest-xdist
+  script:
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  #  - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+
+nightly-mpi-1:
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest --cache-show
+    - >
+      pytest -n 8 --instafail -r s --durations 30
+      --cov=gpaw --cov-report=html --cov-report=term
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 1 day
+
+nightly-mpi-1-new:
+  variables:
+    GPAW_NEW: "1"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      pytest -n 4 --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
+
+nightly-mpi-2-new:
+  variables:
+    GPAW_NEW: "1"
+    GPAW_MPI_NPROCS: "2"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
+
+nightly-mpi-4-new:
+  variables:
+    GPAW_NEW: "1"
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30 -m "ci and not later"
+
+nightly-mpi-2:
+  variables:
+    GPAW_MPI_NPROCS: "2"
+  extends:
+    - .nightly
+
+
+nightly-mpi-4:
+  variables:
+    GPAW_MPI_NPROCS: "4"
+  extends:
+    - .nightly
+
+
+nightly-mpi-8:
+  variables:
+    GPAW_MPI_NPROCS: "8"
+  extends:
+    - .nightly
+
+
+pages:
+  image: $IMAGE_MAIN_LATEST  # (Any image present on the runner will do)
+  stage: deploy
+  dependencies:
+    - nightly-mpi-1
+  tags:
+    - xeon24
+  script:
+    - mv htmlcov/ public
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"

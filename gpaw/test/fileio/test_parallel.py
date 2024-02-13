@@ -9,12 +9,13 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
+@pytest.mark.later
 def test_fileio_parallel(in_tmp_dir):
     a = 2.87
     atoms = bulk('Fe', 'bcc', a=a)
     atoms.set_initial_magnetic_moments([2.2])
-    calc = GPAW(h=0.20,
-                experimental={'niter_fixdensity': 2},
+    calc = GPAW(mode='fd',
+                h=0.20,
                 eigensolver='rmm-diis',
                 mixer=MixerSum(0.1, 3),
                 nbands=6,

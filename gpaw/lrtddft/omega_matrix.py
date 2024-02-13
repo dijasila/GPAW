@@ -6,6 +6,7 @@ from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
+from gpaw.setup import CachedYukawaInteractions
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
 from gpaw.xc import XC
@@ -96,6 +97,11 @@ class OmegaMatrix:
             self.derivativeLevel = derivativeLevel
         else:
             self.xc = None
+
+        if getattr(self.xc, 'omega', 0):  # can be None or int
+            self.yukawa_interactions = CachedYukawaInteractions(self.xc.omega)
+        else:
+            self.yukawa_interactions = None
 
         self.numscale = numscale
 
@@ -320,7 +326,7 @@ class OmegaMatrix:
                         # use pack as I_sp used pack2
                         P_p = pack(P_ii)
                         Exc += np.dot(I_asp[a][kss[kq].pspin], P_p)
-                    Om_xc[ij, kq] += weight * self.gd.comm.sum(Exc)
+                    Om_xc[ij, kq] += weight * self.gd.comm.sum_scalar(Exc)
                     timer2.stop()
 
                 elif self.derivativeLevel == 2:
@@ -385,9 +391,10 @@ class OmegaMatrix:
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
-            if yukawa and hasattr(self.xc, 'omega') and self.xc.omega > 0:
-                C_pp = wfs.setups[a].calculate_yukawa_interaction(
-                    self.xc.omega)
+            if yukawa:
+                assert abs(
+                    self.yukawa_interactions.omega - self.xc.omega) < 1e-14
+                C_pp = self.yukawa_interactions.get_Mg_pp(wfs.setups[a])
             else:
                 C_pp = wfs.setups[a].M_pp
             #   ----
@@ -395,7 +402,7 @@ class OmegaMatrix:
             #   ----    ip  jr prst ks qt
             #   prst
             Ia += 2.0 * np.dot(Dkq_p, np.dot(C_pp, Dij_p))
-        I += self.gd.comm.sum(Ia)
+        I += self.gd.comm.sum_scalar(Ia)
         if timer:
             timer.stop()
 
@@ -479,8 +486,8 @@ class OmegaMatrix:
     def singlets_triplets(self):
         """Split yourself into singlet and triplet transitions"""
 
-        assert(self.fullkss.npspins == 2)
-        assert(self.fullkss.nvspins == 1)
+        assert self.fullkss.npspins == 2
+        assert self.fullkss.nvspins == 1
 
         # strip kss from down spins
         skss = KSSingles()
@@ -582,7 +589,7 @@ class OmegaMatrix:
             for ij in range(nij):
                 for kq in range(nij):
                     evec[ij, kq] = self.full[map[ij], map[kq]]
-        assert(len(evec) > 0)
+        assert len(evec) > 0
 
         self.eigenvalues, v = eigh(evec)
         self.eigenvectors = v.T
@@ -602,7 +609,7 @@ class OmegaMatrix:
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
         if fh is None:
-            f = open(filename, 'r')
+            f = open(filename)
         else:
             f = fh
 

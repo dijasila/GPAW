@@ -56,6 +56,9 @@ class CG(Eigensolver):
             raise ValueError('CG eigensolver does not support band '
                              'parallelization.  This calculation parallelizes '
                              'over %d band groups.' % wfs.bd.comm.size)
+        if wfs.mode == 'pw' and wfs.gd.comm.size > 1:
+            raise ValueError('CG eigensolver does not support domain '
+                             'parallelization in PW-mode.')
         Eigensolver.initialize(self, wfs)
 
     def iterate_one_k_point(self, ham, wfs, kpt, weights):
@@ -113,7 +116,7 @@ class CG(Eigensolver):
                 pR_G = self.preconditioner(R_G, kpt, ekin)
 
                 # New search direction
-                gamma = comm.sum(np.vdot(pR_G, R_G).real)
+                gamma = comm.sum_scalar(np.vdot(pR_G, R_G).real)
                 phi_G[:] = -pR_G - gamma / gamma_old * phi_old_G
                 gamma_old = gamma
                 phi_old_G[:] = phi_G[:]
@@ -147,7 +150,7 @@ class CG(Eigensolver):
                 for a, P2_i in P2_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     norm += np.vdot(P2_i, np.dot(dO_ii, P2_i))
-                norm = comm.sum(float(np.real(norm)))
+                norm = comm.sum_scalar(float(np.real(norm)))
                 phi_G /= sqrt(norm)
                 for P2_i in P2_ai.values():
                     P2_i /= sqrt(norm)
@@ -166,8 +169,8 @@ class CG(Eigensolver):
                     dH_ii = unpack(ham.dH_asp[a][kpt.s])
                     b += dot(P2_i, dot(dH_ii, P_i.conj()))
                     c += dot(P2_i, dot(dH_ii, P2_i.conj()))
-                b = comm.sum(float(np.real(b)))
-                c = comm.sum(float(np.real(c)))
+                b = comm.sum_scalar(float(np.real(b)))
+                c = comm.sum_scalar(float(np.real(c)))
 
                 theta = 0.5 * atan2(2 * b, an - c)
                 enew = (an * cos(theta)**2 +

@@ -19,12 +19,12 @@ class Spline:
         The radial function is multiplied by a real solid spherical harmonics
         (r^l * Y_lm).
         """
-        assert 0.0 < rmax
+        assert rmax > 0.0
         f_g = np.array(f_g, float)
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
         self.spline = _gpaw.Spline(l, rmax, f_g)
-        self.l = self.get_angular_momentum_number()
+        self.l = l
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -48,6 +48,7 @@ class Spline:
         return self.spline(r)
 
     def map(self, r_x):
+        """Map f(r) onto a given radial grid."""
         return np.vectorize(self, [float])(r_x)
 
     def get_functions(self, gd, start_c, end_c, spos_c):

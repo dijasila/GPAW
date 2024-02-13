@@ -51,6 +51,9 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     atoms.calc = calc
     atoms.get_potential_energy()
 
+    eref_s = calc.hamiltonian.xc.response.eref_s
+    eref_source_s = calc.hamiltonian.xc.response.eref_source_s
+
     kpt_i = [0, 3]
     calc_kpts = calc.get_ibz_k_points()[kpt_i]
     assert np.allclose(calc_kpts, test_kpts, rtol=0, atol=1e-8), \
@@ -77,3 +80,7 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     # Check restarted eigenvalues
     assert np.allclose(eig_in, eig2_in, rtol=0, atol=1e-8), \
         "{} restart error = {}".format(xc, np.max(np.abs(eig_in - eig2_in)))
+
+    # Check that reference energy source information is restored
+    assert eref_s == calc.hamiltonian.xc.response.eref_s
+    assert eref_source_s == calc.hamiltonian.xc.response.eref_source_s

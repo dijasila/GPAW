@@ -1,19 +1,19 @@
 import numpy as np
+import pytest
 from ase import Atoms
-from gpaw import GPAW, restart, setup_paths
+
+from gpaw import GPAW, restart
+from gpaw.atom.basis import BasisMaker
 from gpaw.lcao.tools import get_lcao_hamiltonian
 from gpaw.mpi import world
-from gpaw.atom.basis import BasisMaker
-from gpaw.test import equal
 
 
-def test_lcao_lcao_hamiltonian(in_tmp_dir):
+@pytest.mark.later
+def test_lcao_lcao_hamiltonian(in_tmp_dir, add_cwd_to_setup_paths):
     if world.rank == 0:
         basis = BasisMaker('Li').generate(1, 1)
         basis.write_xml()
     world.barrier()
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     if 1:
         a = 2.7
@@ -35,5 +35,5 @@ def test_lcao_lcao_hamiltonian(in_tmp_dir):
 
         energy_tolerance = 0.0003
         niter_tolerance = 0
-        equal(e, -1.82847, energy_tolerance)
-        equal(niter, 5, niter_tolerance)
+        assert e == pytest.approx(-1.82847, abs=energy_tolerance)
+        assert niter == pytest.approx(5, abs=niter_tolerance)

@@ -117,6 +117,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
 #endif
 
   if (PyArray_DIM(n_array, 0) == 1)
+    {
     for (int g = 0; g < ng; g++)
       {
         double n = n_g[g];
@@ -144,6 +145,7 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
         e_g[g] = n * (ex + ec);
         v_g[g] += ex + ec - rs * (dexdrs + decdrs) / 3.0;
       }
+    }
   else
     {
       const double* na_g = n_g;

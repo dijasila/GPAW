@@ -1,12 +1,45 @@
-
+import pytest
 from ase import Atoms
-from gpaw import GPAW
-from gpaw.test import equal
-from gpaw import PW
+from ase.units import Bohr, Ha
 
-from gpaw.external import ConstantPotential
+from gpaw import GPAW, PW
+from gpaw.external import ConstantElectricField, ConstantPotential
 
 
+@pytest.mark.later
+def test_stark_pw():
+    h = Atoms('H', pbc=(1, 1, 0), magmoms=[1])
+    h.center(vacuum=3.0)
+    field = 0.2
+    params = dict(mode=PW(300))
+
+    h.calc = GPAW(**params)
+
+    e0 = h.get_potential_energy()
+    eig0 = h.calc.get_eigenvalues()[0]
+
+    h.calc = GPAW(**params,
+                  external=ConstantElectricField(field),
+                  poissonsolver={'dipolelayer': 'xy'})
+
+    e = h.get_potential_energy()
+    eig = h.calc.get_eigenvalues()[0]
+    dip = h.get_dipole_moment()[2]
+
+    to_au = Ha / Bohr**2
+
+    a1 = -2 * (e - e0) / field**2 * to_au
+    a2 = -(eig - eig0) / field**2 * to_au
+    a3 = dip / field * to_au
+
+    aref = 6.02
+
+    for a in [a1, a2, a3]:
+        print(a)
+        assert a == pytest.approx(aref, abs=0.1)
+
+
+@pytest.mark.later
 def test_ext_potential_external_pw():
     ConstantPotential()
 
@@ -63,9 +96,9 @@ def test_ext_potential_external_pw():
             e1 = c1.get_eigenvalues()[i]
             print('Eigenvalues no pot, expected, error=',
                   e00, e1 + 1, e00 - e1 - 1)
-            equal(e00, e1 + 1., 0.02)
+            assert e00 == pytest.approx(e1 + 1., abs=0.02)
 
     E_c00 = c00.get_potential_energy()
     E_c1 = c1.get_potential_energy()
     DeltaE = E_c00 - E_c1
-    equal(DeltaE, 0, 0.002)
+    assert DeltaE == pytest.approx(0, abs=0.002)

@@ -6,7 +6,7 @@ Introduction
 
 GPAW calculations are controlled through scripts written in the
 programming language Python_.  GPAW relies on the `Atomic
-Simulation Environment <ASE>`_ (ASE), which is a Python package that helps
+Simulation Environment`_ (ASE), which is a Python package that helps
 us describe our atoms.  The ASE package also
 handles molecular dynamics, analysis, visualization, geometry
 optimization and more.  If you don't know anything about ASE, then it
@@ -18,6 +18,7 @@ Below, there will be Python code examples starting with ``>>>`` (and
 Python interpreter and try some of the examples below.
 
 .. _Python: http://www.python.org
+.. _Atomic Simulation Environment: https://wiki.fysik.dtu.dk/ase
 
 The units used by the GPAW calculator correspond to the :mod:`ASE
 conventions <ase.units>`, most importantly electron volts and
@@ -29,7 +30,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -62,7 +63,8 @@ The calculator will try to make sensible choices for all parameters
 that the user does not specify.  Specifying parameters can be done
 like this:
 
->>> calc = GPAW(nbands=1,
+>>> calc = GPAW(mode='fd',
+...             nbands=1,
 ...             xc='PBE',
 ...             gpts=(24, 24, 24))
 
@@ -123,11 +125,6 @@ given in the following sections.
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``idiotproof``
-      - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
     * - ``kpts``
       - *seq*
       - `\Gamma`-point
@@ -141,8 +138,8 @@ given in the following sections.
       -
       - Pulay :ref:`manual_mixer` scheme
     * - ``mode``
-      - ``str``
-      - ``'fd'``
+      - ``str`` or ``dict``
+      -
       - :ref:`manual_mode`
     * - ``nbands``
       - ``int``
@@ -194,7 +191,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -215,19 +212,8 @@ keyword            type       default value  description
 
 .. _manual_mode:
 
-Finite-difference, plane-wave or LCAO mode
-------------------------------------------
-
-Finite-difference:
-    The default mode (``mode='fd'``) is Finite Difference. This means that
-    the wave functions will be expanded on a real space grid.
-
-LCAO:
-    Expand the wave functions in a basis-set constructed
-    from atomic-like orbitals, in short LCAO (linear combination of atomic
-    orbitals).  This is done by setting ``mode='lcao'``.
-
-    See also the page on :ref:`lcao`.
+Plane-wave, LCAO or Finite-difference mode?
+-------------------------------------------
 
 Plane-waves:
     Expand the wave functions in plane-waves.  Use ``mode='pw'`` if you want
@@ -238,8 +224,26 @@ Plane-waves:
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
 
+LCAO:
+    Expand the wave functions in a basis-set constructed
+    from atomic-like orbitals, in short LCAO (linear combination of atomic
+    orbitals).  This is done by setting ``mode='lcao'``.
 
-Comparing FD, LCAO and PW modes
+    See also the page on :ref:`lcao`.
+
+Finite-difference:
+    Expand the wave functions on a real space grid, chosen by
+    ``mode='fd'``.
+
+.. warning::
+    In the future, it will become an error to not specify a
+    :ref:`mode <manual_mode>` parameter for a DFT calculation.
+    For now, users will get a warning when finite-difference mode
+    is implicitly chosen.
+    Please change your scripts to avoid this error/warning.
+
+
+Comparing PW, LCAO and FD modes
 ```````````````````````````````
 
 Memory consumption:
@@ -267,6 +271,80 @@ Eggbox errors:
 Features:
     FD mode is the oldest and has most features.  Only PW mode can be used
     for calculating the stress-tensor and for response function calculations.
+
+
+Features in FD, LCAO and PW modes
+`````````````````````````````````
+
+Some features are not available in all modes.  Here is a
+(possibly incomplete) table of the features:
+
+.. list-table::
+
+  * - mode
+    - FD
+    - LCAO
+    - PW
+  * - GPU ground state calculations
+    - (experimental)
+    -
+    - +
+  * - Time-propergation TDDFT
+    - +
+    - +
+    -
+  * - Dielectric function
+    -
+    -
+    - +
+  * - Casida equation
+    - +
+    -
+    -
+  * - Hybrid functionals
+    - (no forces, no **k**-points)
+    -
+    - +
+  * - Stress tensor
+    -
+    -
+    - +
+  * - GW
+    -
+    -
+    - +
+  * - BSE
+    -
+    -
+    - +
+  * - Direct orbital optimization (generalized mode following)
+    -
+    - +
+    -
+  * - Non-collinear spin
+    -
+    -
+    - +
+  * - Solvent models
+    - +
+    -
+    -
+  * - MGGA
+    - +
+    -
+    - +
+  * - Constrained DFT
+    - +
+    -
+    -
+  * - Ehrenfest
+    - +
+    -
+    -
+  * - Spin-spirals
+    -
+    -
+    - +
 
 
 .. _manual_nbands:
@@ -617,16 +695,16 @@ The default value is this dictionary::
 In words:
 
 * The energy change (last 3 iterations) should be less than 0.5 meV
-  per valence electron. (See :class:`~gpaw.scf.Energy`.)
+  per valence electron. (See :class:`~gpaw.convergence_criteria.Energy`.)
 
 * The change in density (integrated absolute value of density change)
   should be less than 0.0001 electrons per valence electron. (See
-  :class:`~gpaw.scf.Density`.)
+  :class:`~gpaw.convergence_criteria.Density`.)
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than 4.0 `\times` 10\ :sup:`-8` eV\ :sup:`2`
   per valence electron. This criterion does not affect LCAO
-  calculations.  (See :class:`~gpaw.scf.Eigenstates`.)
+  calculations.  (See :class:`~gpaw.convergence_criteria.Eigenstates`.)
 
 * Only the bands that are occupied with electrons are converged.
 
@@ -712,7 +790,7 @@ Fixed density calculation
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. This can be done using the
-:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+:meth:`gpaw.calculator.GPAW.fixed_density` method.  This will use the density
 (e.g. one read from .gpw or existing from previous calculation)
 throughout the SCF-cycles (so called Harris calculation).
 
@@ -723,7 +801,7 @@ PAW datasets or pseudopotentials
 --------------------------------
 
 The ``setups`` keyword is used to specify the name(s) of the setup files
-used in the calulation.
+used in the calculation.
 
 For a given element ``E``, setup name ``NAME``, and xc-functional
 'XC', GPAW looks for the file :file:`E.NAME.XC` or :file:`E.NAME.XC.gz`
@@ -850,14 +928,17 @@ be used.
 More control can be obtained by using directly the eigensolver objects::
 
   from gpaw.eigensolvers import CG
-  calc = GPAW(eigensolver=CG(niter=5, rtol=0.20))
+  calc = GPAW(..., eigensolver=CG(niter=5, rtol=0.20), ...)
 
 Here, ``niter`` specifies the maximum number of conjugate gradient iterations
 for each band (within a single SCF step), and if the relative change
 in residual is less than ``rtol``, the iteration for the band is not continued.
 
-LCAO mode has its own eigensolver, which directly diagonalizes the
-Hamiltonian matrix instead of using an iterative method.
+LCAO mode has its own eigensolvers. ``DirectLCAO`` eigensolver directly
+diagonalizes the Hamiltonian matrix instead of using an iterative method.
+One can also use Exponential Transformation Direct Minimization (ETDM) method
+(see :ref:`directmin`) but it is not recommended to use it for metals
+because occupation numbers are not found variationally in ETDM.
 
 
 .. _manual_poissonsolver:
@@ -879,7 +960,10 @@ The old default Poisson solver uses a multigrid Jacobian method.
 This example corresponds to the old default Poisson solver::
 
   from gpaw import GPAW, PoissonSolver
-  calc = GPAW(poissonsolver=PoissonSolver(name='fd', nn=3, relax='J', eps=2e-10))
+  calc = GPAW(...,
+              poissonsolver=PoissonSolver(
+                  name='fd', nn=3, relax='J', eps=2e-10),
+              ...)
 
 The ``nn`` argument is the stencil, see :ref:`manual_stencils`.
 The ``relax`` argument is the method, either ``'J'`` (Jacobian) or ``'GS'``
@@ -899,7 +983,7 @@ The last argument, ``eps``, is the convergence criterion.
 
 .. _manual_dipole_correction:
 
-The ``poissonsolver`` keyword can also be used to specify that a dipole
+The ``poissonsolver`` keyword can also be used to specify that a dipole-layer
 correction should be applied along a given axis.  The system should be
 non-periodic in that direction but periodic in the two other
 directions.
@@ -909,7 +993,7 @@ directions.
   from gpaw import GPAW
 
   correction = {'dipolelayer': 'xy'}
-  calc = GPAW(poissonsolver=correction)
+  calc = GPAW(..., poissonsolver=correction, ...)
 
 Without dipole correction, the potential will approach 0 at all
 non-periodic boundaries.  With dipole correction, there will be a
@@ -919,12 +1003,14 @@ dipole moment.
 Other parameters in this dictionary are forwarded to the
 Poisson solver::
 
-    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
+    GPAW(...,
+         poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'},
+         ...)
 
 An alternative Poisson solver based on Fourier transforms is available
 for fully periodic calculations::
 
-   GPAW(poissonsolver={'name': 'fft'})
+   GPAW(..., poissonsolver={'name': 'fft'}, ...)
 
 The FFT Poisson solver will reduce the dependence on the grid spacing and
 is in general less picky about the grid.  It may be beneficial for
@@ -944,7 +1030,7 @@ Kohn-Sham and Poisson equations.  You can set the range of the stencil
 this::
 
     from gpaw import GPAW, PoissonSolver
-    calc = GPAW(poissonsolver=PoissonSolver(nn=n))
+    calc = GPAW(..., poissonsolver=PoissonSolver(nn=n), ...)
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
 1 and 6.  The default value is ``n=3``.
@@ -974,14 +1060,12 @@ between 1 and 4 (linear, cubic, quintic, heptic).
 Using Hund's rule for guessing initial magnetic moments
 -------------------------------------------------------
 
-The ``hund`` keyword can be used for single atoms only. If set to
-``True``, the calculation will become spinpolarized, and the initial
-ocupations, and magnetic moment of the atom will be set to the value
+With ``hund=True``, the calculation will become spinpolarized, and the initial
+ocupations, and magnetic moments of all atoms will be set to the values
 required by Hund's rule.  You may further wish to specify that the
-total magnetic moment be fixed, by passing e.g.
-``occupations=FermiDirac(0.0, fixmagmom=True)``.
-Any user specified magnetic moment is
-ignored. Default is False.
+total magnetic moment be fixed, by passing e.g. ``occupations={'name': ...,
+'fixmagmom': True}``. Any user specified magnetic moment is ignored. Default
+is False.
 
 
 .. _manual_external:
@@ -991,8 +1075,8 @@ External potential
 
 Example::
 
-    from gpaw.external import ConstanElectricField
-    calc = GPAW(..., external=ConstanElectricField(2.0, [1, 0, 0]), ...)
+    from gpaw.external import ConstantElectricField
+    calc = GPAW(..., external=ConstantElectricField(2.0, [1, 0, 0]), ...)
 
 See also: :mod:`gpaw.external`.
 
@@ -1110,7 +1194,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.GPAW.attach`.
+See also :meth:`~gpaw.calculator.GPAW.attach`.
 
 
 .. _command line options:
@@ -1120,12 +1204,12 @@ Command-line options
 --------------------
 
 I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
-to C-extensions, use Python's :option:`python:-c` option`:
+to C-extensions, use Python's :option:`python:-d` option:
 
     $ python3 -d script.py
 
-If you run Python through the ``gpaw python`` command, then you run your
-script in dry-run mode::
+If you run Python through the ``gpaw python`` command, then you can run your
+script in dry-run mode like this::
 
     $ gpaw python --dry-run=N script.py
 

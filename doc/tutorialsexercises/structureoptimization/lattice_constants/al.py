@@ -16,10 +16,10 @@ for ecut in range(200, 501, 50):
         al.cell = (1 + eps) * cell0
         al.get_potential_energy()
 
-al.calc.set(mode=PW(400))
+calc = al.calc.new(mode=PW(400))
 for k in range(4, 17):
-    al.calc.set(kpts=(k, k, k),
-                txt=f'Al-{k:02}.txt')
+    al.calc = calc.new(kpts=(k, k, k),
+                       txt=f'Al-{k:02}.txt')
     for eps in np.linspace(-0.02, 0.02, 5):
         al.cell = (1 + eps) * cell0
         al.get_potential_energy()

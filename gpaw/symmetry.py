@@ -4,7 +4,6 @@
 # Please see the accompanying LICENSE file for further information.
 from typing import Tuple
 
-from ase.io import read
 from ase.utils import gcd
 import numpy as np
 
@@ -311,7 +310,7 @@ class Symmetry:
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
     def check_grid(self, N_c) -> bool:
-        """Check that symmetries are comensurate with grid."""
+        """Check that symmetries are commensurate with grid."""
         for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
@@ -347,7 +346,7 @@ class Symmetry:
         a_g: ndarray
             Array with Bloch function from the irreducible BZ.
         kibz_c: ndarray
-            Corresponing k-point coordinates.
+            Corresponding k-point coordinates.
         kbz_c: ndarray
             K-point coordinates of the symmetry related k-point.
         op_cc: ndarray
@@ -394,10 +393,10 @@ class Symmetry:
     def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        lines = ['Symmetries present (total): {0}'.format(n)]
+        lines = [f'Symmetries present (total): {n}']
         if not self.symmorphic:
             lines.append(
-                'Symmetries with fractional translations: {0}'.format(nft))
+                f'Symmetries with fractional translations: {nft}')
 
         # X-Y grid of symmetry matrices:
 
@@ -451,7 +450,7 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     nbzkpts = len(bzk_kc)
     ka = nbzkpts * comm.rank // comm.size
     kb = nbzkpts * (comm.rank + 1) // comm.size
-    assert comm.sum(kb - ka) == nbzkpts
+    assert comm.sum_scalar(kb - ka) == nbzkpts
 
     if time_reversal:
         U_scc = np.concatenate([U_scc, -U_scc])
@@ -551,14 +550,66 @@ def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
 
 
 class CLICommand:
-    """Analyse symmetry."""
+    """Analyse symmetry (and show IBZ k-points).
+
+    Example:
+
+        $ ase build -x bcc -a 3.5 Li | gpaw symmetry -k "{density:3,gamma:1}"
+        symmetry:
+          number of symmetries: 48
+          number of symmetries with translation: 0
+
+        bz sampling:
+          number of bz points: 512
+          number of ibz points: 29
+          monkhorst-pack size: [8, 8, 8]
+          monkhorst-pack shift: [0.0625, 0.0625, 0.0625]
+    """
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('filename')
+        parser.add_argument('-t', '--tolerance', type=float, default=1e-7,
+                            help='Tolerance used for identifying symmetries.')
+        parser.add_argument(
+            '-k', '--k-points',
+            help='Use symmetries to reduce number of k-points.  '
+            'Exapmples: "4,4,4", "{density:3.5,gamma:True}".')
+        parser.add_argument('-v', '--verbose', action='store_true',
+                            help='Show symmetry operations (and k-points).')
+        parser.add_argument('-s', '--symmorphic', action='store_true',
+                            help='Only find symmorphic symmetries.')
+        parser.add_argument('filename', nargs='?', default='-',
+                            help='Filename to read structure from.  '
+                            'Use "-" for reading from stdin.  '
+                            'Default is "-".')
 
     @staticmethod
     def run(args):
-        atoms = read(args.filename)
-        symmetry = atoms2symmetry(atoms)
-        print(symmetry)
+        import sys
+        from gpaw.new.symmetry import create_symmetries_object
+        from gpaw.new.builder import create_kpts
+        from gpaw.new.input_parameters import kpts
+        from ase.cli.run import str2dict
+        from ase.db import connect
+        from ase.io import read
+
+        if args.filename == '-':
+            atoms = next(connect(sys.stdin).select()).toatoms()
+        else:
+            atoms = read(args.filename)
+        symmetries = create_symmetries_object(
+            atoms,
+            parameters={'tolerance': args.tolerance,
+                        'symmorphic': args.symmorphic})
+        txt = str(symmetries)
+        if not args.verbose:
+            txt = txt.split('  rotations', 1)[0]
+        print(txt)
+        if args.k_points:
+            k = str2dict('kpts=' + args.k_points)['kpts']
+            bz = create_kpts(kpts(k), atoms)
+            ibz = symmetries.reduce(bz)
+            txt = str(ibz)
+            if not args.verbose:
+                txt = txt.split('  points and weights:', 1)[0]
+            print(txt)

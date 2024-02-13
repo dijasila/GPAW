@@ -28,7 +28,8 @@ def ethylene():
                 pbc=True)
     mol.center()
 
-    mol.calc = GPAW(txt=None,
+    mol.calc = GPAW(mode='fd',
+                    txt=None,
                     nbands=8,
                     gpts=(32, 32, 32),
                     convergence={'eigenstates': 3.3e-5})

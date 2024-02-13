@@ -35,6 +35,7 @@ class AppelbaumHamann(BaseSetup):
         self.f_j = [4]
         self.n_j = [1]
         self.nct = nullspline
+        self.tauct = nullspline
         self.Nct = 0.0
         rc = 4.0
         r2_g = np.linspace(0, rc, 100)**2
@@ -46,13 +47,12 @@ class AppelbaumHamann(BaseSetup):
         self.Delta0 = -4 / (4 * np.pi)**0.5
         self.ExxC = 0.0
         self.lmax = 0
-        self.K_p = self.M_p = self.MB_p = self.X_p = np.zeros(1)
+        self.K_p = self.M_p = self.MB_p = self.X_p = self.N0_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
         self.Kc = 0.0
         self.MB = 0.0
         self.M = 0.0
         self.xc_correction = None
-        self.HubU = None
         self.dO_ii = np.zeros((1, 1))
         self.type = 'ah'
         self.fingerprint = None
@@ -62,8 +62,9 @@ class AppelbaumHamann(BaseSetup):
             basis = Basis('Si', 'sz(dzp)')
         elif isinstance(basis, str):
             basis = Basis('Si', basis)
+
         self.basis = basis
-        self.phit_j = self.basis.tosplines()
+        self.basis_functions_J = self.basis.tosplines()
         self.nao = self.basis.nao
 
     def print_info(self, text):

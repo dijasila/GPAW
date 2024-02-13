@@ -3,15 +3,14 @@ import re
 from typing import Tuple
 
 import numpy as np
-
 from ase import Atoms
 from ase.units import Bohr
 from ase.utils import IOContext
 from gpaw.fd_operators import Gradient
-from gpaw.typing import ArrayLike
-from gpaw.utilities.tools import coordinates
-from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
+from gpaw.lcaotddft.observer import TDDFTObserver
+from gpaw.typing import Vector
+from gpaw.utilities.tools import coordinates
 
 
 def calculate_magnetic_moment_on_grid(wfs, grad_v, r_vG, dM_vaii, *,
@@ -212,7 +211,7 @@ def calculate_magnetic_moment_in_lcao(ksl, rho_mm, M_vmm):
 
 def get_origin_coordinates(atoms: Atoms,
                            origin: str,
-                           origin_shift: ArrayLike) -> np.ndarray:
+                           origin_shift: Vector) -> np.ndarray:
     """Get origin coordinates.
 
     Parameters
@@ -321,7 +320,7 @@ class MagneticMomentWriter(TDDFTObserver):
 
     def __init__(self, paw, filename: str, *,
                  origin: str = None,
-                 origin_shift: ArrayLike = None,
+                 origin_shift: Vector = None,
                  dmat: DensityMatrix = None,
                  calculate_on_grid: bool = None,
                  only_pseudo: bool = None,
@@ -329,7 +328,7 @@ class MagneticMomentWriter(TDDFTObserver):
         TDDFTObserver.__init__(self, paw, interval)
         self.ioctx = IOContext()
         mode = paw.wfs.mode
-        assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
+        assert mode in ['fd', 'lcao'], f'unknown mode: {mode}'
         if paw.niter == 0:
             if origin is None:
                 origin = 'COM'
@@ -423,7 +422,7 @@ class MagneticMomentWriter(TDDFTObserver):
         self._write(f'# {"time":>15} {"mmx":>17} {"mmy":>22} {"mmz":>22}\n')
 
     def _read_header(self, filename):
-        with open(filename, 'r') as fd:
+        with open(filename, encoding='utf-8') as fd:
             line = fd.readline()
         try:
             name, version, kwargs = parse_header(line[2:])

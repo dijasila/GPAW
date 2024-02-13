@@ -1,11 +1,7 @@
-import pytest
 import numpy as np
 
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.utilities import compiled_with_sl
-
-pytestmark = pytest.mark.skipif(not compiled_with_sl(), reason='No scalapack')
 
 
 def check(comm, M, N, mcpus, ncpus, mb, nb):
@@ -50,7 +46,7 @@ def check(comm, M, N, mcpus, ncpus, mb, nb):
         print(A_mn)
 
 
-def test_parallel_blacsdist():
+def test_parallel_blacsdist(scalapack):
     M, N = 10, 10
     mb, nb = 2, 2
     mcpus = int(np.ceil(world.size**0.5))

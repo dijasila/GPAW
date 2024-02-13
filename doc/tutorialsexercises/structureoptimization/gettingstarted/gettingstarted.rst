@@ -65,8 +65,18 @@ density and wavefunctions, and the grids exist in a cell.  For this
 reason you must set a cell for the :class:`~ase.Atoms` object.  As a
 coarse value let us use a 6 Ångström cell::
 
-  system.set_cell((6.0, 6.0, 6.0))
-  system.center()
+  atoms.set_cell((6.0, 6.0, 6.0))
+  atoms.center()
+
+
+.. testcode::
+  :hide:
+
+  from ase import Atoms
+  atoms = Atoms('H2', cell=[2., 2., 2.], positions=[[0, 0, 0], [1, 1, 1]])
+  atoms.set_cell([6.0, 6.0, 6.0])
+  atoms.center()
+
 
 The cell must be centered in order to prevent atoms from lying too
 close to the boundary, as the boundary conditions are zero by default.
@@ -75,7 +85,7 @@ Instead of importing and using EMT, we now use GPAW::
 
   from gpaw import GPAW
   ...
-  calc = GPAW()
+  calc = GPAW(mode='fd')
   ...
 
 Make a copy of your script and adapt it to GPAW, then recalculate the
@@ -110,7 +120,20 @@ spin-down densities are assumed to be equal.  As this is not the case
 for isolated atoms, it will be necessary to instruct GPAW to do
 something different::
 
-  calc = GPAW(hund=True)
+  calc = GPAW(mode='fd', hund=True)
+
+
+.. testcode::
+  :hide:
+
+  import gpaw
+  gpaw.GPAW(mode='fd', hund=True)
+
+
+.. testoutput::
+  :hide:
+
+  ...
 
 With the ``hund`` keyword, Hund's rule is applied to initialize the
 atomic states, and the calculation will be made spin-polarized.

@@ -9,19 +9,19 @@ Parallel runs
 
 .. _parallel_running_jobs:
 
+
 Running jobs in parallel
 ========================
 
 Parallel calculations are done primarily with MPI.
-The parallelization can be done over the **k**-points, bands, spin in
-spin-polarized calculations, and using real-space domain
-decomposition.  The code will try to make a sensible domain
+The parallelization can be done over the **k**-points, bands,
+and using real-space domain decomposition.
+The code will try to make a sensible domain
 decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
 :ref:`manual_parallelization_types`. Complementary OpenMP
 parallelization can improve the performance in some cases, see
 :ref:`manual_openmp`.
-
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
@@ -40,6 +40,17 @@ do one of these two::
 
 The first two are the recommended ones:  The *gpaw* script will make sure
 that imports are done in an efficient way.
+
+.. tip::
+
+   You can use the :envvar:`GPAW_MPI_OPTIONS` to pass options to ``mpiexex``.
+   Example::
+
+     GPAW_MPI_OPTIONS="--oversubscribe"
+
+.. envvar:: GPAW_MPI_OPTIONS
+
+    Options for ``mpiexec``.
 
 
 Submitting a job to a queuing system
@@ -157,7 +168,7 @@ or simply a list of ranks. Thus, you may write::
   ranks = [0, 3, 4]
   comm = mpi.world.new_communicator(ranks)
   if mpi.world.rank in ranks:
-      calc = GPAW(communicator=comm)
+      calc = GPAW(communicator=comm, ...)
       ...
 
 Be sure to specify different output files to each calculator,
@@ -185,9 +196,10 @@ The default value corresponds to this Python dictionary::
 
   {'kpt':                 None,
    'domain':              None,
-   'band':                1,
+   'band':                None,
    'order':               'kdb',
    'stridebands':         False,
+   'augment_grids':       False,
    'sl_auto':             False,
    'sl_default':          None,
    'sl_diagonalize':      None,
@@ -206,16 +218,17 @@ In words:
   unspecified, the calculator will choose a parallelization itself which
   maximizes the k-point parallelization unless that leads to load imbalance; in
   that case, it may prioritize domain decomposition.
+  Note: parallelization over spin is not possible in
+  :ref:`GPAW 20.10.0 and newer versions <releasenotes>`.
 
 * The ``'domain'`` value specifies either an integer ``n`` or a tuple
   ``(nx,ny,nz)`` of 3 integers for
   :ref:`domain decomposition <manual_parsize_domain>`.
   If not specified (i.e. ``None``), the calculator will try to determine the
-  best domain parallelization size based on number of kpoints, spins etc.
+  best domain parallelization size based on number of kpoints etc.
 
 * The ``'band'`` value specifies the number of parallelization groups to use
-  for :ref:`band parallelization <manual_parsize_bands>` and defaults to one,
-  i.e. no band parallelization.
+  for :ref:`band parallelization <manual_parsize_bands>`. If not specified (i.e. ``None``), the calculator will try to determine the best band parallelization size based on number of kpoints etc.
 
 * ``'order'`` specifies how different parallelization modes are nested
   within the calculator's world communicator.  Must be a permutation
@@ -228,6 +241,8 @@ In words:
 
 * The ``'stridebands'`` value only applies when band parallelization is used,
   and can be used to toggle between grouped and strided band distribution.
+
+* If ``'augment_grids'`` is ``True``, all cores will be used for XC/Poisson solver. When parallelizing over k-points or bands, in the planewave mode, and using ScaLAPACK, setting ``'augment_grids'`` to True will make use of all cores including those for k-point and band parallelization.
 
 * If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically
   chosen parameters and using all available CPUs.
@@ -352,7 +367,7 @@ in all modes.
 
 In LCAO mode, it is normally best to assign as many cores as possible,
 which means that ``m`` and ``n`` should multiply to the total number of cores
-divided by the k-point/spin parallelization.
+divided by the k-point parallelization.
 For example with 128 cores and parallelizing by 4 over k-points,
 there are 32 cores per k-point available per scalapack and a sensible
 choice is ``m=8``, ``n=4``.  You can use ``sl_auto=True`` to make

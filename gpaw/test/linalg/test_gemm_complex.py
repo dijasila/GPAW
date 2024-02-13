@@ -3,6 +3,7 @@
 # running with python (uses _gpaw.so) gives right (non-zero) results!
 
 import numpy as np
+from gpaw.utilities.blas import mmm
 
 
 def test_linalg_gemm_complex():
@@ -10,12 +11,11 @@ def test_linalg_gemm_complex():
     a1 = np.eye(n) + 1.j
     a2 = a1 + 1.j
 
-    from gpaw.utilities.blas import gemm
     b = np.zeros((n, n), dtype=complex)
 
     c = np.dot(a2, a1)
 
-    gemm(1.0, a1, a2, 0.0, b)
+    mmm(1.0, a2, 'N', a1, 'N', 0.0, b)
 
     thresh = 1.0e-7
     ref_max_value = -9.0

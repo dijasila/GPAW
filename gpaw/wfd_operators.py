@@ -1,6 +1,6 @@
 import _gpaw
 from gpaw.fd_operators import FDOperator
-import numpy
+import numpy as np
 
 
 class WeightedFDOperator(FDOperator):
@@ -26,18 +26,16 @@ class WeightedFDOperator(FDOperator):
             if 0 in op.offset_p:
                 assert op.offset_p[0] == 0
                 self.offset_ps.append(
-                    numpy.ascontiguousarray(op.offset_p.copy())
+                    np.ascontiguousarray(op.offset_p.copy())
                 )
                 self.coef_ps.append(
-                    numpy.ascontiguousarray(op.coef_p.copy())
+                    np.ascontiguousarray(op.coef_p.copy())
                 )
             else:
                 self.offset_ps.append(
-                    numpy.ascontiguousarray(numpy.hstack(([0], op.offset_p)))
-                )
+                    np.ascontiguousarray(np.hstack(([0], op.offset_p))))
                 self.coef_ps.append(
-                    numpy.ascontiguousarray(numpy.hstack(([.0], op.coef_p)))
-                )
+                    np.ascontiguousarray(np.hstack(([.0], op.coef_p))))
             assert self.offset_ps[-1][0] == 0
             assert len(self.coef_ps[-1]) == len(self.offset_ps[-1])
             assert self.offset_ps[-1].flags.c_contiguous
@@ -59,6 +57,8 @@ class WeightedFDOperator(FDOperator):
         self.description = 'Weighted Finite Difference Operator\n      '
         self.description += '\n      '.join([op.description
                                              for op in operators])
+
+        self.xp = np
 
     def set_weights(self, weights):
         """Set the operator weights.

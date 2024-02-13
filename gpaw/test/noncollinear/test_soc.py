@@ -1,11 +1,16 @@
-"""Test HOMO and LUMO band-splitting for MoS2."""
-import pytest
-import numpy as np
-from ase.build import mx2
+"""Test HOMO and LUMO band-splitting for MoS2.
 
+See:
+
+  https://journals.aps.org/prb/abstract/10.1103/PhysRevB.98.155433
+"""
+import numpy as np
+import pytest
+from ase.build import mx2
 from gpaw import GPAW
-from gpaw.spinorbit import soc_eigenstates
 from gpaw.mpi import size
+from gpaw.spinorbit import soc_eigenstates
+from gpaw.berryphase import get_polarization_phase
 
 
 def check(E, hsplit, lsplit):
@@ -17,25 +22,47 @@ def check(E, hsplit, lsplit):
     assert abs(l2 - l1 - lsplit) < 0.002
 
 
-params = dict(mode='pw',
+def check_pol(phi_c):
+    pol_c = (phi_c / (2 * np.pi)) % 1
+    assert abs(pol_c[0] - 2 / 3) < 0.01
+    assert abs(pol_c[1] - 1 / 3) < 0.01
+
+
+params = dict(mode={'name': 'pw', 'ecut': 350},
               kpts={'size': (3, 3, 1),
                     'gamma': True})
 
 
 @pytest.mark.soc
-@pytest.mark.skipif(size > 1, reason='Does not work in parallel')
-def test_soc_self_consistent():
+@pytest.mark.skipif(size > 2, reason='May not work in parallel')
+def test_soc_self_consistent(gpaw_new, in_tmp_dir):
     """Self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
 
-    a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
-                                'soc': True},
-                  convergence={'bands': 28},
-                  **params)
+    if gpaw_new:
+        kwargs = {**params,
+                  'symmetry': 'off',
+                  'magmoms': np.zeros((3, 3)),
+                  'soc': True}
+    else:
+        kwargs = {**params,
+                  'symmetry': 'off',
+                  'experimental': {'magmoms': np.zeros((3, 3)),
+                                   'soc': True}}
+
+    a.calc = GPAW(convergence={'bands': 28},
+                  **kwargs)
     a.get_potential_energy()
-    eigs = a.calc.get_eigenvalues(kpt=2)
+    eigs = a.calc.get_eigenvalues(kpt=0)
     check(eigs, 0.15, 0.002)
+
+    a.calc.write('mos2.gpw', 'all')
+    GPAW('mos2.gpw')
+
+    if size == 1:
+        phi_c = get_polarization_phase(a.calc)
+        check_pol(phi_c)
 
 
 @pytest.mark.soc
@@ -47,6 +74,7 @@ def test_non_collinear_plus_soc():
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
                                 'soc': False},
                   convergence={'bands': 28},
+                  symmetry='off',
                   parallel={'domain': 1},
                   **params)
     a.get_potential_energy()

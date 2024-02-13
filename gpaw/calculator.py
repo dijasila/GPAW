@@ -6,6 +6,8 @@ The central object that glues everything together.
 import warnings
 from typing import Any, Dict
 
+import gpaw
+import gpaw.mpi as mpi
 import numpy as np
 from ase import Atoms
 from ase.calculators.calculator import Calculator, kpts2ndarray
@@ -13,10 +15,8 @@ from ase.dft.bandgap import bandgap
 from ase.units import Bohr, Ha
 from ase.utils import plural
 from ase.utils.timing import Timer
-
-import gpaw
-import gpaw.mpi as mpi
 from gpaw.band_descriptor import BandDescriptor
+from gpaw.convergence_criteria import dict2criterion
 from gpaw.density import RealSpaceDensity
 from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
@@ -37,12 +37,12 @@ from gpaw.output import (print_cell, print_parallelization_details,
                          print_positions)
 from gpaw.pw.density import ReciprocalSpaceDensity
 from gpaw.pw.hamiltonian import ReciprocalSpaceHamiltonian
-from gpaw.scf import SCFLoop, dict2criterion
+from gpaw.scf import SCFLoop, SCFEvent
 from gpaw.setup import Setups
 from gpaw.stress import calculate_stress
 from gpaw.symmetry import Symmetry
 from gpaw.typing import Array1D
-from gpaw.utilities import check_atoms_too_close
+from gpaw.utilities import check_atoms_too_close, compiled_with_sl
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.memory import MemNode, maxrss
@@ -61,7 +61,7 @@ class GPAW(Calculator):
                               'dipole', 'magmom', 'magmoms']
 
     default_parameters: Dict[str, Any] = {
-        'mode': 'fd',
+        'mode': None,  # issue #897: start deprecating reliance on default mode
         'xc': 'LDA',
         'occupations': None,
         'poissonsolver': None,
@@ -86,7 +86,6 @@ class GPAW(Calculator):
         'random': False,
         'hund': False,
         'maxiter': 333,
-        'idiotproof': True,
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
@@ -167,6 +166,45 @@ class GPAW(Calculator):
 
         Calculator.__init__(self, restart, label=label, **kwargs)
 
+    def new(self,
+            timer=None,
+            communicator=None,
+            txt='-',
+            parallel=None,
+            **kwargs):
+        """Create a new calculator, inheriting input parameters.
+
+        The ``txt`` file and timer are the only input parameters to
+        be created anew. Internal variables, such as the density
+        or the wave functions, are not reused either.
+
+        For example, to perform an identical calculation with a
+        parameter changed (e.g. changing XC functional to PBE)::
+
+            new_calc = calc.new(xc='PBE')
+            atoms.calc = new_calc
+        """
+        assert 'atoms' not in kwargs
+        assert 'restart' not in kwargs
+        assert 'ignore_bad_restart_file' not in kwargs
+        assert 'label' not in kwargs
+
+        # Let the communicator fall back to world
+        if communicator is None:
+            communicator = self.world
+
+        if parallel is not None:
+            new_parallel = dict(self.parallel)
+            new_parallel.update(parallel)
+        else:
+            new_parallel = None
+
+        new_kwargs = dict(self.parameters)
+        new_kwargs.update(kwargs)
+
+        return GPAW(timer=timer, communicator=communicator,
+                    txt=txt, parallel=new_parallel, **new_kwargs)
+
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
                       communicator=None,
@@ -190,7 +228,8 @@ class GPAW(Calculator):
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}:
-                raise TypeError(f'{key:!r} is an invalid keyword argument')
+                raise TypeError(f'Cannot change {key!r} in '
+                                'fixed_density calculation!')
 
         params = self.parameters.copy()
         params.update(kwargs)
@@ -213,10 +252,37 @@ class GPAW(Calculator):
             old_response = self.hamiltonian.xc.response
             new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
+        elif calc.hamiltonian.xc.type == 'MGGA':
+            for kpt in self.wfs.kpt_u:
+                if kpt.psit is None:
+                    raise ValueError("Needs wave functions for "
+                                     "MGGA fixed density.\n"
+                                     "To run from a restart file, it must "
+                                     "be written with mode='all'")
+            self.wfs.initialize_wave_functions_from_restart_file()
+            taut_sG = self.wfs.calculate_kinetic_energy_density()
+            wgd = self.wfs.gd.new_descriptor(comm=self.world,
+                                             allow_empty_domains=True)
+            redist = GridRedistributor(self.world, self.wfs.kptband_comm,
+                                       self.wfs.gd, wgd)
+            taut_sG = redist.distribute(taut_sG)
+            redist = GridRedistributor(self.world, calc.wfs.kptband_comm,
+                                       calc.wfs.gd, wgd)
+            taut_sG = redist.collect(taut_sG)
+            calc.hamiltonian.xc.fix_kinetic_energy_density(taut_sG)
         calc.calculate(system_changes=[])
         return calc
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def __del__(self):
+        self.close()
+
+    def close(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
@@ -227,6 +293,16 @@ class GPAW(Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
+        """Write calculator object to a file.
+
+        Parameters
+        ----------
+        filename
+            File to be written
+        mode
+            Write mode. Use ``mode='all'``
+            to include wave functions in the file.
+        """
         self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
@@ -253,23 +329,27 @@ class GPAW(Calculator):
     def _set_atoms(self, atoms):
         check_atoms_too_close(atoms)
         self.atoms = atoms
+        mpi.synchronize_atoms(self.atoms, self.world)
+
         # GPAW works in terms of the scaled positions.  We want to
         # extract the scaled positions in only one place, and that is
         # here.  No other place may recalculate them, or we might end up
         # with rounding errors and inconsistencies.
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
+        self.spos_ac = np.ascontiguousarray(atoms.get_scaled_positions() % 1.0)
+        self.world.broadcast(self.spos_ac, 0)
 
     def read(self, filename):
         from ase.io.trajectory import read_atoms
-        self.log('Reading from {}'.format(filename))
+        self.log(f'Reading from {filename}')
 
         self.reader = reader = Reader(filename)
+        assert reader.version <= 3, 'Can\'t read new GPW-files'
 
         atoms = read_atoms(reader.atoms)
         self._set_atoms(atoms)
 
         res = reader.results
-        self.results = dict((key, res.get(key)) for key in res.keys())
+        self.results = {key: res.get(key) for key in res.keys()}
         if self.results:
             self.log('Read {}'.format(', '.join(sorted(self.results))))
 
@@ -341,7 +421,7 @@ class GPAW(Calculator):
 
         if system_changes:
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if self.density is not None and system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
             else:
@@ -361,7 +441,7 @@ class GPAW(Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
-        yield
+        yield SCFEvent(self.density, self.hamiltonian, self.wfs, 0, self.log)
 
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
@@ -400,6 +480,12 @@ class GPAW(Calculator):
             else:
                 self.results['magmom'] = 0.0
                 self.results['magmoms'] = np.zeros(len(self.atoms))
+
+            occ_name = getattr(self.wfs.occupations, "name", None)
+            if occ_name == 'mom' and self.wfs.occupations.update_numbers:
+                if isinstance(self.parameters.occupations, dict):
+                    for s, numbers in enumerate(self.wfs.occupations.numbers):
+                        self.parameters['occupations']['numbers'][s] = numbers
 
             self.summary()
 
@@ -448,7 +534,7 @@ class GPAW(Calculator):
         # Verify that keys are consistent with default ones.
         for key in kwargs:
             if key != 'txt' and key not in self.default_parameters:
-                raise TypeError('Unknown GPAW parameter: {}'.format(key))
+                raise TypeError(f'Unknown GPAW parameter: {key}')
 
             if key in ['symmetry',
                        'experimental'] and isinstance(kwargs[key], dict):
@@ -461,6 +547,15 @@ class GPAW(Calculator):
                                         '"{}".  Must be one of: {}'
                                         .format(subkey, key, allowed))
 
+        # We need to handle txt early in order to get logging up and running:
+        if 'txt' in kwargs:
+            self.log.fd = kwargs.pop('txt')
+
+        if 'idiotproof' in kwargs:
+            del kwargs['idiotproof']
+            warnings.warn('Ignoring deprecated keyword "idiotproof"',
+                          DeprecatedParameterWarning)
+
         changed_parameters = Calculator.set(self, **kwargs)
 
         for key in ['setups', 'basis']:
@@ -468,12 +563,9 @@ class GPAW(Calculator):
                 dct = changed_parameters[key]
                 if isinstance(dct, dict) and None in dct:
                     dct['default'] = dct.pop(None)
-                    warnings.warn('Please use {key}={dct}'
-                                  .format(key=key, dct=dct))
-
-        # We need to handle txt early in order to get logging up and running:
-        if 'txt' in changed_parameters:
-            self.log.fd = changed_parameters.pop('txt')
+                    warnings.warn(
+                        f'Please use {key}={dct}',
+                        DeprecatedParameterWarning)
 
         if not changed_parameters:
             return {}
@@ -491,7 +583,7 @@ class GPAW(Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
@@ -539,8 +631,6 @@ class GPAW(Calculator):
         else:
             atoms = atoms.copy()
             self._set_atoms(atoms)
-
-        mpi.synchronize_atoms(atoms, self.world)
 
         rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
         atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
@@ -618,19 +708,31 @@ class GPAW(Calculator):
 
         if par.fixdensity:
             warnings.warn(
-                'The fixdensity keyword has been deprecated. '
-                'Please use the GPAW.fixed_density() method instead.',
-                DeprecationWarning)
+                ('The fixdensity keyword has been deprecated. '
+                 'Please use the GPAW.fixed_density() method instead.'),
+                DeprecatedParameterWarning)
+            if self.hamiltonian.xc.type == 'MGGA':
+                raise ValueError('MGGA does not support deprecated '
+                                 'fixdensity option.')
 
         mode = par.mode
+        if mode is None:
+            warnings.warn(
+                ('Finite-difference mode implicitly chosen; '
+                 'it will be an error to not specify a mode in the future'),
+                DeprecatedParameterWarning)
+            mode = 'fd'
+            par.mode = 'fd'
         if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
 
         if par.dtype == complex:
-            warnings.warn('Use mode={}(..., force_complex_dtype=True) '
-                          'instead of dtype=complex'.format(mode.name.upper()))
+            warnings.warn(
+                ('Use mode={}(..., force_complex_dtype=True) '
+                 'instead of dtype=complex').format(mode.name.upper()),
+                DeprecatedParameterWarning)
             mode.force_complex_dtype = True
             del par['dtype']
             par.mode = mode
@@ -639,22 +741,23 @@ class GPAW(Calculator):
             raise ValueError('LCAO mode does not support '
                              'orbital-dependent XC functionals.')
 
-        realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
+        realspace = mode.interpolation != 'fft'
 
         self.create_setups(mode, xc)
 
         if not realspace:
             pbc_c = np.ones(3, bool)
 
+        magnetic = magmom_av.any()
+
         if par.hund:
-            if natoms != 1:
-                raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magnetic = True
+            c = par.charge / natoms
+            for a, setup in enumerate(self.setups):
+                magmom_av[a, 2] = setup.get_hunds_rule_moment(c)
 
         if collinear:
-            magnetic = magmom_av.any()
-
             spinpol = par.spinpol
             if spinpol is None:
                 spinpol = magnetic
@@ -665,7 +768,7 @@ class GPAW(Calculator):
 
             if spinpol:
                 self.log('Spin-polarized calculation.')
-                self.log('Magnetic moment: {:.6f}\n'.format(magmom_av.sum()))
+                self.log(f'Magnetic moment: {magmom_av.sum():.6f}\n')
             else:
                 self.log('Spin-paired calculation\n')
         else:
@@ -692,9 +795,13 @@ class GPAW(Calculator):
                 N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+                                                self.symmetry)
 
         self.setups.set_symmetry(self.symmetry)
+
+        if not collinear and len(self.symmetry.op_scc) > 1:
+            raise ValueError('Can''t use symmetries with non-collinear '
+                             'calculations')
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -728,7 +835,7 @@ class GPAW(Calculator):
             # Number of bound partial waves:
             nbandsmax = sum(setup.get_default_nbands()
                             for setup in self.setups)
-            nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+            nbands = int(np.ceil(1.2 * (nvalence + M) / 2)) + 4
             if nbands > nbandsmax:
                 nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:
@@ -798,7 +905,7 @@ class GPAW(Calculator):
             self.wfs.set_setups(self.setups)
 
         occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
-                                      orbital_free)
+                                      orbital_free, nvalence)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -863,6 +970,19 @@ class GPAW(Calculator):
         n = par.convergence.get('bands', 'occupied')
         if isinstance(n, int) and n < 0:
             n += self.wfs.bd.nbands
+
+        solver_name = getattr(self.wfs.eigensolver, "name", None)
+        if solver_name == 'etdm-fdpw':
+            if not self.wfs.eigensolver.converge_unocc:
+                if n == 'all' or (isinstance(n, int)
+                                  and n > self.wfs.nvalence / 2):
+                    warnings.warn(
+                        'Please, use eigensolver=FDPWETDM(..., '
+                        'converge_unocc=True) to converge unoccupied bands')
+                    n = 'occupied'
+            else:
+                n = 'all'
+
         self.log('Bands to converge:', n)
 
         self.log(flush=True)
@@ -901,7 +1021,7 @@ class GPAW(Calculator):
         Z_a = self.atoms.get_atomic_numbers()
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
-                             xc, filter, self.world)
+                             xc, filter=filter, world=self.world)
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,
@@ -909,7 +1029,7 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, cell_cv, magmom, orbital_free):
+    def create_occupations(self, cell_cv, magmom, orbital_free, nvalence):
         dct = self.parameters.occupations
 
         if dct is None:
@@ -944,7 +1064,12 @@ class GPAW(Calculator):
             fixed_magmom_value=magmom,
             rcell=np.linalg.inv(cell_cv).T,
             monkhorst_pack_size=self.wfs.kd.N_c,
-            bz2ibzmap=self.wfs.kd.bz2ibz_k)
+            bz2ibzmap=self.wfs.kd.bz2ibz_k,
+            nspins=self.wfs.nspins,
+            nelectrons=nvalence,
+            nkpts=self.wfs.kd.nibzkpts,
+            nbands=self.wfs.bd.nbands
+        )
 
         self.log('Occupation numbers:', occ, '\n')
         return occ
@@ -978,7 +1103,8 @@ class GPAW(Calculator):
                 if reading:
                     self.log(info)
                 else:
-                    warnings.warn(info + ' Please remove it.')
+                    warnings.warn(info + ' Please remove it.',
+                                  DeprecatedParameterWarning)
 
         if self.parameters.external is not None:
             symm = symm.copy()
@@ -1193,7 +1319,7 @@ class GPAW(Calculator):
                           bd=bd, dtype=dtype, world=self.world, kd=kd,
                           kptband_comm=kptband_comm, timer=self.timer)
 
-        if self.parallel['sl_auto']:
+        if self.parallel['sl_auto'] and compiled_with_sl():
             # Choose scalapack parallelization automatically
 
             for key, val in self.parallel.items():
@@ -1264,7 +1390,7 @@ class GPAW(Calculator):
         self.log.fd.flush()
 
         # Write timing info now before the interpreter shuts down:
-        self.__del__()
+        self.close()
 
         # Disable timing output during shut-down:
         del self.timer
@@ -1276,12 +1402,11 @@ class GPAW(Calculator):
 
         Return list of energies in eV, one for each atom:
 
-        .. math::
+        :::
 
-            Y_{00}
-            \int d\mathbf{r}
-            \tilde{v}_H(\mathbf{r})
-            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+              / _ ~  _  ^a  _ _a
+          Y   |dr v (r) g  (r-R )
+           00 /    H     00
 
         """
         ham = self.hamiltonian
@@ -1975,7 +2100,7 @@ class GPAW(Calculator):
                    (np.sqrt(4 * np.pi) * fac(2 * l + 1)))
             splines_x.append([Spline(l, rmax=r[-1], f_g=f_g)])
 
-        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype)
+        lf = LFC(wfs.gd, splines_x, wfs.kd, dtype=wfs.dtype, cut=True)
         lf.set_positions(spos_xc)
 
         assert wfs.gd.comm.size == 1
@@ -2047,3 +2172,15 @@ class GPAW(Calculator):
             self, soc=soc,
             theta=theta, phi=phi,
             shift_fermi_level=shift_fermi_level)
+
+    def gs_adapter(self):
+        # Temporary helper to convert response code and related parts
+        # so it does not depend directly on calc.
+        #
+        # This method can be removed once we finish that process.
+        from gpaw.response.groundstate import ResponseGroundStateAdapter
+        return ResponseGroundStateAdapter(self)
+
+
+class DeprecatedParameterWarning(FutureWarning):
+    """Warning class for when a parameter or its value is deprecated."""

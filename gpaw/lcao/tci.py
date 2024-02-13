@@ -1,4 +1,3 @@
-# encoding: utf-8
 import numpy as np
 import scipy.sparse as sparse
 from ase.neighborlist import PrimitiveNeighborList
@@ -67,7 +66,7 @@ class TCIExpansions:
         rcmax_I = [max(rc1, rc2) for rc1, rc2
                    in zip(pt_rcmax_I, phit_rcmax_I)]
 
-        transformer = FourierTransformer(rcmax=max(rcmax_I + [1e-3]), ng=2**10)
+        transformer = FourierTransformer(rcut=max(rcmax_I + [1e-3]), N=2**10)
         tsoc = TwoSiteOverlapCalculator(transformer)
         msoc = ManySiteOverlapCalculator(tsoc, I_a, I_a)
         phit_Ijq = msoc.transform(phit_Ij)
@@ -93,7 +92,7 @@ class TCIExpansions:
             I_setup[setup] = I
         I_a = [I_setup[setup] for setup in setups]
 
-        return TCIExpansions([s.phit_j for s in setups_I],
+        return TCIExpansions([s.basis_functions_J for s in setups_I],
                              [s.pt_j for s in setups_I],
                              I_a)
 

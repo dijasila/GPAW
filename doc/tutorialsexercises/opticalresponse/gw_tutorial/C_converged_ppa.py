@@ -37,9 +37,9 @@ for ecut in [300, 400]:
 
     gw.calculate()
 
-fil = pickle.load(open('C-g0w0_ppa_300_results.pckl', 'rb'))
+fil = pickle.load(open('C-g0w0_ppa_300_results_GW.pckl', 'rb'))
 direct_gap_300 = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
-fil = pickle.load(open('C-g0w0_ppa_400_results.pckl', 'rb'))
+fil = pickle.load(open('C-g0w0_ppa_400_results_GW.pckl', 'rb'))
 direct_gap_400 = fil['qp'][0, 0, 1] - fil['qp'][0, 0, 0]
 
 extrap_gap, slope = np.linalg.solve(np.array([[1, 1. / 300.**(3. / 2)],

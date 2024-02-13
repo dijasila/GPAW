@@ -9,12 +9,13 @@ pytestmark = pytest.mark.skipif(not compiled_with_libvdwxc(),
                                 reason='not compiled_with_libvdwxc()')
 
 
+@pytest.mark.later
 def test_vdw_libvdwxc_h2(in_tmp_dir):
     system = molecule('H2')
     system.center(vacuum=1.0)
     system.pbc = 1
 
-    def calculate(**kwargs1):
+    def calculate(mode, kwargs1):
         kwargs = dict(mode=mode,
                       basis='sz(dzp)',
                       eigensolver=Davidson(4) if mode != 'lcao' else None,
@@ -36,7 +37,7 @@ def test_vdw_libvdwxc_h2(in_tmp_dir):
             kwargs['mode'] = PW(250)
         else:
             kwargs['parallel'] = {'domain': fddomainpar}
-        calc = calculate(**kwargs)
+        calc = calculate(mode, kwargs)
 
     E1 = calc.get_potential_energy()
     calc.write('dump.libvdwxc.gpw')

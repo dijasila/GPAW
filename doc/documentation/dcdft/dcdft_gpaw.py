@@ -28,7 +28,6 @@ for name in ['K', 'Ca', 'Ti']:
                           xc='PBE',
                           kpts={'density': kptdensity},
                           parallel={'band': 1},
-                          idiotproof=False,
                           occupations=FermiDirac(width))
 
         t1 = time()

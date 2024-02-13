@@ -1,15 +1,16 @@
 import numpy as np
+import pytest
 from ase import Atoms
 from ase.calculators.test import numeric_force
-from gpaw import GPAW, PoissonSolver, Mixer
-from gpaw.external import PointChargePotential
-from gpaw.test import equal
+
 import _gpaw
+from gpaw import GPAW, Mixer, PoissonSolver
+from gpaw.external import PointChargePotential
 
-# Find coefs for polynomial:
 
-
+@pytest.mark.later
 def test_ext_potential_point_charge(in_tmp_dir):
+    # Find coefs for polynomial:
     c = np.linalg.solve([[1, 1, 1, 1],
                          [0, 2, 4, 6],
                          [0, 2, 12, 30],
@@ -19,7 +20,7 @@ def test_ext_potential_point_charge(in_tmp_dir):
     print(c * 32)
     x = np.linspace(0, 1, 101)
     v = np.polyval(c[::-1], x**2)
-    equal((v * x**2 - x).sum() / 100, 0, 1e-5)
+    assert (v * x**2 - x).sum() / 100 == pytest.approx(0, abs=1e-5)
 
     if 0:
         import matplotlib.pyplot as plt
@@ -52,7 +53,7 @@ def test_ext_potential_point_charge(in_tmp_dir):
         else:
             v0 = np.polyval(c[::-1], (d / rc)**2) * q / rc
 
-        equal(f(rc), v0, 1e-12)
+        assert f(rc) == pytest.approx(v0, abs=1e-12)
 
         F_pv = np.zeros((1, 3))
         _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, np.inf, 1.0,
@@ -65,7 +66,7 @@ def test_ext_potential_point_charge(in_tmp_dir):
             em = f(rc)
             R_pv[0, v] += eps
             F = -(ep - em) / (2 * eps) * h**3
-            equal(F, -F_pv[0, v], 1e-9)
+            assert F == pytest.approx(-F_pv[0, v], abs=1e-9)
 
     # High-level test:
     lih = Atoms('LiH')
@@ -75,7 +76,8 @@ def test_ext_potential_point_charge(in_tmp_dir):
     pos = lih.cell.sum(axis=0)
     print(pos)
     pc = PointChargePotential([-1.0], [pos])
-    lih.calc = GPAW(external=pc,
+    lih.calc = GPAW(mode='fd',
+                    external=pc,
                     mixer=Mixer(0.8, 5, 20.0),
                     xc='oldLDA',
                     poissonsolver=PoissonSolver(),

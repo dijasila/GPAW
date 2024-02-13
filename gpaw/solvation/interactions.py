@@ -26,6 +26,9 @@ class Interaction(NeedsGD):
         self.delta_E_delta_n_g = None
         self.delta_E_delta_g_g = None
 
+    def write(self, writer):
+        pass
+
     def update(self, atoms, density, cavity):
         """Update the Kohn-Sham potential and the energy.
 
@@ -61,8 +64,8 @@ class Interaction(NeedsGD):
         raise NotImplementedError
 
     def __str__(self):
-        s = "Interaction: %s\n" % (self.__class__, )
-        s += "  subscript: %s\n" % (self.subscript, )
+        s = f"Interaction: {self.__class__.__name__}\n"
+        s += f"  subscript: {self.subscript}\n"
         return s
 
     def update_atoms(self, atoms, log):
@@ -87,6 +90,10 @@ class SurfaceInteraction(Interaction):
         Interaction.__init__(self)
         self.surface_tension = float(surface_tension)
 
+    def write(self, writer):
+        writer.write(name='SurfaceInteraction',
+                     surface_tension=self.surface_tension)
+
     def update(self, atoms, density, cavity):
         if cavity is None:
             return False
@@ -98,7 +105,7 @@ class SurfaceInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  surface_tension: %s\n' % (self.surface_tension, )
+        s += f'  Surface_tension: {self.surface_tension} eV/(Angstrom^2)'
         return s
 
 
@@ -130,7 +137,7 @@ class VolumeInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  pressure: %s\n' % (self.pressure, )
+        s += f'  Pressure: {self.pressure}'
         return s
 
 
@@ -169,5 +176,5 @@ class LeakedDensityInteraction(Interaction):
 
     def __str__(self):
         s = Interaction.__str__(self)
-        s += '  voltage: %s\n' % (self.voltage, )
+        s += f'  Voltage: {self.voltage:.4f}'
         return s

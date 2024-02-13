@@ -13,6 +13,7 @@ Optical response
    tddft/linear_response2
    tddft/inducedfield/inducedfield
    circular_dichroism/rttddft
+   radiation_reaction/rttddft
    lrtddft/lrtddft
    dielectric_response/dielectric_response
    nlopt/nlopt

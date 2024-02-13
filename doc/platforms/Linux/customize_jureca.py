@@ -11,7 +11,7 @@ compiler = 'mpicc'
 libraries = ['mkl_intel_lp64' ,'mkl_sequential' ,'mkl_core',
              'mkl_lapack',
              'mkl_scalapack_lp64', 'mkl_blacs_intelmpi_lp64',
-             'pthread', 
+             'pthread',
              'readline', 'termcap',
              'xc'
              ]
@@ -64,7 +64,6 @@ libraries = ['mkl_intel_lp64' ,'mkl_sequential' ,'mkl_core',
 # False (the default) - no ScaLapack compiled in
 # True - ScaLapack compiled in
 # Warning! At least scalapack 2.0.1 is required!
-# See https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 scalapack = False
 
 if scalapack:

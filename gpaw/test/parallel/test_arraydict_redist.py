@@ -35,7 +35,7 @@ def test_parallel_arraydict_redist():
         assert set(atomdict.keys()) == set(ref.keys())  # check keys()
         for a in atomdict:  # check __iter__, __getitem__
             assert ref[a] is atomdict[a]
-        values = atomdict.values()
+        values = list(atomdict.values())
         for i, key in enumerate(atomdict):
             # AtomDict guarantees fixed ordering of keys.  Check that
             # values() ordering is consistent with loop ordering:

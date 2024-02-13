@@ -61,7 +61,7 @@ class Coulomb:
     def load(self, method):
         """Make sure all necessary attributes have been initialized"""
 
-        assert method in ('real', 'recip_gauss', 'recip_ewald'),\
+        assert method in ('real', 'recip_gauss', 'recip_ewald'), \
             str(method) + ' is an invalid method name,\n' +\
             'use either real, recip_gauss, or recip_ewald'
 

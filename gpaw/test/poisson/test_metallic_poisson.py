@@ -11,6 +11,7 @@ def test_poisson_metallic_poisson(in_tmp_dir):
 
     for electrode in electrodes:
         slab.calc = GPAW(
+            mode='fd',
             xc='LDA', h=0.22,
             txt='metallic.txt',
             charge=charge,
@@ -22,12 +23,10 @@ def test_poisson_metallic_poisson(in_tmp_dir):
 
         _ = slab.get_potential_energy()
         phi0 = slab.calc.get_electrostatic_potential()
-        if electrode == 'single':
-            assert np.all(abs(phi0[:, :, 0]) < 1e-10)
-        else:
+        assert np.all(abs(phi0[:, :, 0]) < 1e-10)
+        if electrode == 'both':
             print(phi0[:, :, 0])
             print(phi0[:, :, 1])
-            assert np.all(abs(phi0[:, :, 0]) < 1e-10)
             # The last zero boundary condition is implicit, so extrapolate
             d = phi0[:, :, -1] - phi0[:, :, -2]
             assert np.all(abs(phi0[:, :, -1] + d) < 1e-5)

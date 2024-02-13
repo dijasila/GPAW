@@ -18,7 +18,7 @@ parallel = 4  # number of independent parrallel workers for force evaluation
 s = Cluster([Atom('Na'), Atom('Na', [0, 0, R])])
 s.minimal_box(box, h=h)
 
-c = GPAW(h=h, nbands=nbands, eigensolver='cg',
+c = GPAW(mode='fd', h=h, nbands=nbands, eigensolver='cg',
          occupations=FermiDirac(width=width),
          setups={'Na': '1'},
          convergence={'bands': nconv})

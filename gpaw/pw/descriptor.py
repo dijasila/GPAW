@@ -1,12 +1,11 @@
 import numbers
 from math import pi
-from typing import overload
 import numpy as np
 
 import _gpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
-from gpaw.typing import Array1D
+from gpaw.gpu import cupy as cp
 
 
 class PWDescriptor:
@@ -56,8 +55,8 @@ class PWDescriptor:
             self.tmp_Q = fftw.empty(N_c, complex)
             self.tmp_R = self.tmp_Q
 
-        self.fftplan = fftw.FFTPlan(self.tmp_R, self.tmp_Q, -1, fftwflags)
-        self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
+        self.fftplan = fftw.create_plan(self.tmp_R, self.tmp_Q, -1, fftwflags)
+        self.ifftplan = fftw.create_plan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
         B_cv = 2.0 * pi * gd.icell_cv
@@ -99,8 +98,8 @@ class PWDescriptor:
         self.ngmax = max(self.ng_q)
 
         if kd is not None:
-            self.ngmin = kd.comm.min(self.ngmin)
-            self.ngmax = kd.comm.max(self.ngmax)
+            self.ngmin = kd.comm.min_scalar(self.ngmin)
+            self.ngmax = kd.comm.max_scalar(self.ngmax)
 
         # Distribute things:
         S = gd.comm.size
@@ -383,7 +382,7 @@ class PWDescriptor:
 
         if result.ndim == 0:
             if global_integral:
-                return self.gd.comm.sum(result.item())
+                return self.gd.comm.sum_scalar(result.item())
             return result.item()
         else:
             assert global_integral or self.gd.comm.size == 1
@@ -510,13 +509,9 @@ class PWMapping:
         G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
 
-        if pd1.gd.comm.size == 1:
-            self.G2_G1 = G2_G1
-            self.G1 = None
-        else:
-            mask_G1 = (G2_G1 != -1)
-            self.G2_G1 = G2_G1[mask_G1]
-            self.G1 = np.arange(pd1.ngmax)[mask_G1]
+        mask_G1 = (G2_G1 != -1)
+        self.G2_G1 = G2_G1[mask_G1]
+        self.G1 = np.arange(pd1.ngmax)[mask_G1]
 
         self.pd1 = pd1
         self.pd2 = pd2
@@ -565,16 +560,6 @@ def count_reciprocal_vectors(ecut, gd, q_c):
     return (G2_Q <= 2 * ecut).sum()
 
 
-@overload
-def pad(array: Array1D, N: int) -> Array1D:
-    ...
-
-
-@overload
-def pad(array: None, N: int) -> None:
-    ...
-
-
 def pad(array, N):
     """Pad 1-d ndarray with zeros up to length N.
 
@@ -591,7 +576,10 @@ def pad(array, N):
     n = len(array)
     if n == N:
         return array
-    b = np.empty(N, complex)
+    if isinstance(array, np.ndarray):
+        b = np.empty(N, complex)
+    else:
+        b = cp.empty(N, complex)
     b[:n] = array
     b[n:] = 0
     return b

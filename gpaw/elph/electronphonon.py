@@ -1,63 +1,3 @@
-r"""Module for calculating electron-phonon couplings.
-
-Electron-phonon interaction::
-
-                  __
-                  \     l   +         +
-        H      =   )   g   c   c   ( a   + a  ),
-         el-ph    /_    ij  i   j     l     l
-                 l,ij
-
-where the electron phonon coupling is given by::
-
-                      ______
-             l       / hbar         ___
-            g   =   /-------  < i | \ /  V   * e  | j > .
-             ij   \/ 2 M w           'u   eff   l
-                          l
-
-Here, l denotes the vibrational mode, w_l and e_l is the frequency and
-mass-scaled polarization vector, respectively, M is an effective mass, i, j are
-electronic state indices and nabla_u denotes the gradient wrt atomic
-displacements. The implementation supports calculations of the el-ph coupling
-in both finite and periodic systems, i.e. expressed in a basis of molecular
-orbitals or Bloch states.
-
-The implementation is based on finite-difference calculations of the the atomic
-gradients of the effective potential expressed on a real-space grid. The el-ph
-couplings are obtained from LCAO representations of the atomic gradients of the
-effective potential and the electronic states.
-
-In PAW the matrix elements of the derivative of the effective potential is
-given by the sum of the following contributions::
-
-                  d                  d
-            < i | -- V | j > = < i | -- V | j>
-                  du  eff            du
-
-                               _
-                              \        ~a     d   .       ~a
-                            +  ) < i | p  >   -- /_\H   < p | j >
-                              /_        i     du     ij    j
-                              a,ij
-
-                               _
-                              \        d  ~a     .        ~a
-                            +  ) < i | -- p  >  /_\H    < p | j >
-                              /_       du  i        ij     j
-                              a,ij
-
-                               _
-                              \        ~a     .        d  ~a
-                            +  ) < i | p  >  /_\H    < -- p  | j >
-                              /_        i        ij    du  j
-                              a,ij
-
-where the first term is the derivative of the potential (Hartree + XC) and the
-last three terms originate from the PAW (pseudopotential) part of the effective
-DFT Hamiltonian.
-
-"""
 import numpy as np
 
 import ase.units as units
@@ -65,7 +5,7 @@ from ase.parallel import parprint
 from ase.phonons import Displacement
 from ase.utils.filecache import MultiFileJSONCache
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.utilities import unpack2
@@ -108,6 +48,8 @@ class ElectronPhononCoupling(Displacement):
         calculate_forces: bool
             If true, also calculate and store the dynamical matrix.
         """
+
+        parprint("DEPRECATION WARNING: This module is deprecated.")
 
         # Init base class and make the center cell in the supercell the
         # reference cell
@@ -503,10 +445,10 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        u_l: ndarray
+        u_l: np.ndarray
             Mass-scaled polarization vectors (in units of 1 / sqrt(amu)) of the
             phonons.
-        omega_l: ndarray
+        omega_l: np.ndarray
             Vibrational frequencies in eV.
         """
 
@@ -556,20 +498,20 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        kpts: ndarray or tuple
+        kpts: np.ndarray or tuple
             k-vectors of the Bloch states. When a tuple of integers is given, a
             Monkhorst-Pack grid with the specified number of k-points along the
             directions of the reciprocal lattice vectors is generated.
-        qpts: ndarray or tuple
+        qpts: np.ndarray or tuple
             q-vectors of the phonons.
-        c_kn: ndarray
+        c_kn: np.ndarray
             Expansion coefficients for the Bloch states. The ordering must be
             the same as in the ``kpts`` argument.
-        u_ql: ndarray
+        u_ql: np.ndarray
             Mass-scaled polarization vectors (in units of 1 / sqrt(amu)) of the
             phonons. Again, the ordering must be the same as in the
             corresponding ``qpts`` argument.
-        omega_ql: ndarray
+        omega_ql: np.ndarray
             Vibrational frequencies in eV.
         kpts_from: list[int] or int
             Calculate only the matrix element for the k-vectors specified by
@@ -706,7 +648,7 @@ class ElectronPhononCoupling(Displacement):
 
         Parameters
         ----------
-        V1t_xG: ndarray
+        V1t_xG: np.ndarray
             Array representation of atomic gradients of the effective potential
             in the supercell grid.
         components: str

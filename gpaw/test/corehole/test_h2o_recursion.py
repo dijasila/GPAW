@@ -1,9 +1,13 @@
-from math import pi, cos, sin
+from math import cos, pi, sin
+
+import pytest
 from ase import Atom, Atoms
-from gpaw import GPAW, PoissonSolver, Mixer, Davidson
-from gpaw.test import equal, gen
+
+from gpaw import GPAW, Davidson, Mixer, PoissonSolver
+from gpaw.test import gen
 
 
+@pytest.mark.later
 def test_corehole_h2o_recursion(in_tmp_dir):
     # Generate setup for oxygen with half a core-hole:
     s = gen('O', name='hch1s', corehole=(1, 0, 0.5))
@@ -16,7 +20,7 @@ def test_corehole_h2o_recursion(in_tmp_dir):
                  Atom('H', (d * cos(t), d * sin(t), 0))],
                 cell=(a, a, a), pbc=False)
     H2O.center()
-    calc = GPAW(nbands=10, h=0.2, setups={'O': s},
+    calc = GPAW(mode='fd', nbands=10, h=0.2, setups={'O': s},
                 eigensolver=Davidson(4),
                 mixer=Mixer(0.5),
                 xc='oldLDA',
@@ -36,4 +40,4 @@ def test_corehole_h2o_recursion(in_tmp_dir):
 
     print(e, niter)
     energy_tolerance = 0.002
-    equal(e, -17.980, energy_tolerance)
+    assert e == pytest.approx(-17.980, abs=energy_tolerance)

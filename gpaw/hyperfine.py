@@ -12,34 +12,36 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
+import argparse
 from math import pi
 from typing import List
 
 import ase.units as units
 import numpy as np
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
-from gpaw import GPAW
+from gpaw import get_scipy_version
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.calculator import GPAW
 from gpaw.gaunt import gaunt
 from gpaw.grid_descriptor import GridDescriptor
+from gpaw.pw.descriptor import PWDescriptor
 from gpaw.setup import Setup
 from gpaw.typing import Array1D, Array2D, Array3D
 from gpaw.utilities import unpack2
-from gpaw.pw.descriptor import PWDescriptor
 from gpaw.xc.functional import XCFunctional
 
 # Fine-structure constant: (~1/137)
 alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
 
-g_factor_e = 2.00231930436256
+G_FACTOR_E = 2.00231930436256
 
 
 def hyperfine_parameters(calc: GPAW,
                          exclude_core=False) -> Array3D:
-    r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
+    r"""Calculate isotropic and anisotropic hyperfine coupling parameters.
 
     One tensor (:math:`A_{ij}`) per atom is returned in eV units.
     In Hartree atomic units, we have the isotropic part
@@ -81,7 +83,7 @@ def hyperfine_parameters(calc: GPAW,
 
         A_avv[a] += A_vv
 
-    A_avv *= pi * alpha**2 * g_factor_e * units._me / units._mp * units.Ha
+    A_avv *= pi * alpha**2 * G_FACTOR_E * units._me / units._mp * units.Ha
 
     return A_avv
 
@@ -93,7 +95,7 @@ def smooth_part(spin_density_R: Array3D,
     """Contribution from pseudo spin-density."""
     pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
-    G_Gv = pd.get_reciprocal_vectors()
+    G_Gv = pd.get_reciprocal_vectors(add_q=False)
     # eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
     eiGR_aG = np.exp(-1j * spos_ac @ gd.cell_cv @ G_Gv.T)
 
@@ -237,10 +239,13 @@ def integrate(n0_g: Array1D,
 
     head_j = d_j * np.polyval(a_i, r_j)
     head_j[1:] *= r_j[1:]**-beta
-    n0 += simps(head_j, r_j)
+    n0 += simpson(head_j, x=r_j)
 
     tail_g = n0_g[4:] * delta(r_g[4:], rT)
-    n0 += simps(tail_g, r_g[4:], even='first')
+    if get_scipy_version() >= [1, 11]:
+        n0 += simpson(tail_g, x=r_g[4:])
+    else:
+        n0 += simpson(tail_g, x=r_g[4:], even='first')
 
     return n0
 
@@ -268,9 +273,10 @@ def core_contribution(density_sii: Array3D,
     vr_sg += rgd.poisson(n_sg.sum(axis=0))
 
     # Find first bound s-state included in PAW potential:
-    for n0, l in zip(setup.n_j, setup.l_j):
+    for n, l in zip(setup.n_j, setup.l_j):
         if l == 0:
-            assert n0 > 0
+            assert n > 0
+            n0 = n
             break
     else:
         assert False, (setup.n_j, setup.l_j)
@@ -314,7 +320,7 @@ gyromagnetic_ratios = {'H': (1, 42.577478518),
 
 
 def main(argv: List[str] = None) -> None:
-    import argparse
+    """Command-line interface."""
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.hyperfine',
         description='Calculate hyperfine parameters.')
@@ -329,10 +335,7 @@ def main(argv: List[str] = None) -> None:
     add('-d', '--diagonalize', action='store_true',
         help='Show eigenvalues of tensor.')
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
     atoms = calc.get_atoms()
@@ -375,7 +378,7 @@ def main(argv: List[str] = None) -> None:
         used[symbol] = g_factor
         A_vv *= g_factor * scale
         if args.diagonalize:
-            numbers = np.linalg.eigvalsh(A_vv)
+            numbers = np.linalg.eigvalsh(A_vv).tolist()
         else:
             numbers = [A_vv[0, 0], A_vv[1, 1], A_vv[2, 2],
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]

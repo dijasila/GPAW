@@ -48,7 +48,7 @@ Here is how to extract the AE potential from a gpw-file using the
 
 The figure also shows the avarage PS potentials at the atomic sites calculated
 with the
-:meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials` method.
+:meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials` method.
 
 .. automethod:: gpaw.utilities.ps2ae.PS2AE.get_electrostatic_potential
 

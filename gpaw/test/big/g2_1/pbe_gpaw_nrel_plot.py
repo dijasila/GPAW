@@ -157,7 +157,6 @@ def plot(xdata, ydata, std,
     # pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
     pylab.bar(xdata, ydata, 0.9, label=label, color=color, alpha=alpha)
     t = pylab.title(title)
-    # http://old.nabble.com/More-space-between-title-and-secondary-x-axis-td31722298.html
     t.set_y(1.05)
     pylab.xlabel(xlabel)
     pylab.ylabel(ylabel)

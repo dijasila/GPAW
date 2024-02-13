@@ -20,15 +20,15 @@ def check_convergence(lr,             # LrTDDFT object
     A gnuplot file will be created with the name 'dirname'/conv.gpl."""
 
     if istart is None:
-        istart0 = lr.kss.istart
+        istart0 = lr.kss.restrict['istart']
     else:
-        if istart < lr.kss.istart:
+        if istart < lr.kss.restrict['istart']:
             raise RuntimeError
         istart0 = istart
     if jend is None:
-        jend0 = lr.kss.jend
+        jend0 = lr.kss.restrict['jend']
     else:
-        if jend > lr.kss.jend:
+        if jend > lr.kss.restrict['jend']:
             raise RuntimeError
         jend0 = jend
 
@@ -53,7 +53,7 @@ def check_convergence(lr,             # LrTDDFT object
             emax_gpl = '*'
         else:
             emax_gpl = str(emax)
-        print('set range [' + emin_gpl + ':' + emax_gpl + ']', file=fgpl)
+        print('set xrange [' + emin_gpl + ':' + emax_gpl + ']', file=fgpl)
         if title:
             print('set title "' + str(title) + '"', file=fgpl)
 
@@ -62,7 +62,7 @@ def check_convergence(lr,             # LrTDDFT object
         spectrum(lr.kss, fname('ksssticks.dat'), folding=None)
 
         # full
-        lr.diagonalize(istart=istart0, jend=jend0)
+        lr.diagonalize(restrict=dict(istart=istart0, jend=jend0))
         spectrum(lr, fname('full.dat'), width=width)
         spectrum(lr, fname('fullsticks.dat'), folding=None)
         print('plot "' + fname('full.dat') + '" t "full" w l lt 1, \\',
@@ -83,7 +83,7 @@ def check_convergence(lr,             # LrTDDFT object
                   str(istart0) + '" w l lt 1, \\', file=fgpl)
             for i in range(1, 4):
                 istart = istart0 + i * dn
-                lr.diagonalize(istart=istart, jend=jend0)
+                lr.diagonalize(restrict=dict(istart=istart, jend=jend0))
                 fn = fname('istart' + str(istart) + '.dat')
                 spectrum(lr, fn, width=width)
                 print('    "' + fn + '" t "istart=' + str(istart) +
@@ -98,7 +98,7 @@ def check_convergence(lr,             # LrTDDFT object
                   str(jend0) + '" w l lt 1, \\', file=fgpl)
             for i in range(1, 4):
                 jend = jend0 - i * dn
-                lr.diagonalize(jend=jend, istart=istart0)
+                lr.diagonalize(restrict=dict(jend=jend, istart=istart0))
                 fn = fname('jend' + str(jend) + '.dat')
                 spectrum(lr, fn, width=width)
                 print('    "' + fn + '" t "jend=' + str(jend) +
@@ -117,7 +117,7 @@ def check_convergence(lr,             # LrTDDFT object
                   ' w l lt 1, \\', file=fgpl)
             for i in range(1, 4):
                 max_energy = max_kss_energy - i * dE
-                lr.diagonalize(energy_range=max_energy)
+                lr.diagonalize(restrict=dict(energy_range=max_energy))
                 fn = fname('max_energy' + str(max_energy) + '.dat')
                 spectrum(lr, fn, width=width)
                 print('    "' + fn + '" t "dE=-' + str(

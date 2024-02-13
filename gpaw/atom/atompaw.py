@@ -34,7 +34,7 @@ class AtomWaveFunctions(WaveFunctions):
 
     def initialize(self, density, hamiltonian, spos_ac):
         setup = self.setups[0]
-        bf = AtomBasisFunctions(self.gd, setup.phit_j)
+        bf = AtomBasisFunctions(self.gd, setup.basis_functions_J)
         density.initialize_from_atomic_densities(bf)
         hamiltonian.update(density)
         return 0, 0
@@ -188,13 +188,14 @@ class AtomLocalizedFunctionsCollection:
 
 
 class AtomBasisFunctions:
-    def __init__(self, gd, phit_j):
+    def __init__(self, gd, bfs_J):
         self.gd = gd
-        self.bl_j = []
+        self.bl_J = []
         self.Mmax = 0
-        for phit in phit_j:
-            l = phit.get_angular_momentum_number()
-            self.bl_j.append((np.array([phit(x) * x**l for x in gd.r_g]), l))
+
+        for bf in bfs_J:
+            l = bf.get_angular_momentum_number()
+            self.bl_J.append((np.array([bf(x) * x**l for x in gd.r_g]), l))
             self.Mmax += 2 * l + 1
         self.atom_indices = [0]
         self.my_atom_indices = [0]
@@ -204,7 +205,7 @@ class AtomBasisFunctions:
 
     def add_to_density(self, nt_sG, f_asi):
         i = 0
-        for b_g, l in self.bl_j:
+        for b_g, l in self.bl_J:
             nt_sG += f_asi[0][:, i:i + 1] * (2 * l + 1) / 4 / pi * b_g**2
             i += 2 * l + 1
 
@@ -339,16 +340,16 @@ class AtomPAW(GPAW):
 
         bf_j = basis.bf_j
         for l, n, f, eps, psit_G in self.state_iter():
-            phit_g = rgd.empty()
-            phit_g[0] = 0.0
-            phit_g[1:] = psit_G
-            phit_g *= np.sign(psit_G[-1])
+            bf_g = rgd.empty()
+            bf_g[0] = 0.0
+            bf_g[1:] = psit_G
+            bf_g *= np.sign(psit_G[-1])
 
-            # If there's no node at zero, we shouldn't set phit_g to zero
+            # If there's no node at zero, we shouldn't set bf_g to zero
             # We'll make an ugly hack
-            if abs(phit_g[1]) > 3.0 * abs(phit_g[2] - phit_g[1]):
-                phit_g[0] = phit_g[1]
-            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], phit_g,
+            if abs(bf_g[1]) > 3.0 * abs(bf_g[2] - bf_g[1]):
+                bf_g[0] = bf_g[1]
+            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], bf_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis

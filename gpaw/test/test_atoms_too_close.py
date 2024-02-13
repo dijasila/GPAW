@@ -1,6 +1,7 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
-import numpy as np
+from gpaw.utilities import AtomsTooClose
 
 
 def test_atoms_too_close():
@@ -8,14 +9,8 @@ def test_atoms_too_close():
                          (0.0, 0.0, 3.995)],
                   cell=(4, 4, 4), pbc=True)
 
-    calc = GPAW(txt=None)
+    calc = GPAW(mode='fd', txt=None)
     atoms.calc = calc
-    try:
-        calc.initialize(atoms)
-        calc.set_positions(atoms)
-    except RuntimeError as err:
-        print('got error as expected: {}'.format(err))
-    else:
-        # silly exception where we actually skip the check for older numpies
-        if hasattr(np, 'divmod'):
-            assert 2 + 2 == 5
+
+    with pytest.raises(AtomsTooClose):
+        atoms.get_potential_energy()

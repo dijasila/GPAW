@@ -1,11 +1,13 @@
+import pytest
 from ase.build import molecule
-from gpaw import GPAW
+
+from gpaw import GPAW, KohnShamConvergenceError
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.tddft import TDDFT
-from gpaw import KohnShamConvergenceError
 from gpaw.utilities.timelimit import TimeLimiter
 
 
+@pytest.mark.later
 def test_timelimit(in_tmp_dir):
     # Atoms
     atoms = molecule('Na2')
@@ -15,6 +17,7 @@ def test_timelimit(in_tmp_dir):
     maxiter = 10
     calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1', nbands=1,
                 convergence={'density': 1e-100},
+                symmetry={'point_group': False},
                 maxiter=maxiter)
     atoms.calc = calc
 
@@ -38,7 +41,8 @@ def test_timelimit(in_tmp_dir):
     # Test mode='fd'
 
     # Prepare ground state
-    calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1)
+    calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1,
+                symmetry={'point_group': False})
     atoms.calc = calc
     try:
         atoms.get_potential_energy()

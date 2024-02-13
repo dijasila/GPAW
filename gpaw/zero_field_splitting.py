@@ -16,7 +16,7 @@ from typing import List, Tuple, Dict
 import numpy as np
 from ase.units import Bohr, Ha, _c, _e, _hplanck
 
-from gpaw import GPAW
+from gpaw.calculator import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.typing import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
@@ -87,9 +87,9 @@ class WaveFunctions:
                                         comm=serial_comm)
         psit_nR = gd.empty(n2 - n1)
         for band, psit_R in enumerate(psit_nR):
-            psit_R[:] = calc.get_pseudo_wave_function(band + n1,
-                                                      spin=spin,
-                                                      pad=True) * Bohr**1.5
+            psit_R[:] = calc.get_pseudo_wave_function(
+                band + n1,
+                spin=spin) * Bohr**1.5
 
         return WaveFunctions(psit_nR,
                              kpt.projections.as_dict_on_master(n1, n2),
@@ -119,7 +119,7 @@ def zfs1(wf1: WaveFunctions,
 
     G_G = pd.G2_qG[0]**0.5
     G_G[0] = 1.0
-    G_Gv = pd.get_reciprocal_vectors() / G_G[:, np.newaxis]
+    G_Gv = pd.get_reciprocal_vectors(add_q=False) / G_G[:, np.newaxis]
 
     n_sG = pd.zeros(2)
     for n_G, wf in zip(n_sG, [wf1, wf2]):
@@ -177,7 +177,7 @@ def convert_tensor(D_vv: Array2D,
     """Convert 3x3 tensor to D, E and easy axis.
 
     Input tensor must be in eV and the result can be returned in
-    eV, μeV, MHz or 1/cm acording to the value uf *unit*
+    eV, μeV, MHz or 1/cm according to the value of *unit*
     (must be one of "eV", "ueV", "MHz", "1/cm").
 
     >>> D_vv = np.diag([1, 2, 3])
@@ -218,7 +218,6 @@ def main(argv: List[str] = None) -> Array2D:
     """CLI interface."""
     import argparse
 
-    from gpaw import GPAW
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.zero_field_splitting',
         description='...')
@@ -229,10 +228,7 @@ def main(argv: List[str] = None) -> Array2D:
         help='Unit.  Must be "ueV" (micro-eV, default), "MHz" or "1/cm".')
     add('-m', '--method', type=int, default=1)
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
+    args = parser.parse_intermixed_args(argv)
 
     calc = GPAW(args.file)
 

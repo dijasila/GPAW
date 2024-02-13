@@ -1,22 +1,12 @@
-from gpaw import GPAW, PW
+import pytest
 from ase.parallel import parprint
-from ase.lattice.compounds import L1_2
+from gpaw import GPAW
 
 
-def test_xc_qna_force(in_tmp_dir):
-    name = 'Cu3Au'
-    ecut = 300
-    kpts = (2, 2, 2)
-
-    QNA = {'alpha': 2.0,
-           'name': 'QNA',
-           'stencil': 1,
-           'orbital_dependent': False,
-           'parameters': {'Au': (0.125, 0.1), 'Cu': (0.0795, 0.005)},
-           'setup_name': 'PBE',
-           'type': 'qna-gga'}
-
-    atoms = L1_2(['Au', 'Cu'], latticeconstant=3.74)
+@pytest.mark.later
+def test_xc_qna_force(in_tmp_dir, gpw_files):
+    calc = GPAW(gpw_files['Cu3Au_qna'], parallel=dict(domain=1))
+    atoms = calc.get_atoms()
     # Displace atoms to have non-zero forces in the first place
     atoms[0].position[0] += 0.1
 
@@ -24,12 +14,6 @@ def test_xc_qna_force(in_tmp_dir):
     E = []
 
     for i, dx in enumerate(dx_array):
-        calc = GPAW(mode=PW(ecut),
-                    experimental={'niter_fixdensity': 2},
-                    xc=QNA,
-                    kpts=kpts,
-                    parallel={'domain': 1},
-                    txt=name + '%.0f.txt' % ecut)
 
         atoms[0].position[0] += dx
         atoms.calc = calc
@@ -45,5 +29,5 @@ def test_xc_qna_force(in_tmp_dir):
     parprint('Numerical  force = ', F_num)
     parprint('Difference       = ', F_err)
     assert abs(F_err) < 0.01, F_err
-    eerr = abs(E[-1] - 270.17901094)
+    eerr = abs(E[-1] - 277.546724 + 0.12677918230332352)
     assert eerr < 1e-3, eerr

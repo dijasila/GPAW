@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """This module defines an ELF class."""
 
 from numpy import pi

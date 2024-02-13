@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy.linalg import eigh
 
@@ -43,7 +42,7 @@ class MatrixDescriptor:
         ok = self.check(a_mn)
         if not ok:
             if not a_mn.flags.contiguous:
-                msg = 'Matrix with shape %s is not contiguous' % (a_mn.shape,)
+                msg = f'Matrix with shape {a_mn.shape} is not contiguous'
             else:
                 msg = ('%s-descriptor incompatible with %s-matrix' %
                        (self.shape, a_mn.shape))
@@ -58,7 +57,7 @@ class MatrixDescriptor:
             n = iu
             eigvals = (0, n - 1)
         eps_M[:n], C_mm.T[:, :n] = eigh(H_mm, S_mm,
-                                        eigvals=eigvals,
+                                        subset_by_index=eigvals,
                                         overwrite_a=True,
                                         check_finite=debug)
         if C_mm.dtype == complex:

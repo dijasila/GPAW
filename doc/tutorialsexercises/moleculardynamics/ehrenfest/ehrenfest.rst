@@ -31,8 +31,6 @@ Ground state example:
 
 .. literalinclude:: h2_gs.py
 
-Ehrenfest TDDFT/MD is also available in :ref:`LCAO mode <lcaotddft>`.
-
 
 --------------------------
 Simulating H2 dissociation

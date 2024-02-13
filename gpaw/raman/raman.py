@@ -7,7 +7,7 @@ see https://doi.org/10.1038/s41467-020-16529-6
 """
 
 import numpy as np
-from ase.units import invcm
+from ase.units import invcm, Hartree
 
 
 def lorentzian(w, gamma):
@@ -31,7 +31,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     ----------
     calc: GPAW
         Converged ground state calculation
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     w_in: float
         Laser energy in eV
@@ -55,9 +55,9 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     assert calc.wfs.bd.comm.size == 1
     kd = calc.wfs.kd
 
-    print("Calculating Raman spectrum: Laser frequency = {} eV".format(w_in))
+    print(f"Calculating Raman spectrum: Laser frequency = {w_in} eV")
     if suffix is None:
-        suffix = "{}nm".format(int(1239.841 / w_in))
+        suffix = f"{int(1239.841 / w_in)}nm"
 
     # Phonon frequencies
     if isinstance(w_ph, str):
@@ -67,7 +67,7 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     # Set grid
     w_max = np.round(np.max(w_ph) / invcm + 50, -1)  # max of grid in rcm
-    ngrid = int(w_max / gridspacing)
+    ngrid = int(w_max / gridspacing) + 1
     w = np.linspace(0., w_max, num=ngrid) * invcm  # in eV
 
     # Load files
@@ -90,10 +90,12 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
     # XXX: The below can probably be made better by lambdas a lot
     def _term1(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term1_l = np.zeros((elph_lnn.shape[0]), dtype=complex)
-        t1_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
+        t1_ij = f_vc * mom_dnn[0, :nv, nc:] / (w_in - E_vc)
+        # t1_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
         for l in range(nmodes):
             t1_xx = elph_lnn[l]
-            t1_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
+            # t1_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
+            t1_mn = f_vc.T * mom_dnn[1, nc:, :nv] / (w_in - w_ph[l] - E_vc.T)
             term1_l[l] += np.einsum('sj,jm,ms', t1_ij, t1_xx[nc:, nc:], t1_mn,
                                     optimize=opt)
             term1_l[l] -= np.einsum('is,ni,sn', t1_ij, t1_xx[:nv, :nv], t1_mn,
@@ -102,8 +104,8 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term2(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term2_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t2_ij = f_vc * mom_dnn[0, nc:, :nv].T / (w_in - E_vc)
-        t2_xx = mom_dnn[1]  # XXX might need to T or conj
+        t2_ij = f_vc * mom_dnn[0, :nv, nc:] / (w_in - E_vc)
+        t2_xx = mom_dnn[1]
         for l in range(nmodes):
             for wi in range(ngrid):
                 t2_mn = f_vc.T * elph_lnn[l][nc:, :nv] / (w[wi] - E_vc.T)
@@ -120,9 +122,9 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         for l in range(nmodes):
             t3_xx = elph_lnn[l]
             for wi in range(ngrid):
-                t3_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
-                t3_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
-                                                        - E_vc)).T
+                t3_ij = f_vc * mom_dnn[1, :nv, nc:] / (-w_in + w[wi] - E_vc)
+                t3_mn = (f_vc.T * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] +
+                                                          w[wi] - E_vc.T))
                 term3_lw[l, wi] += np.einsum('sj,jm,ms', t3_ij,
                                              t3_xx[nc:, nc:], t3_mn,
                                              optimize=opt)
@@ -133,11 +135,11 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term4(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term4_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t4_xx = mom_dnn[0]  # XXX might need to T or conj
+        t4_xx = mom_dnn[0]
         for l in range(nmodes):
             for wi in range(ngrid):
-                t4_ij = f_vc * mom_dnn[1, nc:, :nv].T / (-w_in + w[wi] - E_vc)
-                t4_mn = (f_vc * elph_lnn[l, nc:, :nv].T / (w[wi] - E_vc)).T
+                t4_ij = f_vc * mom_dnn[1, :nv, nc:] / (-w_in + w[wi] - E_vc)
+                t4_mn = (f_vc.T * elph_lnn[l, nc:, :nv] / (w[wi] - E_vc.T))
                 term4_lw[l, wi] += np.einsum('sj,jm,ms', t4_ij,
                                              t4_xx[nc:, nc:], t4_mn,
                                              optimize=opt)
@@ -148,10 +150,10 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term5(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term5_l = np.zeros((nmodes), dtype=complex)
-        t5_xx = mom_dnn[0]  # XXX might need to T or conj
+        t5_xx = mom_dnn[0]
         for l in range(nmodes):
             t5_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
-            t5_mn = (f_vc * mom_dnn[1, :nv, nc:] / (w_in - w_ph[l] - E_vc)).T
+            t5_mn = (f_vc.T * mom_dnn[1, nc:, :nv] / (w_in - w_ph[l] - E_vc.T))
             term5_l[l] += np.einsum('sj,jm,ms', t5_ij, t5_xx[nc:, nc:], t5_mn,
                                     optimize=opt)
             term5_l[l] -= np.einsum('is,ni,sn', t5_ij, t5_xx[:nv, :nv], t5_mn,
@@ -160,12 +162,12 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     def _term6(f_vc, E_vc, mom_dnn, elph_lnn, nc, nv):
         term6_lw = np.zeros((nmodes, ngrid), dtype=complex)
-        t6_xx = mom_dnn[1]  # XXX might need to T or conj
+        t6_xx = mom_dnn[1]
         for l in range(nmodes):
             t6_ij = f_vc * elph_lnn[l, :nv, nc:] / (-w_ph[l] - E_vc)
             for wi in range(ngrid):
-                t6_mn = (f_vc * mom_dnn[0, :nv, nc:] / (-w_in - w_ph[l] + w[wi]
-                                                        - E_vc)).T
+                t6_mn = (f_vc.T * mom_dnn[0, nc:, :nv] / (-w_in - w_ph[l]
+                                                          + w[wi] - E_vc.T))
                 term6_lw[l, wi] += np.einsum('sj,jm,ms', t6_ij,
                                              t6_xx[nc:, nc:], t6_mn,
                                              optimize=opt)
@@ -181,12 +183,14 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
 
     # Loop over kpoints - this is parallelised
     for kpt in calc.wfs.kpt_u:
-        print("Rank {}: s={}, k={}".format(kd.comm.rank, kpt.s, kpt.k))
+        print(f"Rank {kd.comm.rank}: s={kpt.s}, k={kpt.k}")
 
         # Check if we need to add timer-add time reversed kpoint
         if (calc.symmetry.time_reversal and not
             np.allclose(kd.ibzk_kc[kpt.k], [0., 0., 0.])):
             add_time_reversed = True
+            # Currently broken
+            raise NotImplementedError
         else:
             add_time_reversed = False
 
@@ -196,20 +200,30 @@ def calculate_raman(calc, w_ph, w_in, d_i, d_o, resonant_only=False,
         # allow this.
         f_n = kpt.f_n / kpt.weight
         assert np.isclose(max(f_n), 1.0, atol=0.1)
-        vs = np.where(f_n >= 0.1)[0]
-        cs = np.where(f_n < 0.9)[0]
-        nv = max(vs) + 1  # VBM+1 index
-        nc = min(cs)  # CBM index
+
+        if 1:
+            vs = np.arange(0, len(f_n))
+            cs = np.arange(0, len(f_n))
+            nc = 0
+            nv = len(f_n)
+        else:
+            vs = np.where(f_n >= 0.1)[0]
+            cs = np.where(f_n < 0.9)[0]
+            nv = max(vs) + 1  # VBM+1 index
+            nc = min(cs)  # CBM index
 
         # Precalculate f * (1-f) term
-        f_vc = np.outer(kpt.f_n[vs], 1. - kpt.f_n[cs])
+        f_vc = np.outer(f_n[vs], 1. - f_n[cs])
+
         # Precalculate E-E term
         E_vc = np.empty((len(vs), len(cs)), dtype=complex)
-        for n in vs:
-            E_vc[n] = kpt.eps_n[cs] - kpt.eps_n[n] + 1j * gamma_l
+        for n in range(len(vs)):
+            E_vc[n] = (kpt.eps_n[cs] - kpt.eps_n[n]) * Hartree + 1j * gamma_l
+
             # set weights for negative energy transitions zero
-            neg = np.where(E_vc[n].real <= 0.)[0]
-            f_vc[n, neg] = 0.
+            if 0:
+                neg = np.where(E_vc[n].real <= 0.)[0]
+                f_vc[n, neg] = 0.
 
         # Obtain appropriate part of mom and g arrays
         mom_dnn = np.ascontiguousarray(mom_skvnm[kpt.s, kpt.k, [d_i, d_o]])
@@ -285,7 +299,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
 
     Parameters
     ----------
-    w_ph: ndarray, str
+    w_ph: np.ndarray, str
         Array of phonon frequencies in eV, or name of file with them
     d_i: int
         Incoming polarization
@@ -319,7 +333,7 @@ def calculate_raman_intensity(w_ph, d_i, d_o, suffix, T=300):
     np.save("RI_{}{}_{}.npy".format('xyz'[d_i], 'xyz'[d_o], suffix), raman)
 
 
-def plot_raman(figname, RIsuffix, relative=True, w_min=None, w_max=None):
+def plot_raman(figname, RIsuffix, relative=False, w_min=None, w_max=None):
     """Plots a given Raman spectrum.
 
     Parameters
@@ -337,10 +351,10 @@ def plot_raman(figname, RIsuffix, relative=True, w_min=None, w_max=None):
 
     if isinstance(RIsuffix, str):
         legend = False
-        RI_name = ["RI_{}.npy".format(RIsuffix)]
+        RI_name = [f"RI_{RIsuffix}.npy"]
     else:  # assume list
         legend = True
-        RI_name = ["RI_{}.npy".format(name) for name in RIsuffix]
+        RI_name = [f"RI_{name}.npy" for name in RIsuffix]
         cm = plt.get_cmap('inferno')
         cNorm = colors.Normalize(vmin=0, vmax=len(RI_name))
         scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=cm)

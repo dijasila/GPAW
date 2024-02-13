@@ -23,7 +23,7 @@ atom and CO molecule and compare them to results from molecular orbital theory.
 
 * The orbitals can be visualized using Mayavi_ and its
   :func:`mayavi.mlab.contour3d` function and the GPAW-calculators
-  :meth:`~gpaw.GPAW.get_pseudo_wave_function` method.
+  :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method.
   Reload the gpw-file and look at one of the orbitals like this::
 
       from gpaw import GPAW

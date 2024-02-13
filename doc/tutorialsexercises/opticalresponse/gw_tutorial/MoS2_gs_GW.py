@@ -4,7 +4,6 @@ from gpaw import GPAW, PW, FermiDirac
 
 structure = mx2(formula='MoS2', kind='2H', a=3.184, thickness=3.127,
                 size=(1, 1, 1), vacuum=3.5)
-structure.pbc = (1, 1, 1)
 
 Ecut = 400
 
@@ -30,7 +29,6 @@ for ecut in [80]:
               truncation='2D',
               nblocksmax=True,
               q0_correction=True,
-              filename=f'MoS2_g0w0_{ecut}',
-              savepckl=True)
+              filename=f'MoS2_g0w0_{ecut}')
 
     gw.calculate()

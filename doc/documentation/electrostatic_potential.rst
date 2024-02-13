@@ -57,7 +57,7 @@ moments of `\Delta\tilde{\rho}^a` are zero and therefore, the
 potential from these correction charges (`\Delta\tilde{v}_H^a`) will
 be non-zero only inside the atomic augmentation spheres.
 
-The :meth:`~gpaw.GPAW.get_electrostatic_corrections`
+The :meth:`~gpaw.calculator.GPAW.get_electrostatic_corrections`
 method will return an array of integrated corrections:
 
 .. math::

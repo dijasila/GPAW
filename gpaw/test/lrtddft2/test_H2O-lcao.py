@@ -1,12 +1,13 @@
+import pytest
 import numpy as np
 
 from ase.build import molecule
 
 from gpaw import GPAW
 from gpaw.lrtddft2 import LrTDDFT2
-from gpaw.test import equal
 
 
+@pytest.mark.lrtddft
 def test_lrtddft2_H2O_lcao(in_tmp_dir):
     name = 'H2O-lcao'
     atoms = molecule('H2O')
@@ -68,4 +69,4 @@ def test_lrtddft2_H2O_lcao(in_tmp_dir):
 
     tol = 1e-3
     for r0, r1 in zip(results, ref):
-        equal(r0, r1, tol)
+        assert r0 == pytest.approx(r1, abs=tol)

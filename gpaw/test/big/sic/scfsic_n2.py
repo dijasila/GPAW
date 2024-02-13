@@ -8,7 +8,8 @@ molecule = Atoms('N2', positions=[(0, 0, 0), (0, 0, 1.14)], cell=(a, a, a))
 atom.center()
 molecule.center()
 
-calc = GPAW(xc=SIC(),
+calc = GPAW(mode='fd',
+            xc=SIC(),
             eigensolver='rmm-diis',
             h=0.17,
             txt='n2.sic.new3b.txt',

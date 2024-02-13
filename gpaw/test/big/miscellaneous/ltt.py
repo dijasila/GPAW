@@ -6,7 +6,7 @@ n = 24
 a = n * h
 b = a / 2
 H = Atoms('H', [(b - 0.1, b, b)], pbc=True, cell=(a, a, a))
-calc = GPAW(nbands=1, gpts=(n, n, n), symmetry='off', txt='ltt.txt')
+calc = GPAW(mode='fd', nbands=1, gpts=(n, n, n), symmetry='off', txt='ltt.txt')
 H.calc = calc
 e0 = H.get_potential_energy()
 for i in range(50):

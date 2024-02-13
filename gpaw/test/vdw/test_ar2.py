@@ -2,7 +2,6 @@ from math import sqrt
 import pytest
 from ase import Atoms
 from gpaw import GPAW, Mixer, Davidson
-from gpaw.test import equal
 from gpaw.xc.vdw import VDWFunctional
 
 
@@ -17,7 +16,7 @@ def test_vdw_ar2(in_tmp_dir):
         L = 3.0 + 2 * 4.0
         dimer = Atoms('Ar2', [(0, 0, 0), (x, x, x)], cell=(L, L, L))
         dimer.center()
-        calc = GPAW(h=0.2, xc=dict(name='revPBE', stencil=1),
+        calc = GPAW(mode='fd', h=0.2, xc=dict(name='revPBE', stencil=1),
                     mixer=Mixer(0.8, 7, 50.0),
                     eigensolver=Davidson(5))
         dimer.calc = calc
@@ -38,7 +37,7 @@ def test_vdw_ar2(in_tmp_dir):
         assert abs(Evdw - +0.0223) < 3e-3, abs(Evdw)
 
         print(e2, e)
-        equal(e2, -0.005, energy_tolerance)
-        equal(e, -0.005, energy_tolerance)
+        assert e2 == pytest.approx(-0.005, abs=energy_tolerance)
+        assert e == pytest.approx(-0.005, abs=energy_tolerance)
 
     test()

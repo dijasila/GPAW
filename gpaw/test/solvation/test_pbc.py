@@ -40,7 +40,7 @@ def test_solvation_pbc():
         psolver = ADM12PoissonSolver(eps=1e-7)
 
     atoms.calc = SolvationGPAW(
-        xc='LDA', h=h, convergence=convergence,
+        mode='fd', xc='LDA', h=h, convergence=convergence,
         cavity=EffectivePotentialCavity(
             effective_potential=Power12Potential(
                 atomic_radii=atomic_radii, u0=u0),

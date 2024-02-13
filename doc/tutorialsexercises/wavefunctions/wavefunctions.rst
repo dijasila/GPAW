@@ -11,6 +11,6 @@ Wave functions and charge transfer
    wavefunctions/wavefunctions
    ps2ae/ps2ae
    all-electron/all_electron_density
-   bader/bader
+   charge/charge
    wannier90/wannier90_tutorial
    wannier/wannier

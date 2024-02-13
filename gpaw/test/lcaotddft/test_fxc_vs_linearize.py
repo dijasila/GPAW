@@ -5,11 +5,11 @@ from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.mpi import world
-from gpaw.test import equal
 
 
 @pytest.mark.gllb
 @pytest.mark.libxc
+@pytest.mark.rttddft
 def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
@@ -19,6 +19,7 @@ def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
                 basis='dzp', mode='lcao',
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     _ = atoms.get_potential_energy()
@@ -44,7 +45,7 @@ def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
     data = np.loadtxt('dm_lin.dat').ravel()
 
     tol = 1e-9
-    equal(data, ref, tol)
+    assert data == pytest.approx(ref, abs=tol)
 
     # Test the absolute values
     if 0:
@@ -71,4 +72,4 @@ def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
     print(data.tolist())
 
     tol = 1e-12
-    equal(data, ref, tol)
+    assert data == pytest.approx(ref, abs=tol)

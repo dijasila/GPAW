@@ -1,27 +1,18 @@
+import pytest
 
-def test_ase_features_wannierk(in_tmp_dir):
+
+@pytest.mark.serial
+@pytest.mark.wannier
+def test_ase_features_wannierk(in_tmp_dir, gpw_files):
     'Test ase.dft.wannier module with k-points.'
     from ase.build import bulk
     from ase.dft.wannier import Wannier
 
-    from gpaw import GPAW, Mixer
-    from gpaw.mpi import world, serial_comm
+    from gpaw import GPAW
+    from gpaw.mpi import world
 
     si = bulk('Si', 'diamond', a=5.43)
-
-    k = 4
-    if 1:
-        si.calc = GPAW(kpts=(k, k, k),
-                       parallel=dict(augment_grids=True),
-                       mixer=Mixer(0.8, 7, 50.0),
-                       txt='Si-ibz.txt')
-        e1 = si.get_potential_energy()
-        si.calc.write('Si-ibz.gpw', mode='all')
-        si.calc.set(symmetry={'point_group': False, 'time_reversal': False},
-                    txt='Si-bz.txt')
-        e2 = si.get_potential_energy()
-        si.calc.write('Si-bz.gpw', mode='all')
-        print((e1, e2))
+    k = 3
 
     def wan(calc):
         centers = [([0.125, 0.125, 0.125], 0, 1.5),
@@ -30,7 +21,7 @@ def test_ase_features_wannierk(in_tmp_dir):
                    ([0.625, 0.125, 0.125], 0, 1.5)]
         w = Wannier(4, calc,
                     nbands=4,
-                    verbose=1,
+                    # log=print,
                     initialwannier=centers)
         w.localize()
         x = w.get_functional_value()
@@ -49,14 +40,14 @@ def test_ase_features_wannierk(in_tmp_dir):
             view(watoms)
         return x
 
-    calc1 = GPAW('Si-bz.gpw', txt=None, communicator=serial_comm)
+    calc1 = GPAW(gpw_files['si_fd_bz'])
     x1 = wan(calc1)
-    calc2 = GPAW('Si-ibz.gpw', txt=None, communicator=serial_comm)
+    calc2 = GPAW(gpw_files['si_fd_ibz'])
     calc2.wfs.ibz2bz(si)
     x2 = wan(calc2)
     if world.rank == 0:
         print((x1, x2))
     assert abs(x1 - x2) < 0.001
-    assert abs(x1 - 9.71) < 0.01
+    assert abs(x1 - 8.817) < 0.01
 
     world.barrier()

@@ -1,17 +1,12 @@
 import os
 from contextlib import contextmanager
-from pathlib import Path
 
 import numpy as np
 import pytest
-from _pytest.tmpdir import _mk_tmp
-from ase import Atoms
-from ase.build import bulk
-from ase.io import read
-
-from gpaw import GPAW, PW, Davidson, FermiDirac
+from gpaw import setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
+from gpaw.test.gpwfile import GPWFiles, _all_gpw_methodnames
 from gpaw.utilities import devnull
 
 
@@ -48,19 +43,43 @@ def module_tmp_path(request, tmp_path_factory):
         yield path
 
 
+@pytest.fixture
+def add_cwd_to_setup_paths():
+    """Temporarily add current working directory to setup_paths."""
+    try:
+        setup_paths[:0] = ['.']
+        yield
+    finally:
+        del setup_paths[:1]
+
+
 @pytest.fixture(scope='session')
-def gpw_files(request, tmp_path_factory):
+def sessionscoped_monkeypatch():
+    # The standard monkeypatch fixture is function scoped
+    # so we need to roll our own
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        yield monkeypatch
+
+
+@pytest.fixture(autouse=True, scope='session')
+def monkeypatch_response_spline_points(sessionscoped_monkeypatch):
+    import gpaw.response.paw as paw
+    # https://gitlab.com/gpaw/gpaw/-/issues/984
+    sessionscoped_monkeypatch.setattr(paw, 'DEFAULT_RADIAL_POINTS', 2**10)
+
+
+@pytest.fixture(scope='session')
+def gpw_files(request):
     """Reuse gpw-files.
 
-    Returns a dict mapping names to paths to gpw-files.  If you
-    want to reuse gpw-files from an earlier pytest session then set the
-    ``$GPW_TEST_FILES`` environment variable and the files will be written
-    to that folder.
+    Returns a dict mapping names to paths to gpw-files.
+    The files are written to the pytest cache and can be cleared using
+    pytest --cache-clear.
 
     Example::
 
         def test_something(gpw_files):
-            calc = GPAW(gpw_files['h2_lcao_wfs'])
+            calc = GPAW(gpw_files['h2_lcao'])
             ...
 
     Possible systems are:
@@ -74,185 +93,111 @@ def gpw_files(request, tmp_path_factory):
 
     * H2 molecule (not centered): ``h2_pw_0``.
 
+    * N2 molecule ``n2_pw``
+
+    * N molecule ``n_pw``
+
     * Spin-polarized H atom: ``h_pw``.
 
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
-    * Bulk TiO2 with 4x4x4 k-points: ``ti2o4_pw`` and ``ti2o4_pw_nosym``.
+    * Bulk BN (zinkblende) with 2x2x2 k-points and 9 converged bands:
+      ``bn_pw``.
 
-    Files with wave functions are also availabel (add ``_wfs`` to the names).
+    * h-BN layer with 3x3x1 (gamma center) k-points and 26 converged bands:
+      ``hbn_pw``.
+
+    * Graphene with 6x6x1 k-points: ``graphene_pw``
+
+    * I2Sb2 (Z2 topological insulator) with 6x6x1 k-points and no
+      symmetries: ``i2sb2_pw_nosym``
+
+    * MoS2 with 6x6x1 k-points: ``mos2_pw`` and ``mos2_pw_nosym``
+
+    * MoS2 with 5x5x1 k-points: ``mos2_5x5_pw``
+
+    * NiCl2 with 6x6x1 k-points: ``nicl2_pw`` and ``nicl2_pw_evac``
+
+    * V2Br4 (AFM monolayer), LDA, 4x2x1 k-points, 28(+1) converged bands:
+      ``v2br4_pw`` and ``v2br4_pw_nosym``
+
+    * Bulk Si, LDA, 2x2x2 k-points (gamma centered): ``si_pw``
+
+    * Bulk Si, LDA, 4x4x4 k-points, 8(+1) converged bands: ``fancy_si_pw``
+      and ``fancy_si_pw_nosym``
+
+    * Bulk SiC, LDA, 4x4x4 k-points, 8(+1) converged bands: ``sic_pw``
+      and ``sic_pw_spinpol``
+
+    * Bulk Fe, LDA, 4x4x4 k-points, 9(+1) converged bands: ``fe_pw``
+      and ``fe_pw_nosym``
+
+    * Bulk C, LDA, 2x2x2 k-points (gamma centered), ``c_pw``
+
+    * Bulk Co (HCP), 4x4x4 k-points, 12(+1) converged bands: ``co_pw``
+      and ``co_pw_nosym``
+
+    * Bulk SrVO3 (SC), 3x3x3 k-points, 20(+1) converged bands: ``srvo3_pw``
+      and ``srvo3_pw_nosym``
+
+    * Bulk Al, LDA, 4x4x4 k-points, 10(+1) converged bands: ``al_pw``
+      and ``al_pw_nosym``
+
+    * Bulk Al, LDA, 4x4x4 k-points, 4 converged bands: ``bse_al``
+
+    * Bulk Ag, LDA, 2x2x2 k-points, 6 converged bands,
+      2eV U on d-band: ``ag_pw``
+
+    * Bulk GaAs, LDA, 4x4x4 k-points, 8(+1) bands converged: ``gaas_pw``
+      and ``gaas_pw_nosym``
+
+    * Bulk P4, LDA, 4x4 k-points, 40 bands converged: ``p4_pw``
+
+    * Distorted bulk Fe, revTPSS: ``fe_pw_distorted``
+
+    * Distorted bulk Si, TPSS: ``si_pw_distorted``
+
+    Files always include wave functions.
     """
-    path = os.environ.get('GPW_TEST_FILES')
-    if path is None:
-        if world.rank == 0:
-            path = _mk_tmp(request, tmp_path_factory)
-        else:
-            path = None
-        path = broadcast(path)
-    return GPWFiles(Path(path))
+    cache = request.config.cache
+    gpaw_cachedir = cache.mkdir('gpaw_test_gpwfiles')
+
+    gpwfiles = GPWFiles(gpaw_cachedir)
+
+    try:
+        setup_paths.append(gpwfiles.testing_setup_path)
+        yield gpwfiles
+    finally:
+        setup_paths.remove(gpwfiles.testing_setup_path)
 
 
-class GPWFiles:
-    """Create gpw-files."""
-    def __init__(self, path: Path):
-        self.path = path
-        self.gpw_files = {}
-        for file in path.glob('*.gpw'):
-            self.gpw_files[file.name[:-4]] = file
+@pytest.fixture(scope='session', params=sorted(_all_gpw_methodnames))
+def all_gpw_files(request, gpw_files, pytestconfig):
+    """This fixture parametrizes a test over all gpw_files.
 
-    def __getitem__(self, name: str) -> Path:
-        if name not in self.gpw_files:
-            rawname, _, _ = name.partition('_wfs')
-            calc = getattr(self, rawname)()
-            path = self.path / (rawname + '.gpw')
-            calc.write(path)
-            self.gpw_files[rawname] = path
-            path = self.path / (rawname + '_wfs.gpw')
-            calc.write(path, mode='all')
-            self.gpw_files[rawname + '_wfs'] = path
-        return self.gpw_files[name]
+    For example pytest test_generate_gpwfiles.py -n 16 is a way to quickly
+    generate all gpw files independently of the rest of the test suite."""
 
-    def bcc_li_pw(self):
-        return self.bcc_li({'name': 'pw', 'ecut': 200})
+    # Note: Parametrizing over _all_gpw_methodnames must happen *after*
+    # it is populated, i.e., further down in the file than
+    # the @gpwfile decorator.
 
-    def bcc_li_fd(self):
-        return self.bcc_li({'name': 'fd'})
+    import os
+    gpaw_new = os.environ.get('GPAW_NEW')
 
-    def bcc_li_lcao(self):
-        return self.bcc_li({'name': 'lcao'})
+    # TODO This xfail-information should probably live closer to the
+    # gpwfile definitions and not here in the fixture.
+    skip_if_new = {'Cu3Au_qna',
+                   'nicl2_pw', 'nicl2_pw_evac',
+                   'v2br4_pw', 'v2br4_pw_nosym',
+                   'sih4_xc_gllbsc_fd', 'sih4_xc_gllbsc_lcao',
+                   'na2_isolated'}
+    if gpaw_new and request.param in skip_if_new:
+        pytest.xfail(f'{request.param} gpwfile not yet working with GPAW_NEW')
 
-    def bcc_li(self, mode):
-        li = bulk('Li', 'bcc', 3.49)
-        li.calc = GPAW(mode=mode,
-                       kpts=(3, 3, 3),
-                       txt=self.path / f'bcc_li_{mode["name"]}.txt')
-        li.get_potential_energy()
-        return li.calc
-
-    def h2_pw(self):
-        return self.h2({'name': 'pw', 'ecut': 200})
-
-    def h2_fd(self):
-        return self.h2({'name': 'fd'})
-
-    def h2_lcao(self):
-        return self.h2({'name': 'lcao'})
-
-    def h2(self, mode):
-        h2 = Atoms('H2', positions=[[0, 0, 0], [0.74, 0, 0]])
-        h2.center(vacuum=2.5)
-        h2.calc = GPAW(mode=mode,
-                       txt=self.path / f'h2_{mode["name"]}.txt')
-        h2.get_potential_energy()
-        return h2.calc
-
-    def h2_pw_0(self):
-        h2 = Atoms('H2',
-                   positions=[[-0.37, 0, 0], [0.37, 0, 0]],
-                   cell=[5.74, 5, 5])
-        h2.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
-                       txt=self.path / 'h2_pw_0.txt')
-        h2.get_potential_energy()
-        return h2.calc
-
-    def h_pw(self):
-        h = Atoms('H', magmoms=[1])
-        h.center(vacuum=4.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 500},
-                      txt=self.path / 'h_pw.txt')
-        h.get_potential_energy()
-        return h.calc
-
-    def o2_pw(self):
-        d = 1.1
-        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
-        h.center(vacuum=4.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
-                      txt=self.path / 'o2_pw.txt')
-        h.get_potential_energy()
-        return h.calc
-
-    def c2h4_pw_nosym(self):
-        d = 1.54
-        h = 1.1
-        x = d * (2 / 3)**0.5
-        z = d / 3**0.5
-        pe = Atoms('C2H4',
-                   positions=[[0, 0, 0],
-                              [x, 0, z],
-                              [0, -h * (2 / 3)**0.5, -h / 3**0.5],
-                              [0, h * (2 / 3)**0.5, -h / 3**0.5],
-                              [x, -h * (2 / 3)**0.5, z + h / 3**0.5],
-                              [x, h * (2 / 3)**0.5, z + h / 3**0.5]],
-                   cell=[2 * x, 0, 0],
-                   pbc=(1, 0, 0))
-        pe.center(vacuum=2.0, axis=(1, 2))
-        pe.calc = GPAW(mode='pw',
-                       kpts=(3, 1, 1),
-                       symmetry='off',
-                       txt=self.path / 'c2h4_pw_nosym.txt')
-        pe.get_potential_energy()
-        return pe.calc
-
-    def c6h12_pw(self):
-        pe = read(self['c2h4_pw_nosym'])
-        pe = pe.repeat((3, 1, 1))
-        pe.calc = GPAW(mode='pw', txt=self.path / 'c6h12_pw.txt')
-        pe.get_potential_energy()
-        return pe.calc
-
-    def h2o_lcao(self):
-        from ase.build import molecule
-        atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
-        atoms.center()
-        atoms.calc = GPAW(mode='lcao', txt=self.path / 'h2o.txt')
-        atoms.get_potential_energy()
-        return atoms.calc
-
-    def ti2o4(self, symmetry):
-        pwcutoff = 400.0
-        k = 4
-        a = 4.59
-        c = 2.96
-        u = 0.305
-
-        rutile_cell = [[a, 0, 0],
-                       [0, a, 0],
-                       [0, 0, c]]
-
-        TiO2_basis = np.array([[0.0, 0.0, 0.0],
-                               [0.5, 0.5, 0.5],
-                               [u, u, 0.0],
-                               [-u, -u, 0.0],
-                               [0.5 + u, 0.5 - u, 0.5],
-                               [0.5 - u, 0.5 + u, 0.5]])
-
-        bulk_crystal = Atoms(symbols='Ti2O4',
-                             scaled_positions=TiO2_basis,
-                             cell=rutile_cell,
-                             pbc=(1, 1, 1))
-
-        tag = '_nosym' if symmetry == 'off' else ''
-        bulk_calc = GPAW(mode=PW(pwcutoff),
-                         nbands=42,
-                         eigensolver=Davidson(1),
-                         kpts={'size': (k, k, k), 'gamma': True},
-                         xc='PBE',
-                         occupations=FermiDirac(0.00001),
-                         parallel={'band': 1},
-                         symmetry=symmetry,
-                         txt=self.path / f'ti2o4_pw{tag}.txt')
-
-        bulk_crystal.calc = bulk_calc
-        bulk_crystal.get_potential_energy()
-        return bulk_calc
-
-    def ti2o4_pw(self):
-        return self.ti2o4({})
-
-    def ti2o4_pw_nosym(self):
-        return self.ti2o4('off')
+    # Accessing each file via __getitem__ executes the calculation:
+    return gpw_files[request.param]
 
 
 class GPAWPlugin:
@@ -267,28 +212,28 @@ class GPAWPlugin:
         terminalreporter.write(f'size: {size}\n')
 
 
+@pytest.fixture
+def sg15_hydrogen():
+    from io import StringIO
+    from gpaw.test.pseudopotential.H_sg15 import pp_text
+    from gpaw.upf import read_sg15
+    # We can't easily load a non-python file from the test suite.
+    # Therefore we load the pseudopotential from a Python file.
+    return read_sg15(StringIO(pp_text))
+
+
 def pytest_configure(config):
+    # Allow for fake cupy:
+    os.environ['GPAW_CPUPY'] = '1'
+
     if world.rank != 0:
         try:
             tw = config.get_terminal_writer()
-        except AttributeError:
+        except (AssertionError, AttributeError):
             pass
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    for line in ['soc: Spin-orbit coupling',
-                 'slow: slow test',
-                 'fast: fast test',
-                 'ci: test for CI',
-                 'libxc: LibXC requirered',
-                 'mgga: MGGA test',
-                 'dscf: Delta-SCF',
-                 'mom: MOM',
-                 'gllb: GLLBSC tests',
-                 'elph: Electron-phonon',
-                 'intel: fails on INTEL toolchain',
-                 'serial: run in serial only']:
-        config.addinivalue_line('markers', line)
 
 
 def pytest_runtest_setup(item):
@@ -299,7 +244,8 @@ def pytest_runtest_setup(item):
     * they depend on libxc and GPAW is not compiled with libxc
     * they are before $PYTEST_START_AFTER
     """
-    from gpaw import libraries
+    from gpaw import get_libraries
+    libraries = get_libraries()
 
     if world.size > 1:
         for mark in item.iter_markers():
@@ -316,3 +262,49 @@ def pytest_runtest_setup(item):
     if any(mark.name in {'libxc', 'mgga'}
            for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
+
+
+@pytest.fixture
+def scalapack():
+    """Skip if not compiled with sl.
+
+    This fixture otherwise does not return or do anything."""
+    from gpaw.utilities import compiled_with_sl
+    if not compiled_with_sl():
+        pytest.skip('no scalapack')
+
+
+@pytest.fixture
+def needs_ase_master():
+    from ase.utils.filecache import MultiFileJSONCache
+    try:
+        MultiFileJSONCache('bla-bla', comm=None)
+    except TypeError:
+        pytest.skip('ASE is too old')
+
+
+def pytest_report_header(config, startdir):
+    # Use this to add custom information to the pytest printout.
+    yield f'GPAW MPI rank={world.rank}, size={world.size}'
+
+    # We want the user to be able to see where gpw files are cached,
+    # but the only way to see the cache location is to make a directory
+    # inside it.  mkdir('') returns the toplevel cache dir without
+    # actually creating a subdirectory:
+    cachedir = config.cache.mkdir('')
+    yield f'Cache directory including gpw files: {cachedir}'
+
+
+@pytest.fixture
+def rng():
+    """Seeded random number generator.
+
+    Tests should be deterministic and should use this
+    fixture or initialize their own rng."""
+    return np.random.default_rng(42)
+
+
+@pytest.fixture
+def gpaw_new() -> bool:
+    """Are we testing the new code?"""
+    return os.environ.get('GPAW_NEW')

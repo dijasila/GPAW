@@ -1,5 +1,4 @@
 from math import pi
-
 import numpy as np
 
 from gpaw.density import Density
@@ -23,7 +22,6 @@ class ReciprocalSpaceDensity(Density):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
-
         ecut0 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
         ecut = min(ecut, ecut0)
         self.pd2 = PWDescriptor(ecut, gd)
@@ -106,8 +104,8 @@ class ReciprocalSpaceDensity(Density):
         pd = self.pd3
         N_c = pd.tmp_Q.shape
 
-        m0_q, m1_q, m2_q = [i_G == 0
-                            for i_G in np.unravel_index(pd.Q_qG[0], N_c)]
+        m0_q, m1_q, m2_q = (i_G == 0
+                            for i_G in np.unravel_index(pd.Q_qG[0], N_c))
         rhot_q = self.pd3.gather(self.rhot_q)
         if pd.comm.rank == 0:
             irhot_q = rhot_q.imag

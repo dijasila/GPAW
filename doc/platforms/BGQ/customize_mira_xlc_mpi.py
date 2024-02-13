@@ -5,7 +5,6 @@ define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 define_macros += [('GPAW_NO_UNDERSCORE_BLACS', '1')]
 define_macros += [('GPAW_NO_UNDERSCORE_SCALAPACK', '1')]
 define_macros += [('GPAW_ASYNC', 1)]
-define_macros += [('GPAW_MPI2', 1)]
 # define_macros += [('GPAW_MR3',1)] # requires developmental ScaLAPACK
 # uncomment two lines below for FLOP rate measurement
 # define_macros += [('GPAW_HPM',1)]

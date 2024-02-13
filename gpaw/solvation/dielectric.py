@@ -1,5 +1,5 @@
-from gpaw.solvation.gridmem import NeedsGD
 import numpy as np
+from gpaw.solvation.gridmem import NeedsGD
 
 
 class Dielectric(NeedsGD):
@@ -70,9 +70,13 @@ class Dielectric(NeedsGD):
         raise NotImplementedError
 
     def __str__(self):
-        s = 'Dielectric: %s\n' % (self.__class__, )
-        s += '  epsilon_inf: %s\n' % (self._epsinf, )
+        s = 'Dielectric:\n'
+        s += f'  Type: {self.__class__.__name__}\n'
+        s += f'  Solvent dielectric constant: {self._epsinf}'
         return s
+
+    def write(self, writer):
+        writer.write(name=self.__class__.__name__, epsinf=self._epsinf)
 
 
 class LinearDielectric(Dielectric):
@@ -81,6 +85,7 @@ class LinearDielectric(Dielectric):
     See also
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
+#    name='LinearDielectric'
     def allocate(self):
         Dielectric.allocate(self)
         self.del_eps_del_g_g = self._epsinf - 1.  # frees array
@@ -89,13 +94,17 @@ class LinearDielectric(Dielectric):
         np.multiply(self.cavity.g_g, self._epsinf - 1., self.eps_gradeps[0])
         self.eps_gradeps[0] += 1.
 
+    def write(self, writer):
+        writer.write(name='LinearDielectric',
+                     epsinf=self.epsinf)
+
 
 class CMDielectric(Dielectric):
     """Clausius-Mossotti like dielectric.
 
     Untested, use at own risk!
     """
-
+#    name='Clausius-Mossotti like dielectric'
     def update_eps_only(self):
         ei = self._epsinf
         t = 1. - self.cavity.g_g

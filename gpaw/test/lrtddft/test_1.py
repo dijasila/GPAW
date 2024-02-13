@@ -3,7 +3,6 @@ from ase import Atom, Atoms
 from ase.units import Bohr
 from ase.parallel import parprint
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.mpi import world
 from gpaw.lrtddft.excited_state import ExcitedState
@@ -22,7 +21,7 @@ def H2struct():
 @pytest.fixture
 def H2(H2struct):
     H2 = H2struct.copy()
-    H2.calc = GPAW(xc='PBE',
+    H2.calc = GPAW(mode='fd', xc='PBE',
                    poissonsolver={'name': 'fd'},
                    nbands=3, spinpol=False)
     H2.get_potential_energy()
@@ -32,7 +31,7 @@ def H2(H2struct):
 @pytest.fixture
 def H2spin(H2struct):
     H2 = H2struct.copy()
-    H2.calc = GPAW(xc='PBE', nbands=2,
+    H2.calc = GPAW(mode='fd', xc='PBE', nbands=2,
                    poissonsolver={'name': 'fd'},
                    spinpol=True, parallel={'domain': world.size})
     H2.get_potential_energy()
@@ -61,20 +60,24 @@ def lr_spin(H2spin):
     return lr
 
 
+@pytest.mark.lrtddft
 def test_finegrid(H2, lr):
     for finegrid in [1, 0]:
         lr2 = LrTDDFT(H2.calc, xc='LDA', finegrid=finegrid)
         lr2.diagonalize()
         parprint('finegrid, t1, t3=', finegrid, lr[0], lr2[0])
-        equal(lr[0].get_energy(), lr2[0].get_energy(), 5.e-4)
+        assert lr[0].get_energy() == pytest.approx(lr2[0].get_energy(),
+                                                   abs=5.e-4)
 
 
+@pytest.mark.lrtddft
 def test_velocity_form(lr):
     for ozr, ozv in zip(lr[0].get_oscillator_strength(),
                         lr[0].get_oscillator_strength('v')):
-        equal(ozr, ozv, 0.1)
+        assert ozr == pytest.approx(ozv, abs=0.1)
 
 
+@pytest.mark.lrtddft
 def test_singlet_triplet(lr_vspin, lr_spin):
     # singlet/triplet separation
     singlet, triplet = lr_vspin.singlets_triplets()
@@ -82,15 +85,18 @@ def test_singlet_triplet(lr_vspin, lr_spin):
     # singlet/triplet separation
     precision = 1.e-5
     singlet.diagonalize()
-    equal(singlet[0].get_energy(), lr_spin[1].get_energy(), precision)
-    equal(singlet[0].get_oscillator_strength()[0],
-          lr_spin[1].get_oscillator_strength()[0], precision)
+    assert singlet[0].get_energy() == pytest.approx(lr_spin[1].get_energy(),
+                                                    abs=precision)
+    assert singlet[0].get_oscillator_strength()[0] == pytest.approx(
+        lr_spin[1].get_oscillator_strength()[0], abs=precision)
     triplet.diagonalize()
-    equal(triplet[0].get_oscillator_strength()[0], 0)
-    equal(triplet[0].get_energy(), lr_spin[0].get_energy(), precision)
-    equal(triplet[0].get_oscillator_strength()[0], 0)
+    assert triplet[0].get_oscillator_strength()[0] == pytest.approx(0, abs=0)
+    assert triplet[0].get_energy() == pytest.approx(lr_spin[0].get_energy(),
+                                                    abs=precision)
+    assert triplet[0].get_oscillator_strength()[0] == pytest.approx(0, abs=0)
 
 
+@pytest.mark.lrtddft
 def test_spin(lr, lr_vspin, lr_spin):
     # without spin
     t1 = lr[0]
@@ -107,7 +113,7 @@ def test_spin(lr, lr_vspin, lr_spin):
 
     parprint('with virtual/wo spin t2, t1=',
              t2.get_energy(), t1 .get_energy())
-    equal(t1.get_energy(), t2.get_energy(), 5.e-7)
+    assert t1.get_energy() == pytest.approx(t2.get_energy(), abs=5.e-7)
     gd = lr.calculator.density.gd
     finegd = lr.calculator.density.finegd
     ddiff = gd.integrate(abs(den - den_vspin))
@@ -117,11 +123,12 @@ def test_spin(lr, lr_vspin, lr_spin):
              finegd.integrate(ex.get_all_electron_density() * Bohr**3),
              finegd.integrate(ex_vspin.get_all_electron_density() *
                               Bohr**3))
-    assert(ddiff < 1.e-4)
+    assert ddiff < 1.e-4
 
     for i in range(2):
         parprint('i, real, virtual spin: ', i, lr_vspin[i], lr_spin[i])
-        equal(lr_vspin[i].get_energy(), lr_spin[i].get_energy(), 6.e-6)
+        assert lr_vspin[i].get_energy() == pytest.approx(
+            lr_spin[i].get_energy(), abs=6.e-6)
         ex_vspin = ExcitedState(lr_vspin, i)
         den_vspin = ex_vspin.get_pseudo_density() * Bohr**3
         ex_spin = ExcitedState(lr_spin, i)
@@ -135,9 +142,10 @@ def test_spin(lr, lr_vspin, lr_spin):
                                   * Bohr**3),
                  finegd.integrate(ex_spin.get_all_electron_density()
                                   * Bohr**3))
-        assert(ddiff < 3.e-3), ddiff
+        assert ddiff < 3.e-3, ddiff
 
 
+@pytest.mark.lrtddft
 def test_io(in_tmp_dir, lr):
     fname = 'lr.dat.gz'
     lr.write(fname)
@@ -145,5 +153,5 @@ def test_io(in_tmp_dir, lr):
 
     lr2 = LrTDDFT.read(fname)
     lr2.diagonalize()
-    
-    equal(lr[0].get_energy(), lr2[0].get_energy(), 1e-6)
+
+    assert lr[0].get_energy() == pytest.approx(lr2[0].get_energy(), abs=1e-6)

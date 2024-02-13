@@ -6,11 +6,11 @@ from numpy import reshape, dot
 
 filename = 'excited'
 
-c_mol = GPAW(nbands=8, h=0.2, xc='RPBE', kpts=(4, 6, 1),
+c_mol = GPAW(mode='fd', nbands=8, h=0.2, xc='RPBE', kpts=(4, 6, 1),
              eigensolver='cg', spinpol=True,
              convergence={'bands': -2}, txt='CO.txt')
 
-calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
+calc = GPAW(mode='fd', nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
             setups={'Pt': '10'},
             eigensolver='cg', spinpol=True,
             mixer=MixerSum(nmaxold=5, beta=0.1, weight=100),

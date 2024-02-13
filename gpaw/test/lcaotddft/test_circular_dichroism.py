@@ -11,39 +11,13 @@ from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.lcaotddft.magneticmomentwriter import parse_header
 from gpaw.tddft.spectrum import rotatory_strength_spectrum
 from gpaw.tddft.units import as_to_au, eV_to_au, au_to_eV, rot_au_to_cgs
-from gpaw.utilities import compiled_with_sl
 
-from .test_molecule import only_on_master, calculate_error
-
+from gpaw.test import only_on_master
+from . import parallel_options, check_txt_data, copy_and_cut_file
 
 pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
-
-def copy_and_cut_file(src, dst, *, cut_lines=0):
-    with open(src, 'r') as fd:
-        lines = fd.readlines()
-        if cut_lines > 0:
-            lines = lines[:-cut_lines]
-
-    with open(dst, 'w') as fd:
-        for line in lines:
-            fd.write(line)
-
-
-parallel_i = [{}]
-if compiled_with_sl():
-    parallel_i.append({'sl_auto': True})
-    if world.size > 1:
-        parallel_i.append({'band': 2})
-        parallel_i.append({'sl_auto': True, 'band': 2})
-
-
-def check_mm(ref_fpath, data_fpath, atol):
-    world.barrier()
-    ref = np.loadtxt(ref_fpath)
-    data = np.loadtxt(data_fpath)
-    err = calculate_error(data, ref)
-    assert err < atol
+parallel_i = parallel_options()
 
 
 @pytest.fixture(scope='module')
@@ -65,6 +39,7 @@ def initialize_system():
                 mode='lcao',
                 convergence={'density': 1e-12},
                 communicator=comm,
+                symmetry={'point_group': False},
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -84,9 +59,10 @@ def initialize_system():
     td_calc.propagate(100, 2)
 
 
+@pytest.mark.rttddft
 def test_magnetic_moment_values(initialize_system, module_tmp_path,
                                 in_tmp_dir):
-    with open('mm_ref.dat', 'w') as f:
+    with open('mm_ref.dat', 'w', encoding='utf-8') as f:
         f.write('''
 # MagneticMomentWriter[version=4](origin='COM')
 # origin_v = [7.634300, 5.000000, 4.302858] Å
@@ -101,14 +77,16 @@ def test_magnetic_moment_values(initialize_system, module_tmp_path,
          20.67068667     6.247451722277e-07     1.298788405738e-06     1.460017881082e-06
 '''.strip())  # noqa: E501
 
-    check_mm(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
+    check_txt_data(module_tmp_path / 'mm.dat', 'mm_ref.dat', atol=2e-14)
 
 
+@pytest.mark.rttddft
 def test_magnetic_moment_grid_evaluation(initialize_system, module_tmp_path):
     dpath = module_tmp_path
-    check_mm(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
+    check_txt_data(dpath / 'mm.dat', dpath / 'mm_grid.dat', atol=2e-8)
 
 
+@pytest.mark.rttddft
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
                                   in_tmp_dir):
@@ -123,9 +101,10 @@ def test_magnetic_moment_parallel(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 5)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=7e-14)
+        check_txt_data(module_tmp_path / fname, fname, atol=7e-14)
 
 
+@pytest.mark.rttddft
 @pytest.mark.parametrize('parallel', parallel_i)
 def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
                                  in_tmp_dir):
@@ -140,11 +119,11 @@ def test_magnetic_moment_restart(initialize_system, module_tmp_path, parallel,
     td_calc.propagate(100, 2)
 
     for fname in ['mm.dat', 'mm_grid.dat', 'mm_origin.dat']:
-        check_mm(module_tmp_path / fname, fname, atol=7e-14)
+        check_txt_data(module_tmp_path / fname, fname, atol=7e-14)
 
 
 @only_on_master(world)
-def test_spectrum(in_tmp_dir):
+def test_spectrum(in_tmp_dir, rng):
     from gpaw.utilities.folder import Folder
 
     # Parameters for test data
@@ -160,11 +139,11 @@ def test_spectrum(in_tmp_dir):
         data_tv = np.zeros((len(time_t), 4))
         data_tv[:, 0] = time_t
         # Fill unused columns with random values
-        data_tv[:, 1:] = np.random.rand(len(time_t), 3)
+        data_tv[:, 1:] = rng.random((len(time_t), 3))
         # Diagonal column has the data used for spectrum
         data_tv[:, v + 1] = (kick_strength * strength_v[v]
                              * np.cos(frequency_v[v] * time_t))
-        with open(f'mm-{kick}.dat', 'w') as f:
+        with open(f'mm-{kick}.dat', 'w', encoding='utf-8') as f:
             f.write(f'''
 # MagneticMomentWriter[version=4](origin='COM')
 #            time               mmx                    mmy                    mmz
