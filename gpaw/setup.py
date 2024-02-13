@@ -41,10 +41,7 @@ class IntegralPotentials:
         self.wnc_g = func(setup.local_corr.nc_g, l=0)
         self.wnct_g = func(setup.local_corr.nct_g, l=0)
         self.wmct_g = self.wnct_g + setup.Delta0 * self.wg_lg[0]
-
-    def __iter__(self):
-        return iter([self.wg_lg, self.wn_lqg, self.wnt_lqg, self.wnc_g,
-                     self.wnct_g, self.wmct_g])
+        self.mct_g = setup.local_corr.nct_g + setup.Delta0 * setup.g_lg[0]
 
     def calculate_coulomb_corrections(self):
         """Calculate "Coulomb" energies."""
@@ -53,16 +50,15 @@ class IntegralPotentials:
         # The only attribute we don't use is self.wnct_g.
 
         _np = setup.ni * (setup.ni + 1) // 2  # change to inst. att.?
-        mct_g = setup.local_corr.nct_g + setup.Delta0 * setup.g_lg[0]  # s.a.
         rdr_g = setup.local_corr.rgd2.r_g * \
             setup.local_corr.rgd2.dr_g  # change to inst. att.?
 
         A_q = 0.5 * (np.dot(self.wn_lqg[0], setup.local_corr.nc_g) + np.dot(
             setup.local_corr.n_qg, self.wnc_g))
         A_q -= sqrt(4 * pi) * setup.Z * np.dot(setup.local_corr.n_qg, rdr_g)
-        A_q -= 0.5 * (np.dot(self.wnt_lqg[0], mct_g) +
+        A_q -= 0.5 * (np.dot(self.wnt_lqg[0], self.mct_g) +
                       np.dot(setup.local_corr.nt_qg, self.wmct_g))
-        A_q -= 0.5 * (np.dot(mct_g, self.wg_lg[0]) +
+        A_q -= 0.5 * (np.dot(self.mct_g, self.wg_lg[0]) +
                       np.dot(setup.g_lg[0], self.wmct_g)) * \
             setup.local_corr.Delta_lq[0]
         M_p = np.dot(A_q, setup.local_corr.T_Lqp[0])
@@ -505,58 +501,6 @@ class BaseSetup:
         return sum([2 * l + 1 for (l, n) in zips(self.l_orb_J, self.n_j)
                     if n > 0])
 
-    def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
-                                      wmct_g):
-        """Calculate "Coulomb" energies."""
-        # Can we reduce the excessive parameter passing?
-        # Seems so ....
-        # Added instance variables
-        # T_Lqp = self.local_corr.T_Lqp
-        # n_qg = self.local_corr.n_qg
-        # Delta_lq = self.local_corr.Delta_lq
-        # nt_qg = self.local_corr.nt_qg
-        # Local variables derived from instance variables
-        _np = self.ni * (self.ni + 1) // 2  # change to inst. att.?
-        mct_g = self.local_corr.nct_g + self.Delta0 * self.g_lg[0]  # s.a.
-        rdr_g = self.local_corr.rgd2.r_g * \
-            self.local_corr.rgd2.dr_g  # change to inst. att.?
-
-        A_q = 0.5 * (np.dot(wn_lqg[0], self.local_corr.nc_g) + np.dot(
-            self.local_corr.n_qg, wnc_g))
-        A_q -= sqrt(4 * pi) * self.Z * np.dot(self.local_corr.n_qg, rdr_g)
-        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) +
-                      np.dot(self.local_corr.nt_qg, wmct_g))
-        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0]) +
-                      np.dot(self.g_lg[0], wmct_g)) * \
-            self.local_corr.Delta_lq[0]
-        M_p = np.dot(A_q, self.local_corr.T_Lqp[0])
-
-        A_lqq = []
-        for l in range(2 * self.local_corr.lcut + 1):
-            A_qq = 0.5 * np.dot(self.local_corr.n_qg, np.transpose(wn_lqg[l]))
-            A_qq -= 0.5 * np.dot(self.local_corr.nt_qg,
-                                 np.transpose(wnt_lqg[l]))
-            if l <= self.lmax:
-                A_qq -= 0.5 * np.outer(self.local_corr.Delta_lq[l],
-                                       np.dot(wnt_lqg[l], self.g_lg[l]))
-                A_qq -= 0.5 * np.outer(np.dot(self.local_corr.nt_qg,
-                                              wg_lg[l]),
-                                       self.local_corr.Delta_lq[l])
-                A_qq -= 0.5 * np.dot(self.g_lg[l], wg_lg[l]) * \
-                    np.outer(self.local_corr.Delta_lq[l],
-                             self.local_corr.Delta_lq[l])
-            A_lqq.append(A_qq)
-
-        M_pp = np.zeros((_np, _np))
-        L = 0
-        for l in range(2 * self.local_corr.lcut + 1):
-            for m in range(2 * l + 1):  # m?
-                M_pp += np.dot(np.transpose(self.local_corr.T_Lqp[L]),
-                               np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
-                L += 1
-
-        return M_p, M_pp
-
     def calculate_yukawa_interaction(self, gamma):
         """Calculate and return the Yukawa based interaction."""
 
@@ -581,9 +525,8 @@ class BaseSetup:
         """Calculate valence valence interactions for generic
            interaction."""
 
-        pot = IntegralPotentials(self, interaction)
-        return self.calculate_coulomb_corrections(
-            pot.wn_lqg, pot.wnt_lqg, pot.wg_lg, pot.wnc_g, pot.wmct_g)[1]
+        intpot = IntegralPotentials(self, interaction)
+        return intpot.calculate_coulomb_corrections()[1]
 
 
 class LeanSetup(BaseSetup):
@@ -964,8 +907,7 @@ class Setup(BaseSetup):
         dv_g = r_g * rdr_g
         A = 0.5 * np.dot(nc_g, intpot.wnc_g)
         A -= sqrt(4 * pi) * self.Z * np.dot(rdr_g, nc_g)
-        mct_g = nct_g + self.Delta0 * self.g_lg[0]  # XXXX DUP
-        A -= 0.5 * np.dot(mct_g, intpot.wmct_g)
+        A -= 0.5 * np.dot(intpot.mct_g, intpot.wmct_g)
         self.M = A
         self.MB = -np.dot(dv_g * nct_g, vbar_g)
 
