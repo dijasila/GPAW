@@ -1,7 +1,5 @@
 import numpy as np
 
-from gpaw import debug
-
 
 def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc, timer=None):
     if timer:
@@ -101,6 +99,8 @@ class Sigma:
 
 
 class SigmaCache:
+    pass
+
 
 class SigmaIntegrator:
     def integrate_sigma(self, ie, k, kpt1, kpt2, qpd, Wdict,
@@ -149,6 +149,3 @@ class SigmaIntegrator:
                     myn_G = n_G[blocks1d.myslice]
                     sigma.sigma_eskn[slot] += (myn_G @ S_GG @ nc_G).real
                     sigma.dsigma_eskn[slot] += (myn_G @ dSdw_GG @ nc_G).real
-
-
-
