@@ -621,27 +621,19 @@ class BSEBackend:
             T is global transition index, t is local transition index.
             G is global planewave index.
         """
-        Nv = self.nv * (self.spinors + 1)
-        Nc = self.nc * (self.spinors + 1)
-        Ns = self.spins
-        nS = self.nS
-        nG = self.rho_SG.shape[-1]
-        ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+        print(C_tGG.shape,'orig shape')
+        if len(C_tGG) != self.maxmySsize:
+            C2_tGG = np.zeros((self.maxmySsize, *C_tGG.shape[1:]), dtype=complex)
+            C2_tGG[:len(C_tGG)] = C_tGG
+            C_tGG = C2_tGG
         if world.rank == 0:
-            C_TGG = np.zeros((nS, nG, nG), dtype=complex)
-            C_TGG[:len(C_tGG[:, 0]), :, :] = C_tGG.reshape((-1, nG, nG))
-            Ntot = len(C_tGG)
-            for rank in range(1, world.size):
-                nkr, nk, ns = self.parallelisation_sizes(rank)
-                buf = np.empty((ns, nG, nG), dtype=complex)
-                world.receive(buf, rank, tag=123)
-                C_TGG[Ntot:Ntot + ns] = buf
-                Ntot += ns
+            C_TGG = np.zeros((self.maxmySsize * world.size, *C_tGG.shape[1:]), dtype=complex)
         else:
-            world.send(C_tGG, 0, tag=123)
-
+            C_TGG = None
+        world.gather(C_tGG, 0, C_TGG)
         if world.rank == 0:
-            return C_TGG
+            nG = self.rho_SG.shape[-1]
+            return C_TGG[:self.nS].reshape((self.nS, nG, nG))
 
     def check_fsum_rule(self, w_w, vchi_w):
         """Check f-sum rule."""
@@ -993,16 +985,29 @@ class BSEBackend:
             A_sS = A_sS.T
         return A_sS
 
+    @property
+    def nK(self):
+        return self.kd.nbzkpts
+
+    @property
+    def maxmyKsize(self):
+        return -(-self.nK // world.size)
+
+    @property
+    def cvblocksize(self):
+        return self.nv * self.nc * self.spins * (1 + self.spinors)**2
+
+    @property
+    def maxmySsize(self):
+        return self.maxmyKsize * self.cvblocksize
+
     def parallelisation_sizes(self, rank=None):
         if rank is None:
             rank = world.rank
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(rank * myKsize,
-                         min((rank + 1) * myKsize, nK))
+        myKrange = range(rank * self.maxmyKsize,
+                         min((rank + 1) * self.maxmyKsize, self.nK))
         myKsize = len(myKrange)
-        mySsize = myKsize * self.nv * self.nc * self.spins
-        mySsize *= (1 + self.spinors)**2
+        mySsize = myKsize * self.cvblocksize
         return myKrange, myKsize, mySsize
 
     def print_initialization(self, td, eshift, gw_skn):
