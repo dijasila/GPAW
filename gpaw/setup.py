@@ -893,8 +893,8 @@ class Setup(BaseSetup):
         #  set the attributes directly?
         (self.local_corr.n_qg, self.local_corr.nt_qg,
          self.local_corr.Delta_lq, self.Lmax, self.Delta_pL, self.Delta0,
-         self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
-                                                    self.local_corr.T_Lqp)
+         self.N0_p) = self.get_various_charges(phi_jg, phit_jg, _np,
+                                               self.local_corr.T_Lqp)
 
         # Solves the radial poisson equation for density n_g
         def H(n_g, l):
@@ -1011,7 +1011,7 @@ class Setup(BaseSetup):
         g_lg = self.data.create_compensation_charge_functions(self.lmax)
         return g_lg[:, :self.gcut2].copy()
 
-    def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
+    def get_various_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
         rcut_j = self.rcut_j
