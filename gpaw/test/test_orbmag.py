@@ -36,6 +36,8 @@ def test_orbmag_Ni(gpw_files):
     energy_ncol = calc_ncol.get_potential_energy(calc_ncol.atoms)
     density = calc_ncol.calculation.state.density
     magmoms_ncol_v, _ = density.calculate_magnetic_moments()
+    with pytest.warns(UserWarning, match='Non-collinear calculation*'):
+        calc_ncol.get_orbital_magnetic_moments()
     orbmag_ncol_v = soc_eigenstates(
         calc_ncol).get_orbital_magnetic_moments()[0]
 
