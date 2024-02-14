@@ -456,8 +456,8 @@ class ASECalculator:
                                  'orbital magnetic moments.')
         if not self.params.soc:
             warnings.warn('Non-collinear calculation was performed without '
-                          'spin–orbit coupling. Orbital magnetic moments may not be '
-                          'accurate.')
+                          'spin–orbit coupling. Orbital magnetic moments '
+                          'may not be accurate.')
         return state.density.calculate_orbital_magnetic_moments()
 
     def calculate(self, atoms, properties=None, system_changes=None):
