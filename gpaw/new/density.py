@@ -312,7 +312,7 @@ class Density:
         if not self.ncomponents == 4:
             raise AssertionError('Collinear calculations require '
                                  'spin–orbit coupling for nonzero '
-                                 ' orbital magnetic moments.')
+                                 'orbital magnetic moments.')
 
         from gpaw.new.orbmag import get_orbmag_from_density
         return get_orbmag_from_density(self.D_asii, self.n_aj, self.l_aj)
