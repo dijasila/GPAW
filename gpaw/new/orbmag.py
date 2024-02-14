@@ -6,11 +6,11 @@ This leads to the equation (presented in SI units):
 
 ::
 
-                 ===  ===
-   a         e   \    \         / a   \*  a      a
-  m      = - --  /    /    f   | P     | P      L
-   orb,v     2m  ===  ===   kn  \ knsi/   knsi'  vii'
-                 kn   sii'
+                 ===
+   a         e   \     a    a
+  m      = - --  /    D    L
+   orb,v     2m  ===   ii'  vii'
+                 ii'
 
 with L^a_vii' containing the matrix elements of the angular momentum operator
 between two partial waves centred at atom a.
