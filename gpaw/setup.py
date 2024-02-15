@@ -67,7 +67,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             try:
                 upfpath, source = search_for_file(upfname, world=world)
             except RuntimeError:
-                raise IOError('Could not find pseudopotential file %s '
+                raise OSError('Could not find pseudopotential file %s '
                               'in any GPAW search path.  '
                               'Please install the SG15 setups using, '
                               'e.g., "gpaw install-data".' % upfname)
@@ -139,6 +139,7 @@ class BaseSetup:
 
     orbital_free = False
     hubbard_u = None  # XXX remove me
+    is_pseudo = False
 
     def print_info(self, text):
         self.data.print_info(text, self)

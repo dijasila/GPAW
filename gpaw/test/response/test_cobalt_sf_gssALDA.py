@@ -14,7 +14,7 @@ from gpaw.response.susceptibility import (ChiFactory, spectral_decomposition,
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
 from gpaw.response.dyson import HXCScaling
 from gpaw.response.pair_functions import read_susceptibility_array
-from gpaw.test.conftest import response_band_cutoff
+from gpaw.test.gpwfile import response_band_cutoff
 
 
 @pytest.mark.kspair
@@ -117,9 +117,12 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
     wpeak11, Ipeak11 = findpeak(w1_w, -chi1_wG[:, 1].imag)
 
     # Extract the eigenmodes from the eigendecomposed spectrum in the reduced
-    # plane-wave basis
-    ar0_wm = Amaj0.get_eigenmode_lineshapes(nmodes=pos_eigs)
-    ar1_wm = Amaj1.get_eigenmode_lineshapes(nmodes=pos_eigs)
+    # plane-wave basis, restricting the frequencies to be non-negative
+    wmask = frq_w >= 0.
+    wm0 = Amaj0.get_eigenmode_frequency(nmodes=pos_eigs, wmask=wmask)
+    ar0_wm = Amaj0.get_eigenmodes_at_frequency(wm0, nmodes=pos_eigs)
+    wm1 = Amaj1.get_eigenmode_frequency(nmodes=pos_eigs, wmask=wmask)
+    ar1_wm = Amaj1.get_eigenmodes_at_frequency(wm1, nmodes=pos_eigs)
 
     # Find peaks in eigenmodes (in full and reduced basis)
     mpeak00, Speak00 = findpeak(wa0_w, a0_wm[:, 0])
@@ -194,6 +197,7 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         # plt.show()
 
         # Print values
+        print(Amaj0.omega_w[wm0], Amaj1.omega_w[wm1])
         print(hxc_scaling.lambd)
         print(wpeak00, wpeak01, wpeak10, wpeak11)
         print(Ipeak00, Ipeak01, Ipeak10, Ipeak11)
@@ -202,6 +206,10 @@ def test_response_cobalt_sf_gssALDA(in_tmp_dir, gpw_files):
         print(mrpeak00, mrpeak01, mrpeak10, mrpeak11)
         print(Srpeak00, Srpeak01, Srpeak10, Srpeak11)
         print(enh0, enh1, min_enh0, min_enh1)
+
+    # Test that the mode extraction frequency is indeed non-negative
+    assert Amaj0.omega_w[wm0] >= 0.
+    assert Amaj1.omega_w[wm1] >= 0.
 
     # Test kernel scaling
     assert hxc_scaling.lambd == pytest.approx(0.9675, abs=0.005)

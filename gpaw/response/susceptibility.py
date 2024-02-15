@@ -289,6 +289,16 @@ class EigendecomposedSpectrum:
             A_wGG[w] = v_Ge[:, emask] @ svinv_eG
         return A_wGG
 
+    def new_nan_arrays(self, neigs):
+        """Allocate new eigenvalue and eigenvector arrays filled with np.nan.
+        """
+        s_we = np.empty((self.wblocks.nlocal, neigs), dtype=self.s_we.dtype)
+        v_wGe = np.empty((self.wblocks.nlocal, self.nG, neigs),
+                         dtype=self.v_wGe.dtype)
+        s_we[:] = np.nan
+        v_wGe[:] = np.nan
+        return s_we, v_wGe
+
     def get_positive_eigenvalue_spectrum(self):
         """Create a new EigendecomposedSpectrum from the positive eigenvalues.
 
@@ -309,16 +319,11 @@ class EigendecomposedSpectrum:
             npos_max = int(np.max(np.sum(pos_we, axis=1)))
         else:
             npos_max = 0
-        npos_max = self.wblocks.blockcomm.max(npos_max)
+        npos_max = self.wblocks.blockcomm.max_scalar(npos_max)
 
-        # Allocate new arrays filled with nan to accomodate all the positive
-        # eigenvalues
-        s_we = np.empty((self.wblocks.nlocal, npos_max),
-                        dtype=self.s_we.dtype)
-        v_wGe = np.empty((self.wblocks.nlocal, self.nG, npos_max),
-                         dtype=self.v_wGe.dtype)
-        s_we[:] = np.nan
-        v_wGe[:] = np.nan
+        # Allocate new arrays, using np.nan for padding (the number of positive
+        # eigenvalues might vary with frequency)
+        s_we, v_wGe = self.new_nan_arrays(npos_max)
 
         # Fill arrays with the positive eigenvalue data
         for w, (s_e, v_Ge) in enumerate(zip(self.s_we, self.v_wGe)):
@@ -365,26 +370,32 @@ class EigendecomposedSpectrum:
         of the full spectral weight of the unreduced spectrum through the A_w
         attribute.
         """
-        assert self.neigs >= neigs
+        assert self.nG >= neigs
         # Check that the available eigenvalues are in descending order
         assert all([np.all(np.logical_not(s_e[1:] - s_e[:-1] > 0.))
                     for s_e in self.s_we]), \
             'Eigenvalues needs to be sorted in descending order!'
 
-        # Keep only the neigs largest eigenvalues
-        s_we = self.s_we[:, :neigs]
-        v_wGe = self.v_wGe[..., :neigs]
+        # Create new output arrays with the requested number of eigenvalues,
+        # using np.nan for padding
+        s_we, v_wGe = self.new_nan_arrays(neigs)
+        # In reality, there may be less actual eigenvalues than requested,
+        # since the user usually does not know how many e.g. negative
+        # eigenvalues persist on the positive frequency axis (or vice-versa).
+        # Fill in available eigenvalues up to the requested number.
+        neigs = min(neigs, self.neigs)
+        s_we[:, :neigs] = self.s_we[:, :neigs]
+        v_wGe[..., :neigs] = self.v_wGe[..., :neigs]
 
         return EigendecomposedSpectrum(self.omega_w, self.G_Gc, s_we, v_wGe,
                                        # Keep the full spectral weight
                                        A_w=self.A_w,
                                        wblocks=self.wblocks)
 
-    def get_eigenmode_lineshapes(self, nmodes=1):
+    def get_eigenmode_lineshapes(self, nmodes=1, wmask=None):
         """Extract the spectral lineshapes of the eigenmodes.
 
         The spectral lineshape is calculated as the inner product
-
 
         a^μν_n(q,ω) = <v^μν_n(q)| A^μν(q,ω) |v^μν_n(q)>
 
@@ -393,11 +404,10 @@ class EigendecomposedSpectrum:
 
         S^μν(q,ω_m) |v^μν_n(q)> = s^μν_n(q,ω_m) |v^μν_n(q)>
         """
-        wm = self.get_eigenmode_frequency(nmodes=nmodes)
-        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
-        return self._get_eigenmode_lineshapes(v_Gm)
+        wm = self.get_eigenmode_frequency(nmodes=nmodes, wmask=wmask)
+        return self.get_eigenmodes_at_frequency(wm, nmodes=nmodes)
 
-    def get_eigenmode_frequency(self, nmodes=1):
+    def get_eigenmode_frequency(self, nmodes=1, wmask=None):
         """Get the frequency at which to extract the eigenmodes.
 
         Generally, we chose the frequency ω_m to maximize the minimum
@@ -412,11 +422,14 @@ class EigendecomposedSpectrum:
         frequency at which the eigenvalue is maximal.
         """
         assert nmodes <= self.neigs
+        # Use wmask to specify valid eigenmode frequencies
         wblocks = self.wblocks
+        if wmask is None:
+            wmask = np.ones(self.wblocks.N, dtype=bool)
         if nmodes == 1:
             # Find frequency where the eigenvalue is maximal
             s_w = wblocks.all_gather(self.s_we[:, 0])
-            wm = np.argmax(s_w)
+            wm = np.nanargmax(s_w * wmask)  # skip np.nan padding
         else:
             # Find frequency with maximum minimal difference between size of
             # eigenvalues
@@ -424,12 +437,17 @@ class EigendecomposedSpectrum:
                               for e in range(nmodes - 1)]).T
             dsmin_w = np.min(ds_we, axis=1)
             dsmin_w = wblocks.all_gather(dsmin_w)
-            wm = np.argmax(dsmin_w)
+            wm = np.nanargmax(dsmin_w * wmask)  # skip np.nan padding
 
         return wm
 
+    def get_eigenmodes_at_frequency(self, wm, nmodes=1):
+        """Extract the eigenmodes at a specific frequency index wm."""
+        v_Gm = self.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+        return self._get_eigenmode_lineshapes(v_Gm)
+
     def get_eigenvectors_at_frequency(self, wm, nmodes=1):
-        """Extract the eigenvectors a specific frequency index."""
+        """Extract the eigenvectors at a specific frequency index wm."""
         wblocks = self.wblocks
         root, wmlocal = wblocks.find_global_index(wm)
         if wblocks.blockcomm.rank == root:
@@ -459,8 +477,8 @@ class EigendecomposedSpectrum:
         if self.wblocks.blockcomm.rank == 0:
             write_full_spectral_weight(filename, self.omega_w, A_w)
 
-    def write_eigenmode_lineshapes(self, filename, nmodes=1):
-        a_wm = self.get_eigenmode_lineshapes(nmodes=nmodes)
+    def write_eigenmode_lineshapes(self, filename, **kwargs):
+        a_wm = self.get_eigenmode_lineshapes(**kwargs)
         if self.wblocks.blockcomm.rank == 0:
             write_eigenmode_lineshapes(filename, self.omega_w, a_wm)
 
@@ -468,9 +486,9 @@ class EigendecomposedSpectrum:
 def write_full_spectral_weight(filename, omega_w, A_w):
     """Write the sum of spectral weights A(ω) to a file."""
     with open(filename, 'w') as fd:
-        print('# {0:>11}, {1:>11}'.format('omega [eV]', 'A(w)'), file=fd)
+        print('# {:>11}, {:>11}'.format('omega [eV]', 'A(w)'), file=fd)
         for omega, A in zip(omega_w, A_w):
-            print('  {0:11.6f}, {1:11.6f}'.format(omega, A), file=fd)
+            print(f'  {omega:11.6f}, {A:11.6f}', file=fd)
 
 
 def read_full_spectral_weight(filename):
@@ -485,15 +503,15 @@ def write_eigenmode_lineshapes(filename, omega_w, a_wm):
     """Write the eigenmode lineshapes a^μν_n(ω) to a file."""
     with open(filename, 'w') as fd:
         # Print header
-        header = '# {0:>11}'.format('omega [eV]')
+        header = '# {:>11}'.format('omega [eV]')
         for m in range(a_wm.shape[1]):
-            header += ', {0:>11}'.format(f'a_{m}(w)')
+            header += ', {:>11}'.format(f'a_{m}(w)')
         print(header, file=fd)
         # Print data
         for omega, a_m in zip(omega_w, a_wm):
-            data = '  {0:11.6f}'.format(omega)
+            data = f'  {omega:11.6f}'
             for a in a_m:
-                data += ', {0:11.6f}'.format(a)
+                data += f', {a:11.6f}'
             print(data, file=fd)
 
 

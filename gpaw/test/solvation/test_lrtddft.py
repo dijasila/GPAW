@@ -1,6 +1,6 @@
 from ase.build import molecule
 
-from gpaw.test import equal
+import pytest
 import gpaw.solvation as solv
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
@@ -33,7 +33,7 @@ def test_solvation_lrtddft():
 
     # We test the agreement of a pure RPA kernel
     # with setting eps to 1
-    
+
     lr = LrTDDFT(calc,
                  poisson=PoissonSolver('fd', nn=calc.hamiltonian.poisson.nn))
     lr.diagonalize()
@@ -42,4 +42,4 @@ def test_solvation_lrtddft():
     lr1 = LrTDDFT(calc)
     lr1.diagonalize()
     for ex, ex1 in zip(lr, lr1):
-        equal(ex.energy, ex1.energy, 1e-14)
+        assert ex.energy == pytest.approx(ex1.energy, abs=1e-14)

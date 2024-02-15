@@ -11,6 +11,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float
 from gpaw.new import zips
+from gpaw.new.c import calculate_residuals_gpu
 from gpaw.new.calculation import DFTState
 from gpaw.new.eigensolver import Eigensolver
 from gpaw.new.hamiltonian import Hamiltonian
@@ -19,6 +20,7 @@ from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.typing import Array1D, Array2D
 from gpaw.utilities.blas import axpy
 from gpaw.yml import obj2yaml as o2y
+from gpaw import debug
 
 
 class Davidson(Eigensolver):
@@ -39,7 +41,9 @@ class Davidson(Eigensolver):
         self.M_nn = None
         self.work_arrays: np.ndarray | None = None
 
-        self.preconditioner = preconditioner_factory(blocksize)
+        self.preconditioner = None
+        self.preconditioner_factory = preconditioner_factory
+        self.blocksize = blocksize
 
     def __str__(self):
         return o2y(dict(name='Davidson',
@@ -51,6 +55,8 @@ class Davidson(Eigensolver):
         wfs = ibzwfs.wfs_qs[0][0]
         assert isinstance(wfs, PWFDWaveFunctions)
         xp = wfs.psit_nX.xp
+        self.preconditioner = self.preconditioner_factory(self.blocksize,
+                                                          xp=xp)
         B = ibzwfs.nbands
         b = max(wfs.n2 - wfs.n1 for wfs in ibzwfs)
         domain_comm = wfs.psit_nX.desc.comm
@@ -103,7 +109,8 @@ class Davidson(Eigensolver):
         for wfs, weight_n in zips(ibzwfs, weight_un):
             e = self.iterate1(wfs, Ht, dH, dS_aii, weight_n)
             error += wfs.weight * e
-        return ibzwfs.kpt_band_comm.sum(float(error)) * ibzwfs.spin_degeneracy
+        return ibzwfs.kpt_band_comm.sum_scalar(
+            float(error)) * ibzwfs.spin_degeneracy
 
     def iterate1(self, wfs, Ht, dH, dS_aii, weight_n):
         H_NN = self.H_NN
@@ -208,23 +215,23 @@ class Davidson(Eigensolver):
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[:B, :B]
-                    M0_nn.data[:] = H_NN.data[:B, :B].T
+                    M0_nn.data[:] = H_NN.data[:B, :B]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit_nX, opa='C', out=residual_nX)
-            M_nn.multiply(P_ani, opa='C', out=P3_ani)
+            M_nn.multiply(psit_nX, out=residual_nX)
+            M_nn.multiply(P_ani, out=P3_ani)
 
             if domain_comm.rank == 0:
                 if band_comm.rank == 0:
-                    # M0_nn.data[:] = H_NN.data[B:, :B]
-                    M0_nn.data[:] = H_NN.data[:B, B:].T
+                    M0_nn.data[:] = H_NN.data[:B, B:]
+                    M0_nn.complex_conjugate()
                 M0_nn.redist(M_nn)
             domain_comm.broadcast(M_nn.data, 0)
 
-            M_nn.multiply(psit2_nX, opa='C', beta=1.0, out=residual_nX)
-            M_nn.multiply(P2_ani, opa='C', beta=1.0, out=P3_ani)
+            M_nn.multiply(psit2_nX, beta=1.0, out=residual_nX)
+            M_nn.multiply(P2_ani, beta=1.0, out=P3_ani)
             psit_nX.data[:] = residual_nX.data
             P_ani, P3_ani = P3_ani, P_ani
             wfs._P_ani = P_ani
@@ -233,6 +240,9 @@ class Davidson(Eigensolver):
                 Ht(psit_nX)
                 calculate_residuals(
                     residual_nX, dH, dS_aii, wfs, P2_ani, P3_ani)
+
+        if debug:
+            psit_nX.sanity_check()
 
         return error
 
@@ -251,8 +261,7 @@ def calculate_residuals(residual_nX: XArray,
             axpy(-e, p, r)
     else:
         eig_n = xp.asarray(eig_n)
-        for r, e, p in zips(residual_nX.data, eig_n, wfs.psit_nX.data):
-            r -= p * e
+        calculate_residuals_gpu(residual_nX.data, eig_n, wfs.psit_nX.data)
 
     dH(wfs.P_ani, P1_ani)
     wfs.P_ani.block_diag_multiply(dS_aii, out_ani=P2_ani)

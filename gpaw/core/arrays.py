@@ -78,8 +78,18 @@ class DistributedArrays(Generic[DomainType]):
     def copy(self):
         return self.new(data=self.data.copy())
 
+    def sanity_check(self) -> None:
+        """Sanity check."""
+        pass
+
     def __getitem__(self, index):
         raise NotImplementedError
+
+    def __bool__(self):
+        raise ValueError
+
+    def __len__(self):
+        return self.dims[0]
 
     def __iter__(self):
         for index in range(self.dims[0]):
@@ -348,7 +358,7 @@ def _parallel_me_sym(psit1_nX: DistributedArrays,
                 n1 = n_r[row]
                 n2 = n_r[row + 1]
                 if mynbands > 0 and n2 > n1:
-                    block = np.empty((mynbands, n2 - n1), M_nn.dtype)
+                    block = xp.empty((mynbands, n2 - n1), M_nn.dtype)
                     blocks.append((n1, n2, block))
                     requests.append(comm.receive(block, row, 12, False))
 

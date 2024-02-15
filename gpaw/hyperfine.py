@@ -20,7 +20,7 @@ import ase.units as units
 import numpy as np
 from scipy.integrate import simpson
 
-from gpaw import SCIPY_VERSION
+from gpaw import get_scipy_version
 from gpaw.atom.aeatom import Channel
 from gpaw.atom.configurations import configurations
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -239,13 +239,13 @@ def integrate(n0_g: Array1D,
 
     head_j = d_j * np.polyval(a_i, r_j)
     head_j[1:] *= r_j[1:]**-beta
-    n0 += simpson(head_j, r_j)
+    n0 += simpson(head_j, x=r_j)
 
     tail_g = n0_g[4:] * delta(r_g[4:], rT)
-    if SCIPY_VERSION >= [1, 11]:
-        n0 += simpson(tail_g, r_g[4:])
+    if get_scipy_version() >= [1, 11]:
+        n0 += simpson(tail_g, x=r_g[4:])
     else:
-        n0 += simpson(tail_g, r_g[4:], even='first')
+        n0 += simpson(tail_g, x=r_g[4:], even='first')
 
     return n0
 

@@ -83,18 +83,12 @@ class PWDesc(Domain):
 
         self._indices_cache: dict[tuple[int, ...], Array1D] = {}
 
-        self.qspiral_v = None
-
     def __repr__(self) -> str:
         m = self.myshape[0]
         n = self.shape[0]
-        r = Domain.__repr__(self).replace(
+        return Domain.__repr__(self).replace(
             'Domain(',
             f'PWDesc(ecut={self.ecut} <coefs={m}/{n}>, ')
-        if self.qspiral_v is None:
-            return r
-        q = self.cell_cv @ self.qspiral_v / (2 * pi)
-        return f'{r[:-1]}, qsiral={q}'
 
     def _short_string(self, global_shape):
         return (f'plane wave coefficients: {global_shape[-1]}\n'
@@ -223,12 +217,13 @@ class PWDesc(Domain):
                                 functions,
                                 positions,
                                 *,
+                                qspiral_v=None,
                                 atomdist=None,
                                 integral=None,
                                 cut=False,
                                 xp=None):
         """Create PlaneWaveAtomCenteredFunctions object."""
-        if self.qspiral_v is None:
+        if qspiral_v is None:
             return PWAtomCenteredFunctions(functions, positions, self,
                                            atomdist=atomdist,
                                            xp=xp)
@@ -236,7 +231,7 @@ class PWDesc(Domain):
         from gpaw.new.spinspiral import SpiralPWACF
         return SpiralPWACF(functions, positions, self,
                            atomdist=atomdist,
-                           qspiral_v=self.qspiral_v)
+                           qspiral_v=qspiral_v)
 
 
 class PWArray(DistributedArrays[PWDesc]):
@@ -275,12 +270,14 @@ class PWArray(DistributedArrays[PWDesc]):
 
     def __getitem__(self, index: int | slice) -> PWArray:
         data = self.data[index]
-        return PWArray(self.desc, data.shape[:-1], data=data)
+        return PWArray(self.desc,
+                       data.shape[:-1],
+                       data=data)
 
     def __iter__(self):
         for data in self.data:
             yield PWArray(self.desc,
-                          data.shape[:-len(self.desc.shape)],
+                          data.shape[:-1],
                           data=data)
 
     def new(self,
@@ -308,6 +305,15 @@ class PWArray(DistributedArrays[PWDesc]):
         a = self.new()
         a.data[:] = self.data
         return a
+
+    def sanity_check(self) -> None:
+        """Sanity check for real-valed PW expansions.
+
+        Make sure the G=(0,0,0) coefficient doesn't have an imaginary part.
+        """
+        if self.desc.dtype == float and self.desc.comm.rank == 0:
+            if (self.data[..., 0].imag != 0.0).any():
+                raise ValueError
 
     def _arrays(self):
         shape = self.data.shape
@@ -349,7 +355,7 @@ class PWArray(DistributedArrays[PWDesc]):
             out = grid.empty(self.dims, xp=xp)
         assert self.desc.dtype == out.desc.dtype, (self.desc, out.desc)
         assert out.desc.pbc_c.all()
-        assert comm.size == out.desc.comm.size
+        assert comm.size == out.desc.comm.size, (comm, out.desc.comm)
 
         plan = plan or out.desc.fft_plans(xp=xp)
         this = self.gather()
@@ -442,15 +448,18 @@ class PWArray(DistributedArrays[PWDesc]):
             self.data[:] = self.xp.asarray(data)
             return
 
-        assert self.dims == ()
-
         if comm.rank == 0:
-            data = pad(data, comm.size * self.desc.maxmysize)
-            comm.scatter(data, self.data, 0)
+            assert data is not None
+            shape = data.shape
+            for fro, to in zips(data.reshape((prod(shape[:-1]), shape[-1])),
+                                self._arrays()):
+                fro = pad(fro, comm.size * self.desc.maxmysize)
+                comm.scatter(fro, to, 0)
         else:
             buf = self.xp.empty(self.desc.maxmysize, complex)
-            comm.scatter(None, buf, 0)
-            self.data[:] = buf[:len(self.data)]
+            for to in self._arrays():
+                comm.scatter(None, buf, 0)
+                to[:] = buf[:len(to)]
 
     def scatter_from_all(self, a_G: PWArray) -> None:
         """Scatter all coefficients from rank r to self on other cores."""
@@ -636,7 +645,7 @@ class PWArray(DistributedArrays[PWDesc]):
     def moment(self):
         pw = self.desc
         # Masks:
-        m0_G, m1_G, m2_G = [i_G == 0 for i_G in pw.indices_cG]
+        m0_G, m1_G, m2_G = (i_G == 0 for i_G in pw.indices_cG)
         a_G = self.gather()
         if a_G is not None:
             b_G = a_G.data.imag

@@ -144,7 +144,7 @@ class AtomDistribution:
         array([0, 0, 0])
         """
         if natoms is None:
-            natoms = comm.max(max(atom_indices)) + 1
+            natoms = comm.max_scalar(max(atom_indices)) + 1
         rank_a = np.zeros(natoms, int)  # type: ignore
         rank_a[atom_indices] = comm.rank
         comm.sum(rank_a)
@@ -328,16 +328,17 @@ class AtomArrays:
 
         if comm.rank == 0:
             size_ra, size_r = self.layout.sizes()
-            shape = self.mydims + (size_r.max(),)
-            buffer = self.layout.xp.empty(shape, self.layout.dtype)
+            n = prod(self.mydims)
+            m = size_r.max()
+            buffer = self.layout.xp.empty(n * m, self.layout.dtype)
             for rank in range(1, comm.size):
-                buf = buffer[..., :size_r[rank]]
+                buf = buffer[:n * size_r[rank]].reshape((n, size_r[rank]))
                 comm.receive(buf, rank)
                 b1 = 0
                 for a, size in size_ra[rank].items():
                     b2 = b1 + size
                     A = aa[a]
-                    A[:] = buf[..., b1:b2].reshape(A.shape)
+                    A[:] = buf[:, b1:b2].reshape(A.shape)
                     b1 = b2
             for a, array in self._arrays.items():
                 aa[a] = array

@@ -43,6 +43,10 @@ def array(a, dtype=None):
     return ndarray(np.array(a, dtype))
 
 
+def dot(a, b):
+    return ndarray(np.dot(a._data, b._data))
+
+
 def multiply(a, b, c):
     np.multiply(a._data, b._data, c._data)
 
@@ -140,8 +144,10 @@ class ndarray:
     def all(self):
         return ndarray(self._data.all())
 
-    def sum(self, **kwargs):
-        return ndarray(self._data.sum(**kwargs))
+    def sum(self, out=None, **kwargs):
+        if out is not None:
+            out = out._data
+        return ndarray(self._data.sum(out=out, **kwargs))
 
     def __repr__(self):
         return 'cp.' + np.array_repr(self._data)
@@ -188,6 +194,14 @@ class ndarray:
         if isinstance(other, (float, complex, int)):
             return self._data == other
         return ndarray(self._data == other._data)
+
+    def __ne__(self, other):
+        if isinstance(other, (float, complex, int)):
+            return self._data != other
+        return ndarray(self._data != other._data)
+
+    def __neg__(self):
+        return ndarray(-self._data)
 
     def __mul__(self, f):
         if isinstance(f, (float, complex)):

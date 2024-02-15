@@ -1,25 +1,47 @@
-from os import path
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
-import numpy as np
-from ase.utils.timing import Timer
 from ase.parallel import parprint
+from ase.units import Ha
+from ase.utils.timing import Timer
+from pathlib import Path
+import numpy as np
 
-from gpaw import GPAW
-from gpaw.fd_operators import Gradient
-from gpaw.mpi import world, broadcast, serial_comm
+from gpaw.mpi import serial_comm
+from gpaw.new.ase_interface import ASECalculator
+from gpaw.nlopt.basic import NLOData
 from gpaw.utilities.progressbar import ProgressBar
 
+if TYPE_CHECKING:
+    from gpaw.nlopt.adapters import CollinearGSInfo, NoncollinearGSInfo
+    from gpaw.mpi import MPIComm
+    from gpaw.typing import ArrayND
 
-def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
-    """Compute the momentum matrix elements.
 
-    Input:
-        gs_name         Ground state file name
-        spin            Which spin channel (for spin-polarized systems 0 or 1)
-        ni, nf          First and last band to compute the mml (0 to nb)
-        timer           Timer to keep track of time
-    Output:
-        p_kvnn2         A big array in master
+def get_mml(gs: CollinearGSInfo | NoncollinearGSInfo,
+            spin: int,
+            ni: int,
+            nf: int,
+            timer: Timer | None = None) -> ArrayND:
+    """
+    Compute momentum matrix elements.
+
+    Parameters
+    ----------
+    gs
+        Ground state adapter.
+    spin
+        Spin channel index (for spin-polarized systems 0 or 1).
+    ni, nf
+        First and last band to compute the mml (0 to nb).
+    timer
+        Timer to keep track of time.
+
+    Returns
+    -------
+    p_kvnn2
+        Momentum matrix elements in atomic units gathered on master.
+
     """
 
     # Start the timer
@@ -27,56 +49,26 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
         timer = Timer()
     parprint('Calculating momentum matrix elements...')
 
-    # Load the ground state calculations
-    with timer('Load the ground state'):
-        parprint('Loading ground state data.')
-        assert path.exists(
-            gs_name), 'The gs file: {} does not exist!'.format(gs_name)
-        calc = GPAW(
-            gs_name, txt=None,
-            parallel={'kpt': 1, 'band': 1},
-            communicator=serial_comm)
-        if calc.parameters['mode'] == 'lcao':
-            calc.initialize_positions(calc.atoms)
-
     # Specify desired range and number of bands in calculation
-    nb_full = calc.get_number_of_bands()
-    ni = int(ni) if ni is not None else 0
-    nf = int(nf) if nf is not None else nb_full
-    nf = nb_full + nf if (nf < 0) else nf
-    blist = list(range(ni, nf))
-    nb = len(blist)
+    bands = slice(ni, nf)
+    nb = nf - ni
 
     # Spin input
-    ns = calc.wfs.nspins
-    assert spin < ns, 'Wrong spin input'
-
-    # Real and reciprocal space parameters
-    na = len(calc.atoms)
-    cell_cv = calc.wfs.gd.cell_cv
-    icell_cv = (2 * np.pi) * np.linalg.inv(cell_cv).T
-    ibzk_kc = calc.get_ibz_k_points()
-    nk = np.shape(ibzk_kc)[0]
+    assert spin < gs.ns, 'Wrong spin input'
 
     # Parallelisation and memory estimate
-    rank = world.rank
-    size = world.size
+    comm = gs.comm
+    rank = comm.rank
+    size = comm.size
+    nk = len(gs.ibzwfs.ibz)
     nkcore = int(np.ceil(nk / size))  # Number of k-points pr. core
     est_mem = 2 * 3 * nk * nb**2 * 16 / 2**20
-    parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
+    parprint(f'At least {est_mem:.2f} MB of memory is required on master.')
 
     # Allocate the matrix elements
     p_kvnn = np.zeros((nkcore, 3, nb, nb), dtype=complex)
 
-    # if calc.parameters['mode'] == 'lcao':
-    nabla_v = [
-        Gradient(
-            calc.wfs.gd, vv, 1.0, 4,
-            complex).apply for vv in range(3)]
-    phases = np.ones((3, 2), dtype=complex)
-
-    # Initial call to print 0% progress
-    ik = 0
+    # Initial call to print 0 % progress
     if rank == 0:
         pb = ProgressBar()
 
@@ -85,74 +77,36 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
         k_ind = rank + size * ik
         if k_ind >= nk:
             break
-        k_c = ibzk_kc[k_ind]
-        k_v = np.dot(k_c, icell_cv)
+        wfs = gs.get_wfs(k_ind, spin)
 
-        # Get the wavefunctions
-        with timer('Get wavefunctions and projections'):
-            u_nR = np.array(
-                [calc.wfs.get_wave_function_array(
-                    ib, k_ind, spin,
-                    realspace=True,
-                    periodic=True)
-                    for ib in blist], complex)
+        with timer('Contribution from pseudo wave functions'):
+            G_plus_k_Gv, u_nG = gs.get_plane_wave_coefficients(
+                wfs, bands=bands, spin=spin)
+            p_vnn = np.einsum('Gv,mG,nG->vmn',
+                              G_plus_k_Gv, u_nG.conj(), u_nG) * gs.ucvol
 
-            P_ani = []
-            for ia in range(na):
-                u = k_ind * ns + spin  # k_ind = q because serial GPAW
-                P_ani.append(calc.wfs.kpt_u[u].P_ani[ia][blist])
+        with timer('Contribution from PAW corrections'):
+            P_ani = gs.get_wave_function_projections(
+                wfs, bands=bands, spin=spin)
+            for P_ni, nabla_iiv in zip(P_ani.values(), gs.nabla_aiiv):
+                p_vnn -= 1j * np.einsum('mi,nj,ijv->vmn',
+                                        P_ni.conj(), P_ni, nabla_iiv)
 
-        # Now compute the momentum part
-        grad_nv = calc.wfs.gd.zeros((nb, 3), complex)
-        with timer('Momentum calculation'):
-            # Get the derivative
-            for iv in range(3):
-                for ib in range(nb):
-                    nabla_v[iv](u_nR[ib], grad_nv[ib, iv], phases)
+        p_kvnn[ik] = p_vnn
 
-            # Compute the integral
-            p_vnn = np.transpose(
-                calc.wfs.gd.integrate(u_nR, grad_nv), (2, 0, 1))
-
-            # Add the overlap part
-            M_nn = np.array([calc.wfs.gd.integrate(
-                u_nR[ib], u_nR) for ib in range(nb)])
-            for iv in range(3):
-                p_vnn[iv] += 1j * k_v[iv] * M_nn
-
-        # The PAW corrections are added
-        with timer('Add the PAW correction'):
-            for ia in range(na):
-                setup = calc.wfs.setups[ia]
-                P0_ni = P_ani[ia]
-
-                # Loop over components
-                for iv in range(3):
-                    tmp = setup.nabla_iiv[:, :, iv]
-                    p_vnn[iv] += np.dot(
-                        np.dot(P0_ni.conj(), tmp), P0_ni.T)
-
-        # Make it momentum and store it
-        p_kvnn[ik] = -1j * p_vnn
-
-        # Print the progress
         if rank == 0:
             pb.update(ik / nkcore)
-        ik += 1
 
     if rank == 0:
         pb.finish()
 
-    # Gather all data to the master
-    p_kvnn2 = []
     with timer('Gather the data to master'):
-        parprint('Gathering date to the master.')
-        recv_buf = None
-        if rank == 0:
-            recv_buf = np.empty((size, nkcore, 3, nb, nb),
-                                dtype=complex)
-        world.gather(p_kvnn, 0, recv_buf)
-        if rank == 0:
+        if not rank == 0:
+            recv_buf = None
+            gs.comm.gather(p_kvnn, 0, recv_buf)
+        else:
+            recv_buf = np.empty((size, nkcore, 3, nb, nb), dtype=complex)
+            gs.comm.gather(p_kvnn, 0, recv_buf)
             p_kvnn2 = np.zeros((nk, 3, nb, nb), dtype=complex)
             for ii in range(size):
                 k_inds = range(ii, nk, size)
@@ -162,104 +116,132 @@ def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
     if rank == 0:
         timer.write()
 
-    return p_kvnn2
+    if rank == 0:
+        return p_kvnn2
+    else:
+        return np.array([], dtype=complex)
 
 
-def make_nlodata(gs_name: str = 'gs.gpw',
-                 out_name: str = 'mml.npz',
-                 spin: str = 'all',
-                 ni: int = 0,
-                 nf: int = 0) -> None:
-    """Get all required NLO data and store it in a file.
+def make_nlodata(calc: ASECalculator | str | Path,
+                 comm: MPIComm,
+                 spin_string: str = 'all',
+                 ni: int | None = None,
+                 nf: int | None = None) -> NLOData:
+    """
+    This function calculates and returns all required
+    NLO data: w_sk, f_skn, E_skn, p_skvnn.
 
-    Writes NLO data to file: w_sk, f_skn, E_skn, p_skvnn.
-
-    Parameters:
-
-    gs_name:
-        Ground state file name
-    out_name:
-        Output filename
-    spin:
-        Which spin channel ('all', 's0' , 's1')
-    ni:
+    Parameters
+    ----------
+    calc
+        Calculator or string/path pointing to a .gpw file.
+    comm
+        Communicator for parallelisation.
+    spin_string
+        String denoting which spin channels to include ('all', 's0' , 's1').
+    ni
         First band to compute the mml.
-    nf:
-        Last band to compute the mml (relative to number of bands
-        for nf <= 0).
+    nf
+        Last band to compute the mml (relative to number of bands for nf <= 0).
+
+    Returns
+    -------
+    NLOData
+        Data object carrying required matrix elements for NLO calculations.
 
     """
+
+    if not isinstance(calc, ASECalculator):
+        if not (isinstance(calc, str) or isinstance(calc, Path)):
+            raise TypeError('Input must be a calculator or a string / path'
+                            'pointing to a calculator.')
+        from gpaw.new.ase_interface import GPAW
+        calc = GPAW(calc, txt=None, communicator=serial_comm)
+    assert not calc.symmetry.point_group, \
+        'Point group symmetry should be off.'
+
+    gs: CollinearGSInfo | NoncollinearGSInfo
+    if calc.calculation.state.density.collinear:
+        from gpaw.nlopt.adapters import CollinearGSInfo
+        gs = CollinearGSInfo(calc, comm)
+    else:
+        from gpaw.nlopt.adapters import NoncollinearGSInfo
+        gs = NoncollinearGSInfo(calc, comm)
+
+    # Parse spin string
+    ns = gs.ns
+    if spin_string == 'all':
+        spins = list(range(ns))
+    elif spin_string == 's0':
+        spins = [0]
+    elif spin_string == 's1':
+        spins = [1]
+        assert spins[0] < ns, 'Wrong spin input'
+    else:
+        raise NotImplementedError
+
+    # Parse band input
+    nb_full = gs.ibzwfs.nbands
+    ni = int(ni) if ni is not None else 0
+    nf = int(nf) if nf is not None else nb_full
+    nf = nb_full + nf if (nf <= 0) else nf
 
     # Start the timer
     timer = Timer()
 
     # Get the energy and fermi levels (data is only in master)
     with timer('Get energies and fermi levels'):
-        if world.rank == 0:
-            # Load the ground state calculation
-            calc = GPAW(gs_name, txt=None, communicator=serial_comm)
+        ibzwfs = gs.ibzwfs
 
-            # check the GS
-            assert not calc.symmetry.point_group, \
-                'Point group symmtery should be off.'
+        # Get the data
+        E_skn, f_skn = ibzwfs.get_all_eigs_and_occs()
+        # Energy is returned in Ha. For now we will change
+        # it to eV avoid altering the module too much.
+        E_skn *= Ha
 
-            nb_full = calc.get_number_of_bands()
-            if nf <= 0:
-                nf += nb_full
-            ns = calc.wfs.nspins
-            if spin == 'all':
-                spins = list(range(ns))
-            elif spin == 's0':
-                spins = [0]
-            elif spin == 's1':
-                spins = [1]
-                assert spins[0] < ns, 'Wrong spin input'
-            else:
-                raise NotImplementedError
-
-            # Get the data
-            w_sk = np.array([calc.get_k_point_weights() for s1 in spins])
-            bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
-            nk = len(w_sk[0])
-            E_skn = np.array([calc.band_structure().todict()['energies'][s1]
-                              for s1 in spins])
-            f_skn = np.zeros((len(spins), nk, nb_full), dtype=float)
-            for sind, s1 in enumerate(spins):
-                for ik in range(nk):
-                    f_skn[sind, ik] = calc.get_occupation_numbers(
-                        kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
-            w_sk *= bz_vol * 2.0 / ns
-            broadcast(nf, root=0)
-            broadcast(spins, root=0)
-        else:
-            nf = broadcast(None, root=0)
-            spins = broadcast(None, root=0)
+        w_sk = np.array([ibzwfs.ibz.weight_k for _ in range(gs.ndensities)])
+        w_sk *= gs.bzvol * ibzwfs.spin_degeneracy
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
-        for s1 in spins:
-            p_kvnn = get_mml(gs_name=gs_name, spin=s1,
-                             ni=ni, nf=nf, timer=timer)
+        for spin in spins:
+            p_kvnn = get_mml(gs=gs, ni=ni, nf=nf,
+                             spin=spin, timer=timer)
             p_skvnn.append(p_kvnn)
+        if not gs.collinear:
+            p_skvnn = [p_skvnn[0] + p_skvnn[1]]
 
     # Save the output to the file
-    if world.rank == 0:
-        np.savez(out_name, w_sk=w_sk, f_skn=f_skn[:, :, ni:nf],
-                 E_skn=E_skn[:, :, ni:nf], p_skvnn=np.array(p_skvnn, complex))
+    return NLOData(w_sk=w_sk,
+                   f_skn=f_skn[:, :, ni:nf],
+                   E_skn=E_skn[:, :, ni:nf],
+                   p_skvnn=np.array(p_skvnn, complex),
+                   comm=gs.comm)
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
     """
     Compute the position matrix elements
 
-    Input:
-        E_n             Energies
-        p_vnn           Momentum matrix elements
-        pol_v           Tensor element
-        Etol            Tol. in energy to consider degeneracy
-    Output:
-        r_vnn, D_vnn    Position and velocity difference matrix el.
+    Parameters
+    ----------
+    E_n
+        Band energies.
+    p_vnn
+        Momentum matrix elements.
+    pol_v
+        Tensor element.
+    Etol
+        Tolerance in energy to consider degeneracy.
+
+    Returns
+    -------
+    r_vnn
+        Position matrix elements.
+    D_vnn
+        Velocity difference matrix elements.
+
     """
 
     # Useful variables
@@ -283,16 +265,26 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
 
 def get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
     """
-    Compute the generalized derivative of position matrix elements
+    Compute the generalised derivative of position matrix elements
 
-    Input:
-        E_n             Energies
-        r_vnn           Momentum matrix elements
-        D_vnn           Velocity difference
-        pol_v           Tensor element
-        Etol            Tol. in energy to consider degeneracy
-    Output:
-        rd_vvnn         Generilized derivative of position
+    Parameters
+    ----------
+    E_n
+        Band energies.
+    r_vnn
+        Momentum matrix elements.
+    D_vnn
+        Velocity difference matrix elements.
+    pol_v
+        Tensor element.
+    Etol
+        Tolerance in energy to consider degeneracy.
+
+    Returns
+    -------
+    rd_vvnn
+        Generalised derivative of position matrix elements.
+
     """
 
     # Useful variables

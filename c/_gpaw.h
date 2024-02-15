@@ -51,6 +51,8 @@ PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
+PyObject* integrate_outwards(PyObject *self, PyObject *args);
+PyObject* integrate_inwards(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
 #ifndef GPAW_WITHOUT_LIBXC
@@ -187,6 +189,9 @@ PyObject* pwlfc_expand_gpu(PyObject *self, PyObject *args);
 PyObject* pw_insert_gpu(PyObject *self, PyObject *args);
 PyObject* add_to_density_gpu(PyObject* self, PyObject* args);
 PyObject* dH_aii_times_P_ani_gpu(PyObject* self, PyObject* args);
+PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args);
+PyObject* evaluate_pbe_gpu(PyObject* self, PyObject* args);
+PyObject* calculate_residual_gpu(PyObject* self, PyObject* args);
 #endif
 
 static PyMethodDef functions[] = {
@@ -219,6 +224,8 @@ static PyMethodDef functions[] = {
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
     {"hartree", hartree, METH_VARARGS, 0},
+    {"integrate_outwards", integrate_outwards, METH_VARARGS, 0},
+    {"integrate_inwards", integrate_inwards, METH_VARARGS, 0},
     {"localize", localize, METH_VARARGS, 0},
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
 #ifndef GPAW_WITHOUT_LIBXC
@@ -345,6 +352,9 @@ static PyMethodDef functions[] = {
     {"pw_insert_gpu", pw_insert_gpu, METH_VARARGS, 0},
     {"add_to_density_gpu", add_to_density_gpu, METH_VARARGS, 0},
     {"dH_aii_times_P_ani_gpu", dH_aii_times_P_ani_gpu, METH_VARARGS, 0},
+    {"evaluate_lda_gpu", evaluate_lda_gpu, METH_VARARGS, 0},
+    {"evaluate_pbe_gpu", evaluate_pbe_gpu, METH_VARARGS, 0},
+    {"calculate_residuals_gpu", calculate_residual_gpu, METH_VARARGS, 0},
 #endif // GPAW_GPU
     {0, 0, 0, 0}
 };
@@ -421,8 +431,15 @@ static PyObject* moduleinit(void)
                            PyUnicode_FromString(xc_version_string()));
 # endif
 #endif
+#ifdef GPAW_GPU
+    PyObject_SetAttrString(m, "GPU_ENABLED", Py_True);
+#else
+    PyObject_SetAttrString(m, "GPU_ENABLED", Py_False);
+#endif
 #ifdef GPAW_GPU_AWARE_MPI
     PyObject_SetAttrString(m, "gpu_aware_mpi", Py_True);
+#else
+    PyObject_SetAttrString(m, "gpu_aware_mpi", Py_False);
 #endif
 #ifdef _OPENMP
     PyObject_SetAttrString(m, "have_openmp", Py_True);

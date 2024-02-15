@@ -315,8 +315,8 @@ class PAWSetupGenerator:
 
         self.fd = fd or sys.stdout
         self.yukawa_gamma = yukawa_gamma
-        self.exxcc_w: dict[float, float] = {}
-        self.exxcv_wii: dict[float, Array2D] = {}
+        self.exxcc_w: Dict[float, float] = {}
+        self.exxcv_wii: Dict[float, Array2D] = {}
         self.omega = omega
         self.ecut = ecut
 
@@ -647,7 +647,10 @@ class PAWSetupGenerator:
             waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
                                                       self.vtr_g)
 
-    def check_all(self):
+    def check_all(self,
+                  tol: float = 0.05  # eV
+                  ) -> bool:
+        tol /= Ha
         self.log(('Checking eigenvalues of %s pseudo atom using ' +
                   'a Gaussian basis set:') % self.aea.symbol)
         self.log('                 AE [eV]        PS [eV]      error [eV]')
@@ -684,13 +687,13 @@ class PAWSetupGenerator:
                         self.log()
 
                 errors = abs(e_b[:nae - n0] - e0_b[n0:nae])
-                if (errors > 2e-3).any():
+                if (errors > tol).any():
                     self.log('Error in bound %s-states!' % 'spdf'[l])
                     ok = False
                 errors = abs(e_b[nae - n0:nae - n0 + extra] -
                              e0_b[nae:nae + extra])
                 if (not self.aea.scalar_relativistic and
-                    (errors > 2e-2).any()):
+                    (errors > 10 * tol).any()):
                     self.log('Error in %s-states!' % 'spdf'[l])
                     ok = False
 
@@ -771,7 +774,7 @@ class PAWSetupGenerator:
                 G = k * G_k[1]
                 ecut = 0.5 * G**2
                 h = pi / G
-                self.log(' %6.1f (%4.2f)' % (ecut * Ha, h), end='')
+                self.log(f' {ecut * Ha:6.1f} ({h:4.2f})', end='')
             plt.semilogy(G_k, abs(e_k - e_k[-1]) * Ha, label=label)
         self.log()
         plt.axis(xmax=20)
@@ -805,7 +808,7 @@ class PAWSetupGenerator:
                                            waves.phi_ng, waves.phit_ng):
                 if n == -1:
                     gc = self.rgd.ceil(waves.rcut)
-                    name = '*%s (%.2f Ha)' % ('spdf'[l], e)
+                    name = '*{} ({:.2f} Ha)'.format('spdf'[l], e)
                 else:
                     gc = len(self.rgd)
                     name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
@@ -823,7 +826,7 @@ class PAWSetupGenerator:
         for l, waves in enumerate(self.waves_l):
             for n, e, pt_g in zip(waves.n_n, waves.e_n, waves.pt_ng):
                 if n == -1:
-                    name = '*%s (%.2f Ha)' % ('spdf'[l], e)
+                    name = '*{} ({:.2f} Ha)'.format('spdf'[l], e)
                 else:
                     name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
                 plt.plot(r_g, pt_g * r_g, color=colors[i], label=name)
@@ -888,7 +891,7 @@ class PAWSetupGenerator:
             self.basis.append(bf)
 
             txt += '%d%s split valence:\n' % (n0, 'spdf'[l])
-            txt += '  cutoff: %.3f Bohr (tail-norm=%f)\n' % (rc, splitnorm)
+            txt += f'  cutoff: {rc:.3f} Bohr (tail-norm={splitnorm:f})\n'
 
         # Polarization:
         if lpol < 4:
@@ -1474,7 +1477,7 @@ def main(args):
             parameters = []
             for key, value in kwargs.items():
                 if value is not None:
-                    parameters.append('{0}={1!r}'.format(key, value))
+                    parameters.append(f'{key}={value!r}')
             setup.generatordata = ',\n    '.join(parameters)
             setup.write_xml()
 
