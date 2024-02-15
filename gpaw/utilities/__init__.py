@@ -3,6 +3,7 @@
 
 """Utility functions and classes."""
 
+import atexit
 import os
 import re
 import sys
@@ -395,6 +396,7 @@ def file_barrier(path: Union[str, Path], world=None):
 
 
 devnull = open(os.devnull, 'w')
+atexit.register(devnull.close)
 
 
 def convert_string_to_fd(name, world=None):
