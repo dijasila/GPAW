@@ -238,8 +238,12 @@ class GUCLaplace(FDOperator):
 def find_neighbors(h_cv: ArrayLike2D) -> Array2D:
     """Find nearest neighbors sorted after distance.
 
-    If h is a vector pointing at a
-    neighbor grid-points then we don't also include -h in the list.
+    With ``M_dc = find_neighbors(h_cv)``, the neighbors will be at
+    ``M_dc @ h_cv``, where ``M_dc`` is a (#neighbors, 3)-shaped
+    ndarray of int.  If h is a vector pointing at a
+    neighbor grid-point then we don't also include -h in the list.
+
+    Examples:
 
     >>> h_cv = [[0.1, 0, 0], [0, 0.11, 0], [0, 0, 0.12]]
     >>> find_neighbors(h_cv)
@@ -252,19 +256,22 @@ def find_neighbors(h_cv: ArrayLike2D) -> Array2D:
            [-2,  1,  0],
            [ 0,  0,  1]])
     """
-    # h_bv = U_bc @ h_cv
-    h_bv, U_bc = reduction_full(h_cv)
+    # Do Minkowski reduction:
+    h_bv, U_bc = reduction_full(h_cv)  # h_bv = U_bc @ h_cv
+    # 27 points: (-1,0,1)x(-1,0,1)x(-1,0,1)
     M_ib = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
     h_iv = M_ib.dot(h_bv)
     voro = Voronoi(h_iv)
     i_d = []  # List[int]
     for i1, i2 in voro.ridge_points:
-        if i1 == 13 and i2 > 13:
+        if i1 == 13 and i2 > 13:  # 13 is the point in the middle
             i_d.append(i2)
         elif i2 == 13 and i1 > 13:
             i_d.append(i1)
     h2_d = (h_iv[i_d]**2).sum(1)
     M_db = M_ib[[i_d[d] for d in h2_d.argsort()]]
+
+    # Transform back to origial unreduced space:
     # h_dv = M_db @ h_bv = M_db @ U_bc @ h_cv = M_dc @ h_cv
     M_dc = M_db @ U_bc
     return M_dc
@@ -289,8 +296,7 @@ class Gradient(FDOperator):
         M_dc = find_neighbors(gd.h_cv)
         h_dv = M_dc @ gd.h_cv  # vectors pointing at neighbor grid-points
         D = len(h_dv)  # number of neighbors (3, 4, 5, 6 or 7)
-        print(M_dc)
-        print(sorted((h_dv**2).sum(1)**.5))
+
         # Find gradient along 3 directions (n_cv):
         invh_vc = np.linalg.inv(gd.h_cv)
         n_cv = (invh_vc / (invh_vc**2).sum(axis=0)**0.5).T
