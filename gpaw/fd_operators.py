@@ -10,6 +10,7 @@ from math import pi, factorial as fact
 
 import numpy as np
 from numpy.fft import fftn, ifftn
+from scipy.spatial import Voronoi
 
 import _gpaw
 from gpaw import debug
@@ -232,6 +233,35 @@ class GUCLaplace(FDOperator):
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
 
 
+def find_neighbors(h_cv):
+    """Find nearest neighbors.
+
+    >>> h_cv = [[0.1, 0, 0], [0, 0.11, 0], [0, 0, 0.12]]
+    >>> find_neighbors(h_cv)
+    array([[1, 0, 0],
+           [0, 1, 0],
+           [0, 0, 1]])
+    >>> h_cv = [[0.1, 0, 0], [0.2, 0.11, 0], [0, 0, 0.12]]
+    >>> find_neighbors(h_cv)
+    array([[1, 0, 0],
+           [-2, 1, 0],
+           [0, 0, 1]])
+    """
+    # If h is a vector pointing at a
+    # neighbor grid-points then we don't also include -h in the list:
+    M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
+    h_iv = M_ic.dot(h_cv)
+    voro = Voronoi(h_iv)
+    i_d = []  # List[int]
+    for i1, i2 in voro.ridge_points:
+        if i1 == 13 and i2 > 13:
+            i_d.append(i2)
+        elif i2 == 13 and i1 > 13:
+            i_d.append(i1)
+    h2_d = (h_iv[i_d]**2).sum(1)
+    return M_ic[[i_d[d] for d in h2_d.argsort()]]
+
+
 class Gradient(FDOperator):
     def __init__(self, gd, v, scale=1.0, n=1, dtype=float, xp=np):
         """Symmetric gradient for general non orthorhombic grid.
@@ -248,24 +278,11 @@ class Gradient(FDOperator):
             Data-type to work on.
         """
 
-        from scipy.spatial import Voronoi
-
-        # Find nearest neighbors.  If h is a vector pointing at a
-        # neighbor grid-points then we don't also include -h in the list:
-        M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
-        h_iv = M_ic.dot(gd.h_cv)
-        voro = Voronoi(h_iv)
-        i_d = []  # List[int]
-        for i1, i2 in voro.ridge_points:
-            if i1 == 13 and i2 > 13:
-                i_d.append(i2)
-            elif i2 == 13 and i1 > 13:
-                i_d.append(i1)
-
-        D = len(i_d)  # number of neighbors (3, 4, 5, 6 or 7)
-
-        h_dv = h_iv[i_d]  # vectors pointing at neighbor grid-points
-
+        M_dc = find_neighbors(gd.h_cv)
+        h_dv = M_dc @ gd.h_cv  # vectors pointing at neighbor grid-points
+        D = len(h_dv)  # number of neighbors (3, 4, 5, 6 or 7)
+        print(M_dc)
+        print(sorted((h_dv**2).sum(1)**.5))
         # Find gradient along 3 directions (n_cv):
         invh_vc = np.linalg.inv(gd.h_cv)
         n_cv = (invh_vc / (invh_vc**2).sum(axis=0)**0.5).T
@@ -296,7 +313,7 @@ class Gradient(FDOperator):
         for d, c in enumerate(coef_d):
             if abs(c) < 1e-10:
                 continue
-            M_c = M_ic[i_d[d]]
+            M_c = M_dc[d]
             offsets.extend(np.arange(1, n + 1)[:, np.newaxis] * M_c)
             coefs.extend(c * stencil)
             offsets.extend(np.arange(-1, -n - 1, -1)[:, np.newaxis] * M_c)
