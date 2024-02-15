@@ -10,8 +10,8 @@ def test_weird_cell_from_peder():
     grad = Gradient(ug._gd, v=0)
     print(grad)
     cell, _ = reduction_full(ug.cell)
-    #size_b = U_bc @ ug.size
-    #print(size_b)
+    # size_b = U_bc @ ug.size
+    # print(size_b)
     print(cell_to_cellpar(ug.cell))
     print(cell_to_cellpar(cell))
     ug2 = UGDesc.from_cell_and_grid_spacing(cell=cell, grid_spacing=0.2)

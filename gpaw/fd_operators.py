@@ -6,16 +6,18 @@
 This file defines a series of finite difference operators used in grid mode.
 """
 
-from math import pi, factorial as fact
+from math import factorial as fact
+from math import pi
 
 import numpy as np
+from ase.geometry.minkowski_reduction import reduction_full
 from numpy.fft import fftn, ifftn
 from scipy.spatial import Voronoi
 
 import _gpaw
 from gpaw import debug
 from gpaw.gpu import cupy_is_fake
-
+from gpaw.typing import Array2D, ArrayLike2D
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
@@ -233,8 +235,11 @@ class GUCLaplace(FDOperator):
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
 
 
-def find_neighbors(h_cv):
-    """Find nearest neighbors.
+def find_neighbors(h_cv: ArrayLike2D) -> Array2D:
+    """Find nearest neighbors sorted after distance.
+
+    If h is a vector pointing at a
+    neighbor grid-points then we don't also include -h in the list.
 
     >>> h_cv = [[0.1, 0, 0], [0, 0.11, 0], [0, 0, 0.12]]
     >>> find_neighbors(h_cv)
@@ -243,14 +248,14 @@ def find_neighbors(h_cv):
            [0, 0, 1]])
     >>> h_cv = [[0.1, 0, 0], [0.2, 0.11, 0], [0, 0, 0.12]]
     >>> find_neighbors(h_cv)
-    array([[1, 0, 0],
-           [-2, 1, 0],
-           [0, 0, 1]])
+    array([[ 1,  0,  0],
+           [-2,  1,  0],
+           [ 0,  0,  1]])
     """
-    # If h is a vector pointing at a
-    # neighbor grid-points then we don't also include -h in the list:
-    M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
-    h_iv = M_ic.dot(h_cv)
+    # h_bv = U_bc @ h_cv
+    h_bv, U_bc = reduction_full(h_cv)
+    M_ib = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
+    h_iv = M_ib.dot(h_bv)
     voro = Voronoi(h_iv)
     i_d = []  # List[int]
     for i1, i2 in voro.ridge_points:
@@ -259,7 +264,10 @@ def find_neighbors(h_cv):
         elif i2 == 13 and i1 > 13:
             i_d.append(i1)
     h2_d = (h_iv[i_d]**2).sum(1)
-    return M_ic[[i_d[d] for d in h2_d.argsort()]]
+    M_db = M_ib[[i_d[d] for d in h2_d.argsort()]]
+    # h_dv = M_db @ h_bv = M_db @ U_bc @ h_cv = M_dc @ h_cv
+    M_dc = M_db @ U_bc
+    return M_dc
 
 
 class Gradient(FDOperator):
