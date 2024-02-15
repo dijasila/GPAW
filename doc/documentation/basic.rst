@@ -646,7 +646,8 @@ the initial value using::
 
 .. figure:: occupation_numbers.png
 
-    Occupation numbers for ``width=0.05``
+   Occupation numbers for different distribution functions
+   (value of ``width`` parameter in parenthesis)
 
 For fixed occupations numbers use the
 :class:`gpaw.occupations.FixedOccupationNumbers` class like this::
