@@ -1979,7 +1979,6 @@ class GPAW(Calculator):
                              len(self.wfs.kpt_u))
         kpt_rank1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * s,
                                len(self.wfs.kpt_u))
-        kpt_u = self.wfs.kpt_u
 
         # XXX not for the kpoint/spin parallel case
         assert self.wfs.kd.comm.size == 1
@@ -1993,19 +1992,8 @@ class GPAW(Calculator):
             self.wfs.initialize_wave_functions_from_restart_file()
 
         # Get pseudo part
-        if self.wfs.mode == 'pw':
-            if nbands is None:
-                nbands = len(kpt_u[u].psit_nG)
-
-            psit_nR = np.zeros(np.insert(self.wfs.gd.N_c, 0, nbands),
-                               self.wfs.dtype)
-            psit1_nR = psit_nR.copy()
-            for n in range(nbands):
-                psit_nR[n] = self.wfs._get_wave_function_array(u, n)
-                psit1_nR[n] = self.wfs._get_wave_function_array(u1, n)
-        else:
-            psit_nR = kpt_u[u].psit_nG
-            psit1_nR = kpt_u[u1].psit_nG
+        psit_nR = self.get_realspace_wfs(u)
+        psit1_nR = self.get_realspace_wfs(u1)
         Z_nn = self.wfs.gd.wannier_matrix(psit_nR, psit1_nR, G_c, nbands)
         # Add corrections
         self.add_wannier_correction(Z_nn, G_c, u, u1, nbands)
@@ -2117,16 +2105,10 @@ class GPAW(Calculator):
         k = 0
         nbands = wfs.bd.nbands
         f_ani = lf.dict(nbands)
-        psit_nR = np.zeros(np.insert(self.wfs.gd.N_c, 0, nbands),
-                           self.wfs.dtype)
         for u, kpt in enumerate(wfs.kpt_u):
             if kpt.s != spin:
                 continue
-            if self.wfs.mode == 'pw':
-                for n in range(nbands):
-                    psit_nR[n] = self.wfs._get_wave_function_array(u, n)
-            else:
-                psit_nR = kpt.psit_nG[:]
+            psit_nR = self.get_realspace_wfs(u)
             lf.integrate(psit_nR, f_ani, kpt.q)
             i1 = 0
             for x, f_ni in f_ani.items():
@@ -2135,6 +2117,18 @@ class GPAW(Calculator):
                 i1 = i2
             k += 1
         return f_kni.conj()
+
+    def get_realspace_wfs(self, u):
+        if self.wfs.mode == 'pw':
+            nbands = self.wfs.bd.nbands
+            psit_nR = np.zeros(np.insert(self.wfs.gd.N_c, 0, nbands),
+                               self.wfs.dtype)
+            for n in range(nbands):
+                psit_nR[n] = self.wfs._get_wave_function_array(u, n)
+        else:
+            psit_nR = self.wfs.kpt_u[u].psit_nG[:]
+
+        return psit_nR
 
     def get_number_of_grid_points(self):
         return self.wfs.gd.N_c
