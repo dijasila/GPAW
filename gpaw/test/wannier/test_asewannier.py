@@ -55,9 +55,8 @@ def test_ase_features_asewannier(in_tmp_dir):
 
 
 @pytest.mark.wannier
-def test_wannier_pw(in_tmp_dir):
+def test_wannier_pw(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['fancy_si_pw_nosym'])
-    #calc = _fancy_si(band_cutoff=8)
     wan = Wannier(nwannier=4, calc=calc, fixedstates=4,
                   initialwannier='orbitals')
     wan.localize()
@@ -66,31 +65,3 @@ def test_wannier_pw(in_tmp_dir):
     assert wan.get_functional_value() == pytest.approx(9.853, abs=2e-3)
     print('passed 1')
     assert False
-
-
-def _fancy_si(band_cutoff, symmetry=None):
-    from ase.build import bulk
-    from gpaw import PW, FermiDirac, GPAW
-    if symmetry is None:
-        symmetry = {}
-    xc = 'LDA'
-    kpts = 4
-    pw = 300
-    occw = 0.01
-    conv = {'bands': band_cutoff + 1,
-            'density': 1.e-8}
-    atoms = bulk('Si')
-    atoms.center()
-
-    atoms.calc = GPAW(
-        xc=xc,
-        mode=PW(pw),
-        kpts={'size': (kpts, kpts, kpts), 'gamma': True},
-        nbands=band_cutoff + 12,  # + 2 * (3s, 3p),
-        occupations=FermiDirac(occw),
-        convergence=conv,
-        txt=None,
-        symmetry='off')
-
-    atoms.get_potential_energy()
-    return atoms.calc
