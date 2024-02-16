@@ -2103,8 +2103,7 @@ class GPAW(Calculator):
         lf.set_positions(spos_xc)
         assert wfs.gd.comm.size == 1
         k = 0
-        nbands = wfs.bd.nbands
-        f_ani = lf.dict(nbands)
+        f_ani = lf.dict(wfs.bd.nbands)
         for u, kpt in enumerate(wfs.kpt_u):
             if kpt.s != spin:
                 continue

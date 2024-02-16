@@ -54,7 +54,7 @@ def test_ase_features_asewannier(in_tmp_dir):
     assert e == pytest.approx(-6.652, abs=energy_tolerance)
 
 
-# @pytest.mark.wannier
+@pytest.mark.wannier
 def test_wannier_pw(in_tmp_dir, gpw_files):
     calc = GPAW(gpw_files['fancy_si_pw_nosym'])
     wan = Wannier(nwannier=4, calc=calc, fixedstates=4,
