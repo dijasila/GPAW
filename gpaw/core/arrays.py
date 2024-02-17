@@ -9,12 +9,13 @@ from ase.io.ulm import NDArrayReader
 from gpaw.core.domain import Domain
 from gpaw.core.matrix import Matrix
 from gpaw.mpi import MPIComm
-from gpaw.typing import Array1D, Literal, Self, ArrayND
+from gpaw.typing import Array1D, Literal, ArrayND
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray, UGDesc
 
 from gpaw.new import prod
+from typing_extensions import Self
 
 DomainType = TypeVar('DomainType', bound=Domain)
 
@@ -72,7 +73,7 @@ class DistributedArrays(Generic[DomainType]):
             self.xp = cp
         self._matrix: Matrix | None = None
 
-    def new(self, data=None) -> DistributedArrays:
+    def new(self, data=None) -> Self:
         raise NotImplementedError
 
     def copy(self):
@@ -214,7 +215,7 @@ class DistributedArrays(Generic[DomainType]):
 
     def redist(self,
                domain,
-               comm1: MPIComm, comm2: MPIComm) -> DistributedArrays:
+               comm1: MPIComm, comm2: MPIComm) -> Self:
         result = domain.empty(self.dims)
         if comm1.rank == 0:
             a = self.gather()
@@ -230,6 +231,9 @@ class DistributedArrays(Generic[DomainType]):
                     plan2: fftw.FFTPlans | None = None,
                     grid: UGDesc | None = None,
                     out: UGArray | None = None) -> UGArray:
+        raise NotImplementedError
+
+    def integrate(self, other: Self | None = None) -> np.ndarray:
         raise NotImplementedError
 
 

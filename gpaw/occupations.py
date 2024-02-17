@@ -611,44 +611,21 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
         """
         OccupationNumberCalculator.__init__(self, parallel_layout)
 
-        def get_f(nelectrons, magmom, nkpts, nbands, spin):
-            """
-            :param nelectrons:
-            :param magmom:
-            :param nkpts:
-            :param nbands:
-            :param spin: +1 or -1
-            :return: occupation numbers per spin channel
-            """
-
-            f_qn = np.zeros(shape=(nkpts, nbands))
-            nelecps = (nelectrons + spin * magmom) / 2
-            assert int(nelecps) < nbands, 'need more bands!'
-
-            f_qn[:, : int(nelecps)] = 1.0
-            f_qn[:, int(nelecps)] = nelecps - int(nelecps)
-
-            return f_qn
-
-        if nspins == 2:
-            f1_qn = get_f(nelectrons, magmom, nkpts, nbands, 1)
-            f2_qn = get_f(nelectrons, magmom, nkpts, nbands, -1)
-            f_qn = []
-            for f1_n, f2_n in zip(f1_qn, f2_qn):
-                f_qn += [f1_n, f2_n]
-        else:
-            f_qn = get_f(nelectrons, magmom, nkpts, nbands, 0)
-
-        self.f_sn = np.array(f_qn)
         self.nspins = nspins
         self.magmom = magmom
+        self.nkpts = nkpts
+        self.nbands = nbands
+        self.nelectrons_total = nelectrons
+        self._f_sn = None
 
     def _calculate(self,
-                   nelectrons,
+                   nelectrons,  # it's number of electrons per spin_degeneracy
                    eig_qn,
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
+
+        self.nelectrons_total = nelectrons * (3 - self.nspins)
 
         calc_fixed(self.bd, self.f_sn, f_qn)
 
@@ -693,6 +670,63 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
 
     def __str__(self):
         return '# Uniform distribution of occupation numbers'
+
+    @property
+    def f_sn(self):
+        if self._f_sn is None:
+            def get_f(nelectrons, magmom, nkpts, nbands, spin):
+                """
+                Parameters
+                ----------
+                nelectrons
+                magmom
+                nkpts
+                nbands
+                spin: +1 or -1
+
+                Returns
+                -------
+                    occupation numbers per spin channel
+                """
+                f_qn = np.zeros(shape=(nkpts, nbands))
+                nelecps = (nelectrons + spin * magmom) / 2
+                assert int(nelecps) < nbands, 'need more bands!'
+
+                f_qn[:, : int(nelecps)] = 1.0
+                f_qn[:, int(nelecps)] = nelecps - int(nelecps)
+
+                return f_qn
+
+            if self.nspins == 2:
+                f1_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    1,
+                )
+                f2_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    -1,
+                )
+                f_qn = []
+                for f1_n, f2_n in zip(f1_qn, f2_qn):
+                    f_qn += [f1_n, f2_n]
+            else:
+                f_qn = get_f(
+                    self.nelectrons_total,
+                    self.magmom,
+                    self.nkpts,
+                    self.nbands,
+                    0,
+                )
+
+            self._f_sn = np.array(f_qn)
+
+        return self._f_sn
 
 
 def calc_fixed(bd, f_sn, f_qn):
