@@ -17,7 +17,11 @@ build:
         EOF
     pre_build:
       - gpaw-setup H
+      - gpaw-setup Li
       - gpaw-setup C
+      - gpaw-basis C
+      - gpaw-setup O
+      - gpaw-setup Pt -f PBE
       - echo $PWD
       - echo $HOME
       - mkdir $HOME/.gpaw
