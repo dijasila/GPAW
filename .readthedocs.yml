@@ -21,7 +21,7 @@ build:
       - echo $PWD
       - echo $HOME
       - mkdir $HOME/.gpaw
-      - echo "setup_paths[:] = [\'$PWD\']" > $HOME/.gpaw/rc.py
+      - echo "setup_paths[:] = ['/home/docs/checkouts/readthedocs.org/user_builds/gpaw/checkouts/latest']" > $HOME/.gpaw/rc.py
 
 sphinx:
   configuration: doc/conf.py
