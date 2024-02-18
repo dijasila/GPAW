@@ -23,7 +23,7 @@ build:
       - mkdir $HOME/.gpaw
       - |
         cat << EOF > $HOME/.gpaw/rc.py
-        setup_paths[:] = ['/home/docs/checkouts/readthedocs.org/user_builds/gpaw/checkouts/latest']
+        setup_paths[:] = ["/home/docs/checkouts/readthedocs.org/user_builds/gpaw/checkouts/latest"]
         EOF
 
 sphinx:
