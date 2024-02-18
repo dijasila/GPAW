@@ -21,8 +21,7 @@ build:
       - echo $PWD
       - echo $HOME
       - mkdir $HOME/.gpaw
-      - echo "setup_path[:] = ['$PWD']" > $HOME/.gpaw/rc.py
-      - export GPAW_SETUP_PATH=$PWD
+      - echo "setup_paths[:] = [\'$PWD\']" > $HOME/.gpaw/rc.py
 
 sphinx:
   configuration: doc/conf.py
