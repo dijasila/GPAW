@@ -17,6 +17,9 @@ build:
         EOF
     pre_build:
       - gpaw-setup H
+      - gpaw-setup C
+      - echo $PWD
+      - echo $HOME
       - export GPAW_SETUP_PATH=$PWD
 
 sphinx:
