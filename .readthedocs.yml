@@ -12,6 +12,9 @@ build:
         noblas = True
         nolibxc = True
         EOF
+    pre_build:
+      - gpaw-setup H
+      - export GPAW_SETUP_PATH=$PWD
 
 sphinx:
   configuration: doc/conf.py

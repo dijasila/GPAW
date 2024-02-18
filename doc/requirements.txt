@@ -1,2 +1,4 @@
 sphinx>3.0
 sphinx-rtd-theme
+pillow
+graphviz
