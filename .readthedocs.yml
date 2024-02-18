@@ -20,6 +20,8 @@ build:
       - gpaw-setup C
       - echo $PWD
       - echo $HOME
+      - mkdir $HOME/.gpaw
+      - echo "setup_path[:] = ['$PWD']" > $HOME/.gpaw/rc.py
       - export GPAW_SETUP_PATH=$PWD
 
 sphinx:
