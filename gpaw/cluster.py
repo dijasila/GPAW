@@ -90,21 +90,23 @@ class Cluster(Atoms):
         # check for multiple of 4
         if h is not None:
 
-            if not hasattr(h, '__len__'):
-                h = np.array([h, h, h])
+            if True not in pbc:
+                if not hasattr(h, '__len__'):
+                    h = np.array([h, h, h])
 
             elif h == 'periodic':
-
                 if True in pbc:
                     h1 = 0
                     i = 0
+                    a = 1
 
                     for ip, p in enumerate(pbc):
                         if p:
-                            h1 += extr2[ip, ip] / 12
+                            h1 += extr2[ip, ip]
+                            a *= extr2[ip, ip]
                             i += 1
 
-                    h = [h1 / i, h1 / i, h1 / i]
+                    h = [h1 / i / a, h1 / i / a, h1 / i / a]
 
             for c in range(3):
 

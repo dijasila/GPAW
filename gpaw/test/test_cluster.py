@@ -75,7 +75,6 @@ def test_cluster():
         if world.rank == 0:
             f = open(fxyz, 'w')
             print("""2
-
     C 0 0 0. 1 2 3
     O 0 0 1. 6. 7. 8.""", file=f)
             f.close()
