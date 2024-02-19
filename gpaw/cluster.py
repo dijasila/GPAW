@@ -90,9 +90,8 @@ class Cluster(Atoms):
         # check for multiple of 4
         if h is not None:
 
-            if True not in pbc:
-                if not hasattr(h, '__len__'):
-                    h = np.array([h, h, h])
+            if not hasattr(h, '__len__'):
+                h = np.array([h, h, h])
 
             elif h == 'periodic':
                 if True in pbc:
