@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 
 import pickle
@@ -137,8 +138,8 @@ class LatticePeriodicPairFunction(PairFunction):
         self.blockdist = blockdist
         self.distribution = distribution
 
-        self.blocks1d = None
-        self.shape = None
+        self.blocks1d: Blocks1D
+        self.shape: tuple | None = None
         super().__init__(qpd, zd)
 
     def zeros(self):
