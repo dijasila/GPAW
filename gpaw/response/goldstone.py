@@ -30,6 +30,10 @@ def get_goldstone_scaling(mode, chiks, Kxc_GG, dyson_solver):
     return fxcs
 
 
+def get_goldstone_xi_scaling(*args):
+    return 1.
+
+
 def find_goldstone_frequency(mode, omega_w):
     """Factory function for finding the appropriate frequency to determine
     the kernel scaling from according to different Goldstone criteria."""

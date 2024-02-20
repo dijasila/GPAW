@@ -6,7 +6,7 @@ from gpaw import GPAW
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
-from gpaw.response.dyson import DysonEnhancer
+from gpaw.response.dyson import DysonEnhancer, ScaledDysonEnhancer
 from gpaw.response.susceptibility import (spectral_decomposition,
                                           read_eigenmode_lineshapes)
 
@@ -50,6 +50,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
                                         rshelmax=rshelmax,
                                         **calc_kwargs)
     dyson_enhancer = DysonEnhancer(context)
+    scaled_dyson_enhancer = ScaledDysonEnhancer.from_xi_calculator(xi_calc)
 
     for q, q_c in enumerate(q_qc):
         # Calculate χ_KS^+-(q,z) and Ξ^++(q,z)
@@ -61,6 +62,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         chiks = chiks.copy_with_global_frequency_distribution()
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
+        _ = scaled_dyson_enhancer(chiks, xi)
 
         # Calculate majority spectral function
         Amaj, _ = spectral_decomposition(chi, pos_eigs=pos_eigs)
@@ -69,6 +71,9 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         # plot_enhancement(chiks, xi, Amaj, nmodes=nmodes)
 
     context.write_timer()
+
+    # Compare scaling coefficient to reference
+    assert scaled_dyson_enhancer.lambd == pytest.approx(1.)
 
     # Compare magnon peaks to reference data
     refs_mq = [

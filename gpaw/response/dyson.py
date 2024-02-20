@@ -6,7 +6,10 @@ from gpaw.typing import Array1D
 from gpaw.response import timer
 from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
-from gpaw.response.goldstone import get_goldstone_scaling
+from gpaw.response.goldstone import (get_goldstone_scaling,
+                                     get_goldstone_xi_scaling)
+from gpaw.response.chiks import SelfEnhancementCalculator
+from gpaw.response.localft import LocalFTCalculator
 
 
 class HXCScaling:
@@ -159,8 +162,51 @@ class DysonEnhancer:
             chi_GG[:] = self.invert_dyson_single_frequency(chiks_GG, xi_GG)
         return chi_zGG
 
-    @staticmethod
-    def invert_dyson_single_frequency(chiks_GG, xi_GG):
-        enhancement_GG = np.linalg.inv(np.eye(len(chiks_GG)) - xi_GG)
+    def invert_dyson_single_frequency(self, chiks_GG, xi_GG):
+        enhancement_GG = self.calculate_enhancement(chiks_GG, xi_GG)
         chi_GG = enhancement_GG @ chiks_GG
         return chi_GG
+
+    @staticmethod
+    def calculate_enhancement(chiks_GG, xi_GG):
+        return np.linalg.inv(np.eye(len(chiks_GG)) - xi_GG)
+
+
+class ScaledDysonEnhancer(DysonEnhancer):
+    """Class for applying scaled self-enhancement functions."""
+    def __init__(self, context, *,
+                 lambd: float | None = None,
+                 localft_calc: LocalFTCalculator):
+        super().__init__(context)
+        self.lambd = lambd
+        self.localft_calc = localft_calc
+
+    @staticmethod
+    def from_xi_calculator(xi_calc: SelfEnhancementCalculator,
+                           lambd: float | None = None):
+        localft_calc = LocalFTCalculator.from_rshe_parameters(
+            xi_calc.gs, xi_calc.context,
+            rshelmax=xi_calc.rshelmax, rshewmin=xi_calc.rshewmin)
+        return ScaledDysonEnhancer(
+            xi_calc.context, lambd=lambd, localft_calc=localft_calc)
+
+    def __call__(self, chiks: Chi, xi: Chi) -> Chi:
+        if self.lambd is None:
+            assert chiks.spincomponent in ['+-', '-+'], \
+                'So far, only Goldstone scaling is available'
+            self.lambd = get_goldstone_xi_scaling(xi, self.localft_calc)
+        return super().__call__(chiks, xi)
+
+    def calculate_enhancement(self, chiks_GG, xi_GG):
+        """Rescale unity in the Dyson equation.
+
+        By rescaling
+
+        χ = (1 - Ξ)^-1 χ_KS -> χ = (1/λ - Ξ)^-1 χ_KS
+
+        we achieve an effective rescaling of
+
+        (χ_KS, Ξ) -> (λχ_KS, λΞ).
+        """
+        assert self.lambd is not None
+        return np.linalg.inv(np.eye(len(chiks_GG)) / self.lambd - xi_GG)
