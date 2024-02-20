@@ -227,7 +227,8 @@ class DFTCalculation:
         if 'forces' not in self.results or silent:
             self._calculate_forces()
 
-        if not silent:
+            if silent:
+                return
             self.log('\nforces: [  # eV/Ang')
             F_av = self.results['forces'] * (Ha / Bohr)
             for a, setup in enumerate(self.setups):
