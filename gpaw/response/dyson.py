@@ -6,8 +6,7 @@ from gpaw.typing import Array1D
 from gpaw.response import timer
 from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
-from gpaw.response.goldstone import (get_goldstone_scaling,
-                                     get_goldstone_xi_scaling)
+from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.chiks import SelfEnhancementCalculator
 from gpaw.response.localft import LocalFTCalculator
 
@@ -194,7 +193,7 @@ class ScaledDysonEnhancer(DysonEnhancer):
         if self.lambd is None:
             assert chiks.spincomponent in ['+-', '-+'], \
                 'So far, only Goldstone scaling is available'
-            self.lambd = get_goldstone_xi_scaling(xi, self.localft_calc)
+            self.lambd = get_goldstone_scaling('xi', xi, self.localft_calc)
         return super().__call__(chiks, xi)
 
     def calculate_enhancement(self, chiks_GG, xi_GG):

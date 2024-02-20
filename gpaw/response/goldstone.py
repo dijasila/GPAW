@@ -1,27 +1,28 @@
 import numpy as np
 
+from gpaw.response.pair_functions import Chi
 
-def get_goldstone_scaling(mode, chiks, Kxc_GG, dyson_solver):
+
+def get_goldstone_scaling(mode, chilike: Chi, *args):
     """Get kernel scaling parameter to fulfill a Goldstone condition."""
-    assert chiks.qpd.kd.gamma, \
+    assert chilike.qpd.kd.gamma, \
         r'The Goldstone condition is strictly bound to the Γ-point'
 
     # Find the frequency to determine the scaling from
-    omega_w = chiks.zd.omega_w
+    omega_w = chilike.zd.omega_w
     wgs = find_goldstone_frequency(mode, omega_w)
 
     # Only one rank, rgs, has the given frequency
-    assert chiks.distribution == 'zGG', \
+    assert chilike.distribution == 'zGG', \
         'Only block distribution over frequencies is allowed at this point'
-    wblocks = chiks.blocks1d
+    wblocks = chilike.blocks1d
     rgs, mywgs = wblocks.find_global_index(wgs)
 
     # Let rgs find the rescaling
     fxcsbuf = np.empty(1, dtype=float)
     if wblocks.blockcomm.rank == rgs:
-        chiks_GG = chiks.array[mywgs]
-        fxcsbuf[:] = find_goldstone_scaling(mode, chiks_GG, Kxc_GG,
-                                            dyson_solver)
+        x_GG = chilike.array[mywgs]
+        fxcsbuf[:] = find_goldstone_scaling(mode, x_GG, *args)
 
     # Broadcast found rescaling
     wblocks.blockcomm.broadcast(fxcsbuf, rgs)
@@ -30,20 +31,17 @@ def get_goldstone_scaling(mode, chiks, Kxc_GG, dyson_solver):
     return fxcs
 
 
-def get_goldstone_xi_scaling(*args):
-    return 1.
-
-
 def find_goldstone_frequency(mode, omega_w):
     """Factory function for finding the appropriate frequency to determine
     the kernel scaling from according to different Goldstone criteria."""
-    if mode == 'fm':
+    if mode in ['fm', 'xi']:
         return find_fm_goldstone_frequency(omega_w)
     elif mode == 'afm':
         return find_afm_goldstone_frequency(omega_w)
     else:
         raise ValueError(
-            f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}")
+            "Allowed Goldstone scaling modes are 'fm', 'afm', 'xi'.",
+            f"Got: {mode}")
 
 
 def find_fm_goldstone_frequency(omega_w):
@@ -69,16 +67,19 @@ def find_afm_goldstone_frequency(omega_w):
     return wgs
 
 
-def find_goldstone_scaling(mode, chiks_GG, Kxc_GG, dyson_solver):
+def find_goldstone_scaling(mode, x_GG, *args):
     """Factory function for finding the scaling of the kernel
     according to different Goldstone criteria."""
-    assert mode in ['fm', 'afm'], \
-        f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}"
-
     if mode == 'fm':
-        return find_fm_goldstone_scaling(chiks_GG, Kxc_GG, dyson_solver)
+        return find_fm_goldstone_scaling(x_GG, *args)
     elif mode == 'afm':
-        return find_afm_goldstone_scaling(chiks_GG, Kxc_GG, dyson_solver)
+        return find_afm_goldstone_scaling(x_GG, *args)
+    elif mode == 'xi':
+        return find_xi_goldstone_scaling(x_GG, *args)
+    else:
+        raise ValueError(
+            "Allowed Goldstone scaling modes are 'fm', 'afm', 'xi'.",
+            f"Got: {mode}")
 
 
 def find_fm_goldstone_scaling(chiks_GG, Kxc_GG, dyson_solver):
@@ -123,6 +124,10 @@ def find_afm_goldstone_scaling(chiks_GG, Kxc_GG, dyson_solver):
             scaling_incr *= -0.2
 
     return fxcs
+
+
+def find_xi_goldstone_scaling(*args):
+    return 1.05
 
 
 def calculate_macroscopic_kappa(chiks_GG, Kxc_GG, dyson_solver):
