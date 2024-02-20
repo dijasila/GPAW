@@ -7,8 +7,10 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.dyson import DysonEnhancer
-from gpaw.response.susceptibility import spectral_decomposition
+from gpaw.response.susceptibility import (spectral_decomposition,
+                                          read_eigenmode_lineshapes)
 
+from gpaw.test import findpeak
 from gpaw.test.gpwfile import response_band_cutoff
 
 
@@ -62,9 +64,34 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
 
         # Calculate majority spectral function
         Amaj, _ = spectral_decomposition(chi, pos_eigs=pos_eigs)
-        Amaj.write_eigenmode_lineshapes(f'iron_Amaj_q{q}.csv', nmodes=nmodes)
+        Amaj.write_eigenmode_lineshapes(f'cobalt_Amaj_q{q}.csv', nmodes=nmodes)
 
         # plot_enhancement(chiks, xi, Amaj, nmodes=nmodes)
+
+    context.write_timer()
+
+    # Compare magnon peaks to reference data
+    refs_mq = [
+        # Acoustic
+        [
+            # (wpeak, Apeak)
+            (0.085, 7.895),
+            (0.320, 5.828),
+        ],
+        # Optical
+        [
+            # (wpeak, Apeak)
+            (0.904, 3.493),
+            (0.857, 2.988),
+        ],
+    ]
+    for q in range(len(q_qc)):
+        w_w, a_wm = read_eigenmode_lineshapes(f'cobalt_Amaj_q{q}.csv')
+        for m in range(nmodes):
+            wpeak, Apeak = findpeak(w_w, a_wm[:, m])
+            print(m, q, wpeak, Apeak)
+            assert wpeak == pytest.approx(refs_mq[m][q][0], abs=0.01)  # eV
+            assert Apeak == pytest.approx(refs_mq[m][q][1], abs=0.05)  # a.u.
 
 
 def plot_enhancement(chiks, xi, Amaj, *, nmodes):
