@@ -62,13 +62,18 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         chiks = chiks.copy_with_global_frequency_distribution()
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
-        _ = scaled_dyson_enhancer(chiks, xi)
+        scaled_chi = scaled_dyson_enhancer(chiks, xi)
 
         # Calculate majority spectral function
         Amaj, _ = spectral_decomposition(chi, pos_eigs=pos_eigs)
-        Amaj.write_eigenmode_lineshapes(f'cobalt_Amaj_q{q}.csv', nmodes=nmodes)
+        Amaj.write_eigenmode_lineshapes(
+            f'cobalt_Amaj_q{q}.csv', nmodes=nmodes)
+        sAmaj, _ = spectral_decomposition(scaled_chi, pos_eigs=pos_eigs)
+        sAmaj.write_eigenmode_lineshapes(
+            f'cobalt_sAmaj_q{q}.csv', nmodes=nmodes)
 
-        # plot_enhancement(chiks, xi, Amaj, nmodes=nmodes)
+        plot_enhancement(chiks, xi, Amaj, sAmaj, scaled_dyson_enhancer.lambd,
+                         nmodes=nmodes)
 
     context.write_timer()
 
@@ -99,28 +104,30 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
             assert Apeak == pytest.approx(refs_mq[m][q][1], abs=0.05)  # a.u.
 
 
-def plot_enhancement(chiks, xi, Amaj, *, nmodes):
+def plot_enhancement(chiks, xi, Amaj0, sAmaj, lambd, *, nmodes):
     import matplotlib.pyplot as plt
     from gpaw.mpi import world
     from ase.units import Ha
 
-    # Project χ_KS^+-(q,z) and Ξ^++(q,z) onto the mode vectors
-    wm = Amaj.get_eigenmode_frequency(nmodes=nmodes)
-    a_mW = Amaj.get_eigenmodes_at_frequency(wm, nmodes=nmodes).T
-    v_Gm = Amaj.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
-    chiks_wm = np.zeros((chiks.blocks1d.nlocal, nmodes), dtype=complex)
-    xi_wm = np.zeros((xi.blocks1d.nlocal, nmodes), dtype=complex)
-    for m, v_G in enumerate(v_Gm.T):
-        chiks_wm[:, m] = np.conj(v_G) @ chiks.array @ v_G  # chiks_wGG
-        xi_wm[:, m] = np.conj(v_G) @ xi.array @ v_G  # xi_wGG
-    chiks_mW = chiks.blocks1d.all_gather(chiks_wm).T
-    xi_mW = xi.blocks1d.all_gather(xi_wm).T
+    for Amaj, _lambd in zip([Amaj0, sAmaj], [1., lambd]):
+        # Project χ_KS^+-(q,z) and Ξ^++(q,z) onto the mode vectors
+        wm = Amaj.get_eigenmode_frequency(nmodes=nmodes)
+        a_mW = Amaj.get_eigenmodes_at_frequency(wm, nmodes=nmodes).T
+        v_Gm = Amaj.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+        chiks_wm = np.zeros((chiks.blocks1d.nlocal, nmodes), dtype=complex)
+        xi_wm = np.zeros((xi.blocks1d.nlocal, nmodes), dtype=complex)
+        for m, v_G in enumerate(v_Gm.T):
+            chiks_wm[:, m] = np.conj(v_G) @ chiks.array @ v_G  # chiks_wGG
+            xi_wm[:, m] = np.conj(v_G) @ xi.array @ v_G  # xi_wGG
+        chiks_mW = chiks.blocks1d.all_gather(chiks_wm * _lambd).T
+        xi_mW = xi.blocks1d.all_gather(xi_wm * _lambd).T
 
-    for m in range(nmodes):
-        plt.subplot(1, nmodes, m + 1)
-        plt.plot(chiks.zd.omega_w * Ha, -chiks_mW[m].imag / np.pi)
-        plt.plot(xi.zd.omega_w * Ha, xi_mW[m].real)
-        plt.axhline(1., c='0.5')
-        plt.plot(Amaj.omega_w, a_mW[m])
+        for m in range(nmodes):
+            plt.subplot(1, nmodes, m + 1)
+            plt.plot(chiks.zd.omega_w * Ha, -chiks_mW[m].imag / np.pi)
+            plt.plot(xi.zd.omega_w * Ha, xi_mW[m].real)
+            plt.axhline(1., c='0.5')
+            plt.plot(Amaj.omega_w, a_mW[m])
     if world.rank == 0:
         plt.show()
+    world.barrier()
