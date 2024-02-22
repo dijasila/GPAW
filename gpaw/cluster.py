@@ -7,6 +7,8 @@ from ase import Atoms
 from ase.io import read
 from ase.build.connected import connected_indices
 
+from gpaw.core import UGDesc
+
 
 class Cluster(Atoms):
     """A class for cluster structures
@@ -93,30 +95,31 @@ class Cluster(Atoms):
             if not hasattr(h, '__len__'):
                 h = np.array([h, h, h])
 
-            elif h == 'periodic':
                 if True in pbc:
+                    grid = UGDesc.from_cell_and_grid_spacing(extr2, h, pbc)
+                    H = extr2 / grid.size
+                    h = np.zeros(3)
                     h1 = 0
                     i = 0
-                    a = 1
                     for ip, p in enumerate(pbc):
                         if p:
-                            h1 += extr2[ip, ip]
-                            a *= extr2[ip, ip]
+                            h1 += np.linalg.norm(H[ip])
                             i += 1
+                    h = [h1 / i, h1 / i, h1 / i]
 
-                    h = [h1 / i / a, h1 / i / a, h1 / i / a]
-
+                    print(h)
             for c in range(3):
 
                 if True in pbc:
-                    L = extr2[c, c]
+                    if not pbc[c]:
+                        L = np.linalg.norm(extr2[c])
 
-                    N = np.ceil(L / h[c] / multiple) * multiple
+                        N = np.ceil(L / h[c] / multiple) * multiple
 
-                    # correct L
-                    dL = N * h[c] - L
-                    extr2[c, c] += dL
-                    extr[0][c] -= dL / 2
+                        # correct L
+                        dL = N * h[c] - L
+                        extr2[c, c] += dL
+                        extr[0][c] -= dL / 2
 
                 else:
                     # apply the same as in paw.py

@@ -87,7 +87,7 @@ def test_cluster():
 def test_minimal_box_mixed_pbc():
 
     atoms = Cluster(Atoms('H'))
-    atoms.center(vacuum=2)
+    atoms.center(vacuum=1.9)
     atoms.pbc = [0, 1, 1]
     cell0 = atoms.cell.copy()
 
@@ -96,24 +96,30 @@ def test_minimal_box_mixed_pbc():
     assert atoms.cell[0, 0] == 2 * box
     assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
 
-    atoms.cell[1, 1] = 3
-    atoms.minimal_box(box, h='periodic')
+    atoms.minimal_box(box, 0.2)
+    assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
+    # h avrag over yz is 0.19 multiple of 4
+    assert atoms.cell[0, 0] == pytest.approx(6.08)
 
-    assert atoms.cell[0, 0] == pytest.approx(7)
+    atoms.cell[1, 1] = 3
+    atoms.minimal_box(box, h=0.2)
+    # h avrag over yz is 0.195 multile of 4
+    assert atoms.cell[0, 0] == pytest.approx(6.24)
 
     # testing non orthogonal uint sell
     a = 3.92
     vac = 2
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
+
     atoms.pbc = [1, 1, 0]
-    cell0 = atoms.cell
+    cell0 = atoms.cell.copy()
     atoms.minimal_box(box)
 
     assert atoms.cell[2, 2] == 2 * box
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
 
-    atoms.cell[0, 0] = 4
-    atoms.cell[1, 1] = 3
-    atoms.minimal_box(box, h='periodic')
-
-    assert atoms.cell[2, 2] == pytest.approx(7)
+    atoms.minimal_box(box, h=0.2)
+    # h avrag over xy is aprox 0.231 multiple of 4
+    print(atoms.cell)
+    assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
+    assert atoms.cell[2, 2] == pytest.approx(6.47, 0.01)
