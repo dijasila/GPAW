@@ -6,6 +6,7 @@ from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
+from gpaw.setup import CachedYukawaInteractions
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
 from gpaw.xc import XC
@@ -96,6 +97,11 @@ class OmegaMatrix:
             self.derivativeLevel = derivativeLevel
         else:
             self.xc = None
+
+        if getattr(self.xc, 'omega', 0):  # can be None or int
+            self.yukawa_interactions = CachedYukawaInteractions(self.xc.omega)
+        else:
+            self.yukawa_interactions = None
 
         self.numscale = numscale
 
@@ -385,9 +391,10 @@ class OmegaMatrix:
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
-            if yukawa and hasattr(self.xc, 'omega') and self.xc.omega > 0:
-                C_pp = wfs.setups[a].calculate_yukawa_interaction(
-                    self.xc.omega)
+            if yukawa:
+                assert abs(
+                    self.yukawa_interactions.omega - self.xc.omega) < 1e-14
+                C_pp = self.yukawa_interactions.get_Mg_pp(wfs.setups[a])
             else:
                 C_pp = wfs.setups[a].M_pp
             #   ----
