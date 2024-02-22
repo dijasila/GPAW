@@ -107,7 +107,6 @@ class Cluster(Atoms):
                             i += 1
                     h = [h1 / i, h1 / i, h1 / i]
 
-                    print(h)
             for c in range(3):
 
                 if True in pbc:

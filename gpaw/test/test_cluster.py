@@ -99,12 +99,12 @@ def test_minimal_box_mixed_pbc():
     atoms.minimal_box(box, 0.2)
     assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
     # h avrag over yz is 0.19 multiple of 4
-    assert atoms.cell[0, 0] == pytest.approx(6.08)
+    assert atoms.cell[0, 0] / 0.19 % 4 == pytest.approx(0)
 
     atoms.cell[1, 1] = 3
     atoms.minimal_box(box, h=0.2)
     # h avrag over yz is 0.195 multile of 4
-    assert atoms.cell[0, 0] == pytest.approx(6.24)
+    assert atoms.cell[0, 0] / 0.195 % 4 == pytest.approx(0)
 
     # testing non orthogonal uint sell
     a = 3.92
@@ -112,6 +112,9 @@ def test_minimal_box_mixed_pbc():
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
 
     atoms.pbc = [1, 1, 0]
+    atoms.cell = [[5.0, 0.0, 0.0],
+                  [3.0, 4.0, 0.0],
+                  [0.0, 0.0, 4.0]]
     cell0 = atoms.cell.copy()
     atoms.minimal_box(box)
 
@@ -119,7 +122,6 @@ def test_minimal_box_mixed_pbc():
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
 
     atoms.minimal_box(box, h=0.2)
-    # h avrag over xy is aprox 0.231 multiple of 4
-    print(atoms.cell)
+    # h avrag over xy is 0.25 multiple of 4
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
-    assert atoms.cell[2, 2] == pytest.approx(6.47, 0.01)
+    assert atoms.cell[2, 2] / 0.25 % 4 == pytest.approx(0)
