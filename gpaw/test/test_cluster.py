@@ -5,7 +5,11 @@ from ase.build import fcc111
 
 from gpaw.cluster import Cluster
 from gpaw.mpi import world
+from gpaw.core import UGDesc
+
 import pytest
+
+import numpy as np
 
 
 def test_cluster():
@@ -101,10 +105,25 @@ def test_minimal_box_mixed_pbc():
     # h avrag over yz is 0.19 multiple of 4
     assert atoms.cell[0, 0] / 0.19 % 4 == pytest.approx(0)
 
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, [0, 1, 1])
+    H = atoms.cell / grid.size
+
+    try:
+        assert H[0, 0] == (np.linalg.norm(H[1]) + np.linalg.norm(H[2])) / 2
+    except AssertionError:
+        print(f'''h_x = {H[0, 0]}, not {H[1,1]} as it is colser to 0.2''')
+
     atoms.cell[1, 1] = 3
     atoms.minimal_box(box, h=0.2)
     # h avrag over yz is 0.195 multile of 4
     assert atoms.cell[0, 0] / 0.195 % 4 == pytest.approx(0)
+
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, [0, 1, 1])
+    H = atoms.cell / grid.size
+    try:
+        assert H[0, 0] == (np.linalg.norm(H[1]) + np.linalg.norm(H[2])) / 2
+    except AssertionError:
+        print(f'''h_x = {H[0, 0]}, not {H[1,1]} as it is colser to 0.2''')
 
     # testing non orthogonal uint sell
     a = 3.92
@@ -126,3 +145,11 @@ def test_minimal_box_mixed_pbc():
     # h avrag over xy is 0.25 multiple of 4
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
     assert atoms.cell[2, 2] / 0.25 % 4 == pytest.approx(0)
+
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, [0, 1, 1])
+    H = atoms.cell / grid.size
+    try:
+        assert H[2, 2] == (np.linalg.norm(H[1]) + np.linalg.norm(H[0])) / 2
+    except AssertionError:
+        print(f'h_z = {H[2, 2]}, not {np.linalg.norm(H[0])}' +
+              ' as it is colser to 0.2')

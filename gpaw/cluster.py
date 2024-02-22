@@ -106,7 +106,6 @@ class Cluster(Atoms):
                             h1 += np.linalg.norm(H[ip])
                             i += 1
                     h = [h1 / i, h1 / i, h1 / i]
-                    print(f'h = {h1/i}')
             for c in range(3):
 
                 if True in pbc:
