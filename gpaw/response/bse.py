@@ -20,6 +20,29 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import timer
 
+def get_first_Gz(Gv):
+    absGv = np.abs(Gv)
+
+    minG = 100000
+    for i, G in enumerate(absGv):
+        if G[2] <= minG and G[2] > 0:
+            minG = G[2]
+    Gindexes = []
+    Gs = []
+    for i, G in enumerate(absGv):
+        if G[2] == minG or np.isclose(G[2]/minG, minG):
+            Gindexes.append(i)
+            Gs.append(G)
+    return Gindexes, Gs
+
+def get_Gz(Gv):
+    Gindexes = []
+    Gs = []
+    for i, G in enumerate(Gv):
+        if np.isclose(G[0], 0.) and np.isclose(G[1], 0) and not np.isclose(G[2], 0):
+            Gindexes.append(i)
+            Gs.append(G)
+    return Gindexes, Gs
 
 class BSEBackend:
     def __init__(self, *, gs, context,
@@ -314,7 +337,16 @@ class BSEBackend:
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
 
+        # F.N: add more G-vectors for Gz = pm1
+        print(qpd0.get_reciprocal_vectors(add_q=False))
+        G1_indexes, Gs = get_Gz(qpd0.get_reciprocal_vectors(add_q=False))
+        print(G1_indexes, Gs)
+        self.rhoGz_S = []
+        self.Gzs = Gs
+        for iGz in G1_indexes:
+            self.rhoGz_S.append(np.reshape(rhoex_KsmnG[:, :, :, :, iGz], -1))
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        
         self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
@@ -618,10 +650,11 @@ class BSEBackend:
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(readfile=readfile, optical=optical)
-
         w_T = self.w_T
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
+        rhoGz_S = self.rhoGz_S
+        numGz = len(self.Gzs)
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
@@ -639,8 +672,17 @@ class BSEBackend:
         else:
             A_t = np.dot(rhoG0_S, self.v_St)
             B_t = np.dot(rhoG0_S * df_S, self.v_St)
+            Az_t = []
+            Bz_t = []
+            Cz_T = []
+            for i in range(numGz):
+                Az_t.append(np.dot(rhoGz_S[i], self.v_St))
+                Bz_t.append(np.dot(rhoG0_S * df_S, self.v_St))
+
             if world.size == 1:
                 C_T = B_t.conj() * A_t
+                for i in range(numGz):
+                    Cz_T.append(Bz_t[i].conj() * Az_t[i])
             else:
                 Nv = self.nv * (self.spinors + 1)
                 Nc = self.nc * (self.spinors + 1)
@@ -655,6 +697,16 @@ class BSEBackend:
                 if world.rank != 0:
                     C_T = np.empty(nS, dtype=complex)
                 world.broadcast(C_T, 0)
+                
+                Cz_T = np.empty((numGz, nS), dtype=complex)
+                for i in range(numGz):
+                    Ctmp = desc.empty(dtype=complex)
+                    Ctmp = Bz_t[i].conj() * Az_t[i]
+                    C_Ttmp = desc.collect_on_master(C_t)[:, 0]
+                    if world.rank == 0:
+                        Cz_T[i] = C_Ttmp
+                world.broadcast(Cz_T, 0)
+
 
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
@@ -678,6 +730,12 @@ class BSEBackend:
         self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
         self.context.print('')
 
+        """
+        F.N: C_T is weight = v_ST * rhoG0 *df_S * rhoG0 * v_ST
+        where v_ST are the eigvectors, df_S is occupation diff
+        and rho is the density matrix. To get finite G we just need to
+        replace the rho:s 
+        """
         if write_eig is not None:
             assert isinstance(write_eig, str)
             filename = write_eig
@@ -685,6 +743,9 @@ class BSEBackend:
                 write_bse_eigenvalues(filename, self.mode,
                                       self.w_T * Hartree, C_T)
 
+        if world.rank == 0:
+            write_weights_finite_Gz('eigs_and_weights_finite_Gz.txt', self.mode,
+                                    self.w_T * Hartree, C_T, Cz_T, self.Gzs)
         return vchi_w
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
@@ -1021,6 +1082,14 @@ def write_bse_eigenvalues(filename, mode, w_w, C_w):
             print('%8d %12.6f %12.16f' % (iw, w.real, C.real),
                   file=fd)
 
+def write_weights_finite_Gz(filename, mode, w_w, C_w, Cz_w, Gzs):
+    Cz_w = np.abs(np.array(Cz_w))
+    with open(filename, 'w') as fd:
+        print('# %s eigenvalues (in eV) and weights for finite Gz' % mode, file=fd)
+        print('# Number   eig   weight Gz = [0, 0, 0], ',*Gzs, sep=',', file=fd)
+        for iw, (w, C) in enumerate(zip(w_w, C_w)):
+            print('%8d %12.6f %12.16f' % (iw, w.real, C.real), *Cz_w[:,iw], sep=',  ',
+                  file=fd)
 
 def read_bse_eigenvalues(filename):
     _, w_w, C_w = np.loadtxt(filename, unpack=True)
