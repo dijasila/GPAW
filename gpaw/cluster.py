@@ -105,7 +105,9 @@ class Cluster(Atoms):
                         if p:
                             h1 += np.linalg.norm(H[ip])
                             i += 1
-                    h = [h1 / i, h1 / i, h1 / i]
+                    h0 = h1 / i
+                    h = [h0, h0, h0]
+
             for c in range(3):
 
                 if True in pbc:
@@ -135,9 +137,13 @@ class Cluster(Atoms):
 
         if True in pbc:
             self.set_cell(tuple(extr2))
+            if h is not None:
+                return shift, h0
+            else:
+                return shift
         else:
             self.set_cell(tuple(extr[1]))
-        return shift
+            return shift
 
     def read(self, filename, format=None):
         """Read the structure from some file. The type can be given
