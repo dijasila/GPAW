@@ -677,7 +677,7 @@ class BSEBackend:
             Cz_T = []
             for i in range(numGz):
                 Az_t.append(np.dot(rhoGz_S[i], self.v_St))
-                Bz_t.append(np.dot(rhoG0_S * df_S, self.v_St))
+                Bz_t.append(np.dot(rhoGz_S[i] * df_S, self.v_St))
 
             if world.size == 1:
                 C_T = B_t.conj() * A_t
@@ -1083,7 +1083,7 @@ def write_bse_eigenvalues(filename, mode, w_w, C_w):
                   file=fd)
 
 def write_weights_finite_Gz(filename, mode, w_w, C_w, Cz_w, Gzs):
-    Cz_w = np.abs(np.array(Cz_w))
+    Cz_w = np.array(Cz_w).real
     with open(filename, 'w') as fd:
         print('# %s eigenvalues (in eV) and weights for finite Gz' % mode, file=fd)
         print('# Number   eig   weight Gz = [0, 0, 0], ',*Gzs, sep=',', file=fd)
