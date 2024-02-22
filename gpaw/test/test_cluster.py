@@ -123,6 +123,7 @@ def test_minimal_box_mixed_pbc():
     a = 3.92
     vac = 2
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
+    atoms.edit()
 
     atoms.pbc = [1, 1, 0]
     atoms.cell = [[5.0, 0.0, 0.0],
@@ -147,3 +148,26 @@ def test_minimal_box_mixed_pbc():
     except AssertionError:
         print(f'h_z = {H[2, 2]}, not {np.linalg.norm(H[1])}' +
               ' as it is colser to 0.2')
+
+def test_platinum_surface():
+    """ensure that non-periodic direction gets modified only"""
+    surface = fcc111('Pt', (5, 6, 2), a=3.912, orthogonal=True, vacuum=2)
+    original_cell = surface.cell.copy()
+
+    h = 0.2
+    vacuum = 4
+
+    surface = Cluster(surface)
+    surface.minimal_box(vacuum, h=h)
+
+    # perdiodic part shall not be changed
+    assert (original_cell[:2] == surface.cell[:2]).all()
+    # the surfcae is shifted upwards
+    assert (surface.get_positions().T[2] >= vacuum).all()
+
+    # what internally is done in gpaw
+    grid = UGDesc.from_cell_and_grid_spacing(surface.cell, h, surface.pbc)
+    h_c = grid._gd.get_grid_spacings()
+
+    h_z = h_c[:2].sum() / 2  # average of x and y
+    assert h_z == pytest.approx(h_c[2])

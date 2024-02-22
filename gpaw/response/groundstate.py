@@ -309,8 +309,9 @@ class ResponsePAWDataset:
         self.ni = setup.ni
         self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
+        self.n_j = setup.n_j
         self.l_j = setup.l_j
-        self.lq = setup.lq
+        self.N0_q = setup.N0_q
         self.nabla_iiv = setup.nabla_iiv
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)

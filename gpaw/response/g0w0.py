@@ -345,6 +345,9 @@ def choose_ecut_things(ecut, ecut_extrapolation):
                          (necuts - 1))**(-2 / 3)
     elif isinstance(ecut_extrapolation, (list, np.ndarray)):
         ecut_e = np.array(np.sort(ecut_extrapolation))
+        if not np.allclose(ecut, ecut_e[-1]):
+            raise ValueError('ecut parameter must be the largest value'
+                             'of ecut_extrapolation, when it is a list.')
         ecut = ecut_e[-1]
     else:
         ecut_e = np.array([ecut])
@@ -1083,14 +1086,14 @@ class G0W0(G0W0Calculator):
 
         kpts = list(select_kpts(kpts, gs.kd))
 
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
         else:
             if ecut_extrapolation:
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
-
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
             # use small imaginary frequency to avoid dividing by zero:
