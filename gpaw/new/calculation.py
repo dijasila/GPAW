@@ -28,7 +28,7 @@ from gpaw.utilities.partition import AtomPartition
 
 
 class ReuseWaveFunctionsError(Exception):
-    """Reusing the old wave functions after cell change failed.
+    """Reusing the old wave functions after cell-change failed.
 
     Most likekly, the number of k-points changed.
     """
@@ -65,6 +65,7 @@ class DFTState:
     def move(self, fracpos_ac, atomdist):
         self.ibzwfs.move(fracpos_ac, atomdist)
         self.density.move(fracpos_ac, atomdist)
+        self.potential.move(atomdist)
 
 
 class DFTCalculation:
@@ -227,7 +228,8 @@ class DFTCalculation:
         if 'forces' not in self.results or silent:
             self._calculate_forces()
 
-        if not silent:
+            if silent:
+                return
             self.log('\nforces: [  # eV/Ang')
             F_av = self.results['forces'] * (Ha / Bohr)
             for a, setup in enumerate(self.setups):
