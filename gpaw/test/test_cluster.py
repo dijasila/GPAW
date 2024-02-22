@@ -115,6 +115,7 @@ def test_minimal_box_mixed_pbc():
     atoms.cell = [[5.0, 0.0, 0.0],
                   [3.0, 4.0, 0.0],
                   [0.0, 0.0, 4.0]]
+
     cell0 = atoms.cell.copy()
     atoms.minimal_box(box)
 
