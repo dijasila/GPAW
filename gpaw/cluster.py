@@ -42,6 +42,9 @@ class Cluster(Atoms):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
 
+    def minimal_box0(self, border=4, h=0.2, multiple=4) -> None:
+        adjust_cell(self, border, h, multiple)
+
     def minimal_box(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
 
@@ -151,3 +154,50 @@ class Cluster(Atoms):
 
         self.__init__(read(filename, format=format))
         return len(self)
+
+
+def adjust_cell(atoms: Atoms, border: float = 4,
+                h: float = 0.2, multiple: int = 4) -> None:
+    """Adjust the cell such that
+    1. The vacuum around all atoms is at least border
+       in non-periodic directions
+    2. The grid spacing chosen by GPAW will be as similar
+       as possible in all directions
+    """
+    n_pbc = atoms.pbc.sum()
+    if n_pbc == 3:
+        return
+
+    if n_pbc == 2:
+        # get average h for the third direction
+        pass
+    elif n_pbc == 1:
+        # get h from periodic direction
+        h_c = [h, h, h]
+    else:
+        h_c = [h, h, h]
+
+    # extreme positions
+    pos_ac = atoms.get_positions()
+    lowest_c = np.minimum.reduce(pos_ac)
+    largest_c = np.maximum.reduce(pos_ac)
+
+    shift_c = np.zeros(3)
+
+    # adjust each cell direction
+    for i in range(3):
+        if atoms.pbc[i]:
+            continue
+
+        h = h_c[i]
+        extension = largest_c[i] - lowest_c[i]
+        min_size = extension + border
+        N = np.ceil(min_size / h / multiple) * multiple
+        size = N * h
+        atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
+
+        # shift structure to the center
+        shift_c[i] = (size - extension) / 2
+        shift_c[i] -= lowest_c[i]
+
+    atoms.translate(shift_c)

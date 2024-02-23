@@ -3,7 +3,7 @@ from math import sqrt
 from ase import Atoms
 from ase.build import fcc111
 
-from gpaw.cluster import Cluster
+from gpaw.cluster import Cluster, adjust_cell
 from gpaw.mpi import world
 from gpaw.core import UGDesc
 
@@ -123,7 +123,6 @@ def test_minimal_box_mixed_pbc():
     a = 3.92
     vac = 2
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
-    atoms.edit()
 
     atoms.pbc = [1, 1, 0]
     atoms.cell = [[5.0, 0.0, 0.0],
@@ -149,6 +148,7 @@ def test_minimal_box_mixed_pbc():
         print(f'h_z = {H[2, 2]}, not {np.linalg.norm(H[1])}' +
               ' as it is colser to 0.2')
 
+
 def test_platinum_surface():
     """ensure that non-periodic direction gets modified only"""
     surface = fcc111('Pt', (5, 6, 2), a=3.912, orthogonal=True, vacuum=2)
@@ -156,9 +156,7 @@ def test_platinum_surface():
 
     h = 0.2
     vacuum = 4
-
-    surface = Cluster(surface)
-    surface.minimal_box(vacuum, h=h)
+    adjust_cell(surface, vacuum, h=h)
 
     # perdiodic part shall not be changed
     assert (original_cell[:2] == surface.cell[:2]).all()
