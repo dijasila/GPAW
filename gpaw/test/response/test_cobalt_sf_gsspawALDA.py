@@ -72,13 +72,21 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         sAmaj.write_eigenmode_lineshapes(
             f'cobalt_sAmaj_q{q}.csv', nmodes=nmodes)
 
-        plot_enhancement(chiks, xi, Amaj, sAmaj, scaled_dyson_enhancer.lambd,
-                         nmodes=nmodes)
+        # Store ξ^++(q=0,ω=0), to test the effectiveness of the scaling
+        # To do XXX
+
+        plot_enhancement(chiks, xi, Amaj, sAmaj,
+                         lambd=scaled_dyson_enhancer.lambd, nmodes=nmodes)
 
     context.write_timer()
 
     # Compare scaling coefficient to reference
-    assert scaled_dyson_enhancer.lambd == pytest.approx(1.)
+    assert scaled_dyson_enhancer.lambd == pytest.approx(1.0685, abs=0.001)
+
+    # XXX To do XXX
+    # * Test xi(0, 0)
+    # * Test magnon peaks
+    # * Test "stored lambd"
 
     # Compare magnon peaks to reference data
     refs_mq = [
@@ -104,7 +112,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
             assert Apeak == pytest.approx(refs_mq[m][q][1], abs=0.05)  # a.u.
 
 
-def plot_enhancement(chiks, xi, Amaj0, sAmaj, lambd, *, nmodes):
+def plot_enhancement(chiks, xi, Amaj0, sAmaj, *, lambd, nmodes):
     import matplotlib.pyplot as plt
     from gpaw.mpi import world
     from ase.units import Ha

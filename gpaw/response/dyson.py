@@ -8,7 +8,7 @@ from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.goldstone import get_goldstone_scaling
 from gpaw.response.chiks import SelfEnhancementCalculator
-from gpaw.response.localft import LocalFTCalculator
+from gpaw.response.localft import LocalFTCalculator, add_spin_polarization
 
 
 class HXCScaling:
@@ -193,7 +193,11 @@ class ScaledDysonEnhancer(DysonEnhancer):
         if self.lambd is None:
             assert chiks.spincomponent in ['+-', '-+'], \
                 'So far, only Goldstone scaling is available'
-            self.lambd = get_goldstone_scaling('xi', xi, self.localft_calc)
+            assert chiks.qpd.optical_limit
+            # Calculate the ground state spin polarization
+            nz_G = self.localft_calc(chiks.qpd, add_spin_polarization)
+            # Calculate the rescaling parameter λ
+            self.lambd = get_goldstone_scaling('xi', xi, nz_G)
         return super().__call__(chiks, xi)
 
     def calculate_enhancement(self, chiks_GG, xi_GG):

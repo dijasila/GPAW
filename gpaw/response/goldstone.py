@@ -5,7 +5,7 @@ from gpaw.response.pair_functions import Chi
 
 def get_goldstone_scaling(mode, chilike: Chi, *args):
     """Get kernel scaling parameter to fulfill a Goldstone condition."""
-    assert chilike.qpd.kd.gamma, \
+    assert chilike.qpd.optical_limit, \
         r'The Goldstone condition is strictly bound to the Γ-point'
 
     _find_gs_frequency, _find_gs_scaling = identify_goldstone_mode(mode)
@@ -32,6 +32,10 @@ def get_goldstone_scaling(mode, chilike: Chi, *args):
 
 
 def identify_goldstone_mode(mode):
+    """Mode selection for the Goldstone mode factory pattern.
+
+    In the future, one may want to define the modes via class methods instead.
+    """
     if mode == 'fm':
         return find_fm_goldstone_frequency, find_fm_goldstone_scaling
     elif mode == 'afm':
@@ -111,8 +115,31 @@ def find_afm_goldstone_scaling(chiks_GG, Kxc_GG, dyson_solver):
     return fxcs
 
 
-def find_xi_goldstone_scaling(*args):
-    return 1.05
+def find_xi_goldstone_scaling(xi_GG, nz_G):
+    """Calculate Goldstone scaling parameter λ based on Ξ^(+-).
+
+    In the acoustic limit, the Goldstone condition reads
+
+    Ξ^(+-)(q=0,ω=0)|n_z> = |n_z>.
+
+    There are two sources of discrepancies from this relation, namely
+    deviations in the Goldstone mode vector from |n_z> and deviations in the
+    Goldstone eigenvalue from unity.
+
+    In order to remove the gap error, we can approximately (up to finite
+    broadening effects) account for both, by rescaling the full Ξ^(+-) matrix
+    based on the real part Goldstone eigenvalue:
+
+    λ = 1 / Re[<u_g|Ξ^(+-)(q=0,ω=0)|u_g>]
+
+    where |u_n> are the eigenvectors to Ξ^(+-)(q=0,ω=0) and
+
+    g = max |<n_z|u_n>|.
+         n
+    """
+    xi_n, u_Gn = np.linalg.eig(xi_GG)
+    g = np.argmax(np.abs(np.conj(nz_G) @ u_Gn))
+    return 1 / xi_n[g].real
 
 
 def calculate_macroscopic_kappa(chiks_GG, Kxc_GG, dyson_solver):
