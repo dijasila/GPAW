@@ -63,6 +63,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
         scaled_chi = scaled_dyson_enhancer(chiks, xi)
+        lambd = scaled_dyson_enhancer.lambd
 
         # Calculate majority spectral function
         Amaj, _ = spectral_decomposition(chi, pos_eigs=pos_eigs)
@@ -72,19 +73,23 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         sAmaj.write_eigenmode_lineshapes(
             f'cobalt_sAmaj_q{q}.csv', nmodes=nmodes)
 
-        # Store ξ^++(q=0,ω=0), to test the effectiveness of the scaling
-        # To do XXX
+        # Store Re ξ^++(q=0,ω), to test the effectiveness of the scaling
+        if q == 0:
+            chiks_mW, xi_mW = get_mode_projections(
+                chiks, xi, sAmaj, lambd=lambd, nmodes=nmodes)
+            xi0_w = xi_mW[0].real
 
-        plot_enhancement(chiks, xi, Amaj, sAmaj,
-                         lambd=scaled_dyson_enhancer.lambd, nmodes=nmodes)
+        plot_enhancement(chiks, xi, Amaj, sAmaj, lambd=lambd, nmodes=nmodes)
 
     context.write_timer()
 
     # Compare scaling coefficient to reference
-    assert scaled_dyson_enhancer.lambd == pytest.approx(1.0685, abs=0.001)
+    assert lambd == pytest.approx(1.0685, abs=0.001)
+    # Test that 1 - Re ξ^++(q=0,ω) vanishes at ω=0
+    w0 = np.argmin(np.abs(frq_w))
+    assert xi0_w[w0] == pytest.approx(1., abs=0.001)
 
     # XXX To do XXX
-    # * Test xi(0, 0)
     # * Test magnon peaks
     # * Test "stored lambd"
 
