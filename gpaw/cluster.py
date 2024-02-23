@@ -8,6 +8,7 @@ from ase.io import read
 from ase.build.connected import connected_indices
 
 from gpaw.core import UGDesc
+from gpaw.fftw import get_efficient_fft_size
 
 
 class Cluster(Atoms):
@@ -41,6 +42,9 @@ class Cluster(Atoms):
     def find_connected(self, index, dmax=None, scale=1.5):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
+
+    def minimal_box0(self, border=4, h=0.2, multiple=4) -> None:
+        adjust_cell(self, border, h, multiple)
 
     def minimal_box(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
@@ -151,3 +155,56 @@ class Cluster(Atoms):
 
         self.__init__(read(filename, format=format))
         return len(self)
+
+
+def adjust_cell(atoms: Atoms, border: float = 4,
+                h: float = 0.2) -> None:
+    """Adjust the cell such that
+    1. The vacuum around all atoms is at least border
+       in non-periodic directions
+    2. The grid spacing chosen by GPAW will be as similar
+       as possible in all directions
+    """
+    n_pbc = atoms.pbc.sum()
+
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    h_c = grid._gd.get_grid_spacings()
+
+    if n_pbc:
+        h = 0
+        for pbc, h1 in zip(atoms.pbc, h_c):
+            if pbc:
+                h += h1 / n_pbc
+
+    h_c = [h, h, h]
+
+    # extreme positions
+    pos_ac = atoms.get_positions()
+    lowest_c = np.minimum.reduce(pos_ac)
+    largest_c = np.maximum.reduce(pos_ac)
+
+    shift_c = np.zeros(3)
+
+    # adjust each cell direction
+    for i in range(3):
+        if atoms.pbc[i]:
+            continue
+
+        h = h_c[i]
+        extension = largest_c[i] - lowest_c[i]
+        min_size = extension + 2 * border
+        # logic from gpaw/core/domain.py
+        n = 1
+        factors = (2, 3, 5, 7)
+        N = np.maximum(n, (min_size / h / n + 0.5).astype(int) * n)
+        N = get_efficient_fft_size(N, n, factors)
+
+        size = N * h
+        atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
+
+        # shift structure to the center
+        shift_c[i] = (size - extension) / 2
+        shift_c[i] -= lowest_c[i]
+        print('# shift', shift_c)
+
+    atoms.translate(shift_c)
