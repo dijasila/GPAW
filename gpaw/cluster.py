@@ -8,6 +8,7 @@ from ase.io import read
 from ase.build.connected import connected_indices
 
 from gpaw.core import UGDesc
+from gpaw.fftw import get_efficient_fft_size
 
 
 class Cluster(Atoms):
@@ -157,7 +158,7 @@ class Cluster(Atoms):
 
 
 def adjust_cell(atoms: Atoms, border: float = 4,
-                h: float = 0.2, multiple: int = 4) -> None:
+                h: float = 0.2) -> None:
     """Adjust the cell such that
     1. The vacuum around all atoms is at least border
        in non-periodic directions
@@ -165,17 +166,17 @@ def adjust_cell(atoms: Atoms, border: float = 4,
        as possible in all directions
     """
     n_pbc = atoms.pbc.sum()
-    if n_pbc == 3:
-        return
 
-    if n_pbc == 2:
-        # get average h for the third direction
-        pass
-    elif n_pbc == 1:
-        # get h from periodic direction
-        h_c = [h, h, h]
-    else:
-        h_c = [h, h, h]
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    h_c = grid._gd.get_grid_spacings()
+
+    if n_pbc:
+        h = 0
+        for pbc, h1 in zip(atoms.pbc, h_c):
+            if pbc:
+                h += h1 / n_pbc
+
+    h_c = [h, h, h]
 
     # extreme positions
     pos_ac = atoms.get_positions()
@@ -191,13 +192,19 @@ def adjust_cell(atoms: Atoms, border: float = 4,
 
         h = h_c[i]
         extension = largest_c[i] - lowest_c[i]
-        min_size = extension + border
-        N = np.ceil(min_size / h / multiple) * multiple
+        min_size = extension + 2 * border
+        # logic from gpaw/core/domain.py
+        n = 1
+        factors = (2, 3, 5, 7)
+        N = np.maximum(n, (min_size / h / n + 0.5).astype(int) * n)
+        N = get_efficient_fft_size(N, n, factors)
+
         size = N * h
         atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
 
         # shift structure to the center
         shift_c[i] = (size - extension) / 2
         shift_c[i] -= lowest_c[i]
+        print('# shift', shift_c)
 
     atoms.translate(shift_c)
