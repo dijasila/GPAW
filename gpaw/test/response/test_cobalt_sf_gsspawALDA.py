@@ -82,7 +82,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
                 chiks, xi, sAmaj, lambd=lambd, nmodes=nmodes)
             xi0_w = xi_mW[0].real
 
-        plot_enhancement(chiks, xi, Amaj, sAmaj, lambd=lambd, nmodes=nmodes)
+        # plot_enhancement(chiks, xi, Amaj, sAmaj, lambd=lambd, nmodes=nmodes)
 
     context.write_timer()
 
@@ -92,31 +92,48 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
     w0 = np.argmin(np.abs(frq_w))
     assert xi0_w[w0] == pytest.approx(1., abs=0.001)
 
-    # XXX To do XXX
-    # * Test magnon peaks
-
     # Compare magnon peaks to reference data
-    refs_mq = [
+    refs_mqa = [
         # Acoustic
         [
-            # (wpeak, Apeak)
-            (0.085, 7.895),
-            (0.320, 5.828),
+            # q_Γ
+            [
+                # (wpeak, Apeak)
+                (0.085, 7.895),  # unscaled
+                (-0.026, 8.550),  # scaled
+            ],
+            # q_M / 2
+            [
+                # (wpeak, Apeak)
+                (0.320, 5.828),  # unscaled
+                (0.226, 6.752),  # scaled
+            ],
         ],
         # Optical
         [
-            # (wpeak, Apeak)
-            (0.904, 3.493),
-            (0.857, 2.988),
+            # q_Γ
+            [
+                # (wpeak, Apeak)
+                (0.904, 3.493),  # unscaled
+                (0.524, 3.689),  # scaled
+            ],
+            # q_M / 2
+            [
+                # (wpeak, Apeak)
+                (0.857, 2.988),  # unscaled
+                (0.693, 3.455),  # scaled
+            ],
         ],
     ]
-    for q in range(len(q_qc)):
-        w_w, a_wm = read_eigenmode_lineshapes(f'cobalt_Amaj_q{q}.csv')
-        for m in range(nmodes):
-            wpeak, Apeak = findpeak(w_w, a_wm[:, m])
-            print(m, q, wpeak, Apeak)
-            assert wpeak == pytest.approx(refs_mq[m][q][0], abs=0.01)  # eV
-            assert Apeak == pytest.approx(refs_mq[m][q][1], abs=0.05)  # a.u.
+    for a, Astr in enumerate(['Amaj', 'sAmaj']):
+        for q in range(len(q_qc)):
+            w_w, a_wm = read_eigenmode_lineshapes(f'cobalt_{Astr}_q{q}.csv')
+            for m in range(nmodes):
+                wpeak, Apeak = findpeak(w_w, a_wm[:, m])
+                refw, refA = refs_mqa[m][q][a]
+                print(m, q, a, wpeak, Apeak)
+                assert wpeak == pytest.approx(refw, abs=0.01)  # eV
+                assert Apeak == pytest.approx(refA, abs=0.05)  # a.u.
 
 
 def get_mode_projections(chiks, xi, Amaj, *, lambd, nmodes):
