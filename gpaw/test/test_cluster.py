@@ -9,8 +9,6 @@ from gpaw.core import UGDesc
 
 import pytest
 
-import numpy as np
-
 
 def test_cluster():
     R = 2.0
@@ -89,64 +87,64 @@ def test_cluster():
 
 
 def test_minimal_box_mixed_pbc():
-
+    # Orthogonal unit cell
     atoms = Cluster(Atoms('H'))
-    atoms.center(vacuum=1.9)
+    atoms.center(vacuum=2.)
     atoms.pbc = [0, 1, 1]
     cell0 = atoms.cell.copy()
 
     box = 3
     atoms.minimal_box(box)
-    assert atoms.cell[0, 0] == 2 * box
+
+    # chack that the periodic part dont change
     assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
+    assert atoms.cell[0, 0] == 2 * box
 
     _, h = atoms.minimal_box(box, 0.2)
+
+    # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
-    # h avrag over yz is 0.19 multiple of 4
-    assert atoms.cell[0, 0] / 0.19 % 4 == pytest.approx(0)
+    assert atoms.cell[0, 0] / h % 4 == pytest.approx(0)
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, [0, 1, 1])
-    H = atoms.cell / grid.size
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    h_c = grid._gd.get_grid_spacings()
 
-    assert H[0, 0] == (np.linalg.norm(H[1]) + np.linalg.norm(H[2])) / 2
+    assert h_c[0] == pytest.approx(h_c[1:].sum() / 2)
 
+    # check for non square unit cell
     atoms.cell[1, 1] = 3
     _, h = atoms.minimal_box(box, h=0.2)
-    # h avrag over yz is 0.195 multile of 4
-    assert atoms.cell[0, 0] / 0.195 % 4 == pytest.approx(0)
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, [0, 1, 1])
-    H = atoms.cell / grid.size
-    assert H[0, 0] == (np.linalg.norm(H[1]) + np.linalg.norm(H[2])) / 2
+    assert atoms.cell[0, 0] / h % 4 == pytest.approx(0)
 
-    # testing non orthogonal uint sell
-    a = 3.92
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    h_c = grid._gd.get_grid_spacings()
+
+    assert h_c[0] == pytest.approx(h_c[1:].sum() / 2)
+
+    # testing non orthogonal uint cell
+    a = 3.912
     vac = 2
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
 
     atoms.pbc = [1, 1, 0]
-    atoms.cell = [[5.0, 0.0, 0.0],
-                  [3.0, 4.0, 0.0],
-                  [0.0, 0.0, 4.0]]
 
     cell0 = atoms.cell.copy()
     atoms.minimal_box(box)
 
     assert atoms.cell[2, 2] == 2 * box
+    # chack that the periodic part don't change
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
 
     _, h = atoms.minimal_box(box, h=0.2)
-    # h avrag over xy is 0.25 multiple of 4
+    # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
-    assert atoms.cell[2, 2] / 0.25 % 4 == pytest.approx(0)
+    assert atoms.cell[2, 2] / h % 4 == pytest.approx(0)
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, [0, 1, 1])
-    H = atoms.cell / grid.size
-    try:
-        assert H[2, 2] == (np.linalg.norm(H[1]) + np.linalg.norm(H[0])) / 2
-    except AssertionError:
-        print(f'h_z = {H[2, 2]}, not {np.linalg.norm(H[1])}' +
-              ' as it is colser to 0.2')
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    h_c = grid._gd.get_grid_spacings()
+
+    assert h_c[2] == pytest.approx(h_c[:2].sum() / 2)
 
 
 def test_platinum_surface():
@@ -156,16 +154,25 @@ def test_platinum_surface():
 
     h = 0.2
     vacuum = 4
-    adjust_cell(surface, vacuum, h=h)
+    multiple = 4
+    adjust_cell(surface, vacuum, h=h, multiple=multiple)
 
     # perdiodic part shall not be changed
     assert (original_cell[:2] == surface.cell[:2]).all()
     # the surfcae is shifted upwards
     assert (surface.get_positions().T[2] >= vacuum).all()
-
     # what internally is done in gpaw
     grid = UGDesc.from_cell_and_grid_spacing(surface.cell, h, surface.pbc)
     h_c = grid._gd.get_grid_spacings()
 
     h_z = h_c[:2].sum() / 2  # average of x and y
+
+    # XXX ???
+
+    # This one works with the h calculated by the cluster and to see that
+    # it is a multipe of 4
+    assert surface.cell[2, 2] / h % multiple == pytest.approx(0)
+    # the prblem is here the the new h_c[2] in z derecton dose not become the
+    # same as the h we feed the grid calculation I DONT KNOW HOW TO FIX THIS
+    assert h_c[2] == h
     assert h_z == pytest.approx(h_c[2])

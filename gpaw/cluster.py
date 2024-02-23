@@ -96,17 +96,18 @@ class Cluster(Atoms):
         if h is not None:
 
             if not hasattr(h, '__len__'):
+                h0 = h
                 h = np.array([h, h, h])
 
                 if True in pbc:
-                    grid = UGDesc.from_cell_and_grid_spacing(extr2, h, pbc)
-                    H = extr2 / grid.size
-                    h = np.zeros(3)
+                    grid = UGDesc.from_cell_and_grid_spacing(extr2, h0, pbc)
+                    h_c = grid._gd.get_grid_spacings()
+
                     h1 = 0
                     i = 0
-                    for ip, p in enumerate(pbc):
-                        if p:
-                            h1 += np.linalg.norm(H[ip])
+                    for ip, periodic in enumerate(pbc):
+                        if periodic:
+                            h1 += h_c[ip]
                             i += 1
                     h0 = h1 / i
                     h = [h0, h0, h0]
@@ -116,7 +117,6 @@ class Cluster(Atoms):
                 if True in pbc:
                     if not pbc[c]:
                         L = np.linalg.norm(extr2[c])
-
                         N = np.ceil(L / h[c] / multiple) * multiple
 
                         # correct L
@@ -140,12 +140,12 @@ class Cluster(Atoms):
 
         if True in pbc:
             self.set_cell(tuple(extr2))
-            if h is not None:
-                return shift, h0
-            else:
-                return shift
         else:
             self.set_cell(tuple(extr[1]))
+
+        if h is not None:
+            return shift, h0
+        else:
             return shift
 
     def read(self, filename, format=None):
