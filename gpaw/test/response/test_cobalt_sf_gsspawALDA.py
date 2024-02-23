@@ -50,7 +50,7 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
                                         rshelmax=rshelmax,
                                         **calc_kwargs)
     dyson_enhancer = DysonEnhancer(context)
-    scaled_dyson_enhancer = ScaledDysonEnhancer.from_xi_calculator(xi_calc)
+    lambd = None
 
     for q, q_c in enumerate(q_qc):
         # Calculate χ_KS^+-(q,z) and Ξ^++(q,z)
@@ -62,6 +62,9 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         chiks = chiks.copy_with_global_frequency_distribution()
         xi = xi.copy_with_global_frequency_distribution()
         chi = dyson_enhancer(chiks, xi)
+        # Test ability to apply Goldstone scaling when inverting the dyson eq.
+        scaled_dyson_enhancer = ScaledDysonEnhancer.from_xi_calculator(
+            xi_calc, lambd=lambd)
         scaled_chi = scaled_dyson_enhancer(chiks, xi)
         lambd = scaled_dyson_enhancer.lambd
 
@@ -91,7 +94,6 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
 
     # XXX To do XXX
     # * Test magnon peaks
-    # * Test "stored lambd"
 
     # Compare magnon peaks to reference data
     refs_mq = [
