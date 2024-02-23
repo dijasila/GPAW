@@ -43,10 +43,10 @@ class Cluster(Atoms):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
 
-    def minimal_box0(self, border=4, h=0.2, multiple=4) -> None:
-        adjust_cell(self, border, h, multiple)
+    def minimal_box(self, border=4, h=0.2) -> None:
+        adjust_cell(self, border, h)
 
-    def minimal_box(self, border=0, h=None, multiple=4):
+    def minimal_box0(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
 
         The structure is moved to fit into the box [(0,x),(0,y),(0,z)]
@@ -167,21 +167,27 @@ def adjust_cell(atoms: Atoms, border: float = 4,
     """
     n_pbc = atoms.pbc.sum()
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-    h_c = grid._gd.get_grid_spacings()
+    # extreme positions
+
+    pos_ac = atoms.get_positions()
+    lowest_c = np.minimum.reduce(pos_ac)
+    largest_c = np.maximum.reduce(pos_ac)
 
     if n_pbc:
+        grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+        h_c = grid._gd.get_grid_spacings()
+
         h = 0
         for pbc, h1 in zip(atoms.pbc, h_c):
             if pbc:
                 h += h1 / n_pbc
+    else:
+        extension = largest_c - lowest_c
+        min_size = extension + 2 * border
+
+        atoms.set_cell(min_size)
 
     h_c = [h, h, h]
-
-    # extreme positions
-    pos_ac = atoms.get_positions()
-    lowest_c = np.minimum.reduce(pos_ac)
-    largest_c = np.maximum.reduce(pos_ac)
 
     shift_c = np.zeros(3)
 

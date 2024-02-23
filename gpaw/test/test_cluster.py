@@ -14,46 +14,6 @@ def test_cluster():
     R = 2.0
     CO = Atoms('CO', [(1, 0, 0), (1, 0, R)])
 
-    CO.rotate(90, 'y')
-    assert CO.positions[1, 0] == pytest.approx(R, abs=1e-10)
-
-    # translate
-    CO.translate(-CO.get_center_of_mass())
-    p = CO.positions.copy()
-    for i in range(2):
-        assert p[i, 1] == pytest.approx(0, abs=1e-10)
-        assert p[i, 2] == pytest.approx(0, abs=1e-10)
-
-    # rotate the nuclear axis to the direction (1,1,1)
-    CO.rotate(p[1] - p[0], (1, 1, 1))
-    q = CO.positions.copy()
-    for c in range(3):
-        assert q[0, c] == pytest.approx(p[0, 0] / sqrt(3), abs=1e-10)
-        assert q[1, c] == pytest.approx(p[1, 0] / sqrt(3), abs=1e-10)
-
-    # minimal box
-    b = 4.0
-    CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
-    CO.minimal_box(b)
-    cc = CO.get_cell()
-    for c in range(3):
-        width = 2 * b
-        if c == 2:
-            width += R
-        assert cc[c, c] == pytest.approx(width, abs=1e-10)
-
-    # minimal box, ensure multiple of 4
-    h = .13
-    b = [2, 3, 4]
-    CO.minimal_box(b, h=h)
-    cc = CO.get_cell()
-    for c in range(3):
-        # print "cc[c,c], cc[c,c] / h % 4 =", cc[c, c], cc[c, c] / h % 4
-        for a in CO:
-            print(a.symbol, b[c], a.position[c], cc[c, c] - a.position[c])
-            assert a.position[c] > b[c]
-        assert cc[c, c] / h % 4 == pytest.approx(0.0, abs=1e-10)
-
     # I/O
     fxyz = 'CO.xyz'
     fpdb = 'CO.pdb'
@@ -86,69 +46,64 @@ def test_cluster():
         CO = Cluster(filename=fxyz)
 
 
-def test_minimal_box_mixed_pbc():
-    # Orthogonal unit cell
-    atoms = Cluster(Atoms('H'))
-    atoms.center(vacuum=2.)
-    atoms.pbc = [0, 1, 1]
-    cell0 = atoms.cell.copy()
+def test_CO():
+    R = 2.0
+    CO = Atoms('CO', [(1, 0, 0), (1, 0, R)])
 
-    box = 3
-    atoms.minimal_box(box)
+    CO.rotate(90, 'y')
+    assert CO.positions[1, 0] == pytest.approx(R, abs=1e-10)
 
-    # chack that the periodic part dont change
-    assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
-    assert atoms.cell[0, 0] == 2 * box
+    # translate
+    CO.translate(-CO.get_center_of_mass())
+    p = CO.positions.copy()
+    for i in range(2):
+        assert p[i, 1] == pytest.approx(0, abs=1e-10)
+        assert p[i, 2] == pytest.approx(0, abs=1e-10)
 
-    _, h = atoms.minimal_box(box, 0.2)
+    CO.rotate(p[1] - p[0], (1, 1, 1))
+    q = CO.positions.copy()
+    for c in range(3):
+        assert q[0, c] == pytest.approx(p[0, 0] / sqrt(3), abs=1e-10)
+        assert q[1, c] == pytest.approx(p[1, 0] / sqrt(3), abs=1e-10)
 
-    # check that the box ajusts for h in only non periodic directions
-    assert atoms.cell[1:, 1:] == pytest.approx(cell0[1:, 1:])
-    assert atoms.cell[0, 0] / h % 4 == pytest.approx(0)
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-    h_c = grid._gd.get_grid_spacings()
+def test_minimal_box():
+    R = 2.0
+    b = 4.0
 
-    assert h_c[0] == pytest.approx(h_c[1:].sum() / 2)
+    CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
+    CO.minimal_box(b)
+    cc = CO.get_cell()
 
-    # check for non square unit cell
-    atoms.cell[1, 1] = 3
-    _, h = atoms.minimal_box(box, h=0.2)
+    for c in range(3):
+        width = 2 * b
+        if c == 2:
+            width += R
+        assert cc[c, c] == pytest.approx(width, abs=1e-10)
 
-    assert atoms.cell[0, 0] / h % 4 == pytest.approx(0)
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-    h_c = grid._gd.get_grid_spacings()
-
-    assert h_c[0] == pytest.approx(h_c[1:].sum() / 2)
-
-    # testing non orthogonal uint cell
+def test_non_orthogonal_unitcell():
     a = 3.912
     vac = 2
+    box = 3.
+
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
 
     atoms.pbc = [1, 1, 0]
 
     cell0 = atoms.cell.copy()
-    atoms.minimal_box(box)
 
-    assert atoms.cell[2, 2] == 2 * box
-    # chack that the periodic part don't change
-    assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
+    atoms.minimal_box(box, h=0.2)
 
-    _, h = atoms.minimal_box(box, h=0.2)
     # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
-    assert atoms.cell[2, 2] / h % 4 == pytest.approx(0)
+    # check that the atom is shifted in non periodic direction
+    assert atoms.positions[0, 2] >= vac
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, atoms.pbc)
     h_c = grid._gd.get_grid_spacings()
 
     assert h_c[2] == pytest.approx(h_c[:2].sum() / 2)
-
-
-def test_CO():
-    pass
 
 
 def test_platinum_surface():
