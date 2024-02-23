@@ -112,30 +112,36 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
             assert Apeak == pytest.approx(refs_mq[m][q][1], abs=0.05)  # a.u.
 
 
+def get_mode_projections(chiks, xi, Amaj, *, lambd, nmodes):
+    """Project χ_KS^+-(q,z) and Ξ^++(q,z) onto the magnon mode vectors."""
+    wm = Amaj.get_eigenmode_frequency(nmodes=nmodes)
+    v_Gm = Amaj.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
+    chiks_wm = np.zeros((chiks.blocks1d.nlocal, nmodes), dtype=complex)
+    xi_wm = np.zeros((xi.blocks1d.nlocal, nmodes), dtype=complex)
+    for m, v_G in enumerate(v_Gm.T):
+        chiks_wm[:, m] = np.conj(v_G) @ chiks.array @ v_G  # chiks_wGG
+        xi_wm[:, m] = np.conj(v_G) @ xi.array @ v_G  # xi_wGG
+    chiks_mW = chiks.blocks1d.all_gather(chiks_wm * lambd).T
+    xi_mW = xi.blocks1d.all_gather(xi_wm * lambd).T
+    return chiks_mW, xi_mW
+
+
 def plot_enhancement(chiks, xi, Amaj0, sAmaj, *, lambd, nmodes):
     import matplotlib.pyplot as plt
     from gpaw.mpi import world
     from ase.units import Ha
 
     for Amaj, _lambd in zip([Amaj0, sAmaj], [1., lambd]):
-        # Project χ_KS^+-(q,z) and Ξ^++(q,z) onto the mode vectors
-        wm = Amaj.get_eigenmode_frequency(nmodes=nmodes)
-        a_mW = Amaj.get_eigenmodes_at_frequency(wm, nmodes=nmodes).T
-        v_Gm = Amaj.get_eigenvectors_at_frequency(wm, nmodes=nmodes)
-        chiks_wm = np.zeros((chiks.blocks1d.nlocal, nmodes), dtype=complex)
-        xi_wm = np.zeros((xi.blocks1d.nlocal, nmodes), dtype=complex)
-        for m, v_G in enumerate(v_Gm.T):
-            chiks_wm[:, m] = np.conj(v_G) @ chiks.array @ v_G  # chiks_wGG
-            xi_wm[:, m] = np.conj(v_G) @ xi.array @ v_G  # xi_wGG
-        chiks_mW = chiks.blocks1d.all_gather(chiks_wm * _lambd).T
-        xi_mW = xi.blocks1d.all_gather(xi_wm * _lambd).T
-
+        a_mW = Amaj.get_eigenmode_lineshapes(nmodes=nmodes).T
+        chiks_mW, xi_mW = get_mode_projections(
+            chiks, xi, Amaj, lambd=_lambd, nmodes=nmodes)
         for m in range(nmodes):
             plt.subplot(1, nmodes, m + 1)
             plt.plot(chiks.zd.omega_w * Ha, -chiks_mW[m].imag / np.pi)
             plt.plot(xi.zd.omega_w * Ha, xi_mW[m].real)
             plt.axhline(1., c='0.5')
             plt.plot(Amaj.omega_w, a_mW[m])
+
     if world.rank == 0:
         plt.show()
     world.barrier()
