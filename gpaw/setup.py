@@ -244,10 +244,10 @@ class BaseSetup:
             while j < nj and self.l_orb_J[j] != l:
                 j += 1
             if j < len(f_j):  # lengths of f_j and l_j may differ
-                # f = f_j[j]
+                f = f_j[j]
                 f_s = f_sj[:, j]
             else:
-                # f = 0
+                f = 0
                 f_s = np.array([0, 0])
 
             degeneracy = 2 * l + 1
