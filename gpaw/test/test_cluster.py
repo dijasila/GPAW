@@ -176,8 +176,3 @@ def test_platinum_surface():
     # same as the h we feed the grid calculation I DONT KNOW HOW TO FIX THIS
     assert h_c[2] == h
     assert h_z == pytest.approx(h_c[2])
-
-
-test_minimal_box_mixed_pbc()
-
-test_platinum_surface()
