@@ -1,4 +1,4 @@
-"""check is libx is compiled with --disable-fhc (needed for mggas)"""
+"""check is libxc is compiled with --disable-fhc (needed for mggas)"""
 import pytest
 from ase.build import molecule
 from gpaw import GPAW, KohnShamConvergenceError
