@@ -54,7 +54,7 @@ lxcXCFunctional_is_mgga(lxcXCFunctionalObject *self, PyObject *args)
 static PyObject*
 lxcXCFunctional_needs_laplacian(lxcXCFunctionalObject *self, PyObject *args)
 {
-  int success = 0; /* assume functional is not MGGA */
+  int success = 0; /* assume functional doesn't need laplacian */
   // check family of most-complex functional
   if (self->functional[0]->info->flags & XC_FLAGS_NEEDS_LAPLACIAN) success = XC_FLAGS_NEEDS_LAPLACIAN;
   return Py_BuildValue("i", success);
