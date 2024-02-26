@@ -9,7 +9,7 @@ from ase.build.connected import connected_indices
 
 from gpaw.core import UGDesc
 from gpaw.utilities import h2gpts
-from gpaw.fftw import get_efficient_fft_size
+# from gpaw.fftw import get_efficient_fft_size
 
 
 class Cluster(Atoms):
@@ -175,14 +175,11 @@ def adjust_cell(atoms: Atoms, border: float = 4,
     largest_c = np.maximum.reduce(pos_ac)
 
     if n_pbc:
-        #grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-        #h_c = grid._gd.get_grid_spacings()
+        # grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+        # h_c = grid._gd.get_grid_spacings()
 
-        h_c = np.zeros(3)
-        N_c = h2gpts(h,atoms.cell,multiple)
-        for i in range(3):
-            h_c[i] = np.linalg.norm(atoms.cell/N_c)
-
+        N_c = h2gpts(h, atoms.cell, multiple)
+        h_c = np.diag(atoms.cell / N_c)
         h = 0
         for pbc, h1 in zip(atoms.pbc, h_c):
             if pbc:
@@ -194,7 +191,7 @@ def adjust_cell(atoms: Atoms, border: float = 4,
         atoms.set_cell(min_size)
 
     h_c = [h, h, h]
-
+    print(h_c)
     shift_c = np.zeros(3)
 
     # adjust each cell direction
@@ -211,7 +208,9 @@ def adjust_cell(atoms: Atoms, border: float = 4,
         N = np.maximum(n, (min_size / h / n + 0.5).astype(int) * n)
         N = get_efficient_fft_size(N, n, factors)'''
         # loguc from gpaw/utilitis/__init__.py
-        N = np.maximum(multiple, (min_size / h / multiple + 0.5).astype(int) * multiple)
+        N = np.maximum(multiple,
+                       (min_size / h / multiple + 0.5).astype(int) *
+                       multiple)
 
         size = N * h
         atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
