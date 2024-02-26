@@ -5,10 +5,11 @@ from ase.build import fcc111
 
 from gpaw.cluster import Cluster, adjust_cell
 from gpaw.mpi import world
-# from gpaw.core import UGDesc
+
 from gpaw.utilities import h2gpts
 
 import numpy as np
+
 import pytest
 
 
@@ -72,16 +73,15 @@ def test_CO():
 def test_minimal_box():
     R = 2.0
     b = 4.0
-    h = 0.2
 
     CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
-    CO.minimal_box(b, h)
+    CO.minimal_box(b)
     cc = CO.get_cell()
 
     for c in range(3):
         width = 2 * b
         if c == 2:
-            width += R + 2 * h
+            width += R
         assert cc[c, c] == pytest.approx(width, abs=1e-10)
 
 

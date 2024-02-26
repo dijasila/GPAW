@@ -9,7 +9,6 @@ from ase.build.connected import connected_indices
 
 from gpaw.core import UGDesc
 from gpaw.utilities import h2gpts
-# from gpaw.fftw import get_efficient_fft_size
 
 
 class Cluster(Atoms):
@@ -44,7 +43,7 @@ class Cluster(Atoms):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
 
-    def minimal_box(self, border=4, h=0.2, multiple=4) -> None:
+    def minimal_box(self, border=4, h=None, multiple=4) -> None:
         adjust_cell(self, border, h, multiple)
 
     def minimal_box_old(self, border=0, h=None, multiple=4):
@@ -175,22 +174,21 @@ def adjust_cell(atoms: Atoms, border: float = 4,
     largest_c = np.maximum.reduce(pos_ac)
 
     if n_pbc:
-        # grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-        # h_c = grid._gd.get_grid_spacings()
 
-        N_c = h2gpts(h, atoms.cell, multiple)
-        h_c = np.diag(atoms.cell / N_c)
-        h = 0
-        for pbc, h1 in zip(atoms.pbc, h_c):
-            if pbc:
-                h += h1 / n_pbc
+        if h is not None:
+            N_c = h2gpts(h, atoms.cell, multiple)
+            h_c = np.diag(atoms.cell / N_c)
+            h = 0
+            for pbc, h1 in zip(atoms.pbc, h_c):
+                if pbc:
+                    h += h1 / n_pbc
     else:
         extension = largest_c - lowest_c
         min_size = extension + 2 * border
 
         atoms.set_cell(min_size)
-
-    h_c = np.array([h, h, h])
+    if h is not None:
+        h_c = np.array([h, h, h])
 
     shift_c = np.zeros(3)
 
@@ -199,20 +197,20 @@ def adjust_cell(atoms: Atoms, border: float = 4,
         if atoms.pbc[i]:
             continue
 
-        h = h_c[i]
         extension = largest_c[i] - lowest_c[i]
         min_size = extension + 2 * border
-        # logic from gpaw/core/domain.py
-        '''n = 1
-        factors = (2, 3, 5, 7)
-        N = np.maximum(n, (min_size / h / n + 0.5).astype(int) * n)
-        N = get_efficient_fft_size(N, n, factors)'''
-        # loguc from gpaw/utilitis/__init__.py
-        N = np.maximum(multiple,
-                       (min_size / h / multiple + 0.5).astype(int) *
-                       multiple)
 
-        size = N * h
+        if h is not None:
+            h = h_c[i]
+            # loguc from gpaw/utilitis/__init__.py
+            N = np.maximum(multiple,
+                           (min_size / h / multiple + 0.5).astype(int) *
+                           multiple)
+
+            size = N * h
+        else:
+            size = min_size
+
         atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
 
         # shift structure to the center
