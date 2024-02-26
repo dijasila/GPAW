@@ -349,7 +349,7 @@ class AtomPAW(GPAW):
             # We'll make an ugly hack
             if abs(bf_g[1]) > 3.0 * abs(bf_g[2] - bf_g[1]):
                 bf_g[0] = bf_g[1]
-            bf = BasisFunction(n, l, self.wfs.gd.r_g[-1], bf_g,
+            bf = BasisFunction(None, l, self.wfs.gd.r_g[-1], bf_g,
                                '%s%d e=%.3f f=%.3f' % ('spdfgh'[l], n, eps, f))
             bf_j.append(bf)
         return basis

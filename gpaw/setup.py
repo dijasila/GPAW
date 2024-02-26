@@ -308,7 +308,8 @@ class BaseSetup:
 
             n = self.n_j[j]
             if n > 0:
-                if self.basis.bf_j[J].n != n:
+                nb = self.basis.bf_j[J].n
+                if nb is not None and nb != n:
                     raise ValueError('Basis not compatible with PAW potential')
             else:
                 assert (f_si[:, ib:ib + 2 * l + 1] == 0).all()
