@@ -489,41 +489,36 @@ class BaseSetup:
 
     def calculate_integral_potentials(self, func):
         """Calculates a set of potentials using func."""
-        wg_lg = [func(self, self.g_lg[l], l)
+        wg_lg = [func(self.g_lg[l], l)
                  for l in range(self.lmax + 1)]
-        wn_lqg = [np.array([func(self, self.local_corr.n_qg[q], l)
+        wn_lqg = [np.array([func(self.local_corr.n_qg[q], l)
                             for q in range(self.nq)])
                   for l in range(2 * self.local_corr.lcut + 1)]
-        wnt_lqg = [np.array([func(self, self.local_corr.nt_qg[q], l)
+        wnt_lqg = [np.array([func(self.local_corr.nt_qg[q], l)
                              for q in range(self.nq)])
                    for l in range(2 * self.local_corr.lcut + 1)]
-        wnc_g = func(self, self.local_corr.nc_g, l=0)
-        wnct_g = func(self, self.local_corr.nct_g, l=0)
+        wnc_g = func(self.local_corr.nc_g, l=0)
+        wnct_g = func(self.local_corr.nct_g, l=0)
         wmct_g = wnct_g + self.Delta0 * wg_lg[0]
         return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
 
     def calculate_yukawa_interaction(self, gamma):
         """Calculate and return the Yukawa based interaction."""
-        if self._Mg_pp is not None and gamma == self._gamma:
-            return self._Mg_pp  # Cached
 
         # Solves the radial screened poisson equation for density n_g
-        def Yuk(self, n_g, l):
+        def Yuk(n_g, l):
             """Solve radial screened poisson for density n_g."""
-            gamma = self._gamma
             return self.local_corr.rgd2.yukawa(n_g, l, gamma) * \
                 self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
 
-        self._gamma = gamma
-        self._Mg_pp = self.calculate_vvx_interactions(Yuk)
-        return self._Mg_pp
+        return self.calculate_vvx_interactions(Yuk)
 
     def calculate_erfc_interaction(self, omega):
         """Calculate and return erfc based valence valence
            exchange interactions."""
         hse = RadialHSE(self.local_corr.rgd2, omega).screened_coulomb_dv
 
-        def erfc_interaction(_, n_g, l):
+        def erfc_interaction(n_g, l):
             return hse(n_g, l)
         return self.calculate_vvx_interactions(erfc_interaction)
 
@@ -532,9 +527,8 @@ class BaseSetup:
            interaction."""
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
             self.calculate_integral_potentials(interaction)
-        self._Mg_pp = self.calculate_coulomb_corrections(
+        return self.calculate_coulomb_corrections(
             wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
-        return self._Mg_pp
 
 
 class LeanSetup(BaseSetup):
@@ -597,6 +591,7 @@ class LeanSetup(BaseSetup):
         self.l_j = s.l_j
         self.l_orb_J = s.l_orb_J
         self.nj = len(s.l_j)
+        self.nq = s.nq
 
         self.data = s.data
 
@@ -644,7 +639,6 @@ class LeanSetup(BaseSetup):
 
         # Required by yukawa rsf
         self.X_pg = s.X_pg
-        self.X_gamma = s.X_gamma
 
         # Required by electrostatic correction
         self.dEH0 = s.dEH0
@@ -664,8 +658,6 @@ class LeanSetup(BaseSetup):
             self.local_corr = s.local_corr
         else:
             self.local_corr = LocalCorrectionVar(s)
-        self._Mg_pp = None
-        self._gamma = 0
 
 
 class Setup(BaseSetup):
@@ -759,7 +751,6 @@ class Setup(BaseSetup):
         self.X_p = data.X_p
         self.X_wp = data.X_wp
 
-        self.X_gamma = data.X_gamma
         self.X_pg = data.X_pg
 
         self.orbital_free = data.orbital_free
@@ -777,8 +768,6 @@ class Setup(BaseSetup):
 
         self.lmax = lmax
 
-        self._Mg_pp = None  # Yukawa based corrections
-        self._gamma = 0
         # Attributes for run-time calculation of _Mg_pp
         self.local_corr = LocalCorrectionVar(data)
 
@@ -910,7 +899,7 @@ class Setup(BaseSetup):
                                                     self.local_corr.T_Lqp)
 
         # Solves the radial poisson equation for density n_g
-        def H(self, n_g, l):
+        def H(n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
         (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
@@ -948,19 +937,6 @@ class Setup(BaseSetup):
         self.M_wpp = {}
         for omega in self.ExxC_w:
             self.M_wpp[omega] = self.calculate_erfc_interaction(omega)
-
-        if xc.type == 'GLLB':
-            if 'core_f' in self.extra_xc_data:
-                self.wnt_lqg = wnt_lqg
-                self.wn_lqg = wn_lqg
-                self.fc_j = self.extra_xc_data['core_f']
-                self.lc_j = self.extra_xc_data['core_l']
-                self.njcore = len(self.lc_j)
-                if self.njcore > 0:
-                    self.uc_jg = self.extra_xc_data['core_states'].reshape(
-                        (self.njcore, -1))
-                    self.uc_jg = self.uc_jg[:, :gcut2]
-                self.phi_jg = phi_jg
 
         self.Kc = data.e_kinetic_core - data.e_kinetic
         self.M -= data.e_electrostatic
@@ -1507,6 +1483,18 @@ class FunctionIndices:
 
     def __getitem__(self, a):
         return self.M_a[a], self.M_a[a + 1]
+
+
+class CachedYukawaInteractions:
+    def __init__(self, omega):
+        self.omega = omega
+        self._cache = {}
+
+    def get_Mg_pp(self, setup):
+        if setup not in self._cache:
+            Mg_pp = setup.calculate_yukawa_interaction(self.omega)
+            self._cache[setup] = Mg_pp
+        return self._cache[setup]
 
 
 def types2atomtypes(symbols, types, default):

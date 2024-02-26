@@ -455,12 +455,16 @@ class AtomArrays:
             if r == comm.rank:
                 new[a][:] = self[a]
             else:
-                requests.append(comm.send(self[a], r, block=False))
+                requests.append(comm.send(np.ascontiguousarray(self[a]),
+                                          r, block=False))
 
         for a, I1, I2 in layout.myindices:
             r = self.layout.atomdist.rank_a[a]
             if r != comm.rank:
-                comm.receive(new[a], r)
+                target = new[a]
+                buf = np.empty_like(target)
+                comm.receive(buf, r)
+                target[:] = buf
 
         comm.waitall(requests)
         return new
