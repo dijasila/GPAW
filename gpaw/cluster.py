@@ -46,7 +46,7 @@ class Cluster(Atoms):
     def minimal_box(self, border=4, h=0.2) -> None:
         adjust_cell(self, border, h)
 
-    def minimal_box0(self, border=0, h=None, multiple=4):
+    def minimal_box_old(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
 
         The structure is moved to fit into the box [(0,x),(0,y),(0,z)]
@@ -211,6 +211,5 @@ def adjust_cell(atoms: Atoms, border: float = 4,
         # shift structure to the center
         shift_c[i] = (size - extension) / 2
         shift_c[i] -= lowest_c[i]
-        print('# shift', shift_c)
 
     atoms.translate(shift_c)
