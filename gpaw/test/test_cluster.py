@@ -6,7 +6,9 @@ from ase.build import fcc111
 from gpaw.cluster import Cluster, adjust_cell
 from gpaw.mpi import world
 from gpaw.core import UGDesc
+from gpaw.utilities import h2gpts
 
+import numpy as np
 import pytest
 
 
@@ -70,15 +72,16 @@ def test_CO():
 def test_minimal_box():
     R = 2.0
     b = 4.0
+    h = 0.2
 
     CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
-    CO.minimal_box(b)
+    CO.minimal_box(b, h)
     cc = CO.get_cell()
 
     for c in range(3):
         width = 2 * b
         if c == 2:
-            width += R
+            width += R +2 * h
         assert cc[c, c] == pytest.approx(width, abs=1e-10)
 
 
@@ -86,6 +89,7 @@ def test_non_orthogonal_unitcell():
     a = 3.912
     vac = 2
     box = 3.
+    h = 0.2
 
     atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
 
@@ -100,8 +104,10 @@ def test_non_orthogonal_unitcell():
     # check that the atom is shifted in non periodic direction
     assert atoms.positions[0, 2] >= vac
 
-    grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, 0.2, atoms.pbc)
-    h_c = grid._gd.get_grid_spacings()
+    h_c = np.zeros(3)
+    N_c = h2gpts(h,atoms.cell)
+    for i in range(3):
+        h_c[i] = np.linalg.norm(atoms.cell/N_c)
 
     assert h_c[2] == pytest.approx(h_c[:2].sum() / 2)
 
@@ -120,8 +126,9 @@ def test_platinum_surface():
     # the surfcae is shifted upwards
     assert (surface.get_positions().T[2] >= vacuum).all()
     # what internally is done in gpaw
-    grid = UGDesc.from_cell_and_grid_spacing(surface.cell, h, surface.pbc)
-    h_c = grid._gd.get_grid_spacings()
-
+    #grid = UGDesc.from_cell_and_grid_spacing(surface.cell, h, surface.pbc)
+    #h_c = grid._gd.get_grid_spacings()
+    N_c = h2gpts(h,surface.cell)
+    h_c = np.diag(surface.cell/N_c)
     h_z = h_c[:2].sum() / 2  # average of x and y
     assert h_z == pytest.approx(h_c[2])

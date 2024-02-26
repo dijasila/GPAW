@@ -8,6 +8,7 @@ from ase.io import read
 from ase.build.connected import connected_indices
 
 from gpaw.core import UGDesc
+from gpaw.utilities import h2gpts
 from gpaw.fftw import get_efficient_fft_size
 
 
@@ -43,8 +44,8 @@ class Cluster(Atoms):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
 
-    def minimal_box(self, border=4, h=0.2) -> None:
-        adjust_cell(self, border, h)
+    def minimal_box(self, border=4, h=0.2, multiple=4) -> None:
+        adjust_cell(self, border, h, multiple)
 
     def minimal_box_old(self, border=0, h=None, multiple=4):
         """The box needed to fit the structure in.
@@ -131,7 +132,7 @@ class Cluster(Atoms):
                     N = np.ceil(L / h[c] / multiple) * multiple
                     # correct L
                     dL = N * h[c] - L
-                    # move accordingly
+                    # move accordi ngly
                     extr[1][c] += dL  # shifted already
                     extr[0][c] -= dL / 2.
 
@@ -158,7 +159,7 @@ class Cluster(Atoms):
 
 
 def adjust_cell(atoms: Atoms, border: float = 4,
-                h: float = 0.2) -> None:
+                h: float = 0.2, multiple: int = 4) -> None:
     """Adjust the cell such that
     1. The vacuum around all atoms is at least border
        in non-periodic directions
@@ -174,8 +175,13 @@ def adjust_cell(atoms: Atoms, border: float = 4,
     largest_c = np.maximum.reduce(pos_ac)
 
     if n_pbc:
-        grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
-        h_c = grid._gd.get_grid_spacings()
+        #grid = UGDesc.from_cell_and_grid_spacing(atoms.cell, h, atoms.pbc)
+        #h_c = grid._gd.get_grid_spacings()
+
+        h_c = np.zeros(3)
+        N_c = h2gpts(h,atoms.cell,multiple)
+        for i in range(3):
+            h_c[i] = np.linalg.norm(atoms.cell/N_c)
 
         h = 0
         for pbc, h1 in zip(atoms.pbc, h_c):
@@ -200,10 +206,12 @@ def adjust_cell(atoms: Atoms, border: float = 4,
         extension = largest_c[i] - lowest_c[i]
         min_size = extension + 2 * border
         # logic from gpaw/core/domain.py
-        n = 1
+        '''n = 1
         factors = (2, 3, 5, 7)
         N = np.maximum(n, (min_size / h / n + 0.5).astype(int) * n)
-        N = get_efficient_fft_size(N, n, factors)
+        N = get_efficient_fft_size(N, n, factors)'''
+        # loguc from gpaw/utilitis/__init__.py
+        N = np.maximum(multiple, (min_size / h / multiple + 0.5).astype(int) * multiple)
 
         size = N * h
         atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
