@@ -97,7 +97,7 @@ def test_non_orthogonal_unitcell():
 
     cell0 = atoms.cell.copy()
 
-    atoms.minimal_box(box, h=0.2)
+    atoms.minimal_box(box, h)
 
     # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
@@ -126,9 +126,8 @@ def test_platinum_surface():
     # the surfcae is shifted upwards
     assert (surface.get_positions().T[2] >= vacuum).all()
     # what internally is done in gpaw
-    # grid = UGDesc.from_cell_and_grid_spacing(surface.cell, h, surface.pbc)
-    # h_c = grid._gd.get_grid_spacings()
     N_c = h2gpts(h, surface.cell)
     h_c = np.diag(surface.cell / N_c)
+
     h_z = h_c[:2].sum() / 2  # average of x and y
     assert h_z == pytest.approx(h_c[2])

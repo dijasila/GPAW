@@ -190,8 +190,8 @@ def adjust_cell(atoms: Atoms, border: float = 4,
 
         atoms.set_cell(min_size)
 
-    h_c = [h, h, h]
-    print(h_c)
+    h_c = np.array([h, h, h])
+
     shift_c = np.zeros(3)
 
     # adjust each cell direction
