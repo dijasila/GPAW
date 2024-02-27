@@ -70,18 +70,20 @@ def test_CO():
         assert q[1, c] == pytest.approx(p[1, 0] / sqrt(3), abs=1e-10)
 
 
-def test_minimal_box():
+def test_non_periodic():
     R = 2.0
     b = 4.0
+    h = 0.2
 
-    CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
-    CO.minimal_box(b)
+    CO = Atoms(['C', 'O'], [(1, 0, 0), (1, 0, R)])
+
+    adjust_cell(CO, b, h)
     cc = CO.get_cell()
 
     for c in range(3):
         width = 2 * b
         if c == 2:
-            width += R
+            width += R + 2 * h
         assert cc[c, c] == pytest.approx(width, abs=1e-10)
 
 
@@ -91,13 +93,13 @@ def test_non_orthogonal_unitcell():
     box = 3.
     h = 0.2
 
-    atoms = Cluster(fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
+    atoms = (fcc111('Pt', (1, 1, 1), a=a, vacuum=vac))
 
     atoms.pbc = [1, 1, 0]
 
     cell0 = atoms.cell.copy()
 
-    atoms.minimal_box(box, h)
+    adjust_cell(atoms, box, h)
 
     # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
