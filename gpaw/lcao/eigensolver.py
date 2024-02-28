@@ -89,8 +89,6 @@ class DirectLCAO:
     def iterate(self, hamiltonian, wfs, occ=None):
         wfs.timer.start('LCAO eigensolver')
 
-        s = -1
-       
         for s in set([kpt.s for kpt in wfs.kpt_u]):
             wfs.timer.start('Potential matrix')
             Vt_xMM = wfs.basis_functions.calculate_potential_matrices(
