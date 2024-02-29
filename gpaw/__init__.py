@@ -1,11 +1,12 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 """Main gpaw module."""
+from __future__ import annotations
 import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, Any, TYPE_CHECKING
+from typing import List, Union, Any, TYPE_CHECKING
 import _gpaw
 
 
