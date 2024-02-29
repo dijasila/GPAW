@@ -130,12 +130,11 @@ class PWFDWaveFunctions(WaveFunctions, XP):
     def move(self,
              fracpos_ac: Array2D,
              atomdist: AtomDistribution) -> None:
+        super().move(fracpos_ac, atomdist)
         self._P_ani = None
         self.orthonormalized = False
         assert self.pt_aiX is not None
         self.pt_aiX.move(fracpos_ac, atomdist)
-        self._eig_n = None
-        self._occ_n = None
 
     def add_to_density(self,
                        nt_sR: UGArray,

@@ -21,7 +21,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def __init__(self,
                  *,
                  setups: Setups,
-                 density_adder: Callable[[Array2D, Array3D], None],
                  tci_derivatives,
                  basis,
                  C_nM: Matrix,
@@ -50,7 +49,6 @@ class LCAOWaveFunctions(WaveFunctions):
                          dtype=C_nM.dtype,
                          domain_comm=domain_comm,
                          band_comm=C_nM.dist.comm)
-        self.density_adder = density_adder
         self.tci_derivatives = tci_derivatives
         self.basis = basis
         self.C_nM = C_nM
@@ -110,7 +108,7 @@ class LCAOWaveFunctions(WaveFunctions):
         Adds to ``nt_sR`` and ``D_asii``.
         """
         rho_MM = self.calculate_density_matrix()
-        self.density_adder(rho_MM, nt_sR.data[self.spin])
+        self.basis.construct_density(rho_MM, nt_sR.data[self.spin], q=self.q)
         f_n = self.weight * self.spin_degeneracy * self.myocc_n
         self.add_to_atomic_density_matrices(f_n, D_asii)
 
@@ -166,7 +164,6 @@ class LCAOWaveFunctions(WaveFunctions):
         n2 = n2 or self.nbands + n2
         return LCAOWaveFunctions(
             setups=self.setups,
-            density_adder=self.density_adder,
             tci_derivatives=self.tci_derivatives,
             basis=self.basis,
             C_nM=Matrix(n2 - n1,
@@ -183,11 +180,6 @@ class LCAOWaveFunctions(WaveFunctions):
             k=self.k,
             weight=self.weight,
             ncomponents=self.ncomponents)
-
-    def move(self,
-             fracpos_ac: Array2D,
-             atomdist: AtomDistribution) -> None:
-        1 / 0
 
     def force_contribution(self, potential: Potential, F_av: Array2D):
         from gpaw.new.lcao.forces import add_force_contributions
@@ -207,7 +199,6 @@ class LCAOWaveFunctions(WaveFunctions):
     def receive(self, rank, comm):
         kpt_c, data, spin, q, k, weight, ncomponents = receive(rank, comm)
         return LCAOWaveFunctions(setups=self.setups,
-                                 density_adder=self.density_adder,
                                  tci_derivatives=self.tci_derivatives,
                                  basis=self.basis,
                                  C_nM=Matrix(*data.shape, data=data),
