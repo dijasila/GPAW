@@ -71,7 +71,7 @@ def get_r_and_offsets(nl, spos_ac, cell_cv):
     r_and_offset_aao = {}
 
     def add(a1, a2, R_c, offset):
-        if not (a1, a2) in r_and_offset_aao:
+        if (a1, a2) not in r_and_offset_aao:
             r_and_offset_aao[(a1, a2)] = []
         r_and_offset_aao[(a1, a2)].append((R_c, offset))
 
