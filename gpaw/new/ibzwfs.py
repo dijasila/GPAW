@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Generator, Self
+from typing import Generator
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -16,7 +16,7 @@ from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D, Array2D
+from gpaw.typing import Array1D, Array2D, Self
 
 
 class IBZWaveFunctions:

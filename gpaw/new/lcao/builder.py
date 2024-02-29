@@ -185,4 +185,3 @@ def tci_helper(basis,
     tci_derivatives = TCIDerivatives(manytci, atomdist, nao)
 
     return S_qMM, T_qMM, P_qaMi, tciexpansions, tci_derivatives
-    
