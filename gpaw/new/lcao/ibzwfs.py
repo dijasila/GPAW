@@ -21,3 +21,9 @@ class LCAOIBZWaveFunction(IBZWaveFunctions):
             basis, self.ibz, self.domain_comm, self.band_comm, self.kpt_comm,
             fracpos_ac, atomdist,
             self.grid, self.dtype, setups)
+
+        for wfs in self:
+            wfs.tci_derivatives = tci_derivatives
+            wfs.S_MM = S_qMM[wfs.q]
+            wfs.T_MM = T_qMM[wfs.q]
+            wfs.P_aMi = P_qaMi[wfs.q]

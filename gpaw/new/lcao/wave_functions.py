@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from functools import cached_property
-from typing import Callable
-
 import numpy as np
 from gpaw.core.atom_arrays import (AtomArrays, AtomArraysLayout,
                                    AtomDistribution)
@@ -12,7 +9,7 @@ from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
 from gpaw.setup import Setups
-from gpaw.typing import Array2D, Array3D
+from gpaw.typing import Array2D
 
 
 class LCAOWaveFunctions(WaveFunctions):
@@ -62,18 +59,29 @@ class LCAOWaveFunctions(WaveFunctions):
         # This is for TB-mode (and MYPY):
         self.V_MM: Matrix
 
-    @cached_property
+        self._L_MM = None
+
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        super().move(fracpos_ac, atomdist)
+        self._L_MM = None
+
+    @property
     def L_MM(self):
-        S_MM = self.S_MM.copy()
-        S_MM.invcholesky()
-        if self.ncomponents < 4:
-            return S_MM
-        M, M = S_MM.shape
-        L_sMsM = Matrix(2 * M, 2 * M, dtype=complex)
-        L_sMsM.data[:] = 0.0
-        L_sMsM.data[:M, :M] = S_MM.data
-        L_sMsM.data[M:, M:] = S_MM.data
-        return L_sMsM
+        if self._L_MM is None:
+            S_MM = self.S_MM.copy()
+            S_MM.invcholesky()
+            if self.ncomponents < 4:
+                self._L_MM = S_MM
+            else:
+                M, M = S_MM.shape
+                L_sMsM = Matrix(2 * M, 2 * M, dtype=complex)
+                L_sMsM.data[:] = 0.0
+                L_sMsM.data[:M, :M] = S_MM.data
+                L_sMsM.data[M:, M:] = S_MM.data
+                self._L_MM = L_sMsM
+        return self._L_MM
 
     def _short_string(self, global_shape):
         return f'basis functions: {global_shape[0]}'

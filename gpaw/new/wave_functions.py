@@ -93,6 +93,7 @@ class WaveFunctions:
              atomdist: AtomDistribution) -> None:
         self.fracpos_ac = fracpos_ac
         self.atomdist = atomdist
+        self._P_ani = None
         self._eig_n = None
         self._occ_n = None
 

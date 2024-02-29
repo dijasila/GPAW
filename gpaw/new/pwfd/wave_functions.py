@@ -131,7 +131,6 @@ class PWFDWaveFunctions(WaveFunctions, XP):
              fracpos_ac: Array2D,
              atomdist: AtomDistribution) -> None:
         super().move(fracpos_ac, atomdist)
-        self._P_ani = None
         self.orthonormalized = False
         assert self.pt_aiX is not None
         self.pt_aiX.move(fracpos_ac, atomdist)

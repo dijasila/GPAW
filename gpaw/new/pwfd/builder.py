@@ -81,7 +81,7 @@ class PWFDDFTComponentsBuilder(DFTComponentsBuilder):
         lcaonbands = min(self.nbands,
                          basis.Mmax * (2 if self.ncomponents == 4 else 1))
         lcao_ibzwfs, _ = create_lcao_ibzwfs(
-            basis, potential,
+            basis,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
             lcaonbands, self.ncomponents, self.atomdist, self.nelectrons)

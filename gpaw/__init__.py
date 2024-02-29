@@ -79,8 +79,8 @@ class BadParallelization(Exception):
     pass
 
 
-def get_libraries():
-    libraries: Dict[str, str] = {}
+def get_libraries() -> dict[str, str]:
+    libraries: dict[str, str] = {}
     if hasattr(_gpaw, 'lxcXCFunctional'):
         libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
     else:
