@@ -147,7 +147,7 @@ def generate_nblocks_n():
 @pytest.mark.parametrize(
     'system,qrel,gammacentered',
     product(generate_system_s(), generate_qrel_q(), generate_gc_g()))
-def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
+def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered, gpaw_new):
     r"""Test the internals of the ChiKSCalculator.
 
     In particular, we test that the susceptibility does not change due to the
@@ -158,6 +158,9 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
 
     Furthermore, we test the symmetries of the calculated susceptibilities.
     """
+    if gpaw_new and world.size == 4 and system == ('fe_pw', '00'):
+        pytest.skip(msg='Does not work with new GPAW (tolerance too tight)')
+
     # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
