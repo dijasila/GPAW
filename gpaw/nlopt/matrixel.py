@@ -161,7 +161,7 @@ def make_nlodata(calc: ASECalculator | str | Path,
         'Point group symmetry should be off.'
 
     gs: CollinearGSInfo | NoncollinearGSInfo
-    if calc.calculation.state.density.collinear:
+    if calc.dft.state.density.collinear:
         from gpaw.nlopt.adapters import CollinearGSInfo
         gs = CollinearGSInfo(calc, comm)
     else:

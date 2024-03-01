@@ -534,14 +534,20 @@ class ASECalculator:
                           DeprecationWarning)
         state = self.dft.state
 
+        if nbands is None:
+            nbands = min(wfs.array_shape(global_shape=True)[0]
+                         for wfs in self.state.ibzwfs)
+            nbands = self.state.ibzwfs.kpt_comm.min_scalar(nbands)
+
+        self.dft.scf_loop.occ_calc._set_nbands(nbands)
         ibzwfs = diagonalize(state.potential,
                              state.ibzwfs,
                              self.dft.scf_loop.occ_calc,
                              nbands,
                              self.dft.pot_calc.xc)
         self.dft.state = DFTState(ibzwfs,
-                                          state.density,
-                                          state.potential)
+                                  state.density,
+                                  state.potential)
         nbands = ibzwfs.nbands
         self.params.nbands = nbands
         self.params.keys.append('nbands')

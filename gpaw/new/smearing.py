@@ -32,6 +32,8 @@ class OccupationNumberCalculator:
         assert name != 'mom'
 
         bd = BandDescriptor(nbands)  # dummy
+        # Note that eigenvalues are not distributed over
+        # the band communicator.
         self.occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(bd,
@@ -45,6 +47,12 @@ class OccupationNumberCalculator:
 
     def __str__(self):
         return str(self.occ)
+
+    def _set_nbands(self, nbands):
+        parallel_layout = self.occ.parallel_layout
+        parallel_layout.bd = BandDescriptor(nbands)
+        self.occ = self.occ.copy(
+            parallel_layout=parallel_layout)
 
     def calculate(self,
                   nelectrons: float,
