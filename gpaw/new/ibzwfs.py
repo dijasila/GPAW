@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Generator
+from typing import Generator, TypeVar, Generic
 
 import numpy as np
 from ase.dft.bandgap import bandgap
@@ -19,13 +19,16 @@ from gpaw.new.wave_functions import WaveFunctions
 from gpaw.typing import Array1D, Array2D, Self
 
 
-class IBZWaveFunctions:
+WFT = TypeVar('WFT', bound=WaveFunctions)
+
+
+class IBZWaveFunctions(Generic[WFT]):
     def __init__(self,
                  ibz: IBZ,
                  *,
                  nelectrons: float,
                  ncomponents: int,
-                 wfs_qs: list[list[WaveFunctions]],
+                 wfs_qs: list[list[WFT]],
                  kpt_comm: MPIComm = serial_comm,
                  kpt_band_comm: MPIComm = serial_comm,
                  comm: MPIComm = serial_comm):
@@ -80,7 +83,7 @@ class IBZWaveFunctions:
 
         nspins = ncomponents % 3
 
-        wfs_qs: list[list[WaveFunctions]] = []
+        wfs_qs: list[list[WFT]] = []
         for q, k in enumerate(k_q):
             wfs_s = []
             for spin in range(nspins):
@@ -146,7 +149,7 @@ class IBZWaveFunctions:
                 f'    domain: {self.domain_comm.size}\n'
                 f'    band:   {self.band_comm.size}\n')
 
-    def __iter__(self) -> Generator[WaveFunctions, None, None]:
+    def __iter__(self) -> Generator[WFT, None, None]:
         for wfs_s in self.wfs_qs:
             yield from wfs_s
 

@@ -104,10 +104,21 @@ class ASECalculator:
         self.params = params
         self.log = log
         self.comm = log.comm
-        self.dft = dft
-
-        self.atoms = atoms
+        self._dft = dft
+        self._atoms = atoms
         self.timer = Timer()
+
+    @property
+    def dft(self) -> DFTCalculation:
+        if self._dft is None:
+            raise AttributeError
+        return self._dft
+
+    @property
+    def atoms(self) -> Atoms:
+        if self._atoms is None:
+            raise AttributeError
+        return self._atoms
 
     def __repr__(self):
         params = []
@@ -137,9 +148,8 @@ class ASECalculator:
             atoms = self.atoms
         else:
             synchronize_atoms(atoms, self.comm)
-        assert atoms is not None
 
-        if self.dft is not None:
+        if self._dft is not None:
             changes = compare_atoms(self.atoms, atoms)
             if changes & {'numbers', 'pbc', 'cell'}:
                 if 'numbers' not in changes:
@@ -151,19 +161,18 @@ class ASECalculator:
                         atoms.set_initial_magnetic_moments(magmom_a)
 
                 if changes & {'numbers', 'pbc'}:
-                    self.dft = None  # start from scratch
+                    self._dft = None  # start from scratch
                 else:
                     try:
                         self.create_new_calculation_from_old(atoms)
                     except ReuseWaveFunctionsError:
-                        self.dft = None  # start from scratch
+                        self._dft = None  # start from scratch
                     else:
                         self.converge()
                         changes = set()
 
-        if self.dft is None:
+        if self._dft is None:
             self.create_new_calculation(atoms)
-            assert self.dft is not None
             self.converge()
         elif changes:
             self.move_atoms(atoms)
@@ -194,26 +203,26 @@ class ASECalculator:
 
     @property
     def results(self):
-        if self.dft is None:
+        if self._dft is None:
             return {}
         return {name: value * units[name]
                 for name, value in self.dft.results.items()}
 
     def create_new_calculation(self, atoms: Atoms) -> None:
         with self.timer('Init'):
-            self.dft = DFTCalculation.from_parameters(
+            self._dft = DFTCalculation.from_parameters(
                 atoms, self.params, self.comm, self.log)
-        self.atoms = atoms.copy()
+        self._atoms = atoms.copy()
 
     def create_new_calculation_from_old(self, atoms: Atoms) -> None:
         with self.timer('Morph'):
-            self.dft = self.dft.new(
+            self._dft = self.dft.new(
                 atoms, self.params, self.log)
-        self.atoms = atoms.copy()
+        self._atoms = atoms.copy()
 
     def move_atoms(self, atoms):
         with self.timer('Move'):
-            self.dft = self.dft.move_atoms(atoms)
+            self._dft = self.dft.move_atoms(atoms)
         self.atoms = atoms.copy()
 
     def converge(self):
@@ -489,7 +498,7 @@ class ASECalculator:
 
     @property
     def initialized(self):
-        return self.dft is not None
+        return self._dft is not None
 
     def get_xc_functional(self):
         return self.dft.pot_calc.xc.name
@@ -526,9 +535,9 @@ class ASECalculator:
         return (exct + dexc - state.potential.energies['xc']) * Ha
 
     def diagonalize_full_hamiltonian(self,
-                                     nbands: int = None,
+                                     nbands: int | None = None,
                                      scalapack=None,
-                                     expert: bool = None) -> None:
+                                     expert: bool | None = None) -> None:
         if expert is not None:
             warnings.warn('Ignoring deprecated "expert" argument',
                           DeprecationWarning)
@@ -536,8 +545,9 @@ class ASECalculator:
 
         if nbands is None:
             nbands = min(wfs.array_shape(global_shape=True)[0]
-                         for wfs in self.state.ibzwfs)
-            nbands = self.state.ibzwfs.kpt_comm.min_scalar(nbands)
+                         for wfs in self.dft.state.ibzwfs)
+            nbands = self.dft.state.ibzwfs.kpt_comm.min_scalar(nbands)
+            assert isinstance(nbands, int)
 
         self.dft.scf_loop.occ_calc._set_nbands(nbands)
         ibzwfs = diagonalize(state.potential,
