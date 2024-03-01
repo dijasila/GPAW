@@ -51,11 +51,11 @@ def GPAW(filename: Union[str, Path, IO[str]] = None,
             illegal = set(kwargs) - {'parallel'}
             raise ValueError('Illegal arguments when reading from a file: '
                              f'{illegal}')
-        atoms, calculation, params, _ = read_gpw(filename,
-                                                 log=log,
-                                                 parallel=parallel)
+        atoms, dft, params, _ = read_gpw(filename,
+                                         log=log,
+                                         parallel=parallel)
         return ASECalculator(params,
-                             log=log, calculation=calculation, atoms=atoms)
+                             log=log, dft=dft, atoms=atoms)
 
     params = InputParameters(kwargs)
     write_header(log, params)
@@ -575,7 +575,7 @@ class ASECalculator:
         scf_loop = builder.create_scf_loop()
         scf_loop.update_density_and_potential = False
 
-        calculation = DFTCalculation(
+        dft = DFTCalculation(
             state,
             builder.setups,
             scf_loop,
@@ -583,11 +583,11 @@ class ASECalculator:
                             poisson_solver=None),
             log)
 
-        calculation.converge()
+        dft.converge()
 
         return ASECalculator(params,
                              log=log,
-                             calculation=calculation,
+                             dft=dft,
                              atoms=self.atoms)
 
     def initialize(self, atoms):

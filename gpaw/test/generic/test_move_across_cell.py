@@ -44,6 +44,6 @@ def test_generic_move_across_cell(gpaw_new, params):
     # We should be within the convergence criterion.
     # It runs a minimum of three iterations:
     if gpaw_new:
-        assert calc.calculation.scf_loop.niter == 3
+        assert calc.dft.scf_loop.niter == 3
     else:
         assert calc.scf.niter == 3
