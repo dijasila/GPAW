@@ -131,11 +131,12 @@ class KPT:
 
     @cached_property
     def psit(self):
+        band_comm = self.psit_nX.comm
         return PlaneWaveExpansionWaveFunctions(
             self.wfs.nbands, self.pd, self.wfs.dtype,
             self.psit_nX.data * self.ngpts,
             kpt=self.q,
-            dist=(),  # self.bd.comm, self.bd.comm.size),
+            dist=(band_comm, band_comm.size),
             spin=self.s,
             collinear=self.wfs.ncomponents != 4)
 
