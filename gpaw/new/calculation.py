@@ -14,7 +14,7 @@ from gpaw.gpu import as_np
 from gpaw.mpi import broadcast_float, world
 from gpaw.new import zips
 from gpaw.new.density import Density
-from gpaw.new.ibzwfs import IBZWaveFunctions, create_ibz_wave_functions
+from gpaw.new.ibzwfs import IBZWaveFunctions
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
@@ -359,7 +359,7 @@ class DFTCalculation:
                 builder.fracpos_ac,
                 builder.atomdist)
 
-        ibzwfs = create_ibz_wave_functions(
+        ibzwfs = ibzwfs.create(
             ibz=builder.ibz,
             nelectrons=old_ibzwfs.nelectrons,
             ncomponents=old_ibzwfs.ncomponents,

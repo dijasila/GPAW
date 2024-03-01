@@ -88,6 +88,15 @@ class WaveFunctions:
     def orthonormalize(self, work_array_nX: ArrayND = None):
         raise NotImplementedError
 
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        self.fracpos_ac = fracpos_ac
+        self.atomdist = atomdist
+        self._P_ani = None
+        self._eig_n = None
+        self._occ_n = None
+
     def collect(self,
                 n1: int = 0,
                 n2: int = 0) -> WaveFunctions | None:

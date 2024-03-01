@@ -1,11 +1,12 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 """Main gpaw module."""
+from __future__ import annotations
 import os
 import sys
 import contextlib
 from pathlib import Path
-from typing import List, Dict, Union, Any, TYPE_CHECKING
+from typing import List, Union, Any, TYPE_CHECKING
 import _gpaw
 
 
@@ -79,8 +80,8 @@ class BadParallelization(Exception):
     pass
 
 
-def get_libraries():
-    libraries: Dict[str, str] = {}
+def get_libraries() -> dict[str, str]:
+    libraries: dict[str, str] = {}
     if hasattr(_gpaw, 'lxcXCFunctional'):
         libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
     else:
