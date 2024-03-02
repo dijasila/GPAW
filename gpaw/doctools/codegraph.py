@@ -28,7 +28,7 @@ def create_nodes(obj, *objects, include):
         new = {}
         for name, node in nodes.items():
             bases = node.obj.__class__.__bases__
-            (cls,) = bases
+            cls = bases[0]
             if cls is not object:
                 base = nodes.get(cls.__name__)
                 base = base or new.get(cls.__name__)

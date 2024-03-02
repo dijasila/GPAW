@@ -20,11 +20,11 @@ from gpaw.utilities.tools import symmetrize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.kernel import XCNull
+from gpaw.setup import CachedYukawaInteractions
 
 
 class HybridXCBase(XCFunctional):
     orbital_dependent = True
-    omega = None
 
     def __init__(self, name, stencil=2, hybrid=None, xc=None, omega=None):
         """Mix standard functionals with exact exchange.
@@ -162,6 +162,9 @@ class HybridXC(HybridXCBase):
         self.excited = excited
         HybridXCBase.__init__(self, name, hybrid=hybrid, xc=xc, omega=omega,
                               stencil=stencil)
+
+        # Note: self.omega may not be identical to omega!
+        self.yukawa_interactions = CachedYukawaInteractions(self.omega)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
                                  addcoredensity=True, a=None):
@@ -412,8 +415,9 @@ class HybridXC(HybridXCBase):
             (dexx, dekin) = calculate_vv(ni, D_ii, setup.M_pp, hybrid)
             ekin += dekin
             exx += dexx
+
             if self.rsf is not None:
-                Mg_pp = setup.calculate_yukawa_interaction(self.omega)
+                Mg_pp = self.yukawa_interactions.get_Mg_pp(setup)
                 if is_cam:
                     (dexx, dekin) = calculate_vv(
                         ni, D_ii, Mg_pp, self.cam_beta, addme=True)

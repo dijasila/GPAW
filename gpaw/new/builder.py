@@ -383,6 +383,9 @@ def create_kpts(kpts: dict[str, Any], atoms: Atoms) -> BZPoints:
     if 'kpts' in kpts:
         assert len(kpts) == 1, kpts
         return BZPoints(kpts['kpts'])
+    if 'path' in kpts:
+        path = atoms.cell.bandpath(pbc=atoms.pbc, **kpts)
+        return BZPoints(path.kpts)
     size, offset = kpts2sizeandoffsets(**kpts, atoms=atoms)
     return MonkhorstPackKPoints(size, offset)
 
