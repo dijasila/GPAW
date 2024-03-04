@@ -28,9 +28,11 @@ def rand(*args, dtype=None):
 @pytest.mark.gpu
 def test_multi_einsum_errors(gpu):
     import cupy
-    A = cupy.random.rand(10,14)
-    B = cupy.random.rand(10,14)
-    multi_einsum('abc,abc->abc', [A], [A], out=[B])
+    A = cupy.random.rand(10, 14)
+    B = cupy.random.rand(10, 14)
+    with pytest.raises(RuntimeError, match='Too few indices in output*'):
+        multi_einsum('abc,abc->abc', [A], [A], out=[B])
+
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('add', [False])
@@ -57,7 +59,6 @@ def test_multi_einsum(gpu, add, na, dtype, cc, complex_out):
             a = [aa.conj() for aa in a]
         return a
 
-
     P_ani_gpu = [cp.asarray(P_ni) for P_ni in P_ani]
     f_an_gpu = [cp.asarray(f_n)] * na
 
@@ -79,7 +80,6 @@ def test_multi_einsum(gpu, add, na, dtype, cc, complex_out):
     cp.cuda.runtime.deviceSynchronize()
     stop = time()
     print('GPU einsum took', stop - start)
-    
     start = time()
     if add:
         multi_einadd_np(einsum_str, maybecc(P_ani), f_an, P_ani, out=D_aii)

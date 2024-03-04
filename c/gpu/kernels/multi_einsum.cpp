@@ -674,7 +674,7 @@ void multi_einsum_launch_kernel(char* str,
     buffer<double*> arguments_pa_buffer(problems * arguments);
     dual_buffer<double*> arguments_pa = arguments_pa_buffer.allocate(problems * arguments);
     
-    printf("%s\n", str);
+    //printf("%s\n", str);
     Tokenizer tokenizer(str);
     EinsumArgumentParser parser(tokenizer);
     parser.parse();
@@ -689,18 +689,18 @@ void multi_einsum_launch_kernel(char* str,
 
     int nind_out = parser.nindex_out();
     int nind_in = parser.nindex_in();
-    printf("number of arguments %d\n", arguments);
-    printf("iscomplex %d\n", is_complex);
-    printf("indices out:");
-    for (int n=0; n<nind_out; n++)
-    {
-        printf(" %d", parser.index_out(n));
-    }
-    printf("\nindices in:");
-    for (int n=0; n<nind_in; n++)
-    {
-        printf(" %d", parser.index_in(n));
-    }
+    //printf("number of arguments %d\n", arguments);
+    //printf("iscomplex %d\n", is_complex);
+    //printf("indices out:");
+    //for (int n=0; n<nind_out; n++)
+    //{
+    //    printf(" %d", parser.index_out(n));
+    //}
+    //printf("\nindices in:");
+    //for (int n=0; n<nind_in; n++)
+    //{
+    //    printf(" %d", parser.index_in(n));
+    // }
     /*
     for (int p=0; p< problems; p++)
     {
@@ -715,7 +715,7 @@ void multi_einsum_launch_kernel(char* str,
         }
     }*/
 
-    printf("\n");
+    //printf("\n");
     
     dual_buffer<int> size_in_pi = intbuffer.allocate(problems * nind_in);
     dual_buffer<int> size_out_pi = intbuffer.allocate(problems * nind_out);
