@@ -421,6 +421,27 @@ __global__ void pw_insert_many_16(int nb,
     }
 }
 
+__global__ void add_to_density_8(int nb,
+				  int nR,
+				  double* f_n,
+				  double* psit_nR,
+				  double* rho_R)
+{
+    //int b = threadIdx.x + blockIdx.x * blockDim.x;
+    int R = threadIdx.x + blockIdx.x * blockDim.x;
+    if (R < nR)
+    {
+	double rho = 0.0;
+	for (int b=0; b< nb; b++)
+	{
+	    int idx = b * nR + R;
+	    rho += f_n[b] * (psit_nR[idx] * psit_nR[idx]);
+	}
+	rho_R[R] += rho;
+    }
+}
+
+
 __global__ void add_to_density_16(int nb,
 				  int nR,
 				  double* f_n,
@@ -464,8 +485,10 @@ void add_to_density_gpu_launch_kernel(int nb,
 				      int nR,
 				      double* f_n,
 				      gpuDoubleComplex* psit_nR,
-				      double* rho_R)
+				      double* rho_R,
+				      int wfs_is_complex)
 {
+    if (wfs_is_complex)
     gpuLaunchKernel(add_to_density_16,
 		    dim3((nR+255)/256),
 		    dim3(256),
@@ -473,6 +496,15 @@ void add_to_density_gpu_launch_kernel(int nb,
 		    nb, nR,
 		    f_n,
 		    psit_nR,
+		    rho_R);
+    else
+    gpuLaunchKernel(add_to_density_8,
+		    dim3((nR+255)/256),
+		    dim3(256),
+		    0, 0,
+		    nb, nR,
+		    f_n,
+		    (double*) psit_nR,
 		    rho_R);
 }
 
@@ -618,7 +650,6 @@ __global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI,
 		gpuDoubleComplex* P_ni = P_ani_dev + n1 * nI + Istart;
 		for (int i2=0; i2 < ni; i2++)
 		{
-		   //printf("%d %d %d %d %g\n", n1, a, i, i2, dH_ii[i2 * ni + i]);
 		   gpuDoubleComplex item = gpuCmulD(*P_ni, dH_ii[i2 * ni + i]);
 		   result.x += item.x;
 		   result.y += item.y;
@@ -628,8 +659,38 @@ __global__ void dH_aii_times_P_ani_16(int nA, int nn, int nI,
 		outP_ni->y = result.y;
 		I++;
 	    }
-	    //P_ni += ni;
-	    //outP_ni += ni;
+	    dH_ii += ni * ni;
+	}
+    }
+}
+
+__global__ void dH_aii_times_P_ani_8(int nA, int nn, int nI,
+				      npy_int32* ni_a, double* dH_aii_dev,
+				      double* P_ani_dev,
+				      double* outP_ani_dev)
+{
+    int n1 = threadIdx.x + blockIdx.x * blockDim.x;
+    if (n1 < nn) {
+	double* dH_ii = dH_aii_dev;
+	int I = 0;
+	for (int a=0; a< nA; a++)
+	{
+	    int ni = ni_a[a];
+	    int Istart = I;
+	    for (int i=0; i< ni; i++)
+	    {
+		double* outP_ni = outP_ani_dev + n1 * nI + I;
+		double result = 0;
+		double* P_ni = P_ani_dev + n1 * nI + Istart;
+		for (int i2=0; i2 < ni; i2++)
+		{
+		   double item = *P_ni * dH_ii[i2 * ni + i];
+		   result += item;
+		   P_ni++;
+		}
+		*outP_ni = result;
+		I++;
+	    }
 	    dH_ii += ni * ni;
 	}
     }
@@ -642,14 +703,24 @@ void dH_aii_times_P_ani_launch_kernel(int nA, int nn,
 				      int nI, npy_int32* ni_a,
 				      double* dH_aii_dev,
 				      gpuDoubleComplex* P_ani_dev,
-				      gpuDoubleComplex* outP_ani_dev)
+				      gpuDoubleComplex* outP_ani_dev,
+				      int is_complex)
 {
+    if (is_complex)
     gpuLaunchKernel(dH_aii_times_P_ani_16,
 		    dim3((nn+255)/256),
 		    dim3(256),
 		    0, 0,
 		    nA, nn, nI, ni_a, dH_aii_dev,
 		    P_ani_dev, outP_ani_dev);
+    else
+    gpuLaunchKernel(dH_aii_times_P_ani_8,
+		    dim3((nn+255)/256),
+		    dim3(256),
+		    0, 0,
+		    nA, nn, nI, ni_a, dH_aii_dev,
+		    (double*) P_ani_dev, (double*) outP_ani_dev);
+
 }
 
 

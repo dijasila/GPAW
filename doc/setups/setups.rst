@@ -21,6 +21,7 @@ Setup releases
 ===========  =============================
 Date         Tarfile
 ===========  =============================
+Feb 22 2024  gpaw-setups-24.1.0.tar.gz_
 Mar 22 2016  gpaw-setups-0.9.20000.tar.gz_
 Mar 27 2014  gpaw-setups-0.9.11271.tar.gz_
 Oct 26 2012  gpaw-setups-0.9.9672.tar.gz_
@@ -118,6 +119,8 @@ Advanced topics
    pawxml
 
 
+.. _gpaw-setups-24.1.0.tar.gz:
+    https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-24.1.0.tar.gz
 .. _gpaw-setups-0.9.20000.tar.gz:
     https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.20000.tar.gz
 .. _gpaw-setups-0.9.11271.tar.gz:

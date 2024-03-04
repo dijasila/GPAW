@@ -11,6 +11,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zips
 from gpaw.spline import Spline
 from gpaw.typing import Array1D, ArrayLike2D
+from gpaw.gpu import XP
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray
@@ -24,13 +25,13 @@ def to_spline(l: int,
     return Spline(l, rcut, f(r))
 
 
-class AtomCenteredFunctions:
+class AtomCenteredFunctions(XP):
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
                  atomdist: AtomDistribution | None = None,
                  xp=None):
-        self.xp = xp or np
+        XP.__init__(self, xp or np)
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
@@ -72,7 +73,9 @@ class AtomCenteredFunctions:
     def move(self, fracpos_ac, atomdist):
         """Move atoms to new positions."""
         self.fracpos_ac = np.array(fracpos_ac)
+        self._atomdist = atomdist
         if self._lfc is not None:
+            self._layout = self._layout.new(atomdist=atomdist)
             self._lfc.set_positions(fracpos_ac, atomdist)
 
     def add_to(self, functions, coefs=1.0):
@@ -164,7 +167,7 @@ class UGAtomCenteredFunctions(AtomCenteredFunctions):
         self._layout = AtomArraysLayout([sum(2 * f.l + 1 for f in funcs)
                                          for funcs in self.functions],
                                         self._atomdist,
-                                        self.grid.dtype)
+                                        self.grid.dtype, xp=self.xp)
 
     def to_uniform_grid(self,
                         out: UGArray,

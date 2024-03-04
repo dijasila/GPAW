@@ -7,21 +7,23 @@ import ase.io.ulm as ulm
 import gpaw
 import gpaw.mpi as mpi
 import numpy as np
+from ase import Atoms
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArraysLayout
+from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
-from gpaw.utilities import unpack, unpack2
 from gpaw.typing import DTypeLike
+from gpaw.utilities import unpack, unpack2
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
-                'band', 'stress']
+                'band', 'stress', 'spinorbit']
 
 
 def write_gpw(filename: str,
@@ -46,10 +48,8 @@ def write_gpw(filename: str,
 
         write_atoms(writer.child('atoms'), atoms)
 
-        # Note that 'non_collinear_magmoms' is not an ASE standard name!
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()
-                   if key != 'non_collinear_magmoms'}
+                   for key, value in calculation.results.items()}
         writer.child('results').write(**results)
 
         p = {k: v for k, v in params.items() if k not in ['txt', 'parallel']}
@@ -110,7 +110,10 @@ def read_gpw(filename: Union[str, Path, IO[str]],
              log: Union[Logger, str, Path, IO[str]] = None,
              comm=None,
              parallel: dict[str, Any] = None,
-             dtype: DTypeLike = None):
+             dtype: DTypeLike = None) -> tuple[Atoms,
+                                               DFTCalculation,
+                                               InputParameters,
+                                               DFTComponentsBuilder]:
     """
     Read gpw file
 
@@ -265,9 +268,9 @@ def read_gpw(filename: Union[str, Path, IO[str]],
 
     calculation.results = results
 
-    if builder.mode in ['pw', 'fd']:  # fd = finite difference
+    if builder.mode in ['pw', 'fd']:  # fd = finite-difference
         data = ibzwfs.wfs_qs[0][0].psit_nX.data
-        if not hasattr(data, 'fd'):  # fd = file descriptor
+        if not hasattr(data, 'fd'):  # fd = file-descriptor
             reader.close()
     else:
         reader.close()

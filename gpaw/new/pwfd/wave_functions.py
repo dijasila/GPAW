@@ -11,7 +11,7 @@ from gpaw.core.atom_centered_functions import AtomCenteredFunctions
 from gpaw.core.plane_waves import PWArray
 from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.fftw import get_efficient_fft_size
-from gpaw.gpu import as_np
+from gpaw.gpu import as_np, XP
 from gpaw.mpi import receive, send
 from gpaw.new import prod, zips
 from gpaw.new.potential import Potential
@@ -20,7 +20,7 @@ from gpaw.setup import Setups
 from gpaw.typing import Array2D, Array3D, ArrayND, Vector
 
 
-class PWFDWaveFunctions(WaveFunctions):
+class PWFDWaveFunctions(WaveFunctions, XP):
     def __init__(self,
                  psit_nX: XArray,
                  *,
@@ -54,7 +54,7 @@ class PWFDWaveFunctions(WaveFunctions):
         self.orthonormalized = False
         self.bytes_per_band = (prod(self.array_shape(global_shape=True)) *
                                psit_nX.desc.itemsize)
-        self.xp = self.psit_nX.xp
+        XP.__init__(self, self.psit_nX.xp)
 
     @classmethod
     def from_wfs(cls,

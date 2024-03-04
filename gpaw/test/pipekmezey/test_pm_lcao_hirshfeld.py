@@ -2,11 +2,10 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-from gpaw.test import equal
 
 
 @pytest.mark.pipekmezey
-def test_pipekmezey_lcao_hirshfeld(in_tmp_dir):
+def test_pipekmezey_lcao_hirshfeld(in_tmp_dir, needs_ase_master):
 
     atoms = Atoms('CO',
                   positions=[[0, 0, 0],
@@ -27,4 +26,4 @@ def test_pipekmezey_lcao_hirshfeld(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.3263, 0.0001)
+    assert P == pytest.approx(3.3263, abs=0.0001)

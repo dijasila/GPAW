@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+from functools import cached_property
 from math import pi
-from typing import Sequence
-
+from typing import Sequence, Literal
 import numpy as np
 
 import gpaw.fftw as fftw
 from gpaw.core.arrays import DistributedArrays
 from gpaw.core.atom_centered_functions import UGAtomCenteredFunctions
 from gpaw.core.domain import Domain
-from gpaw.gpu import as_np
+from gpaw.gpu import as_np, cupy_is_fake
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import MPIComm, serial_comm
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.typing import (Array1D, Array2D, Array3D, Array4D, ArrayLike1D,
                          ArrayLike2D, Vector)
-from gpaw.new.c import add_to_density, symmetrize_ft
+from gpaw.new.c import add_to_density, add_to_density_gpu, symmetrize_ft
 from gpaw.fd_operators import Gradient
 
 
@@ -106,12 +106,13 @@ class UGDesc(Domain):
                       self.kpt_c[:, np.newaxis])
 
     def new(self,
+            *,
+            kpt=None,
+            dtype=None,
+            comm: MPIComm | Literal['inherit'] | None = 'inherit',
             size=None,
             pbc=None,
-            kpt=None,
-            comm='inherit',
-            decomp=None,
-            dtype=None) -> UGDesc:
+            decomp=None) -> UGDesc:
         """Create new uniform grid description."""
         if decomp is None and comm == 'inherit':
             if size is None and pbc is None:
@@ -474,8 +475,8 @@ class UGArray(DistributedArrays[UGDesc]):
         norm_x = []
         arrays_xR = self._arrays()
         for a_R in arrays_xR:
-            norm_x.append(np.vdot(a_R, a_R).real * self.desc.dv)
-        result = np.array(norm_x).reshape(self.mydims)
+            norm_x.append(self.xp.vdot(a_R, a_R).real * self.desc.dv)
+        result = self.xp.array(norm_x).reshape(self.mydims)
         self.desc.comm.sum(result)
         return result
 
@@ -546,7 +547,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.interpolate(plan1, plan2,
                                            out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -641,7 +642,7 @@ class UGArray(DistributedArrays[UGDesc]):
 
         if self.desc.comm.size > 1:
             input = self.gather()
-            if input:
+            if input is not None:
                 output = input.fft_restrict(plan1, plan2,
                                             out.desc.new(comm=None))
                 out.scatter_from(output.data)
@@ -703,8 +704,15 @@ class UGArray(DistributedArrays[UGDesc]):
                    out: UGArray | None = None) -> None:
         """Add weighted absolute square of data to output array."""
         assert out is not None
-        for f, psit_R in zips(weights, self.data):
-            add_to_density(f, psit_R, out.data)
+
+        if self.xp is np:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R, out.data)
+        elif cupy_is_fake:
+            for f, psit_R in zips(weights, self.data):
+                add_to_density(f, psit_R._data, out.data._data)  # type: ignore
+        else:
+            add_to_density_gpu(self.xp.asarray(weights), self.data, out.data)
 
     def symmetrize(self, rotation_scc, translation_sc):
         """Make data symmetric."""
@@ -735,7 +743,7 @@ class UGArray(DistributedArrays[UGDesc]):
         """Insert random numbers between -0.5 and 0.5 into data."""
         if seed is None:
             seed = self.comm.rank + self.desc.comm.rank * self.comm.size
-        rng = np.random.default_rng(seed)
+        rng = self.xp.random.default_rng(seed)
         a = self.data.view(float)
         rng.random(a.shape, out=a)
         a -= 0.5
