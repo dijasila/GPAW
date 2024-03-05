@@ -82,16 +82,18 @@ class ChiFactory:
 
         # Calculate chiks
         chiks = self.calculate_chiks(spincomponent, q_c, complex_frequencies)
-
         # Construct the hxc kernel
-        hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
-        xc_kernel = self.get_xc_kernel(fxc, spincomponent, chiks.qpd)
-        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel)
-
+        hxc_kernel = self.get_hxc_kernel(fxc, spincomponent, chiks.qpd)
         # Solve dyson equation
         chi = self.dyson_solver(chiks, hxc_kernel, hxc_scaling=hxc_scaling)
 
         return chiks, chi
+
+    def get_hxc_kernel(self, fxc: str, spincomponent: str,
+                       qpd: SingleQPWDescriptor) -> HXCKernel:
+        return HXCKernel(
+            Vbare_G=self.get_hartree_kernel(spincomponent, qpd),
+            fxc_kernel=self.get_xc_kernel(fxc, spincomponent, qpd))
 
     def get_hartree_kernel(self, spincomponent, qpd):
         if spincomponent in ['+-', '-+']:
@@ -101,10 +103,7 @@ class ChiFactory:
             return get_coulomb_kernel(qpd, self.gs.kd.N_c,
                                       pbc_c=self.gs.atoms.get_pbc())
 
-    def get_xc_kernel(self,
-                      fxc: str,
-                      spincomponent: str,
-                      qpd: SingleQPWDescriptor):
+    def get_xc_kernel(self, fxc, spincomponent, qpd):
         """Get the requested xc-kernel object."""
         if fxc == 'RPA':
             # No xc-kernel

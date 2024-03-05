@@ -33,8 +33,8 @@ class HXCKernel:
     """Hartree-exchange-correlation kernel in a plane-wave basis."""
 
     def __init__(self,
-                 Vbare_G: Array1D | None,
-                 fxc_kernel: FXCKernel | None):
+                 Vbare_G: Array1D | None = None,
+                 fxc_kernel: FXCKernel | None = None):
         """Construct the Hxc kernel."""
         self.Vbare_G = Vbare_G
         self.fxc_kernel = fxc_kernel
