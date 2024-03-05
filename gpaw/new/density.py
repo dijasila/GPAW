@@ -12,7 +12,6 @@ from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
-from gpaw.new.calculation import CalculationModeError
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack, unpack2
 from gpaw.new.symmetry import SymmetrizationPlan
@@ -311,6 +310,7 @@ class Density:
 
     def calculate_orbital_magnetic_moments(self):
         if self.collinear:
+            from gpaw.new.calculation import CalculationModeError
             raise CalculationModeError(
                 'Calculator is in collinear mode. '
                 'Collinear calculations require spin–orbit '
