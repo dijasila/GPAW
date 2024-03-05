@@ -283,7 +283,7 @@ class BZWaveFunctions:
             D_sii = np.zeros([4, ni, ni], dtype=complex)
             for wfs, weight in zip(self.wfs.values(), self.weights()):
                 add_to_4component_density_matrix(D_sii, wfs.projections[a],
-                                                 wfs.f_m, np)
+                                                 wfs.f_m * weight, np)
             self.kpt_comm.sum(D_sii)
             D_asii[a] = D_sii
 
