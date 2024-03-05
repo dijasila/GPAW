@@ -34,12 +34,10 @@ class HXCKernel:
 
     def __init__(self,
                  Vbare_G: Array1D | None,
-                 fxc_kernel: FXCKernel | None,
-                 scaling: HXCScaling | None = None):
+                 fxc_kernel: FXCKernel | None):
         """Construct the Hxc kernel."""
         self.Vbare_G = Vbare_G
         self.fxc_kernel = fxc_kernel
-        self.scaling = scaling
 
         if Vbare_G is None:
             assert fxc_kernel is not None
@@ -67,7 +65,8 @@ class DysonSolver:
     def __init__(self, context):
         self.context = context
 
-    def __call__(self, chiks: Chi, hxc_kernel: HXCKernel) -> Chi:
+    def __call__(self, chiks: Chi, hxc_kernel: HXCKernel,
+                 hxc_scaling: HXCScaling | None = None) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed, \
@@ -76,7 +75,6 @@ class DysonSolver:
         Khxc_GG = hxc_kernel.get_Khxc_GG()
 
         # Apply kernel scaling, if specified
-        hxc_scaling = hxc_kernel.scaling
         if hxc_scaling is not None:
             if hxc_scaling.lambd is None:  # calculate, if it hasn't already
                 hxc_scaling.calculate_scaling(chiks, Khxc_GG, self)

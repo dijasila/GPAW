@@ -11,7 +11,7 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
-from gpaw.response.dyson import DysonSolver, HXCKernel
+from gpaw.response.dyson import DysonSolver, HXCKernel, HXCScaling
 
 
 class ChiFactory:
@@ -40,7 +40,8 @@ class ChiFactory:
         self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc=None, hxc_scaling=None, txt=None) -> tuple[Chi, Chi]:
+                 fxc=None, hxc_scaling: HXCScaling | None = None,
+                 txt=None) -> tuple[Chi, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -59,7 +60,7 @@ class ChiFactory:
         fxc : str (None defaults to ALDA)
             Approximation to the (local) xc kernel.
             Choices: RPA, ALDA, ALDA_X, ALDA_x
-        hxc_scaling : None or HXCScaling
+        hxc_scaling : HXCScaling (or None, if irrelevant)
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
@@ -85,10 +86,10 @@ class ChiFactory:
         # Construct the hxc kernel
         hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
         xc_kernel = self.get_xc_kernel(fxc, spincomponent, chiks.qpd)
-        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel, scaling=hxc_scaling)
+        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel)
 
         # Solve dyson equation
-        chi = self.dyson_solver(chiks, hxc_kernel)
+        chi = self.dyson_solver(chiks, hxc_kernel, hxc_scaling=hxc_scaling)
 
         return chiks, chi
 

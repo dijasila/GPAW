@@ -121,9 +121,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir, gpw_files):
                     fxc_kernel = FXCKernel.from_file(fxc_file)
 
                 # Calculate many-body susceptibility
-                hxc_kernel = HXCKernel(None, fxc_kernel,
-                                       fxckwargs['hxc_scaling'])
-                chi = chi_factory.dyson_solver(chiks, hxc_kernel)
+                hxc_kernel = HXCKernel(None, fxc_kernel)
+                chi = chi_factory.dyson_solver(chiks, hxc_kernel,
+                                               fxckwargs['hxc_scaling'])
 
             chi.write_macroscopic_component(identifier + '_iron_dsus'
                                             + '_%d.csv' % (q + 1))
