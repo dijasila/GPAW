@@ -11,6 +11,7 @@ from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import zips
 from gpaw.spline import Spline
 from gpaw.typing import Array1D, ArrayLike2D
+from gpaw.gpu import XP
 
 if TYPE_CHECKING:
     from gpaw.core.uniform_grid import UGArray
@@ -24,13 +25,13 @@ def to_spline(l: int,
     return Spline(l, rcut, f(r))
 
 
-class AtomCenteredFunctions:
+class AtomCenteredFunctions(XP):
     def __init__(self,
                  functions,
                  fracpos_ac: ArrayLike2D,
                  atomdist: AtomDistribution | None = None,
                  xp=None):
-        self.xp = xp or np
+        XP.__init__(self, xp or np)
         self.functions = [[to_spline(*f) if isinstance(f, tuple) else f
                            for f in funcs]
                           for funcs in functions]
