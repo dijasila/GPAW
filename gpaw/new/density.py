@@ -318,7 +318,9 @@ class Density:
 
         D_asii = self.D_asii
         if D_asii.layout.size != D_asii.layout.mysize:
-            raise ValueError('Atomic density matrices ')
+            raise ValueError(
+                'Atomic density matrices should be collected on all '
+                'ranks when calculating orbital magnetic moments.')
 
         from gpaw.new.orbmag import calculate_orbmag_from_density
         return calculate_orbmag_from_density(D_asii, self.n_aj, self.l_aj)
