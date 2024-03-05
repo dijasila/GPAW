@@ -12,6 +12,7 @@ from gpaw.core.uniform_grid import UGArray, UGDesc
 from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
+from gpaw.new.calculation import CalculationModeError
 from gpaw.typing import Array3D, Vector
 from gpaw.utilities import unpack, unpack2
 from gpaw.new.symmetry import SymmetrizationPlan
@@ -309,13 +310,18 @@ class Density:
         return dip_v
 
     def calculate_orbital_magnetic_moments(self):
-        if not self.ncomponents == 4:
-            raise AssertionError('Collinear calculations require '
-                                 'spin–orbit coupling for nonzero '
-                                 'orbital magnetic moments.')
+        if self.collinear:
+            raise CalculationModeError(
+                'Calculator is in collinear mode. '
+                'Collinear calculations require spin–orbit '
+                'coupling for nonzero orbital magnetic moments.')
 
-        from gpaw.new.orbmag import get_orbmag_from_density
-        return get_orbmag_from_density(self.D_asii, self.n_aj, self.l_aj)
+        D_asii = self.D_asii
+        if D_asii.layout.size != D_asii.layout.mysize:
+            raise ValueError('Atomic density matrices ')
+
+        from gpaw.new.orbmag import calculate_orbmag_from_density
+        return calculate_orbmag_from_density(D_asii, self.n_aj, self.l_aj)
 
     def calculate_magnetic_moments(self):
         magmom_av = np.zeros((self.natoms, 3))

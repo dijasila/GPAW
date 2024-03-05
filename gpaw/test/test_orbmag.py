@@ -3,6 +3,7 @@ import pytest
 import numpy as np
 
 from gpaw.new.ase_interface import GPAW
+from gpaw.new.calculation import CalculationModeError
 from gpaw.spinorbit import soc_eigenstates
 
 
@@ -22,7 +23,7 @@ def test_orbmag_Ni(gpw_files):
     energy_col = calc_col.get_potential_energy(calc_col.atoms)
     density = calc_col.calculation.state.density
     magmoms_col_v, _ = density.calculate_magnetic_moments()
-    with pytest.raises(AssertionError, match='Collinear calculations*'):
+    with pytest.raises(CalculationModeError, match='Calculator is in*'):
         calc_col.get_orbital_magnetic_moments()
     orbmag_col_v = soc_eigenstates(calc_col,
                                    theta=theta,
