@@ -60,7 +60,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs, ecut=50)
     chi_factory = ChiFactory(chiks_calc)
-    chiks, chi = chi_factory('00', q, w + 1.j * eta, fxc='RPA')
+    chiks, chi = chi_factory('00', q, w + 1.j * eta)
     chi.write_macroscopic_component('Si_chi2.csv')
     chi_factory.context.write_timer()
     chi_factory.context.set_timer(Timer())

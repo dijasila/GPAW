@@ -40,7 +40,7 @@ class ChiFactory:
         self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc=None, hxc_scaling: HXCScaling | None = None,
+                 fxc: str | None = None, hxc_scaling: HXCScaling | None = None,
                  txt=None) -> tuple[Chi, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
@@ -57,19 +57,16 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc : str (None defaults to ALDA)
-            Approximation to the (local) xc kernel.
-            Choices: RPA, ALDA, ALDA_X, ALDA_x
+        fxc : str or None
+            Approximation to the (local) xc kernel. If left as None, xc-effects
+            are neglected from the Dyson equation (RPA).
+            Other choices: ALDA, ALDA_X, ALDA_x
         hxc_scaling : HXCScaling (or None, if irrelevant)
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
-        # Fall back to ALDA per default
-        if fxc is None:
-            fxc = 'ALDA'
-
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -89,7 +86,7 @@ class ChiFactory:
 
         return chiks, chi
 
-    def get_hxc_kernel(self, fxc: str, spincomponent: str,
+    def get_hxc_kernel(self, fxc: str | None, spincomponent: str,
                        qpd: SingleQPWDescriptor) -> HXCKernel:
         return HXCKernel(
             Vbare_G=self.get_hartree_kernel(spincomponent, qpd),
@@ -105,7 +102,7 @@ class ChiFactory:
 
     def get_xc_kernel(self, fxc, spincomponent, qpd):
         """Get the requested xc-kernel object."""
-        if fxc == 'RPA':
+        if fxc is None:
             # No xc-kernel
             return None
 
