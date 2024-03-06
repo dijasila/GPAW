@@ -1,45 +1,71 @@
+from abc import abstractmethod
+
 import numpy as np
 
-
-def get_goldstone_scaling(mode, dyson_equations):
-    """Get kernel scaling parameter to fulfill a Goldstone condition."""
-    assert dyson_equations.qpd.optical_limit, \
-        r'The Goldstone condition is strictly bound to the Γ-point'
-    spincomponent = dyson_equations.spincomponent
-    if spincomponent not in ['+-', '-+']:
-        raise ValueError('No scaling method implemented for '
-                         f'spincomponent={spincomponent}')
-
-    # Find the frequency to determine the scaling from
-    omega_w = dyson_equations.zd.omega_w
-    wgs = find_goldstone_frequency(mode, omega_w)
-
-    # Only one rank, rgs, has the given frequency
-    wblocks = dyson_equations.zblocks
-    rgs, mywgs = wblocks.find_global_index(wgs)
-
-    # Let rgs find the rescaling
-    fxcsbuf = np.empty(1, dtype=float)
-    if wblocks.blockcomm.rank == rgs:
-        fxcsbuf[:] = find_goldstone_scaling(mode, dyson_equations[mywgs])
-
-    # Broadcast found rescaling
-    wblocks.blockcomm.broadcast(fxcsbuf, rgs)
-    fxcs = fxcsbuf[0]
-
-    return fxcs
+from gpaw.response.dyson import HXCScaling, DysonEquation
 
 
-def find_goldstone_frequency(mode, omega_w):
-    """Factory function for finding the appropriate frequency to determine
-    the kernel scaling from according to different Goldstone criteria."""
-    if mode == 'fm':
+class GoldstoneScaling(HXCScaling):
+    """Scale the Dyson equation to fulfill a Goldstone condition."""
+
+    def _calculate_scaling(self, dyson_equations):
+        """Calculate scaling coefficient λ."""
+        self.check_descriptors(dyson_equations)
+
+        # Find the frequency to determine the scaling from and identify where
+        # the Dyson equation in question is distributed
+        wgs = self.find_goldstone_frequency(
+            dyson_equations.zd.omega_w)
+        wblocks = dyson_equations.zblocks
+        rgs, mywgs = wblocks.find_global_index(wgs)
+
+        # Let rgs find and broadcast λ
+        lambdbuf = np.empty(1, dtype=float)
+        if wblocks.blockcomm.rank == rgs:
+            lambdbuf[:] = self.find_goldstone_scaling(dyson_equations[mywgs])
+        wblocks.blockcomm.broadcast(lambdbuf, rgs)
+        lambd = lambdbuf[0]
+
+        return lambd
+
+    @staticmethod
+    def check_descriptors(dyson_equations):
+        if not (dyson_equations.qpd.optical_limit and
+                dyson_equations.spincomponent in ['+-', '-+']):
+            raise ValueError(
+                'The Goldstone condition only applies to χ^(+-)(q=0).')
+
+    @abstractmethod
+    def find_goldstone_frequency(self, omega_w):
+        """Determine frequency index for the Goldstone condition."""
+
+    @abstractmethod
+    def find_goldstone_scaling(self, dyson_equation: DysonEquation) -> float:
+        """Calculate the Goldstone scaling parameter λ."""
+
+
+class FMGoldstoneScaling(GoldstoneScaling):
+    """Fulfil ferromagnetic Goldstone condition."""
+
+    @staticmethod
+    def find_goldstone_frequency(omega_w):
         return find_fm_goldstone_frequency(omega_w)
-    elif mode == 'afm':
+
+    @staticmethod
+    def find_goldstone_scaling(dyson_equation):
+        return find_fm_goldstone_scaling(dyson_equation)
+
+
+class AFMGoldstoneScaling(GoldstoneScaling):
+    """Fulfil antiferromagnetic Goldstone condition."""
+
+    @staticmethod
+    def find_goldstone_frequency(omega_w):
         return find_afm_goldstone_frequency(omega_w)
-    else:
-        raise ValueError(
-            f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}")
+
+    @staticmethod
+    def find_goldstone_scaling(dyson_equation):
+        return find_afm_goldstone_scaling(dyson_equation)
 
 
 def find_fm_goldstone_frequency(omega_w):
@@ -63,18 +89,6 @@ def find_afm_goldstone_frequency(omega_w):
     wgs = np.abs(omega_w - omega2_w[1]).argmin()
 
     return wgs
-
-
-def find_goldstone_scaling(mode, dyson_equation):
-    """Factory function for finding the scaling of the kernel
-    according to different Goldstone criteria."""
-    assert mode in ['fm', 'afm'], \
-        f"Allowed Goldstone scaling modes are 'fm', 'afm'. Got: {mode}"
-
-    if mode == 'fm':
-        return find_fm_goldstone_scaling(dyson_equation)
-    elif mode == 'afm':
-        return find_afm_goldstone_scaling(dyson_equation)
 
 
 def find_fm_goldstone_scaling(dyson_equation):
