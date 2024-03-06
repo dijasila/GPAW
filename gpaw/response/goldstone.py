@@ -49,7 +49,11 @@ class FMGoldstoneScaling(GoldstoneScaling):
 
     @staticmethod
     def find_goldstone_frequency(omega_w):
-        return find_fm_goldstone_frequency(omega_w)
+        """Ferromagnetic Goldstone condition is based on χ^(+-)(ω=0)."""
+        wgs = np.abs(omega_w).argmin()
+        assert abs(omega_w[wgs]) < 1.e-8, \
+            "Frequency grid needs to include ω=0."
+        return wgs
 
     @staticmethod
     def find_goldstone_scaling(dyson_equation):
@@ -61,34 +65,18 @@ class AFMGoldstoneScaling(GoldstoneScaling):
 
     @staticmethod
     def find_goldstone_frequency(omega_w):
-        return find_afm_goldstone_frequency(omega_w)
+        """Antiferromagnetic Goldstone condition is based on ω->0^+."""
+        # Set ω<=0. to np.inf
+        omega1_w = np.where(omega_w < 1.e-8, np.inf, omega_w)
+        # Sort for the two smallest positive frequencies
+        omega2_w = np.partition(omega1_w, 1)
+        # Find original index of second smallest positive frequency
+        wgs = np.abs(omega_w - omega2_w[1]).argmin()
+        return wgs
 
     @staticmethod
     def find_goldstone_scaling(dyson_equation):
         return find_afm_goldstone_scaling(dyson_equation)
-
-
-def find_fm_goldstone_frequency(omega_w):
-    """Find omega=0. as the fm Goldstone frequency."""
-    wgs = np.abs(omega_w).argmin()
-    if not np.allclose(omega_w[wgs], 0., atol=1.e-8):
-        raise ValueError("Frequency grid needs to include"
-                         + " omega=0. to allow 'fm' Goldstone scaling")
-
-    return wgs
-
-
-def find_afm_goldstone_frequency(omega_w):
-    """Find the second smallest positive frequency
-    as the afm Goldstone frequency."""
-    # Set omega=0. and negative frequencies to np.inf
-    omega1_w = np.where(omega_w < 1.e-8, np.inf, omega_w)
-    # Sort for the two smallest positive frequencies
-    omega2_w = np.partition(omega1_w, 1)
-    # Find original index of second smallest positive frequency
-    wgs = np.abs(omega_w - omega2_w[1]).argmin()
-
-    return wgs
 
 
 def find_fm_goldstone_scaling(dyson_equation):
