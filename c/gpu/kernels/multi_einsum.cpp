@@ -685,7 +685,7 @@ void multi_einsum_launch_kernel(char* str,
         strcpy(error, parser.error); 
         return;
     }
-    parser.print();
+    //parser.print();
 
     int nind_out = parser.nindex_out();
     int nind_in = parser.nindex_in();
@@ -770,7 +770,7 @@ void multi_einsum_launch_kernel(char* str,
                    {
                        stride += strides_pai[ p * (arguments * maxind) + maxind * a + locind];
                        int index_in_size = dimensions_pai[ p * (arguments * maxind) + maxind * a + locind]; // move inside stride
-                       if (index_in_size == 0)
+                       /*if (index_in_size == 0)
                        {
                            char error_str[256];
                            if (a < arguments -1)
@@ -783,6 +783,7 @@ void multi_einsum_launch_kernel(char* str,
                            }
                            strcpy(error, error_str);
                        }
+                       */
                        size_in_pi.cpu_ptr[p * nind_in + i ] = index_in_size;
                    }
                }
