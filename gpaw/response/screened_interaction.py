@@ -6,6 +6,7 @@ from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.temp import DielectricFunctionCalculator
 from gpaw.response.hilbert import GWHilbertTransforms
+from gpaw.response.mpa_interpolation import RESolver
 
 
 class QPointDescriptor(KPointDescriptor):
@@ -25,7 +26,7 @@ class QPointDescriptor(KPointDescriptor):
 def initialize_w_calculator(chi0calc, context, *,
                             coulomb,
                             xc='RPA',  # G0W0Kernel arguments
-                            ppa=False, E0=Ha, eta=None,
+                            ppa=False, mpa=None, E0=Ha, eta=None,
                             integrate_gamma=0, q0_correction=False):
     """Initialize a WCalculator from a Chi0Calculator.
 
@@ -46,15 +47,20 @@ def initialize_w_calculator(chi0calc, context, *,
                           gs=gs, qd=qd,
                           context=context)
 
+    kwargs = dict()
     if ppa:
         wcalc_cls = PPACalculator
+        assert mpa is None
+    elif mpa:
+        wcalc_cls = MPACalculator
+        kwargs.update(mpa=mpa)
     else:
         wcalc_cls = WCalculator
 
     return wcalc_cls(gs, context, qd=qd,
                      coulomb=coulomb, xckernel=xckernel,
                      integrate_gamma=integrate_gamma, eta=eta,
-                     q0_correction=q0_correction)
+                     q0_correction=q0_correction, **kwargs)
 
 
 class WBaseCalculator():
@@ -266,13 +272,11 @@ class HWModel:
         Hilbert Transformed W Model.
     """
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, f):
         """
             Get Hilbert transformed W at frequency omega.
 
-            The fsign is utilize to select which type of Hilbert transform
-            is selected, as is detailed in Sigma expectation value evaluation
-            where this model is used.
+            f: The occupation number for the orbital of the Greens function.
         """
         raise NotImplementedError
 
@@ -283,7 +287,8 @@ class FullFrequencyHWModel(HWModel):
         self.HW_swGG = HW_swGG
         self.factor = factor
 
-    def get_HW(self, omega, fsign):
+    def get_HW(self, omega, f):
+        fsign = np.sign(2 * f - 1)
         # For more information about how fsign, and wsign works, see
         # https://backend.orbit.dtu.dk/ws/portalfiles/portal/93075765/hueser_PhDthesis.pdf
         # eq. 2.2 endind up to eq. 2.11
@@ -324,7 +329,8 @@ class PPAHWModel(HWModel):
         self.eta = eta
         self.factor = factor
 
-    def get_HW(self, omega, sign):
+    def get_HW(self, omega, f):
+        sign = np.sign(2 * f - 1)
         omegat_GG = self.omegat_GG
         W_GG = self.W_GG
 
@@ -336,6 +342,94 @@ class PPAHWModel(HWModel):
         dx_GG = -self.factor * W_GG * (sign * (x1_GG**2 - x2_GG**2) +
                                        x3_GG**2 + x4_GG**2)
         return x_GG, dx_GG
+
+
+class MPAHWModel(HWModel):
+    def __init__(self, W_nGG, omegat_nGG, eta, factor):
+        self.W_nGG = W_nGG
+        self.omegat_nGG = omegat_nGG
+        self.eta = eta
+        self.factor = factor
+
+    def get_HW(self, omega, f, derivative=True, tol=1e-8):
+        omegat_nGG = self.omegat_nGG.copy().conj()
+        W_nGG = self.W_nGG
+        if f > tol:
+            x_nGG = f / (omega + omegat_nGG + 1j * self.eta)
+        else:
+            x_nGG = 0.0
+        if f < 1.0 - tol:
+            x_nGG += (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)
+
+        x_GG = (2 * self.factor) * np.sum(W_nGG * x_nGG,
+                                          axis=0)
+
+        if not derivative:
+            return x_GG
+
+        if f > tol:
+            dxdw_nGG = -f / (omega + omegat_nGG + 1j * self.eta)**2
+        else:
+            dxdw_nGG = 0.0
+        if f < 1 - tol:
+            dxdw_nGG -= (1.0 - f) / (omega - omegat_nGG - 1j * self.eta)**2
+
+        # Why the factor of 2?
+        dxdw_GG = (2 * self.factor) * np.sum(W_nGG * dxdw_nGG,
+                                             axis=0)
+        return x_GG, dxdw_GG
+
+
+class MPACalculator(WBaseCalculator):
+    def __init__(self, gs, context, *, qd,
+                 coulomb, xckernel,
+                 integrate_gamma, q0_correction, eta, mpa):
+        super().__init__(gs, context, qd=qd, coulomb=coulomb,
+                         xckernel=xckernel,
+                         integrate_gamma=integrate_gamma,
+                         q0_correction=q0_correction)
+        self.eta = eta
+        self.mpa = mpa
+
+    def get_HW_model(self, chi0,
+                     fxc_mode='GW'):
+        """Calculate the PPA parametrization of screened interaction.
+        """
+        # assert len(chi0.wd.omega_w) == 2
+        # E0 directly related to frequency mesh for chi0
+        # E0 = chi0.wd.omega_w[1].imag  # DALV: we are not using this line
+
+        dfc = DielectricFunctionCalculator(chi0,
+                                           self.coulomb,
+                                           self.xckernel,
+                                           fxc_mode)
+
+        V0, sqrtV0 = self.get_V0sqrtV0(chi0)
+        self.context.timer.start('Dyson eq.')
+        einv_wGG = dfc.get_epsinv_wGG(only_correlation=True)
+        einv_WgG = chi0.body.blockdist.distribute_as(einv_wGG, chi0.nw, 'WgG')
+
+        E_pGG, R_pGG = RESolver(chi0.wd.omega_w).solve(einv_WgG)
+
+        dist = chi0.body.blockdist.distribute_as
+        R_pGG = dist(R_pGG, self.mpa['npoles'], 'wGG')
+        E_pGG = dist(E_pGG, self.mpa['npoles'], 'wGG')
+
+        W_pGG = pi * R_pGG * dfc.sqrtV_G[np.newaxis, :, np.newaxis] \
+            * dfc.sqrtV_G[np.newaxis, np.newaxis, :]
+        if chi0.optical_limit or self.integrate_gamma != 0:
+            for W_GG, R_GG in zip(W_pGG, R_pGG):
+                self.apply_gamma_correction(W_GG, pi * R_GG,
+                                            V0, sqrtV0,
+                                            dfc.sqrtV_G)
+
+        W_pGG = dist(W_pGG, self.mpa['npoles'], 'WgG')
+        E_pGG = dist(E_pGG, self.mpa['npoles'], 'WgG')
+
+        self.context.timer.stop('Dyson eq.')
+
+        factor = 1.0 / (self.qd.nbzkpts * 2 * pi * self.gs.volume)
+        return MPAHWModel(W_pGG, E_pGG, self.eta, factor)
 
 
 class PPACalculator(WBaseCalculator):
