@@ -101,7 +101,9 @@ class DysonEquations(Sequence):
         return self.zblocks.nlocal
 
     def __getitem__(self, z):
-        return DysonEquation(self.chiks.array[z], self.Khxc_GG)
+        chiks_GG = self.chiks.array[z]
+        xi_GG = chiks_GG @ self.Khxc_GG
+        return DysonEquation(chiks_GG, xi_GG)
 
     def invert(self, hxc_scaling: HXCScaling | None = None) -> Chi:
         """Invert Dyson equations to obtain χ(z)."""
@@ -128,15 +130,10 @@ class DysonEquation:
     See [to be published] for more information.
     """
 
-    def __init__(self, chiks_GG, Khxc_GG):
+    def __init__(self, chiks_GG, xi_GG):
         self.nG = chiks_GG.shape[0]
         self.chiks_GG = chiks_GG
-        self.Khxc_GG = Khxc_GG
-
-    @property
-    def xi_GG(self):
-        """Calculate the self-enhancement function."""
-        return self.chiks_GG @ self.Khxc_GG
+        self.xi_GG = xi_GG
 
     def invert(self, lambd: float | None = None):
         """Invert the Dyson equation (with or without a rescaling of Ξ).
