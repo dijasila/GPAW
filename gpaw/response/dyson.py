@@ -12,7 +12,7 @@ from gpaw.response.goldstone import get_goldstone_scaling
 
 
 class HXCScaling:
-    """Helper for scaling hxc kernels."""
+    """Helper for scaling the hxc contribution to Dyson equations."""
 
     def __init__(self, mode, lambd=None):
         self.mode = mode
@@ -22,13 +22,8 @@ class HXCScaling:
     def lambd(self):
         return self._lambd
 
-    def calculate_scaling(self, chiks, Khxc_GG, dyson_solver):
-        if chiks.spincomponent in ['+-', '-+']:
-            self._lambd = get_goldstone_scaling(
-                self.mode, chiks, Khxc_GG, dyson_solver)
-        else:
-            raise ValueError('No scaling method implemented for '
-                             f'spincomponent={chiks.spincomponent}')
+    def calculate_scaling(self, dyson_equations: DysonEquations):
+        self._lambd = get_goldstone_scaling(self.mode, dyson_equations)
 
 
 class HXCKernel:
@@ -85,9 +80,13 @@ class DysonEquations(Sequence):
             "DysonSolver needs chiks' frequencies to be distributed over world"
         nG = hxc_kernel.nG
         assert chiks.array.shape[1:] == (nG, nG)
-        self.zblocks = chiks.blocks1d
         self.chiks = chiks
         self.Khxc_GG = hxc_kernel.get_Khxc_GG()
+        # Inherit basic descriptors from chiks
+        self.qpd = chiks.qpd
+        self.zd = chiks.zd
+        self.zblocks = chiks.blocks1d
+        self.spincomponent = chiks.spincomponent
 
     def __len__(self):
         return self.zblocks.nlocal
