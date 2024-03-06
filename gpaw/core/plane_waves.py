@@ -306,6 +306,15 @@ class PWArray(DistributedArrays[PWDesc]):
         a.data[:] = self.data
         return a
 
+    def sanity_check(self) -> None:
+        """Sanity check for real-valed PW expansions.
+
+        Make sure the G=(0,0,0) coefficient doesn't have an imaginary part.
+        """
+        if self.desc.dtype == float and self.desc.comm.rank == 0:
+            if (self.data[..., 0].imag != 0.0).any():
+                raise ValueError
+
     def _arrays(self):
         shape = self.data.shape
         return self.data.reshape((prod(shape[:-1]), shape[-1]))
@@ -439,15 +448,18 @@ class PWArray(DistributedArrays[PWDesc]):
             self.data[:] = self.xp.asarray(data)
             return
 
-        assert self.dims == ()
-
         if comm.rank == 0:
-            data = pad(data, comm.size * self.desc.maxmysize)
-            comm.scatter(data, self.data, 0)
+            assert data is not None
+            shape = data.shape
+            for fro, to in zips(data.reshape((prod(shape[:-1]), shape[-1])),
+                                self._arrays()):
+                fro = pad(fro, comm.size * self.desc.maxmysize)
+                comm.scatter(fro, to, 0)
         else:
             buf = self.xp.empty(self.desc.maxmysize, complex)
-            comm.scatter(None, buf, 0)
-            self.data[:] = buf[:len(self.data)]
+            for to in self._arrays():
+                comm.scatter(None, buf, 0)
+                to[:] = buf[:len(to)]
 
     def scatter_from_all(self, a_G: PWArray) -> None:
         """Scatter all coefficients from rank r to self on other cores."""

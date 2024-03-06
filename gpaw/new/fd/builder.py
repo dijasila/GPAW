@@ -3,10 +3,9 @@ import numpy as np
 
 from gpaw.core import UGDesc
 from gpaw.core.arrays import DistributedArrays as XArray
-from gpaw.core.atom_arrays import AtomDistribution
 from gpaw.core.uniform_grid import UGArray
 from gpaw.fd_operators import Gradient, Laplace
-from gpaw.new import cached_property, zips
+from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.fd.pot_calc import FDPotentialCalculator
 from gpaw.new.hamiltonian import Hamiltonian
@@ -16,7 +15,7 @@ from gpaw.poisson import PoissonSolver as make_poisson_solver
 
 
 class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
-    def __init__(self, atoms, params, *, comm, nn=3, interpolation=1):
+    def __init__(self, atoms, params, *, comm, nn=3, interpolation=3):
         super().__init__(atoms,
                          params,
                          comm=comm)
@@ -29,12 +28,6 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
         self.electrostatic_potential_desc = self.fine_grid
         self.interpolation_desc = self.fine_grid
-
-    @cached_property
-    def atomdist(self) -> AtomDistribution:
-        return AtomDistribution(
-            self.grid.ranks_from_fractional_positions(self.fracpos_ac),
-            self.grid.comm)
 
     def create_uniform_grids(self):
         grid = create_uniform_grid(
@@ -79,7 +72,8 @@ class FDDFTComponentsBuilder(PWFDDFTComponentsBuilder):
             xp=self.xp)
 
     def create_hamiltonian_operator(self, blocksize=10):
-        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize, xp=self.xp)
+        return FDHamiltonian(self.wf_desc, self.kin_stencil_range, blocksize,
+                             xp=self.xp)
 
     def convert_wave_functions_from_uniform_grid(self,
                                                  C_nM,

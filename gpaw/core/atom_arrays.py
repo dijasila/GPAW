@@ -5,14 +5,14 @@ from typing import Sequence, overload
 
 import numpy as np
 from gpaw.core.matrix import Matrix
-from gpaw.gpu import cupy as cp
+from gpaw.gpu import cupy as cp, XP
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new import prod, zips
 from gpaw.typing import Array1D, ArrayLike1D, Literal
 from gpaw.new.c import dH_aii_times_P_ani_gpu
 
 
-class AtomArraysLayout:
+class AtomArraysLayout(XP):
     def __init__(self,
                  shapes: Sequence[int | tuple[int, ...]],
                  atomdist: AtomDistribution | MPIComm = serial_comm,
@@ -35,7 +35,7 @@ class AtomArraysLayout:
             atomdist = AtomDistribution(np.zeros(len(shapes), int), atomdist)
         self.atomdist = atomdist
         self.dtype = np.dtype(dtype)
-        self.xp = xp or np
+        XP.__init__(self, xp or np)
 
         self.size = sum(prod(shape) for shape in self.shape_a)
 
@@ -455,12 +455,16 @@ class AtomArrays:
             if r == comm.rank:
                 new[a][:] = self[a]
             else:
-                requests.append(comm.send(self[a], r, block=False))
+                requests.append(comm.send(np.ascontiguousarray(self[a]),
+                                          r, block=False))
 
         for a, I1, I2 in layout.myindices:
             r = self.layout.atomdist.rank_a[a]
             if r != comm.rank:
-                comm.receive(new[a], r)
+                target = new[a]
+                buf = np.empty_like(target)
+                comm.receive(buf, r)
+                target[:] = buf
 
         comm.waitall(requests)
         return new

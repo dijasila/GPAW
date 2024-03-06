@@ -8,14 +8,11 @@ import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
 from scipy.fftpack import dst as scipydst
 
-#cupyx.scipy.fft.dstn
-
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection, dipole_correction
 from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
@@ -271,14 +268,12 @@ class BasePoissonSolver(_PoissonSolver):
             if zero_initial_phi:
                 phi[:] = 0.0
             else:
-                #axpy(-q, self.phi_gauss, phi)  
                 phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
             niter = self.solve_neutral(phi, rho_neutral, timer=timer)
 
             # correct error introduced by removing monopole
-            #axpy(q, self.phi_gauss, phi)  
             phi += q * self.phi_gauss
 
             return niter
@@ -328,7 +323,8 @@ class FDPoissonSolver(BasePoissonSolver):
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
             metallic_electrodes=metallic_electrodes,
-            use_charged_periodic_corrections=use_charged_periodic_corrections, **kwargs)
+            use_charged_periodic_corrections=use_charged_periodic_corrections,
+            **kwargs)
         self.eps = eps
         self.relax = relax
         self.nn = nn
@@ -528,7 +524,8 @@ class FDPoissonSolver(BasePoissonSolver):
             self.operators[level].apply(self.phis[level], residual)
             residual -= self.rhos[level]
             error = self.gd.comm.sum_scalar(
-                float(np.dot(residual.ravel(), residual.ravel()))) * self.gd.dv
+                float(self.xp.dot(residual.ravel(),
+                                  residual.ravel()))) * self.gd.dv
 
             # How about this instead:
             # error = self.gd.comm.max(abs(residual).max())
@@ -603,6 +600,7 @@ class FFTPoissonSolver(BasePoissonSolver):
             N_c[c] = 1  # Will be serial in that direction
             parsize_c = decompose_domain(N_c, gd.comm.size)
             self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
+        self._initialized = False
 
     def _init(self):
         if self._initialized:

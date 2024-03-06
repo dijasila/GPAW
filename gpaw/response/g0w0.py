@@ -277,9 +277,13 @@ class QSymmetryOp:
         return mypawcorr, Q_G
 
 
-def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc):
+def get_nmG(kpt1, kpt2, mypawcorr, n, qpd, I_G, pair_calc, timer=None):
+    if timer:
+        timer.start('utcc and pawcorr multiply')
     ut1cc_R = kpt1.ut_nR[n].conj()
     C1_aGi = mypawcorr.multiply(kpt1.P_ani, band=n)
+    if timer:
+        timer.stop('utcc and pawcorr multiply')
     n_mG = pair_calc.calculate_pair_density(
         ut1cc_R, C1_aGi, kpt2, qpd, I_G)
     return n_mG
@@ -341,6 +345,9 @@ def choose_ecut_things(ecut, ecut_extrapolation):
                          (necuts - 1))**(-2 / 3)
     elif isinstance(ecut_extrapolation, (list, np.ndarray)):
         ecut_e = np.array(np.sort(ecut_extrapolation))
+        if not np.allclose(ecut, ecut_e[-1]):
+            raise ValueError('ecut parameter must be the largest value'
+                             'of ecut_extrapolation, when it is a list.')
         ecut = ecut_e[-1]
     else:
         ecut_e = np.array([ecut])
@@ -441,6 +448,13 @@ class G0W0Calculator:
         self.ecut_e = ecut_e / Ha
 
         self.context.print(gw_logo)
+
+        if self.chi0calc.gs.metallic:
+            self.context.print('WARNING: \n'
+                               'The current GW implementation cannot'
+                               ' handle intraband screening. \n'
+                               'This results in poor k-point'
+                               ' convergence for metals')
 
         self.fxc_modes = fxc_modes
 
@@ -1072,14 +1086,14 @@ class G0W0(G0W0Calculator):
 
         kpts = list(select_kpts(kpts, gs.kd))
 
+        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
+
         if nbands is None:
             nbands = int(gs.volume * (ecut / Ha)**1.5 * 2**0.5 / 3 / pi**2)
         else:
             if ecut_extrapolation:
                 raise RuntimeError(
                     'nbands cannot be supplied with ecut-extrapolation.')
-
-        ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
 
         if ppa:
             # use small imaginary frequency to avoid dividing by zero:

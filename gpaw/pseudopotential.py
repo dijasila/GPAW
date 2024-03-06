@@ -212,10 +212,12 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
+    is_pseudo = True
+
     def __init__(self, data, basis=None, filter=None):
         self.data = data
 
-        self.lq = None
+        self.N0_q = None
 
         self.filename = None
         self.fingerprint = None
@@ -231,6 +233,7 @@ class PseudoPotential(BaseSetup):
         self.l_j = data.l_j
         self.l_orb_J = data.l_orb_J
         self.nj = len(data.l_j)
+        self.nq = self.nj * (self.nj + 1) // 2
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
         # self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
@@ -300,7 +303,10 @@ class PseudoPotential(BaseSetup):
         self.rcore = None
 
         self.N0_p = np.zeros(_np)  # not really implemented
-        self.nabla_iiv = None
+        if hasattr(data, 'nabla_iiv'):
+            self.nabla_iiv = data.nabla_iiv
+        else:
+            self.nabla_iiv = None
         self.rxnabla_iiv = None
         self.phicorehole_g = None
         self.rgd = data.rgd
@@ -314,7 +320,6 @@ class PseudoPotential(BaseSetup):
         self.X_pg = None
         self.ExxC = None
         self.ExxC_w = {}
-        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)
         self.extra_xc_data = {}
@@ -322,5 +327,3 @@ class PseudoPotential(BaseSetup):
         self.wg_lg = None
         self.g_lg = None
         self.local_corr = LocalCorrectionVar(None)
-        self._Mg_pp = None
-        self._gamma = None

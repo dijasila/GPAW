@@ -2,7 +2,6 @@
 # teacher
 import ase.visualize as viz
 viz.view = lambda atoms, repeat=None: None
-
 # %%
 """
 # Battery Project
@@ -30,7 +29,7 @@ from ase import Atom
 from ase.visualize import view
 import matplotlib.pyplot as plt
 from ase.io import read, write
-from ase.neb import NEB
+from ase.mep import NEB
 from ase.optimize import BFGS
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac, Mixer, PW
@@ -40,7 +39,6 @@ from ase.constraints import FixAtoms
 """
 ## Transport barrier of Li in graphite
 """
-
 # %%
 """
 You will now calculate the energy barrier for Li diffusion in the graphite anode. You will do this using the [Nudged Elastic Band (NEB) method](https://wiki.fysik.dtu.dk/ase/ase/neb.html#module-ase.neb)
@@ -124,7 +122,7 @@ This very simple case is highly symmetric. To better illustrate how the NEB meth
 # %%
 for image in images[0:7]:
     calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc='LDA', txt=None, symmetry={'point_group': False})
-    image.set_calculator(calc)
+    image.calc = calc
     image.set_constraint(FixAtoms(mask=[atom.symbol == 'C' for atom in image]))
 
 images[3].rattle(stdev=0.05, seed=42)
@@ -161,7 +159,7 @@ Submit the calculation to the HPC cluster. Do this by first building a complete 
 
 # %%
 #from ase.io import read, write
-#from ase.neb import NEB
+#from ase.mep import NEB
 #from ase.optimize import BFGS
 #from ase.parallel import paropen
 #from gpaw import GPAW, FermiDirac, Mixer, PW
@@ -178,7 +176,7 @@ Submit the calculation to the HPC cluster. Do this by first building a complete 
 
 # teacher
 from ase.io import read, write
-from ase.neb import NEB
+from ase.mep import NEB
 from ase.optimize import BFGS
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac, Mixer, PW
@@ -722,7 +720,7 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-lifepo4_vac=read('lifepo4_vac.traj')
+lifepo4_vac = read('lifepo4_vac.traj')
 
 params_GPAW = {}
 params_GPAW['mode']        = PW(500)                     #The used plane wave energy cutoff

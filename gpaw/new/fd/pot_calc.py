@@ -74,7 +74,7 @@ class FDPotentialCalculator(PotentialCalculator):
             Nt1_s = nt_sR.integrate()
             Nt2_s = nt_sr.integrate()
             for Nt1, Nt2, nt_r in zips(Nt1_s, Nt2_s, nt_sr):
-                if Nt2 > 1e-14:
+                if float(Nt2) > 1e-14:
                     nt_r.data *= Nt1 / Nt2
         return nt_sr, None, None
 
@@ -108,7 +108,7 @@ class FDPotentialCalculator(PotentialCalculator):
             vHt_r = grid2.zeros(xp=self.xp)
         self.poisson_solver.solve(vHt_r, charge_r)
         e_coulomb = 0.5 * vHt_r.integrate(charge_r)
-         
+
         vt_sr = vxct_sr
         vt_sr.data += vHt_r.data + self.vbar_r.data
         vt_sR = self.restrict(vt_sr)

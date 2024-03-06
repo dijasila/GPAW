@@ -2,11 +2,10 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
-from gpaw.test import equal
 
 
 @pytest.mark.pipekmezey
-def test_pipekmezey_spin(in_tmp_dir):
+def test_pipekmezey_spin(in_tmp_dir, needs_ase_master):
 
     atoms = Atoms('O2',
                   positions=[[0, 0, 0],
@@ -30,7 +29,7 @@ def test_pipekmezey_spin(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 5.973, 0.001)
+    assert P == pytest.approx(5.973, abs=0.001)
 
     # Spin 1
     PM = PipekMezey(calc=calc,
@@ -40,4 +39,4 @@ def test_pipekmezey_spin(in_tmp_dir):
 
     P = PM.get_function_value()
 
-    equal(P, 3.315, 0.001)
+    assert P == pytest.approx(3.315, abs=0.001)

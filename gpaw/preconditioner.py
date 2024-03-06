@@ -4,7 +4,6 @@ import numpy as np
 from gpaw import debug
 from gpaw.fd_operators import Laplace
 from gpaw.transformers import Transformer
-from gpaw.utilities.blas import axpy
 
 
 class Preconditioner:
@@ -27,7 +26,8 @@ class Preconditioner:
         self.restrictor1 = self.restrictor_object1.apply
         self.interpolator2 = self.interpolator_object2.apply
         self.interpolator1 = self.interpolator_object1.apply
-        self.use_c_precond = False # XXX GPU FD restructure
+        self.use_c_precond = True
+        self.xp = xp
 
     def calculate_kinetic_energy(self, psit_xG, kpt):
         return None
@@ -56,7 +56,7 @@ class Preconditioner:
             q0 = self.scratch0[0, :nb]
         r1, d1, q1 = self.scratch1[:, :nb]
         r2, d2, q2 = self.scratch2[:, :nb]
-        if self.use_c_precond:
+        if self.use_c_precond and self.xp is np:
             transformers = [self.restrictor_object0.transformer,
                             self.restrictor_object1.transformer,
                             self.interpolator_object1.transformer,
@@ -88,6 +88,6 @@ class Preconditioner:
         self.interpolator1(-d1, d0, phases)
         self.kin0.apply(d0, q0, phases)
         q0 -= residuals
-        d0 -= step * q0 #axpy(-step, q0, d0)  
+        d0 -= step * q0
         d0 *= -1.0
         return d0
