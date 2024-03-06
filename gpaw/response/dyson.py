@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import numpy as np
 
 from gpaw.typing import Array1D
-from gpaw.response import timer, ResponseContext
+from gpaw.response import timer
 from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
 from gpaw.response.goldstone import get_goldstone_scaling
@@ -57,18 +57,24 @@ class HXCKernel:
 
 
 class DysonSolver:
-    """Class for invertion of Dyson-like equations."""
+    """Class for inversion of Dyson-like equations."""
 
     def __init__(self, context):
         self.context = context
 
-    @timer('Solve Dyson-like equations')
+    @timer('Invert Dyson-like equations')
     def __call__(self, chiks: Chi, hxc_kernel: HXCKernel,
                  hxc_scaling: HXCScaling | None = None) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
         dyson_equations = DysonEquations(chiks, hxc_kernel)
-        return dyson_equations.invert(
-            hxc_scaling=hxc_scaling, context=self.context)
+        if hxc_scaling:
+            if not hxc_scaling.lambd:  # calculate, if it hasn't been already
+                hxc_scaling.calculate_scaling(dyson_equations)
+            lambd = hxc_scaling.lambd
+            self.context.print(r'Rescaling the self-enhancement function by a '
+                               f'factor of λ={lambd}')
+        self.context.print('Inverting Dyson-like equations')
+        return dyson_equations.invert(hxc_scaling=hxc_scaling)
 
 
 class DysonEquations(Sequence):
@@ -77,7 +83,7 @@ class DysonEquations(Sequence):
     def __init__(self, chiks: Chi, hxc_kernel: HXCKernel):
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed, \
-            "DysonSolver needs chiks' frequencies to be distributed over world"
+            "chiks' frequencies need to be fully distributed over world"
         nG = hxc_kernel.nG
         assert chiks.array.shape[1:] == (nG, nG)
         self.chiks = chiks
@@ -94,28 +100,13 @@ class DysonEquations(Sequence):
     def __getitem__(self, z):
         return DysonEquation(self.chiks.array[z], self.Khxc_GG)
 
-    def invert(self,
-               hxc_scaling: HXCScaling | None = None,
-               context: ResponseContext | None = None) -> Chi:
+    def invert(self, hxc_scaling: HXCScaling | None = None) -> Chi:
         """Invert Dyson equations to obtain χ(z)."""
-        txtout = []
-        if hxc_scaling is None:
-            lambd = None  # no scaling of the self-enhancement function
-        else:
-            if hxc_scaling.lambd is None:  # calculate, if not already
-                hxc_scaling.calculate_scaling(self)
-            lambd = hxc_scaling.lambd
-            txtout.append(r'Rescaling the self-enhancement function by a '
-                          f'factor of  λ={lambd}')
-
-        if context is not None:
-            txtout.append('Inverting Dyson-like equation')
-            context.print('\n'.join(txtout))
-
+        # Scaling coefficient of the self-enhancement function
+        lambd = hxc_scaling.lambd if hxc_scaling else None
         chi = self.chiks.new()
         for z, dyson_equation in enumerate(self):
             chi.array[z] = dyson_equation.invert(lambd=lambd)
-
         return chi
 
 
