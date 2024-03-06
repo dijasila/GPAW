@@ -69,7 +69,7 @@ class DysonSolver:
     def __call__(self, chiks: Chi, hxc_kernel: HXCKernel,
                  hxc_scaling: HXCScaling | None = None) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
-        dyson_equations = DysonEquations(chiks, hxc_kernel)
+        dyson_equations = DysonEquationsWithKernel(chiks, hxc_kernel)
         if hxc_scaling:
             if not hxc_scaling.lambd:  # calculate, if it hasn't been already
                 hxc_scaling.calculate_scaling(dyson_equations)
@@ -83,14 +83,11 @@ class DysonSolver:
 class DysonEquations(Sequence):
     """Sequence of Dyson-like equations at different complex frequencies z."""
 
-    def __init__(self, chiks: Chi, hxc_kernel: HXCKernel):
+    def __init__(self, chiks: Chi):
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed, \
             "chiks' frequencies need to be fully distributed over world"
-        nG = hxc_kernel.nG
-        assert chiks.array.shape[1:] == (nG, nG)
         self.chiks = chiks
-        self.Khxc_GG = hxc_kernel.get_Khxc_GG()
         # Inherit basic descriptors from chiks
         self.qpd = chiks.qpd
         self.zd = chiks.zd
@@ -100,11 +97,6 @@ class DysonEquations(Sequence):
     def __len__(self):
         return self.zblocks.nlocal
 
-    def __getitem__(self, z):
-        chiks_GG = self.chiks.array[z]
-        xi_GG = chiks_GG @ self.Khxc_GG
-        return DysonEquation(chiks_GG, xi_GG)
-
     def invert(self, hxc_scaling: HXCScaling | None = None) -> Chi:
         """Invert Dyson equations to obtain χ(z)."""
         # Scaling coefficient of the self-enhancement function
@@ -113,6 +105,19 @@ class DysonEquations(Sequence):
         for z, dyson_equation in enumerate(self):
             chi.array[z] = dyson_equation.invert(lambd=lambd)
         return chi
+
+
+class DysonEquationsWithKernel(DysonEquations):
+    def __init__(self, chiks: Chi, hxc_kernel: HXCKernel):
+        super().__init__(chiks)
+        nG = hxc_kernel.nG
+        assert self.chiks.array.shape[1:] == (nG, nG)
+        self.Khxc_GG = hxc_kernel.get_Khxc_GG()
+
+    def __getitem__(self, z):
+        chiks_GG = self.chiks.array[z]
+        xi_GG = chiks_GG @ self.Khxc_GG
+        return DysonEquation(chiks_GG, xi_GG)
 
 
 class DysonEquation:
