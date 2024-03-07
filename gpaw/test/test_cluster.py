@@ -133,3 +133,24 @@ def test_platinum_surface():
 
     h_z = h_c[:2].sum() / 2  # average of x and y
     assert h_z == pytest.approx(h_c[2])
+
+def test_pbc_uncompleat_initial_unitcell():
+    """ensure that non-periodic direction gets modified only"""
+    surface = fcc111('Pt', (5, 6, 2), a=3.912, orthogonal=True)
+    original_cell = surface.cell.copy()
+
+    h = 0.2
+    vacuum = 4
+    adjust_cell(surface, vacuum, h=h)
+
+    # perdiodic part shall not be changed
+    assert (original_cell[:2] == surface.cell[:2]).all()
+    # the surfcae is shifted upwards
+    assert (surface.get_positions().T[2] >= vacuum).all()
+    
+    # what internally is done in gpaw
+    N_c = h2gpts(h, surface.cell)
+    h_c = np.diag(surface.cell / N_c)
+
+    h_z = h_c[:2].sum() / 2  # average of x and y
+    assert h_z == pytest.approx(h_c[2])
