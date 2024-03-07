@@ -1,23 +1,56 @@
+from __future__ import annotations
 import numpy as np
 
+from typing import Type
 from gpaw.mpi import world
 from gpaw.tddft.units import as_to_au, eV_to_au
 
 
+known_lasers: dict[str, Type[Laser]] = dict()
+
+
 def create_laser(name, **kwargs):
+    """ Create Laser from dict """
+    global known_lasers
+
     if isinstance(name, Laser):
         return name
     elif isinstance(name, dict):
         kwargs.update(name)
         return create_laser(**kwargs)
-    elif name == 'GaussianPulse':
-        return GaussianPulse(**kwargs)
-    elif name == 'SincPulse':
-        return SincPulse(**kwargs)
-    elif name == 'SumLaser':
-        return SumLaser(**kwargs)
-    else:
-        raise ValueError('Unknown laser: %s' % name)
+
+    if not known_lasers:
+        _register_known_lasers()
+
+    cls = known_lasers.get(name, None)
+    if cls is None:
+        raise ValueError(f'Unknown laser: {name}')
+    return cls(**kwargs)
+
+
+def register_custom_laser(name: str,
+                          cls: Type[Laser]):
+    """ Register a custom laser object
+
+    This function must be used when restarting TDDFT calculations using
+    user defined laser classes
+
+    Parameters
+    ----------
+    name
+        Name of laser object. Must be consistent with the name in todict()
+    cls
+        Class of the laser object
+    """
+    if not known_lasers:
+        _register_known_lasers()
+
+    known_lasers[name] = cls
+
+
+def _register_known_lasers():
+    for name in ['GaussianPulse', 'SincPulse', 'SumLaser']:
+        known_lasers[name] = globals()[name]
 
 
 class Laser:
