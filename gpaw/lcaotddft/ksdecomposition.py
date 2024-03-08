@@ -1,10 +1,12 @@
 import numpy as np
+from typing import NamedTuple
 
 from ase.units import Hartree, Bohr
 
 from ase.io.ulm import Reader
 from gpaw.io import Writer
 from gpaw.external import ConstantElectricField
+from gpaw.kpoint import KPoint
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.utilities import collect_MM
 from gpaw.lcaotddft.utilities import distribute_nM
@@ -41,6 +43,10 @@ def get_bfs_maps(calc):
     return a_M, l_M
 
 
+class DummyKsl(NamedTuple):
+    using_blacs: bool = False
+
+
 class KohnShamDecomposition:
     version = 1
     ulmtag = 'KSD'
@@ -66,7 +72,19 @@ class KohnShamDecomposition:
 
         if filename is not None:
             self.read(filename)
-            return
+
+            if paw is not None:
+                return
+
+            # We need a list of KPoints to read attributes
+            # Get the number of spins and kpoints from the array dimensions
+            # and create dummy KPoints
+            ns, nk = self.reader.eig_un.shape[:2]
+            kpt_u = [KPoint(weightk=0, weight=0, s=s, k=k, q=k)
+                     for s in range(ns)
+                     for k in range(nk)]
+            self.kpt_u = kpt_u
+            self.ksl = DummyKsl()
 
     def initialize(self, paw, min_occdiff=1e-3, only_ia=True):
         if self.has_initialized:
