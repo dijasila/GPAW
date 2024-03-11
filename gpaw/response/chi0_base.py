@@ -187,12 +187,18 @@ class Chi0ComponentCalculator:
 
     @property
     def nblocks(self):
+        # should be passed around in a BlocPartitions object XXX
         return self.kptpair_factory.nblocks
 
     @property
     def blockcomm(self):
         # to BlockPartitions object? XXX
-        return self.kptpair_factory.blockcomm
+        return self.integrator.blockcomm
+
+    @property
+    def kncomm(self):
+        # to BlocPartitions object? XXX
+        return self.integrator.kncomm
 
     @property
     def pbc(self):

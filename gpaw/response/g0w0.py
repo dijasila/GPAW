@@ -401,16 +401,14 @@ class PairDistribution:
             yield progress, kpt1, kpt2
 
 
-def distribute_k_points_and_bands(kptpair_factory, band1, band2, kpts=None):
+def distribute_k_points_and_bands(kptpair_factory, blockcomm, kncomm,
+                                  band1, band2, kpts=None):
     """Distribute spins, k-points and bands.
 
     The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
     tuples that this process handles.
     """
-
     gs = kptpair_factory.gs
-    kncomm = kptpair_factory.kncomm
-    blockcomm = kptpair_factory.blockcomm
 
     if kpts is None:
         kpts = np.arange(gs.kd.nbzkpts)
@@ -554,7 +552,10 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = distribute_k_points_and_bands(
-            self.chi0calc.kptpair_factory, b1, b2,
+            self.chi0calc.kptpair_factory,
+            self.chi0calc.chi0_body_calc.blockcomm,
+            self.chi0calc.chi0_body_calc.kncomm,
+            b1, b2,
             self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)
