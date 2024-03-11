@@ -23,7 +23,75 @@ if TYPE_CHECKING:
 @dataclass
 class Intermediate:
     chi0: Chi0Data
+    df: 'DielectricFunction'
 
+    def __post_init__(self):
+        self.gs = self.df.gs
+        self.context = self.df.context
+        self.coulomb = self.df.coulomb
+        self.blocks1d = self.df.blocks1d
+
+    def chi(self, xc='RPA', q_c=[0, 0, 0],
+            direction='x', return_VchiV=True, q_v=None,
+            rshelmax=-1, rshewmin=None):
+        chi0 = self.chi0
+        qpd = chi0.qpd
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
+
+        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
+        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
+        sqrtV_G = Kbare_G**0.5
+
+        nG = len(sqrtV_G)
+
+        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
+
+        if self.coulomb.truncation is None:
+            K_GG = np.eye(nG, dtype=complex)
+        else:
+            K_GG = np.diag(Ktrunc_G / Kbare_G)
+
+        # kd: KPointDescriptor object from gpaw.kpt_descriptor
+        if qpd.kd.gamma:
+            if isinstance(direction, str):
+                d_v = {'x': [1, 0, 0],
+                       'y': [0, 1, 0],
+                       'z': [0, 0, 1]}[direction]
+            else:
+                d_v = direction
+            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
+            W = self.blocks1d.myslice  # slice object for this process.
+            #  used to distribute the calculation when run in parallel.
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
+
+        if xc != 'RPA':
+            Kxc_GG = get_density_xc_kernel(qpd,
+                                           self.gs, self.context,
+                                           functional=xc,
+                                           chi0_wGG=chi0_wGG)
+            K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
+
+        # Invert Dyson eq.
+        chi_wGG = []
+        for chi0_GG in chi0_wGG:
+            """v^1/2 chi0 V^1/2"""
+            chi0_GG[:] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
+            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
+                                          np.dot(chi0_GG, K_GG)),
+                            chi0_GG)
+            if not return_VchiV:
+                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
+                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
+            chi_wGG.append(chi_GG)
+
+        if len(chi_wGG):
+            chi_wGG = np.array(chi_wGG)
+        else:
+            chi_wGG = np.zeros((0, nG, nG), complex)
+
+        return qpd, chi0_wGG, np.array(chi_wGG)
 
 class DielectricFunctionCalculator:
     def __init__(self, wd: FrequencyDescriptor,
@@ -83,7 +151,8 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = Intermediate(self.chi0calc.calculate(q_c))
+            self._chi0cache[key] = Intermediate(self.chi0calc.calculate(q_c),
+                                                self)
             self.context.write_timer()
 
         return self._chi0cache[key]
@@ -96,9 +165,7 @@ class DielectricFunctionCalculator:
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0],
-                direction='x', return_VchiV=True, q_v=None,
-                rshelmax=-1, rshewmin=None):
+    def get_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         """Returns qpd, chi0 and chi0, possibly in v^1/2 chi v^1/2 format.
 
         The truncated Coulomb interaction is included as
@@ -120,64 +187,8 @@ class DielectricFunctionCalculator:
             it will not be included.
         """
 
-        chi0 = self.calculate_chi0(q_c).chi0
-        qpd = chi0.qpd
-        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
-
-        coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
-        Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
-        sqrtV_G = Kbare_G**0.5
-
-        nG = len(sqrtV_G)
-
-        Ktrunc_G = self.coulomb.V(qpd=qpd, q_v=q_v)
-
-        if self.coulomb.truncation is None:
-            K_GG = np.eye(nG, dtype=complex)
-        else:
-            K_GG = np.diag(Ktrunc_G / Kbare_G)
-
-        # kd: KPointDescriptor object from gpaw.kpt_descriptor
-        if qpd.kd.gamma:
-            if isinstance(direction, str):
-                d_v = {'x': [1, 0, 0],
-                       'y': [0, 1, 0],
-                       'z': [0, 0, 1]}[direction]
-            else:
-                d_v = direction
-            d_v = np.asarray(d_v) / np.linalg.norm(d_v)
-            W = self.blocks1d.myslice  # slice object for this process.
-            #  used to distribute the calculation when run in parallel.
-            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
-
-        if xc != 'RPA':
-            Kxc_GG = get_density_xc_kernel(qpd,
-                                           self.gs, self.context,
-                                           functional=xc,
-                                           chi0_wGG=chi0_wGG)
-            K_GG += Kxc_GG / sqrtV_G / sqrtV_G[:, np.newaxis]
-
-        # Invert Dyson eq.
-        chi_wGG = []
-        for chi0_GG in chi0_wGG:
-            """v^1/2 chi0 V^1/2"""
-            chi0_GG[:] = chi0_GG * sqrtV_G * sqrtV_G[:, np.newaxis]
-            chi_GG = np.dot(np.linalg.inv(np.eye(nG) -
-                                          np.dot(chi0_GG, K_GG)),
-                            chi0_GG)
-            if not return_VchiV:
-                chi0_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-                chi_GG /= sqrtV_G * sqrtV_G[:, np.newaxis]
-            chi_wGG.append(chi_GG)
-
-        if len(chi_wGG):
-            chi_wGG = np.array(chi_wGG)
-        else:
-            chi_wGG = np.zeros((0, nG, nG), complex)
-
-        return qpd, chi0_wGG, np.array(chi_wGG)
+        intermediate = self.calculate_chi0(q_c)
+        return intermediate.chi(xc=xc, **kwargs)
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
