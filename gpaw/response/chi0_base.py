@@ -376,7 +376,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
 
     @property
     def pair_calc(self) -> ActualPairDensityCalculator:
-        return self.kptpair_factory.pair_calculator()
+        return self.kptpair_factory.pair_calculator(self.blockcomm)
 
     def construct_integral_task(self):
         if self.eta == 0:

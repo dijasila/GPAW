@@ -60,10 +60,8 @@ class KPointPairFactory:
 
         assert self.gs.kd.symmetry.symmorphic
 
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      nblocks)
+        # there is no real reason to take nblocks as input XXX
         self.nblocks = nblocks
-
         self.context.print('Number of blocks:', nblocks)
 
     @timer('Get a k-point')
@@ -144,19 +142,22 @@ class KPointPairFactory:
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def pair_calculator(self):
+    def pair_calculator(self, blockcomm=None):
         # We have decoupled the actual pair density calculator
         # from the kpoint factory, but it's still handy to
         # keep this shortcut -- for now.
-        return ActualPairDensityCalculator(self)
+        if blockcomm is None:
+            blockcomm, _ = block_partition(self.context.comm, nblocks=1)
+        return ActualPairDensityCalculator(self, blockcomm)
 
 
 class ActualPairDensityCalculator:
-    def __init__(self, pair):
-        self.context = pair.context
-        self.blockcomm = pair.blockcomm
+    def __init__(self, kptpair_factory, blockcomm):
+        # it seems weird to use kptpair_factory only for this
+        self.gs = kptpair_factory.gs
+        self.context = kptpair_factory.context
+        self.blockcomm = blockcomm
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-        self.gs = pair.gs
 
     def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):
