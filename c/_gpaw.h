@@ -11,7 +11,7 @@
 #include <mpi.h>
 #endif
 #ifndef GPAW_WITHOUT_LIBXC
-#include <xc.h>
+#include <xc.h> // If this file is not found, install libxc https://wiki.fysik.dtu.dk/gpaw/install.html#libxc-installation
 #endif
 
 #ifdef GPAW_HPM
