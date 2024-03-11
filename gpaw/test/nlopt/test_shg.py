@@ -45,7 +45,7 @@ def test_shg(in_tmp_dir):
         assert np.all(np.abs(shg[1]) < 1e-8)
 
 
-def test_shg_spinpol(momentum_matrix_elements, in_tmp_dir):
+def test_shg_spinpol(mme_files):
     shg_values = np.array([-0.77053399 - 0.37041593j,
                            -0.87903174 - 0.4177294j,
                            -1.00791251 - 0.51051291j,
@@ -64,7 +64,7 @@ def test_shg_spinpol(momentum_matrix_elements, in_tmp_dir):
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
         # Get pre-calculated nlodata from SiC fixtures
-        nlodata = NLOData.load(momentum_matrix_elements[spinpol], comm=world)
+        nlodata = NLOData.load(mme_files[f'sic_pw{tag}'], comm=world)
 
         # Calculate 'xyz' tensor element of SHG spectra
         get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
@@ -97,15 +97,3 @@ def test_shg_spinpol(momentum_matrix_elements, in_tmp_dir):
         np.max(np.abs(shg_xyz_rerr_real))
     assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-3), \
         np.max(np.abs(shg_xyz_rerr_imag))
-
-
-@pytest.fixture(scope='session')
-def momentum_matrix_elements(gpw_files, in_tmp_dir):
-    dct = {}
-    for spinpol in ['spinpaired', 'spinpol']:
-        tag = '_spinpol' if spinpol == 'spinpol' else ''
-        nlodata = make_nlodata(gpw_files[f'sic_pw{tag}'],
-                               ni=0, nf=8, comm=world)
-        nlodata.write(f'sic_pw{tag}_mml.npz')
-        dct[spinpol] = f'sic_pw{tag}_mml.npz'
-    return dct
