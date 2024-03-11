@@ -11,6 +11,7 @@ from gpaw.response.df import DielectricFunction, read_response_function
 from gpaw.mpi import size, world
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.response
 @pytest.mark.libxc
 def test_response_aluminum_EELS_ALDA(in_tmp_dir):

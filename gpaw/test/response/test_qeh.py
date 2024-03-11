@@ -42,6 +42,7 @@ def dielectric(calc, domega, omega2, rate=0.0):
     return diel
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.serial
 @pytest.mark.response
 def test_basics(in_tmp_dir, gpw_files):
@@ -130,6 +131,8 @@ def test_basics(in_tmp_dir, gpw_files):
     assert np.allclose(data['chiD_qw'], dipole)
 
 
+@pytest.mark.dielectricfunction
+@pytest.mark.response
 def test_off_diagonal_chi(in_tmp_dir, gpw_files):
     df = dielectric(gpw_files['IBiTe_pw_monolayer'], 0.1, 0.5)
     bb = BuildingBlock('IBiTe', df)
@@ -169,6 +172,7 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
                     'in serial in test_basics')
 @pytest.mark.skipif(size > 6, reason='Parallelization for '
                     'small test-system broken for many cores')
+@pytest.mark.dielectricfunction
 @pytest.mark.response
 def test_bb_parallel(in_tmp_dir, gpw_files):
     df = dielectric(gpw_files['mos2_pw'], 0.1, 0.5)
