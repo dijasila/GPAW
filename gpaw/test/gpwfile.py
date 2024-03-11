@@ -701,6 +701,14 @@ class GPWFiles:
         atoms.get_potential_energy()
         return atoms.calc
 
+    @gpwfile
+    def sic_pw(self):
+        return self._sic_pw()
+
+    @gpwfile
+    def sic_pw_spinpol(self):
+        return self._sic_pw(spinpol=True)
+
     @staticmethod
     def generate_si_systems():
         a = 5.43
@@ -722,14 +730,6 @@ class GPWFiles:
         scalapack = atoms.calc.wfs.bd.comm.size
         atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
         return atoms.calc
-
-    @gpwfile
-    def sic_pw(self):
-        return self._sic_pw()
-
-    @gpwfile
-    def sic_pw_spinpol(self):
-        return self._sic_pw(spinpol=True)
 
     @gpwfile
     def na_pw(self):
