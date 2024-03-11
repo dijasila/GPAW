@@ -76,14 +76,11 @@ class KohnShamDecomposition:
             if paw is not None:
                 return
 
-            # We need a list of KPoints to read attributes
-            # Get the number of spins and kpoints from the array dimensions
-            # and create dummy KPoints
+            # Create a dummy KohnShamLayouts object and one Gamma k-point
+            # This is necessary to read attributes
             ns, nk = self.reader.eig_un.shape[:2]
-            kpt_u = [KPoint(weightk=0, weight=0, s=s, k=k, q=k)
-                     for s in range(ns)
-                     for k in range(nk)]
-            self.kpt_u = kpt_u
+            assert (ns, nk) == (1, 1), 'Spins and K-points not implemented'
+            self.kpt_u = [KPoint(weightk=1, weight=1, s=0, k=0, q=0)]
             self.ksl = DummyKsl()
 
     def initialize(self, paw, min_occdiff=1e-3, only_ia=True):
