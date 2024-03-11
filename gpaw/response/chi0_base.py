@@ -48,6 +48,9 @@ class Chi0Integrand(Integrand):
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
+        # blockcomm is passed around in a bad way XXX
+        # can we simply use the serial blockcomm for optical? XXX
+        self.blockcomm = chi0calc.blockcomm if not optical else None
 
     @timer('Get matrix element')
     def matrix_element(self, point):
@@ -88,11 +91,11 @@ class Chi0Integrand(Integrand):
             out_ngmax = self.qpd.ngmax
 
         return self._get_any_matrix_element(
-            point, block=not self.optical,
-            target_method=target_method,
+            point, target_method=target_method,
+            blockcomm=self.blockcomm,
         ).reshape(-1, out_ngmax)
 
-    def _get_any_matrix_element(self, point, block, target_method):
+    def _get_any_matrix_element(self, point, target_method, *, blockcomm):
         qpd = self.qpd
 
         k_v = point.kpt_c  # XXX c/v discrepancy
@@ -111,13 +114,13 @@ class Chi0Integrand(Integrand):
 
         kptpair = self.kptpair_factory.get_kpoint_pair(
             qpd, point.spin, K, self.n1, self.n2,
-            self.m1, self.m2, block=block)
+            self.m1, self.m2, blockcomm=blockcomm)
 
         m_m = np.arange(self.m1, self.m2)
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
                               pawcorr=self._chi0calc.pawcorr,
-                              block=block)
+                              block=blockcomm is not None)
 
         if self.integrationmode is None:
             n_nmG *= weight
@@ -184,7 +187,18 @@ class Chi0ComponentCalculator:
 
     @property
     def nblocks(self):
+        # should be passed around in a BlocPartitions object XXX
         return self.kptpair_factory.nblocks
+
+    @property
+    def blockcomm(self):
+        # to BlockPartitions object? XXX
+        return self.integrator.blockcomm
+
+    @property
+    def kncomm(self):
+        # to BlocPartitions object? XXX
+        return self.integrator.kncomm
 
     @property
     def pbc(self):
@@ -362,7 +376,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
 
     @property
     def pair_calc(self) -> ActualPairDensityCalculator:
-        return self.kptpair_factory.pair_calculator()
+        return self.kptpair_factory.pair_calculator(self.blockcomm)
 
     def construct_integral_task(self):
         if self.eta == 0:
