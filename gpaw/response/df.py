@@ -211,8 +211,7 @@ class DielectricFunctionCalculator:
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q_v=None,
-                              add_intraband=False):
+                              calculate_chi=False, q_v=None):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -239,10 +238,6 @@ class DielectricFunctionCalculator:
         function)"""
 
         qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
-
-        if add_intraband:
-            print('add_intraband=True is not supported at this time')
-            raise NotImplementedError
 
         K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
         nG = len(K_G)
