@@ -22,24 +22,6 @@ class KPoint:
         self.k_c = k_c  # k-point coordinates
 
 
-class PairDistribution:
-    def __init__(self, pair, mysKn1n2):
-        self.pair = pair
-        self.mysKn1n2 = mysKn1n2
-        self.mykpts = [self.pair.get_k_point(s, K, n1, n2)
-                       for s, K, n1, n2 in self.mysKn1n2]
-
-    def kpt_pairs_by_q(self, q_c, m1, m2):
-        pair = self.pair
-        mykpts = self.mykpts
-        for u, kpt1 in enumerate(mykpts):
-            progress = u / len(mykpts)
-            K2 = pair.gs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
-
-            yield progress, kpt1, kpt2
-
-
 class KPointPair:
     """This class defines the kpoint-pair container object.
 
@@ -83,48 +65,6 @@ class KPointPairFactory:
         self.nblocks = nblocks
 
         self.context.print('Number of blocks:', nblocks)
-
-    def distribute_k_points_and_bands(self, band1, band2, kpts=None):
-        """Distribute spins, k-points and bands.
-
-        The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
-        tuples that this process handles.
-        """
-
-        gs = self.gs
-
-        if kpts is None:
-            kpts = np.arange(gs.kd.nbzkpts)
-
-        # nbands is the number of bands for each spin/k-point combination.
-        nbands = band2 - band1
-        size = self.kncomm.size
-        rank = self.kncomm.rank
-        ns = gs.nspins
-        nk = len(kpts)
-        n = (ns * nk * nbands + size - 1) // size
-        i1 = min(rank * n, ns * nk * nbands)
-        i2 = min(i1 + n, ns * nk * nbands)
-
-        mysKn1n2 = []
-        i = 0
-        for s in range(ns):
-            for K in kpts:
-                n1 = min(max(0, i1 - i), nbands)
-                n2 = min(max(0, i2 - i), nbands)
-                if n1 != n2:
-                    mysKn1n2.append((s, K, n1 + band1, n2 + band1))
-                i += nbands
-
-        p = self.context.print
-        p('BZ k-points:', gs.kd, flush=False)
-        p('Distributing spins, k-points and bands (%d x %d x %d)' %
-          (ns, nk, nbands), 'over %d process%s' %
-          (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-          flush=False)
-        p('Number of blocks:', self.blockcomm.size)
-
-        return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
     def get_k_point(self, s, K, n1, n2, block=False):
