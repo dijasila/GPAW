@@ -127,7 +127,7 @@ class KPointPairFactory:
         return PairDistribution(self, mysKn1n2)
 
     @timer('Get a k-point')
-    def get_k_point(self, s, K, n1, n2, block=False):
+    def get_k_point(self, s, K, n1, n2, blockcomm=None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -143,9 +143,9 @@ class KPointPairFactory:
         gs = self.gs
         kd = gs.kd
 
-        if block:
-            nblocks = self.blockcomm.size
-            rank = self.blockcomm.rank
+        if blockcomm:
+            nblocks = blockcomm.size
+            rank = blockcomm.rank
         else:
             nblocks = 1
             rank = 0
@@ -185,7 +185,7 @@ class KPointPairFactory:
                       ut_nR, eps_n, f_n, P_ani, k_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, qpd, s, K, n1, n2, m1, m2, block=False):
+    def get_kpoint_pair(self, qpd, s, K, n1, n2, m1, m2, blockcomm=None):
         assert m1 <= m2
         assert n1 <= n2
 
@@ -197,7 +197,7 @@ class KPointPairFactory:
 
         with self.context.timer('get k-points'):
             kpt1 = self.get_k_point(s, K1, n1, n2)
-            kpt2 = self.get_k_point(s, K2, m1, m2, block=block)
+            kpt2 = self.get_k_point(s, K2, m1, m2, blockcomm=blockcomm)
 
         with self.context.timer('fft indices'):
             Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
