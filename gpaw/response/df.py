@@ -470,32 +470,6 @@ class DielectricFunctionCalculator:
 
         return alpha0_w, alpha_w
 
-    def check_sum_rule(self, spectrum=None):
-        """Check f-sum rule.
-
-        It takes the y of a spectrum as an entry and it checks its integral.
-
-        spectrum: np.ndarray
-            Input spectrum
-        """
-
-        assert (self.wd.omega_w[1:] - self.wd.omega_w[:-1]).ptp() < 1e-10
-
-        if spectrum is None:
-            raise ValueError('No spectrum input ')
-        dw = self.wd.omega_w[1] - self.wd.omega_w[0]
-        N1 = 0
-        for iw in range(len(spectrum)):
-            w = iw * dw
-            N1 += spectrum[iw] * w
-        N1 *= dw * self.gs.volume / (2 * pi**2)
-
-        self.context.print('', flush=False)
-        self.context.print('Sum rule:', flush=False)
-        nv = self.gs.nvalence
-        self.context.print('N1 = %f, %f  %% error' %
-                           (N1, (N1 - nv) / nv * 100))
-
 
 class DielectricFunction(DielectricFunctionCalculator):
     """This class defines dielectric function related physical quantities."""
