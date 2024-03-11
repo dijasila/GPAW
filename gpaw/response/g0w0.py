@@ -383,6 +383,7 @@ def select_kpts(kpts, kd):
 
 class PairDistribution:
     def __init__(self, kptpair_factory, mysKn1n2):
+        self.blockcomm = kptpair_factory.blockcomm
         self.get_k_point = kptpair_factory.get_k_point
         self.kd = kptpair_factory.gs.kd
         self.mysKn1n2 = mysKn1n2
@@ -394,7 +395,8 @@ class PairDistribution:
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
             K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
+            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2,
+                                    blockcomm=self.blockcomm)
 
             yield progress, kpt1, kpt2
 
