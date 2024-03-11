@@ -95,3 +95,8 @@ def test_custom(gpw_files):
 
     # Restart
     td_calc = LCAOTDDFT('td.gpw', txt='tdpulse2.out')
+
+    restart_pulse = td_calc.td_hamiltonian.td_potential.laser_i[0]
+
+    assert isinstance(restart_pulse, RandomPulse)
+    np.testing.assert_equal(restart_pulse.todict(), pulse.todict())
