@@ -1123,7 +1123,7 @@ static PyMethodDef mpi_methods[] = {
      "abort(errcode) aborts all MPI tasks."},
     {"name",             (PyCFunction)mpi_name,         METH_NOARGS,
      "name() returns the name of the processor node."},
-    {"barrier",          (PyCFunction)mpi_barrier,      METH_VARARGS,
+    {"barrier",          (PyCFunction)mpi_barrier,      METH_NOARGS,
      "barrier() synchronizes all MPI tasks"},
     {"test",             (PyCFunction)mpi_test,         METH_VARARGS,
      "test(request) tests if a nonblocking communication is complete."},
