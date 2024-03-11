@@ -77,11 +77,8 @@ class PotentialCalculator:
             for key, e in energies.items():
                 print(f'{key:10} {energies[key]:15.9f}')
         e_kinetic = 0.0
-        #import matplotlib.pyplot as plt
         cs = 'krgb'
         for spin, (vt_R, nt_R) in enumerate(zips(vt_sR, density.nt_sR)):
-            #plt.plot(nt_R.data[4, 4, :], c=cs[spin], ls='--')
-            #plt.plot(vt_R.data[4, 4, :], c=cs[spin])
             e_kinetic -= vt_R.integrate(nt_R)
             if spin < density.ndensities:
                 e_kinetic += vt_R.integrate(density.nct_R)
@@ -93,7 +90,7 @@ class PotentialCalculator:
                 e_kinetic += dedtaut_R.integrate(density.tauct_R)
         else:
             dedtaut_sR = None
-        # plt.show()
+
         energies['kinetic'] = e_kinetic
 
         if kpt_band_comm is None:

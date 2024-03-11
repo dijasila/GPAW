@@ -300,13 +300,14 @@ class NonCollinearGGA(GGA):
 
     def to_col(self, n_sg):
         # Construct complex magnetization density
-        rho_gss = np.array([[n_sg[0] + n_sg[3], n_sg[1] - n_sg[2]],
-                            [n_sg[1] + n_sg[2], n_sg[0] - n_sg[3]]])\
+        rho_gss = np.array([[n_sg[0] + n_sg[3], n_sg[1] - 1j * n_sg[2]],
+                            [n_sg[1] + 1j * n_sg[2], n_sg[0] - n_sg[3]]])\
                     .transpose((2, 3, 4, 0, 1))
         rho_gss *= 0.5
+
         # Diagonalize magnetization density using singular value decomposition
         u_gss, rholoc_gs, vh_gss = np.linalg.svd(rho_gss)
-        
+
         rholoc_sg = rholoc_gs.transpose(3, 0, 1, 2)
         rholoc_sg = np.ascontiguousarray(rholoc_sg)
         return rholoc_sg, u_gss, vh_gss
@@ -317,14 +318,14 @@ class NonCollinearGGA(GGA):
         v_gss = np.matmul((u_gss * vnew_gs[..., None, :]), vh_gss)
         v_sg = np.array([0.5 * (v_gss[:, :, :, 1, 1] + v_gss[:, :, :, 0, 0]),
                          0.5 * (v_gss[:, :, :, 0, 1] + v_gss[:, :, :, 1, 0]),
-                         0.5 * (v_gss[:, :, :, 0, 1] - v_gss[:, :, :, 1, 0]),
+                         0.5j * (v_gss[:, :, :, 0, 1] - v_gss[:, :, :, 1, 0]),
                          0.5 * (v_gss[:, :, :, 1, 1] - v_gss[:, :, :, 0, 0])])
-        return v_sg
+        return v_sg.real
 
     def D_to_col(self, D_sp):
         # Construct complex magnetization density
-        D_pss = np.array([[D_sp[0] + D_sp[3], D_sp[1] - D_sp[2]],
-                          [D_sp[1] + D_sp[2], D_sp[0] - D_sp[3]]])\
+        D_pss = np.array([[D_sp[0] + D_sp[3], D_sp[1] - 1j * D_sp[2]],
+                          [D_sp[1] + 1j * D_sp[2], D_sp[0] - D_sp[3]]])\
                   .transpose((2, 0, 1))
         D_pss *= 0.5
 
@@ -334,8 +335,8 @@ class NonCollinearGGA(GGA):
 
     def H_to_col(self, dEdD_sp, u_pss, vh_pss):
         # Construct complex magnetization density
-        # dEdD_pss = np.array([[dEdD_sp[0] + dEdD_sp[3], dEdD_sp[1] - dEdD_sp[2]],
-        #                      [dEdD_sp[1] + dEdD_sp[2], dEdD_sp[0] - dEdD_sp[3]]])\
+        # dEdD_pss = np.array([[dEdD_sp[0] + dEdD_sp[3], dEdD_sp[1] - 1j * dEdD_sp[2]],
+        #                      [dEdD_sp[1] + 1j * dEdD_sp[2], dEdD_sp[0] - dEdD_sp[3]]])\
         #              .transpose((2, 0, 1))
         # # dEdD_pss *= 0.5
         # # Diagonalize magnetization density using singular value decomposition
@@ -365,7 +366,7 @@ class NonCollinearGGA(GGA):
         # dEdD_sp = np.array([dEdDnew_pss[:, 0, 0], dEdDnew_pss[:, 1, 1]])
         dEdD_sp = np.array([0.5 * (dEdDnew_pss[:, 1, 1] + dEdDnew_pss[:, 0, 0]),
                             0.5 * (dEdDnew_pss[:, 0, 1] + dEdDnew_pss[:, 1, 0]),
-                            0.5 * (dEdDnew_pss[:, 0, 1] - dEdDnew_pss[:, 1, 0]),
+                            0.5j * (dEdDnew_pss[:, 0, 1] - dEdDnew_pss[:, 1, 0]),
                             0.5 * (dEdDnew_pss[:, 0, 0] - dEdDnew_pss[:, 1, 1])])
 
         # print('output', dEdD_sp[:, 0])
