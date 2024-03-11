@@ -1,6 +1,7 @@
 from __future__ import annotations
-import sys
+from dataclasses import dataclass
 from math import pi
+import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
@@ -10,12 +11,18 @@ import gpaw.mpi as mpi
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
+from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context, KPointPairFactory
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from gpaw.response.frequencies import FrequencyDescriptor
+
+
+@dataclass
+class Intermediate:
+    chi0: Chi0Data
 
 
 class DielectricFunctionCalculator:
@@ -76,7 +83,7 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = self.chi0calc.calculate(q_c)
+            self._chi0cache[key] = Intermediate(self.chi0calc.calculate(q_c))
             self.context.write_timer()
 
         return self._chi0cache[key]
@@ -113,7 +120,7 @@ class DielectricFunctionCalculator:
             it will not be included.
         """
 
-        chi0 = self.calculate_chi0(q_c)
+        chi0 = self.calculate_chi0(q_c).chi0
         qpd = chi0.qpd
         chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
@@ -232,7 +239,7 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        chi0 = self.calculate_chi0(q_c)
+        chi0 = self.calculate_chi0(q_c).chi0
         qpd = chi0.qpd
         chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
