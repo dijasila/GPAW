@@ -382,10 +382,10 @@ def select_kpts(kpts, kd):
 
 
 class PairDistribution:
-    def __init__(self, kptpair_factory, mysKn1n2):
-        self.blockcomm = kptpair_factory.blockcomm
+    def __init__(self, kptpair_factory, blockcomm, mysKn1n2):
         self.get_k_point = kptpair_factory.get_k_point
         self.kd = kptpair_factory.gs.kd
+        self.blockcomm = blockcomm
         self.mysKn1n2 = mysKn1n2
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
@@ -410,6 +410,7 @@ def distribute_k_points_and_bands(kptpair_factory, band1, band2, kpts=None):
 
     gs = kptpair_factory.gs
     kncomm = kptpair_factory.kncomm
+    blockcomm = kptpair_factory.blockcomm
 
     if kpts is None:
         kpts = np.arange(gs.kd.nbzkpts)
@@ -440,9 +441,9 @@ def distribute_k_points_and_bands(kptpair_factory, band1, band2, kpts=None):
       (ns, nk, nbands), 'over %d process%s' %
       (kncomm.size, ['es', ''][kncomm.size == 1]),
       flush=False)
-    p('Number of blocks:', kptpair_factory.blockcomm.size)
+    p('Number of blocks:', blockcomm.size)
 
-    return PairDistribution(kptpair_factory, mysKn1n2)
+    return PairDistribution(kptpair_factory, blockcomm, mysKn1n2)
 
 
 class G0W0Calculator:
