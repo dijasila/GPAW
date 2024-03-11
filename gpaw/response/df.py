@@ -75,20 +75,11 @@ class DielectricFunctionCalculator:
             # In conclusion, delete the cache now:
             self._chi0cache.clear()
 
-            # chi0: Chi0Data from gpaw.response.chi0_data
-            chi0 = self.chi0calc.calculate(q_c)
-
-            # chi0.body: Chi0BodyData from from gpaw.response.chi0_data
-            # chi0_wGG: np.ndarray
-            chi0_wGG = chi0.body.get_distributed_frequencies_array()
+            # cache Chi0Data from gpaw.response.chi0_data
+            self._chi0cache[key] = self.chi0calc.calculate(q_c)
             self.context.write_timer()
-            things = chi0.qpd, chi0_wGG, chi0.chi0_WxvG, chi0.chi0_Wvv
-            self._chi0cache[key] = things
 
-        # qpd: SingleQPWDescriptor from gpaw.response.pair_functions
-        qpd, *more_things = self._chi0cache[key]
-        return (qpd, *[thing.copy() if thing is not None else thing
-                       for thing in more_things])
+        return self._chi0cache[key]
 
     def collect(self, a_w: np.ndarray) -> np.ndarray:
         # combines array from sub-processes into one.
@@ -121,7 +112,10 @@ class DielectricFunctionCalculator:
             contributes with less than a fraction of rshewmin on average,
             it will not be included.
         """
-        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
+
+        chi0 = self.calculate_chi0(q_c)
+        qpd = chi0.qpd
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
         coulomb_bare = CoulombKernel.from_gs(self.gs, truncation=None)
         Kbare_G = coulomb_bare.V(qpd=qpd, q_v=q_v)  # np.ndarray
@@ -147,9 +141,9 @@ class DielectricFunctionCalculator:
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice  # slice object for this process.
             #  used to distribute the calculation when run in parallel.
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
 
         if xc != 'RPA':
             Kxc_GG = get_density_xc_kernel(qpd,
@@ -238,7 +232,9 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
+        chi0 = self.calculate_chi0(q_c)
+        qpd = chi0.qpd
+        chi0_wGG = chi0.body.get_distributed_frequencies_array().copy()
 
         if add_intraband:
             print('add_intraband=True is not supported at this time')
@@ -257,9 +253,9 @@ class DielectricFunctionCalculator:
 
             d_v = np.asarray(d_v) / np.linalg.norm(d_v)
             W = self.blocks1d.myslice
-            chi0_wGG[:, 0] = np.dot(d_v, chi0_WxvG[W, 0])
-            chi0_wGG[:, :, 0] = np.dot(d_v, chi0_WxvG[W, 1])
-            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_Wvv[W], d_v).T)
+            chi0_wGG[:, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 0])
+            chi0_wGG[:, :, 0] = np.dot(d_v, chi0.chi0_WxvG[W, 1])
+            chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0.chi0_Wvv[W], d_v).T)
             if q_v is not None:
                 print('Restoring q dependence of head and wings of chi0')
                 chi0_wGG[:, 1:, 0] *= np.dot(q_v, d_v)
@@ -287,6 +283,7 @@ class DielectricFunctionCalculator:
             else:
                 K_GG = (K_G**2 * np.ones([nG, nG])).T
                 e_GG = np.eye(nG) - P_GG * K_GG
+
             if calculate_chi:
                 K_GG = np.diag(K_G**2)
                 if xc != 'RPA':
