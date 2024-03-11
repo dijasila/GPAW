@@ -7,6 +7,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.test import findpeak
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.response
 @pytest.mark.libxc
 def test_response_diamond_absorption(in_tmp_dir):
