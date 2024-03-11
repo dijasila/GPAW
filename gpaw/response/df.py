@@ -208,10 +208,49 @@ class Intermediate:
                 chi_wGG = np.zeros((0, nG, nG), complex)
 
         if not calculate_chi:
-            return chi0_wGG
+            return DielectricMatrixThing(self, chi0_wGG=chi0_wGG)
         else:
             # chi_wGG is the full density response function..
-            return qpd, chi0_wGG, chi_wGG
+            return DielectricMatrixThing(self, qpd=qpd, chi0_wGG=chi0_wGG,
+                                         chi_wGG=chi_wGG)
+
+
+@dataclass
+class DielectricMatrixThing:
+    intermediate: Intermediate
+    qpd: object | None = None
+    chi0_wGG: np.ndarray | None = None
+    chi_wGG: np.ndarray | None = None
+
+    def things(self):
+        # (This has the (inconsistent) return types of the old API.)
+        if self.qpd is None:
+            return self.chi0_wGG
+        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+
+    def dielectric_function(self, filename):
+        """Calculate the dielectric function.
+
+        Returns dielectric function without and with local field correction:
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
+        """
+        e_wGG = self.chi0_wGG  # XXX what's with the names here?
+        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
+        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
+
+        for w, e_GG in enumerate(e_wGG):
+            df_NLFC_w[w] = e_GG[0, 0]
+            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
+
+        df_NLFC_w = self.intermediate.df.collect(df_NLFC_w)
+        df_LFC_w = self.intermediate.df.collect(df_LFC_w)
+
+        if filename is not None and mpi.rank == 0:
+            write_response_function(filename,
+                                    self.intermediate.df.wd.omega_w * Hartree,
+                                    df_NLFC_w, df_LFC_w)
+
+        return df_NLFC_w, df_LFC_w
 
 
 class DielectricFunctionCalculator:
@@ -346,32 +385,14 @@ class DielectricFunctionCalculator:
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
 
-        return self.calculate_chi0(q_c).dielectric_matrix(xc=xc, **kwargs)
+        chi0 = self.calculate_chi0(q_c)
+        dielectric_matrix = chi0.dielectric_matrix(xc=xc, **kwargs)
+        return dielectric_matrix.things()
 
-    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None,
-                                direction='x', filename='df.csv'):
-        """Calculate the dielectric function.
-
-        Returns dielectric function without and with local field correction:
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_dielectric_function()
-        """
-        e_wGG = self.get_dielectric_matrix(xc, q_c, direction=direction,
-                                           q_v=q_v)
-        df_NLFC_w = np.zeros(len(e_wGG), dtype=complex)
-        df_LFC_w = np.zeros(len(e_wGG), dtype=complex)
-
-        for w, e_GG in enumerate(e_wGG):
-            df_NLFC_w[w] = e_GG[0, 0]
-            df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
-
-        df_NLFC_w = self.collect(df_NLFC_w)
-        df_LFC_w = self.collect(df_LFC_w)
-
-        if filename is not None and mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    df_NLFC_w, df_LFC_w)
-
-        return df_NLFC_w, df_LFC_w
+    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None, *,
+                                filename='df.csv', **kwargs):
+        return self.calculate_chi0(q_c).dielectric_matrix(
+            xc, **kwargs).dielectric_function(filename=filename)
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
