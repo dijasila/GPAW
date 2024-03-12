@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from ase.units import Ha
 from gpaw.bztools import convex_hull_volume
 from gpaw.response import timer
+from gpaw.response.pair import KPointPairFactory
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.pw_parallelization import block_partition
@@ -16,8 +17,7 @@ from gpaw.response.integrators import (
 from gpaw.response.symmetry import PWSymmetryAnalyzer
 
 if TYPE_CHECKING:
-    from gpaw.response.pair import KPointPairFactory, \
-        ActualPairDensityCalculator
+    from gpaw.response.pair import ActualPairDensityCalculator
     from gpaw.response.context import ResponseContext
     from gpaw.response.groundstate import ResponseGroundStateAdapter
 
@@ -162,20 +162,16 @@ class Chi0Integrand(Integrand):
 class Chi0ComponentCalculator:
     """Base class for the Chi0XXXCalculator suite."""
 
-    def __init__(self, kptpair_factory,
-                 context=None,
+    def __init__(self, gs, context,
                  nblocks=1,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None):
         """Set up attributes common to all chi0 related calculators."""
-        self.kptpair_factory = kptpair_factory
-        self.gs = kptpair_factory.gs
-
-        if context is None:
-            context = kptpair_factory.context
-        assert kptpair_factory.context.comm is context.comm
+        self.gs = gs
         self.context = context
+        self.kptpair_factory = KPointPairFactory(gs, context)
+
         self.nblocks = nblocks
         self.blockcomm, self.kncomm = block_partition(
             self.context.comm, self.nblocks)
@@ -326,7 +322,7 @@ class Chi0ComponentCalculator:
 class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
     """Base class for Chi0XXXCalculators, which utilize a plane-wave basis."""
 
-    def __init__(self, kptpair_factory: KPointPairFactory,
+    def __init__(self, gs, context,
                  *,
                  wd,
                  hilbert=True,
@@ -337,7 +333,7 @@ class Chi0ComponentPWCalculator(Chi0ComponentCalculator, ABC):
                  **kwargs):
         """Set up attributes to calculate the chi0 body and optical extensions.
         """
-        super().__init__(kptpair_factory, **kwargs)
+        super().__init__(gs, context, **kwargs)
 
         if ecut is None:
             ecut = 50.0

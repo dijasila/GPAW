@@ -69,10 +69,10 @@ class Chi0Calculator:
         self.context = context
 
         self.chi0_body_calc = Chi0BodyCalculator(
-            kptpair_factory, context=context, nblocks=nblocks,
-            eshift=eshift, **kwargs)
+            self.gs, context,
+            nblocks=nblocks, eshift=eshift, **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
-            kptpair_factory, context=context,
+            self.gs, context,
             intraband=intraband, rate=rate, **kwargs)
 
     @property
@@ -337,7 +337,7 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                 rate = self.eta * Ha  # external units
             self.rate = rate
             self.drude_calc = Chi0DrudeCalculator(
-                self.kptpair_factory,
+                self.gs, self.context,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
                 integrationmode=self.integrationmode)
