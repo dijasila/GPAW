@@ -401,14 +401,15 @@ class PairDistribution:
             yield progress, kpt1, kpt2
 
 
-def distribute_k_points_and_bands(kptpair_factory, blockcomm, kncomm,
-                                  band1, band2, kpts=None):
+def distribute_k_points_and_bands(chi0_body_calc, band1, band2, kpts=None):
     """Distribute spins, k-points and bands.
 
     The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
     tuples that this process handles.
     """
-    gs = kptpair_factory.gs
+    gs = chi0_body_calc.gs
+    blockcomm = chi0_body_calc.blockcomm
+    kncomm = chi0_body_calc.kncomm
 
     if kpts is None:
         kpts = np.arange(gs.kd.nbzkpts)
@@ -433,7 +434,7 @@ def distribute_k_points_and_bands(kptpair_factory, blockcomm, kncomm,
                 mysKn1n2.append((s, K, n1 + band1, n2 + band1))
             i += nbands
 
-    p = kptpair_factory.context.print
+    p = chi0_body_calc.context.print
     p('BZ k-points:', gs.kd, flush=False)
     p('Distributing spins, k-points and bands (%d x %d x %d)' %
       (ns, nk, nbands), 'over %d process%s' %
@@ -441,7 +442,8 @@ def distribute_k_points_and_bands(kptpair_factory, blockcomm, kncomm,
       flush=False)
     p('Number of blocks:', blockcomm.size)
 
-    return PairDistribution(kptpair_factory, blockcomm, mysKn1n2)
+    return PairDistribution(
+        chi0_body_calc.kptpair_factory, blockcomm, mysKn1n2)
 
 
 class G0W0Calculator:
@@ -552,10 +554,7 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = distribute_k_points_and_bands(
-            self.chi0calc.kptpair_factory,
-            self.chi0calc.chi0_body_calc.blockcomm,
-            self.chi0calc.chi0_body_calc.kncomm,
-            b1, b2,
+            self.chi0calc.chi0_body_calc, b1, b2,
             self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)

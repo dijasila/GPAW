@@ -58,8 +58,6 @@ class Chi0Calculator:
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        self.kptpair_factory = kptpair_factory
-
         # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
         self.gs = kptpair_factory.gs
 
