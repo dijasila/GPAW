@@ -1147,8 +1147,6 @@ class G0W0(G0W0Calculator):
         if nblocksmax:
             nblocks = get_max_nblocks(context.comm, gpwfile, ecut)
 
-        kptpair_factory = KPointPairFactory(gs, context)
-
         kpts = list(select_kpts(kpts, gs.kd))
 
         ecut, ecut_e = choose_ecut_things(ecut, ecut_extrapolation)
@@ -1178,11 +1176,11 @@ class G0W0(G0W0Calculator):
         wd = new_frequency_descriptor(gs, wcontext, nbands, frequencies)
 
         chi0calc = Chi0Calculator(
-            wd=wd, kptpair_factory=kptpair_factory, nblocks=nblocks,
+            gs, wcontext, nblocks=nblocks,
+            wd=wd,
             nbands=nbands,
             ecut=ecut,
             intraband=False,
-            context=wcontext,
             **parameters)
 
         bands = choose_bands(bands, relbands, gs.nvalence, chi0calc.gs.nocc2)
