@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class Intermediate:
+class Chi0DysonEquation:
     chi0: Chi0Data
     df: 'DielectricFunction'
 
@@ -204,16 +204,16 @@ class Intermediate:
                 chi_wGG = np.zeros((0, nG, nG), complex)
 
         if not calculate_chi:
-            return DielectricMatrixThing(self, chi0_wGG=chi0_wGG)
+            return DielectricMatrixData(self, chi0_wGG=chi0_wGG)
         else:
             # chi_wGG is the full density response function..
-            return DielectricMatrixThing(self, qpd=qpd, chi0_wGG=chi0_wGG,
-                                         chi_wGG=chi_wGG)
+            return DielectricMatrixData(self, qpd=qpd, chi0_wGG=chi0_wGG,
+                                        chi_wGG=chi_wGG)
 
 
 @dataclass
-class DielectricMatrixThing:
-    intermediate: Intermediate
+class DielectricMatrixData:
+    dyson: Chi0DysonEquation
     qpd: object | None = None
     chi0_wGG: np.ndarray | None = None
     chi_wGG: np.ndarray | None = None
@@ -238,14 +238,15 @@ class DielectricMatrixThing:
             df_NLFC_w[w] = e_GG[0, 0]
             df_LFC_w[w] = 1 / np.linalg.inv(e_GG)[0, 0]
 
-        df_NLFC_w = self.intermediate.df.collect(df_NLFC_w)
-        df_LFC_w = self.intermediate.df.collect(df_LFC_w)
+        df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
+        df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
         if filename is not None and mpi.rank == 0:
             write_response_function(filename,
-                                    self.intermediate.df.wd.omega_w * Hartree,
+                                    self.dyson.df.wd.omega_w * Hartree,
                                     df_NLFC_w, df_LFC_w)
 
+        # Should return DielectricFunctionData
         return df_NLFC_w, df_LFC_w
 
 
@@ -307,8 +308,8 @@ class DielectricFunctionCalculator:
             self._chi0cache.clear()
 
             # cache Chi0Data from gpaw.response.chi0_data
-            self._chi0cache[key] = Intermediate(self.chi0calc.calculate(q_c),
-                                                self)
+            self._chi0cache[key] = Chi0DysonEquation(
+                self.chi0calc.calculate(q_c), self)
             self.context.write_timer()
 
         return self._chi0cache[key]
@@ -356,31 +357,6 @@ class DielectricFunctionCalculator:
         return rf0_w, rf_w
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        r"""Returns the symmetrized dielectric matrix.
-
-        ::
-
-            \tilde\epsilon_GG' = v^{-1/2}_G \epsilon_GG' v^{1/2}_G',
-
-        where::
-
-            epsilon_GG' = 1 - v_G * P_GG' and P_GG'
-
-        is the polarization.
-
-        ::
-
-            In RPA:   P = chi^0
-            In TDDFT: P = (1 - chi^0 * f_xc)^{-1} chi^0
-
-        in addition to RPA one can use the kernels, ALDA, Bootstrap and
-        LRalpha (long-range kerne), where alpha is a user specified parameter
-        (for example xc='LR0.25')
-
-        The head of the inverse symmetrized dielectric matrix is equal
-        to the head of the inverse dielectric matrix (inverse dielectric
-        function)"""
-
         chi0 = self.calculate_chi0(q_c)
         dielectric_matrix = chi0.dielectric_matrix(xc=xc, **kwargs)
         return dielectric_matrix.things()
@@ -388,7 +364,7 @@ class DielectricFunctionCalculator:
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None, *,
                                 filename='df.csv', **kwargs):
         return self.calculate_chi0(q_c).dielectric_matrix(
-            xc, **kwargs).dielectric_function(filename=filename)
+            xc, q_v=q_v, **kwargs).dielectric_function(filename=filename)
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
