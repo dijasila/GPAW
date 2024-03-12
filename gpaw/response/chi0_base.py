@@ -10,6 +10,7 @@ from gpaw.bztools import convex_hull_volume
 from gpaw.response import timer
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
@@ -48,9 +49,7 @@ class Chi0Integrand(Integrand):
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
-        # blockcomm is passed around in a bad way XXX
-        # can we simply use the serial blockcomm for optical? XXX
-        self.blockcomm = chi0calc.blockcomm if not optical else None
+        self.blockcomm = chi0calc.blockcomm
 
     @timer('Get matrix element')
     def matrix_element(self, point):
@@ -92,10 +91,9 @@ class Chi0Integrand(Integrand):
 
         return self._get_any_matrix_element(
             point, target_method=target_method,
-            blockcomm=self.blockcomm,
         ).reshape(-1, out_ngmax)
 
-    def _get_any_matrix_element(self, point, target_method, *, blockcomm):
+    def _get_any_matrix_element(self, point, target_method):
         qpd = self.qpd
 
         k_v = point.kpt_c  # XXX c/v discrepancy
@@ -114,13 +112,13 @@ class Chi0Integrand(Integrand):
 
         kptpair = self.kptpair_factory.get_kpoint_pair(
             qpd, point.spin, K, self.n1, self.n2,
-            self.m1, self.m2, blockcomm=blockcomm)
+            self.m1, self.m2, blockcomm=self.blockcomm)
 
         m_m = np.arange(self.m1, self.m2)
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
                               pawcorr=self._chi0calc.pawcorr,
-                              block=blockcomm is not None)
+                              block=True)
 
         if self.integrationmode is None:
             n_nmG *= weight
@@ -166,6 +164,7 @@ class Chi0ComponentCalculator:
 
     def __init__(self, kptpair_factory,
                  context=None,
+                 nblocks=1,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None):
@@ -177,6 +176,9 @@ class Chi0ComponentCalculator:
             context = kptpair_factory.context
         assert kptpair_factory.context.comm is context.comm
         self.context = context
+        self.nblocks = nblocks
+        self.blockcomm, self.kncomm = block_partition(
+            self.context.comm, self.nblocks)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -184,21 +186,6 @@ class Chi0ComponentCalculator:
         # Set up integrator
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
-
-    @property
-    def nblocks(self):
-        # should be passed around in a BlocPartitions object XXX
-        return self.kptpair_factory.nblocks
-
-    @property
-    def blockcomm(self):
-        # to BlockPartitions object? XXX
-        return self.integrator.blockcomm
-
-    @property
-    def kncomm(self):
-        # to BlocPartitions object? XXX
-        return self.integrator.kncomm
 
     @property
     def pbc(self):
@@ -210,7 +197,8 @@ class Chi0ComponentCalculator:
         return cls(
             cell_cv=self.gs.gd.cell_cv,
             context=self.context,
-            nblocks=self.nblocks)
+            blockcomm=self.blockcomm,
+            kncomm=self.kncomm)
 
     def get_integrator_cls(self):  # -> Integrator or child of Integrator
         """Get the appointed k-point integrator class."""
