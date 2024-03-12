@@ -211,8 +211,7 @@ class DielectricFunctionCalculator:
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
-                              calculate_chi=False, q_v=None,
-                              add_intraband=False):
+                              calculate_chi=False, q_v=None):
         r"""Returns the symmetrized dielectric matrix.
 
         ::
@@ -239,10 +238,6 @@ class DielectricFunctionCalculator:
         function)"""
 
         qpd, chi0_wGG, chi0_WxvG, chi0_Wvv = self.calculate_chi0(q_c)
-
-        if add_intraband:
-            print('add_intraband=True is not supported at this time')
-            raise NotImplementedError
 
         K_G = self.coulomb.sqrtV(qpd=qpd, q_v=q_v)
         nG = len(K_G)
@@ -383,7 +378,7 @@ class DielectricFunctionCalculator:
 
         # Calculate eels = -Im 4 \pi / q^2  \chi
         eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
-        eels_LFC_w = - (Vchi_wGG[:, 0, 0]).imag
+        eels_LFC_w = -Vchi_wGG[:, 0, 0].imag
 
         # Collect frequencies
         eels_NLFC_w = self.collect(eels_NLFC_w)
@@ -451,8 +446,8 @@ class DielectricFunctionCalculator:
             qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
                                                   q_c=q_c,
                                                   direction=direction)
-            alpha_w = -V * (chi_wGG[:, 0, 0]) / (4 * pi)
-            alpha0_w = -V * (chi0_wGG[:, 0, 0]) / (4 * pi)
+            alpha_w = -V / (4 * pi) * chi_wGG[:, 0, 0]
+            alpha0_w = -V / (4 * pi) * chi0_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
