@@ -10,6 +10,7 @@ from gpaw.bztools import convex_hull_volume
 from gpaw.response import timer
 from gpaw.response.frequencies import NonLinearFrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.integrators import (
     Integrand, PointIntegrator, TetrahedronIntegrator, Domain)
 from gpaw.response.symmetry import PWSymmetryAnalyzer
@@ -178,7 +179,9 @@ class Chi0ComponentCalculator:
             context = kptpair_factory.context
         assert kptpair_factory.context.comm is context.comm
         self.context = context
-        self.nblocks = nblocks  # to ABC XXX
+        self.nblocks = nblocks
+        self.blockcomm, self.kncomm = block_partition(
+            self.context.comm, self.nblocks)
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -186,16 +189,6 @@ class Chi0ComponentCalculator:
         # Set up integrator
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
-
-    @property
-    def blockcomm(self):
-        # to BlockPartitions object? XXX
-        return self.integrator.blockcomm
-
-    @property
-    def kncomm(self):
-        # to BlocPartitions object? XXX
-        return self.integrator.kncomm
 
     @property
     def pbc(self):
@@ -207,7 +200,8 @@ class Chi0ComponentCalculator:
         return cls(
             cell_cv=self.gs.gd.cell_cv,
             context=self.context,
-            nblocks=self.nblocks)
+            blockcomm=self.blockcomm,
+            kncomm=self.kncomm)
 
     def get_integrator_cls(self):  # -> Integrator or child of Integrator
         """Get the appointed k-point integrator class."""
