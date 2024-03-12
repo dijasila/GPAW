@@ -8,7 +8,7 @@ from scipy.linalg.blas import zher
 import _gpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.pw_parallelization import Blocks1D, block_partition
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 class Integrand(ABC):
