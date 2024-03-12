@@ -325,6 +325,9 @@ class ResponsePAWDataset:
                 B_pqL=setup.xc_correction.B_pqL,
                 e_xc0=setup.xc_correction.e_xc0)
             self.is_pseudo = False
+
+            from gpaw.response.paw import PAWPairDensityCalculator as PPDC
+            self.paw_pair_density_calc = PPDC(pawdata=setup)
         else:
             self.xc_correction = None
             self.is_pseudo = True

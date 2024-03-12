@@ -7,7 +7,7 @@ from ase.data import chemical_symbols
 
 from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pair_functions import SingleQPWDescriptor
-from gpaw.response.paw import (calculate_pair_density_correction,
+from gpaw.response.paw import (PAWPairDensityCalculator,
                                calculate_matrix_element_correction)
 from gpaw.response.site_paw import calculate_site_matrix_element_correction
 from gpaw.response.localft import add_LSDA_trans_fxc
@@ -38,8 +38,9 @@ def test_paw_corrections(pawdata):
 
     G_Gv = np.zeros((5, 3))
     G_Gv[:, 0] = np.linspace(0, 20, 5)
-    calculate_pair_density_correction(G_Gv, pawdata=pawdata,
-                                      radial_points=radial_points)
+    pair_density_calc = PAWPairDensityCalculator(pawdata=pawdata,
+                                                 radial_points=radial_points)
+    pair_density_calc(G_Gv)
 
 
 @pytest.mark.response
@@ -57,7 +58,8 @@ def test_paw_correction_consistency(gpw_files):
 
     # Calculate ordinary pair density corrections
     pawdata = gs.pawdatasets.by_atom[0]
-    Q1_Gii = calculate_pair_density_correction(qG_Gv, pawdata=pawdata)
+    pair_density_calc = PAWPairDensityCalculator(pawdata=pawdata)
+    Q1_Gii = pair_density_calc(qG_Gv)
 
     # Calculate pair density as a generalized matrix element
     # Expand unity in real spherical harmonics
