@@ -1,5 +1,3 @@
-import numbers
-
 import numpy as np
 
 from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
@@ -22,24 +20,6 @@ class KPoint:
         self.f_n = f_n          # occupation numbers
         self.P_ani = P_ani      # PAW projections
         self.k_c = k_c  # k-point coordinates
-
-
-class PairDistribution:
-    def __init__(self, pair, mysKn1n2):
-        self.pair = pair
-        self.mysKn1n2 = mysKn1n2
-        self.mykpts = [self.pair.get_k_point(s, K, n1, n2)
-                       for s, K, n1, n2 in self.mysKn1n2]
-
-    def kpt_pairs_by_q(self, q_c, m1, m2):
-        pair = self.pair
-        mykpts = self.mykpts
-        for u, kpt1 in enumerate(mykpts):
-            progress = u / len(mykpts)
-            K2 = pair.gs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = pair.get_k_point(kpt1.s, K2, m1, m2, block=True)
-
-            yield progress, kpt1, kpt2
 
 
 class KPointPair:
@@ -74,62 +54,13 @@ class KPointPair:
 
 
 class KPointPairFactory:
-    def __init__(self, gs, context, *, nblocks=1):
+    def __init__(self, gs, context):
         self.gs = gs
         self.context = context
-
         assert self.gs.kd.symmetry.symmorphic
 
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      nblocks)
-        self.nblocks = nblocks
-
-        self.context.print('Number of blocks:', nblocks)
-
-    def distribute_k_points_and_bands(self, band1, band2, kpts=None):
-        """Distribute spins, k-points and bands.
-
-        The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
-        tuples that this process handles.
-        """
-
-        gs = self.gs
-
-        if kpts is None:
-            kpts = np.arange(gs.kd.nbzkpts)
-
-        # nbands is the number of bands for each spin/k-point combination.
-        nbands = band2 - band1
-        size = self.kncomm.size
-        rank = self.kncomm.rank
-        ns = gs.nspins
-        nk = len(kpts)
-        n = (ns * nk * nbands + size - 1) // size
-        i1 = min(rank * n, ns * nk * nbands)
-        i2 = min(i1 + n, ns * nk * nbands)
-
-        mysKn1n2 = []
-        i = 0
-        for s in range(ns):
-            for K in kpts:
-                n1 = min(max(0, i1 - i), nbands)
-                n2 = min(max(0, i2 - i), nbands)
-                if n1 != n2:
-                    mysKn1n2.append((s, K, n1 + band1, n2 + band1))
-                i += nbands
-
-        p = self.context.print
-        p('BZ k-points:', gs.kd, flush=False)
-        p('Distributing spins, k-points and bands (%d x %d x %d)' %
-          (ns, nk, nbands), 'over %d process%s' %
-          (self.kncomm.size, ['es', ''][self.kncomm.size == 1]),
-          flush=False)
-        p('Number of blocks:', self.blockcomm.size)
-
-        return PairDistribution(self, mysKn1n2)
-
     @timer('Get a k-point')
-    def get_k_point(self, s, k_c, n1, n2, block=False):
+    def get_k_point(self, s, K, n1, n2, blockcomm=None):
         """Return wave functions for a specific k-point and spin.
 
         s: int
@@ -145,16 +76,9 @@ class KPointPairFactory:
         gs = self.gs
         kd = gs.kd
 
-        # Parse kpoint: is k_c an index or a vector
-        if not isinstance(k_c, numbers.Integral):
-            K = self.gs.kpoints.kptfinder.find(k_c)
-        else:
-            # Fall back to index
-            K = k_c
-
-        if block:
-            nblocks = self.blockcomm.size
-            rank = self.blockcomm.rank
+        if blockcomm:
+            nblocks = blockcomm.size
+            rank = blockcomm.rank
         else:
             nblocks = 1
             rank = 0
@@ -194,41 +118,41 @@ class KPointPairFactory:
                       ut_nR, eps_n, f_n, P_ani, k_c)
 
     @timer('Get kpoint pair')
-    def get_kpoint_pair(self, qpd, s, Kork_c, n1, n2, m1, m2, block=False):
+    def get_kpoint_pair(self, qpd, s, K, n1, n2, m1, m2, blockcomm=None):
         assert m1 <= m2
         assert n1 <= n2
 
-        if isinstance(Kork_c, int):
-            # If k_c is an integer then it refers to
-            # the index of the kpoint in the BZ
-            k_c = self.gs.kd.bzk_kc[Kork_c]
-        else:
-            k_c = Kork_c
+        kptfinder = self.gs.kpoints.kptfinder
 
-        q_c = qpd.q_c
+        k_c = self.gs.kd.bzk_kc[K]
+        K1 = kptfinder.find(k_c)
+        K2 = kptfinder.find(k_c + qpd.q_c)
+
         with self.context.timer('get k-points'):
-            kpt1 = self.get_k_point(s, k_c, n1, n2)
-            # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2, block=block)
+            kpt1 = self.get_k_point(s, K1, n1, n2)
+            kpt2 = self.get_k_point(s, K2, m1, m2, blockcomm=blockcomm)
 
         with self.context.timer('fft indices'):
             Q_G = phase_shifted_fft_indices(kpt1.k_c, kpt2.k_c, qpd)
 
         return KPointPair(kpt1, kpt2, Q_G)
 
-    def pair_calculator(self):
+    def pair_calculator(self, blockcomm=None):
         # We have decoupled the actual pair density calculator
         # from the kpoint factory, but it's still handy to
         # keep this shortcut -- for now.
-        return ActualPairDensityCalculator(self)
+        if blockcomm is None:
+            blockcomm, _ = block_partition(self.context.comm, nblocks=1)
+        return ActualPairDensityCalculator(self, blockcomm)
 
 
 class ActualPairDensityCalculator:
-    def __init__(self, pair):
-        self.context = pair.context
-        self.blockcomm = pair.blockcomm
+    def __init__(self, kptpair_factory, blockcomm):
+        # it seems weird to use kptpair_factory only for this
+        self.gs = kptpair_factory.gs
+        self.context = kptpair_factory.context
+        self.blockcomm = blockcomm
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
-        self.gs = pair.gs
 
     def get_optical_pair_density(self, qpd, kptpair, n_n, m_m, *,
                                  pawcorr, block=False):

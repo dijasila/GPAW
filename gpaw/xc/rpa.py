@@ -198,11 +198,11 @@ class RPACalculator:
 
         kptpair_factory = KPointPairFactory(
             self.gs,
-            context=self.context.with_txt('chi0.txt'),
-            nblocks=self.nblocks)
+            context=self.context.with_txt('chi0.txt'))
 
         chi0calc = Chi0Calculator(wd=wd,
                                   kptpair_factory=kptpair_factory,
+                                  nblocks=self.nblocks,
                                   eta=0.0,
                                   intraband=False,
                                   hilbert=False,

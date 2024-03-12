@@ -7,21 +7,23 @@ import ase.io.ulm as ulm
 import gpaw
 import gpaw.mpi as mpi
 import numpy as np
+from ase import Atoms
 from ase.io.trajectory import read_atoms, write_atoms
 from ase.units import Bohr, Ha
 from gpaw.core.atom_arrays import AtomArraysLayout
+from gpaw.new.builder import DFTComponentsBuilder
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import DFTCalculation, DFTState, units
 from gpaw.new.density import Density
 from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
-from gpaw.utilities import unpack, unpack2
 from gpaw.typing import DTypeLike
+from gpaw.utilities import unpack, unpack2
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
-                'band', 'stress']
+                'band', 'stress', 'spinorbit']
 
 
 def write_gpw(filename: str,
@@ -108,7 +110,10 @@ def read_gpw(filename: Union[str, Path, IO[str]],
              log: Union[Logger, str, Path, IO[str]] = None,
              comm=None,
              parallel: dict[str, Any] = None,
-             dtype: DTypeLike = None):
+             dtype: DTypeLike = None) -> tuple[Atoms,
+                                               DFTCalculation,
+                                               InputParameters,
+                                               DFTComponentsBuilder]:
     """
     Read gpw file
 

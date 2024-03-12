@@ -71,7 +71,8 @@ class GhostSetup(BaseSetup):
         self.l_j = [0]
         self.l_orb_J = [0]
         self.nj = 1
-        self.lq = None  # XXXX
+        self.nq = 1
+        self.N0_q = None  # XXXX
 
         self.rcutfilter = None
         self.rcore = None
@@ -90,13 +91,10 @@ class GhostSetup(BaseSetup):
         self.X_pg = None
         self.ExxC = None
         self.ExxC_w = {}
-        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
         self.local_corr = LocalCorrectionVar(None)
-        self._Mg_pp = None
-        self._gamma = None
 
 
 class GhostSetupData:

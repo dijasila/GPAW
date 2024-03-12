@@ -1,15 +1,6 @@
-"""
-Calculate optical transition strengths.
-"""
-
-# General modules
 import pytest
 import numpy as np
 
-# Script modules
-from ase.build import bulk
-
-from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.tool import (get_bz_transitions,
                                 get_chi0_integrand,
                                 get_degeneracy_matrix,
@@ -17,42 +8,14 @@ from gpaw.response.tool import (get_bz_transitions,
 
 
 @pytest.mark.response
-def test_response_pdens_tool(in_tmp_dir):
-    # ------------------- Inputs ------------------- #
-
-    # Part 1: ground state calculation
-    pw = 200
-    kpts = 3
-    nbands = 8
-
-    # Part 2: optical transitions calculation
+def test_response_pdens_tool(in_tmp_dir, gpw_files):
+    """Calculate optical transition strengths."""
     spins = 'all'
     q_c = [0., 0., 0.]
     bzk_kc = np.array([[0., 0., 0.]])
 
-    # ------------------- Script ------------------- #
-
-    # Part 1: ground state calculation
-    a = 5.431
-    atoms = bulk('Si', 'diamond', a=a)
-
-    calc = GPAW(mode=PW(pw),
-                kpts=(kpts, kpts, kpts),
-                nbands=nbands,
-                convergence={'bands': -1},
-                xc='LDA',
-                occupations=FermiDirac(0.001))  # use small FD smearing
-
-    atoms.calc = calc
-    atoms.get_potential_energy()  # get ground state density
-
-    calc.write('si.gpw', 'all')  # write wavefunctions
-
-    # Part 2: optical transition calculation
-
-    pair, qpd, domainarg_td = get_bz_transitions('si.gpw', q_c, bzk_kc,
-                                                 spins=spins,
-                                                 ecut=10)
+    pair, qpd, domain = get_bz_transitions(
+        gpw_files['silicon_pdens_tool'], q_c, bzk_kc, spins=spins, ecut=10)
 
     nocc1, nocc2 = pair.gs.count_occupied_bands(1e-6)
     # XXX should we know 1e-6?
@@ -62,7 +25,7 @@ def test_response_pdens_tool(in_tmp_dir):
     # not completely filled bands
     m_m = np.arange(nocc1, pair.gs.bd.nbands)
 
-    nt = len(domainarg_td)
+    nt = len(domain)
     nn = len(n_n)
     nm = len(m_m)
     nG = qpd.ngmax
@@ -72,19 +35,19 @@ def test_response_pdens_tool(in_tmp_dir):
     df_tnm = np.zeros((nt, nn, nm), dtype=float)
     eps_tn = np.zeros((nt, nn), dtype=float)
     eps_tm = np.zeros((nt, nm), dtype=float)
-    for t, domainarg_d in enumerate(domainarg_td):
+
+    for t, point in enumerate(domain):
         (n_tnmG[t], df_tnm[t],
          eps_tn[t], eps_tm[t]) = get_chi0_integrand(pair, qpd,
-                                                    n_n, m_m,
-                                                    *domainarg_d)
+                                                    n_n, m_m, point)
 
     testNM_ibN = [[[0], [4, 5, 6]], [[0], [7]],
                   [[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [7]]]
     testts_iG = np.array([[0.07, 0.07, 0.07], [0.00, 0.00, 0.00],
                           [51.34, 51.34, 51.34], [22.69, 22.69, 22.69]])
 
-    for t, (domainarg_d, n_nmG,
-            df_nm, eps_n, eps_m) in enumerate(zip(domainarg_td, n_tnmG, df_tnm,
+    for t, (point, n_nmG,
+            df_nm, eps_n, eps_m) in enumerate(zip(domain, n_tnmG, df_tnm,
                                                   eps_tn, eps_tm)):
 
         # Find degeneracies

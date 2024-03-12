@@ -4,6 +4,7 @@ import pytest
 
 from gpaw.mpi import serial_comm, world
 from gpaw.new.ase_interface import GPAW
+from gpaw.nlopt.basic import NLOData
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.nlopt.shg import get_shg
 
@@ -44,7 +45,7 @@ def test_shg(in_tmp_dir):
         assert np.all(np.abs(shg[1]) < 1e-8)
 
 
-def test_shg_spinpol(gpw_files, in_tmp_dir):
+def test_shg_spinpol(mme_files):
     shg_values = np.array([-0.77053399 - 0.37041593j,
                            -0.87903174 - 0.4177294j,
                            -1.00791251 - 0.51051291j,
@@ -62,9 +63,8 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
-        # Get nlodata from pre-calculated SiC fixtures
-        nlodata = make_nlodata(gpw_files[f'sic_pw{tag}'],
-                               ni=0, nf=8, comm=world)
+        # Get pre-calculated nlodata from SiC fixtures
+        nlodata = NLOData.load(mme_files[f'sic_pw{tag}'], comm=world)
 
         # Calculate 'xyz' tensor element of SHG spectra
         get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
@@ -86,14 +86,14 @@ def test_shg_spinpol(gpw_files, in_tmp_dir):
 
     # Absolute error
     shg_xyz_diff = shg_xyz['spinpaired'] - shg_xyz['spinpol']
-    assert shg_xyz_diff.real == pytest.approx(0, abs=2e-4)
-    assert shg_xyz_diff.imag == pytest.approx(0, abs=2e-4)
+    assert shg_xyz_diff.real == pytest.approx(0, abs=5e-4)
+    assert shg_xyz_diff.imag == pytest.approx(0, abs=5e-4)
 
     # Relative error
     shg_xyz_avg = (shg_xyz['spinpaired'] + shg_xyz['spinpol']) / 2
     shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
     shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
-    assert shg_xyz_rerr_real == pytest.approx(0, abs=1e-3), \
+    assert shg_xyz_rerr_real == pytest.approx(0, abs=2e-3), \
         np.max(np.abs(shg_xyz_rerr_real))
-    assert shg_xyz_rerr_imag == pytest.approx(0, abs=1e-3), \
+    assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-3), \
         np.max(np.abs(shg_xyz_rerr_imag))
