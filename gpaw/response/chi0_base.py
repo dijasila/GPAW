@@ -49,9 +49,7 @@ class Chi0Integrand(Integrand):
         self.analyzer = analyzer
         self.integrationmode = chi0calc.integrationmode
         self.optical = optical
-        # blockcomm is passed around in a bad way XXX
-        # can we simply use the serial blockcomm for optical? XXX
-        self.blockcomm = chi0calc.blockcomm if not optical else None
+        self.blockcomm = chi0calc.blockcomm
 
     @timer('Get matrix element')
     def matrix_element(self, point):
