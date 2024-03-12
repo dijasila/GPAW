@@ -7,6 +7,7 @@ from gpaw import setup_paths
 from gpaw.cli.info import info
 from gpaw.mpi import broadcast, world
 from gpaw.test.gpwfile import GPWFiles, _all_gpw_methodnames
+from gpaw.test.mmefile import MMEFiles
 from gpaw.utilities import devnull
 
 
@@ -198,6 +199,15 @@ def all_gpw_files(request, gpw_files, pytestconfig):
 
     # Accessing each file via __getitem__ executes the calculation:
     return gpw_files[request.param]
+
+
+@pytest.fixture(scope='session')
+def mme_files(request, gpw_files):
+    "Reuse mme files"
+    cache = request.config.cache
+    mme_cachedir = cache.mkdir('gpaw_test_mmefiles')
+
+    return MMEFiles(mme_cachedir, gpw_files)
 
 
 class GPAWPlugin:

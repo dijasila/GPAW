@@ -9,8 +9,6 @@ xxx QEH module seem to require at least 6x6x1 kpoints.
     -this should be investigated
 xxx Often fails with unreadable errors in interpolation.
     -arrays should be checked with assertions and readable errors
-xxx add_intraband fails with NotImplementedError in dielctric
-    function. -Implement or remove option????
 xxx isotropic_q = False is temporarily turned off. However,
     most features require isotropic_q = True anyway.
     Should we remove the option or should we expand QEH to handle

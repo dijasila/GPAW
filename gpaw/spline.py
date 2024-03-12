@@ -1,3 +1,4 @@
+
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -50,7 +51,10 @@ class Spline:
 
     def map(self, r_x):
         """Map f(r) onto a given radial grid."""
-        return np.vectorize(self, [float])(r_x)
+        out_x = np.empty_like(r_x)
+        assert r_x.flags.c_contiguous
+        self.spline.map(r_x, out_x)
+        return out_x
 
     def __getstate__(self):
         state = self.__dict__.copy()
