@@ -54,15 +54,10 @@ class KPointPair:
 
 
 class KPointPairFactory:
-    def __init__(self, gs, context, *, nblocks=1):
+    def __init__(self, gs, context):
         self.gs = gs
         self.context = context
-
         assert self.gs.kd.symmetry.symmorphic
-
-        # there is no real reason to take nblocks as input XXX
-        self.nblocks = nblocks
-        self.context.print('Number of blocks:', nblocks)
 
     @timer('Get a k-point')
     def get_k_point(self, s, K, n1, n2, blockcomm=None):

@@ -166,6 +166,7 @@ class Chi0ComponentCalculator:
 
     def __init__(self, kptpair_factory,
                  context=None,
+                 nblocks=1,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None):
@@ -177,6 +178,7 @@ class Chi0ComponentCalculator:
             context = kptpair_factory.context
         assert kptpair_factory.context.comm is context.comm
         self.context = context
+        self.nblocks = nblocks  # to ABC XXX
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
@@ -184,11 +186,6 @@ class Chi0ComponentCalculator:
         # Set up integrator
         self.integrationmode = integrationmode
         self.integrator = self.construct_integrator()
-
-    @property
-    def nblocks(self):
-        # should be passed around in a BlocPartitions object XXX
-        return self.kptpair_factory.nblocks
 
     @property
     def blockcomm(self):

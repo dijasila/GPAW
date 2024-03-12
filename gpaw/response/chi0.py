@@ -53,6 +53,7 @@ def find_maximum_frequency(kpt_u: list,
 class Chi0Calculator:
     def __init__(self, kptpair_factory: KPointPairFactory,
                  context: ResponseContext | None = None,
+                 nblocks=1,
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
@@ -68,7 +69,7 @@ class Chi0Calculator:
         self.context = context
 
         self.chi0_body_calc = Chi0BodyCalculator(
-            kptpair_factory, context=context,
+            kptpair_factory, context=context, nblocks=nblocks,
             eshift=eshift, **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
             kptpair_factory, context=context,
@@ -323,7 +324,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        super().__init__(*args, **kwargs)
+        # Serial block distribution
+        super().__init__(*args, nblocks=1, **kwargs)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
@@ -342,14 +344,6 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
         else:
             self.drude_calc = None
             self.rate = None
-
-    @property
-    def nblocks(self) -> int:
-        # The optical extensions are not distributed in memory, hence we
-        # overwrite nblocks.
-        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which
-        # seems a bit dangerous XXX
-        return 1
 
     def calculate(self,
                   qpd: SingleQPWDescriptor | None = None
@@ -546,9 +540,10 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
+        kptpair_factory = KPointPairFactory(gs, context)
 
         super().__init__(wd=wd, kptpair_factory=kptpair_factory,
+                         nblocks=nblocks,
                          nbands=nbands, ecut=ecut, **kwargs)
 
 
