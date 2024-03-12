@@ -162,8 +162,7 @@ class Chi0Integrand(Integrand):
 class Chi0ComponentCalculator:
     """Base class for the Chi0XXXCalculator suite."""
 
-    def __init__(self, gs, context,
-                 nblocks=1,
+    def __init__(self, gs, context, *, nblocks,
                  disable_point_group=False,
                  disable_time_reversal=False,
                  integrationmode=None):
