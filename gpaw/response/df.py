@@ -575,7 +575,7 @@ class DielectricFunctionCalculator:
             alpha0_w = self.collect(alpha0_w)
 
         # Convert to external units
-        hypervol = Bohr**(sum(~pbc_c))
+        hypervol = Bohr**sum(~pbc_c)
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
