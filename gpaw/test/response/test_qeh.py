@@ -109,9 +109,9 @@ def test_basics(in_tmp_dir, gpw_files):
     assert np.amax(chi) == pytest.approx(correct_val)
 
     # test to interpolate to grid and actual numbers
-    q_grid = np.array([0, 0.1])
-    w_grid = np.array([0, 0.1])
-    bb2.interpolate_to_grid(q_grid=q_grid, w_grid=w_grid)
+    q_grid_q = np.array([0, 0.1])
+    w_grid_w = np.array([0, 0.1])
+    bb2.interpolate_to_grid(q_grid_q=q_grid_q, w_grid_w=w_grid_w)
     data = np.load('mos2_int-chi.npz')
 
     assert np.allclose(data['omega_w'], np.array([0., 0.00367493]))
@@ -132,6 +132,7 @@ def test_basics(in_tmp_dir, gpw_files):
 @pytest.mark.dielectricfunction
 @pytest.mark.response
 def test_off_diagonal_chi(in_tmp_dir, gpw_files):
+    from ase.units import Hartree
     df = dielectric(gpw_files['IBiTe_pw_monolayer'], 0.1, 0.5)
     bb = BuildingBlock('IBiTe', df)
     bb.calculate_building_block()
@@ -149,11 +150,11 @@ def test_off_diagonal_chi(in_tmp_dir, gpw_files):
                        (-0.0013460322867027315 - 0.013654438136419339j))
     assert np.allclose(chiMD_qw[9, 9],
                        (-2.02536793708031e-05 - 4.2061568393935735e-05j))
-    q_grid_s = np.linspace(0, 0.5, 6)
-    w_grid_w = bb.wd.omega_w
-    bb.interpolate_to_grid(q_grid_s, w_grid_w)
+    q_grid_q = np.linspace(0, 0.5, 6)
+    w_grid_w = bb.wd.omega_w * Hartree
+    bb.interpolate_to_grid(q_grid_q, w_grid_w)
     data = np.load('IBiTe_int-chi.npz')
-    assert np.allclose(data['omega_w'], w_grid_w)
+    assert np.allclose(data['omega_w'] * Hartree, w_grid_w)
     assert np.allclose(data['chiMD_qw'][-1, 0],
                        (-0.01828975765460967 - 0.05522009764695865j))
     assert np.allclose(data['chiMD_qw'][0, 0].real,

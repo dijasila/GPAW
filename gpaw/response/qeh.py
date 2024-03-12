@@ -50,7 +50,7 @@ class BuildingBlock:
         if isotropic_q is not None:
             raise DeprecationWarning('Warning: Keyword \'isotropic_q\' is'
                                      ' deprecated and will be removed in'
-                                     'the future. Use \'isotropic\' instead.')
+                                     ' the future. Use \'isotropic\' instead.')
             isotropic = isotropic_q
 
         assert isotropic, "Non-isotropic calculation" \
@@ -105,21 +105,21 @@ class BuildingBlock:
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
         qd.set_symmetry(gs.atoms, kd.symmetry)
-        q_ibz_Kc = qd.ibzk_kc
+        q_ibz_kc = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
         if not isotropic:
-            q_unsorted_Kc = q_ibz_Kc
+            q_unsorted_kc = q_ibz_kc
         else:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
-            q_unsorted_Kc = np.zeros([Nk // 2 - 1, 3])
-            q_unsorted_Kc[:, qdir] = qx
+            q_unsorted_kc = np.zeros([Nk // 2 - 1, 3])
+            q_unsorted_kc[:, qdir] = qx
             q = 0
             if qmax is not None:
                 qmax *= Bohr
                 qmax_v = np.zeros([3])
                 qmax_v[qdir] = qmax
-                q_c = q_unsorted_Kc[-1]
+                q_c = q_unsorted_kc[-1]
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
                 assert Nk % 2 == 0
@@ -130,36 +130,36 @@ class BuildingBlock:
                         continue
                     q_c = np.zeros([3])
                     q_c[qdir] = i / Nk
-                    q_unsorted_Kc = np.append(q_unsorted_Kc,
+                    q_unsorted_kc = np.append(q_unsorted_kc,
                                               q_c[np.newaxis, :], axis=0)
                     q_v = np.dot(q_c, rcell_cv)
                     q = (q_v**2).sum()**0.5
                     i += 1
-        q_abs_unsorted_K = np.linalg.norm(q_unsorted_Kc @ rcell_cv, axis=1)
+        q_abs_unsorted_k = np.linalg.norm(q_unsorted_kc @ rcell_cv, axis=1)
         if isotropic:
             # extrapolate to half of smallest finite q
-            q_cut = np.min(q_abs_unsorted_K) / 2
+            q_cut = np.min(q_abs_unsorted_k) / 2
         else:
-            q_cut = np.sort(q_abs_unsorted_K)[1]  # smallest finite q
+            q_cut = np.sort(q_abs_unsorted_k)[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
 
-        # subscript k: q-points including q_infs
-        q_infs_kv = np.zeros([len(q_unsorted_Kc) + self.nq_inftot, 3])
+        # subscript q: q-points including q_infs
+        q_infs_qv = np.zeros([len(q_unsorted_kc) + self.nq_inftot, 3])
         # x-direction:
-        q_infs_kv[: self.nq_inftot, qdir] = \
+        q_infs_qv[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic:  # y-direction
-            q_infs_kv[self.nq_inf:self.nq_inftot, 1] = \
+            q_infs_qv[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
-        sort = np.argsort(q_abs_unsorted_K)
+        sort = np.argsort(q_abs_unsorted_k)
         # add q_inf to list
-        q_sorted_Kc = q_unsorted_Kc[sort]
-        self.q_kc = np.insert(q_sorted_Kc, 0,
+        q_sorted_kc = q_unsorted_kc[sort]
+        self.q_qc = np.insert(q_sorted_kc, 0,
                               np.zeros([self.nq_inftot, 3]), axis=0)
-        self.q_kv = self.q_kc @ rcell_cv
-        self.q_kv += q_infs_kv
-        self.q_abs_k = (self.q_kv**2).sum(axis=1)**0.5
-        self.q_infs_kv = q_infs_kv
+        self.q_qv = self.q_qc @ rcell_cv
+        self.q_qv += q_infs_qv
+        self.q_abs_q = (self.q_qv**2).sum(axis=1)**0.5
+        self.q_infs_qv = q_infs_qv
         self.complete = False
         self.last_q_idx = 0
         if self.load_chi_file():
@@ -170,12 +170,12 @@ class BuildingBlock:
     def calculate_building_block(self):
         if self.complete:
             return
-        Nq = self.q_kc.shape[0]
+        Nq = self.q_qc.shape[0]
         for current_q_idx in range(self.last_q_idx, Nq):
             self.save_chi_file(q_idx=current_q_idx)
             self.last_q_idx = current_q_idx
-            q_c = self.q_kc[current_q_idx]
-            q_inf = self.q_infs_kv[current_q_idx]
+            q_c = self.q_qc[current_q_idx]
+            q_inf = self.q_infs_qv[current_q_idx]
             if np.allclose(q_inf, 0):
                 q_inf = None
 
@@ -219,7 +219,7 @@ class BuildingBlock:
         # replace with finite q result:
         if self.context.comm.rank == 0:
             for n in range(Nq):
-                if np.allclose(self.q_kc[n], 0):
+                if np.allclose(self.q_qc[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
                     self.drhoD_qz[n] = self.drhoD_qz[self.nq_cut]
 
@@ -325,9 +325,9 @@ class BuildingBlock:
         data = {'last_q': q_idx,
                 'complete': self.complete,
                 'isotropic_q': self.isotropic,  # old name for backwards compat
-                'q_cs': self.q_kc,  # old name q_cs for backwards compatibility
-                'q_vs': self.q_kv,  # old name q_vs for backwards compatibility
-                'q_abs': self.q_abs_k,
+                'q_cs': self.q_qc,  # old name q_cs for backwards compatibility
+                'q_vs': self.q_qv,  # old name q_vs for backwards compatibility
+                'q_abs': self.q_abs_q,
                 'omega_w': self.wd.omega_w,
                 'chiM_qw': self.chiM_qw,
                 'chiD_qw': self.chiD_qw,
@@ -348,7 +348,7 @@ class BuildingBlock:
         except OSError:
             return False
         if (np.all(data['omega_w'] == self.wd.omega_w) and
-            np.all(data['q_cs'] == self.q_kc) and
+            np.all(data['q_cs'] == self.q_qc) and
             np.all(data['z'] == self.z_z)):
             self.last_q_idx = data['last_q']
             self.complete = data['complete']
@@ -369,12 +369,21 @@ class BuildingBlock:
         else:
             return False
 
-    def interpolate_to_grid(self, q_grid, w_grid):
+    def interpolate_to_grid(self, q_grid_q, w_grid_w,
+                            q_grid=None, w_grid=None):
         """
         Parameters
-        q_grid: in Ang. should start at q=0
-        w_grid: in eV
+        q_grid_q: in Ang. should start at q=0
+        w_grid_w: in eV
         """
+
+        if q_grid is not None or w_grid is not None:
+            raise DeprecationWarning('\'q_grid\' and \'w_grid\' are deprecated'
+                                     ' and will be removed in a future'
+                                     ' version. Please use \'q_grid_q\' and'
+                                     ' \'w_grid_w\' instead')
+            q_grid_q = q_grid
+            w_grid_w = w_grid
 
         from scipy.interpolate import RectBivariateSpline
         from scipy.interpolate import interp1d
@@ -382,18 +391,18 @@ class BuildingBlock:
 
         if not self.complete:
             self.calculate_building_block()
-        q_grid *= Bohr
-        w_grid /= Hartree
 
-        assert np.max(q_grid) <= np.max(self.q_abs_k), \
-            'q can not be larger that %1.2f Ang' % np.max(self.q_abs_k / Bohr)
-        assert np.max(w_grid) <= np.max(self.wd.omega_w), \
+        q_grid_q = q_grid_q.copy() * Bohr
+        w_grid_w = w_grid_w.copy() / Hartree
+
+        # upper case subscripts refer to old grid.
+        q_abs_Q = self.q_abs_q
+        omega_W = self.wd.omega_w
+        assert np.max(q_grid_q) <= np.max(q_abs_Q), \
+            'q can not be larger that %1.2f Ang' % np.max(q_abs_Q / Bohr)
+        assert np.max(w_grid_w) <= np.max(omega_W), \
             'w can not be larger that %1.2f eV' % \
-            np.max(self.wd.omega_w * Hartree)
-
-        sort = np.argsort(self.q_abs_k)
-        q_abs_k = self.q_abs_k[sort]
-        omega_w = self.wd.omega_w
+            np.max(omega_W * Hartree)
 
         def spline(array, x_in, y_in, x_out, y_out):
             # interpolates a function from the regular grid (x_in, y_in)
@@ -407,50 +416,55 @@ class BuildingBlock:
                 + 1j * spline(array.imag, x_in, y_in, x_out, y_out)
 
         # chi monopole
-        chiM_qw = self.chiM_qw[sort]
+        chiM_QW = self.chiM_qw
 
         omit_q0 = False
-        if np.isclose(q_abs_k[0], 0) and not np.isclose(chiM_qw[0, 0], 0):
+        if np.isclose(q_abs_Q[0], 0) and not np.isclose(chiM_QW[0, 0], 0):
             omit_q0 = True  # omit q=0 from interpolation
-            q0_abs = q_abs_k[0].copy()
-            q_abs_k[0] = 0.
-            chi0_w = chiM_qw[0].copy()
-            chiM_qw[0] = np.zeros_like(chi0_w)
+            q0_abs = q_abs_Q[0].copy()
+            q_abs_Q[0] = 0.
+            chi0_W = chiM_QW[0].copy()
+            chiM_QW[0] = np.zeros_like(chi0_W)
 
-        chiM_qw = complex_spline(chiM_qw, q_abs_k, omega_w, q_grid, w_grid)
+        chiM_qw = complex_spline(chiM_QW, q_abs_Q, omega_W, q_grid_q, w_grid_w)
         if omit_q0:
-            q_abs_k[0] = q0_abs
-            if np.isclose(q_grid[0], 0):
-                yr = interp1d(omega_w, chi0_w.real)
-                yi = interp1d(omega_w, chi0_w.imag)
-                chi0_w = yr(w_grid) + 1j * yi(w_grid)
+            q_abs_Q[0] = q0_abs
+            if np.isclose(q_grid_q[0], 0):
+                yr = interp1d(omega_W, chi0_W.real)
+                yi = interp1d(omega_W, chi0_W.imag)
+                chi0_w = yr(w_grid_w) + 1j * yi(w_grid_w)
                 chiM_qw[0] = chi0_w
 
         # chi dipole
-        chiD_qw = complex_spline(self.chiD_qw[sort], q_abs_k, omega_w,
-                                 q_grid, w_grid)
+        chiD_QW = self.chiD_qw
+        chiD_qw = complex_spline(chiD_QW, q_abs_Q, omega_W,
+                                 q_grid_q, w_grid_w)
 
         # chi off-diagonal
         if not self.has_z_inversion_symmetry:
-            chiDM_qw = complex_spline(self.chiDM_qw[sort], q_abs_k, omega_w,
-                                      q_grid, w_grid)
-            chiMD_qw = complex_spline(self.chiMD_qw[sort], q_abs_k, omega_w,
-                                      q_grid, w_grid)
+            chiDM_QW = self.chiDM_qw
+            chiDM_qw = complex_spline(chiDM_QW, q_abs_Q, omega_W,
+                                      q_grid_q, w_grid_w)
+            chiMD_QW = self.chiMD_qw
+            chiMD_qw = complex_spline(chiMD_QW, q_abs_Q, omega_W,
+                                      q_grid_q, w_grid_w)
         else:
-            chiDM_qw = np.zeros((len(q_grid), len(w_grid)))
-            chiMD_qw = np.zeros((len(q_grid), len(w_grid)))
+            chiDM_qw = np.zeros((len(q_grid_q), len(w_grid_w)))
+            chiMD_qw = np.zeros((len(q_grid_q), len(w_grid_w)))
 
         # drho monopole
 
-        drhoM_qz = complex_spline(self.drhoM_qz[sort], q_abs_k, self.z_z,
-                                  q_grid, self.z_z)
+        drhoM_Qz = self.drhoM_qz
+        drhoM_qz = complex_spline(drhoM_Qz, q_abs_Q, self.z_z,
+                                  q_grid_q, self.z_z)
 
         # drho dipole
-        drhoD_qz = complex_spline(self.drhoD_qz[sort], q_abs_k, self.z_z,
-                                  q_grid, self.z_z)
+        drhoD_Qz = self.drhoD_qz
+        drhoD_qz = complex_spline(drhoD_Qz, q_abs_Q, self.z_z,
+                                  q_grid_q, self.z_z)
 
-        self.q_abs_k = q_grid
-        self.wd = FrequencyGridDescriptor(w_grid)
+        self.q_abs_q = q_grid_q
+        self.wd = FrequencyGridDescriptor(w_grid_w)
         self.chiM_qw = chiM_qw
         self.chiD_qw = chiD_qw
         self.chiDM_qw = chiDM_qw
