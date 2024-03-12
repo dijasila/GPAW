@@ -8,6 +8,7 @@ from ase.units import Hartree, Bohr
 
 import gpaw.mpi as mpi
 
+from gpaw.response.context import ResponseContext
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
@@ -239,12 +240,38 @@ class ChiData:
         rf0_w = self.dyson.df.collect(rf0_w)
         rf_w = self.dyson.df.collect(rf_w)
 
-        return DynamicSusceptibility(self.dyson.df.wd.omega_w, rf0_w, rf_w)
+        return DynamicSusceptibility(self.wd, rf0_w, rf_w)
+
+    @property
+    def wd(self):
+        return self.dyson.df.wd
+
+    def eels_spectrum(self):
+        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+
+        EELS spectrum is obtained from the imaginary part of the
+        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
+        Returns EELS spectrum without and with local field corrections:
+
+        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()"""
+
+        # Calculate V^1/2 \chi V^1/2
+        Vchi0_wGG = self.chi0_wGG  # askhl: so what's with the V^1/2?
+        Vchi_wGG = self.chi_wGG
+
+        # Calculate eels = -Im 4 \pi / q^2  \chi
+        eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
+        eels_LFC_w = -Vchi_wGG[:, 0, 0].imag
+
+        eels_NLFC_w = self.dyson.df.collect(eels_NLFC_w)
+        eels_LFC_w = self.dyson.df.collect(eels_LFC_w)
+        return EELSSpectrum(self.dyson.context, self.wd,
+                            eels_NLFC_w, eels_LFC_w)
 
 
 @dataclass
 class DynamicSusceptibility:
-    omega_w: np.ndarray
+    wd: FrequencyDescriptor
     rf0_w: np.ndarray
     rf_w: np.ndarray
 
@@ -254,11 +281,12 @@ class DynamicSusceptibility:
     def write(self, filename):
         if filename is not None and mpi.rank == 0:
             write_response_function(
-                filename, self.omega_w * Hartree, self.rf0_w, self.rf_w)
+                filename, self.wd.omega_w * Hartree, self.rf0_w, self.rf_w)
 
 
 @dataclass
 class EELSSpectrum:
+    context: ResponseContext
     wd: FrequencyDescriptor
     eels_NLFC_w: np.ndarray
     eels_LFC_w: np.ndarray
@@ -462,34 +490,10 @@ class DielectricFunctionCalculator:
 
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
                           direction='x', filename='eels.csv'):
-        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
-
-        EELS spectrum is obtained from the imaginary part of the
-        density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
-        Returns EELS spectrum without and with local field corrections:
-
-        df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
-        """
-
-        # Calculate V^1/2 \chi V^1/2
-        qpd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                                direction=direction)
-
-        # Calculate eels = -Im 4 \pi / q^2  \chi
-        eels_NLFC_w = -(1. / (1. - Vchi0_wGG[:, 0, 0])).imag
-        eels_LFC_w = -Vchi_wGG[:, 0, 0].imag
-
-        # Collect frequencies
-        eels_NLFC_w = self.collect(eels_NLFC_w)
-        eels_LFC_w = self.collect(eels_LFC_w)
-
-        # Write to file
-        if filename is not None and self.context.comm.rank == 0:
-            omega_w = self.wd.omega_w
-            write_response_function(filename, omega_w * Hartree,
-                                    eels_NLFC_w, eels_LFC_w)
-
-        return EELSSpectrum(self.wd, eels_NLFC_w, eels_LFC_w)
+        chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
+        eels = chi.eels_spectrum()
+        eels.write(filename)
+        return eels
 
     def get_eels_spectrum(self, *args, **kwargs):
         return self._new_eels_spectrum(*args, **kwargs).unpack()
