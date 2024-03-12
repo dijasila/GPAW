@@ -499,13 +499,14 @@ class DielectricFunctionCalculator:
         self.context.print('', flush=False)
         self.context.print('%s Macroscopic Dielectric Constant:' % xc)
         self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % df.eps0, flush=False)
+        self.context.print('    Without local field: %f' % df.eps0,
+                           flush=False)
         self.context.print('    Include local field: %f' % df.eps)
 
         return df.eps0, df.eps
 
     def _new_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
-                          direction='x', filename='eels.csv'):
+                           direction='x', filename='eels.csv'):
         chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
         eels = chi.eels_spectrum()
         eels.write(filename)
