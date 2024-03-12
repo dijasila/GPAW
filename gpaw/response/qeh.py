@@ -3,6 +3,7 @@ import numpy as np
 from math import pi
 import ase.units
 import os
+import warnings
 
 Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
@@ -48,9 +49,9 @@ class BuildingBlock:
 
         """
         if isotropic_q is not None:
-            raise DeprecationWarning('Warning: Keyword \'isotropic_q\' is'
-                                     ' deprecated and will be removed in'
-                                     ' the future. Use \'isotropic\' instead.')
+            warnings.warn('Keyword \'isotropic_q\' is deprecated and will be'
+                          ' removed in the future. Use \'isotropic\' instead.',
+                          DeprecationWarning)
             isotropic = isotropic_q
 
         assert isotropic, "Non-isotropic calculation" \
@@ -378,10 +379,10 @@ class BuildingBlock:
         """
 
         if q_grid is not None or w_grid is not None:
-            raise DeprecationWarning('\'q_grid\' and \'w_grid\' are deprecated'
-                                     ' and will be removed in a future'
-                                     ' version. Please use \'q_grid_q\' and'
-                                     ' \'w_grid_w\' instead')
+            warnings.warn('\'q_grid\' and \'w_grid\' are deprecated and will'
+                          ' be removed in a future version. Please use'
+                          ' \'q_grid_q\' and \'w_grid_w\' instead',
+                          DeprecationWarning)
             q_grid_q = q_grid
             w_grid_w = w_grid
 
