@@ -424,7 +424,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 }
 
 
-static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
+static PyObject * mpi_name(MPIObject *self, PyObject* Py_UNUSED(noargs))
 {
   char name[MPI_MAX_PROCESSOR_NAME];
   int resultlen;
@@ -442,7 +442,7 @@ static PyObject * mpi_abort(MPIObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-static PyObject * mpi_barrier(MPIObject *self)
+static PyObject * mpi_barrier(MPIObject *self, PyObject* noargs)
 {
   MPI_Barrier(self->comm);
   Py_RETURN_NONE;
