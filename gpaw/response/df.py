@@ -334,6 +334,22 @@ class DielectricMatrixData:
 
 
 @dataclass
+class Polarizability:
+    context: ResponseContext
+    wd: FrequencyDescriptor
+    alpha0_w: np.ndarray
+    alpha_w: np.ndarray
+
+    def unpack(self):
+        return self.alpha0_w, self.alpha_w
+
+    def write(self, filename):
+        if filename is not None and self.context.comm.rank == 0:
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    self.alpha0_w, self.alpha_w)
+
+
+@dataclass
 class DielectricFunctionData:
     wd: FrequencyDescriptor
     df_NLFC_w: np.ndarray
@@ -498,8 +514,8 @@ class DielectricFunctionCalculator:
     def get_eels_spectrum(self, *args, **kwargs):
         return self._new_eels_spectrum(*args, **kwargs).unpack()
 
-    def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
-                           filename='polarizability.csv'):
+    def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
+                            filename='polarizability.csv'):
         r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -528,10 +544,12 @@ class DielectricFunctionCalculator:
 
         if not self.coulomb.truncation:
             """Standard expression for the polarizability"""
-            df0_w, df_w = self.get_dielectric_function(xc=xc,
-                                                       q_c=q_c,
-                                                       filename=None,
-                                                       direction=direction)
+            df = self._new_dielectric_function(xc=xc, q_c=q_c,
+                                               filename=None,
+                                               direction=direction)
+
+            df0_w = df.df_NLFC_w
+            df_w = df.df_LFC_w
             alpha_w = V * (df_w - 1.0) / (4 * pi)
             alpha0_w = V * (df0_w - 1.0) / (4 * pi)
         else:
@@ -548,12 +566,10 @@ class DielectricFunctionCalculator:
             # truncated Coulomb potential and eps_M = 1.0
 
             self.context.print('Using truncated Coulomb interaction')
+            chi = self._new_chi(xc=xc, q_c=q_c, direction=direction)
 
-            qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc,
-                                                  q_c=q_c,
-                                                  direction=direction)
-            alpha_w = -V / (4 * pi) * chi_wGG[:, 0, 0]
-            alpha0_w = -V / (4 * pi) * chi0_wGG[:, 0, 0]
+            alpha_w = -V / (4 * pi) * chi.chi_wGG[:, 0, 0]
+            alpha0_w = -V / (4 * pi) * chi.chi0_wGG[:, 0, 0]
 
             alpha_w = self.collect(alpha_w)
             alpha0_w = self.collect(alpha0_w)
@@ -563,13 +579,12 @@ class DielectricFunctionCalculator:
         alpha0_w *= hypervol
         alpha_w *= hypervol
 
-        # Write results file
-        if filename is not None and self.context.comm.rank == 0:
-            omega_w = self.wd.omega_w
-            write_response_function(filename, omega_w * Hartree,
-                                    alpha0_w, alpha_w)
+        pol = Polarizability(self.context, self.wd, alpha0_w, alpha_w)
+        pol.write(filename)
+        return pol
 
-        return alpha0_w, alpha_w
+    def get_polarizability(self, *args, **kwargs):
+        return self._new_polarizability(*args, **kwargs).unpack()
 
 
 class DielectricFunction(DielectricFunctionCalculator):
