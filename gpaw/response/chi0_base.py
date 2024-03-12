@@ -118,7 +118,7 @@ class Chi0Integrand(Integrand):
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
                               pawcorr=self._chi0calc.pawcorr,
-                              block=self.blockcomm is not None)
+                              block=True)
 
         if self.integrationmode is None:
             n_nmG *= weight
