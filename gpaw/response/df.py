@@ -368,11 +368,14 @@ class DielectricFunctionCalculator:
         """ Return frequencies that Chi is evaluated on"""
         return self.wd.omega_w * Hartree
 
-    def get_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs).unpack()
+    def _new_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
+        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
 
-    def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
-                                   *, filename='chiM_w.csv', **kwargs):
+    def get_chi(self, *args, **kwargs):
+        return self._new_chi(*args, **kwargs).unpack()
+
+    def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], *,
+                                   filename='chiM_w.csv', **kwargs):
 
         chi0 = self.calculate_chi0(q_c)
         chi = chi0.chi(xc=xc, return_VchiV=False, **kwargs)
