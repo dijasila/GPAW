@@ -270,7 +270,7 @@ class DielectricMatrixData:
             return self.chi0_wGG
         return (self.qpd, self.chi0_wGG, self.chi_wGG)
 
-    def dielectric_function(self, filename):
+    def dielectric_function(self):
         """Calculate the dielectric function.
 
         Returns dielectric function without and with local field correction:
@@ -287,13 +287,22 @@ class DielectricMatrixData:
         df_NLFC_w = self.dyson.df.collect(df_NLFC_w)
         df_LFC_w = self.dyson.df.collect(df_LFC_w)
 
-        if filename is not None and mpi.rank == 0:
-            write_response_function(filename,
-                                    self.dyson.df.wd.omega_w * Hartree,
-                                    df_NLFC_w, df_LFC_w)
+        return DielectricFunctionData(self.dyson.df.wd, df_NLFC_w, df_LFC_w)
 
-        # Should return DielectricFunctionData
-        return df_NLFC_w, df_LFC_w
+
+@dataclass
+class DielectricFunctionData:
+    wd: FrequencyDescriptor
+    df_NLFC_w: np.ndarray
+    df_LFC_w: np.ndarray
+
+    def unpack(self):
+        return self.df_NLFC_w, self.df_LFC_w
+
+    def write(self, filename):
+        if filename is not None and mpi.rank == 0:
+            write_response_function(filename, self.wd.omega_w * Hartree,
+                                    self.df_NLFC_w, self.df_LFC_w)
 
 
 class DielectricFunctionCalculator:
@@ -374,24 +383,32 @@ class DielectricFunctionCalculator:
     def get_chi(self, *args, **kwargs):
         return self._new_chi(*args, **kwargs).unpack()
 
-    def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], *,
-                                   filename='chiM_w.csv', **kwargs):
-
+    def _new_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0], *,
+                                    filename='chiM_w.csv', **kwargs):
         chi0 = self.calculate_chi0(q_c)
         chi = chi0.chi(xc=xc, return_VchiV=False, **kwargs)
         dynsus = chi.dynamic_susceptibility()
         dynsus.write(filename)
-        return dynsus.unpack()
+        return dynsus
 
-    def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
+    def _new_dielectric_function(self, *args, filename='df.csv', **kwargs):
+        dm = self._new_dielectric_matrix(*args, **kwargs)
+        df = dm.dielectric_function()
+        df.write(filename)
+        return df
+
+    def _new_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         chi0 = self.calculate_chi0(q_c)
-        dielectric_matrix = chi0.dielectric_matrix(xc=xc, **kwargs)
-        return dielectric_matrix.unpack()
+        return chi0.dielectric_matrix(xc=xc, **kwargs)
 
-    def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None, *,
-                                filename='df.csv', **kwargs):
-        return self.calculate_chi0(q_c).dielectric_matrix(
-            xc, q_v=q_v, **kwargs).dielectric_function(filename=filename)
+    def get_dynamic_susceptibility(self, *args, **kwargs):
+        return self._new_dynamic_susceptibility(*args, **kwargs).unpack()
+
+    def get_dielectric_matrix(self, *args, **kwargs):
+        return self._new_dielectric_matrix(*args, **kwargs).unpack()
+
+    def get_dielectric_function(self, *args, **kwargs):
+        return self._new_dielectric_function(*args, **kwargs).unpack()
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
                                             direction='x', q_v=None):
