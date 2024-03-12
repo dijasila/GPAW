@@ -93,10 +93,9 @@ class Chi0Integrand(Integrand):
 
         return self._get_any_matrix_element(
             point, target_method=target_method,
-            blockcomm=self.blockcomm,
         ).reshape(-1, out_ngmax)
 
-    def _get_any_matrix_element(self, point, target_method, *, blockcomm):
+    def _get_any_matrix_element(self, point, target_method):
         qpd = self.qpd
 
         k_v = point.kpt_c  # XXX c/v discrepancy
@@ -115,13 +114,13 @@ class Chi0Integrand(Integrand):
 
         kptpair = self.kptpair_factory.get_kpoint_pair(
             qpd, point.spin, K, self.n1, self.n2,
-            self.m1, self.m2, blockcomm=blockcomm)
+            self.m1, self.m2, blockcomm=self.blockcomm)
 
         m_m = np.arange(self.m1, self.m2)
         n_n = np.arange(self.n1, self.n2)
         n_nmG = target_method(qpd, kptpair, n_n, m_m,
                               pawcorr=self._chi0calc.pawcorr,
-                              block=blockcomm is not None)
+                              block=self.blockcomm is not None)
 
         if self.integrationmode is None:
             n_nmG *= weight
