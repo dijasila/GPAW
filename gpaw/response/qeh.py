@@ -42,6 +42,10 @@ class BuildingBlock:
             as q^2 and the wings as q.
             Note that this does not hold for (semi)metals!
 
+        nq_inftot: int
+            total number of extra q points for the q-> 0 limit.
+            Equal to nq_inf for isotropic materials, and 2 * nq_inf otherwise
+
         """
         if isotropic_q is not None:
             raise DeprecationWarning('Warning: Keyword \'isotropic_q\' is'
@@ -101,21 +105,21 @@ class BuildingBlock:
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
         qd.set_symmetry(gs.atoms, kd.symmetry)
-        q_ibz_kc = qd.ibzk_kc
+        q_ibz_Kc = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
         if not isotropic:
-            q_kc = q_ibz_kc
+            q_unsorted_Kc = q_ibz_Kc
         else:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
-            q_kc = np.zeros([Nk // 2 - 1, 3])
-            q_kc[:, qdir] = qx
+            q_unsorted_Kc = np.zeros([Nk // 2 - 1, 3])
+            q_unsorted_Kc[:, qdir] = qx
             q = 0
             if qmax is not None:
                 qmax *= Bohr
                 qmax_v = np.zeros([3])
                 qmax_v[qdir] = qmax
-                q_c = q_kc[-1]
+                q_c = q_unsorted_Kc[-1]
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
                 assert Nk % 2 == 0
@@ -126,35 +130,36 @@ class BuildingBlock:
                         continue
                     q_c = np.zeros([3])
                     q_c[qdir] = i / Nk
-                    q_kc = np.append(q_kc, q_c[np.newaxis, :], axis=0)
+                    q_unsorted_Kc = np.append(q_unsorted_Kc,
+                                              q_c[np.newaxis, :], axis=0)
                     q_v = np.dot(q_c, rcell_cv)
                     q = (q_v**2).sum()**0.5
                     i += 1
-        q_kv = np.dot(q_kc, rcell_cv)
-        q_abs_k = (q_kv**2).sum(axis=1)**0.5
-        sort = np.argsort(q_abs_k)
-        q_abs_k = q_abs_k[sort]
-        q_kc = q_kc[sort]
+        q_abs_unsorted_K = np.linalg.norm(q_unsorted_Kc @ rcell_cv, axis=1)
         if isotropic:
-            q_cut = q_abs_k[0] / 2  # extrapolate to half of smallest finite q
+            # extrapolate to half of smallest finite q
+            q_cut = np.min(q_abs_unsorted_K) / 2
         else:
-            q_cut = q_abs_k[1]  # smallest finite q
+            q_cut = np.sort(q_abs_unsorted_K)[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
 
-        q_infs = np.zeros([q_kc.shape[0] + self.nq_inftot, 3])
+        # subscript k: q-points including q_infs
+        q_infs_kv = np.zeros([len(q_unsorted_Kc) + self.nq_inftot, 3])
         # x-direction:
-        q_infs[: self.nq_inftot, qdir] = \
+        q_infs_kv[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
         if not isotropic:  # y-direction
-            q_infs[self.nq_inf:self.nq_inftot, 1] = \
+            q_infs_kv[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
-
+        sort = np.argsort(q_abs_unsorted_K)
         # add q_inf to list
-        self.q_kc = np.insert(q_kc, 0, np.zeros([self.nq_inftot, 3]), axis=0)
-        self.q_kv = np.dot(self.q_kc, rcell_cv)
-        self.q_kv += q_infs
+        q_sorted_Kc = q_unsorted_Kc[sort]
+        self.q_kc = np.insert(q_sorted_Kc, 0,
+                              np.zeros([self.nq_inftot, 3]), axis=0)
+        self.q_kv = self.q_kc @ rcell_cv
+        self.q_kv += q_infs_kv
         self.q_abs_k = (self.q_kv**2).sum(axis=1)**0.5
-        self.q_infs = q_infs
+        self.q_infs_kv = q_infs_kv
         self.complete = False
         self.last_q_idx = 0
         if self.load_chi_file():
@@ -170,7 +175,7 @@ class BuildingBlock:
             self.save_chi_file(q_idx=current_q_idx)
             self.last_q_idx = current_q_idx
             q_c = self.q_kc[current_q_idx]
-            q_inf = self.q_infs[current_q_idx]
+            q_inf = self.q_infs_kv[current_q_idx]
             if np.allclose(q_inf, 0):
                 q_inf = None
 
@@ -487,7 +492,7 @@ def check_building_blocks(BBfiles=None):
     name = BBfiles[0] + '-chi.npz'
     data = np.load(name)
     try:
-        q = data['q_abs_k'].copy()
+        q = data['q_abs'].copy()
         w = data['omega_w'].copy()
     except TypeError:
         # Skip test for old format:
@@ -496,7 +501,7 @@ def check_building_blocks(BBfiles=None):
         data = np.load(name + '-chi.npz')
         if len(w) != len(data['omega_w']):
             return False
-        elif not ((data['q_abs_k'] == q).all() and
+        elif not ((data['q_abs'] == q).all() and
                   (data['omega_w'] == w).all()):
             return False
     return True
