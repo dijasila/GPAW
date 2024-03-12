@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 @dataclass
 class Chi0DysonEquation:
     chi0: Chi0Data
-    df: 'DielectricFunction'
+    df: 'DielectricFunctionCalculator'
 
     def __post_init__(self):
         self.gs = self.df.gs
