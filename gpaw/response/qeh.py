@@ -20,15 +20,15 @@ class BuildingBlock:
     """ Module for using Linear response to calculate dielectric
     building block of 2D material with GPAW"""
 
-    def __init__(self, filename, df, isotropic_q=True, nq_inf=10,
-                 direction='x', qmax=None, txt='-'):
+    def __init__(self, filename, df, isotropic_q=None, nq_inf=10,
+                 direction='x', qmax=None, txt='-', isotropic=True):
         """Creates a BuildingBlock object.
 
         filename: str
             used to save data file: filename-chi.npz
         df: DielectricFunction object
             Determines how linear response calculation is performed
-        isotropic_q: bool
+        isotropic: bool
             If True, only q-points along one direction (1 0 0) in the
             2D BZ is included, thus assuming an isotropic material
         direction: 'x' or 'y'
@@ -43,17 +43,22 @@ class BuildingBlock:
             Note that this does not hold for (semi)metals!
 
         """
-        assert isotropic_q, "Non-isotropic calculation" \
+        if isotropic_q is not None:
+            raise DeprecationWarning('Warning: Keyword \'isotropic_q\' is'
+                                     ' deprecated and will be removed in'
+                                     'the future. Use \'isotropic\' instead.')
+            isotropic = isotropic_q
+
+        assert isotropic, "Non-isotropic calculation" \
             + " temporarily turned-off until properly tested."
         if qmax is not None:
-            assert isotropic_q
+            assert isotropic
         self.filename = filename
-        self.isotropic_q = isotropic_q
+        self.isotropic = isotropic
         self.nq_inf = nq_inf
         self.nq_inftot = nq_inf
-        if not isotropic_q:
+        if not isotropic:
             self.nq_inftot *= 2
-
         if direction == 'x':
             qdir = 0
         elif direction == 'y':
@@ -70,15 +75,15 @@ class BuildingBlock:
         kd = gs.kd
         self.kd = kd
         r = gs.gd.get_grid_point_coordinates()
-        self.z = r[2, 0, 0, :]
+        self.z_z = r[2, 0, 0, :]
 
         nw = len(self.wd)
         self.chiM_qw = np.zeros([0, nw])
         self.chiD_qw = np.zeros([0, nw])
         self.chiMD_qw = np.zeros([0, nw])
         self.chiDM_qw = np.zeros([0, nw])
-        self.drhoM_qz = np.zeros([0, self.z.shape[0]])
-        self.drhoD_qz = np.zeros([0, self.z.shape[0]])
+        self.drhoM_qz = np.zeros([0, self.z_z.shape[0]])
+        self.drhoD_qz = np.zeros([0, self.z_z.shape[0]])
 
         point_group_symmetries_scc = list(kd.symmetry.op_scc)
         z_inversion_matrix = np.diag([1, 1, -1])
@@ -96,19 +101,21 @@ class BuildingBlock:
         bzq_qc = monkhorst_pack(kd.N_c) + offset_c
         qd = KPointDescriptor(bzq_qc)
         qd.set_symmetry(gs.atoms, kd.symmetry)
-        q_cs = qd.ibzk_kc
+        q_ibz_kc = qd.ibzk_kc
         rcell_cv = 2 * pi * np.linalg.inv(gs.gd.cell_cv).T
-        if isotropic_q:  # only use q along [1 0 0] or [0 1 0] direction.
+        if not isotropic:
+            q_kc = q_ibz_kc
+        else:  # only use q along [1 0 0] or [0 1 0] direction.
             Nk = kd.N_c[qdir]
             qx = np.array(range(1, Nk // 2)) / float(Nk)
-            q_cs = np.zeros([Nk // 2 - 1, 3])
-            q_cs[:, qdir] = qx
+            q_kc = np.zeros([Nk // 2 - 1, 3])
+            q_kc[:, qdir] = qx
             q = 0
             if qmax is not None:
                 qmax *= Bohr
                 qmax_v = np.zeros([3])
                 qmax_v[qdir] = qmax
-                q_c = q_cs[-1]
+                q_c = q_kc[-1]
                 q_v = np.dot(q_c, rcell_cv)
                 q = (q_v**2).sum()**0.5
                 assert Nk % 2 == 0
@@ -119,34 +126,34 @@ class BuildingBlock:
                         continue
                     q_c = np.zeros([3])
                     q_c[qdir] = i / Nk
-                    q_cs = np.append(q_cs, q_c[np.newaxis, :], axis=0)
+                    q_kc = np.append(q_kc, q_c[np.newaxis, :], axis=0)
                     q_v = np.dot(q_c, rcell_cv)
                     q = (q_v**2).sum()**0.5
                     i += 1
-        q_vs = np.dot(q_cs, rcell_cv)
-        q_abs = (q_vs**2).sum(axis=1)**0.5
-        sort = np.argsort(q_abs)
-        q_abs = q_abs[sort]
-        q_cs = q_cs[sort]
-        if isotropic_q:
-            q_cut = q_abs[0] / 2  # extrapolate to half of smallest finite q
+        q_kv = np.dot(q_kc, rcell_cv)
+        q_abs_k = (q_kv**2).sum(axis=1)**0.5
+        sort = np.argsort(q_abs_k)
+        q_abs_k = q_abs_k[sort]
+        q_kc = q_kc[sort]
+        if isotropic:
+            q_cut = q_abs_k[0] / 2  # extrapolate to half of smallest finite q
         else:
-            q_cut = q_abs[1]  # smallest finite q
+            q_cut = q_abs_k[1]  # smallest finite q
         self.nq_cut = self.nq_inftot + 1
 
-        q_infs = np.zeros([q_cs.shape[0] + self.nq_inftot, 3])
+        q_infs = np.zeros([q_kc.shape[0] + self.nq_inftot, 3])
         # x-direction:
         q_infs[: self.nq_inftot, qdir] = \
             np.linspace(1e-05, q_cut, self.nq_inftot + 1)[:-1]
-        if not isotropic_q:  # y-direction
+        if not isotropic:  # y-direction
             q_infs[self.nq_inf:self.nq_inftot, 1] = \
                 np.linspace(0, q_cut, self.nq_inf + 1)[1:]
 
         # add q_inf to list
-        self.q_cs = np.insert(q_cs, 0, np.zeros([self.nq_inftot, 3]), axis=0)
-        self.q_vs = np.dot(self.q_cs, rcell_cv)
-        self.q_vs += q_infs
-        self.q_abs = (self.q_vs**2).sum(axis=1)**0.5
+        self.q_kc = np.insert(q_kc, 0, np.zeros([self.nq_inftot, 3]), axis=0)
+        self.q_kv = np.dot(self.q_kc, rcell_cv)
+        self.q_kv += q_infs
+        self.q_abs_k = (self.q_kv**2).sum(axis=1)**0.5
         self.q_infs = q_infs
         self.complete = False
         self.last_q_idx = 0
@@ -158,11 +165,11 @@ class BuildingBlock:
     def calculate_building_block(self):
         if self.complete:
             return
-        Nq = self.q_cs.shape[0]
+        Nq = self.q_kc.shape[0]
         for current_q_idx in range(self.last_q_idx, Nq):
             self.save_chi_file(q_idx=current_q_idx)
             self.last_q_idx = current_q_idx
-            q_c = self.q_cs[current_q_idx]
+            q_c = self.q_kc[current_q_idx]
             q_inf = self.q_infs[current_q_idx]
             if np.allclose(q_inf, 0):
                 q_inf = None
@@ -174,7 +181,6 @@ class BuildingBlock:
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
-
             qpd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
@@ -208,7 +214,7 @@ class BuildingBlock:
         # replace with finite q result:
         if self.context.comm.rank == 0:
             for n in range(Nq):
-                if np.allclose(self.q_cs[n], 0):
+                if np.allclose(self.q_kc[n], 0):
                     self.drhoM_qz[n] = self.drhoM_qz[self.nq_cut]
                     self.drhoD_qz[n] = self.drhoD_qz[self.nq_cut]
 
@@ -250,7 +256,7 @@ class BuildingBlock:
           """
 
         nw = chi_wGG.shape[0]
-        z = self.z
+        z = self.z_z
         L = qpd.gd.cell_cv[2, 2]  # Length of cell in Bohr
 
         # XXX This seems like a bit dangerous assumption
@@ -313,16 +319,16 @@ class BuildingBlock:
             filename = self.filename
         data = {'last_q': q_idx,
                 'complete': self.complete,
-                'isotropic_q': self.isotropic_q,
-                'q_cs': self.q_cs,
-                'q_vs': self.q_vs,
-                'q_abs': self.q_abs,
+                'isotropic_q': self.isotropic,  # old name for backwards compat
+                'q_cs': self.q_kc,  # old name q_cs for backwards compatibility
+                'q_vs': self.q_kv,  # old name q_vs for backwards compatibility
+                'q_abs': self.q_abs_k,
                 'omega_w': self.wd.omega_w,
                 'chiM_qw': self.chiM_qw,
                 'chiD_qw': self.chiD_qw,
                 'chiDM_qw': self.chiDM_qw,
                 'chiMD_qw': self.chiMD_qw,
-                'z': self.z,
+                'z': self.z_z,
                 'drhoM_qz': self.drhoM_qz,
                 'drhoD_qz': self.drhoD_qz}
 
@@ -337,8 +343,8 @@ class BuildingBlock:
         except OSError:
             return False
         if (np.all(data['omega_w'] == self.wd.omega_w) and
-            np.all(data['q_cs'] == self.q_cs) and
-            np.all(data['z'] == self.z)):
+            np.all(data['q_cs'] == self.q_kc) and
+            np.all(data['z'] == self.z_z)):
             self.last_q_idx = data['last_q']
             self.complete = data['complete']
             self.chiM_qw = data['chiM_qw']
@@ -374,14 +380,14 @@ class BuildingBlock:
         q_grid *= Bohr
         w_grid /= Hartree
 
-        assert np.max(q_grid) <= np.max(self.q_abs), \
-            'q can not be larger that %1.2f Ang' % np.max(self.q_abs / Bohr)
+        assert np.max(q_grid) <= np.max(self.q_abs_k), \
+            'q can not be larger that %1.2f Ang' % np.max(self.q_abs_k / Bohr)
         assert np.max(w_grid) <= np.max(self.wd.omega_w), \
             'w can not be larger that %1.2f eV' % \
             np.max(self.wd.omega_w * Hartree)
 
-        sort = np.argsort(self.q_abs)
-        q_abs = self.q_abs[sort]
+        sort = np.argsort(self.q_abs_k)
+        q_abs_k = self.q_abs_k[sort]
         omega_w = self.wd.omega_w
 
         def spline(array, x_in, y_in, x_out, y_out):
@@ -399,16 +405,16 @@ class BuildingBlock:
         chiM_qw = self.chiM_qw[sort]
 
         omit_q0 = False
-        if np.isclose(q_abs[0], 0) and not np.isclose(chiM_qw[0, 0], 0):
+        if np.isclose(q_abs_k[0], 0) and not np.isclose(chiM_qw[0, 0], 0):
             omit_q0 = True  # omit q=0 from interpolation
-            q0_abs = q_abs[0].copy()
-            q_abs[0] = 0.
+            q0_abs = q_abs_k[0].copy()
+            q_abs_k[0] = 0.
             chi0_w = chiM_qw[0].copy()
             chiM_qw[0] = np.zeros_like(chi0_w)
 
-        chiM_qw = complex_spline(chiM_qw, q_abs, omega_w, q_grid, w_grid)
+        chiM_qw = complex_spline(chiM_qw, q_abs_k, omega_w, q_grid, w_grid)
         if omit_q0:
-            q_abs[0] = q0_abs
+            q_abs_k[0] = q0_abs
             if np.isclose(q_grid[0], 0):
                 yr = interp1d(omega_w, chi0_w.real)
                 yi = interp1d(omega_w, chi0_w.imag)
@@ -416,14 +422,14 @@ class BuildingBlock:
                 chiM_qw[0] = chi0_w
 
         # chi dipole
-        chiD_qw = complex_spline(self.chiD_qw[sort], q_abs, omega_w,
+        chiD_qw = complex_spline(self.chiD_qw[sort], q_abs_k, omega_w,
                                  q_grid, w_grid)
 
         # chi off-diagonal
         if not self.has_z_inversion_symmetry:
-            chiDM_qw = complex_spline(self.chiDM_qw[sort], q_abs, omega_w,
+            chiDM_qw = complex_spline(self.chiDM_qw[sort], q_abs_k, omega_w,
                                       q_grid, w_grid)
-            chiMD_qw = complex_spline(self.chiMD_qw[sort], q_abs, omega_w,
+            chiMD_qw = complex_spline(self.chiMD_qw[sort], q_abs_k, omega_w,
                                       q_grid, w_grid)
         else:
             chiDM_qw = np.zeros((len(q_grid), len(w_grid)))
@@ -431,14 +437,14 @@ class BuildingBlock:
 
         # drho monopole
 
-        drhoM_qz = complex_spline(self.drhoM_qz[sort], q_abs, self.z,
-                                  q_grid, self.z)
+        drhoM_qz = complex_spline(self.drhoM_qz[sort], q_abs_k, self.z_z,
+                                  q_grid, self.z_z)
 
         # drho dipole
-        drhoD_qz = complex_spline(self.drhoD_qz[sort], q_abs, self.z,
-                                  q_grid, self.z)
+        drhoD_qz = complex_spline(self.drhoD_qz[sort], q_abs_k, self.z_z,
+                                  q_grid, self.z_z)
 
-        self.q_abs = q_grid
+        self.q_abs_k = q_grid
         self.wd = FrequencyGridDescriptor(w_grid)
         self.chiM_qw = chiM_qw
         self.chiD_qw = chiD_qw
@@ -481,7 +487,7 @@ def check_building_blocks(BBfiles=None):
     name = BBfiles[0] + '-chi.npz'
     data = np.load(name)
     try:
-        q = data['q_abs'].copy()
+        q = data['q_abs_k'].copy()
         w = data['omega_w'].copy()
     except TypeError:
         # Skip test for old format:
@@ -490,7 +496,7 @@ def check_building_blocks(BBfiles=None):
         data = np.load(name + '-chi.npz')
         if len(w) != len(data['omega_w']):
             return False
-        elif not ((data['q_abs'] == q).all() and
+        elif not ((data['q_abs_k'] == q).all() and
                   (data['omega_w'] == w).all()):
             return False
     return True
