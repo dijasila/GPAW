@@ -47,10 +47,13 @@ class Spline:
     def __call__(self, r):
         assert r >= 0.0
         return self.spline(r)
-
+    
     def map(self, r_x):
         """Map f(r) onto a given radial grid."""
-        return np.vectorize(self, [float])(r_x)
+        out_x = np.empty_like(r_x)
+        assert r_x.flags.c_contiguous
+        self.spline.map(r_x, out_x)
+        return out_x
 
     def __getstate__(self):
         state = self.__dict__.copy()
