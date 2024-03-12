@@ -382,9 +382,10 @@ def select_kpts(kpts, kd):
 
 
 class PairDistribution:
-    def __init__(self, kptpair_factory, mysKn1n2):
+    def __init__(self, kptpair_factory, blockcomm, mysKn1n2):
         self.get_k_point = kptpair_factory.get_k_point
         self.kd = kptpair_factory.gs.kd
+        self.blockcomm = blockcomm
         self.mysKn1n2 = mysKn1n2
         self.mykpts = [self.get_k_point(s, K, n1, n2)
                        for s, K, n1, n2 in self.mysKn1n2]
@@ -394,20 +395,20 @@ class PairDistribution:
         for u, kpt1 in enumerate(mykpts):
             progress = u / len(mykpts)
             K2 = self.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2, block=True)
+            kpt2 = self.get_k_point(kpt1.s, K2, m1, m2,
+                                    blockcomm=self.blockcomm)
 
             yield progress, kpt1, kpt2
 
 
-def distribute_k_points_and_bands(kptpair_factory, band1, band2, kpts=None):
+def distribute_k_points_and_bands(kptpair_factory, blockcomm, kncomm,
+                                  band1, band2, kpts=None):
     """Distribute spins, k-points and bands.
 
     The attribute self.mysKn1n2 will be set to a list of (s, K, n1, n2)
     tuples that this process handles.
     """
-
     gs = kptpair_factory.gs
-    kncomm = kptpair_factory.kncomm
 
     if kpts is None:
         kpts = np.arange(gs.kd.nbzkpts)
@@ -438,9 +439,9 @@ def distribute_k_points_and_bands(kptpair_factory, band1, band2, kpts=None):
       (ns, nk, nbands), 'over %d process%s' %
       (kncomm.size, ['es', ''][kncomm.size == 1]),
       flush=False)
-    p('Number of blocks:', kptpair_factory.blockcomm.size)
+    p('Number of blocks:', blockcomm.size)
 
-    return PairDistribution(kptpair_factory, mysKn1n2)
+    return PairDistribution(kptpair_factory, blockcomm, mysKn1n2)
 
 
 class G0W0Calculator:
@@ -551,7 +552,10 @@ class G0W0Calculator:
                                        )
 
         self.pair_distribution = distribute_k_points_and_bands(
-            self.chi0calc.kptpair_factory, b1, b2,
+            self.chi0calc.kptpair_factory,
+            self.chi0calc.chi0_body_calc.blockcomm,
+            self.chi0calc.chi0_body_calc.kncomm,
+            b1, b2,
             self.chi0calc.gs.kd.ibz2bz_k[self.kpts])
 
         self.print_parameters(kpts, b1, b2)

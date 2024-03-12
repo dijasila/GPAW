@@ -155,7 +155,7 @@ class BuildingBlock:
                 self.context.print('Building block loaded from file')
         self.context.comm.barrier()
 
-    def calculate_building_block(self, add_intraband=False):
+    def calculate_building_block(self):
         if self.complete:
             return
         Nq = self.q_cs.shape[0]
@@ -174,14 +174,14 @@ class BuildingBlock:
             if q_inf is not None:
                 qstr = '(' + ', '.join(['%.3f' % x for x in q_inf]) + ')'
                 self.context.print('    and q_inf=%s' % qstr, flush=False)
+
             qpd, chi0_wGG, \
                 chi_wGG = self.df.get_dielectric_matrix(
                     symmetric=False,
                     calculate_chi=True,
                     q_c=q_c,
                     q_v=q_inf,
-                    direction=self.direction,
-                    add_intraband=add_intraband)
+                    direction=self.direction)
             self.context.print('calculated chi!')
 
             nw = len(self.wd)
