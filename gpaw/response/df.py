@@ -13,6 +13,7 @@ from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
 from gpaw.response.chi0_data import Chi0Data
 from gpaw.response.pair import get_gs_and_context, KPointPairFactory
+from gpaw.response.pair_functions import SingleQPWDescriptor
 
 from typing import TYPE_CHECKING
 
@@ -214,7 +215,7 @@ class Chi0DysonEquation:
 @dataclass
 class DielectricMatrixData:
     dyson: Chi0DysonEquation
-    qpd: object | None = None
+    qpd: SingleQPWDescriptor | None = None
     chi0_wGG: np.ndarray | None = None
     chi_wGG: np.ndarray | None = None
 
