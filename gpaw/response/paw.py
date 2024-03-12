@@ -29,6 +29,7 @@ class Setuplet:
 # See https://gitlab.com/gpaw/gpaw/-/issues/984
 DEFAULT_RADIAL_POINTS = 2**12
 
+
 def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     r"""Calculate the atom-centered PAW correction to the pair density.
                                                       ˍ
@@ -93,7 +94,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
 
     # K-vector norm
     k_G = np.linalg.norm(qG_Gv, axis=1)
-    
+
     # Loop of radial function indices for partial waves i and i'
     i1_counter = 0
     for j1, l1 in enumerate(l_j):
@@ -179,20 +180,18 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
                             i1 = i1_counter + m1
                             i2 = i2_counter + m2
                             # Extract Gaunt coefficients
-                            G_m = G_LLL[l1**2 + m1, l2**2 + m2, m]
-
                             gaunt_coeff = G_LLL[l1**2 + m1, l2**2 + m2, m]
-                            if (gaunt_coeff == 0).all():
+                            if (gaunt_coeff == 0):
                                 continue
-                   
+
                             # Add contribution to the PAW correction
                             Qbar_Gii[:, i1, i2] += gaunt_coeff * klY_G * f_G
-
 
             # Add to i and i' counters
             i2_counter += 2 * l2 + 1
         i1_counter += 2 * l1 + 1
     return Qbar_Gii
+
 
 def calculate_matrix_element_correction(qG_Gv, pawdata,
                                         rshe: RealSphericalHarmonicsExpansion):

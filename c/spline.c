@@ -93,10 +93,8 @@ static PyObject * spline_map(SplineObject *self, PyObject *args)
   double* out_x = PyArray_DATA(out_x_obj);
 
   int rl = PyArray_SIZE(r_x_obj);
-  int outl = PyArray_SIZE(out_x_obj);
   
   assert(PyArray_ITEMSIZE(out_x_obj) == 8);
-  assert(rl == outl);
 
   for (int i = 0; i < rl; i++) {
 	out_x[i] = bmgs_splinevalue(&self->spline, r_x[i]);

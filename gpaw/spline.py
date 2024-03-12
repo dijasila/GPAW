@@ -1,3 +1,4 @@
+
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -47,7 +48,7 @@ class Spline:
     def __call__(self, r):
         assert r >= 0.0
         return self.spline(r)
-    
+
     def map(self, r_x):
         """Map f(r) onto a given radial grid."""
         out_x = np.empty_like(r_x)
