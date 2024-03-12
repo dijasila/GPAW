@@ -9,7 +9,7 @@ from typing import List, Dict, Union, Any, TYPE_CHECKING
 import _gpaw
 
 
-if getattr(_gpaw, 'version', 0) != 4:
+if getattr(_gpaw, 'version', 0) != 5:
     raise ImportError('Please recompile GPAW''s C-extensions!')
 
 __version__ = '24.1.0'
