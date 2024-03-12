@@ -15,7 +15,6 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response import timer
-from gpaw.response.pair import KPointPairFactory
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss

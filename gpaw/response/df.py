@@ -10,7 +10,7 @@ import gpaw.mpi as mpi
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.density_kernels import get_density_xc_kernel
 from gpaw.response.chi0 import Chi0Calculator, new_frequency_descriptor
-from gpaw.response.pair import get_gs_and_context, KPointPairFactory
+from gpaw.response.pair import get_gs_and_context
 
 from typing import TYPE_CHECKING
 

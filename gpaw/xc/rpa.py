@@ -12,7 +12,7 @@ from gpaw.response import timer
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import get_gs_and_context, KPointPairFactory
+from gpaw.response.pair import get_gs_and_context
 
 
 def default_ecut_extrapolation(ecut, extrapolate):
