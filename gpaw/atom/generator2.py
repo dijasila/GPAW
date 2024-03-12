@@ -397,8 +397,8 @@ class PAWWaves:
             # take ref_values at these grid points
             phi_ng_ref.append(phi_g[i])
 
-        phi_ng_ref = np.asarray(phi_ng_ref)
-        x0_init = np.asarray(x0_init)
+        # phi_ng_ref = np.asarray(phi_ng_ref)
+        # x0_init = np.asarray(x0_init)
 
         # calculate the reference overlap matrix
         Sref = rgd.integrate(phi_ng[:, None] * phi_ng)
