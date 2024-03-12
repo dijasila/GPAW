@@ -166,22 +166,24 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
 
                 # Angular part of the integral
                 f_G = (-1j)**l * dn_G
-                # Generate m-indices for each radial function
-                for m1 in range(2 * l1 + 1):
-                    for m2 in range(2 * l2 + 1):
-                        # Set up the i=(l,m) index for each partial wave
-                        i1 = i1_counter + m1
-                        i2 = i2_counter + m2
-                        # Extract Gaunt coefficients
-                        G_m = G_LLL[l1**2 + m1, l2**2 + m2, l**2:(l + 1)**2]
-                        for m, gaunt_coeff in enumerate(G_m):
-                            if gaunt_coeff == 0:
+                for m in range(l**2, (l + 1)**2):
+                    # Calculate the solid harmonic
+                    #        m ˰
+                    # |K|^l Y (K)
+                    #        l
+                    klY_G = Y(m, *qG_Gv.T)
+
+                    # Generate m-indices for each radial function
+                    for m1 in range(2 * l1 + 1):
+                        for m2 in range(2 * l2 + 1):
+                            # Set up the i=(l,m) index for each partial wave
+                            i1 = i1_counter + m1
+                            i2 = i2_counter + m2
+                            # Extract Gaunt coefficients
+                            gaunt_coeff = G_LLL[l1**2 + m1, l2**2 + m2, m]
+                            if (gaunt_coeff == 0):
                                 continue
-                            # Calculate the solid harmonic
-                            #        m ˰
-                            # |K|^l Y (K)
-                            #        l
-                            klY_G = Y(l**2 + m, *qG_Gv.T)
+
                             # Add contribution to the PAW correction
                             Qbar_Gii[:, i1, i2] += gaunt_coeff * klY_G * f_G
 
