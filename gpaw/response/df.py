@@ -111,7 +111,7 @@ class Chi0DysonEquation:
         else:
             chi_wGG = np.zeros((0, nG, nG), complex)
 
-        return qpd, chi0_wGG, np.array(chi_wGG)
+        return ChiData(self, qpd, chi0_wGG, np.array(chi_wGG))
 
     def dielectric_matrix(self, xc='RPA', direction='x', symmetric=True,
                           calculate_chi=False, q_v=None):
@@ -213,13 +213,58 @@ class Chi0DysonEquation:
 
 
 @dataclass
+class ChiData:
+    dyson: Chi0DysonEquation
+    qpd: object
+    chi0_wGG: np.ndarray
+    chi_wGG: np.ndarray
+
+    def unpack(self):
+        return (self.qpd, self.chi0_wGG, self.chi_wGG)
+
+    def dynamic_susceptibility(self):
+        """Calculate the dynamic susceptibility.
+
+        Returns macroscopic(could be generalized?) dynamic susceptibility:
+        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
+        """
+        rf0_w = np.zeros(len(self.chi_wGG), dtype=complex)
+        rf_w = np.zeros(len(self.chi_wGG), dtype=complex)
+
+        for w, (chi0_GG, chi_GG) in enumerate(zip(self.chi0_wGG,
+                                                  self.chi_wGG)):
+            rf0_w[w] = chi0_GG[0, 0]
+            rf_w[w] = chi_GG[0, 0]
+
+        rf0_w = self.dyson.df.collect(rf0_w)
+        rf_w = self.dyson.df.collect(rf_w)
+
+        return DynamicSusceptibility(self.dyson.df.wd.omega_w, rf0_w, rf_w)
+
+
+@dataclass
+class DynamicSusceptibility:
+    omega_w: np.ndarray
+    rf0_w: np.ndarray
+    rf_w: np.ndarray
+
+    def unpack(self):
+        return self.rf0_w, self.rf_w
+
+    def write(self, filename):
+        if filename is not None and mpi.rank == 0:
+            write_response_function(
+                filename, self.omega_w * Hartree, self.rf0_w, self.rf_w)
+
+
+@dataclass
 class DielectricMatrixData:
     dyson: Chi0DysonEquation
     qpd: SingleQPWDescriptor | None = None
     chi0_wGG: np.ndarray | None = None
     chi_wGG: np.ndarray | None = None
 
-    def things(self):
+    def unpack(self):
         # (This has the (inconsistent) return types of the old API.)
         if self.qpd is None:
             return self.chi0_wGG
@@ -324,43 +369,21 @@ class DielectricFunctionCalculator:
         return self.wd.omega_w * Hartree
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
-        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs)
+        return self.calculate_chi0(q_c).chi(xc=xc, **kwargs).unpack()
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
-                                   q_v=None,
-                                   rshelmax=-1, rshewmin=None,
-                                   filename='chiM_w.csv'):
-        """Calculate the dynamic susceptibility.
+                                   *, filename='chiM_w.csv', **kwargs):
 
-        Returns macroscopic(could be generalized?) dynamic susceptibility:
-        chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
-        """
-
-        qpd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                              rshelmax=rshelmax,
-                                              rshewmin=rshewmin,
-                                              return_VchiV=False)
-
-        rf0_w = np.zeros(len(chi_wGG), dtype=complex)
-        rf_w = np.zeros(len(chi_wGG), dtype=complex)
-
-        for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
-            rf0_w[w] = chi0_GG[0, 0]
-            rf_w[w] = chi_GG[0, 0]
-
-        rf0_w = self.collect(rf0_w)
-        rf_w = self.collect(rf_w)
-
-        if filename is not None and mpi.rank == 0:
-            write_response_function(filename, self.wd.omega_w * Hartree,
-                                    rf0_w, rf_w)
-
-        return rf0_w, rf_w
+        chi0 = self.calculate_chi0(q_c)
+        chi = chi0.chi(xc=xc, return_VchiV=False, **kwargs)
+        dynsus = chi.dynamic_susceptibility()
+        dynsus.write(filename)
+        return dynsus.unpack()
 
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0], **kwargs):
         chi0 = self.calculate_chi0(q_c)
         dielectric_matrix = chi0.dielectric_matrix(xc=xc, **kwargs)
-        return dielectric_matrix.things()
+        return dielectric_matrix.unpack()
 
     def get_dielectric_function(self, xc='RPA', q_c=[0, 0, 0], q_v=None, *,
                                 filename='df.csv', **kwargs):
