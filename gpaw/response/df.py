@@ -304,6 +304,14 @@ class DielectricFunctionData:
             write_response_function(filename, self.wd.omega_w * Hartree,
                                     self.df_NLFC_w, self.df_LFC_w)
 
+    @property
+    def eps0(self):
+        return self.df_NLFC_w[0].real
+
+    @property
+    def eps(self):
+        return self.df_LFC_w[0].real
+
 
 class DielectricFunctionCalculator:
     def __init__(self, wd: FrequencyDescriptor,
@@ -426,22 +434,16 @@ class DielectricFunctionCalculator:
         eM2_NLFC: float
             Dielectric constant with local field correction.
         """
+        df = self._new_dielectric_function(xc=xc, q_v=q_v, filename=None,
+                                           direction=direction)
 
         self.context.print('', flush=False)
         self.context.print('%s Macroscopic Dielectric Constant:' % xc)
-
-        df_NLFC_w, df_LFC_w = self.get_dielectric_function(
-            xc=xc,
-            filename=None,
-            direction=direction,
-            q_v=q_v)
-        eps0 = np.real(df_NLFC_w[0])
-        eps = np.real(df_LFC_w[0])
         self.context.print('  %s direction' % direction, flush=False)
-        self.context.print('    Without local field: %f' % eps0, flush=False)
-        self.context.print('    Include local field: %f' % eps)
+        self.context.print('    Without local field: %f' % df.eps0, flush=False)
+        self.context.print('    Include local field: %f' % df.eps)
 
-        return eps0, eps
+        return df.eps0, df.eps
 
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
                           direction='x', filename='eels.csv'):
