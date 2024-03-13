@@ -20,7 +20,7 @@ def test_shift_spinpol(mme_files):
                              107.271856 + 0.j])
 
     freqs = np.linspace(2.3, 2.4, 11)
-    shift_xyz = {}
+    shift = {}
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
@@ -33,26 +33,25 @@ def test_shift_spinpol(mme_files):
         world.barrier()
 
         # Load the calculated SHG spectra (in units of nm/V)
-        shift_xyz[spinpol] = np.load(f'shift_xyz{tag}.npy')[1] * 1e9
-        assert shift_xyz[spinpol] == pytest.approx(shift_values, abs=5e-2), \
-            np.max(np.abs(shift_xyz[spinpol] - shift_values))
+        shift[spinpol] = np.load(f'shift_xyz{tag}.npy')[1] * 1e9
+        assert shift[spinpol] == pytest.approx(shift_values, abs=5e-2)
 
     # import matplotlib.pyplot as plt
-    # plt.plot(freqs, shift_xyz['spinpaired'])
-    # plt.plot(freqs, shift_xyz['spinpol'])
+    # plt.plot(freqs, shift['spinpaired'])
+    # plt.plot(freqs, shift['spinpol'])
     # plt.show()
 
     # Assert that the difference between spectra from spinpaired and
     # spinpolarised calculations is small
 
     # Absolute error
-    shift_xyz_diff = shift_xyz['spinpaired'] - shift_xyz['spinpol']
-    assert shift_xyz_diff.real == pytest.approx(0, abs=2e-2)
-    assert shift_xyz_diff.imag == pytest.approx(0, abs=1e-10), \
-        'Imaginary part should be removed when determining shift current.'
+    assert shift['spinpaired'].real == pytest.approx(
+        shift['spinpol'].real, abs=2e-2)
 
     # Relative error
-    shift_xyz_avg = (shift_xyz['spinpaired'] + shift_xyz['spinpol']) / 2
-    shift_xyz_rerr_real = shift_xyz_diff.real / shift_xyz_avg.real
-    assert shift_xyz_rerr_real == pytest.approx(0, abs=1e-4), \
-        np.max(np.abs(shift_xyz_rerr_real))
+    assert shift['spinpaired'].real == pytest.approx(
+        shift['spinpol'].real, rel=1e-4)
+
+    # Imaginary value should've been removed
+    assert shift['spinpaired'].imag == pytest.approx(
+        shift['spinpol'].imag, abs=1e-10)

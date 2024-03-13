@@ -20,7 +20,7 @@ def test_shg_spinpol(mme_files):
                            1.38569995 - 1.59698796j])
 
     freqs = np.linspace(2.3, 2.4, 11)
-    shg_xyz = {}
+    shg = {}
     for spinpol in ['spinpaired', 'spinpol']:
         tag = '_spinpol' if spinpol == 'spinpol' else ''
 
@@ -33,28 +33,26 @@ def test_shg_spinpol(mme_files):
         world.barrier()
 
         # Load the calculated SHG spectra (in units of nm/V)
-        shg_xyz[spinpol] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
-        assert shg_xyz[spinpol] == pytest.approx(shg_values, abs=1e-3), \
-            np.max(np.abs(shg_xyz[spinpol] - shg_values))
+        shg[spinpol] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
+        assert shg[spinpol] == pytest.approx(shg_values, abs=1e-3), \
+            np.max(np.abs(shg[spinpol] - shg_values))
 
     # import matplotlib.pyplot as plt
-    # plt.plot(freqs, shg_xyz['spinpaired'])
-    # plt.plot(freqs, shg_xyz['spinpol'])
+    # plt.plot(freqs, shg['spinpaired'])
+    # plt.plot(freqs, shg['spinpol'])
     # plt.show()
 
     # Assert that the difference between spectra from spinpaired and
     # spinpolarised calculations is small
 
     # Absolute error
-    shg_xyz_diff = shg_xyz['spinpaired'] - shg_xyz['spinpol']
-    assert shg_xyz_diff.real == pytest.approx(0, abs=5e-4)
-    assert shg_xyz_diff.imag == pytest.approx(0, abs=5e-4)
+    assert shg['spinpol'].real == pytest.approx(
+        shg['spinpaired'].real, abs=5e-4)
+    assert shg['spinpol'].imag == pytest.approx(
+        shg['spinpaired'].imag, abs=5e-4)
 
     # Relative error
-    shg_xyz_avg = (shg_xyz['spinpaired'] + shg_xyz['spinpol']) / 2
-    shg_xyz_rerr_real = shg_xyz_diff.real / shg_xyz_avg.real
-    shg_xyz_rerr_imag = shg_xyz_diff.imag / shg_xyz_avg.imag
-    assert shg_xyz_rerr_real == pytest.approx(0, abs=2e-3), \
-        np.max(np.abs(shg_xyz_rerr_real))
-    assert shg_xyz_rerr_imag == pytest.approx(0, abs=2e-3), \
-        np.max(np.abs(shg_xyz_rerr_imag))
+    assert shg['spinpol'].real == pytest.approx(
+        shg['spinpaired'].real, rel=2e-3)
+    assert shg['spinpol'].imag == pytest.approx(
+        shg['spinpaired'].imag, rel=2e-3)
