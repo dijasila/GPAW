@@ -33,13 +33,19 @@ DEFAULT_RADIAL_POINTS = 2**12
 class PAWPairDensityCalculator:
     def __init__(self, pawdata, radial_points=None):
         # Precalculate the FFBT spline for later use.
-        assert not pawdata.is_pseudo
-
         self.rgd = pawdata.rgd
         self.ni = pawdata.ni  # Number of partial waves
         self.l_j = pawdata.l_j  # l-index for each radial function index j
         self.G_LLL = gaunt(max(self.l_j))
         j_j = np.arange(len(self.l_j))
+
+        # Check for Pseudo
+        if pawdata.is_pseudo:
+            self.is_pseudo = True
+            return
+        else:
+            self.is_pseudo = False
+
         # (Real) radial functions for the partial waves
         phi_jg = np.array(pawdata.data.phi_jg)
         phit_jg = np.array(pawdata.data.phit_jg)
@@ -139,6 +145,8 @@ class PAWPairDensityCalculator:
         # Initialize correction tensor
         npw = qG_Gv.shape[0]
         Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
+        if self.is_pseudo:
+            return Qbar_Gii
 
         # K-vector norm
         k_G = np.linalg.norm(qG_Gv, axis=1)
@@ -479,7 +487,8 @@ def get_pair_density_paw_corrections(pawdatasets, qpd, spos_ac, atomrotations):
     Qbar_xGii = {}
     for species_index, pawdata in pawdatasets.by_species.items():
         # Calculate atom-centered correction tensor
-        assert not pawdata.is_pseudo
+        if pawdata.paw_pair_density_calc is None:
+            pawdata.paw_pair_density_calc = PAWPairDensityCalculator(pawdata)
         Qbar_Gii = pawdata.paw_pair_density_calc(qG_Gv)
         # Add dependency on the atomic position (phase factor)
         Qbar_xGii[species_index] = Qbar_Gii

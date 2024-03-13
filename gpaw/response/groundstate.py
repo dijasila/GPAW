@@ -306,6 +306,9 @@ class ResponseGroundStateAdapter:
 # from Setups class for response calculators
 class ResponsePAWDataset:
     def __init__(self, setup: LeanSetup):
+        # Will be set the first time requesting PAW pair densities.
+        self.paw_pair_density_calc = None
+        # Setup info
         self.ni = setup.ni
         self.rgd = setup.rgd
         self.rcut_j = setup.rcut_j
@@ -316,6 +319,7 @@ class ResponsePAWDataset:
         self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
                                     phit_jg=setup.data.phit_jg)
         self.xc_correction: SimpleNamespace | None
+
         if setup.xc_correction is not None:
             self.xc_correction = SimpleNamespace(
                 rgd=setup.xc_correction.rgd, Y_nL=setup.xc_correction.Y_nL,
@@ -325,9 +329,6 @@ class ResponsePAWDataset:
                 B_pqL=setup.xc_correction.B_pqL,
                 e_xc0=setup.xc_correction.e_xc0)
             self.is_pseudo = False
-
-            from gpaw.response.paw import PAWPairDensityCalculator as PPDC
-            self.paw_pair_density_calc = PPDC(pawdata=setup)
         else:
             self.xc_correction = None
             self.is_pseudo = True
