@@ -157,7 +157,7 @@ def generate_basis_functions(ppdata):
                 phit_g = rgd.r_g**l * gauss_g
                 norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
                 phit_g /= norm
-                bf = BasisFunction(None, l, rgd.r_g[-1], phit_g, 'gaussian')
+                bf = BasisFunction(1, l, rgd.r_g[-1], phit_g, 'gaussian')
                 bf_j.append(bf)
     # l_orb_J = [state.l for state in self.data['states']]
     b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_J)
