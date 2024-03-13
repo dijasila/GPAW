@@ -45,13 +45,13 @@ def test_shift_spinpol(mme_files):
     # spinpolarised calculations is small
 
     # Absolute error
-    assert shift['spinpaired'].real == pytest.approx(
-        shift['spinpol'].real, abs=2e-2)
+    assert shift['spinpol'].real == pytest.approx(
+        shift['spinpaired'].real, abs=2e-2)
 
     # Relative error
-    assert shift['spinpaired'].real == pytest.approx(
-        shift['spinpol'].real, rel=1e-4)
+    assert shift['spinpol'].real == pytest.approx(
+        shift['spinpaired'].real, rel=1e-4)
 
     # Imaginary value should've been removed
-    assert shift['spinpaired'].imag == pytest.approx(
-        shift['spinpol'].imag, abs=1e-10)
+    assert shift['spinpol'].imag == pytest.approx(
+        shift['spinpaired'].imag, abs=1e-10)
