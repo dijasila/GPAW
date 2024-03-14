@@ -63,10 +63,15 @@ class LeanPAWDataset:
         return self.dn_kspline_cache[key]
 
     def fourier_bessel_transform(self, f_g, l):
-        return SelfTestingKSpline.from_radial_function(
-            self.rgd, f_g, l,
-            radial_points=self.radial_points,
-            gcut=self.gcut2)
+        # In order to do so, we make a spline representation of the
+        # radial partial wave correction rescaled with a factor of r^-l
+        spline = self.rgd.spline(
+            f_g[:self.gcut2], l=l, points=self.radial_points)
+        kspline = rescaled_fourier_bessel_transform(
+            spline, N=4 * self.radial_points)
+        # NB: If we want to run calculations in an "unsafe" mode, return
+        # the bare `kspline` here.
+        return SelfTestingKSpline(self.rgd, f_g, kspline)
 
     def get_dn(self, j1, j2):
         key = self.dn_key(j1, j2)
@@ -96,17 +101,6 @@ class SelfTestingKSpline(Spline):
         self.spline = spline.spline
         self.l = spline.l
         self._npoints = spline._npoints
-
-    @staticmethod
-    def from_radial_function(rgd, f_g, l, *, radial_points, gcut=None):
-        if gcut is None:
-            gcut = len(f_g)
-        # In order to do so, we make a spline representation of the
-        # radial partial wave correction rescaled with a factor of r^-l
-        spline = rgd.spline(f_g[:gcut], l=l, points=radial_points)
-        kspline = rescaled_fourier_bessel_transform(
-            spline, N=4 * radial_points)
-        return SelfTestingKSpline(rgd, f_g, kspline)
 
     def map(self, k_G):
         self.test_spline_representation(k_G)
@@ -217,11 +211,11 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             # e.g. gpaw.test.test_gaunt
             for l in range(abs(l1 - l2), l1 + l2 + 1, 2):
                 # Calculate the spherical Fourier-Bessel transform
-                #                 rc
-                #             4π  /
-                # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
-                #             k^l /
-                #                 0
+                #                  rc
+                #              4π  /
+                # Δn_jj'l(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
+                #              k^l /
+                #                  0
                 # To evaluate the radial integral efficiently, we rely on the
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
                 dn_G = pawdata.dn_kspline(j1, j2, l).map(k_G)
