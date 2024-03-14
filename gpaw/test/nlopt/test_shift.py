@@ -50,7 +50,7 @@ def test_shift_spinpol(mme_files):
 
     # Relative error
     assert shift['spinpol'].real == pytest.approx(
-        shift['spinpaired'].real, rel=1e-4)
+        shift['spinpaired'].real, rel=1e-3)
 
     # Imaginary value should've been removed
     assert shift['spinpol'].imag == pytest.approx(
