@@ -9,6 +9,7 @@ from ase.units import Ha, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 
 if TYPE_CHECKING:
     from gpaw.new.ase_interface import ASECalculator
@@ -329,3 +330,34 @@ class ResponsePAWDataset:
             self.xc_correction = None
             self.is_pseudo = True
         self.hubbard_u = setup.hubbard_u
+
+    def get_kspline(self, j1, j2, l, *, radial_points):
+        """To do XXX
+        """
+        dn_g = self.calculate_radial_partial_pairdens_corr(j1, j2)
+        # Grid cutoff to create spline representation
+        gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
+        # To evaluate the radial integral efficiently, we rely on the
+        # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
+        # In order to do so, we make a spline representation of the
+        # radial partial wave correction rescaled with a factor of r^-l
+        spline = self.rgd.spline(dn_g[:gcut2], l=l, points=radial_points)
+        # This allows us to calculate a spline representation of the
+        # spherical Fourier-Bessel transform
+        #                 rc
+        #             4π  /
+        # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
+        #             k^l /
+        #                 0
+        kspline = rescaled_fourier_bessel_transform(
+            spline, N=4 * radial_points)
+        return kspline
+
+    def calculate_radial_partial_pairdens_corr(self, j1, j2):
+        # (Real) radial functions for the partial waves
+        phi_jg = self.data.phi_jg
+        phit_jg = self.data.phit_jg
+        # Calculate the radial partial wave correction
+        #                              ˷      ˷
+        # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+        return phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]

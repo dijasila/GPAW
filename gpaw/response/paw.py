@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.special import spherical_jn
 
-from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
 from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
@@ -75,16 +74,10 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     ni = pawdata.ni  # Number of partial waves
     l_j = pawdata.l_j  # l-index for each radial function index j
     G_LLL = gaunt(max(l_j))
-    # (Real) radial functions for the partial waves
-    phi_jg = pawdata.data.phi_jg
-    phit_jg = pawdata.data.phit_jg
 
     if radial_points is None:
         # We assign this late due to monkeypatch in testing
         radial_points = DEFAULT_RADIAL_POINTS
-
-    # Grid cutoff to create spline representation
-    gcut2 = rgd.ceil(2 * max(pawdata.rcut_j))
 
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
@@ -100,28 +93,14 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata, radial_points=None):
     for j1, l1 in enumerate(l_j):
         i2_counter = 0
         for j2, l2 in enumerate(l_j):
-            # Calculate the radial partial wave correction
-            #                              ˷      ˷
-            # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
-            dn_g = phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+            dn_g = pawdata.calculate_radial_partial_pairdens_corr(j1, j2)
 
             # Sample l according to the Gaunt coefficient selection rules, see
             # e.g. gpaw.test.test_gaunt
             for l in range(abs(l1 - l2), l1 + l2 + 1, 2):
-                # To evaluate the radial integral efficiently, we rely on the
-                # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
-                # In order to do so, we make a spline representation of the
-                # radial partial wave correction rescaled with a factor of r^-l
-                spline = rgd.spline(dn_g[:gcut2], l=l, points=radial_points)
-                # This allows us to calculate a spline representation of the
-                # spherical Fourier-Bessel transform
-                #                 rc
-                #             4π  /
-                # Δn_jj'(k) = ‾‾‾ | r^2 dr j_l(kr) Δn_jj'(r)
-                #             k^l /
-                #                 0
-                kspline = rescaled_fourier_bessel_transform(
-                    spline, N=4 * radial_points)
+                # To do XXX
+                kspline = pawdata.get_kspline(
+                    j1, j2, l, radial_points=radial_points)
 
                 # Now, this implementation relies on a range of hardcoded
                 # values, which are not guaranteed to work for all cases.
