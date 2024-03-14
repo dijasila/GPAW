@@ -36,18 +36,37 @@ class LeanPAWDataset:
             radial_points = DEFAULT_RADIAL_POINTS
         self.radial_points = radial_points
 
-    def get_kspline(self, j1, j2, l):
+        # Set up kspline cache
+        self.current_j1j2 = None
+        self.current_dn_g = None
+        self.dn_fbt_spline_cache = {}
+
+    @staticmethod
+    def dn_key(j1, j2):
+        return f'{j1}-{j2}'
+
+    @staticmethod
+    def dn_fbt_key(j1, j2, l):
+        return f'{j1}-{j2}-{l}'
+
+    def get_dn_fbt_spline(self, j1, j2, l):
         """To do XXX
         """
-        # reuse dn_g? XXX
-        dn_g = self.calculate_radial_partial_pairdens_corr(j1, j2)
+        key = self.dn_fbt_key(j1, j2, l)
+        if key not in self.dn_fbt_spline_cache:
+            dn_g = self.get_dn(j1, j2)
+            self.dn_fbt_spline_cache[key] = self.fourier_bessel_transform(
+                dn_g, l)
+        return self.dn_fbt_spline_cache[key]
+
+    def fourier_bessel_transform(self, f_g, l):
         # Grid cutoff to create spline representation
         gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
         # To evaluate the radial integral efficiently, we rely on the
         # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
         # In order to do so, we make a spline representation of the
         # radial partial wave correction rescaled with a factor of r^-l
-        spline = self.rgd.spline(dn_g[:gcut2], l=l, points=self.radial_points)
+        spline = self.rgd.spline(f_g[:gcut2], l=l, points=self.radial_points)
         # This allows us to calculate a spline representation of the
         # spherical Fourier-Bessel transform
         #                 rc
@@ -58,6 +77,13 @@ class LeanPAWDataset:
         kspline = rescaled_fourier_bessel_transform(
             spline, N=4 * self.radial_points)
         return kspline
+
+    def get_dn(self, j1, j2):
+        key = self.dn_key(j1, j2)
+        if self.current_j1j2 is None or key != self.current_j1j2:
+            self.current_dn_g = self.calculate_radial_partial_pairdens_corr(
+                j1, j2)
+        return self.current_dn_g
 
     def calculate_radial_partial_pairdens_corr(self, j1, j2):
         # (Real) radial functions for the partial waves
@@ -70,7 +96,7 @@ class LeanPAWDataset:
 
     def test_spline_representation(self, j1, j2, l, k_G):
         dn_g = self.calculate_radial_partial_pairdens_corr(j1, j2)
-        kspline = self.get_kspline(j1, j2, l)
+        kspline = self.get_dn_fbt_spline(j1, j2, l)
         # Now, this implementation relies on a range of hardcoded
         # values, which are not guaranteed to work for all cases.
         # In particular, the uniform radial grid used for the FFBT is
@@ -173,7 +199,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
             for l in range(abs(l1 - l2), l1 + l2 + 1, 2):
                 # To do XXX
                 pawdata.test_spline_representation(j1, j2, l, k_G)
-                kspline = pawdata.get_kspline(j1, j2, l)
+                kspline = pawdata.get_dn_fbt_spline(j1, j2, l)
 
                 # Finally, we can map the Fourier-Bessel transform onto the
                 # the requested k-vectors of the input plane wave basis
