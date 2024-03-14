@@ -306,10 +306,10 @@ class ResponseGroundStateAdapter:
 # Contains all the relevant information
 # from Setups class for response calculators
 class ResponsePAWDataset(LeanPAWDataset):
-    def __init__(self, setup: LeanSetup):
+    def __init__(self, setup: LeanSetup, **kwargs):
         super().__init__(
             phit_jg=setup.data.phit_jg, phi_jg=setup.data.phi_jg,
-            rgd=setup.rgd, l_j=setup.l_j, rcut_j=setup.rcut_j)
+            rgd=setup.rgd, l_j=setup.l_j, rcut_j=setup.rcut_j, **kwargs)
 
         self.ni = setup.ni
         self.n_j = setup.n_j

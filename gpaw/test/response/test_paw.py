@@ -39,9 +39,8 @@ def test_paw_corrections(setup):
 
     G_Gv = np.zeros((5, 3))
     G_Gv[:, 0] = np.linspace(0, 20, 5)
-    pawdata = ResponsePAWDataset(setup)
-    calculate_pair_density_correction(G_Gv, pawdata=pawdata,
-                                      radial_points=radial_points)
+    pawdata = ResponsePAWDataset(setup, radial_points=radial_points)
+    calculate_pair_density_correction(G_Gv, pawdata=pawdata)
 
 
 @pytest.mark.response
