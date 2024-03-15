@@ -29,11 +29,10 @@ class LeanPAWDataset:
         self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
         self.l_j = l_j
         self.ni = np.sum([2 * l + 1 for l in l_j])
-        self.rcut_j = rcut_j  # can we remove?
+        self.rcut_j = rcut_j  # can we remove? XXX
         # Grid cutoff to create spline representation
         self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
-        self.is_pseudo = False  # is this necessary? XXX
         if radial_points is None:
             # We assign this late due to monkeypatch in testing
             radial_points = DEFAULT_RADIAL_POINTS
@@ -213,8 +212,6 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
     Qbar_Gii = np.zeros((npw, ni, ni), dtype=complex)
-    if pawdata.is_pseudo:
-        return Qbar_Gii
 
     # K-vector norm
     k_G = np.linalg.norm(qG_Gv, axis=1)

@@ -326,5 +326,4 @@ class ResponsePAWDataset(LeanPAWDataset):
                 e_xc0=setup.xc_correction.e_xc0)
         else:
             self.xc_correction = None
-            self.is_pseudo = True
         self.hubbard_u = setup.hubbard_u
