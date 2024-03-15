@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.special import spherical_jn
+from dataclasses import dataclass
 
 from gpaw.spline import Spline
 from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
+from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
 from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.response.pw_parallelization import Blocks1D
@@ -20,24 +24,23 @@ from gpaw.response.pw_parallelization import Blocks1D
 DEFAULT_RADIAL_POINTS = 2**12
 
 
+@dataclass
 class LeanPAWDataset:
-    # to dataclass? XXX
-    def __init__(self, rgd, l_j, rcut_j, phit_jg, phi_jg,
-                 radial_points=None):
-        self.rgd = rgd
-        self.l_j = l_j
-        self.rcut_j = rcut_j
-        self.phit_jg = phit_jg
-        self.phi_jg = phi_jg
+    rgd: RadialGridDescriptor
+    l_j: np.ndarray
+    rcut_j: np.ndarray
+    phit_jg: np.ndarray
+    phi_jg: np.ndarray
+    # Number of radial points in spline interpolation
+    radial_points: int | None = None
 
-        # Number of radial points in spline interpolation
-        if radial_points is None:
+    def __post_init__(self):
+        if self.radial_points is None:
             # We assign this late due to monkeypatch in testing
-            radial_points = DEFAULT_RADIAL_POINTS
-        self.radial_points = radial_points
+            self.radial_points = DEFAULT_RADIAL_POINTS
 
         # Number of basis functions
-        self.ni = np.sum([2 * l + 1 for l in l_j])
+        self.ni = np.sum([2 * l + 1 for l in self.l_j])
         # Grid cutoff to create spline representation
         self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
