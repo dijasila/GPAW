@@ -5,11 +5,11 @@ from scipy.special import spherical_jn
 from dataclasses import dataclass
 
 from gpaw.spline import Spline
+from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.gaunt import gaunt, super_gaunt
 from gpaw.spherical_harmonics import Y
 from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
-from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.response.pw_parallelization import Blocks1D
 
 
@@ -90,6 +90,7 @@ class LeanPAWDataset:
         """Get Δn_jj'(r), while keeping the newest correction cached."""
         key = self.get_key(j1, j2)
         if self.current_j1j2 is None or key != self.current_j1j2:
+            self.current_j1j2 = key
             self.current_dn_g = self.calculate_pair_density_correction(j1, j2)
         return self.current_dn_g
 
