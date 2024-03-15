@@ -45,24 +45,27 @@ class LeanPAWDataset:
         self.dn_kspline_cache = {}
 
     @staticmethod
-    def dn_key(j1, j2):
-        return f'{j1}-{j2}'
-
-    @staticmethod
-    def dn_fbt_key(j1, j2, l):
-        return f'{j1}-{j2}-{l}'
+    def get_key(*args: int):
+        return '-'.join([str(arg) for arg in args])
 
     def dn_kspline(self, j1, j2, l):
-        """To do XXX
-        """
-        key = self.dn_fbt_key(j1, j2, l)
+        """Get spline representation of Δn_jj'l(k)."""
+        key = self.get_key(j1, j2, l)
         if key not in self.dn_kspline_cache:
-            dn_g = self.get_dn(j1, j2)
+            dn_g = self.get_pair_density_correction(j1, j2)
             self.dn_kspline_cache[key] = self.fourier_bessel_transform(
                 dn_g, l)
         return self.dn_kspline_cache[key]
 
     def fourier_bessel_transform(self, f_g, l):
+        """Calculate the rescaled Fourier Bessel transform f_l(k)
+
+                     rc
+                 4π  /
+        f_l(k) = ‾‾‾ | r^2 dr j_l(kr) f(r)
+                 k^l /
+                     0
+        """
         # In order to do so, we make a spline representation of the
         # radial partial wave correction rescaled with a factor of r^-l
         spline = self.rgd.spline(
@@ -73,20 +76,21 @@ class LeanPAWDataset:
         # the bare `kspline` here.
         return SelfTestingKSpline(self.rgd, f_g, kspline)
 
-    def get_dn(self, j1, j2):
-        key = self.dn_key(j1, j2)
+    def get_pair_density_correction(self, j1, j2):
+        """Get Δn_jj'(r), while keeping the newest correction cached."""
+        key = self.get_key(j1, j2)
         if self.current_j1j2 is None or key != self.current_j1j2:
-            self.current_dn_g = self.calculate_radial_partial_pairdens_corr(
-                j1, j2)
+            self.current_dn_g = self.calculate_pair_density_correction(j1, j2)
         return self.current_dn_g
 
-    def calculate_radial_partial_pairdens_corr(self, j1, j2):
+    def calculate_pair_density_correction(self, j1, j2):
+        """Calculate the pair density PAW correction for two partial waves.
+                                     ˷      ˷
+        Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+        """
         # (Real) radial functions for the partial waves
         phi_jg = self.data.phi_jg
         phit_jg = self.data.phit_jg
-        # Calculate the radial partial wave correction
-        #                              ˷      ˷
-        # Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
         return phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
 
 
@@ -218,6 +222,8 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
                 #                  0
                 # To evaluate the radial integral efficiently, we rely on the
                 # Fast Fourier Bessel Transform (FFBT) algorithm, see gpaw.ffbt
+                # The FFBT produces a radial spline representation of
+                # Δn_jj'l(k), which we map to the K-vector norms in question:
                 dn_G = pawdata.dn_kspline(j1, j2, l).map(k_G)
 
                 # Angular part of the integral
