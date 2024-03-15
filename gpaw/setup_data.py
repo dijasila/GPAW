@@ -605,7 +605,17 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name.startswith('GLLB_'):
             # Add setup tags starting with GLLB_ to extra_xc_data. Remove
             # GLLB_ from front of string:
+            if name == 'GLLB_w_j' and self.setup.version < '':
+                from collections import defaultdict
+                w_j = x_g
+                w_ln = defaultdict(list)
+                j = 0
+                for n, l in :
+                    w_ln[l].append(w_j[j])
+                    j += 1
+                x_g = [w for w in w_n for w_n in w_ln]
             setup.extra_xc_data[name[5:]] = x_g
+
         elif name == 'ae_partial_wave':
             j = len(setup.phi_jg)
             assert self.id == setup.id_j[j]
