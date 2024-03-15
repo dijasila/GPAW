@@ -101,9 +101,8 @@ class LeanPAWDataset:
 
 
 class SelfTestingKSpline(Spline):
-    """
-    To do XXX
-    """
+    """Self-testing reciprocal spline representation, f_l(k)."""
+
     def __init__(self, rgd, f_g, spline):
         self.rgd = rgd
         self.f_g = f_g
@@ -117,27 +116,34 @@ class SelfTestingKSpline(Spline):
         return super().map(k_G)
 
     def test_spline_representation(self, k_G):
-        # Now, this implementation relies on a range of hardcoded
-        # values, which are not guaranteed to work for all cases.
-        # In particular, the uniform radial grid used for the FFBT is
-        # defined through the `rcut` and `N` parameters in the
-        # `rescaled_fourier_bessel_transform()` function (the former is
-        # currently hardcoded), and the `points` parameter to
-        # `rgd.spline()` controls an intermediate interpolation step.
-        # To make a generally reliable implementation, one would need
-        # to control these parameters based on the setup, e.g. the
-        # nonlinear radial grid spacing. In doing so, one should be
-        # mindful that the rcut parameter defines the reciprocal grid
-        # spacing of the kspline representation and that N controls
-        # the k-range (which might need to depend on input qG_Gv).
+        """Test validity of the FFBT implementation on input domain.
+
+        At present, LeanPAWDataset's FFBT implementation relies on a range of
+        hardcoded parameters, which are not guaranteed to work for all cases.
+
+        In particular, the uniform radial grid used for the FFBT is defined
+        through the `rcut` and `N` parameters in
+        `rescaled_fourier_bessel_transform()`
+        where the former is hardcoded inside the function itself.
+
+        Furthermore, the `points` parameter to `rgd.spline()` controls the
+        fidelity of the interpolation between nonlinear and equidistant radial
+        grids needed to make use of the FFBT algorithm.
+
+        To make a generally reliable implementation, one would need to control
+        all of these parameters based on the setup, e.g. the nonlinear radial
+        grid spacing. In doing so, one should be mindful that the `rcut`
+        parameter defines the reciprocal grid spacing of the kspline and that
+        `N` controls the range of reciprocal space domain.
+
+        For now, we simply check that the requested plane waves are within the
+        computed k-range of the FFBT and check that the resulting transforms
+        match a manual calculation at a few selected K-vectors.
+        """
         rgd = self.rgd
         f_g = self.f_g
         l = self.l
 
-        # For now, we simply check that the requested plane waves are
-        # within the computed k-range of the FFBT and check that the
-        # resulting transforms match a manual calculation at a few
-        # selected K-vectors.
         kmax = np.max(k_G)
         assert kmax <= self.get_cutoff()
         # Manual calculation at kmax
@@ -147,15 +153,16 @@ class SelfTestingKSpline(Spline):
         dnavg = rgd.integrate(spherical_jn(l, kavg * rgd.r_g) * f_g)
         k_k = [kmax, kavg]
         f_k = [dnmax, dnavg]
-        if l == 0:
-            # Manual calculation at k=0
+        # Manual calculation at k=0
+        if l == 0:  # Vanishes for l>0
             k_k.append(0.)
             f_k.append(rgd.integrate(f_g))
         k_k = np.array(k_k)
         f_k = np.array(f_k)
-        assert np.allclose(k_k**l * super().map(k_k), f_k,
-                           rtol=1e-2, atol=1e-3), \
-            f'FFBT mismatch: {k_k**l * super().map(k_k)}, {f_k}'
+        # FFBT calculation
+        myf_k = k_k**l * super().map(k_k)
+        assert np.allclose(myf_k, f_k, rtol=1e-2, atol=1e-3), \
+            f'FFBT mismatch: {myf_k}, {f_k}'
 
 
 def calculate_pair_density_correction(qG_Gv, *, pawdata):
