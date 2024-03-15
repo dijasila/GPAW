@@ -7,7 +7,6 @@ from gpaw.spherical_harmonics import Y
 from gpaw.sphere.rshe import RealSphericalHarmonicsExpansion
 from gpaw.ffbt import rescaled_fourier_bessel_transform
 from gpaw.response.pw_parallelization import Blocks1D
-from types import SimpleNamespace
 
 
 # Important note: The test suite monkeypatches this value to 2**10 so
@@ -23,13 +22,13 @@ DEFAULT_RADIAL_POINTS = 2**12
 
 class LeanPAWDataset:
     # to dataclass? XXX
-    def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j,
+    def __init__(self, rgd, l_j, rcut_j, phit_jg, phi_jg,
                  radial_points=None):
         self.rgd = rgd
-        self.phit_jg = phit_jg
-        self.phi_jg = phi_jg
         self.l_j = l_j
         self.rcut_j = rcut_j
+        self.phit_jg = phit_jg
+        self.phi_jg = phi_jg
 
         # Number of radial points in spline interpolation
         if radial_points is None:
