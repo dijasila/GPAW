@@ -140,7 +140,7 @@ class SelfTestingKSpline(Spline):
         all of these parameters based on the setup, e.g. the nonlinear radial
         grid spacing. In doing so, one should be mindful that the `rcut`
         parameter defines the reciprocal grid spacing of the kspline and that
-        `N` controls the range of reciprocal space domain.
+        `N` controls the range of the reciprocal space domain.
 
         For now, we simply check that the requested plane waves are within the
         computed k-range of the FFBT and check that the resulting transforms
