@@ -58,11 +58,11 @@ class LeanPAWDataset:
         key = self.get_key(j1, j2, l)
         if key not in self.dn_kspline_cache:
             dn_g = self.get_pair_density_correction(j1, j2)
-            self.dn_kspline_cache[key] = self.fourier_bessel_transform(
-                dn_g, l)
+            self.dn_kspline_cache[key] = \
+                self.rescaled_fourier_bessel_transform(dn_g, l)
         return self.dn_kspline_cache[key]
 
-    def fourier_bessel_transform(self, f_g, l):
+    def rescaled_fourier_bessel_transform(self, f_g, l):
         """Calculate the rescaled Fourier Bessel transform f_l(k)
 
                     rc
@@ -145,27 +145,19 @@ class SelfTestingKSpline(Spline):
         computed k-range of the FFBT and check that the resulting transforms
         match a manual calculation at a few selected K-vectors.
         """
-        rgd = self.rgd
-        f_g = self.f_g
-        l = self.l
-
         kmax = np.max(k_G)
         assert kmax <= self.get_cutoff()
-        # Manual calculation at kmax
-        dnmax = rgd.integrate(spherical_jn(l, kmax * rgd.r_g) * f_g)
-        # Manual calculation at average k
-        kavg = np.average(k_G)
-        dnavg = rgd.integrate(spherical_jn(l, kavg * rgd.r_g) * f_g)
-        k_k = [kmax, kavg]
-        f_k = [dnmax, dnavg]
+
+        # Manual calculation at finite k
+        k_k = np.array([kmax, np.average(k_G)])
+        f_k = 4 * np.pi * fourier_bessel_transform(
+            np.array(k_k), self.l, self.rgd, self.f_g)
         # Manual calculation at k=0
-        if l == 0:  # Vanishes for l>0
-            k_k.append(0.)
-            f_k.append(rgd.integrate(f_g))
-        k_k = np.array(k_k)
-        f_k = np.array(f_k)
+        if self.l == 0:  # Vanishes for l>0
+            k_k = np.append(k_k, [0.])
+            f_k = np.append(f_k, [self.rgd.integrate(self.f_g)])
         # FFBT calculation
-        myf_k = k_k**l * super().map(k_k)
+        myf_k = k_k**self.l * super().map(k_k)
         assert np.allclose(myf_k, f_k, rtol=1e-2, atol=1e-3), \
             f'FFBT mismatch: {myf_k}, {f_k}'
 
