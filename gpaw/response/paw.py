@@ -28,15 +28,18 @@ class LeanPAWDataset:
         self.rgd = rgd
         self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
         self.l_j = l_j
-        self.ni = np.sum([2 * l + 1 for l in l_j])
-        self.rcut_j = rcut_j  # can we remove? XXX
-        # Grid cutoff to create spline representation
-        self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
+        self.rcut_j = rcut_j
 
+        # Number of radial points in spline interpolation
         if radial_points is None:
             # We assign this late due to monkeypatch in testing
             radial_points = DEFAULT_RADIAL_POINTS
         self.radial_points = radial_points
+
+        # Number of basis functions
+        self.ni = np.sum([2 * l + 1 for l in l_j])
+        # Grid cutoff to create spline representation
+        self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
         # Set up kspline cache
         self.current_j1j2 = None
