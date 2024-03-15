@@ -310,8 +310,8 @@ class ResponsePAWDataset(LeanPAWDataset):
         super().__init__(
             phit_jg=setup.data.phit_jg, phi_jg=setup.data.phi_jg,
             rgd=setup.rgd, l_j=setup.l_j, rcut_j=setup.rcut_j, **kwargs)
+        assert setup.ni == self.ni
 
-        self.ni = setup.ni
         self.n_j = setup.n_j
         self.N0_q = setup.N0_q
         self.nabla_iiv = setup.nabla_iiv
