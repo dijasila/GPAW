@@ -6,11 +6,6 @@ import sys
 import contextlib
 from pathlib import Path
 from typing import List, Dict, Union, Any, TYPE_CHECKING
-import _gpaw
-
-
-if getattr(_gpaw, 'version', 0) != 5:
-    raise ImportError('Please recompile GPAW''s C-extensions!')
 
 __version__ = '24.1.0'
 __ase_version_required__ = '3.22.1'
@@ -80,6 +75,7 @@ class BadParallelization(Exception):
 
 
 def get_libraries():
+    import _gpaw
     libraries: Dict[str, str] = {}
     if hasattr(_gpaw, 'lxcXCFunctional'):
         libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
