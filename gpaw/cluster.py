@@ -61,11 +61,11 @@ class Cluster(Atoms):
         self.rotate(a, v, center)
 
         # Rotate the axises into each other
-        a = string2vector(a)
-        v = string2vector(v)
+        a_c = string2vector(a)
+        v_c = string2vector(v)
 
-        v1 = v / np.linalg.norm(v)
-        a1 = a / np.linalg.norm(a)
+        v1 = v_c / np.linalg.norm(v_c)
+        a1 = a_c / np.linalg.norm(a_c)
 
         c = np.dot(v1, a1)
         v1 = np.cross(v1, a1)
@@ -79,10 +79,10 @@ class Cluster(Atoms):
                       np.outer(np.dot(rotcell, v1), (1.0 - c) * v1))
 
         for i in range(3):
-            if v[i] != 0:
+            if v_c[i] != 0:
                 iv = i
 
-            if a[i] != 0:
+            if a_c[i] != 0:
                 ia = i
 
         cell_v = rotcell[ia].copy()
@@ -92,10 +92,9 @@ class Cluster(Atoms):
         rotcell[ia] = - cell_a
 
         self.set_cell(rotcell)
-        pbc = self.pbc
-        if pbc[iv] != pbc[ia]:
-            pbc[iv], pbc[ia] = pbc[ia], pbc[iv]
-        self.pbc = pbc
+
+        if self.pbc[iv] != self.pbc[ia]:
+            self.pbc[iv], self.pbc[ia] = self.pbc[ia], self.pbc[iv]
 
 
 def adjust_cell(atoms: Atoms, border: float,
