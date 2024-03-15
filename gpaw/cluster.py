@@ -6,6 +6,7 @@ import numpy as np
 from ase import Atoms
 from ase.io import read
 from ase.build.connected import connected_indices
+from ase.atoms import string2vector
 
 from gpaw.utilities import h2gpts
 
@@ -52,6 +53,50 @@ class Cluster(Atoms):
         self.__init__(read(filename, format=format))
         return len(self)
 
+    def rotate_cell(self, a: str, v: str, center=(0, 0, 0)):
+        '''Rotate molecule and cell so we are left with the indexes
+        x,y,z = 0,1,2, the ase atosm.rotate does not conserve these
+        indexes of the and when ajusting the box this causes trubles'''
+
+        self.rotate(a, v, center)
+
+        # Rotate the axises into each other
+        a = string2vector(a)
+        v = string2vector(v)
+
+        v1 = v / np.linalg.norm(v)
+        a1 = a / np.linalg.norm(a)
+
+        c = np.dot(v1, a1)
+        v1 = np.cross(v1, a1)
+        s = np.linalg.norm(v1)
+
+        v1 /= s
+
+        rotcell = self.get_cell()
+        rotcell[:] = (c * rotcell -
+                      np.cross(rotcell, s * v1) +
+                      np.outer(np.dot(rotcell, v1), (1.0 - c) * v1))
+
+        for i in range(3):
+            if v[i] != 0:
+                iv = i
+
+            if a[i] != 0:
+                ia = i
+
+        cell_v = rotcell[ia].copy()
+        cell_a = rotcell[iv].copy()
+
+        rotcell[iv] = - cell_v
+        rotcell[ia] = - cell_a
+
+        self.set_cell(rotcell)
+        pbc = self.pbc
+        if pbc[iv] != pbc[ia]:
+            pbc[iv], pbc[ia] = pbc[ia], pbc[iv]
+        self.pbc = pbc
+
 
 def adjust_cell(atoms: Atoms, border: float,
                 h: float = 0.2, idiv: int = 4) -> None:
@@ -78,7 +123,8 @@ def adjust_cell(atoms: Atoms, border: float,
 
     if n_pbc:
         N_c = h2gpts(h, atoms.cell, idiv)
-        h_c = np.diag(atoms.cell / N_c)
+        # logic from gpaw/utilitis/__init__.py
+        h_c = (np.linalg.inv(atoms.cell)**2).sum(0)**-0.5 / N_c
         h = 0
         for pbc, h1 in zip(atoms.pbc, h_c):
             if pbc:
@@ -97,7 +143,7 @@ def adjust_cell(atoms: Atoms, border: float,
         min_size = extension + 2 * border
 
         h = h_c[i]
-        # loguc from gpaw/utilitis/__init__.py
+        # logic from gpaw/utilitis/__init__.py
         N = np.maximum(idiv,
                        (min_size / h / idiv + 0.5).astype(int) *
                        idiv)
@@ -111,3 +157,26 @@ def adjust_cell(atoms: Atoms, border: float,
         shift_c[i] -= lowest_c[i]
 
     atoms.translate(shift_c)
+
+
+def adjust_cell_and_get_h(atoms: Atoms, border: float,
+                          h: float = 0.2, idiv: int = 4):
+
+    n_pbc = atoms.pbc.sum()
+
+    if n_pbc != 3:
+        adjust_cell(atoms, border, h, idiv)
+
+    if n_pbc:
+        N_c = h2gpts(h, atoms.cell, idiv)
+        # logic from gpaw/utilitis/__init__.py
+        h_c = (np.linalg.inv(atoms.cell)**2).sum(0)**-0.5 / N_c
+        print(h_c)
+        h = 0
+        for pbc, h1 in zip(atoms.pbc, h_c):
+            if pbc:
+                h += h1 / n_pbc
+
+        return h
+    else:
+        return h

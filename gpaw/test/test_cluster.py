@@ -1,9 +1,9 @@
 from math import sqrt
 
 from ase import Atoms
-from ase.build import fcc111
+from ase.build import fcc111, graphene_nanoribbon
 
-from gpaw.cluster import Cluster, adjust_cell
+from gpaw.cluster import Cluster, adjust_cell, adjust_cell_and_get_h
 from gpaw.mpi import world
 
 from gpaw.utilities import h2gpts
@@ -99,7 +99,7 @@ def test_non_orthogonal_unitcell():
 
     cell0 = atoms.cell.copy()
 
-    adjust_cell(atoms, box, h)
+    h = adjust_cell_and_get_h(atoms, box, h)
 
     # check that the box ajusts for h in only non periodic directions
     assert atoms.cell[:1, :1] == pytest.approx(cell0[:1, :1])
@@ -108,10 +108,10 @@ def test_non_orthogonal_unitcell():
 
     h_c = np.zeros(3)
     N_c = h2gpts(h, atoms.cell)
-    for i in range(3):
-        h_c[i] = np.linalg.norm(atoms.cell / N_c)
+    # logic from gpaw/utilitis/__init__.py
+    h_c = (np.linalg.inv(atoms.cell)**2).sum(0)**-0.5 / N_c
 
-    assert h_c[2] == pytest.approx(h_c[:2].sum() / 2)
+    assert h_c[2] == pytest.approx(h_c[:2].sum() / 2) == h
 
 
 def test_platinum_surface():
@@ -121,7 +121,7 @@ def test_platinum_surface():
 
     h = 0.2
     vacuum = 4
-    adjust_cell(surface, vacuum, h=h)
+    h = adjust_cell_and_get_h(surface, vacuum, h=h)
 
     # perdiodic part shall not be changed
     assert (original_cell[:2] == surface.cell[:2]).all()
@@ -130,9 +130,8 @@ def test_platinum_surface():
     # what internally is done in gpaw
     N_c = h2gpts(h, surface.cell)
     h_c = np.diag(surface.cell / N_c)
-
     h_z = h_c[:2].sum() / 2  # average of x and y
-    assert h_z == pytest.approx(h_c[2])
+    assert h_z == pytest.approx(h_c[2]) == h
 
 
 def test_pbc_uncompleat_initial_unitcell():
@@ -142,7 +141,7 @@ def test_pbc_uncompleat_initial_unitcell():
 
     h = 0.2
     vacuum = 4
-    adjust_cell(surface, vacuum, h=h)
+    h = adjust_cell_and_get_h(surface, vacuum, h=h)
 
     # perdiodic part shall not be changed
     assert (original_cell[:2] == surface.cell[:2]).all()
@@ -155,3 +154,23 @@ def test_pbc_uncompleat_initial_unitcell():
 
     h_z = h_c[:2].sum() / 2  # average of x and y
     assert h_z == pytest.approx(h_c[2])
+    assert h == h_c[2] == h_z
+
+
+def test_rotated_unitcell():
+    gnt = Cluster(graphene_nanoribbon(2, 2, sheet=True))
+    gnt.pbc = [1, 0, 1]
+
+    # Rotate cell so y --> z
+    gnt.rotate_cell('y', 'z')
+
+    h = 0.2
+    box = 4
+
+    originall_cell = gnt.cell.copy()
+    adjust_cell(gnt, box, h)
+
+    # Tests if the cell is rotated corectly and the x, y, z,
+    # indexes are conserved as 0, 1, 2.
+    assert (gnt.pbc == [1, 1, 0]).all()
+    assert (originall_cell[:2] == gnt.cell[:2]).all()
