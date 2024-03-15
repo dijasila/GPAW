@@ -26,7 +26,8 @@ class LeanPAWDataset:
     def __init__(self, *, phit_jg, phi_jg, rgd, l_j, rcut_j,
                  radial_points=None):
         self.rgd = rgd
-        self.data = SimpleNamespace(phit_jg=phit_jg, phi_jg=phi_jg)
+        self.phit_jg = phit_jg
+        self.phi_jg = phi_jg
         self.l_j = l_j
         self.rcut_j = rcut_j
 
@@ -97,8 +98,8 @@ class LeanPAWDataset:
           jj'     j     j'      j     j'
         """
         # (Real) radial functions for the partial waves
-        phi_jg = self.data.phi_jg
-        phit_jg = self.data.phit_jg
+        phi_jg = self.phi_jg
+        phit_jg = self.phit_jg
         return phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
 
 
@@ -322,8 +323,8 @@ def calculate_matrix_element_correction(qG_Gv, pawdata,
     assert max(rshe.l_M) <= 2 * lmax
     G_LLLL = super_gaunt(lmax)
     # (Real) radial functions for the partial waves
-    phi_jg = pawdata.data.phi_jg
-    phit_jg = pawdata.data.phit_jg
+    phi_jg = pawdata.phi_jg
+    phit_jg = pawdata.phit_jg
     # Truncate the radial functions to span only the radial grid coordinates
     # which need correction
     assert np.allclose(rgd.r_g, pawdata.rgd.r_g[:rgd.N])
