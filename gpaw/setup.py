@@ -174,7 +174,7 @@ class BaseSetup:
         Hund rules disabled if so."""
 
         nao = self.nao
-        f_si = np.zeros((nspins, nao))
+        f_sI = np.zeros((nspins, nao))
 
         assert (not hund) or f_j is None
         if f_j is None:
@@ -231,24 +231,22 @@ class BaseSetup:
             correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
             correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
-        # Projector function indices:
-        nj = len(self.n_j)  # or l_j?  Seriously.
+        print(f_j, f_sj)
 
-        # distribute to the atomic wave functions
-        i = 0
-        j = 0
-        for phit in self.basis_functions_J:
-            l = phit.get_angular_momentum_number()
-
-            # Skip functions not in basis set:
-            while j < nj and self.l_orb_J[j] != l:
-                j += 1
-            if j < len(f_j):  # lengths of f_j and l_j may differ
-                f = f_j[j]
-                f_s = f_sj[:, j]
-            else:
-                f = 0
-                f_s = np.array([0, 0])
+        for j, (f, f_s) in enumerate(zip(f_j, f_sj.T)):
+            print(j)
+            if f == 0:
+                continue
+            I = 0
+            for bf in self.basis.bf_j:
+                l = bf.l
+                n = bf.n
+                print(n,l)
+                if (n, l) == (self.n_j[j], self.l_j[j]):
+                    break
+                I += 2 * l + 1
+            else:  # no break
+                1 / 0
 
             degeneracy = 2 * l + 1
 
@@ -256,26 +254,22 @@ class BaseSetup:
                 # Use Hunds rules:
                 # assert f == int(f)
                 f = int(f)
-                f_si[0, i:i + min(f, degeneracy)] = 1.0      # spin up
-                f_si[1, i:i + max(f - degeneracy, 0)] = 1.0  # spin down
+                f_sI[0, I:I + min(f, degeneracy)] = 1.0      # spin up
+                f_sI[1, I:I + max(f - degeneracy, 0)] = 1.0  # spin down
                 if f < degeneracy:
                     magmom -= f
                 else:
                     magmom -= 2 * degeneracy - f
             else:
                 for s in range(nspins):
-                    f_si[s, i:i + degeneracy] = f_s[s] / degeneracy
-
-            i += degeneracy
-            j += 1
+                    f_sI[s, I:I + degeneracy] = f_s[s] / degeneracy
 
         if hund and magmom != 0:
             raise WrongMagmomForHundsRuleError(
                 f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
-        assert i == nao
 
         # print('fsi=', f_si)
-        return f_si
+        return f_sI
 
     def get_hunds_rule_moment(self, charge=0):
         for M in range(10):
@@ -287,36 +281,30 @@ class BaseSetup:
                 return M
         raise RuntimeError
 
-    def initialize_density_matrix(self, f_si):
-        nspins, nao = f_si.shape
+    def initialize_density_matrix(self, f_sI):
+        nspins, nao = f_sI.shape
         ni = self.ni
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.pt_j)
-        j = 0
-        i = 0
-        ib = 0
-        for J, phit in enumerate(self.basis_functions_J):
-            l = phit.get_angular_momentum_number()
-            # Skip functions not in basis set:
-            while j < nj and self.l_j[j] != l:
-                i += 2 * self.l_j[j] + 1
-                j += 1
-            if j == nj:
-                break
 
-            n = self.n_j[j]
-            if not (f_si[:, ib:ib + 2 * l + 1] == 0).all():
-                assert n > 0, n
-                nb = self.basis.bf_j[J].n
-                if nb != n:
-                    raise ValueError('Basis not compatible with PAW potential')
+        i = 0
+        for n, l in zip(self.n_j, self.l_j):
+            f_sm = f_sI[:, i:i + 2 * l + 2]
+            if not f_sm.any():
+                continue
+            I = 0
+            for bf in self.basis.bf_j:
+                if (n, l) == (bf.n, bf.l):
+                    break
+                I += 2 * l + 1
+            else:  # no break
+                1 / 0
+
             for m in range(2 * l + 1):
-                D_sii[:, i + m, i + m] = f_si[:, ib + m]
-            j += 1
+                D_sii[:, i + m, i + m] = f_sm[:, m]
             i += 2 * l + 1
-            ib += 2 * l + 1
+
         for s in range(nspins):
             D_sp[s] = pack(D_sii[s])
         return D_sp
