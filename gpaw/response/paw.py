@@ -60,20 +60,25 @@ class LeanPAWDataset:
     def fourier_bessel_transform(self, f_g, l):
         """Calculate the rescaled Fourier Bessel transform f_l(k)
 
-                     rc
-                 4π  /
-        f_l(k) = ‾‾‾ | r^2 dr j_l(kr) f(r)
-                 k^l /
-                     0
+                    rc
+                4π  ⌠  2
+        f (k) = ‾‾‾ ⎪ r dr j (kr) f(r)
+         l      k^l ⌡       l
+                    0
         """
-        # In order to do so, we make a spline representation of the
-        # radial partial wave correction rescaled with a factor of r^-l
+        # First, we make a spline representation of the radial function f(r),
+        # which is rescaled by a factor of r^-l by the radial grid descriptor:
         spline = self.rgd.spline(
             f_g[:self.gcut2], l=l, points=self.radial_points)
+        # Once rescaled by r^-l, we can use the gpaw.ffbt module to Fast
+        # Fourier Bessel Transform the radial spline r^-l f(r) and obtain
+        # f_l(k) in a reciprocal spline representation
         kspline = rescaled_fourier_bessel_transform(
             spline, N=4 * self.radial_points)
-        # NB: If we want to run calculations in an "unsafe" mode, return
-        # the bare `kspline` here.
+        # Since this procedures hinges on a series of hardcoded parameters, we
+        # return a self-testing version of the spline. If someone wants to run
+        # calculations without dynamic testing of the FFBT methodology (i.e.
+        # in an "unprotected" mode), simply return the bare `kspline` here.
         return SelfTestingKSpline(self.rgd, f_g, kspline)
 
     def get_pair_density_correction(self, j1, j2):
@@ -85,8 +90,9 @@ class LeanPAWDataset:
 
     def calculate_pair_density_correction(self, j1, j2):
         """Calculate the pair density PAW correction for two partial waves.
-                                     ˷      ˷
-        Δn_jj'(r) = φ_j(r) φ_j'(r) - φ_j(r) φ_j'(r)
+                               ˷     ˷
+        Δn (r) = φ (r) φ (r) - φ (r) φ (r)
+          jj'     j     j'      j     j'
         """
         # (Real) radial functions for the partial waves
         phi_jg = self.data.phi_jg
