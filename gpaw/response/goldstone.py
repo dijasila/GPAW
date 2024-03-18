@@ -4,7 +4,7 @@ import numpy as np
 def get_goldstone_scaling(mode, dyson_equations):
     """Get kernel scaling parameter to fulfill a Goldstone condition."""
     assert dyson_equations.qpd.optical_limit, \
-        r'The Goldstone condition is strictly bound to the Γ-point'
+        'The Goldstone condition is strictly bound to the Γ-point'
     spincomponent = dyson_equations.spincomponent
     if spincomponent not in ['+-', '-+']:
         raise ValueError('No scaling method implemented for '
