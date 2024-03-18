@@ -275,10 +275,6 @@ class DFTComponentsBuilder:
 
         eig_skn = reader.wave_functions.eigenvalues
         occ_skn = reader.wave_functions.occupations
-        if domain_comm.rank == 0:
-            P_sknI = reader.wave_functions.proxy('projections')
-        else:
-            P_sknI = None
 
         for wfs in ibzwfs:
             wfs._eig_n = eig_skn[wfs.spin, wfs.k] / ha
@@ -295,11 +291,12 @@ class DFTComponentsBuilder:
 
             P_ani = AtomArrays(layout, dims=dims, comm=band_comm)
 
-            data = None
-            if P_sknI is not None:
-                P_nI = P_sknI.proxy(*index)
+            if domain_comm.rank == 0:
+                P_nI = reader.wave_functions.proxy('projections', *index)
                 b1, b2 = P_ani.my_slice()  # my bands
-                data = P_nI[slice(b1, b2)].astype(ibzwfs.dtype)
+                data = P_nI[b1:b2].astype(ibzwfs.dtype)  # read from file
+            else:
+                data = None
 
             P_ani.scatter_from(data)  # distribute over atoms
             wfs._P_ani = P_ani
