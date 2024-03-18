@@ -16,41 +16,7 @@ from gpaw.new.c import GPU_AWARE_MPI
 from gpaw.new.potential import Potential
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.new.wave_functions import WaveFunctions
-from gpaw.typing import Array1D, Array2D
-
-
-def create_ibz_wave_functions(*,
-                              ibz: IBZ,
-                              nelectrons: float,
-                              ncomponents: int,
-                              create_wfs_func,
-                              kpt_comm: MPIComm = serial_comm,
-                              kpt_band_comm: MPIComm = serial_comm,
-                              comm: MPIComm = serial_comm,
-                              ) -> IBZWaveFunctions:
-    """Collection of wave function objects for k-points in the IBZ."""
-    rank_k = ibz.ranks(kpt_comm)
-    mask_k = (rank_k == kpt_comm.rank)
-    k_q = np.arange(len(ibz))[mask_k]
-
-    nspins = ncomponents % 3
-
-    wfs_qs: list[list[WaveFunctions]] = []
-    for q, k in enumerate(k_q):
-        wfs_s = []
-        for spin in range(nspins):
-            wfs = create_wfs_func(spin, q, k,
-                                  ibz.kpt_kc[k], ibz.weight_k[k])
-            wfs_s.append(wfs)
-        wfs_qs.append(wfs_s)
-
-    return IBZWaveFunctions(ibz,
-                            nelectrons=nelectrons,
-                            ncomponents=ncomponents,
-                            wfs_qs=wfs_qs,
-                            kpt_comm=kpt_comm,
-                            kpt_band_comm=kpt_band_comm,
-                            comm=comm)
+from gpaw.typing import Array1D, Array2D, Self
 
 
 class IBZWaveFunctions:
@@ -95,6 +61,41 @@ class IBZWaveFunctions:
         if self.xp is not np:
             if not GPU_AWARE_MPI:
                 self.kpt_comm = CuPyMPI(self.kpt_comm)  # type: ignore
+
+    @classmethod
+    def create(cls,
+               *,
+               ibz: IBZ,
+               nelectrons: float,
+               ncomponents: int,
+               create_wfs_func,
+               kpt_comm: MPIComm = serial_comm,
+               kpt_band_comm: MPIComm = serial_comm,
+               comm: MPIComm = serial_comm,
+               ) -> Self:
+        """Collection of wave function objects for k-points in the IBZ."""
+        rank_k = ibz.ranks(kpt_comm)
+        mask_k = (rank_k == kpt_comm.rank)
+        k_q = np.arange(len(ibz))[mask_k]
+
+        nspins = ncomponents % 3
+
+        wfs_qs: list[list[WaveFunctions]] = []
+        for q, k in enumerate(k_q):
+            wfs_s = []
+            for spin in range(nspins):
+                wfs = create_wfs_func(spin, q, k,
+                                      ibz.kpt_kc[k], ibz.weight_k[k])
+                wfs_s.append(wfs)
+            wfs_qs.append(wfs_s)
+
+        return cls(ibz,
+                   nelectrons=nelectrons,
+                   ncomponents=ncomponents,
+                   wfs_qs=wfs_qs,
+                   kpt_comm=kpt_comm,
+                   kpt_band_comm=kpt_band_comm,
+                   comm=comm)
 
     @cached_property
     def mode(self):
