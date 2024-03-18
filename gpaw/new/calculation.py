@@ -34,6 +34,14 @@ class ReuseWaveFunctionsError(Exception):
     """
 
 
+class CalculationModeError(Exception):
+    """Calculation mode does not match what is expected from a given method.
+
+    For example, if a method only works in collinear mode and receives a
+    calculator in non-collinear mode, this exception should be raised.
+    """
+
+
 units = {'energy': Ha,
          'free_energy': Ha,
          'forces': Ha / Bohr,

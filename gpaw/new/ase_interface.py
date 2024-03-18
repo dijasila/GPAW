@@ -16,6 +16,7 @@ from gpaw.mpi import world, synchronize_atoms, broadcast as bcast
 from gpaw.new import Timer
 from gpaw.new.builder import builder as create_builder
 from gpaw.new.calculation import (DFTCalculation, DFTState,
+                                  CalculationModeError,
                                   ReuseWaveFunctionsError, units)
 from gpaw.new.gpw import read_gpw, write_gpw
 from gpaw.new.input_parameters import (DeprecatedParameterWarning,
@@ -458,8 +459,17 @@ class ASECalculator:
 
     def get_orbital_magnetic_moments(self):
         """Return the orbital magnetic moment vector for each atom."""
-        from gpaw.new.orbmag import get_orbmag_from_calc
-        return get_orbmag_from_calc(self)
+        state = self.calculation.state
+        if state.density.collinear:
+            raise CalculationModeError(
+                'Calculator is in collinear mode. '
+                'Collinear calculations require spin–orbit '
+                'coupling for nonzero orbital magnetic moments.')
+        if not self.params.soc:
+            warnings.warn('Non-collinear calculation was performed '
+                          'without spin–orbit coupling. Orbital '
+                          'magnetic moments may not be accurate.')
+        return state.density.calculate_orbital_magnetic_moments()
 
     def calculate(self, atoms, properties=None, system_changes=None):
         if properties is None:

@@ -18,6 +18,7 @@ from gpaw.response.dyson import HXCKernel
 from gpaw.response.pair_functions import read_pair_function
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.kspair
 @pytest.mark.response
 def test_response_silicon_chi_RPA(in_tmp_dir):

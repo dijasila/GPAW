@@ -26,6 +26,9 @@ from importlib.machinery import PathFinder, ModuleSpec
 
 import _gpaw
 
+if getattr(_gpaw, 'version', 0) != 5:
+    raise ImportError('Please recompile GPAW''s C-extensions!')
+
 
 if hasattr(_gpaw, 'Communicator'):
     if '_gpaw' not in sys.builtin_module_names:
