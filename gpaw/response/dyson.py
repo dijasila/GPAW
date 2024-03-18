@@ -33,13 +33,11 @@ class HXCKernel:
     """Hartree-exchange-correlation kernel in a plane-wave basis."""
 
     def __init__(self,
-                 Vbare_G: Array1D | None,
-                 fxc_kernel: FXCKernel | None,
-                 scaling: HXCScaling | None = None):
+                 Vbare_G: Array1D | None = None,
+                 fxc_kernel: FXCKernel | None = None):
         """Construct the Hxc kernel."""
         self.Vbare_G = Vbare_G
         self.fxc_kernel = fxc_kernel
-        self.scaling = scaling
 
         if Vbare_G is None:
             assert fxc_kernel is not None
@@ -53,18 +51,11 @@ class HXCKernel:
         """Hartree-exchange-correlation kernel."""
         # Allocate array
         Khxc_GG = np.zeros((self.nG, self.nG), dtype=complex)
-
         if self.Vbare_G is not None:  # Add the Hartree kernel
             Khxc_GG.flat[::self.nG + 1] += self.Vbare_G
-
         if self.fxc_kernel is not None:  # Add the xc kernel
             # Unfold the fxc kernel into the Kxc kernel matrix
             Khxc_GG += self.fxc_kernel.get_Kxc_GG()
-
-        # Apply kernel scaling, if such a scaling parameter exists
-        if self.scaling is not None and self.scaling.lambd is not None:
-            Khxc_GG *= self.scaling.lambd
-
         return Khxc_GG
 
 
@@ -74,7 +65,8 @@ class DysonSolver:
     def __init__(self, context):
         self.context = context
 
-    def __call__(self, chiks: Chi, hxc_kernel: HXCKernel) -> Chi:
+    def __call__(self, chiks: Chi, hxc_kernel: HXCKernel,
+                 hxc_scaling: HXCScaling | None = None) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed, \
@@ -82,10 +74,10 @@ class DysonSolver:
 
         Khxc_GG = hxc_kernel.get_Khxc_GG()
 
-        # Calculate kernel scaling, if specified
-        hxc_scaling = hxc_kernel.scaling
-        if hxc_scaling is not None and hxc_scaling.lambd is None:
-            hxc_scaling.calculate_scaling(chiks, Khxc_GG, self)
+        # Apply kernel scaling, if specified
+        if hxc_scaling is not None:
+            if hxc_scaling.lambd is None:  # calculate, if it hasn't already
+                hxc_scaling.calculate_scaling(chiks, Khxc_GG, self)
             lambd = hxc_scaling.lambd
             self.context.print(r'Rescaling the xc kernel by a factor of '
                                f'λ={lambd}')

@@ -192,7 +192,7 @@ class AdiabaticFXCCalculator:
         return Q_dG
 
 
-def create_add_fxc(fxc, spincomponent):
+def create_add_fxc(fxc: str, spincomponent: str):
     """Create an add_fxc function according to the requested functional and
     spin component."""
     assert fxc in ['ALDA_x', 'ALDA_X', 'ALDA']

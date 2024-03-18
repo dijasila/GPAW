@@ -11,7 +11,7 @@ from gpaw.response.pair_functions import (SingleQPWDescriptor, Chi,
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.coulomb_kernels import get_coulomb_kernel
 from gpaw.response.fxc_kernels import FXCKernel, AdiabaticFXCCalculator
-from gpaw.response.dyson import DysonSolver, HXCKernel
+from gpaw.response.dyson import DysonSolver, HXCKernel, HXCScaling
 
 
 class ChiFactory:
@@ -40,7 +40,8 @@ class ChiFactory:
         self.fxc_kernel_cache: dict[str, FXCKernel] = {}
 
     def __call__(self, spincomponent, q_c, complex_frequencies,
-                 fxc=None, hxc_scaling=None, txt=None) -> tuple[Chi, Chi]:
+                 fxc: str | None = None, hxc_scaling: HXCScaling | None = None,
+                 txt=None) -> tuple[Chi, Chi]:
         r"""Calculate a given element (spincomponent) of the four-component
         Kohn-Sham susceptibility tensor and construct a corresponding many-body
         susceptibility object within a given approximation to the
@@ -56,19 +57,16 @@ class ChiFactory:
         complex_frequencies : np.array or ComplexFrequencyDescriptor
             Array of complex frequencies to evaluate the response function at
             or a descriptor of those frequencies.
-        fxc : str (None defaults to ALDA)
-            Approximation to the (local) xc kernel.
-            Choices: RPA, ALDA, ALDA_X, ALDA_x
-        hxc_scaling : None or HXCScaling
+        fxc : str or None
+            Approximation to the (local) xc kernel. If left as None, xc-effects
+            are neglected from the Dyson equation (RPA).
+            Other choices: ALDA, ALDA_X, ALDA_x
+        hxc_scaling : HXCScaling (or None, if irrelevant)
             Supply an HXCScaling object to scale the hxc kernel.
         txt : str
             Save output of the calculation of this specific component into
             a file with the filename of the given input.
         """
-        # Fall back to ALDA per default
-        if fxc is None:
-            fxc = 'ALDA'
-
         # Initiate new output file, if supplied
         if txt is not None:
             self.context.new_txt_and_timer(txt)
@@ -81,16 +79,18 @@ class ChiFactory:
 
         # Calculate chiks
         chiks = self.calculate_chiks(spincomponent, q_c, complex_frequencies)
-
         # Construct the hxc kernel
-        hartree_kernel = self.get_hartree_kernel(spincomponent, chiks.qpd)
-        xc_kernel = self.get_xc_kernel(fxc, spincomponent, chiks.qpd)
-        hxc_kernel = HXCKernel(hartree_kernel, xc_kernel, scaling=hxc_scaling)
-
+        hxc_kernel = self.get_hxc_kernel(fxc, spincomponent, chiks.qpd)
         # Solve dyson equation
-        chi = self.dyson_solver(chiks, hxc_kernel)
+        chi = self.dyson_solver(chiks, hxc_kernel, hxc_scaling=hxc_scaling)
 
         return chiks, chi
+
+    def get_hxc_kernel(self, fxc: str | None, spincomponent: str,
+                       qpd: SingleQPWDescriptor) -> HXCKernel:
+        return HXCKernel(
+            Vbare_G=self.get_hartree_kernel(spincomponent, qpd),
+            fxc_kernel=self.get_xc_kernel(fxc, spincomponent, qpd))
 
     def get_hartree_kernel(self, spincomponent, qpd):
         if spincomponent in ['+-', '-+']:
@@ -100,12 +100,9 @@ class ChiFactory:
             return get_coulomb_kernel(qpd, self.gs.kd.N_c,
                                       pbc_c=self.gs.atoms.get_pbc())
 
-    def get_xc_kernel(self,
-                      fxc: str,
-                      spincomponent: str,
-                      qpd: SingleQPWDescriptor):
+    def get_xc_kernel(self, fxc, spincomponent, qpd):
         """Get the requested xc-kernel object."""
-        if fxc == 'RPA':
+        if fxc is None:
             # No xc-kernel
             return None
 
