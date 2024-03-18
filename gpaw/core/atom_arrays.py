@@ -189,9 +189,7 @@ class AtomArrays:
         self.dims = dims if isinstance(dims, tuple) else (dims,)
 
         if self.dims:
-            mydims0 = (self.dims[0] + comm.size - 1) // comm.size
-            d1 = min(comm.rank * mydims0, self.dims[0])
-            d2 = min((comm.rank + 1) * mydims0, self.dims[0])
+            d1, d2 = self.my_slice()
             mydims0 = d2 - d1
             self.mydims = (mydims0,) + self.dims[1:]
         else:
@@ -218,6 +216,12 @@ class AtomArrays:
             self._arrays[a] = self.data[..., I1:I2].reshape(
                 self.mydims + layout.shape_a[a])
         self.natoms: int = len(layout.shape_a)
+
+    def my_slice(self) -> tuple[int, int]:
+        mydims0 = (self.dims[0] + self.comm.size - 1) // self.comm.size
+        d1 = min(self.comm.rank * mydims0, self.dims[0])
+        d2 = min((self.comm.rank + 1) * mydims0, self.dims[0])
+        return d1, d2
 
     def __repr__(self):
         txt = f'AtomArrays({self.layout}, dims={self.dims}'
@@ -352,6 +356,7 @@ class AtomArrays:
 
     def scatter_from(self,
                      data: np.ndarray | AtomArrays | None = None) -> None:
+        """Scatter atoms."""
         if isinstance(data, AtomArrays):
             data = data.data
         comm = self.layout.atomdist.comm
