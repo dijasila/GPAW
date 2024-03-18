@@ -607,7 +607,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             # GLLB_ from front of string:
             if name == 'GLLB_w_j':
                 v1, v2 = (int(x) for x in self.setup.version.split('.'))
-                if 0:#(v1, v2) < (0, 8):
+                if (v1, v2) < (0, 8):
                     # ...
                     w_j = {}
                     j_old = 0
