@@ -82,52 +82,52 @@ class AFMGoldstoneScaling(GoldstoneScaling):
 def find_fm_goldstone_scaling(dyson_equation):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic inverse enhancement function has a root in (q=0, omega=0)."""
-    fxcs = 1.
-    kappaM = calculate_macroscopic_kappa(fxcs, dyson_equation)
+    lambd = 1.
+    kappaM = calculate_macroscopic_kappa(lambd, dyson_equation)
     # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
     scaling_incr = 0.1 * np.sign(kappaM)
     while abs(kappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
-        fxcs += scaling_incr
-        if fxcs <= 0.0 or fxcs >= 10.:
-            raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+        lambd += scaling_incr
+        if lambd <= 0.0 or lambd >= 10.:
+            raise Exception('Found an invalid fxc_scaling of %.4f' % lambd)
 
-        kappaM = calculate_macroscopic_kappa(fxcs, dyson_equation)
+        kappaM = calculate_macroscopic_kappa(lambd, dyson_equation)
 
         # If kappaM changes sign, change sign and refine increment
         if np.sign(kappaM) != np.sign(scaling_incr):
             scaling_incr *= -0.2
 
-    return fxcs
+    return lambd
 
 
 def find_afm_goldstone_scaling(dyson_equation):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic magnon spectrum vanishes at q=0. for finite frequencies."""
-    fxcs = 1.
-    SM = calculate_macroscopic_spectrum(fxcs, dyson_equation)
+    lambd = 1.
+    SM = calculate_macroscopic_spectrum(lambd, dyson_equation)
     # If SM > 0., increase the scaling. If SM < 0., decrease the scaling.
     scaling_incr = 0.1 * np.sign(SM)
     while (SM < 0. or SM > 1.e-7) or abs(scaling_incr) > 1.e-7:
-        fxcs += scaling_incr
-        if fxcs <= 0. or fxcs >= 10.:
-            raise Exception('Found an invalid fxc_scaling of %.4f' % fxcs)
+        lambd += scaling_incr
+        if lambd <= 0. or lambd >= 10.:
+            raise Exception('Found an invalid fxc_scaling of %.4f' % lambd)
 
-        SM = calculate_macroscopic_spectrum(fxcs, dyson_equation)
+        SM = calculate_macroscopic_spectrum(lambd, dyson_equation)
 
         # If chi changes sign, change sign and refine increment
         if np.sign(SM) != np.sign(scaling_incr):
             scaling_incr *= -0.2
 
-    return fxcs
+    return lambd
 
 
-def calculate_macroscopic_kappa(fxcs, dyson_equation):
+def calculate_macroscopic_kappa(lambd, dyson_equation):
     """Invert dyson equation and calculate the inverse enhancement function."""
-    chi_GG = dyson_equation.invert(lambd=fxcs)
+    chi_GG = dyson_equation.invert(lambd=lambd)
     return (dyson_equation.chiks_GG[0, 0] / chi_GG[0, 0]).real
 
 
-def calculate_macroscopic_spectrum(fxcs, dyson_equation):
+def calculate_macroscopic_spectrum(lambd, dyson_equation):
     """Invert dyson equation and extract the macroscopic spectrum."""
-    chi_GG = dyson_equation.invert(lambd=fxcs)
+    chi_GG = dyson_equation.invert(lambd=lambd)
     return - chi_GG[0, 0].imag / np.pi
