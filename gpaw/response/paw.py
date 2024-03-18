@@ -44,23 +44,17 @@ class LeanPAWDataset:
         # Grid cutoff to create spline representation
         self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
-        # Set up kspline cache
-        self.current_j1j2 = None
-        self.current_dn_g = None
+        # Set up cache
+        self.dn_g_cache = {}
         self.dn_kspline_cache = {}
 
-    @staticmethod
-    def get_key(*args: int):
-        return '-'.join([str(arg) for arg in args])
-
-    def dn_kspline(self, j1, j2, l):
+    def dn_kspline(self, j1: int, j2: int, l: int):
         """Get spline representation of Δn_jj'l(k)."""
-        key = self.get_key(j1, j2, l)
-        if key not in self.dn_kspline_cache:
+        if (j1, j2, l) not in self.dn_kspline_cache:
             dn_g = self.get_pair_density_correction(j1, j2)
-            self.dn_kspline_cache[key] = \
+            self.dn_kspline_cache[j1, j2, l] = \
                 self.rescaled_fourier_bessel_transform(dn_g, l)
-        return self.dn_kspline_cache[key]
+        return self.dn_kspline_cache[j1, j2, l]
 
     def rescaled_fourier_bessel_transform(self, f_g, l):
         """Calculate the rescaled Fourier Bessel transform f_l(k)
@@ -86,13 +80,13 @@ class LeanPAWDataset:
         # in an "unprotected" mode), simply return the bare `kspline` here.
         return SelfTestingKSpline(self.rgd, f_g, kspline)
 
-    def get_pair_density_correction(self, j1, j2):
+    def get_pair_density_correction(self, j1: int, j2: int):
         """Get Δn_jj'(r), while keeping the newest correction cached."""
-        key = self.get_key(j1, j2)
-        if self.current_j1j2 is None or key != self.current_j1j2:
-            self.current_j1j2 = key
-            self.current_dn_g = self.calculate_pair_density_correction(j1, j2)
-        return self.current_dn_g
+        if (j1, j2) not in self.dn_g_cache:
+            self.dn_g_cache = {}  # keep only one density in cache
+            self.dn_g_cache[j1, j2] = self.calculate_pair_density_correction(
+                j1, j2)
+        return self.dn_g_cache[j1, j2]
 
     def calculate_pair_density_correction(self, j1, j2):
         """Calculate the pair density PAW correction for two partial waves.
