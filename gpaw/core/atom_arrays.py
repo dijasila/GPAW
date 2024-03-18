@@ -161,7 +161,7 @@ class AtomDistribution:
 class AtomArrays:
     def __init__(self,
                  layout: AtomArraysLayout,
-                 dims: int | tuple[int, ...] = (),
+                 dims: int | Sequence[int] = (),
                  comm: MPIComm = serial_comm,
                  data: np.ndarray | None = None):
         """AtomArrays object.

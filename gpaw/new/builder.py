@@ -287,19 +287,20 @@ class DFTComponentsBuilder:
                                       atomdist=self.atomdist,
                                       dtype=self.dtype)
             if self.ncomponents < 4:
-                dims = (self.nbands,)
-                index = (wfs.spin, wfs.k)
+                dims = [self.nbands]
+                index = [wfs.spin, wfs.k]
             else:
-                dims = (self.nbands, 2)
-                index = (wfs.spin, wfs.k)
+                dims = [self.nbands, 2]
+                index = [wfs.k]
 
             P_ani = AtomArrays(layout, dims=dims, comm=band_comm)
-            b1, b2 = P_ani.my_slice()
-            index += (slice(b1, b2),)  # my bands
 
             data = None
             if P_sknI is not None:
-                data = P_sknI[index].astype(ibzwfs.dtype)
+                P_nI = P_sknI.proxy(*index)
+                b1, b2 = P_ani.my_slice()  # my bands
+                data = P_nI[slice(b1, b2)].astype(ibzwfs.dtype)
+
             P_ani.scatter_from(data)  # distribute over atoms
             wfs._P_ani = P_ani
 
