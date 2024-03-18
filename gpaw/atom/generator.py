@@ -676,7 +676,7 @@ class Generator(AllElectron):
         self.vu_j = vu_j = []
         self.vs_j = vs_j = []
         self.vq_j = vq_j = []
-        gllb = 'w_ln' in extra_xc_data
+        gllb = self.xc.type == 'GLLB'
         self.vw_j = vw_j = []
         j_ln = [[0 for f in f_n] for f_n in f_ln]
         j = 0
@@ -690,7 +690,8 @@ class Generator(AllElectron):
                     vu_j.append(u_ln[l][n])
                     vs_j.append(s_ln[l][n])
                     vq_j.append(q_ln[l][n])
-                    gllb and vw_j.append(extra_xc_data['w_ln'][l][n])
+                    if gllb:
+                        vw_j.append(extra_xc_data['w_ln'][l][n])
                     j_ln[l][n] = j
                     j += 1
         for l, n_n in enumerate(n_ln):
@@ -703,7 +704,8 @@ class Generator(AllElectron):
                     vu_j.append(u_ln[l][n])
                     vs_j.append(s_ln[l][n])
                     vq_j.append(q_ln[l][n])
-                    gllb and vw_j.append(extra_xc_data['w_ln'][l][n])
+                    if gllb:
+                        vw_j.append(extra_xc_data['w_ln'][l][n])
                     j_ln[l][n] = j
                     j += 1
         nj = j
@@ -811,7 +813,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata = data
         setup.orbital_free = self.orbital_free
-        setup.version = '0.6'
+        setup.version = '0.8'
 
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
