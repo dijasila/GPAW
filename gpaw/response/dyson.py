@@ -175,6 +175,5 @@ class DysonEquation:
         """
         if lambd is None:
             lambd = 1.  # no rescaling
-        enhancement_GG = np.linalg.inv(
-            np.eye(self.nG) - lambd * self.xi_GG)
+        enhancement_GG = np.linalg.inv(np.eye(self.nG) - lambd * self.xi_GG)
         return enhancement_GG @ self.chiks_GG
