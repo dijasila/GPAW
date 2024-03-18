@@ -19,7 +19,7 @@ class GoldstoneScaling(HXCScaling):
         wblocks = dyson_equations.zblocks
         rgs, mywgs = wblocks.find_global_index(wgs)
 
-        # Let rgs find and broadcast λ
+        # Let the rank which holds the Goldstone frequency find and broadcast λ
         lambdbuf = np.empty(1, dtype=float)
         if wblocks.blockcomm.rank == rgs:
             lambdbuf[:] = self.find_goldstone_scaling(dyson_equations[mywgs])
