@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 import numpy as np
@@ -8,22 +9,24 @@ from gpaw.typing import Array1D
 from gpaw.response import timer
 from gpaw.response.pair_functions import Chi
 from gpaw.response.fxc_kernels import FXCKernel
-from gpaw.response.goldstone import get_goldstone_scaling
 
 
-class HXCScaling:
+class HXCScaling(ABC):
     """Helper for scaling the hxc contribution to Dyson equations."""
 
-    def __init__(self, mode, lambd=None):
-        self.mode = mode
+    def __init__(self, lambd=None):
         self._lambd = lambd
 
     @property
     def lambd(self):
         return self._lambd
 
-    def calculate_scaling(self, dyson_equations: DysonEquations):
-        self._lambd = get_goldstone_scaling(self.mode, dyson_equations)
+    def calculate_scaling(self, dyson_equations):
+        self._lambd = self._calculate_scaling(dyson_equations)
+
+    @abstractmethod
+    def _calculate_scaling(self, dyson_equations: DysonEquations) -> float:
+        """Calculate hxc scaling coefficient."""
 
 
 class HXCKernel:
