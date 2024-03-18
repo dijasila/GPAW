@@ -56,6 +56,25 @@ class LeanPAWDataset:
                 self.rescaled_fourier_bessel_transform(dn_g, l)
         return self.dn_kspline_cache[j1, j2, l]
 
+    def get_pair_density_correction(self, j1: int, j2: int):
+        """Get Δn_jj'(r), while keeping the newest correction cached."""
+        if (j1, j2) not in self.dn_g_cache:
+            self.dn_g_cache = {}  # keep only one density in cache
+            self.dn_g_cache[j1, j2] = self.calculate_pair_density_correction(
+                j1, j2)
+        return self.dn_g_cache[j1, j2]
+
+    def calculate_pair_density_correction(self, j1, j2):
+        """Calculate the pair density PAW correction for two partial waves.
+                               ˷     ˷
+        Δn (r) = φ (r) φ (r) - φ (r) φ (r)
+          jj'     j     j'      j     j'
+        """
+        # (Real) radial functions for the partial waves
+        phi_jg = self.phi_jg
+        phit_jg = self.phit_jg
+        return phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
+
     def rescaled_fourier_bessel_transform(self, f_g, l):
         """Calculate the rescaled Fourier Bessel transform f_l(k)
 
@@ -79,25 +98,6 @@ class LeanPAWDataset:
         # calculations without dynamic testing of the FFBT methodology (i.e.
         # in an "unprotected" mode), simply return the bare `kspline` here.
         return SelfTestingKSpline(self.rgd, f_g, kspline)
-
-    def get_pair_density_correction(self, j1: int, j2: int):
-        """Get Δn_jj'(r), while keeping the newest correction cached."""
-        if (j1, j2) not in self.dn_g_cache:
-            self.dn_g_cache = {}  # keep only one density in cache
-            self.dn_g_cache[j1, j2] = self.calculate_pair_density_correction(
-                j1, j2)
-        return self.dn_g_cache[j1, j2]
-
-    def calculate_pair_density_correction(self, j1, j2):
-        """Calculate the pair density PAW correction for two partial waves.
-                               ˷     ˷
-        Δn (r) = φ (r) φ (r) - φ (r) φ (r)
-          jj'     j     j'      j     j'
-        """
-        # (Real) radial functions for the partial waves
-        phi_jg = self.phi_jg
-        phit_jg = self.phit_jg
-        return phi_jg[j1] * phi_jg[j2] - phit_jg[j1] * phit_jg[j2]
 
 
 class SelfTestingKSpline(Spline):
