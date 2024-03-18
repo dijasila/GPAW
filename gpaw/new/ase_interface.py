@@ -459,7 +459,7 @@ class ASECalculator:
 
     def get_orbital_magnetic_moments(self):
         """Return the orbital magnetic moment vector for each atom."""
-        state = self.calculation.state
+        state = self.dft.state
         if state.density.collinear:
             raise CalculationModeError(
                 'Calculator is in collinear mode. '
