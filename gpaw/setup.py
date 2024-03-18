@@ -241,7 +241,6 @@ class BaseSetup:
             for bf in self.basis.bf_j:
                 l = bf.l
                 n = bf.n
-                print(n,l)
                 if (n, l) == (self.n_j[j], self.l_j[j]):
                     break
                 I += 2 * l + 1
