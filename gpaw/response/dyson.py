@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from gpaw.typing import Array1D
@@ -10,7 +12,7 @@ from gpaw.response.goldstone import get_goldstone_scaling
 
 
 class HXCScaling:
-    """Helper for scaling hxc kernels."""
+    """Helper for scaling the hxc contribution to Dyson equations."""
 
     def __init__(self, mode, lambd=None):
         self.mode = mode
@@ -20,13 +22,8 @@ class HXCScaling:
     def lambd(self):
         return self._lambd
 
-    def calculate_scaling(self, chiks, Khxc_GG, dyson_solver):
-        if chiks.spincomponent in ['+-', '-+']:
-            self._lambd = get_goldstone_scaling(
-                self.mode, chiks, Khxc_GG, dyson_solver)
-        else:
-            raise ValueError('No scaling method implemented for '
-                             f'spincomponent={chiks.spincomponent}')
+    def calculate_scaling(self, dyson_equations: DysonEquations):
+        self._lambd = get_goldstone_scaling(self.mode, dyson_equations)
 
 
 class HXCKernel:
@@ -60,60 +57,93 @@ class HXCKernel:
 
 
 class DysonSolver:
-    """Class for invertion of Dyson-like equations."""
+    """Class for inversion of Dyson-like equations."""
 
     def __init__(self, context):
         self.context = context
 
+    @timer('Invert Dyson-like equations')
     def __call__(self, chiks: Chi, hxc_kernel: HXCKernel,
                  hxc_scaling: HXCScaling | None = None) -> Chi:
         """Solve the dyson equation and return the many-body susceptibility."""
+        dyson_equations = DysonEquations(chiks, hxc_kernel)
+        if hxc_scaling:
+            if not hxc_scaling.lambd:  # calculate, if it hasn't been already
+                hxc_scaling.calculate_scaling(dyson_equations)
+            lambd = hxc_scaling.lambd
+            self.context.print(r'Rescaling the self-enhancement function by a '
+                               f'factor of λ={lambd}')
+        self.context.print('Inverting Dyson-like equations')
+        return dyson_equations.invert(hxc_scaling=hxc_scaling)
+
+
+class DysonEquations(Sequence):
+    """Sequence of Dyson-like equations at different complex frequencies z."""
+
+    def __init__(self, chiks: Chi, hxc_kernel: HXCKernel):
         assert chiks.distribution == 'zGG' and\
             chiks.blockdist.fully_block_distributed, \
-            "DysonSolver needs chiks' frequencies to be distributed over world"
+            "chiks' frequencies need to be fully distributed over world"
+        nG = hxc_kernel.nG
+        assert chiks.array.shape[1:] == (nG, nG)
+        self.chiks = chiks
+        self.Khxc_GG = hxc_kernel.get_Khxc_GG()
+        # Inherit basic descriptors from chiks
+        self.qpd = chiks.qpd
+        self.zd = chiks.zd
+        self.zblocks = chiks.blocks1d
+        self.spincomponent = chiks.spincomponent
 
-        Khxc_GG = hxc_kernel.get_Khxc_GG()
+    def __len__(self):
+        return self.zblocks.nlocal
 
-        # Apply kernel scaling, if specified
-        if hxc_scaling is not None:
-            if hxc_scaling.lambd is None:  # calculate, if it hasn't already
-                hxc_scaling.calculate_scaling(chiks, Khxc_GG, self)
-            lambd = hxc_scaling.lambd
-            self.context.print(r'Rescaling the xc kernel by a factor of '
-                               f'λ={lambd}')
-            Khxc_GG *= lambd
+    def __getitem__(self, z):
+        return DysonEquation(self.chiks.array[z], self.Khxc_GG)
 
-        chi = chiks.new()
-        chi.array = self.invert_dyson(chiks.array, Khxc_GG)
-
+    def invert(self, hxc_scaling: HXCScaling | None = None) -> Chi:
+        """Invert Dyson equations to obtain χ(z)."""
+        # Scaling coefficient of the self-enhancement function
+        lambd = hxc_scaling.lambd if hxc_scaling else None
+        chi = self.chiks.new()
+        for z, dyson_equation in enumerate(self):
+            chi.array[z] = dyson_equation.invert(lambd=lambd)
         return chi
 
-    @timer('Invert Dyson-like equation')
-    def invert_dyson(self, chiks_zGG, Khxc_GG):
-        """Invert the frequency dependent Dyson equation in plane wave basis:
 
-        chi_zGG' = chiks_zGG' + chiks_zGG1 Khxc_G1G2 chi_zG2G'
+class DysonEquation:
+    """Dyson equation at wave vector q and frequency z.
+
+    The Dyson equation is given in plane-wave components as
+
+    χ(q,z) = χ_KS(q,z) + Ξ(q,z) χ(q,z),
+
+    where the self-enhancement function encodes the electron correlations
+    induced by by the effective (Hartree-exchange-correlation) interaction:
+
+    Ξ(q,z) = χ_KS(q,z) K_hxc(q,z)
+
+    See [to be published] for more information.
+    """
+
+    def __init__(self, chiks_GG, Khxc_GG):
+        self.nG = chiks_GG.shape[0]
+        self.chiks_GG = chiks_GG
+        self.Khxc_GG = Khxc_GG
+
+    def get_xi_GG(self):
+        """Calculate the self-enhancement function."""
+        return self.chiks_GG @ self.Khxc_GG
+
+    def invert(self, lambd: float | None = None):
+        """Invert the Dyson equation (with or without a rescaling of Ξ).
+
+        χ(q,z) = [1 - λ Ξ(q,z)]^(-1) χ_KS(q,z)
         """
-        self.context.print('Inverting Dyson-like equation')
-        chi_zGG = np.empty_like(chiks_zGG)
-        for z, chiks_GG in enumerate(chiks_zGG):
-            chi_GG = self.invert_dyson_single_frequency(chiks_GG, Khxc_GG)
-
-            chi_zGG[z] = chi_GG
-
-        return chi_zGG
-
-    @staticmethod
-    def invert_dyson_single_frequency(chiks_GG, Khxc_GG):
-        """Invert the single frequency Dyson equation in plane wave basis:
-
-        chi_GG' = chiks_GG' + chiks_GG1 Khxc_G1G2 chi_G2G'
-        """
-        enhancement_GG = np.linalg.inv(np.eye(len(chiks_GG)) -
-                                       np.dot(chiks_GG, Khxc_GG))
-        chi_GG = enhancement_GG @ chiks_GG
-
-        return chi_GG
+        if lambd is None:
+            lambd = 1.  # no rescaling
+        xi_GG = self.get_xi_GG()
+        enhancement_GG = np.linalg.inv(np.eye(self.nG) - lambd * xi_GG)
+        return enhancement_GG @ self.chiks_GG
 
 
 class DysonEnhancer:
