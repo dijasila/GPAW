@@ -224,7 +224,7 @@ class ASECalculator:
     def move_atoms(self, atoms):
         with self.timer('Move'):
             self._dft = self.dft.move_atoms(atoms)
-        self.atoms = atoms.copy()
+        self._atoms = atoms.copy()
 
     def converge(self):
         """Iterate to self-consistent solution.

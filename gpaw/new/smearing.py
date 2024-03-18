@@ -49,10 +49,10 @@ class OccupationNumberCalculator:
         return str(self.occ)
 
     def _set_nbands(self, nbands):
-        parallel_layout = self.occ.parallel_layout
-        parallel_layout.bd = BandDescriptor(nbands)
+        bd, kpt_comm, domain_comm = self.occ.parallel_layout
         self.occ = self.occ.copy(
-            parallel_layout=parallel_layout)
+            parallel_layout=ParallelLayout(BandDescriptor(nbands),
+                                           kpt_comm, domain_comm))
 
     def calculate(self,
                   nelectrons: float,
