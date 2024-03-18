@@ -475,6 +475,7 @@ class DielectricFunctionCalculator:
         return self._new_dielectric_matrix(*args, **kwargs).unpack()
 
     def get_dielectric_function(self, *args, **kwargs):
+        """..."""
         return self._new_dielectric_function(*args, **kwargs).unpack()
 
     def get_macroscopic_dielectric_constant(self, xc='RPA',
@@ -513,6 +514,7 @@ class DielectricFunctionCalculator:
         return eels
 
     def get_eels_spectrum(self, *args, **kwargs):
+        """..."""
         return self._new_eels_spectrum(*args, **kwargs).unpack()
 
     def _new_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
