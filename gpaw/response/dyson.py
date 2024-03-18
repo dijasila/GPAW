@@ -133,8 +133,7 @@ class DysonEquation:
         self.chiks_GG = chiks_GG
         self.Khxc_GG = Khxc_GG
 
-    @property
-    def xi_GG(self):
+    def get_xi_GG(self):
         """Calculate the self-enhancement function."""
         return self.chiks_GG @ self.Khxc_GG
 
@@ -145,8 +144,8 @@ class DysonEquation:
         """
         if lambd is None:
             lambd = 1.  # no rescaling
-        enhancement_GG = np.linalg.inv(
-            np.eye(self.nG) - lambd * self.xi_GG)
+        xi_GG = self.get_xi_GG()
+        enhancement_GG = np.linalg.inv(np.eye(self.nG) - lambd * xi_GG)
         return enhancement_GG @ self.chiks_GG
 
 
