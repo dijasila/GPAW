@@ -15,7 +15,6 @@ from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.hilbert import HilbertTransform
 from gpaw.response import timer
-from gpaw.response.pair import KPointPairFactory
 from gpaw.response.pw_parallelization import PlaneWaveBlockDistributor
 from gpaw.typing import Array1D
 from gpaw.utilities.memory import maxrss
@@ -51,27 +50,22 @@ def find_maximum_frequency(kpt_u: list,
 
 
 class Chi0Calculator:
-    def __init__(self, kptpair_factory: KPointPairFactory,
-                 context: ResponseContext | None = None,
+    def __init__(self,
+                 gs: ResponseGroundStateAdapter,
+                 context: ResponseContext,
+                 nblocks=1,
                  eshift=0.0,
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        self.kptpair_factory = kptpair_factory
-
-        # gs: ResponseGroundStateAdapter from gpaw.response.groundstate
-        self.gs = kptpair_factory.gs
-
-        # context: ResponseContext from gpaw.response.context
-        if context is None:
-            context = kptpair_factory.context
+        self.gs = gs
         self.context = context
 
         self.chi0_body_calc = Chi0BodyCalculator(
-            kptpair_factory, context=context,
-            eshift=eshift, **kwargs)
+            self.gs, self.context,
+            nblocks=nblocks, eshift=eshift, **kwargs)
         self.chi0_opt_ext_calc = Chi0OpticalExtensionCalculator(
-            kptpair_factory, context=context,
+            self.gs, self.context,
             intraband=intraband, rate=rate, **kwargs)
 
     @property
@@ -323,7 +317,8 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                  intraband=True,
                  rate=0.0,
                  **kwargs):
-        super().__init__(*args, **kwargs)
+        # Serial block distribution
+        super().__init__(*args, nblocks=1, **kwargs)
 
         # In the optical limit of metals, one must add the Drude dielectric
         # response from the free-space plasma frequency of the intraband
@@ -335,21 +330,13 @@ class Chi0OpticalExtensionCalculator(Chi0ComponentPWCalculator):
                 rate = self.eta * Ha  # external units
             self.rate = rate
             self.drude_calc = Chi0DrudeCalculator(
-                self.kptpair_factory,
+                self.gs, self.context,
                 disable_point_group=self.disable_point_group,
                 disable_time_reversal=self.disable_time_reversal,
                 integrationmode=self.integrationmode)
         else:
             self.drude_calc = None
             self.rate = None
-
-    @property
-    def nblocks(self) -> int:
-        # The optical extensions are not distributed in memory, hence we
-        # overwrite nblocks.
-        # NB: There can be a mismatch with self.kptpair_factory.nblocks, which
-        # seems a bit dangerous XXX
-        return 1
 
     def calculate(self,
                   qpd: SingleQPWDescriptor | None = None
@@ -546,10 +533,9 @@ class Chi0(Chi0Calculator):
             domega0=domega0,
             omega2=omega2, omegamax=omegamax)
 
-        kptpair_factory = KPointPairFactory(gs, context, nblocks=nblocks)
-
-        super().__init__(wd=wd, kptpair_factory=kptpair_factory,
-                         nbands=nbands, ecut=ecut, **kwargs)
+        super().__init__(
+            gs, context, nblocks=nblocks,
+            wd=wd, nbands=nbands, ecut=ecut, **kwargs)
 
 
 def new_frequency_descriptor(gs: ResponseGroundStateAdapter,

@@ -166,11 +166,13 @@ class BZWaveFunctions:
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float,
-                 nl_aj: Dict[int, List[Tuple[int, int]]]):
+                 n_aj: List[List[int]],
+                 l_aj: List[List[int]]):
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
-        self.nl_aj = nl_aj
+        self.n_aj = n_aj
+        self.l_aj = l_aj
 
         self.nbzkpts = kd.nbzkpts
 
@@ -221,7 +223,7 @@ class BZWaveFunctions:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
-            e_band = self.kpt_comm.sum(e_band)
+            e_band = self.kpt_comm.sum_scalar(e_band)
         else:
             e_band = 0.0
 
@@ -268,10 +270,31 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
+    def get_atomic_density_matrices(self):
+        """Returns atomic density matrices for each atom."""
+        from gpaw.new.wave_functions import add_to_4component_density_matrix
+
+        assert self.domain_comm.size == 1
+        assert self.bcomm.size == 1
+
+        D_asii = {}  # Could also be an AtomArrays object?
+        for a, l_j in enumerate(self.l_aj):
+            ni = (2 * np.array(l_j) + 1).sum()
+            D_sii = np.zeros([4, ni, ni], dtype=complex)
+            for wfs, weight in zip(self.wfs.values(), self.weights()):
+                add_to_4component_density_matrix(D_sii, wfs.projections[a],
+                                                 wfs.f_m * weight, np)
+            self.kpt_comm.sum(D_sii)
+            D_asii[a] = D_sii
+
+        return D_asii
+
     def get_orbital_magnetic_moments(self):
-        """Return the orbital magnetic moment vector for each atom."""
-        from gpaw.new.orbmag import get_orbmag_from_soc_eigs
-        return get_orbmag_from_soc_eigs(self)
+        """Returns the orbital magnetic moment vector for each atom a."""
+        D_asii = self.get_atomic_density_matrices()
+
+        from gpaw.new.orbmag import calculate_orbmag_from_density
+        return calculate_orbmag_from_density(D_asii, self.n_aj, self.l_aj)
 
     def pdos_weights(self,
                      a: int,
@@ -533,11 +556,10 @@ def soc_eigenstates(calc: ASECalculator | GPAW | str | Path,
     else:
         occcalc = None
 
-    nl_aj = {}
-    for a, setup in enumerate(calc.wfs.setups):
-        nl_aj[a] = list(zip(setup.n_j, setup.l_j))
+    n_aj = [setup.n_j for setup in calc.wfs.setups]
+    l_aj = [setup.l_j for setup in calc.wfs.setups]
 
-    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, nl_aj)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence, n_aj, l_aj)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:

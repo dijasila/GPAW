@@ -111,7 +111,7 @@ atoms.write('atoms.traj')
 atoms.calc.write_sjm_traces(path='sjm_traces4.4V.out')  # *.out for .gitignore
 atoms.calc.write_sjm_traces(path='sjm_traces4.4V-cube.out',
                             style='cube')  # *.out for .gitignore
-write_potential_and_charge('4.4V')
+write_potential_and_charge(atoms.calc, '4.4V')
 
 # Vary the potential for the traces figure.
 sj = {'target_potential': 4.3,

@@ -259,6 +259,26 @@ def test_dipole_moment_from_density(kind, density, load_ksd,
     assert err < atol
 
 
+@pytest.mark.rttddft
+@only_on_master(world)
+def test_read_ksd(ksd_reference):
+    # Build a KohnShamDecomposition object from the calculator
+    ksd, _ = ksd_reference
+
+    # Now save it and read it without the calculator
+    ksd.write('ksd_save.ulm')
+    world.barrier()
+    ksd_read = KohnShamDecomposition(filename='ksd_save.ulm')
+
+    np.testing.assert_equal(ksd.atoms, ksd_read.atoms)
+
+    for attr in ['S_uMM', 'C0_unM', 'eig_un', 'occ_un', 'C0S_unM']:
+        ref = getattr(ksd, attr)
+        test = getattr(ksd_read, attr)
+
+        np.testing.assert_almost_equal(ref, test)
+
+
 @pytest.fixture(scope='module')
 @only_on_master(world)
 @workdir('spinpol', mkdir=True)
