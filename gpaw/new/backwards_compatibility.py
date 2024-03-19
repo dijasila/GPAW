@@ -112,12 +112,12 @@ class KPT:
             wfs.ncomponents < 4,
             wfs.spin,
             data=wfs.P_ani.data)
-        self.eps_n = wfs.eig_n
+        self.eps_n = wfs.myeig_n
         self.s = wfs.spin if wfs.ncomponents < 4 else None
         self.k = wfs.k
         self.q = wfs.q
         self.weight = wfs.spin_degeneracy * wfs.weight
-        self.f_n = wfs.occ_n * self.weight
+        self.f_n = wfs.myocc_n * self.weight
         self.P_ani = wfs.P_ani
         if isinstance(wfs, PWFDWaveFunctions):
             self.psit_nX = wfs.psit_nX
