@@ -8,7 +8,8 @@ from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator
 from gpaw.response.fxc_kernels import AdiabaticFXCCalculator
-from gpaw.response.dyson import HXCScaling, HXCKernel
+from gpaw.response.dyson import HXCKernel
+from gpaw.response.goldstone import FMGoldstoneScaling
 from gpaw.response.susceptibility import ChiFactory
 from gpaw.response.pair_functions import read_pair_function
 
@@ -47,13 +48,13 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
                                  nblocks=nblocks)
 
     # Calculate the magnetic response with and without a background density
-    hxc_scaling = HXCScaling('fm')
+    hxc_scaling = FMGoldstoneScaling()
     fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         rshelmax=rshelmax,
         rshewmin=rshewmin)
     chi_factory = ChiFactory(chiks_calc, fxc_calculator)
-    bgd_hxc_scaling = HXCScaling('fm')
+    bgd_hxc_scaling = FMGoldstoneScaling()
     bgd_fxc_calculator = AdiabaticFXCCalculator.from_rshe_parameters(
         gs, chiks_calc.context,
         bg_density=bg_density,
@@ -84,9 +85,10 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         chi.write_macroscopic_component(filestr + '_q%d.csv' % q)
         if q == 0:
             # Calculate kernel with background charge
-            bgd_fxc_kernel = bgd_fxc_calculator(fxc, '+-', chiks.qpd)
-            bgd_hxc_kernel = HXCKernel(None, bgd_fxc_kernel, bgd_hxc_scaling)
-        bgd_chi = chi_factory.dyson_solver(chiks, bgd_hxc_kernel)
+            bgd_hxc_kernel = HXCKernel(
+                fxc_kernel=bgd_fxc_calculator(fxc, '+-', chiks.qpd))
+        bgd_chi = chi_factory.dyson_solver(
+            chiks, bgd_hxc_kernel, bgd_hxc_scaling)
         bgd_chi.write_macroscopic_component(bgd_filestr + '_q%d.csv' % q)
 
     context.write_timer()
