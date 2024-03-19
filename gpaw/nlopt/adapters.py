@@ -31,10 +31,10 @@ class GSInfo:
         assert calc.params.mode['name'] == 'pw', \
             'Calculator must be in plane wave mode.'
 
-        calculation = calc.calculation
-        self.nabla_aiiv = [setup.nabla_iiv for setup in calculation.setups]
+        dft = calc.dft
+        self.nabla_aiiv = [setup.nabla_iiv for setup in dft.setups]
 
-        state = calculation.state
+        state = dft.state
         ibzwfs = state.ibzwfs
         self.ibzwfs = ibzwfs
         if not ibzwfs.comm.size == 1:
