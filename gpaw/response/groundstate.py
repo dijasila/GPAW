@@ -325,5 +325,14 @@ class ResponsePAWDataset(LeanPAWDataset):
                 B_pqL=setup.xc_correction.B_pqL,
                 e_xc0=setup.xc_correction.e_xc0)
         else:
+            # If there is no `xc_correction` in the setup, we assume to be
+            # using pseudo potentials.
             self.xc_correction = None
+            # In this case, we set l_j to an empty list in order to bypass the
+            # calculation of PAW corrections to pair densities etc.
+            # This is quite an ugly hack...
+            # If we want to support pseudo potential calculations for real, we
+            # should skip the PAW corrections at the matrix element calculator
+            # level, not by an odd hack.
+            self.l_j = np.array([], dtype=float)
         self.hubbard_u = setup.hubbard_u
