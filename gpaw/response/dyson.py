@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 
-from gpaw.typing import Array1D
 from gpaw.response import timer
 from gpaw.response.pair_functions import Chi
-from gpaw.response.fxc_kernels import FXCKernel
 
 
 class HXCScaling(ABC):
@@ -29,33 +28,60 @@ class HXCScaling(ABC):
         """Calculate hxc scaling coefficient."""
 
 
+class PWKernel(ABC):
+    """Hartree, exchange and/correleation kernels in a plane-wave basis."""
+
+    @property
+    def nG(self):
+        return self.get_number_of_plane_waves()
+
+    def add_to(self, x_GG):
+        assert x_GG.shape == (self.nG, self.nG)
+        self._add_to(x_GG)
+
+    @abstractmethod
+    def get_number_of_plane_waves(self):
+        """Return the size of the plane-wave basis."""
+
+    @abstractmethod
+    def _add_to(self, x_GG):
+        """Add plane-wave kernel to an input array."""
+
+
+class NoKernel(PWKernel):
+    """A plane-wave kernel equal to zero."""
+
+    def __init__(self, *, nG):
+        self._nG = nG
+
+    @classmethod
+    def from_qpd(cls, qpd):
+        qG_Gv = qpd.get_reciprocal_vectors(add_q=True)
+        return cls(nG=qG_Gv.shape[0])
+
+    def get_number_of_plane_waves(self):
+        return self._nG
+
+    def _add_to(self, x_GG):
+        pass
+
+
+@dataclass
 class HXCKernel:
     """Hartree-exchange-correlation kernel in a plane-wave basis."""
+    hartree_kernel: PWKernel
+    xc_kernel: PWKernel
 
-    def __init__(self,
-                 Vbare_G: Array1D | None = None,
-                 fxc_kernel: FXCKernel | None = None):
-        """Construct the Hxc kernel."""
-        self.Vbare_G = Vbare_G
-        self.fxc_kernel = fxc_kernel
-
-        if Vbare_G is None:
-            assert fxc_kernel is not None
-            self.nG = fxc_kernel.GG_shape[0]
-        else:
-            self.nG = len(Vbare_G)
-            if fxc_kernel is not None:
-                assert fxc_kernel.GG_shape[0] == self.nG
+    def __post_init__(self):
+        assert self.hartree_kernel.nG == self.xc_kernel.nG
+        self.nG = self.hartree_kernel.nG
 
     def get_Khxc_GG(self):
         """Hartree-exchange-correlation kernel."""
         # Allocate array
         Khxc_GG = np.zeros((self.nG, self.nG), dtype=complex)
-        if self.Vbare_G is not None:  # Add the Hartree kernel
-            Khxc_GG.flat[::self.nG + 1] += self.Vbare_G
-        if self.fxc_kernel is not None:  # Add the xc kernel
-            # Unfold the fxc kernel into the Kxc kernel matrix
-            Khxc_GG += self.fxc_kernel.get_Kxc_GG()
+        self.hartree_kernel.add_to(Khxc_GG)
+        self.xc_kernel.add_to(Khxc_GG)
         return Khxc_GG
 
 

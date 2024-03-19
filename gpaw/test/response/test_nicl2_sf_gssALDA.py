@@ -86,7 +86,9 @@ def test_nicl2_magnetic_response(in_tmp_dir, gpw_files):
         if q == 0:
             # Calculate kernel with background charge
             bgd_hxc_kernel = HXCKernel(
-                fxc_kernel=bgd_fxc_calculator(fxc, '+-', chiks.qpd))
+                hartree_kernel=chi_factory.get_hartree_kernel(
+                    '+-', chiks.qpd),
+                xc_kernel=bgd_fxc_calculator(fxc, '+-', chiks.qpd))
         bgd_chi = chi_factory.dyson_solver(
             chiks, bgd_hxc_kernel, bgd_hxc_scaling)
         bgd_chi.write_macroscopic_component(bgd_filestr + '_q%d.csv' % q)
