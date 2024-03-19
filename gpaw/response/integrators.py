@@ -8,7 +8,7 @@ from scipy.linalg.blas import zher
 import _gpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.pw_parallelization import Blocks1D, block_partition
+from gpaw.response.pw_parallelization import Blocks1D
 
 
 class Integrand(ABC):
@@ -33,21 +33,18 @@ def czher(alpha: float, x, A) -> None:
 
 
 class Integrator:
-    def __init__(self, cell_cv, context, *, nblocks):
+    def __init__(self, cell_cv, context, blockcomm, kncomm):
         """Baseclass for Brillouin zone integration and band summation.
 
         Simple class to calculate integrals over Brilloun zones
         and summation of bands.
 
         context: ResponseContext
-        nblocks: block parallelization
         """
-
-        self.context = context
         self.vol = abs(np.linalg.det(cell_cv))
-
-        self.blockcomm, self.kncomm = block_partition(self.context.comm,
-                                                      nblocks)
+        self.context = context
+        self.blockcomm = blockcomm
+        self.kncomm = kncomm
 
     def mydomain(self, domain):
         from gpaw.response.pw_parallelization import Blocks1D

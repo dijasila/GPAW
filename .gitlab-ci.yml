@@ -660,7 +660,8 @@ nightly-mpi-4-new:
     - pytest -n 4 --cache-clear -m generate_gpw_files
     - >
       gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -r s --durations 30 -m "ci and not later"
+      pytest --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
 
 nightly-mpi-2:
   variables:
