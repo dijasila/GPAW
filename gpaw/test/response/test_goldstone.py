@@ -1,9 +1,12 @@
 import pytest
+from functools import partial
+
+import numpy as np
 
 from gpaw.response.goldstone import find_root
 
 
-def parabolic_function(lambd):
+def parabolic_function(lambd: int, *, root: int):
     """Define a parabolic function f(λ) with a root nearby λ=1.
 
     Defining,
@@ -18,24 +21,27 @@ def parabolic_function(lambd):
     the minimum lies at λ = -b/(2a) = 12 and the lower root at
     λ_r = -(b+d)/(2a) = 12 - d/(2a).
 
-    Solving λ_r = 0.8 for c;
+    Solving for c;
 
-    d = ⎷(b²-4ac) = 2a (12 - 0.8) = 5.6
+    d = ⎷(b²-4ac) = 2a (12 - λ_r)
 
-    c = b² - 5.6² = 36 - 31.36 = 4.64
+    c = b² - (12 - λ_r)²/4
     """
+    assert 0.1 < root < 10.
     a = 1 / 4.
     b = -6.
-    c = 4.64
+    c = b**2. - (12. - root)**2. / 4.
     return a * lambd**2. + b * lambd + c
 
 
 @pytest.mark.response
-def test_find_root():
+@pytest.mark.parametrize('target', np.linspace(0.4, 2.5, 51))
+def test_find_root(target):
+    fnct = partial(parabolic_function, root=target)
 
     def is_converged(value):
         return 0. < value < 1e-7
 
-    myroot = find_root(parabolic_function, is_converged)
-    assert myroot == pytest.approx(0.8)
-    assert is_converged(parabolic_function(myroot))
+    root = find_root(fnct, is_converged)
+    assert root == pytest.approx(target)
+    assert is_converged(fnct(root))
