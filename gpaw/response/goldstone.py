@@ -98,15 +98,14 @@ class NewFMGoldstoneScaling(FMGoldstoneScaling):
     def find_goldstone_scaling(self, dyson_equation):
         assert self.m_G is not None, \
             'Please supply spin-polarization to calculate λ'
-        calculate_spectrum = partial(calculate_acoustic_spectrum,
-                                     dyson_equation=dyson_equation,
-                                     m_G=self.m_G)
 
-        def neg_spec(lambd):
-            return - calculate_spectrum(lambd)
+        def acoustic_antispectrum(lambd):
+            """Calculate -a^(+-)(ω=0)."""
+            return - calculate_acoustic_spectrum(
+                lambd, dyson_equation, self.m_G)
 
         # Maximize a^(+-)(ω=0)
-        res = minimize(neg_spec, x0=[1.], bounds=[(0.1, 10.)])
+        res = minimize(acoustic_antispectrum, x0=[1.], bounds=[(0.1, 10.)])
         assert res.success
         return res.x[0]
 
