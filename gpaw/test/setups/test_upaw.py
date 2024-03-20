@@ -3,11 +3,11 @@ from ase.data import atomic_numbers
 
 from gpaw.atom.generator2 import DatasetGenerationError, generate
 
-XC = "PBE"
+XC = 'PBE'
 
 
 def generate_setup(name, proj, x, type, nderiv0):
-    splitname = name.split("_")
+    splitname = name.split('_')
     element = splitname[0]
 
     gen = generate(
@@ -28,19 +28,13 @@ def generate_setup(name, proj, x, type, nderiv0):
         raise DatasetGenerationError
 
 
-setups_data = {
-    "C": (
-        "2s,s,2p,p,d",
-        [1.2, 1.4, 1.1],
-        ("orthonormal", (4, 50, {"inv_gpts": [2, 1.5]}, "nc")),
-        2,
-    )
-}
-
-
 @pytest.mark.serial
-def test_generate_setup():
-    for symb, par in setups_data.items():
-        generate_setup(
-            symb, par[0], par[1], par[2], par[3]
-        )
+@pytest.mark.parametrize(
+    'symb, par',
+    [('C',
+      ('2s,s,2p,p,d',
+       [1.2, 1.4, 1.1],
+       ('orthonormal', (4, 50, {'inv_gpts': [2, 1.5]}, 'nc')),
+       2))])
+def test_generate_setup(symb, par):
+    generate_setup(symb, *par)
