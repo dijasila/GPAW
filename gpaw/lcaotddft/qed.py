@@ -818,3 +818,6 @@ class RRemission(object):
                     + (4. * np.pi * alpha**2 * self.dyadic_st[3 * ii + jj] *
                        self.density.calculate_dipole_moment()[jj]))
         return np.real(electric_rr_field)
+
+    def fieldenergy(self, deltat):
+        return -np.dot(self.selffield(self.deltat), self.dipolexyz)
