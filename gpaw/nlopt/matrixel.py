@@ -106,11 +106,13 @@ def get_mml(gs: CollinearGSInfo | NoncollinearGSInfo,
             p_kvnn = np.empty((nk, 3, nb, nb), complex)
             p_kvnn[k_q] = p_qvnn
             for gather_rank in range(1, kpt_comm.size):
-                nq = np.empty(1, int)
-                kpt_comm.receive(nq, gather_rank)
-                nq = nq[0]
+                _nq = np.empty(1, int)  # We can only communicate numpy arrays
+                kpt_comm.receive(_nq, gather_rank)
+                nq = _nq[0]
+
                 k_q = np.empty(nq, int)
                 kpt_comm.receive(k_q, gather_rank)
+
                 p_qvnn = np.empty((nq, 3, nb, nb), complex)
                 kpt_comm.receive(p_qvnn, gather_rank)
                 p_kvnn[k_q] = p_qvnn
