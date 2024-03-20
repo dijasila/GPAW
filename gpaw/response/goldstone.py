@@ -89,7 +89,7 @@ def find_fm_goldstone_scaling(dyson_equation):
     def is_converged(kappaM):
         return abs(kappaM) < 1e-7
 
-    return minimize_function_of_lambd(fnct, is_converged)
+    return find_root(fnct, is_converged)
 
 
 def find_afm_goldstone_scaling(dyson_equation):
@@ -99,16 +99,17 @@ def find_afm_goldstone_scaling(dyson_equation):
                    dyson_equation=dyson_equation)
 
     def is_converged(SM):
+        # We want the macroscopic spectrum to be strictly positive
         return 0. < SM < 1.e-7
 
-    return minimize_function_of_lambd(fnct, is_converged)
+    return find_root(fnct, is_converged)
 
 
-def minimize_function_of_lambd(fnct, is_converged):
-    """Minimize |f(λ)|, where the scaling parameter λ~1 at the minimum.
+def find_root(fnct, is_converged):
+    """Find the root f(λ)=0, where the scaling parameter λ~1.
 
     |f(λ)| is minimized iteratively, assuming that f(λ) is continuous and
-    monotonically decreasing with λ for λ∊]0, 10[.
+    monotonically decreasing with λ for λ∊]0.1, 10[.
     """
     lambd = 1.  # initial guess for the scaling parameter
     value = fnct(lambd)
@@ -116,7 +117,7 @@ def minimize_function_of_lambd(fnct, is_converged):
     while not is_converged(value) or abs(lambd_incr) > 1.e-7:
         # Update λ
         lambd += lambd_incr
-        if lambd <= 0.0 or lambd >= 10.:
+        if lambd <= 0.1 or lambd >= 10.:
             raise Exception(f'Found an invalid λ-value of {lambd:.4f}')
         # Update value and refine increment, if we have passed f(λ)=0
         value = fnct(lambd)
