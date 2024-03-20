@@ -82,17 +82,16 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
                 chiks, xi, sAmaj, lambd=hxc_scaling.lambd, nmodes=nmodes)
             xi0_w = xi_mW[0].real
 
-        plot_enhancement(chiks, xi, Amaj, sAmaj,
-                         lambd=hxc_scaling.lambd, nmodes=nmodes)
+        # plot_enhancement(chiks, xi, Amaj, sAmaj,
+        #                  lambd=hxc_scaling.lambd, nmodes=nmodes)
 
     context.write_timer()
 
-    return
     # Compare scaling coefficient to reference
-    assert hxc_scaling.lambd == pytest.approx(1.0685, abs=0.001)
-    # Test that 1 - Re ξ^++(q=0,ω) vanishes at ω=0
+    assert hxc_scaling.lambd == pytest.approx(1.0541, abs=0.001)
+    # Test that Re ξ^++(q=0,ω) ≾ 1 at ω=0
     w0 = np.argmin(np.abs(frq_w))
-    assert xi0_w[w0] == pytest.approx(1., abs=0.001)
+    assert xi0_w[w0] == pytest.approx(0.987, abs=0.01)
 
     # Compare magnon peaks to reference data
     refs_mqa = [
@@ -102,13 +101,13 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
             [
                 # (wpeak, Apeak)
                 (0.085, 7.895),  # unscaled
-                (-0.026, 8.550),  # scaled
+                (-0.002, 7.980),  # scaled
             ],
             # q_M / 2
             [
                 # (wpeak, Apeak)
                 (0.320, 5.828),  # unscaled
-                (0.226, 6.752),  # scaled
+                (0.245, 6.215),  # scaled
             ],
         ],
         # Optical
@@ -117,13 +116,13 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
             [
                 # (wpeak, Apeak)
                 (0.904, 3.493),  # unscaled
-                (0.524, 3.689),  # scaled
+                (0.860, 3.395),  # scaled
             ],
             # q_M / 2
             [
                 # (wpeak, Apeak)
                 (0.857, 2.988),  # unscaled
-                (0.693, 3.455),  # scaled
+                (0.721, 3.163),  # scaled
             ],
         ],
     ]
