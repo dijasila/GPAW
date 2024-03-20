@@ -13,7 +13,6 @@ from gpaw.setup import Setups
 from gpaw.utilities.timing import NullTimer
 
 from typing import List, Dict
-from numpy.typing import NDArray
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -193,8 +192,8 @@ def tci_helper(basis,
 
 
 def add_atomic_overlap_corrections(
-        P_qaMi: List[Dict[int, NDArray]],
-        S0_qMM: List[NDArray],
+        P_qaMi: List[Dict[int, "NDArray"]],
+        S0_qMM: List["NDArray"],
         setups: Setups,
         sparse: bool = True):
     if sparse:
