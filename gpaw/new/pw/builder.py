@@ -1,4 +1,5 @@
 from functools import cached_property
+
 from ase.units import Ha
 from gpaw.core import PWDesc, UGDesc
 from gpaw.core.domain import Domain
@@ -6,6 +7,7 @@ from gpaw.core.matrix import Matrix
 from gpaw.core.plane_waves import PWArray
 from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
+from gpaw.new.external_potential import create_external_potential
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
 from gpaw.new.pw.hybrids import PWHybridHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
@@ -14,7 +16,7 @@ from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 # from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D
-from gpaw.new.external_potential import create_external_potential
+from gpaw.utilities import unpack
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -110,7 +112,10 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.ncomponents < 4:
             if self.xc.exx_fraction == 0.0:
                 return PWHamiltonian(self.grid, self.wf_desc, self.xp)
-            return PWHybridHamiltonian(self.grid, self.wf_desc, self.xc)
+            VC_aii = [unpack(setup.X_p) for setup in self.setups]
+            delta_aiiL = [setup.Delta_iiL for setup in self.setups]
+            return PWHybridHamiltonian(
+                self.grid, self.wf_desc, self.xc, VC_aii, delta_aiiL)
         return SpinorPWHamiltonian(self.qspiral_v)
 
     def convert_wave_functions_from_uniform_grid(self,
