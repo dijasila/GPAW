@@ -34,7 +34,8 @@ def parabolic_function(lambd):
 def test_find_root():
 
     def is_converged(value):
-        return abs(value) < 1e-7
+        return 0. < value < 1e-7
 
     myroot = find_root(parabolic_function, is_converged)
     assert myroot == pytest.approx(0.8)
+    assert is_converged(parabolic_function(myroot))
