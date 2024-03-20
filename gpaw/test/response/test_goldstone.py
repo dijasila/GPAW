@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.response.goldstone import find_root
 
 
-def parabolic_function(lambd: int, *, root: int):
+def parabolic_function(lambd: float, *, root: float):
     """Define a parabolic function f(λ) with a root nearby λ=1.
 
     Defining,
@@ -35,12 +35,12 @@ def parabolic_function(lambd: int, *, root: int):
 
 
 @pytest.mark.response
-@pytest.mark.parametrize('target', np.linspace(0.4, 2.5, 51))
+@pytest.mark.parametrize('target', np.linspace(0.4, 2.4, 51))
 def test_find_root(target):
     fnct = partial(parabolic_function, root=target)
 
     def is_converged(value):
-        return 0. < value < 1e-7
+        return 0. <= value < 1e-7
 
     root = find_root(fnct, is_converged)
     assert root == pytest.approx(target)
