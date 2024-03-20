@@ -98,10 +98,12 @@ class Davidson(Eigensolver):
         wfs = state.ibzwfs.wfs_qs[0][0]
         dS_aii = wfs.setups.get_overlap_corrections(wfs.P_ani.layout.atomdist,
                                                     wfs.xp)
+        ibzwfs = state.ibzwfs
         dH = state.potential.dH
         Ht = partial(hamiltonian.apply,
-                     state.potential.vt_sR, state.potential.dedtaut_sR)
-        ibzwfs = state.ibzwfs
+                     state.potential.vt_sR,
+                     state.potential.dedtaut_sR,
+                     ibzwfs)  # used by hybrids
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 

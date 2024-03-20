@@ -7,6 +7,7 @@ from gpaw.core.plane_waves import PWArray
 from gpaw.new import zips
 from gpaw.new.builder import create_uniform_grid
 from gpaw.new.pw.hamiltonian import PWHamiltonian, SpinorPWHamiltonian
+from gpaw.new.pw.hybrids import PWHybridHamiltonian
 from gpaw.new.pw.poisson import make_poisson_solver
 from gpaw.new.pw.pot_calc import PlaneWavePotentialCalculator
 from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
@@ -53,8 +54,6 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
                       dtype=self.dtype)
 
     def create_xc_functional(self):
-        if self.params.xc['name'] in ['HSE06', 'PBE0', 'EXX']:
-            return ...
         return create_functional(self._xc,
                                  self.fine_grid, self.xp)
 
@@ -109,7 +108,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
 
     def create_hamiltonian_operator(self, blocksize=10):
         if self.ncomponents < 4:
-            return PWHamiltonian(self.grid, self.wf_desc, self.xp)
+            if self.xc.exx_fraction == 0.0:
+                return PWHamiltonian(self.grid, self.wf_desc, self.xp)
+            return PWHybridHamiltonian(self.grid, self.wf_desc, self.xc)
         return SpinorPWHamiltonian(self.qspiral_v)
 
     def convert_wave_functions_from_uniform_grid(self,

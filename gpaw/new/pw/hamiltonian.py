@@ -13,7 +13,7 @@ from gpaw.new.c import pw_precond
 
 
 class PWHamiltonian(Hamiltonian):
-    def __init__(self, grid, pw, xp):
+    def __init__(self, grid, pw, xp=np):
         self.grid_local = grid.new(comm=None, dtype=pw.dtype)
         self.plan = self.grid_local.fft_plans(xp=xp)
         # It's a bit too expensive to create all the local PW-descriptors
