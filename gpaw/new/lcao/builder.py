@@ -1,3 +1,4 @@
+from __future__ import annotations
 import numpy as np
 from gpaw.core.matrix import Matrix
 from gpaw.lcao.tci import TCIExpansions
@@ -10,9 +11,8 @@ from gpaw.new.lcao.hamiltonian import LCAOHamiltonian
 from gpaw.new.lcao.hybrids import HybridLCAOEigensolver, HybridXCFunctional
 from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
 from gpaw.setup import Setups
+from gpaw.typing import Array2D
 from gpaw.utilities.timing import NullTimer
-
-from typing import List, Dict
 
 
 class LCAODFTComponentsBuilder(FDDFTComponentsBuilder):
@@ -192,11 +192,11 @@ def tci_helper(basis,
 
 
 def add_atomic_overlap_corrections(
-        P_qaMi: List[Dict[int, "NDArray"]],
-        S0_qMM: List["NDArray"],
+        P_qaMi: list[dict[int, Array2D]],
+        S0_qMM: list[Array2D],
         setups: Setups,
-        sparse: bool = True):
-    if sparse:
+        sparse_corrections: bool = True):
+    if sparse_corrections:
         from scipy import sparse
         for P_aMi, S_MM in zips(P_qaMi, S0_qMM):
             dO_II = sparse.block_diag(
