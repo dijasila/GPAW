@@ -316,16 +316,8 @@ class PAWWaves:
         """
 
         if isinstance(params, dict):
-            l = self.l
-            nderiv = params[l][0]
-            Gcut = params[l][1]
-            extra_grid_pts = params[l][2]
-            init_guess = params[l][3]
-        else:
-            nderiv = params[0]
-            Gcut = params[1]
-            extra_grid_pts = params[2]
-            init_guess = params[3]
+            params = params [self.l]
+        nderiv, Gcut, extra_grid_pts, init_guess = params
 
         nmvp = len(list(extra_grid_pts.values())[0])
 
@@ -360,21 +352,14 @@ class PAWWaves:
         for n, phi_g in enumerate(phi_ng):
             if init_guess == "nc":
                 phit_ng[n] = rgd.pseudize_normalized(
-                    phi_g, gc, l, nderiv
-                )[
-                    0
-                ]  # this will return the polynom
+                    phi_g, gc, l, nderiv)[0]  # this will return the polynom
             elif init_guess == "poly":
                 if self.n_n[n] < 0:
-                    phit_ng[n] = rgd.pseudize(phi_g, gc, l, nderiv)[
-                        0
-                    ]  # this will return the polynom
+                    phit_ng[n] = rgd.pseudize(
+                        phi_g, gc, l, nderiv)[0]
                 else:
                     phit_ng[n] = rgd.pseudize_smooth(
-                        phi_g, gc, l, nderiv, Gcut=6
-                    )[
-                        0
-                    ]  # this will return the polynom
+                        phi_g, gc, l, nderiv, Gcut=6)[0]
             else:
                 raise ValueError("init_guess should be nc or poly")
             # take initial grid point and value of
