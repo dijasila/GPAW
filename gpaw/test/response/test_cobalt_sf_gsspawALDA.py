@@ -7,7 +7,7 @@ from gpaw.response import ResponseGroundStateAdapter, ResponseContext
 from gpaw.response.frequencies import ComplexFrequencyDescriptor
 from gpaw.response.chiks import ChiKSCalculator, SelfEnhancementCalculator
 from gpaw.response.dyson import DysonSolver
-from gpaw.response.goldstone import FMGoldstoneScaling
+from gpaw.response.goldstone import NewFMGoldstoneScaling
 from gpaw.response.susceptibility import (spectral_decomposition,
                                           read_eigenmode_lineshapes)
 
@@ -50,8 +50,8 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
     xi_calc = SelfEnhancementCalculator(*calc_args,
                                         rshelmax=rshelmax,
                                         **calc_kwargs)
+    hxc_scaling = NewFMGoldstoneScaling.from_xi_calculator(xi_calc)
     dyson_solver = DysonSolver(context)
-    hxc_scaling = FMGoldstoneScaling()
 
     for q, q_c in enumerate(q_qc):
         # Calculate χ_KS^+-(q,z) and Ξ^++(q,z)
@@ -65,6 +65,8 @@ def test_response_cobalt_sf_gsspawALDA(in_tmp_dir, gpw_files):
         chi = dyson_solver(chiks, xi)
         # Test ability to apply Goldstone scaling when inverting the dyson eq.
         scaled_chi = dyson_solver(chiks, xi, hxc_scaling=hxc_scaling)
+        # Simulate a "restart" of the GoldstoneScaling
+        hxc_scaling = NewFMGoldstoneScaling(lambd=hxc_scaling.lambd)
 
         # Calculate majority spectral function
         Amaj, _ = spectral_decomposition(chi, pos_eigs=pos_eigs)
