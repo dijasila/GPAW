@@ -10,7 +10,8 @@ def parabolic_function(lambd):
 
     f(λ) = aλ² + bλ + c
 
-    we need the function to be monotonically decreasing in the range λ∊]0.1, 10[. With parametrization
+    we need the function to be monotonically decreasing in the range
+    λ∊]0.1, 10[. With parametrization
 
     (a, b) = (1/4, -6)
 
