@@ -2,7 +2,6 @@ import numpy as np
 from ase.build import mx2
 
 from gpaw import GPAW, PW, FermiDirac
-from gpaw.mpi import world
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.nlopt.shg import get_shg
 
