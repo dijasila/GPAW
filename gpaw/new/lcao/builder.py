@@ -196,9 +196,13 @@ def add_atomic_overlap_corrections(
         S0_qMM: list[Array2D],
         setups: Setups,
         sparse_corrections: bool = True):
-    if sparse_corrections:
-        from scipy import sparse
-        for P_aMi, S_MM in zips(P_qaMi, S0_qMM):
+
+    for P_aMi, S_MM in zips(P_qaMi, S0_qMM):
+        # No atoms on this rank
+        if len(P_aMi.keys()) == 0:
+            continue
+        if sparse_corrections:
+            from scipy import sparse
             dO_II = sparse.block_diag(
                 [setups[a].dO_ii for a in P_aMi.keys()],
                 format='csr')
@@ -206,11 +210,11 @@ def add_atomic_overlap_corrections(
                 [sparse.coo_matrix(P_Mi) for P_Mi in P_aMi.values()],
                 format='csr')
             S_MM += P_MI.conj().dot(dO_II.dot(P_MI.T)).todense()
-    else:
-        from scipy import linalg
-        for P_aMi, S_MM in zips(P_qaMi, S0_qMM):
-            dO_II = linalg.block_diag(
-                *[setups[a].dO_ii for a in P_aMi.keys()])
-            P_MI = np.hstack(
-                [P_Mi for P_Mi in P_aMi.values()])
-            S_MM += P_MI.conj() @ dO_II @ P_MI.T
+        else:
+            from scipy import linalg
+            for P_aMi, S_MM in zips(P_qaMi, S0_qMM):
+                dO_II = linalg.block_diag(
+                    *[setups[a].dO_ii for a in P_aMi.keys()])
+                P_MI = np.hstack(
+                    [P_Mi for P_Mi in P_aMi.values()])
+                S_MM += P_MI.conj() @ dO_II @ P_MI.T
