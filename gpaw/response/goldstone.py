@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from functools import partial
 
 import numpy as np
 
@@ -82,42 +83,46 @@ class AFMGoldstoneScaling(GoldstoneScaling):
 def find_fm_goldstone_scaling(dyson_equation):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic inverse enhancement function has a root in (q=0, omega=0)."""
-    lambd = 1.
-    kappaM = calculate_macroscopic_kappa(lambd, dyson_equation)
-    # If kappaM > 0, increase scaling (recall: kappaM ~ 1 - Kxc Re{chi_0})
-    scaling_incr = 0.1 * np.sign(kappaM)
-    while abs(kappaM) > 1.e-7 and abs(scaling_incr) > 1.e-7:
-        lambd += scaling_incr
-        if lambd <= 0.0 or lambd >= 10.:
-            raise Exception('Found an invalid fxc_scaling of %.4f' % lambd)
+    fnct = partial(calculate_macroscopic_kappa,
+                   dyson_equation=dyson_equation)
 
-        kappaM = calculate_macroscopic_kappa(lambd, dyson_equation)
+    def is_converged(kappaM):
+        return abs(kappaM) < 1e-7
 
-        # If kappaM changes sign, change sign and refine increment
-        if np.sign(kappaM) != np.sign(scaling_incr):
-            scaling_incr *= -0.2
-
-    return lambd
+    return find_root(fnct, is_converged)
 
 
 def find_afm_goldstone_scaling(dyson_equation):
     """Find goldstone scaling of the kernel by ensuring that the
     macroscopic magnon spectrum vanishes at q=0. for finite frequencies."""
-    lambd = 1.
-    SM = calculate_macroscopic_spectrum(lambd, dyson_equation)
-    # If SM > 0., increase the scaling. If SM < 0., decrease the scaling.
-    scaling_incr = 0.1 * np.sign(SM)
-    while (SM < 0. or SM > 1.e-7) or abs(scaling_incr) > 1.e-7:
-        lambd += scaling_incr
-        if lambd <= 0. or lambd >= 10.:
-            raise Exception('Found an invalid fxc_scaling of %.4f' % lambd)
+    fnct = partial(calculate_macroscopic_spectrum,
+                   dyson_equation=dyson_equation)
 
-        SM = calculate_macroscopic_spectrum(lambd, dyson_equation)
+    def is_converged(SM):
+        # We want the macroscopic spectrum to be strictly positive
+        return 0. < SM < 1.e-7
 
-        # If chi changes sign, change sign and refine increment
-        if np.sign(SM) != np.sign(scaling_incr):
-            scaling_incr *= -0.2
+    return find_root(fnct, is_converged)
 
+
+def find_root(fnct, is_converged):
+    """Find the root f(λ)=0, where the scaling parameter λ~1.
+
+    |f(λ)| is minimized iteratively, assuming that f(λ) is continuous and
+    monotonically decreasing with λ for λ∊]0.1, 10[.
+    """
+    lambd = 1.  # initial guess for the scaling parameter
+    value = fnct(lambd)
+    lambd_incr = 0.1 * np.sign(value)  # Increase λ to decrease f(λ)
+    while not is_converged(value) or abs(lambd_incr) > 1.e-7:
+        # Update λ
+        lambd += lambd_incr
+        if lambd <= 0.1 or lambd >= 10.:
+            raise Exception(f'Found an invalid λ-value of {lambd:.4f}')
+        # Update value and refine increment, if we have passed f(λ)=0
+        value = fnct(lambd)
+        if np.sign(value) != np.sign(lambd_incr):
+            lambd_incr *= -0.2
     return lambd
 
 

@@ -41,6 +41,8 @@ class LeanPAWDataset:
 
         # Number of basis functions
         self.ni = np.sum([2 * l + 1 for l in self.l_j])
+        # Maximum angular momentum index l
+        self.lmax = np.max(self.l_j)
         # Grid cutoff to create spline representation
         self.gcut2 = self.rgd.ceil(2 * max(self.rcut_j))
 
@@ -157,7 +159,8 @@ class SelfTestingKSpline(Spline):
             f'FFBT mismatch: {myf_k}, {f_k}'
 
 
-def calculate_pair_density_correction(qG_Gv, *, pawdata):
+def calculate_pair_density_correction(qG_Gv: np.ndarray, *,
+                                      pawdata: LeanPAWDataset):
     r"""Calculate the atom-centered PAW correction to the pair density.
                                                       ˍ
     The atom-centered pair density correction tensor, Q_aii', is defined as the
@@ -200,7 +203,7 @@ def calculate_pair_density_correction(qG_Gv, *, pawdata):
     """
     ni = pawdata.ni  # Number of partial waves
     l_j = pawdata.l_j  # l-index for each radial function index j
-    G_LLL = gaunt(max(l_j))
+    G_LLL = gaunt(pawdata.lmax)
 
     # Initialize correction tensor
     npw = qG_Gv.shape[0]
