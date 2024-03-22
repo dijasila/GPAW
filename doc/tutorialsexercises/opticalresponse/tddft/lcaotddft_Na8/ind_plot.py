@@ -1,4 +1,4 @@
-# web-page: ind_1.12.png, ind_2.48.png
+# web-page: ind_1.12.png, ind_2.48.png, fe_1.12.png, fe_2.48.png
 import numpy as np
 import matplotlib.pyplot as plt
 
