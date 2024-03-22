@@ -129,6 +129,8 @@ class DFTCalculation:
         pot_calc = builder.create_potential_calculator()
         potential, _ = pot_calc.calculate(
             density, kpt_band_comm=builder.communicators['D'])
+        if pot_calc.xc.exx_fraction != 0.0:
+            ...  # pot += v_x * exx_fraction
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
         state = DFTState(ibzwfs, density, potential)

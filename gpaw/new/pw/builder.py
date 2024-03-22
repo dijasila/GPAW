@@ -16,7 +16,6 @@ from gpaw.new.pwfd.builder import PWFDDFTComponentsBuilder
 # from gpaw.new.spinors import SpinorWaveFunctionDescriptor
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D
-from gpaw.utilities import unpack
 
 
 class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
@@ -112,10 +111,9 @@ class PWDFTComponentsBuilder(PWFDDFTComponentsBuilder):
         if self.ncomponents < 4:
             if self.xc.exx_fraction == 0.0:
                 return PWHamiltonian(self.grid, self.wf_desc, self.xp)
-            VC_aii = [unpack(setup.X_p) for setup in self.setups]
-            delta_aiiL = [setup.Delta_iiL for setup in self.setups]
             return PWHybridHamiltonian(
-                self.grid, self.wf_desc, self.xc, VC_aii, delta_aiiL)
+                self.grid, self.wf_desc, self.xc, self.setups,
+                self.fracpos_ac, self.atomdist)
         return SpinorPWHamiltonian(self.qspiral_v)
 
     def convert_wave_functions_from_uniform_grid(self,

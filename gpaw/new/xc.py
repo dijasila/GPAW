@@ -42,8 +42,10 @@ def create_functional(xc: OldXCFunctional | str | dict,
         functional = MGGAFunctional(xc, grid)
     else:
         raise ValueError(f'{xc.type} not supported')
+
     functional.exx_fraction = exx_fraction
     functional.exx_omega = exx_omega
+
     return functional
 
 
