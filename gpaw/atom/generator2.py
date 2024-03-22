@@ -299,7 +299,10 @@ class PAWWaves:
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
 
-    def pseudize_orthonormal(self, params: tuple | dict, vtr_g, rcmax):
+    def pseudize_orthonormal(self,
+                             params: tuple | dict[int, tuple],
+                             vtr_g,
+                             rcmax):
         """
         P will be the number of coefficients in the polynomial,
         polynomials are of even power with maxium of 2P
@@ -316,7 +319,7 @@ class PAWWaves:
         """
 
         if isinstance(params, dict):
-            params = params [self.l]
+            params = params[self.l]
         nderiv, Gcut, extra_grid_pts, init_guess = params
 
         nmvp = len(list(extra_grid_pts.values())[0])
