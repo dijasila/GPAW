@@ -8,9 +8,9 @@ from gpaw.mpi import world
 assert world.size == 1, 'This script should be run in serial mode.'
 
 
-def do(freq):
+def do(key, freq):
     # Read cube file
-    cube = read(f'ind_{freq:.2f}.cube', full_output=True)
+    cube = read(f'{key}_{freq:.2f}.cube', full_output=True)
     d_g = cube['data']
     atoms = cube['atoms']
     box = np.diag(atoms.get_cell())
@@ -30,10 +30,17 @@ def do(freq):
     dmax = max(d_yx.min(), d_yx.max())
     vmax = 0.9 * dmax
     vmin = -vmax
-    plt.pcolormesh(X, Y, d_yx.T, cmap='RdBu_r', vmin=vmin, vmax=vmax,
+    cmap = 'RdBu_r'
+    if key == 'fe':
+        vmin = 0.0
+        cmap = 'viridis'
+    plt.pcolormesh(X, Y, d_yx.T, cmap=cmap, vmin=vmin, vmax=vmax,
                    shading='auto')
-    contours = np.sort(np.outer([-1, 1], [0.02]).ravel() * dmax)
-    plt.contour(X, Y, d_yx.T, contours, cmap='RdBu_r', vmin=-1e-10, vmax=1e-10)
+    plt.colorbar()
+    if key != 'fe':
+        contours = np.sort(np.outer([-1, 1], [0.02]).ravel() * dmax)
+        plt.contour(X, Y, d_yx.T, contours, cmap=cmap, vmin=-1e-10, vmax=1e-10)
+
     for atom in atoms:
         pos = atom.position
         plt.scatter(pos[0], pos[1], s=100, c='k', marker='o')
@@ -43,10 +50,16 @@ def do(freq):
     plt.ylim([y[0], y[-1]])
     ax.set_aspect('equal')
 
-    plt.title(f'Induced density of Na8 at {freq:.2f} eV')
+    if key == 'ind':
+        name = 'Induced density'
+    elif key == 'fe':
+        name = 'Field enhancement'
+    plt.title(f'{name} of Na8 at {freq:.2f} eV')
     plt.tight_layout()
-    plt.savefig(f'ind_{freq:.2f}.png')
+    plt.savefig(f'{key}_{freq:.2f}.png')
 
 
-do(1.12)
-do(2.48)
+do('ind', 1.12)
+do('ind', 2.48)
+do('fe', 1.12)
+do('fe', 2.48)
