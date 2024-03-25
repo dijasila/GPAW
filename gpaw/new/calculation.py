@@ -131,7 +131,9 @@ class DFTCalculation:
             density, kpt_band_comm=builder.communicators['D'])
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
-        ibzwfs.calculate_occs(scf_loop.occ_calc)
+
+        if ibzwfs.wfs_qs[0][0]._eig_n is not None:
+            ibzwfs.calculate_occs(scf_loop.occ_calc)
 
         state = DFTState(ibzwfs, density, potential)
 
