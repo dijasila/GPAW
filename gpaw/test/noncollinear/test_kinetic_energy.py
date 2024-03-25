@@ -15,8 +15,8 @@ def test_kinetic_energy(gpw_files):
 
     # Thallium atom in a simulation box, we use a heavy atom with large SOC.
     calc = GPAW(gpw_files['Tl_box_pw'])
-    state = calc.calculation.state
-    setup = calc.calculation.setups[0]
+    state = calc.dft.state
+    setup = calc.dft.setups[0]
 
     # Kinetic energy calculated from sum of bands (the standard way):
     Ekin1 = state.ibzwfs.energies['band'] + state.potential.energies['kinetic']

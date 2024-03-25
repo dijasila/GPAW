@@ -99,7 +99,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
 
 def calculate_chi(calc, q_qc, w,
                   eta=0.2, ecut=50,
-                  spincomponent='00', fxc='RPA',
+                  spincomponent='00', fxc=None,
                   filename_prefix=None, reduced_ecut=25):
     gs = ResponseGroundStateAdapter(calc)
     chiks_calc = ChiKSCalculator(gs, ecut=ecut)

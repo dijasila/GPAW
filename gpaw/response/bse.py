@@ -478,21 +478,16 @@ class BSEBackend:
         """Initialize the Chi0 object to compute the static
         susceptibility."""
 
-        wd = FrequencyDescriptor([0.0])
-        kptpair_factory = KPointPairFactory(
-            gs=self.gs,
-            context=self.context.with_txt('chi0.txt'))
-
         self._chi0calc = Chi0Calculator(
-            wd=wd,
-            kptpair_factory=kptpair_factory,
+            self.gs, self.context.with_txt('chi0.txt'),
+            wd=FrequencyDescriptor([0.0]),
             eta=0.001,
             ecut=self.ecut * Hartree,
             intraband=False,
             hilbert=False,
             nbands=self.nbands)
 
-        self.blockcomm = self._chi0calc.chi0_body_calc.integrator.blockcomm
+        self.blockcomm = self._chi0calc.chi0_body_calc.blockcomm
 
     @timer('calculate_screened_potential')
     def calculate_screened_potential(self):

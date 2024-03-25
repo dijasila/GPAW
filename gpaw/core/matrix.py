@@ -334,7 +334,6 @@ class Matrix(XP):
             Number of eigenvector and values to find.  Defaults to all.
         """
         slcomm, rows, columns, blocksize = scalapack
-
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
 
@@ -353,7 +352,10 @@ class Matrix(XP):
             assert self.dist.comm.size == slcomm.size
             H = self
 
-        eps = self.xp.empty(H.shape[0])
+        if limit:
+            eps = self.xp.empty(limit)
+        else:
+            eps = self.xp.empty(H.shape[0])
 
         if rows * columns == 1:
             if self.dist.comm.rank == 0:

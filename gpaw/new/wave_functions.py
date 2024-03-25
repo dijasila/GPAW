@@ -89,6 +89,15 @@ class WaveFunctions:
     def orthonormalize(self, work_array_nX: ArrayND = None):
         raise NotImplementedError
 
+    def move(self,
+             fracpos_ac: Array2D,
+             atomdist: AtomDistribution) -> None:
+        self.fracpos_ac = fracpos_ac
+        self.atomdist = atomdist
+        self._P_ani = None
+        self._eig_n = None
+        self._occ_n = None
+
     def collect(self,
                 n1: int = 0,
                 n2: int = 0) -> WaveFunctions | None:
@@ -142,12 +151,7 @@ class WaveFunctions:
                              add=add)
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
-                D_ssii = xp.einsum('nsi, n, nzj -> szij',
-                                   P_nsi.conj(), occ_n, P_nsi)
-                D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]
-                D_xii[1] += D_ssii[0, 1] + D_ssii[1, 0]
-                D_xii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
-                D_xii[3] += D_ssii[0, 0] - D_ssii[1, 1]
+                add_to_4component_density_matrix(D_xii, P_nsi, occ_n, xp)
 
     def send(self, kpt_comm, rank):
         raise NotImplementedError
@@ -160,3 +164,11 @@ class WaveFunctions:
 
     def gather_wave_function_coefficients(self) -> np.ndarray | None:
         raise NotImplementedError
+
+
+def add_to_4component_density_matrix(D_xii, P_nsi, occ_n, xp):
+    D_ssii = xp.einsum('nsi, n, nzj -> szij', P_nsi.conj(), occ_n, P_nsi)
+    D_xii[0] += D_ssii[0, 0] + D_ssii[1, 1]
+    D_xii[1] += D_ssii[0, 1] + D_ssii[1, 0]
+    D_xii[2] += -1j * (D_ssii[0, 1] - D_ssii[1, 0])
+    D_xii[3] += D_ssii[0, 0] - D_ssii[1, 1]
