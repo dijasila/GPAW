@@ -179,7 +179,7 @@ class FDPWETDM:
             If True, print the iterations of the inner loop optimization for
             excited states to standard output. Default is False.
         blocksize: int
-            Blocksize for eigensolver super class.
+            Blocksize for base eigensolver class.
         converge_unocc: bool
             If True, converge also the unoccupied orbitals after convergence
             of the occupied orbitals. Default is False.
@@ -332,7 +332,7 @@ class FDPWETDM:
                 }
 
     def initialize_dm_helper(self, wfs, ham, dens, log):
-        self.initialize_super(wfs, ham)
+        self.initialize_eigensolver(wfs, ham)
         self.initialize_orbitals(wfs, ham)
 
         wfs.calculate_occupation_numbers(dens.fixed)
@@ -349,9 +349,9 @@ class FDPWETDM:
         # initialize search direction, line search and inner loops
         self.initialize_dm(wfs, dens, ham)
 
-    def initialize_super(self, wfs, ham):
+    def initialize_eigensolver(self, wfs, ham):
         """
-        Initialize super class
+        Initialize base eigensolver class
 
         :param wfs:
         :param ham:
