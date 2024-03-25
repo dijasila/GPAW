@@ -192,9 +192,9 @@ class EinsumArgumentParser : public Parser
 
     void print() const
     {
-        printf("Number of indices %d.\n", nindex());
-        printf("Number of outer indices %d.\n", nindex_out());
-        printf("Number of inner indices %d.\n", nindex_in());
+        printf("Number of indices: %d.\n", nindex());
+        printf("Number of outer indices: %d.\n", nindex_out());
+        printf("Number of inner indices: %d.\n", nindex_in());
         for (int i=0; i<index_head; i++)
         {
             if (i < index_head-1)
