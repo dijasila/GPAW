@@ -127,12 +127,12 @@ class DFTCalculation:
         scf_loop = builder.create_scf_loop()
 
         pot_calc = builder.create_potential_calculator()
-        potential, _ = pot_calc.calculate(
+        potential, _ = pot_calc.calculate_without_orbitals(
             density, kpt_band_comm=builder.communicators['D'])
-        if pot_calc.xc.exx_fraction != 0.0:
-            ...  # pot += v_x * exx_fraction
         ibzwfs = builder.create_ibz_wave_functions(
             basis_set, potential, log=log)
+        ibzwfs.calculate_occs(scf_loop.occ_calc)
+
         state = DFTState(ibzwfs, density, potential)
 
         write_atoms(atoms, builder.initial_magmom_av, log)

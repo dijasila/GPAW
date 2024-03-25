@@ -67,6 +67,21 @@ class PotentialCalculator:
     def restrict(self, a_r, a_R=None):
         raise NotImplementedError
 
+    def calculate_without_orbitals(self,
+                                   density,
+                                   ibzwfs=None,
+                                   vHt_x: DistributedArrays | None = None,
+                                   kpt_band_comm: MPIComm | None = None
+                                   ) -> tuple[Potential, AtomArrays]:
+        xc = self.xc
+        if xc.exx_fraction != 0.0:
+            from gpaw.new.xc import create_functional
+            self.xc = create_functional('PBE', xc.grid)
+        potential, Q_al = self.calculate(density, ibzwfs, vHt_x, kpt_band_comm)
+        if xc.exx_fraction != 0.0:
+            self.xc = xc
+        return potential, Q_al
+
     def calculate(self,
                   density,
                   ibzwfs=None,

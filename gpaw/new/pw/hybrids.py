@@ -61,7 +61,6 @@ class PWHybridHamiltonian(PWHamiltonian):
                   psit2_nG: PWArray,
                   out_nG: PWArray):
         same = wfs1.psit_nX is psit2_nG
-        print(same, wfs1._occ_n)
         psit1_R = self.grid.empty()
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()
@@ -76,9 +75,9 @@ class PWHybridHamiltonian(PWHamiltonian):
                 Q_aL = {a: np.einsum('i, ijL, j -> L',
                                      P1_ani[a][n1], delta_iiL, P2_ani[a][n2])
                         for a, delta_iiL in enumerate(self.delta_aiiL)}
-                self.ghat_aLG.add(rhot_G, Q_aL)
+                self.ghat_aLG.add_to(rhot_G, Q_aL)
                 rhot_G.data *= self.v_G.data
                 rhot_G.ifft(out=rhot_R, plan=self.plan)
                 rhot_R.data *= psit1_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
-                out_G += rhot_G
+                out_G.data -= rhot_G.data * f1
