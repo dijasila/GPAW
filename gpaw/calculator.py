@@ -1938,7 +1938,7 @@ class GPAW(Calculator):
             self.converge_wave_functions()
         return self.hamiltonian.get_xc_difference(xc, self.density) * Ha
 
-    def initial_wannier(self, initialwannier, kpointgrid, fixedstates,
+    def initial_wannier(self, initialwannier, kpointgrid, fixedstates_km,
                         edf, spin, nbands):
         """Initial guess for the shape of wannier functions.
 
@@ -1950,9 +1950,9 @@ class GPAW(Calculator):
         proj_knw = self.get_projections(initialwannier, spin)
         U_kww = []
         C_kul = []
-        for fixed, proj_nw in zip(fixedstates, proj_knw):
+        for fixed_m, proj_nw in zip(fixedstates_km, proj_knw):
             U_ww, C_ul = rotation_from_projection(proj_nw[:nbands],
-                                                  fixed,
+                                                  fixed_m,
                                                   ortho=True)
             U_kww.append(U_ww)
             C_kul.append(C_ul)
