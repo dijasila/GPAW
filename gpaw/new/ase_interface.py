@@ -358,15 +358,15 @@ class ASECalculator:
 
     def get_fermi_level(self) -> float:
         state = self.dft.state
-        fl = state.ibzwfs.fermi_levels * Ha
-        assert len(fl) == 1
-        return fl[0]
+        fl = state.ibzwfs.fermi_levels
+        assert fl is not None and len(fl) == 1
+        return fl[0] * Ha
 
-    def get_fermi_levels(self) -> float:
+    def get_fermi_levels(self) -> Array1D:
         state = self.dft.state
-        fl = state.ibzwfs.fermi_levels * Ha
-        assert len(fl) == 2
-        return fl
+        fl = state.ibzwfs.fermi_levels
+        assert fl is not None and len(fl) == 2
+        return fl * Ha
 
     def get_homo_lumo(self, spin: int = None) -> Array1D:
         state = self.dft.state

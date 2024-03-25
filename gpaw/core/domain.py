@@ -117,7 +117,7 @@ class Domain:
 
     def zeros(self,
               shape: int | tuple[int, ...] = (),
-              comm: MPIComm = serial_comm, xp=None) -> DistributedArrays:
+              comm: MPIComm = serial_comm, xp=None) -> Self:
         array = self.empty(shape, comm, xp=xp)
         array.data[:] = 0.0
         return array

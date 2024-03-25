@@ -19,6 +19,7 @@ from gpaw.xc.functional import XCFunctional as OldXCFunctional
 from gpaw.xc.gga import add_gradient_correction
 from gpaw.xc.mgga import MGGA
 from gpaw.xc.vdw import VDWFunctionalBase
+from gpaw.hybrids import HybridXC
 
 
 def create_functional(xc: OldXCFunctional | str | dict,
@@ -30,6 +31,7 @@ def create_functional(xc: OldXCFunctional | str | dict,
         xc = XC(xc, xp=xp)
 
     if xc.type == 'HYB':
+        assert isinstance(xc, HybridXC)
         exx_fraction = xc.exx_fraction
         exx_omega = xc.omega
         xc = xc.xc
@@ -37,7 +39,7 @@ def create_functional(xc: OldXCFunctional | str | dict,
     if xc.type == 'LDA':
         functional = LDAFunctional(xc, grid, xp)
     elif xc.type == 'GGA':
-        functional =  GGAFunctional(xc, grid, xp)
+        functional = GGAFunctional(xc, grid, xp)
     elif xc.type == 'MGGA':
         functional = MGGAFunctional(xc, grid)
     else:

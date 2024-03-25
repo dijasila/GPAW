@@ -50,6 +50,8 @@ class PWHybridHamiltonian(PWHamiltonian):
                                 psit_nG: XArray,
                                 spin: int,
                                 Htpsit_nG: XArray) -> float:
+        assert isinstance(psit_nG, PWArray)
+        assert isinstance(Htpsit_nG, PWArray)
         for wfs in ibzwfs:
             if wfs.spin != spin:
                 continue
@@ -60,7 +62,7 @@ class PWHybridHamiltonian(PWHamiltonian):
                   wfs1: PWFDWaveFunctions,
                   psit2_nG: PWArray,
                   out_nG: PWArray):
-        same = wfs1.psit_nX is psit2_nG
+        # same = wfs1.psit_nX is psit2_nG
         psit1_R = self.grid.empty()
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()

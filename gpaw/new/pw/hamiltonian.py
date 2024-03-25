@@ -141,6 +141,7 @@ class SpinorPWHamiltonian(Hamiltonian):
     def apply(self,
               vt_xR: UGArray,
               dedtaut_xR: UGArray | None,
+              ibzwfs,
               psit_nsG: XArray,
               out: XArray,
               spin: int) -> XArray:
