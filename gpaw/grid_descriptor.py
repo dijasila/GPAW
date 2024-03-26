@@ -15,7 +15,7 @@ from typing import Sequence
 import numpy as np
 from scipy.ndimage import map_coordinates
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.new import prod
@@ -452,10 +452,10 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
+                    cgpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
                     t_c = (ft_sc[s] * self.N_c).round().astype(int)
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                    cgpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
                                         1 - self.pbc_c)
         else:
             B_g = None

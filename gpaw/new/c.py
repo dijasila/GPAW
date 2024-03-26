@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING
 
 from gpaw.typing import Array1D, ArrayND
 from gpaw.gpu import cupy as cp
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 __all__ = ['GPU_AWARE_MPI']
 
-GPU_AWARE_MPI = getattr(_gpaw, 'gpu_aware_mpi', False)
-GPU_ENABLED = getattr(_gpaw, 'GPU_ENABLED', False)
+GPU_AWARE_MPI = getattr(cgpaw, 'gpu_aware_mpi', False)
+GPU_ENABLED = getattr(cgpaw, 'GPU_ENABLED', False)
 
 
 def add_to_density(f: float,

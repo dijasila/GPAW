@@ -173,7 +173,7 @@ class HPMTimer(Timer):
     middleware interface to the low-level UPC library. This will
     most likely only work at ANL's BlueGene/P. Must compile
     with GPAW_HPM macro in customize.py. Note that HPM_Init
-    and HPM_Finalize are called in _gpaw.c and not in the Python
+    and HPM_Finalize are called in cgpaw.c and not in the Python
     interface. Timer must be called on all ranks in node, otherwise
     HPM will hang. Hence, we only call HPM_start/stop on a list
     subset of timers."""
