@@ -181,9 +181,6 @@ pack / unpack2, and anything that should be multiplied onto such, e.g.
 corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 """
 
-def pack(M: np.ndarray) -> np.ndarray:
-    return pack_offdiag_summed(M)
-
 
 def pack2(M):
     return pack_hermitian(M)
@@ -193,8 +190,12 @@ def unpack(M):
     return unpack_hermitian(M)
 
 
+def pack(M: np.ndarray) -> np.ndarray:
+    return pack_sum_offdiag(M)
+
+
 def unpack2(M):
-    return unpack_summed(M)
+    return unpack_offdiag_summed(M)
 
 
 def unpack_hermitian(M):
@@ -212,9 +213,11 @@ def unpack_hermitian(M):
     return M2
 
 # We generally cannot recover the complex part of the off-diag elements from a
-# pack_summed array since they are summed to zero (so far we only pack 
+# pack_sum_offdiag array since they are summed to zero (so far we only pack
 # different Hermitian arrays).
-# We should reconsider if "unpack_summed" even makes sense to have.
+# We should reconsider if "unpack_offdiag_summed" even makes sense to have.
+
+
 def unpack_offdiag_summed(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack_sum_offdiag``."""
     if M.ndim == 2:
@@ -274,7 +277,8 @@ def pack_hermitian(M2, tolerance=1e-10):
     return M
 
 
-for method in (pack_hermitian, unpack_hermitian, pack_sum_offdiag, unpack_offdiag_summed):
+for method in (pack_hermitian, unpack_hermitian,
+               pack_sum_offdiag, unpack_offdiag_summed):
     method.__doc__ += packing_conventions  # type: ignore
 
 
@@ -361,7 +365,7 @@ def load_balance(paw, atoms):
 
 if not debug:
     hartree = _gpaw.hartree  # noqa
-    pack = _gpaw.pack
+    pack_sum_offdiag = _gpaw.pack
 
 
 def unlink(path: Union[str, Path], world=None):
