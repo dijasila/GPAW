@@ -231,14 +231,15 @@ class BaseSetup:
             correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
             correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
-        for j, (f, f_s) in enumerate(zip(f_j, f_sj.T)):
+        for j, (n1, l1, f, f_s) in enumerate(zip(self.n_j, self.l_j,
+                                                 f_j, f_sj.T)):
             if not f_s.any():
                 continue
             I = 0
             for bf in self.basis.bf_j:
                 l = bf.l
                 n = bf.n
-                if (n, l) == (self.n_j[j], self.l_j[j]):
+                if (n, l) == (n1, l1):
                     break
                 I += 2 * l + 1
             else:  # no break
@@ -300,7 +301,6 @@ class BaseSetup:
                 if i < ni:
                     for m in range(2 * l + 1):
                         D_sii[:, i + m, i + m] = f_sm[:, m]
-                        print(I,i,n,l)
 
             I += 2 * bf.l + 1
 
