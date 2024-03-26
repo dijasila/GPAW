@@ -9,6 +9,7 @@ from ase.units import Ha, Bohr
 
 import gpaw.mpi as mpi
 from gpaw.ibz2bz import IBZ2BZMaps
+from gpaw.response.paw import LeanPAWDataset
 
 if TYPE_CHECKING:
     from gpaw.new.ase_interface import ASECalculator
@@ -304,17 +305,16 @@ class ResponseGroundStateAdapter:
 
 # Contains all the relevant information
 # from Setups class for response calculators
-class ResponsePAWDataset:
-    def __init__(self, setup: LeanSetup):
-        self.ni = setup.ni
-        self.rgd = setup.rgd
-        self.rcut_j = setup.rcut_j
+class ResponsePAWDataset(LeanPAWDataset):
+    def __init__(self, setup: LeanSetup, **kwargs):
+        super().__init__(
+            rgd=setup.rgd, l_j=setup.l_j, rcut_j=setup.rcut_j,
+            phit_jg=setup.data.phit_jg, phi_jg=setup.data.phi_jg, **kwargs)
+        assert setup.ni == self.ni
+
         self.n_j = setup.n_j
-        self.l_j = setup.l_j
         self.N0_q = setup.N0_q
         self.nabla_iiv = setup.nabla_iiv
-        self.data = SimpleNamespace(phi_jg=setup.data.phi_jg,
-                                    phit_jg=setup.data.phit_jg)
         self.xc_correction: SimpleNamespace | None
         if setup.xc_correction is not None:
             self.xc_correction = SimpleNamespace(
@@ -324,8 +324,15 @@ class ResponsePAWDataset:
                 nc_corehole_g=setup.xc_correction.nc_corehole_g,
                 B_pqL=setup.xc_correction.B_pqL,
                 e_xc0=setup.xc_correction.e_xc0)
-            self.is_pseudo = False
         else:
+            # If there is no `xc_correction` in the setup, we assume to be
+            # using pseudo potentials.
             self.xc_correction = None
-            self.is_pseudo = True
+            # In this case, we set l_j to an empty list in order to bypass the
+            # calculation of PAW corrections to pair densities etc.
+            # This is quite an ugly hack...
+            # If we want to support pseudo potential calculations for real, we
+            # should skip the PAW corrections at the matrix element calculator
+            # level, not by an odd hack.
+            self.l_j = np.array([], dtype=float)
         self.hubbard_u = setup.hubbard_u

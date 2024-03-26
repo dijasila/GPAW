@@ -246,7 +246,7 @@ class TBDFTComponentsBuilder(LCAODFTComponentsBuilder):
         assert self.communicators['w'].size == 1
 
         ibzwfs, tciexpansions = create_lcao_ibzwfs(
-            basis, potential,
+            basis,
             self.ibz, self.communicators, self.setups,
             self.fracpos_ac, self.grid, self.dtype,
             self.nbands, self.ncomponents, self.atomdist, self.nelectrons)

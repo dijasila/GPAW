@@ -4,7 +4,7 @@ import sys
 
 from ase.utils import import_module, search_current_git_hash
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw
 import gpaw.fftw as fftw
 from gpaw.mpi import have_mpi, rank
@@ -40,9 +40,8 @@ def info():
     else:
         results.append(('libxc', False))
 
-    module = import_module('_gpaw')
-    if hasattr(module, 'githash'):
-        githash = f'-{module.githash():.10}'
+    if hasattr(cgpaw, 'githash'):
+        githash = f'-{cgpaw.githash():.10}'
     else:
         githash = ''
     results.append(('_gpaw' + githash,
@@ -53,7 +52,7 @@ def info():
         results.append(('parallel',
                         p.communicate()[0].strip().decode() or False))
     results.append(('MPI enabled', have_mpi))
-    results.append(('OpenMP enabled', _gpaw.have_openmp))
+    results.append(('OpenMP enabled', cgpaw.have_openmp))
     results.append(('GPU enabled', GPU_ENABLED))
     results.append(('GPU-aware MPI', GPU_AWARE_MPI))
     results.append(('CUPY', cupy.__file__))
@@ -68,7 +67,7 @@ def info():
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
 
-    if not hasattr(_gpaw, 'mmm'):
+    if not hasattr(cgpaw, 'mmm'):
         results.append(('BLAS', 'using scipy.linalg.blas and numpy.dot()'))
 
     results.append(('scalapack', have_sl))

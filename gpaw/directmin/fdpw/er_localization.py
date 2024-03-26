@@ -8,7 +8,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.tools import d_matrix, get_n_occ
 from gpaw.poisson import PoissonSolver
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 class ERLocalization:
@@ -77,7 +77,7 @@ class ERLocalization:
             if psit_G is not None:
                 psit_R = wfs.pd.ifft(psit_G, kpt.q,
                                      local=True, safe=False)
-                _gpaw.add_to_density(1.0, psit_R, nt_G)
+                cgpaw.add_to_density(1.0, psit_R, nt_G)
             wfs.pd.gd.comm.sum(nt_G)
             nt_G = wfs.pd.gd.distribute(nt_G)
         else:

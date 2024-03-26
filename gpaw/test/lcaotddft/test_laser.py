@@ -64,16 +64,18 @@ def test_laser(gpw_files, in_tmp_dir, pulse):
         assert pulsedm_tv[:, v] == pytest.approx(pulsedmconv_t, abs=tol)
 
 
+@pytest.mark.rttddft
 def test_custom(gpw_files):
-    gpw_fname = gpw_files['Na2_lcao']
+    gpw_fname = gpw_files['na2_tddft_dzp']
 
     class RandomPulse(Laser):
         def __init__(self, strength):
+            self.rng = np.random.default_rng(42)
             self.dict = dict(name='RandomPulse', strength=strength)
             self.s0 = strength
 
         def strength(self, t):
-            return self.s0 * np.random.uniform(size=np.shape(t))
+            return self.s0 * self.rng.uniform(size=np.shape(t))
 
         def todict(self):
             return self.dict

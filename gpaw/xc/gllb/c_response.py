@@ -621,17 +621,10 @@ class C_Response(Contribution):
             for vt_G in self.vt_sG:
                 writer.fill(gd.collect(vt_G) * Ha)
 
-        def pack(X0_asp):
-            X_asp = wfs.setups.empty_atomic_matrix(
-                wfs.nspins, wfs.atom_partition)
-            # XXX some of the provided X0_asp contain strangely duplicated
-            # elements.  Take only the minimal set:
-            for a in X_asp:
-                X_asp[a][:] = X0_asp[a]
-            return pack_atomic_matrices(X_asp)
-
-        writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
-        writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
+        writer.write('gllb_atomic_density_matrices',
+                     pack_atomic_matrices(self.D_asp))
+        writer.write('gllb_atomic_response_matrices',
+                     pack_atomic_matrices(self.Dresp_asp))
 
         writer.write(eref_s=self.eref_s)
         writer.write(eref_source_s=self.eref_source_s)

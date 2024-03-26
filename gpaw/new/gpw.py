@@ -29,10 +29,10 @@ ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
 def write_gpw(filename: str,
               atoms,
               params,
-              calculation: DFTCalculation,
+              dft: DFTCalculation,
               skip_wfs: bool = True) -> None:
 
-    comm = calculation.comm
+    comm = dft.comm
 
     writer: ulm.Writer | ulm.DummyWriter
     if comm.rank == 0:
@@ -49,7 +49,7 @@ def write_gpw(filename: str,
         write_atoms(writer.child('atoms'), atoms)
 
         results = {key: value * units[key]
-                   for key, value in calculation.results.items()}
+                   for key, value in dft.results.items()}
         writer.child('results').write(**results)
 
         p = {k: v for k, v in params.items() if k not in ['txt', 'parallel']}
@@ -58,10 +58,10 @@ def write_gpw(filename: str,
             p['dtype'] = np.dtype(p['dtype']).name
         writer.child('parameters').write(**p)
 
-        state = calculation.state
+        state = dft.state
         state.density.write(writer.child('density'))
         state.potential._write_gpw(writer.child('hamiltonian'),
-                                   calculation.state.ibzwfs)
+                                   dft.state.ibzwfs)
         wf_writer = writer.child('wave_functions')
         state.ibzwfs.write(wf_writer, skip_wfs)
 
@@ -253,7 +253,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
         'extrapolation': (energies['total_extrapolated'] -
                           energies['total_free'])}
 
-    calculation = DFTCalculation(
+    dft = DFTCalculation(
         DFTState(ibzwfs, density, potential),
         builder.setups,
         builder.create_scf_loop(),
@@ -266,7 +266,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     if results:
         log(f'Read {", ".join(sorted(results))}')
 
-    calculation.results = results
+    dft.results = results
 
     if builder.mode in ['pw', 'fd']:  # fd = finite-difference
         data = ibzwfs.wfs_qs[0][0].psit_nX.data
@@ -275,7 +275,7 @@ def read_gpw(filename: Union[str, Path, IO[str]],
     else:
         reader.close()
 
-    return atoms, calculation, params, builder
+    return atoms, dft, params, builder
 
 
 def convert_to_new_packing_convention(a_asp, density=False):
