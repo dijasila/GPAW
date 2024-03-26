@@ -18,7 +18,7 @@ from ase import Atoms
 from ase.data import covalent_radii
 from ase.neighborlist import neighbor_list
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 from gpaw import debug
 
@@ -157,7 +157,7 @@ def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
     assert len(r.shape) == 1
     assert len(r) >= len(vr)
-    return _gpaw.hartree(l, nrdr, r, vr)
+    return cgpaw.hartree(l, nrdr, r, vr)
 
 
 def packed_index(i1, i2, ni):
@@ -191,9 +191,9 @@ def unpack(M):
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
     if M.dtype == complex:
-        _gpaw.unpack_complex(M, M2)
+        cgpaw.unpack_complex(M, M2)
     else:
-        _gpaw.unpack(M, M2)
+        cgpaw.unpack(M, M2)
     return M2
 
 
@@ -223,7 +223,7 @@ def pack(A: np.ndarray) -> np.ndarray:
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]
-    return _gpaw.pack(A)
+    return cgpaw.pack(A)
 
 
 def pack2(M2, tolerance=1e-10):
@@ -311,11 +311,11 @@ def divrl(a_g, l, r_g):
 
 
 def compiled_with_sl():
-    return hasattr(_gpaw, 'new_blacs_context')
+    return hasattr(cgpaw, 'new_blacs_context')
 
 
 def compiled_with_libvdwxc():
-    return hasattr(_gpaw, 'libvdwxc_create')
+    return hasattr(cgpaw, 'libvdwxc_create')
 
 
 def load_balance(paw, atoms):
@@ -342,8 +342,8 @@ def load_balance(paw, atoms):
 
 
 if not debug:
-    hartree = _gpaw.hartree  # noqa
-    pack = _gpaw.pack
+    hartree = cgpaw.hartree  # noqa
+    pack = cgpaw.pack
 
 
 def unlink(path: Union[str, Path], world=None):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import numbers
 from math import pi
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw
 import gpaw.fftw as fftw
 import numpy as np
@@ -153,10 +153,10 @@ class Preconditioner:
             out = np.empty_like(R_xG)
         G2_G = self.G2_qG[kpt.q]
         if R_xG.ndim == 1:
-            _gpaw.pw_precond(G2_G, R_xG, ekin_x, out)
+            cgpaw.pw_precond(G2_G, R_xG, ekin_x, out)
         else:
             for PR_G, R_G, ekin in zip(out, R_xG, ekin_x):
-                _gpaw.pw_precond(G2_G, R_G, ekin, PR_G)
+                cgpaw.pw_precond(G2_G, R_G, ekin, PR_G)
         return out
 
 
@@ -325,7 +325,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 f = f_n[n1 + comm.rank]
                 psit_R = self.pd.ifft(psit_G, kpt.q, local=True, safe=False)
                 # Same as nt_R += f * abs(psit_R)**2, but much faster:
-                _gpaw.add_to_density(f, psit_R, nt_R)
+                cgpaw.add_to_density(f, psit_R, nt_R)
 
         comm.sum(nt_R)
         nt_R = self.gd.distribute(nt_R)
@@ -360,7 +360,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 if Gpsit_G is not None:
                     f = kpt.f_n[n1 + comm.rank]
                     a_R = self.pd.ifft(Gpsit_G, kpt.q, local=True, safe=False)
-                    _gpaw.add_to_density(0.5 * f, a_R, taut_R)
+                    cgpaw.add_to_density(0.5 * f, a_R, taut_R)
 
         comm.sum(taut_R)
         taut_R = self.gd.distribute(taut_R)
