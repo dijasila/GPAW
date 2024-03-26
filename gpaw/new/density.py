@@ -13,7 +13,7 @@ from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
-from gpaw.utilities import unpack_h, unpack_ods
+from gpaw.utilities import unpack_h, unpack_sum
 from gpaw.new.symmetry import SymmetrizationPlan
 
 
@@ -68,7 +68,7 @@ class Density:
                  in enumerate(zips(setups, magmom_av))}
         basis_set.add_to_density(nt_sR.data, f_asi)
         for a, D_sii in D_asii.items():
-            D_sii[:] = unpack_ods(
+            D_sii[:] = unpack_sum(
                 setups[a].initialize_density_matrix(f_asi[a]))
 
         xp = nct_aX.xp

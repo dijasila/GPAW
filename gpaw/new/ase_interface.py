@@ -25,7 +25,7 @@ from gpaw.new.logger import Logger
 from gpaw.new.pw.fulldiag import diagonalize
 from gpaw.new.xc import create_functional
 from gpaw.typing import Array1D, Array2D, Array3D
-from gpaw.utilities import pack_ods
+from gpaw.utilities import pack_sum
 from gpaw.utilities.memory import maxrss
 
 
@@ -539,7 +539,7 @@ class ASECalculator:
         for a, D_sii in state.density.D_asii.items():
             setup = self.setups[a]
             dexc += xc.calculate_paw_correction(
-                setup, np.array([pack_ods(D_ii) for D_ii in D_sii.real]))
+                setup, np.array([pack_sum(D_ii) for D_ii in D_sii.real]))
         dexc = state.ibzwfs.domain_comm.sum_scalar(dexc)
         return (exct + dexc - state.potential.energies['xc']) * Ha
 

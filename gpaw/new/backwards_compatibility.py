@@ -10,7 +10,7 @@ from gpaw.new.calculation import DFTCalculation
 from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 from gpaw.projections import Projections
 from gpaw.pw.descriptor import PWDescriptor
-from gpaw.utilities import pack_ods
+from gpaw.utilities import pack_sum
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 
 
@@ -161,7 +161,7 @@ class FakeDensity:
     def D_asp(self):
         D_asp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                 self.atom_partition)
-        D_asp.update({a: np.array([pack_ods(D_ii) for D_ii in D_sii.real])
+        D_asp.update({a: np.array([pack_sum(D_ii) for D_ii in D_sii.real])
                       for a, D_sii in self.D_asii.items()})
         return D_asp
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 from gpaw.rotation import rotation
-from gpaw.utilities import pack, unpack2
+from gpaw.utilities import pack_sum, unpack_sum
 
 
 class SingleAtomRotations:
@@ -56,6 +56,7 @@ class AtomRotations:
         nspins = next(iter(D_asp.values())).shape[0]
 
         for s in range(nspins):
-            D_aii = [unpack2(D_asp[a][s]) for a in range(len(D_asp))]
+            D_aii = [unpack_sum(D_asp[a][s]) for a in range(len(D_asp))]
             for a, D_ii in enumerate(D_aii):
-                D_asp[a][s] = pack(self.get_by_a(a).symmetrize(a, D_aii, a_sa))
+                D_asp[a][s] = pack_sum(
+                    self.get_by_a(a).symmetrize(a, D_aii, a_sa))

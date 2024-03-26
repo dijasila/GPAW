@@ -25,7 +25,7 @@ from gpaw.new.xc import Functional
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc as soc_terms
 from gpaw.typing import Array1D, Array2D, Array3D
-from gpaw.utilities import pack_h, pack_ods, unpack_h
+from gpaw.utilities import pack_h, pack_sum, unpack_h
 from gpaw.yml import indent
 from gpaw.mpi import MPIComm, serial_comm
 from gpaw.new.external_potential import ExternalPotential
@@ -166,7 +166,7 @@ def calculate_non_local_potential1(setup: Setup,
                                                        dict[str, float]]:
     ncomponents = len(D_sii)
     ndensities = 2 if ncomponents == 2 else 1
-    D_sp = np.array([pack_ods(D_ii.real) for D_ii in D_sii])
+    D_sp = np.array([pack_sum(D_ii.real) for D_ii in D_sii])
 
     D_p = D_sp[:ndensities].sum(0)
 
