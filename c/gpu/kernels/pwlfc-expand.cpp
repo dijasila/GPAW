@@ -2,6 +2,7 @@
 #include "../gpu-complex.h"
 #include "numpy/arrayobject.h"
 #include "assert.h"
+#include <cstdlib>
 
 #define BETA   0.066725
 #define GAMMA  0.031091
@@ -17,6 +18,7 @@
 #define C0     4.1887902047863905
 #define THIRD  0.33333333333333333
 #define NMIN   1.0E-10
+
 
 __global__ void calculate_residual_kernel_complex(int nG, int nn,
 						  gpuDoubleComplex* residual_nG,
@@ -543,20 +545,20 @@ void pw_insert_gpu_launch_kernel(
 
 
 __global__ void pwlfc_expand_kernel_8(double* f_Gs,
-				       gpuDoubleComplex *emiGR_Ga,
-				       double *Y_GL,
-				       int* l_s,
-				       int* a_J,
-				       int* s_J,
-				       int* I_J,
-				       double* f_GI,
-				       int nG,
-				       int nJ,
-				       int nL,
-				       int nI,
-				       int natoms,
-				       int nsplines,
-				       bool cc)
+                                      gpuDoubleComplex *emiGR_Ga,
+                                      double *Y_GL,
+                                      int* l_s,
+                                      int* a_J,
+                                      int* s_J,
+                                      int* I_J,
+                                      double* f_GI,
+                                      int nG,
+                                      int nJ,
+                                      int nL,
+                                      int nI,
+                                      int natoms,
+                                      int nsplines,
+                                      bool cc)
 {
     int G = threadIdx.x + blockIdx.x * blockDim.x;
     int J = threadIdx.y + blockIdx.y * blockDim.y;

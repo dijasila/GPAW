@@ -10,6 +10,7 @@ from gpaw.new import zips
 from gpaw.new.potential import Potential
 from gpaw.setup import Setups
 from gpaw.typing import Array1D, Array2D, ArrayND
+from gpaw.gpu import multi_einsum, cupy_is_fake
 
 
 class WaveFunctions:
@@ -134,9 +135,20 @@ class WaveFunctions:
         occ_n = xp.asarray(occ_n)
         if self.ncomponents < 4:
             P_ani = self.P_ani
-            for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
-                D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
-                                              P_ni.conj(), occ_n, P_ni).real
+            if xp is np or cupy_is_fake:
+                for D_sii, P_ni in zips(D_asii.values(), P_ani.values()):
+                    D_sii[self.spin] += xp.einsum('ni, n, nj -> ij',
+                                                  P_ni.conj(),
+                                                  occ_n, P_ni).real
+            else:
+                atoms = D_asii.keys()
+                na = len(atoms)
+                add = [D_asii[a][self.spin] for a in atoms]
+                multi_einsum('ni*, n, nj -> ij',
+                             [P_ani[a] for a in atoms],
+                             [xp.array(occ_n, dtype=P_ani.layout.dtype)] * na,
+                             [P_ani[a] for a in atoms],
+                             add=add)
         else:
             for D_xii, P_nsi in zips(D_asii.values(), self.P_ani.values()):
                 add_to_4component_density_matrix(D_xii, P_nsi, occ_n, xp)

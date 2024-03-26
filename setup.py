@@ -195,6 +195,7 @@ if platform_id:
     os.environ['_PYTHON_HOST_PLATFORM'] = get_platform() + '-' + platform_id
 
 if gpu:
+    extra_link_args.append('-lstdc++')
     valid_gpu_targets = ['cuda', 'hip-amd', 'hip-cuda']
     if gpu_target not in valid_gpu_targets:
         raise ValueError('Invalid gpu_target in configuration: '
