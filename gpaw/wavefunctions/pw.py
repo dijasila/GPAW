@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-import numbers
 from math import pi
+import numbers
 
-import gpaw.cgpaw as cgpaw
-import gpaw
-import gpaw.fftw as fftw
-import numpy as np
 from ase.units import Bohr, Ha
 from ase.utils.timing import timer
+import numpy as np
+
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsDescriptor, BlacsGrid, Redistributor
 from gpaw.lfc import BasisFunctions
@@ -22,6 +19,9 @@ from gpaw.utilities.progressbar import ProgressBar
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+import gpaw
+import gpaw.cgpaw as cgpaw
+import gpaw.fftw as fftw
 
 
 class PW(Mode):

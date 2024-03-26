@@ -25,20 +25,22 @@ FD and PW modes:
 """
 
 import time
-import numpy as np
+
+from ase.parallel import parprint
 from ase.units import Hartree
 from ase.utils import basestring
+import numpy as np
+
+from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
+from gpaw.directmin.fdpw.pz_localization import PZLocalization
+from gpaw.directmin.functional.fdpw import get_functional
+from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
+from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ
 from gpaw.eigensolvers.eigensolver import Eigensolver
+from gpaw.utilities import unpack_hermitian
 from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
-from gpaw.utilities import unpack
-from gpaw.directmin import search_direction, line_search_algorithm
-from gpaw.directmin.functional.fdpw import get_functional
-from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ
-from gpaw.directmin.fdpw.pz_localization import PZLocalization
-from gpaw.directmin.fdpw.etdm_inner_loop import ETDMInnerLoop
-from ase.parallel import parprint
-from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 
 
 class FDPWETDM(Eigensolver):
@@ -679,7 +681,7 @@ class FDPWETDM(Eigensolver):
 
         c_axi = {}
         for a, P_xi in kpt.P_ani.items():
-            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dH_ii = unpack_hermitian(ham.dH_asp[a][kpt.s])
             c_xi = np.dot(P_xi, dH_ii)
             c_axi[a] = c_xi
 
@@ -972,7 +974,7 @@ class FDPWETDM(Eigensolver):
         wfs.apply_pseudo_hamiltonian(kpt, ham, psi, Hpsi_nG)
         c_axi = {}
         for a, P_xi in P1_ai.items():
-            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dH_ii = unpack_hermitian(ham.dH_asp[a][kpt.s])
             c_xi = np.dot(P_xi, dH_ii)
             c_axi[a] = c_xi
         # not sure about this:
