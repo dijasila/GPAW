@@ -455,7 +455,9 @@ class UPFSetupData:
         return pack2(H_ii)
 
     def get_local_potential(self):
-        vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
+        vbar = Spline.from_data(
+            0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g,
+        )
         return vbar
 
     # XXXXXXXXXXXXXXXXX stolen from hghsetupdataf
@@ -466,7 +468,7 @@ class UPFSetupData:
         for l, pt1_g in zip(self.l_j, self.pt_jg):
             pt2_g = self.rgd.zeros()[:maxlen]
             pt2_g[:len(pt1_g)] = divrl(pt1_g, l, self.rgd.r_g[:len(pt1_g)])
-            spline = Spline(l, self.rgd.r_g[maxlen - 1], pt2_g)
+            spline = Spline.from_data(l, self.rgd.r_g[maxlen - 1], pt2_g)
             pt_j.append(spline)
         return pt_j
 
@@ -486,7 +488,7 @@ class UPFSetupData:
         rcutcc = self.rgd.r_g[ng - 1]  # correct or not?
         r = np.linspace(0.0, rcutcc, 50)
         ghat_g[-1] = 0.0
-        ghatnew_g = Spline(0, rcutcc, ghat_g).map(r)
+        ghatnew_g = Spline.from_data(0, rcutcc, ghat_g).map(r)
         return r, [0], [ghatnew_g]
 
     def create_basis_functions(self):

@@ -1245,7 +1245,7 @@ def test():
 
     from gpaw.spline import Spline
     a = np.array([1, 0.9, 0.8, 0.0])
-    s = Spline(0, 0.2, a)
+    s = Spline.from_data(0, 0.2, a)
     x = LocalizedFunctionsCollection(gd, [[s], [s]])
     x.set_positions([(0.5, 0.45, 0.5), (0.5, 0.55, 0.5)])
     n_G = gd.zeros()
