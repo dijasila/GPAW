@@ -18,7 +18,7 @@ from ase import Atoms
 from ase.data import covalent_radii
 from ase.neighborlist import neighbor_list
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 from gpaw import debug
 
@@ -157,7 +157,7 @@ def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     assert nrdr.shape == vr.shape and len(vr.shape) == 1
     assert len(r.shape) == 1
     assert len(r) >= len(vr)
-    return _gpaw.hartree(l, nrdr, r, vr)
+    return cgpaw.hartree(l, nrdr, r, vr)
 
 
 def packed_index(i1, i2, ni):
@@ -199,8 +199,7 @@ def unpack2(M):
 
 
 def pack_h(M2, tolerance=1e-10):
-    r"""
-    Pack Hermitian
+    r"""Pack Hermitian
 
     This functions packs a Hermitian 2D array to a
     1D array, averaging off-diagonal terms with complex conjugation.
@@ -233,9 +232,8 @@ def pack_h(M2, tolerance=1e-10):
 
 
 def unpack_h(M):
-    """
-    Unpack 1D array to Hermitian 2D array, assuming a packing as in ``pack_h``.
-    """
+    """Unpack 1D array to Hermitian 2D array,
+    assuming a packing as in ``pack_h``."""
 
     if M.ndim == 2:
         return np.array([unpack(m) for m in M])
@@ -244,16 +242,16 @@ def unpack_h(M):
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
     if M.dtype == complex:
-        _gpaw.unpack_complex(M, M2)
+        cgpaw.unpack_complex(M, M2)
     else:
-        _gpaw.unpack(M, M2)
+        cgpaw.unpack(M, M2)
     return M2
 
 
 def pack_ods(A: np.ndarray) -> np.ndarray:
     r"""Pack off-diagonal sum
 
-    This function packs a 2D Hermitian array to 1D, adding offdiagonal terms.
+    This function packs a 2D Hermitian array to 1D, adding off-diagonal terms.
 
     The matrix::
 
@@ -263,22 +261,22 @@ def pack_ods(A: np.ndarray) -> np.ndarray:
 
     is transformed to the vector::
 
-      (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
-    """
+       (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)"""
+
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
     assert A.dtype in [float, complex]
-    return _gpaw.pack(A)
+    return cgpaw.pack(A)
 
 
-# We generally cannot recover the complex part of the off-diag elements from a
-# pack_sum_offdiag array since they are summed to zero (so far we only pack
-# different Hermitian arrays).
-# We should reconsider if "unpack_offdiag_summed" even makes sense to have.
+# We cannot recover the complex part of the off-diag elements from a pack_ods
+# array since they are summed to zero (we only pack Hermitian arrays).
+# We should consider if "unpack_ods" even makes sense to have.
 
 
 def unpack_ods(M):
-    """Unpack 1D array to 2D, assuming a packing as in ``pack_ods``."""
+    """Unpack 1D array to 2D Hermitian array,
+    assuming a packing as in ``pack_ods``."""
     if M.ndim == 2:
         return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
@@ -342,11 +340,11 @@ def divrl(a_g, l, r_g):
 
 
 def compiled_with_sl():
-    return hasattr(_gpaw, 'new_blacs_context')
+    return hasattr(cgpaw, 'new_blacs_context')
 
 
 def compiled_with_libvdwxc():
-    return hasattr(_gpaw, 'libvdwxc_create')
+    return hasattr(cgpaw, 'libvdwxc_create')
 
 
 def load_balance(paw, atoms):
@@ -373,8 +371,8 @@ def load_balance(paw, atoms):
 
 
 if not debug:
-    hartree = _gpaw.hartree  # noqa
-    pack_ods = _gpaw.pack
+    hartree = cgpaw.hartree  # noqa
+    pack_ods = cgpaw.pack
 
 
 def unlink(path: Union[str, Path], world=None):

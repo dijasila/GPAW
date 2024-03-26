@@ -5,7 +5,7 @@ from gpaw.response import timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.utilities.blas import rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
 from gpaw.response.pw_parallelization import Blocks1D
@@ -390,7 +390,7 @@ class KPointTesselation:
         simplices_s = self.pts_k[K]
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.simplex_volumes[simplices_s]
-        _gpaw.tetrahedron_weight(
+        cgpaw.tetrahedron_weight(
             deps_k, self._td.simplices, K, simplices_s, W_w, omega_w, vol_s)
         return W_w
 

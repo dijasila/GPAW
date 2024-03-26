@@ -76,10 +76,10 @@ class BadParallelization(Exception):
 
 
 def get_libraries() -> dict[str, str]:
-    import _gpaw
+    import gpaw.cgpaw as cgpaw
     libraries: dict[str, str] = {}
-    if hasattr(_gpaw, 'lxcXCFunctional'):
-        libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+    if hasattr(cgpaw, 'lxcXCFunctional'):
+        libraries['libxc'] = getattr(cgpaw, 'libxc_version', '2.x.y')
     else:
         libraries['libxc'] = ''
     return libraries
