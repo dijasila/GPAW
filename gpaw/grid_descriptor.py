@@ -456,13 +456,9 @@ class GridDescriptor(Domain):
                 else:
                     t_c = (ft_sc[s] * self.N_c).round().astype(int)
                     if not np.allclose(t_c, ft_sc[s] * self.N_c, atol=1e-6):
-                        dN_c = np.round((np.round(ft_sc[s] * self.N_c)
-                                         - ft_sc[s] * self.N_c) / ft_sc[s])
-                        newN_c = (self.N_c + dN_c).astype(int)
                         e = 'The specified number of grid points, ' \
                             + str(self.N_c) + ', is not compatible with the'\
-                            ' symmetry of the atoms. Nearest compatible'\
-                            ' number of grid points: ' + str(newN_c) + '.'
+                            ' symmetry of the atoms.'
                         raise ValueError(e)
                     cgpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
                                         1 - self.pbc_c)
@@ -470,6 +466,7 @@ class GridDescriptor(Domain):
             B_g = None
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
+
 
     def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
