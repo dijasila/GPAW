@@ -44,8 +44,8 @@ if os.getenv('CPU_ARCH') == 'icelake':
     gpu_target = 'cuda'
     gpu_compiler = 'nvcc'
     gpu_compile_args = ['-O3',
-                         '-g',
-                         '-gencode', 'arch=compute_80,code=sm_80']
+                        '-g',
+                        '-gencode', 'arch=compute_80,code=sm_80']
 
     libraries += ['cudart', 'cublas']
 else:
