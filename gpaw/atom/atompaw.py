@@ -7,7 +7,7 @@ from scipy.linalg import eigh
 from gpaw.calculator import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
-from gpaw.utilities import unpack_h
+from gpaw.utilities import unpack_hermitian
 from gpaw.occupations import OccupationNumberCalculator
 import gpaw.mpi as mpi
 
@@ -129,7 +129,7 @@ class AtomEigensolver:
         e_n = np.zeros(N)
 
         for s in range(wfs.nspins):
-            dH_ii = unpack_h(hamiltonian.dH_asp[0][s])
+            dH_ii = unpack_hermitian(hamiltonian.dH_asp[0][s])
             kpt = wfs.kpt_u[s]
             N1 = 0
             for l in range(lmax + 1):

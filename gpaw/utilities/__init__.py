@@ -176,29 +176,29 @@ def unpacked_indices(p, ni):
 
 
 packing_conventions = """\n
-In the code, the convention is that density matrices are constructed using
-pack_sum / unpack_sum, and anything that should be multiplied onto such, e.g.
-corrections to the Hamiltonian, are constructed according to pack_h / unpack_h.
+The convention is that density matrices are constructed using (un)pack_density
+and anything that should be multiplied onto such, e.g. corrections to the
+Hamiltonian, are constructed according to (un)pack_hermitian.
 """
 
 
 def pack2(M):
-    return pack_h(M)
+    return pack_hermitian(M)
 
 
 def unpack(M):
-    return unpack_h(M)
+    return unpack_hermitian(M)
 
 
 def pack(M: np.ndarray) -> np.ndarray:
-    return pack_sum(M)
+    return pack_density(M)
 
 
 def unpack2(M):
-    return unpack_sum(M)
+    return unpack_density(M)
 
 
-def pack_h(M2, tolerance=1e-10):
+def pack_hermitian(M2, tolerance=1e-10):
     r"""Pack Hermitian
 
     This functions packs a Hermitian 2D array to a
@@ -231,9 +231,9 @@ def pack_h(M2, tolerance=1e-10):
     return M
 
 
-def unpack_h(M):
+def unpack_hermitian(M):
     """Unpack 1D array to Hermitian 2D array,
-    assuming a packing as in ``pack_h``."""
+    assuming a packing as in ``pack_hermitian``."""
 
     if M.ndim == 2:
         return np.array([unpack(m) for m in M])
@@ -248,7 +248,7 @@ def unpack_h(M):
     return M2
 
 
-def pack_sum(A: np.ndarray) -> np.ndarray:
+def pack_density(A: np.ndarray) -> np.ndarray:
     r"""Pack off-diagonal sum
 
     This function packs a 2D Hermitian array to 1D, adding off-diagonal terms.
@@ -269,14 +269,14 @@ def pack_sum(A: np.ndarray) -> np.ndarray:
     return cgpaw.pack(A)
 
 
-# We cannot recover the complex part of the off-diag elements from a pack_sum
-# array since they are summed to zero (we only pack Hermitian arrays).
-# We should consider if "unpack_sum" even makes sense to have.
+# We cannot recover the complex part of the off-diag elements from a
+# pack_density array since they are summed to zero (we only pack Hermitian
+# arrays). We should consider if "unpack_density" even makes sense to have.
 
 
-def unpack_sum(M):
+def unpack_density(M):
     """Unpack 1D array to 2D Hermitian array,
-    assuming a packing as in ``pack_sum``."""
+    assuming a packing as in ``pack_density``."""
     if M.ndim == 2:
         return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
@@ -285,7 +285,7 @@ def unpack_sum(M):
     return M2
 
 
-for method in (pack_h, unpack_h, pack_sum, pack_sum):
+for method in (pack_hermitian, unpack_hermitian, pack_density, pack_density):
     method.__doc__ += packing_conventions  # type: ignore
 
 
@@ -372,7 +372,7 @@ def load_balance(paw, atoms):
 
 if not debug:
     hartree = cgpaw.hartree  # noqa
-    pack_sum = cgpaw.pack
+    pack_density = cgpaw.pack
 
 
 def unlink(path: Union[str, Path], world=None):

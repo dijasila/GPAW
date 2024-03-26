@@ -13,7 +13,7 @@ from gpaw.gpu import as_np
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
-from gpaw.utilities import unpack_h, unpack_sum
+from gpaw.utilities import unpack_hermitian, unpack_density
 from gpaw.new.symmetry import SymmetrizationPlan
 
 
@@ -34,7 +34,7 @@ class Density:
                    charge,
                    [xp.asarray(setup.Delta_iiL) for setup in setups],
                    [setup.Delta0 for setup in setups],
-                   [unpack_h(setup.N0_p) for setup in setups],
+                   [unpack_hermitian(setup.N0_p) for setup in setups],
                    [setup.n_j for setup in setups],
                    [setup.l_j for setup in setups],
                    nct_aX,
@@ -68,7 +68,7 @@ class Density:
                  in enumerate(zips(setups, magmom_av))}
         basis_set.add_to_density(nt_sR.data, f_asi)
         for a, D_sii in D_asii.items():
-            D_sii[:] = unpack_sum(
+            D_sii[:] = unpack_density(
                 setups[a].initialize_density_matrix(f_asi[a]))
 
         xp = nct_aX.xp
