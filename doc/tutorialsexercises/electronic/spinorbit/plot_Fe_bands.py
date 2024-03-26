@@ -31,12 +31,12 @@ plt.xticks(X, [r'$\Gamma$', '(010)   H   (001)', r'$\Gamma$'], size=20)
 plt.yticks(size=20)
 for i in range(len(X))[1:-1]:
     plt.plot(2 * [X[i]], [1.1 * np.min(e_nk), 1.1 * np.max(e_nk)],
-            c='0.5', linewidth=0.5)
+             c='0.5', linewidth=0.5)
 
 plt.scatter(np.tile(x, len(e_nk)), e_nk.reshape(-1),
-           c=s_nk.reshape(-1),
-           s=5,
-           marker='+')
+            c=s_nk.reshape(-1),
+            s=5,
+            marker='+')
 plt.plot([0, x[-1]], 2 * [0.0], '-', c='0.5')
 
 plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
