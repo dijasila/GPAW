@@ -467,7 +467,6 @@ class GridDescriptor(Domain):
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
 
-
     def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
