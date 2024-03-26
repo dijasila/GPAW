@@ -246,12 +246,12 @@ for n, l in enumerate(largest):
         name = name.replace('\\rm', '')
         label = name + ' ' + str(round(e, 2))
         plt.annotate(label,
-                       xy=(n + 0.05, e),
-                       xytext=formulaslocation(n, n1),
-                       arrowprops=dict(width=0.05, headwidth=5.0,
-                                       facecolor='black', shrink=1.00),
-                       horizontalalignment='left', verticalalignment='center',
-                       fontsize=ann_fontsize)
+                     xy=(n + 0.05, e),
+                     xytext=formulaslocation(n, n1),
+                     arrowprops=dict(width=0.05, headwidth=5.0,
+                                     facecolor='black', shrink=1.00),
+                     horizontalalignment='left', verticalalignment='center',
+                     fontsize=ann_fontsize)
 # plt.show()
 plot_save(".", tag + '_ea_vs')
 # plt.close(1)
