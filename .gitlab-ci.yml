@@ -243,6 +243,7 @@ build-lumi-g:
           '-fopenmp',
           '-fPIC',
           '-Wall',
+          '-std=c++20',
           '-Wno-stringop-overflow',  # suppress warnings from MPI_STATUSES_IGNORE
           '-Werror',
           ]
@@ -264,6 +265,7 @@ build-lumi-g:
       gpu_compile_args = [
           '-g',
           '-O3',
+          '-std=c++20',
           '--offload-arch=gfx90a',
           ]
       libraries += ['amdhip64', 'hipblas']
