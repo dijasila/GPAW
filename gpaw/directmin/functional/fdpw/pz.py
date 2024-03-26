@@ -3,7 +3,7 @@ Potentials for orbital density dependent energy functionals
 """
 
 import numpy as np
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack_sum, unpack_h
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.tools import get_n_occ, d_matrix
@@ -122,7 +122,7 @@ class PZSICFDPW:
         for a, P_ni in kpt.P_ani.items():
             P_i = P_ni[n]
             D_ii = np.outer(P_i, P_i.conj()).real
-            D_ap[a] = D_p = pack(D_ii)
+            D_ap[a] = D_p = pack_sum(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         return nt_G, Q_aL, D_ap
@@ -152,7 +152,7 @@ class PZSICFDPW:
 
         c_axi = {}
         for a, P_xi in kpt.P_ani.items():
-            dH_ii = unpack(ham.dH_asp[a][kpt.s])
+            dH_ii = unpack_h(ham.dH_asp[a][kpt.s])
             c_xi = np.dot(P_xi, dH_ii)
             c_axi[a] = c_xi
 
@@ -216,7 +216,7 @@ class PZSICFDPW:
                     self.grad[k][i] += kpt.psit_nG[i] * vt_G
             c_axi = {}
             for a in kpt.P_ani.keys():
-                dH_ii = unpack(dH_ap[a])
+                dH_ii = unpack_h(dH_ap[a])
                 c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
                 c_axi[a] = c_xi * kpt.f_n[i]
             # add projectors to
@@ -415,7 +415,7 @@ class PZSICFDPW:
             # Force from projectors
             for a, dP_miv in dP_amiv.items():
                 dP_vi = dP_miv[m].T.conj()
-                dH_ii = unpack(dH_ap[a])
+                dH_ii = unpack_h(dH_ap[a])
                 P_i = kpt.P_ani[a][m]
                 F_v = np.dot(np.dot(dP_vi, dH_ii), P_i)
                 F_av[a] += kpt.f_n[m] * 2.0 * F_v.real
@@ -477,7 +477,7 @@ class PZSICFDPW:
         for a, P_ni in kpt.P_ani.items():
             P_i = P_ni[n]
             D_ii = np.outer(P_i, P_i.conj()).real
-            D_ap[a] = D_p = pack(D_ii)
+            D_ap[a] = D_p = pack_sum(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
         wfs.timer.stop("Multipole Moments and Atomic Dens. Mat.")
 
