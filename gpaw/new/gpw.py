@@ -19,7 +19,7 @@ from gpaw.new.input_parameters import InputParameters
 from gpaw.new.logger import Logger
 from gpaw.new.potential import Potential
 from gpaw.typing import DTypeLike
-from gpaw.utilities import unpack, unpack2
+from gpaw.utilities import unpack_hermitian, unpack_offdiag_summed
 
 ENERGY_NAMES = ['kinetic', 'coulomb', 'zero', 'external', 'xc', 'entropy',
                 'total_free', 'total_extrapolated',
@@ -289,8 +289,8 @@ def convert_to_new_packing_convention(a_asp, density=False):
     """
     for a_sp in a_asp.values():
         if density:
-            a_sii = unpack2(a_sp)
+            a_sii = unpack_offdiag_summed(a_sp)
         else:
-            a_sii = unpack(a_sp)
+            a_sii = unpack_hermitian(a_sp)
         L = np.tril_indices(a_sii.shape[1])
         a_sp[:] = a_sii[(...,) + L]
