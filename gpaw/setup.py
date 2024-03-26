@@ -232,7 +232,7 @@ class BaseSetup:
             correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         for j, (f, f_s) in enumerate(zip(f_j, f_sj.T)):
-            if f == 0:
+            if not f_s.any():
                 continue
             I = 0
             for bf in self.basis.bf_j:
