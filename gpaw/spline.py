@@ -6,7 +6,7 @@ import numpy as np
 
 from gpaw import debug
 from gpaw.utilities import is_contiguous
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 class Spline:
@@ -27,7 +27,7 @@ class Spline:
         f_g = np.array(f_g, float)
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
-        return cls(_gpaw.Spline(l, rmax, f_g))
+        return cls(cgpaw.Spline(l, rmax, f_g))
 
     @property
     def l(self):  # noqa: E743
@@ -78,7 +78,7 @@ class Spline:
 
     def __setstate__(self, state):
         rmax, f_g = state['spline']
-        state['spline'] = _gpaw.Spline(state['l'], rmax, f_g)
+        state['spline'] = cgpaw.Spline(state['l'], rmax, f_g)
         self.__dict__.update(state)
 
     def get_functions(self, gd, start_c, end_c, spos_c):
@@ -86,7 +86,7 @@ class Spline:
         # start_c is the new origin so we translate gd.beg_c to start_c
         origin_c = np.array([0, 0, 0])
         pos_v = np.dot(spos_c, gd.cell_cv) - np.dot(start_c, h_cv)
-        A_gm, G_b = _gpaw.spline_to_grid(self.spline,
+        A_gm, G_b = cgpaw.spline_to_grid(self.spline,
                                          origin_c,
                                          end_c - start_c,
                                          pos_v,

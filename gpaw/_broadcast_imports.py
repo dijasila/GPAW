@@ -24,13 +24,13 @@ import sys
 import marshal
 from importlib.machinery import PathFinder, ModuleSpec
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
-if getattr(_gpaw, 'version', 0) != 6:
+if getattr(cgpaw, 'version', 0) != 6:
     raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
-if hasattr(_gpaw, 'Communicator'):
+if hasattr(cgpaw, 'Communicator'):
     if '_gpaw' not in sys.builtin_module_names:
         libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
         import ctypes
@@ -38,7 +38,7 @@ if hasattr(_gpaw, 'Communicator'):
             ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
         except OSError:
             pass
-    world = _gpaw.Communicator()
+    world = cgpaw.Communicator()
 else:
     world = None  # type: ignore
 
@@ -50,7 +50,7 @@ def marshal_broadcast(obj):
         assert obj is None
         buf = None
 
-    buf = _gpaw.globally_broadcast_bytes(buf)
+    buf = cgpaw.globally_broadcast_bytes(buf)
     try:
         return marshal.loads(buf)
     except ValueError as err:

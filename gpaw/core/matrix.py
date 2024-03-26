@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from types import ModuleType
 from typing import Dict, Tuple
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import numpy as np
 import scipy.linalg as sla
 
@@ -271,7 +271,7 @@ class Matrix(XP):
             return
         bc, br = dist.desc[4:6]
         assert bc == br
-        info = _gpaw.scalapack_inverse(self.data, dist.desc, 'U')
+        info = cgpaw.scalapack_inverse(self.data, dist.desc, 'U')
         if info != 0:
             raise ValueError(f'scalapack_inverse error: {info}')
 
@@ -400,7 +400,7 @@ class Matrix(XP):
                 assert cc
                 assert S is None
                 array = H.data.copy()
-                info = _gpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
+                info = cgpaw.scalapack_diagonalize_dc(array, H.dist.desc, 'U',
                                                       H.data, eps)
                 assert info == 0, info
 
@@ -497,7 +497,7 @@ class Matrix(XP):
             self.data += self.data.conj().T
             return
         tmp = self.copy()
-        _gpaw.pblas_tran(*self.shape, scale, tmp.data, scale, self.data,
+        cgpaw.pblas_tran(*self.shape, scale, tmp.data, scale, self.data,
                          self.dist.desc, self.dist.desc, True)
 
     def tril2full(self) -> None:
@@ -524,12 +524,12 @@ class Matrix(XP):
             return
 
         desc = dist.desc
-        _gpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
+        cgpaw.scalapack_set(self.data, desc, 0.0, 0.0, 'L', M - 1, M - 1, 2, 1)
         buf = self.data.copy()
         # Set diagonal to zero in the copy:
-        _gpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
+        cgpaw.scalapack_set(buf, desc, 0.0, 0.0, 'L', M, M, 1, 1)
         # Now transpose tmp_mm adding the result to the original matrix:
-        _gpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
+        cgpaw.pblas_tran(M, M, 1.0, buf, 1.0, self.data, desc, desc, True)
 
     def add_to_diagonal(self, d: ArrayLike1D | float) -> None:
         """Add list of numbers or single number to diagonal of matrix."""
@@ -552,7 +552,7 @@ def _matrix(M):
 
 
 def redist(dist1, M1, dist2, M2, context):
-    _gpaw.scalapack_redist(dist1.desc, dist2.desc,
+    cgpaw.scalapack_redist(dist1.desc, dist2.desc,
                            M1, M2,
                            dist1.desc[2], dist1.desc[3],
                            1, 1, 1, 1,  # 1-indexing
@@ -679,7 +679,7 @@ class BLACSDistribution(MatrixDistribution):
         context = _global_blacs_context_store.get(key)
         if context is None:
             try:
-                context = _gpaw.new_blacs_context(comm.get_c_object(),
+                context = cgpaw.new_blacs_context(comm.get_c_object(),
                                                   c, r, 'R')
             except AttributeError:
                 pass
@@ -705,7 +705,7 @@ class BLACSDistribution(MatrixDistribution):
             n = N
             m = min((comm.rank + 1) * br, M) - min(comm.rank * br, M)
         else:
-            n, m = _gpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
+            n, m = cgpaw.get_blacs_local_shape(context, N, M, bc, br, 0, 0)
         if n < 0 or m < 0:
             n = m = 0
         self.shape = (m, n)
@@ -750,12 +750,12 @@ class BLACSDistribution(MatrixDistribution):
             assert opb == 'C' or opb == 'T' and a.dtype == float
             N, K = a.shape
             if a is b:
-                _gpaw.pblas_rk(N, K, alpha, a.data,
+                cgpaw.pblas_rk(N, K, alpha, a.data,
                                beta, c.data,
                                a.dist.desc, c.dist.desc,
                                'U')
             else:
-                _gpaw.pblas_r2k(N, K, 0.5 * alpha, b.data, a.data,
+                cgpaw.pblas_r2k(N, K, 0.5 * alpha, b.data, a.data,
                                 beta, c.data,
                                 b.dist.desc, a.dist.desc, c.dist.desc,
                                 'U')
@@ -766,7 +766,7 @@ class BLACSDistribution(MatrixDistribution):
                 Ka, M = M, Ka
             if opb == 'N':
                 N, Kb = Kb, N
-            _gpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
+            cgpaw.pblas_gemm(N, M, Ka, alpha, b.data, a.data,
                              beta, c.data,
                              b.dist.desc, a.dist.desc, c.dist.desc,
                              opb, opa)

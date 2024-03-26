@@ -87,7 +87,7 @@ fi
 dftd3 = """\
 mkdir {venv}/DFTD3
 cd {venv}/DFTD3
-URL=https://www.chemiebn.uni-bonn.de/pctc/mulliken-center/software/dft-d3
+URL=https://www.chemie.uni-bonn.de/grimme/de/software/dft-d3
 wget $URL/dftd3.tgz
 tar -xf dftd3.tgz
 ssh {nifllogin[0]} ". {venv}/bin/activate && cd {venv}/DFTD3 && make >& d3.log"
