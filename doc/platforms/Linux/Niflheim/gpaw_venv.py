@@ -72,7 +72,8 @@ module load libvdwxc/0.4.0-{fullchain}
     'intel': ""
 }
 
-module_cmds_arch_dependent = """if [ "$CPU_ARCH" == "icelake" ];then module load CuPy/12.3.0-{fullchain}-CUDA-12.1.1;fi"""
+module_cmds_arch_dependent = """if [ "$CPU_ARCH" == "icelake" ];then module load CuPy/12.3.0-{fullchain}-CUDA-12.1.1;fi
+"""
 
 
 activate_extra = """
