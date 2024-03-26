@@ -26,7 +26,7 @@ from importlib.machinery import PathFinder, ModuleSpec
 
 import _gpaw
 
-if getattr(_gpaw, 'version', 0) != 5:
+if getattr(_gpaw, 'version', 0) != 6:
     raise ImportError('Please recompile GPAW''s C-extensions!')
 
 
