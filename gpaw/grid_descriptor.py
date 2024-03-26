@@ -356,7 +356,7 @@ class GridDescriptor(Domain):
         else:
             for c in range(3):
                 if (not self.pbc_c[c] and
-                        (beg_c[c] < 0 or end_c[c] > N_c[c])):
+                    (beg_c[c] < 0 or end_c[c] > N_c[c])):
                     msg = ('Box at %.3f %.3f %.3f crosses boundary.  '
                            'Beg. of box %s, end of box %s, max box size %s' %
                            (tuple(spos_c) + (beg_c, end_c, self.N_c)))
@@ -402,7 +402,7 @@ class GridDescriptor(Domain):
                     end_c = np.minimum(end_c, self.end_c)
                     if (beg_c[0] < end_c[0] and
                         beg_c[1] < end_c[1] and
-                            beg_c[2] < end_c[2]):
+                        beg_c[2] < end_c[2]):
                         boxes.append((beg_c, end_c, disp))
 
         return boxes
