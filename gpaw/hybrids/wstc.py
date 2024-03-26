@@ -68,6 +68,7 @@ class WignerSeitzTruncatedCoulomb:
 
     def get_potential_new(self, pw: PWDesc, grid: UGDesc) -> PWArray:
         K_G = pw.zeros()
+        assert isinstance(K_G, PWArray)  # !!!
         size = tuple(grid.size)
         if pw.dtype == float:
             size = (size[0], size[1], size[2] // 2 + 1)
