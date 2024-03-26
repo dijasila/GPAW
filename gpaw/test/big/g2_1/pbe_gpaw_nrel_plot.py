@@ -169,7 +169,7 @@ def plot_save(directory_name, out_prefix):
     assert exists(directory_name)
 
     plt.savefig(directory_name + os.path.sep + out_prefix + '.png',
-                  bbox_inches='tight')
+                bbox_inches='tight')
 
 
 matplotlib.use('Agg')
@@ -231,11 +231,11 @@ for n in range(len(no)):
             'std': std}[v]
         label += l + ' ' + str(round(value[n], 3)) + '\n'
     plt.annotate(label,
-                   xy=(n + 0.0, 0.0),
-                   xytext=errorslocation(n, n1),
-                   arrowprops=None,
-                   horizontalalignment='left', verticalalignment='center',
-                   fontsize=ann_fontsize)
+                 xy=(n + 0.0, 0.0),
+                 xytext=errorslocation(n, n1),
+                 arrowprops=None,
+                 horizontalalignment='left', verticalalignment='center',
+                 fontsize=ann_fontsize)
 
 # plot compounds with largest errors
 for n, l in enumerate(largest):
