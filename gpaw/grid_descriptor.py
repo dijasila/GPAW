@@ -467,6 +467,22 @@ class GridDescriptor(Domain):
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
 
+    def get_nearest_compatible_grid(self, ft_sc):
+        from numpy import lcm
+        from fractions import Fraction
+        newN_c = np.zeros(self.N_c.shape)
+        for i, N in enumerate(self.N_c):
+            frac_s = [Fraction(str(ft_c[i])).limit_denominator(1000)
+                      for ft_c in ft_sc]
+            lcm_denom = lcm.reduce([frac.denominator for frac in frac_s])
+            dNminus = N - (N % lcm_denom)
+            dNplus = dNminus + lcm_denom
+            if dNminus > 0 and np.abs(dNminus - N) < np.abs(dNplus - N):
+                newN_c[i] = dNminus
+            else:
+                newN_c[i] = dNplus
+        return newN_c.astype(int)
+
     def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:

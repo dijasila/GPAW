@@ -1,29 +1,18 @@
-from ase.spacegroup import crystal
-from gpaw import GPAW
-from gpaw import PW
+from gpaw.grid_descriptor import GridDescriptor
 import pytest
+import numpy as np
 
 
-def test_symmetry_fractional_translations_grid():
-    'cristobalite'
-    # no. 92 - tetragonal
-
-    a = 5.0833674
-    c = 7.0984738
-    p0 = (0.2939118, 0.2939118, 0.0)
-    p1 = (0.2412656, 0.0931314, 0.1739217)
-
-    atoms = crystal(['Si', 'O'], basis=[p0, p1],
-                    spacegroup=92, cellpar=[a, a, c, 90, 90, 90])
-
+def test_symmetrize_fractional_translations():
+    gd = GridDescriptor(N_c=np.array([5, 6, 6]))
+    a_g = gd.empty(10)
+    op_scc = [np.identity(3), -np.identity(3)]
+    ft_sc = np.array([[0, 0, 0], [0.5, 0, 0]])
     with pytest.raises(ValueError, match=r"^The specified number"):
-        failcalc = GPAW(mode=PW(),
-                        xc='LDA',
-                        kpts=(3, 3, 2),
-                        nbands=40,
-                        symmetry={'symmorphic': False},
-                        gpts=(23, 23, 32),
-                        eigensolver='rmm-diis')
+        gd.symmetrize(a_g, op_scc, ft_sc)
 
-        atoms.calc = failcalc
-        atoms.get_potential_energy()
+    newN_c = gd.get_nearest_compatible_grid(ft_sc)
+    assert np.array_equal(newN_c, np.array([6, 6, 6]))
+    ft2_sc = np.array([[1 / 20, 0, 0], [1 / 30, 1 / 4, 0]])
+    newN_c = gd.get_nearest_compatible_grid(ft2_sc)
+    assert np.array_equal(newN_c, np.array([60, 8, 6]))
