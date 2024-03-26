@@ -183,7 +183,7 @@ class HPMTimer(Timer):
 
     def __init__(self):
         Timer.__init__(self)
-        from _gpaw import hpm_start, hpm_stop
+        from gpaw.cgpaw import hpm_start, hpm_stop
         self.hpm_start = hpm_start
         self.hpm_stop = hpm_stop
         hpm_start(self.top_level)
@@ -211,7 +211,7 @@ class CrayPAT_timer(Timer):
 
     def __init__(self, print_levels=4):
         Timer.__init__(self, print_levels)
-        from _gpaw import craypat_region_begin, craypat_region_end
+        from gpaw.cgpaw import craypat_region_begin, craypat_region_end
         self.craypat_region_begin = craypat_region_begin
         self.craypat_region_end = craypat_region_end
         self.regions = {}

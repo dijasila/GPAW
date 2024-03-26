@@ -111,12 +111,12 @@ def evaluate_pbe_gpu(nt_sr, vxct_sr, e_r, sigma_xr, dedsigma_xr) -> None:
 
 
 if not TYPE_CHECKING:
-    from _gpaw import (  # noqa
+    from gpaw.cgpaw import (  # noqa
         add_to_density, pw_precond, pw_insert,
         pwlfc_expand, symmetrize_ft)
 
     if GPU_ENABLED:
-        from _gpaw import (  # noqa
+        from gpaw.cgpaw import (  # noqa
             pwlfc_expand_gpu, add_to_density_gpu, pw_insert_gpu,
             dH_aii_times_P_ani_gpu, evaluate_lda_gpu, evaluate_pbe_gpu,
             calculate_residuals_gpu)
