@@ -1,8 +1,10 @@
 """Module for Numpy array diagonalization with Scipy/Scalapack."""
 import numpy as np
 from scipy.linalg import eigh
+from ase.utils import lazyproperty
 
 from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.utilities.tools import tri2full
 
 
 class ScipyDiagonalizer:
@@ -41,22 +43,23 @@ class ScipyDiagonalizer:
                 A, B, lower=True, check_finite=debug, overwrite_b=True)
 
 
-class ScalapackDiagonalizer:
-    """Diagonalizer class that uses general_diagonalize_dc.
+class ParallelDiagonalizer:
+    """Diagonalizer class that uses ScaLAPACK/ELPA.
 
-    The ScalapackDiagonalizer wraps general_diagonalize_dc to solve a
-    (generalized) eigenproblem on one core.
+    The class wraps general_diagonalize_dc or similar Elpa function to solve a
+    (generalized) eigenproblem.
     """
 
     def __init__(
-        self,
-        arraysize,
-        grid_nrows,
-        grid_ncols,
-        *,
-        dtype,
-        scalapack_communicator,
-        blocksize=64):
+            self,
+            arraysize: int,
+            grid_nrows: int,
+            grid_ncols: int,
+            *,
+            dtype,
+            scalapack_communicator,
+            blocksize: int = 64,
+            use_elpa: bool = False):
         """Initialize grids, communicators, redistributors.
 
         Parameters
@@ -96,6 +99,8 @@ class ScalapackDiagonalizer:
             self.distributed_descriptor,
             self.head_rank_descriptor)
 
+        self.use_elpa = use_elpa
+
     def diagonalize(self, A, B, eps, is_master, debug):
         """Solves the eigenproblem A @ x = eps [B] @ x.
 
@@ -117,6 +122,7 @@ class ScalapackDiagonalizer:
         debug : bool
             Flag to check for finiteness when running in debug mode.
         """
+
         Asc_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
         Bsc_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
         vec_MM = self.head_rank_descriptor.zeros(dtype=self.dtype)
@@ -131,11 +137,22 @@ class ScalapackDiagonalizer:
             Asc_MM[:, :] = A
             Bsc_MM[:, :] = B
 
+            # tri2full is only necessary if we are using Elpa.
+            # We should perhaps investigate if there's a way to tell
+            # Elpa only to use lower, so we don't have to tri2full.
+            if self.use_elpa:
+                tri2full(Bsc_MM)
+                tri2full(Asc_MM)
+
         self.head_to_all_redistributor.redistribute(Asc_MM, Asc_mm)
         self.head_to_all_redistributor.redistribute(Bsc_MM, Bsc_mm)
 
-        self.distributed_descriptor.general_diagonalize_dc(
-            Asc_mm, Bsc_mm, vec_mm, temporary_eps)
+        if self.use_elpa:
+            self._elpa.general_diagonalize(
+                Asc_mm, Bsc_mm, vec_mm, temporary_eps)
+        else:
+            self.distributed_descriptor.general_diagonalize_dc(
+                Asc_mm, Bsc_mm, vec_mm, temporary_eps)
 
         # vec_MM contains the eigenvectors in 'Fortran form'. They need to be
         # transpose-conjugated before they are consistent with Scipy behaviour
@@ -146,3 +163,8 @@ class ScalapackDiagonalizer:
             # Fortran-convention eigenvectors.
             A[:, :] = vec_MM.conj().T
             eps[:] = temporary_eps
+
+    @lazyproperty
+    def _elpa(self):
+        from gpaw.utilities.elpa import LibElpa
+        return LibElpa(self.distributed_descriptor, solver='1stage')

@@ -9,7 +9,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 from gpaw.hybrids import HybridXC
 from gpaw.eigensolvers.diagonalizerbackend import (
     ScipyDiagonalizer,
-    ScalapackDiagonalizer)
+    ParallelDiagonalizer)
 
 
 class DummyArray:
@@ -31,9 +31,8 @@ class Davidson(Eigensolver):
     * Add preconditioned residuals to the subspace and diagonalize
     """
 
-    def __init__(
-            self, niter=2):
-        Eigensolver.__init__(self)
+    def __init__(self, niter=2):
+        super().__init__()
         self.niter = niter
         self.diagonalizer_backend = None
 
@@ -50,8 +49,8 @@ class Davidson(Eigensolver):
         return {'name': 'dav', 'niter': self.niter}
 
     def initialize(self, wfs):
-        Eigensolver.initialize(self, wfs)
-        slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
+        super().initialize(wfs)
+        sl_setup = wfs.scalapack_parameters
 
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays
@@ -60,14 +59,16 @@ class Davidson(Eigensolver):
             self.S_NN = np.zeros((2 * B, 2 * B), self.dtype)
             self.eps_N = np.zeros(2 * B)
 
-        if slsize is not None:
-            self.diagonalizer_backend = ScalapackDiagonalizer(
+        # May be more logical to use a different boolean criterion here
+        if sl_setup['blocksize'] is not None:
+            self.diagonalizer_backend = ParallelDiagonalizer(
                 arraysize=self.nbands * 2,
-                grid_nrows=nrows,
-                grid_ncols=ncols,
-                scalapack_communicator=slcomm,
+                grid_nrows=sl_setup['grid_nrows'],
+                grid_ncols=sl_setup['grid_ncols'],
+                scalapack_communicator=sl_setup['slcomm'],
                 dtype=self.dtype,
-                blocksize=slsize)
+                blocksize=sl_setup['blocksize'],
+                use_elpa=sl_setup['use_elpa'])
         else:
             self.diagonalizer_backend = ScipyDiagonalizer()
 

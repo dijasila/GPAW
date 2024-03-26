@@ -285,6 +285,14 @@ def scalapack():
 
 
 @pytest.fixture
+def elpa():
+    """Skip if not compiled with Elpa."""
+    from gpaw.utilities.elpa import LibElpa
+    if not LibElpa.have_elpa():
+        pytest.skip('no elpa')
+
+
+@pytest.fixture
 def needs_ase_master():
     from ase.utils.filecache import MultiFileJSONCache
     try:
