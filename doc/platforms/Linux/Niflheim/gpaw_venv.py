@@ -72,6 +72,9 @@ module load libvdwxc/0.4.0-{fullchain}
     'intel': ""
 }
 
+module_cmds_arch_dependent = """if [ "$CPU_ARCH" == "icelake" ];then module load CuPy/12.3.0-{fullchain}-CUDA-12.1.1;fi"""
+
+
 activate_extra = """
 export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:{venv}/gpaw-basis-pvalence-0.9.20000
 
@@ -206,7 +209,8 @@ def main():
             **toolchains[args.toolchain])
     module_cmds += module_cmds_tc[args.toolchain].format(
         **toolchains[args.toolchain])
-
+    module_cmds += module_cmds_arch_dependent.format(
+        **toolchains[args.toolchain])
     cmds = (' && '.join(module_cmds.splitlines()) +
             f' && python3 -m venv --system-site-packages {args.venv}')
     run(cmds)
