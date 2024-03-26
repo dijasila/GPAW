@@ -278,6 +278,7 @@ class BaseSetup:
         raise RuntimeError
 
     def initialize_density_matrix(self, f_sI):
+        print(f_sI)
         nspins, nao = f_sI.shape
         ni = self.ni
 
@@ -296,8 +297,11 @@ class BaseSetup:
                 else:  # no break
                     raise ValueError(f'Bad basis for {self.symbol}')
 
-                for m in range(2 * l + 1):
-                    D_sii[:, i + m, i + m] = f_sm[:, m]
+                if i < ni:
+                    for m in range(2 * l + 1):
+                        D_sii[:, i + m, i + m] = f_sm[:, m]
+                        print(I,i,n,l)
+
             I += 2 * bf.l + 1
 
         for s in range(nspins):
