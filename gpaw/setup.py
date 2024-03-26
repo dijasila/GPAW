@@ -284,25 +284,25 @@ class BaseSetup:
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
 
-        i = 0
-        for n, l in zip(self.n_j, self.l_j):
-            f_sm = f_sI[:, i:i + 2 * l + 2]
-            if not f_sm.any():
-                continue
-            I = 0
-            for bf in self.basis.bf_j:
-                if (n, l) == (bf.n, bf.l):
-                    break
-                I += 2 * l + 1
-            else:  # no break
-                raise ValueError(f'Bad basis for {self.symbol}')
+        I = 0
+        for bf in self.basis.bf_j:
+            f_sm = f_sI[:, I:I + 2 * bf.l + 1]
+            if f_sm.any():
+                i = 0
+                for n, l in zip(self.n_j, self.l_j):
+                    if (n, l) == (bf.n, bf.l):
+                        break
+                    i += 2 * l + 1
+                else:  # no break
+                    raise ValueError(f'Bad basis for {self.symbol}')
 
-            for m in range(2 * l + 1):
-                D_sii[:, i + m, i + m] = f_sm[:, m]
-            i += 2 * l + 1
+                for m in range(2 * l + 1):
+                    D_sii[:, i + m, i + m] = f_sm[:, m]
+            I += 2 * bf.l + 1
 
         for s in range(nspins):
             D_sp[s] = pack(D_sii[s])
+
         return D_sp
 
     def get_partial_waves(self):
