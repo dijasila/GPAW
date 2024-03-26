@@ -181,9 +181,24 @@ pack / unpack2, and anything that should be multiplied onto such, e.g.
 corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 """
 
+def pack(M: np.ndarray) -> np.ndarray:
+    return pack_offdiag_summed(M)
+
+
+def pack2(M):
+    return pack_hermitian(M)
+
 
 def unpack(M):
-    """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
+    return unpack_hermitian(M)
+
+
+def unpack2(M):
+    return unpack_summed(M)
+
+
+def unpack_hermitian(M):
+    """Unpack 1D array to 2D, assuming a packing as in ``pack_hermitian``."""
     if M.ndim == 2:
         return np.array([unpack(m) for m in M])
     assert is_contiguous(M)
@@ -196,9 +211,12 @@ def unpack(M):
         _gpaw.unpack(M, M2)
     return M2
 
-
-def unpack2(M):
-    """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+# We generally cannot recover the complex part of the off-diag elements from a
+# pack_summed array since they are summed to zero (so far we only pack 
+# different Hermitian arrays).
+# We should reconsider if "unpack_summed" even makes sense to have.
+def unpack_offdiag_summed(M):
+    """Unpack 1D array to 2D, assuming a packing as in ``pack_sum_offdiag``."""
     if M.ndim == 2:
         return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
@@ -207,7 +225,7 @@ def unpack2(M):
     return M2
 
 
-def pack(A: np.ndarray) -> np.ndarray:
+def pack_sum_offdiag(A: np.ndarray) -> np.ndarray:
     r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
@@ -226,7 +244,7 @@ def pack(A: np.ndarray) -> np.ndarray:
     return _gpaw.pack(A)
 
 
-def pack2(M2, tolerance=1e-10):
+def pack_hermitian(M2, tolerance=1e-10):
     r"""Pack a 2D array to 1D, averaging offdiagonal terms.
 
     The matrix::
@@ -237,7 +255,7 @@ def pack2(M2, tolerance=1e-10):
 
     is transformed to the vector::
 
-      (a00, [a01 + a10]/2, [a02 + a20]/2, a11, [a12 + a21]/2, a22)
+      (a00, [a01 + a10*]/2, [a02 + a20*]/2, a11, [a12 + a21*]/2, a22)
     """
     if M2.ndim == 3:
         return np.array([pack2(m2) for m2 in M2])
@@ -256,7 +274,7 @@ def pack2(M2, tolerance=1e-10):
     return M
 
 
-for method in (unpack, unpack2, pack, pack2):
+for method in (pack_hermitian, unpack_hermitian, pack_sum_offdiag, unpack_offdiag_summed):
     method.__doc__ += packing_conventions  # type: ignore
 
 
