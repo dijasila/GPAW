@@ -177,59 +177,33 @@ def unpacked_indices(p, ni):
 
 packing_conventions = """\n
 In the code, the convention is that density matrices are constructed using
-pack / unpack2, and anything that should be multiplied onto such, e.g.
-corrections to the Hamiltonian, are constructed according to pack2 / unpack.
+pack_ods / unpack_ods, and anything that should be multiplied onto such, e.g.
+corrections to the Hamiltonian, are constructed according to pack_h / unpack_h.
 """
 
 
 def pack2(M):
-    return pack_hermitian(M)
+    return pack_h(M)
 
 
 def unpack(M):
-    return unpack_hermitian(M)
+    return unpack_h(M)
 
 
 def pack(M: np.ndarray) -> np.ndarray:
-    return pack_sum_offdiag(M)
+    return pack_ods(M)
 
 
 def unpack2(M):
-    return unpack_offdiag_summed(M)
+    return unpack_ods(M)
 
 
-def unpack_hermitian(M):
-    """Unpack 1D array to 2D, assuming a packing as in ``pack_hermitian``."""
-    if M.ndim == 2:
-        return np.array([unpack(m) for m in M])
-    assert is_contiguous(M)
-    assert M.ndim == 1
-    n = int(sqrt(0.25 + 2.0 * len(M)))
-    M2 = np.zeros((n, n), M.dtype.char)
-    if M.dtype == complex:
-        _gpaw.unpack_complex(M, M2)
-    else:
-        _gpaw.unpack(M, M2)
-    return M2
+def pack_h(M2, tolerance=1e-10):
+    r"""
+    Pack Hermitian
 
-# We generally cannot recover the complex part of the off-diag elements from a
-# pack_sum_offdiag array since they are summed to zero (so far we only pack
-# different Hermitian arrays).
-# We should reconsider if "unpack_offdiag_summed" even makes sense to have.
-
-
-def unpack_offdiag_summed(M):
-    """Unpack 1D array to 2D, assuming a packing as in ``pack_sum_offdiag``."""
-    if M.ndim == 2:
-        return np.array([unpack2(m) for m in M])
-    M2 = unpack(M)
-    M2 *= 0.5  # divide all by 2
-    M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
-    return M2
-
-
-def pack_sum_offdiag(A: np.ndarray) -> np.ndarray:
-    r"""Pack a 2D array to 1D, adding offdiagonal terms.
+    This functions packs a Hermitian 2D array to a
+    1D array, averaging off-diagonal terms with complex conjugation.
 
     The matrix::
 
@@ -239,26 +213,7 @@ def pack_sum_offdiag(A: np.ndarray) -> np.ndarray:
 
     is transformed to the vector::
 
-      (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
-    """
-    assert A.ndim == 2
-    assert A.shape[0] == A.shape[1]
-    assert A.dtype in [float, complex]
-    return _gpaw.pack(A)
-
-
-def pack_hermitian(M2, tolerance=1e-10):
-    r"""Pack a 2D array to 1D, averaging offdiagonal terms.
-
-    The matrix::
-
-           / a00 a01 a02 \
-       A = | a10 a11 a12 |
-           \ a20 a21 a22 /
-
-    is transformed to the vector::
-
-      (a00, [a01 + a10*]/2, [a02 + a20*]/2, a11, [a12 + a21*]/2, a22)
+       (a00, [a01 + a10*]/2, [a02 + a20*]/2, a11, [a12 + a21*]/2, a22)
     """
     if M2.ndim == 3:
         return np.array([pack2(m2) for m2 in M2])
@@ -277,8 +232,62 @@ def pack_hermitian(M2, tolerance=1e-10):
     return M
 
 
-for method in (pack_hermitian, unpack_hermitian,
-               pack_sum_offdiag, unpack_offdiag_summed):
+def unpack_h(M):
+    """
+    Unpack 1D array to Hermitian 2D array, assuming a packing as in ``pack_h``.
+    """
+
+    if M.ndim == 2:
+        return np.array([unpack(m) for m in M])
+    assert is_contiguous(M)
+    assert M.ndim == 1
+    n = int(sqrt(0.25 + 2.0 * len(M)))
+    M2 = np.zeros((n, n), M.dtype.char)
+    if M.dtype == complex:
+        _gpaw.unpack_complex(M, M2)
+    else:
+        _gpaw.unpack(M, M2)
+    return M2
+
+
+def pack_ods(A: np.ndarray) -> np.ndarray:
+    r"""Pack off-diagonal sum
+
+    This function packs a 2D Hermitian array to 1D, adding offdiagonal terms.
+
+    The matrix::
+
+           / a00 a01 a02 \
+       A = | a10 a11 a12 |
+           \ a20 a21 a22 /
+
+    is transformed to the vector::
+
+      (a00, a01 + a10, a02 + a20, a11, a12 + a21, a22)
+    """
+    assert A.ndim == 2
+    assert A.shape[0] == A.shape[1]
+    assert A.dtype in [float, complex]
+    return _gpaw.pack(A)
+
+
+# We generally cannot recover the complex part of the off-diag elements from a
+# pack_sum_offdiag array since they are summed to zero (so far we only pack
+# different Hermitian arrays).
+# We should reconsider if "unpack_offdiag_summed" even makes sense to have.
+
+
+def unpack_ods(M):
+    """Unpack 1D array to 2D, assuming a packing as in ``pack_ods``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
+    M2 = unpack(M)
+    M2 *= 0.5  # divide all by 2
+    M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
+    return M2
+
+
+for method in (pack_h, unpack_h, pack_ods, pack_ods):
     method.__doc__ += packing_conventions  # type: ignore
 
 
@@ -365,7 +374,7 @@ def load_balance(paw, atoms):
 
 if not debug:
     hartree = _gpaw.hartree  # noqa
-    pack_sum_offdiag = _gpaw.pack
+    pack_ods = _gpaw.pack
 
 
 def unlink(path: Union[str, Path], world=None):
