@@ -231,10 +231,7 @@ class BaseSetup:
             correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
             correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
-        print(f_j, f_sj)
-
         for j, (f, f_s) in enumerate(zip(f_j, f_sj.T)):
-            print(j)
             if f == 0:
                 continue
             I = 0
@@ -245,7 +242,7 @@ class BaseSetup:
                     break
                 I += 2 * l + 1
             else:  # no break
-                1 / 0
+                raise ValueError(f'Bad basis for {self.symbol}')
 
             degeneracy = 2 * l + 1
 
@@ -298,7 +295,7 @@ class BaseSetup:
                     break
                 I += 2 * l + 1
             else:  # no break
-                1 / 0
+                raise ValueError(f'Bad basis for {self.symbol}')
 
             for m in range(2 * l + 1):
                 D_sii[:, i + m, i + m] = f_sm[:, m]

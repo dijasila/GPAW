@@ -41,7 +41,6 @@ def setup():
         from gpaw.mpi import rank
         device_id = rank % cupy.cuda.runtime.getDeviceCount()
         cupy.cuda.runtime.setDevice(device_id)
-        print(f'Initializing device_id={device_id} mpi_rank={rank}')
         # initialise C parameters and memory buffers
         import _gpaw
         _gpaw.gpaw_gpu_init()

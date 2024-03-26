@@ -608,7 +608,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             if name == 'GLLB_w_j':
                 v1, v2 = (int(x) for x in self.setup.version.split('.'))
                 if (v1, v2) < (0, 8):
-                    # ...
+                    # Order was wrong in old generator:
                     w_j = {}
                     j_old = 0
                     for l in range(4):
