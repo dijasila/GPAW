@@ -623,45 +623,6 @@ nightly-mpi-1:
       - htmlcov/
     expire_in: 1 day
 
-nightly-mpi-1-new:
-  variables:
-    GPAW_NEW: "1"
-  extends:
-    - .nightly
-  script:
-    - gpaw info
-    - pytest -n 4 --cache-clear -m generate_gpw_files
-    - >
-      pytest -n 4 --instafail -r s --durations 30 -m
-      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
-
-nightly-mpi-2-new:
-  variables:
-    GPAW_NEW: "1"
-    GPAW_MPI_NPROCS: "2"
-  extends:
-    - .nightly
-  script:
-    - gpaw info
-    - pytest -n 4 --cache-clear -m generate_gpw_files
-    - >
-      gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -r s --durations 30 -m
-      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
-
-nightly-mpi-4-new:
-  variables:
-    GPAW_NEW: "1"
-    GPAW_MPI_NPROCS: "4"
-  extends:
-    - .nightly
-  script:
-    - gpaw info
-    - pytest -n 4 --cache-clear -m generate_gpw_files
-    - >
-      gpaw -P $GPAW_MPI_NPROCS python -m
-      pytest --instafail -r s --durations 30 -m
-      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
 
 nightly-mpi-2:
   variables:
@@ -682,6 +643,52 @@ nightly-mpi-8:
     GPAW_MPI_NPROCS: "8"
   extends:
     - .nightly
+
+
+.nightly-mpi-new:
+  variables:
+    GPAW_NEW: "1"
+  extends:
+    - .nightly
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      gpaw -P $GPAW_MPI_NPROCS python -m
+      pytest --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
+
+
+nightly-mpi-1-new:
+  extends:
+    - .nightly-mpi-new
+  script:
+    - gpaw info
+    - pytest -n 4 --cache-clear -m generate_gpw_files
+    - >
+      pytest -n 4 --instafail -r s --durations 30 -m
+      "not (later or dscf or gllb or elph or wannier or legacy or ofdft or mom or do or lrtddft or rttddft or hybrids or pipekmezey)"
+
+
+nightly-mpi-2-new:
+  extends:
+    - .nightly-mpi-new
+  variables:
+    GPAW_MPI_NPROCS: "2"
+
+
+nightly-mpi-4-new:
+  extends:
+    - .nightly-mpi-new
+  variables:
+    GPAW_MPI_NPROCS: "4"
+
+
+nightly-mpi-8-new:
+  extends:
+    - .nightly-mpi-new
+  variables:
+    GPAW_MPI_NPROCS: "8"
 
 
 pages:
