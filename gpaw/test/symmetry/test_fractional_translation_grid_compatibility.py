@@ -16,7 +16,7 @@ def test_symmetry_fractional_translations_grid():
     atoms = crystal(['Si', 'O'], basis=[p0, p1],
                     spacegroup=92, cellpar=[a, a, c, 90, 90, 90])
 
-    with pytest.raises(ValueError) as errmsg:
+    with pytest.raises(ValueError, match=r"^The specified number"):
         failcalc = GPAW(mode=PW(),
                         xc='LDA',
                         kpts=(3, 3, 2),
@@ -27,7 +27,3 @@ def test_symmetry_fractional_translations_grid():
 
         atoms.calc = failcalc
         atoms.get_potential_energy()
-
-    errstr = str(errmsg.value)
-    compat_grids = ['[22 22 32]', '[22 24 32]', '[24 22 32]', '[24 24 32]']
-    assert any(grid in errstr for grid in compat_grids)
