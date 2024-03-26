@@ -75,14 +75,15 @@ typedef struct
 static inline gpuError_t __gpuSafeCall(gpuError_t err,
                                        const char *file, int line)
 {
-    if (gpuSuccess != err) {
+    gpuError_t error = err; // Used to suppress nodiscard warning on C++17 and onwards
+    if (gpuSuccess != error) {
         char str[100];
         snprintf(str, 100, "%s(%i): GPU error: %s.\n",
                  file, line, gpuGetErrorString(err));
         PyErr_SetString(PyExc_RuntimeError, str);
         fprintf(stderr, "%s", str);
     }
-    return err;
+    return error;
 }
 
 static inline gpublasStatus_t __gpublasSafeCall(gpublasStatus_t err,
