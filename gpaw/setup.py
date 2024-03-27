@@ -27,9 +27,9 @@ class WrongMagmomForHundsRuleError(ValueError):
 
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
-                 filter=None, world=None):
+                 filter=None, world=None, xp=None):
     if isinstance(xc, str):
-        xc = XC(xc)
+        xc = XC(xc, xp=xp)
 
     if isinstance(type, str) and ':' in type:
         from gpaw.hubbard import parse_hubbard_string
@@ -79,7 +79,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
         else:
             setupdata = SetupData(symbol, xc.get_setup_name(),
                                   type, True,
-                                  world=world)
+                                  world=world, xp=xp)
     if hasattr(setupdata, 'build'):
         # It is not so nice that we have hubbard_u floating around here.
         # For example, none of the other setup types are aware
@@ -1277,7 +1277,7 @@ class Setups(list):
     """
 
     def __init__(self, Z_a, setup_types, basis_sets, xc, *,
-                 filter=None, world=None):
+                 filter=None, world=None, xp=np):
         list.__init__(self)
         symbols = [chemical_symbols[Z] for Z in Z_a]
         type_a = types2atomtypes(symbols, setup_types, default='paw')
@@ -1343,7 +1343,7 @@ class Setups(list):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, 2, type,
                                      basis, setupdata=setupdata,
-                                     filter=filter, world=world)
+                                     filter=filter, world=world, xp=xp)
                 self.setups[id] = setup
                 natoms[id] = 0
             natoms[id] += 1

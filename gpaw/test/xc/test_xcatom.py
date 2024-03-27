@@ -1,11 +1,15 @@
+import pytest
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
 from gpaw.xc import XC
+from gpaw.test import equal
+import cupy as cp
 import pytest
 
-
-def test_xc_xcatom():
+@pytest.mark.parametrize('xp', [np, cp])
+@pytest.mark.parametrize('xc', ['LDA', 'PBE'])
+def test_xc_xcatom(xp, xc):
     x = 0.000001
     rng = ra.default_rng(8)
     for xc in ['LDA', 'PBE']:

@@ -93,7 +93,7 @@ class DFTComponentsBuilder:
                              params.setups,
                              params.basis,
                              self._xc.get_setup_name(),
-                             world=comm)
+                             world=comm, xp=self.xp)
 
         if params.hund:
             c = params.charge / len(atoms)

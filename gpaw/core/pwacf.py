@@ -76,7 +76,7 @@ class PWLFC(BaseLFC):
     def __init__(self,
                  functions,
                  pw: PWDesc,
-                 blocksize=5000, *, xp):
+                 blocksize=50000, *, xp):
         """Reciprocal-space plane-wave localized function collection.
 
         spline_aj: list of list of spline objects

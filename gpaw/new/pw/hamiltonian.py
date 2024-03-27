@@ -178,7 +178,7 @@ class SpinorPWHamiltonian(Hamiltonian):
         return spinor_precondition
 
 
-def apply_local_potential_gpu(vt_R, psit_nG, out_nG):
+def apply_local_potential_gpu(vt_R, psit_nG, out_nG, blocksize=256):
     from gpaw.gpu import cupyx
     pw = psit_nG.desc
     e_kin_G = cp.asarray(pw.ekin_G)
@@ -186,7 +186,6 @@ def apply_local_potential_gpu(vt_R, psit_nG, out_nG):
     plan = vt_R.desc.fft_plans(xp=cp, dtype=complex)
     Q_G = plan.indices(pw)
     shape = tuple(vt_R.desc.size_c)
-    blocksize = 10
     psit_bR = None
     for b1 in range(0, mynbands, blocksize):
         b2 = min(b1 + blocksize, mynbands)

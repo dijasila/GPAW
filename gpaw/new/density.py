@@ -9,7 +9,7 @@ from gpaw.core.atom_centered_functions import (AtomArraysLayout,
                                                AtomCenteredFunctions)
 from gpaw.core.plane_waves import PWDesc
 from gpaw.core.uniform_grid import UGArray, UGDesc
-from gpaw.gpu import as_np
+from gpaw.gpu import as_np, multi_einsum, cupy_is_fake
 from gpaw.mpi import MPIComm
 from gpaw.new import zips
 from gpaw.typing import Array3D, Vector
@@ -182,11 +182,18 @@ class Density:
             atomdist=self.D_asii.layout.atomdist,
             xp=xp).empty()
 
-        for a, D_sii in self.D_asii.items():
-            Q_L = xp.einsum('sij, ijL -> L',
-                            D_sii[:self.ndensities].real, self.delta_aiiL[a])
-            Q_L[0] += self.delta0_a[a]
-            ccc_aL[a] = Q_L
+        if xp is np or cupy_is_fake:
+            for a, D_sii in self.D_asii.items():
+                Q_L = xp.einsum('sij, ijL -> L',
+                                D_sii[:self.ndensities].real,
+                                self.delta_aiiL[a])
+                Q_L[0] += self.delta0_a[a]
+                ccc_aL[a] = Q_L
+        else:
+            multi_einsum('sij, ijL -> L', self.D_asii.values(),
+                         self.delta_aiiL, out=list(ccc_aL.values()))
+            for a in self.D_asii.keys():
+                ccc_aL[a][0] += self.delta0_a[a]
 
         return ccc_aL
 

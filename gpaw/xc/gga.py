@@ -2,105 +2,166 @@ from math import pi
 
 import numpy as np
 
-from gpaw.xc.lda import calculate_paw_correction
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import Gradient
 from gpaw.sphere.lebedev import Y_nL, weight_n
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.xc.functional import XCFunctional
+from gpaw.xc.lda import LDARadialExpander, LDARadialExpansion
+from gpaw.new.c import evaluate_pbe_gpu
 
 
-class GGARadialExpansion:
-    def __init__(self, rcalc, *args):
-        self.rcalc = rcalc
-        self.args = args
+class GGARadialExpansion(LDARadialExpansion):
+    def __init__(self, expander, *, n_qg, nc_g, temp_ngqL, a_sng, b_vsng, dndr_sLg):
+        LDARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g, temp_ngqL=temp_ngqL)
+        xp = self.xp
 
-    def __call__(self, rgd, D_sLq, n_qg, nc0_sg):
-        n_sLg = np.dot(D_sLq, n_qg)
-        n_sLg[:, 0] += nc0_sg
+        nspins = expander.nspins
+        rgd = expander.rgd
+        sigma_xng = xp.empty((2 * expander.nspins -1, len(expander.Y_nL), expander.rgd.N))
+        print(xp, type(sigma_xng), type(b_vsng))
+        sigma_xng[::2] = (b_vsng ** 2).sum(0)
+        if nspins == 2:
+            sigma_xng[1] = (b_vsng[:, 0] * b_vsng[:, 1]).sum(0)
+        sigma_xng[:, :, 1:] /= rgd.r_g[1:] ** 2
+        sigma_xng[:, :, 0] = sigma_xng[:, :, 1]
+        sigma_xng[::2] += a_sng ** 2
+        if nspins == 2:
+            sigma_xng[1] += a_sng[0] * a_sng[1]
+        self.sigma_xng = sigma_xng
+        self.b_vsng = b_vsng
+        self.a_sng = a_sng
 
-        dndr_sLg = np.empty_like(n_sLg)
-        for n_Lg, dndr_Lg in zip(n_sLg, dndr_sLg):
-            for n_g, dndr_g in zip(n_Lg, dndr_Lg):
-                rgd.derivative(n_g, dndr_g)
-
-        nspins, Lmax, nq = D_sLq.shape
-        dEdD_sqL = np.zeros((nspins, nq, Lmax))
-
-        E = 0.0
-        for n, Y_L in enumerate(Y_nL[:, :Lmax]):
-            w = weight_n[n]
-            rnablaY_Lv = rnablaY_nLv[n, :Lmax]
-            e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n,
-                           *self.args)
-            dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
-                               n_qg.T)[:, :, np.newaxis] * (w * Y_L)
-            dedsigma_xg *= rgd.dr_g
-            B_vsg = dedsigma_xg[::2] * b_vsg
+    def integrate(self, potential, sign=1.0, dEdD_sp=None):
+        E = LDARadialExpansion.integrate(self, potential, sign=sign, dEdD_sp=dEdD_sp)
+        if dEdD_sp is not None:
+            xp = self.xp
+            nspins = self.nspins
+            rgd = self.expander.rgd
+            potential.dedsigma_xng *= rgd.dr_g
+            B_vsng = potential.dedsigma_xng[::2] * self.b_vsng
             if nspins == 2:
-                B_vsg += 0.5 * dedsigma_xg[1] * b_vsg[:, ::-1]
-            B_vsq = np.dot(B_vsg, n_qg.T)
-            dEdD_sqL += 8 * pi * w * np.inner(rnablaY_Lv, B_vsq.T).T
-            E += w * rgd.integrate(e_g)
-
-        return E, dEdD_sqL
-
-
-# First part of gga_calculate_radial - initializes some quantities.
-def radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv):
-    nspins = len(n_sLg)
-
-    n_sg = np.dot(Y_L, n_sLg)
-
-    a_sg = np.dot(Y_L, dndr_sLg)
-    b_vsg = np.dot(rnablaY_Lv.T, n_sLg)
-
-    sigma_xg = rgd.empty(2 * nspins - 1)
-    sigma_xg[::2] = (b_vsg ** 2).sum(0)
-    if nspins == 2:
-        sigma_xg[1] = (b_vsg[:, 0] * b_vsg[:, 1]).sum(0)
-    sigma_xg[:, 1:] /= rgd.r_g[1:] ** 2
-    sigma_xg[:, 0] = sigma_xg[:, 1]
-    sigma_xg[::2] += a_sg ** 2
-    if nspins == 2:
-        sigma_xg[1] += a_sg[0] * a_sg[1]
-
-    e_g = rgd.empty()
-    dedn_sg = rgd.zeros(nspins)
-    dedsigma_xg = rgd.zeros(2 * nspins - 1)
-    return e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg, b_vsg
+                B_vsng += 0.5 * potential.dedsigma_xng[1] * self.b_vsng[:, ::-1]
+            B_vsnq = B_vsng @ self.n_qg.T #xp.einsum('vsng,qg->vsnq', B_vsng, self.n_qg, optimize=False)
+            dEdD_sqL = 8 * pi * xp.einsum('nLv,vsnq->sqL', self.expander.wrnablaY_nLv, B_vsnq, optimize=False) 
+            #dEdD_sqL = 8 * pi * xp.einsum('n,nLv,vsnq->sqL', weight_n, self.expander.rnablaY_nLv, B_vsnq, optimize=True) 
+            dE = xp.einsum('sqL,pqL->sp', dEdD_sqL, self.expander.xcc.B_pqL, optimize=False)
+            dEdD_sp += sign * dE
+        return E
 
 
-def add_radial_gradient_correction(rgd, sigma_xg, dedsigma_xg, a_sg):
-    nspins = len(a_sg)
-    vv_sg = sigma_xg[:nspins]  # reuse array
-    for s in range(nspins):
-        rgd.derivative2(-2 * rgd.dv_g * dedsigma_xg[2 * s] * a_sg[s],
-                        vv_sg[s])
-    if nspins == 2:
-        v_g = sigma_xg[2]
-        rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[1], v_g)
-        vv_sg[0] -= v_g
-        rgd.derivative2(rgd.dv_g * dedsigma_xg[1] * a_sg[0], v_g)
-        vv_sg[1] -= v_g
+class GGARadialExpander(LDARadialExpander):
+    def __init__(self, setup, D_sp, xp=np):
+        LDARadialExpander.__init__(self, setup, D_sp, xp=xp)
+        self.rnablaY_nLv = xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
+        self.wrnablaY_nLv = xp.asarray(weight_n)[:, None, None] * xp.asarray(rnablaY_nLv[:, :self.Lmax, :].copy())
+        self.setup = setup
+    
+    def expansion_vars(self, ae=True, addcoredensity=True):
+        dct = LDARadialExpander.expansion_vars(self, ae=ae, addcoredensity=addcoredensity)
+        xp = self.xp 
+        # Radial derivative expansions
+        if ae:        
+            if not hasattr(self.setup, 'dndr_sLg'):
+                dndr_sLg = xp.empty_like(self.n_sLg)
+                for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                    for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                        expander.rgd.derivative(n_g, dndr_g)
+                dndr_sLg = dndr_sLg
+                self.setup.a_sng = xp.einsum('nL,sLg->sng', self.Y_nL, dndr_sLg, optimize=False)
+                self.setup.b_vsng = xp.einsum('nLv,sLg->vsng', self.rnablaY_nLv, self.n_sLg, optimize=False)
+                self.setup.dndr_sLg = dndr_sLg
+            dct.update({'a_sng': self.setup.a_sng,
+                        'b_vsng': self.setup.b_vsng,
+                        'dndr_sLg': self.setup.dndr_sLg})
+        else:
+            if not hasattr(self.setup, 'dndrt_sLg'):
+                dndr_sLg = xp.empty_like(self.n_sLg)
+                for n_Lg, dndr_Lg in zip(self.n_sLg, dndr_sLg):
+                    for n_g, dndr_g in zip(n_Lg, dndr_Lg):
+                        expander.rgd.derivative(n_g, dndr_g)
+                dndr_sLg = dndr_sLg
+                self.setup.at_sng = xp.einsum('nL,sLg->sng', self.Y_nL, dndr_sLg, optimize=False)
+                self.setup.bt_vsng = xp.einsum('nLv,sLg->vsng', self.rnablaY_nLv, self.n_sLg, optimize=False)
+                self.setup.dndrt_sLg = dndr_sLg
+            dct.update({'a_sng': self.setup.at_sng,
+                        'b_vsng': self.setup.bt_vsng,
+                        'dndr_sLg': self.setup.dndrt_sLg})
+        return dct
+        
 
-    vv_sg[:, 1:] /= rgd.dv_g[1:]
-    vv_sg[:, 0] = vv_sg[:, 1]
-    return vv_sg
+    def expansion_cls(self, *args, **kwargs):
+        return GGARadialExpansion
+
+
+class GGAPotentialExpansion:
+    def __init__(self, dedn_sng, e_ng, dedsigma_xng):
+        self.dedn_sng = dedn_sng
+        self.e_ng = e_ng
+        self.dedsigma_xng = dedsigma_xng
+
+    def empty_like(radial_expansion):
+        xp = radial_expansion.xp
+        s = radial_expansion.nspins
+        n = len(weight_n)
+        g = radial_expansion.rgd.N
+        x = 2 * s - 1
+        dedn_sng = xp.zeros((s, n, g))
+        e_ng = xp.empty((n, g))
+        dedsigma_xng = xp.zeros((x, n, g))
+        return GGAPotentialExpansion(dedn_sng, e_ng, dedsigma_xng)
 
 
 class GGARadialCalculator:
-    def __init__(self, kernel):
+    def __init__(self, kernel, xp=np):
         self.kernel = kernel
+        self.xp = xp
 
-    def __call__(self, rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n):
-        (e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, a_sg,
-         b_vsg) = radial_gga_vars(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv)
-        self.kernel.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
-        vv_sg = add_radial_gradient_correction(rgd, sigma_xg,
-                                               dedsigma_xg, a_sg)
-        return e_g, dedn_sg + vv_sg, b_vsg, dedsigma_xg
+    def __call__(self, expansion):
+        assert isinstance(expansion, GGARadialExpansion)
+        potential = GGAPotentialExpansion.empty_like(expansion)
+        potential.dedn_sng[:] = 0.0
+        potential.dedsigma_xng[:] = 0.0
+        assert potential.e_ng.flags.c_contiguous
+        assert potential.dedn_sng.flags.c_contiguous
+        assert potential.dedsigma_xng.flags.c_contiguous
+        assert expansion.n_sng.flags.c_contiguous
+        assert expansion.sigma_xng.flags.c_contiguous
+        nspins = expansion.nspins
+        xp = expansion.xp
+        if xp is np:
+            self.kernel.calculate(potential.e_ng.ravel(), 
+                                  expansion.n_sng.reshape((nspins, -1)),
+                                  potential.dedn_sng.reshape((nspins, -1)), 
+                                  expansion.sigma_xng.reshape((nspins*2-1, -1)), 
+                                  potential.dedsigma_xng.reshape((nspins*2-1, -1)))
+        else:
+            # XXX Hard coded to PBE, assert here
+            evaluate_pbe_gpu(expansion.n_sng.reshape((nspins, -1)),
+                             potential.dedn_sng.reshape((nspins, -1)), 
+                             potential.e_ng.ravel(), 
+                             expansion.sigma_xng.reshape((nspins*2-1, -1)), 
+                             potential.dedsigma_xng.reshape((nspins*2-1, -1)))
+        potential.dedn_sng += add_radial_gradient_correction(expansion.rgd, expansion.sigma_xng, potential.dedsigma_xng, expansion.a_sng)
+        return potential
+
+
+def add_radial_gradient_correction(rgd, sigma_xng, dedsigma_xng, a_sng):
+    nspins = len(a_sng)
+    vv_sng = sigma_xng[:nspins]  # reuse array
+    for s in range(nspins):
+        rgd.derivative3(-2 * rgd.dv_g * dedsigma_xng[2 * s] * a_sng[s],
+                        vv_sng[s])
+    if nspins == 2:
+        v_ng = sigma_xng[2]
+        rgd.derivative3(rgd.dv_g * dedsigma_xng[1] * a_sng[1], v_ng)
+        vv_sng[0] -= v_ng
+        rgd.derivative3(rgd.dv_g * dedsigma_xng[1] * a_sng[0], v_ng)
+        vv_sng[1] -= v_ng
+
+    vv_sng[:, :, 1:] /= rgd.dv_g[1:]
+    vv_sng[:, :, 0] = vv_sng[:, :, 1]
+    return vv_sng
 
 
 def calculate_sigma(gd, grad_v, n_sg):
@@ -174,7 +235,7 @@ def get_gradient_ops(gd, nn, xp):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=2, xp=np):
+    def __init__(self, kernel, stencil=2, xp=None):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
@@ -199,13 +260,12 @@ class GGA(XCFunctional):
         add_gradient_correction(self.grad_v, gradn_svg, sigma_xg,
                                 dedsigma_xg, v_sg)
 
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=True, a=None):
-        rcalc = GGARadialCalculator(self.kernel)
-        expansion = GGARadialExpansion(rcalc)
-        return calculate_paw_correction(expansion,
-                                        setup, D_sp, dEdD_sp,
-                                        addcoredensity, a)
+
+    def get_radial_expander(self, setup, D_sp, xp=np):
+        return GGARadialExpander(setup, D_sp, xp=xp)
+
+    def get_radial_calculator(self, xp=np):
+        return GGARadialCalculator(self.kernel, xp=xp)
 
     def stress_tensor_contribution(self, n_sg, skip_sum=False):
         sigma_xg, gradn_svg = calculate_sigma(self.gd, self.grad_v, n_sg)
@@ -241,21 +301,6 @@ class GGA(XCFunctional):
             self.gd.comm.sum(stress_vv)
         return stress_vv
 
-    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
-        dndr_sg = np.empty_like(n_sg)
-        for n_g, dndr_g in zip(n_sg, dndr_sg):
-            rgd.derivative(n_g, dndr_g)
-        if e_g is None:
-            e_g = rgd.empty()
-
-        rcalc = GGARadialCalculator(self.kernel)
-
-        e_g[:], dedn_sg = rcalc(rgd, n_sg[:, np.newaxis],
-                                [1.0],
-                                dndr_sg[:, np.newaxis],
-                                np.zeros((1, 3)), n=None)[:2]
-        v_sg[:] = dedn_sg
-        return rgd.integrate(e_g)
 
 
 class PurePythonGGAKernel:

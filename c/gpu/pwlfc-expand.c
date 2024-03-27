@@ -9,6 +9,7 @@
 #include "gpu-complex.h"
 #include <stdio.h>
 
+// Predeclaration of functions at kernel/
 void calculate_residual_launch_kernel(int nG,
                                       int nn,
                                       double* residual_ng, 
@@ -68,6 +69,7 @@ void evaluate_lda_launch_kernel(int nspin, int ng,
                                 double* n,
                                 double* v,
                                 double* e);
+
 
 PyObject* evaluate_lda_gpu(PyObject* self, PyObject* args)
 {

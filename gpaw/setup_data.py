@@ -24,7 +24,8 @@ class SetupData:
     def __init__(self, symbol, xcsetupname,
                  name='paw', readxml=True,
                  zero_reference=False, world=None,
-                 generator_version=None):
+                 generator_version=None, xp=np):
+        self.xp = xp
         self.symbol = symbol
         self.setupname = xcsetupname
         self.name = name
@@ -230,7 +231,7 @@ class SetupData:
             phicorehole_g,
             self.fcorehole,
             None if self.tauc_g is None else self.tauc_g[:gcut2].copy(),
-            None if self.tauct_g is None else self.tauct_g[:gcut2].copy())
+            None if self.tauct_g is None else self.tauct_g[:gcut2].copy(), xp=self.xp)
 
         return xc_correction
 

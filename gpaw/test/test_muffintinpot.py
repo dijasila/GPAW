@@ -15,6 +15,7 @@ def test_muffintinpot(in_tmp_dir):
         be.center(vacuum=5)
         calc = GPAW(mode='fd',
                     gpts=(64, 64, 64),
+                    symmetry='off', # speed up
                     xc='LDA',
                     nbands=1)  # 0.1 required for accuracy
         be.calc = calc

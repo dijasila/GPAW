@@ -144,7 +144,7 @@ def XC(kernel,
     if kernel.type == 'LDA':
         if not collinear:
             kernel = NonCollinearLDAKernel(kernel)
-        return LDA(kernel, **kwargs)
+        return LDA(kernel, xp=xp, **kwargs)
 
     elif kernel.type == 'GGA':
         return GGA(kernel, xp=xp, **kwargs)

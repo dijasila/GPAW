@@ -4,11 +4,100 @@ import numpy as np
 from scipy.special import eval_legendre
 
 from gpaw.xc.gga import (add_gradient_correction, gga_vars,
-                         GGARadialExpansion, GGARadialCalculator,
+                         GGARadialExpansion, GGARadialExpander,
+                         GGAPotentialExpansion,
+                         add_radial_gradient_correction,
                          get_gradient_ops)
-from gpaw.xc.lda import calculate_paw_correction
 from gpaw.xc.functional import XCFunctional
 from gpaw.sphere.lebedev import weight_n
+
+class MGGARadialExpansion(GGARadialExpansion):
+    def __init__(self, expander, *, n_qg, nc_g, tau_npg, tauc_g):
+        GGARadialExpansion.__init__(self, expander, n_qg=n_qg, nc_g=nc_g)
+        tau_sng = np.einsum('sp,npg->sng', expander.D_sp, tau_npg).copy()
+        tau_sng += tauc_g
+
+        self.tau_sng = tau_sng
+        self.tau_npg = tau_npg
+        
+    def integrate(self, potential, sign=1.0, dEdD_sp=None):
+        E = GGARadialExpansion.integrate(self, potential, sign=sign, dEdD_sp=dEdD_sp)
+        if dEdD_sp is not None:
+            dEdD_sp += sign * np.einsum('n, sng, g, npg->sp',
+                                        weight_n, potential.dedtau_sng,
+                                        self.rgd.dv_g, self.tau_npg)
+        return E
+
+
+class MGGARadialExpander(GGARadialExpander):
+    def __init__(self, setup, D_sp):
+        GGARadialExpander.__init__(self, setup, D_sp)
+        xcc = self.xcc
+        if xcc.tau_npg is None:
+            xcc.tau_npg, xcc.taut_npg = self.initialize_kinetic(xcc)
+    
+    def initialize_kinetic(self, xcc):
+        nii = xcc.nii
+        nn = len(xcc.rnablaY_nLv)
+        ng = len(xcc.phi_jg[0])
+
+        tau_npg = np.zeros((nn, nii, ng))
+        taut_npg = np.zeros((nn, nii, ng))
+        create_kinetic(xcc, nn, xcc.phi_jg, tau_npg)
+        create_kinetic(xcc, nn, xcc.phit_jg, taut_npg)
+        return tau_npg, taut_npg
+
+    def expansion_cls(self, *args, **kwargs):
+        return MGGARadialExpansion
+
+    def expansion_vars(self, ae=True, addcoredensity=True):
+        dct = GGARadialExpander.expansion_vars(self, ae, addcoredensity)
+        tau_npg = self.xcc.tau_npg if ae else self.xcc.taut_npg
+        tauc_g = self.xcc.tauc_g if ae else self.xcc.tauct_g
+        tauc_g = tauc_g / (sqrt(4 * pi) * self.nspins)
+        dct.update(tau_npg=tau_npg, tauc_g=tauc_g)
+        return dct
+
+
+class MGGAPotentialExpansion(GGAPotentialExpansion):
+    def __init__(self, dedn_sng, e_ng, dedsigma_xng, dedtau_sng):
+        GGAPotentialExpansion.__init__(self, dedn_sng, e_ng, dedsigma_xng)
+        self.dedtau_sng = dedtau_sng
+
+    def empty_like(radial_expansion):
+        s = radial_expansion.nspins
+        n = len(weight_n)
+        g = radial_expansion.rgd.N
+        x = 2 * s - 1
+        dedn_sng = np.zeros((s, n, g))
+        e_ng = np.empty((n, g))
+        dedsigma_xng = np.zeros((x, n, g))
+        dedtau_sng = np.zeros((s,n,g))
+        return MGGAPotentialExpansion(dedn_sng, e_ng, dedsigma_xng, dedtau_sng)
+
+
+class MGGARadialCalculator:
+    def __init__(self, kernel):
+        self.kernel = kernel
+
+    def __call__(self, expansion):
+        assert isinstance(expansion, GGARadialExpansion)
+        potential = MGGAPotentialExpansion.empty_like(expansion)
+        potential.dedn_sng[:] = 0.0
+        potential.dedtau_sng[:] = 0.0
+        assert potential.e_ng.flags.c_contiguous
+        assert potential.dedn_sng.flags.c_contiguous
+        nspins = expansion.nspins
+
+        self.kernel.calculate(potential.e_ng.ravel(), 
+                              expansion.n_sng.reshape((nspins, -1)),
+                              potential.dedn_sng.reshape((nspins, -1)), 
+                              expansion.sigma_xng.reshape((nspins*2-1, -1)), 
+                              potential.dedsigma_xng.reshape((nspins*2-1, -1)),
+                              expansion.tau_sng.reshape((nspins, -1)),
+                              potential.dedtau_sng.reshape((nspins, -1)))
+        potential.dedn_sng += add_radial_gradient_correction(expansion.rgd, expansion.sigma_xng, potential.dedsigma_xng, expansion.a_sng)
+        return potential
 
 
 class MGGA(XCFunctional):
@@ -33,6 +122,12 @@ class MGGA(XCFunctional):
     def get_description(self):
         return ('{} with {} nearest neighbor stencil'
                 .format(self.name, self.stencil_range))
+
+    def get_radial_expander(self, setup, D_sp):
+        return MGGARadialExpander(setup, D_sp)
+
+    def get_radial_calculator(self):
+        return MGGARadialCalculator(self.kernel)
 
     def initialize(self, density, hamiltonian, wfs):
         self.wfs = wfs
@@ -198,71 +293,6 @@ class MGGA(XCFunctional):
             Htpsit_xG, dH_asp,
             self.dedtaut_sG[kpt.s])
 
-    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None,
-                                 addcoredensity=True, a=None):
-        assert not hasattr(self, 'D_sp')
-        self.D_sp = D_sp
-        self.n = 0
-        self.ae = True
-        self.xcc = setup.xc_correction
-        self.dEdD_sp = dEdD_sp
-
-        if self.xcc is not None and self.xcc.tau_npg is None:
-            self.xcc.tau_npg, self.xcc.taut_npg = self.initialize_kinetic(
-                self.xcc)
-
-        rcalc = self.create_mgga_radial_calculator()
-        expansion = GGARadialExpansion(rcalc)
-        # The damn thing uses too many 'self' variables to define a clean
-        # integrator object.
-        E = calculate_paw_correction(expansion,
-                                     setup, D_sp, dEdD_sp,
-                                     addcoredensity, a)
-        del self.D_sp, self.n, self.ae, self.xcc, self.dEdD_sp
-        return E
-
-    def create_mgga_radial_calculator(self):
-        class MockKernel:
-            def __init__(self, mgga):
-                self.mgga = mgga
-
-            def calculate(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-                self.mgga.mgga_radial(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg)
-
-        return GGARadialCalculator(MockKernel(self))
-
-    def mgga_radial(self, e_g, n_sg, v_sg, sigma_xg, dedsigma_xg):
-        n = self.n
-        nspins = len(n_sg)
-        if self.ae:
-            tau_pg = self.xcc.tau_npg[self.n]
-            tauc_g = self.xcc.tauc_g / (sqrt(4 * pi) * nspins)
-            sign = 1.0
-        else:
-            tau_pg = self.xcc.taut_npg[self.n]
-            tauc_g = self.xcc.tauct_g / (sqrt(4 * pi) * nspins)
-            sign = -1.0
-        tau_sg = np.dot(self.D_sp, tau_pg) + tauc_g
-
-        if 0:  # not self.ae:
-            m = 12
-            for tau_g, n_g, sigma_g in zip(tau_sg, n_sg, sigma_xg[::2]):
-                tauw_g = sigma_g / 8 / n_g
-                tau_g[:] = (tau_g**m + (tauw_g / 2)**m)**(1.0 / m)
-                break
-
-        dedtau_sg = np.empty_like(tau_sg)
-        self.kernel.calculate(e_g, n_sg, v_sg, sigma_xg, dedsigma_xg,
-                              tau_sg, dedtau_sg)
-        if self.dEdD_sp is not None:
-            self.dEdD_sp += (sign * weight_n[self.n] *
-                             np.inner(dedtau_sg * self.xcc.rgd.dv_g, tau_pg))
-        assert n == self.n
-        self.n += 1
-        if self.n == len(weight_n):
-            self.n = 0
-            self.ae = False
-
     def add_forces(self, F_av):
         dF_av = self.tauct.dict(derivative=True)
         self.tauct.derivative(self.dedtaut_sG.sum(0), dF_av)
@@ -272,17 +302,6 @@ class MGGA(XCFunctional):
     def estimate_memory(self, mem):
         bytecount = self.wfs.gd.bytecount()
         mem.subnode('MGGA arrays', (1 + self.wfs.nspins) * bytecount)
-
-    def initialize_kinetic(self, xcc):
-        nii = xcc.nii
-        nn = len(xcc.rnablaY_nLv)
-        ng = len(xcc.phi_jg[0])
-
-        tau_npg = np.zeros((nn, nii, ng))
-        taut_npg = np.zeros((nn, nii, ng))
-        create_kinetic(xcc, nn, xcc.phi_jg, tau_npg)
-        create_kinetic(xcc, nn, xcc.phit_jg, taut_npg)
-        return tau_npg, taut_npg
 
 
 def create_kinetic(xcc, ny, phi_jg, tau_ypg):
