@@ -676,7 +676,7 @@ class Generator(AllElectron):
         self.vu_j = vu_j = []
         self.vs_j = vs_j = []
         self.vq_j = vq_j = []
-        gllb = self.xc.type == 'GLLB'
+        gllb = 'w_ln' in extra_xc_data
         self.vw_j = vw_j = []
         j_ln = [[0 for f in f_n] for f_n in f_ln]
         j = 0
