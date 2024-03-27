@@ -10,7 +10,7 @@ from ase.utils.filecache import MultiFileJSONCache
 
 from gpaw.calculator import GPAW
 from gpaw.lcao.tightbinding import TightBinding
-from gpaw.utilities import unpack2
+from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
 from gpaw.typing import ArrayND
 
@@ -85,7 +85,7 @@ class Supercell:
             for a_, dH1_sp in dH1_asp.items():
                 if a_ not in bfs.my_atom_indices:
                     continue
-                dH1_ii = unpack2(dH1_sp[kpt.s])
+                dH1_ii = unpack(dH1_sp[kpt.s])
                 P_Mi = P_aqMi[a_][kpt.q]
                 gp_MM += P_Mi.conj() @ dH1_ii @ P_Mi.T
             # wfs.gd.comm.sum(gp_MM)
@@ -94,7 +94,7 @@ class Supercell:
         # 2b) dP^a part has only contributions from the same atoms
         # For the contribution from the derivative of the projectors
         dPdR_aqvMi = wfs.manytci.P_aqMi(bfs.my_atom_indices, derivative=True)
-        dH_ii = unpack2(dH_asp[a][kpt.s])
+        dH_ii = unpack(dH_asp[a][kpt.s])
         for kpt in kpt_u:
             gp_MM = np.zeros((nao, nao), dtype)
             if a in bfs.my_atom_indices:
