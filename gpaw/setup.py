@@ -217,7 +217,7 @@ class BaseSetup:
                 correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
-                f_sj[0] += -charge
+                f_sj[0, 0] -= charge
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
@@ -279,7 +279,6 @@ class BaseSetup:
         raise RuntimeError
 
     def initialize_density_matrix(self, f_sI):
-        print(f_sI)
         nspins, nao = f_sI.shape
         ni = self.ni
 
