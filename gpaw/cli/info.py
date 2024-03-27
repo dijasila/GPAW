@@ -1,5 +1,4 @@
 import os
-import subprocess
 import sys
 
 from ase.utils import import_module, search_current_git_hash
@@ -44,13 +43,11 @@ def info():
         githash = f'-{cgpaw.githash():.10}'
     else:
         githash = ''
+
     results.append(('_gpaw' + githash,
-                    os.path.normpath(getattr(module, '__file__',
+                    os.path.normpath(getattr(cgpaw._gpaw, '__file__',
                                              'built-in'))))
-    if '_gpaw' in sys.builtin_module_names or not have_mpi:
-        p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-        results.append(('parallel',
-                        p.communicate()[0].strip().decode() or False))
+
     results.append(('MPI enabled', have_mpi))
     results.append(('OpenMP enabled', cgpaw.have_openmp))
     results.append(('GPU enabled', GPU_ENABLED))

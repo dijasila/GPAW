@@ -37,13 +37,12 @@ from gpaw.directmin.fdpw.pz_localization import PZLocalization
 from gpaw.directmin.functional.fdpw import get_functional
 from gpaw.directmin.locfunc.localize_orbitals import localize_orbitals
 from gpaw.directmin.tools import get_n_occ, sort_orbitals_according_to_occ
-from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.utilities import unpack_hermitian
 from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 
 
-class FDPWETDM(Eigensolver):
+class FDPWETDM:
 
     def __init__(self,
                  excited_state=False,
@@ -182,7 +181,7 @@ class FDPWETDM(Eigensolver):
             If True, print the iterations of the inner loop optimization for
             excited states to standard output. Default is False.
         blocksize: int
-            Blocksize for eigensolver super class.
+            Blocksize for base eigensolver class.
         converge_unocc: bool
             If True, converge also the unoccupied orbitals after convergence
             of the occupied orbitals. Default is False.
@@ -191,8 +190,8 @@ class FDPWETDM(Eigensolver):
             orbitals.
         """
 
-        super(FDPWETDM, self).__init__(keep_htpsit=False,
-                                       blocksize=blocksize)
+        self.error = np.inf
+        self.blocksize = blocksize
 
         self.name = 'etdm-fdpw'
         self.sda = searchdir_algo
@@ -335,7 +334,7 @@ class FDPWETDM(Eigensolver):
                 }
 
     def initialize_dm_helper(self, wfs, ham, dens, log):
-        self.initialize_super(wfs, ham)
+        self.initialize_eigensolver(wfs, ham)
         self.initialize_orbitals(wfs, ham)
 
         wfs.calculate_occupation_numbers(dens.fixed)
@@ -352,9 +351,9 @@ class FDPWETDM(Eigensolver):
         # initialize search direction, line search and inner loops
         self.initialize_dm(wfs, dens, ham)
 
-    def initialize_super(self, wfs, ham):
+    def initialize_eigensolver(self, wfs, ham):
         """
-        Initialize super class
+        Initialize base eigensolver class
 
         :param wfs:
         :param ham:
@@ -371,7 +370,10 @@ class FDPWETDM(Eigensolver):
             else:
                 self.blocksize = 10
 
-        super(FDPWETDM, self).initialize(wfs)
+        from gpaw.eigensolvers.eigensolver import Eigensolver
+        self.eigensolver = Eigensolver(keep_htpsit=False,
+                                       blocksize=self.blocksize)
+        self.eigensolver.initialize(wfs)
 
     def initialize_dm(
             self, wfs, dens, ham, converge_unocc=False):
@@ -394,14 +396,15 @@ class FDPWETDM(Eigensolver):
         # dimensionality, number of state to be converged
         self.dimensions = {}
         for kpt in wfs.kpt_u:
+            bd = self.eigensolver.bd
             nocc = get_n_occ(kpt)[0]
             if converge_unocc:
-                assert nocc < self.bd.nbands, \
+                assert nocc < bd.nbands, \
                     'Please add empty bands in order to converge the' \
                     ' unoccupied orbitals'
-                dim = self.bd.nbands - nocc
+                dim = bd.nbands - nocc
             elif self.excited_state:
-                dim = self.bd.nbands
+                dim = bd.nbands
             else:
                 dim = nocc
 
@@ -888,9 +891,10 @@ class FDPWETDM(Eigensolver):
         for kpt in wfs.kpt_u:
             # Separate diagonalization for occupied
             # and unoccupied subspaces
+            bd = self.eigensolver.bd
             k = self.n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)[0]
-            dim = self.bd.nbands - n_occ
+            dim = bd.nbands - n_occ
             if scalewithocc:
                 scale = kpt.f_n[:n_occ]
             else:
@@ -959,11 +963,12 @@ class FDPWETDM(Eigensolver):
         orbital_dependent = ham.xc.orbital_dependent
 
         n_occ = get_n_occ(kpt)[0]
+        bd = self.eigensolver.bd
         if not orbital_dependent:
-            dim = self.bd.nbands - n_occ
+            dim = bd.nbands - n_occ
             n0 = n_occ
         else:
-            dim = self.bd.nbands
+            dim = bd.nbands
             n0 = 0
 
         # calculate gradients:
@@ -1189,7 +1194,7 @@ class FDPWETDM(Eigensolver):
         if self.need_init_orbs and not wfs.read_from_file_init_wfs_dm:
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(FDPWETDM, self).subspace_diagonalize(
+                self.eigensolver.subspace_diagonalize(
                     ham, wfs, kpt, True)
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             self.need_init_orbs = False
