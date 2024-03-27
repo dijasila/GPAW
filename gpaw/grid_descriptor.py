@@ -477,11 +477,9 @@ class GridDescriptor(Domain):
 
     def check_grid_compatibility(self, ft_sc):
         # checks that grid is compatible with fractional translations
-        compat = True
         t_sc = ft_sc * self.N_c
         intt_sc = t_sc.round().astype(int)
-        if not np.allclose(t_sc, intt_sc, atol=1e-6):
-            compat = False
+        compat = np.allclose(t_sc, intt_sc, atol=1e-6)
         return compat
 
     def get_nearest_compatible_grid(self, ft_sc):
