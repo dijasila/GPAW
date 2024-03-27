@@ -1,5 +1,6 @@
 from collections import deque
 from inspect import signature
+from typing import Union
 
 import numpy as np
 from ase.calculators.calculator import InputError
@@ -13,7 +14,7 @@ def get_criterion(name):
     and raises sensible error if missing."""
     # All built-in criteria should be in this list.
     criteria = [Energy, Density, Eigenstates, Forces, WorkFunction,
-                MinIter, MaxIter]
+                MinIter, MaxIter, Bands]
     criteria = {c.name: c for c in criteria}
     try:
         return criteria[name]
@@ -56,6 +57,8 @@ def check_convergence(criteria, ctx):
     override_others = False
     converged = True
     for name, criterion in criteria.items():
+        if criterion._dummy:
+            continue
         if not criterion.calc_last:
             ok, entry = criterion(ctx)
             if criterion.override_others:
@@ -67,6 +70,8 @@ def check_convergence(criteria, ctx):
             entries[name] = entry
 
     for name, criterion in criteria.items():
+        if criterion._dummy:
+            continue
         if criterion.calc_last:
             if converged:
                 ok, entry = criterion(ctx)
@@ -89,7 +94,7 @@ class Criterion:
     like __init__(self, a, b):  --> self.a = a, self.b = b. The todict
     method requires the class have a self.name attribute. All criteria
     (subclasses of Criterion) must define self.name, self.tablename,
-    self.description, self.__init__, and self.__call___. See the online
+    self.description, self.__init__, and self.__call__. See the online
     documentation for details.
     """
     # If calc_last is True, will only be checked after all other (non-last)
@@ -97,6 +102,8 @@ class Criterion:
     calc_last = False
     override_others = False
     description: str
+    # If _dummy is True, the criterion is only used for logging purposes
+    _dummy: bool = False
 
     def __repr__(self):
         parameters = signature(self.__class__).parameters
@@ -231,7 +238,7 @@ class Eigenstates(Criterion):
     def __init__(self, tol):
         self.tol = tol
         self.description = ('Maximum integral of absolute [eigenst]ate '
-                            'change: {:g} eV^2 / valence electron'
+                            'change: {:g} eV^2 / electron'
                             .format(self.tol))
 
     def __call__(self, context):
@@ -412,3 +419,56 @@ class MaxIter(Criterion):
         converged = context.niter >= self.n
         entry = f'{context.niter:d}'
         return converged, entry
+
+
+class Bands(Criterion):
+    """A (dummy) convergence criterion for the number of bands to
+    include in determining SCF convergence.
+
+    Parameters:
+
+    n : int, str
+        Number of bands to converge (if a non-negative integer);
+        if 'all', converge all bands;
+        if a negative integer, converge all bands except that many ones
+        highest in energy;
+        if 'CBM+<num>', converge the bands up to that many eVs above the
+        conduction-band minimum
+
+    Notes:
+
+    This criterion is NOT about per-band convergence. (Maybe implement
+    that too later)
+    """
+    name = 'bands'
+    tablename = 'bands'
+    # Note: let the SCF loop/eigensolver decide when to stop;
+    # this is just for showing the bands with the other convergence
+    # criteria
+    _dummy = True
+    n: Union[int, str]
+
+    def __init__(self, n):
+        self.n = n
+        desc = 'Number of [bands] to consider in convergence: '
+        if isinstance(n, int):
+            if n > 0:
+                desc += str(n)
+            else:
+                desc += f'<all bands except the last {-n}>'
+        elif n in ('occupied', 'all'):
+            desc += f'<{n} bands>'
+        elif n.startswith('CBM+'):
+            number = n[len('CBM+'):]
+            desc += f'<bands within {number} eV above CBM>'
+        else:
+            msg = (
+                f'convergence[\'bands\'] = {n!r}: '
+                'unrecognized specification for the number of bands to '
+                'consider in convergence'
+            )
+            raise InputError(msg)
+        self.description = desc
+
+    def __call__(self, context):
+        return True, ''

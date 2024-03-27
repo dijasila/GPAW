@@ -189,6 +189,11 @@ The criteria marked as defaults are present in the default convergence dictionar
       - No
       - No
       - Yes
+    * - :class:`~gpaw.convergence_criteria.Bands`
+      - ``bands``
+      - Yes
+      - No
+      - No
 
 
 Full descriptions for the built-in criteria follow.
@@ -200,3 +205,4 @@ Full descriptions for the built-in criteria follow.
 .. autoclass:: gpaw.convergence_criteria.WorkFunction
 .. autoclass:: gpaw.convergence_criteria.MinIter
 .. autoclass:: gpaw.convergence_criteria.MaxIter
+.. autoclass:: gpaw.convergence_criteria.Bands

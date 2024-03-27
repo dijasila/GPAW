@@ -861,7 +861,6 @@ class GPAW(Calculator):
         criteria = self.default_parameters['convergence'].copy()  # keep order
         criteria.update(par.convergence)
         custom = criteria.pop('custom', [])
-        del criteria['bands']
         for name, criterion in criteria.items():
             if hasattr(criterion, 'todict'):
                 # 'Copy' so no two calculators share an instance.
