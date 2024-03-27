@@ -236,7 +236,7 @@ def unpack_hermitian(M):
     assuming a packing as in ``pack_hermitian``."""
 
     if M.ndim == 2:
-        return np.array([unpack(m) for m in M])
+        return np.array([unpack_hermitian(m) for m in M])
     assert is_contiguous(M)
     assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
@@ -278,8 +278,8 @@ def unpack_density(M):
     """Unpack 1D array to 2D Hermitian array,
     assuming a packing as in ``pack_density``."""
     if M.ndim == 2:
-        return np.array([unpack2(m) for m in M])
-    M2 = unpack(M)
+        return np.array([unpack_density(m) for m in M])
+    M2 = unpack_hermitian(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
     return M2
