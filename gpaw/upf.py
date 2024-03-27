@@ -20,7 +20,7 @@ from gpaw.pseudopotential import (PseudoPotential, screen_potential,
                                   figure_out_valence_states,
                                   get_radial_hartree_energy)
 from gpaw.spline import Spline
-from gpaw.utilities import pack2, divrl
+from gpaw.utilities import pack_hermitian, divrl
 
 
 class UPFStateSpec:
@@ -429,7 +429,7 @@ class UPFSetupData:
 
         H_ii = np.zeros((ni, ni))
         if len(self.data['DIJ']) == 0:
-            return pack2(H_ii)
+            return pack_hermitian(H_ii)
 
         # Multiply by 4.
         # I think the factor of 4 compensates for the fact that the projectors
@@ -452,7 +452,7 @@ class UPFSetupData:
                     assert H_jj[j1, j2] == 0.0
                 m2start = m2stop
             m1start = m1stop
-        return pack2(H_ii)
+        return pack_hermitian(H_ii)
 
     def get_local_potential(self):
         vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
