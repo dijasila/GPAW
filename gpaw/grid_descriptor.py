@@ -450,6 +450,16 @@ class GridDescriptor(Domain):
         if ft_sc is not None and not ft_sc.any():
             ft_sc = None
 
+        if ft_sc is not None:
+            compat = self.check_grid_compatibility(ft_sc)
+            if not compat:
+                newN_c = self.get_nearest_compatible_grid(ft_sc)
+                e = 'The specified number of grid points, ' \
+                    + str(self.N_c) + ', is not compatible with the'\
+                    ' symmetry of the atoms. Nearest compatible grid'\
+                    ' size is ' + str(newN_c) + '.'
+                raise ValueError(e)
+
         A_g = self.collect(a_g)
         if self.comm.rank == 0:
             B_g = np.zeros_like(A_g)
@@ -458,19 +468,21 @@ class GridDescriptor(Domain):
                     cgpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
                     t_c = (ft_sc[s] * self.N_c).round().astype(int)
-                    if not np.allclose(t_c, ft_sc[s] * self.N_c, atol=1e-6):
-                        newN_c = self.get_nearest_compatible_grid(ft_sc)
-                        e = 'The specified number of grid points, ' \
-                            + str(self.N_c) + ', is not compatible with the'\
-                            ' symmetry of the atoms. Nearest compatible grid'\
-                            ' size is ' + str(newN_c) + '.'
-                        raise ValueError(e)
                     cgpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
                                         1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
+
+    def check_grid_compatibility(self, ft_sc):
+        # checks that grid is compatible with fractional translations
+        compat = True
+        for ft_c in ft_sc:
+            t_c = (ft_c * self.N_c).round().astype(int)
+            if not np.allclose(t_c, ft_c * self.N_c, atol=1e-6):
+                compat = False
+        return compat
 
     def get_nearest_compatible_grid(self, ft_sc):
         newN_c = np.zeros(self.N_c.shape)
