@@ -48,7 +48,7 @@ from gpaw.transformers import Transformer
 from gpaw.typing import ArrayND, IntVector, RNG
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 def matrix_exponential(G_nn, dlt):
@@ -524,7 +524,7 @@ class SICSpin:
             W_nm = np.identity(self.nocc)
             localization = 0.0
             for iter in range(30):
-                loc = _gpaw.localize(Z_mmv, W_nm)
+                loc = cgpaw.localize(Z_mmv, W_nm)
                 if loc - localization < 1e-6:
                     break
                 localization = loc
@@ -563,7 +563,7 @@ class SICSpin:
         # localize the orbitals
         localization = 0.0
         for iter in range(30):
-            loc = _gpaw.localize(Z_mmv, W_nm)
+            loc = cgpaw.localize(Z_mmv, W_nm)
             if loc - localization < 1e-6:
                 break
             localization = loc

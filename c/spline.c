@@ -23,8 +23,7 @@ static PyObject * spline_get_angular_momentum_number(SplineObject *self,
 }
 
 static PyObject * spline_get_value_and_derivative(SplineObject *obj,
-                                                  PyObject *args,
-                                                  PyObject *kwargs)
+                                                  PyObject *args)
 {
   double r;
   if (!PyArg_ParseTuple(args, "d", &r))

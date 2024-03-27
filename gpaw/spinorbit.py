@@ -223,7 +223,7 @@ class BZWaveFunctions:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
-            e_band = self.kpt_comm.sum(e_band)
+            e_band = self.kpt_comm.sum_scalar(e_band)
         else:
             e_band = 0.0
 

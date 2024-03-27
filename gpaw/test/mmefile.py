@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from gpaw.mpi import world
 from gpaw.new.ase_interface import GPAW
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.test.cachedfilehandler import CachedFilesHandler
@@ -15,8 +14,8 @@ class MMEFiles(CachedFilesHandler):
         self.gpw_files = gpw_files
 
     def _calculate_and_write(self, name, work_path):
-        calc = GPAW(self.gpw_files[name])
+        calc = GPAW(self.gpw_files[name], parallel={'domain': 1, 'band': 1})
         nb = response_band_cutoff[
             name if not name.endswith('_spinpol') else name[:-8]]
-        nlodata = make_nlodata(calc, ni=0, nf=nb, comm=world)
+        nlodata = make_nlodata(calc, ni=0, nf=nb)
         nlodata.write(work_path)

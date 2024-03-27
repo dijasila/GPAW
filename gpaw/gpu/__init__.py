@@ -42,8 +42,8 @@ def setup():
         device_id = rank % cupy.cuda.runtime.getDeviceCount()
         cupy.cuda.runtime.setDevice(device_id)
         # initialise C parameters and memory buffers
-        import _gpaw
-        _gpaw.gpaw_gpu_init()
+        import gpaw.cgpaw as cgpaw
+        cgpaw.gpaw_gpu_init()
 
 
 def as_np(array: np.ndarray | cupy.ndarray) -> np.ndarray:

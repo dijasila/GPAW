@@ -9,7 +9,7 @@ from gpaw.transformers import Transformer
 from gpaw.directmin.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
 from gpaw.utilities.ewald import madelung
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.utilities.partition import AtomPartition
 
 
@@ -110,7 +110,7 @@ class PZSICFDPW:
             psit_G = wfs.pd.alltoall1(kpt.psit.array[n: n + 1], kpt.q)
             if psit_G is not None:
                 psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True, safe=False)
-                _gpaw.add_to_density(1.0, psit_R, nt_G)
+                cgpaw.add_to_density(1.0, psit_R, nt_G)
             wfs.pd.gd.comm.sum(nt_G)
             nt_G = wfs.pd.gd.distribute(nt_G)
         else:
@@ -465,7 +465,7 @@ class PZSICFDPW:
             # real space wfs:
             psit_R = wfs.pd.ifft(psit_G, kpt.q,
                                  local=True, safe=False)
-            _gpaw.add_to_density(1.0, psit_R, nt_G)
+            cgpaw.add_to_density(1.0, psit_R, nt_G)
         wfs.pd.gd.comm.sum(nt_G)
         nt_G = wfs.pd.gd.distribute(nt_G)  # this is real space grid
         wfs.timer.stop("IFFT: Get density on real grid")
