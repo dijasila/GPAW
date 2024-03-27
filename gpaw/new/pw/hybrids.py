@@ -67,7 +67,8 @@ class PWHybridHamiltonian(PWHamiltonian):
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()
         P1_ani = wfs1.P_ani
-        P2_ani = wfs1.pt_aiX.integrate(psit2_nG)
+        pt_aiG = wfs1.pt_aiX
+        P2_ani = pt_aiG.integrate(psit2_nG)
         for n1, (psit1_G, f1) in enumerate(zip(wfs1.psit_nX, wfs1.myocc_n)):
             psit1_G.ifft(out=psit1_R, plan=self.plan)
             for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, out_nG)):
@@ -83,3 +84,9 @@ class PWHybridHamiltonian(PWHamiltonian):
                 rhot_R.data *= psit1_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
                 out_G.data -= rhot_G.data * f1
+                A_aL = self.ghat_aLG.integrate(rhot_G)
+                pt_aiG.add_to(
+                    out_G,
+                    {a: np.einsum('L, ijL, j -> i',
+                                  A_aL[a], delta_iiL, P2_ani[a][n2])
+                     for a, delta_iiL in enumerate(self.delta_aiiL)})
