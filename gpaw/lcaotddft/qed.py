@@ -814,10 +814,31 @@ class RRemission(object):
                              self.dipolexyz_time[:self.itert, jj])
                       - 0.5 * dyadic_t[-1] * self.dipolexyz_time[0, jj]
                       - (0.5 * dyadic_t[0] *
-                         self.dipolexyz_time[self.itert, jj])))
-                    + (4. * np.pi * alpha**2 * self.dyadic_st[3 * ii + jj] *
-                       self.density.calculate_dipole_moment()[jj]))
+                         self.dipolexyz_time[self.itert, jj]))))
+                if np.sum(abs(self.dyadic_st)) != 0:
+                    electric_rr_field[ii] += (4. * np.pi * alpha**2
+                        * self.dyadic_st[3 * ii + jj] *
+                        self.density.calculate_dipole_moment()[jj])
         return np.real(electric_rr_field)
 
     def fieldenergy(self, deltat):
         return -np.dot(self.selffield(self.deltat), self.dipolexyz)
+
+    def fieldenergy_post(self, deltat, provided_dipole):
+        self.dyadic, self.dyadic_st = self.dyadicGt(deltat, len(provided_dipole[:,0]))
+        provided_dipole = np.array(provided_dipole)
+        provided_dipoleder = np.zeros((len(provided_dipole[:,0]), 3))
+        for ii in range(3):
+            provided_dipoleder[:,ii] = np.gradient(provided_dipole[:,ii], deltat)
+        energy_rr_field = np.zeros((len(provided_dipoleder[:,0]), 1))
+        energy_rr_field_int = np.zeros((len(provided_dipoleder[:,0]), 1))
+        self.dipolexyz_time = np.zeros((len(provided_dipoleder[:,0]), 3))
+        self.dipole_projected = np.zeros((len(provided_dipoleder[:,0]), 1))
+        self.dipolexyz_time[0,:] = provided_dipoleder[0,:]
+        for iter_step in range(1, len(provided_dipoleder[:,0])):
+            self.itert = iter_step
+            self.dipolexyz = provided_dipoleder[iter_step,:]
+            energy_rr_field[iter_step,0] = -np.dot(self.selffield(deltat),
+                                                 self.dipolexyz)
+            energy_rr_field_int[iter_step,0] = np.trapz(energy_rr_field[:iter_step,0], dx=deltat)
+        return [energy_rr_field, energy_rr_field_int]
