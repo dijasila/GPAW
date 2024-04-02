@@ -5,6 +5,7 @@ from gpaw.response.bse import BSE, read_spectrum
 from gpaw.test import findpeak
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.response
 def test_response_bse_aluminum(in_tmp_dir, gpw_files):
     df = 1

@@ -7,7 +7,7 @@ import numpy as np
 from ase.data import chemical_symbols
 
 from gpaw import debug
-from gpaw.basis_data import Basis
+from gpaw.basis_data import Basis, BasisFunction
 from gpaw.gaunt import gaunt, nabla
 from gpaw.overlap import OverlapCorrections
 from gpaw.setup_data import SetupData, search_for_file
@@ -297,7 +297,7 @@ class BaseSetup:
         j = 0
         i = 0
         ib = 0
-        for phit in self.basis_functions_J:
+        for J, phit in enumerate(self.basis_functions_J):
             l = phit.get_angular_momentum_number()
             # Skip functions not in basis set:
             while j < nj and self.l_j[j] != l:
@@ -305,6 +305,14 @@ class BaseSetup:
                 j += 1
             if j == nj:
                 break
+
+            n = self.n_j[j]
+            if n > 0:
+                nb = self.basis.bf_j[J].n
+                if nb is not None and nb != n:
+                    raise ValueError('Basis not compatible with PAW potential')
+            else:
+                assert (f_si[:, ib:ib + 2 * l + 1] == 0).all()
 
             for m in range(2 * l + 1):
                 D_sii[:, i + m, i + m] = f_si[:, ib + m]
@@ -1200,22 +1208,12 @@ class Setup(BaseSetup):
         a_g = 4 * x**3 * (1 - 0.75 * x)
         b_g = x**3 * (x - 1) * (rcut3 - rcut2)
 
-        class PartialWaveBasis(Basis):  # yuckkk
-            def __init__(self, symbol, phit_J):
-                Basis.__init__(self, symbol, 'partial-waves', readxml=False)
-                self._basis_functions_J = phit_J
-
-            def tosplines(self):
-                return self._basis_functions_J
-
-            def get_description(self):
-                template = 'Using partial waves for %s as LCAO basis'
-                string = template % self.symbol
-                return string
-
         basis_functions_J = []
+        n_J = []
         for j, phit_g in enumerate(phit_jg):
-            if self.n_j[j] > 0:
+            n = self.n_j[j]
+            if n > 0:
+                n_J.append(n)
                 l = self.l_j[j]
                 phit_g = phit_g.copy()
                 phit = phit_g[gcut3]
@@ -1225,7 +1223,7 @@ class Setup(BaseSetup):
                 phit_g[gcut3:] = 0.0
                 basis_function = self.rgd.spline(phit_g, rcut3, l, points=100)
                 basis_functions_J.append(basis_function)
-        basis = PartialWaveBasis(self.symbol, basis_functions_J)
+        basis = PartialWaveBasis(self.symbol, basis_functions_J, n_J)
         return basis
 
     def calculate_oscillator_strengths(self, phi_jg):
@@ -1247,6 +1245,22 @@ class Setup(BaseSetup):
             else:
                 i += 2 * l + 1
         assert i == self.ni
+
+
+class PartialWaveBasis(Basis):  # yuckkk
+    def __init__(self, symbol, phit_J, n_J):
+        Basis.__init__(self, symbol, 'partial-waves', readxml=False)
+        self._basis_functions_J = phit_J
+        self.bf_j = [BasisFunction(n, phit.get_angular_momentum_number())
+                     for n, phit in zip(n_J, phit_J)]
+
+    def tosplines(self):
+        return self._basis_functions_J
+
+    def get_description(self):
+        template = 'Using partial waves for %s as LCAO basis'
+        string = template % self.symbol
+        return string
 
 
 class Setups(list):

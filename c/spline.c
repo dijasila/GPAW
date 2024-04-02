@@ -3,6 +3,7 @@
  *  Please see the accompanying LICENSE file for further information. */
 
 #include "spline.h"
+#include "assert.h"
 
 static void spline_dealloc(SplineObject *xp)
 {
@@ -22,8 +23,7 @@ static PyObject * spline_get_angular_momentum_number(SplineObject *self,
 }
 
 static PyObject * spline_get_value_and_derivative(SplineObject *obj,
-                                                  PyObject *args,
-                                                  PyObject *kwargs)
+                                                  PyObject *args)
 {
   double r;
   if (!PyArg_ParseTuple(args, "d", &r))
@@ -80,10 +80,33 @@ static PyObject * spline_get_indices_from_zranges(SplineObject *self,
   return values;
 }
 
+static PyObject * spline_map(SplineObject *self, PyObject *args) 
+{
+  PyArrayObject* r_x_obj;
+  PyArrayObject* out_x_obj;
+  
+  if (!PyArg_ParseTuple(args, "OO", &r_x_obj, &out_x_obj))
+    return NULL;
+
+  const double* r_x = PyArray_DATA(r_x_obj);
+  double* out_x = PyArray_DATA(out_x_obj);
+
+  int rl = PyArray_SIZE(r_x_obj);
+  
+  assert(PyArray_ITEMSIZE(out_x_obj) == 8);
+
+  for (int i = 0; i < rl; i++) {
+	out_x[i] = bmgs_splinevalue(&self->spline, r_x[i]);
+  }
+  
+  Py_RETURN_NONE;
+}
 
 static PyMethodDef spline_methods[] = {
     {"get_cutoff",
      (PyCFunction)spline_get_cutoff, METH_VARARGS, 0},
+    {"map",
+     (PyCFunction)spline_map, METH_VARARGS, 0},
     {"get_angular_momentum_number",
      (PyCFunction)spline_get_angular_momentum_number, METH_VARARGS, 0},
     {"get_value_and_derivative",

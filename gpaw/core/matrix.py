@@ -9,7 +9,7 @@ import scipy.linalg as sla
 
 import gpaw.utilities.blas as blas
 from gpaw import debug, get_scipy_version
-from gpaw.gpu import cupy as cp, cupy_eigh
+from gpaw.gpu import cupy as cp, cupy_eigh, XP
 from gpaw.mpi import MPIComm, _Communicator, serial_comm
 from gpaw.typing import Array1D, ArrayLike1D, ArrayLike2D, Array2D
 
@@ -52,7 +52,7 @@ def suggest_blocking(N: int, ncpus: int) -> tuple[int, int, int]:
     return nprow, npcol, blocksize
 
 
-class Matrix:
+class Matrix(XP):
     def __init__(self,
                  M: int,
                  N: int,
@@ -96,13 +96,12 @@ class Matrix:
         self.xp: ModuleType
         if xp is None:
             if isinstance(dist, CuPyDistribution):
-                self.xp = cp
+                xp = cp
             elif data is not None and not isinstance(data, np.ndarray):
-                self.xp = cp
+                xp = cp
             else:
-                self.xp = np
-        else:
-            self.xp = xp
+                xp = np
+        XP.__init__(self, xp)
 
         dist = dist or ()
         if isinstance(dist, tuple):
@@ -335,7 +334,6 @@ class Matrix:
             Number of eigenvector and values to find.  Defaults to all.
         """
         slcomm, rows, columns, blocksize = scalapack
-
         slcomm = slcomm or self.dist.comm
         dist = (slcomm, rows, columns, blocksize)
 
@@ -354,7 +352,10 @@ class Matrix:
             assert self.dist.comm.size == slcomm.size
             H = self
 
-        eps = self.xp.empty(H.shape[0])
+        if limit:
+            eps = self.xp.empty(limit)
+        else:
+            eps = self.xp.empty(H.shape[0])
 
         if rows * columns == 1:
             if self.dist.comm.rank == 0:
