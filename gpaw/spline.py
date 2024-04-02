@@ -1,3 +1,4 @@
+
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -25,6 +26,7 @@ class Spline:
         f_g[-1] = 0.0
         self.spline = _gpaw.Spline(l, rmax, f_g)
         self.l = l
+        self._npoints = len(f_g)
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -49,7 +51,22 @@ class Spline:
 
     def map(self, r_x):
         """Map f(r) onto a given radial grid."""
-        return np.vectorize(self, [float])(r_x)
+        out_x = np.empty_like(r_x)
+        assert r_x.flags.c_contiguous
+        self.spline.map(r_x, out_x)
+        return out_x
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        rmax = self.get_cutoff()
+        state['spline'] = (rmax,
+                           self.map(np.linspace(0.0, rmax, self._npoints)))
+        return state
+
+    def __setstate__(self, state):
+        rmax, f_g = state['spline']
+        state['spline'] = _gpaw.Spline(state['l'], rmax, f_g)
+        self.__dict__.update(state)
 
     def get_functions(self, gd, start_c, end_c, spos_c):
         h_cv = gd.h_cv
