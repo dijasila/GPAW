@@ -172,7 +172,6 @@ class BaseSetup:
         """If f_j is specified, custom occupation numbers will be used.
 
         Hund rules disabled if so."""
-
         nao = self.nao
         f_sI = np.zeros((nspins, nao))
 
