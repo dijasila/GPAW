@@ -61,11 +61,12 @@ def adjust_cell(atoms: Atoms, border: float,
     lowest_c = np.minimum.reduce(pos_ac)
     largest_c = np.maximum.reduce(pos_ac)
 
-    if (atoms.cell == 0.).any():
-        for i in range(3):
-            if atoms.pbc[i]:
-                continue
-            atoms.cell[i, i] = 1
+    for i in range(3):
+        if (atoms.cell[i] == 0.).all():
+            for i in range(3):
+                if atoms.pbc[i]:
+                    continue
+                atoms.cell[i, i] = 1
 
     if n_pbc:
         N_c = h2gpts(h, atoms.cell, idiv)
@@ -86,7 +87,10 @@ def adjust_cell(atoms: Atoms, border: float,
         if atoms.pbc[i]:
             continue
 
-        extension = largest_c[i] - lowest_c[i]
+        # cell direction
+        u_c = atoms.cell[i] / np.linalg.norm(atoms.cell[i])
+
+        extension = (largest_c - lowest_c) * u_c
         min_size = extension + 2 * border
 
         h = h_c[i]
@@ -94,10 +98,10 @@ def adjust_cell(atoms: Atoms, border: float,
         N = -(N // -idiv) * idiv  # ceil div
         size = N * h
 
-        atoms.cell[i] *= size / np.linalg.norm(atoms.cell[i])
+        atoms.cell[i] = size * u_c
 
         # shift structure to the center
-        shift_c[i] = (size - extension) / 2
-        shift_c[i] -= lowest_c[i]
+        shift_c += (size - extension) / 2 * u_c
+        shift_c -= lowest_c * u_c
 
     atoms.translate(shift_c)
