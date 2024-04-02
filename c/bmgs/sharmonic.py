@@ -74,7 +74,7 @@ def Y_to_string(l, m, deriv=None, multiply=None, numeric=False):
     """                                                   l    m
        If deriv is None, return string representation of r  * Y (x, y, z)
                                                                l
-       
+
        If deriv == q, return string is the derivative of above with respect
        to x, y or z if q is 0, 1 or 2 respectively.
 
@@ -86,7 +86,7 @@ def Y_to_string(l, m, deriv=None, multiply=None, numeric=False):
     """
     assert deriv is None or deriv in range(3)
     assert multiply is None or multiply in range(3)
-    
+
     if deriv is None:
         norm, xyzs = Y_collect(l, m)
     else:
@@ -101,13 +101,13 @@ def Y_to_string(l, m, deriv=None, multiply=None, numeric=False):
 
 def gauss_to_string(l, m, numeric=False):
     """Return string representation of the generalized gaussian::
-    
-                       _____                           2  
+
+                       _____                           2
          m            /  1       l!         l+3/2  -a r   l  m
         g (x,y,z) =  / ----- --------- (4 a)      e      r  Y (x,y,z)
          l         \/  4 pi  (2l + 1)!                       l
-         
-       numeric=True/False indicates whether the normalization constant should 
+
+       numeric=True/False indicates whether the normalization constant should
        be written as a number or an algebraic expression.
     """
     norm, xyzs = Y_collect(l, m)
@@ -137,10 +137,10 @@ def gauss_potential_to_string(l, m, numeric=False):
           l  l     l         l     l  l
 
        where::
-               4 pi /  -l-1 /r    l+2         l /oo   1-l      \ 
+               4 pi /  -l-1 /r    l+2         l /oo   1-l      \
        v (r) = ---- | r     | dx x   g (r) + r  | dx x   g (r) |
         l      2l+1 \       /0        l         /r        l    /
-    """            
+    """
     v_l = [[Q(4,1), 1],
            [Q(4,3), 1, 2],
            [Q(4,15), 3, 6, 4],
@@ -260,7 +260,7 @@ def legendre(l, m):
     # Check if requested has already been calculated
     if (l, m) in Y_lp[0]:
         return Y_lp[0][(l, m)]
-    
+
     m = abs(m)
     assert l >= 0 and 0 <= m <=l
     result = np.zeros(l - m + 1, 'O')
@@ -283,7 +283,7 @@ def legendre(l, m):
             l-1              l-1
            P  (z) = (2l-1)z P   (z)
             l                l-1
-            
+
         """
         result[1:] += (2 * l - 1) * legendre(l-1, l-1)
     else:
@@ -312,7 +312,7 @@ def Phi(m):
     # Check if requested has already been calculated
     if m in Y_lp[1]:
         return Y_lp[1][m]
-    
+
     if   m ==  0:
         xys = {(0, 0): 1} # use that Phi_0  = 1
     elif m ==  1:
@@ -321,12 +321,12 @@ def Phi(m):
         xys = {(0, 1): 1} # use that Phi_-1 = y
     else:
         """Use the recurrence formula
-        
+
            m > 0:  Phi (x,y) = x Phi   (x,y) - y Phi   (x,y)
                      |m|           |m|-1           1-|m|
 
            m < 0:  Phi (x,y) = y Phi   (x,y) + x Phi   (x,y)
-                     |m|           |m|-1           1-|m|           
+                     |m|           |m|-1           1-|m|
         """
         xys  = {}
         phi1 = Phi(abs(m) - 1)
@@ -364,7 +364,7 @@ def Y_collect(l, m):
     # get normalization constant and simplify
     norm = Normalization(l, m)
     norm.multiply(simplify(xyzs))
-    
+
     return norm, xyzs
 
 def Y_collect2(l, m):
@@ -404,7 +404,7 @@ def dYdq(l, m, q):
     """
     norm, xyzs = Y_collect(l, m)
     dxyzs = {}
-    
+
     for xyz, coef in xyzs.items():
         x, y, z = xyz
         r = l - x - y - z
@@ -415,7 +415,7 @@ def dYdq(l, m, q):
             dxyz[q] -= 1
             dxyz = tuple(dxyz)
             dxyzs[dxyz] = dxyzs.get(dxyz, 0) + xyz[q] * coef
-        
+
         # chain rule: diff coordinate r only
         if r != 0:
             dxyz = list(xyz)
@@ -446,7 +446,7 @@ def simplify(xyzs):
     num_max = max(abs(np.floor(numxyz)))
     for d in range(2, num_max + 1):
         test = numxyz / d
-        if np.alltrue(test == np.floor(test)): dmax = d
+        if np.all(test == np.floor(test)): dmax = d
 
     # Update simplified dictionary
     norm *= dmax
@@ -462,7 +462,7 @@ def q_times_xyzs(xyzs, q):
         qxyz = list(xyz)
         qxyz[q] += 1
         qxyz = tuple(qxyz)
-        
+
         qxyzs[qxyz] = c
     return qxyzs
 
@@ -485,7 +485,7 @@ def orthogonal(L1, L2):
             y = np.sin(phi) * np.sin(theta)
             z = np.cos(theta)
             r2 = x*x + y*y + z*z
-            
+
             Y1 = eval(Y_to_string(*L_to_lm(L1)))
             Y2 = eval(Y_to_string(*L_to_lm(L2)))
 
@@ -514,7 +514,7 @@ def symmetry1(lmax, display=True):
          d Y             d Y
             l1              l2
          ------ = nrel * ------
-          d q1            d q2       
+          d q1            d q2
     """
     diff = {} # diff[(l1, m1, q1)] = (nrel, l2, m2, q2)
     unique_L = [] # unique_L[L] = (l, m, q, norm, dxyzs)
@@ -562,7 +562,7 @@ def symmetry2(l, display=True):
             qnorm, xyzs = Y_collect(l, m)
             qxyzs = q_times_xyzs(xyzs, q)
             dnorm, dxyzs = dYdq(l, m, q)
-            
+
             for unique in unique_L:
                 if dxyzs == unique[4] and qxyzs == unique[6]:
                     dnrel = dnorm.eval() / unique[3]
@@ -628,15 +628,15 @@ def construct_spherical_harmonic_c_code(filename='spherical_harmonics.h',
                   multiply=c, deriv=c)
     file.close()
 
-    
+
 def construct_c_code(file='temp.c', lmax=3):
     """Method for generating the code in c/spline.c"""
     txt = '//Computer generated code! Hands off!'
     start_func = """
-    
+
 // inserts values of f(r) r^l Y_lm(theta, phi) in elements of input array 'a'
-void bmgs_radial3(const bmgsspline* spline, int m, 
-                  const int n[3], 
+void bmgs_radial3(const bmgsspline* spline, int m,
+                  const int n[3],
                   const double C[3],
                   const double h[3],
                   const double* f, double* a)
@@ -653,8 +653,8 @@ void bmgs_radial3(const bmgsspline* spline, int m,
 // --------------------- = g(r) q r^l Y_l^m + f(r) --------------
 //        dq                                             dq
 // where q={x, y, z} and g(r) = 1/r*(df/dr)
-void bmgs_radiald3(const bmgsspline* spline, int m, int c, 
-                  const int n[3], 
+void bmgs_radiald3(const bmgsspline* spline, int m, int c,
+                  const int n[3],
                   const double C[3],
                   const double h[3],
                   const double* f, const double* g, double* a)
@@ -683,7 +683,7 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
         }
     }
 """
-    
+
     # insert code for evaluating the function
     txt += start_func
     for l in range(1, lmax + 1):
@@ -703,7 +703,7 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
     assert(0 == 1);
 }
 """
-    
+
     # insert code for evaluating the derivative
     txt += start_deriv
     for q in range(3):
@@ -712,7 +712,7 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
             if l == 0 and q == 0:
                 txt += '  if (c == 0 && l == 0)'
             else: txt += '  else if (c == %s && l == %s)' %(q, l)
-        
+
             txt += start_case
             case = ''
             for m in range(-l, l+1):
@@ -735,7 +735,7 @@ void bmgs_radiald3(const bmgsspline* spline, int m, int c,
     f = open(file, 'w')
     print(txt, file=f)
     f.close()
-    
+
 def construct_gauss_code(lmax=2):
     """Method for generating the code in gpaw/utilities/gauss.py"""
     Lmax = (lmax + 1)**2
@@ -750,13 +750,13 @@ def construct_gauss_code(lmax=2):
         l, m = L_to_lm(L)
         out += '  \'' + gauss_to_string(l, m, numeric=True) + '\',\n'
     out += ']'
-    
+
     out += '\ngausspot_L = [\n'
     for L in range(Lmax):
         l, m = L_to_lm(L)
         out += '  \'' + gauss_potential_to_string(l, m, numeric=True) + '\',\n'
     out += ']'
-    
+
     print(out)
 
 def construct_spherical_code(lmax=3):

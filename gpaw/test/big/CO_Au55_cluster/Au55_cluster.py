@@ -11,11 +11,15 @@ cell = [(17.79365715, 0, 0),
 cluster.set_cell(cell, scale_atoms=False)
 cluster.center()
 
-kwargs_lcao = dict(mode='lcao',
+base_kwargs = dict(mode='fd',
+                   h=0.18,
+                   txt=None)
+kwargs_lcao = dict(base_kwargs,
+                   mode='lcao',
                    # basis='dzp',
                    convergence={'density': 0.1, 'energy': 0.1})
 
-calc = GPAW(h=0.18, txt=None, **kwargs_lcao)
+calc = GPAW(**kwargs_lcao)
 cluster.calc = calc
 
 dyn1 = BFGSLineSearch(cluster, trajectory='Au_cluster_lcao.traj')
@@ -36,7 +40,7 @@ dyn3 = BFGSLineSearch(CO)
 dyn3.run(fmax=0.02)
 e_CO_lcao = CO.get_potential_energy()
 
-CO.calc = GPAW(h=0.18, tex=None)
+CO.calc = GPAW(**base_kwargs)
 dyn4 = BFGSLineSearch(CO)
 dyn4.run(fmax=0.02)
 e_CO_paw = CO.get_potential_energy()
@@ -59,7 +63,7 @@ dyn5 = BFGSLineSearch(cluster, trajectory='CO_cluster_lcao.traj')
 dyn5.run(fmax=0.02)
 e_cocluster_lcao = cluster.get_potential_energy()
 
-cluster.calc = GPAW(h=0.18, tex=None)
+cluster.calc = GPAW(**base_kwargs)
 dyn6 = BFGSLineSearch(cluster, trajectory='CO_cluster_paw.traj')
 dyn6.run(fmax=0.02)
 e_cocluster_paw = cluster.get_potential_energy()

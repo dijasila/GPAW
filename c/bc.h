@@ -2,6 +2,9 @@
  *  Copyright (C) 2005       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#ifndef BC_H
+#define BC_H
+
 #include "bmgs/bmgs.h"
 #ifdef PARALLEL
 #include <mpi.h>
@@ -33,6 +36,11 @@ typedef struct
   int ndouble;
   bool cfd;
   MPI_Comm comm;
+#ifdef GPAW_GPU
+  bool gpu_sjoin[3];
+  bool gpu_rjoin[3];
+  bool gpu_async[3];
+#endif
 } boundary_conditions;
 
 static const int COPY_DATA = -2;
@@ -54,3 +62,30 @@ void bc_unpack2(const boundary_conditions* bc,
     MPI_Request recvreq[2],
     MPI_Request sendreq[2],
     double* rbuf, int nin);
+
+#ifdef GPAW_GPU
+#include "gpu/gpu-runtime.h"
+
+void bc_init_gpu(boundary_conditions* bc);
+void bc_dealloc_gpu(int force);
+void bc_unpack_gpu(const boundary_conditions* bc,
+                   double* aa2, int i,
+                   MPI_Request recvreq[3][2],
+                   MPI_Request sendreq[2],
+                   const double_complex phases[2],
+                   gpuStream_t kernel_stream,
+                   int nin);
+void bc_unpack_gpu_async(const boundary_conditions* bc,
+                         double* aa2, int i,
+                         MPI_Request recvreq[3][2],
+                         MPI_Request sendreq[2],
+                         const double_complex phases[2],
+                         gpuStream_t kernel_stream,
+                         int nin);
+void bc_unpack_paste_gpu(boundary_conditions* bc,
+                         const double* aa1, double* aa2,
+                         MPI_Request recvreq[3][2],
+                         gpuStream_t thd, int nin);
+#endif
+
+#endif

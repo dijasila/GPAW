@@ -7,13 +7,14 @@ h = 0.25
 box = 3.0
 
 
+@pytest.mark.later
 def test_spin_spin_contamination_B():
     # B should not have spin contamination
     s = Cluster([Atom('B')])
     s.minimal_box(box, h=h)
     s.set_initial_magnetic_moments([-1])
 
-    c = GPAW(xc='LDA', nbands=-3,
+    c = GPAW(mode='fd', xc='LDA', nbands=-3,
              basis='dzp',
              hund=True,
              h=h,
@@ -29,13 +30,14 @@ def test_spin_spin_contamination_B():
     assert contamination == pytest.approx(0.0, abs=0.01)
 
 
+@pytest.mark.later
 def test_spin_spin_contamination_H2():
     # setup H2 at large distance with different spins for the atoms
     s = Cluster([Atom('H'), Atom('H', [0, 0, 3.0])])
     s.minimal_box(box, h=h)
     s.set_initial_magnetic_moments([-1, 1])
 
-    c = GPAW(xc='LDA',
+    c = GPAW(mode='fd', xc='LDA',
              nbands=-3,
              h=h,
              convergence={'eigenstates': 0.078,

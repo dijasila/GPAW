@@ -8,7 +8,8 @@ import gpaw.dscf as dscf
 
 filename = 'lumo'
 
-c_mol = GPAW(nbands=9,
+c_mol = GPAW(mode='fd',
+             nbands=9,
              h=0.2,
              xc='RPBE',
              kpts=(8, 6, 1),
@@ -19,7 +20,8 @@ c_mol = GPAW(nbands=9,
                           'bands': -2},
              txt='CO_lumo.txt')
 
-calc = GPAW(nbands=80,
+calc = GPAW(mode='fd',
+            nbands=80,
             h=0.2,
             xc='RPBE',
             kpts=(8, 6, 1),

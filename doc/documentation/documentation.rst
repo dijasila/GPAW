@@ -12,5 +12,6 @@ Documentation
    theory
    core
    cmdline
+   gpu
    utilities/utilities
    reports_presentations_and_theses

@@ -9,7 +9,7 @@ from gpaw.mpi import world
 from gpaw.projections import Projections
 from gpaw.pw.descriptor import PWDescriptor
 from gpaw.pw.lfc import PWLFC
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
+from gpaw.hybrids.wstc import WignerSeitzTruncatedCoulomb as WSTC
 from gpaw.spline import Spline
 from gpaw.symmetry import Symmetry
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions

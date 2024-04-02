@@ -4,7 +4,7 @@ from ase import Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW
-from gpaw.test import equal
+import pytest
 from gpaw.analyse.expandyl import AngularIntegral, ExpandYl
 
 
@@ -25,7 +25,7 @@ def test_radial_ylexpand(in_tmp_dir):
                     (a / 2, a / 2, (c + R) / 2)],
                    cell=(a, a, c),
                    pbc=True)
-        calc = GPAW(gpts=(12, 12, 16), nbands=2, kpts=(1, 1, 2),
+        calc = GPAW(mode='fd', gpts=(12, 12, 16), nbands=2, kpts=(1, 1, 2),
                     convergence={'eigenstates': 1.e-6},
                     txt=None,
                     )
@@ -47,9 +47,9 @@ def test_radial_ylexpand(in_tmp_dir):
     for V, average, integral, R, Rm in zip(ai.V_R, average_R, integral_R,
                                            ai.radii(), ai.radii('mean')):
         if V > 0:
-            equal(average, 1, 1.e-9)
-            equal(integral / (4 * pi * Rm**2), 1, 0.61)
-            equal(Rm / R, 1, 0.61)
+            assert average == pytest.approx(1, abs=1.e-9)
+            assert integral / (4 * pi * Rm**2) == pytest.approx(1, abs=0.61)
+            assert Rm / R == pytest.approx(1, abs=0.61)
 
     # ExpandYl
 
@@ -69,7 +69,7 @@ def test_radial_ylexpand(in_tmp_dir):
         # gl, w = yl.expand(calc.get_pseudo_wave_function(band=n))
         gl, w = yl.expand(calc.wfs.kpt_u[0].psit_nG[n])
         parprint('max_index(gl), n=', max_index(gl), n)
-        assert(max_index(gl) == n)
+        assert max_index(gl) == n
 
     # io
     fname = 'expandyl.dat'

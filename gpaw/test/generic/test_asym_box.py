@@ -3,7 +3,7 @@ from ase import Atoms
 from ase.parallel import parprint
 from gpaw import GPAW, PoissonSolver
 from gpaw.cluster import Cluster
-from gpaw.test import equal
+import pytest
 
 
 def test_generic_asym_box(in_tmp_dir):
@@ -11,7 +11,7 @@ def test_generic_asym_box(in_tmp_dir):
     s = Cluster(Atoms('He'))
     s.minimal_box(3, h=h)
 
-    c = GPAW(charge=1, txt='He_plus.txt',
+    c = GPAW(mode='fd', charge=1, txt='He_plus.txt',
              poissonsolver=PoissonSolver(use_charge_center=True),
              convergence={     # run fast
                  'energy': 0.001,
@@ -31,5 +31,5 @@ def test_generic_asym_box(in_tmp_dir):
     parprint('     Small Box    Wide Box')
     parprint('E:   {0:9.3f}     {1:9.3f}'.format(e_small, e_big))
     parprint('eps: {0:9.3f}     {1:9.3f}'.format(eps_small, eps_big))
-    equal(e_small, e_big, 2.5e-4)
-    equal(eps_small, eps_big, 6e-4)
+    assert e_small == pytest.approx(e_big, abs=2.5e-4)
+    assert eps_small == pytest.approx(eps_big, abs=6e-4)

@@ -1,10 +1,12 @@
 """Test automatically write out of restart files"""
 
+import pytest
 from ase import Atoms
+
 from gpaw import GPAW
-from gpaw.test import equal
 
 
+@pytest.mark.later
 def test_fileio_refine(in_tmp_dir):
     restart_wf = 'gpaw-restart-wf.gpw'
     # H2
@@ -12,7 +14,8 @@ def test_fileio_refine(in_tmp_dir):
     H.center(vacuum=2.0)
 
     if 1:
-        calc = GPAW(nbands=2,
+        calc = GPAW(mode='fd',
+                    nbands=2,
                     convergence={'eigenstates': 0.001,
                                  'energy': 0.1,
                                  'density': 0.1})
@@ -21,7 +24,7 @@ def test_fileio_refine(in_tmp_dir):
         calc.write(restart_wf, 'all')
 
         # refine the result directly
-        calc.set(convergence={'energy': 0.00001})
+        H.calc = calc.new(convergence={'energy': 0.00001})
         Edirect = H.get_potential_energy()
 
     # refine the result after reading from a file
@@ -30,4 +33,4 @@ def test_fileio_refine(in_tmp_dir):
 
     print(Edirect, Erestart)
     # Note: the different density mixing introduces small differences
-    equal(Edirect, Erestart, 4e-5)
+    assert Edirect == pytest.approx(Erestart, abs=4e-5)

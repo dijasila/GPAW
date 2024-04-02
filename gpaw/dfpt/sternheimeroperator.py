@@ -14,8 +14,8 @@ k+q are needed.
 
 import numpy as np
 
-from gpaw.utilities import unpack
-from gpaw.utilities.blas import gemm
+from gpaw.utilities import unpack_hermitian
+from gpaw.utilities.blas import mmmx
 from gpaw.fd_operators import Laplace
 
 
@@ -131,7 +131,7 @@ class SternheimerOperator:
         self.pt.integrate(x_nG, P_ani, q=kplusqpt.k)
 
         for a, P_ni in P_ani.items():
-            dH_ii = unpack(self.hamiltonian.dH_asp[a][kpt.s])
+            dH_ii = unpack_hermitian(self.hamiltonian.dH_asp[a][kpt.s])
             P_ani[a] = np.dot(P_ni, dH_ii)
         # k+q
         self.pt.add(y_nG, P_ani, q=kplusqpt.k)
@@ -174,8 +174,8 @@ class SternheimerOperator:
         m = len(x_nG)
         n = len(psit_nG)
         proj_mn = np.zeros((m, n), dtype=self.dtype)
-        gemm(self.gd.dv, psit_nG, x_nG, 0.0, proj_mn, 'c')
-        gemm(-1.0, psit_nG, proj_mn, 1.0, x_nG)
+        mmmx(self.gd.dv, x_nG, 'N', psit_nG, 'C', 0.0, proj_mn)
+        mmmx(-1.0, proj_mn, 'N', psit_nG, 'N', 1.0, x_nG)
 
         # Project out one orbital at a time
         # for n, psit_G in enumerate(psit_nG):

@@ -6,16 +6,62 @@ Exact exchange
 
 Currently we have two implementations of exact exchange:
 
-1) Finite-difference mode implementation: :git:`~gpaw/xc/hybrid.py`.
+1) Plane-wave mode implementation: :git:`~gpaw/hybrids/`.
+   Handles k-points, exploits symmetries and calculates forces.
+
+2) Finite-difference mode implementation: :git:`~gpaw/xc/hybrid.py`.
    Can handle Gamma-point only
    calculations self-consistently (for molecules and large cells).
    No forces.
 
-2) Plane-wave mode implementation: :git:`~gpaw/hybrids/`.
-   Handles k-points, exploits symmetries and calculates forces.
-
 
 .. contents::
+
+
+Self-consistent plane-wave implementation
+=========================================
+
+The following values for the ``xc`` names can be used: ``EXX``, ``PBE0``,
+``HSE03``, ``HSE06`` and ``B3LYP``.  Here is an example for a PW-mode
+HSE06 calculation:
+
+.. code:: python
+
+    atoms.calc = GPAW(
+        mode={'name': 'pw', 'ecut': ...},
+        xc='HSE06',
+        ...)
+
+or equivalently for full controll:
+
+.. code:: python
+
+    atoms.calc = GPAW(
+        mode={'name': 'pw', 'ecut': ...},
+        xc={'name': 'HYB_GGA_XC_HSE06',
+            'fraction': 0.25,
+            'omega': 0.11,
+            'backend': 'pw'},
+        ...)
+
+.. note::
+
+   At the moment one must use ``xc={'name': ..., 'backend': 'pw'}`` for
+   ``EXX``, ``PBE0`` and ``B3LYP``!
+
+
+Non self-consistent plane-wave implementation
+=============================================
+
+.. autofunction:: gpaw.hybrids.energy.non_self_consistent_energy
+.. autofunction:: gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues
+
+See this tutorial: :ref:`pbe0_tut`.
+
+Here is an example:
+
+.. literalinclude:: hydrogen_atom.py
+
 
 
 Self-consistent finite-difference implementation
@@ -84,8 +130,8 @@ the PBE0 functional respectively.
 
 .. image:: g2test_pbe0.png
 
-In the last figure, the curve marked ``GPAW (nonself.)`` is a non-
-selfconsistent PBE0 calculation using self-consistent PBE orbitals.
+In the last figure, the curve marked ``GPAW (nonself.)`` is a non
+self-consistent PBE0 calculation using self-consistent PBE orbitals.
 
 It should be noted, that the implementation lacks an optimized effective
 potential. Therefore the unoccupied states utilizing EXX as implemented in
@@ -111,23 +157,6 @@ as shown in the following code snippet which uses PBE0 in conjuncture with
 the IVOs:
 
 .. literalinclude:: rsf_ivo_nacl.py
-
-
-Non self-consistent plane-wave implementation
-=============================================
-
-.. autofunction:: gpaw.hybrids.energy.non_self_consistent_energy
-.. autofunction:: gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues
-
-See this tutorial: :ref:`pbe0_tut`.
-
-Here is an example:
-
-.. literalinclude:: hydrogen_atom.py
-
-
-.. autoclass:: gpaw.xc.exx.EXX
-   :members:
 
 
 .. [AB98] C. Adamo and V. Barone.

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -14,7 +13,7 @@ from gpaw.mixer import get_mixer_from_keywords, MixerWrapper
 from gpaw.transformers import Transformer
 from gpaw.lfc import LFC, BasisFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.utilities import (unpack2, unpack_atomic_matrices,
+from gpaw.utilities import (unpack_density, unpack_atomic_matrices,
                             pack_atomic_matrices)
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.timing import nulltimer
@@ -44,7 +43,7 @@ class CompensationChargeExpansionCoefficients:
 
     def get_charge(self, Q_aL):
         local_charge = sqrt(4 * pi) * sum(Q_L[0] for Q_L in Q_aL.values())
-        return Q_aL.partition.comm.sum(local_charge)
+        return Q_aL.partition.comm.sum_scalar(local_charge)
 
 
 class NullBackgroundCharge:
@@ -143,9 +142,9 @@ class Density:
 
     def __str__(self):
         s = 'Densities:\n'
-        s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
-        s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
-        s += '  Total Charge: {0:.6f}'.format(self.charge)
+        s += '  Coarse grid: {}*{}*{} grid\n'.format(*self.gd.N_c)
+        s += '  Fine grid: {}*{}*{} grid\n'.format(*self.finegd.N_c)
+        s += f'  Total Charge: {self.charge:.6f}'
         if self.fixed:
             s += '\n  Fixed'
         return s
@@ -429,6 +428,7 @@ class Density:
         """
         if spos_ac is None:
             spos_ac = atoms.get_scaled_positions() % 1.0
+        spos_ch = []    # for coreholes
 
         # Refinement of coarse grid, for representation of the AE-density
         # XXXXXXXXXXXX think about distribution depending on gridrefinement!
@@ -459,6 +459,12 @@ class Density:
         else:
             raise NotImplementedError
 
+        if self.nspins > 1 and not skip_core:
+            # Support for corehole in spin-polarized system
+            spos_ch = []
+            n_ch_a = []
+            n_ch = []
+
         # Add corrections to pseudo-density to get the AE-density
         splines = {}
         phi_aj = []
@@ -476,6 +482,20 @@ class Density:
             phit_aj.append(phit_j)
             nc_a.append([nc])
             nct_a.append([nct])
+            if self.setups[a].data.has_corehole and not skip_core and \
+                    self.nspins > 1:
+                assert self.setups[a].data.lcorehole == 0
+                work_setup = self.setups[a].data
+                rmax = nc.get_cutoff()
+                # work_setup.phicorehole_g
+                phi_ch = work_setup.phicorehole_g
+                phi_ch = np.where(abs(phi_ch) < 1e-160, 0, phi_ch)
+                n_ch = np.dot(work_setup.fcorehole, phi_ch**2) / (4 * pi)
+                # n_ch[0] = n_ch[1] # ch is allready taylored
+                # fcorehole should divided by two - use scale for this
+                n_ch_spl = work_setup.rgd.spline(n_ch, rmax, points=1000)
+                n_ch_a.append([n_ch_spl])
+                spos_ch.append(spos_ac[a])
 
         # Create localized functions from splines
         phi = BasisFunctions(gd, phi_aj)
@@ -486,6 +506,9 @@ class Density:
         phit.set_positions(spos_ac)
         nc.set_positions(spos_ac)
         nct.set_positions(spos_ac)
+        if spos_ch:
+            nch = LFC(gd, n_ch_a)
+            nch.set_positions(spos_ch)
 
         I_sa = np.zeros((self.nspins, len(spos_ac)))
         a_W = np.empty(len(phi.M_W), np.intc)
@@ -518,11 +541,15 @@ class Density:
 
                     if not skip_core:
                         I_a[a] -= setup.Nc / self.nspins
+                        if self.setups[a].data.has_corehole and \
+                                self.nspins > 1:
+                            I_a[a] += pow(-1, s) * \
+                                self.setups[a].data.fcorehole / 2
 
                 rank = D_asp.partition.rank_a[a]
                 D_asp.partition.comm.broadcast(D_sp, rank)
                 M2 = M1 + ni
-                rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
+                rho_MM[M1:M2, M1:M2] = unpack_density(D_sp[s])
                 M1 = M2
 
             assert np.all(n_sg[s].shape == phi.gd.n_c)
@@ -544,7 +571,10 @@ class Density:
 
             if not skip_core:
                 nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
-
+                # correct for ch here
+                if spos_ch:
+                    nch.lfc.ae_core_density_correction(- scale * pow(-1, s),
+                                                       n_sg[s], a_W, I_a)
             nct.lfc.ae_core_density_correction(-scale, n_sg[s], a_W, I_a)
             D_asp.partition.comm.sum(I_a)
             N_c = gd.N_c
@@ -646,7 +676,7 @@ class Density:
                                                    self.redistributor,
                                                    kptband_comm)
         D_asp = \
-            redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
+            redistribute_atomic_matrices(dens.D_asp, self.gd, self.ncomponents,
                                          self.setups, self.atom_partition,
                                          kptband_comm)
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)

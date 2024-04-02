@@ -1,11 +1,12 @@
+import pytest
 from ase import Atoms
 
-from gpaw.mpi import size, rank
 from gpaw import GPAW, FermiDirac
 from gpaw.analyse.simple_stm import SimpleStm
-from gpaw.test import equal
+from gpaw.mpi import rank, size
 
 
+@pytest.mark.later
 def test_utilities_simple_stm(in_tmp_dir):
     load = False
     txt = '/dev/null'
@@ -30,14 +31,14 @@ def test_utilities_simple_stm(in_tmp_dir):
             stm2 = SimpleStm(f3dname)
             wf2 = stm2.gd.integrate(stm2.ldos)
             print('Integrals: written, read=', wf, wf2)
-            equal(wf, wf2, 2.e-6)
+            assert wf == pytest.approx(wf2, abs=2.e-6)
 
         stm.scan_const_current(0.02, 5)
     #    print eigenvalue_string(calc)
         stm.write_3D(3.1, f3dname)
         wf2 = stm.gd.integrate(stm.ldos)
     #    print "wf2=", wf2
-        equal(wf2, 2, 0.12)
+        assert wf2 == pytest.approx(2, abs=0.12)
 
         return wf
 
@@ -45,7 +46,7 @@ def test_utilities_simple_stm(in_tmp_dir):
     fname = 'BH-nospin_wfs.gpw'
     if not load:
         BH.set_pbc(False)
-        cf = GPAW(nbands=3, h=.3, txt=txt)
+        cf = GPAW(mode='fd', nbands=3, h=.3, txt=txt)
         BH.calc = cf
         e1 = BH.get_potential_energy()
         cf.write(fname, 'all')
@@ -58,7 +59,8 @@ def test_utilities_simple_stm(in_tmp_dir):
     BH.set_initial_magnetic_moments([1, 1])
     if not load:
         BH.set_pbc(False)
-        cf = GPAW(occupations=FermiDirac(0.1, fixmagmom=True),
+        cf = GPAW(mode='fd',
+                  occupations=FermiDirac(0.1, fixmagmom=True),
                   nbands=5,
                   h=0.3,
                   txt=txt)
@@ -72,7 +74,7 @@ def test_utilities_simple_stm(in_tmp_dir):
     # periodic system
     if not load:
         BH.set_pbc(True)
-        cp = GPAW(spinpol=True, nbands=3, h=.3,
+        cp = GPAW(mode='fd', spinpol=True, nbands=3, h=.3,
                   kpts=(2, 1, 1), txt=txt, symmetry='off')
         BH.calc = cp
         e3 = BH.get_potential_energy()
@@ -85,14 +87,14 @@ def test_utilities_simple_stm(in_tmp_dir):
     stmp.write_3D(-4., f3dname)
     print(me + 'Integrals(occ): 2 * wf, bias=', 2 * wf,
           stmp.gd.integrate(stmp.ldos))
-    equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
+    assert 2 * wf == pytest.approx(stmp.gd.integrate(stmp.ldos), abs=0.02)
 
     stmp.write_3D(+4., f3dname)
     print(me + 'Integrals(unocc): 2 * wf, bias=', end=' ')
     print(2 * wf, stmp.gd.integrate(stmp.ldos))
-    equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
+    assert 2 * wf == pytest.approx(stmp.gd.integrate(stmp.ldos), abs=0.02)
 
     energy_tolerance = 0.007
-    equal(e1, -2.54026, energy_tolerance)
-    equal(e2, -1.51101, energy_tolerance)
-    equal(e3, -2.83573, energy_tolerance)
+    assert e1 == pytest.approx(-2.54026, abs=energy_tolerance)
+    assert e2 == pytest.approx(-1.51101, abs=energy_tolerance)
+    assert e3 == pytest.approx(-2.83573, abs=energy_tolerance)

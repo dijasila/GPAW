@@ -26,11 +26,12 @@ class GhostSetup(BaseSetup):
     def __init__(self, basis, data):
         self.symbol = data.symbol
         self.data = data
-        self.phit_j = basis.tosplines()
+        self.basis_functions_J = basis.tosplines()
+        self.pseudo_partial_waves_j = None  # XXX ?
+
         self.basis = basis
         self.nao = sum([2 * phit.get_angular_momentum_number() + 1
-                        for phit in self.phit_j])
-        self.HubU = None
+                        for phit in self.basis_functions_J])
         self.filename = None
         self.fingerprint = None
         self.type = 'ghost'
@@ -60,6 +61,7 @@ class GhostSetup(BaseSetup):
         self.M = 0.0
         self.M_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
+        self.M_wpp = {}
         self.K_p = np.zeros(1)
         self.MB = 0.0
         self.MB_p = np.zeros(1)
@@ -67,9 +69,10 @@ class GhostSetup(BaseSetup):
         self.f_j = [0.0]
         self.n_j = [0]
         self.l_j = [0]
-        self.l_orb_j = [0]
+        self.l_orb_J = [0]
         self.nj = 1
-        self.lq = None  # XXXX
+        self.nq = 1
+        self.N0_q = None  # XXXX
 
         self.rcutfilter = None
         self.rcore = None
@@ -84,15 +87,14 @@ class GhostSetup(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
-        self.X_gamma = None
+        self.ExxC_w = {}
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
         self.local_corr = LocalCorrectionVar(None)
-        self._Mg_pp = None
-        self._gamma = None
 
 
 class GhostSetupData:

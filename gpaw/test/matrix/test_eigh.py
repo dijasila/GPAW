@@ -5,7 +5,7 @@ from gpaw.mpi import world
 
 
 @pytest.mark.skipif(world.size != 4, reason='size!=4')
-def test_matrix_eigh():
+def test_matrix_eigh(rng):
     """Test eigenvalues for different BLACS layouts.
 
     See also #269.
@@ -17,7 +17,7 @@ def test_matrix_eigh():
 
     if world.rank == 0:
         A0.data[:] = np.diag(np.arange(N) + 1)
-        A0.data += np.random.uniform(-x, x, (N, N))
+        A0.data += rng.uniform(-x, x, (N, N))
         A0.data += A0.data.conj().T
         B = Matrix(N, N, data=A0.data.copy())
         eigs0 = B.eigh(cc=True)

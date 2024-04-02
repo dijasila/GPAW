@@ -2,9 +2,10 @@ import numbers
 from math import pi
 import numpy as np
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.fftw as fftw
 from gpaw.utilities.blas import mmm, r2k, rk
+from gpaw.gpu import cupy as cp
 
 
 class PWDescriptor:
@@ -97,8 +98,8 @@ class PWDescriptor:
         self.ngmax = max(self.ng_q)
 
         if kd is not None:
-            self.ngmin = kd.comm.min(self.ngmin)
-            self.ngmax = kd.comm.max(self.ngmax)
+            self.ngmin = kd.comm.min_scalar(self.ngmin)
+            self.ngmax = kd.comm.max_scalar(self.ngmax)
 
         # Distribute things:
         S = gd.comm.size
@@ -234,7 +235,7 @@ class PWDescriptor:
             # but much faster:
             Q_G = self.Q_qG[q]
             assert len(c_G) == len(Q_G)
-            _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
+            cgpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
 
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
@@ -381,7 +382,7 @@ class PWDescriptor:
 
         if result.ndim == 0:
             if global_integral:
-                return self.gd.comm.sum(result.item())
+                return self.gd.comm.sum_scalar(result.item())
             return result.item()
         else:
             assert global_integral or self.gd.comm.size == 1
@@ -508,13 +509,9 @@ class PWMapping:
         G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
 
-        if pd1.gd.comm.size == 1:
-            self.G2_G1 = G2_G1
-            self.G1 = None
-        else:
-            mask_G1 = (G2_G1 != -1)
-            self.G2_G1 = G2_G1[mask_G1]
-            self.G1 = np.arange(pd1.ngmax)[mask_G1]
+        mask_G1 = (G2_G1 != -1)
+        self.G2_G1 = G2_G1[mask_G1]
+        self.G1 = np.arange(pd1.ngmax)[mask_G1]
 
         self.pd1 = pd1
         self.pd2 = pd2
@@ -579,7 +576,10 @@ def pad(array, N):
     n = len(array)
     if n == N:
         return array
-    b = np.empty(N, complex)
+    if isinstance(array, np.ndarray):
+        b = np.empty(N, complex)
+    else:
+        b = cp.empty(N, complex)
     b[:n] = array
     b[n:] = 0
     return b

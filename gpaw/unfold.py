@@ -38,8 +38,6 @@ class Unfold:
 
         self.acell_cv = self.gd.cell_cv
         self.bcell_cv = 2 * np.pi * self.gd.icell_cv
-        self.vol = self.gd.volume
-        self.BZvol = (2 * np.pi)**3 / self.vol
 
         self.nb = self.calc.get_number_of_bands()
 
@@ -187,7 +185,7 @@ class Unfold:
             try:
                 e_mK, P_mK = pickle.load(open('weights_' + self.name +
                                               '.pckl', 'rb'))
-            except IOError:
+            except OSError:
                 e_Km = []
                 P_Km = []
                 if world.rank == 0:
@@ -323,7 +321,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
     try:
         e, A_ke, x, X, points_name = pickle.load(open(filename + '.pckl',
                                                       'rb'))
-    except IOError:
+    except OSError:
         print('You Need to Calculate the SF first!')
         raise SystemExit()
 
@@ -360,7 +358,7 @@ def plot_spectral_function(filename, color='blue', eref=None,
     plt.yticks(size=20)
     plt.ylabel('E(eV)', size=20)
     plt.axis([0, x[-1], emin, emax])
-    plt.savefig(filename + '.png')
+    plt.savefig(filename + '_spec.png')
     plt.show()
 
 

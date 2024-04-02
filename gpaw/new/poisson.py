@@ -1,4 +1,5 @@
 from math import nan
+from gpaw.yml import comment
 
 
 class PoissonSolver:
@@ -12,6 +13,9 @@ class PoissonSolverWrapper(PoissonSolver):
     def __init__(self, solver):
         self.description = solver.get_description()
         self.solver = solver
+
+    def __str__(self):
+        return comment(self.description)
 
     def solve(self,
               vHt,

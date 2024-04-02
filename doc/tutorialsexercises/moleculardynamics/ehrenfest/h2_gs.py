@@ -10,7 +10,8 @@ atoms.set_pbc(False)
 atoms.center(vacuum=4.0)
 
 # Set groundstate calculator and get and save wavefunctions
-calc = GPAW(h=0.3, nbands=1, basis='dzp', txt=name + '_gs.txt')
+calc = GPAW(mode='fd', h=0.3, nbands=1, basis='dzp', txt=name + '_gs.txt',
+            symmetry={'point_group': False})
 atoms.calc = calc
 atoms.get_potential_energy()
 calc.write(name + '_gs.gpw', mode='all')

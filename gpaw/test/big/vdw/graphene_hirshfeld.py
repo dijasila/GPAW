@@ -19,6 +19,7 @@ graphene = atoms.repeat([1, 2, 1])
 
 h = 0.25
 calc = GPAW(
+    mode='fd',
     h=h,
     occupations=FermiDirac(0.1))
 graphene.calc = calc

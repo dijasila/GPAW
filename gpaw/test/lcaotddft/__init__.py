@@ -69,8 +69,8 @@ def calculate_error(a, ref_a):
 
 def check_txt_data(ref_fpath, data_fpath, atol):
     world.barrier()
-    ref = np.loadtxt(ref_fpath)
-    data = np.loadtxt(data_fpath)
+    ref = np.loadtxt(ref_fpath, encoding='utf-8')
+    data = np.loadtxt(data_fpath, encoding='utf-8')
     err = calculate_error(data, ref)
     assert err < atol
 
@@ -87,11 +87,11 @@ def check_wfs(wf_ref_fpath, wf_fpath, atol=1e-12):
 
 
 def copy_and_cut_file(src, dst, *, cut_lines=0):
-    with open(src, 'r') as fd:
+    with open(src, 'r', encoding='utf-8') as fd:
         lines = fd.readlines()
         if cut_lines > 0:
             lines = lines[:-cut_lines]
 
-    with open(dst, 'w') as fd:
+    with open(dst, 'w', encoding='utf-8') as fd:
         for line in lines:
             fd.write(line)

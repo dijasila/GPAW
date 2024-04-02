@@ -1,34 +1,40 @@
 from math import log
+
+import pytest
 from ase import Atoms
-from ase.io import read, write, iread
-from ase.units import Bohr
 from ase.db import connect
+from ase.io import iread, read, write
+from ase.units import Bohr
+
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
 
-def test_generic_hydrogen(in_tmp_dir):
+@pytest.mark.later
+def test_generic_hydrogen(in_tmp_dir, needs_ase_master):
     a = 4.0
     h = 0.2
     hydrogen = Atoms('H',
                      [(a / 2, a / 2, a / 2)],
                      cell=(a, a, a))
 
-    hydrogen.calc = GPAW(h=h,
-                         nbands=1,
-                         convergence={'energy': 1e-7},
+    params = dict(mode='fd',
+                  h=h,
+                  nbands=1,
+                  convergence={'energy': 1e-7})
+    hydrogen.calc = GPAW(**params,
                          txt='h.txt')
     e1 = hydrogen.get_potential_energy()
-    equal(e1, 0.526939, 0.001)
+    assert e1 == pytest.approx(0.526939, abs=0.001)
 
     dens = hydrogen.calc.density
     c = dens.gd.find_center(dens.nt_sG[0]) * Bohr
-    equal(abs(c - a / 2).max(), 0, 1e-13)
+    assert abs(c - a / 2).max() == pytest.approx(0, abs=1e-13)
 
     kT = 0.001
-    hydrogen.calc.set(occupations=FermiDirac(width=kT))
+    hydrogen.calc = GPAW(**params,
+                         occupations=FermiDirac(width=kT))
     e2 = hydrogen.get_potential_energy()
-    equal(e1, e2 + log(2) * kT, 3.0e-7)
+    assert e1 == pytest.approx(e2 + log(2) * kT, abs=3.0e-7)
 
     # Test ase.db a bit:
     for name in ['h.json', 'h.db']:

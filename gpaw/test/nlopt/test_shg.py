@@ -1,40 +1,58 @@
-import pytest
 import numpy as np
-from gpaw import GPAW, PW
-from ase import Atoms
-from gpaw.nlopt.shg import get_shg
-from gpaw.nlopt.matrixel import make_nlodata
+import pytest
+
 from gpaw.mpi import world
+from gpaw.nlopt.basic import NLOData
+from gpaw.nlopt.shg import get_shg
 
 
-@pytest.mark.skipif(world.size > 4, reason='System too small')
-def test_shg(in_tmp_dir):
-    # Check for Hydrogen atom
-    atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
+def test_shg_spinpol(mme_files):
+    shg_values = np.array([-0.77053399 - 0.37041593j,
+                           -0.87903174 - 0.4177294j,
+                           -1.00791251 - 0.51051291j,
+                           -1.15465962 - 0.66642326j,
+                           -1.30812094 - 0.92114822j,
+                           -1.42138133 - 1.33424513j,
+                           -1.34649601 - 1.96084827j,
+                           -0.78891819 - 2.66240386j,
+                           0.27801137 - 2.8572836j,
+                           1.12315952 - 2.30446868j,
+                           1.38569995 - 1.59698796j])
 
-    # Do a GS and save it
-    calc = GPAW(
-        mode=PW(600), symmetry={'point_group': False},
-        kpts={'size': (2, 2, 2)}, nbands=5, txt=None)
-    atoms.calc = calc
-    atoms.get_potential_energy()
-    calc.write('gs.gpw', 'all')
+    freqs = np.linspace(2.3, 2.4, 11)
+    shg = {}
+    for spinpol in ['spinpaired', 'spinpol']:
+        tag = '_spinpol' if spinpol == 'spinpol' else ''
 
-    # Get the mml
-    make_nlodata()
+        # Get pre-calculated nlodata from SiC fixtures
+        nlodata = NLOData.load(mme_files[f'sic_pw{tag}'], comm=world)
 
-    # Do a SHG
-    get_shg(freqs=np.linspace(0, 5, 100))
-    get_shg(freqs=np.linspace(0, 5, 100), gauge='vg', out_name='shg2.npy')
+        # Calculate 'xyz' tensor element of SHG spectra
+        get_shg(nlodata, freqs=freqs, eta=0.025, pol='xyz',
+                out_name=f'shg_xyz{tag}.npy')
+        world.barrier()
 
-    # Check it
-    if world.rank == 0:
-        shg = np.load('shg.npy')
-        shg2 = np.load('shg2.npy')
-        # Check for nan's
-        assert not np.isnan(shg).any()
-        assert not np.isnan(shg2).any()
-        # Check the two gauges
-        assert np.all(np.abs(shg2[1] - shg[1]) < 1e-3)
-        # It should be zero (small) since H2 is centro-symm.
-        assert np.all(np.abs(shg[1]) < 1e-8)
+        # Load the calculated SHG spectra (in units of nm/V)
+        shg[spinpol] = np.load(f'shg_xyz{tag}.npy')[1] * 1e9
+        assert shg[spinpol] == pytest.approx(shg_values, abs=1e-3), \
+            np.max(np.abs(shg[spinpol] - shg_values))
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(freqs, shg['spinpaired'])
+    # plt.plot(freqs, shg['spinpol'])
+    # plt.show()
+
+    # Assert that the difference between spectra from spinpaired and
+    # spinpolarised calculations is small
+
+    # Absolute error
+    assert shg['spinpol'].real == pytest.approx(
+        shg['spinpaired'].real, abs=5e-4)
+    assert shg['spinpol'].imag == pytest.approx(
+        shg['spinpaired'].imag, abs=5e-4)
+
+    # Relative error
+    assert shg['spinpol'].real == pytest.approx(
+        shg['spinpaired'].real, rel=2e-3)
+    assert shg['spinpol'].imag == pytest.approx(
+        shg['spinpaired'].imag, rel=2e-3)

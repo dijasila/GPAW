@@ -1,11 +1,11 @@
-
+import pytest
 from ase import Atoms
-from gpaw import GPAW
-from gpaw.test import equal
 
+from gpaw import GPAW
 from gpaw.external import ConstantPotential
 
 
+@pytest.mark.later
 def test_ext_potential_external():
     sc = 2.9
     R = 0.7  # approx. experimental bond length
@@ -27,7 +27,7 @@ def test_ext_potential_external():
     if True:
         if txt:
             print('\n################## no potential')
-        c00 = GPAW(h=0.3, nbands=-1,
+        c00 = GPAW(mode='fd', h=0.3, nbands=-1,
                    convergence=convergence,
                    txt=txt)
         c00.calculate(H2)
@@ -38,7 +38,7 @@ def test_ext_potential_external():
         if txt:
             print('\n################## 0 potential')
         cp0 = ConstantPotential(0.0)
-        c01 = GPAW(h=0.3, nbands=-2, external=cp0,
+        c01 = GPAW(mode='fd', h=0.3, nbands=-2, external=cp0,
                    convergence=convergence,
                    txt=txt)
         c01.calculate(H2)
@@ -48,7 +48,7 @@ def test_ext_potential_external():
         if txt:
             print('################## 1 potential')
         cp1 = ConstantPotential(-1.0)
-        c1 = GPAW(h=0.3, nbands=-2, external=cp1,
+        c1 = GPAW(mode='fd', h=0.3, nbands=-2, external=cp1,
                   convergence=convergence,
                   txt=txt)
         c1.calculate(H2)
@@ -60,9 +60,9 @@ def test_ext_potential_external():
             e1 = c1.get_eigenvalues()[i]
             print('Eigenvalues no pot, expected, error=',
                   e00, e1 + 1, e00 - e1 - 1)
-            equal(e00, e1 + 1., 0.008)
+            assert e00 == pytest.approx(e1 + 1., abs=0.008)
 
     E_c00 = c00.get_potential_energy()
     E_c1 = c1.get_potential_energy()
     DeltaE = E_c00 - E_c1
-    equal(DeltaE, 0, 0.002)
+    assert DeltaE == pytest.approx(0, abs=0.002)

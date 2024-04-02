@@ -2,7 +2,7 @@ from math import pi, sin, cos
 import numpy as np
 
 from ase.units import Bohr
-import _gpaw
+import gpaw.cgpaw as cgpaw
 from gpaw.poisson import PoissonSolver
 from gpaw.pes.state import State
 from gpaw.analyse.expandyl import AngularIntegral
@@ -33,7 +33,7 @@ class PlaneWave(State):
                         pw_G[i, j, k] = cos(phase) + 1j * sin(phase)
         else:
             gd = self.gd
-            _gpaw.plane_wave_grid(gd.beg_c, gd.end_c,
+            cgpaw.plane_wave_grid(gd.beg_c, gd.end_c,
                                   gd.h_cv.diagonal().copy(),
                                   k_c, r0_c, pw_G)
         pw_G /= (2 * pi) ** (3. / 2.)
@@ -55,7 +55,7 @@ class ZerothOrder1(State):
             self.vt_G = np.where(hamiltonian.vt_sG[0] > 0,
                                  0.0, hamiltonian.vt_sG[0])
         self.intvt = self.gd.integrate(self.vt_G)
-        print('# int(vt_G)=', self.intvt, np.sometrue(self.vt_G > 0))
+        print('# int(vt_G)=', self.intvt, (self.vt_G > 0).any())
 
         self.solve()
 
@@ -72,7 +72,7 @@ class ZerothOrder1(State):
                 print('# R  v(R)    psi(R)', file=fd)
                 for r, psi, v in zip(r_R, psi_R, v_R):
                     print(r, psi, v, file=fd)
-            
+
             self.written = True
 
         return self.pw.get_grid(k_c, r0) - 1e6 * self.corrt_G

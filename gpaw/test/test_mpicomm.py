@@ -1,4 +1,3 @@
-
 import numpy as np
 from gpaw import debug
 from gpaw.mpi import world, serial_comm, _Communicator, SerialCommunicator
@@ -20,8 +19,8 @@ def test_mpicomm():
 
     hasmpi = False
     try:
-        import _gpaw
-        hasmpi = hasattr(_gpaw, 'Communicator') and world.size > 1
+        import gpaw.cgpaw as cgpaw
+        hasmpi = hasattr(cgpaw, 'Communicator') and world.size > 1
     except (ImportError, AttributeError):
         pass
 
@@ -49,6 +48,6 @@ def test_mpicomm():
         assert isinstance(comm, SerialCommunicator)
         assert isinstance(subcomm, SerialCommunicator)
     elif hasmpi:
-        assert isinstance(world, _gpaw.Communicator)
-        assert isinstance(comm, _gpaw.Communicator)
-        assert isinstance(subcomm, _gpaw.Communicator)
+        assert isinstance(world, cgpaw.Communicator)
+        assert isinstance(comm, cgpaw.Communicator)
+        assert isinstance(subcomm, cgpaw.Communicator)

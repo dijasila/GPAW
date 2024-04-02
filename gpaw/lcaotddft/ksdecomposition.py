@@ -1,11 +1,12 @@
-# -*- coding: utf-8 -*-
 import numpy as np
+from typing import NamedTuple
 
 from ase.units import Hartree, Bohr
 
 from ase.io.ulm import Reader
 from gpaw.io import Writer
 from gpaw.external import ConstantElectricField
+from gpaw.kpoint import KPoint
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw.lcaotddft.utilities import collect_MM
 from gpaw.lcaotddft.utilities import distribute_nM
@@ -42,7 +43,11 @@ def get_bfs_maps(calc):
     return a_M, l_M
 
 
-class KohnShamDecomposition(object):
+class DummyKsl(NamedTuple):
+    using_blacs: bool = False
+
+
+class KohnShamDecomposition:
     version = 1
     ulmtag = 'KSD'
     readwrite_attrs = ['fermilevel', 'only_ia', 'w_p', 'f_p', 'ia_p',
@@ -67,7 +72,16 @@ class KohnShamDecomposition(object):
 
         if filename is not None:
             self.read(filename)
-            return
+
+            if paw is not None:
+                return
+
+            # Create a dummy KohnShamLayouts object and one Gamma k-point
+            # This is necessary to read attributes
+            ns, nk = self.reader.eig_un.shape[:2]
+            assert (ns, nk) == (1, 1), 'Spins and K-points not implemented'
+            self.kpt_u = [KPoint(weightk=1, weight=1, s=0, k=0, q=0)]
+            self.ksl = DummyKsl()
 
     def initialize(self, paw, min_occdiff=1e-3, only_ia=True):
         if self.has_initialized:
@@ -215,7 +229,7 @@ class KohnShamDecomposition(object):
     def write(self, filename):
         from ase.io.trajectory import write_atoms
 
-        self.log('%s: Writing to %s' % (self.__class__.__name__, filename))
+        self.log(f'{self.__class__.__name__}: Writing to {filename}')
         writer = Writer(filename, self.world, mode='w',
                         tag=self.__class__.ulmtag)
         writer.write(version=self.__class__.version)

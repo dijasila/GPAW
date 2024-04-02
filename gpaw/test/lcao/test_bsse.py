@@ -1,17 +1,20 @@
+import pytest
 from ase.build import molecule
+
 from gpaw import GPAW
-from gpaw.poisson import FDPoissonSolver as PoissonSolver
 from gpaw.atom.basis import BasisMaker
-from gpaw.test import equal
-
-# Tests basis set super position error correction
-
-# Compares a single hydrogen atom to a system of one hydrogen atom
-# and one ghost hydrogen atom.  The systems should have identical properties,
-# i.e. the ghost orbital should have a coefficient of 0.
+from gpaw.poisson import FDPoissonSolver as PoissonSolver
 
 
+@pytest.mark.later
 def test_lcao_bsse():
+    """Tests basis set super position error correction.
+
+    Compares a single hydrogen atom to a system of one hydrogen atom
+    and one ghost hydrogen atom.  The systems should have identical properties,
+    i.e. the ghost orbital should have a coefficient of 0.
+    """
+
     b = BasisMaker('H').generate(1, 0, energysplit=0.005)
 
     system = molecule('H2')
@@ -51,7 +54,7 @@ def test_lcao_bsse():
 
     energy_tolerance = 0.002
     niter_tolerance = 3
-    equal(e_bsse, 0.02914, energy_tolerance)  # svnversion 5252
-    equal(niter_bsse, 7, niter_tolerance)  # svnversion 5252
-    equal(e0, 0.03038, energy_tolerance)  # svnversion 5252
-    equal(niter0, 6, niter_tolerance)  # svnversion 5252
+    assert e_bsse == pytest.approx(0.02914, abs=energy_tolerance)
+    assert niter_bsse == pytest.approx(7, abs=niter_tolerance)
+    assert e0 == pytest.approx(0.03038, abs=energy_tolerance)
+    assert niter0 == pytest.approx(6, abs=niter_tolerance)

@@ -1,14 +1,16 @@
 import numpy as np
+from gpaw.xc.kernel import XCKernel
 
 
-class XCFunctional(object):
+class XCFunctional:
     orbital_dependent = False
 
-    def __init__(self, name, type):
+    def __init__(self, name: str, type: str):
         self.name = name
         self.gd = None
         self.ekin = 0.0
         self.type = type
+        self.kernel: XCKernel
 
     def todict(self):
         """Get dictionary representation of XC functional.
@@ -108,6 +110,10 @@ class XCFunctional(object):
 
     def add_forces(self, F_av):
         pass
+
+    def stress_tensor_contribution(self, n_sg, skip_sum=False):
+        raise NotImplementedError('Calculation of stress tensor is not ' +
+                                  f'implemented for {self.name}')
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         raise NotImplementedError

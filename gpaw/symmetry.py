@@ -4,11 +4,10 @@
 # Please see the accompanying LICENSE file for further information.
 from typing import Tuple
 
-from ase.io import read
 from ase.utils import gcd
 import numpy as np
 
-import _gpaw
+import gpaw.cgpaw as cgpaw
 import gpaw.mpi as mpi
 
 
@@ -311,7 +310,7 @@ class Symmetry:
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
     def check_grid(self, N_c) -> bool:
-        """Check that symmetries are comensurate with grid."""
+        """Check that symmetries are commensurate with grid."""
         for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
@@ -347,7 +346,7 @@ class Symmetry:
         a_g: ndarray
             Array with Bloch function from the irreducible BZ.
         kibz_c: ndarray
-            Corresponing k-point coordinates.
+            Corresponding k-point coordinates.
         kbz_c: ndarray
             K-point coordinates of the symmetry related k-point.
         op_cc: ndarray
@@ -368,16 +367,16 @@ class Symmetry:
             return a_g.conj()
         # General point group symmetry
         else:
-            import _gpaw
+            import gpaw.cgpaw as cgpaw
             b_g = np.zeros_like(a_g)
             if time_reversal:
                 # assert abs(np.dot(op_cc, kibz_c) - -kbz_c) < tol
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                cgpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
                                               kibz_c, -kbz_c)
                 return b_g.conj()
             else:
                 # assert abs(np.dot(op_cc, kibz_c) - kbz_c) < tol
-                _gpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
+                cgpaw.symmetrize_wavefunction(a_g, b_g, op_cc.T.copy(),
                                               kibz_c, kbz_c)
                 return b_g
 
@@ -394,10 +393,10 @@ class Symmetry:
     def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        lines = ['Symmetries present (total): {0}'.format(n)]
+        lines = [f'Symmetries present (total): {n}']
         if not self.symmorphic:
             lines.append(
-                'Symmetries with fractional translations: {0}'.format(nft))
+                f'Symmetries with fractional translations: {nft}')
 
         # X-Y grid of symmetry matrices:
 
@@ -451,14 +450,14 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     nbzkpts = len(bzk_kc)
     ka = nbzkpts * comm.rank // comm.size
     kb = nbzkpts * (comm.rank + 1) // comm.size
-    assert comm.sum(kb - ka) == nbzkpts
+    assert comm.sum_scalar(kb - ka) == nbzkpts
 
     if time_reversal:
         U_scc = np.concatenate([U_scc, -U_scc])
 
     bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
     bz2bz_ks[ka:kb] = -1
-    _gpaw.map_k_points(np.ascontiguousarray(bzk_kc),
+    cgpaw.map_k_points(np.ascontiguousarray(bzk_kc),
                        np.ascontiguousarray(U_scc), tol, bz2bz_ks, ka, kb)
     comm.sum(bz2bz_ks)
     return bz2bz_ks
@@ -556,17 +555,21 @@ class CLICommand:
     Example:
 
         $ ase build -x bcc -a 3.5 Li | gpaw symmetry -k "{density:3,gamma:1}"
-        Symmetries present (total): 48
-        Symmetries with fractional translations: 0
-        1000 k-points: 10 x 10 x 10 Monkhorst-Pack grid + [1/20,1/20,1/20]
-        47 k-points in the irreducible part of the Brillouin zone
+        symmetry:
+          number of symmetries: 48
+          number of symmetries with translation: 0
 
+        bz sampling:
+          number of bz points: 512
+          number of ibz points: 29
+          monkhorst-pack size: [8, 8, 8]
+          monkhorst-pack shift: [0.0625, 0.0625, 0.0625]
     """
 
     @staticmethod
     def add_arguments(parser):
         parser.add_argument('-t', '--tolerance', type=float, default=1e-7,
-                            help='Tolerance used for idintifying symmetries.')
+                            help='Tolerance used for identifying symmetries.')
         parser.add_argument(
             '-k', '--k-points',
             help='Use symmetries to reduce number of k-points.  '
@@ -588,6 +591,7 @@ class CLICommand:
         from gpaw.new.input_parameters import kpts
         from ase.cli.run import str2dict
         from ase.db import connect
+        from ase.io import read
 
         if args.filename == '-':
             atoms = next(connect(sys.stdin).select()).toatoms()
@@ -599,11 +603,13 @@ class CLICommand:
                         'symmorphic': args.symmorphic})
         txt = str(symmetries)
         if not args.verbose:
-            txt = txt.split('\n\n', 1)[0]
+            txt = txt.split('  rotations', 1)[0]
         print(txt)
         if args.k_points:
             k = str2dict('kpts=' + args.k_points)['kpts']
             bz = create_kpts(kpts(k), atoms)
             ibz = symmetries.reduce(bz)
-            txt = ibz.description(args.verbose)
-            print(txt.rstrip())
+            txt = str(ibz)
+            if not args.verbose:
+                txt = txt.split('  points and weights:', 1)[0]
+            print(txt)

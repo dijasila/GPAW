@@ -59,7 +59,7 @@ Generating a GPAW instance from scratch
 
 When a GPAW instance is created from scratch::
 
-  calc = GPAW(xc='LDA', nbands=7)
+  calc = GPAW(mode='fd', xc='LDA', nbands=7)
 
 the GPAW object is almost empty.  In order to start a calculation, one
 will have to do something like::

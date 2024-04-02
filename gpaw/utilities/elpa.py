@@ -1,11 +1,11 @@
 import atexit
 import numpy as np
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 def _elpaconstants():
-    consts = _gpaw.pyelpa_constants()
-    assert consts[0] == 0, 'ELPA_OK is {}, expected 0'.format(consts[0])
+    consts = cgpaw.pyelpa_constants()
+    assert consts[0] == 0, f'ELPA_OK is {consts[0]}, expected 0'
     return {'elpa_ok': consts[0],
             '1stage': consts[1],
             '2stage': consts[2]}
@@ -14,19 +14,19 @@ def _elpaconstants():
 class LibElpa:
     @staticmethod
     def have_elpa():
-        return hasattr(_gpaw, 'pyelpa_allocate')
+        return hasattr(cgpaw, 'pyelpa_allocate')
 
     _elpa_initialized = False
 
     @staticmethod
     def api_version():
-        return _gpaw.pyelpa_version()
+        return cgpaw.pyelpa_version()
 
     @classmethod
     def ensure_elpa_initialized(cls):
         if not cls._elpa_initialized:
-            _gpaw.pyelpa_init()
-            atexit.register(_gpaw.pyelpa_uninit)
+            cgpaw.pyelpa_init()
+            atexit.register(cgpaw.pyelpa_uninit)
             cls._elpa_initialized = True
 
     def __init__(self, desc, nev=None, solver='1stage'):
@@ -44,9 +44,9 @@ class LibElpa:
                              'identical to support Elpa')
 
         self.ensure_elpa_initialized()
-        _gpaw.pyelpa_allocate(ptr)
+        cgpaw.pyelpa_allocate(ptr)
         self._ptr = ptr
-        _gpaw.pyelpa_set_comm(ptr,
+        cgpaw.pyelpa_set_comm(ptr,
                               desc.blacsgrid.comm.get_c_object())
         self._parameters = {}
 
@@ -64,7 +64,7 @@ class LibElpa:
         self.elpa_set(nev=nev, solver=elpasolver)
         self.desc = desc
 
-        _gpaw.pyelpa_setup(self._ptr)
+        cgpaw.pyelpa_setup(self._ptr)
 
     @property
     def description(self):
@@ -84,43 +84,27 @@ class LibElpa:
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(C)
-        _gpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
+        cgpaw.pyelpa_diagonalize(self._ptr, A, C, eps)
 
     def general_diagonalize(self, A, S, C, eps, is_already_decomposed=0):
         assert self.nev == len(eps)
         self.desc.checkassert(A)
         self.desc.checkassert(S)
         self.desc.checkassert(C)
-        _gpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
+        cgpaw.pyelpa_general_diagonalize(self._ptr, A, S, C, eps,
                                          is_already_decomposed)
-
-    def hermitian_multiply(self, A, B, C, desca, descb, descc,
-                           uplo_a='X', uplo_c='X'):
-        """Calculate C = A**T * B (real matrices) or C = A**H B (complex)."""
-        ROW = 1
-        COL = 0
-
-        ncb = descb.gshape[COL]
-        nrows_b = descb.shape[ROW]
-        ncols_b = descb.shape[COL]
-        nrows_c = descc.shape[ROW]
-        ncols_c = descc.shape[COL]
-        _gpaw.pyelpa_hermitian_multiply(self._ptr, uplo_a, uplo_c,
-                                        # XXXXXXXXXXX .T.copy()
-                                        ncb, A, B, nrows_b, ncols_b,
-                                        C, nrows_c, ncols_c)
 
     def elpa_set(self, **kwargs):
         for key, value in kwargs.items():
             # print('pyelpa_set {}={}'.format(key, value))
-            _gpaw.pyelpa_set(self._ptr, key, value)
+            cgpaw.pyelpa_set(self._ptr, key, value)
             self._parameters[key] = value
 
     def __repr__(self):
-        return 'LibElpa({})'.format(self._parameters)
+        return f'LibElpa({self._parameters})'
 
     def __del__(self):
         if hasattr(self, '_ptr'):
             # elpa_deallocate has no error flag so we don't check it
-            _gpaw.pyelpa_deallocate(self._ptr)
+            cgpaw.pyelpa_deallocate(self._ptr)
             self._ptr[0] = 0

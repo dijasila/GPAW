@@ -1,11 +1,12 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.spectrum import spectrum
 
 
+@pytest.mark.lrtddft
 def test_lrtddft_2(in_tmp_dir):
-    txt = '-'
     txt = None
     xc = 'LDA'
 
@@ -17,7 +18,8 @@ def test_lrtddft_2(in_tmp_dir):
                 (a / 2, a / 2, (c + R) / 2)],
                cell=(a, a, c))
 
-    calc = GPAW(xc=xc,
+    calc = GPAW(mode='fd',
+                xc=xc,
                 nbands=2,
                 spinpol=False,
                 eigensolver='rmm-diis',
@@ -35,7 +37,7 @@ def test_lrtddft_2(in_tmp_dir):
     gs = GPAW('H2saved_wfs.gpw', txt=txt)
 
     lr1 = LrTDDFT(gs, xc=xc, txt='-')
-    # check the oscillator strrength
+    # check the oscillator strength
     assert (abs(lr1[0].get_oscillator_strength()[0] /
                 lr[0].get_oscillator_strength()[0] - 1) < 1e-7)
 

@@ -4,9 +4,10 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial
     PolarizableSphere, PolarizableBox, \
     PolarizableEllipsoid, PolarizableRod, \
     PolarizableTetrahedron
-from gpaw.test import equal
+import pytest
 
 
+@pytest.mark.later
 def test_fdtd_ed_shapes(in_tmp_dir):
     # Whole simulation cell (Angstroms)
     cell = [40, 40, 20]
@@ -45,7 +46,11 @@ def test_fdtd_ed_shapes(in_tmp_dir):
                     remove_moments     = (1, 1))
 
     # Run
-    energy = qsfdtd.ground_state('gs.gpw', eigensolver = 'cg', nbands = -1)
+    energy = qsfdtd.ground_state('gs.gpw',
+                                 mode='fd',
+                                 eigensolver='cg',
+                                 nbands=-1,
+                                 symmetry={'point_group': False})
     qsfdtd.time_propagation('gs.gpw', kick_strength=[0.000, 0.000, 0.001], time_step=10, iterations=5, dipole_moment_file='dmCl.dat')
 
     # Restart and run
@@ -55,4 +60,4 @@ def test_fdtd_ed_shapes(in_tmp_dir):
     # Test
     ref_cl_dipole_moment = [ -1.01218549e-04,  -3.03603883e-05,   1.86063875e-01]
     tol = 1e-6
-    equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
+    assert qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment() == pytest.approx(ref_cl_dipole_moment, abs=tol)

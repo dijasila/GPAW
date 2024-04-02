@@ -17,7 +17,8 @@ def test_ibzqpt():
         bzk_kc += shift_c
 
         atoms = bulk('Si', 'diamond', a=5.431)
-        calc = GPAW(h=0.2,
+        calc = GPAW(mode='fd',
+                    h=0.2,
                     kpts=bzk_kc)
 
         atoms.calc = calc

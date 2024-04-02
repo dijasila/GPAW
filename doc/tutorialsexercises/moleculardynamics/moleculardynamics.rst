@@ -9,6 +9,7 @@ Molecular dynamics
 
    neb/neb
    diffusion/diffusion
+   abinitiomd/abinitiomd
    ehrenfest/ehrenfest
 
 You might also be interested in these ASE tutorials:

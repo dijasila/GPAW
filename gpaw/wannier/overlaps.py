@@ -9,7 +9,6 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.typing import Array2D, Array3D, Array4D, ArrayLike1D
-from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from gpaw.utilities.partition import AtomPartition
 
 from .functions import WannierFunctions
@@ -29,14 +28,14 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.nwannier = nwannier
-        self.monkhorst_pack_size = np.asarray(monkhorst_pack_size)
+        self.monkhorst_pack_size = np.array(monkhorst_pack_size)
         self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
 
         self.nkpts, ndirs, self.nbands, nbands = overlaps.shape
         assert nbands == self.nbands
-        assert self.nkpts == np.prod(monkhorst_pack_size)
+        assert self.nkpts == np.prod(monkhorst_pack_size)  # type: ignore
         assert ndirs == len(directions)
 
         self._overlaps = overlaps
@@ -233,32 +232,6 @@ class WaveFunction:
         self.u_nR = u_nR
         self.projections = projections
 
-    def transform(self,
-                  kd: KPointDescriptor,
-                  gd,
-                  setups: List[Setup],
-                  spos_ac: Array2D,
-                  bz_index: int) -> 'WaveFunction':
-        """Transforms PAW projections from IBZ to BZ k-point."""
-        a_a, U_aii, time_rev = construct_symmetry_operators(
-            kd, setups, spos_ac, bz_index)
-
-        projections = self.projections.new()
-
-        if projections.atom_partition.comm.rank == 0:
-            a = 0
-            for b, U_ii in zip(a_a, U_aii):
-                P_msi = self.projections[b].dot(U_ii)
-                if time_rev:
-                    P_msi = P_msi.conj()
-                projections[a][:] = P_msi
-                a += 1
-        else:
-            assert len(projections.indices) == 0
-
-        u_nR = 1 / 0
-        return WaveFunction(u_nR, projections)
-
     def redistribute_atoms(self,
                            gd,
                            atom_partition: AtomPartition
@@ -303,9 +276,6 @@ class BZRealSpaceWaveFunctions:
         rank_a = np.arange(len(rank_a)) % gd.comm.size
         atom_partition2 = AtomPartition(gd.comm, rank_a)
 
-        spos_ac = calc.spos_ac
-        setups = calc.wfs.setups
-
         u_nR = gd.empty((n2 - n1), complex, global_array=True)
 
         bzwfs = {}
@@ -332,7 +302,9 @@ class BZRealSpaceWaveFunctions:
                 if kd.ibz2bz_k[ibz_index] == bz_index:
                     wf1 = wf
                 else:
-                    wf1 = wf.transform(kd, gd, setups, spos_ac, bz_index)
+                    # One could potentially use the IBZ2BZMap functionality
+                    # to transform the wave function in the future
+                    raise NotImplementedError()
 
                 bzwfs[bz_index] = wf1.redistribute_atoms(gd, atom_partition2)
 

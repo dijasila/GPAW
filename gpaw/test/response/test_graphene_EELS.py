@@ -9,6 +9,8 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 
 
+@pytest.mark.dielectricfunction
+@pytest.mark.response
 @pytest.mark.skip(reason='TODO')
 def test_graphene_EELS():
     system = Graphene(symbol='C',
@@ -41,8 +43,7 @@ def test_graphene_EELS():
         parallel['band'] = 2
     calc = GPAW(gpwname,
                 txt=None,
-                parallel=parallel,
-                idiotproof=False)
+                parallel=parallel)
     pp('after restart')
 
     q = np.array([1.0 / nkpts, 0., 0.])
@@ -85,8 +86,8 @@ def test_graphene_EELS():
         loss_lfe = d[:, 2]
         energies = d[:, 0]
 
-        # import pylab as pl
-        # fig = pl.figure()
+        # import matplotlib.pyplot as plt
+        # fig = plt.figure()
         # ax1 = fig.add_subplot(111)
         # ax1.plot(d[:, 0], d[:, 1]/np.max(d[:, 1]))
         # ax1.plot(d[:, 0], d[:, 2]/np.max(d[:, 2]))

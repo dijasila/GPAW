@@ -10,7 +10,10 @@ pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
                                 reason='not LibElpa.have_elpa()')
 
 
-def test_lcao_lcao_elpa_kpts():
+def test_lcao_lcao_elpa_kpts(gpaw_new):
+    if gpaw_new and world.size == 8:
+        pytest.skip(msg='Not implementted')
+
     energies = []
 
     for elpasolver in [None, '1stage', '2stage']:
@@ -22,12 +25,8 @@ def test_lcao_lcao_elpa_kpts():
                                   band=2 if world.size > 4 else 1,
                                   kpt=2 if world.size > 2 else 1,
                                   elpasolver=elpasolver),
+                    convergence={'maximum iterations': 2},
                     txt='-')
-
-        def stopcalc():
-            calc.scf.converged = True
-
-        calc.attach(stopcalc, 2)
         atoms.calc = calc
         E = atoms.get_potential_energy()
         energies.append(E)

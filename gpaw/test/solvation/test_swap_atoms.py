@@ -36,7 +36,7 @@ def test_solvation_swap_atoms():
     atoms.minimal_box(vac, h)
 
     calc = SolvationGPAW(
-        xc='LDA', h=h, convergence=convergence,
+        mode='fd', xc='LDA', h=h, convergence=convergence,
         cavity=EffectivePotentialCavity(
             effective_potential=Power12Potential(atomic_radii, u0),
             temperature=T,

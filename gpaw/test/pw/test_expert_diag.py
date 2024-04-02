@@ -4,25 +4,20 @@ from ase.build import bulk
 
 from gpaw import GPAW, PW
 from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 
 # This test is asserting that the expert diagonalization
 # routine gives the same result as the non-expert version
 # in terms of eigenvalues and wavefunctions
 
-pytestmark = pytest.mark.skipif(
-    world.size != 1 and not compiled_with_sl(),
-    reason='world.size != 1 and not compiled_with_sl()')
 
-
-def test_pw_expert_diag(in_tmp_dir):
+@pytest.mark.later
+def test_pw_expert_diag(in_tmp_dir, scalapack):
     wfs_e = []
     for i, expert in enumerate([True, False]):
         si = bulk('Si')
         name = 'si_{0:d}'.format(i)
         si.center()
         calc = GPAW(mode=PW(120), kpts=(1, 1, 2),
-                    experimental={'niter_fixdensity': 2},
                     eigensolver='rmm-diis',
                     parallel={'domain': 1},
                     symmetry='off', txt=name + '.txt')
@@ -33,14 +28,13 @@ def test_pw_expert_diag(in_tmp_dir):
         calc.write(string, 'all')
         wfs_e.append(calc.wfs)
 
-    ref_revision = 133324
     # Test against values from reference revision
-    epsn_n = np.array([-0.21071688, 0.05652139,
-                       0.17630221, 0.17630234,
-                       0.26460894])
-    wfsold_G = np.array([7.51949548, 54.64611462,
-                         -3.81324175, -0.14783339,
-                         -0.64661614])
+    epsn_n = np.array([-0.21072488, 0.05651796,
+                       0.17629109, 0.17629122,
+                       0.26459912])
+    wfsold_G = np.array([7.52087176, 54.64580691,
+                         -3.813492786, -0.14781141,
+                         -0.64662074])
 
     kpt_u = wfs_e[0].kpt_u
     for kpt in kpt_u:
@@ -52,9 +46,9 @@ def test_pw_expert_diag(in_tmp_dir):
                 print('eps', repr(kpt.eps_n[0:5]))
                 print('psit', repr(psit))
                 assert np.allclose(epsn_n, kpt.eps_n[0:5], 1e-5), \
-                    'Eigenvalues have changed since rev. #%d' % ref_revision
+                    'Eigenvalues have changed'
                 assert np.allclose(wfsold_G, psit, 1e-5), \
-                    'Wavefunctions have changed rev. #%d' % ref_revision
+                    'Wavefunctions have changed'
 
     # Check that expert={True, False} give
     # same result

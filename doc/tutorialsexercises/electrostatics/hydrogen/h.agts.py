@@ -7,17 +7,19 @@ def workflow():
 
 def plot():
     import numpy as np
-    import pylab as plt
+    import matplotlib.pyplot as plt
     from ase.io import read
     with open('h.py') as fd:
         code = fd.read().replace('ae', 'paw')
     exec(code)
-    ae = np.array([h.get_potential_energy() for h in read('H.ae.txt@:')])
-    paw = np.array([h.get_potential_energy() for h in read('H.paw.txt@:')])
-    ecut = range(200, 901, 100)
+    ecut = range(200, 1001, 100)
+    ae = np.array([read(f'H-{e}-ae.txt').get_potential_energy()
+                   for e in ecut])
+    paw = np.array([read(f'H-{e}-paw.txt').get_potential_energy()
+                    for e in ecut])
     plt.figure(figsize=(6, 4))
-    plt.plot(ecut, ae[:-1] - ae[-1], label='ae')
-    plt.plot(ecut, paw[:-1] - paw[-1], label='paw')
+    plt.plot(ecut[:-1], ae[:-1] - ae[-1], label='ae')
+    plt.plot(ecut[:-1], paw[:-1] - paw[-1], label='paw')
     plt.legend(loc='best')
     plt.xlabel('ecut [eV]')
     plt.ylabel('E(ecut)-E(1000 eV)')

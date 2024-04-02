@@ -29,7 +29,7 @@ H   1.8684   0.8649   0.5908
 """), format='xyz')
     atoms.center(vacuum=3)
 
-    atoms.calc = GPAW(h=0.3,
+    atoms.calc = GPAW(mode='fd', h=0.3,
                       occupations=FermiDirac(width=0.1),
                       nbands=15, convergence={
                           'eigenstates': 1e-4,
@@ -39,6 +39,7 @@ H   1.8684   0.8649   0.5908
     return atoms
 
 
+@pytest.mark.later
 def test_lrtddft2(C3H6O, in_tmp_dir):
     """Test equivalence"""
     atoms = C3H6O

@@ -86,7 +86,7 @@ def methfessel_paxton(eig: np.ndarray,
 
 
 def coff_function(n):
-    return (-1)**n / (np.product(np.arange(1, n + 1)) *
+    return (-1)**n / (np.prod(np.arange(1, n + 1)) *
                       4**n * np.sqrt(np.pi))
 
 
@@ -279,8 +279,8 @@ class SmoothDistribution(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess):
-
-        if np.isnan(fermi_level_guess) or self._width == 0.0:
+        # Guess can be nan or inf:
+        if not np.isfinite(fermi_level_guess) or self._width == 0.0:
             zero = ZeroWidth(self.parallel_layout)
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn)
@@ -322,7 +322,7 @@ class FermiDiracCalculator(SmoothDistribution):
         return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'Fermi-Dirac: width={self._width:.4f} eV\n'
+        return f'Fermi-Dirac:\n  width: {self._width:.4f}  # eV\n'
 
 
 class MarzariVanderbiltCalculator(SmoothDistribution):
@@ -335,7 +335,7 @@ class MarzariVanderbiltCalculator(SmoothDistribution):
         return marzari_vanderbilt(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'Marzari-Vanderbilt: width={self._width:.4f} eV\n'
+        return f'Marzari-Vanderbilt:\n  width: {self._width:.4f}  # eV\n'
 
 
 class MethfesselPaxtonCalculator(SmoothDistribution):
@@ -352,8 +352,9 @@ class MethfesselPaxtonCalculator(SmoothDistribution):
         return dct
 
     def __str__(self):
-        return (f'Methfessel-Paxton: width={self._width:.4f} eV, ' +
-                f'order={self.order}\n')
+        return ('Methfessel-Paxton:\n'
+                f'  width: {self._width:.4f}  # eV\n'
+                f'  order: {self.order}\n')
 
     def distribution(self, eig_n, fermi_level):
         return methfessel_paxton(eig_n, fermi_level, self._width, self.order)
@@ -369,6 +370,9 @@ def findroot(func: Callable[[float], Tuple[float, float]],
     >>> x, _ = findroot(lambda x: (x, 1.0), 1.0)
     >>> assert abs(x) < 1e-10
     """
+
+    assert np.isfinite(x), x
+
     xmin = -np.inf
     xmax = np.inf
 
@@ -498,7 +502,7 @@ class ZeroWidth(OccupationNumberCalculator):
         return {'width': 0.0}
 
     def __str__(self):
-        return 'width=0.000 eV'
+        return '# Zero width'
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)
@@ -688,7 +692,7 @@ class FixedOccupationNumbersUniform(OccupationNumberCalculator):
         return {'name': 'fixed-uniform'}
 
     def __str__(self):
-        return "Uniform distribution of occupation numbers"
+        return '# Uniform distribution of occupation numbers'
 
 
 def calc_fixed(bd, f_sn, f_qn):

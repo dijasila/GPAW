@@ -1,9 +1,12 @@
-# Check that the LCAODOS works.
+"""Check that the LCAODOS works."""
 
-from gpaw import GPAW
+import pytest
 from ase.build import molecule
 
+from gpaw import GPAW
 
+
+@pytest.mark.later
 def test_lcao_dos():
     system = molecule('H2O')
     system.center(vacuum=3.0)
@@ -19,6 +22,7 @@ def test_lcao_dos():
     system.get_potential_energy()
 
     from gpaw.utilities.dos import LCAODOS
+
     # Use RestartLCAODOS if you just restarted from a file.
     # Requires one diagonalization though!
 

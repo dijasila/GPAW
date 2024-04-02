@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.random as ra
-from gpaw.test import equal
+import pytest
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.lfc import LFC
@@ -11,13 +11,13 @@ from gpaw.mpi import serial_comm
 
 
 def test_xc_gga_atom():
-    ra.seed(8)
+    rng = ra.default_rng(8)
     for name in ['LDA', 'PBE']:
         xc = XC(name)
         s = create_setup('N', xc)
         ni = s.ni
         nao = s.nao
-        wt0_j = s.phit_j
+        wt0_j = s.basis_functions_J
 
         rcut = s.xc_correction.rgd.r_g[-1]
 
@@ -45,7 +45,7 @@ def test_xc_gga_atom():
         n_g = np.zeros((1, n, n, n))
         v_g = np.zeros((1, n, n, n))
 
-        P_ni = 0.2 * ra.random((20, ni))
+        P_ni = 0.2 * rng.random((20, ni))
         P_ni[:, nao:] = 0.0
         D_ii = np.dot(np.transpose(P_ni), P_ni)
         D_p = pack(D_ii)
@@ -73,4 +73,4 @@ def test_xc_gga_atom():
               + s.xc_correction.e_xc0)
 
         print(name, E1, E2, E1 - E2)
-        equal(E1, E2, 0.0013)
+        assert E1 == pytest.approx(E2, abs=0.0013)

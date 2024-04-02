@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue in a venv
+# Install gpaw, ase, ase-ext, spglib, scikit-learn and myqueue in a venv
 
 set -e  # stop if there are errors
 
@@ -9,9 +9,9 @@ FOLDER=$PWD
 echo "
 source /dtu/sw/dcc/dcc-sw.bash
 module purge
-unset PYTHONPATH
 module load dcc-setup/2020-aug
 module load python/3.8.5
+unset PYTHONPATH   #Incorrectly set in python module
 module load fftw/3.3.8 libxc/4.3.4
 module load scalapack/2.1.0
 module load openblas/0.3.10
@@ -40,7 +40,7 @@ rm old
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-$PIP install myqueue graphviz ase-ext spglib sklearn pytest-xdist
+$PIP install myqueue graphviz ase-ext spglib scikit-learn pytest-xdist
 
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git

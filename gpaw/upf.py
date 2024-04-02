@@ -20,7 +20,7 @@ from gpaw.pseudopotential import (PseudoPotential, screen_potential,
                                   figure_out_valence_states,
                                   get_radial_hartree_energy)
 from gpaw.spline import Spline
-from gpaw.utilities import pack2, divrl
+from gpaw.utilities import pack_hermitian, divrl
 
 
 class UPFStateSpec:
@@ -254,6 +254,9 @@ def read_sg15(fname):
 
 class UPFSetupData:
     def __init__(self, data, valence_states=None, filename=None):
+        self.phi_jg = []
+        self.phit_jg = []
+        self.xc_correction = None
         # data can be string (filename)
         # or dict (that's what we are looking for).
         # Maybe just a symbol would also be fine if we know the
@@ -316,10 +319,10 @@ class UPFSetupData:
 
         self.rcgauss = 0.0  # XXX .... what is this used for?
         self.ni = sum([2 * l + 1 for l in self.l_j])
+        self.nabla_iiv = np.zeros((self.ni, self.ni, 3))
 
         self.fingerprint = None  # XXX hexdigest the file?
-        self.HubU = None  # XXX
-        self.lq = None  # XXX
+        self.N0_q = None  # XXX
 
         if valence_states is None:
             valence_states = data['states']
@@ -338,10 +341,10 @@ class UPFSetupData:
             # err = abs(electroncount - self.Nv)
             self.f_j = [state.occupation for state in valence_states]
             self.n_j = [state.n for state in valence_states]
-            self.l_orb_j = [state.l for state in valence_states]
+            self.l_orb_J = [state.l for state in valence_states]
             self.f_ln = f_ln
         else:
-            self.n_j, self.l_orb_j, self.f_j, self.f_ln = \
+            self.n_j, self.l_orb_J, self.f_j, self.f_ln = \
                 figure_out_valence_states(self)
 
         vlocal_unscreened = data['vlocal']
@@ -426,7 +429,7 @@ class UPFSetupData:
 
         H_ii = np.zeros((ni, ni))
         if len(self.data['DIJ']) == 0:
-            return pack2(H_ii)
+            return pack_hermitian(H_ii)
 
         # Multiply by 4.
         # I think the factor of 4 compensates for the fact that the projectors
@@ -449,7 +452,7 @@ class UPFSetupData:
                     assert H_jj[j1, j2] == 0.0
                 m2start = m2stop
             m1start = m1stop
-        return pack2(H_ii)
+        return pack_hermitian(H_ii)
 
     def get_local_potential(self):
         vbar = Spline(0, self.rgd.r_g[len(self.vbar_g) - 1], self.vbar_g)
@@ -569,8 +572,8 @@ def upfplot(setup, show=True, calculate=False):
 
     import matplotlib.pyplot as plt
     fig = plt.figure()
-    fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
-                                                           setup.symbol))
+    fig.canvas.set_window_title('{} - UPF setup for {}'.format(pp['fname'],
+                                                               setup.symbol))
 
     vax = fig.add_subplot(221)
     pax = fig.add_subplot(222)

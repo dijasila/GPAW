@@ -7,7 +7,7 @@ from ase.units import Ha
 from ase.utils.timing import timer
 
 from gpaw.matrix import matrix_matrix_multiply as mmm
-from gpaw.utilities.blas import axpy
+from gpaw.utilities.mblas import multi_axpy
 from gpaw.xc.hybrid import HybridXC
 
 
@@ -104,7 +104,6 @@ class Eigensolver:
                     cbm = efermi + eps_skn[s, k, n]
 
                 ecut = cbm + delta
-
                 for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
 
@@ -139,7 +138,7 @@ class Eigensolver:
                 wfs.orthonormalize(kpt)
 
         wfs.orthonormalized = True
-        self.error = self.band_comm.sum(self.kpt_comm.sum(error))
+        self.error = self.band_comm.sum_scalar(self.kpt_comm.sum_scalar(error))
 
     def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
@@ -151,8 +150,7 @@ class Eigensolver:
 
         From R=Ht*psit calculate R=H*psit-eps*S*psit."""
 
-        for R_G, eps, psit_G in zip(R.array, eps_n, psit.array):
-            axpy(-eps, psit_G, R_G)
+        multi_axpy(-eps_n, psit.array, R.array)
 
         ham.dH(P, out=C)
         for a, I1, I2 in P.indices:
@@ -168,7 +166,7 @@ class Eigensolver:
         wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
 
     @timer('Subspace diag')
-    def subspace_diagonalize(self, ham, wfs, kpt):
+    def subspace_diagonalize(self, ham, wfs, kpt, rotate_psi=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -219,6 +217,8 @@ class Eigensolver:
             kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
         with self.timer('rotate_psi'):
+            if not rotate_psi:
+                return
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
                 mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)

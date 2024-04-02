@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os.path
 import numpy as np
 from ase import parallel as mpi
@@ -121,7 +119,7 @@ class FiniteDifference:
     def displacements(self):
         for a in self.indices:
             for i in range(3):
-                filename = ('{0}_{1}_{2}'.format(self.name, a, 'xyz'[i]))
+                filename = ('{}_{}_{}'.format(self.name, a, 'xyz'[i]))
                 yield filename, a, i
 
     def restart(self, restartfunction, **kwargs):

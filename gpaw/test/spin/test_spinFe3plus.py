@@ -1,7 +1,7 @@
 from ase import Atoms
 
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
+import pytest
 
 
 def test_spin_spinFe3plus():
@@ -14,20 +14,20 @@ def test_spin_spinFe3plus():
 
     # use Hunds rules
 
-    c = GPAW(charge=q, h=h, nbands=5,
+    c = GPAW(mode='fd', charge=q, h=h, nbands=5,
              hund=True,
              eigensolver='rmm-diis',
              occupations=FermiDirac(width=0.1),
              convergence=convergence)
     s.calc = c
-    equal(s.get_magnetic_moment(), 5, 0.1)
+    assert s.get_magnetic_moment() == pytest.approx(5, abs=0.1)
 
     # set magnetic moment
 
     mm = [5]
     s.set_initial_magnetic_moments(mm)
-    c = GPAW(charge=q, h=h, nbands=5,
+    c = GPAW(mode='fd', charge=q, h=h, nbands=5,
              occupations=FermiDirac(width=0.1, fixmagmom=True),
              convergence=convergence)
     s.calc = c
-    equal(s.get_magnetic_moment(), 5, 0.1)
+    assert s.get_magnetic_moment() == pytest.approx(5, abs=0.1)

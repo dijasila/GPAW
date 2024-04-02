@@ -3,7 +3,7 @@ from math import sqrt, pi
 import numpy as np
 from ase.units import Bohr
 
-from gpaw.utilities import pack
+from gpaw.utilities import pack_density
 from gpaw.analyse.hirshfeld import HirshfeldDensity
 from gpaw.utilities.tools import coordinates
 
@@ -15,7 +15,7 @@ def wignerseitz(gd, atoms, scale=None):
     if scale is None:
         scale = [1.] * len(atoms)
     else:
-        assert(len(scale) == len(atoms))
+        assert len(scale) == len(atoms)
     r_vG, R2min_G = coordinates(gd, atoms[0].position / Bohr)
     R2min_G *= scale[0] ** 2
     index_G = gd.zeros(dtype=int)
@@ -71,7 +71,7 @@ class WignerSeitz:
         # add augmentation sphere corrections
         for a, nucleus in enumerate(self.atoms):
             P_i = nucleus.P_uni[u, n]
-            P_p = pack(np.outer(P_i, P_i))
+            P_p = pack_density(np.outer(P_i, P_i))
             Delta_p = sqrt(4 * pi) * nucleus.setup.Delta_pL[:, 0]
             weigths[a] += np.dot(Delta_p, P_p)
 
@@ -82,7 +82,7 @@ class WignerSeitz:
 
         Can be applied to any density den_g.
         """
-        assert(den_g.shape == tuple(self.gd.n_c))
+        assert den_g.shape == tuple(self.gd.n_c)
         charges = []
         for atom, q in zip(self.atoms, self.expand(den_g)):
             charges.append(atom.number - q)
@@ -97,9 +97,9 @@ class WignerSeitz:
         finegd = self.gd
 
         den_g, gd = self.calculator.density.get_all_electron_density(atoms)
-        assert(gd == finegd)
+        assert gd == finegd
         denfree_g, gd = self.hdensity.get_density([atom_index])
-        assert(gd == finegd)
+        assert gd == finegd
 
         # the atoms r^3 grid
         position = self.atoms[atom_index].position / Bohr

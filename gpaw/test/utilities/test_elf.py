@@ -1,15 +1,18 @@
 import numpy as np
+import pytest
 from ase.parallel import parprint
+
 from gpaw import GPAW, restart
 from gpaw.elf import ELF
-from gpaw.test import equal
 from gpaw.mpi import rank
 
 
+@pytest.mark.legacy
+@pytest.mark.mgga
 def test_utilities_elf(gpw_files):
     # Real wave functions
     atoms, calc = restart(gpw_files['h2_fd'])
-    
+
     elf = ELF(calc)
     elf.update()
     elf_G = elf.get_electronic_localization_function(gridrefinement=1)
@@ -38,8 +41,8 @@ def test_utilities_elf(gpw_files):
         parprint("Min, max G", np.min(elf_G), np.max(elf_G))
         parprint("Min, max g", np.min(elf_g), np.max(elf_g))
     #   The tested values (< r7887) do not seem to be correct
-        equal(int1, 14.579199, 0.0001)
-        equal(int2, 18.936101, 0.0001)
+        assert int1 == pytest.approx(14.579199, abs=0.0001)
+        assert int2 == pytest.approx(18.936101, abs=0.0001)
 
     # Complex wave functions
     calc = GPAW(gpw_files['bcc_li_fd'])

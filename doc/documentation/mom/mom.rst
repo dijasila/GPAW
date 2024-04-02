@@ -155,18 +155,18 @@ of exponential transformation direct minimization (ETDM)
 [#momgpaw1]_ [#momgpaw2]_ [#momgpaw3]_ described in :ref:`directmin`.
 This method uses the exponential transformation and efficient quasi-Newton
 algorithms to find stationary points of the energy in the space of unitary
-matrices. Currently, DO can be performed only in LCAO mode.
+matrices.
 
 For excited-state calculations, the recommended quasi-Newton
 algorithm is a limited-memory symmetric rank-one (L-SR1) method
 [#momgpaw2]_ with unit step. In order to use this algorithm, the
 following ``eigensolver`` has to be specified::
 
-  from gpaw.directmin.etdm import ETDM
+  from gpaw.directmin.lcao_etdm import LCAOETDM
 
-  calc.set(eigensolver=ETDM(searchdir_algo={'name': 'l-sr1p'},
-                            linesearch_algo={'name': 'max-step',
-                                             'max_step': 0.20})
+  calc.set(eigensolver=LCAOETDM(searchdir_algo={'name': 'l-sr1p'},
+                                linesearch_algo={'name': 'max-step',
+                                                 'max_step': 0.20})
 
 The maximum step length avoids taking too large steps at the
 beginning of the wave function optimization. The default maximum step length
@@ -175,11 +175,42 @@ and speed of convergence for calculations of excited states of molecules
 [#momgpaw2]_. However, a different value might improve the convergence for
 specific cases.
 
+If the target excited state shows pronounced charge transfer character, variational
+collapse can sometimes not be prevented even if DO and MOM are used in conjunction. In
+such cases, it can be worthwhile to first perform a constrained optimization in which the
+electron and hole orbitals involved in the target excitation are frozen, and a
+minimization is done in the remaining subspace, before performing a full unconstrained
+optimization. The constrained minimization takes care of a large part of the prominent
+orbital relaxation effect in charge transfer excited states and thereby significantly
+simplifies the subsequent saddle point search, preventing variational collapse.
+Constrained optimization can be performed by using the ``constraints`` keyword::
+
+  calc.set(eigensolver=LCAOETDM(constraints=[[[h11], [h12],..., [p11], [p12],...],
+                                             [[h21], [h22],..., [p21], [p22],...],
+                                              ...])
+
+Each ``hij`` refers to the index of the ``j``-th hole in the ``i``-th K-point,
+each ``pij`` to the index of the j-th excited electron in the ``i``-th K-point.
+For example, if an excited state calculation is initialize by promoting an electron
+from the ground state HOMO to the ground state LUMO, one needs to specify the indices
+of the ground state HOMO (hole) and LUMO (excited electron) in the spin channel where
+the excitation is performed.
+All rotations involving these orbitals are frozen during the constrained optimization
+resulting in these orbitals remaining unaltered after the optimization. It is
+also possible to constrain selected orbital rotations without completely
+freezing the involved orbitals by specifying lists of two orbital indices
+instead of lists of single orbital indices. However, care has to be taken
+in that case since constraining a single orbital rotation may not fully
+prevent mixing between those two orbitals during the constrained
+optimization.
+
+
 .. _h2oexample:
 
 ---------------------------------------------------
 Example I: Excitation energy Rydberg state of water
 ---------------------------------------------------
+
 In this example, the excitation energies of the singlet and
 triplet states of water corresponding to excitation
 from the HOMO-1 non-bonding (`n`) to the LUMO `3s` Rydberg
@@ -197,9 +228,11 @@ representation of the diffuse Rydberg orbital [#momgpaw1]_.
 
 ..  _coexample:
 
+
 ----------------------------------------------------------------
 Example II: Geometry relaxation excited-state of carbon monoxide
 ----------------------------------------------------------------
+
 In this example, the bond length of the carbon monoxide molecule
 in the lowest singlet `\Pi(\sigma\rightarrow \pi^*)` excited state
 is optimized using two types of calculations, each based on a
@@ -243,6 +276,26 @@ discontinuities in the potentials and forces close to
 crossings between electronic states [#momgpaw2]_, so
 this feature should be used with caution and only
 at geometries far from state crossings.
+
+..  _ppexample:
+
+--------------------------------------------------------------------------------------
+Example III: Constrained optimization charge transfer excited state of N-phenylpyrrole
+--------------------------------------------------------------------------------------
+
+In this example, a calculation of a charge transfer excited state of the N-phenylpyrrole
+molecule is carried out. After a ground state calculation, a single excitation is performed
+from the HOMO to the LUMO in one spin channel. No spin purification is used, meaning that
+only the mixed-spin open-shell determinant is optimized. If an unconstrained optimization
+is performed from this initial guess, the calculation collapses to a first-order saddle point
+with pronounced mixing between the HOMO and LUMO and a small dipole moment of -3.396 D, which
+is not consistent with the wanted charge transfer excited state. Variational collapse is avoided
+here by performing first a constrained optimization freezing the hole and excited electron
+of the initial guess. Then the new orbitals are used as the initial guess of an unconstrained
+optimization, which converges to a higher-energy saddle point with a large dipole moment of -10.227 D
+consistent with the wanted charge transfer state.
+
+.. literalinclude:: constraints.py
 
 ----------
 References

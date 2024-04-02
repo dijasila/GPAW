@@ -1,23 +1,26 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
+from __future__ import annotations
 
+import atexit
+import pickle
 import sys
 import time
 import traceback
-import atexit
-import pickle
 from contextlib import contextmanager
 from typing import Any
 
-from ase.parallel import world as aseworld
+import gpaw.cgpaw as cgpaw
 import numpy as np
+import warnings
+from ase.parallel import MPI as ASE_MPI
+from ase.parallel import world as aseworld
 
 import gpaw
-from .broadcast_imports import world
-import _gpaw
+
+from ._broadcast_imports import world as _world
 
 MASTER = 0
-MPIComm = Any  # for type hints
 
 
 def is_contiguous(*args, **kwargs):
@@ -46,7 +49,7 @@ def broadcast_exception(comm):
             broadcast(ex, rank, comm)
             raise
     else:
-        rank = comm.max(-1)
+        rank = comm.max_scalar(-1)
     # rank will now be the highest failing rank or -1
     if rank >= 0:
         raise broadcast(None, rank, comm)
@@ -73,6 +76,9 @@ class _Communicator:
         self.size = comm.size
         self.rank = comm.rank
         self.parent = parent  # XXX check C-object against comm.parent?
+
+    def __repr__(self):
+        return f'MPIComm(size={self.size}, rank={self.rank})'
 
     def new_communicator(self, ranks):
         """Create a new MPI communicator for a subset of ranks in a group.
@@ -117,13 +123,19 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float, complex)):
-            return self.comm.sum(a, root)
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
+            return self.comm.sum_scalar(a, root)
         else:
+            # assert a.ndim != 0
             tc = a.dtype
             assert tc == int or tc == float or tc == complex
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.sum(a, root)
+
+    def sum_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float, complex))
+        return self.comm.sum_scalar(a, root)
 
     def product(self, a, root=-1):
         """Do multiplication by MPI reduce operations of numerical data.
@@ -145,6 +157,7 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
+            1 / 0
             return self.comm.product(a, root)
         else:
             tc = a.dtype
@@ -173,13 +186,18 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            return self.comm.max(a, root)
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
+            return self.comm.max_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
             assert is_contiguous(a, tc)
             assert root == -1 or 0 <= root < self.size
             self.comm.max(a, root)
+
+    def max_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.max_scalar(a, root)
 
     def min(self, a, root=-1):
         """Find minimal value by an MPI reduce operation of numerical data.
@@ -201,7 +219,8 @@ class _Communicator:
 
         """
         if isinstance(a, (int, float)):
-            return self.comm.min(a, root)
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
+            return self.comm.min_scalar(a, root)
         else:
             tc = a.dtype
             assert tc == int or tc == float
@@ -209,7 +228,11 @@ class _Communicator:
             assert root == -1 or 0 <= root < self.size
             self.comm.min(a, root)
 
-    def scatter(self, a, b, root):
+    def min_scalar(self, a, root=-1):
+        assert isinstance(a, (int, float))
+        return self.comm.min_scalar(a, root)
+
+    def scatter(self, a, b, root: int) -> None:
         """Distribute data from one rank to all other processes in a group.
 
         Parameters:
@@ -228,8 +251,10 @@ class _Communicator:
         Example::
 
           # The master has all the interesting data. Distribute it.
+          seed = 123456
+          rng = np.random.default_rng(seed)
           if comm.rank == 0:
-              data = np.random.normal(size=N*comm.size)
+              data = rng.normal(size=N*comm.size)
           else:
               data = None
           mydata = np.empty(N, dtype=float)
@@ -252,8 +277,8 @@ class _Communicator:
         if self.rank == root:
             assert a.dtype == b.dtype
             assert a.size == self.size * b.size
-            assert a.flags.contiguous
-        assert b.flags.contiguous
+            assert a.flags.c_contiguous
+        assert b.flags.c_contiguous
         assert 0 <= root < self.size
         self.comm.scatter(a, b, root)
 
@@ -281,12 +306,12 @@ class _Communicator:
             displacement (relative to recvbuf at which to place the incoming
             data from process i
         """
-        assert sbuffer.flags.contiguous
-        assert scounts.flags.contiguous
-        assert sdispls.flags.contiguous
-        assert rbuffer.flags.contiguous
-        assert rcounts.flags.contiguous
-        assert rdispls.flags.contiguous
+        assert sbuffer.flags.c_contiguous
+        assert scounts.flags.c_contiguous
+        assert sdispls.flags.c_contiguous
+        assert rbuffer.flags.c_contiguous
+        assert rcounts.flags.c_contiguous
+        assert rdispls.flags.c_contiguous
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
@@ -315,7 +340,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Gather on all ranks.
-          mydata = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata = rng.normal(size=N)
           data = np.empty(N*comm.size, dtype=float)
           comm.all_gather(mydata, data)
 
@@ -362,7 +389,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Gather it on master.
-          mydata = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata = rng.normal(size=N)
           if comm.rank == 0:
               data = np.empty(N*comm.size, dtype=float)
           else:
@@ -384,10 +413,10 @@ class _Communicator:
               comm.send(mydata, 0, tag=123)
 
         """
-        assert a.flags.contiguous
+        assert a.flags.c_contiguous
         assert 0 <= root < self.size
         if root == self.rank:
-            assert b.flags.contiguous and b.dtype == a.dtype
+            assert b.flags.c_contiguous and b.dtype == a.dtype
             assert (b.shape[0] == self.size and a.shape == b.shape[1:] or
                     a.size * self.size == b.size)
             self.comm.gather(a, root, b)
@@ -409,7 +438,9 @@ class _Communicator:
         Example::
 
           # All ranks have parts of interesting data. Take a given index.
-          mydata[:] = np.random.normal(size=N)
+          seed = 123456
+          rng = np.random.default_rng(seed)
+          mydata[:] = rng.normal(size=N)
 
           # Who has the element at global index 13? Everybody needs it!
           index = 13
@@ -600,8 +631,12 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert isinstance(c_obj, _gpaw.Communicator)
-        return c_obj
+        if isinstance(c_obj, cgpaw.Communicator):
+            return c_obj
+        return c_obj.get_c_object()
+
+
+MPIComm = _Communicator  # for type hints
 
 
 # Serial communicator
@@ -612,23 +647,40 @@ class SerialCommunicator:
     def __init__(self, parent=None):
         self.parent = parent
 
+    def __repr__(self):
+        return 'SerialCommunicator()'
+
     def sum(self, array, root=-1):
         if isinstance(array, (int, float, complex)):
+            warnings.warn('Please use sum_scalar(...)', stacklevel=2)
             return array
+
+    def sum_scalar(self, a, root=-1):
+        return a
 
     def scatter(self, s, r, root):
         r[:] = s
 
     def min(self, value, root=-1):
+        if isinstance(value, (int, float, complex)):
+            warnings.warn('Please use min_scalar(...)', stacklevel=2)
+            return value
+
+    def min_scalar(self, value, root=-1):
         return value
 
     def max(self, value, root=-1):
+        if isinstance(value, (int, float, complex)):
+            warnings.warn('Please use max_scalar(...)', stacklevel=2)
+            return value
+
+    def max_scalar(self, value, root=-1):
         return value
 
     def broadcast(self, buf, root):
         pass
 
-    def send(self, buff, root, tag=123, block=True):
+    def send(self, buff, dest, tag=123, block=True):
         pass
 
     def barrier(self):
@@ -679,7 +731,7 @@ class SerialCommunicator:
     def compare(self, other):
         if self == other:
             return 'ident'
-        elif isinstance(other, SerialCommunicator):
+        elif other.size == 1:
             return 'congruent'
         else:
             raise NotImplementedError('Compare serial comm to other')
@@ -695,26 +747,53 @@ class SerialCommunicator:
     def get_c_object(self):
         if gpaw.dry_run:
             return None  # won't actually be passed to C
-        raise NotImplementedError('Should not get C-object for serial comm')
+        return _world
 
 
-serial_comm = SerialCommunicator()
+_serial_comm = SerialCommunicator()
 
-have_mpi = world is not None
+have_mpi = _world is not None
 
-if world is None:
-    world = serial_comm
+if not have_mpi:
+    _world = _serial_comm  # type: ignore
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)  # type: ignore
-    world = _Communicator(world)  # type: ignore
+    serial_comm = _Communicator(_serial_comm)
+    if _world.size == 1:
+        world = serial_comm
+    else:
+        world = _Communicator(_world)
+else:
+    serial_comm = _serial_comm  # type: ignore
+    world = _world  # type: ignore
 
 rank = world.rank
 size = world.size
 parallel = (size > 1)
 
-if world.size != aseworld.size:
-    raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+def verify_ase_world():
+    # ASE does not like that GPAW uses world.size at import time.
+    # .... because of GPAW's own import time communicator mish-mash.
+    # Now, GPAW wants to verify world.size and cannot do so,
+    # because of what ASE does for GPAW's sake.
+    # This really needs improvement!
+    assert aseworld is not None
+
+    if isinstance(aseworld, ASE_MPI):
+        # We only want to check if the communicator was already initialized.
+        # Otherwise the communicator will be initialized as a side effect
+        # of accessing the .size attribute,
+        # which ASE's tests will complain about.
+        check_size = aseworld.comm is not None
+    else:
+        check_size = True  # A real communicator, so we want to check that
+
+    if check_size and world.size != aseworld.size:
+        raise RuntimeError('Please use "gpaw python" to run in parallel')
+
+
+verify_ase_world()
 
 
 def broadcast(obj, root=0, comm=world):
@@ -826,14 +905,14 @@ def broadcast_array(array: np.ndarray, *communicators) -> np.ndarray:
     return array
 
 
-def send(obj, rank: int, comm) -> None:
+def send(obj, rank: int, comm: MPIComm) -> None:
     """Send object to rank on the MPI communicator comm."""
     b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     comm.send(np.array(len(b)), rank)
     comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
-def receive(rank: int, comm) -> Any:
+def receive(rank: int, comm: MPIComm) -> Any:
     """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)
@@ -1034,7 +1113,7 @@ class Parallelization:
 
         # We want a communicator for kpts/bands, i.e. the complement of the
         # grid comm: a communicator uniting all cores with the same domain.
-        c1, c2, c3 = [communicators[name] for name in order]
+        c1, c2, c3 = (communicators[name] for name in order)
         allranks = [range(c1.size), range(c2.size), range(c3.size)]
 
         def get_communicator_complement(name):
@@ -1137,7 +1216,7 @@ def print_mpi_stack_trace(type, value, tb):
 
     for lineno, line in enumerate(lines):
         lineno = ('%%0%dd' % line_ndigits) % lineno
-        sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
+        sys.stderr.write(f'rank={rankstring} L{lineno}: {line}\n')
 
 
 if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
@@ -1155,7 +1234,7 @@ def exit(error='Manual exit'):
     else:
         cleanup(error)
     world.barrier()  # sync up before exiting
-    sys.exit()  # quit for serial case, return to _gpaw.c for parallel case
+    sys.exit()  # quit for serial case, return to cgpaw.c for parallel case
 
 
 atexit.register(cleanup)

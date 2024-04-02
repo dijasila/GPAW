@@ -416,6 +416,12 @@ energy with respect to the valence band at which the two formation energies are
 equal, and can be calculated just as `E_f[X^0] - E_f[X^{+1}]`. It comes to 2
 eV, in good agreement with [#KomsaErratum]_.
 
+Here are the planar averages
+(from :git:`~doc/tutorialsexercises/energetics/defects/plot_potentials_BN.py`):
+
+.. image:: planaraverages_BN.png
+           :scale: 50 %
+
 
 References
 ==========

@@ -146,7 +146,7 @@ This can be a fast way to calculate a system at several potentials---that is, if
 To use constant-charge mode, just specify the number of :literal:`excess_electrons` in your :literal:`sj` dict and calculate as normal::
 
     sj = {'excess_electrons': 0.5}
-    calc = GPAW(sj=sj, ...)
+    calc = SJM(sj=sj, ...)
 
 
 If your intent is to run in the constant-charge ensemble---like in the use of the charge-extrapolation scheme---you may want to output the canonical, rather than the grand-potential energies.
@@ -155,4 +155,4 @@ To accomplish this, set :literal:`sj['grand_output'] = False`, like::
 
     sj = {'excess_electrons': ...,
           'grand_output': False} :
-    calc = GPAW(sj=sj, ...)
+    calc = SJM(sj=sj, ...)

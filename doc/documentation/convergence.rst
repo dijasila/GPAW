@@ -42,7 +42,7 @@ encountering convergence problems:
 4) Use a smoother distribution function for the occupation numbers.
 
    Remember that for systems without periodic boundary conditions
-   (molecules) the Fermi temperature is set to zero by default.
+   (molecules) the :xkcd:`Fermi temperature <2780>` is set to zero by default.
    You might want to specify a finite Fermi temperature as described
    :ref:`here <manual_occ>` and check the convergence of
    the results with respect to the temperature!

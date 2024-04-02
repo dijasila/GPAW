@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Calculate PBE0 bandgaps.
 
 The numbers are compared to:

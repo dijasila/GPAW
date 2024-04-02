@@ -34,19 +34,21 @@ functionals (Perdew-Zunger).
 """
 
 from math import pi
+from typing import Callable, cast
 
 import numpy as np
 from ase.units import Bohr, Hartree
 from scipy.linalg import eigh
 
-from gpaw.utilities.blas import gemm
+from gpaw.utilities.blas import mmmx
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
 from gpaw.transformers import Transformer
-from gpaw.utilities import pack, unpack
+from gpaw.typing import ArrayND, IntVector, RNG
+from gpaw.utilities import pack_density, unpack_hermitian
 from gpaw.lfc import LFC
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
 def matrix_exponential(G_nn, dlt):
@@ -118,7 +120,7 @@ def ortho(W_nn, maxerr=1E-10):
     return O_nn
 
 
-def random_unitary_matrix(delta, n):
+def random_unitary_matrix(delta, n, rng: RNG = cast(RNG, np.random)):
     """ Initializaes a (random) unitary matrix
 
     delta: float
@@ -128,6 +130,9 @@ def random_unitary_matrix(delta, n):
 
     n: int
         dimensionality of matrix.
+
+    rng: numpy.random.Generator
+        optional RNG
     """
 
     assert n > 0
@@ -148,7 +153,8 @@ def random_unitary_matrix(delta, n):
 
     # random unitary matrix
     elif delta > 0:
-        W_nn = np.random.rand(n, n)
+        sample_unit_interval: Callable[[IntVector], ArrayND] = rng.random
+        W_nn = sample_unit_interval((n, n))
         W_nn = (W_nn - W_nn.T)
 
         return matrix_exponential(W_nn, delta)
@@ -242,8 +248,8 @@ class SIC(XCFunctional):
                 desic, dekin = spin.calculate()
                 self.esic += desic
                 self.ekin += dekin
-        self.esic = self.kpt_comm.sum(self.esic)
-        self.ekin = self.kpt_comm.sum(self.ekin)
+        self.esic = self.kpt_comm.sum_scalar(self.esic)
+        self.ekin = self.kpt_comm.sum_scalar(self.ekin)
 
         return exc + self.esic
 
@@ -337,7 +343,7 @@ class SIC(XCFunctional):
 
         for s in range(self.nspins):
             W_mn = reader.hamiltonian.xc.get(
-                'unitary_transformation{0}'.format(s))
+                f'unitary_transformation{s}')
 
             if s in self.spin_s:
                 self.spin_s[s].initial_W_mn = W_mn
@@ -356,7 +362,7 @@ class SIC(XCFunctional):
             W_mn = self.get_unitary_transformation(s)
 
             if W_mn is not None:
-                writer.write('unitary_transformation{0}'.format(s), W_mn)
+                writer.write(f'unitary_transformation{s}', W_mn)
 
     def get_unitary_transformation(self, s):
         if s in self.spin_s.keys():
@@ -369,7 +375,7 @@ class SIC(XCFunctional):
         else:
             n = 0
 
-        n = self.wfs.world.sum(n)
+        n = self.wfs.world.sum_scalar(n)
 
         if n > 0:
             W_mn = np.zeros((n, n), dtype=self.dtype)
@@ -412,7 +418,8 @@ class SICSpin:
                  rattle=-0.1,
                  stabpot=0.0,
                  maxuoiter=10,
-                 logging=2):
+                 logging=2,
+                 rng: RNG = cast(RNG, np.random)):
         """Single spin SIC object.
 
 
@@ -438,6 +445,8 @@ class SICSpin:
 
         rattle:
             perturbation to the initial states
+        rng:
+            optional numpy.random.Generator instance
         """
 
         self.wfs = wfs
@@ -488,6 +497,8 @@ class SICSpin:
         self.basiserror = 1E+20
         self.logging = logging
 
+        self.rng = rng
+
     def initialize_orbitals(self, rattle=-0.1, localize=True):
         if self.initial_W_mn is not None:
             self.nocc = self.initial_W_mn.shape[0]
@@ -513,7 +524,7 @@ class SICSpin:
             W_nm = np.identity(self.nocc)
             localization = 0.0
             for iter in range(30):
-                loc = _gpaw.localize(Z_mmv, W_nm)
+                loc = cgpaw.localize(Z_mmv, W_nm)
                 if loc - localization < 1e-6:
                     break
                 localization = loc
@@ -524,7 +535,7 @@ class SICSpin:
 
         if (rattle != 0.0 and self.W_mn is not None and
                 self.initial_W_mn is None):
-            U_mm = random_unitary_matrix(rattle, self.nocc)
+            U_mm = random_unitary_matrix(rattle, self.nocc, rng=self.rng)
             self.W_mn = np.dot(U_mm, self.W_mn)
 
         if self.W_mn is not None:
@@ -552,7 +563,7 @@ class SICSpin:
         # localize the orbitals
         localization = 0.0
         for iter in range(30):
-            loc = _gpaw.localize(Z_mmv, W_nm)
+            loc = cgpaw.localize(Z_mmv, W_nm)
             if loc - localization < 1e-6:
                 break
             localization = loc
@@ -571,7 +582,7 @@ class SICSpin:
 
         # setup a "random" unitary matrix
         nocc = self.W_mn.shape[0]
-        U_mm = random_unitary_matrix(rattle, nocc)
+        U_mm = random_unitary_matrix(rattle, nocc, rng=self.rng)
 
         # apply unitary transformation
         self.W_mn = np.dot(U_mm, self.W_mn)
@@ -601,12 +612,15 @@ class SICSpin:
         # overlap of pseudo wavefunctions
         Htphit_mG = self.vt_mG * self.phit_mG
         V_mm = np.zeros((self.nocc, self.nocc), dtype=self.dtype)
-        gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
+        # gemm(self.gd.dv, self.phit_mG, Htphit_mG, 0.0, V_mm, 't')
+        mmmx(self.gd.dv,
+             Htphit_mG, 'N',
+             self.phit_mG, 'T', 0.0, V_mm)
 
         # PAW
         for a, P_mi in self.P_ami.items():
             for m, dH_p in enumerate(self.dH_amp[a]):
-                dH_ii = unpack(dH_p)
+                dH_ii = unpack_hermitian(dH_p)
                 V_mm[m, :] += np.dot(P_mi[m], np.dot(dH_ii, P_mi.T))
 
         # accumulate over grid-domains
@@ -626,7 +640,7 @@ class SICSpin:
         # pseudo wavefunctions
         self.phit_mG = self.gd.zeros(self.nocc)
         if self.nocc > 0:
-            gemm(1.0, self.kpt.psit_nG[:self.nocc], self.W_mn, 0.0,
+            mmmx(1.0, self.W_mn, 'N', self.kpt.psit_nG[:self.nocc], 'N', 0.0,
                  self.phit_mG)
 
         # PAW
@@ -652,7 +666,7 @@ class SICSpin:
         for a, P_mi in self.P_ami.items():
             P_i = P_mi[m]
             D_ii = np.outer(P_i, P_i.conj()).real
-            D_ap[a] = D_p = pack(D_ii)
+            D_ap[a] = D_p = pack_density(D_ii)
             Q_aL[a] = np.dot(D_p, self.setups[a].Delta_pL)
 
         return nt_g, Q_aL, D_ap
@@ -838,13 +852,14 @@ class SICSpin:
         # constraint for unoccupied states
         R_mk = np.zeros((nocc, nvirt), dtype=self.dtype)
         if nvirt > 0:
-            gemm(self.gd.dv, psit_nG[nocc:], self.Htphit_mG, 0.0, R_mk, 't')
+            mmmx(self.gd.dv, self.Htphit_mG, 'N', psit_nG[nocc:], 'T',
+                 0.0, R_mk)
             # PAW
             for a, P_mi in self.P_ami.items():
                 P_ni = P_ani[a]
 
                 for m, dH_p in enumerate(self.dH_amp[a]):
-                    dH_ii = unpack(dH_p)
+                    dH_ii = unpack_hermitian(dH_p)
                     R_mk[m] += np.dot(P_mi[m], np.dot(dH_ii, P_ni[nocc:].T))
 
             self.finegd.comm.sum(R_mk)
@@ -859,10 +874,11 @@ class SICSpin:
 
         # Action of unified Hamiltonian on occupied states:
         if nocc > 0:
-            gemm(1.0, Htphit_mG, W_mn.T.copy(), 1.0, Htpsit_nG[:nocc])
-            gemm(1.0, phit_mG, Q_mn.T.copy(), 1.0, Htpsit_nG[:nocc])
+            mmmx(1.0, W_mn.T.copy(), 'N', Htphit_mG, 'N',
+                 1.0, Htpsit_nG[:nocc])
+            mmmx(1.0, Q_mn.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_nG[:nocc])
         if nvirt > 0:
-            gemm(1.0, phit_mG, R_mk.T.copy(), 1.0, Htpsit_nG[nocc:])
+            mmmx(1.0, R_mk.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_nG[nocc:])
             if self.stabpot != 0.0:
                 Htpsit_nG[nocc:] += self.stabpot * psit_nG[nocc:]
 
@@ -877,7 +893,7 @@ class SICSpin:
             c_ni[nocc:] += np.dot(R_mk.T, np.dot(P_mi, dO_ii))
             #
             for m, dH_p in enumerate(self.dH_amp[a]):
-                dH_ii = unpack(dH_p)
+                dH_ii = unpack_hermitian(dH_p)
                 ct_mi[m] = np.dot(P_mi[m], dH_ii)
             c_ni[:nocc] += np.dot(W_mn.T, ct_mi)
             c_ni[nocc:] += self.stabpot * np.dot(P_ani[a][nocc:], dO_ii)
@@ -894,8 +910,8 @@ class SICSpin:
         w_mx = np.zeros((self.nocc, 1), dtype=self.dtype)
         v_mx = np.zeros((self.nocc, 1), dtype=self.dtype)
 
-        gemm(self.gd.dv, psit_xG, phit_mG, 0.0, w_mx, 't')
-        gemm(self.gd.dv, psit_xG, Htphit_mG, 0.0, v_mx, 't')
+        mmmx(self.gd.dv, phit_mG, 'N', psit_xG, 'T', 0.0, w_mx)
+        mmmx(self.gd.dv, Htphit_mG, 'N', psit_xG, 'T', 0.0, v_mx)
 
         # PAW
         for a, P_mi in self.P_ami.items():
@@ -905,7 +921,7 @@ class SICSpin:
             w_mx += np.dot(P_mi, np.dot(dO_ii, P_xi.T))
 
             for m, dH_p in enumerate(self.dH_amp[a]):
-                dH_ii = unpack(dH_p)
+                dH_ii = unpack_hermitian(dH_p)
                 v_mx[m] += np.dot(P_mi[m], np.dot(dH_ii, P_xi.T))
 
         # sum over grid-domains
@@ -918,8 +934,8 @@ class SICSpin:
         if self.stabpot != 0.0:
             q_mx -= self.stabpot * w_mx
 
-        gemm(1.0, Htphit_mG, w_mx.T.copy(), 1.0, Htpsit_xG)
-        gemm(1.0, phit_mG, q_mx.T.copy(), 1.0, Htpsit_xG)
+        mmmx(1.0, w_mx.T.copy(), 'N', Htphit_mG, 'N', 1.0, Htpsit_xG)
+        mmmx(1.0, q_mx.T.copy(), 'N', phit_mG, 'N', 1.0, Htpsit_xG)
 
         # PAW
         for a, P_mi in self.P_ami.items():
@@ -930,7 +946,7 @@ class SICSpin:
             c_xi += np.dot(q_mx.T, np.dot(P_mi, dO_ii))
 
             for m, dH_p in enumerate(self.dH_amp[a]):
-                dH_ii = unpack(dH_p)
+                dH_ii = unpack_hermitian(dH_p)
                 ct_mi[m] = np.dot(P_mi[m], dH_ii)
             c_xi += np.dot(w_mx.T, ct_mi)
 
@@ -977,7 +993,7 @@ class SICSpin:
             # Force from projectors
             for a, F_miv in F_amiv.items():
                 F_vi = F_miv[m].T.conj()
-                dH_ii = unpack(self.dH_amp[a][m])
+                dH_ii = unpack_hermitian(self.dH_amp[a][m])
                 P_i = self.P_ami[a][m]
                 F_v = np.dot(np.dot(F_vi, dH_ii), P_i)
                 F_av[a] += deg * 2 * F_v.real

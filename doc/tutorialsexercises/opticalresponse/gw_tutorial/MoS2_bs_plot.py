@@ -13,7 +13,7 @@ kpoints = np.array([G, K, G])
 
 # GW
 GW = GWBands(calc='MoS2_fulldiag.gpw',
-             gw_file='MoS2_g0w0_80_results.pckl',
+             gw_file='MoS2_g0w0_80_results_GW.pckl',
              kpoints=kpoints)
 
 # Without spin-orbit
@@ -21,7 +21,7 @@ results = GW.get_gw_bands(SO=False, interpolate=True, vac=True)
 
 # GWG
 GWG = GWBands(calc='MoS2_fulldiag.gpw',
-              gw_file='MoS2_g0w0g_40_results.pckl',
+              gw_file='MoS2_g0w0g_40_results_GWG.pckl',
               kpoints=kpoints)
 
 GWGresults = GWG.get_gw_bands(SO=False, interpolate=True, vac=True)

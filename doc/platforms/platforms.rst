@@ -108,7 +108,8 @@ Cray:
 .. toctree::
    :maxdepth: 1
 
-   Cray/nersc_cori
+   Cray/lumi
+   Cray/nersc_perlmutter
    Cray/louhi
    Cray/jaguar
    Cray/sisu

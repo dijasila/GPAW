@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 from gpaw import GPAW
-from gpaw.test import equal
+import pytest
 
 
 def test_eigen_cg():
@@ -11,21 +11,20 @@ def test_eigen_cg():
                  pbc=True)
     bulk.set_cell((d, d, a), scale_atoms=True)
     h = 0.25
-    calc = GPAW(h=h,
-                nbands=2 * 8,
-                kpts=(2, 2, 2),
-                convergence={'energy': 1e-5})
+    base_params = dict(
+        mode='fd',
+        h=h,
+        nbands=2 * 8,
+        kpts=(2, 2, 2),
+        convergence={'energy': 1e-5})
+    calc = GPAW(**base_params)
     bulk.calc = calc
     e0 = bulk.get_potential_energy()
-    calc = GPAW(h=h,
-                nbands=2 * 8,
-                kpts=(2, 2, 2),
-                convergence={'energy': 1e-5},
-                eigensolver='cg')
+    calc = GPAW(**base_params, eigensolver='cg')
     bulk.calc = calc
     e1 = bulk.get_potential_energy()
-    equal(e0, e1, 5.e-5)
+    assert e0 == pytest.approx(e1, abs=5.e-5)
 
     energy_tolerance = 0.001
-    equal(e0, -6.97626, energy_tolerance)
-    equal(e1, -6.97627, energy_tolerance)
+    assert e0 == pytest.approx(-6.97626, abs=energy_tolerance)
+    assert e1 == pytest.approx(-6.97627, abs=energy_tolerance)

@@ -1,6 +1,5 @@
 import pytest
 from gpaw.upf import UPFSetupData
-from gpaw.pseudopotential import PseudoPotential
 
 
 def get(fname):
@@ -12,15 +11,8 @@ def get(fname):
 def test_psp_upf_h2o():
     s = get('O.pz-hgh.UPF')
     # upfplot(s.data, show=True)
-    bfs = s.create_basis_functions()
-    pp = PseudoPotential(s, bfs)
 
-    import numpy as np
-    x = np.linspace(0.0, 5.0, 1000)
     # dr = x[1] - x[0]
-
-    pp.phit_j[0].map(x)
-    pp.pt_j[0].map(x)
 
     from gpaw.atom.atompaw import AtomPAW
 
@@ -34,9 +26,9 @@ def test_psp_upf_h2o():
                     setups={'H': s}
                     )
 
-        import pylab as pl
-        pl.plot(c.wfs.gd.r_g, c.hamiltonian.vt_sg[0])
-        pl.show()
+        import matplotlib.pyplot as plt
+        plt.plot(c.wfs.gd.r_g, c.hamiltonian.vt_sg[0])
+        plt.show()
         raise SystemExit
 
     # print 'test v201 Au.pz-d-hgh.UPF'
@@ -59,7 +51,8 @@ def test_psp_upf_h2o():
 
         system = molecule('H2O')
         system.center(vacuum=3.5)
-        calc = GPAW(txt='-',
+        calc = GPAW(mode='fd',
+                    txt='-',
                     nbands=6,
                     setups=upfsetups,
                     # setups='paw',

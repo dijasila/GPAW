@@ -8,7 +8,7 @@ Occupation number smearing
 .. seealso:: :ref:`manual_occ`
 
 Convergence with respect to number of k-point for bulk Cu energy with
-diferent smearing methods:
+different smearing methods:
 
 .. literalinclude:: cu_calc.py
 

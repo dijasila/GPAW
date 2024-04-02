@@ -19,7 +19,8 @@ benzene = Atoms(symbols='C6H6',
 
 benzene.center(vacuum=2.5)
 
-calc = GPAW(nbands=15,
+calc = GPAW(mode='fd',
+            nbands=15,
             h=0.2,
             xc='PBE',
             txt='benzene.txt')

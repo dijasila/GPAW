@@ -16,14 +16,15 @@ import numpy as np
 from ase.build import molecule
 
 from gpaw import GPAW, PoissonSolver
-from gpaw.test import equal
+import pytest
 
 
 def test_pseudopotential_hgh_h2o():
     mol = molecule('H2O')
     mol.rattle(0.2)
     mol.center(vacuum=2.0)
-    calc = GPAW(nbands=6,
+    calc = GPAW(mode='fd',
+                nbands=6,
                 poissonsolver=PoissonSolver('fd'),
                 gpts=(32, 40, 40),
                 setups='hgh',
@@ -75,7 +76,12 @@ def test_pseudopotential_hgh_h2o():
     wfs = calc.wfs
     gd = wfs.gd
     psit_nG = wfs.kpt_u[0].psit_nG
-    dH_asp = calc.hamiltonian.dH_asp
+    try:
+        dH_asp = calc.hamiltonian.dH_asp
+    except AttributeError:
+        from gpaw.utilities import pack2
+        dH_asii = calc.dft.state.potential.dH_asii
+        dH_asp = {a: pack2(dH_sii) for a, dH_sii in dH_asii.items()}
 
     assert eerr < 1e-3, 'energy changed from reference'
     assert ferr < 0.015, 'forces do not match FD check'
@@ -106,4 +112,4 @@ def test_pseudopotential_hgh_h2o():
         assert abs(1 - norm) < 1e-10, 'Not normconserving'
 
     energy_tolerance = 0.0003
-    equal(e, eref, energy_tolerance)
+    assert e == pytest.approx(eref, abs=energy_tolerance)

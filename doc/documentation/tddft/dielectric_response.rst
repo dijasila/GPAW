@@ -31,7 +31,7 @@ and `\psi_{n \mathbf{k}}(\mathbf{r})` are the eigenvalue and eigen wavefunction,
 is normalized to 1 in the crystal volume `\Omega (= \Omega_{\mathrm{cell}} N_k)`.
  
 The sum of occupation `f_{n \mathbf{k}}` should be the total number of electrons in the crystal,  
-satisfing 
+satisfying 
 
 .. math::
 

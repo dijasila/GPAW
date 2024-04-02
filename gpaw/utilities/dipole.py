@@ -4,6 +4,8 @@ import numpy as np
 from ase.units import Bohr
 from gpaw.new.ase_interface import ASECalculator, GPAW
 from gpaw.typing import Array3D, Vector
+from gpaw.new.lcao.wave_functions import LCAOWaveFunctions
+from gpaw.new.pwfd.wave_functions import PWFDWaveFunctions
 
 
 def dipole_matrix_elements(*args, **kwargs):
@@ -27,10 +29,10 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
     ----------
     n1, n2:
         Band range.
-    center_v:
+    center:
         Center of molecule in Å.  Defaults to center of cell.
     """
-    ibzwfs = calc.calculation.state.ibzwfs
+    ibzwfs = calc.dft.state.ibzwfs
 
     assert ibzwfs.ibz.bz.gamma_only
 
@@ -41,12 +43,17 @@ def dipole_matrix_elements_from_calc(calc: ASECalculator,
 
     d_snnv = []
     for wfs in wfs_s:
-        wfs = wfs.collect(n1, n2)
-        if wfs is not None:
-            d_nnv = wfs.dipole_matrix_elements(center) * Bohr
+        if isinstance(wfs, LCAOWaveFunctions):
+            basis = calc.dft.scf_loop.hamiltonian.basis
+            grid = calc.dft.state.density.nt_sR.desc
+            wfs = wfs.to_uniform_grid_wave_functions(grid, basis)
+        wfs12 = wfs.collect(n1, n2)
+        if wfs12 is not None:
+            assert isinstance(wfs12, PWFDWaveFunctions)
+            d_nnv = wfs12.dipole_matrix_elements(center) * Bohr
         else:
             d_nnv = np.empty((n2 - n1, n2 - n1, 3))
-        calc.params.parallel['world'].broadcast(d_nnv, 0)
+        calc.comm.broadcast(d_nnv, 0)
         d_snnv.append(d_nnv)
 
     return d_snnv
@@ -84,7 +91,7 @@ def main(argv: list[str] = None) -> None:
 
         d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
-    if calc.params.parallel['world'].rank > 0:
+    if calc.comm.rank > 0:
         return
 
     print('Number of bands:', nbands)

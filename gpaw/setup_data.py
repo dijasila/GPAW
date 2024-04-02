@@ -9,7 +9,7 @@ from typing import IO, Tuple
 
 import numpy as np
 from ase.data import atomic_names, atomic_numbers
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 
 from gpaw import setup_paths
 from gpaw.atom.radialgd import (AbinitRadialGridDescriptor,
@@ -21,7 +21,8 @@ from gpaw.xc.pawcorrection import PAWXCCorrection
 
 class SetupData:
     """Container class for persistent setup attributes and XML I/O."""
-    def __init__(self, symbol, xcsetupname, name='paw', readxml=True,
+    def __init__(self, symbol, xcsetupname,
+                 name='paw', readxml=True,
                  zero_reference=False, world=None,
                  generator_version=None):
         self.symbol = symbol
@@ -46,7 +47,7 @@ class SetupData:
         # Quantum numbers, energies
         self.n_j = []
         self.l_j = []
-        self.l_orb_j = self.l_j  # pointer to same list!
+        self.l_orb_J = self.l_j  # pointer to same list!
         self.f_j = []
         self.eps_j = []
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
@@ -90,8 +91,10 @@ class SetupData:
 
         # Optional quantities, normally not used
         self.X_p = None
+        self.X_wp = {}
         self.X_pg = None
         self.ExxC = None
+        self.ExxC_w = {}
         self.X_gamma = None
         self.extra_xc_data = {}
         self.phicorehole_g = None
@@ -110,10 +113,10 @@ class SetupData:
 
         self.orbital_free = False  # orbital-free DFT
 
+        self.version = None
+
         if readxml:
             self.read_xml(world=world)
-
-        self.version: str
 
     def __repr__(self):
         return ('{0}({symbol!r}, {setupname!r}, name={name!r}, '
@@ -140,9 +143,9 @@ class SetupData:
 
     def print_info(self, text, setup):
         if self.phicorehole_g is None:
-            text(self.symbol + '-setup:')
+            text(self.symbol + ':')
         else:
-            text(f'{self.symbol}-setup ({self.fcorehole:.1f} core hole):')
+            text(f'{self.symbol}:  # ({self.fcorehole:.1f} core hole)')
         text('  name:', atomic_names[atomic_numbers[self.symbol]])
         text('  id:', self.fingerprint)
         text('  Z:', self.Z)
@@ -152,31 +155,28 @@ class SetupData:
         else:
             text(f'  core: {self.Nc:.1f}')
         text('  charge:', self.Z - self.Nv - self.Nc)
-        if setup.HubU is not None:
-            for index in range(len(setup.HubU)):
-                text('  Hubbard U: %f eV (l=%d, scale=%s)' %
-                     (setup.HubU[index] * Hartree,
-                      setup.Hubl[index],
-                      bool(setup.Hubs[index])))
+        if setup.hubbard_u is not None:
+            description = ''.join([f'  {line}' for line
+                                   in setup.hubbard_u.descriptions()])
+            text(description)
         text('  file:', self.filename)
-        text('  compensation charges: {}, rc={:.2f}, lmax={}'
-             .format(self.shape_function['type'],
-                     self.shape_function['rc'] * Bohr,
-                     setup.lmax))
-        text(('  cutoffs: {:.2f}(filt), {:.2f}(core),'
-              .format(setup.rcutfilter * Bohr,
-                      setup.rcore * Bohr)))
-        text('  valence states:')
-        text('                energy  radius')
+        sf = self.shape_function
+        text(f'  compensation charges: {{type: {sf["type"]},\n'
+             f'                         rc: {sf["rc"] * Bohr:.2f},\n'
+             f'                         lmax: {setup.lmax}}}')
+        text(f'  cutoffs: {{filter: {setup.rcutfilter * Bohr:.2f},\n'
+             f'            core: {setup.rcore * Bohr:.2f}}}')
+        text('  projectors:')
+        text('    #              energy  rcut')
         j = 0
         for n, l, f, eps in zip(self.n_j, self.l_j, self.f_j, self.eps_j):
             if n > 0:
                 f = f'({f:.2f})'
-                text('    %d%s%-5s %9.3f   %5.3f' % (
-                    n, 'spdf'[l], f, eps * Hartree, self.rcut_j[j] * Bohr))
+                text('    - %d%s%-5s %9.3f   %5.3f' % (
+                    n, 'spdf'[l], f, eps * Ha, self.rcut_j[j] * Bohr))
             else:
-                text('    *%s       %9.3f   %5.3f' % (
-                    'spdf'[l], eps * Hartree, self.rcut_j[j] * Bohr))
+                text('    -  {}       {:9.3f}   {:5.3f}'.format(
+                    'spdf'[l], eps * Ha, self.rcut_j[j] * Bohr))
             j += 1
         text()
 
@@ -234,8 +234,11 @@ class SetupData:
 
         return xc_correction
 
-    def write_xml(self) -> None:
-        with open(self.stdfilename, 'w') as fd:
+    def write_xml(self, path=None) -> None:
+        if path is None:
+            path = self.stdfilename
+
+        with open(path, 'w') as fd:
             self._write_xml(fd)
 
     def _write_xml(self, xml: IO[str]) -> None:
@@ -367,6 +370,14 @@ class SetupData:
             print('\n  </exact_exchange_X_matrix>', file=xml)
 
             print(f'  <exact_exchange core-core="{self.ExxC!r}"/>', file=xml)
+            for omega, Ecc in self.ExxC_w.items():
+                print(f'  <erfc_exchange omega="{omega}" core-core="{Ecc}"/>',
+                      file=xml)
+                print(f'  <erfc_exchange_X_matrix omega="{omega}" X_p="',
+                      end=' ', file=xml)
+                for x in self.X_wp[omega]:
+                    print(f'{x!r}', end=' ', file=xml)
+                print('"/>', file=xml)
 
         if self.X_pg is not None:
             print('  <yukawa_exchange_X_matrix>\n    ', end=' ', file=xml)
@@ -425,7 +436,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directories where PAW dataset and basis files are stored.  See
 https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
 for details."""
-        raise RuntimeError(f'{err}\n{helpful_message}\n')
+        raise FileNotFoundError(f'{err}\n{helpful_message}\n')
 
     return filename, source
 
@@ -533,8 +544,13 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'projector_function':
             self.id = attrs['state']
             self.data = []
+        elif name == 'erfc_exchange':
+            setup.ExxC_w[float(attrs['omega'])] = float(attrs['core-core'])
         elif name == 'exact_exchange':
             setup.ExxC = float(attrs['core-core'])
+        elif name == 'erfc_exchange_X_matrix':
+            X_p = np.array([float(x) for x in ''.join(attrs['X_p']).split()])
+            setup.X_wp[float(attrs['omega'])] = X_p
         elif name == 'yukawa_exchange':
             setup.X_gamma = float(attrs['gamma'])
         elif name == 'core_hole_state':

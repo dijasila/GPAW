@@ -1,4 +1,3 @@
-
 from itertools import product
 
 import numpy as np
@@ -29,13 +28,16 @@ def get_lattice_symmetry(cell_cv, tolerance=1e-7):
     gpaw.symmetry object
 
     """
+    # NB: Symmetry.find_lattice_symmetry() uses self.pbc_c, which defaults
+    # to pbc along all three dimensions. Hence, it seems that the lattice
+    # symmetry transformations produced by this method could be faulty if
+    # there are non-periodic dimensions in a system. XXX
     latsym = Symmetry([0], cell_cv, tolerance=tolerance)
     latsym.find_lattice_symmetry()
     return latsym
 
 
-def find_high_symmetry_monkhorst_pack(calc, density,
-                                      pbc=None):
+def find_high_symmetry_monkhorst_pack(calc, density):
     """Make high symmetry Monkhorst Pack k-point grid.
 
     Searches for and returns a Monkhorst Pack grid which
@@ -49,9 +51,6 @@ def find_high_symmetry_monkhorst_pack(calc, density,
         The path to a calculator object.
     density : float
         The required minimum density of the Monkhorst Pack grid.
-    pbc : Boolean list/ndarray of shape (3,) or None
-        List indicating periodic directions. If None then
-        pbc = [True] * 3.
 
     Returns
     -------
@@ -60,16 +59,15 @@ def find_high_symmetry_monkhorst_pack(calc, density,
 
     """
 
-    if pbc is None:
-        pbc = np.array([True, True, True])
-    else:
-        pbc = np.array(pbc)
-
     atoms, calc = restart(calc, txt=None)
+    pbc = atoms.pbc
     minsize, offset = kpts2sizeandoffsets(density=density, even=True,
                                           gamma=True, atoms=atoms)
 
-    bzk_kc, ibzk_kc, latibzk_kc = get_bz(calc, returnlatticeibz=True)
+    # NB: get_bz() wants a pbc_c, but never gets it. This means that the
+    # pbc always will fall back to True along all dimensions. XXX
+    # NB: Why return latibzk_kc, if we never use it? XXX
+    bzk_kc, ibzk_kc, latibzk_kc = get_bz(calc)
 
     maxsize = minsize + 10
     minsize[~pbc] = 1
@@ -94,6 +92,7 @@ def find_high_symmetry_monkhorst_pack(calc, density,
 
                     for ibzk_c in ibzk_kc:
                         diff_kc = np.abs(kpts_kc - ibzk_c)[:, pbc].round(6)
+                        # NB: The second np.mod() statement seems redundant XXX
                         if not (np.mod(np.mod(diff_kc, 1), 1) <
                                 1e-5).all(axis=1).any():
                             raise AssertionError('Did not find ' + str(ibzk_c))
@@ -198,7 +197,7 @@ def get_smallest_Gvecs(cell_cv, n=5):
     """
     B_cv = 2.0 * np.pi * np.linalg.inv(cell_cv).T
     N_xc = np.indices((n, n, n)).reshape((3, n**3)).T - n // 2
-    G_xv = np.dot(N_xc, B_cv)
+    G_xv = N_xc @ B_cv
 
     return G_xv, N_xc
 
@@ -293,7 +292,7 @@ def get_ibz_vertices(cell_cv, U_scc=None, time_reversal=None,
     return ibzk_kc
 
 
-def get_bz(calc, returnlatticeibz=False, pbc_c=np.ones(3, bool)):
+def get_bz(calc, pbc_c=np.ones(3, bool)):
     """Return the BZ and IBZ vertices.
 
     Parameters
@@ -318,11 +317,10 @@ def get_bz(calc, returnlatticeibz=False, pbc_c=np.ones(3, bool)):
     cU_scc = get_symmetry_operations(symmetry.op_scc,
                                      symmetry.time_reversal)
 
-    return get_reduced_bz(cell_cv, cU_scc, False, returnlatticeibz,
-                          pbc_c=pbc_c)
+    return get_reduced_bz(cell_cv, cU_scc, False, pbc_c=pbc_c)
 
 
-def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
+def get_reduced_bz(cell_cv, cU_scc, time_reversal,
                    pbc_c=np.ones(3, bool), tolerance=1e-7):
 
     """Reduce the BZ using the crystal symmetries to obtain the IBZ.
@@ -340,6 +338,9 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
     """
 
     if time_reversal:
+        # NB: The method never seems to be called with time_reversal=True,
+        # and hopefully get_bz() will generate the right symmetry operations
+        # always. So, can we remove this input? XXX
         cU_scc = get_symmetry_operations(cU_scc, time_reversal)
 
     # Lattice symmetries
@@ -360,10 +361,7 @@ def get_reduced_bz(cell_cv, cU_scc, time_reversal, returnlatticeibz=False,
     bzk_kc = unique_rows(np.concatenate(np.dot(ibzk_kc,
                                                cU_scc.transpose(0, 2, 1))))
 
-    if returnlatticeibz:
-        return bzk_kc, ibzk_kc, latibzk_kc
-    else:
-        return bzk_kc, ibzk_kc
+    return bzk_kc, ibzk_kc, latibzk_kc
 
 
 def expand_ibz(lU_scc, cU_scc, ibzk_kc, pbc_c=np.ones(3, bool)):

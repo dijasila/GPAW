@@ -2,10 +2,10 @@ import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.mixer import Mixer
-from gpaw.test import equal
 from gpaw.test import gen
 
 
+@pytest.mark.ofdft
 @pytest.mark.libxc
 def test_ofdft_ofdft(in_tmp_dir):
     a = 6.0
@@ -33,7 +33,8 @@ def test_ofdft_ofdft(in_tmp_dir):
                      cell=(a, a, a))
 
         mixer = Mixer(0.3, 5, 1)
-        calc = GPAW(gpts=(32, 32, 32),
+        calc = GPAW(mode='fd',
+                    gpts=(32, 32, 32),
                     txt='-',
                     xc=xcname,
                     setups=setups,
@@ -47,5 +48,5 @@ def test_ofdft_ofdft(in_tmp_dir):
         dv = atom.get_volume() / calc.get_number_of_grid_points().prod()
         I = n.sum() * dv / 2**3
 
-        equal(I, e, 1.0e-6)
-        equal(result, E, 1.0e-2)
+        assert I == pytest.approx(e, abs=1.0e-6)
+        assert result == pytest.approx(E, abs=1.0e-2)

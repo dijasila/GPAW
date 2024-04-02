@@ -12,9 +12,11 @@ from gpaw.typing import Array1D
 class ReciprocalSpacePoissonSolver:
     def __init__(self,
                  pd: PWDescriptor,
-                 charge: float = 0.0):
+                 charge: float = 0.0,
+                 strength: float = 1.0):
         self.pd = pd
         self.charge = charge
+        self.strength = strength
 
         self.G2_q = pd.G2_qG[0].copy()
         if pd.gd.comm.rank == 0:
@@ -34,13 +36,14 @@ class ReciprocalSpacePoissonSolver:
 
         Places result in vHt_q ndarray.
         """
+        assert dens.rhot_q is not None
         epot = self._solve(vHt_q, dens.rhot_q)
         return epot
 
     def _solve(self,
                vHt_q: Array1D,
                rhot_q: Array1D) -> float:
-        vHt_q[:] = 4 * pi * rhot_q
+        vHt_q[:] = 4 * pi * self.strength * rhot_q
         if self.pd.gd.comm.rank == 0:
             # Use uniform backgroud charge in case we have a charged system:
             vHt_q[0] = 0.0

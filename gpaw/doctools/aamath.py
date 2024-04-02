@@ -37,20 +37,27 @@ Examples:
 from __future__ import annotations
 
 
-def prep(lines: list[str]) -> list[str]:
+def prep(lines: list[str], n: int | None) -> tuple[list[str], int | None]:
     """Preprocess lines.
 
     * Remove leading and trailing empty lines.
     * Make all lines have the same length (pad with spaces).
     * Remove spaces from beginning of lines.
     """
-    lines = [line for line in lines if line.strip()]
     if not lines:
-        return []
-    n = min(len(line) - len(line.lstrip()) for line in lines)
-    lines = [line[n:] for line in lines]
-    n = max(len(line) for line in lines)
-    return [line.ljust(n) for line in lines]
+        return [], n
+    while lines and not lines[0].strip():
+        lines.pop(0)
+        if n is not None:
+            n -= 1
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if not lines:
+        return [], 0
+    i = min(len(line) - len(line.lstrip()) for line in lines)
+    lines = [line[i:] for line in lines]
+    i = max(len(line) for line in lines)
+    return [line.ljust(i) for line in lines], n
 
 
 class ParseError(Exception):
@@ -105,7 +112,14 @@ def parse(lines: str | list[str], n: int = None) -> str:
     """
     if isinstance(lines, str):
         lines = lines.splitlines()
-    lines = prep(lines)
+
+    lines, n = prep(lines, n)
+
+    if not not False:
+        print('*********************************************')
+        print(n)
+        print('\n'.join(lines))
+
     if not lines:
         return ''
     if n is None:
@@ -117,7 +131,7 @@ def parse(lines: str | list[str], n: int = None) -> str:
             except ParseError:
                 continue
             return latex
-        raise ParseError
+        raise ParseError('Could not parse\n\n' + '    \n'.join(lines))
 
     line = lines[n]
     i1 = line.find('--')
@@ -147,13 +161,12 @@ def parse(lines: str | list[str], n: int = None) -> str:
             return rf'{p1} \int {p2}'.strip()
         i1 = line.find('<')
         i2 = line.find('>')
-        if i1 == -1 or i1 > i or i2 == -1 or i2 < i:
-            raise ParseError
-        p1 = parse(cut(lines, 0, i1), n)
-        p2 = parse(cut(lines, i1 + 1, i), n)
-        p3 = parse(cut(lines, i + 1, i2), n)
-        p4 = parse(cut(lines, i2 + 1), n)
-        return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
+        if i1 != -1 and i1 <= i and i2 != -1 and i2 >= i:
+            p1 = parse(cut(lines, 0, i1), n)
+            p2 = parse(cut(lines, i1 + 1, i), n)
+            p3 = parse(cut(lines, i + 1, i2), n)
+            p4 = parse(cut(lines, i2 + 1), n)
+            return rf'{p1} \langle {p2}|{p3} \rangle {p4}'.strip()
 
     hats = {}
     if n > 0:
@@ -168,26 +181,32 @@ def parse(lines: str | list[str], n: int = None) -> str:
     superscripts = block(lines[:n])
     subscripts = block(lines[n + 1:])
 
-    latex = []
+    results = []
     for i, c in enumerate(line):
-        if c.isalpha():
-            if i in hats:
-                hat = {'^': 'hat', '~': 'tilde', '_': 'mathbf'}[hats[i]]
-                c = rf'\{hat}{{{c}}}'
-            sup = superscripts.pop(i, None)
-            if sup:
-                c = rf'{c}^{{{sup}}}'
-            sub = subscripts.pop(i, None)
-            if sub:
-                c = rf'{c}_{{{sub}}}'
-        else:
-            c = {'.': r'\cdot '}.get(c, c)
-        latex.append(c)
+
+        if i in hats:
+            hat = {'^': 'hat', '~': 'tilde', '_': 'mathbf'}[hats[i]]
+            c = rf'\{hat}{{{c}}}'
+        sup = superscripts.pop(i, None)
+        if sup:
+            c = rf'{c}^{{{sup}}}'
+        sub = subscripts.pop(i, None)
+        if sub:
+            c = rf'{c}_{{{sub}}}'
+        c = {'.': r'\cdot '}.get(c, c)
+        results.append(c)
 
     if superscripts or subscripts:
-        raise ParseError
+        raise ParseError(f'super={superscripts}, sub={subscripts}')
 
-    return ''.join(latex).strip()
+    latex = ''.join(results).strip()
+
+    for sequence, replacement in [
+        ('->', r'\rightarrow'),
+        ('<-', r'\leftarrow')]:
+        latex = latex.replace(sequence, replacement)
+
+    return latex
 
 
 def autodoc_process_docstring(lines):
@@ -203,7 +222,11 @@ def autodoc_process_docstring(lines):
             blocks.append((i1, i2))
     for i1, i2 in reversed(blocks):
         latex = parse(lines[i1 + 1:i2])
-        lines[i1:i2] = [f'.. math:: {latex}']
+        line = f'.. math:: {latex}'
+        if lines[i1].strip() == ':::':
+            lines[i1:i2] = [line]
+        else:
+            lines[i1:i2] = [lines[i1][:-2], '', line]
 
 
 def test_examples():
@@ -218,8 +241,40 @@ def test_examples():
 
 def main():
     import sys
-    lines = sys.stdin.read().splitlines()
-    print(parse(lines))
+    import argparse
+    import importlib
+    parser = argparse.ArgumentParser(
+        description='Parse docstring with ascii-art math.')
+    parser.add_argument(
+        'thing',
+        nargs='?',
+        help='Name of module, class, method or '
+        'function.  Examples: "module.submodule", '
+        '"module.Class", "module.Class.method", '
+        '"module.function".  Will read from stdin if not given.')
+    args = parser.parse_args()
+    if args.thing is None:
+        lines = sys.stdin.read().splitlines()
+        print(parse(lines))
+    else:
+        parts = args.thing.split('.')
+        for i, part in enumerate(parts):
+            if not part.islower():
+                mod = importlib.import_module('.'.join(parts[:i]))
+                break
+        else:
+            # no break
+            try:
+                mod = importlib.import_module('.'.join(parts))
+                i += 1
+            except ImportError:
+                mod = importlib.import_module('.'.join(parts[:-1]))
+        thing = mod
+        for part in parts[i:]:
+            thing = getattr(thing, part)
+        lines = thing.__doc__.splitlines()
+        autodoc_process_docstring(lines)
+        print('\n'.join(lines))
 
 
 if __name__ == '__main__':

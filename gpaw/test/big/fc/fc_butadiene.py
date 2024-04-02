@@ -30,7 +30,7 @@ H       7.580803493981530      5.034479218283977      4.877211530909463
 h = 0.3
 atoms = Cluster(read(io.StringIO(butadiene), format='xyz'))
 atoms.minimal_box(3.0, h)
-atoms.calc = GPAW(h=h)
+atoms.calc = GPAW(mode='fd', h=h)
 if 0:
     dyn = FIRE(atoms)
     dyn.run(fmax=0.05)
@@ -72,7 +72,7 @@ fq = np.append(0, fq)
 if world.rank == 0:
     plt.vlines(fq, 0, S, color='darkblue',
                label='Huang-Rhys factors', linewidth=2.0)
-    
+
     plt.legend(loc='upper right')
     plt.axis([-1000, 6000, 0, 1.05])
     plt.ylabel('HR factors [a.u.]')

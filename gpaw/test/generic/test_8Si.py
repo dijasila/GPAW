@@ -1,7 +1,7 @@
 from ase import Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, FermiDirac, PoissonSolver
-from gpaw.test import equal
+import pytest
 from gpaw.xc.tools import vxc
 
 
@@ -19,7 +19,8 @@ def test_generic_8Si():
                  pbc=True)
     bulk.set_cell((a, a, a), scale_atoms=True)
     n = 20
-    calc = GPAW(gpts=(n, n, n),
+    calc = GPAW(mode='fd',
+                gpts=(n, n, n),
                 nbands='150%',
                 occupations=FermiDirac(width=0.01),
                 poissonsolver=PoissonSolver('fd', nn='M', relax='J'),
@@ -29,13 +30,13 @@ def test_generic_8Si():
     bulk.calc = calc
     f1 = bulk.get_forces()[0, 2]
     e1 = bulk.get_potential_energy()
-    v_xc = vxc(calc)
+    v_xc = vxc(calc.gs_adapter())
     print(v_xc)
     niter1 = calc.get_number_of_iterations()
 
     f2 = numeric_force(bulk, 0, 2)
     print((f1, f2, f1 - f2))
-    equal(f1, f2, 0.005)
+    assert f1 == pytest.approx(f2, abs=0.005)
 
     # Volume per atom:
     vol = a**3 / 8
@@ -46,5 +47,5 @@ def test_generic_8Si():
     print((e1, f1, niter1))
     energy_tolerance = 0.0025
     force_tolerance = 0.01
-    equal(e1, -46.6628, energy_tolerance)  # svnversion 5252
-    equal(f1, -1.38242356123, force_tolerance)  # svnversion 5252
+    assert e1 == pytest.approx(-46.6628, abs=energy_tolerance)
+    assert f1 == pytest.approx(-1.38242356123, abs=force_tolerance)

@@ -1,23 +1,21 @@
 """Check for tunability of gamma for yukawa potential."""
 import pytest
 from ase import Atoms
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
 from gpaw.test import gen
-import _gpaw
+import gpaw.cgpaw as cgpaw
 
 
-def test_rsf_yukawa_rsf_general(in_tmp_dir):
-    libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
+@pytest.mark.hybrids
+def test_rsf_yukawa_rsf_general(in_tmp_dir, add_cwd_to_setup_paths):
+    libxc_version = getattr(cgpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:
         from unittest import SkipTest
         raise SkipTest
-
-    if setup_paths[0] != '.':
-        setup_paths.insert(0, '.')
 
     for atom in ['Be']:
         gen(atom, xcname='PBE', scalarrel=True, exx=True,
@@ -34,12 +32,10 @@ def test_rsf_yukawa_rsf_general(in_tmp_dir):
     xc = HybridXC('LCY-PBE', omega=0.83)
     fname = 'Be_rsf.gpw'
 
-    calc = GPAW(txt='Be.txt', xc=xc, convergence=c,
+    calc = GPAW(mode='fd', txt='Be.txt', xc=xc, convergence=c,
                 eigensolver=RMMDIIS(), h=h,
                 occupations=FermiDirac(width=0.0), spinpol=False)
     be.calc = calc
-    # energy = na2.get_potential_energy()
-    # calc.set(xc=xc)
     energy_083 = be.get_potential_energy()
     (eps_homo, eps_lumo) = calc.get_homo_lumo()
     assert eps_homo == pytest.approx(-IP, abs=0.15)

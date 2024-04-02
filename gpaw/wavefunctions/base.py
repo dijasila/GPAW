@@ -1,12 +1,9 @@
-from typing import Optional
-
 import numpy as np
 from ase.units import Ha
 
-from gpaw.occupations import OccupationNumberCalculator
 from gpaw.projections import Projections
-from gpaw.utilities import pack, unpack2
-from gpaw.utilities.blas import gemm, axpy
+from gpaw.utilities import pack_density
+from gpaw.utilities.blas import axpy, mmm
 from gpaw.utilities.partition import AtomPartition
 
 
@@ -56,8 +53,8 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.occupations: Optional[OccupationNumberCalculator] = None
-        self.fermi_levels: Optional[np.ndarray] = None
+        self.occupations = None
+        self.fermi_levels = None
 
         self.eigensolver = None
         self.positions_set = False
@@ -72,6 +69,16 @@ class WaveFunctions:
 
     def summary(self, log):
         log(eigenvalue_string(self))
+
+        func = None
+        if hasattr(self.eigensolver, 'dm_helper'):
+            func = getattr(self.eigensolver.dm_helper.func, 'name', None)
+        elif hasattr(self.eigensolver, 'odd'):
+            func = getattr(self.eigensolver.odd, 'name', None)
+        if func is None:
+            pass
+        elif 'SIC' in func:
+            self.summary_func(log)
 
         if self.fermi_levels is None:
             return
@@ -109,7 +116,7 @@ class WaveFunctions:
         except AttributeError:
             pass
 
-        return self.kptband_comm.sum(e_band)
+        return self.kptband_comm.sum_scalar(e_band)
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
@@ -134,7 +141,7 @@ class WaveFunctions:
         D_sii = np.zeros((self.nspins, ni, ni))
         P_i = kpt.P_ani[a][n]
         D_sii[kpt.s] += np.outer(P_i.conj(), P_i).real
-        D_sp = [pack(D_ii) for D_ii in D_sii]
+        D_sp = [pack_density(D_ii) for D_ii in D_sii]
         return D_sp
 
     def calculate_atomic_density_matrices_k_point(self, D_sii, kpt, a, f_n):
@@ -142,8 +149,8 @@ class WaveFunctions:
             P_Mi = self.P_aqMi[a][kpt.q]
             rhoP_Mi = np.zeros_like(P_Mi)
             D_ii = np.zeros(D_sii[kpt.s].shape, kpt.rho_MM.dtype)
-            gemm(1.0, P_Mi, kpt.rho_MM, 0.0, rhoP_Mi)
-            gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+            mmm(1.0, kpt.rho_MM, 'N', P_Mi, 'N', 0.0, rhoP_Mi)
+            mmm(1.0, P_Mi, 'C', rhoP_Mi, 'N', 0.0, D_ii)
             D_sii[kpt.s] += D_ii.real
         else:
             if self.collinear:
@@ -182,7 +189,7 @@ class WaveFunctions:
             for f_n, kpt in zip(f_un, self.kpt_u):
                 self.calculate_atomic_density_matrices_k_point(D_sii, kpt, a,
                                                                f_n)
-            D_sp[:] = [pack(D_ii) for D_ii in D_sii]
+            D_sp[:] = [pack_density(D_ii) for D_ii in D_sii]
             self.kptband_comm.sum(D_sp)
 
         self.symmetrize_atomic_density_matrices(D_asp)
@@ -191,14 +198,9 @@ class WaveFunctions:
         if len(self.kd.symmetry.op_scc) == 0:
             return
 
-        a_sa = self.kd.symmetry.a_sa
         D_asp.redistribute(self.atom_partition.as_serial())
-        for s in range(self.nspins):
-            D_aii = [unpack2(D_asp[a][s])
-                     for a in range(len(D_asp))]
-            for a, D_ii in enumerate(D_aii):
-                setup = self.setups[a]
-                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        self.setups.atomrotations.symmetrize_atomic_density_matrices(
+            D_asp, a_sa=self.kd.symmetry.a_sa)
         D_asp.redistribute(self.atom_partition)
 
     def calculate_occupation_numbers(self, fixed_fermi_level=False):
@@ -443,7 +445,7 @@ class WaveFunctions:
             for kpt in self.kpt_u:
                 if kpt.s == spin:
                     homo = max(kpt.eps_n[myn], homo)
-        homo = self.world.max(homo)
+        homo = self.world.max_scalar(homo)
 
         lumo = np.inf
         if n < self.bd.nbands:  # there are not enough bands for LUMO
@@ -452,7 +454,7 @@ class WaveFunctions:
                 for kpt in self.kpt_u:
                     if kpt.s == spin:
                         lumo = min(kpt.eps_n[myn], lumo)
-            lumo = self.world.min(lumo)
+            lumo = self.world.min_scalar(lumo)
 
         return np.array([homo, lumo])
 
@@ -589,6 +591,179 @@ class WaveFunctions:
             if not old:  # skip for old tar-files gpw's
                 f_n *= kpt.weight
             kpt.f_n = f_n
+
+    def summary_func(self, log):
+
+        pot = None
+        if hasattr(self.eigensolver, 'dm_helper'):
+            pot = self.eigensolver.dm_helper.func
+        elif hasattr(self.eigensolver, 'odd'):
+            pot = self.eigensolver.odd
+
+        f_sn = {}
+        for kpt in self.kpt_u:
+            u = kpt.s * self.kd.nibzkpts + kpt.q
+            f_sn[u] = kpt.f_n
+
+        log("For SIC calculations there are\n"
+            "diagonal elements of Lagrange matrix and "
+            "its eigenvalues.\n"
+            "Eigenvalues are printed above. \n"
+            "Labeling here corresponds "
+            "to how optimal orbitals are sorted "
+            "in array\n")
+        if self.nspins == 1:
+            header = " Band         L_ii  " \
+                     "Occupancy"
+            log(header)
+
+            lagr_labeled = {}
+            for c, x in enumerate(pot.lagr_diag_s[0]):
+                lagr_labeled[str(round(x, 12))] = c
+            lagr = sorted(pot.lagr_diag_s[0])
+            for x in lagr:
+                i = lagr_labeled[str(round(x, 12))]
+                log('%5d  %11.5f  %9.5f' % (
+                    i, Ha * x, f_sn[0][i]))
+
+        if self.nspins == 2:
+            if self.kd.comm.size > 1:
+                if self.kd.comm.rank == 0:
+                    # occupation numbers
+                    size = np.array([0])
+                    self.kd.comm.receive(size, 1)
+                    f_2n = np.zeros(shape=(int(size[0])))
+                    self.kd.comm.receive(f_2n, 1)
+                    f_sn[1] = f_2n
+
+                    # orbital energies
+                    size = np.array([0])
+                    self.kd.comm.receive(size, 1)
+                    lagr_1 = np.zeros(shape=(int(size[0])))
+                    self.kd.comm.receive(lagr_1, 1)
+
+                else:
+                    # occupations
+                    size = np.array([f_sn[1].shape[0]])
+                    self.kd.comm.send(size, 0)
+                    self.kd.comm.send(f_sn[1], 0)
+
+                    # orbital energies
+                    a = pot.lagr_diag_s[1].copy()
+                    size = np.array([a.shape[0]])
+                    self.kd.comm.send(size, 0)
+                    self.kd.comm.send(a, 0)
+
+                    del a
+
+            if self.kd.comm.rank == 0:
+                log('                  Up                 '
+                    '  Down')
+                log(' Band         L_ii   Occupancy  '
+                    ' Band      L_ii   Occupancy')
+
+                lagr_0 = np.sort(pot.lagr_diag_s[0])
+                lagr_labeled_0 = {}
+                for c, x in enumerate(pot.lagr_diag_s[0]):
+                    lagr_labeled_0[str(round(x, 12))] = c
+
+                if self.kd.comm.size == 1:
+                    lagr_1 = np.sort(pot.lagr_diag_s[1])
+                    lagr_labeled_1 = {}
+                    for c, x in enumerate(
+                            pot.lagr_diag_s[1]):
+                        lagr_labeled_1[str(round(x, 12))] = c
+                else:
+                    lagr_labeled_1 = {}
+                    for c, x in enumerate(lagr_1):
+                        lagr_labeled_1[str(round(x, 12))] = c
+                    lagr_1 = np.sort(lagr_1)
+
+                for x, y in zip(lagr_0, lagr_1):
+                    i0 = lagr_labeled_0[str(round(x, 12))]
+                    i1 = lagr_labeled_1[str(round(y, 12))]
+
+                    log('%5d  %11.5f  %9.5f'
+                        '%5d  %11.5f  %9.5f' %
+                        (i0, Ha * x,
+                         f_sn[0][i0],
+                         i1,
+                         Ha * y,
+                         f_sn[1][i1]))
+
+        log("\n")
+        log(flush=True)
+
+        sic_n = pot.e_sic_by_orbitals
+        if pot.name == 'PZ-SIC':
+            log('Perdew-Zunger SIC')
+        elif 'SPZ' in pot.name:
+            log('Self-Interaction Corrections:\n')
+            sf = pot.scalingf
+        else:
+            raise NotImplementedError
+
+        if self.nspins == 2 and self.kd.comm.size > 1:
+            if self.kd.comm.rank == 0:
+                size = np.array([0])
+                self.kd.comm.receive(size, 1)
+                sic_n2 = np.zeros(shape=(int(size[0]), 2),
+                                  dtype=float)
+                self.kd.comm.receive(sic_n2, 1)
+                sic_n[1] = sic_n2
+
+                if 'SPZ' in pot.name:
+                    sf_2 = np.zeros(shape=(int(size[0]), 1),
+                                    dtype=float)
+                    self.kd.comm.receive(sf_2, 1)
+                    sf[1] = sf_2
+            else:
+                size = np.array([sic_n[1].shape[0]])
+                self.kd.comm.send(size, 0)
+                self.kd.comm.send(sic_n[1], 0)
+
+                if 'SPZ' in pot.name:
+                    self.kd.comm.send(sf[1], 0)
+
+        if self.kd.comm.rank == 0:
+            for s in range(self.nspins):
+                log('Spin: %3d ' % (s))
+                header = """\
+            Self-Har.  Self-XC   Hartree + XC  Scaling
+            energy:    energy:   energy:       Factors:"""
+                log(header)
+                u_s = 0.0
+                xc_s = 0.0
+                for i in range(len(sic_n[s])):
+
+                    u = sic_n[s][i][0]
+                    xc = sic_n[s][i][1]
+                    if 'SPZ' in pot.name:
+                        f = (sf[s][i], sf[s][i])
+                    else:
+                        f = (pot.beta_c, pot.beta_x)
+
+                    log('band: %3d ' %
+                        (i), end='')
+                    log('%11.6f%11.6f%11.6f %8.3f%7.3f' %
+                        (-Ha * u / (f[0] * f_sn[s][i]),
+                         -Ha * xc / (f[1] * f_sn[s][i]),
+                         -Ha * (u / (f[0] * f_sn[s][i]) +
+                                xc / (f[1] * f_sn[s][i])),
+                         f[0], f[1]), end='')
+                    log(flush=True)
+                    u_s += u / (f[0] * f_sn[s][i])
+                    xc_s += xc / (f[1] * f_sn[s][i])
+                log('--------------------------------'
+                    '-------------------------')
+                log('Total     ', end='')
+                log('%11.6f%11.6f%11.6f' %
+                    (-Ha * u_s,
+                     -Ha * xc_s,
+                     -Ha * (u_s + xc_s)
+                     ), end='')
+                log("\n")
+                log(flush=True)
 
 
 def eigenvalue_string(wfs, comment=' '):

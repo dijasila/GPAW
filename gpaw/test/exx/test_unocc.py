@@ -3,11 +3,11 @@ from ase import Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
 @pytest.mark.libxc
+@pytest.mark.hybrids
 def test_exx_unocc():
 
     loa = Atoms('Be2',
@@ -22,16 +22,18 @@ def test_exx_unocc():
     unocc = True
     load = False
 
+    base_params = dict(
+        mode='fd',
+        h=0.3,
+        eigensolver='rmm-diis',
+        nbands=nbands,
+        convergence={'eigenstates': 1e-4},
+        txt=txt)
     # usual calculation
     fname = 'Be2.gpw'
     if not load:
         xco = HybridXC(xc)
-        cocc = GPAW(h=0.3,
-                    eigensolver='rmm-diis',
-                    xc=xco,
-                    nbands=nbands,
-                    convergence={'eigenstates': 1e-4},
-                    txt=txt)
+        cocc = GPAW(**base_params, xc=xco)
         cocc.calculate(loa)
     else:
         cocc = GPAW(fname)
@@ -42,12 +44,7 @@ def test_exx_unocc():
     if unocc:
         # apply Fock opeartor also to unoccupied orbitals
         xcu = HybridXC(xc, unocc=True)
-        cunocc = GPAW(h=0.3,
-                      eigensolver='rmm-diis',
-                      xc=xcu,
-                      nbands=nbands,
-                      convergence={'eigenstates': 1e-4},
-                      txt=txt)
+        cunocc = GPAW(**base_params, xc=xcu)
         cunocc.calculate(loa)
 
         parprint('     HF occ          HF unocc      diff')
@@ -56,8 +53,8 @@ def test_exx_unocc():
                   cunocc.get_potential_energy(),
                   cocc.get_potential_energy() - cunocc.get_potential_energy()
                   ))
-        equal(cocc.get_potential_energy(),
-              cunocc.get_potential_energy(), 1.e-4)
+        assert cocc.get_potential_energy() == pytest.approx(
+            cunocc.get_potential_energy(), abs=1.e-4)
 
         fu_n = cunocc.get_occupation_numbers()
         eu_n = cunocc.get_eigenvalues()
@@ -67,4 +64,4 @@ def test_exx_unocc():
             parprint('%8.4f %5.2f   %8.4f %5.2f  %8.4f' %
                      (eo, fo, eu, fu, eu - eo))
             if fo > 0.01:
-                equal(eo, eu, 3.5e-4)
+                assert eo == pytest.approx(eu, abs=3.5e-4)

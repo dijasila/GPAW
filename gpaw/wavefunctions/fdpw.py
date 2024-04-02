@@ -4,7 +4,7 @@ from ase.utils.timing import timer
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lfc import BasisFunctions
 from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
-from gpaw.utilities import unpack
+from gpaw.utilities import unpack_hermitian
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
@@ -45,7 +45,7 @@ class PseudoPartialWaveWfsMover:
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
                    for phit in setup.get_partial_waves_for_atomic_orbitals()]
-            # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+            # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_J?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
@@ -284,7 +284,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         if self.kpt_u[0].psit is None:
             basis_functions = BasisFunctions(self.gd,
-                                             [setup.phit_j
+                                             [setup.basis_functions_J
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
                                              cut=True)
@@ -325,6 +325,7 @@ class FDPWWaveFunctions(WaveFunctions):
         for kpt in self.kpt_u:
             if not kpt.psit.in_memory:
                 kpt.psit.read_from_file()
+                self.read_from_file_init_wfs_dm = True
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,
@@ -437,8 +438,8 @@ class FDPWWaveFunctions(WaveFunctions):
                     F_nsiv = F_nsiv.reshape((self.bd.mynbands,
                                              2, -1, 3)).conj()
                     F_nsiv *= kpt.f_n[:, np.newaxis, np.newaxis, np.newaxis]
-                    dH_ii = unpack(dH_axp[a][0])
-                    dH_vii = [unpack(dH_p) for dH_p in dH_axp[a][1:]]
+                    dH_ii = unpack_hermitian(dH_axp[a][0])
+                    dH_vii = [unpack_hermitian(dH_p) for dH_p in dH_axp[a][1:]]
                     dH_ssii = np.array(
                         [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                          [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
@@ -462,7 +463,7 @@ class FDPWWaveFunctions(WaveFunctions):
             for a, F_niv in F_aniv.items():
                 F_niv = F_niv.conj()
                 F_niv *= kpt.f_n[:, np.newaxis, np.newaxis]
-                dH_ii = unpack(dH_asp[a][kpt.s])
+                dH_ii = unpack_hermitian(dH_asp[a][kpt.s])
                 P_ni = kpt.P_ani[a]
                 F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
                 F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
@@ -480,7 +481,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     d_nn += ne * np.outer(c_n.conj(), c_n)
                 for a, F_niv in F_aniv.items():
                     F_niv = F_niv.conj()
-                    dH_ii = unpack(dH_asp[a][kpt.s])
+                    dH_ii = unpack_hermitian(dH_asp[a][kpt.s])
                     Q_ni = np.dot(d_nn, kpt.P_ani[a])
                     F_vii = np.dot(np.dot(F_niv.transpose(), Q_ni), dH_ii)
                     F_niv *= kpt.eps_n[:, np.newaxis, np.newaxis]
