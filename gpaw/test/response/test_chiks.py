@@ -158,7 +158,6 @@ def test_chiks(in_tmp_dir, gpw_files, system, qrel, gammacentered):
 
     Furthermore, we test the symmetries of the calculated susceptibilities.
     """
-    # ---------- Inputs ---------- #
 
     # Part 1: Set up ChiKSTestingFactory
     wfs, spincomponent = system
