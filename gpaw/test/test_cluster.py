@@ -88,8 +88,9 @@ def test_rotated_unitcell():
     spos = gnt2.get_scaled_positions()
 
     assert ((spos) <= 1).all() and (spos >= 0).all()
-    # check that the atom is shifted in non periodic direction
-    assert (gnt.positions[:, 2] >= box).all()
+    # check that the vacuum is equal on both sides in non periodic direction
+    cell_z = gnt.cell[1, 2]
+    assert (gnt.positions[:, 2] == cell_z / 2).all()
 
     N_c = h2gpts(h, gnt.cell)
     gd = GridDescriptor(N_c, gnt.cell, gnt.pbc)
