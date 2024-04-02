@@ -2,7 +2,7 @@ from math import sqrt
 import pytest
 
 from ase import Atoms
-from ase.build import fcc111
+from ase.build import fcc111, graphene_nanoribbon
 
 from gpaw.cluster import adjust_cell
 
@@ -55,7 +55,7 @@ def test_non_orthogonal_unitcell():
 
     for atoms in [
             fcc111('Pt', (1, 1, 1), a=a),
-            fcc111('Pt', (5, 6, 2), a=3.912, orthogonal=True)]:
+            fcc111('Pt', (5, 6, 2), a=a, orthogonal=True)]:
         old_cell = atoms.cell.copy()
 
         adjust_cell(atoms, box, h)
@@ -70,3 +70,29 @@ def test_non_orthogonal_unitcell():
         h_c = gd.get_grid_spacings()
 
         assert h_c[2] == pytest.approx(h_c[:2].sum() / 2)
+
+
+def test_rotated_unitcell():
+    h = 0.2
+    box = 3
+
+    gnt = graphene_nanoribbon(2, 2, sheet=True, vacuum=3)
+
+    gnt.rotate('y', 'z', rotate_cell=True)
+
+    adjust_cell(gnt, box, h)
+
+    # check if the atoms are inside the unitcell
+    gnt2 = gnt.copy()
+    gnt2.pbc = False
+    spos = gnt2.get_scaled_positions()
+
+    assert ((spos) <= 1).all() and (spos >= 0).all()
+    # check that the atom is shifted in non periodic direction
+    assert (gnt.positions[:, 2] >= box).all()
+
+    N_c = h2gpts(h, gnt.cell)
+    gd = GridDescriptor(N_c, gnt.cell, gnt.pbc)
+    h_c = gd.get_grid_spacings()
+
+    assert h_c[1] == pytest.approx((h_c[0] + h_c[2]) / 2)
