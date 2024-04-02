@@ -9,6 +9,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 
 
+@pytest.mark.dielectricfunction
 @pytest.mark.response
 @pytest.mark.skip(reason='TODO')
 def test_graphene_EELS():
