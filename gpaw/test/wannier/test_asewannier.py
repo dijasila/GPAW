@@ -60,7 +60,7 @@ def test_wannier_pw(in_tmp_dir, gpw_files):
     wan = Wannier(nwannier=4, calc=calc, fixedstates=4,
                   initialwannier='orbitals')
     wan.localize()
-
+    wan.translate_all_to_cell(cell=(0, 0, 0))
     assert wan.get_functional_value() == pytest.approx(9.853, abs=2e-3)
 
     # test that one of the Wannier functions is localized between the

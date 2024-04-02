@@ -5,14 +5,14 @@ from typing import Tuple
 
 from ase import Atoms
 from ase.parallel import parprint
-import ase.units as units
+from ase.units import Bohr
 from ase.utils.filecache import MultiFileJSONCache
 
 from gpaw.calculator import GPAW
 from gpaw.lcao.tightbinding import TightBinding
+from gpaw.typing import ArrayND
 from gpaw.utilities import unpack2
 from gpaw.utilities.tools import tri2full
-from gpaw.typing import ArrayND
 
 from .filter import fourier_filter
 
@@ -308,13 +308,13 @@ class Supercell:
                 dHp_asp = cache[name + "+"]["dH_all_asp"]
 
                 # FD derivatives in Hartree / Bohr
-                V1t_sG = (Vtp_sG - Vtm_sG) / (2 * delta / units.Bohr)
+                V1t_sG = (Vtp_sG - Vtm_sG) / (2 * delta / Bohr)
                 V1t_xsG.append(V1t_sG)
 
                 dH1_asp = {}
                 for atom in dHm_asp.keys():
                     dH1_asp[atom] = (dHp_asp[atom] - dHm_asp[atom]) / (
-                        2 * delta / units.Bohr
+                        2 * delta / Bohr
                     )
                 dH1_xasp.append(dH1_asp)
                 x += 1
