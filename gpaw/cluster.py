@@ -51,12 +51,11 @@ def adjust_cell(atoms: Atoms, border: float,
     1. The vacuum around all atoms is at least border
        in non-periodic directions
     2. The grid spacing chosen by GPAW will be as similar
-       as possible in all directions
+       as possible to h in all directions
     """
     n_pbc = atoms.pbc.sum()
     if n_pbc == 3:
         return
-    # extreme positions
 
     pos_ac = atoms.get_positions()
     lowest_c = np.minimum.reduce(pos_ac)
@@ -77,7 +76,7 @@ def adjust_cell(atoms: Atoms, border: float,
             if pbc:
                 h += h1 / n_pbc
 
-    # this is the wished h to be set to non-periodic directions
+    # the optimal h to be set to non-periodic directions
     h_c = np.array([h, h, h])
 
     shift_c = np.zeros(3)
