@@ -8,6 +8,7 @@ class Hamiltonian:
               vt_sR: UGArray,
               dedtaut_sR: UGArray | None,
               ibzwfs,
+              D_asii,
               psit_nG: XArray,
               out: XArray,
               spin: int) -> XArray:
@@ -15,7 +16,7 @@ class Hamiltonian:
         if dedtaut_sR is not None:
             self.apply_mgga(dedtaut_sR[spin], psit_nG, out)
         self.e_hybrid = self.apply_orbital_dependent(
-            ibzwfs, psit_nG, spin, out)
+            ibzwfs, D_asii, psit_nG, spin, out)
         return out
 
     def apply_local_potential(self,
@@ -33,6 +34,7 @@ class Hamiltonian:
 
     def apply_orbital_dependent(self,
                                 ibzwfs,
+                                D_asii,
                                 psit_nG: XArray,
                                 spin: int,
                                 out: XArray) -> float:

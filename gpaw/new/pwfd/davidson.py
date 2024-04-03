@@ -103,7 +103,7 @@ class Davidson(Eigensolver):
         Ht = partial(hamiltonian.apply,
                      state.potential.vt_sR,
                      state.potential.dedtaut_sR,
-                     ibzwfs)  # used by hybrids
+                     ibzwfs, state.density.D_asii)  # used by hybrids
 
         weight_un = calculate_weights(self.converge_bands, ibzwfs)
 
