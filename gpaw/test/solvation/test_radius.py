@@ -34,6 +34,6 @@ def test_use_alvarez():
     atoms.calc = solv.SolvationGPAW(
         h=0.24, convergence=convergence, **kwargs)
     atoms.get_potential_energy()
-    
+
     assert atoms.calc.hamiltonian.cavity.effective_potential.atomic_radii(
         atoms) == vdw_radii[26]
