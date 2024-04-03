@@ -142,6 +142,7 @@ class SpinorPWHamiltonian(Hamiltonian):
               vt_xR: UGArray,
               dedtaut_xR: UGArray | None,
               ibzwfs,
+              D_asii,
               psit_nsG: XArray,
               out: XArray,
               spin: int) -> XArray:

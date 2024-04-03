@@ -51,7 +51,7 @@ class PWHybridHamiltonian(PWHamiltonian):
         self.plan = grid.fft_plans()
 
     def apply_orbital_dependent(self,
-                                ibzwfs,
+                                ibzwfs: IBZWaveFunctions,
                                 D_asii,
                                 psit_nG: XArray,
                                 spin: int,
@@ -63,7 +63,7 @@ class PWHybridHamiltonian(PWHamiltonian):
                 continue
             D_aii = D_asii[:, spin]
             if ibzwfs.nspins == 1:
-                D_sii.data *= 0.5
+                D_aii.data *= 0.5
             e = self.calculate(wfs, D_aii, psit_nG, Htpsit_nG)
         return e
 
@@ -74,17 +74,25 @@ class PWHybridHamiltonian(PWHamiltonian):
                   out_nG: PWArray):
         same = wfs1.psit_nX is psit2_nG
         psit1_R = self.grid.empty()
+        psit2_R = self.grid.empty()
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()
         P1_ani = wfs1.P_ani
         pt_aiG = wfs1.pt_aiX
         P2_ani = pt_aiG.integrate(psit2_nG)
         evv = 0.0
-        for n1, (psit1_G, f1) in enumerate(zip(wfs1.psit_nX, wfs1.myocc_n)):
-            psit1_G.ifft(out=psit1_R, plan=self.plan)
-            for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, out_nG)):
-                psit2_G.ifft(out=rhot_R, plan=self.plan)
-                rhot_R.data *= psit1_R.data
+        B_ai = {}
+        for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, out_nG)):
+            psit2_G.ifft(out=psit2_R, plan=self.plan)
+
+            for a, D_ii in D_aii.items():
+                VV_ii = pawexxvv(self.C_app[a], D_ii)
+                B_ai[a] = (self.VC_aii[a] + VV_ii) @ P2_ani[a][n2]
+
+            for n1, (psit1_G, f1) in enumerate(zip(wfs1.psit_nX,
+                                                   wfs1.myocc_n)):
+                psit1_G.ifft(out=psit1_R, plan=self.plan)
+                rhot_R.data[:] = psit1_R.data * psit2_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
                 Q_aL = {a: np.einsum('i, ijL, j -> L',
                                      P1_ani[a][n1], delta_iiL, P2_ani[a][n2])
@@ -97,28 +105,13 @@ class PWHybridHamiltonian(PWHamiltonian):
                 rhot_R.data *= psit1_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
                 out_G.data -= rhot_G.data * f1
-                continue
+
                 A_aL = self.ghat_aLG.integrate(rhot_G)
-                B_ai = {a: paw_correction(A_L,
-                                          D_aii[a],
-                                          self.delta_aiiL[a],
-                                          self.VC_aii[a],
-                                          self.C_app[a],
-                                          f1,
-                                          P2_ani[a][n2])
-                        for a, A_L in A_aL.items()}
-                pt_aiG.add_to(out_G, B_ai)
+                for a, A_L in A_aL.items():
+                    B_ai[a] += np.einsum(
+                        'L, ijL, j -> i',
+                        f1 * A_L, self.delta_aiiL[a], P1_ani[a][n1])
+
+            pt_aiG.add_to(out_G, B_ai)
 
         return evv
-
-
-def paw_correction(A_L,
-                   D_ii,
-                   delta_iiL,
-                   VC_ii,
-                   C_pp,
-                   f1,
-                   P2_i):
-    VV_ii = pawexxvv(C_pp, D_ii)
-    return (np.einsum('L, ijL, j -> i', f1 * A_L, delta_iiL, P2_i) +
-            (VC_ii + VV_ii))
