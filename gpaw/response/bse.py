@@ -37,15 +37,15 @@ class BSEBackend:
                  direction=0,
                  wfile=None,
                  write_h=False,
-                 write_v=False):
+                 write_v=False,
+                 no_coulomb=False):
         self.gs = gs
         self.q_c = q_c
         self.direction = direction
         self.context = context
-
         self.spinors = spinors
         self.scale = scale
-
+        self.no_coulomb = no_coulomb
         assert mode in ['RPA', 'TDHF', 'BSE']
 
         self.ecut = ecut / Hartree
@@ -201,7 +201,10 @@ class BSEBackend:
         # Calculate exchange interaction
         qpd0 = SingleQPWDescriptor.from_q(self.q_c, self.ecut, self.gs.gd)
         ikq_k = self.kd.find_k_plus_q(self.q_c)
-        v_G = self.coulomb.V(qpd=qpd0, q_v=None)
+        if self.no_coulomb:
+            v_G = np.zeros(qpd0.NG)
+        else:
+            v_G = self.coulomb.V(qpd=qpd0, q_v=None)
 
         if optical:
             v_G[0] = 0.0
@@ -313,8 +316,8 @@ class BSEBackend:
 
         world.sum(df_Ksmn)
         world.sum(rhoex_KsmnG)
-
         self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+        self.rho_SG = np.reshape(rhoex_KsmnG, (len(self.rhoG0_S), -1))
         self.context.timer.stop('Pair densities')
 
         if hasattr(self, 'H_sS'):
@@ -550,6 +553,7 @@ class BSEBackend:
             world.broadcast(self.w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+            self.rho_SG = np.delete(self.rho_SG, self.excludef_S, axis=0)
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
@@ -605,6 +609,37 @@ class BSEBackend:
             raise ValueError('%s array not recognized' % readfile)
 
         return
+
+    def collect_C_TGG(self, C_tGG):
+        """
+            Collect C_tGG to a rank 0 (as C_TGG) from all ranks.
+            T is global transition index, t is local transition index.
+            G is global planewave index.
+        """
+        print(C_tGG.shape,'orig shape')
+        if len(C_tGG) != self.maxmySsize:
+            C2_tGG = np.zeros((self.maxmySsize, *C_tGG.shape[1:]), dtype=complex)
+            C2_tGG[:len(C_tGG)] = C_tGG
+            C_tGG = C2_tGG
+        if world.rank == 0:
+            C_TGG = np.zeros((self.maxmySsize * world.size, *C_tGG.shape[1:]), dtype=complex)
+        else:
+            C_TGG = None
+        world.gather(C_tGG, 0, C_TGG)
+        if world.rank == 0:
+            nG = self.rho_SG.shape[-1]
+            return C_TGG[:self.nS].reshape((self.nS, nG, nG))
+
+    def check_fsum_rule(self, w_w, vchi_w):
+        """Check f-sum rule."""
+        nv = self.gs.nvalence
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
+        self.context.print('', flush=False)
+        self.context.print('Checking f-sum rule:', flush=False)
+        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
+        self.context.print('')
 
     @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1,
@@ -663,15 +698,7 @@ class BSEBackend:
             q_v = np.dot(self.q_c, B_cv)
             vchi_w /= np.dot(q_v, q_v)
 
-        """Check f-sum rule."""
-        nv = self.gs.nvalence
-        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
-        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
-        N = -np.dot(dw_w, wchi_w.imag) * self.gs.volume / (2 * np.pi**2)
-        self.context.print('', flush=False)
-        self.context.print('Checking f-sum rule:', flush=False)
-        self.context.print(f'  Valence = {nv}, N = {N:f}', flush=False)
-        self.context.print('')
+        self.check_fsum_rule(w_w, vchi_w)
 
         if write_eig is not None:
             assert isinstance(write_eig, str)
@@ -681,6 +708,76 @@ class BSEBackend:
                                       self.w_T * Hartree, C_T)
 
         return vchi_w
+
+    @timer('get_chi_wGG')
+    def get_chi_wGG(self, w_w=None, eta=0.1, readfile=None, optical=True,
+                    write_eig=None):
+        """Returns chi_wGG'"""
+
+        self.get_bse_matrix(readfile=readfile, optical=optical)
+        w_T = self.w_T
+        rho_SG = self.rho_SG
+        df_S = self.df_S
+        nG = rho_SG.shape[-1]
+        self.context.print('Calculating response function at %s frequency '
+                           'points' % len(w_w))
+
+        if not self.td:
+            if world.rank == 0:
+                A_GT = rho_SG.T @ self.v_ST
+                B_GT = rho_SG.T * df_S[np.newaxis] @ self.v_ST
+                tmp = self.v_ST.conj().T @ self.v_ST
+                overlap_tt = np.linalg.inv(tmp)
+                C_TGG = ((B_GT.conj() @ overlap_tt.T).T)[..., np.newaxis] *\
+                    A_GT.T[:, np.newaxis]
+                C_TGG1 = None
+            else:
+                return
+        else:
+            A_Gt = rho_SG.T @ self.v_St
+            B_Gt = (rho_SG.T * df_S[np.newaxis]) @ self.v_St
+            if world.size == 1:
+                C_TGG1 = A_Gt.T.conj()[..., np.newaxis] * B_Gt.T[:, np.newaxis]
+                C_TGG = B_Gt.T.conj()[..., np.newaxis] * A_Gt.T[:, np.newaxis]
+            else:
+                Nv = self.nv * (self.spinors + 1)
+                Nc = self.nc * (self.spinors + 1)
+                Ns = self.spins
+                nS = self.nS
+                ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+                assert self.kd.nbzkpts % world.size == 0
+                grid = BlacsGrid(world, world.size, 1)
+                desc = grid.new_descriptor(nS, nG * nG, ns, nG * nG)
+                C_tGG = desc.empty(dtype=complex)
+                np.einsum('Gt,Ht->tGH', B_Gt.conj(), A_Gt,
+                          out=C_tGG.reshape((-1, nG, nG)))
+                C_TGG = self.collect_C_TGG(C_tGG)
+                desc1 = grid.new_descriptor(nS, nG * nG, ns, nG * nG)
+                C_tGG1 = desc1.empty(dtype=complex)
+                np.einsum('Gt,Ht->tGH', A_Gt.conj(), B_Gt,
+                          out=C_tGG1.reshape((-1, nG, nG)))
+                C_TGG1 = self.collect_C_TGG(C_tGG1)
+                if grid.comm.rank != 0:
+                    return
+
+        eta /= Hartree
+
+        tmp_Tw = 1 / (w_w[None, :] / Hartree - w_T[:, None] + 1j * eta)
+        n_tmp_Tw = - 1 / (w_w[None, :] / Hartree + w_T[:, None] + 1j * eta)
+
+        chi_wGG = np.einsum('Tw,TAB->wAB', tmp_Tw, C_TGG)
+        if C_TGG1 is not None:
+            chi_wGG += np.einsum('Tw,TAB->wAB', n_tmp_Tw, C_TGG1)
+
+        chi_wGG *= 1 / self.gs.volume
+
+        if write_eig is not None:
+            assert isinstance(write_eig, str)
+            filename = write_eig
+            if world.rank == 0:
+                write_bse_eigenvalues(filename, self.mode,
+                                      self.w_T * Hartree, C_TGG[:, 0, 0])
+        return np.swapaxes(chi_wGG, -1, -2)
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 filename='df_bse.csv', readfile=None,
@@ -883,16 +980,29 @@ class BSEBackend:
             A_sS = A_sS.T
         return A_sS
 
+    @property
+    def nK(self):
+        return self.kd.nbzkpts
+
+    @property
+    def maxmyKsize(self):
+        return -(-self.nK // world.size)
+
+    @property
+    def cvblocksize(self):
+        return self.nv * self.nc * self.spins * (1 + self.spinors)**2
+
+    @property
+    def maxmySsize(self):
+        return self.maxmyKsize * self.cvblocksize
+
     def parallelisation_sizes(self, rank=None):
         if rank is None:
             rank = world.rank
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(rank * myKsize,
-                         min((rank + 1) * myKsize, nK))
+        myKrange = range(rank * self.maxmyKsize,
+                         min((rank + 1) * self.maxmyKsize, self.nK))
         myKsize = len(myKrange)
-        mySsize = myKsize * self.nv * self.nc * self.spins
-        mySsize *= (1 + self.spinors)**2
+        mySsize = myKsize * self.cvblocksize
         return myKrange, myKsize, mySsize
 
     def print_initialization(self, td, eshift, gw_skn):
