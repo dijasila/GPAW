@@ -20,5 +20,6 @@ def check():
     # about 3.6 eV/A. 3.47 eV/A with these parameters
 
     g_lnn = g_sqklnn[0, 0, 665, 3:6, 1:4, 1:4]
-    M = np.abs(g_lnn.sum())
-    assert np.isclose(M, 3.4736929, rtol=1e-4)
+    # See PHYSICAL REVIEW B 104, 195201 (2021) Eq 12
+    M = np.sqrt(np.sum(g_lnn**2))
+    assert np.isclose(M, 3.3310379, rtol=1e-4)
