@@ -6,7 +6,7 @@ The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
 """
 
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 import pytest
 from ase.build import molecule
 from ase.units import mol, kcal, Pascal, m, Bohr

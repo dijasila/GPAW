@@ -1,5 +1,5 @@
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 import pytest
 from ase.build import molecule
 from ase.units import mol, kcal

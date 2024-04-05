@@ -3,7 +3,7 @@ from ase.build import molecule
 from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.occupations import FermiDirac
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT

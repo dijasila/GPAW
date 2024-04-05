@@ -1,5 +1,5 @@
 import pytest
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from ase.build import molecule
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii

@@ -2,7 +2,7 @@ from ase import optimize
 from ase.build import molecule
 from ase.vibrations.infrared import Infrared
 from gpaw import GPAW, FermiDirac
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 
 h = 0.20
 

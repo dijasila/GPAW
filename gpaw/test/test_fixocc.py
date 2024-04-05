@@ -1,7 +1,7 @@
 from ase.build import molecule
 from ase.parallel import parprint
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 import pytest
 
 

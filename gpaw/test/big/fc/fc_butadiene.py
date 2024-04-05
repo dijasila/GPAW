@@ -10,7 +10,7 @@ from ase.vibrations.franck_condon import FranckCondon
 
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.utilities.folder import Folder
 
 butadiene = u"""10

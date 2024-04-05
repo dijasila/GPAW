@@ -2,7 +2,7 @@ import numpy as np
 from ase.build import molecule
 from ase.data.vdw import vdw_radii
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 import pytest
 from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
                             Power12Potential, LinearDielectric)

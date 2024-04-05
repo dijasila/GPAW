@@ -2,7 +2,7 @@ from ase.build import molecule
 
 import pytest
 import gpaw.solvation as solv
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.lrtddft import LrTDDFT
 from gpaw import PoissonSolver
 

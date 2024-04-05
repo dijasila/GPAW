@@ -4,7 +4,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW
 
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.pes.state import BoundState, H1s
 from gpaw.pes.ds_beta import CrossSectionBeta
 

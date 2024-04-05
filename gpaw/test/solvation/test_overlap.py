@@ -2,7 +2,7 @@ import pytest
 from ase.build import molecule
 
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.analyse.overlap import Overlap
 import gpaw.solvation as solv
 from gpaw.lrtddft import LrTDDFT

@@ -1,7 +1,7 @@
 import numpy as np
 from ase.units import Bohr, Ha
 from ase.build import molecule
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw import GPAW
 from gpaw.external import static_polarizability
 

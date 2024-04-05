@@ -6,7 +6,7 @@ from gpaw.mpi import world
 from gpaw.occupations import FermiDirac
 from gpaw.test import gen
 from gpaw.eigensolvers import RMMDIIS
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.lrtddft import LrTDDFT
 
 h = 0.3  # Gridspacing

@@ -5,7 +5,7 @@ from ase import Atoms
 from ase.build.connected import connected_indices
 from ase.utils import deprecated
 
-from .utilities import adjust_cell
+from .utilities.adjust_cell import adjust_cell
 
 
 class Cluster(Atoms):
@@ -37,6 +37,7 @@ class Cluster(Atoms):
         """Find atoms connected to self[index] and return them."""
         return self[connected_indices(self, index, dmax, scale)]
 
-    @deprecated('Please use adjust_cell from gpaw.cluster instead.')
+    @deprecated(
+        'Please use adjust_cell from gpaw.utilities.adjust_cell instead.')
     def minimal_box(self, border=4, h=None, multiple=4) -> None:
         adjust_cell(self, border, h, multiple)

@@ -8,7 +8,7 @@ from ase.parallel import barrier, parprint
 from gpaw import GPAW
 from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.analyse.vdwradii import vdWradii
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 
 
 @pytest.mark.later

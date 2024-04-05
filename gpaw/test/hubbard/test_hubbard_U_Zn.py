@@ -1,7 +1,7 @@
 import pytest
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 
 
 def test_Hubbard_U_Zn():

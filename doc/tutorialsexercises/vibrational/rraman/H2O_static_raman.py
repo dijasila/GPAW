@@ -2,7 +2,7 @@ from ase.vibrations.raman import StaticRamanCalculator
 from ase.io import read
 
 from gpaw import GPAW, FermiDirac
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw.external import static_polarizability
 
 

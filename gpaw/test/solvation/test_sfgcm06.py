@@ -7,7 +7,7 @@ J. Chem. Phys. 124, 074103, 2006
 """
 
 from gpaw import GPAW
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 import pytest
 from ase import Atoms
 from ase.units import mol, kcal, Pascal, m, Bohr

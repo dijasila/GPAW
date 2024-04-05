@@ -1,4 +1,4 @@
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from ase.build import molecule
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (

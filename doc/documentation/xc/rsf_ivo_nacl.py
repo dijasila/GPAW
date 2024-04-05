@@ -1,7 +1,7 @@
 """Test calculation for unoccupied states using IVOs."""
 
 from ase.build import molecule
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 from gpaw import GPAW, KohnShamConvergenceError, FermiDirac
 from gpaw.eigensolvers import CG, RMMDIIS
 

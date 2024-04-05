@@ -5,7 +5,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW
 from gpaw.analyse.multipole import Multipole
-from gpaw.cluster import adjust_cell
+from gpaw.utilities.adjust_cell import adjust_cell
 
 
 @pytest.mark.later
