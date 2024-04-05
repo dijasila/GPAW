@@ -4,7 +4,7 @@ import pytest
 from ase import Atoms
 from ase.build import fcc111, graphene_nanoribbon
 
-from gpaw.cluster import adjust_cell
+from gpaw.adjust_cell import adjust_cell
 
 from gpaw.utilities import h2gpts
 from gpaw.grid_descriptor import GridDescriptor

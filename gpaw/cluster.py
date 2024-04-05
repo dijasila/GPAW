@@ -8,7 +8,7 @@ from ase.build.connected import connected_indices
 
 from gpaw.utilities import h2gpts
 from gpaw.grid_descriptor import GridDescriptor
-
+from gpaw.adjust_cell import adjust_cell
 
 class Cluster(Atoms):
     """A class for cluster structures
@@ -41,7 +41,7 @@ class Cluster(Atoms):
         adjust_cell(self, border, h, multiple)
 
 
-def adjust_cell(atoms: Atoms, border: float,
+'''def adjust_cell(atoms: Atoms, border: float,
                 h: float = 0.2, idiv: int = 4) -> None:
     """Adjust the cell such that
     1. The vacuum around all atoms is at least border
@@ -101,4 +101,4 @@ def adjust_cell(atoms: Atoms, border: float,
         shift_c += (size - extension) / 2 * u_c
         shift_c -= lowest_c * u_c
 
-    atoms.translate(shift_c)
+    atoms.translate(shift_c)'''
