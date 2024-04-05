@@ -55,43 +55,64 @@ class PWHybridHamiltonian(PWHamiltonian):
                                 D_asii,
                                 psit_nG: XArray,
                                 spin: int,
-                                Htpsit_nG: XArray) -> float:
+                                Htpsit_nG: XArray) -> dict[str, float]:
         assert isinstance(psit_nG, PWArray)
         assert isinstance(Htpsit_nG, PWArray)
+        energies = np.zeros(3)
         for wfs in ibzwfs:
             if wfs.spin != spin:
                 continue
             D_aii = D_asii[:, spin]
             if ibzwfs.nspins == 1:
                 D_aii.data *= 0.5
-            e = self.calculate(wfs, D_aii, psit_nG, Htpsit_nG)
-        return e
+            energies += self.calculate(wfs, D_aii, psit_nG, Htpsit_nG)
+        return {'evv': energies[0],
+                'evc': energies[1],
+                'ekin': energies[2]}
 
     def calculate(self,
                   wfs1: PWFDWaveFunctions,
                   D_aii,
                   psit2_nG: PWArray,
                   out_nG: PWArray):
-        same = wfs1.psit_nX is psit2_nG
+        f1_n = wfs1.myocc_n
+        psit1_nG = wfs1.psit_nX
+
         psit1_R = self.grid.empty()
         psit2_R = self.grid.empty()
         rhot_R = self.grid.empty()
         rhot_G = self.pw.empty()
         vrhot_G = self.pw.empty()
+
         P1_ani = wfs1.P_ani
         pt_aiG = wfs1.pt_aiX
-        P2_ani = pt_aiG.integrate(psit2_nG)
+
+        same = psit1_nG is psit2_nG
+        if same:
+            P2_ani = P1_ani
+        else:
+            P2_ani = pt_aiG.integrate(psit2_nG)
+
         evv = 0.0
-        B_ai = {}
+        evc = 0.0
+        ekin = 0.0
+        B_ani = {}
+        for a, D_ii in D_aii.items():
+            VV_ii = pawexxvv(self.C_app[a], D_ii)
+            VC_ii = self.VC_aii[a]
+            B_ni = P2_ani[a] @ (-VC_ii - 2 * VV_ii)
+            B_ani[a] = B_ni
+            if same:
+                ec = (D_ii * VC_ii).sum()
+                ev = (D_ii * VC_ii).sum()
+                ekin += ev + 2 * ev
+                evv += ev
+                evc += ec
+
         for n2, (psit2_G, out_G) in enumerate(zip(psit2_nG, out_nG)):
             psit2_G.ifft(out=psit2_R, plan=self.plan)
 
-            for a, D_ii in D_aii.items():
-                VV_ii = pawexxvv(self.C_app[a], D_ii)
-                B_ai[a] = -(self.VC_aii[a] + 2 * VV_ii) @ P2_ani[a][n2]
-
-            for n1, (psit1_G, f1) in enumerate(zip(wfs1.psit_nX,
-                                                   wfs1.myocc_n)):
+            for n1, (psit1_G, f1) in enumerate(zip(psit1_nG, f1_n)):
                 psit1_G.ifft(out=psit1_R, plan=self.plan)
                 rhot_R.data[:] = psit1_R.data * psit2_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
@@ -101,7 +122,9 @@ class PWHybridHamiltonian(PWHamiltonian):
                 self.ghat_aLG.add_to(rhot_G, Q_aL)
                 vrhot_G.data[:] = rhot_G.data * self.v_G.data
                 if same:
-                    evv += rhot_G.integrate(vrhot_G)
+                    e = f1 * f1_n[n2] * rhot_G.integrate(vrhot_G)
+                    evv += 0.5 * e
+                    ekin += e
                 vrhot_G.ifft(out=rhot_R, plan=self.plan)
                 rhot_R.data *= psit1_R.data
                 rhot_R.fft(out=rhot_G, plan=self.plan)
@@ -109,10 +132,10 @@ class PWHybridHamiltonian(PWHamiltonian):
 
                 A_aL = self.ghat_aLG.integrate(vrhot_G)
                 for a, A_L in A_aL.items():
-                    B_ai[a] -= np.einsum(
+                    B_ani[a][n2] -= np.einsum(
                         'L, ijL, j -> i',
                         f1 * A_L, self.delta_aiiL[a], P1_ani[a][n1])
 
-            pt_aiG.add_to(out_G, B_ai)
+        pt_aiG.add_to(out_nG, B_ani)
 
-        return evv
+        return evv, evc, ekin
