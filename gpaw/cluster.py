@@ -61,12 +61,10 @@ def adjust_cell(atoms: Atoms, border: float,
     lowest_c = np.minimum.reduce(pos_ac)
     largest_c = np.maximum.reduce(pos_ac)
 
-    for i in range(3):
-        if (atoms.cell[i] == 0.).all():
-            for i in range(3):
-                if atoms.pbc[i]:
-                    continue
-                atoms.cell[i, i] = 1
+    for i, v_c, in enumerate(atoms.cell):
+        if (v_c == 0).all():
+            assert not atoms.pbc[i]  # pbc with zero cell size make no sense
+            atoms.cell[i, i] = 1
 
     if n_pbc:
         N_c = h2gpts(h, atoms.cell, idiv)
