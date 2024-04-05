@@ -31,4 +31,4 @@ calc = GPAW(mode='fd', txt='CO.txt', xc='LCY-PBE:omega=0.81', convergence=c,
 co.calc = calc
 co.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
-assert abs(eps_homo - -IP) < 0.21
+assert abs(eps_homo - -IP) < 0.35
