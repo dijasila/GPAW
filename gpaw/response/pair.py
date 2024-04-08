@@ -1,6 +1,6 @@
 import numpy as np
 
-from gpaw.response import ResponseGroundStateAdapter, ResponseContext, timer
+from gpaw.response import ResponseContext, read_ground_state, timer
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.utilities.blas import mmm
 
@@ -461,6 +461,6 @@ def get_gs_and_context(calc, txt, world, timer):
         assert calc.wfs.world.size == 1
         gs = calc.gs_adapter()
     else:
-        gs = ResponseGroundStateAdapter.from_gpw_file(calc, context=context)
+        gs = read_ground_state(calc, context=context)
 
     return gs, context
