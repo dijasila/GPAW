@@ -38,7 +38,6 @@ class BSEBackend:
                  q_c=[0.0, 0.0, 0.0],
                  direction=0,
                  wfile=None,
-                 write_h=False,
                  write_v=False):
         self.gs = gs
         self.q_c = q_c
@@ -60,7 +59,6 @@ class BSEBackend:
                                'truncation. Use integrate_gamma=1')
         self.integrate_gamma = integrate_gamma
         self.wfile = wfile
-        self.write_h = write_h
         self.write_v = write_v
 
         # Find q-vectors and weights in the IBZ:
@@ -422,9 +420,6 @@ class BSEBackend:
 
         self.H_sS = H_sS
 
-        if self.write_h:
-            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
-
     @timer('get_density_matrix')
     def get_density_matrix(self, kpt1, kpt2):
         self.context.timer.start('Symop')
@@ -718,34 +713,6 @@ class BSEBackend:
             w.close()
         world.barrier()
 
-    def par_load(self, filename, name):
-        import ase.io.ulm as ulm
-
-        if world.rank == 0:
-            r = ulm.open(filename, 'r')
-            if name == 'v_TS':
-                self.w_T = r.w_T
-            self.rhoG0_S = r.rhoG0_S
-            self.df_S = r.df_S
-            A_XS = r.A_XS
-            r.close()
-        else:
-            if name == 'v_TS':
-                self.w_T = np.zeros((self.nS), dtype=float)
-            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
-            self.df_S = np.zeros((self.nS), dtype=float)
-            A_XS = None
-
-        world.broadcast(self.rhoG0_S, 0)
-        world.broadcast(self.df_S, 0)
-
-        if name == 'H_SS':
-            self.H_sS = self.distribute_A_SS(A_XS)
-
-        if name == 'v_TS':
-            world.broadcast(self.w_T, 0)
-            self.v_St = self.distribute_A_SS(A_XS, transpose=True)
-
     def collect_A_SS(self, A_sS):
         if world.rank == 0:
             A_SS = np.zeros((self.nS, self.nS), dtype=complex)
@@ -762,25 +729,6 @@ class BSEBackend:
         world.barrier()
         if world.rank == 0:
             return A_SS
-
-    def distribute_A_SS(self, A_SS, transpose=False):
-        if world.rank == 0:
-            for rank in range(0, world.size):
-                nkr, nk, ns = self.parallelisation_sizes(rank)
-                if rank == 0:
-                    A_sS = A_SS[0:ns]
-                    Ntot = ns
-                else:
-                    world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
-                    Ntot += ns
-        else:
-            nkr, nk, ns = self.parallelisation_sizes()
-            A_sS = np.empty((ns, self.nS), dtype=complex)
-            world.receive(A_sS, 0, tag=123)
-        world.barrier()
-        if transpose:
-            A_sS = A_sS.T
-        return A_sS
 
     def parallelisation_sizes(self, rank=None):
         if rank is None:
@@ -896,8 +844,6 @@ class BSE(BSEBackend):
         wfile: str
             File for saving screened interaction and some other stuff
             needed later
-        write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.ulm.
         write_v: bool
             If True, write eigenvalues and eigenstates to v_TS.ulm
         """
