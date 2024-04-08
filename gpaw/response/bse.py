@@ -28,6 +28,12 @@ class DiagonalizedBSE:
     w_T: np.ndarray
 
 
+@dataclass
+class DiagonalizedTDBSE:
+    w_T: np.ndarray
+    v_St: np.ndarray
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -562,11 +568,12 @@ class BSEBackend:
             world.broadcast(w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
-        # Here the eigenvectors are returned as complex conjugated rows
+            # Here the eigenvectors are returned as complex conjugated rows
+            diag = DiagonalizedBSE(w_T)
         else:
             if world.size == 1:
                 self.context.print('  Using lapack...')
-                w_T, self.v_St = eigh(self.H_sS)
+                w_T, v_St = eigh(self.H_sS)
             else:
                 self.context.print('  Using scalapack...')
                 nS = self.nS
@@ -587,15 +594,17 @@ class BSEBackend:
                 desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
 
                 r = Redistributor(grid.comm, desc2, desc)
-                self.v_St = desc.zeros(dtype=complex)
-                r.redistribute(v_tmp, self.v_St)
-                self.v_St = self.v_St.conj().T
+                v_St = desc.zeros(dtype=complex)
+                r.redistribute(v_tmp, v_St)
+                v_St = v_St.conj().T
 
-        if self.write_v and self.td:
-            # Cannot use par_save without td
-            self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
+            diag = DiagonalizedTDBSE(w_T, v_St)
 
-        return DiagonalizedBSE(w_T)
+            if self.write_v:
+                # Cannot use par_save without td
+                self.par_save('v_TS.ulm', 'v_TS', v_St.T)
+
+        return diag
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, readfile=None, optical=True):
@@ -644,8 +653,9 @@ class BSEBackend:
                 C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
             world.broadcast(C_T, 0)
         else:
-            A_t = np.dot(rhoG0_S, self.v_St)
-            B_t = np.dot(rhoG0_S * df_S, self.v_St)
+            v_St = self._diag.v_St
+            A_t = np.dot(rhoG0_S, v_St)
+            B_t = np.dot(rhoG0_S * df_S, v_St)
             if world.size == 1:
                 C_T = B_t.conj() * A_t
             else:
@@ -770,7 +780,7 @@ class BSEBackend:
         if name == 'v_TS':
             world.broadcast(w_T, 0)
             self._diag.w_T = w_T
-            self.v_St = self.distribute_A_SS(A_XS, transpose=True)
+            self._diag.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
     def collect_A_SS(self, A_sS):
         if world.rank == 0:
