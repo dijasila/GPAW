@@ -18,7 +18,6 @@ from gpaw.response.coulomb_kernels import CoulombKernel
 from gpaw.response.df import write_response_function
 from gpaw.response.frequencies import FrequencyDescriptor
 from gpaw.response.groundstate import ResponseGroundStateAdapter
-from gpaw.response.paw import PWPAWCorrectionData
 from gpaw.response.pair import KPointPairFactory, get_gs_and_context
 from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.screened_interaction import initialize_w_calculator
@@ -226,7 +225,7 @@ class BSEBackend:
             if (self.qd.ibzk_kc - self.q_c < 1.0e-6).all():
                 iq0 = self.qd.bz2ibz_k[self.kd.where_is_q(self.q_c,
                                                           self.qd.bzk_kc)]
-                pawcorr = self.screened_potential.pawcorr_q[iq0]  # Q_qaGii[iq0]
+                pawcorr = self.screened_potential.pawcorr_q[iq0]
             else:
                 pairden_paw_corr = self.gs.pair_density_paw_corrections
                 pawcorr = pairden_paw_corr(qpd0)
