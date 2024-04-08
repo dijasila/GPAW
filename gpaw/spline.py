@@ -13,6 +13,7 @@ class Spline:
     """Spline object"""
     def __init__(self, spline):
         self.spline = spline
+        self.l = self.get_angular_momentum_number()
 
     @classmethod
     def from_data(cls, l, rmax, f_g):
@@ -28,15 +29,6 @@ class Spline:
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
         return cls(cgpaw.Spline(l, rmax, f_g))
-
-    @property
-    def l(self):  # noqa: E743
-        """Angular momentum quantum number"""
-        return self.get_angular_momentum_number()
-
-    @property
-    def _npoints(self):
-        return self.get_npoints()
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -72,8 +64,9 @@ class Spline:
     def __getstate__(self):
         state = self.__dict__.copy()
         rmax = self.get_cutoff()
-        state['spline'] = (rmax,
-                           self.map(np.linspace(0.0, rmax, self._npoints)))
+        state['spline'] = (
+            rmax,
+            self.map(np.linspace(0.0, rmax, self.get_npoints())))
         return state
 
     def __setstate__(self, state):
