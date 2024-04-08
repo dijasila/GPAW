@@ -23,20 +23,6 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.screened_interaction import initialize_w_calculator
 
 
-@dataclass
-class DiagonalizedBSE:
-    w_T: np.ndarray
-    v_ST: np.ndarray
-    subset_df_S: np.ndarray
-    subset_rhoG0_S: np.ndarray
-
-
-@dataclass
-class DiagonalizedTDBSE:
-    w_T: np.ndarray
-    v_St: np.ndarray  # note distinction from v_ST in non-Tamm–Dancoff case
-
-
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -536,60 +522,96 @@ class BSEBackend:
                         iq + 1, timedelta(seconds=round(dt)), timedelta(
                             seconds=round(tleft))))
 
-    @timer('diagonalize')
-    def diagonalize(self):
-        self.context.print('Diagonalizing Hamiltonian')
-        """The t and T represent local and global
-           eigenstates indices respectively
-        """
+    def nontamdancoff_step1(self):
+        self.context.print('  Using numpy.linalg.eig...')
+        self.context.print('  Eliminated %s pair orbitals' % len(
+            self.excludef_S))
 
-        # Non-Hermitian matrix can only use linalg.eig
-        if not self.td:
-            self.context.print('  Using numpy.linalg.eig...')
-            self.context.print('  Eliminated %s pair orbitals' % len(
-                self.excludef_S))
+        H_SS = self.collect_A_SS(self.H_sS)
+        w_T = np.zeros(self.nS - len(self.excludef_S), complex)
+        if world.rank == 0:
+            H_SS = np.delete(H_SS, self.excludef_S, axis=0)
+            H_SS = np.delete(H_SS, self.excludef_S, axis=1)
+            w_T, v_ST = np.linalg.eig(H_SS)
+        world.broadcast(w_T, 0)
 
-            H_SS = self.collect_A_SS(self.H_sS)
-            w_T = np.zeros(self.nS - len(self.excludef_S), complex)
-            if world.rank == 0:
-                H_SS = np.delete(H_SS, self.excludef_S, axis=0)
-                H_SS = np.delete(H_SS, self.excludef_S, axis=1)
-                w_T, v_ST = np.linalg.eig(H_SS)
-            world.broadcast(w_T, 0)
-            df_S = np.delete(self.df_S, self.excludef_S)
-            rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
-            # Here the eigenvectors are returned as complex conjugated rows
-            diag = DiagonalizedBSE(w_T, v_ST, df_S, rhoG0_S)
+        # Here the eigenvectors are returned as complex conjugated rows
+        return w_T, v_ST
+
+    def diagonalize_bse_matrix_nontamdancoff(self):
+        df_S = np.delete(self.df_S, self.excludef_S)
+        rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
+
+        w_T, v_ST = self.nontamdancoff_step1()
+        C_T = np.zeros(self.nS - len(self.excludef_S), complex)
+        if world.rank == 0:
+            A_T = np.dot(rhoG0_S, v_ST)
+            B_T = np.dot(rhoG0_S * df_S, v_ST)
+            tmp = np.dot(v_ST.conj().T, v_ST)
+            overlap_tt = np.linalg.inv(tmp)
+            C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
+        world.broadcast(C_T, 0)
+        return w_T, C_T
+
+    def tamdancoff_step1(self):
+        if world.size == 1:
+            self.context.print('  Using lapack...')
+            w_T, v_St = eigh(self.H_sS)
         else:
-            if world.size == 1:
-                self.context.print('  Using lapack...')
-                w_T, v_St = eigh(self.H_sS)
-            else:
-                self.context.print('  Using scalapack...')
-                nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * (
-                    self.nv * self.nc *
-                    self.spins *
-                    (self.spinors + 1)**2)
-                grid = BlacsGrid(world, world.size, 1)
-                desc = grid.new_descriptor(nS, nS, ns, nS)
+            self.context.print('  Using scalapack...')
+            nS = self.nS
+            ns = -(-self.kd.nbzkpts // world.size) * (
+                self.nv * self.nc *
+                self.spins *
+                (self.spinors + 1)**2)
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, nS, ns, nS)
 
-                desc2 = grid.new_descriptor(nS, nS, 2, 2)
-                H_tmp = desc2.zeros(dtype=complex)
-                r = Redistributor(world, desc, desc2)
-                r.redistribute(self.H_sS, H_tmp)
+            desc2 = grid.new_descriptor(nS, nS, 2, 2)
+            H_tmp = desc2.zeros(dtype=complex)
+            r = Redistributor(world, desc, desc2)
+            r.redistribute(self.H_sS, H_tmp)
 
-                w_T = np.empty(nS)
-                v_tmp = desc2.empty(dtype=complex)
-                desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
+            w_T = np.empty(nS)
+            v_tmp = desc2.empty(dtype=complex)
+            desc2.diagonalize_dc(H_tmp, v_tmp, w_T)
 
-                r = Redistributor(grid.comm, desc2, desc)
-                v_St = desc.zeros(dtype=complex)
-                r.redistribute(v_tmp, v_St)
-                v_St = v_St.conj().T
+            r = Redistributor(grid.comm, desc2, desc)
+            v_St = desc.zeros(dtype=complex)
+            r.redistribute(v_tmp, v_St)
+            v_St = v_St.conj().T
 
-            diag = DiagonalizedTDBSE(w_T, v_St)
-        return diag
+        return w_T, v_St
+
+    def diagonalize_bse_matrix_tamdancoff(self):
+        w_T, v_St = self.tamdancoff_step1()
+        A_t = np.dot(self.rhoG0_S, v_St)
+        B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
+        if world.size == 1:
+            C_T = B_t.conj() * A_t
+        else:
+            Nv = self.nv * (self.spinors + 1)
+            Nc = self.nc * (self.spinors + 1)
+            Ns = self.spins
+            nS = self.nS
+            ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
+            grid = BlacsGrid(world, world.size, 1)
+            desc = grid.new_descriptor(nS, 1, ns, 1)
+            C_t = desc.empty(dtype=complex)
+            C_t[:, 0] = B_t.conj() * A_t
+            C_T = desc.collect_on_master(C_t)[:, 0]
+            if world.rank != 0:
+                C_T = np.empty(nS, dtype=complex)
+            world.broadcast(C_T, 0)
+        return w_T, C_T
+
+    @timer('diagonalize')
+    def diagonalize_bse_matrix(self):
+        self.context.print('Diagonalizing Hamiltonian')
+        if self.td:
+            return self.diagonalize_bse_matrix_tamdancoff()
+        else:
+            return self.diagonalize_bse_matrix_nontamdancoff()
 
     @timer('get_bse_matrix')
     def get_bse_matrix(self, optical=True):
@@ -601,47 +623,16 @@ class BSEBackend:
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(optical=optical)
-        diag = self.diagonalize()
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
-        if not self.td:
-            C_T = np.zeros(self.nS - len(self.excludef_S), complex)
-            if world.rank == 0:
-                v_ST = diag.v_ST
-                A_T = np.dot(diag.subset_rhoG0_S, v_ST)
-                B_T = np.dot(
-                    diag.subset_rhoG0_S * diag.subset_df_S, v_ST)
-                tmp = np.dot(v_ST.conj().T, v_ST)
-                overlap_tt = np.linalg.inv(tmp)
-                C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
-            world.broadcast(C_T, 0)
-        else:
-            v_St = diag.v_St
-            A_t = np.dot(self.rhoG0_S, v_St)
-            B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
-            if world.size == 1:
-                C_T = B_t.conj() * A_t
-            else:
-                Nv = self.nv * (self.spinors + 1)
-                Nc = self.nc * (self.spinors + 1)
-                Ns = self.spins
-                nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
-                grid = BlacsGrid(world, world.size, 1)
-                desc = grid.new_descriptor(nS, 1, ns, 1)
-                C_t = desc.empty(dtype=complex)
-                C_t[:, 0] = B_t.conj() * A_t
-                C_T = desc.collect_on_master(C_t)[:, 0]
-                if world.rank != 0:
-                    C_T = np.empty(nS, dtype=complex)
-                world.broadcast(C_T, 0)
+        w_T, C_T = self.diagonalize_bse_matrix()
 
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
-            tmp_T = 1. / (w - diag.w_T + 1j * eta)
+            tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
         vchi_w *= 4 * np.pi / self.gs.volume
 
@@ -666,7 +657,7 @@ class BSEBackend:
             filename = write_eig
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
-                                      diag.w_T * Hartree, C_T)
+                                      w_T * Hartree, C_T)
 
         return vchi_w
 
