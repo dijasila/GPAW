@@ -1,25 +1,26 @@
-from time import time, ctime
 from dataclasses import dataclass
 from datetime import timedelta
+from time import time, ctime
 
-import numpy as np
 from ase.units import Hartree, Bohr
 from ase.dft import monkhorst_pack
+import numpy as np
 from scipy.linalg import eigh
 
-from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.blacs import BlacsGrid, Redistributor
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import world, serial_comm
 from gpaw.response import ResponseContext
-from gpaw.response.df import write_response_function
-from gpaw.response.coulomb_kernels import CoulombKernel
-from gpaw.response.screened_interaction import initialize_w_calculator
-from gpaw.response.paw import PWPAWCorrectionData
-from gpaw.response.frequencies import FrequencyDescriptor
-from gpaw.response.pair import KPointPairFactory, get_gs_and_context
-from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.chi0 import Chi0Calculator
 from gpaw.response.context import timer
+from gpaw.response.coulomb_kernels import CoulombKernel
+from gpaw.response.df import write_response_function
+from gpaw.response.frequencies import FrequencyDescriptor
+from gpaw.response.groundstate import ResponseGroundStateAdapter
+from gpaw.response.paw import PWPAWCorrectionData
+from gpaw.response.pair import KPointPairFactory, get_gs_and_context
+from gpaw.response.pair_functions import SingleQPWDescriptor
+from gpaw.response.screened_interaction import initialize_w_calculator
 
 
 class BSEBackend:
@@ -684,23 +685,6 @@ class BSEBackend:
         return vchi_w
 
     def get_dielectric_function(self, *args, filename='df_bse.csv', **kwargs):
-        """Returns and writes real and imaginary part of the dielectric
-        function.
-
-        w_w: list of frequencies (eV)
-            Dielectric function is calculated at these frequencies
-        eta: float
-            Lorentzian broadening of the spectrum (eV)
-        filename: str
-            data file on which frequencies, real and imaginary part of
-            dielectric function is written
-        readfile: str
-            If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.ulm. If v_TS is given, the method will load the
-            eigenstates from v_TS.ulm
-        write_eig: str
-            File on which the BSE eigenvalues are written
-        """
         vchi = self.vchi(*args, optical=True, **kwargs)
         return vchi.dielectric_function(filename=filename)
 
@@ -709,11 +693,6 @@ class BSEBackend:
         return vchi.eels_spectrum(filename=filename)
 
     def get_polarizability(self, *args, filename='pol_bse.csv', **kwargs):
-        vchi = self.vchi(*args, optical=True, **kwargs)
-        return vchi.polarizability(filename=filename)
-
-    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
-             optical=True):
         # Previously it was
         # optical = (self.coulomb.truncation is None)
         # I.e. if a truncated kernel is used optical = False.
@@ -725,10 +704,15 @@ class BSEBackend:
         # calculated with the previous code was only correct for q=0.
         # See Issue #1055, the related MR and comments therein
         # For simplicity we set it to true for all cases here.
+        vchi = self.vchi(*args, optical=True, **kwargs)
+        return vchi.polarizability(filename=filename)
+
+    def vchi(self, w_w=None, eta=0.1, readfile=None, write_eig='eig.dat',
+             optical=True):
         vchi_w = self.get_vchi(w_w=w_w, eta=eta,
                                readfile=readfile, optical=optical,
                                write_eig=write_eig)
-        return VChi(self, w_w, vchi_w)
+        return VChi(self.gs, self.context, w_w, vchi_w, optical=optical)
 
     def par_save(self, filename, name, A_sS):
         import ase.io.ulm as ulm
@@ -966,12 +950,33 @@ def read_spectrum(filename):
 
 @dataclass
 class VChi:
-    bse: BSEBackend
+    gs: ResponseGroundStateAdapter
+    context: ResponseContext
     w_w: np.ndarray
     vchi_w: np.ndarray
+    optical: bool
 
     def dielectric_function(self, filename='df_bse.csv'):
-        # XXX require optical
+        """Returns and writes real and imaginary part of the dielectric
+        function.
+
+        w_w: list of frequencies (eV)
+            Dielectric function is calculated at these frequencies
+        eta: float
+            Lorentzian broadening of the spectrum (eV)
+        filename: str
+            data file on which frequencies, real and imaginary part of
+            dielectric function is written
+        readfile: str
+            If H_SS is given, the method will load the BSE Hamiltonian
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
+        write_eig: str
+            File on which the BSE eigenvalues are written
+        """
+
+        assert self.optical
+
         epsilon_w = -self.vchi_w
         epsilon_w += 1.0
 
@@ -980,9 +985,8 @@ class VChi:
                                     epsilon_w.real, epsilon_w.imag)
         world.barrier()
 
-        self.bse.context.print('Calculation completed at:', ctime(),
-                               flush=False)
-        self.bse.context.print('')
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return self.w_w, epsilon_w
 
@@ -1006,16 +1010,17 @@ class VChi:
             File on which the BSE eigenvalues are written
         """
 
-        # XXX require *not* optical
+        assert not self.optical
+
         eels_w = -self.vchi_w.imag
 
         if world.rank == 0 and filename is not None:
             write_spectrum(filename, self.w_w, eels_w)
         world.barrier()
 
-        self.bse.context.print('Calculation completed at:', ctime(),
+        self.context.print('Calculation completed at:', ctime(),
                                flush=False)
-        self.bse.context.print('')
+        self.context.print('')
 
         return self.w_w, eels_w
 
@@ -1034,10 +1039,10 @@ class VChi:
         is \AA to the power of non-periodic directions.
         """
 
-        # XXX require optical
-        bse = self.bse
-        pbc_c = bse.gs.pbc
-        V = bse.gs.nonpbc_cell_product()
+        assert self.optical
+
+        pbc_c = self.gs.pbc
+        V = self.gs.nonpbc_cell_product()
 
         alpha_w = -V * self.vchi_w / (4 * np.pi)
         alpha_w *= Bohr**(sum(~pbc_c))
@@ -1046,7 +1051,7 @@ class VChi:
             write_response_function(filename, self.w_w, alpha_w.real,
                                     alpha_w.imag)
 
-        bse.context.print('Calculation completed at:', ctime(), flush=False)
-        bse.context.print('')
+        self.context.print('Calculation completed at:', ctime(), flush=False)
+        self.context.print('')
 
         return self.w_w, alpha_w
