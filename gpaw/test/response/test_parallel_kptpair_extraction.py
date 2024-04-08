@@ -5,8 +5,7 @@ import numpy as np
 
 from gpaw import GPAW
 from gpaw.mpi import world
-from gpaw.response import (ResponseContext, ResponseGroundStateAdapter,
-                           read_ground_state)
+from gpaw.response import ResponseContext, ResponseGroundStateAdapter
 from gpaw.response.pw_parallelization import block_partition
 from gpaw.response.kspair import KohnShamKPointPairExtractor
 from gpaw.response.pair_functions import SingleQPWDescriptor
@@ -41,7 +40,8 @@ def test_parallel_extract_kptdata(in_tmp_dir, gpw_files,
     # ---------- Script ---------- #
 
     # Initialize serial ground state adapter
-    serial_gs = read_ground_state(gpw_files[wfs])
+    serial_gs = ResponseGroundStateAdapter.new_from_gpw_file(
+        gpw_files[wfs])
 
     # Initialize parallel ground state adapter
     calc = GPAW(gpw_files[wfs], parallel=dict(domain=1))
