@@ -23,6 +23,17 @@ from gpaw.response.pair_functions import SingleQPWDescriptor
 from gpaw.response.screened_interaction import initialize_w_calculator
 
 
+def decide_whether_tammdancoff(val_sn, con_sn):
+    for n in val_sn[0]:
+        if n in con_sn[0]:
+            return False
+    if len(val_sn) == 2:
+        for n in val_sn[1]:
+            if n in con_sn[1]:
+                return False
+    return True
+
+
 class BSEBackend:
     def __init__(self, *, gs, context,
                  valence_bands, conduction_bands,
@@ -83,14 +94,8 @@ class BSEBackend:
         self.con_sn = self.parse_bands(conduction_bands,
                                        band_type='conduction')
 
-        self.td = True
-        for n in self.val_sn[0]:
-            if n in self.con_sn[0]:
-                self.td = False
-        if len(self.val_sn) == 2:
-            for n in self.val_sn[1]:
-                if n in self.con_sn[1]:
-                    self.td = False
+        self.use_tammdancoff = decide_whether_tammdancoff(self.val_sn,
+                                                          self.con_sn)
 
         self.nv = len(self.val_sn[0])
         self.nc = len(self.con_sn[0])
@@ -112,7 +117,8 @@ class BSEBackend:
         self.coulomb = CoulombKernel.from_gs(self.gs, truncation=truncation)
         self.context.print(self.coulomb.description())
 
-        self.print_initialization(self.td, self.eshift, self.gw_skn)
+        self.print_initialization(self.use_tammdancoff, self.eshift,
+                                  self.gw_skn)
 
         # Chi0 object
         self._chi0calc = None  # Initialized later
@@ -404,7 +410,7 @@ class BSEBackend:
         # world.sum(rhoG0_Ksmn)
         # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
-        if not self.td:
+        if not self.use_tammdancoff:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         # multiply by 2 when spin-paired and no SOC
         self.df_S *= 2.0 / nK / Ns / so
@@ -608,7 +614,7 @@ class BSEBackend:
     @timer('diagonalize')
     def diagonalize_bse_matrix(self):
         self.context.print('Diagonalizing Hamiltonian')
-        if self.td:
+        if self.use_tammdancoff:
             return self.diagonalize_bse_matrix_tamdancoff()
         else:
             return self.diagonalize_bse_matrix_nontamdancoff()
