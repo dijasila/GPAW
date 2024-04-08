@@ -132,8 +132,6 @@ class BSEBackend:
         self._chi0calc = None  # Initialized later
         self._wcalc = None  # Initialized later
 
-        self._diag = None  # Initialized later
-
     @property
     def pair_calc(self):
         return self.kptpair_factory.pair_calculator()
@@ -540,10 +538,6 @@ class BSEBackend:
 
     @timer('diagonalize')
     def diagonalize(self):
-        assert self._diag is None
-        self._diag = self._diagonalize()
-
-    def _diagonalize(self):
         self.context.print('Diagonalizing Hamiltonian')
         """The t and T represent local and global
            eigenstates indices respectively
@@ -601,15 +595,13 @@ class BSEBackend:
     def get_bse_matrix(self, optical=True):
         """Calculate and diagonalize BSE matrix."""
         self.calculate(optical=optical)
-        self.diagonalize()
 
     @timer('get_vchi')
     def get_vchi(self, w_w=None, eta=0.1, optical=True, write_eig=None):
         """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(optical=optical)
-
-        w_T = self._diag.w_T
+        diag = self.diagonalize()
 
         self.context.print('Calculating response function at %s frequency '
                            'points' % len(w_w))
@@ -618,16 +610,16 @@ class BSEBackend:
         if not self.td:
             C_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
-                v_ST = self._diag.v_ST
-                A_T = np.dot(self._diag.subset_rhoG0_S, v_ST)
+                v_ST = diag.v_ST
+                A_T = np.dot(diag.subset_rhoG0_S, v_ST)
                 B_T = np.dot(
-                    self._diag.subset_rhoG0_S * self._diag.subset_df_S, v_ST)
+                    diag.subset_rhoG0_S * diag.subset_df_S, v_ST)
                 tmp = np.dot(v_ST.conj().T, v_ST)
                 overlap_tt = np.linalg.inv(tmp)
                 C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
             world.broadcast(C_T, 0)
         else:
-            v_St = self._diag.v_St
+            v_St = diag.v_St
             A_t = np.dot(self.rhoG0_S, v_St)
             B_t = np.dot(self.rhoG0_S * self.df_S, v_St)
             if world.size == 1:
@@ -649,7 +641,7 @@ class BSEBackend:
 
         eta /= Hartree
         for iw, w in enumerate(w_w / Hartree):
-            tmp_T = 1. / (w - w_T + 1j * eta)
+            tmp_T = 1. / (w - diag.w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
         vchi_w *= 4 * np.pi / self.gs.volume
 
@@ -674,7 +666,7 @@ class BSEBackend:
             filename = write_eig
             if world.rank == 0:
                 write_bse_eigenvalues(filename, self.mode,
-                                      self._diag.w_T * Hartree, C_T)
+                                      diag.w_T * Hartree, C_T)
 
         return vchi_w
 
