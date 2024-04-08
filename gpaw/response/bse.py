@@ -26,12 +26,13 @@ from gpaw.response.screened_interaction import initialize_w_calculator
 @dataclass
 class DiagonalizedBSE:
     w_T: np.ndarray
+    v_ST: np.ndarray
 
 
 @dataclass
 class DiagonalizedTDBSE:
     w_T: np.ndarray
-    v_St: np.ndarray
+    v_St: np.ndarray  # note distinction from v_ST in non-Tamm–Dancoff case
 
 
 class BSEBackend:
@@ -564,12 +565,12 @@ class BSEBackend:
             if world.rank == 0:
                 self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
                 self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
-                w_T, self.v_ST = np.linalg.eig(self.H_SS)
+                w_T, v_ST = np.linalg.eig(self.H_SS)
             world.broadcast(w_T, 0)
             self.df_S = np.delete(self.df_S, self.excludef_S)
             self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
             # Here the eigenvectors are returned as complex conjugated rows
-            diag = DiagonalizedBSE(w_T)
+            diag = DiagonalizedBSE(w_T, v_ST)
         else:
             if world.size == 1:
                 self.context.print('  Using lapack...')
@@ -646,9 +647,10 @@ class BSEBackend:
         if not self.td:
             C_T = np.zeros(self.nS - len(self.excludef_S), complex)
             if world.rank == 0:
-                A_T = np.dot(rhoG0_S, self.v_ST)
-                B_T = np.dot(rhoG0_S * df_S, self.v_ST)
-                tmp = np.dot(self.v_ST.conj().T, self.v_ST)
+                v_ST = self._diag.v_ST
+                A_T = np.dot(rhoG0_S, v_ST)
+                B_T = np.dot(rhoG0_S * df_S, v_ST)
+                tmp = np.dot(v_ST.conj().T, v_ST)
                 overlap_tt = np.linalg.inv(tmp)
                 C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
             world.broadcast(C_T, 0)
